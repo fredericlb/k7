@@ -1534,13 +1534,17 @@ function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
       name: s.name,
       mime: s.mime,
     })),
-    // The bytes are in the médiathèque; what a screen needs is that there ARE some.
-    audio: f.AudioPath
-      ? { name: f.AudioName || "", mime: f.AudioMime || "" }
+    // The library file the page streams from pl8 — k7 keeps no copy, ../../docs/audio.md.
+    audio: libraryPath(f.AudioPath)
+      ? { name: f.AudioName || "", mime: f.AudioMime || "", path: f.AudioPath }
       : null,
-    // The same track without the voice, when one was mixed from pl8's stems — ../../docs/audio.md.
-    instrumental: f.InstrumentalPath
-      ? { name: f.InstrumentalName || "", mime: f.InstrumentalMime || "" }
+    // The same track without the voice, the one an engine's chain wrote beside the song's stems.
+    instrumental: libraryPath(f.InstrumentalPath)
+      ? {
+          name: f.InstrumentalName || "",
+          mime: f.InstrumentalMime || "",
+          path: f.InstrumentalPath,
+        }
       : null,
     // The auto-fetch pipeline's own state — fetchSong/run.ts's runPipeline reads and writes it.
     fetchStatus: {
@@ -1718,43 +1722,50 @@ export async function deleteSheetFile(uid, fileId) {
   return getSong(uid);
 }
 
-// --- The reference track ------------------------------------------------------
+// --- The reference track: a LINK to a song of pl8's library, streamed from there -------------------
 
-/** One song, one recording to play along to: uploading a second replaces the first. */
-export async function setSongAudio(uid, { buffer, mime, name }) {
+/** A song's track is a file of pl8's songs family or nothing: k7 stores, copies and plays no file of its own. */
+function libraryPath(p): string {
+  const path = String(p || "");
+  return path.startsWith("songs/") ? path : "";
+}
+
+/** Point the song at a library master; the browser streams it from pl8 — ../../docs/audio.md. */
+export async function linkSongAudio(uid, { path: master, mime, name }) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const previous = rec.fields.AudioPath ? String(rec.fields.AudioPath) : "";
-  const previousMime = String(rec.fields.AudioMime || "");
-
-  // A path of its own, keyed by the song: a re-upload overwrites, and a delete is exact.
-  const target = `recordings/songbook/${uid}.${songAudioExt(mime, name)}`;
-  await mediatek.putFile(target, buffer);
   await db.patchRecord("Songs", rec.id, {
-    AudioPath: target,
+    AudioPath: master,
     AudioMime: mime,
     AudioName: name,
     // Another track has another shape; the next reader measures this one.
     Envelope: "",
   });
-  // A different container leaves the old bytes behind, under a name nothing points at.
-  if (previous && previous !== target) await safeRemote(previous);
   // An instrumental made from the old track is not this track's.
-  await clearInstrumental(uid, rec);
-  safeUnlink(songAudioCachePath(uid, previousMime, previous));
-  safeUnlink(songAudioCachePath(uid, mime, target));
+  if (previous !== master) await clearInstrumental(uid, rec);
   invalidateSong(uid);
   return getSong(uid);
 }
 
-export async function deleteSongAudio(uid) {
+/** An uploaded track goes INTO the library, as this song, and the song links to it. */
+export async function setSongAudio(uid, { buffer, mime, name }) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
-  const previous = rec.fields.AudioPath ? String(rec.fields.AudioPath) : "";
-  if (previous) await safeRemote(previous);
-  safeUnlink(
-    songAudioCachePath(uid, String(rec.fields.AudioMime || ""), previous),
-  );
+  const artist = String(rec.fields.Artist || "");
+  const title = String(rec.fields.Title || "");
+  const master = await mediatek.pushSongTrack(buffer, {
+    filename: `${artist} - ${title}.${songAudioExt(mime, name)}`,
+    artist,
+    title,
+  });
+  return linkSongAudio(uid, { path: master, mime, name });
+}
+
+/** The song stops pointing at its library track and instrumental; the library keeps both files. */
+export async function unlinkSongAudio(uid) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
   await db.patchRecord("Songs", rec.id, {
     AudioPath: "",
     AudioMime: "",
@@ -1766,22 +1777,11 @@ export async function deleteSongAudio(uid) {
   return getSong(uid);
 }
 
-// --- The instrumental: drums + bass + other from pl8's stems, kept like the track --------------
+// --- The instrumental: the one an engine's chain wrote beside the library song's stems ------------
 
-const instrumentalTarget = (uid) =>
-  `recordings/songbook/${uid}-instrumental.flac`;
-// The upload is always FLAC (instrumentalTarget above), so /stream always transcodes it: mp3 on disk.
-const instrumentalCachePath = (uid) =>
-  path.join(CACHE_DIR, `song-instrumental-${uid}.mp3`);
-
-/** Forget a song's instrumental, bytes first, row after — also what a new or removed track calls. */
+/** Forget a song's instrumental link — also what a new track calls; the library keeps the file. */
 async function clearInstrumental(uid, rec) {
-  const previous = rec.fields.InstrumentalPath
-    ? String(rec.fields.InstrumentalPath)
-    : "";
-  if (!previous) return;
-  await safeRemote(previous);
-  safeUnlink(instrumentalCachePath(uid));
+  if (!rec.fields.InstrumentalPath) return;
   await db.patchRecord("Songs", rec.id, {
     InstrumentalPath: "",
     InstrumentalMime: "",
@@ -1789,17 +1789,14 @@ async function clearInstrumental(uid, rec) {
   });
 }
 
-export async function setSongInstrumental(uid, { buffer, mime, name }) {
+export async function linkSongInstrumental(uid, { path: file, mime, name }) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
-  const target = instrumentalTarget(uid);
-  await mediatek.putFile(target, buffer);
   await db.patchRecord("Songs", rec.id, {
-    InstrumentalPath: target,
+    InstrumentalPath: file,
     InstrumentalMime: mime,
     InstrumentalName: name,
   });
-  safeUnlink(instrumentalCachePath(uid));
   invalidateSong(uid);
   return getSong(uid);
 }
@@ -1812,46 +1809,11 @@ export async function deleteSongInstrumental(uid) {
   return getSong(uid);
 }
 
-/** The instrumental on disk, so its route answers Range like the track's. */
-export async function ensureSongInstrumentalCached(uid) {
-  const rec = await getSongRecord(uid);
-  const remote = rec?.fields.InstrumentalPath
-    ? String(rec.fields.InstrumentalPath)
-    : "";
-  if (!remote) return null;
-  const mime = mediatek.streamedMime(
-    remote,
-    String(rec.fields.InstrumentalMime || "audio/flac"),
-  );
-  const filePath = instrumentalCachePath(uid);
-  if (!fs.existsSync(filePath))
-    await mediatek.downloadStreamable(remote, filePath);
-  return {
-    filePath,
-    mime,
-    name: String(rec.fields.InstrumentalName || ""),
-  };
-}
-
-/** The track on disk, so the route can answer Range requests and the player can seek. */
-export async function ensureSongAudioCached(uid) {
-  const rec = await getSongRecord(uid);
-  const remote = rec?.fields.AudioPath ? String(rec.fields.AudioPath) : "";
-  if (!remote) return null;
-  const mime = mediatek.streamedMime(
-    remote,
-    String(rec.fields.AudioMime || "audio/mpeg"),
-  );
-  const filePath = songAudioCachePath(uid, mime, remote);
-  if (!fs.existsSync(filePath))
-    await mediatek.downloadStreamable(remote, filePath);
-  return { filePath, mime, name: String(rec.fields.AudioName || "") };
-}
-
 /** The track's shape, measured on first ask and kept: decoding is seconds, drawing must not be. */
 export async function songEnvelope(uid) {
   const rec = await getSongRecord(uid);
-  if (!rec?.fields.AudioPath) return null;
+  const track = libraryPath(rec?.fields.AudioPath);
+  if (!track) return null;
   const stored = String(rec.fields.Envelope || "");
   if (stored) {
     try {
@@ -1862,7 +1824,7 @@ export async function songEnvelope(uid) {
     }
   }
   // pl8 already holds the bytes and has ffmpeg — no local download needed to measure them.
-  const measured = await envelopeOf(String(rec.fields.AudioPath));
+  const measured = await envelopeOf(track);
   await db.patchRecord("Songs", rec.id, {
     Envelope: JSON.stringify(measured),
   });
@@ -1934,13 +1896,6 @@ function songAudioExt(mime, name) {
   if (known[mime]) return known[mime];
   const fromName = /\.([a-z0-9]{1,5})$/i.exec(String(name || ""));
   return fromName ? fromName[1].toLowerCase() : "bin";
-}
-
-// The track's cache path; the REMOTE name fixes the extension — ../../docs/audio.md.
-function songAudioCachePath(uid, mime, remote) {
-  const ext =
-    /\.([a-z0-9]+)$/i.exec(String(remote || ""))?.[1] ?? songAudioExt(mime, "");
-  return path.join(CACHE_DIR, `song-audio-${uid}.${ext}`);
 }
 
 /** The médiathèque may already have lost it; that is not a failure worth raising. */

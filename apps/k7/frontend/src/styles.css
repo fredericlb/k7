@@ -569,24 +569,94 @@ input[type="range"] {
   margin-top: 12px;
 }
 
-/* The songbook's action row: creation on the left, the two exports after it. */
-.songbook-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+/* A list page's round +, floating at the bottom right over whatever scrolls under it. */
+.add-fab {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 20;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
-.songbook-export {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.add-fab:hover {
+  background: var(--accent-hover);
+}
+/* Room under the list, so its last row can scroll out from under the +. */
+.moments-pane:has(> .add-fab) {
+  padding-bottom: 88px;
 }
 
 .song-links {
   display: flex;
   gap: 6px;
   margin-top: 8px;
+}
+/* The songbook: one row per song, favourite · artist · title · links, never wider than the screen. */
+.songbook-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.songbook-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.songbook-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.songbook-table tbody tr {
+  cursor: pointer;
+}
+.songbook-table tbody tr:hover {
+  background: var(--surface);
+}
+.songbook-table .songbook-star {
+  width: 1%;
+  padding-right: 0;
+}
+.songbook-table .songbook-title {
+  font-weight: 600;
+}
+/* Artist and title share what the star and the links leave, cut with … rather than widening the table. */
+.songbook-table .songbook-artist,
+.songbook-table .songbook-title {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.songbook-table .songbook-links,
+.songbook-table .songbook-links-head {
+  width: 1%;
+  white-space: nowrap;
+}
+.songbook-table .song-links {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+/* The header's last cell carries the songbook's ⋮ menu, at the right end like the links under it. */
+.songbook-table .songbook-links-head {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.songbook-links-head .song-menu {
+  display: flex;
+  justify-content: flex-end;
+}
+/* Scoped to the table so it outranks the base button rule, whose background would win over .star-btn. */
+.songbook-table .star-btn,
+.songbook-table .star-btn:hover:not(:disabled) {
+  background: transparent;
 }
 .song-link {
   padding: 3px 10px;
@@ -749,32 +819,19 @@ select {
 
 /* ---- Metronome (a panel of the song page's rail) ------------------------- */
 
-/* inline-block, or width and height would not apply at all: it sits in a line of text. */
-.metro-dot {
-  display: inline-block;
-  vertical-align: middle;
-  width: 9px;
-  height: 9px;
-  margin: 0 6px 0 4px;
-  border-radius: 50%;
-  background: var(--border);
+/* Each click lights the header — green on a bar's first beat, red on the others — and fades out. */
+.rail-panel-head {
+  transition: background-color 0.12s ease-out;
 }
-.metro-dot.beating {
-  background: var(--red);
-  animation-name: metro-flash;
-  animation-timing-function: ease-out;
-  animation-iteration-count: infinite;
+.rail-panel-head.metro-bar,
+.rail-panel-head.metro-beat {
+  transition: none;
 }
-@keyframes metro-flash {
-  0% {
-    opacity: 1;
-    transform: scale(1.35);
-  }
-  40%,
-  100% {
-    opacity: 0.35;
-    transform: scale(1);
-  }
+.rail-panel-head.metro-bar {
+  background: color-mix(in srgb, var(--green) 65%, var(--surface-2));
+}
+.rail-panel-head.metro-beat {
+  background: color-mix(in srgb, var(--red) 65%, var(--surface-2));
 }
 
 .metro-bpm-row {
@@ -803,9 +860,6 @@ select {
   width: 100%;
   margin: 10px 0;
   accent-color: var(--accent);
-}
-.metro-toggle {
-  width: 100%;
 }
 
 /* ---- The drawn player (releases, pages) ---------------------------------- */
@@ -1136,65 +1190,7 @@ select {
   }
 }
 
-/* Timed lyrics: the song's lines beside the file's, paired by clicking one then the other. */
-.lrc-match {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  max-height: 55vh;
-  overflow: auto;
-}
-.lrc-column {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.lrc-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  padding: 3px 6px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.lrc-row:hover {
-  background: var(--surface-2);
-}
-.lrc-row.paired {
-  border-color: var(--border);
-  background: var(--surface-2);
-}
-.lrc-row.picked {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.lrc-row-time {
-  flex: none;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
-.lrc-row-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-/* LRCLIB's versions of a song, offered as one wrapping row under the add links. */
-.lrc-candidates {
-  display: flex;
-  flex-basis: 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
 
 /* A score scrolls inside its own box: alphaTab follows the cursor by scrolling this element. */
 .score-viewport {
@@ -1239,6 +1235,26 @@ select {
   align-items: center;
   gap: 6px;
   margin-top: 12px;
+}
+/* The options panel: one row per setting, its name in one half and its control in the other. */
+.options-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.options-name {
+  overflow-wrap: anywhere;
+}
+.options-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.options-control input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .cs-transpose-val {
   min-width: 24px;
@@ -1301,7 +1317,7 @@ select {
 }
 /* Wide screens with many chords: widen to fit a third diagram per row. */
 @media (min-width: 1360px) {
-  .chords-panel.three-col {
+  .chords-panel.three-col:not(.collapsed) {
     width: 396px;
   }
 }
@@ -1318,6 +1334,28 @@ select {
 }
 .rail-panel-toggle svg.lucide {
   margin-right: 6px;
+}
+/* A header with a control of its own: the toggle takes the row, the control sits at its end. */
+.rail-panel-head {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface-2);
+  border-radius: 10px 0 0 10px;
+}
+.rail-panel-head .rail-panel-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+}
+.rail-panel-action {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
 }
 .chords-panel-list {
   overflow: auto;
@@ -1551,6 +1589,18 @@ select {
     gap: 4px;
     padding: 8px 12px;
   }
+  /* The songbook's links keep their icon and drop their word, so the row fits the screen. */
+  .song-link-label {
+    display: none;
+  }
+  .songbook-table .song-link {
+    padding: 3px 7px;
+  }
+  .songbook-table th,
+  .songbook-table td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
   .brand-text,
   .nav-label,
   .topnav-fav-btn .caret {
@@ -1605,6 +1655,14 @@ select {
     width: 18px;
     height: 18px;
     margin-right: 0;
+  }
+  .rail-panel-head {
+    background: none;
+    border-radius: 0;
+  }
+  .rail-panel-action svg.lucide {
+    width: 18px;
+    height: 18px;
   }
   /* An opened panel rises ABOVE the bar rather than pushing it off the screen. */
   .rail-panel-body,

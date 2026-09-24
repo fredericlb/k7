@@ -112,7 +112,7 @@ A tray that starts and supervises nothing looks exactly like a healthy one from 
 outside — the failure `hostcmd.rs` is written to shout about. So the script does not
 report success on "the process is still running". It watches `<state>/.studio.log` — where
 `<state>` is `$STUDIO_HOME` or `~/.st0`, resolved through `scripts/stateDir.mjs` rather than
-spelled out here, because a WSL dev session is exactly the case where those two differ — the
+spelled out here, so an overridden state dir is followed too — the
 merged log `logbus::init` **truncates on every launch**, and waits for one of the lines
 `host.rs` writes there: `supervisor up (pid …)`, `supervisor not found`, or `could not
 start supervisor`. Only the first is success; the tail is printed either way.

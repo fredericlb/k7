@@ -3,10 +3,20 @@
 // (../hunt/hunt.ts); nothing here waits on it. See ../../docs/hunt.md.
 
 import { wrap } from "@frediverse/http/route";
-import { canFallBackToYoutube } from "@studio/web-protocol/hunt";
+import {
+  canFallBackToYoutube,
+  type HuntIdentity,
+  type HuntTags,
+} from "@studio/web-protocol/hunt";
 import type { Request } from "express";
 import { Router } from "express";
-import { runningIds, startHunt, startYoutube, stopHunt } from "../hunt/hunt.ts";
+import {
+  identify,
+  runningIds,
+  startHunt,
+  startYoutube,
+  stopHunt,
+} from "../hunt/hunt.ts";
 import { reconcile, removeHunt } from "../hunt/store.ts";
 import { youtubeAvailable } from "../hunt/youtube.ts";
 import { missing } from "../settings/store.ts";
@@ -75,12 +85,42 @@ huntRouter.post(
   }),
 );
 
+/** What a query WOULD hunt, downloading nothing: a caller checks it before starting — ../../docs/hunt.md. */
+huntRouter.get(
+  "/identify",
+  wrap(async (req, res) => {
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (!query)
+      return res.status(400).json({ error: "il faut un titre à chercher" });
+    if (query.length > MAX_QUERY)
+      return res.status(400).json({ error: "recherche trop longue" });
+    const answer: HuntIdentity = { tags: await identify(query) };
+    res.json(answer);
+  }),
+);
+
+/** Tags a caller identified and checked, or undefined when absent or not well formed. */
+function givenTags(raw: unknown): HuntTags | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const t = raw as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const artist = text(t.artist);
+  const title = text(t.title);
+  if (!artist || !title) return undefined;
+  return {
+    artist,
+    title,
+    album: text(t.album) || null,
+    date: text(t.date) || null,
+  };
+}
+
 huntRouter.post(
   "/",
   wrap((req, res) => {
     const gap = missing();
     if (gap) return res.status(503).json({ error: gap });
-    const body = req.body as { query?: unknown };
+    const body = req.body as { query?: unknown; tags?: unknown };
     const query = typeof body?.query === "string" ? body.query.trim() : "";
     if (!query)
       return res.status(400).json({ error: "il faut un titre à chercher" });
@@ -94,7 +134,7 @@ huntRouter.post(
       return res.status(429).json({
         error: `${MAX_RUNNING} recherches déjà en cours — attendez qu'une se termine`,
       });
-    res.json(startHunt(sub, query));
+    res.json(startHunt(sub, query, givenTags(body.tags)));
   }),
 );
 

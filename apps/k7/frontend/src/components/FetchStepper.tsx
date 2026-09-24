@@ -1,5 +1,5 @@
 // The auto-fetch pipeline's progress bar, cut into its four steps with each one's name inside.
-// Steps before the current one are done; one entered later (an upload starts at stems) counts too.
+// Steps before the current one are done; one entered later (an upload starts at lyrics) counts too.
 
 import { m } from "../paraglide/messages.js";
 import type { FetchStatus } from "../types";
@@ -9,8 +9,8 @@ type RunningPhase = Exclude<FetchStatus["phase"], "" | "failed">;
 const STEPS: { phase: RunningPhase; label: () => string }[] = [
   { phase: "searching", label: m["fetch.step.search"] },
   { phase: "downloading", label: m["fetch.step.download"] },
-  { phase: "stemming", label: m["fetch.step.stems"] },
   { phase: "matching-lyrics", label: m["fetch.step.lyrics"] },
+  { phase: "stemming", label: m["fetch.step.stems"] },
 ];
 
 const DOING: Record<RunningPhase, () => string> = {
@@ -48,7 +48,9 @@ export function FetchStepper({ phase, progress }: FetchStatus) {
               {state === "active" && (
                 <span
                   className={`song-fetch-step-fill${percent === null ? " indeterminate" : ""}`}
-                  style={percent === null ? undefined : { width: `${percent}%` }}
+                  style={
+                    percent === null ? undefined : { width: `${percent}%` }
+                  }
                 />
               )}
               <span className="song-fetch-step-label">

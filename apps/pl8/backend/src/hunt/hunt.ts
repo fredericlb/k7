@@ -201,13 +201,15 @@ async function run(
   id: string,
   query: string,
   signal: AbortSignal,
+  given?: Tags,
 ): Promise<void> {
   // Read once per hunt, so settings saved mid-run change the next one and not this one.
   const slskd = slskdOf();
   const sftp = sftpOf();
   if (!slskd || !sftp)
     throw new Error(missing() ?? "slskd n'est pas configuré");
-  const tags = await identify(query);
+  // Tags a caller already identified and CHECKED are hunted as given, never identified again.
+  const tags = given ?? (await identify(query));
   // Null and not a guess: filing a typo as an artist makes a folder nobody finds again.
   if (!tags) throw new Error("aucun morceau ne correspond à ce nom");
   const songTags: SongTags = {
@@ -287,7 +289,11 @@ async function run(
 }
 
 /** Begin, and answer at once with the row the screen will draw. The work carries on behind. */
-export function startHunt(sub: string, query: string): HuntRecord {
+export function startHunt(
+  sub: string,
+  query: string,
+  given?: Tags,
+): HuntRecord {
   const rec: HuntRecord = {
     id: randomUUID(),
     query: query.trim(),
@@ -298,7 +304,7 @@ export function startHunt(sub: string, query: string): HuntRecord {
   saveHunt(sub, rec);
   const ctl = new AbortController();
   running.set(rec.id, ctl);
-  void run(sub, rec.id, rec.query, ctl.signal)
+  void run(sub, rec.id, rec.query, ctl.signal, given)
     .catch((e) => {
       patchHunt(sub, rec.id, {
         status: "failed",

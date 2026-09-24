@@ -104,6 +104,63 @@ export function splitChord(
   return { root: m[1], suffix: m[2], bass };
 }
 
+// ---- Timecodes ------------------------------------------------------------
+
+/** When a line starts, written in it as `{{MM:SS.cc}}` (or `{{MM:SS}}` by hand). See ../../../docs/lyricsTiming.md. */
+export const TIMECODE = /\{\{\s*(\d{1,3}):([0-5]\d(?:\.\d{1,3})?)\s*\}\}/g;
+
+// A code and the one space that sets it apart from the words, so a code at the start leaves the line as typed.
+const TIMECODE_SPACED = new RegExp(`${TIMECODE.source} ?`, "g");
+
+/** The line without its timecodes — what every reader but the player sees. */
+export function stripTimecodes(line: string): string {
+  return line.replace(TIMECODE_SPACED, "").replace(/\s+$/, "");
+}
+
+/** The first timecode on a line, in seconds, or null. */
+export function timecodeOf(line: string): number | null {
+  TIMECODE.lastIndex = 0;
+  const m = TIMECODE.exec(line);
+  TIMECODE.lastIndex = 0;
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/** `{{MM:SS.cc}}` for a time in seconds, to the hundredth an LRC stamp carries, rounded down. */
+export function formatTimecode(seconds: number): string {
+  const cs = Math.max(0, Math.floor(seconds * 100 + 1e-6));
+  const s = Math.floor(cs / 100);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `{{${pad(Math.floor(s / 60))}:${pad(s % 60)}.${pad(cs % 100)}}}`;
+}
+
+// ---- Tablature, and chords as a hand types them ----------------------------
+
+/** A line of tablature: a string's name or a bar, then fret numbers and techniques over dashes. */
+const TAB_LINE = /^[\sA-Ga-g#b|:\-–—0-9hpbrstx/\\~().^*=]+$/;
+export function isTabLine(line: string): boolean {
+  const t = line.trim();
+  return (
+    t.length >= 6 &&
+    t.includes("|") &&
+    (t.match(/-/g)?.length ?? 0) >= 3 &&
+    TAB_LINE.test(t)
+  );
+}
+
+/** A chord as a hand writes it on a sheet — `C**`, `G.` — its trailing marks being emphasis, not harmony. */
+const chordish = (tok: string) => isChord(tok.replace(/[*~.!,']+$/, ""));
+
+/** Looser than the renderer's test, for the sheets people actually type: `C**` is a chord line. */
+export function looseChordLine(line: string): boolean {
+  const tokens = line.trim().split(/\s+/);
+  let saw = false;
+  for (const tok of tokens) {
+    if (chordish(tok)) saw = true;
+    else if (!CHORD_LINE_EXTRA.test(tok) && tok !== "/") return false;
+  }
+  return saw;
+}
+
 // ---- Line parsing ---------------------------------------------------------
 
 export interface Segment {
@@ -162,8 +219,8 @@ function parseLyricLine(line: string): Segment[] {
 /** Split raw lyric text into classified lines for rendering. */
 export function parseChordSheet(text: string): ParsedLine[] {
   return text.split(/\r?\n/).map((raw): ParsedLine => {
-    // Manual override markers, mirroring obsidian-chord-sheets (%c / %t).
-    let line = raw;
+    // Manual override markers, mirroring obsidian-chord-sheets (%c / %t). A timecode is not text.
+    let line = stripTimecodes(raw);
     let force: "chords" | "lyrics" | null = null;
     const marker = /\s*%([ct])\s*$/.exec(line);
     if (marker) {

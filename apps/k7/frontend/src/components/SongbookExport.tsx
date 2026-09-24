@@ -1,9 +1,15 @@
-// The songbook's two export buttons: one file per song, zipped, downloaded.
-// It owns the run's state because nothing else in the app has any use for it — the
+// The songbook's export menu, the ⋮ at the right of the table's header: one file per song, zipped,
+// downloaded. It owns the run's state because nothing else in the app has any use for it — the
 // choices behind the two formats are in ../../../docs/export.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Download } from "@frediverse/ui/icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
+import { Download, EllipsisVertical } from "@frediverse/ui/icons";
 import { useState } from "react";
 import { type ExportKind, exportSongbook } from "../export/songbookZip";
 import { isOne } from "../i18n";
@@ -41,29 +47,51 @@ export function SongbookExport({ songs }: Props) {
     }
   };
 
-  const label = (kind: ExportKind, text: string) =>
-    running?.kind === kind ? `${running.done}/${running.total}…` : text;
+  const busy = songs.length === 0 || running != null;
 
   return (
-    <div className="songbook-export">
-      <Button
-        variant="outline"
-        disabled={songs.length === 0 || running != null}
-        onClick={() => run("epub")}
-        title={m["export.epubTitle"]()}
-      >
-        <Download className="size-4" /> {label("epub", m["export.epub"]())}
-      </Button>
-      <Button
-        variant="outline"
-        disabled={songs.length === 0 || running != null}
-        onClick={() => run("pdf")}
-        title={m["export.pdfTitle"]()}
-      >
-        <Download className="size-4" /> {label("pdf", m["export.pdf"]())}
-      </Button>
-      {note && <span className="muted small">{note}</span>}
-      {error && <span className="error small">{error}</span>}
+    <div className="song-menu">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="ds-button"
+            title={m["export.menu"]()}
+            aria-label={m["export.menu"]()}
+          >
+            <EllipsisVertical className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-56">
+          <DropdownMenuItem
+            disabled={busy}
+            onSelect={() => void run("pdf")}
+            title={m["export.pdfTitle"]()}
+          >
+            <Download className="size-4" /> {m["export.pdf"]()}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={busy}
+            onSelect={() => void run("epub")}
+            title={m["export.epubTitle"]()}
+          >
+            <Download className="size-4" /> {m["export.epub"]()}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* What the run is doing, and how it went, hangs under the button — the menu has closed by then. */}
+      {(running || note || error) && (
+        <div className="song-menu-status">
+          {running && (
+            <span className="muted small">
+              {running.kind.toUpperCase()} {running.done}/{running.total}…
+            </span>
+          )}
+          {note && <span className="muted small">{note}</span>}
+          {error && <span className="error small">{error}</span>}
+        </div>
+      )}
     </div>
   );
 }

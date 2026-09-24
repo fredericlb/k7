@@ -5,7 +5,7 @@
 // All this adds is the one-session guard and the backstop that stops the detached
 // tray on the way out. See docs/dev.md.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,25 +13,6 @@ import { stopAll } from "../engine/st0-tray/scripts/trayProcess.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 10350;
-
-/** One command's stdout, trimmed; "" when it could not run at all. */
-const capture = (cmd, args) =>
-  (spawnSync(cmd, args, { encoding: "utf8" }).stdout ?? "").trim();
-
-// Under WSL the native toolchain is on the HOST: derive what the bridge and the path map need,
-// rather than have four addresses typed into a shell profile. Every one stays overridable.
-// biome-ignore-start lint/suspicious/noUndeclaredEnvVars: this script never runs under turbo
-if (process.platform === "linux" && process.env.WSL_DISTRO_NAME) {
-  const distro = process.env.WSL_DISTRO_NAME;
-  process.env.STUDIO_NATIVE_SOURCE ??= `\\\\wsl.localhost\\${distro}${repo.replaceAll("/", "\\")}`;
-  process.env.STUDIO_NATIVE_MIRROR ??= "C:\\studio-native";
-  process.env.STUDIO_ENGINE_PATH_STYLE ??= "windows";
-  // The HOST's state dir: `wslpath` rather than a second spelling of the map engine-client owns.
-  const profile = capture("cmd.exe", ["/c", "echo %USERPROFILE%"]);
-  const home = profile ? capture("wslpath", ["-u", profile]) : "";
-  if (home) process.env.STUDIO_HOME ??= join(home, ".st0");
-}
-// biome-ignore-end lint/suspicious/noUndeclaredEnvVars: see above
 
 // One session at a time: a second `tilt up` would fight the first for every dev port.
 const free = await new Promise((resolve) => {

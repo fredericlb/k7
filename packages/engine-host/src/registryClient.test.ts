@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// `$STUDIO_HOME` is the seam, and the documented one: it is what a dev session and the WSL
-// bridge already use, so the road under test is the road that runs.
+// `$STUDIO_HOME` is the seam, and the documented one: every reader of the state dir
+// honours it, so the road under test is the road that runs.
 const { mediatekUrlFor, probeRegistry, resolveRegistryUrls, setRegistryFetch } =
   await import("./registryClient.ts");
 

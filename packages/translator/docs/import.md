@@ -327,8 +327,8 @@ The scan it checks against is read through `scannedPlugins()` and never by openi
 own. That is the whole of the rule, and the failure it prevents is silent: a hand-rolled read
 naming the wrong home finds no file, `verify` is false, and every plugin is taken as loadable —
 the import looks like it worked and the check simply did not run. `scannedPlugins()` is the file
-the engine itself writes and it honours `$STUDIO_HOME`, which the file service needs because it
-runs on the machine's own side of a WSL boundary. With no scan cache at all there is genuinely
+the engine itself writes and it honours `$STUDIO_HOME`, as every reader of the state dir
+must. With no scan cache at all there is genuinely
 nothing to check against, and the verification is skipped.
 
 **Audio and no MIDI means a bounced track**, so its instrument and note FX are dropped (the frozen

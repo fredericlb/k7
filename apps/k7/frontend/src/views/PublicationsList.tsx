@@ -8,9 +8,9 @@ import {
   ChevronRight,
   Download,
   ExternalLink,
-  Plus,
 } from "@frediverse/ui/icons";
 import { useState } from "react";
+import { AddFab } from "../components/AddFab";
 import { isOne } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import type { Page, Release } from "../types";
@@ -67,14 +67,12 @@ export function PublicationsList({
 
   return (
     <div className="moments-pane">
-      <div className="row">
-        <Button variant="outline" onClick={onNewRelease}>
-          <Plus className="size-4" /> {m["release.new"]()}
-        </Button>
-        <Button variant="outline" onClick={onNewPage}>
-          <Plus className="size-4" /> {m["page.new"]()}
-        </Button>
-      </div>
+      <AddFab
+        actions={[
+          { label: m["release.new"](), onSelect: onNewRelease },
+          { label: m["page.new"](), onSelect: onNewPage },
+        ]}
+      />
 
       {releases.length === 0 && pages.length === 0 && (
         <p className="muted small">{m["publications.empty"]()}</p>

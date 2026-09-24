@@ -208,7 +208,7 @@
           else send({ t: "in", id: current, d: b.dataset.seq });
         });
 
-      const SHELL_LABELS = { powershell: "ps", bash: "bash", wsl: "wsl" };
+      const SHELL_LABELS = { powershell: "ps", bash: "bash" };
       const shellLabel = (s) => SHELL_LABELS[s] ?? s;
       const tabLabel = (t) => t.name || `${t.id}·${shellLabel(t.shell)}`;
       // Clicking the tab one is already on renames it — so on a mouse it reads as a

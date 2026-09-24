@@ -21,16 +21,15 @@ interface LrclibRecord {
   syncedLyrics?: string | null;
 }
 
-/** The results worth offering: timed and sung, the ones nearest the track's length first. */
+/** The results worth offering: timed lyrics, or an instrumental, the ones nearest the track's length first. */
 export function rankCandidates(
   records: readonly LrclibRecord[],
   duration?: number,
 ): LrcCandidate[] {
   const usable = records.filter(
     (r) =>
-      !r.instrumental &&
-      typeof r.syncedLyrics === "string" &&
-      r.syncedLyrics.trim() !== "",
+      r.instrumental === true ||
+      (typeof r.syncedLyrics === "string" && r.syncedLyrics.trim() !== ""),
   );
   const gap = (r: LrclibRecord) =>
     duration && r.duration ? Math.abs(r.duration - duration) : 0;
@@ -43,7 +42,8 @@ export function rankCandidates(
       artistName: r.artistName ?? "",
       albumName: r.albumName ?? "",
       duration: r.duration ?? 0,
-      syncedLyrics: r.syncedLyrics as string,
+      syncedLyrics: r.instrumental ? "" : (r.syncedLyrics ?? ""),
+      instrumental: r.instrumental === true,
     }));
 }
 

@@ -11,6 +11,7 @@
     "./projects": "./projects.ts",
     "./tree": "./tree.ts",
     "./quality": "./quality.ts",
+    "./performance": "./performance.ts",
     "./hunt": "./hunt.ts",
     "./pairing": "./pairing.ts",
     "./settings": "./settings.ts"

@@ -21,7 +21,7 @@ export default defineAppConfig({
   proxyPaths: ["/auth"],
   // The public dev host, which also pins HMR to :443 — declared ONLY for the fixed-port case, a free port being visited over plain http.
   host: process.env.STUDIO_WEB_PORT ? undefined : DEV_HOST,
-  // No `base`: st0 is the front door, so its assets and routes sit at `/`. Polling only when asked for — docs/wsl.md.
+  // No `base`: st0 is the front door, so its assets and routes sit at `/`. Polling only when asked for (`$STUDIO_POLL`), for a tree native file events cannot see.
   poll: !!process.env.STUDIO_POLL,
   // The one thing about the shared service worker that is st0's: see OTHER_APPS above.
   pwaDenylist: [OTHER_APPS],

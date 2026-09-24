@@ -147,17 +147,11 @@ inside studio".
 **Windows only** — on macOS and Linux everything is simpler: edit and build in the
 same world, run `npm run dev`, and none of the following applies.
 
-**The sources live in WSL**, on ext4, and so does every npm command: the tree is `~/studio` in
-the distro, and a `wsl` tab on `console.priv.frediver.se` is where `claude`, `npm run dev` and
-git run. Windows keeps two jobs and no more — compiling `engine/st0-engine` and `engine/st0-tray`, and
-running the binaries. It gets the sources through a one-way mirror onto NTFS, because MSBuild
-cannot track a dependency on a case-sensitive share and would recompile everything, every time.
-[docs/wsl.md](docs/wsl.md) is the page: the rule is that the share carries sources one way and
-every write lands on NTFS.
-
-**Every build and every dev server belongs to Tilt** (`npm run dev` = `tilt up`, one
-resource per server, UI at http://localhost:10350) — run from the distro, the native task
-included, which the bridge hands to the host. So never build by hand:
+Development is **native Windows** — no WSL: the tree lives on NTFS, and every npm command, the
+MSVC build and the binaries run there. **Editing** (claude, nvim…) happens in the
+`console.priv.frediver.se` tabs — Git Bash by default — while
+**every build and every dev server belongs to Tilt** (`npm run dev` = `tilt up`, one
+resource per server, UI at http://localhost:10350). So never build by hand:
 save (or `tilt trigger <resource>`), wait for Tilt to finish, then read
 `tilt get uiresources` / `tilt logs <resource>` to see if something is wrong. The
 tray is not used in dev: the engine is self-sufficient. See docs/remote.md.

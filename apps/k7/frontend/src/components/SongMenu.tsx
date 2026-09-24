@@ -17,6 +17,7 @@ import { pl8 } from "../fetchSong/pl8";
 import { makeInstrumental } from "../fetchSong/run";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
+import { SongEditDialog } from "./SongEditDialog";
 
 interface Props {
   song: Song;
@@ -24,14 +25,14 @@ interface Props {
   onAdd: (kind: "lyrics" | "tablature") => void;
   onUploadSheets: (files: File[]) => Promise<void>;
   onUploadAudio: (file: File) => Promise<void>;
-  /** Take the reference track away — the player only PLAYS it. */
-  onDeleteAudio: () => Promise<void>;
-  /** The timed-lyrics popin is owned by the page, so both this menu and the fetch insert share one. */
-  onOpenTimedLyrics: () => void;
   /** Retries the instrumental once no engine was online — the auto-fetch insert covers the rest. */
   onMixInstrumental: (folder: string) => Promise<Song>;
   /** Runs the auto-fetch pipeline again; its progress and failure show in the insert, not here. */
   onRerun: () => void;
+  /** Takes the timecodes off the lyrics and times them again; the insert shows how it went. */
+  onResyncLyrics: () => void;
+  /** Saves a new artist and title; a failure stays in the popin. */
+  onRename: (artist: string, title: string) => Promise<void>;
   onDelete: () => Promise<void>;
   /** Which tabs the song already has, so the menu offers the ones it has not. */
   has: (tab: SongTab) => boolean;
@@ -42,13 +43,14 @@ export function SongMenu({
   onAdd,
   onUploadSheets,
   onUploadAudio,
-  onDeleteAudio,
-  onOpenTimedLyrics,
   onMixInstrumental,
   onRerun,
+  onResyncLyrics,
+  onRename,
   onDelete,
   has,
 }: Props) {
+  const [editing, setEditing] = useState(false);
   const pipelineRunning =
     song.fetchStatus.phase !== "" && song.fetchStatus.phase !== "failed";
   const sheets = useRef<HTMLInputElement>(null);
@@ -97,6 +99,10 @@ export function SongMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
+          <DropdownMenuItem onSelect={() => setEditing(true)}>
+            {m["songMenu.edit"]()}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {!has("lyrics") && (
             <DropdownMenuItem onSelect={() => onAdd("lyrics")}>
               {m["songMenu.addLyrics"]()}
@@ -113,51 +119,45 @@ export function SongMenu({
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onSelect={onOpenTimedLyrics}>
-            {m["songMenu.addTimed"]()}
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
           {/* No track yet is the auto-fetch insert's job, under the title — except once its
-              own "Ignore" was clicked, which is what makes this the one way back in. */}
-          {(song.audio || song.fetchIgnored) && (
+              own "Ignore" was clicked, which is what makes this the one way back in. A track is
+              never replaced nor removed from here: it is a song of pl8's library, changed there. */}
+          {!song.audio && song.fetchIgnored && (
             <DropdownMenuItem onSelect={() => track.current?.click()}>
-              {song.audio
-                ? m["songMenu.replaceTrack"]()
-                : m["songMenu.addTrack"]()}
+              {m["songMenu.addTrack"]()}
             </DropdownMenuItem>
           )}
-          {song.audio && (
-            <DropdownMenuItem
-              className="text-destructive"
-              onSelect={() => {
-                if (confirm(m["songMenu.confirmRemoveTrack"]()))
-                  void run(m["songMenu.removingTrack"](), onDeleteAudio);
-              }}
-            >
-              {m["songMenu.removeTrack"]()}
-            </DropdownMenuItem>
-          )}
-          {song.audio && !song.instrumental && (
-            <DropdownMenuItem
-              onSelect={() =>
-                run(m["fetch.stemming"](), async () => {
-                  const outcome = await makeInstrumental(song, {
-                    pl8,
-                    mixInstrumental: onMixInstrumental,
-                    onPhase: setPhase,
-                  });
-                  return outcome.note;
-                })
-              }
-            >
-              {m["songMenu.makeInstrumental"]()}
-            </DropdownMenuItem>
-          )}
+          {/* An instrumental song has no voice to take out. */}
+          {song.audio &&
+            !song.instrumental &&
+            song.lyricsMatch !== "instrumental" && (
+              <DropdownMenuItem
+                onSelect={() =>
+                  run(m["fetch.stemming"](), async () => {
+                    const outcome = await makeInstrumental(song, {
+                      pl8,
+                      mixInstrumental: onMixInstrumental,
+                      onPhase: setPhase,
+                    });
+                    return outcome.note;
+                  })
+                }
+              >
+                {m["songMenu.makeInstrumental"]()}
+              </DropdownMenuItem>
+            )}
           <DropdownMenuItem disabled={pipelineRunning} onSelect={onRerun}>
             {m["songMenu.rerunPipeline"]()}
           </DropdownMenuItem>
+          {/* Timed lyrics light up against a track, so there is nothing to sync without one. */}
+          {song.audio && (
+            <DropdownMenuItem
+              disabled={pipelineRunning}
+              onSelect={onResyncLyrics}
+            >
+              {m["songMenu.resyncLyrics"]()}
+            </DropdownMenuItem>
+          )}
 
           {song.mine && (
             <>
@@ -173,6 +173,14 @@ export function SongMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Outside the menu, so closing the menu does not unmount it. */}
+      <SongEditDialog
+        song={song}
+        open={editing}
+        onSave={onRename}
+        onClose={() => setEditing(false)}
+      />
 
       <input
         ref={sheets}

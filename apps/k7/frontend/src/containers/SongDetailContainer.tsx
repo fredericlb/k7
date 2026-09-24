@@ -1,3 +1,4 @@
+import { hasTimecodes, withoutTimecodes } from "@k7/lyrics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { pl8 } from "../fetchSong/pl8";
@@ -6,9 +7,10 @@ import {
   type PipelineSteps,
   runPipeline,
   type StatusPatch,
+  syncLyrics,
 } from "../fetchSong/run";
 import { m } from "../paraglide/messages.js";
-import type { LyricTiming, Song, SongTab } from "../types";
+import type { Song, SongTab } from "../types";
 import { SongDetailView } from "../views/SongDetailView";
 
 interface Props {
@@ -83,11 +85,19 @@ export function SongDetailContainer({
         adopt(await api.copyLibraryTrack(songId, path)),
       mixInstrumental: async (folder) =>
         adopt(await api.mixInstrumental(songId, folder)),
-      findLrc: (duration) => api.searchLrclib(songId, duration),
-      onLrc: async (lyrics, timings) =>
-        adopt(
-          await api.updateSong(songId, { lyrics, lyricTimings: timings }),
+      // The track's length ranks LRCLIB's versions, so a live cut does not time the album take.
+      findLrc: async (duration) =>
+        api.searchLrclib(
+          songId,
+          duration ??
+            (await api
+              .getSongEnvelope(songId)
+              .then((s) => s.seconds)
+              .catch(() => undefined)),
         ),
+      // The timecodes are IN the text now: a timing stored beside it would only disagree with them.
+      onLrc: async (lyrics) =>
+        adopt(await api.updateSong(songId, { lyrics, lyricTimings: [] })),
     }),
     [songId, onStatus, adopt],
   );
@@ -156,15 +166,9 @@ export function SongDetailContainer({
     onChange();
   };
 
-  // "Replace the track…" in the ⋮ menu — a straight swap, no pipeline involved.
+  // "Add a track…" in the ⋮ menu, once the insert was ignored — no pipeline involved.
   const handleUploadAudio = async (file: File) => {
     const updated = await api.uploadSongAudio(songId, file);
-    setSong(updated);
-    onChange();
-  };
-
-  const handleDeleteAudio = async () => {
-    const updated = await api.deleteSongAudio(songId);
     setSong(updated);
     onChange();
   };
@@ -172,19 +176,6 @@ export function SongDetailContainer({
   const handleToggleFavorite = async () => {
     if (!song) return;
     const updated = await api.setSongFavorite(songId, !song.favorite);
-    setSong(updated);
-    onChange();
-  };
-
-  // An LRC's outcome in one write: the lyrics when it brought them, and the line timecodes.
-  const handleLrc = async (
-    lyrics: string | null,
-    lyricTimings: LyricTiming[],
-  ) => {
-    const updated = await api.updateSong(
-      songId,
-      lyrics === null ? { lyricTimings } : { lyrics, lyricTimings },
-    );
     setSong(updated);
     onChange();
   };
@@ -216,14 +207,70 @@ export function SongDetailContainer({
     })();
   };
 
-  // "Run the pipeline again" in the ⋮ menu: every step not done yet, lyrics included once unmatched.
+  // The insert's Retry after a failure: every step not done yet, lyrics included once unmatched —
+  // a song with no timings tries again. It keeps the track it has, unlike the ⋮ menu's re-run below.
   const handleRerun = () => {
     if (!song) return;
-    const lyricsAgain = song.lyrics.trim() === "" && song.lyricsMatch !== "";
+    const lyricsAgain =
+      !hasTimecodes(song.lyrics) &&
+      !(song.lyricTimings?.length ?? 0) &&
+      song.lyricsMatch !== "";
     void runFetch(
       lyricsAgain ? { ...song, lyricsMatch: "" } : song,
       "download",
     );
+  };
+
+  // "Run the pipeline again" in the ⋮ menu: the library track is unlinked first, so the run starts
+  // over from the search rather than keeping what an earlier one found.
+  const handleRestart = () => {
+    if (!song || running.current) return;
+    void (async () => {
+      try {
+        const unlinked = await api.unlinkSongAudio(songId);
+        setSong(unlinked);
+        const lyricsAgain =
+          !hasTimecodes(unlinked.lyrics) &&
+          !(unlinked.lyricTimings?.length ?? 0) &&
+          unlinked.lyricsMatch !== "";
+        await runFetch(
+          lyricsAgain ? { ...unlinked, lyricsMatch: "" } : unlinked,
+          "download",
+        );
+      } catch (err) {
+        void onStatus({ phase: "failed", error: (err as Error).message });
+      }
+    })();
+  };
+
+  // « Resync lyrics » in the ⋮ menu: the codes come off, and LRCLIB times the lyrics again — nothing else runs.
+  const handleResyncLyrics = () => {
+    if (!song || running.current) return;
+    running.current = true;
+    void (async () => {
+      try {
+        const cleared = adopt(
+          await api.updateSong(songId, {
+            lyrics: withoutTimecodes(song.lyrics),
+            lyricTimings: [],
+          }),
+        );
+        void onStatus({ lyricsMatch: "", phase: "", error: "" });
+        adopt(await syncLyrics(cleared, pipelineSteps()));
+        void onStatus({ phase: "" });
+        onChangeRef.current();
+      } catch (err) {
+        void onStatus({ phase: "failed", error: (err as Error).message });
+      } finally {
+        running.current = false;
+      }
+    })();
+  };
+
+  // The ⋮ menu's popin: a failure is thrown back to it, where it is shown.
+  const handleRename = async (artist: string, title: string) => {
+    adopt(await api.updateSong(songId, { artist, title }));
+    onChange();
   };
 
   const handleDismissFailure = () => {
@@ -248,19 +295,17 @@ export function SongDetailContainer({
       onDeleteSheet={handleDeleteSheet}
       sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
       onUploadAudio={handleUploadAudio}
-      onDeleteAudio={handleDeleteAudio}
-      audioUrl={api.songAudioUrl(songId)}
       onToggleFavorite={handleToggleFavorite}
-      onLrc={handleLrc}
-      onFindLrc={(duration) => api.searchLrclib(songId, duration)}
       onMixInstrumental={handleMixInstrumental}
-      instrumentalUrl={api.songInstrumentalUrl(songId)}
       onDelete={handleDelete}
       onBack={onBack}
       onDownload={handleDownload}
       onUpload={handleUpload}
       onIgnore={handleIgnore}
       onRerun={handleRerun}
+      onRestart={handleRestart}
+      onResyncLyrics={handleResyncLyrics}
+      onRename={handleRename}
       onDismissFailure={handleDismissFailure}
     />
   );

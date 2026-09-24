@@ -1,16 +1,17 @@
-// LRC lines, their fuzzy alignment onto a chord sheet, and the refusal of an LRC that is another song.
+// LRC lines, and their timecodes written into a chord sheet as `{{MM:SS.cc}}` — the text otherwise untouched.
 
 import { describe, expect, it } from "vitest";
 import {
   alignLines,
-  alignLrc,
-  importLrc,
+  hasTimecodes,
   lineAt,
   lyricLines,
   normalizeLine,
   parseLrc,
+  timecodesByLine,
+  timeLyrics,
   timingsByLine,
-  timingsFrom,
+  withoutTimecodes,
 } from "./lrc";
 
 const LRC = `[ar:Nina Simone]
@@ -77,95 +78,162 @@ describe("alignLines", () => {
   });
 });
 
-describe("importLrc", () => {
-  it("becomes the lyrics of a song that has none", () => {
-    const result = importLrc("", LRC);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.lyrics?.split("\n")).toHaveLength(3);
-    expect(result.timings.map((t) => [t.line, t.t])).toEqual([
-      [0, 12.5],
-      [1, 18],
-      [2, 24.25],
+describe("timeLyrics", () => {
+  const timed = (lyrics: string, lrc = LRC) => {
+    const r = timeLyrics(lyrics, lrc);
+    if (!r.ok) throw new Error("no timing");
+    return r;
+  };
+
+  it("puts {{MM:SS.cc}} in front of the sheet's lines and changes nothing else", () => {
+    const sheet = [
+      "[Verse]",
+      "      C              G",
+      "Oh sinnerman where you gonna run to",
+      "Where you gona run to",
+      "",
+      "All on that day",
+    ].join("\n");
+    const r = timed(sheet);
+    expect(r.lyrics.split("\n")).toEqual([
+      "[Verse]",
+      "      C              G",
+      "{{00:12.50}} Oh sinnerman where you gonna run to",
+      "{{00:18.00}} Where you gona run to",
+      "",
+      "{{00:24.25}} All on that day",
+    ]);
+    // With the codes taken off, the sheet is exactly what it was.
+    expect(r.lyrics.replace(/\{\{[\d:.]+\}\} /g, "")).toBe(sheet);
+    expect([r.placed, r.total]).toEqual([3, 3]);
+  });
+
+  it("never times a chord line, a tablature line or a section", () => {
+    const sheet = [
+      "[Oh sinnerman]",
+      "C**",
+      "e|---0---2---|",
+      "Oh sinnerman where you gonna run to",
+    ].join("\n");
+    const out = timed(sheet).lyrics.split("\n");
+    expect(out.slice(0, 3)).toEqual([
+      "[Oh sinnerman]",
+      "C**",
+      "e|---0---2---|",
+    ]);
+    expect(out[3]).toBe("{{00:12.50}} Oh sinnerman where you gonna run to");
+  });
+
+  it("keeps the order: a later fetched line never lands above an earlier one's", () => {
+    // "All on that day" is written first, but the LRC sings it last: timing it there would put 00:24 above 00:12.
+    const sheet =
+      "All on that day\nOh sinnerman where you gonna run to\nWhere you gonna run to";
+    const out = timed(sheet).lyrics.split("\n");
+    expect(out[0]).toBe("All on that day");
+    expect(out[1]).toMatch(/^\{\{00:12\.50\}\} /);
+    expect(out[2]).toMatch(/^\{\{00:18\.00\}\} /);
+  });
+
+  it("times a sheet line the LRC sings as two with the FIRST one's time", () => {
+    const lrc =
+      "[00:12.00]But I've got an angry heart\n[00:14.00]Filled with cancers and poppy tarts";
+    const r = timed(
+      "But I've got an angry heart, filled with cancers and poppy tarts.",
+      lrc,
+    );
+    expect(r.lyrics).toBe(
+      "{{00:12.00}} But I've got an angry heart, filled with cancers and poppy tarts.",
+    );
+    expect(r.placed).toBe(2);
+  });
+
+  it("times two sheet lines the LRC sings as one on the first, chords between them or not", () => {
+    const lrc =
+      "[01:10.00]If we could just get the braves to get out of bed in the morning";
+    const sheet =
+      "If we could just get the braves to get out of\n              C**\nbed in the morning.";
+    expect(timed(sheet, lrc).lyrics.split("\n")).toEqual([
+      "{{01:10.00}} If we could just get the braves to get out of",
+      "              C**",
+      "bed in the morning.",
     ]);
   });
 
-  it("times the lines of existing lyrics it matches, and leaves the rest", () => {
-    const lyrics =
-      "[Verse]\nOh sinnerman where you gonna run to\n(spoken intro)\nWhere you gona run to\nAll on that day";
-    const result = importLrc(lyrics, LRC);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.lyrics).toBeNull();
-    expect(result.timings.map((t) => [t.line, t.t])).toEqual([
-      [1, 12.5],
-      [3, 18],
-      [4, 24.25],
-    ]);
+  it("leaves a line nothing fetched resembles untimed", () => {
+    const out = timed(
+      "Oh sinnerman where you gonna run to\nsome ad lib nobody wrote down",
+    ).lyrics.split("\n");
+    expect(out[1]).toBe("some ad lib nobody wrote down");
   });
 
-  it("refuses an LRC that is another song", () => {
-    const result = importLrc("Twinkle twinkle little star\nHow I wonder", LRC);
-    expect(result).toMatchObject({ ok: false, reason: "mismatch" });
+  it("replaces the codes a sheet already has, rather than piling up", () => {
+    const once = timed("Oh sinnerman where you gonna run to").lyrics;
+    expect(timed(once).lyrics).toBe(once);
+    expect(timed("{{03:33}} Oh sinnerman where you gonna run to").lyrics).toBe(
+      once,
+    );
   });
 
-  it("refuses a file with no timed line", () => {
-    expect(importLrc("", "just text")).toMatchObject({
+  it("writes the fetched lines themselves, timed, when there were no lyrics", () => {
+    expect(timed("").lyrics).toBe(
+      "{{00:12.50}} Oh sinnerman, where you gonna run to?\n{{00:18.00}} Where you gonna run to?\n{{00:24.25}} All on that day",
+    );
+  });
+
+  it("refuses an LRC with no timed line", () => {
+    expect(timeLyrics("la", "no stamps here")).toEqual({
       ok: false,
       reason: "empty",
     });
   });
 });
 
-describe("alignLrc and timingsFrom", () => {
-  // The third line is sung but absent from the LRC: the one a hand pairs afterwards.
-  const lyrics =
-    "[Verse]\nOh sinnerman where you gonna run to\nsome ad lib nobody wrote down\nWhere you gona run to\nAll on that day";
+describe("withoutTimecodes", () => {
+  it("takes every code off and leaves the rest of the text as typed", () => {
+    const sheet =
+      "[Verse]\n      C     G   \n{{00:12.50}} Oh sinnerman\nWhere {{01:05}}";
+    expect(withoutTimecodes(sheet)).toBe(
+      "[Verse]\n      C     G   \nOh sinnerman\nWhere",
+    );
+  });
+});
 
-  it("hands back both sides and what paired by itself, refusing nothing", () => {
-    const a = alignLrc(lyrics, LRC);
-    expect(a.lrc).toHaveLength(3);
-    expect(a.lines.map((l) => l.line)).toEqual([1, 2, 3, 4]);
-    expect([...a.pairs]).toEqual([
-      [0, 0],
-      [2, 1],
-      [3, 2],
+describe("timecodesByLine", () => {
+  it("reads each line's {{MM:SS.cc}}, by line index, and the text needs nothing else", () => {
+    const text =
+      "[Verse]\nC\n{{00:12.50}} Oh sinnerman\nWhere you gonna run to {{01:05}}";
+    expect([...timecodesByLine(text)]).toEqual([
+      [2, 12.5],
+      [3, 65],
     ]);
-    expect(a.matched).toBe(3);
-    expect(a.total).toBe(3);
+    expect(hasTimecodes(text)).toBe(true);
+    expect(hasTimecodes("Oh sinnerman")).toBe(false);
   });
 
-  it("pairs nothing for another song, and still offers both sides too", () => {
-    const a = alignLrc("Twinkle twinkle little star", LRC);
-    expect(a.matched).toBe(0);
-    expect(a.lrc).toHaveLength(3);
-    expect(a.lines).toHaveLength(1);
-  });
-
-  it("builds the timecodes of the pairs it is given, in line order", () => {
-    const a = alignLrc(lyrics, LRC);
-    // The spoken line the automatic pass skipped, paired by hand onto the second LRC line.
-    a.pairs.set(1, 1);
-    expect(
-      timingsFrom(a.lines, a.lrc, a.pairs).map((t) => [t.line, t.t]),
-    ).toEqual([
-      [1, 12.5],
-      [2, 18],
-      [3, 18],
-      [4, 24.25],
+  it("does not let a timecode make a line into something else", () => {
+    // Matched and highlighted as the lyric it is; the code is not a word of it.
+    expect(lyricLines("{{00:12.50}} Oh sinnerman")).toEqual([
+      { line: 0, text: "oh sinnerman" },
     ]);
   });
 });
 
 describe("timingsByLine and lineAt", () => {
   it("keeps the times of unchanged lines after an edit, and follows the playhead", () => {
-    const first = importLrc("", LRC);
-    if (!first.ok) throw new Error("expected an import");
-    const edited = `Intro line\n${first.lyrics}`.replace(
+    // Timings stored BESIDE the text, as a song timed before `{{MM:SS}}` has them.
+    const lyrics = parseLrc(LRC)
+      .map((l) => l.text)
+      .join("\n");
+    const timings = parseLrc(LRC).map((l, line) => ({
+      line,
+      text: normalizeLine(l.text),
+      t: l.t,
+    }));
+    const edited = `Intro line\n${lyrics}`.replace(
       "All on that day",
       "All on this day",
     );
-    const byLine = timingsByLine(edited, first.timings);
+    const byLine = timingsByLine(edited, timings);
     expect([...byLine]).toEqual([
       [1, 12.5],
       [2, 18],

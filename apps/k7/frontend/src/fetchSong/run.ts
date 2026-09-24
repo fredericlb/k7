@@ -2,12 +2,18 @@
 // is not there yet) and the INSTRUMENTAL (the same song without its voice, cut on any engine).
 // Two verbs because separating borrows a musician's machine — ../../../docs/audio.md.
 
-import { importLrc } from "@k7/lyrics";
+import { hasTimecodes, timeLyrics } from "@k7/lyrics";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { m } from "../paraglide/messages.js";
-import type { FetchStatus, LrcCandidate, LyricTiming, Song } from "../types";
-import { findLibrarySong, masterPath, matches, songAtPath } from "./match";
+import type { FetchStatus, LrcCandidate, Song } from "../types";
+import {
+  findLibrarySong,
+  masterPath,
+  matches,
+  sameSong,
+  songAtPath,
+} from "./match";
 import type { Pl8Client } from "./pl8";
 
 const POLL_MS = 2000;
@@ -15,7 +21,7 @@ const POLL_MS = 2000;
 /** What `onStatus` persists — `fetchStatus`'s own fields, plus the sibling `lyricsMatch`
  * field the backend's PATCH body carries beside it (see store.ts's updateSong). */
 export interface StatusPatch extends Partial<FetchStatus> {
-  lyricsMatch?: "" | "matched" | "unmatched";
+  lyricsMatch?: Song["lyricsMatch"];
 }
 
 interface Common {
@@ -87,7 +93,15 @@ async function huntIntoLibrary(
   } else {
     steps.onPhase(m["fetch.searching"]());
     steps.onStatus?.({ phase: "searching" });
-    const started = await steps.pl8.startHunt(`${song.artist} ${song.title}`);
+    // What the hunt WOULD take is checked before anything downloads: a query can name another song.
+    const query = `${song.artist} ${song.title}`;
+    const tags = await steps.pl8.identify(query);
+    if (!tags) throw new Error(m["fetch.unidentified"]({ query }));
+    if (!sameSong(song.artist, song.title, tags.artist, tags.title))
+      throw new Error(
+        m["fetch.wrongSong"]({ found: `${tags.artist} – ${tags.title}` }),
+      );
+    const started = await steps.pl8.startHunt(query, tags);
     steps.onStatus?.({ huntId: started.id });
     hunt =
       started.status === "done" || started.status === "failed"
@@ -166,40 +180,85 @@ async function instrumentalReady(
   }
 }
 
-/** The same song without the voice: an engine's chain writes it beside the master, k7 keeps a copy. */
+/** The same song without the voice: an engine's chain writes it beside the master, and the song links it. */
 export async function makeInstrumental(
   song: Song,
   steps: InstrumentalSteps,
   resumeJobId?: string,
 ): Promise<InstrumentalOutcome> {
-  const entry = await inLibrary(steps, song);
-  if (!entry) throw new Error(m["fetch.notInLibrary"]());
+  const source = librarySource(song);
   if (song.instrumental) return { instrumental: true };
 
-  if (!(await instrumentalReady(steps, masterPath(entry), resumeJobId)))
+  if (!(await instrumentalReady(steps, source.master, resumeJobId)))
     return {
       instrumental: false,
       note: m["fetch.noEngine"](),
     };
 
   steps.onPhase(m["fetch.copyInstrumental"]());
-  const updated = await steps.mixInstrumental(entry.path);
+  const updated = await steps.mixInstrumental(source.folder);
   return { instrumental: true, song: updated };
+}
+
+/** The library master the stems are cut from: the one the song PLAYS, so they are this very recording's. */
+function librarySource(song: Song): { master: string; folder: string } {
+  const master = song.audio?.path ?? "";
+  if (!master) throw new Error(m["fetch.noTrack"]());
+  return { master, folder: master.slice(0, master.lastIndexOf("/")) };
 }
 
 export interface PipelineSteps extends Common {
   copyTrack(path: string): Promise<Song>;
   mixInstrumental(folder: string): Promise<Song>;
   findLrc(duration?: number): Promise<LrcCandidate[]>;
-  onLrc(lyrics: string, timings: LyricTiming[]): Promise<Song>;
+  /** The sheet with its `{{MM:SS}}` timecodes — the text the song is saved with. */
+  onLrc(lyrics: string): Promise<Song>;
+}
+
+export type LyricsSteps = Pick<
+  PipelineSteps,
+  "onPhase" | "onStatus" | "findLrc" | "onLrc"
+>;
+
+/**
+ * Times the lyrics off LRCLIB: each fetched line's `{{MM:SS.cc}}` goes in front of the closest sheet
+ * line, in order, and not a word of the sheet changes (`timeLyrics`, ../../../docs/lyricsTiming.md).
+ * A song with no lyrics gets the fetched ones, timed. A version that is not this song (its artist and
+ * title), or that times nothing, is never applied — that is « unmatched », which the insert SAYS.
+ * A version of this song LRCLIB lists as instrumental makes it « instrumental »: nothing to time.
+ * The song returned carries its new `lyricsMatch`, which the pipeline's next step reads.
+ */
+export async function syncLyrics(
+  song: Song,
+  steps: LyricsSteps,
+): Promise<Song> {
+  steps.onPhase(m["fetch.lyrics"]());
+  steps.onStatus?.({ phase: "matching-lyrics" });
+  // The nearest version that IS this song: LRCLIB's first answer can be credited « Oasis/oasis ».
+  const best = (await steps.findLrc()).find((c) =>
+    matches(song.artist, song.title, c.artistName, c.trackName),
+  );
+  const ours = best !== undefined;
+  if (ours && best.instrumental) {
+    steps.onStatus?.({ lyricsMatch: "instrumental" });
+    return { ...song, lyricsMatch: "instrumental" };
+  }
+  const found = ours ? timeLyrics(song.lyrics, best.syncedLyrics) : null;
+  if (found?.ok && found.placed > 0) {
+    const timed = await steps.onLrc(found.lyrics);
+    steps.onStatus?.({ lyricsMatch: "matched" });
+    return { ...timed, lyricsMatch: "matched" };
+  }
+  steps.onStatus?.({ lyricsMatch: "unmatched" });
+  return { ...song, lyricsMatch: "unmatched" };
 }
 
 /** A fresh start on `"download"` (the insert's button, or the ⋮ menu's re-run), or picking back
  * up wherever `song` says the pipeline got to on `"continue"` — a reload, or an upload. */
 export type PipelineMode = "download" | "continue";
 
-/** The whole chain a track goes through once it exists: search → download → stem → find
- * lyrics. Every step reads the song its own predecessor returned, so a reload can resume
+/** The whole chain a track goes through once it exists: search → download → find lyrics →
+ * stem, unless LRCLIB says the song is instrumental. Every step reads the song its own predecessor returned, so a reload can resume
  * from `song.fetchStatus`/`song.lyricsMatch` alone rather than losing the thread — see
  * ../../docs/audio.md. */
 export async function runPipeline(
@@ -222,38 +281,32 @@ export async function runPipeline(
     );
   }
 
-  if (current.audio && !current.instrumental) {
+  // Lyrics BEFORE stems: a song LRCLIB lists as instrumental has no voice to take out.
+  // Lyrics already timed are left alone: re-timing them is the ⋮ menu's « Resync lyrics ».
+  const untimed =
+    !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
+  if (current.audio && current.lyricsMatch === "" && untimed) {
+    try {
+      current = await syncLyrics(current, steps);
+    } catch (err) {
+      // LRCLIB out of reach does not stop the chain on its way to stems, but it is reported.
+      problem = (err as Error).message;
+    }
+  }
+
+  if (
+    current.audio &&
+    !current.instrumental &&
+    current.lyricsMatch !== "instrumental"
+  ) {
     const outcome = await makeInstrumental(
       current,
       steps,
       (resume && current.fetchStatus.jobId) || undefined,
     );
-    // No engine online does not stop the chain on its way to lyrics, but it is reported.
+    // No engine online is reported, like a lyrics failure; the later note wins.
     if (outcome.song) current = outcome.song;
     if (outcome.note) problem = outcome.note;
-  }
-
-  // Lyrics already there are a person's own — the pipeline never overwrites them; pairing an
-  // LRC against existing text needs the manual TimedLyricsDialog, not an automatic guess.
-  if (
-    current.audio &&
-    current.lyricsMatch === "" &&
-    current.lyrics.trim() === ""
-  ) {
-    steps.onPhase(m["fetch.lyrics"]());
-    steps.onStatus?.({ phase: "matching-lyrics" });
-    const best = (await steps.findLrc())[0];
-    const found =
-      best &&
-      matches(current.artist, current.title, best.artistName, best.trackName)
-        ? importLrc("", best.syncedLyrics)
-        : null;
-    if (found?.ok && found.lyrics !== null) {
-      current = await steps.onLrc(found.lyrics, found.timings);
-      steps.onStatus?.({ lyricsMatch: "matched" });
-    } else {
-      steps.onStatus?.({ lyricsMatch: "unmatched" });
-    }
   }
 
   steps.onStatus?.({

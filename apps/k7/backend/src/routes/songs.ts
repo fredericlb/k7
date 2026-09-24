@@ -10,9 +10,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { searchLrclib } from "../lrclib.ts";
 import {
-  copyLibraryTrack,
   LibraryPathError,
-  mixLibraryInstrumental,
+  linkLibraryInstrumental,
+  linkLibraryTrack,
 } from "../songFetch.ts";
 import * as store from "../store.ts";
 
@@ -56,7 +56,7 @@ const patchSchema = z.object({
       jobId: z.string().optional(),
     })
     .optional(),
-  lyricsMatch: z.enum(["", "matched", "unmatched"]).optional(),
+  lyricsMatch: z.enum(["", "matched", "unmatched", "instrumental"]).optional(),
   fetchIgnored: z.boolean().optional(),
 });
 
@@ -214,31 +214,22 @@ songsRouter.post(
   }),
 );
 
-songsRouter.get(
-  "/:sid/audio",
-  wrap(async (req, res) => {
-    const info = await store.ensureSongAudioCached(req.params.sid);
-    if (!info) return res.status(404).json({ error: "no audio" });
-    // streamFile answers Range, which is what lets the player's bar seek.
-    streamFile(req, res, info.filePath, info.mime);
-  }),
-);
-
+// Unlink the track and its instrumental — what a pipeline re-run starts from; no file is deleted.
 songsRouter.delete(
   "/:sid/audio",
   wrap(async (req, res) => {
-    const song = await store.deleteSongAudio(req.params.sid);
-    if (!song) return res.status(404).json({ error: "not found" });
+    if (!(await store.unlinkSongAudio(req.params.sid)))
+      return res.status(404).json({ error: "not found" });
     await sendSong(req, res);
   }),
 );
 
-// --- Fetched from pl8's library: the track, and an instrumental out of its stems — ../../docs/audio.md.
+// --- Linked to pl8's library: the track, and the instrumental beside its stems; the page streams both from pl8 — ../../docs/audio.md.
 
 const libraryFileBody = z.object({ path: z.string().min(1) });
 const libraryFolderBody = z.object({ folder: z.string().min(1) });
 
-/** A refused path is the caller's mistake; anything else is the library or ffmpeg failing. */
+/** A refused path is the caller's mistake; anything else is the library failing. */
 const fetchFailure = (res, err: Error) =>
   err instanceof LibraryPathError
     ? res.status(400).json({ error: err.message })
@@ -249,7 +240,7 @@ songsRouter.post(
   validate(libraryFileBody),
   wrap(async (req, res) => {
     try {
-      if (!(await copyLibraryTrack(req.params.sid, req.body.path)))
+      if (!(await linkLibraryTrack(req.params.sid, req.body.path)))
         return res.status(404).json({ error: "not found" });
     } catch (err) {
       return fetchFailure(res, err as Error);
@@ -263,7 +254,7 @@ songsRouter.post(
   validate(libraryFolderBody),
   wrap(async (req, res) => {
     try {
-      if (!(await mixLibraryInstrumental(req.params.sid, req.body.folder)))
+      if (!(await linkLibraryInstrumental(req.params.sid, req.body.folder)))
         return res.status(404).json({ error: "not found" });
     } catch (err) {
       return fetchFailure(res, err as Error);
@@ -279,15 +270,6 @@ songsRouter.get(
     const envelope = await store.songEnvelope(req.params.sid);
     if (!envelope) return res.status(404).json({ error: "no track" });
     res.json(envelope);
-  }),
-);
-
-songsRouter.get(
-  "/:sid/instrumental",
-  wrap(async (req, res) => {
-    const info = await store.ensureSongInstrumentalCached(req.params.sid);
-    if (!info) return res.status(404).json({ error: "no instrumental" });
-    streamFile(req, res, info.filePath, info.mime);
   }),
 );
 

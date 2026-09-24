@@ -467,6 +467,10 @@ export const api = {
     ).then(json),
 
   // "Fetch song": a library master copied in as the track, and an instrumental mixed from its stems.
+  // The song forgets its library track and instrumental; pl8 keeps the files.
+  unlinkSongAudio: (id: string): Promise<Song> =>
+    f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
+
   copyLibraryTrack: (id: string, path: string): Promise<Song> =>
     f(`/api/songs/${id}/audio/from-library`, {
       method: "POST",
@@ -480,9 +484,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ folder }),
     }).then(json),
-
-  songInstrumentalUrl: (id: string): string =>
-    `${BASE}/api/songs/${id}/instrumental`,
 
   // A star is the connected user's own, so it has its own route rather than a song field.
   setSongFavorite: (id: string, favorite: boolean): Promise<Song> =>
@@ -541,14 +542,9 @@ export const api = {
     return f(`/api/songs/${id}/audio`, { method: "POST", body }).then(json);
   },
 
-  deleteSongAudio: (id: string): Promise<Song> =>
-    f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
-
   /** The track's shape; the backend measures it the first time and keeps it. */
   getSongEnvelope: (id: string): Promise<SongEnvelope> =>
     f(`/api/songs/${id}/envelope`).then(json),
-
-  songAudioUrl: (id: string) => `${BASE}/api/songs/${id}/audio`,
 
   // `name` is decoration the EPUB export needs: the media type is read off the extension.
   sheetFileUrl: (id: string, fileId: string, name?: string) =>

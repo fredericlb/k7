@@ -8,7 +8,11 @@ import type {
   SeparateJob,
   StemsReply,
 } from "@studio/web-protocol";
-import type { HuntRecord } from "@studio/web-protocol/hunt";
+import type {
+  HuntIdentity,
+  HuntRecord,
+  HuntTags,
+} from "@studio/web-protocol/hunt";
 
 // The backend's own MEDIATEK_URL, not a guess: a deployment can point k7 at a pl8 that isn't
 // the sibling subdomain a browser-side guess would land on. Fetched once and cached.
@@ -19,6 +23,11 @@ function pl8Base(): Promise<string> {
       .then((res) => res.json())
       .then((c: { mediatekUrl: string }) => c.mediatekUrl);
   return base;
+}
+
+/** Where the browser streams a médiathèque file from pl8 itself, with Range; a FLAC comes as its MP3. */
+export async function pl8StreamUrl(path: string): Promise<string> {
+  return `${await pl8Base()}/api/mediatek/stream?path=${encodeURIComponent(path)}`;
 }
 
 /** A pl8 call with the session; its error text surfaces as is, pl8's wording being the useful one. */
@@ -40,7 +49,10 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export interface Pl8Client {
   listSongs(): Promise<MediatekEntry[]>;
-  startHunt(query: string): Promise<HuntRecord>;
+  /** What MusicBrainz (or Deezer) says a query is — nothing downloaded, so it can be checked first. */
+  identify(query: string): Promise<HuntTags | null>;
+  /** A hunt of `tags` when given, as checked, rather than of whatever pl8 would identify. */
+  startHunt(query: string, tags?: HuntTags): Promise<HuntRecord>;
   hunts(): Promise<HuntRecord[]>;
   engines(): Promise<PublicEngine[]>;
   prepareStems(
@@ -60,10 +72,13 @@ export const pl8: Pl8Client = {
   listSongs: async () =>
     (await call<{ entries: MediatekEntry[] }>("/mediatek/list?family=songs"))
       .entries,
-  startHunt: (query) =>
+  identify: async (query) =>
+    (await call<HuntIdentity>(`/hunt/identify?q=${encodeURIComponent(query)}`))
+      .tags,
+  startHunt: (query, tags) =>
     call<HuntRecord>("/hunt", {
       method: "POST",
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, tags }),
     }),
   hunts: async () => (await call<{ hunts: HuntRecord[] }>("/hunt")).hunts,
   engines: () => call<PublicEngine[]>("/engines"),

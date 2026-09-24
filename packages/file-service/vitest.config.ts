@@ -1,6 +1,6 @@
 // Two ambient inputs are pinned at folders that do not exist, so no test reads or writes the
 // developer's own state: `$STUDIO_MEDIATEK` (every project load mounts the media library) and
-// `$STUDIO_HOME` (it wins over HOME, and a WSL dev shell points it at the host's workspaces).
+// `$STUDIO_HOME` (it wins over HOME).
 // A test wanting either sets it itself; `forks` keeps that from leaking into another file.
 // See docs/tests.md.
 

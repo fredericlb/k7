@@ -5,7 +5,9 @@ import { Textarea } from "@frediverse/ui/textarea";
 import {
   ChordSheet,
   collectChords,
+  hasTimecodes,
   lineAt,
+  timecodesByLine,
   timingsByLine,
   transposeChord,
 } from "@k7/lyrics";
@@ -20,12 +22,12 @@ import { SheetPanel } from "../components/SheetPanel";
 import { SongFetchInsert } from "../components/SongFetchInsert";
 import { SongMenu } from "../components/SongMenu";
 import { SongPlayer } from "../components/SongPlayer";
-import { TimedLyricsDialog } from "../components/TimedLyricsDialog";
 import { fmtDate } from "../format";
+import { useLyricsLead } from "../hooks/useLyricsLead";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { m } from "../paraglide/messages.js";
 import { hasContent, SONG_TABS, visibleTabs } from "../songTabs";
-import type { LrcCandidate, LyricTiming, Song, SongTab } from "../types";
+import type { Song, SongTab } from "../types";
 
 interface Props {
   song: Song;
@@ -34,26 +36,25 @@ interface Props {
   onUploadSheets: (files: File[]) => Promise<void>;
   onDeleteSheet: (fileId: string) => Promise<void>;
   sheetUrl: (fileId: string) => string;
-  /** "Replace the track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
+  /** "Add a track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
   onUploadAudio: (file: File) => Promise<void>;
-  onDeleteAudio: () => Promise<void>;
-  audioUrl: string;
   onToggleFavorite: () => Promise<void>;
   onDelete: () => Promise<void>;
-  /** Save an LRC's outcome: new lyrics (or null to keep them) and the line timecodes. */
-  onLrc: (lyrics: string | null, timings: LyricTiming[]) => Promise<void>;
-  /** Timed lyrics for this song on LRCLIB, ranked by the track's length when it is known. */
-  onFindLrc: (duration?: number) => Promise<LrcCandidate[]>;
   /** Retries the instrumental once no engine was online. */
   onMixInstrumental: (folder: string) => Promise<Song>;
-  instrumentalUrl: string;
   /** The auto-fetch insert under the title: start a Soulseek hunt, or hand it an uploaded file. */
   onDownload: () => void;
   onUpload: (file: File) => void;
   /** "Ignore": dismiss the insert for this song for good. */
   onIgnore: () => void;
-  /** Runs the auto-fetch pipeline again from wherever the song stands — the ⋮ menu and the insert's Retry. */
+  /** The insert's Retry: runs the pipeline again from wherever the song stands. */
   onRerun: () => void;
+  /** The ⋮ menu's re-run: unlinks the library track, then runs the whole pipeline again. */
+  onRestart: () => void;
+  /** Takes the timecodes off the lyrics and times them off LRCLIB again. */
+  onResyncLyrics: () => void;
+  /** Saves a new artist and title, from the ⋮ menu's popin. */
+  onRename: (artist: string, title: string) => Promise<void>;
   /** Clears a stored pipeline failure without retrying. */
   onDismissFailure: () => void;
   onBack: () => void;
@@ -67,23 +68,19 @@ export function SongDetailView({
   onDeleteSheet,
   sheetUrl,
   onUploadAudio,
-  onDeleteAudio,
-  audioUrl,
   onToggleFavorite,
   onDelete,
-  onLrc,
-  onFindLrc,
   onMixInstrumental,
-  instrumentalUrl,
   onDownload,
   onUpload,
   onIgnore,
   onRerun,
+  onRestart,
+  onResyncLyrics,
+  onRename,
   onDismissFailure,
   onBack,
 }: Props) {
-  // Shared by the ⋮ menu's "Add timed lyrics…" and the insert's "Fix the lyrics" — one dialog.
-  const [timedOpen, setTimedOpen] = useState(false);
   // A tab asked for by the address but still empty is one being added: it opens on its editor.
   const [adding, setAdding] = useState<SongTab | null>(() =>
     initialTab && initialTab !== "sheet" && !hasContent(song, initialTab)
@@ -126,7 +123,11 @@ export function SongDetailView({
     };
   }, [song.audio?.name]);
   const lineTimes = useMemo(
-    () => timingsByLine(song.lyrics, song.lyricTimings ?? []),
+    // The `{{MM:SS.cc}}` in the text; a song timed before those were written keeps its side-by-side timings.
+    () =>
+      hasTimecodes(song.lyrics)
+        ? timecodesByLine(song.lyrics)
+        : timingsByLine(song.lyrics, song.lyricTimings ?? []),
     [song.lyrics, song.lyricTimings],
   );
   const activeLine =
@@ -137,6 +138,8 @@ export function SongDetailView({
     el.currentTime = seconds;
     void el.play();
   };
+  // A clicked line starts this many seconds early, so its first word is not clipped.
+  const [lyricsLead, setLyricsLead] = useLyricsLead();
 
   // Chords used in the lyrics, in the currently-transposed spelling.
   const chords = useMemo(
@@ -217,10 +220,10 @@ export function SongDetailView({
             setChosen("sheet");
           }}
           onUploadAudio={onUploadAudio}
-          onDeleteAudio={onDeleteAudio}
-          onOpenTimedLyrics={() => setTimedOpen(true)}
           onMixInstrumental={onMixInstrumental}
-          onRerun={onRerun}
+          onRerun={onRestart}
+          onResyncLyrics={onResyncLyrics}
+          onRename={onRename}
           onDelete={remove}
         />
       </div>
@@ -229,21 +232,9 @@ export function SongDetailView({
         song={song}
         onDownload={onDownload}
         onUpload={onUpload}
-        onFixLyrics={() => setTimedOpen(true)}
         onIgnore={onIgnore}
         onRetry={onRerun}
         onDismiss={onDismissFailure}
-      />
-      <TimedLyricsDialog
-        open={timedOpen}
-        onOpenChange={setTimedOpen}
-        lyrics={song.lyrics}
-        onFindLrc={onFindLrc}
-        trackSeconds={() => audio.current?.duration || undefined}
-        onSave={async (lyrics, timings) => {
-          await onLrc(lyrics, timings);
-          setChosen("lyrics");
-        }}
       />
 
       {tabs.length > 1 && tab !== null && (
@@ -280,6 +271,12 @@ export function SongDetailView({
             }
             onChange={(e) => setDraft(e.target.value)}
           />
+          {/* The timecodes are part of this text — the one place they are seen, typed and fixed (docs/lyricsTiming.md). */}
+          {tab === "lyrics" && (
+            <p className="muted small" style={{ marginTop: 6 }}>
+              {m["song.timecodeHint"]({ code: "{{MM:SS}}" })}
+            </p>
+          )}
           <div className="row" style={{ marginTop: 8 }}>
             <Button disabled={saving || draft === content} onClick={save}>
               {saving ? m["common.saving"]() : m["common.save"]()}
@@ -301,7 +298,11 @@ export function SongDetailView({
                 onChordClick={setSelectedChord}
                 timings={lineTimes}
                 activeLine={activeLine}
-                onLineClick={song.audio ? seek : undefined}
+                onLineClick={
+                  song.audio
+                    ? (t: number) => seek(Math.max(0, t - lyricsLead))
+                    : undefined
+                }
               />
               {/* A narrow screen has no rail, so a tapped chord opens over the sheet instead. */}
               {isMobile && chords.length > 0 && selectedChord && (
@@ -336,15 +337,15 @@ export function SongDetailView({
           <OptionsPanel
             transpose={transpose}
             onTranspose={(next) => setTranspose(next)}
+            lyricsLead={lyricsLead}
+            onLyricsLead={setLyricsLead}
             open={optionsOpen}
             onToggle={() => setOptionsOpen((o) => !o)}
           />
         )}
         <SongPlayer
           song={song}
-          audioUrl={audioUrl}
           audioRef={audio}
-          instrumentalUrl={instrumentalUrl}
           transpose={transpose}
           floating
           open={playerOpen}

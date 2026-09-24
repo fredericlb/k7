@@ -177,24 +177,19 @@ at a time**: starting one pauses the one before, because two masters at once is 
 ## A songbook song's reference track
 
 A song in the songbook carries at most one recording — the take you play along to while
-reading its chords. It lives at `recordings/songbook/<song uid>.<ext>`, and the row keeps
-`AudioPath` / `AudioMime` / `AudioName` the way a session keeps its own.
-
-Two places it deliberately is NOT:
+reading its chords. It is a **song of pl8's library**, and the row keeps its path with
+`AudioPath` / `AudioMime` / `AudioName`; the page streams it from pl8, k7 keeping no copy.
 
 - **Not a `song_sheets` record**, unlike the sheet files. The rule above holds: metadata in
   PocketBase, bytes in the médiathèque. A sheet is a page; this is a whole track.
-- **Not in the `songs/` family**, which is what it most looks like — it has an artist and a
-  title. Filing it there would mean writing into the catalogue under the REAL artist, where
-  a song of that name may already exist, and replacing it. A reference track is the
-  songbook's, not the library's, and no upload here may overwrite a catalogued song.
+- **An upload is filed under the album `k7`**, never under the catalogue's albums: writing
+  under the REAL album, where a song of that name may already be, would replace it. No upload
+  here may overwrite a catalogued song; replacing an upload only overwrites k7's own folder.
+- **Only a library file is a track.** A path outside pl8's `songs/` family is read as no track
+  at all (`libraryPath`, `apps/k7/backend/src/store.ts`): k7 stores, copies and plays no songbook
+  file of its own, so such a song shows the fetch insert like any song without one.
 
-Its own path, keyed by the song, is what makes a re-upload an overwrite and a delete exact.
-A track uploaded in a different container leaves the previous file behind under a name
-nothing points at, so that one is removed explicitly.
-
-The route serves it through `streamFile`, which answers Range — without that the waveform could
-draw but not seek.
+pl8's `/stream` answers Range — without that the waveform could draw but not seek.
 
 ### A waveform, not the browser's transport
 
@@ -219,9 +214,10 @@ metadata store that the songbook listing reads whole, for a panel 272 px wide wh
 buckets per pixel. The cap is what keeps a stored shape a few kilobytes; storing pl8's own
 resolution untouched could run two orders of magnitude past that.
 
-**Onsets ride along for free.** pl8's analysis also detects transients; `songEnvelope.ts` passes
-them through as `SongEnvelope.onsets`, and the panel forwards them to `ui-waveform`'s own
-`onsets` prop — a slot the component already had, unused until now.
+**Onsets are not drawn.** pl8's analysis also detects transients, and `songEnvelope.ts` passes them
+through as `SongEnvelope.onsets`, but the player leaves `ui-waveform`'s `onsets` prop empty: those
+rules are for placing stretch points in st0, and in a player nothing acts on them — they read as
+noise over the shape.
 
 The alternative was decoding in the browser on each visit. A rehearsal laptop opening a song page
 should not spend seconds and a hundred megabytes of memory rebuilding a picture that never changes;
@@ -302,8 +298,8 @@ alternative — delaying the lyrics to match — would make a seek feel late.
 
 Two entries of the song's ⋮ menu, and they are two because their costs are not the same.
 **"Fetch song"** finds the song
-in pl8's library, hunts it on Soulseek when it is not there (pl8 files what it downloads) and copies
-the master in as the reference track. **"Make instrumental"** takes the song already in the library
+in pl8's library, hunts it on Soulseek when it is not there (pl8 files what it downloads) and links
+its master as the reference track. **"Make instrumental"** takes the song already in the library
 and has pl8 run an engine's instrumental chain over it — one file, the record without its voice.
 
 Separating stems borrows a musician's machine for a minute or so per song and is wanted far less
@@ -313,36 +309,70 @@ often than a track to play along to, so it is asked for rather than ridden along
   (`apps/k7/frontend/src/fetchSong/pl8.ts`). pl8 refuses k7's service token on `/api/hunt` on purpose —
   a service must not spend somebody's Soulseek account — so the search runs under the person's own
   session, lands in their pl8 history and counts against their own limit.
-- **Only the copy and the mix are k7's backend** (`apps/k7/backend/src/songFetch.ts`), with its token:
-  reading library files is what that token is for, and ffmpeg is in k7's image.
-- **A copy, not a reference.** The track lands at `recordings/songbook/<uid>.<ext>` like an upload, and
-  the instrumental at `recordings/songbook/<uid>-instrumental.flac`. The songbook song then no longer
-  depends on the library song staying where it is, and removing k7's track can never delete a song
-  of the catalogue.
+- **A link, not a copy.** A song stores the library PATH of its master, and of the `instrumental.wav`
+  beside its stems; the page streams both from pl8 itself (`/api/mediatek/stream`, with Range — a FLAC
+  master comes as pl8's cached MP3), with the person's own session. k7 holds no bytes of either, so a
+  song is never two files drifting apart, and pl8's own storage is the only one. The backend only
+  checks and records the paths (`apps/k7/backend/src/songFetch.ts`).
+- **An upload goes INTO the library**, as this song, under the album `k7` (`songs/<artist>/k7/<title>`):
+  a folder of its own, so filing it never collides with — nor replaces — a catalogue song, and the
+  uploaded track can be separated like any other.
+- **A track is never replaced nor removed from k7**: it is a song of pl8's library, and a different
+  file for it, or none, is the library's business. The ⋮ menu offers « Add a track… » only to a song
+  that has none.
+- **Relinking never deletes a file.** A new link, or a dropped instrumental, only forgets the old
+  path: every path a song holds is the library's.
 - **Any engine online makes it.** Separation needs a machine running an engine that pl8 can reach;
   the hosted image carries neither the model nor its runtime. When none is online, "Make instrumental"
   says so and changes nothing, so pressing it again once one is up is the whole retry.
+- **The library song is found by artist and title** (`apps/k7/frontend/src/fetchSong/match.ts`):
+  equal once accents, case and punctuation are dropped, else every typed word in the entry, else the
+  same title by an artist a typo away (Gonzales / González). That is how a song FINDS its track;
+  its stems are then cut from the recording it links, never looked up again by name — a same-named
+  library song (a live take) might be another recording.
+- **What would be hunted is checked before anything downloads** (`apps/k7/frontend/src/fetchSong/run.ts`).
+  pl8 names a query through MusicBrainz (Deezer when unreachable) before searching Soulseek, and
+  that name can be another song: « Expedition 33 Lumières » is the band Lumières' « Momentary ».
+  k7 asks pl8 for the name alone (`/api/hunt/identify`), compares it with the song's artist and title
+  (each a typo away at most, `sameSong` in `match.ts`), and only then hunts — THOSE tags, so the
+  download is the recording that was checked. A mismatch downloads nothing and names what was found.
 - **"Make instrumental" never hunts.** It works on the song pl8 already holds: a song missing from the
   library is a "Fetch song" away, and spending a Soulseek search on a button about stems would be a
   surprise.
 - **The sum happens where the parts are.** The engine's chain writes `instrumental.wav` beside the
-  song, having added the stems while they were still in memory; k7 fetches that one file and keeps it
-  as FLAC, because a WAV of a whole song is twice the size for nothing heard. A song separated before
-  such a chain existed has stems and no instrumental, and for it `songFetch.ts` still sums drums, bass
-  and other here — without normalising, since the stems add back up to the mix at their own levels and
-  scaling them would make the instrumental quieter than the original it is switched against.
-- **Which chain does it is the engine machine's answer**, `system instrumental <chaîne>` (the cog,
-  I/O), exactly as `system stems` answers for the four parts. k7 names no chain: it asks for an
+  song, having added the stems while they were still in memory, and that file is what the song links.
+  It streams as WAV — twice a FLAC's size, the price of keeping no transcoded copy anywhere.
+- **Which chain does it is the engine machine's answer**, set in st0's settings (*Separation
+  chains*) or with `system instrumental <chaîne>`, exactly as `system stems` answers for the four parts. k7 names no chain: it asks for an
   instrumental and the machine that can make one says how.
 - **Every step checks what is already done**, so pressing again resumes: pl8 goes on hunting and
   separating if the page is closed, and a second press finds the song filed and the stems held.
 - **A failure stays on the song** (`fetchStatus`, phase `failed`), whichever step it came from, and the
   insert under the title shows it with Retry and Dismiss — a reload shows it again. A step that fails
-  after the track landed is as visible as one before. No engine online is reported the same way,
-  though the chain still goes on to the lyrics.
-- **"Run the pipeline again"**, in the ⋮ menu, redoes every step not done yet, and searches lyrics
-  again when none were written by hand. A fresh start never resumes a stored hunt or separation id:
-  the one stored may be the one that failed, and resuming it would fail again.
+  after the track landed is as visible as one before. LRCLIB out of reach and no engine online are
+  reported the same way, without stopping the chain: one does not keep the other from running.
+- **Lyrics come before stems** (search → download → lyrics → stems), because LRCLIB also says
+  when a recording has **no lyrics at all**. A song LRCLIB lists as instrumental is marked
+  « instrumental »: it gets no stems, since there is no voice to take out and separating one costs a
+  musician's machine a minute for nothing, and the ⋮ menu offers no "Make instrumental". Nothing
+  under the title says so: a song with nothing to sing needs no notice about it. LRCLIB is
+  crowdsourced, so a song it has no record of still gets its stems.
+- **The lyrics step only TIMES the lyrics.** A song whose lyrics are not timed yet gets LRCLIB's best
+  version of THIS song (its artist and title), and its times are written into the sheet as
+  `{{MM:SS.cc}}` in front of the closest lines — not a word of the sheet changes (`lyricsTiming.md`). A
+  song with no lyrics gets the fetched lines themselves, timed. No version of this song, or one that
+  times nothing, leaves the sheet as it was, marked « unmatched », which the insert under the title
+  says — with how to type the times in by hand. Lyrics already timed are left alone.
+- **"Run the pipeline again"**, in the ⋮ menu, first UNLINKS the song's library track and its
+  instrumental (the library keeps both files), then runs every step from the search: asked for
+  again, the pipeline must be free to find another recording than the one an earlier run linked.
+  Lyrics are searched again whenever they are not timed. A fresh start never resumes a stored hunt
+  or separation id: the one stored may be the one that failed, and resuming it would fail again.
+- **Retry**, under the title after a failure, keeps the track and redoes only what is not done.
+- **"Resync lyrics"**, in the ⋮ menu, is the lyrics step alone and on timed lyrics too: it takes
+  every code off, then times the lyrics off LRCLIB again. The re-run skips lyrics that are already
+  timed, because codes typed or fixed by hand must not be overwritten by an unasked search.
+  An unmatched resync leaves the lyrics without codes, which is what was asked.
 - **Status writes go out one after the other** (`SongDetailContainer.tsx`): two concurrent PATCHes
   can land in either order and leave a stale phase stored, which a reload would then try to resume.
 
