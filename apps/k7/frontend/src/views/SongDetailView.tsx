@@ -36,9 +36,8 @@ interface Props {
   onUploadSheets: (files: File[]) => Promise<void>;
   onDeleteSheet: (fileId: string) => Promise<void>;
   sheetUrl: (fileId: string) => string;
-  /** "Replace the track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
+  /** "Add a track…" in the ⋮ menu — the insert's own upload goes through onUpload instead. */
   onUploadAudio: (file: File) => Promise<void>;
-  onDeleteAudio: () => Promise<void>;
   onToggleFavorite: () => Promise<void>;
   onDelete: () => Promise<void>;
   /** Retries the instrumental once no engine was online. */
@@ -67,7 +66,6 @@ export function SongDetailView({
   onDeleteSheet,
   sheetUrl,
   onUploadAudio,
-  onDeleteAudio,
   onToggleFavorite,
   onDelete,
   onMixInstrumental,
@@ -219,7 +217,6 @@ export function SongDetailView({
             setChosen("sheet");
           }}
           onUploadAudio={onUploadAudio}
-          onDeleteAudio={onDeleteAudio}
           onMixInstrumental={onMixInstrumental}
           onRerun={onRerun}
           onResyncLyrics={onResyncLyrics}

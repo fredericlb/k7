@@ -538,9 +538,6 @@ export const api = {
     return f(`/api/songs/${id}/audio`, { method: "POST", body }).then(json);
   },
 
-  deleteSongAudio: (id: string): Promise<Song> =>
-    f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
-
   /** The track's shape; the backend measures it the first time and keeps it. */
   getSongEnvelope: (id: string): Promise<SongEnvelope> =>
     f(`/api/songs/${id}/envelope`).then(json),

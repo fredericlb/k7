@@ -166,15 +166,9 @@ export function SongDetailContainer({
     onChange();
   };
 
-  // "Replace the track…" in the ⋮ menu — a straight swap, no pipeline involved.
+  // "Add a track…" in the ⋮ menu, once the insert was ignored — no pipeline involved.
   const handleUploadAudio = async (file: File) => {
     const updated = await api.uploadSongAudio(songId, file);
-    setSong(updated);
-    onChange();
-  };
-
-  const handleDeleteAudio = async () => {
-    const updated = await api.deleteSongAudio(songId);
     setSong(updated);
     onChange();
   };
@@ -279,7 +273,6 @@ export function SongDetailContainer({
       onDeleteSheet={handleDeleteSheet}
       sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
       onUploadAudio={handleUploadAudio}
-      onDeleteAudio={handleDeleteAudio}
       onToggleFavorite={handleToggleFavorite}
       onMixInstrumental={handleMixInstrumental}
       onDelete={handleDelete}

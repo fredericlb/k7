@@ -214,15 +214,6 @@ songsRouter.post(
   }),
 );
 
-songsRouter.delete(
-  "/:sid/audio",
-  wrap(async (req, res) => {
-    const song = await store.deleteSongAudio(req.params.sid);
-    if (!song) return res.status(404).json({ error: "not found" });
-    await sendSong(req, res);
-  }),
-);
-
 // --- Linked to pl8's library: the track, and the instrumental beside its stems; the page streams both from pl8 — ../../docs/audio.md.
 
 const libraryFileBody = z.object({ path: z.string().min(1) });
