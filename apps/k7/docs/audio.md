@@ -357,9 +357,12 @@ often than a track to play along to, so it is asked for rather than ridden along
   song with no lyrics gets the fetched lines themselves, timed. No version of this song, or one that
   times nothing, leaves the sheet as it was, marked « unmatched », which the insert under the title
   says — with how to type the times in by hand. Lyrics already timed are left alone.
-- **"Run the pipeline again"**, in the ⋮ menu, redoes every step not done yet, and searches lyrics
-  again whenever they are not timed. A fresh start never resumes a stored hunt or separation id:
-  the one stored may be the one that failed, and resuming it would fail again.
+- **"Run the pipeline again"**, in the ⋮ menu, first UNLINKS the song's library track and its
+  instrumental (the library keeps both files), then runs every step from the search: asked for
+  again, the pipeline must be free to find another recording than the one an earlier run linked.
+  Lyrics are searched again whenever they are not timed. A fresh start never resumes a stored hunt
+  or separation id: the one stored may be the one that failed, and resuming it would fail again.
+- **Retry**, under the title after a failure, keeps the track and redoes only what is not done.
 - **"Resync lyrics"**, in the ⋮ menu, is the lyrics step alone and on timed lyrics too: it takes
   every code off, then times the lyrics off LRCLIB again. The re-run skips lyrics that are already
   timed, because codes typed or fixed by hand must not be overwritten by an unasked search.

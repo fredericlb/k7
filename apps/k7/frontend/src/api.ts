@@ -467,6 +467,10 @@ export const api = {
     ).then(json),
 
   // "Fetch song": a library master copied in as the track, and an instrumental mixed from its stems.
+  // The song forgets its library track and instrumental; pl8 keeps the files.
+  unlinkSongAudio: (id: string): Promise<Song> =>
+    f(`/api/songs/${id}/audio`, { method: "DELETE" }).then(json),
+
   copyLibraryTrack: (id: string, path: string): Promise<Song> =>
     f(`/api/songs/${id}/audio/from-library`, {
       method: "POST",

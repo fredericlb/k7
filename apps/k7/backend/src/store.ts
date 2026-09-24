@@ -1762,6 +1762,21 @@ export async function setSongAudio(uid, { buffer, mime, name }) {
   return linkSongAudio(uid, { path: master, mime, name });
 }
 
+/** The song stops pointing at its library track and instrumental; the library keeps both files. */
+export async function unlinkSongAudio(uid) {
+  const rec = await getSongRecord(uid);
+  if (!rec) return null;
+  await db.patchRecord("Songs", rec.id, {
+    AudioPath: "",
+    AudioMime: "",
+    AudioName: "",
+    Envelope: "",
+  });
+  await clearInstrumental(uid, rec);
+  invalidateSong(uid);
+  return getSong(uid);
+}
+
 // --- The instrumental: the one an engine's chain wrote beside the library song's stems ------------
 
 /** Forget a song's instrumental link — also what a new track calls; the library keeps the file. */
