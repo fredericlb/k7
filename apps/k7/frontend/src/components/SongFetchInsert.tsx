@@ -46,42 +46,28 @@ export function SongFetchInsert({
 
   if (song.audio) {
     // A track exists: this insert only has something to say while stemming/lyrics are still
-    // running, once a later step failed, or once lyrics need a human's eye.
+    // running, or once a later step failed. Lyrics nobody could time are not its business.
     if (running) return <FetchStepper {...song.fetchStatus} />;
-    const failed = phase === "failed" && error !== "";
-    const unmatched = song.lyricsMatch === "unmatched";
-    if (!failed && !unmatched) return null;
+    if (phase !== "failed" || error === "") return null;
     return (
       <div className="song-fetch-insert">
-        {failed && (
-          <p className="song-fetch-insert-text song-fetch-error">{error}</p>
-        )}
-        {failed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="song-fetch-btn"
-            onClick={onRetry}
-          >
-            <RotateCw className="size-4" /> {m["fetch.retry"]()}
-          </Button>
-        )}
-        {/* Said, not a button: the times are typed into the lyrics, `{{MM:SS}}` at the start of a line. */}
-        {unmatched && (
-          <p className="song-fetch-insert-text muted">
-            {m["fetch.lyricsUnmatched"]({ code: "{{MM:SS}}" })}
-          </p>
-        )}
-        {failed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="song-fetch-btn"
-            onClick={onDismiss}
-          >
-            <X className="size-4" /> {m["fetch.dismiss"]()}
-          </Button>
-        )}
+        <p className="song-fetch-insert-text song-fetch-error">{error}</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="song-fetch-btn"
+          onClick={onRetry}
+        >
+          <RotateCw className="size-4" /> {m["fetch.retry"]()}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="song-fetch-btn"
+          onClick={onDismiss}
+        >
+          <X className="size-4" /> {m["fetch.dismiss"]()}
+        </Button>
       </div>
     );
   }

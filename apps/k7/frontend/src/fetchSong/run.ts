@@ -224,7 +224,7 @@ export type LyricsSteps = Pick<
  * Times the lyrics off LRCLIB: each fetched line's `{{MM:SS.cc}}` goes in front of the closest sheet
  * line, in order, and not a word of the sheet changes (`timeLyrics`, ../../../docs/lyricsTiming.md).
  * A song with no lyrics gets the fetched ones, timed. A version that is not this song (its artist and
- * title), or that times nothing, is never applied — that is « unmatched », which the insert SAYS.
+ * title), or that times nothing, is never applied — that is « unmatched ».
  * A version of this song LRCLIB lists as instrumental makes it « instrumental »: nothing to time.
  * The song returned carries its new `lyricsMatch`, which the pipeline's next step reads.
  */
