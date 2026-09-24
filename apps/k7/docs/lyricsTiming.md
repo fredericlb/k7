@@ -63,7 +63,8 @@ stopping there left a famous song « unmatched » with nineteen good versions be
 
 LRCLIB's timings are crowdsourced and uneven, so only a version of THIS song (its artist and title)
 is ever applied, and what it writes is plain text a hand can correct afterwards. When nothing
-applies, the insert under the title says so, and how to time a line by hand.
+applies, the song simply has no times, and nothing under the title says so: the lyrics editor's
+hint is where timing a line by hand is explained.
 
 ## Which line gets which time
 
