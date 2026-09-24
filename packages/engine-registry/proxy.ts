@@ -6,6 +6,8 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import { request as httpRequest } from "node:http";
 import type { Socket } from "node:net";
+import type { TunnelChannel } from "@studio/engine-tunnel/channel";
+import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import {
   ENGINE_DIAL_TIMEOUT_MS,
   ENGINE_REACH_BUDGET_MS,
@@ -67,8 +69,23 @@ const hostsFor = (e: EngineEntry): string[] => [
   ...e.addresses.lanIps,
 ];
 
+/** What the relay pipes to: a socket it dialled, or a channel through the engine's own tunnel. */
+type Upstream = WebSocket | TunnelChannel;
+
+/** The engine's tunnel first — it reaches an engine behind any NAT — then every address in turn. */
+async function dial(
+  e: EngineEntry,
+  tunnels?: TunnelHub,
+): Promise<Upstream | null> {
+  if (tunnels?.has(e.id)) {
+    const ch = await tunnels.openReady(e.id, [], ENGINE_REACH_BUDGET_MS);
+    if (ch) return ch;
+  }
+  return dialDirect(e);
+}
+
 /** Open the first address that answers, in order and sequentially, within ONE budget for the whole list — see docs/proxy.md. */
-async function dial(e: EngineEntry): Promise<WebSocket | null> {
+async function dialDirect(e: EngineEntry): Promise<WebSocket | null> {
   const deadline = Date.now() + ENGINE_REACH_BUDGET_MS;
   for (const host of hostsFor(e)) {
     const left = deadline - Date.now();
@@ -107,8 +124,8 @@ async function dial(e: EngineEntry): Promise<WebSocket | null> {
 }
 
 // Frames each way, either close ending both; the relay reads nothing, since what travels is the browser's business.
-function pipe(client: WebSocket, upstream: WebSocket): void {
-  const shut = (ws: WebSocket) => {
+function pipe(client: WebSocket, upstream: Upstream): void {
+  const shut = (ws: Upstream) => {
     try {
       ws.close();
     } catch {
@@ -119,7 +136,7 @@ function pipe(client: WebSocket, upstream: WebSocket): void {
     if (upstream.readyState === WebSocket.OPEN)
       upstream.send(d, { binary: isBinary });
   });
-  upstream.on("message", (d, isBinary) => {
+  upstream.on("message", (d: WebSocket.RawData, isBinary: boolean) => {
     if (client.readyState === WebSocket.OPEN)
       client.send(d, { binary: isBinary });
   });
@@ -135,7 +152,11 @@ const deny = (socket: Socket, status: string): void => {
 };
 
 /** Relay `/api/engine/<id>/ws` to the engine itself, attached to the HTTP SERVER because an upgrade skips Express — see docs/proxy.md. */
-export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
+export function attachEngineProxy(
+  server: Server,
+  reg: EngineRegistry,
+  tunnels?: TunnelHub,
+): void {
   const wss = new WebSocketServer({ noServer: true });
 
   /** Hand an upgrade we do not serve to whoever else might, or close it — Node cleans up an unclaimed socket only when NO listener exists. */
@@ -144,6 +165,7 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
   };
 
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    if (tunnels?.handle(req, socket, head)) return;
     let url: URL;
     try {
       url = new URL(req.url || "", "http://localhost");
@@ -166,7 +188,7 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
         pending.push({ data, binary });
       client.on("message", hold);
 
-      void dial(engine).then((upstream) => {
+      void dial(engine, tunnels).then((upstream) => {
         if (!upstream) {
           client.close(1011, "engine unreachable from the server");
           return;

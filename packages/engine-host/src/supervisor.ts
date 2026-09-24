@@ -53,6 +53,7 @@ import {
   setRegistryFetch,
 } from "./registryClient.ts";
 import { loadSettings, type Settings, saveSettings } from "./settings.ts";
+import { Tunnels } from "./tunnels.ts";
 import {
   addOrigin,
   clearPending,
@@ -277,6 +278,11 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   };
 
   const engine = new EngineQueries(settings.port);
+  // The way IN for a server that cannot dial this machine — packages/engine-tunnel/docs/tunnel.md.
+  const tunnels = new Tunnels(
+    () => state.identity,
+    () => state.settings.port,
+  );
 
   // Declared up front: `shutdown` clears them and can fire from listen's end callback before the loops are installed.
   let beatTimer: NodeJS.Timeout | undefined;
@@ -528,6 +534,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
 
   // Gated on the PIDFILE rather than our own status: it is ground truth across a crash we haven't noticed yet.
   const beat = async (): Promise<void> => {
+    tunnels.sync(state.registryUrls);
     if (!engineRunning()) {
       state.lastHeartbeatOk = false;
       publish();
@@ -857,6 +864,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     clearInterval(editPluginsTimer);
     clearInterval(sessionsTimer);
     clearTimeout(pluginsTimer);
+    tunnels.stopAll();
     engine.close();
     // Deregister FIRST, while the entry still means something — but bounded, or a hung registry hangs the tray's Quit.
     await Promise.race([
