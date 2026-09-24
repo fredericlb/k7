@@ -86,7 +86,7 @@
   "fetch.noSeparation": "pl8 did not start the separation.",
   "fetch.notFiledYet": "The song was fetched but is not in the library yet — try again in a moment.",
   "fetch.notFound": "Soulseek did not find this song.",
-  "fetch.notInLibrary": "No « {artist} – {title} » in pl8's library: this song still plays an old copy of its own, and the instrumental is made from the library's. Check the artist and title against the library (⋮ › Edit artist and title…), or fetch the song.",
+  "fetch.noTrack": "This song has no track from pl8's library yet — fetch the song first.",
   "fetch.question": "No song file yet — what should we do?",
   "fetch.retry": "Retry",
   "fetch.searching": "Searching Soulseek…",
