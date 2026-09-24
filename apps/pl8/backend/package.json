@@ -15,6 +15,7 @@
     "@frediverse/oidc": "*",
     "@studio/audio-analysis": "*",
     "@studio/engine-registry": "*",
+    "@studio/file-hub": "*",
     "@studio/git-repos": "*",
     "@studio/mediatek": "*",
     "@studio/mpv-player": "*",

@@ -627,6 +627,10 @@ export const USER_HEADER = "x-studio-user";
 export const WORKSPACE_HEADER = "x-studio-workspace";
 /** The engine's token (from the whoami probe) — the file service's light LAN gate. */
 export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
+/** Which engine the caller drives — how a SERVER-hosted file service learns where to send the song. */
+export const ENGINE_ID_HEADER = "x-studio-engine-id";
+/** The file hub's secret, the ONLY gate of a server-hosted file service — packages/file-hub/docs/fileHub.md. */
+export const HUB_SECRET_HEADER = "x-studio-hub-secret";
 
 // ── The engine assignment ────────────────────────────────────────────────────
 

@@ -25,12 +25,13 @@ import {
 // st0's plugin contributions — commands and surface types — before anything reads a catalogue
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/st0-plugins/server";
-import type {
-  ColdChainsReply,
-  MachineWorkspaceList,
-  ServedProjectReply,
-  SurfacedProjectList,
-  WorkspaceList,
+import {
+  type ColdChainsReply,
+  HUB_SECRET_HEADER,
+  type MachineWorkspaceList,
+  type ServedProjectReply,
+  type SurfacedProjectList,
+  type WorkspaceList,
 } from "@studio/web-protocol";
 import { BENCH_PROJECT, isBenchProject } from "@studio/web-protocol/projects";
 import cors from "cors";
@@ -56,9 +57,10 @@ import {
   showNativePluginUIOf,
   unloadEngineIfServing,
 } from "./engineLink.ts";
+import { HOSTED, hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import { librariesUri, setLibrariesUri } from "./libraries.ts";
-import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { startMediatekPuller } from "./mediatekPull.ts";
+import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { resolvePlugin } from "./pluginRef.ts";
@@ -92,31 +94,34 @@ installProcessNet();
 const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
 const ENGINE_PORT = Number(process.env.STUDIO_ENGINE_PORT || 8765);
 
-// The media this host plays is its CACHE of the médiathèque; the sockets go beside the workspaces.
-configureMpv({ mediaRoot: mediatekRoot, socketDir: rootDir });
+// The media this host plays is its CACHE of the médiathèque; a hosted service has no speakers.
+if (!HOSTED) configureMpv({ mediaRoot: mediatekRoot, socketDir: rootDir });
 
 const app = express();
 
 // Never reflect an arbitrary origin, and record a refusal for the tray — see docs/corsAndOrigins.md.
-app.use(
-  cors({
-    origin: (o, cb) => {
-      const ok = allowedOrigin(o);
-      if (!ok) recordRefusedOrigin(o);
-      cb(null, ok);
-    },
-    credentials: false,
-  }),
-);
-// Any OPTIONS here was refused above, and running on returns a 401 that lies: a preflight carries no header.
-app.use((req, res, next) => {
-  if (req.method !== "OPTIONS") return next();
-  res.status(403).json({
-    error: "origin not allowed",
-    origin: req.get("origin") ?? null,
-    hint: "allow it from the tray: Settings… ▸ st0 instances ▸ the blocked origin",
+// A hosted service is reached through its hub alone, which answers the browser's CORS itself.
+if (!HOSTED) {
+  app.use(
+    cors({
+      origin: (o, cb) => {
+        const ok = allowedOrigin(o);
+        if (!ok) recordRefusedOrigin(o);
+        cb(null, ok);
+      },
+      credentials: false,
+    }),
+  );
+  // Any OPTIONS here was refused above, and running on returns a 401 that lies: a preflight carries no header.
+  app.use((req, res, next) => {
+    if (req.method !== "OPTIONS") return next();
+    res.status(403).json({
+      error: "origin not allowed",
+      origin: req.get("origin") ?? null,
+      hint: "allow it from the tray: Settings… ▸ st0 instances ▸ the blocked origin",
+    });
   });
-});
+}
 
 app.use(express.json({ limit: "8mb" }));
 
@@ -140,7 +145,10 @@ app.get(
     const user = String(req.query.user ?? "");
     const workspace = String(req.query.workspace ?? "");
     const path = String(req.query.path ?? "");
-    if (!mediaTokenOk(String(req.query.token ?? ""))) {
+    const allowed = HOSTED
+      ? hubSecretOk(req.get(HUB_SECRET_HEADER))
+      : mediaTokenOk(String(req.query.token ?? ""));
+    if (!allowed) {
       res.status(401).json({ error: "bad or missing engine token" });
       return;
     }
@@ -170,8 +178,9 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-// --- Everything below is header-gated: engine token + identity ---
-app.use(requireEngineToken);
+// --- Everything below is header-gated: engine token (or the hub's secret) + identity ---
+app.use(HOSTED ? requireHubSecret : requireEngineToken);
+if (HOSTED) app.use(hubRouter());
 app.use(resolveUser);
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
@@ -383,7 +392,7 @@ app.get(
 app.use(mediatekRouter);
 
 // Play a song on THIS machine's outputs, without the engine and without a project — @studio/mpv-player.
-app.use(createPlayerRouter((req) => req.userEmail!));
+if (!HOSTED) app.use(createPlayerRouter((req) => req.userEmail!));
 
 // An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);
@@ -613,23 +622,11 @@ app.post(
 // Everything else needs a resolved workspace on req.ws.
 app.use(resolveWorkspace, filesRouter);
 
-app.listen(FILE_PORT, "0.0.0.0", () => {
-  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
-  // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
-  installModuleWatch();
-  // Same for the media library, tolerated rather than required: its root may be an unmounted drive.
-  try {
-    console.log(`   mediatek: ${ensureLayout()}`);
-  } catch (e) {
-    console.warn(`   mediatek unavailable: ${(e as Error).message}`);
-  }
-  console.log(`📁 st0 file service on http://0.0.0.0:${FILE_PORT}`);
-  console.log(`   root: ${rootDir()}`);
-  // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
-  syncAllRepos();
+/** What only the engine's own machine does at boot: warn when ungated, dial the engine, pull the médiathèque. */
+function startOnEngineMachine(): void {
   // Log the effective policy: a bad allowlist otherwise surfaces only as an unexplained browser failure.
   console.log(`   cors: ${originPolicySummary()}`);
-  // …and out loud when nothing gates the routes: this binds 0.0.0.0, so an open run is open on the LAN.
+  // Out loud when nothing gates the routes: this binds 0.0.0.0, so an open run is open on the LAN.
   const tok = engineTokenState();
   if (tok.k === "none")
     console.warn(
@@ -641,6 +638,28 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   setSelectedEngine(`ws://127.0.0.1:${ENGINE_PORT}`);
   // Keep the médiathèque cache in step with the hosted library, for what the open songs name.
   startMediatekPuller();
+}
+
+// Loopback when hosted: its only caller is the hub beside it.
+const HOST = HOSTED ? "127.0.0.1" : "0.0.0.0";
+app.listen(FILE_PORT, HOST, () => {
+  mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
+  // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
+  installModuleWatch();
+  // Same for the media library, tolerated rather than required: its root may be an unmounted drive.
+  try {
+    console.log(`   mediatek: ${ensureLayout()}`);
+  } catch (e) {
+    console.warn(`   mediatek unavailable: ${(e as Error).message}`);
+  }
+  console.log(
+    `📁 st0 file service on http://${HOST}:${FILE_PORT}${HOSTED ? " (hosted)" : ""}`,
+  );
+  console.log(`   root: ${rootDir()}`);
+  // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
+  syncAllRepos();
+  // Hosted, the engine comes from the hub and the médiathèque is already on this server's disk.
+  if (!HOSTED) startOnEngineMachine();
   // Reap engine sockets nobody has used in minutes — an abandoned link re-dials forever, see pruneIdleLinks.
   setInterval(() => {
     for (const s of pruneIdleLinks())

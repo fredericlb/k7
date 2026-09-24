@@ -1,0 +1,175 @@
+// instances.ts — one file-service PROCESS per account, started on first use and stopped when
+// idle. A process rather than a shared service because the file service holds one person's
+// state in module globals (the owner, the pattern clock, the watchers), and a process boundary
+// is the one isolation that cannot be forgotten. See docs/fileHub.md.
+
+import { type ChildProcess, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { createServer } from "node:net";
+import { dirname, join, resolve } from "node:path";
+import { slugify } from "@studio/engine-client/paths";
+
+export interface Instance {
+  user: string;
+  slug: string;
+  /** The account's `$STUDIO_HOME` on this server. */
+  home: string;
+  port: number;
+  secret: string;
+  child: ChildProcess;
+  lastUsed: number;
+  /** The engine this instance drives, and the loopback path the tunnel hub bound for it. */
+  engineId: string | null;
+  localPath: string | null;
+  /** Bindings run one at a time, chained here. */
+  binding: Promise<void>;
+}
+
+export interface InstancesOptions {
+  /** Every account's state lives under here, one folder per account. */
+  dataRoot: string;
+  /** The shared médiathèque, if this server holds one. */
+  mediatekRoot?: string;
+  /** How to run the file service; the default is tsx over its own source. */
+  command?: () => { cmd: string; args: string[]; cwd: string };
+  readyTimeoutMs?: number;
+  log?: (msg: string) => void;
+  /** Told when an instance is gone, for the binding it held. */
+  onExit?: (inst: Instance) => void;
+}
+
+/** tsx over `@studio/file-service`'s entry, resolved from here so the image needs no path configured. */
+function defaultCommand(): { cmd: string; args: string[]; cwd: string } {
+  const req = createRequire(import.meta.url);
+  const pkg = dirname(req.resolve("@studio/file-service/package.json"));
+  return {
+    cmd: process.execPath,
+    args: [req.resolve("tsx/cli"), join(pkg, "src", "server.ts")],
+    cwd: pkg,
+  };
+}
+
+function freePort(): Promise<number> {
+  return new Promise((res, rej) => {
+    const s = createServer();
+    s.once("error", rej);
+    s.listen(0, "127.0.0.1", () => {
+      const port = (s.address() as { port: number }).port;
+      s.close(() => res(port));
+    });
+  });
+}
+
+async function waitHealthy(
+  port: number,
+  child: ChildProcess,
+  timeoutMs: number,
+): Promise<void> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (child.exitCode !== null)
+      throw new Error(`file service exited (${child.exitCode})`);
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/health`);
+      if (r.ok) return;
+    } catch {
+      /* not listening yet */
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  child.kill();
+  throw new Error(`file service did not answer within ${timeoutMs} ms`);
+}
+
+export class Instances {
+  private readonly byUser = new Map<string, Promise<Instance>>();
+  private readonly log: (msg: string) => void;
+
+  constructor(private readonly opts: InstancesOptions) {
+    this.log = opts.log ?? ((m) => console.log(`files | ${m}`));
+  }
+
+  /** The account's instance, started if it has none; concurrent callers share one start. */
+  get(user: string): Promise<Instance> {
+    let p = this.byUser.get(user);
+    if (!p) {
+      p = this.start(user);
+      this.byUser.set(user, p);
+      p.catch(() => this.byUser.delete(user));
+    }
+    return p.then((inst) => {
+      inst.lastUsed = Date.now();
+      return inst;
+    });
+  }
+
+  private async start(user: string): Promise<Instance> {
+    const slug = slugify(user);
+    const home = join(resolve(this.opts.dataRoot), slug);
+    mkdirSync(home, { recursive: true });
+    const port = await freePort();
+    const secret = randomBytes(32).toString("hex");
+    const { cmd, args, cwd } = (this.opts.command ?? defaultCommand)();
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      STUDIO_HOME: home,
+      STUDIO_FILE_PORT: String(port),
+      STUDIO_FILE_HOSTED: "1",
+      STUDIO_HUB_SECRET: secret,
+    };
+    delete env.STUDIO_ENGINE_TOKEN;
+    if (this.opts.mediatekRoot) env.STUDIO_MEDIATEK = this.opts.mediatekRoot;
+    const child = spawn(cmd, args, {
+      cwd,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const relay = (chunk: Buffer) => {
+      for (const l of chunk.toString("utf8").split(/\r?\n/))
+        if (l.trim()) this.log(`[${slug}] ${l}`);
+    };
+    child.stdout?.on("data", relay);
+    child.stderr?.on("data", relay);
+    const inst: Instance = {
+      user,
+      slug,
+      home,
+      port,
+      secret,
+      child,
+      lastUsed: Date.now(),
+      engineId: null,
+      localPath: null,
+      binding: Promise.resolve(),
+    };
+    // An orphan would keep its port and its engine link after the hub is gone.
+    const orphanGuard = () => child.kill();
+    process.once("exit", orphanGuard);
+    child.on("exit", (code) => {
+      process.off("exit", orphanGuard);
+      this.log(`[${slug}] exited (${code})`);
+      void this.byUser.get(user)?.then((current) => {
+        if (current === inst) this.byUser.delete(user);
+      });
+      this.opts.onExit?.(inst);
+    });
+    await waitHealthy(port, child, this.opts.readyTimeoutMs ?? 60_000);
+    this.log(`[${slug}] up on ${port}`);
+    return inst;
+  }
+
+  /** Stop what nobody asked for in `idleMs`; the next request starts it again. */
+  async reap(idleMs: number, now = Date.now()): Promise<void> {
+    for (const p of [...this.byUser.values()]) {
+      const inst = await p.catch(() => null);
+      if (inst && now - inst.lastUsed >= idleMs) inst.child.kill();
+    }
+  }
+
+  async stopAll(): Promise<void> {
+    for (const p of [...this.byUser.values()])
+      (await p.catch(() => null))?.child.kill();
+  }
+}

@@ -218,6 +218,12 @@ export function setSelectedEngine(url: string): void {
   for (const session of [...links.keys()]) dropLink(session);
 }
 
+/** Drive no engine at all — a hosted file service between two bindings, packages/file-hub/docs/fileHub.md. */
+export function clearSelectedEngine(): void {
+  selectedEngineUrl = undefined;
+  for (const session of [...links.keys()]) dropLink(session);
+}
+
 /** The socket for one session, opened on first use — the workspace is REQUIRED, docs/activeProject.md. */
 export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
   if (!selectedEngineUrl) return undefined;

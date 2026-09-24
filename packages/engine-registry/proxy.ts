@@ -206,7 +206,7 @@ export function attachEngineProxy(
 }
 
 /** What a body parser in FRONT of this route already swallowed, ready to send again, or null when the stream is still ours — see docs/proxy.md. */
-function replayBody(req: {
+export function replayBody(req: {
   readableEnded: boolean;
   body?: unknown;
 }): Buffer | null {
