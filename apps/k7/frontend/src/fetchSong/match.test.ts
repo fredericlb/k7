@@ -44,6 +44,32 @@ describe("findLibrarySong", () => {
     );
   });
 
+  it("finds the same title by an artist a typo away", () => {
+    // The songbook had « José Gonzales », the library « José González »: every word could not be found.
+    const withGonzalez = [
+      ...library,
+      song(
+        "songs/Jose Gonzalez/Live at the 9.30 Club Washington/Heartbeats",
+        "Heartbeats",
+        "José González",
+      ),
+    ];
+    expect(
+      findLibrarySong(withGonzalez, "José Gonzales", "Heartbeats")?.path,
+    ).toBe("songs/Jose Gonzalez/Live at the 9.30 Club Washington/Heartbeats");
+  });
+
+  it("never takes another band's song for a typo, nor another title", () => {
+    const cars = [
+      ...library,
+      song("songs/The Cars/Album/Drive", "Drive", "The Cars"),
+    ];
+    expect(findLibrarySong(cars, "The Doors", "Drive")).toBeUndefined();
+    expect(
+      findLibrarySong(library, "Nina Simon", "Sinnerman 2"),
+    ).toBeUndefined();
+  });
+
   it("skips a song with no master and answers nothing when nothing fits", () => {
     expect(findLibrarySong(library, "Empty", "No Master")).toBeUndefined();
     expect(findLibrarySong(library, "Nobody", "Nothing")).toBeUndefined();

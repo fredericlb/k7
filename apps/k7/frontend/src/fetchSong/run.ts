@@ -172,19 +172,35 @@ export async function makeInstrumental(
   steps: InstrumentalSteps,
   resumeJobId?: string,
 ): Promise<InstrumentalOutcome> {
-  const entry = await inLibrary(steps, song);
-  if (!entry) throw new Error(m["fetch.notInLibrary"]());
+  const source = await librarySource(steps, song);
   if (song.instrumental) return { instrumental: true };
 
-  if (!(await instrumentalReady(steps, masterPath(entry), resumeJobId)))
+  if (!(await instrumentalReady(steps, source.master, resumeJobId)))
     return {
       instrumental: false,
       note: m["fetch.noEngine"](),
     };
 
   steps.onPhase(m["fetch.copyInstrumental"]());
-  const updated = await steps.mixInstrumental(entry.path);
+  const updated = await steps.mixInstrumental(source.folder);
   return { instrumental: true, song: updated };
+}
+
+/** The library master the stems are cut from: the one the song PLAYS when it links one, else the song found by name. */
+async function librarySource(
+  steps: Common,
+  song: Song,
+): Promise<{ master: string; folder: string }> {
+  const linked = song.audio?.path ?? "";
+  // A track linked from the library is its own answer: the stems are then this very recording's.
+  if (linked.startsWith("songs/"))
+    return { master: linked, folder: linked.slice(0, linked.lastIndexOf("/")) };
+  const entry = await inLibrary(steps, song);
+  if (!entry)
+    throw new Error(
+      m["fetch.notInLibrary"]({ artist: song.artist, title: song.title }),
+    );
+  return { master: masterPath(entry), folder: entry.path };
 }
 
 export interface PipelineSteps extends Common {
@@ -214,9 +230,11 @@ export async function syncLyrics(
 ): Promise<Song> {
   steps.onPhase(m["fetch.lyrics"]());
   steps.onStatus?.({ phase: "matching-lyrics" });
-  const best = (await steps.findLrc())[0];
-  const ours =
-    best && matches(song.artist, song.title, best.artistName, best.trackName);
+  // The nearest version that IS this song: LRCLIB's first answer can be credited « Oasis/oasis ».
+  const best = (await steps.findLrc()).find((c) =>
+    matches(song.artist, song.title, c.artistName, c.trackName),
+  );
+  const ours = best !== undefined;
   if (ours && best.instrumental) {
     steps.onStatus?.({ lyricsMatch: "instrumental" });
     return { ...song, lyricsMatch: "instrumental" };

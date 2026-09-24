@@ -21,6 +21,11 @@ function pl8Base(): Promise<string> {
   return base;
 }
 
+/** Where the browser streams a médiathèque file from pl8 itself, with Range; a FLAC comes as its MP3. */
+export async function pl8StreamUrl(path: string): Promise<string> {
+  return `${await pl8Base()}/api/mediatek/stream?path=${encodeURIComponent(path)}`;
+}
+
 /** A pl8 call with the session; its error text surfaces as is, pl8's wording being the useful one. */
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const pl8Url = await pl8Base();

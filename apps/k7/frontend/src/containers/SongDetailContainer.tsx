@@ -85,7 +85,16 @@ export function SongDetailContainer({
         adopt(await api.copyLibraryTrack(songId, path)),
       mixInstrumental: async (folder) =>
         adopt(await api.mixInstrumental(songId, folder)),
-      findLrc: (duration) => api.searchLrclib(songId, duration),
+      // The track's length ranks LRCLIB's versions, so a live cut does not time the album take.
+      findLrc: async (duration) =>
+        api.searchLrclib(
+          songId,
+          duration ??
+            (await api
+              .getSongEnvelope(songId)
+              .then((s) => s.seconds)
+              .catch(() => undefined)),
+        ),
       // The timecodes are IN the text now: a timing stored beside it would only disagree with them.
       onLrc: async (lyrics) =>
         adopt(await api.updateSong(songId, { lyrics, lyricTimings: [] })),
@@ -242,6 +251,12 @@ export function SongDetailContainer({
     })();
   };
 
+  // The ⋮ menu's popin: a failure is thrown back to it, where it is shown.
+  const handleRename = async (artist: string, title: string) => {
+    adopt(await api.updateSong(songId, { artist, title }));
+    onChange();
+  };
+
   const handleDismissFailure = () => {
     void onStatus({ phase: "", error: "" });
   };
@@ -265,10 +280,8 @@ export function SongDetailContainer({
       sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
       onUploadAudio={handleUploadAudio}
       onDeleteAudio={handleDeleteAudio}
-      audioUrl={api.songAudioUrl(songId)}
       onToggleFavorite={handleToggleFavorite}
       onMixInstrumental={handleMixInstrumental}
-      instrumentalUrl={api.songInstrumentalUrl(songId)}
       onDelete={handleDelete}
       onBack={onBack}
       onDownload={handleDownload}
@@ -276,6 +289,7 @@ export function SongDetailContainer({
       onIgnore={handleIgnore}
       onRerun={handleRerun}
       onResyncLyrics={handleResyncLyrics}
+      onRename={handleRename}
       onDismissFailure={handleDismissFailure}
     />
   );

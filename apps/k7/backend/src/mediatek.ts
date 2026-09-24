@@ -78,6 +78,27 @@ export async function pushVersion(
 /** The one artist k7 publishes under; who actually played is release metadata. */
 export const ARTIST = "K7";
 
+// The album an uploaded songbook track is filed under: its own folder, so it never collides with a catalogue song.
+const UPLOAD_ALBUM = "k7";
+
+/** File an uploaded songbook track in the library as this song; its master's path is what the song links to. */
+export async function pushSongTrack(
+  bytes: Uint8Array,
+  tags: { filename: string; artist: string; title: string },
+): Promise<string> {
+  const { master } = await pushSong(cfg(), {
+    filename: tags.filename,
+    bytes,
+    artist: tags.artist,
+    album: UPLOAD_ALBUM,
+    title: tags.title,
+    source: "k7",
+    // Only k7's own upload folder is ever replaced, never a catalogue song's.
+    replace: true,
+  });
+  return master;
+}
+
 /** Write a file at a chosen path, reserved for what this service created itself. */
 export async function putFile(
   path: string,

@@ -2,10 +2,10 @@
 // and nothing that changes the file, which the ⋮ menu owns. On desktop it is a panel of the page's
 // right rail; on a narrow screen it stays in the flow.
 //
-// The `<audio>` element is still the transport, drawn by nobody: the shape comes from the
-// backend, which measures it once, and a click on it seeks AND plays. Collapsing the panel
-// HIDES this element and never unmounts it: the music must not stop, and the timed lyrics
-// follow it. Why the bytes are in the médiathèque: ../../docs/audio.md.
+// The `<audio>` element is still the transport, drawn by nobody: it streams from pl8, the shape
+// comes from the backend, and a click on it seeks AND plays. Collapsing the panel HIDES this
+// element and never unmounts it: the music must not stop, and the timed lyrics follow it.
+// Why k7 keeps no copy of the bytes: ../../docs/audio.md.
 
 import { Button } from "@frediverse/ui/button";
 import { Headphones, Pause, Play } from "@frediverse/ui/icons";
@@ -14,16 +14,14 @@ import { Waveform } from "@k7/recorder";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePitchShift } from "../hooks/usePitchShift";
+import { usePl8Stream } from "../hooks/usePl8Stream";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongEnvelope } from "../types";
 
 interface Props {
   song: Song;
-  audioUrl: string;
   /** The `<audio>` element, for the lyrics that follow and seek it. */
   audioRef?: React.RefObject<HTMLAudioElement | null>;
-  /** Where the instrumental plays from, when the song has one. */
-  instrumentalUrl?: string;
   /** Semitones the song is read in: the track follows, its tempo untouched. */
   transpose?: number;
   /** Draw it as a rail panel with its own toggle, rather than in the page's flow. */
@@ -34,9 +32,7 @@ interface Props {
 
 export function SongPlayer({
   song,
-  audioUrl,
   audioRef,
-  instrumentalUrl,
   transpose = 0,
   floating = false,
   open = true,
@@ -51,6 +47,9 @@ export function SongPlayer({
     "original",
   );
   const resume = useRef<{ at: number; playing: boolean } | null>(null);
+  // Both stream from pl8, where the library keeps them: k7 has no copy of either.
+  const audioUrl = usePl8Stream(song.audio?.path);
+  const instrumentalUrl = usePl8Stream(song.instrumental?.path);
   const instrumental =
     song.instrumental && instrumentalUrl ? song.instrumental : null;
   const playing =
@@ -127,11 +126,11 @@ export function SongPlayer({
       <audio
         ref={element}
         crossOrigin="use-credentials"
-        // The name is in the URL's query so a replaced track is not the cached one.
+        // A replaced track is another library path, so another URL: nothing stale to bust.
         src={
-          playing === "instrumental" && instrumental
-            ? `${instrumentalUrl}?v=${encodeURIComponent(instrumental.name)}`
-            : `${audioUrl}?v=${encodeURIComponent(song.audio.name)}`
+          (playing === "instrumental" && instrumentalUrl) ||
+          audioUrl ||
+          undefined
         }
         onLoadedMetadata={(e) => {
           const r = resume.current;

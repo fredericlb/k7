@@ -177,24 +177,18 @@ at a time**: starting one pauses the one before, because two masters at once is 
 ## A songbook song's reference track
 
 A song in the songbook carries at most one recording — the take you play along to while
-reading its chords. It lives at `recordings/songbook/<song uid>.<ext>`, and the row keeps
-`AudioPath` / `AudioMime` / `AudioName` the way a session keeps its own.
-
-Two places it deliberately is NOT:
+reading its chords. It is a **song of pl8's library**, and the row keeps its path with
+`AudioPath` / `AudioMime` / `AudioName`; the page streams it from pl8, k7 keeping no copy.
 
 - **Not a `song_sheets` record**, unlike the sheet files. The rule above holds: metadata in
   PocketBase, bytes in the médiathèque. A sheet is a page; this is a whole track.
-- **Not in the `songs/` family**, which is what it most looks like — it has an artist and a
-  title. Filing it there would mean writing into the catalogue under the REAL artist, where
-  a song of that name may already exist, and replacing it. A reference track is the
-  songbook's, not the library's, and no upload here may overwrite a catalogued song.
+- **An upload is filed under the album `k7`**, never under the catalogue's albums: writing
+  under the REAL album, where a song of that name may already be, would replace it. No upload
+  here may overwrite a catalogued song; replacing an upload only overwrites k7's own folder.
+- **A path under `recordings/songbook/`** is a copy an older k7 made for itself. It still plays
+  (the médiathèque serves it like any file) and is deleted when the song drops it.
 
-Its own path, keyed by the song, is what makes a re-upload an overwrite and a delete exact.
-A track uploaded in a different container leaves the previous file behind under a name
-nothing points at, so that one is removed explicitly.
-
-The route serves it through `streamFile`, which answers Range — without that the waveform could
-draw but not seek.
+pl8's `/stream` answers Range — without that the waveform could draw but not seek.
 
 ### A waveform, not the browser's transport
 
@@ -302,8 +296,8 @@ alternative — delaying the lyrics to match — would make a seek feel late.
 
 Two entries of the song's ⋮ menu, and they are two because their costs are not the same.
 **"Fetch song"** finds the song
-in pl8's library, hunts it on Soulseek when it is not there (pl8 files what it downloads) and copies
-the master in as the reference track. **"Make instrumental"** takes the song already in the library
+in pl8's library, hunts it on Soulseek when it is not there (pl8 files what it downloads) and links
+its master as the reference track. **"Make instrumental"** takes the song already in the library
 and has pl8 run an engine's instrumental chain over it — one file, the record without its voice.
 
 Separating stems borrows a musician's machine for a minute or so per song and is wanted far less
@@ -313,24 +307,31 @@ often than a track to play along to, so it is asked for rather than ridden along
   (`apps/k7/frontend/src/fetchSong/pl8.ts`). pl8 refuses k7's service token on `/api/hunt` on purpose —
   a service must not spend somebody's Soulseek account — so the search runs under the person's own
   session, lands in their pl8 history and counts against their own limit.
-- **Only the copy and the mix are k7's backend** (`apps/k7/backend/src/songFetch.ts`), with its token:
-  reading library files is what that token is for, and ffmpeg is in k7's image.
-- **A copy, not a reference.** The track lands at `recordings/songbook/<uid>.<ext>` like an upload, and
-  the instrumental at `recordings/songbook/<uid>-instrumental.flac`. The songbook song then no longer
-  depends on the library song staying where it is, and removing k7's track can never delete a song
-  of the catalogue.
+- **A link, not a copy.** A song stores the library PATH of its master, and of the `instrumental.wav`
+  beside its stems; the page streams both from pl8 itself (`/api/mediatek/stream`, with Range — a FLAC
+  master comes as pl8's cached MP3), with the person's own session. k7 holds no bytes of either, so a
+  song is never two files drifting apart, and pl8's own storage is the only one. The backend only
+  checks and records the paths (`apps/k7/backend/src/songFetch.ts`).
+- **An upload goes INTO the library**, as this song, under the album `k7` (`songs/<artist>/k7/<title>`):
+  a folder of its own, so filing it never collides with — nor replaces — a catalogue song, and the
+  uploaded track can be separated like any other.
+- **Unlinking never deletes a library file.** Removing a track, replacing it or dropping its
+  instrumental forgets the path; only a path under `recordings/songbook/` — a copy an older k7 made for
+  itself — is deleted with it.
 - **Any engine online makes it.** Separation needs a machine running an engine that pl8 can reach;
   the hosted image carries neither the model nor its runtime. When none is online, "Make instrumental"
   says so and changes nothing, so pressing it again once one is up is the whole retry.
+- **The library song is found by artist and title** (`apps/k7/frontend/src/fetchSong/match.ts`):
+  equal once accents, case and punctuation are dropped, else every typed word in the entry, else the
+  same title by an artist a typo away (Gonzales / González). A song that LINKS its master needs no
+  lookup: its stems are cut from that very recording, which a same-named library song (a live take)
+  might not be. The lookup is for a song still playing an old copy, and a miss names what it looked for.
 - **"Make instrumental" never hunts.** It works on the song pl8 already holds: a song missing from the
   library is a "Fetch song" away, and spending a Soulseek search on a button about stems would be a
   surprise.
 - **The sum happens where the parts are.** The engine's chain writes `instrumental.wav` beside the
-  song, having added the stems while they were still in memory; k7 fetches that one file and keeps it
-  as FLAC, because a WAV of a whole song is twice the size for nothing heard. A song separated before
-  such a chain existed has stems and no instrumental, and for it `songFetch.ts` still sums drums, bass
-  and other here — without normalising, since the stems add back up to the mix at their own levels and
-  scaling them would make the instrumental quieter than the original it is switched against.
+  song, having added the stems while they were still in memory, and that file is what the song links.
+  It streams as WAV — twice a FLAC's size, the price of keeping no transcoded copy anywhere.
 - **Which chain does it is the engine machine's answer**, set in st0's settings (*Separation
   chains*) or with `system instrumental <chaîne>`, exactly as `system stems` answers for the four parts. k7 names no chain: it asks for an
   instrumental and the machine that can make one says how.
