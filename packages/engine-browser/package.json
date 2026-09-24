@@ -25,7 +25,9 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "vitest": "^4.1.10"
+    "@studio/engine-tunnel": "*",
+    "vitest": "^4.1.10",
+    "ws": "^8.18.0"
   },
   "dependencies": {
     "@studio/engine-protocol": "*",

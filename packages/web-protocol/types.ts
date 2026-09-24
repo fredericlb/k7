@@ -908,6 +908,8 @@ export interface PublicEngine {
   sameSourceIp: boolean;
   /** A short-lived pass for the relay, minted by `/engines` and not by the registry — packages/engine-registry/proxy.ts. */
   proxyTicket?: string;
+  /** Its supervisor holds a tunnel, so a WebRTC offer can reach it — packages/engine-tunnel/docs/rtc.md. */
+  rtc?: boolean;
 }
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.

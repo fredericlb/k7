@@ -30,6 +30,7 @@ import {
   ENGINE_RECONNECT_MAX_MS,
   ENGINE_RECONNECT_MIN_MS,
 } from "@studio/web-protocol";
+import { openSocket } from "./rtcSocket.ts";
 
 export type {
   EngineState,
@@ -244,7 +245,7 @@ export class EngineClient {
   private open(url: string, myGen: number): void {
     let ws: WebSocket;
     try {
-      ws = new WebSocket(url);
+      ws = openSocket(url);
     } catch {
       // A malformed URL throws synchronously; a dead one does not. Both are just "not now".
       this.retryLater(myGen);

@@ -66,7 +66,10 @@ page non-installable. The surfaces menu could then not be added to a home screen
 device it exists for (`apps/st0/frontend/docs/external.md`).
 
 `candidatesFor` therefore offers loopback — potentially trustworthy by definition, dialable from
-HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work.
+HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work. An engine whose
+supervisor holds a tunnel adds a fourth, `rtc:`, a WebRTC data channel straight to its machine
+(`packages/engine-tunnel/docs/rtc.md`); `openSocket` makes it a WebSocket to everything above it,
+and it is raced like the others rather than preferred.
 
 ## Hosted files are opt-in, per app
 

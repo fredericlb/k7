@@ -12,6 +12,7 @@ import {
   type EngineLatency,
   engineLatency,
 } from "@studio/web-protocol/quality";
+import { openSocket, RTC_SCHEME } from "./rtcSocket.ts";
 
 /** The least an engine must tell us to be probed, structural rather than imported so no auth or git types come with it. */
 export interface ProbeTarget {
@@ -24,6 +25,8 @@ export interface ProbeTarget {
   };
   /** Minted per engine by `/engines`. Absent simply means no relay candidate is offered. */
   proxyTicket?: string;
+  /** Its supervisor holds a tunnel, so a WebRTC candidate is offered too — packages/engine-tunnel/docs/rtc.md. */
+  rtc?: boolean;
 }
 
 export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
@@ -90,7 +93,7 @@ function probeOne(
     };
     const timer = setTimeout(() => finish(null), timeoutMs);
     try {
-      ws = new WebSocket(url);
+      ws = openSocket(url);
     } catch {
       return finish(null); // malformed url / blocked scheme
     }
@@ -146,13 +149,19 @@ function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
   // Same origin as the page, so it inherits its scheme: an HTTPS page relays over `wss:`.
   const scheme = location.protocol === "https:" ? "wss:" : "ws:";
   const path = `${relayBase}/api/engine/${encodeURIComponent(e.id)}`;
-  return [
-    ...direct,
+  const relayed: Candidate[] = [
     {
       url: `${scheme}//${location.host}${path}/ws?ticket=${encodeURIComponent(e.proxyTicket)}`,
       fileBase: `${location.origin}${path}/files`,
     },
   ];
+  // Straight to the engine's machine, with the relay's file base: the files never travel over this channel.
+  if (e.rtc)
+    relayed.push({
+      url: `${RTC_SCHEME}${location.origin}${path}/rtc`,
+      fileBase: `${location.origin}${path}/files`,
+    });
+  return [...direct, ...relayed];
 }
 
 async function rank<E extends ProbeTarget>(

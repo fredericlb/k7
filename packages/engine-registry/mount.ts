@@ -43,12 +43,12 @@ export function mountEngineRegistry(
     opts.requireAuth,
   );
   const registry = createRegistry();
-  app.use("/api", engineRegistryRouter(registry));
   // Only an engine this registry lists may hold a tunnel, and only with its own token.
   const tunnels = new TunnelHub({
     verify: (id, token) =>
       !!registry.get(id) && registry.verifyToken(id, token),
   });
+  app.use("/api", engineRegistryRouter(registry, tunnels));
 
   return {
     registry,

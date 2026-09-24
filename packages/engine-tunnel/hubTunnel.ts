@@ -24,6 +24,11 @@ interface Carried {
 export class HubTunnel implements ChannelSink {
   private readonly channels = new Map<number, Carried>();
   private readonly uploads = new Map<number, Promise<Upload | null>>();
+  private readonly offers = new Map<
+    number,
+    { ok: (sdp: string) => void; ko: (e: Error) => void }
+  >();
+  private nextReq = 1;
   private nextCh = 1;
   /** Cleared by every ping, set by every pong: a tunnel that misses one is dead. */
   alive = true;
@@ -68,8 +73,32 @@ export class HubTunnel implements ChannelSink {
     return channel;
   }
 
+  /** Hand a browser's WebRTC offer to the engine's supervisor, and resolve its answer. */
+  signal(sdp: string, timeoutMs: number): Promise<string> {
+    const req = this.nextReq++;
+    return new Promise((ok, ko) => {
+      const timer = setTimeout(() => {
+        this.offers.delete(req);
+        ko(new Error("the engine's machine did not answer the offer"));
+      }, timeoutMs);
+      this.offers.set(req, {
+        ok: (s) => {
+          clearTimeout(timer);
+          ok(s);
+        },
+        ko: (e) => {
+          clearTimeout(timer);
+          ko(e);
+        },
+      });
+      this.tell({ t: "rtc-offer", req, sdp });
+    });
+  }
+
   /** The socket went: every channel it carried ends, and every half-sent upload is dropped. */
   shutdown(): void {
+    for (const o of this.offers.values()) o.ko(new Error("tunnel dropped"));
+    this.offers.clear();
     for (const { channel } of this.channels.values()) channel.ended();
     this.channels.clear();
     for (const u of this.uploads.values())
@@ -106,6 +135,13 @@ export class HubTunnel implements ChannelSink {
       case "get":
         void this.serveGet(m.req, carried?.roots ?? [], m.path);
         return;
+      case "rtc-answer": {
+        const o = this.offers.get(m.req);
+        this.offers.delete(m.req);
+        if (m.sdp) o?.ok(m.sdp);
+        else o?.ko(new Error(m.error ?? "offer refused"));
+        return;
+      }
     }
   }
 

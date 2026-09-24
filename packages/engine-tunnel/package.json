@@ -8,14 +8,19 @@
     "./hub": "./hub.ts",
     "./agent": "./agent.ts",
     "./channel": "./channel.ts",
-    "./frames": "./frames.ts"
+    "./frames": "./frames.ts",
+    "./rtc": "./rtc.ts"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@studio/web-protocol": "*",
     "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "node-datachannel": "^0.33.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

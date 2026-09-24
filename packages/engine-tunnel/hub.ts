@@ -81,6 +81,13 @@ export class TunnelHub {
     });
   }
 
+  /** The engine's answer to a browser's WebRTC offer; throws when it has no tunnel or declines. */
+  signal(id: string, sdp: string, timeoutMs = 10_000): Promise<string> {
+    const t = this.tunnels.get(id);
+    if (!t) return Promise.reject(new Error("this engine has no tunnel"));
+    return t.signal(sdp, timeoutMs);
+  }
+
   /** A loopback path that reaches engine `id` with `roots` shared; the key in it is the only credential. */
   bindLocal(engineId: string, roots: TunnelRoot[]): string {
     const key = randomBytes(24).toString("base64url");
