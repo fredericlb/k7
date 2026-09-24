@@ -1,12 +1,16 @@
 // index.ts — the file hub: `/api/files/*` on a server, answered by the calling account's own
-// file-service process. The SESSION says who is calling; nothing the browser sends about
-// identity is forwarded. The engine a request names is bound only on a claim. See docs/fileHub.md.
+// file-service process. A signed TICKET (or the session) says who is calling; nothing else the
+// browser sends about identity is forwarded. The engine a request names is bound only on a claim.
+// See docs/fileHub.md.
 
+import { randomBytes } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { replayBody } from "@studio/engine-registry";
 import {
   ENGINE_ID_HEADER,
   ENGINE_TOKEN_HEADER,
+  FILE_HUB_HELLO,
+  type FileHubHello,
   HUB_SECRET_HEADER,
   USER_HEADER,
 } from "@studio/web-protocol";
@@ -17,20 +21,22 @@ import {
   Instances,
   type InstancesOptions,
 } from "./instances.ts";
+import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
 export type { Instance } from "./instances.ts";
 
 /** Where a service mounts the hub; the browser composes its file base from it. */
 export const FILE_HUB_PATH = "/api/files";
-/** Answers `{ path }` where a hub is mounted, and 404 where none is — how a browser tells the two apart. */
-export const FILE_HUB_HELLO = "/api/files-hub";
+export { FILE_HUB_HELLO, type FileHubHello };
 
 export interface FileHubOptions
   extends Omit<InstancesOptions, "onExit" | "log">,
     Omit<BindingDeps, "log"> {
   /** Who the session says is calling, or "" — the service's auth, not the hub's. */
   userOf: (req: Request) => string;
+  /** Signs the tickets; stable across restarts when given, or tickets die with the process. */
+  ticketKey?: string;
   /** An instance nobody used for this long is stopped. */
   idleMs?: number;
   log?: (msg: string) => void;
@@ -50,8 +56,10 @@ export class FileHub {
   private readonly instances: Instances;
   private readonly deps: BindingDeps;
   private readonly reaper: NodeJS.Timeout;
+  private readonly key: Buffer;
 
   constructor(private readonly opts: FileHubOptions) {
+    this.key = opts.ticketKey ? Buffer.from(opts.ticketKey) : randomBytes(32);
     const log = opts.log ?? ((m: string) => console.log(`files | ${m}`));
     this.deps = { ...opts, log };
     this.instances = new Instances({
@@ -69,15 +77,37 @@ export class FileHub {
     this.reaper.unref();
   }
 
-  /** The route, mounted behind the service's session guard at FILE_HUB_PATH. */
-  handler(): RequestHandler {
+  /** The hello, mounted BEHIND the session guard: it is where a session becomes a ticket. */
+  helloHandler(): RequestHandler {
     return (req, res) => {
       const user = this.opts.userOf(req);
       if (!user) {
         res.status(401).json({ error: "no user on the session" });
         return;
       }
-      void this.forward(user, req, res).catch((e: Error) => {
+      const hello: FileHubHello = {
+        path: FILE_HUB_PATH,
+        ticket: mintTicket(this.key, user),
+      };
+      res.json(hello);
+    };
+  }
+
+  /** The route, mounted at FILE_HUB_PATH with NO session guard in front: the ticket is its gate. */
+  handler(): RequestHandler {
+    return (req, res) => {
+      const presented =
+        req.get(ENGINE_TOKEN_HEADER) ?? String(req.query.token ?? "");
+      const ticket = presented ? readTicket(this.key, presented) : null;
+      const user = ticket?.user ?? this.opts.userOf(req);
+      if (!user) {
+        res
+          .status(401)
+          .json({ error: "no valid files ticket, and no session" });
+        return;
+      }
+      const engineId = req.get(ENGINE_ID_HEADER) ?? ticket?.engineId ?? null;
+      void this.forward(user, engineId, req, res).catch((e: Error) => {
         if (res.headersSent) res.end();
         else
           res
@@ -89,11 +119,11 @@ export class FileHub {
 
   private async forward(
     user: string,
+    engineId: string | null,
     req: Request,
     res: Response,
   ): Promise<void> {
     const inst = await this.instances.get(user);
-    const engineId = req.get(ENGINE_ID_HEADER);
     // A binding that fails leaves the files reachable; only the engine is not, and the log says why.
     if (engineId)
       await bindEngine(this.deps, inst, engineId).catch((e: Error) =>

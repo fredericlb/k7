@@ -60,6 +60,8 @@ export interface St0Prefs extends EnginePrefs {
 /** The registry, the probe and the relay are pl8's — st0 holds no registry of its own — while the preferences, the remembered engine among them, stay st0's. */
 export const engines = engineAccess<PublicEngine, St0Prefs>(PL8, json, {
   prefsBase: BASE,
+  // A workspace the server hosts is opened there, whichever engine plays it — packages/file-hub/docs/fileHub.md.
+  hostedFiles: true,
 });
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────

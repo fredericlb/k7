@@ -21,12 +21,19 @@ it. What only makes sense on an engine's machine is off: CORS (the hub answers t
 machine's speakers (mpv), the médiathèque puller (the library is already on this disk) and the
 dial to a local engine at boot.
 
-## The session says who is calling
+## A ticket says who is calling
 
-The browser's identity headers are **dropped**, not trusted: `x-studio-user` is set from the
-session, and the hub secret and engine token a client sends are removed. On an engine's machine
-the user header is taken on faith behind the engine token; on a server shared by several
-accounts that faith would let anyone open anyone's workspace.
+The browser's identity headers are **dropped**, not trusted: `x-studio-user` is set by the hub,
+and the hub secret and engine token a client sends are removed. On an engine's machine the user
+header is taken on faith behind the engine token; on a server shared by several accounts that
+faith would let anyone open anyone's workspace.
+
+Who it is comes from a **ticket**: `/api/files-hub`, behind the session guard, answers one — the
+account's email and an expiry, signed with a key derived from the session secret, so a deploy does
+not invalidate an open page. The browser sends it in the header the file service's gate already
+reads, which spares every call a cookie across origins; `/api/files` itself has no session
+guard, the ticket being its gate, with the session as a fallback for a same-origin caller.
+Twelve hours, and the browser asks again after six.
 
 ## An engine is bound by a CLAIM
 

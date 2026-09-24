@@ -23,11 +23,14 @@ export function mountFileHub(
     tunnels: engine.tunnels,
     selfPort: () => port,
     userOf: (req) => req.user?.email ?? "",
+    // Stable across restarts, so an open page keeps its ticket through a deploy.
+    ticketKey: process.env.SESSION_SECRET
+      ? `${process.env.SESSION_SECRET}:files`
+      : undefined,
   });
-  app.get(FILE_HUB_HELLO, requireAuth, (_req, res) => {
-    res.json({ path: FILE_HUB_PATH });
-  });
-  app.use(FILE_HUB_PATH, requireAuth, hub.handler());
+  app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
+  // No session guard: a page on another origin carries a ticket, not a cookie — the hub checks it.
+  app.use(FILE_HUB_PATH, hub.handler());
   console.log(`   workspaces: hosted under ${dataRoot}`);
   return hub;
 }

@@ -33,6 +33,15 @@ export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
   wsUrl: string | null; // the engine ws address that answered; null when unreachable
   fileBase: string | null; // the file service on the SAME host; null when unreachable
   token: string | null; // from the whoami reply; null when unreachable
+  /** What the FILE service's gate takes when it is not `token`: a hub ticket, for files the server hosts. */
+  fileToken?: string | null;
+  /** Whether `fileBase` is the server's file hub rather than the engine machine's own service. */
+  filesHosted?: boolean;
+}
+
+/** The token to show the file service at `fileBase` — the engine's own, unless the server hosts the files. */
+export function fileTokenOf(r: RankedEngine): string | null {
+  return r.fileToken ?? r.token;
 }
 
 /** Reachable, and therefore measured. Narrows the four nullable fields in one test. */

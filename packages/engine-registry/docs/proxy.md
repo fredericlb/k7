@@ -44,6 +44,11 @@ an audio process.
 
 No mixed content, no local network permission, no port to open in a firewall.
 
+**The engine's own tunnel comes first.** An engine whose supervisor dialled in
+(`packages/engine-tunnel/docs/tunnel.md`) is reached through that socket, whatever network it is
+on; the addresses above are the fallback, and they only answer when the server shares the
+engine's network.
+
 ## The two halves
 
 They have different constraints, hence two shapes:

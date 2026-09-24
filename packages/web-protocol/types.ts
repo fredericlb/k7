@@ -631,6 +631,14 @@ export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
 export const ENGINE_ID_HEADER = "x-studio-engine-id";
 /** The file hub's secret, the ONLY gate of a server-hosted file service — packages/file-hub/docs/fileHub.md. */
 export const HUB_SECRET_HEADER = "x-studio-hub-secret";
+/** Where a server that HOSTS workspaces says so; a 404 means it does not. */
+export const FILE_HUB_HELLO = "/api/files-hub";
+
+/** What that hello answers: where the files are, and the ticket that stands in for the session there. */
+export interface FileHubHello {
+  path: string;
+  ticket: string;
+}
 
 // ── The engine assignment ────────────────────────────────────────────────────
 

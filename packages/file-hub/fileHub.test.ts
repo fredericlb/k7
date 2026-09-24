@@ -83,6 +83,7 @@ describe("the file hub", () => {
       selfPort: () => 4242,
       log: () => {},
     });
+    app.get("/api/files-hub", hub.helloHandler());
     app.use("/api/files", hub.handler());
     server = createServer(app);
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
@@ -178,5 +179,53 @@ describe("the file hub", () => {
       name: "mediatek",
       writable: false,
     });
+  });
+
+  const hello = async (session?: string) => {
+    const r = await fetch(base.replace("/api/files", "/api/files-hub"), {
+      headers: session ? { "x-test-session": session } : {},
+    });
+    return {
+      status: r.status,
+      body: (await r.json()) as { path: string; ticket: string },
+    };
+  };
+
+  it("mints a ticket only for a session", async () => {
+    expect((await hello()).status).toBe(401);
+    const { body } = await hello("fred@example.com");
+    expect(body.path).toBe("/api/files");
+    expect(body.ticket).toMatch(/^[\w-]+\.[\w-]+$/);
+  });
+
+  it("takes the caller from a ticket, with no session at all", async () => {
+    const { ticket } = (await hello("fred@example.com")).body;
+    const { status, echo } = await call("/x", {
+      headers: { "x-studio-engine-token": ticket },
+    });
+    expect(status).toBe(200);
+    expect(echo.headers["x-studio-user"]).toBe("fred@example.com");
+    expect(echo.headers["x-studio-engine-token"]).toBeUndefined();
+  });
+
+  it("refuses a forged ticket", async () => {
+    const { ticket } = (await hello("fred@example.com")).body;
+    const claim = { u: "mallory@example.com", exp: Date.now() + 1e6 };
+    const payload = Buffer.from(JSON.stringify(claim)).toString("base64url");
+    const forged = `${payload}.${ticket.split(".")[1]}`;
+    const r = await call("/x", {
+      headers: { "x-studio-engine-token": forged },
+    });
+    expect(r.status).toBe(401);
+  });
+
+  it("binds the engine named after the ticket, on a claim", async () => {
+    claims.set("e9", ["fred@example.com"]);
+    const { ticket } = (await hello("fred@example.com")).body;
+    const { echo } = await call("/x", {
+      headers: { "x-studio-engine-token": `${ticket}~e9` },
+    });
+    expect(bound.map((b) => b.id)).toEqual(["e9"]);
+    expect(echo.engine).toContain("/api/engine-tunnel/local/");
   });
 });
