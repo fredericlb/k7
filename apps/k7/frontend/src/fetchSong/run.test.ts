@@ -54,6 +54,13 @@ function fakePl8(over: Partial<Pl8Client> = {}): Pl8Client {
   };
   return {
     listSongs: async () => [],
+    // MusicBrainz names the song asked for, unless a test says otherwise.
+    identify: async () => ({
+      artist: "Nina Simone",
+      title: "Sinnerman",
+      album: null,
+      date: null,
+    }),
     startHunt: refuse("startHunt"),
     hunts: refuse("hunts"),
     engines: async () => [],
@@ -99,6 +106,52 @@ describe("fetchSong", () => {
     });
     await fetchSong(song(), steps(pl8, { copyTrack }) as never);
     expect(copyTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it("downloads nothing when MusicBrainz names another song, and says which", async () => {
+    // « Expedition 33 Lumières » was identified as the band Lumières' « Momentary », and hunted.
+    const startHunt = vi.fn();
+    const pl8 = fakePl8({
+      identify: async () => ({
+        artist: "Lumières",
+        title: "Momentary",
+        album: "Intervention Armée",
+        date: null,
+      }),
+      startHunt,
+    });
+    await expect(
+      fetchSong(
+        song({ artist: "Expedition 33", title: "Lumières" }),
+        steps(pl8, { copyTrack: async () => song() }) as never,
+      ),
+    ).rejects.toThrow(/Lumières – Momentary/);
+    expect(startHunt).not.toHaveBeenCalled();
+  });
+
+  it("downloads nothing when nothing is identified at all", async () => {
+    const startHunt = vi.fn();
+    const pl8 = fakePl8({ identify: async () => null, startHunt });
+    await expect(
+      fetchSong(song(), steps(pl8, { copyTrack: async () => song() }) as never),
+    ).rejects.toThrow(/Nina Simone Sinnerman/);
+    expect(startHunt).not.toHaveBeenCalled();
+  });
+
+  it("hunts exactly the recording it checked, a typo away from the song", async () => {
+    const startHunt = vi.fn(async () => hunt({ status: "failed", error: "x" }));
+    const tags = {
+      artist: "José González",
+      title: "Heartbeats",
+      album: "Veneer",
+      date: null,
+    };
+    const pl8 = fakePl8({ identify: async () => tags, startHunt });
+    await fetchSong(
+      song({ artist: "José Gonzales", title: "Heartbeats" }),
+      steps(pl8, { copyTrack: async () => song() }) as never,
+    ).catch(() => {});
+    expect(startHunt).toHaveBeenCalledWith("José Gonzales Heartbeats", tags);
   });
 
   it("gives Soulseek's own reason when the hunt fails", async () => {

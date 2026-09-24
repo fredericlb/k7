@@ -7,7 +7,13 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import type { HuntRecord } from "@studio/web-protocol/hunt";
 import { m } from "../paraglide/messages.js";
 import type { FetchStatus, LrcCandidate, Song } from "../types";
-import { findLibrarySong, masterPath, matches, songAtPath } from "./match";
+import {
+  findLibrarySong,
+  masterPath,
+  matches,
+  sameSong,
+  songAtPath,
+} from "./match";
 import type { Pl8Client } from "./pl8";
 
 const POLL_MS = 2000;
@@ -87,7 +93,15 @@ async function huntIntoLibrary(
   } else {
     steps.onPhase(m["fetch.searching"]());
     steps.onStatus?.({ phase: "searching" });
-    const started = await steps.pl8.startHunt(`${song.artist} ${song.title}`);
+    // What the hunt WOULD take is checked before anything downloads: a query can name another song.
+    const query = `${song.artist} ${song.title}`;
+    const tags = await steps.pl8.identify(query);
+    if (!tags) throw new Error(m["fetch.unidentified"]({ query }));
+    if (!sameSong(song.artist, song.title, tags.artist, tags.title))
+      throw new Error(
+        m["fetch.wrongSong"]({ found: `${tags.artist} – ${tags.title}` }),
+      );
+    const started = await steps.pl8.startHunt(query, tags);
     steps.onStatus?.({ huntId: started.id });
     hunt =
       started.status === "done" || started.status === "failed"
@@ -166,7 +180,7 @@ async function instrumentalReady(
   }
 }
 
-/** The same song without the voice: an engine's chain writes it beside the master, k7 keeps a copy. */
+/** The same song without the voice: an engine's chain writes it beside the master, and the song links it. */
 export async function makeInstrumental(
   song: Song,
   steps: InstrumentalSteps,

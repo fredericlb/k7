@@ -97,6 +97,8 @@
   "fetch.step.lyrics": "Lyrics",
   "fetch.step.search": "Search",
   "fetch.step.stems": "Stems",
+  "fetch.unidentified": "Neither MusicBrainz nor Deezer knows a song for « {query} » — check the artist and title.",
+  "fetch.wrongSong": "MusicBrainz knows « {found} » under this name, not this song — nothing was downloaded. Check the artist and title (⋮ › Edit artist and title…).",
   "fetch.upload": "Upload a file…",
   "field.artist": "Artist",
   "field.title": "Title",

@@ -8,7 +8,11 @@ import type {
   SeparateJob,
   StemsReply,
 } from "@studio/web-protocol";
-import type { HuntRecord } from "@studio/web-protocol/hunt";
+import type {
+  HuntIdentity,
+  HuntRecord,
+  HuntTags,
+} from "@studio/web-protocol/hunt";
 
 // The backend's own MEDIATEK_URL, not a guess: a deployment can point k7 at a pl8 that isn't
 // the sibling subdomain a browser-side guess would land on. Fetched once and cached.
@@ -45,7 +49,10 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export interface Pl8Client {
   listSongs(): Promise<MediatekEntry[]>;
-  startHunt(query: string): Promise<HuntRecord>;
+  /** What MusicBrainz (or Deezer) says a query is — nothing downloaded, so it can be checked first. */
+  identify(query: string): Promise<HuntTags | null>;
+  /** A hunt of `tags` when given, as checked, rather than of whatever pl8 would identify. */
+  startHunt(query: string, tags?: HuntTags): Promise<HuntRecord>;
   hunts(): Promise<HuntRecord[]>;
   engines(): Promise<PublicEngine[]>;
   prepareStems(
@@ -65,10 +72,13 @@ export const pl8: Pl8Client = {
   listSongs: async () =>
     (await call<{ entries: MediatekEntry[] }>("/mediatek/list?family=songs"))
       .entries,
-  startHunt: (query) =>
+  identify: async (query) =>
+    (await call<HuntIdentity>(`/hunt/identify?q=${encodeURIComponent(query)}`))
+      .tags,
+  startHunt: (query, tags) =>
     call<HuntRecord>("/hunt", {
       method: "POST",
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, tags }),
     }),
   hunts: async () => (await call<{ hunts: HuntRecord[] }>("/hunt")).hunts,
   engines: () => call<PublicEngine[]>("/engines"),

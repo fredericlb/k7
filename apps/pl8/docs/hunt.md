@@ -98,6 +98,16 @@ spend. `chooseTagsDeezer` picks the best textual match (`queryScore`, the same s
 MusicBrainz results use) and breaks a tie with Deezer's own `rank` field — a popularity proxy,
 the nearest stand-in available for what `releaseScore` does with real release types.
 
+### A caller can check the name before anything downloads
+
+`GET /api/hunt/identify?q=` answers what a query WOULD hunt (`HuntIdentity`,
+`packages/web-protocol/hunt.ts`) and downloads nothing, and `POST /api/hunt` takes those `tags`
+back: a hunt given tags files them as given and never identifies again. The scoring picks the
+recording that best explains the WORDS typed, which is not always the song meant — one word landing
+on a band's name (« Expedition 33 Lumières » is the band Lumières' « Momentary ») outscores a title
+that is spelt differently. A caller who knows the song (k7's songbook) checks the answer first, and a
+second identification between the check and the hunt could answer otherwise.
+
 ## What slskd is asked: the album and the title, never the artist
 
 Two attempts, in this order (`searchTexts`):
