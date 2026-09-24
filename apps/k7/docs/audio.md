@@ -213,9 +213,10 @@ metadata store that the songbook listing reads whole, for a panel 272 px wide wh
 buckets per pixel. The cap is what keeps a stored shape a few kilobytes; storing pl8's own
 resolution untouched could run two orders of magnitude past that.
 
-**Onsets ride along for free.** pl8's analysis also detects transients; `songEnvelope.ts` passes
-them through as `SongEnvelope.onsets`, and the panel forwards them to `ui-waveform`'s own
-`onsets` prop — a slot the component already had, unused until now.
+**Onsets are not drawn.** pl8's analysis also detects transients, and `songEnvelope.ts` passes them
+through as `SongEnvelope.onsets`, but the player leaves `ui-waveform`'s `onsets` prop empty: those
+rules are for placing stretch points in st0, and in a player nothing acts on them — they read as
+noise over the shape.
 
 The alternative was decoding in the browser on each visit. A rehearsal laptop opening a song page
 should not spend seconds and a hundred megabytes of memory rebuilding a picture that never changes;
