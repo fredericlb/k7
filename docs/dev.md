@@ -219,7 +219,7 @@ what the monitor does — watch the sources, rebuild, restart.
 | target | watched | rebuilt with |
 |---|---|---|
 | `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
-| `capot` | `src-tauri/src/**.rs`, `Cargo.toml`, `build.rs`, `tauri.conf.json`, `dist/*.{html,css,js}` | `buildDevApp` — `tauri build --debug --no-bundle` into `out/dev` |
+| `capot` | `src-tauri/src/**.rs`, `Cargo.toml`, `build.rs`, `tauri.conf.json`, `dist/*.{html,css,js}` | `buildDevApp` — `tauri build --debug --no-bundle` into `dist/dev` |
 
 The tray's `dist/` is in that list because `tauri build` **embeds** the settings window's page
 in the binary: nothing serves it from disk, so editing it is a relink like editing a `.rs`.

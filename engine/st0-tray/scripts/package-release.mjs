@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// package-release.mjs — turn engine/st0-tray/out/ into ONE archive for the platform that
+// package-release.mjs — turn the monorepo's dist/ into ONE archive for the platform that
 // produced it. Runs after `npm run engine:build`; the release workflow is its other caller.
 // The archive is named for a STAMP, not for tauri.conf.json's version: that version has not
 // moved in the life of the app, so two builds would otherwise overwrite each other.
@@ -17,11 +17,13 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { distDir, WORK_DIRS } from "./buildTools.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 const trayDir = dirname(here);
-const OUT = join(trayDir, "out");
-const DIST = join(OUT, "dist");
+const repo = join(trayDir, "..", "..");
+const OUT = distDir(repo); //                          <repo>/dist
+const DIST = join(OUT, "release"); //                  where the archive itself is written
 
 function fail(message) {
   console.error(`error: ${message}`);
@@ -54,8 +56,8 @@ const name = `st0-desktop_${stamp}_${platform}-${arch}`;
 
 if (!existsSync(OUT))
   fail(`nothing at ${OUT} — run \`npm run engine:build\` first.`);
-// out/dev is the throwaway app of the dev loop and never ships; out/dist is our own output.
-const entries = readdirSync(OUT).filter((n) => n !== "dev" && n !== "dist");
+// Only the deliverables at the top of dist/ — its working directories are named in WORK_DIRS.
+const entries = readdirSync(OUT).filter((n) => !WORK_DIRS.includes(n));
 // The .app travels INSIDE the .dmg, so shipping both doubles the archive for nothing.
 const hasDmg = entries.some((n) => n.endsWith(".dmg"));
 const keep = entries.filter((n) => !(hasDmg && n.endsWith(".app")));

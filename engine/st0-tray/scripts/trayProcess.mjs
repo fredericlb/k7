@@ -50,7 +50,7 @@ function capture(cmd, argv, okStatus = [0]) {
 /** One look at the process table, or null when the query itself failed. */
 function scan(exe) {
   if (process.platform === "win32") {
-    // Matched on the PATH as well as the name, and that is load-bearing: replacing out/dev/st0-tray.exe under a
+    // Matched on the PATH as well as the name, and that is load-bearing: replacing dist/dev/st0-tray.exe under a
     // RUNNING tray leaves that process with a GARBLED image name, so a name-only query goes blind to the one
     // survivor this whole script exists to stop. See docs/restartTray.md.
     // -EncodedCommand, not -Command: the query is full of quotes and would not survive two levels of escaping.
@@ -136,7 +136,7 @@ export async function stopAll() {
   return found.length;
 }
 
-/** Rebuild the debug tray app into out/dev. The caller must have stopped it first. */
+/** Rebuild the debug tray app into dist/dev. The caller must have stopped it first. */
 export function buildDevApp() {
   node("build-engine.mjs", ["--dev"]);
 }

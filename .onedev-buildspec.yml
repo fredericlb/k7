@@ -227,7 +227,7 @@ jobs:
     optional: false
   - type: PublishArtifactStep
     name: publish linux desktop archive
-    artifacts: engine/st0-tray/out/dist/*.tar.gz
+    artifacts: dist/release/*.tar.gz
     condition: SUCCESSFUL
     optional: false
   jobDependencies:

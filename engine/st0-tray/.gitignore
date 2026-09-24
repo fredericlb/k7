@@ -12,8 +12,7 @@ src-tauri/resources/
 # bundled file service inside the app). Re-downloaded on demand.
 .cache/
 
-# Collected build artifacts (the engine binary + the tray bundles).
-out/
+# Collected build artifacts go to the monorepo's own dist/, which the root .gitignore covers.
 
 # Engine-computed waveform sidecars ({audio}.cache) — a derived cache the engine
 # rebuilds on demand from the audio + a content fingerprint. Never committed.

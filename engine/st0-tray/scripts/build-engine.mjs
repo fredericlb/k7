@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // build-engine.mjs — `npm run engine:build`: builds the C++ engine and the tray app and
-// collects both into out/. The engine is staged as the tray's sidecar first, so the
-// bundle carries its own copy and needs no repo build dir. See docs/buildEngine.md.
+// collects both into the repo's dist/. The engine is staged as the tray's sidecar first,
+// so the bundle carries its own copy and needs no repo build dir. See docs/buildEngine.md.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -21,12 +21,20 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  buildNumber,
+  distDir,
+  hostTriple,
+  run,
+  tauriCmd,
+  WORK_DIRS,
+} from "./buildTools.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 const trayDir = dirname(here); //                      engine/st0-tray — this app IS the tray
 const repo = join(trayDir, "..", ".."); //             the monorepo root
 const engineDir = join(repo, "engine", "st0-engine");
-const OUT = join(trayDir, "out");
+const OUT = distDir(repo); //                          <repo>/dist — the monorepo's output root
 const CACHE = join(trayDir, ".cache"); // vendored downloads (gitignored)
 
 // The Node we vendor: pinned and downloaded, a Homebrew one being a shim (docs/buildEngine.md).
@@ -37,39 +45,6 @@ const PRESET =
   process.env.STUDIO_ENGINE_PRESET ||
   ({ darwin: "macos-clang", win32: "windows-msvc" }[process.platform] ??
     "release-gcc");
-
-function run(cmd, args, cwd, extraEnv, { allowFail = false } = {}) {
-  console.log(`\n▸ ${cmd} ${args.join(" ")}\n  in ${cwd}`);
-  const r = spawnSync(cmd, args, {
-    cwd,
-    stdio: "inherit",
-    env: { ...process.env, ...extraEnv },
-    // cmake/tauri are resolved through the shell on Windows (.cmd shims).
-    shell: process.platform === "win32",
-  });
-  if (r.error?.code === "ENOENT") {
-    console.error(`\nerror: '${cmd}' not found on PATH.`);
-    process.exit(1);
-  }
-  if (r.status !== 0) {
-    console.error(`\nerror: ${cmd} ${args[0]} failed (exit ${r.status}).`);
-    if (!allowFail) process.exit(r.status ?? 1);
-  }
-  return r.status ?? 0;
-}
-
-// The workspace-hoisted Tauri CLI, else fall back to npx fetching it.
-function tauriCmd() {
-  let dir = trayDir;
-  for (;;) {
-    const bin = join(dir, "node_modules", ".bin", "tauri");
-    if (existsSync(bin)) return { cmd: bin, args: [] };
-    const up = dirname(dir);
-    if (up === dir) break;
-    dir = up;
-  }
-  return { cmd: "npx", args: ["--yes", "@tauri-apps/cli@2"] };
-}
 
 // The freshest built engine binary, Debug last — see @studio/engine-client's engineBinary.ts.
 function findEngineBinary() {
@@ -94,29 +69,7 @@ function findEngineBinary() {
   return found[0].path;
 }
 
-// The build number the tray displays, stamped into the binary by build.rs — when it was BUILT, not run.
-function buildNumber() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.${p(d.getHours())}${p(d.getMinutes())}`;
-}
 const BUILD_NUMBER = buildNumber();
-
-// This host's Rust target triple — Tauri sidecars are named `<name>-<triple>` and it strips the suffix.
-function hostTriple() {
-  const r = spawnSync("rustc", ["-vV"], {
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-  const host = /^host:\s*(.+)$/m.exec(r.stdout ?? "")?.[1]?.trim();
-  if (!host) {
-    console.error(
-      "error: could not determine the Rust host triple (is rustc on PATH?).",
-    );
-    process.exit(1);
-  }
-  return host;
-}
 
 // `--sidecar-only`: stage the sidecars without building — see docs/buildEngine.md.
 const sidecarOnly = process.argv.includes("--sidecar-only");
@@ -207,9 +160,9 @@ function vendorNode() {
   return cached;
 }
 
-// This app's songs/ into the app's resources, replaced wholesale (docs/buildEngine.md).
+// The repo's demos/ into the app's resources, replaced wholesale (docs/buildEngine.md).
 function stageDemos(destDir) {
-  const src = join(trayDir, "songs");
+  const src = join(repo, "demos");
   if (!existsSync(src)) {
     console.error(`error: no demo songs at ${src}.`);
     process.exit(1);
@@ -401,7 +354,7 @@ function makeDmg(appPath, destDir) {
 function buildDevApp() {
   const OUT_DEV = join(OUT, "dev");
   console.log("\n=== tray (debug, no vendored payload) ===");
-  const tauri = tauriCmd();
+  const tauri = tauriCmd(trayDir);
   // --config takes a file PATH, not inline JSON: cmd.exe strips the quotes and Tauri chokes. A file is quoting-proof.
   const cfgPath = join(tmpdir(), "studio-tray-dev-config.json");
   writeFileSync(
@@ -541,7 +494,7 @@ if (sidecarOnly) {
 
 // ── 3. the tray app ────────────────────────────────────────────────────────────
 console.log("\n=== tray (tauri release bundle) ===");
-const tauri = tauriCmd();
+const tauri = tauriCmd(trayDir);
 // CI=true skips bundle_dmg.sh's Finder styling, and a dmg failure is non-fatal (docs/buildEngine.md).
 const trayArgs = [...tauri.args, "build"];
 // tauri.conf.json asks for "app", which is the macOS wrapper — the other two name their own.
@@ -566,12 +519,12 @@ const trayStatus = run(
   },
 );
 
-// ── 4. collect into out/ ───────────────────────────────────────────────────────
-console.log("\n=== collecting into out/ ===");
-// Fresh each build, but leave out/dev alone — a release build shouldn't delete the dev app you're iterating with.
+// ── 4. collect into dist/ ──────────────────────────────────────────────────────
+console.log("\n=== collecting into dist/ ===");
+// Fresh each build, but the working dirs stay — a release shouldn't delete the dev app you're iterating with.
 if (existsSync(OUT))
   for (const entry of readdirSync(OUT))
-    if (entry !== "dev")
+    if (!WORK_DIRS.includes(entry))
       rmSync(join(OUT, entry), { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
@@ -595,7 +548,7 @@ if (app) {
   const dmg = makeDmg(join(OUT, app), OUT);
   if (dmg) collected.push(dmg);
   else
-    console.warn("warning: dmg creation failed (the .app is still in out/).");
+    console.warn("warning: dmg creation failed (the .app is still in dist/).");
 }
 
 console.log(`\n✔ built into ${OUT}`);

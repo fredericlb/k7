@@ -165,8 +165,8 @@ jobs:
         with:
           name: st0-desktop-${{ matrix.label }}
           path: |
-            engine/st0-tray/out/dist/*.zip
-            engine/st0-tray/out/dist/*.tar.gz
+            dist/release/*.zip
+            dist/release/*.tar.gz
           if-no-files-found: error
 
   publish:

@@ -1,7 +1,7 @@
 # `npm run engine:build`
 
-`build-engine.mjs` builds the native pieces and collects their artifacts into
-`engine/st0-tray/out/` — beside the script, not in st0: the tray is what ships them:
+`build-engine.mjs` builds the native pieces and collects their artifacts into the monorepo's
+`dist/`:
 
 1. the **C++ engine** — CMake, through `engine/st0-engine/scripts/build.mjs` so "how the engine
    builds" is defined once. The preset comes from the host platform, or from
@@ -10,11 +10,26 @@
 2. the **tray app** — a Tauri release bundle: `nsis` on Windows, `deb` + `appimage` on Linux,
    and on macOS the `app` wrapper `tauri.conf.json` names, which `makeDmg` then packages.
 
-`out/` is gitignored (the repo-root `out/` rule matches at any depth).
+## `dist/` is the repo's, not the tray's
 
-`package-release.mjs` beside this script turns that directory into the ONE archive a platform
-ships — `npm run engine:package`. It is the release deliverable, and `docs/desktop-release.md`
-is its page.
+The scripts live here because the tray is what ships the native pieces, but the output does
+not: `dist/` sits at the monorepo root, one place to look for anything this repo produces,
+and gitignored by the rule that was already there for every package's `dist/`. `buildTools.mjs`
+holds the one definition of where it is.
+
+Its **top level is deliverables only**, and the directories beside them are working space —
+`dev/`, `portable/`, `release/`, named once in `buildTools.mjs` as `WORK_DIRS`. Two things read
+that list rather than repeating it: a release build wipes the deliverables and leaves the
+working dirs alone, and `package-release.mjs` archives the deliverables and leaves the working
+dirs out. A list written twice is how a 400 MB staging tree ends up inside a release archive.
+
+`package-release.mjs` beside this script turns those deliverables into the ONE archive a
+platform ships, into `dist/release/` — `npm run engine:package`. It is the release deliverable,
+and `docs/desktop-release.md` is its page.
+
+`build-portable.mjs` is the other Windows deliverable — `npm run engine:portable`, one
+self-extracting `.exe` instead of an installer, staged through this script so both carry the
+same thing. [buildPortable.md](buildPortable.md) is its page.
 
 ## What the app carries
 
@@ -35,7 +50,10 @@ as `<name>-<triple>` **plus** the platform's executable extension, so on Windows
 `.exe`-suffixed file is the one it looks for and bundles.
 
 The demo songs matter for the same reason: a new workspace is seeded from them (see
-`file-service/src/demos.ts`), and a double-clicked `.app` has no repo to copy them out of.
+`packages/file-service/src/demos.ts`), and a double-clicked `.app` has no repo to copy them out of.
+They are the repo's `demos/`, staged under the name `resources/songs` — the two spellings are
+not interchangeable: `demos/` is where `demosDir()` finds them in a checkout, and
+`resources/songs` is the one `packages/engine-host/src/bundle.ts` probes in a bundle.
 Without them every new workspace on an installed app opens empty. They are replaced
 wholesale each build, so a demo deleted from the repo does not linger in the app, and the
 per-machine junk a working checkout accumulates (caches, VCS, deps) is filtered out.

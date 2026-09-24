@@ -122,7 +122,7 @@ Needs the MSVC Rust toolchain on Windows, not `-gnu`.
   watching a terminal: `tauri dev` never returns, so it can't report. It stops **every**
   running tray first, whatever build it came from — single-instance is keyed on the
   identifier, so a survivor would silently win — and it builds the dev app rather than
-  raw `cargo`, because only the `out/dev` copy makes `hostcmd.rs` take its dev tier. See
+  raw `cargo`, because only the `dist/dev` copy makes `hostcmd.rs` take its dev tier. See
   `scripts/docs/restartTray.md`.
 
 ## Verify

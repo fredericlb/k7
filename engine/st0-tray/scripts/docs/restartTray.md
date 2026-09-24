@@ -31,11 +31,11 @@ tray did not come up, and leaves the app running detached.
 
 ## Why not a plain `cargo build` either
 
-Because `target/debug/st0-tray.exe` is not the dev artifact — `out/dev/st0-tray.exe`
+Because `target/debug/st0-tray.exe` is not the dev artifact — `dist/dev/st0-tray.exe`
 is, and the difference is not cosmetic. `--dev` builds with `externalBin` and `resources`
 emptied and then **copies the exe out of `target/debug`**, and that copy is what makes
 `hostcmd.rs` take its dev tier: `bundled()` looks for a `node` sibling of the exe, finds
-none in `out/dev`, and falls through to the repo's tsx on the TypeScript source. Build
+none in `dist/dev`, and falls through to the repo's tsx on the TypeScript source. Build
 with the real config and Tauri stages the sidecars beside the exe, so `bundled()` wins —
 with whatever `src-tauri/binaries/node.exe` happens to hold. When that is a zero-byte
 placeholder (it is, in a tree where `engine:sidecar` never ran), the tray comes up and
@@ -83,7 +83,7 @@ build a no-op.
 ### The survivor's image name is not its name any more
 
 The scan matches the executable **path** as well as the image name, and that is not belt and
-braces. `--dev` deletes and rewrites `out/dev/st0-tray.exe`; doing that under a tray that is
+braces. `--dev` deletes and rewrites `dist/dev/st0-tray.exe`; doing that under a tray that is
 still running leaves that process with a GARBLED image name in the process table — a random
 hex string where `st0-tray.exe` used to be. A name-only query then reports no trays while
 several are up.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // start-engine.mjs — `npm run engine:start`: launches the dev tray app `engine:dev` left in
-// out/dev — the .app on macOS, st0-tray.exe on Windows. Detached, so this returns
+// dist/dev — the .app on macOS, st0-tray.exe on Windows. Detached, so this returns
 // immediately; quit it from its tray icon. Its stdout lands in .cache/dev/tray.log, which
 // is where a panic thrown before the merged log exists is the only trace left.
 
@@ -8,10 +8,11 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { distDir } from "./buildTools.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 const trayDir = dirname(here); //                      engine/st0-tray
-const OUT_DEV = join(trayDir, "out", "dev");
+const OUT_DEV = join(distDir(join(trayDir, "..", "..")), "dev");
 // The tray's own stdout — where a Rust panic thrown before logbus::init is the only trace left.
 const LOG_DIR = join(trayDir, ".cache", "dev");
 const LOG = join(LOG_DIR, "tray.log");
