@@ -2,18 +2,18 @@
 // the account's file service, on the server, holds every working copy, the deploy key and the
 // libraries pointer, so what projects EXIST — and creating, deleting and opening one — is its answer.
 //
-// Every call to it names its `Machine` (that service and its ticket): this screen opens no project,
+// Every call to it names its `AccountFiles` (that service and its ticket): this screen opens no project,
 // so `fileApi`'s module-level transport is unconfigured here and would throw. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
+  type AccountWorkspace,
+  type AccountWorkspaceList,
   type CloneJob,
   type ColdChainsReply,
   type CommentState,
   ENGINE_TOKEN_HEADER,
   type FileNode,
-  type MachineWorkspace,
-  type MachineWorkspaceList,
   type ModelDownloadJob,
   type RepoProject,
   type RepoRef,
@@ -68,8 +68,8 @@ async function json<T>(res: Response, what: string): Promise<T> {
 
 // `PL8_URL` and not a relative path: st0 is mounted at the origin ROOT, so a bare `/api/shares` would reach st0's own backend.
 
-/** The three fields an address is chosen from — narrower than `MachineWorkspace` on purpose, the surfaces listing carrying the same identity flattened. */
-type Addressable = Pick<MachineWorkspace, "name" | "repoName" | "uniqueName">;
+/** The three fields an address is chosen from — narrower than `AccountWorkspace` on purpose, the surfaces listing carrying the same identity flattened. */
+type Addressable = Pick<AccountWorkspace, "name" | "repoName" | "uniqueName">;
 
 /** Where a project opens: by its workspace's folder name, the one address (../../docs/projects.md). */
 export function projectHref(ws: Addressable, p: RepoProject): string {
@@ -148,26 +148,26 @@ export const shares = {
 // ── the chosen engine's file service: the working copies ────────────────────────
 
 /** The file service this screen acts on — the account's, on the server — and the token that opens the door. */
-export interface Machine {
+export interface AccountFiles {
   fileBase: string;
   token: string;
   /** Who is asking — read off `/auth/me` rather than off a configured workspace, this page having none. */
   userEmail: string;
 }
 
-/** The file-service calls this page makes, each carrying its machine explicitly: a row touches a different repository every time. */
-export const engineMachine = {
+/** The file-service calls this page makes, each carrying its file service explicitly: a row touches a different repository every time. */
+export const accountFiles = {
   /**
-   * The LIBRARY repository this machine holds — `null` is the ordinary state of a new one, hence
+   * The LIBRARY repository the account holds — `null` is the ordinary state of a new one, hence
    * a 200 with a null rather than a 404. It was pl8's until pl8 stopped knowing about git.
    *
-   * Named machine and not through `fileApi`: this screen opens no project, so the module-level
+   * Named service and not through `fileApi`: this screen opens no project, so the module-level
    * transport is unconfigured and `cfg()` would throw "no project opened yet" (../../docs/projects.md).
    */
-  libraries: async (m: Machine): Promise<RepoRef | null> => {
+  libraries: async (m: AccountFiles): Promise<RepoRef | null> => {
     const { libraries } = await json<{ libraries: RepoRef | null }>(
       await fetch(`${m.fileBase}/account/libraries`, {
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "libraries",
     );
@@ -175,11 +175,11 @@ export const engineMachine = {
   },
 
   /** SET it — the same URI twice is the same as once, and the far side CLONES before it writes it down. */
-  setLibraries: async (m: Machine, uri: string): Promise<RepoRef> => {
+  setLibraries: async (m: AccountFiles, uri: string): Promise<RepoRef> => {
     const { libraries } = await json<{ libraries: RepoRef }>(
       await fetch(`${m.fileBase}/account/libraries`, {
         method: "PUT",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ uri }),
       }),
       "libraries",
@@ -188,24 +188,24 @@ export const engineMachine = {
   },
 
   /** Which COLD chains of the library this machine separates and makes instrumentals with, and the ones it could — machine settings, no project open. */
-  coldChains: async (m: Machine): Promise<ColdChainsReply> =>
+  coldChains: async (m: AccountFiles): Promise<ColdChainsReply> =>
     json(
       await fetch(`${m.fileBase}/account/cold-chains`, {
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "cold-chains",
     ),
 
   /** Choose one — `""` clears it. The far side refuses a chain that is not cold, or writes no instrumental when that is asked. */
   setColdChain: async (
-    m: Machine,
+    m: AccountFiles,
     which: "stems" | "instrumental",
     ref: string,
   ): Promise<ColdChainsReply> =>
     json(
       await fetch(`${m.fileBase}/account/cold-chains/${which}`, {
         method: "PUT",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ ref }),
       }),
       "cold-chains",
@@ -213,13 +213,13 @@ export const engineMachine = {
 
   /** Download the models a cold chain needs and this machine has not got — one job each; the URLs are the chain's modules', never sent from here. */
   downloadChainModels: async (
-    m: Machine,
+    m: AccountFiles,
     ref: string,
   ): Promise<ModelDownloadJob[]> => {
     const { jobs } = await json<{ jobs: ModelDownloadJob[] }>(
       await fetch(`${m.fileBase}/account/cold-chains/download`, {
         method: "POST",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ ref }),
       }),
       "cold-chains/download",
@@ -228,36 +228,39 @@ export const engineMachine = {
   },
 
   /** One model download, as it stands. */
-  modelDownload: async (m: Machine, id: string): Promise<ModelDownloadJob> =>
+  modelDownload: async (
+    m: AccountFiles,
+    id: string,
+  ): Promise<ModelDownloadJob> =>
     json(
       await fetch(`${m.fileBase}/account/models/${encodeURIComponent(id)}`, {
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "models",
     ),
 
   /** The account's deploy key, MADE by its file service and never leaving the server. */
-  sshKey: async (m: Machine): Promise<SshKeyInfo> =>
+  sshKey: async (m: AccountFiles): Promise<SshKeyInfo> =>
     json(
-      await fetch(`${m.fileBase}/ssh-key`, { headers: machineHeaders(m) }),
+      await fetch(`${m.fileBase}/ssh-key`, { headers: filesHeaders(m) }),
       "ssh-key",
     ),
 
   /** Make one, if there is none — idempotent, so a second press returns the first key. */
-  createSshKey: async (m: Machine): Promise<SshKeyInfo> =>
+  createSshKey: async (m: AccountFiles): Promise<SshKeyInfo> =>
     json(
       await fetch(`${m.fileBase}/ssh-key`, {
         method: "POST",
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "ssh-key",
     ),
 
   /** Every workspace of the account, with the projects in it — the file service answers, they being folders on the server. */
-  workspaces: async (m: Machine): Promise<MachineWorkspace[]> => {
-    const { workspaces } = await json<MachineWorkspaceList>(
+  workspaces: async (m: AccountFiles): Promise<AccountWorkspace[]> => {
+    const { workspaces } = await json<AccountWorkspaceList>(
       await fetch(`${m.fileBase}/workspaces/projects`, {
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "workspaces",
     );
@@ -265,10 +268,10 @@ export const engineMachine = {
   },
 
   /** The same disk, asked what could be put on a SECOND DEVICE — its own route, the home page drawing no surfaces (../../docs/external.md). */
-  surfacedProjects: async (m: Machine): Promise<SurfacedProject[]> => {
+  surfacedProjects: async (m: AccountFiles): Promise<SurfacedProject[]> => {
     const { projects } = await json<SurfacedProjectList>(
       await fetch(`${m.fileBase}/workspaces/surfaces`, {
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "surfaces",
     );
@@ -276,10 +279,10 @@ export const engineMachine = {
   },
 
   /** …and which ONE of those the engine is holding for this person: one answer per account, unlike each row's `.studio-active`. */
-  servedProject: async (m: Machine): Promise<ServedProject | null> => {
+  servedProject: async (m: AccountFiles): Promise<ServedProject | null> => {
     const { project } = await json<ServedProjectReply>(
       await fetch(`${m.fileBase}/engine/served`, {
-        headers: machineHeaders(m),
+        headers: filesHeaders(m),
       }),
       "served",
     );
@@ -287,32 +290,38 @@ export const engineMachine = {
   },
 
   /** One workspace's whole tree, asked of a workspace this page has not opened — `/tree` needs one. */
-  workspaceTree: async (m: Machine, workspace: string): Promise<FileNode[]> =>
+  workspaceTree: async (
+    m: AccountFiles,
+    workspace: string,
+  ): Promise<FileNode[]> =>
     json(
       await fetch(`${m.fileBase}/workspace-tree`, {
-        headers: { ...machineHeaders(m), [WORKSPACE_HEADER]: workspace },
+        headers: { ...filesHeaders(m), [WORKSPACE_HEADER]: workspace },
       }),
       "tree",
     ),
 
-  /** Does this machine already hold this repository? A NORMALISED comparison on the far side (packages/git-repos/src/uri.ts). */
-  workspaceForRepo: async (m: Machine, uri: string): Promise<string | null> => {
+  /** Does the account already hold this repository? A NORMALISED comparison on the far side (packages/git-repos/src/uri.ts). */
+  workspaceForRepo: async (
+    m: AccountFiles,
+    uri: string,
+  ): Promise<string | null> => {
     const { workspace } = await json<{ workspace: string | null }>(
       await fetch(
         `${m.fileBase}/workspaces/by-repo?uri=${encodeURIComponent(uri)}`,
-        { headers: machineHeaders(m) },
+        { headers: filesHeaders(m) },
       ),
       "workspace",
     );
     return workspace ?? null;
   },
 
-  /** A workspace on this machine and NOTHING else: git-initialised, with no repository behind it. */
-  createWorkspace: async (m: Machine, name: string): Promise<void> => {
+  /** A workspace and NOTHING else: git-initialised, with no repository behind it. */
+  createWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
     await json(
       await fetch(`${m.fileBase}/workspaces`, {
         method: "POST",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ name }),
       }),
       "workspace",
@@ -321,14 +330,14 @@ export const engineMachine = {
 
   /** …and give it its first repository: the remote, and the push onto it, in one call. */
   setRemote: async (
-    m: Machine,
+    m: AccountFiles,
     workspace: string,
     uri: string,
   ): Promise<void> => {
     await json(
       await fetch(`${m.fileBase}/workspaces/remote`, {
         method: "POST",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ name: workspace, uri }),
       }),
       "publish",
@@ -336,29 +345,29 @@ export const engineMachine = {
   },
 
   /** Start the clone, and hand back the job to poll: a real repository takes tens of seconds. */
-  startClone: async (m: Machine, uri: string): Promise<CloneJob> =>
+  startClone: async (m: AccountFiles, uri: string): Promise<CloneJob> =>
     json(
       await fetch(`${m.fileBase}/workspaces/clone`, {
         method: "POST",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ uri }),
       }),
       "clone",
     ),
 
-  /** …and poll it; `null` for a job the machine has forgotten, finished ones being kept only a few minutes. */
-  cloneJob: async (m: Machine, id: string): Promise<CloneJob | null> => {
+  /** …and poll it; `null` for a job the server has forgotten, finished ones being kept only a few minutes. */
+  cloneJob: async (m: AccountFiles, id: string): Promise<CloneJob | null> => {
     const res = await fetch(
       `${m.fileBase}/workspaces/clone/${encodeURIComponent(id)}`,
-      { headers: machineHeaders(m) },
+      { headers: filesHeaders(m) },
     );
     if (res.status === 404) return null;
     return json(res, "clone");
   },
 
-  /** Scaffold a project in this machine's workspace: `name` carries its suffix, and `shape` is the ARCHETYPE (`PROJECT_SHAPES` in @studio/song). */
+  /** Scaffold a project in one of the account's workspaces: `name` carries its suffix, and `shape` is the ARCHETYPE (`PROJECT_SHAPES` in @studio/song). */
   createProject: async (
-    m: Machine,
+    m: AccountFiles,
     workspace: string,
     name: string,
     shape: ProjectShape,
@@ -367,7 +376,7 @@ export const engineMachine = {
       await fetch(`${m.fileBase}/project/create`, {
         method: "POST",
         headers: {
-          ...machineHeaders(m),
+          ...filesHeaders(m),
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/json",
         },
@@ -383,7 +392,7 @@ export const engineMachine = {
    * popin, and nothing is left in the workspace but the project — packages/translator/docs/import.md.
    */
   importProjectFile: async (
-    m: Machine,
+    m: AccountFiles,
     workspace: string,
     file: File,
     folder: string,
@@ -393,7 +402,7 @@ export const engineMachine = {
       await fetch(`${m.fileBase}/import-upload?${q}`, {
         method: "POST",
         headers: {
-          ...machineHeaders(m),
+          ...filesHeaders(m),
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/octet-stream",
         },
@@ -403,9 +412,9 @@ export const engineMachine = {
     );
   },
 
-  /** Copy a project into another workspace on this machine. No workspace HEADER: the body names both. */
+  /** Copy a project into another of the account's workspaces. No workspace HEADER: the body names both. */
   copyProject: async (
-    m: Machine,
+    m: AccountFiles,
     from: string,
     path: string,
     to: string,
@@ -414,7 +423,7 @@ export const engineMachine = {
     const { project } = await json<{ project: string }>(
       await fetch(`${m.fileBase}/workspaces/copy-project`, {
         method: "POST",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ from, path, to, name }),
       }),
       "copy",
@@ -424,7 +433,7 @@ export const engineMachine = {
 
   /** Rename a project's FOLDER in place; the suffix stays, and the commit that follows carries it off this disk. */
   renameProject: async (
-    m: Machine,
+    m: AccountFiles,
     workspace: string,
     path: string,
     name: string,
@@ -433,7 +442,7 @@ export const engineMachine = {
       await fetch(`${m.fileBase}/project/rename`, {
         method: "POST",
         headers: {
-          ...machineHeaders(m),
+          ...filesHeaders(m),
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/json",
         },
@@ -445,12 +454,15 @@ export const engineMachine = {
   },
 
   /** Unload the project and recycle its folder — the commit that follows is what takes it out of the repository. */
-  /** Remove a workspace from the machine — the folder and everything under it, for good. */
-  removeWorkspace: async (m: Machine, workspace: string): Promise<void> => {
+  /** Delete a workspace — the folder and everything under it, for good. */
+  removeWorkspace: async (
+    m: AccountFiles,
+    workspace: string,
+  ): Promise<void> => {
     await json(
       await fetch(`${m.fileBase}/workspaces/remove`, {
         method: "POST",
-        headers: { ...machineHeaders(m), "content-type": "application/json" },
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ name: workspace }),
       }),
       "delete",
@@ -458,7 +470,7 @@ export const engineMachine = {
   },
 
   deleteProject: async (
-    m: Machine,
+    m: AccountFiles,
     workspace: string,
     path: string,
   ): Promise<void> => {
@@ -466,7 +478,7 @@ export const engineMachine = {
       await fetch(`${m.fileBase}/project/delete`, {
         method: "POST",
         headers: {
-          ...machineHeaders(m),
+          ...filesHeaders(m),
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/json",
         },
@@ -478,7 +490,7 @@ export const engineMachine = {
 
   /** One command line, run in that workspace — here, only the two git verbs. */
   command: async (
-    m: Machine,
+    m: AccountFiles,
     workspace: string,
     line: string,
   ): Promise<string[]> => {
@@ -486,7 +498,7 @@ export const engineMachine = {
       await fetch(`${m.fileBase}/command`, {
         method: "POST",
         headers: {
-          ...machineHeaders(m),
+          ...filesHeaders(m),
           [WORKSPACE_HEADER]: workspace,
           "content-type": "application/json",
         },
@@ -498,7 +510,7 @@ export const engineMachine = {
   },
 };
 
-const machineHeaders = (m: Machine): Record<string, string> => ({
+const filesHeaders = (m: AccountFiles): Record<string, string> => ({
   [USER_HEADER]: m.userEmail,
   [ENGINE_TOKEN_HEADER]: m.token,
 });

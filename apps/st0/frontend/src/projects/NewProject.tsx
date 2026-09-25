@@ -20,7 +20,7 @@ import { projectFolderName } from "./projectName";
 import { SHAPES } from "./shapes";
 
 export function NewProject({
-  /** Why it is impossible, or "" — an offline machine is the ordinary state. */
+  /** Why it is impossible, or "" — a file service not answering is one. */
   blocked,
   onCreate,
 }: {

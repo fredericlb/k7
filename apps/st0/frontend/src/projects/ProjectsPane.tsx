@@ -4,8 +4,8 @@
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
+  AccountWorkspace,
   FileNode,
-  MachineWorkspace,
   RepoProject,
   RepoRef,
   ShareSummary,
@@ -13,29 +13,29 @@ import type {
 import { isDroppableProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { engineMachine, projectHref, workspaceHref } from "./api";
+import { accountFiles, projectHref, workspaceHref } from "./api";
 import { BenchCard } from "./BenchCard";
 import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesCard } from "./LibrariesCard";
-import {
-  copyProjectOnMachine,
-  createLocalWorkspace,
-  createProjectOnMachine,
-  deleteProjectOnMachine,
-  ensureWorkspace,
-  type Machine,
-  publishWorkspace,
-  renameProjectOnMachine,
-} from "./machine";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
+import {
+  type AccountFiles,
+  copyProjectAndCommit,
+  createLocalWorkspace,
+  createProjectAndCommit,
+  deleteProjectAndCommit,
+  ensureWorkspace,
+  publishWorkspace,
+  renameProjectAndCommit,
+} from "./workspaceOps";
 
 export function ProjectsPane({
   workspaces,
   shares,
   busy,
   openWs,
-  machine,
+  fileService,
   onOpen,
   onChanged,
   onOpenSettings,
@@ -43,14 +43,14 @@ export function ProjectsPane({
   /** The account's workspaces, projects included — the only source, a project being a folder there. */
   /** Forwarded to RepoList, whose prose points at the deploy key. */
   onOpenSettings: () => void;
-  workspaces: MachineWorkspace[];
+  workspaces: AccountWorkspace[];
   /** Frozen snapshots published by `project share link` — the account's WHOLE list, cut up by the rows with `sharesOf`. */
   shares: ShareSummary[];
   busy: boolean;
   /** The unfolded workspace's name, taken from the address, or null for the list. */
   openWs: string | null;
   /** The account's file service, or null when it does not answer — it is what READS the list. */
-  machine: Machine | null;
+  fileService: AccountFiles | null;
   onOpen: (name: string | null) => void;
   /** Call after any write, so the page reloads without waiting for the poll. */
   onChanged: () => void;
@@ -61,7 +61,7 @@ export function ProjectsPane({
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
 
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
-  const blocked = machine ? "" : m["projects.noMachineBlocked"]();
+  const blocked = fileService ? "" : m["projects.noFilesBlocked"]();
 
   // The account's library, read by the card below and kept HERE: it also decides whether a
   // workspace may be made at all, and two reads would be two answers.
@@ -73,10 +73,10 @@ export function ProjectsPane({
     blocked || (libraries === null ? m["ws.needLibraries"]() : "");
 
   /** The file service, or a refusal that reads — reaching here means it vanished between the dialog opening and the click. */
-  const chosen = useCallback((): Machine => {
-    if (!machine) throw new Error(blocked);
-    return machine;
-  }, [machine, blocked]);
+  const chosen = useCallback((): AccountFiles => {
+    if (!fileService) throw new Error(blocked);
+    return fileService;
+  }, [fileService, blocked]);
 
   /** Importing means registering it with pl8 AND THEN cloning it here — the clone is what makes it APPEAR. */
   const importRepo = useCallback(
@@ -97,10 +97,10 @@ export function ProjectsPane({
 
   /** Delete a workspace. Final: there is no bin a whole workspace fits in. */
   const removeWorkspace = useCallback(
-    async (w: MachineWorkspace) => {
+    async (w: AccountWorkspace) => {
       setError(null);
       try {
-        await engineMachine.removeWorkspace(chosen(), w.name);
+        await accountFiles.removeWorkspace(chosen(), w.name);
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -122,7 +122,7 @@ export function ProjectsPane({
 
   /** …and its first repository, which is the remote and the push. */
   const publish = useCallback(
-    (w: MachineWorkspace, uri: string, onStep: (s: string) => void) => {
+    (w: AccountWorkspace, uri: string, onStep: (s: string) => void) => {
       setError(null);
       return publishWorkspace(chosen(), w.name, uri, onStep);
     },
@@ -131,12 +131,12 @@ export function ProjectsPane({
 
   const create = useCallback(
     async (
-      w: MachineWorkspace,
+      w: AccountWorkspace,
       folder: string,
       onStep: (s: string) => void,
       shape: ProjectShape,
     ) => {
-      const { gripe } = await createProjectOnMachine(
+      const { gripe } = await createProjectAndCommit(
         chosen(),
         w.name,
         folder,
@@ -153,11 +153,11 @@ export function ProjectsPane({
 
   const removeProject = useCallback(
     async (
-      w: MachineWorkspace,
+      w: AccountWorkspace,
       p: RepoProject,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await deleteProjectOnMachine(
+      const { gripe } = await deleteProjectAndCommit(
         chosen(),
         w.name,
         p.path,
@@ -175,7 +175,7 @@ export function ProjectsPane({
   const [imported, setImported] = useState<string | null>(null);
 
   /** What a drop on a row does: take the one file this can import, and SAY so when there is none. */
-  const dropProject = useCallback((w: MachineWorkspace, files: File[]) => {
+  const dropProject = useCallback((w: AccountWorkspace, files: File[]) => {
     const file = files.find((f) => isDroppableProject(f.name));
     // The row lights up for any file — a dragover cannot read a name — so the refusal is said here.
     if (!file)
@@ -188,7 +188,7 @@ export function ProjectsPane({
   const importDropped = useCallback(
     async (folder: string): Promise<string[]> => {
       if (!dropped) return [];
-      const { project, log } = await engineMachine.importProjectFile(
+      const { project, log } = await accountFiles.importProjectFile(
         chosen(),
         dropped.workspace,
         dropped.file,
@@ -214,13 +214,13 @@ export function ProjectsPane({
   /** …and copying one across: the DESTINATION is what commits, so it is its repository that decides the push. */
   const copyProject = useCallback(
     async (
-      w: MachineWorkspace,
+      w: AccountWorkspace,
       p: RepoProject,
-      to: MachineWorkspace,
+      to: AccountWorkspace,
       folder: string,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await copyProjectOnMachine(
+      const { gripe } = await copyProjectAndCommit(
         chosen(),
         w.name,
         p.path,
@@ -240,12 +240,12 @@ export function ProjectsPane({
   /** …and renaming one in place: the folder moves, and the SAME workspace commits and pushes it. */
   const renameProject = useCallback(
     async (
-      w: MachineWorkspace,
+      w: AccountWorkspace,
       p: RepoProject,
       folder: string,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await renameProjectOnMachine(
+      const { gripe } = await renameProjectAndCommit(
         chosen(),
         w.name,
         p.path,
@@ -263,14 +263,14 @@ export function ProjectsPane({
 
   /** The unfolded workspace's tree, read off the file service — one request, no retry: it is a `readdir` on a disk that is there. */
   useEffect(() => {
-    if (!openWs || !machine) {
+    if (!openWs || !fileService) {
       setNodes(null);
       return;
     }
     let stop = false;
     setNodes(null);
-    void engineMachine
-      .workspaceTree(machine, openWs)
+    void accountFiles
+      .workspaceTree(fileService, openWs)
       .then((n) => {
         if (!stop) setNodes(n);
       })
@@ -280,7 +280,7 @@ export function ProjectsPane({
     return () => {
       stop = true;
     };
-  }, [openWs, machine]);
+  }, [openWs, fileService]);
 
   // The libraries repository comes FIRST: nothing else here works until a new account has one.
   return (
@@ -295,7 +295,7 @@ export function ProjectsPane({
           setImported(null);
         }}
       />
-      <LibrariesCard machine={machine} onRepo={setLibraries} />
+      <LibrariesCard fileService={fileService} onRepo={setLibraries} />
       {/* Under the card that declares the library, because every module the rig can name is in it. */}
       <BenchCard libraries={libraries} />
       {ws ? (
@@ -312,7 +312,7 @@ export function ProjectsPane({
           busy={busy}
           error={error}
           adding={adding}
-          hasMachine={machine !== null}
+          hasFileService={fileService !== null}
           onImport={importRepo}
           onCreateWorkspace={createWorkspace}
           onPublish={publish}

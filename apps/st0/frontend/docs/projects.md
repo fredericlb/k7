@@ -95,7 +95,7 @@ ones, and this page has no bursts of commits to measure.
 
 The list of projects, and adding a repository (which clones it), need the account's file service
 on the server and nothing else: the workspaces are there whether or not an engine is running, so
-the page does not wait on an engine probe to draw them (`settings/machine.ts`'s `probeMachine`,
+the page does not wait on an engine probe to draw them (`settings/accountFiles.ts`'s `findAccountFiles`,
 asked with `bindEngine` off). If that service does not answer, the list is replaced by the
 sentence that says so, rather than by an empty screen that would look like a new account. The
 header says whether the files answer, with the address in a tooltip and a button to ask again.
@@ -163,8 +163,8 @@ address unfolded (`?ws=`), or failing that the only one there is. Between severa
 **refused by naming them** rather than choosing one — creating a project in the wrong repository
 is a commit pushed where nobody was looking.
 
-**Buttons and bar go through the same functions** — `createProjectOnMachine`,
-`copyProjectOnMachine`, `deleteProjectOnMachine`, `ensureWorkspace`, pl8's register: one implementation, two doors, as the
+**Buttons and bar go through the same functions** — `createProjectAndCommit`,
+`copyProjectAndCommit`, `deleteProjectAndCommit`, `ensureWorkspace`, pl8's register: one implementation, two doors, as the
 file tree's menu and the `fs …` verbs already have (`docs/shell.md`). What the bar adds is doing
 it without the mouse, and saying so in a status line above it: refusals in amber, because these
 verbs talk to two services and a silent "that did nothing" is avoided everywhere else. A line this
@@ -576,7 +576,7 @@ words and concluding success for everything else announces that all is well for 
 does not exist. `commitOutcome` demands **positive proof** — a `committed …` line — and returns
 the raw output for everything else, including what it does not recognise. That output is what will
 name the next drift between this code and `commands.yaml`. It is pure and in its own module, with
-not one import: that is what makes it loadable by a test, `machine.ts` touching `./api` — hence
+not one import: that is what makes it loadable by a test, `workspaceOps.ts` touching `./api` — hence
 `window` — as soon as it loads.
 
 **A failed push does not cancel the creation.** The folder is there and only the push failed; the
@@ -588,8 +588,8 @@ so the project appears at the next tick.
 ### Copying a project — the DESTINATION is what commits
 
 "Copier" takes a project into another workspace on the same machine: pick where it lands, name the
-copy, and the original is not touched. One call does the copy (`CopyProject.tsx` → `machine.ts`'s
-`copyProjectOnMachine`), and the commit that follows is run **in the workspace that received it**,
+copy, and the original is not touched. One call does the copy (`CopyProject.tsx` → `workspaceOps.ts`'s
+`copyProjectAndCommit`), and the commit that follows is run **in the workspace that received it**,
 because that is the repository whose history gained a project. Which also settles the push: it
 happens when the destination has an `origin` and does not when it has none, exactly as creating a
 project does — so the picker says which of the two each row is, before the click rather than in
@@ -606,7 +606,7 @@ leaves the fix to be a push rather than a second copy.
 ### Renaming a project — the SAME workspace commits
 
 `project rename <project> <new name>`, and the ⋮'s "Rename". The folder moves on the machine
-(`RenameProject.tsx` → `machine.ts`'s `renameProjectOnMachine`), and the commit runs in the
+(`RenameProject.tsx` → `workspaceOps.ts`'s `renameProjectAndCommit`), and the commit runs in the
 workspace it is already in — a rename is a delete and an add to git, so it is that repository's
 history that gains it, and the push follows the same `origin`-or-not rule creating and copying do.
 
@@ -697,7 +697,7 @@ would make withdrawing one a choice nobody should have to make.
 origin: { repo: basename(this.root), project: basename(dir) }   // file-service/src/workspace.ts
 ```
 
-So `origin.repo` is the **workspace's** name — `MachineWorkspace.name`, not the repository's short
+So `origin.repo` is the **workspace's** name — `AccountWorkspace.name`, not the repository's short
 name at pl8 — and `origin.project` is the **last segment with its suffix**, not the path.
 `sharesForProject.ts` crosses that gap, alone and tested, because it is the kind of rule nobody
 re-reads inside a JSX — named out in full rather than "projectShares", which would collide with

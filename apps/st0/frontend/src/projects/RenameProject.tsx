@@ -41,7 +41,7 @@ export function RenameProject({
   const [error, setError] = useState("");
 
   const { folder, error: badName } = projectFolderName(name, app);
-  // Renaming a thing to what it is called is not an edit: said here rather than refused by the machine.
+  // Renaming a thing to what it is called is not an edit: said here rather than refused by the file service.
   const same = folder === path.split("/").pop();
 
   const submit = () => {

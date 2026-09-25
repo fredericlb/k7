@@ -4,7 +4,7 @@
 // whose sentence is missing or too long to read — the same rules commandSpec.test.ts holds the
 // brain's to, said here for the half that never reaches it.
 
-import type { MachineWorkspace } from "@studio/web-protocol";
+import type { AccountWorkspace } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
   buildHomePalette,
@@ -15,9 +15,9 @@ import {
   resolveWorkspace,
   runHomeCommand,
 } from "./homeCommands";
-import type { Machine } from "./machine";
+import type { AccountFiles } from "./workspaceOps";
 
-const MACHINE: Machine = {
+const FILES: AccountFiles = {
   fileBase: "https://m",
   token: "t",
   userEmail: "a@b",
@@ -27,7 +27,7 @@ const ws = (
   name: string,
   projects: string[] = [],
   repoName: string | null = name,
-): MachineWorkspace => ({
+): AccountWorkspace => ({
   name,
   origin: null,
   repoName,
@@ -50,9 +50,9 @@ interface Seen {
 
 function harness(
   over: Partial<{
-    workspaces: MachineWorkspace[];
+    workspaces: AccountWorkspace[];
     openWs: string | null;
-    machine: Machine | null;
+    fileService: AccountFiles | null;
     gripe: string | null;
   }> = {},
 ) {
@@ -105,7 +105,7 @@ function harness(
     },
   };
   const deps = {
-    machine: over.machine === undefined ? MACHINE : over.machine,
+    fileService: over.fileService === undefined ? FILES : over.fileService,
     workspaces: over.workspaces ?? [ws("songs", ["hiver.st0"])],
     openWs: over.openWs ?? null,
     acts,
@@ -167,7 +167,7 @@ describe("the catalogue", () => {
 describe("which repository a project verb lands in", () => {
   it("is the one the address has unfolded", () => {
     const found = resolveWorkspace({
-      machine: MACHINE,
+      fileService: FILES,
       workspaces: [ws("a"), ws("b")],
       openWs: "b",
     });
@@ -176,7 +176,7 @@ describe("which repository a project verb lands in", () => {
 
   it("is the only one there is, when there is only one", () => {
     const found = resolveWorkspace({
-      machine: MACHINE,
+      fileService: FILES,
       workspaces: [ws("a")],
       openWs: null,
     });
@@ -185,7 +185,7 @@ describe("which repository a project verb lands in", () => {
 
   it("REFUSES rather than guessing between several, and names them", () => {
     const found = resolveWorkspace({
-      machine: MACHINE,
+      fileService: FILES,
       workspaces: [ws("a"), ws("b")],
       openWs: null,
     });
@@ -205,7 +205,7 @@ describe("naming a project", () => {
 
 describe("what a field offers", () => {
   const ctx = {
-    machine: MACHINE,
+    fileService: FILES,
     workspaces: [ws("songs", ["hiver.st0"], "songs")],
     openWs: null,
   };
@@ -221,8 +221,8 @@ describe("what a field offers", () => {
     expect(homeArgValues("project delete init", 0, ctx)).toEqual(["hiver.st0"]);
   });
 
-  it("offers SYNC every workspace the machine holds", () => {
-    // A clone added by hand is still one you can commit and push, so the list is the machine's.
+  it("offers SYNC every workspace the account holds", () => {
+    // A clone added by hand is still one you can commit and push, so the list is the file service's.
     const local = { ...ctx, workspaces: [ws("local-only", [], null)] };
     expect(homeArgValues("system repo sync", 0, local)).toEqual(["local-only"]);
   });
@@ -236,7 +236,7 @@ describe("project new", () => {
     });
     expect(await h.run("project new arrangement hiver")).toBe(true);
     expect(h.seen.create).toEqual([
-      [MACHINE, "band", "hiver.st0", "arrangement"],
+      [FILES, "band", "hiver.st0", "arrangement"],
     ]);
     expect(h.changes()).toBe(1);
     expect(h.said.join(" ")).toMatch(/band\/hiver\.st0/);
@@ -256,7 +256,7 @@ describe("project new", () => {
       openWs: "band",
     });
     expect(await h.run("project new live hiver")).toBe(true);
-    expect(h.seen.create).toEqual([[MACHINE, "band", "hiver.st0", "live"]]);
+    expect(h.seen.create).toEqual([[FILES, "band", "hiver.st0", "live"]]);
   });
 
   it("refuses a name the folder rules refuse", async () => {
@@ -275,7 +275,7 @@ describe("project new", () => {
   });
 
   it("says the file service is not answering rather than failing at the far end", async () => {
-    const h = harness({ machine: null });
+    const h = harness({ fileService: null });
     await h.run("project new mix hiver");
     expect(h.refused.join(" ")).toMatch(/file service is not answering/);
     expect(h.seen.create).toEqual([]);
@@ -289,7 +289,7 @@ describe("project copy", () => {
     const h = harness({ workspaces: two(), openWs: "songs" });
     expect(await h.run("project copy hiver band")).toBe(true);
     expect(h.seen.copy).toEqual([
-      [MACHINE, "songs", "hiver.st0", "band", "hiver.st0", true],
+      [FILES, "songs", "hiver.st0", "band", "hiver.st0", true],
     ]);
     expect(h.said.join(" ")).toMatch(/band\/hiver\.st0/);
     expect(h.changes()).toBe(1);
@@ -351,7 +351,7 @@ describe("project copy", () => {
   it("offers the other workspaces, and not the ones a copy would hide in", async () => {
     const solo = { ...ws("solo.st0"), isSingleProject: true };
     const ctx = {
-      machine: MACHINE,
+      fileService: FILES,
       workspaces: [ws("songs", ["hiver.st0"]), ws("band"), solo],
       openWs: "songs",
     };
@@ -369,7 +369,7 @@ describe("project rename", () => {
     expect(await h.run("project rename hiver printemps")).toBe(true);
     // …and `noRemote` is TRUE here: this workspace has no repository, so nothing is pushed.
     expect(h.seen.rename).toEqual([
-      [MACHINE, "songs", "hiver.st0", "printemps.st0", true],
+      [FILES, "songs", "hiver.st0", "printemps.st0", true],
     ]);
     expect(h.said.join(" ")).toMatch(/hiver\.st0 → printemps\.st0/);
     expect(h.changes()).toBe(1);
@@ -390,7 +390,7 @@ describe("project rename", () => {
     expect(h.seen.rename[0]?.[4]).toBe(false);
   });
 
-  it("refuses the name it already has, rather than asking the machine", async () => {
+  it("refuses the name it already has, rather than asking the file service", async () => {
     const h = harness({ workspaces: one(), openWs: "songs" });
     await h.run("project rename hiver hiver");
     expect(h.refused.join(" ")).toMatch(/already/);
@@ -404,7 +404,7 @@ describe("project rename", () => {
     expect(h.seen.rename).toEqual([]);
   });
 
-  it("refuses a name git could not carry, before touching the machine", async () => {
+  it("refuses a name git could not carry, before touching the file service", async () => {
     const h = harness({ workspaces: one(), openWs: "songs" });
     await h.run("project rename hiver a/b");
     expect(h.refused.join(" ")).toMatch(/\//);
@@ -425,7 +425,7 @@ describe("project rename", () => {
   it("offers the open repository's projects for its first field", () => {
     expect(
       homeArgValues("project rename", 0, {
-        machine: MACHINE,
+        fileService: FILES,
         workspaces: one(),
         openWs: "songs",
       }),
@@ -457,7 +457,7 @@ describe("project delete, in two halves", () => {
     const h = harness();
     await h.run("project delete init hiver");
     await h.run("project delete confirm hiver.st0");
-    expect(h.seen.remove).toEqual([[MACHINE, "songs", "hiver.st0"]]);
+    expect(h.seen.remove).toEqual([[FILES, "songs", "hiver.st0"]]);
   });
 
   it("refuses a confirm nothing armed", async () => {
@@ -488,7 +488,7 @@ describe("project delete, in two halves", () => {
 });
 
 describe("system repo", () => {
-  it("clones a repository onto the machine", async () => {
+  it("clones a repository onto the server", async () => {
     const h = harness();
     await h.run("system repo add git@h:u/band.git");
     expect(h.seen.clone).toEqual([["git@h:u/band.git"]]);
@@ -504,7 +504,7 @@ describe("system repo", () => {
     ]);
   });
 
-  it("refuses a workspace this machine does not hold", async () => {
+  it("refuses a workspace the account does not hold", async () => {
     const h = harness();
     await h.run("system repo sync nope");
     expect(h.refused.join(" ")).toMatch(/no workspace/);
@@ -516,7 +516,7 @@ describe("system workspace new", () => {
   it("makes an EMPTY workspace, and says so", async () => {
     const h = harness();
     await h.run("system workspace new hiver");
-    expect(h.seen.newWorkspace).toEqual([[MACHINE, "hiver"]]);
+    expect(h.seen.newWorkspace).toEqual([[FILES, "hiver"]]);
     // No project: the archetype is asked for by the editor, on the empty workspace.
     expect(h.said.join(" ")).toMatch(/empty and with no repository/);
   });
@@ -524,10 +524,10 @@ describe("system workspace new", () => {
   it("strips a suffix somebody typed — a workspace is a plain folder", async () => {
     const h = harness();
     await h.run("system workspace new hiver.st0");
-    expect(h.seen.newWorkspace).toEqual([[MACHINE, "hiver"]]);
+    expect(h.seen.newWorkspace).toEqual([[FILES, "hiver"]]);
   });
 
-  it("refuses a name git could not carry, before touching the machine", async () => {
+  it("refuses a name git could not carry, before touching the file service", async () => {
     const h = harness();
     await h.run("system workspace new a/b");
     expect(h.seen.newWorkspace).toEqual([]);
@@ -539,7 +539,7 @@ describe("system workspace publish", () => {
   it("sets the remote and pushes", async () => {
     const h = harness();
     await h.run("system workspace publish songs git@h:u/songs.git");
-    expect(h.seen.publish).toEqual([[MACHINE, "songs", "git@h:u/songs.git"]]);
+    expect(h.seen.publish).toEqual([[FILES, "songs", "git@h:u/songs.git"]]);
     expect(h.said.join(" ")).toMatch(/published/);
   });
 
@@ -556,7 +556,7 @@ describe("system workspace publish", () => {
     const workspaces = [ws("local"), { ...ws("cloned"), origin: "h/u/cloned" }];
     expect(
       homeArgValues("system workspace publish", 0, {
-        machine: MACHINE,
+        fileService: FILES,
         workspaces,
         openWs: null,
       }),

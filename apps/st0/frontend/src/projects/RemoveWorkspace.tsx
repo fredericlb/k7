@@ -1,4 +1,4 @@
-// RemoveWorkspace.tsx — take a workspace off this machine: the folder and everything in it.
+// RemoveWorkspace.tsx — delete a workspace: the folder and everything in it.
 //
 // Not the same act as deleting a project, which recycles: the bin lives INSIDE a workspace, so a
 // workspace has nowhere to fall into and this is final. The confirmation therefore says which of

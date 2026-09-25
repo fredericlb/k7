@@ -1,4 +1,4 @@
-// RepoTree.tsx — a workspace's tree as it is on the machine, with an "Ouvrir dans st0" button on
+// RepoTree.tsx — a workspace's tree as the file service holds it, with an "Ouvrir dans st0" button on
 // every folder that is a project. Read-only: what is written in a project is written once it is
 // open. See ../../docs/projects.md.
 
@@ -13,7 +13,7 @@ import {
   FolderGit2,
   Loader2,
 } from "@frediverse/ui/icons";
-import type { FileNode, MachineWorkspace } from "@studio/web-protocol";
+import type { AccountWorkspace, FileNode } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -102,8 +102,8 @@ export function RepoTree({
   onBack,
   projectHref,
 }: {
-  workspace: MachineWorkspace;
-  /** null until the machine has answered — that is not an empty workspace. */
+  workspace: AccountWorkspace;
+  /** null until the file service has answered — that is not an empty workspace. */
   nodes: FileNode[] | null;
   onBack: () => void;
   /** A project's address, not the act of opening it: the row makes it a real link. */
@@ -143,7 +143,7 @@ export function RepoTree({
         {rows === null ? (
           <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {m["repos.readingMachine"]()}
+            {m["repos.reading"]()}
           </div>
         ) : rows.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">

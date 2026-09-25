@@ -20,13 +20,13 @@ const share = (
 
 describe("shareProjectName", () => {
   it("garde le dernier segment, suffixe compris", () => {
-    // `origin.project` is a basename: that is what the machine writes, not the path.
+    // `origin.project` is a basename: that is what the file service writes, not the path.
     expect(shareProjectName("band", "chansons/hiver.st0")).toBe("hiver.st0");
     expect(shareProjectName("band", "hiver.st0")).toBe("hiver.st0");
   });
 
   it("un projet qui EST son espace prend le nom de l'espace", () => {
-    // `dir === root` on the machine, so the same basename on both sides.
+    // `dir === root` in the file service, so the same basename on both sides.
     expect(shareProjectName("leclip.st0", ".")).toBe("leclip.st0");
   });
 });

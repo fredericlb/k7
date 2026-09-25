@@ -2,7 +2,7 @@
 // the end of them — the popin gets that, the console gets the rest.
 
 import { describe, expect, it } from "vitest";
-import { gitReason } from "./machine.ts";
+import { gitReason } from "./workspaceOps.ts";
 
 describe("git's reason out of its output", () => {
   it("keeps the cause AND the fatal that followed from it", () => {

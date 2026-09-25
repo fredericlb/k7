@@ -18,8 +18,8 @@ import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
 import { m } from "../paraglide/messages.js";
-import { engineMachine, externalHref } from "../projects/api";
-import type { Machine } from "../projects/machine";
+import { accountFiles, externalHref } from "../projects/api";
+import type { AccountFiles } from "../projects/workspaceOps";
 import { PANE_META } from "../shellMeta";
 
 /** The service memoizes this listing for five seconds; asking faster only burns requests. */
@@ -27,7 +27,9 @@ const POLL_MS = 5000;
 
 export function ExternalIndex() {
   // `undefined` while probing — "no machine" is a refusal to draw and "still looking" is not.
-  const [machine, setMachine] = useState<Machine | null | undefined>(undefined);
+  const [fileService, setFileService] = useState<
+    AccountFiles | null | undefined
+  >(undefined);
   const [rows, setRows] = useState<SurfacedProject[]>([]);
   // What the engine is HOLDING, which is not what the disk has — see where it is fetched.
   const [served, setServed] = useState<ServedProject | null>(null);
@@ -40,7 +42,7 @@ export function ExternalIndex() {
       const me = await api.getMe().catch(() => null);
       const userEmail = me?.email || me?.sub || "unknown";
       const { chosen } = await engines.find();
-      setMachine(
+      setFileService(
         chosen?.fileBase && fileTokenOf(chosen)
           ? {
               fileBase: chosen.fileBase,
@@ -50,7 +52,7 @@ export function ExternalIndex() {
           : null,
       );
     } catch {
-      setMachine(null);
+      setFileService(null);
     }
   }, []);
 
@@ -59,11 +61,11 @@ export function ExternalIndex() {
   }, [probe]);
 
   /** The two halves of one answer together — a row is drawn only when both agree, so two polls would leave the menu empty for a beat. */
-  const load = useCallback(async (m: Machine) => {
+  const load = useCallback(async (m: AccountFiles) => {
     try {
       const [surfaced, holding] = await Promise.all([
-        engineMachine.surfacedProjects(m),
-        engineMachine.servedProject(m),
+        accountFiles.surfacedProjects(m),
+        accountFiles.servedProject(m),
       ]);
       setRows(surfaced);
       setServed(holding);
@@ -76,14 +78,14 @@ export function ExternalIndex() {
   }, []);
 
   useEffect(() => {
-    if (!machine) {
-      if (machine === null) setBusy(false);
+    if (!fileService) {
+      if (fileService === null) setBusy(false);
       return;
     }
-    void load(machine);
-    const t = setInterval(() => void load(machine), POLL_MS);
+    void load(fileService);
+    const t = setInterval(() => void load(fileService), POLL_MS);
     return () => clearInterval(t);
-  }, [machine, load]);
+  }, [fileService, load]);
 
   /** The row the engine is holding, if the disk still has it — one project, by construction. */
   const open = useMemo(
@@ -111,7 +113,7 @@ export function ExternalIndex() {
 
   const refresh = () => {
     setBusy(true);
-    if (machine) void load(machine);
+    if (fileService) void load(fileService);
     else void probe();
   };
 
@@ -141,7 +143,7 @@ export function ExternalIndex() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto p-4">
-        {machine === null ? (
+        {fileService === null ? (
           <Empty icon={<ServerOff className="h-8 w-8" />}>
             <p className="text-sm">{m["ext.noEngine"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">

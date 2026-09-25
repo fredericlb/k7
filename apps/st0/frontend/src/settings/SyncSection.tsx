@@ -1,27 +1,29 @@
 // SyncSection.tsx — the deploy key, which is what lets a repository be cloned and pushed at
-// all. It is MADE on the machine and never leaves it, so this screen needs a machine and there
-// is one key per machine rather than one per account.
+// all. It is MADE by the account's file service on the server and never leaves it, so this
+// screen needs that service and no engine, and there is one key per account.
 // See packages/git-repos/docs/keys.md and ../../docs/settings.md.
 
 import { TriangleAlert } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
-import { engineMachine, type Machine } from "../projects/api";
-import { probeMachine } from "./machine";
+import { type AccountFiles, accountFiles } from "../projects/api";
+import { findAccountFiles } from "./accountFiles";
 import { Action, Row, Section } from "./Section";
 
 export function SyncSection() {
   const [key, setKey] = useState<string | null>(null);
-  const [machine, setMachine] = useState<Machine | null | undefined>(undefined);
+  const [fileService, setFileService] = useState<
+    AccountFiles | null | undefined
+  >(undefined);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The same probe the home page runs: this screen reads a machine's disk, not an account's record.
+  // The same lookup the home page runs, engine or none: the key is the account's, on the server.
   useEffect(() => {
-    void probeMachine().then((m) => {
-      setMachine(m);
+    void findAccountFiles(false).then((m) => {
+      setFileService(m);
       if (!m) return;
-      void engineMachine
+      void accountFiles
         .sshKey(m)
         .then((r) => setKey(r.publicKey))
         .catch((e: Error) => setError(e.message));
@@ -29,11 +31,11 @@ export function SyncSection() {
   }, []);
 
   const generate = () => {
-    if (!machine) return;
+    if (!fileService) return;
     setBusy(true);
     setError(null);
-    void engineMachine
-      .createSshKey(machine)
+    void accountFiles
+      .createSshKey(fileService)
       .then((r) => setKey(r.publicKey))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
@@ -50,18 +52,18 @@ export function SyncSection() {
   return (
     <Section
       title="Deploy key"
-      hint="Add this public key at your git host — as a deploy key, or as an account SSH key — before adding a repository. It is made on the machine and never leaves it, so each machine has its own to register."
+      hint="Add this public key at your git host — as a deploy key, or as an account SSH key — before adding a repository. It is made on the server for your account and never leaves it, so there is one to register."
     >
-      {machine === null ? (
+      {fileService === null ? (
         <Row
-          label="No machine"
-          detail="The key lives on the machine that clones, so there is one to read only when one answers."
+          label="No file service"
+          detail="The key lives in your account's files on the server, which are not answering."
         />
       ) : key ? (
         <>
           <Row
             label="Your key is ready"
-            detail="One per machine, pasted once at the host."
+            detail="One per account, pasted once at the host."
           >
             <Action onClick={copy}>{copied ? "Copied" : "Copy"}</Action>
           </Row>

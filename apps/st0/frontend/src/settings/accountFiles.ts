@@ -1,13 +1,15 @@
-// machine.ts — which file service a page that opens no project acts on: the account's, on the
+// accountFiles.ts — which file service a page that opens no project acts on: the account's, on the
 // server, whether or not an engine answers. The home page and the settings share it, since the
 // module-level file transport is unconfigured there. An engine only rides along in the ticket.
 
 import { fileTokenOf } from "@studio/engine-browser/probe";
 import { api, engines } from "../api";
-import type { Machine } from "../projects/api";
+import type { AccountFiles } from "../projects/api";
 
 /** The account's file service and the token its gate takes, or null when nothing answers; `bindEngine` waits for the probe so the chosen engine's machine is bound. */
-export async function probeMachine(bindEngine = true): Promise<Machine | null> {
+export async function findAccountFiles(
+  bindEngine = true,
+): Promise<AccountFiles | null> {
   try {
     const me = await api.getMe().catch(() => null);
     const userEmail = me?.email || me?.sub || "unknown";

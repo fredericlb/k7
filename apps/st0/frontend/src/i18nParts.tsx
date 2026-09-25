@@ -11,7 +11,7 @@ const MARK = "\u0000";
 /**
  * Fill a message's named holes with nodes:
  *
- *   parts((h) => m["repos.emptyMachine"](h), { new: <b>New</b>, import: <b>Import</b> })
+ *   parts((h) => m["repos.empty"](h), { new: <b>New</b>, import: <b>Import</b> })
  *
  * Each hole carries its NAME through the string, so a language that puts them in another order
  * still gets the right node in each.

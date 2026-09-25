@@ -53,7 +53,7 @@ leaves alone.
 
 A song may have no `.cache` — dropped when no machine was reachable, or published from k7. `AddSong`
 says it outright: with no machine reachable nothing happens there, and the first surface that needs
-the cache computes it. This panel **is** that surface. So it calls `engineMachine.analyse` itself
+the cache computes it. This panel **is** that surface. So it calls `library.analyse` itself
 and re-reads the sidecar, once, on open.
 
 With no engine chosen it says so and stops. The song plays anyway: an `<audio>` on
