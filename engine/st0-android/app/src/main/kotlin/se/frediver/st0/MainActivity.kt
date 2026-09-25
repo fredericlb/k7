@@ -75,10 +75,7 @@ class MainActivity : Activity(), SupervisorHost.Listener {
                 addView(address)
                 addView(connect)
                 addView(check)
-                addView(label("Certificates"))
-                addView(cas)
-                addView(trust)
-                addView(forget)
+                addView(privateCa(trust, forget))
                 addView(quit)
             })
         })
@@ -183,6 +180,38 @@ class MainActivity : Activity(), SupervisorHost.Listener {
         val n = TrustedCas.count(this)
         val base = if (n == 0) "Android's CAs only" else "Android's CAs and $n of yours"
         cas.text = if (said == null) base else "$base\n$said"
+    }
+
+    // Collapsed unless one is already trusted: a studio with a public certificate, the usual case, needs nothing here.
+    private fun privateCa(trust: Button, forget: Button): LinearLayout {
+        val why = TextView(this).apply {
+            text = "Only needed when your studio's HTTPS certificate is signed by a certificate authority " +
+                "of your own — a home server or a company network running its own CA. Studios with a " +
+                "public certificate, such as Let's Encrypt, connect without anything here.\n\n" +
+                "Android does not let apps use the CAs installed in Settings, so a private one is added " +
+                "here instead: pick its certificate file (.pem, .crt or .der)."
+            setPadding(0, 8, 0, 8)
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(why)
+            addView(cas)
+            addView(trust)
+            addView(forget)
+        }
+        val toggle = Button(this)
+        fun show(open: Boolean) {
+            body.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
+            toggle.text = if (open) "Private CA (optional) ▾" else "Private CA (optional) ▸"
+        }
+        toggle.setOnClickListener { show(body.visibility != android.view.View.VISIBLE) }
+        show(TrustedCas.count(this) > 0)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 32, 0, 0)
+            addView(toggle)
+            addView(body)
+        }
     }
 
     private fun label(text: String) = TextView(this).apply { this.text = text; textSize = 16f; setPadding(0, 32, 0, 8) }
