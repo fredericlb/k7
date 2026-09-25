@@ -652,5 +652,8 @@
   "project.renameWarning": "Un lien vers l'ancienne adresse ne répond plus, et un éditeur déjà ouvert dessus non plus. Si cette machine joue le projet, le moteur s'arrête.",
   "project.renameSame": "c'est déjà son nom",
   "project.menu": "Ce qu'on peut faire de {label}",
-  "hc.renameSame": "{name} s'appelle déjà comme ça"
+  "hc.renameSame": "{name} s'appelle déjà comme ça",
+  "engineSwitch.hint": "Joue sur {engine} — cliquer pour passer ce projet sur un autre moteur",
+  "engineSwitch.none": "Aucun moteur ne répond",
+  "engineSwitch.inUse": "occupé"
 }
