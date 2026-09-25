@@ -114,5 +114,6 @@ must never land on it. OneDev tries executors in the order they are listed and u
 job match accepts the job, so the Docker executor must not accept this one either — list the shell
 executor first, or narrow the Docker one's match.
 
-The preset follows the Visual Studio the agent has, for the reason the section above gives:
-`windows-msvc-2022` for 2022, `windows-msvc` for 2026.
+It overrides no preset, so the agent builds with the host default, `windows-msvc` (Visual Studio
+2026), exactly as the machine does by hand. `windows-msvc-2022` is for GitHub's runner only: on an
+agent without VS 2022 its generator is "could not find any instance of Visual Studio".

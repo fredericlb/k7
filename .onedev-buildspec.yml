@@ -239,8 +239,8 @@ jobs:
 # Linux build above. It names no executor: the Remote Shell Executor whose JOB MATCH takes this job
 # runs it, on an agent its AGENT SELECTOR picks by OS — docs/desktop-release.md.
 #
-# windows-msvc-2022 picks the Visual Studio 2022 generator, as on GitHub's runner; an agent with
-# Visual Studio 2026 builds with windows-msvc instead — docs/desktop-release.md.
+# No preset override: the agent builds with the host default, windows-msvc (Visual Studio 2026), as
+# a developer does. windows-msvc-2022 is GitHub's runner's, and fails where VS 2022 is absent.
 #
 # cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
 # is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.
@@ -265,8 +265,6 @@ jobs:
         call npm ci || exit /b 1
         node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version || exit /b 1
         set /p STUDIO_RELEASE_STAMP=<build_version
-        set STUDIO_ENGINE_PRESET=windows-msvc-2022
-        set STUDIO_SUPERVISOR_PRESET=windows-msvc-2022
         node engine/st0-tray/scripts/build-engine.mjs || exit /b 1
         node engine/st0-tray/scripts/package-release.mjs || exit /b 1
     useTTY: false
