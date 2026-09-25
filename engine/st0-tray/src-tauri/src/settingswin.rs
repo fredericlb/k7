@@ -1,6 +1,6 @@
-// settingswin.rs — the tray's one window, in six tabs: the audio ranking as a drag list, the
-// installed plugin catalogue, the sessions this engine is holding, the sync targets, the st0
-// instances this engine is connected to, and the machine itself.
+// settingswin.rs — the tray's one window, in five tabs: the audio ranking as a drag list, the
+// installed plugin catalogue, the sessions this engine is holding, the st0 instances this engine
+// is connected to, and the machine itself.
 // Like tray.rs it is a VIEW: it draws the supervisor's snapshot and sends commands back,
 // computing nothing. Closing HIDES it — Tauri asks a windowless app to exit, and this app's
 // exit stops the engine. See docs/tray.md.
@@ -8,9 +8,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-use crate::host::{
-    self, EditPlugin, Instance, InstanceCheck, Plugin, Session, Snapshot, SyncTarget,
-};
+use crate::host::{self, EditPlugin, Instance, InstanceCheck, Plugin, Session, Snapshot};
 use crate::logbus;
 use crate::state::SharedState;
 use crate::tray;
@@ -70,8 +68,6 @@ pub struct SystemView {
     owns_engine: bool,
     registry_url: String,
     last_heartbeat_ok: bool,
-    file_port: u16,
-    file_service_failed: bool,
     can_start: bool,
     /// Stop, both Restarts and the cache belong ONLY to an engine this supervisor spawned.
     can_act: bool,
@@ -86,14 +82,10 @@ pub struct View {
     /// None while the engine has not answered: the page says "scanning…", never "none installed".
     plugin_count: Option<usize>,
     sessions: Vec<SessionRow>,
-    /// Where this machine may copy a set list. Drawn verbatim — the page adds and removes, nothing else.
-    sync_targets: Vec<SyncTarget>,
     /// The st0 instances this engine is connected to, as the supervisor reported them.
     instances: Vec<Instance>,
     /// The last add, while its registry is asked or after it refused — the form's own line.
     instance_check: Option<InstanceCheck>,
-    /// Origins the file service just refused — a question for the user, never a grant.
-    pending: Vec<String>,
     /// Openable plugins naming a session the engine did not list — the two are polled apart, and a
     /// row must not vanish because they disagreed for one frame.
     orphan_plugins: Vec<PluginUiRow>,
@@ -176,10 +168,8 @@ fn view(app: &AppHandle) -> View {
         plugin_count: snap.plugin_count,
         sessions,
         orphan_plugins,
-        sync_targets: snap.sync_targets.clone(),
         instances: snap.instances.clone(),
         instance_check: snap.instance_check.clone(),
-        pending: snap.web_pending.clone(),
         engine_running: s.running(),
         system: SystemView {
             build: env!("STUDIO_BUILD").to_string(),
@@ -191,8 +181,6 @@ fn view(app: &AppHandle) -> View {
             owns_engine: snap.owns_engine,
             registry_url: snap.registry_url.clone(),
             last_heartbeat_ok: snap.last_heartbeat_ok,
-            file_port: snap.file_port,
-            file_service_failed: snap.file_service_failed,
             can_start: !s.running(),
             can_act: s.owns_running(),
         },
@@ -203,10 +191,8 @@ fn view(app: &AppHandle) -> View {
 /// serialising the view and comparing: the catalogue is hundreds of rows and this runs on every frame.
 pub fn differs(a: &Snapshot, b: &Snapshot) -> bool {
     a.audio_menu_sig != b.audio_menu_sig
-        || a.sync_targets != b.sync_targets
         || a.instances != b.instances
         || a.instance_check != b.instance_check
-        || a.web_pending != b.web_pending
         || a.plugins_sig != b.plugins_sig
         || a.plugin_count != b.plugin_count
         || a.sessions_sig != b.sessions_sig
@@ -216,8 +202,6 @@ pub fn differs(a: &Snapshot, b: &Snapshot) -> bool {
         || a.owns_engine != b.owns_engine
         || a.engine_id != b.engine_id
         || a.engine_port != b.engine_port
-        || a.file_port != b.file_port
-        || a.file_service_failed != b.file_service_failed
         || a.registry_url != b.registry_url
         || a.last_heartbeat_ok != b.last_heartbeat_ok
 }
@@ -234,37 +218,17 @@ pub fn audio_rank(app: AppHandle, names: Vec<String>) {
     tray::send_audio_priority(&app, &names);
 }
 
-/// The WHOLE list in one command, as the ranking is: an edit is one act. The supervisor's
-/// normaliser is what refuses a URI nothing can copy to, so this sends what is on screen.
-#[tauri::command]
-pub fn sync_targets(app: AppHandle, targets: Vec<SyncTarget>) {
-    let arg = serde_json::to_string(&targets).unwrap_or_else(|_| "[]".to_string());
-    host::send(&app, "sync.targets", Some(&arg));
-}
-
-/// Connect this engine to a st0 instance by its URL: `weburi.add` asks the instance's registry first, then lets its
-/// pages through AND heartbeats to it. Progress and refusal come back as the snapshot's `instanceCheck`.
+/// Connect this engine to a st0 instance by its URL: `weburi.add` asks the instance's registry first, then
+/// heartbeats to it. Progress and refusal come back as the snapshot's `instanceCheck`.
 #[tauri::command]
 pub fn instance_add(app: AppHandle, url: String) {
     host::send(&app, "weburi.add", Some(&url));
 }
 
-/// Disconnect one: out of the allowlist, out of the pinned registries, and deregistered there at once.
+/// Disconnect one: out of the pinned registries, and deregistered there at once.
 #[tauri::command]
 pub fn instance_remove(app: AppHandle, url: String) {
     host::send(&app, "weburi.remove", Some(&url));
-}
-
-/// Let a blocked origin through. Unlike an add, the engine is NOT announced there: approval widens one thing.
-#[tauri::command]
-pub fn instance_allow(app: AppHandle, origin: String) {
-    host::send(&app, "weburi.allow", Some(&origin));
-}
-
-/// Dismiss a blocked origin without allowing it, so the question stops being asked.
-#[tauri::command]
-pub fn instance_deny(app: AppHandle, origin: String) {
-    host::send(&app, "weburi.deny", Some(&origin));
 }
 
 /// Rescan the installed plugins. The supervisor clears the count first, so the spinner is in the next snapshot.
@@ -290,17 +254,6 @@ pub fn engine_stop(app: AppHandle) {
 #[tauri::command]
 pub fn engine_restart(app: AppHandle) {
     host::send(&app, "engine.restart", None);
-}
-
-#[tauri::command]
-pub fn file_service_restart(app: AppHandle) {
-    host::send(&app, "fileService.restart", None);
-}
-
-/// Clear the waveform cache, memo and `.cache` sidecars alike. Destructive: the next request re-decodes.
-#[tauri::command]
-pub fn waveforms_clear(app: AppHandle) {
-    host::send(&app, "waveforms.clear", None);
 }
 
 /// Drop a session: it throws away whatever the app driving it had loaded. That app is not told,

@@ -1,6 +1,6 @@
 // stems.ts (routes) — ask for a song on this volume to be cut into stems. The job is THIS
 // service's: the bytes are here, so the cut is driven from here and the results land here. The
-// engine only lends its model and its CPU. See ../../docs/stems.md.
+// engine's machine lends its model and its CPU, over the tunnel. See ../../docs/stems.md.
 
 import { validate, wrap } from "@frediverse/http/route";
 import type { EngineMount } from "@studio/engine-registry";
@@ -9,7 +9,7 @@ import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import { type Request, Router } from "express";
 import { z } from "zod";
-import { cutStems, heldFor } from "../stems/cut.ts";
+import { type CutDeps, cutStems, heldFor } from "../stems/cut.ts";
 import { jobIdFor, runningJob, startJob, stemsJob } from "../stems/jobs.ts";
 
 /** pl8 has no express type augmentation, so the user is read this way, as in `routes/projects.ts`. */
@@ -28,8 +28,19 @@ const body = z.object({
   want: z.enum(["stems", INSTRUMENTAL]).optional(),
 });
 
-export function stemsRouter(engines: EngineMount): Router {
+/** How long an engine's machine gets to take a jobs channel before the cut is refused. */
+const OPEN_JOBS_MS = 10_000;
+
+export function stemsRouter(
+  engines: EngineMount,
+  coldRun: CutDeps["coldRun"],
+): Router {
   const router: Router = Router();
+  const deps: CutDeps = {
+    coldRun,
+    jobsChannel: (id, roots) =>
+      engines.tunnels.openReady(id, roots, OPEN_JOBS_MS, "jobs"),
+  };
 
   /** Start a cut, or say it is already done — the shapes the file service's `/stems` answered. */
   router.post(
@@ -66,7 +77,8 @@ export function stemsRouter(engines: EngineMount): Router {
       const { progress, finish } = startJob(id, song);
       // Started and NOT awaited; the rejection is caught below, onto the job the poller reads.
       void cutStems({
-        engine,
+        deps,
+        engineId: engine.id,
         userEmail,
         song,
         chain: chain ?? "",

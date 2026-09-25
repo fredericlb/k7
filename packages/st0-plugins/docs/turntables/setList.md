@@ -70,7 +70,7 @@ want. The crossing, the three states and their sentences are that picker's, read
 ## A line that cannot play stays on screen
 
 A song the playlist names and the cache lacks **stays in the list**, greyed, with its download
-icon. That is an ordinary state: the sync pulls what the open project names (`mediatekPull`), so
+icon. That is an ordinary state: the server sends what the open project names to the machine (`mediatekPrefetch`), so
 a song added a minute ago is on its way. Dropping it would make a set missing three songs look
 identical to a set that never had them, on the one screen where that difference matters most.
 

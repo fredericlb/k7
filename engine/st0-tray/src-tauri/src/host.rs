@@ -20,7 +20,6 @@ use crate::tray;
 #[serde(rename_all = "camelCase", default)]
 pub struct Ownership {
     pub engine: bool,
-    pub file_service: bool,
     pub engine_queries: bool,
 }
 
@@ -32,17 +31,6 @@ pub struct AudioDevice {
     pub name: String,
     pub device_type: String,
     pub current: bool,
-}
-
-/// One place this machine may COPY a set list to, as `preferences.yaml` declares it. Serialize as
-/// well as Deserialize: the window draws these rows verbatim — packages/file-service/docs/playlistSync.md.
-#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct SyncTarget {
-    pub name: String,
-    /// `file:///…` or `ftp://…`, shown in full. This window runs ON the machine that holds the
-    /// file, so it is the one surface where a password in it is not being sent anywhere.
-    pub uri: String,
 }
 
 /// One INSTALLED plugin, for the settings window's list. The catalogue, not the instances `EditPlugin` names.
@@ -89,16 +77,12 @@ pub struct Session {
     pub listeners: usize,
 }
 
-/// One st0 instance this engine is connected to, for the "st0 instances" tab — the supervisor's union of the
-/// registries it heartbeats to and the origins it lets through. Serialize as well: the window draws it verbatim.
+/// One st0 instance this engine is connected to, for the "st0 instances" tab — a registry it heartbeats to and
+/// holds a tunnel with. Serialize as well: the window draws it verbatim.
 #[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Instance {
     pub url: String,
-    /// Heartbeated to, so this engine shows in that instance's picker.
-    pub registry: bool,
-    /// Its pages may reach the file service.
-    pub allowed: bool,
     /// False for a registry from `$STUDIO_REGISTRY_URL`: removing it here would not stick.
     pub removable: bool,
 }
@@ -136,9 +120,6 @@ pub struct Snapshot {
     pub user_stopped: bool,
     pub engine_id: String,
     pub engine_port: u16,
-    pub file_port: u16,
-    /// Nothing is answering the file port while one is expected. The red icon.
-    pub file_service_failed: bool,
     pub registry_url: String,
     pub last_heartbeat_ok: bool,
     /// None means "the engine hasn't answered yet" — the spinner, not "none found".
@@ -160,15 +141,10 @@ pub struct Snapshot {
     /// The same trick again for "Sessions": what the rows SHOW, so a moving playhead does
     /// not tear down a submenu the user has open.
     pub sessions_sig: String,
-    /// Where this machine may copy a set list — the Sync tab's whole content.
-    pub sync_targets: Vec<SyncTarget>,
     /// The st0 instances this engine is connected to — empty on a fresh machine, which assumes none.
     pub instances: Vec<Instance>,
     /// An add in flight or just refused; None once one succeeds.
     pub instance_check: Option<InstanceCheck>,
-    /// Origins the file service just refused, offered for one-click approval in the same tab.
-    pub web_pending: Vec<String>,
-    pub attention: bool,
     pub paths: Paths,
 }
 
@@ -184,8 +160,6 @@ impl Default for Snapshot {
             user_stopped: false,
             engine_id: String::new(),
             engine_port: 8765,
-            file_port: 8770,
-            file_service_failed: false,
             registry_url: String::new(),
             last_heartbeat_ok: false,
             plugin_count: None,
@@ -198,11 +172,8 @@ impl Default for Snapshot {
             edit_plugins_sig: String::new(),
             sessions: Vec::new(),
             sessions_sig: String::new(),
-            sync_targets: Vec::new(),
             instances: Vec::new(),
             instance_check: None,
-            web_pending: Vec::new(),
-            attention: false,
             paths: Paths::default(),
         }
     }
@@ -258,7 +229,7 @@ fn run_forever(app: AppHandle) {
     let Some(cmd) = hostcmd::resolve() else {
         // Not retried — resolution is static, so a second attempt fails identically. LOUD on purpose: a tray
         // supervising nothing looks exactly like a healthy one from the menu bar.
-        logbus::line("host", "supervisor not found (no bundle, no repo tsx)");
+        logbus::line("host", "supervisor not found (no bundled st0-supervisor, no repo build)");
         tray::set_host_error(&app, Some("supervisor not found".into()));
         return;
     };
@@ -269,22 +240,13 @@ fn run_forever(app: AppHandle) {
             "host",
             &format!("starting supervisor: {}", cmd.program.display()),
         );
-        let outcome = match launch(&app, &cmd) {
-            Ok(code) => code,
-            Err(e) => {
-                logbus::line("host", &format!("could not start supervisor: {e}"));
-                tray::set_host_error(&app, Some(format!("supervisor won't start: {e}")));
-                None
-            }
-        };
+        if let Err(e) = launch(&app, &cmd) {
+            logbus::line("host", &format!("could not start supervisor: {e}"));
+            tray::set_host_error(&app, Some(format!("supervisor won't start: {e}")));
+        }
         let link = app.state::<Arc<HostLink>>();
         if link.stopping.load(Ordering::SeqCst) {
             return; // we asked it to go
-        }
-        // A deliberate dev reload is not a failure: relaunch at once and leave the backoff where it was.
-        if outcome == Some(RELOAD_EXIT_CODE) {
-            tray::set_host_error(&app, Some("supervisor reloading…".into()));
-            continue;
         }
         // One that ran a while and died is a one-off; one that dies immediately is broken and would bury the log.
         // Reset the backoff only on the former.
@@ -297,11 +259,6 @@ fn run_forever(app: AppHandle) {
     }
 }
 
-/// The supervisor's "restart me now" exit code — it saw its own source change (dev only; mirrored from
-/// devReload.ts). It exists to keep the crash backoff out of the way: two quick edits would otherwise leave a
-/// dev waiting 4s, then 8s, for a relaunch that is recovering from nothing.
-const RELOAD_EXIT_CODE: i32 = 77;
-
 /// Run one supervisor to completion, blocking on its stdout until the pipe closes; returns its exit code.
 fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32>> {
     let mut command = Command::new(&cmd.program);
@@ -310,7 +267,7 @@ fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    // No console window: `node` is a console subprocess and the tray is windowless, so Windows would pop a terminal.
+    // No console window: the supervisor is a console program and the tray is windowless, so Windows would pop a terminal.
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -382,7 +339,6 @@ fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32
         .and_then(|mut c| c.wait().ok())
         .and_then(|s| s.code());
     match code {
-        Some(RELOAD_EXIT_CODE) => logbus::line("host", "supervisor reloading"),
         Some(c) => logbus::line("host", &format!("supervisor exited ({c})")),
         None => logbus::line("host", "supervisor exited"),
     }

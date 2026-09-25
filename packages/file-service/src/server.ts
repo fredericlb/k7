@@ -1,10 +1,9 @@
 import { isSshGitUri, repoName } from "@studio/git-repos/uri";
-// server.ts — the engine-side file service: owns ~/.st0/root/<user>/<workspace>
-// and serves every file op to the browser DIRECTLY (cross-origin, hence CORS). Dials
-// the LOCAL C++ engine to compile-and-send; the browser drives transport itself.
-// Spawned by the engine-host supervisor, run under tsx to import the brain's TS.
+// server.ts — the file service: one account's workspaces and every file op on them, run by the
+// SERVER's file hub, one process per account (packages/file-hub/docs/fileHub.md). Loopback only,
+// gated by the hub's secret. Drives whichever engine the hub binds it to, through that engine's
+// tunnel; engines' machines run no file service. Run under tsx to import the brain's TS.
 
-import { timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
@@ -14,9 +13,6 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
-import { configureMpv } from "@studio/mpv-player/player";
-import { createPlayerRouter } from "@studio/mpv-player/router";
-import { mediatekRoot } from "@studio/song/mediatekRoot";
 import {
   loadPreferences,
   setInstrumentalChain,
@@ -25,49 +21,41 @@ import {
 // st0's plugin contributions — commands and surface types — before anything reads a catalogue
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/st0-plugins/server";
-import type {
-  ColdChainsReply,
-  MachineWorkspaceList,
-  ServedProjectReply,
-  SurfacedProjectList,
-  WorkspaceList,
+import {
+  type ColdChainsReply,
+  HUB_SECRET_HEADER,
+  type MachineWorkspaceList,
+  type ServedProjectReply,
+  type SurfacedProjectList,
+  type WorkspaceList,
 } from "@studio/web-protocol";
 import { BENCH_PROJECT, isBenchProject } from "@studio/web-protocol/projects";
-import cors from "cors";
 import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
 import { BENCH_WORKSPACE, ensureBench, ensureBenchLibraries } from "./bench.ts";
+import { boundJobsUrl } from "./boundMachine.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
-import {
-  engineTokenState,
-  requireEngineToken,
-  resolveUser,
-  resolveWorkspace,
-} from "./context.ts";
+import { resolveUser, resolveWorkspace } from "./context.ts";
 import { copyProjectBetween } from "./copyProject.ts";
-import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
 import {
   pluginParams,
   pruneIdleLinks,
   servedProject,
-  setSelectedEngine,
   showNativePluginUIOf,
   unloadEngineIfServing,
 } from "./engineLink.ts";
+import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import { librariesUri, setLibrariesUri } from "./libraries.ts";
+import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
-import { startMediatekPuller } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
-import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
+import { adoptRecordedOwner, workspaceGate } from "./owner.ts";
 import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
-import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
-import { separateRouter } from "./routes/separate.ts";
-import { syncRouter } from "./routes/sync.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
 import {
@@ -90,58 +78,22 @@ installBuiltinPlugins();
 installProcessNet();
 
 const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
-const ENGINE_PORT = Number(process.env.STUDIO_ENGINE_PORT || 8765);
-
-// The media this host plays is its CACHE of the médiathèque; the sockets go beside the workspaces.
-configureMpv({ mediaRoot: mediatekRoot, socketDir: rootDir });
 
 const app = express();
 
-// Never reflect an arbitrary origin, and record a refusal for the tray — see docs/corsAndOrigins.md.
-app.use(
-  cors({
-    origin: (o, cb) => {
-      const ok = allowedOrigin(o);
-      if (!ok) recordRefusedOrigin(o);
-      cb(null, ok);
-    },
-    credentials: false,
-  }),
-);
-// Any OPTIONS here was refused above, and running on returns a 401 that lies: a preflight carries no header.
-app.use((req, res, next) => {
-  if (req.method !== "OPTIONS") return next();
-  res.status(403).json({
-    error: "origin not allowed",
-    origin: req.get("origin") ?? null,
-    hint: "allow it from the tray: Settings… ▸ st0 instances ▸ the blocked origin",
-  });
-});
-
 app.use(express.json({ limit: "8mb" }));
-
-// Constant-time compare of a query token, with requireEngineToken's three states — docs/corsAndOrigins.md.
-function mediaTokenOk(supplied: string): boolean {
-  const state = engineTokenState();
-  if (state.k === "unreadable") return false;
-  if (state.k === "none") return true;
-  const expected = state.value;
-  const a = Buffer.from(supplied);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 // --- Routes that can't send custom headers, mounted OUTSIDE the header gates ---
 
-// Media for <video>: identity rides in the QUERY, so this sits outside the gates — docs/corsAndOrigins.md.
+// Media for <video>: identity rides in the QUERY, and the hub stamps its secret on the request as on any other.
 app.get(
   "/media",
   wrap((req, res) => {
     const user = String(req.query.user ?? "");
     const workspace = String(req.query.workspace ?? "");
     const path = String(req.query.path ?? "");
-    if (!mediaTokenOk(String(req.query.token ?? ""))) {
-      res.status(401).json({ error: "bad or missing engine token" });
+    if (!hubSecretOk(req.get(HUB_SECRET_HEADER))) {
+      res.status(401).json({ error: "not from this service's file hub" });
       return;
     }
     if (!user || !workspace || !path) {
@@ -165,14 +117,20 @@ app.get(
   }),
 );
 
-// Liveness, ungated and deliberately EMPTY — the answer IS the payload. See docs/corsAndOrigins.md.
+// Liveness, ungated and deliberately EMPTY — the answer IS the payload; the hub waits on it at start.
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-// --- Everything below is header-gated: engine token + identity ---
-app.use(requireEngineToken);
+// --- Everything below is header-gated: the hub's secret + identity ---
+app.use(requireHubSecret);
+app.use(hubRouter());
 app.use(resolveUser);
+// Workspaces are ONE account's, recorded on first use — docs/owner.md.
+app.use(
+  ["/workspaces", "/engine/served", "/account", "/ssh-key"],
+  workspaceGate,
+);
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
@@ -382,20 +340,8 @@ app.get(
 // The media library is per MACHINE: the user for the gate, and no workspace.
 app.use(mediatekRouter);
 
-// Play a song on THIS machine's outputs, without the engine and without a project — @studio/mpv-player.
-app.use(createPlayerRouter((req) => req.userEmail!));
-
 // An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);
-
-// Stem separation, started and polled because it takes minutes and produces four files — docs/stemSplit.md.
-app.use(separateRouter);
-
-// …and the same work for a caller that holds the audio and no cache path — docs/processChain.md.
-app.use(processRouter);
-
-// Copying a set list onto a stick or an FTP box: a target belongs to the MACHINE — docs/playlistSync.md.
-app.use(syncRouter);
 
 // What this machine's engine has SCANNED, in the two shapes both used — see docs/activeProject.md.
 app.get(
@@ -610,11 +556,15 @@ app.post(
 
 // No cut route here: pl8 drives a separation and posts the bytes — see docs/processChain.md.
 
-// Everything else needs a resolved workspace on req.ws.
-app.use(resolveWorkspace, filesRouter);
+// Everything else needs a resolved workspace on req.ws, and is its owner's alone.
+app.use(workspaceGate, resolveWorkspace, filesRouter);
 
-app.listen(FILE_PORT, "0.0.0.0", () => {
+// Loopback: its only caller is the hub beside it.
+const HOST = "127.0.0.1";
+app.listen(FILE_PORT, HOST, () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
+  // The engine session is the recorded owner's from the first frame, not from the first request.
+  adoptRecordedOwner();
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
   // Same for the media library, tolerated rather than required: its root may be an unmounted drive.
@@ -623,24 +573,12 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   } catch (e) {
     console.warn(`   mediatek unavailable: ${(e as Error).message}`);
   }
-  console.log(`📁 st0 file service on http://0.0.0.0:${FILE_PORT}`);
+  console.log(`📁 st0 file service on http://${HOST}:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
   // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
   syncAllRepos();
-  // Log the effective policy: a bad allowlist otherwise surfaces only as an unexplained browser failure.
-  console.log(`   cors: ${originPolicySummary()}`);
-  // …and out loud when nothing gates the routes: this binds 0.0.0.0, so an open run is open on the LAN.
-  const tok = engineTokenState();
-  if (tok.k === "none")
-    console.warn(
-      "   ⚠ no engine identity here — every route is UNAUTHENTICATED (bare dev run)",
-    );
-  else if (tok.k === "unreadable")
-    console.error(`   ✗ engine identity unreadable, refusing all: ${tok.why}`);
-  // Dial the local engine so file/command ops can compile-and-send the project.
-  setSelectedEngine(`ws://127.0.0.1:${ENGINE_PORT}`);
-  // Keep the médiathèque cache in step with the hosted library, for what the open songs name.
-  startMediatekPuller();
+  // The songs the open projects name, onto the bound engine's machine ahead of the gig.
+  startPrefetch(boundJobsUrl);
   // Reap engine sockets nobody has used in minutes — an abandoned link re-dials forever, see pruneIdleLinks.
   setInterval(() => {
     for (const s of pruneIdleLinks())

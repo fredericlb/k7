@@ -44,16 +44,17 @@ an audio process.
 
 No mixed content, no local network permission, no port to open in a firewall.
 
-## The two halves
+**The engine's own tunnel comes first.** An engine whose supervisor dialled in
+(`packages/engine-tunnel/docs/tunnel.md`) is reached through that socket, whatever network it is
+on; the addresses above are the fallback, and they only answer when the server shares the
+engine's network.
 
-They have different constraints, hence two shapes:
+## Sockets only
 
-- **`engineFilesProxy`** — an ordinary Express route, mounted on `/engine/:id/files`
-  (`router.ts`). A plain request crosses the middleware chain, so the session cookie already
-  guards it.
-- **`attachEngineProxy`** — attached to the **HTTP server**, not mounted as a route: a WebSocket
-  `upgrade` never crosses Express's middleware chain. Which is also why the cookie cannot guard
-  it, and why there is a **ticket**.
+`attachEngineProxy` is attached to the **HTTP server**, not mounted as a route: a WebSocket
+`upgrade` never crosses Express's middleware chain. Which is also why the cookie cannot guard it,
+and why there is a **ticket**. There is no file half: files are the server's own
+(`packages/file-hub/docs/fileHub.md`), so nothing plain-HTTP crosses to the engine's machine here.
 
 pl8 calls `attachEngineProxy(server, registry)` after its `app.listen`, being the one service
 that holds a registry (see [shared.md](shared.md)); st0's page relays through it.
@@ -78,71 +79,17 @@ request — a `?host=&port=` would make every backend an open relay towards ever
 the relay. The order is documentary only: `rank` launches them **all in parallel** and keeps the
 fastest. The relay pays one hop more, so it loses on its own wherever the direct link is allowed.
 
-The `fileBase` travels with the address that answered, and that matters: a relayed socket beside a
-direct `http://` to the file service would be the wall a second time, on the other half.
-
 ## The body a parser has already taken
 
-`engineFilesProxy` is an Express route, so it inherits everything the service mounted in front of
-it — and every service mounts `express.json()` for the whole application. By the time the relay is
-reached the request stream is **already at its end**: a `req.pipe(up)` calls `end()` immediately
-and upstream receives the original `content-length` with zero bytes behind it. Upstream then waits
-for bytes that never come, the dial timeout fires, the next address does the same, and the relay
-answers `502 engine file service unreachable` — a message that accuses the network where the relay
-sabotaged itself. `GET`s pass, so the engine is chosen, measured and connected; the first
-`POST /open` is what fails, and `diagnoseFileService` translates that into "origin blocked, allow
-it in the tray". Three diagnostic screens, none naming the cause.
-
-So the relay **replays** what the parser took (`replayBody`) rather than assuming an intact
-stream, and recomputes the `content-length`: re-serialised bytes are not the bytes received. This
-could as well be written "do not mount a parser in front" — but a mount-order rule every backend
-must respect is exactly the kind nothing catches. `proxy.test.ts` mounts `express.json()` in front
-of the relay, as they do.
-
-Two edge consequences of the same gesture:
-
-- A **streamed** body (`application/octet-stream`, the only one `express.json` leaves alone)
-  cannot be replayed on the next address: the stream is spent. That case answers 502 instead of
-  silently retrying with an empty body.
-- The 1500 ms `timeout` is the **dial**'s, not the download's — the next section is about that
-  word.
-
-## 1500 ms is not a connect timeout
-
-`timeout` on a Node `http.request` is **socket inactivity**. It does not measure "how long to
-connect" but "how long since anything crossed the wire", connected or not. Disarming it in the
-response callback — so at the first byte from upstream — leaves one thing outside: **the time the
-engine's machine spends thinking**, bounded then at 1500 ms.
-
-Almost every file service route answers at once: a listing, a file, a `/media` that starts flowing
-immediately (the *download* is slow, not the wait). `POST /mediatek/analyse` is the exception, and
-a total one — it says nothing until it has downloaded the master from the hosted media library
-**and** run the engine over it. Minutes of silence, where a bound on the response tolerates a
-second and a half; and each retry on the next address relaunches a full analysis on the same
-machine by another path, work that continues on both sides with nobody waiting for it. The browser
-sees "analysis impossible", the server sees sockets cut mid-body — a `BadRequestError: request
-aborted` from `raw-body`, which is what a parser says when its client disappears.
-
-The timer is therefore disarmed **at connection** and not at response, which is what "dial" means:
-
-```ts
-up.on("socket", (s) => {
-  if (s.connecting) s.once("connect", () => up.setTimeout(0));
-  else up.setTimeout(0); // recycled socket: there is nothing to dial
-});
-```
-
-A **connected** socket then has no bound at all, deliberately: that is already the rule for
-downloads, and a route that thinks for a long time is indistinguishable from a route that
-downloads slowly. The remaining bound — connect within 1500 ms — is the only one the relay can
-judge knowing nothing about the route called.
-
-Not to be lost: `up.on("error")` then means what it says, *an unreachable host*, so retrying the
-next address is free. If it also covered "answered too slowly", it would resend a request upstream
-has already accepted and begun.
-
-`proxy.test.ts` holds an upstream that takes 2200 ms to write its first line, and checks two
-things: the response arrives, and upstream saw it **once**.
+`replayBody` lives here and serves the file hub (`packages/file-hub/index.ts`), which relays plain
+requests to an account's file service. Every service mounts `express.json()` for the whole
+application, so by the time a relaying route is reached the request stream is **already at its
+end**: a `req.pipe(up)` would call `end()` at once and upstream would receive the original
+`content-length` with zero bytes behind it, then wait for bytes that never come. So a relay
+**replays** what the parser took rather than assuming an intact stream, and recomputes the
+`content-length`: re-serialised bytes are not the bytes received. "Do not mount a parser in front"
+would say the same, as a mount-order rule every backend must respect — exactly the kind nothing
+catches.
 
 ## The first message is queued
 

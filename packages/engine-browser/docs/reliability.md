@@ -121,7 +121,7 @@ VPN, a Docker bridge) asks three times the browser's patience and is declared un
 the engine answers quietly on loopback. So both stop at the same wall, and a first dead address
 can eat at most `ENGINE_DIAL_TIMEOUT_MS`.
 
-The other end of the same problem is in `engine-host/src/addresses.ts`: phantom interfaces — VPN,
+The other end of the same problem is in the supervisor's `engine/st0-supervisor/src/Addresses.cpp`: phantom interfaces — VPN,
 containers, WSL, Hyper-V — are not advertised at all. They are not `internal`, so a filter on that
 alone lets them through, and they carry perfectly ordinary private addresses; only their **name**
 tells them apart.

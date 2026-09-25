@@ -27,10 +27,6 @@ jobs:
       type: DefaultInterpreter
       commands: |
         apk add --no-cache python3 make g++ git ffmpeg
-        # No GPU in this job — the CUDA execution-provider binaries onnxruntime-node's
-        # postinstall otherwise fetches from NuGet are a real desktop feature
-        # (packages/stem-separation/docs/stemSplit.md), not something lint/test touches.
-        export ONNXRUNTIME_NODE_INSTALL=skip
         npm ci
         npm run lint
         npm run lint:bytes

@@ -627,6 +627,18 @@ export const USER_HEADER = "x-studio-user";
 export const WORKSPACE_HEADER = "x-studio-workspace";
 /** The engine's token (from the whoami probe) — the file service's light LAN gate. */
 export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
+/** Which engine the caller drives — how a SERVER-hosted file service learns where to send the song. */
+export const ENGINE_ID_HEADER = "x-studio-engine-id";
+/** The file hub's secret, the ONLY gate of a server-hosted file service — packages/file-hub/docs/fileHub.md. */
+export const HUB_SECRET_HEADER = "x-studio-hub-secret";
+/** Where a server that HOSTS workspaces says so; a 404 means it does not. */
+export const FILE_HUB_HELLO = "/api/files-hub";
+
+/** What that hello answers: where the files are, and the ticket that stands in for the session there. */
+export interface FileHubHello {
+  path: string;
+  ticket: string;
+}
 
 // ── The engine assignment ────────────────────────────────────────────────────
 
@@ -681,7 +693,6 @@ export interface EngineAddresses {
   loopback: string; // "127.0.0.1" — reachable only from the same machine
   lanIps: string[]; // non-internal IPv4s — reachable from the same LAN
   port: number; // the engine's WebSocket port (same on every address)
-  filePort: number; // the engine-side file service's HTTP port (same host set)
 }
 
 /** A workspace under ~/.st0/root/<slug>/, as the picker lists them. */
@@ -783,30 +794,6 @@ export interface SeparateJob {
   files: string[]; // the stems written, absolute. Empty until `done`.
 }
 
-/** Copying a set list onto one of a machine's targets — packages/file-service/docs/playlistSync.md. */
-export interface SyncJob {
-  id: string;
-  /** The target's NAME on that machine; the URI never leaves it un-blanked. */
-  target: string;
-  /** That target's URI with any password replaced — what a screen and a log may show. */
-  uri: string;
-  playlist: string;
-  done: boolean;
-  failed: boolean;
-  error: string | null;
-  phase: string;
-  /** 0–100 over the TRACKS, so a bar moves once per file rather than once per byte. */
-  percent: number;
-  total: number;
-  copied: number;
-  /** Already there at the same size — the reason a second sync is nearly free. */
-  skipped: number;
-  /** A track that could not be copied does not stop the run; each one says why here. */
-  lines: string[];
-  /** Where the m3u landed, or null when the target has no `playlists/` folder. */
-  m3u: string | null;
-}
-
 /** What `POST /stems` answers: `ready` is the disk, `job` only when there was work — see docs/machine.md. */
 export interface StemsReply {
   ready: boolean;
@@ -896,6 +883,8 @@ export interface PublicEngine {
   sameSourceIp: boolean;
   /** A short-lived pass for the relay, minted by `/engines` and not by the registry — packages/engine-registry/proxy.ts. */
   proxyTicket?: string;
+  /** Its supervisor holds a tunnel, so a WebRTC offer can reach it — packages/engine-tunnel/docs/rtc.md. */
+  rtc?: boolean;
 }
 
 // How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.

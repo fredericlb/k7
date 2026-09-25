@@ -4,11 +4,10 @@
 // left alone, so this is safe to run on every checkout. See docs/tokens.md.
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
-import { stateDir } from "./stateDir.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -21,32 +20,17 @@ const flagValue = (name) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : null;
 };
 const ENV_FILE = flagValue("env") ?? join(repo, "env.yaml");
-const SETTINGS = join(stateDir(), "engine-host.json");
-/** The name it carried before; read, never written. Mirrors `existingSettingsPath` in paths.ts. */
-// One name: the tray's is no longer read anywhere — packages/engine-client/docs/paths.md.
-const settingsToRead = () => SETTINGS;
 
 /** The loopback a checkout takes instead of going out to the LAN proxy and back (../docs/tokens.md). */
 const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8
 
 const LINKS = [
   {
-    name: "st0 → pl8",
-    issuer: "pl8-backend",
-    sub: "service:st0",
-    // The file service reads it from the supervisor's settings, and derives its URL (../docs/tokens.md).
-    read: () => trayValue("mediatekToken"),
-    assign: (token) => setTrayValue("mediatekToken", token),
-    where: `${SETTINGS} (mediatekToken)`,
-  },
-  {
     name: "k7 → pl8",
     issuer: "pl8-backend",
     sub: "service:k7",
     read: (doc) => strAt(doc, ["k7-backend", "MEDIATEK_TOKEN"]),
     assign: (token, doc) => setIn(doc, ["k7-backend", "MEDIATEK_TOKEN"], token),
-    /** Its half lands in env.yaml, so writing it is what makes the file need saving. */
-    envBacked: true,
     devUrl: { at: ["k7-backend", "MEDIATEK_URL"], value: MEDIATEK_DEV_URL },
     where: "env.yaml (k7-backend.MEDIATEK_TOKEN)",
   },
@@ -122,28 +106,6 @@ function setIn(doc, path, value) {
   doc.setIn(path, value);
 }
 
-// --- the supervisor's settings ------------------------------------------------------------
-
-function trayJson() {
-  try {
-    return JSON.parse(readFileSync(settingsToRead(), "utf8"));
-  } catch {
-    return {}; // absent or unreadable — the supervisor writes defaults on its first change
-  }
-}
-
-const trayValue = (key) => {
-  const v = trayJson()[key];
-  return typeof v === "string" && v ? v : null;
-};
-
-function setTrayValue(key, value) {
-  // Read old, WRITE NEW: a machine keeps its audio pick and its registry override.
-  const settings = { ...trayJson(), [key]: value };
-  mkdirSync(dirname(SETTINGS), { recursive: true });
-  writeFileSync(SETTINGS, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
-}
-
 // --- the run -------------------------------------------------------------------------------
 
 const doc = envDoc();
@@ -185,7 +147,7 @@ for (const link of LINKS) {
 
   const token = issue(secret, link.sub);
   if (!dryRun) link.assign(token, doc);
-  envTouched ||= !!link.envBacked;
+  envTouched = true;
   done.push(
     `${link.name}: ${held ? "re-minted" : "minted"} → ${link.where}` +
       (newSecret ? " (new secret, so any old one is now void)" : ""),

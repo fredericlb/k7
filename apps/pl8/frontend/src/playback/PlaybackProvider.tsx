@@ -15,24 +15,17 @@ import {
   useRef,
   useState,
 } from "react";
-import { currentUser, library, player } from "../api";
-import {
-  cachedOnMachine,
-  cacheRoot,
-  playablePath,
-  songPreviewDoc,
-} from "../engine/enginePlayback";
+import { library, player } from "../api";
+import { localPathOn, songPreviewDoc } from "../engine/enginePlayback";
 import { useSongEngine } from "../engine/useSongEngine";
 import type { QueueItem } from "./queue";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
 import type { PlayQueue } from "./usePlayQueue";
 
-// The three ways the engine has nothing to open, kept apart because they are repaired differently.
+// The ways the engine has nothing to open, kept apart because they are repaired differently.
 const ENGINE_ABSENT = "aucun moteur ne répond — lecture ici";
-const ENGINE_NO_CACHE =
-  "cette machine ne tient pas de cache de la médiathèque — jouez ici, ou ailleurs";
 const ENGINE_NOT_HERE =
-  "cette machine n'a pas ce morceau en cache — rien ne sortirait de ses enceintes";
+  "ce morceau n'est pas dans la médiathèque — rien ne sortirait de ses enceintes";
 
 export interface NowPlaying {
   entry: MediatekEntry;
@@ -183,41 +176,25 @@ export function PlaybackProvider({
       setError(`le moteur : ${engine.warning.message}`);
   }, [viaEngine, engine.warning]);
 
-  /** That machine's cache root, asked ONCE per machine and remembered as the promise itself. */
-  const rootOnce = useRef<{ base: string; p: Promise<string | null> } | null>(
-    null,
-  );
-  const machineRoot = useCallback((): Promise<string | null> => {
-    const base = engine.fileBase;
-    if (!base) return Promise.resolve(null);
-    if (rootOnce.current?.base !== base)
-      rootOnce.current = {
-        base,
-        p: cacheRoot(base, currentUser(), engine.token),
-      };
-    return rootOnce.current.p;
-  }, [engine.fileBase, engine.token]);
-
-  /** Send a song to the engine — the two disks are resolved HERE, and before any document goes. */
+  /** Send a song to the engine — the song is brought to its machine HERE, and before any document goes. */
   const startOnEngine = useCallback(
     async (what: NowPlaying, from: number) => {
-      const base = engine.fileBase;
-      if (!base) return setError(ENGINE_ABSENT);
-      // Clicking a second song while the two questions below are in flight must not play the first.
+      const id = engine.engineId;
+      if (!id) return setError(ENGINE_ABSENT);
+      // Clicking a second song while the question below is in flight must not play the first.
       asked.current = what.path;
-      const root = await machineRoot();
-      if (asked.current !== what.path) return;
-      if (!root) return setError(ENGINE_NO_CACHE);
       // Asked BEFORE the document goes: an unopenable clip is silence with everything reporting fine.
-      const held = await cachedOnMachine(
-        base,
-        currentUser(),
-        what.path,
-        engine.token,
-      );
+      const there = await localPathOn(id, what.path);
       if (asked.current !== what.path) return;
-      if (!held) return setError(ENGINE_NOT_HERE);
-      const abs = playablePath(root, what.path);
+      if (!("path" in there))
+        return setError(
+          there.why === "absent"
+            ? ENGINE_ABSENT
+            : there.why === "missing"
+              ? ENGINE_NOT_HERE
+              : `le moteur : ${there.error}`,
+        );
+      const abs = there.path;
       // A clean edit for a document this session has not held — an apply is a DIFF.
       if (lastSent.current !== abs) engine.reset();
       lastSent.current = abs;
@@ -225,7 +202,7 @@ export function PlaybackProvider({
       engineWeStopped.current = false;
       engine.play(songPreviewDoc(abs, docNameOf(what)), from);
     },
-    [engine, machineRoot],
+    [engine],
   );
 
   const start = useCallback(

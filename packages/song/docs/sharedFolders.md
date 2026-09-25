@@ -75,9 +75,9 @@ since an ignore rule has no say over a path git already tracks.
 **A module root is a git checkout, never the médiathèque cache.** `<state>/mediatek/modules`
 is not one. Three things follow:
 
-- **Two writers on one tree is what that avoids.** `syncFamily` deletes whatever the owner's
-  manifest does not list — over a git checkout that would delete files somebody committed. So
-  `mediatekPull` carries `songs` and nothing else: not `modules`, not `chains`.
+- **Two writers on one tree is what that avoids.** A mirror of the médiathèque deletes whatever
+  the owner's manifest does not list — over a git checkout that would delete files somebody
+  committed. So `mediatekPrefetch` carries `songs` and nothing else: not `modules`, not `chains`.
 - **What a project inherits travels with the repository it is cloned from.** A workspace on a
   second machine gets the same modules at the same commit, because the gitlink pins one. A
   per-machine cache can only ever hold "whatever this machine last synced".

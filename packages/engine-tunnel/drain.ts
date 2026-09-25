@@ -1,0 +1,13 @@
+// drain.ts — wait until a socket's send buffer has room, so streaming a large file never
+// queues it whole in memory. `ws` exposes no drain event on the WebSocket, so it is polled.
+
+/** Past this many unsent bytes a sender waits. */
+export const HIGH_WATER_BYTES = 8 * 1024 * 1024;
+
+export async function drained(sock: {
+  bufferedAmount: number;
+  readyState: number;
+}): Promise<void> {
+  while (sock.bufferedAmount > HIGH_WATER_BYTES && sock.readyState === 1)
+    await new Promise((r) => setTimeout(r, 5));
+}

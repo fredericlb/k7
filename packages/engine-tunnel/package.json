@@ -1,0 +1,32 @@
+{
+  "name": "@studio/engine-tunnel",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The engine tunnel: one outbound WebSocket from an engine's supervisor to the server that lists it, carrying virtual channels to the engine and the files those channels name. The server can then reach an engine behind any NAT, and a server-owned project plays from a local copy. See docs/tunnel.md.",
+  "exports": {
+    "./hub": "./hub.ts",
+    "./agent": "./agent.ts",
+    "./channel": "./channel.ts",
+    "./frames": "./frames.ts",
+    "./rtc": "./rtc.ts",
+    "./jobs-client": "./jobsClient.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@studio/web-protocol": "*",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "node-datachannel": "^0.33.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.12",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

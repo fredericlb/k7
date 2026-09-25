@@ -11,6 +11,7 @@ export {
   attachEngineProxy,
   ENGINE_PROXY_PATH,
   issueEngineTicket,
+  replayBody,
   verifyEngineTicket,
 } from "./proxy.ts";
 export {

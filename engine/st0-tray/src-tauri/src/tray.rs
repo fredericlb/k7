@@ -67,11 +67,6 @@ fn icon_state(s: &crate::state::AppState) -> IconState {
     if s.host_error.is_some() {
         return IconState::Error;
     }
-    // A dead file service turns the badge RED even with the engine fine — the web UI can't reach any files, so
-    // "running" would be a lie. "Restart file service" is the paired fix.
-    if s.snapshot.file_service_failed {
-        return IconState::Stopped;
-    }
     match s.snapshot.status.as_str() {
         "error" => IconState::Error,
         "running" => match s.snapshot.plugin_count {
@@ -95,7 +90,7 @@ pub fn tick_spinner(app: &AppHandle) {
         s.spinner = s.spinner.wrapping_add(1);
         (
             tray,
-            trayicon::render_with(icon_state(&s), s.dark_menubar, s.snapshot.attention),
+            trayicon::render(icon_state(&s), s.dark_menubar),
         )
     };
     let _ = tray.set_icon(Some(icon));
@@ -130,16 +125,7 @@ pub fn refresh(app: &AppHandle) {
             Some(e) => format!("⚠ {e}"),
             None => status_text,
         };
-        // A dead file service shows on the status line too, not just the icon — this line is where "red" is explained.
-        let file_failed = s.snapshot.file_service_failed;
-        let status_text = if file_failed && s.host_error.is_none() {
-            format!("{status_text} · ⚠ file service down")
-        } else {
-            status_text
-        };
-        let tip = if file_failed {
-            "st0-engine — file service stopped"
-        } else if running {
+        let tip = if running {
             "st0-engine — running"
         } else if is_error {
             "st0-engine — error"
@@ -150,7 +136,7 @@ pub fn refresh(app: &AppHandle) {
             status_text,
             m.status.clone(),
             m.tray.clone(),
-            trayicon::render_with(icon_state(&s), s.dark_menubar, s.snapshot.attention),
+            trayicon::render(icon_state(&s), s.dark_menubar),
             tip,
         )
     };
@@ -271,7 +257,7 @@ pub fn apply_snapshot(app: &AppHandle, snapshot: crate::host::Snapshot) {
     if settings_changed {
         crate::settingswin::push(app);
     }
-    // The attention dot rides the same snapshot as the blocked origins, so repainting the icon is all it takes.
+    // The icon and the status line are drawn from the snapshot, so repainting them is all it takes.
     refresh(app);
 }
 

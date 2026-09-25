@@ -18,7 +18,6 @@ const beat = (reg: EngineRegistry, id: string) =>
       loopback: "127.0.0.1",
       lanIps: [],
       port: 8765,
-      filePort: 8770,
     },
   });
 
@@ -349,7 +348,6 @@ describe("the performance rating", () => {
         loopback: "127.0.0.1",
         lanIps: [],
         port: 8765,
-        filePort: 8770,
       },
       performance,
     });

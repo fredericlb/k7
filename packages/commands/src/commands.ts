@@ -254,6 +254,8 @@ export interface CommandHost {
   ): Promise<{ peak: number[]; seconds: number } | null>;
   /** Run ONE offline step over one file — the stem separator, today; handed in, docs/verbs.md. */
   runColdStep?: RunColdStep;
+  /** What the bound engine's MACHINE separates on, read — or set, given a list — THERE; null with no machine. */
+  onnxProviders?(set?: readonly string[]): Promise<string[] | null>;
   /** The chain this MACHINE separates with, as `system stems` wrote it; handed in, docs/verbs.md. */
   stemsChain?: string;
   /** …and the one it makes an instrumental with, as `system instrumental` wrote it. */

@@ -7,19 +7,9 @@ choice the rest of this repo already made, and reversing it would cost more than
 
 - **There is no SQL anywhere in studio.** Grist is the only database, and it is hosted —
   precisely what the mediatek is not.
-- **sqlite would be a native dependency inside a package that gets esbuild-bundled into the
-  desktop app.** The file service is bundled to a single `.mjs` run by a vendored Node
-  (`engine/st0-tray/scripts/build-engine.mjs`). A `.node` binary in that closure is exactly the class of
-  problem that packaging avoids.
-
-  The packaging CAN carry a native module — `onnxruntime-node` is marked `external`, then
-  staged into `resources/node_modules/` where Node's ordinary resolution finds it
-  (`stageNodeModule`) — so the cost is payable. It is still not worth paying, for a reason
-  that has nothing to do with packaging: a separator earns a 166 MB model and a per-platform
-  shared library because there is no other way to do the thing at all; an index earns
-  nothing, because a walk plus a change token already produces it (below). And the mechanism
-  does not solve macOS: nothing in this repo signs a third-party `.dylib`, so a notarised
-  `.app` carrying one is unsolved.
+- **sqlite would be a native dependency for something a walk already does.** A separator earns a
+  166 MB model and a per-platform shared library because there is no other way to do the thing at
+  all; an index earns nothing, because a walk plus a change token already produces it (below).
 - Every derived thing here is already a cache behind a change token. `workspace.ts`'s
   `revision()` is the same shape: a walk producing count + newest mtime.
 

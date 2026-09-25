@@ -24,40 +24,24 @@ remembers cannot.
 ---
 
 `st0-tray` is a tray Tauri app that starts with no window. It is the **VIEW** over the
-supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
-stdio: the supervisor owns the `~/.st0` contract, the registry, and — stage by stage —
-the engine and the file service. The tray renders its snapshots and sends its clicks back.
+supervisor (`engine/st0-supervisor`), which it spawns as a child and drives over NDJSON on
+stdio: the supervisor owns the `~/.st0` contract, the registry and the engine. No file service
+runs on this machine — workspaces live on the server (`packages/file-hub/docs/fileHub.md`). The tray renders its snapshots and sends its clicks back.
 
 Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. What to allow,
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
 snapshot (`host.rs`), and a click goes back up as a command.
 
-## What the machine must already have (`deps.rs`)
+## Nothing to install beside it
 
-`git` and `git-lfs` are probed once at startup, before any of the stack is spawned. A machine
-missing either gets a native dialog naming what to install and where, and then nothing else: the
-tray exits rather than bringing up a stack that cannot import a workspace.
-
-**Here rather than in the file service**, which is what actually shells out to them, for two
-reasons. The supervisor and the file service are this process's descendants and inherit its
-environment, so what the tray finds on PATH is exactly what they will find — the check and the
-use cannot disagree about which `git` is meant. And a Windows release build has no console, so a
-refusal that is not a native modal is a refusal nobody reads.
-
-**It refuses rather than degrades**, because otherwise every symptom arrives far from the cause.
-Without `git` a workspace is created but silently never versioned, publishing fails on a raw
-`spawn git ENOENT`, and the library never mounts — which surfaces later still as `extends unknown
-module '@st0/audio/utility/mixer'` on a project nobody touched. Without `git-lfs` a clone lands
-pointer text where audio should be, and the song plays silence with every track present, unmuted
-and looking correct (`packages/file-service/docs/workspaces.md`).
-
-`tauri-plugin-dialog` is the one crate here that does not draw the tray, and this is what it is
-for: the refusal has to be shown before the supervisor that would otherwise report it exists.
+The tray probes for no CLI at startup. `git` and `git-lfs` are the server's business: workspaces are
+cloned there, and what this machine plays arrives as files through the tunnel
+(`packages/engine-tunnel/docs/tunnel.md`). A probe here would refuse a machine for a tool it never runs.
 
 ## The settings window
 
 One window, `src-tauri/src/settingswin.rs`, holding what a MACHINE is set to rather than what a
-project is. Six tabs, because they answer six different questions and only one of them is
+project is. Five tabs, because they answer five different questions and only one of them is
 ever urgent:
 
 | tab | what it is |
@@ -65,9 +49,8 @@ ever urgent:
 | Audio | the interface ranking, as a list you drag |
 | Plugins | the installed catalogue, filtered, and the rescan that refills it |
 | Sessions | what this engine is holding, and the plugin editors it can open |
-| Sync | where a playlist may be copied to — a stick, a folder, an FTP box |
-| st0 instances | which st0 instances this engine is connected to, the origins just blocked, and a form to add one |
-| System | version, engine, registry, file service — and every button that acts on them |
+| st0 instances | which st0 instances this engine is connected to, and a form to add one |
+| System | version, engine, registry — and every button that acts on them |
 
 **The menu bar keeps one line and no buttons.** A status line is what a menu bar is for; a
 ranking, a catalogue of several hundred rows, a list of live sessions and a row of destructive
@@ -81,7 +64,7 @@ and this app's exit stops the engine. `windows` in `tauri.conf.json` stays empty
 reason it always was — nothing is opened until someone asks for it.
 
 The page is hand-written HTML, CSS and JS under `dist/`, served as-is. The tray has no frontend
-build and gains none for six tabs, which is what `withGlobalTauri` buys: a `<script>` tag
+build and gains none for five tabs, which is what `withGlobalTauri` buys: a `<script>` tag
 reaches `invoke` with no bundler in front of it. The window draws only what a snapshot said and
 sends back only commands, so the rule that **the tray computes no policy** holds here too.
 
@@ -91,7 +74,7 @@ comes forward on focus and leaves nothing behind when it hides.
 ### Audio — the list IS the ranking
 
 The supervisor keeps an ORDER, not a chosen device: the first name in it that is actually
-present is where the engine goes (`packages/engine-host/docs/supervisorPolicy.md`, *Why a list,
+present is where the engine goes (`engine/st0-supervisor/docs/supervisorPolicy.md`, *Why a list,
 and not a pick plus a fallback*). `audio.priority` carries the WHOLE ranking in one command,
 because a reorder is a single act and two halves of it could interleave with a poll. That
 command's argument is simply what is on screen: the ranking, then every other interface plugged
@@ -109,7 +92,7 @@ under the pointer. The other two tabs redraw regardless — nothing there is und
 ### Plugins — read-only, and rescanned from here
 
 The catalogue rides the snapshot like every other list, gated on `pluginsSig`
-(`packages/engine-host/docs/hostProtocol.md` weighs what that costs). What the engine answers is
+(`engine/st0-supervisor/docs/hostProtocol.md` weighs what that costs). What the engine answers is
 already the full list — the count was only ever `.length` of it — so nothing extra is asked of the
 engine to draw this.
 
@@ -117,65 +100,31 @@ The list is read-only, deliberately: this is the INSTALLED catalogue, and everyt
 a plugin you do to an instance of it in a project, which is st0's business rather than the tray's.
 The filter is there because a working machine has hundreds of rows.
 
-### Sync — the targets a playlist can be copied to
-
-A target is a name and a URI, `file://` or `ftp://`, and what a copy DOES with one is
-[packages/file-service/docs/playlistSync.md](../../../packages/file-service/docs/playlistSync.md).
-It is edited here for the reason the audio ranking is: it names something only this machine can
-reach. A hosted screen cannot know what `file:///media/usb` is, and pl8 offers the button but never
-learns the address behind it.
-
-The list is the **whole value**, sent in one `sync.targets` as a reorder sends one `audio.priority`:
-an edit is a single act, and two halves of it could interleave with a poll.
-
-**The URI is shown in full, password and all.** Everywhere else in this repo it is blanked — pl8's
-dropdown gets `ftp://dj:***@box.lan` — and here it is not, because this window runs on the machine
-that already holds the file: hiding it would only stop you checking what you typed, while protecting
-nothing. It is the one surface where showing it sends it nowhere.
-
-**The scheme is checked here to answer at once, and that check is not the gate.** The supervisor's
-normaliser is (`packages/song/src/preferences.ts`), and it drops a target it cannot copy to, so a
-window that let one through would simply see it absent from the next snapshot. What the local check
-buys is a sentence naming the mistake — `sftp:// cannot be copied to` — instead of a row that
-silently fails to appear. The tray still computes no policy: it refuses nothing the supervisor would
-have kept.
-
-Removing one is a button on its row rather than a drag, since dropping a target is the only thing
-this list does that reordering could not say — the same argument that gives an unplugged audio
-device its **Forget**.
-
 ### st0 instances — none until you add one
 
 A fresh machine is connected to **no** st0 instance, and nothing is suggested: the supervisor has no
 default registry, seeds no origin, and ignores the local backends' `web-endpoints/` advertisements —
-running `npm run dev` connects nothing either (`packages/engine-host/docs/supervisorPolicy.md`). This tab is
+running `npm run dev` connects nothing either (`engine/st0-supervisor/docs/supervisorPolicy.md`). This tab is
 where one is added — its address typed into the form, and nowhere else.
 
-Each row is one instance as the supervisor's `instances` reports it: the union of the registries this
-engine heartbeats to and the origins `web-origins.json` lets through, keyed by studio family and shown
-as st0's origin, because to the user those are the same thing. Adding sends `weburi.add`, which does
-both — st0's and pl8's pages are allowed, and the engine heartbeats to the family's one registry, pl8's,
-which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connects the same instance. **Remove** sends `weburi.remove`,
-which undoes both and deregisters at once. A registry that came from `$STUDIO_REGISTRY_URL` gets no Remove
-and says why: the environment is not the tray's to edit.
+Each row is one instance as the supervisor's `instances` reports it: the registries this engine
+heartbeats to, keyed by studio family and shown as st0's origin, because to the user those are the
+same thing. Adding sends `weburi.add`, and the engine heartbeats to the family's one registry, pl8's,
+which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connects the same instance.
+**Remove** sends `weburi.remove`, which deregisters at once. A registry that came from
+`$STUDIO_REGISTRY_URL` gets no Remove and says why: the environment is not the tray's to edit.
 
-Beneath the list sit the origins the file service **just refused**, with Allow and Ignore. This is how
-an instance gets let in without anyone typing its URL — the blocked browser names itself. Allowing
-one does *not* announce the engine there: approval widens which pages may call the file service, and
-nothing else. Ignoring matters as much, or an origin you do not trust sits there training you to skip
-the section.
-
-The address is checked here, the way a sync URI is, only to answer at once — `ftp:// is not a web
+The address is checked here only to answer at once — `ftp:// is not a web
 address`, `already connected to …` — and reduced to the origin before it is sent. The supervisor's
 `normaliseUserOrigin` is the gate. A bare host gets `https://`, as it does there.
 
 Then the supervisor **asks** the instance's registry whether it is one, before anything is written:
-an added instance receives this engine's token and its pages reach the file service, so
-`https://google.com` must be refused rather than connected. The form reads the snapshot's
+an added instance receives this engine's token and the tunnel it dials, so `https://google.com`
+must be refused rather than connected. The form reads the snapshot's
 `instanceCheck` — *Checking https://play.st0.app…*, then nothing on success or the reason in red on a
 refusal — and holds its Add button while one is being asked. The line under the form says what adding
 means, because the check proves the software and not the owner
-(`packages/engine-host/docs/supervisorPolicy.md`).
+(`engine/st0-supervisor/docs/supervisorPolicy.md`).
 
 ### Sessions — what the status line could never say
 
@@ -204,8 +153,7 @@ that blinks out of existence for one poll is worse than a heading nobody reads.
 
 ### System — the machine, and the buttons that act on it
 
-Version, engine, registry and file service as four facts, then Start / Stop / Restart, Restart
-file service, and Clear waveform cache. A page has room for the sentence a greyed-out menu row
+Version, engine and registry as three facts, then Start / Stop / Restart. A page has room for the sentence a greyed-out menu row
 never had: an adopted engine says *why* its buttons are dead, rather than just being dead.
 
 `canAct` only GREYS those buttons. The rule that this app never stops an engine it did not spawn
@@ -220,15 +168,15 @@ written beside them, so this app can never kill a process another owner manages 
 
 ## The Windows job object (`job.rs`)
 
-The graceful path (`cleanup_async`) stops the engine and file service when the user picks
-Quit, but nothing runs when the tray is force-killed or crashes — and its children would
-then orphan and keep the engine and file ports bound.
+The graceful path (`cleanup_async`) stops the engine when the user picks Quit, but nothing
+runs when the tray is force-killed or crashes — and its children would then orphan and keep
+the engine's port bound.
 
 A job object closes that gap. Every process the tray spawns is assigned to one job whose
 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag terminates all members when the last handle to
 the job closes, and the OS closes our handles when the tray ends however it ends. It also
 subsumes the grandchild problem for free: a process created *by* a job member joins the job
-automatically, so the `tsx`-forked file-service node is covered with no tree walking.
+automatically, so a separation worker the supervisor starts is covered with no tree walking.
 
 This is why the job is created in `main.rs` **before anything is spawned** — membership is
 inherited, so a force-killed tray takes the whole stack with it. Off Windows the closing
@@ -237,9 +185,8 @@ stdin pipe plays the same role.
 ## Quitting
 
 On quit the supervisor does the actual work: deregister from the registry (while the engine
-is still up and the entry still means something), then stop the file service and the
-engine, foreign or not — closing the app is terminal, and an engine left listening holds
-the audio device and both ports.
+is still up and the entry still means something), then stop the engine, foreign or not —
+closing the app is terminal, and an engine left listening holds the audio device and its port.
 
 `pidkill.rs` is the second half of that sentence, and runs after the supervisor on the way
 out for the case where it never got there: it hung on an unresponsive registry and was
@@ -255,8 +202,8 @@ Signals get the same treatment as menu Quit: launchd sends SIGTERM to stop a Lau
 
 Two halves, and the split is the whole point:
 
-- **`snapshot`** is what the SUPERVISOR reported. The engine, the file service, the
-  identity, the ports, the registry, the audio picks, the allowlist — none of it is
+- **`snapshot`** is what the SUPERVISOR reported. The engine, the identity, the ports, the
+  registry, the audio picks — none of it is
   computed or written here. It arrives whole and replaces what was.
 - **everything else** is view state the tray genuinely owns, and there is very little left:
   the spinner frame, the menu-bar darkness, the menu handles, and the two signatures
@@ -265,9 +212,8 @@ Two halves, and the split is the whole point:
 
 ## The remaining loops (`supervisor.rs`)
 
-The name is a misnomer — the supervisor is `@studio/engine-host`. The registry heartbeat,
-the refused-origin poll, the crash watch, the file-service watch and all three engine-query
-polls belong to it: it owns those files, those processes, and the one connection to the
+The name is a misnomer — the supervisor is `engine/st0-supervisor`. The registry heartbeat,
+the crash watch and all three engine-query polls belong to it: it owns those files, those processes, and the one connection to the
 engine.
 
 Two loops live here, and both are genuinely view work:
@@ -295,19 +241,19 @@ a healthy one:
 
 1. **`$STUDIO_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch
    for testing a custom supervisor build.
-2. **Packaged** — the vendored `node` beside our executable, running the esbuild'd
-   `engine-host.mjs` from the app's resources. Nothing on PATH, no repo needed.
-3. **Dev** — `node` from PATH running the repo's `tsx` CLI on the TypeScript source, so
-   `npm run engine:dev` supervises with no build step.
+2. **Packaged** — the `st0-supervisor` sidecar beside our executable. Nothing on PATH, no repo
+   needed.
+3. **Dev** — the newest `st0-supervisor` under the repo's `engine/st0-supervisor/build`, Release
+   before Debug, which `npm run dev` rebuilds on save.
 
-Tier 3 exists only because `buildDevApp()` deliberately ships an app with an empty
-`resources` list; that is what makes a dev build take this path rather than a stale bundle.
+Tier 3 exists only because `buildDevApp()` deliberately ships an app with no sidecars; that is
+what makes a dev build take this path rather than a stale copy.
 
 ## The link itself (`host.rs`)
 
 One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
 commands go down its stdin. The written definition of the format is
-`packages/engine-host/src/hostProtocol.ts`; the structs in `host.rs` are its hand-written
+`engine/st0-supervisor/src/HostProtocol.h`; the structs in `host.rs` are its hand-written
 Rust mirror — the same arrangement `engine-protocol` has with the C++ engine.
 
 It is deliberately **partial**: only the fields the tray consumes are mirrored. serde
@@ -321,8 +267,8 @@ that because the pidfile lets the fresh supervisor re-adopt it.
 
 ## The merged log (`logbus.rs`)
 
-`~/.st0/.studio.log` is written by the supervisor, which owns the engine and the
-file service and pumps both into it. Two jobs are left on the tray side:
+`~/.st0/.studio.log` is written by the supervisor, which owns the engine and pumps its
+output into it. Two jobs are left on the tray side:
 
 1. **Truncate it once, at startup.** The tray's lifetime is what "a session" means, and it
    is the only process that knows a session began: the supervisor can be relaunched

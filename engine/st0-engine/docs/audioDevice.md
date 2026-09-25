@@ -52,7 +52,7 @@ wrong when a preference exists and is not applied.
 | where | who writes it | who applies it | when |
 |---|---|---|---|
 | `<state>/preferences.yaml` (`audioDevice`) | the machine's file service — `PUT /preferences/audio-device` | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
-| `<state>/engine-host.json` (`audioPriority`) | the settings page's Audio interfaces rows | the supervisor's `audioPolicy` | continuously — it also RE-selects the device when it is replugged |
+| `<state>/engine-host.json` (`audioPriority`) | the tray's Audio tab | the supervisor's `AudioPolicy.cpp` | continuously — it also RE-selects the device when it is replugged |
 | `%APPDATA%/Studio/Settings.xml` | Tracktion, by itself | nobody | never — inert on purpose, see AGENTS.md |
 
 The first row is the one a browser can reach, and it is the one that is easy to leave half
@@ -64,14 +64,13 @@ replays it on every connect.
 
 That second row is an ordered LIST, best first, and no longer a pick plus a fallback: the
 engine goes to the highest-ranked interface actually plugged in
-(`packages/engine-host/docs/supervisorPolicy.md`).
+(`engine/st0-supervisor/docs/supervisorPolicy.md`).
 
-It does not cover for the first: the supervisor is not running in dev at all, and its setting is
-written from the desktop app's own settings page over a loopback-only route, so a hosted browser
-cannot reach it.
+It does not cover for the first: its setting is written from the tray's settings window, on the
+engine's own machine, so a hosted browser cannot reach it.
 
-So a picker must do both halves: tell the engine to switch NOW, and ask that machine's
-file service to still be on it next time. They are two facts — a live engine and a file on
+So a picker must do both halves: tell the engine to switch NOW, and ask the account's file service
+to still be on it next time. They are two facts — a live engine and a file on
 a disk — and sending only the first is the bug this page exists for.
 
 ## An interface change un-wires every live input

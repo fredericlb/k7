@@ -1,5 +1,5 @@
 // supervisor.rs — the tray's remaining background loops (the name is a misnomer: the real
-// supervisor is @studio/engine-host). Only `spinner_loop` and `appearance_loop` are left,
+// supervisor is the native engine/st0-supervisor). Only `spinner_loop` and `appearance_loop` are left,
 // both genuinely view work. Every loop DROPS its lock guard before any `.await`.
 // See docs/tray.md.
 

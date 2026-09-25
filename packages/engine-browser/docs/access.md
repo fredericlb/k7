@@ -66,7 +66,23 @@ page non-installable. The surfaces menu could then not be added to a home screen
 device it exists for (`apps/st0/frontend/docs/external.md`).
 
 `candidatesFor` therefore offers loopback — potentially trustworthy by definition, dialable from
-HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work.
+HTTPS — and the relay. LAN addresses stay listed over plain HTTP, where they work. An engine whose
+supervisor holds a tunnel adds a fourth, `rtc:`, a WebRTC data channel straight to its machine
+(`packages/engine-tunnel/docs/rtc.md`); `openSocket` makes it a WebSocket to everything above it,
+and it is raced like the others rather than preferred.
+
+## Hosted files are opt-in, per app
+
+When the registry's server hosts the workspaces (`packages/file-hub/docs/fileHub.md`), an app
+built with `hostedFiles: true` sends every file call there instead of to the engine's machine:
+`fileBase` becomes the hub, and `fileToken` a ticket the hub minted from the session, with the
+chosen engine's id after a `~`. The ticket rides in the header the file service's gate already
+reads, so none of the calls that build that header change, and none of them need a cookie
+across origins. `token` stays the engine's own, since the claim is checked against it.
+
+st0 and z0's editor opt in: they open a project, and a project is the server's. pl8 does not —
+its player resolves songs against the engine machine's own médiathèque cache and sends the
+engine a document itself, which the server's files would name in paths the engine cannot open.
 
 ## Outside this object
 

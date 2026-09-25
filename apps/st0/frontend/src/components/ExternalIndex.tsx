@@ -13,6 +13,7 @@ import {
   ServerOff,
   Unplug,
 } from "@frediverse/ui/icons";
+import { fileTokenOf } from "@studio/engine-browser/probe";
 import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
@@ -40,8 +41,12 @@ export function ExternalIndex() {
       const userEmail = me?.email || me?.sub || "unknown";
       const { chosen } = await engines.find();
       setMachine(
-        chosen?.fileBase && chosen.token
-          ? { fileBase: chosen.fileBase, token: chosen.token, userEmail }
+        chosen?.fileBase && fileTokenOf(chosen)
+          ? {
+              fileBase: chosen.fileBase,
+              token: fileTokenOf(chosen) ?? "",
+              userEmail,
+            }
           : null,
       );
     } catch {

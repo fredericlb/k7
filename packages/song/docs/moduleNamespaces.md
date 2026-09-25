@@ -86,9 +86,9 @@ Nothing in `project.yaml` declares one. A `modules_from` naming the middle one, 
 decide nothing while leaving three ways to be wrong about it — docs/sharedFolders.md lists
 the three, each of which costs a real afternoon.
 
-What this does NOT do is put the bytes there. The library is hosted; the local folder is a
-cache of it, filled by `packages/file-service/docs/mediatekPull.md` for the modules the open
-songs name.
+What this does NOT do is put the bytes there. The library lives on the server, and a module
+reaches the engine's machine through the tunnel when the engine opens it
+(`packages/engine-tunnel/docs/tunnel.md`).
 
 `@engine` is the odd one and always will be: it names **no folder at all**. A scanned
 plugin is a module the engine merely reports (`engineCatalogue.ts`), which is fine until
@@ -205,5 +205,5 @@ the file a year later needs to know which of two similarly-slugged plugins it st
 No `ui.yaml`. A panel is drawn by hand afterwards, in the builder, and two hundred and
 forty-two blank ones would be that many files saying nothing.
 
-Nothing is pushed to any machine either. `mediatekPull` fetches the modules the **open songs
-name**, so a library of faces costs a machine nothing until a song reaches for one.
+Nothing is pushed to any machine either. A module travels when a song **opens** it, so a
+library of faces costs a machine nothing until a song reaches for one.

@@ -27,7 +27,7 @@ the relay included, exactly as it already calls pl8 for the médiathèque.
 
 `GET /api/registry/hello` answers `{ service: "st0-registry" }`, open like the heartbeat. It is how the
 supervisor tells a registry from any other website before it sends one the engine's token
-(`packages/engine-host/docs/supervisorPolicy.md`); it says nothing else.
+(`engine/st0-supervisor/docs/supervisorPolicy.md`); it says nothing else.
 
 ## What this costs
 

@@ -3,6 +3,7 @@
 // hand-written copy per service, since those drift. See docs/shared.md.
 
 import type { Server } from "node:http";
+import { TunnelHub } from "@studio/engine-tunnel/hub";
 import type {
   Express,
   NextFunction,
@@ -21,6 +22,8 @@ export const ENGINE_BODY_LIMIT = "8mb";
 export interface EngineMount {
   /** This service's own registry — see docs/shared.md for why it is not shared. */
   registry: EngineRegistry;
+  /** The engines that dialled IN, each reachable however far away — packages/engine-tunnel/docs/tunnel.md. */
+  tunnels: TunnelHub;
   /** Attach the relay and announce the registry once the server is listening; `alsoOnStop` runs with the goodbye. See docs/shared.md. */
   serve(server: Server, url: string, alsoOnStop?: () => void): () => void;
 }
@@ -40,12 +43,18 @@ export function mountEngineRegistry(
     opts.requireAuth,
   );
   const registry = createRegistry();
-  app.use("/api", engineRegistryRouter(registry));
+  // Only an engine this registry lists may hold a tunnel, and only with its own token.
+  const tunnels = new TunnelHub({
+    verify: (id, token) =>
+      !!registry.get(id) && registry.verifyToken(id, token),
+  });
+  app.use("/api", engineRegistryRouter(registry, tunnels));
 
   return {
     registry,
+    tunnels,
     serve(server, url, alsoOnStop) {
-      attachEngineProxy(server, registry);
+      attachEngineProxy(server, registry, tunnels);
       const unadvertise = advertiseRegistry(opts.service, url);
       let said = false;
       const bye = () => {

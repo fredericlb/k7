@@ -4,10 +4,11 @@
 // host's job: the engine routes must stay open while the browser ones need a session.
 
 import { validate, wrap } from "@frediverse/http/route";
+import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
 import { Router } from "express";
 import { z } from "zod";
-import { engineFilesProxy, issueEngineTicket } from "./proxy.ts";
+import { issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
 
 // Addresses are ADDRESSES: `/registry/heartbeat` is open by design, and an unvalidated string would let anyone aim this server at a name.
@@ -15,7 +16,6 @@ const addressesSchema = z.object({
   loopback: z.ipv4(),
   lanIps: z.array(z.ipv4()),
   port: z.number().int().min(1).max(65535),
-  filePort: z.number().int().min(1).max(65535),
 });
 
 // Bounded, because the heartbeat is open: a rating is a hint for a picker, never a number to trust blindly.
@@ -55,6 +55,14 @@ const selectBody = z.object({
   latencyMs: z.number().optional(),
 });
 
+// An SDP offer is a few kilobytes; the bound keeps an open route from buffering anything larger.
+const rtcBody = z.object({
+  sdp: z
+    .string()
+    .min(1)
+    .max(64 * 1024),
+});
+
 // The claim's own secret, not the engine token: a goodbye may only drop the claim it actually holds — see docs/claim.md.
 const releaseBody = z.object({
   id: z.string().min(1),
@@ -62,7 +70,10 @@ const releaseBody = z.object({
 });
 
 /** The routes over the one registry, pl8's — see docs/shared.md. */
-export function engineRegistryRouter(reg: EngineRegistry): Router {
+export function engineRegistryRouter(
+  reg: EngineRegistry,
+  tunnels?: TunnelHub,
+): Router {
   const router = Router();
 
   // Open like the heartbeat, and says nothing but WHAT this is: the supervisor asks before it sends a token here.
@@ -108,13 +119,28 @@ export function engineRegistryRouter(reg: EngineRegistry): Router {
         reg.list(req.ip).map((e) => ({
           ...e,
           proxyTicket: issueEngineTicket(e.id),
+          // A tunnel is what carries a WebRTC offer, so it is what makes one worth trying.
+          rtc: tunnels?.has(e.id) || undefined,
         })),
       );
     }),
   );
 
-  // The engine machine's file service, relayed under `/engine/:id/` so the session middleware in front of `/api/engine` covers it.
-  router.use("/engine/:id/files", engineFilesProxy(reg));
+  // A browser's WebRTC offer, answered by the engine's supervisor through its tunnel — packages/engine-tunnel/docs/rtc.md.
+  router.post(
+    "/engine/:id/rtc",
+    validate(rtcBody),
+    wrap(async (req, res) => {
+      const { sdp } = req.body as z.infer<typeof rtcBody>;
+      if (!tunnels) return res.status(404).json({ error: "no tunnels here" });
+      try {
+        res.json({ sdp: await tunnels.signal(String(req.params.id), sdp) });
+      } catch (e) {
+        // 503 and not 500: the engine is simply not reachable this way, and the relay still is.
+        res.status(503).json({ error: (e as Error).message });
+      }
+    }),
+  );
 
   router.post(
     "/engine/select",

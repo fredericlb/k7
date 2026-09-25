@@ -12,15 +12,16 @@ end of the page.
 ## Scope
 
 Two services really talk to the engine: **st0** and **pl8**, each by its two halves (browser +
-backend), plus the **supervisor** (`engine-host`), which announces it to the registries. At the
+backend), plus the **supervisor** (`engine/st0-supervisor`), which announces it to the registries. At the
 margin: **z0** links to it at one point only, a 74-line offline render
 (`apps/z0/backend/src/render.ts`) that goes through the file service over HTTP and never the
 socket; **k7** does not touch it at all.
 
 Volume: ~7,400 lines of TypeScript in the five engine packages (`engine-protocol` 959,
-`engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029, `engine-registry` 793), 52 C++
-files, and 35 app files that import `@studio/engine-*`. The most churned files are
-`engine-host/src/supervisor.ts` and `engine-browser/src/engine.ts` — reliability is decided there.
+`engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029 — the TypeScript supervisor
+`engine/st0-supervisor` now replaces —, `engine-registry` 793), 52 C++ files, and 35 app files that
+import `@studio/engine-*`. The most churned files were the supervisor's loop and
+`engine-browser/src/engine.ts` — reliability is decided there.
 
 ## What works, and must not be undone
 
@@ -43,20 +44,14 @@ stays local to the surface that suffered** as long as no package carries it.
 ## B. Security — to be decided, not mechanically corrected
 
 **The engine token leaks by design.** `main.cpp:1094-1108`: `whoami` returns the token to any
-socket that asks for it, with no prior authentication. The browser picks it up there
-(`probe.ts:124`) and replays it towards the file service.
+socket that asks for it, with no prior authentication.
 
 Consequences: anyone reaching `ws://<engine>:8765` — loopback, or the whole LAN when the supervisor
-binds `0.0.0.0` — obtains in one message enough to claim the lease, deregister the engine, and call
-**every** file service route on that machine. The token is the same for both surfaces, has no
-expiry, and revoking it means deleting `engine-id.json`, which also changes the `id` and breaks the
-remembered preference.
-
-A blind spot makes it worse: the relay copies every incoming header, `origin` included
-(`proxy.ts:233`). The relayed request is not preflighted, so the CORS control `corsAndOrigins.md`
-describes as "the load-bearing control" is **entirely bypassed** — only the token is left. Visible
-side effect in dev: `pending-origins.json` fills with origins that work, and the tray notifies "A
-web UI was blocked" for each of them.
+binds `0.0.0.0` — obtains in one message enough to claim the lease and deregister the engine. The
+token has no expiry, and revoking it means deleting `engine-id.json`, which also changes the `id`
+and breaks the remembered preference. There is no file route on that machine to reach with it:
+workspaces are served by the server's file hub, which takes a session ticket and never this token
+(`packages/file-hub/docs/fileHub.md`).
 
 This is not a bug to patch: it is a trust model to settle. The options run from "accept it and
 write it down" to "the engine no longer emits its token on `whoami`", which requires another proof

@@ -4,13 +4,13 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
-import { request as httpRequest } from "node:http";
 import type { Socket } from "node:net";
+import type { TunnelChannel } from "@studio/engine-tunnel/channel";
+import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import {
   ENGINE_DIAL_TIMEOUT_MS,
   ENGINE_REACH_BUDGET_MS,
 } from "@studio/web-protocol";
-import type { RequestHandler } from "express";
 import { WebSocket, WebSocketServer } from "ws";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
 
@@ -67,8 +67,23 @@ const hostsFor = (e: EngineEntry): string[] => [
   ...e.addresses.lanIps,
 ];
 
+/** What the relay pipes to: a socket it dialled, or a channel through the engine's own tunnel. */
+type Upstream = WebSocket | TunnelChannel;
+
+/** The engine's tunnel first — it reaches an engine behind any NAT — then every address in turn. */
+async function dial(
+  e: EngineEntry,
+  tunnels?: TunnelHub,
+): Promise<Upstream | null> {
+  if (tunnels?.has(e.id)) {
+    const ch = await tunnels.openReady(e.id, [], ENGINE_REACH_BUDGET_MS);
+    if (ch) return ch;
+  }
+  return dialDirect(e);
+}
+
 /** Open the first address that answers, in order and sequentially, within ONE budget for the whole list — see docs/proxy.md. */
-async function dial(e: EngineEntry): Promise<WebSocket | null> {
+async function dialDirect(e: EngineEntry): Promise<WebSocket | null> {
   const deadline = Date.now() + ENGINE_REACH_BUDGET_MS;
   for (const host of hostsFor(e)) {
     const left = deadline - Date.now();
@@ -107,8 +122,8 @@ async function dial(e: EngineEntry): Promise<WebSocket | null> {
 }
 
 // Frames each way, either close ending both; the relay reads nothing, since what travels is the browser's business.
-function pipe(client: WebSocket, upstream: WebSocket): void {
-  const shut = (ws: WebSocket) => {
+function pipe(client: WebSocket, upstream: Upstream): void {
+  const shut = (ws: Upstream) => {
     try {
       ws.close();
     } catch {
@@ -119,7 +134,7 @@ function pipe(client: WebSocket, upstream: WebSocket): void {
     if (upstream.readyState === WebSocket.OPEN)
       upstream.send(d, { binary: isBinary });
   });
-  upstream.on("message", (d, isBinary) => {
+  upstream.on("message", (d: WebSocket.RawData, isBinary: boolean) => {
     if (client.readyState === WebSocket.OPEN)
       client.send(d, { binary: isBinary });
   });
@@ -135,7 +150,11 @@ const deny = (socket: Socket, status: string): void => {
 };
 
 /** Relay `/api/engine/<id>/ws` to the engine itself, attached to the HTTP SERVER because an upgrade skips Express — see docs/proxy.md. */
-export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
+export function attachEngineProxy(
+  server: Server,
+  reg: EngineRegistry,
+  tunnels?: TunnelHub,
+): void {
   const wss = new WebSocketServer({ noServer: true });
 
   /** Hand an upgrade we do not serve to whoever else might, or close it — Node cleans up an unclaimed socket only when NO listener exists. */
@@ -144,6 +163,7 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
   };
 
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    if (tunnels?.handle(req, socket, head)) return;
     let url: URL;
     try {
       url = new URL(req.url || "", "http://localhost");
@@ -166,7 +186,7 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
         pending.push({ data, binary });
       client.on("message", hold);
 
-      void dial(engine).then((upstream) => {
+      void dial(engine, tunnels).then((upstream) => {
         if (!upstream) {
           client.close(1011, "engine unreachable from the server");
           return;
@@ -183,8 +203,8 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
   });
 }
 
-/** What a body parser in FRONT of this route already swallowed, ready to send again, or null when the stream is still ours — see docs/proxy.md. */
-function replayBody(req: {
+/** What a body parser in FRONT of a relaying route already swallowed, ready to send again, or null when the stream is still ours — the file hub's. */
+export function replayBody(req: {
   readableEnded: boolean;
   body?: unknown;
 }): Buffer | null {
@@ -194,72 +214,4 @@ function replayBody(req: {
   if (Buffer.isBuffer(b)) return b;
   if (typeof b === "string") return Buffer.from(b);
   return Buffer.from(JSON.stringify(b));
-}
-
-/** Relay `/api/engine/<id>/files/*` to the engine machine's file service — an ordinary route, so the session middleware gates it and it needs no ticket. */
-export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
-  return (req, res) => {
-    const engine = reg.get(String(req.params.id));
-    if (!engine) return void res.status(404).json({ error: "unknown engine" });
-    // Express strips the mount path; `req.url` is what remains, which is the file service's own.
-    const path = req.url.startsWith("/") ? req.url : `/${req.url}`;
-    const hosts = hostsFor(engine);
-    const body = replayBody(req);
-
-    const attempt = (i: number): void => {
-      const host = hosts[i];
-      if (!host)
-        return void res
-          .status(502)
-          .json({ error: "engine file service unreachable from the server" });
-      const headers: Record<string, string | string[]> = {
-        ...(req.headers as Record<string, string | string[]>),
-        host: `${host}:${engine.addresses.filePort}`,
-      };
-      // `host` came from an ENGINE on the open heartbeat route, so the browser's session credentials must not travel to it.
-      delete headers.cookie;
-      delete headers.authorization;
-      if (body) {
-        // Re-serialized bytes are not the bytes we were sent, so the original length is a lie, and a chunked encoding beside it a second.
-        headers["content-length"] = String(body.length);
-        delete headers["transfer-encoding"];
-      }
-      const up = httpRequest(
-        {
-          host,
-          port: engine.addresses.filePort,
-          path,
-          method: req.method,
-          headers,
-          timeout: ENGINE_DIAL_TIMEOUT_MS,
-        },
-        (upRes) => {
-          // Belt and braces: the timer is dropped on connect below, and again here, since a keep-alive reuse never fires `connect`.
-          up.setTimeout(0);
-          res.status(upRes.statusCode ?? 502);
-          for (const [k, v] of Object.entries(upRes.headers))
-            if (v !== undefined && k.toLowerCase() !== "transfer-encoding")
-              res.setHeader(k, v as string | string[]);
-          upRes.pipe(res);
-        },
-      );
-      /** Drop the timer the moment the socket is UP, not when the answer starts; a connected socket gets no bound — see docs/proxy.md. */
-      up.on("socket", (s) => {
-        if (s.connecting) s.once("connect", () => up.setTimeout(0));
-        else up.setTimeout(0); // a pooled socket is already open — nothing to dial
-      });
-      // Only a host that never answered is worth retrying: a committed response would be written twice, and a piped body is spent.
-      up.on("error", () => {
-        if (res.headersSent) return void res.end();
-        if (body || !req.readableEnded) return attempt(i + 1);
-        res
-          .status(502)
-          .json({ error: "engine file service unreachable from the server" });
-      });
-      up.on("timeout", () => up.destroy());
-      if (body) up.end(body);
-      else req.pipe(up);
-    };
-    attempt(0);
-  };
 }

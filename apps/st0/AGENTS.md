@@ -20,18 +20,18 @@ by the LAN reverse proxy.
 
 | | `backend` | `@studio/file-service` | `engine/st0-engine` |
 |---|---|---|---|
-| runs on | the hosted machine | the **engine's** machine | the engine's machine |
-| owns | `/auth/*` for the whole origin, and st0's preferences | `<state>/workspace/<user>/<workspace>` — every file op | audio playback |
-| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin and direct (CORS-gated) when the browser may, else relayed through this origin** | **WebSocket — direct when the browser may, else relayed through this origin** |
-| auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
+| runs on | the hosted machine | the hosted machine, one process per account behind pl8's file hub | the engine's machine |
+| owns | `/auth/*` for the whole origin, and st0's preferences | the account's workspaces — every file op | audio playback |
+| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **through pl8's `/api/files`, never directly** | **WebSocket — direct when the browser may, else relayed through this origin** |
+| auth | session cookie (`studio.sid`) | a ticket the hub mints from the session | engine token echoed on `whoami` |
 
 **The backend has no file routes and no `store.ts`.** Every file operation lives in
 `packages/file-service/src/workspace.ts`. Don't look for `tree`/`read`/`write`/`fmt`
 here.
 
-The file service does **not** share the session cookie. Its CORS allowlist
-(`packages/file-service/src/cors.ts`) is the actual security boundary: deny-by-default,
-loopback/private plus the user-trusted origins in `<state>/web-origins.json`.
+The file service does **not** see the session cookie, or any header a page chose: the hub turns the
+session into a ticket, stamps the user itself, and the service answers only the hub's secret
+(`packages/file-hub/docs/fileHub.md`).
 
 `AuthGate` → `EngineGate` → `ProjectGate` → editor, when the address names a project.
 When it names none, `main.tsx` mounts `AuthGate` → `Home` instead — the projects page, which

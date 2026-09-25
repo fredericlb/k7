@@ -36,8 +36,10 @@ RUN apk add --no-cache python3 make g++ \
 FROM node:22-alpine AS runtime
 # yt-dlp, ffmpeg: the médiathèque's imports/transcodes/analysis. mpv: pl8 plays on this
 # host's own outputs (packages/mpv-player/docs/mpvPlayer.md) — without it that one route
-# answers 503 and nothing else notices.
-RUN apk add --no-cache yt-dlp ffmpeg mpv
+# answers 503 and nothing else notices. git, git-lfs, openssh: the hosted file services clone,
+# commit and push the accounts' workspaces (packages/file-hub/docs/fileHub.md), and refuse to
+# clone a repository whose media is in LFS without git-lfs.
+RUN apk add --no-cache yt-dlp ffmpeg mpv git git-lfs openssh-client
 WORKDIR /app
 # The whole repo, but with node_modules pruned to pl8-backend's own runtime dependency
 # closure only — no frontend-only deps, no devDependencies.
@@ -48,6 +50,8 @@ COPY --from=frontend-build /app/apps/pl8/frontend/dist ./apps/pl8/frontend/dist
 # pl8 IS this volume (apps/pl8/docs/config.md).
 ENV STUDIO_MEDIATEK=/library
 VOLUME ["/library"]
+# The accounts' workspaces, one folder each, when the deployment sets $STUDIO_FILES_ROOT to it.
+VOLUME ["/workspaces"]
 
 ENV PORT=8795
 # `node:sqlite` (the shares' comments store) is still behind this flag on Node 22 — the

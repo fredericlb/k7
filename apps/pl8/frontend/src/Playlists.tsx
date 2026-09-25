@@ -32,7 +32,6 @@ import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { library } from "./api";
 import { PlaylistRows, rowPath } from "./PlaylistRows";
-import { PlaylistSync } from "./PlaylistSync";
 import { usePlayback } from "./playback/PlaybackProvider";
 import type { PlaybackTarget } from "./playback/targets";
 import { SaveState } from "./SaveState";
@@ -307,14 +306,10 @@ export function Playlists({
               <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">
                 {path}
               </span>
-              {/* The sync acts on the PLAYLIST, so it is here and not in the row toolbar below. */}
-              <div className="ml-auto shrink-0">
-                <PlaylistSync playlist={file.replace(/\.ya?ml$/i, "")} />
-              </div>
               <Button
                 variant={showYaml ? "default" : "ghost"}
                 size="sm"
-                className="shrink-0"
+                className="ml-auto shrink-0"
                 onClick={() => setShowYaml((y) => !y)}
                 title="Le fichier, tel qu'il est écrit"
               >

@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- settings.html — the tray's one window: everything the tray used to hold in submenus and
-     could not draw properly. Six tabs, because they answer six different questions and only
+     could not draw properly. Five tabs, because they answer five different questions and only
      one of them is ever urgent. See engine/st0-tray/docs/tray.md. -->
 <html lang="en">
   <head>
@@ -13,7 +13,6 @@
       <button role="tab" data-panel="panel-audio" aria-selected="true">Audio</button>
       <button role="tab" data-panel="panel-plugins" aria-selected="false">Plugins</button>
       <button role="tab" data-panel="panel-sessions" aria-selected="false">Sessions</button>
-      <button role="tab" data-panel="panel-sync" aria-selected="false">Sync</button>
       <button role="tab" data-panel="panel-instances" aria-selected="false">st0 instances</button>
       <button role="tab" data-panel="panel-system" aria-selected="false">System</button>
     </nav>
@@ -53,37 +52,14 @@
       <p id="sessions-empty" class="empty" hidden></p>
     </section>
 
-    <section id="panel-sync" role="tabpanel" hidden>
-      <p class="hint">
-        Where this machine can copy a playlist to, from the médiathèque's
-        Synchroniser button. <b>file://</b> for a stick or a folder,
-        <b>ftp://</b> for a box on the network — credentials go in the address
-        (<code>ftp://user:pass@box.lan/music</code>) and never leave this
-        machine. Songs are written as
-        <code>[artiste]/[album]/[titre]</code>; nothing is ever deleted.
-      </p>
-      <ul id="sync"></ul>
-      <p id="sync-empty" class="empty" hidden></p>
-      <div class="bar">
-        <input id="sync-name" type="text" placeholder="Name — Clé USB" />
-        <input id="sync-uri" type="text" placeholder="file:///media/usb/MUSIC" />
-        <button id="sync-add" type="button">Add</button>
-      </div>
-      <p id="sync-error" class="empty" hidden></p>
-    </section>
-
     <section id="panel-instances" role="tabpanel" hidden>
       <p class="hint">
         The st0 instances this engine is connected to. Each one lists this
-        engine in its picker, and its pages may reach this machine's files.
-        None is assumed: add one by its address.
+        engine in its picker, and reaches it through a tunnel this machine
+        opens. None is assumed: add one by its address.
       </p>
       <ul id="instances"></ul>
       <p id="instances-empty" class="empty" hidden></p>
-      <div id="pending-block" hidden>
-        <p class="subhead">Blocked just now — allow?</p>
-        <ul id="pending"></ul>
-      </div>
       <form id="instance-form" class="bar">
         <input id="instance-url" type="text" inputmode="url" autocomplete="off"
           spellcheck="false" placeholder="Address of a st0 instance" />
@@ -92,8 +68,8 @@
       <p id="instance-error" class="empty" hidden></p>
       <p class="hint">
         Only add an instance you trust: it receives this engine's access
-        token, and its pages can reach this machine's files. The address is
-        checked first — one that is not a st0 instance is refused.
+        token, and drives this engine and its copies of that instance's files.
+        The address is checked first — one that is not a st0 instance is refused.
       </p>
     </section>
 
@@ -101,16 +77,12 @@
       <ul id="system"></ul>
       <p id="adopted" class="hint" hidden>
         This engine was started by another supervisor. It can be neither stopped
-        nor restarted from here, and its file service is not ours to touch.
+        nor restarted from here.
       </p>
       <div class="bar">
         <button id="engine-start" type="button">Start engine</button>
         <button id="engine-stop" type="button">Stop</button>
         <button id="engine-restart" type="button">Restart</button>
-      </div>
-      <div class="bar">
-        <button id="file-restart" type="button">Restart file service</button>
-        <button id="waveforms-clear" type="button">Clear waveform cache</button>
       </div>
     </section>
     <script src="settings.js"></script>

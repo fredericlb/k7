@@ -6,7 +6,7 @@ import { engineAccess } from "@studio/engine-browser/access";
 import type { PlaylistSummary } from "@studio/mediatek/playlists";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
-import type { PublicEngine, SyncJob } from "@studio/web-protocol";
+import type { PublicEngine } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
 import { authOrigin } from "@studio/web-protocol/services";
 import type {
@@ -210,42 +210,6 @@ export const settings = {
     json(
       await fetch(`${BASE}/api/settings/slskd/check`, { method: "POST" }),
       "settings",
-    ),
-};
-
-/** One target as the machine offers it: the URI is already blanked, so this may be shown. */
-export interface SyncTargetRow {
-  name: string;
-  uri: string;
-  scheme: string | null;
-}
-
-/** Copying a set list onto a machine's target. The engine holds the URI; here it is a NAME. */
-export const sync = {
-  /** What that machine can copy to — its URIs already blanked of any password. */
-  targets: async (engineId: string) =>
-    json<{ targets: SyncTargetRow[] }>(
-      await fetch(
-        `${BASE}/api/sync/targets?engineId=${encodeURIComponent(engineId)}`,
-      ),
-      "targets",
-    ),
-
-  start: async (playlist: string, engineId: string, target: string) => {
-    const res = await fetch(`${BASE}/api/sync`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ playlist, engineId, target }),
-    });
-    return json<{ job: SyncJob; skipped: string[] }>(res, "sync");
-  },
-
-  status: async (id: string, engineId: string) =>
-    json<SyncJob>(
-      await fetch(
-        `${BASE}/api/sync/${encodeURIComponent(id)}?engineId=${encodeURIComponent(engineId)}`,
-      ),
-      "sync",
     ),
 };
 

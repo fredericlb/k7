@@ -40,6 +40,7 @@ import {
 } from "@studio/web-protocol";
 import chokidar from "chokidar";
 import { guard } from "./background.ts";
+import { askBoundMachine } from "./boundMachine.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
 import { saveTake } from "./recorderSave.ts";
 import { rootDir, slugify } from "./slug.ts";
@@ -215,6 +216,12 @@ export function setSelectedEngine(url: string): void {
   if (url === selectedEngineUrl && links.size) return;
   selectedEngineUrl = url;
   // A different engine invalidates every session's socket, not just the current one.
+  for (const session of [...links.keys()]) dropLink(session);
+}
+
+/** Drive no engine at all — a hosted file service between two bindings, packages/file-hub/docs/fileHub.md. */
+export function clearSelectedEngine(): void {
+  selectedEngineUrl = undefined;
   for (const session of [...links.keys()]) dropLink(session);
 }
 
@@ -874,6 +881,16 @@ function makeHost(
       } catch {
         return null; // no envelope yet, or a clip nothing can decode — the command says so
       }
+    },
+    // What the bound machine separates on: its setting, read and written THERE — stem-separation/docs/stemSplit.md.
+    onnxProviders: async (set) => {
+      const reply = await askBoundMachine(
+        set
+          ? { type: "onnx-providers", set: [...set] }
+          : { type: "onnx-providers" },
+        "onnx-providers",
+      );
+      return reply ? ((reply.providers as string[] | undefined) ?? []) : null;
     },
     // Which chain this machine separates with, read per request so `system stems` needs no telling.
     get stemsChain(): string | undefined {

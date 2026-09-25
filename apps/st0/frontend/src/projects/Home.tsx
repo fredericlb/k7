@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Tablet,
 } from "@frediverse/ui/icons";
+import { fileTokenOf } from "@studio/engine-browser/probe";
 import { AskHost } from "@studio/project-shell/ask";
 import { AppSwitch } from "@studio/ui-app-switch";
 import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
@@ -76,8 +77,12 @@ export function Home() {
       const userEmail = me?.email || me?.sub || "unknown";
       const { chosen } = await engines.find();
       setMachine(
-        chosen?.fileBase && chosen.token
-          ? { fileBase: chosen.fileBase, token: chosen.token, userEmail }
+        chosen?.fileBase && fileTokenOf(chosen)
+          ? {
+              fileBase: chosen.fileBase,
+              token: fileTokenOf(chosen) ?? "",
+              userEmail,
+            }
           : null,
       );
     } catch {

@@ -108,10 +108,12 @@ export async function shareLink(
   const base = mediatekBase();
   const token = mediatekToken();
   if (!base)
-    throw new Error("no médiathèque to share to — this machine caches none");
+    throw new Error(
+      "no médiathèque to share to — the file hub gave this service no MEDIATEK_URL",
+    );
   if (!token)
     throw new Error(
-      "no médiathèque token on this machine — run `npm run tokens`",
+      "no médiathèque token — the file hub gave this service no MEDIATEK_TOKEN",
     );
   const dir = host.requireActive();
   const bundle = buildShare(host);

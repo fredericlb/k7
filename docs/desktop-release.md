@@ -71,7 +71,7 @@ the archive holds instead, so a flaky `hdiutil` costs a nicety rather than a rel
 
 The macOS `.dmg` is unsigned and unnotarised and the Windows installer is unsigned, so both warn
 on first launch and macOS needs the right-click-Open path. This is not a gap in the workflow; it
-is a certificate nobody has bought. The `onnxruntime-node` note in
+is a certificate nobody has bought. The ONNX Runtime note in
 `engine/st0-tray/scripts/docs/buildEngine.md` is the sharp end of the same thing.
 
 ## The two limits worth knowing before reading a red run

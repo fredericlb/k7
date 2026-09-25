@@ -2,6 +2,7 @@
 // registry's five routes, the probe, the choice and the lease. The pieces below it already
 // existed; what this adds is that `base` is given ONCE. See docs/access.md.
 
+import { FILE_HUB_HELLO, type FileHubHello } from "@studio/web-protocol";
 import { chooseEngine } from "./choose.ts";
 import { type HoldOptions, holdEngine } from "./lease.ts";
 import { type ProbeTarget, probeEngines, type RankedEngine } from "./probe.ts";
@@ -43,7 +44,12 @@ export interface EngineAccess<
 /** Where an app keeps its preferences, when that is not where the registry is — st0, whose registry is pl8's. */
 export interface EngineAccessOptions {
   prefsBase?: string;
+  /** Reach the SERVER's files when it hosts them, rather than the engine machine's — see docs/access.md. */
+  hostedFiles?: boolean;
 }
+
+/** A ticket is good for twelve hours; asking again after six keeps a long session clear of the edge. */
+const HELLO_FRESH_MS = 6 * 60 * 60_000;
 
 /** Everything one app's browser needs, bound to the registry's origin (and the app's own, for its preferences) ONCE — see docs/access.md. */
 export function engineAccess<
@@ -55,7 +61,34 @@ export function engineAccess<
   opts: EngineAccessOptions = {},
 ): EngineAccess<E, P> {
   const reg = registryClient<E, P>(base, json, opts.prefsBase ?? base);
-  const probe = (engines: E[]) => probeEngines(engines, base);
+  let hello: { at: number; p: Promise<FileHubHello | null> } | null = null;
+  /** Whether the registry's server hosts the files, asked once and again when the ticket ages. */
+  const hubHello = (): Promise<FileHubHello | null> => {
+    if (!hello || Date.now() - hello.at > HELLO_FRESH_MS)
+      hello = {
+        at: Date.now(),
+        p: fetch(`${base}${FILE_HUB_HELLO}`, { credentials: "include" })
+          .then((r) => (r.ok ? (r.json() as Promise<FileHubHello>) : null))
+          .catch(() => null),
+      };
+    return hello.p;
+  };
+  const probe = async (engines: E[]): Promise<RankedEngine<E>[]> => {
+    const ranked = await probeEngines(engines, base);
+    const hub = opts.hostedFiles ? await hubHello() : null;
+    if (!hub) return ranked;
+    // Every reachable engine plays the SAME files, the server's; which one drives them rides after the `~`.
+    return ranked.map((r) =>
+      r.wsUrl
+        ? {
+            ...r,
+            fileBase: `${base}${hub.path}`,
+            fileToken: `${hub.ticket}~${r.engine.id}`,
+            filesHosted: true,
+          }
+        : r,
+    );
+  };
 
   return {
     ...reg,

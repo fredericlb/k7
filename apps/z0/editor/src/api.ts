@@ -47,7 +47,10 @@ export const auth = {
 };
 
 /** The five registry routes, the probe, the policy and the lease — bound to pl8's prefix. */
-export const engines = engineAccess<PublicEngine>(PL8, json);
+export const engines = engineAccess<PublicEngine>(PL8, json, {
+  // The same files st0 opens, when the server hosts them — packages/file-hub/docs/fileHub.md.
+  hostedFiles: true,
+});
 
 /** The open project, on the engine's machine. Every route is the shared one. */
 export const api = projectApi;

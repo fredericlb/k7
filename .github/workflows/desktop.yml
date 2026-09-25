@@ -141,15 +141,15 @@ jobs:
             brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
           done
 
-      # The whole monorepo: the two bundled .mjs are esbuilt out of packages/, and the Tauri
-      # CLI is a workspace devDependency of the tray.
+      # The Tauri CLI is a workspace devDependency of the tray, and the build scripts are Node.
       - run: npm ci
 
-      # The engine, the sidecars, the two Node bundles and the Tauri bundle, in one script —
-      # the same one a developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
-      - name: engine + tray
+      # The engine, the supervisor, the sidecars and the Tauri bundle, in one script — the same
+      # one a developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
+      - name: engine + supervisor + tray
         env:
           STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
+          STUDIO_SUPERVISOR_PRESET: ${{ matrix.preset }}
           # linuxdeploy cannot strip inside the AppImage staging tree on this image.
           NO_STRIP: "true"
         run: node engine/st0-tray/scripts/build-engine.mjs

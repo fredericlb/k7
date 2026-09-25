@@ -58,6 +58,8 @@ type Phase =
 export interface GateEngine {
   fileBase: string | null | undefined;
   token: string | null | undefined;
+  /** What the file service takes instead of `token`, when the server hosts the files — engine-browser's `fileTokenOf`. */
+  fileToken?: string | null;
   /** The engine ITSELF, for its id, nested as `RankedEngine` already has it — docs/launch.md. */
   engine: { id: string };
 }
@@ -190,12 +192,12 @@ export function ProjectGate({
       configureFileApi({
         base: engine.fileBase!,
         userEmail,
-        engineToken: engine.token!,
+        engineToken: (engine.fileToken ?? engine.token)!,
         engineId: engine.engine.id,
         workspace,
       });
     },
-    [engine.fileBase, engine.token, engine.engine.id],
+    [engine.fileBase, engine.token, engine.fileToken, engine.engine.id],
   );
 
   /** Leave: let the app go first, then go back to where projects live. Nothing to forget. */

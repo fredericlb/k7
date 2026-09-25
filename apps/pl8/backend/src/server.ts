@@ -24,16 +24,20 @@ import express from "express";
 import { z } from "zod";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { openCors } from "./cors.ts";
+import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
+import { engineLocalRouter } from "./routes/engineLocal.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
 import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
-import { syncRouter } from "./routes/sync.ts";
 
 // Dev config layered INTO process.env, never read into a value — ../docs/config.md.
 Object.assign(process.env, loadServiceEnv("pl8-backend"));
+
+// Before anything listens: without it no project can open anywhere — packages/file-hub/docs/fileHub.md.
+const FILES_ROOT = requireFilesRoot();
 
 const PORT = Number(process.env.PORT || 8795);
 
@@ -50,7 +54,7 @@ const { requireAuth } = await setupAuth(app, {
   service: "pl8-backend",
 });
 
-// A bearer stands in for the session: the LOCAL service syncing a cache has no cookie jar.
+// A bearer stands in for the session: a service calling pl8 — k7, an account's file service — has no cookie jar.
 const { issueApiToken, bearerOrSession } = apiTokenAuth(
   process.env.API_TOKEN_SECRET || `${process.env.SESSION_SECRET ?? ""}:pl8`,
 );
@@ -74,6 +78,16 @@ app.use("/api/settings", requireAuth, settingsRouter);
 // This service's OWN engine registry, mounted as st0 mounts one — see docs/engine.md.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
 
+// The accounts' workspaces, which live here and nowhere else — packages/file-hub/docs/fileHub.md.
+const fileHub = mountFileHub(
+  app,
+  engine,
+  requireAuth,
+  PORT,
+  FILES_ROOT,
+  issueApiToken,
+);
+
 // Play on THIS host's outputs: the library is right here, so a path is all that crosses —
 // packages/mpv-player/docs/mpvPlayer.md. Under a dot-directory, like the prefs below, so no
 // family scan ever sees the sockets.
@@ -91,10 +105,16 @@ app.use(
 );
 
 // Cutting a song into stems, driven from HERE because the bytes are here; a bearer too, unlike /api/hunt above — docs/stems.md.
-app.use("/api/stems", bearerOrSession(requireAuth), stemsRouter(engine));
+app.use(
+  "/api/stems",
+  bearerOrSession(requireAuth),
+  stemsRouter(engine, (user, chain, want) =>
+    fileHub.coldRun(user, chain, want),
+  ),
+);
 
-// Copying a set list onto a machine's stick or FTP box — same division as the cut, docs/sync.md.
-app.use("/api/sync", bearerOrSession(requireAuth), syncRouter(engine));
+// Where a song is on an engine's machine, fetched there first — what the player hands the engine.
+app.use("/api/engine-local", requireAuth, engineLocalRouter(engine));
 
 // `engineId` is this app's own choice, `playbackTarget` a plain string — docs/playbackTarget.md.
 const prefsSchema = z.object({
@@ -173,5 +193,5 @@ const server = app.listen(PORT, () => {
     );
   }
   // Advertised so this machine's file service finds the médiathèque; an engine joins this registry only once the user adds it in the tray.
-  engine.serve(server, url);
+  engine.serve(server, url, () => void fileHub.stop());
 });

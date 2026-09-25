@@ -91,9 +91,9 @@ mediatek GET https://st0.priv.frediver.se/api/mediatek/file songs/…/original.f
   terminated ← other side closed (UND_ERR_SOCKET)
 ```
 
-The address is part of it deliberately: `MEDIATEK_URL` is **derived** rather than configured (see
-`mediatekUrlFor` in `@studio/engine-host`), so "which médiathèque did it even try" is half the
-answer every time the answer is "the wrong one".
+The address is part of it deliberately: `MEDIATEK_URL` is handed in by whatever started the caller
+rather than typed by anyone, so "which médiathèque did it even try" is half the answer every time
+the answer is "the wrong one".
 
 | cause | what happened |
 |---|---|

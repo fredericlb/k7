@@ -87,10 +87,10 @@ playlist, rather than by reading this.)*
 
 The machine that plays the set opens **file paths** — the engine cannot fetch a URL. So every
 song in the set has to be on that machine's disk before you need it, and the venue has no wifi.
-`mediatekPull` already answers "what does the open project reach for" for modules, reading the
-refs **off the YAML before anything resolves them**, precisely because a ref that resolves to
-nothing is the one worth fetching. `mediatekSongRefs` is the same question for songs, and the
-pull syncs both families.
+`mediatekSongRefs` answers "what does the open project reach for", reading the refs **off the
+YAML before anything resolves them**, precisely because a ref that resolves to nothing is the one
+worth fetching. The server sends those songs to the engine's machine ahead of time
+(`packages/file-service/docs/mediatekPrefetch.md`).
 
 So the set list is a **cache manifest** that happens also to be the thing you look at. Any shape
 that made that awkward — titles, a database, an order that mattered — would fail at the job it

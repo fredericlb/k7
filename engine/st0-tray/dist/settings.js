@@ -1,8 +1,7 @@
-// settings.js — the window's six tabs. The audio list IS the ranking: what is on screen, in
+// settings.js — the window's five tabs. The audio list IS the ranking: what is on screen, in
 // the order it is on screen, is what `audio.priority` gets sent on every move. The plugin list
 // is read-only — the engine's catalogue, and the rescan that refills it. Sessions is what the
-// engine holds right now; Sync is where a set list may be copied; st0 instances is who this
-// engine is connected to; System is the machine.
+// engine holds right now; st0 instances is who this engine is connected to; System is the machine.
 // The drag is pointer-driven rather than HTML5 dnd: one behaviour across the three webviews,
 // and the dragged node stays alive under its pointer capture.
 
@@ -18,16 +17,8 @@ const sessionList = document.getElementById("sessions");
 const sessionsEmpty = document.getElementById("sessions-empty");
 const systemList = document.getElementById("system");
 const adopted = document.getElementById("adopted");
-const syncList = document.getElementById("sync");
-const syncEmpty = document.getElementById("sync-empty");
-const syncName = document.getElementById("sync-name");
-const syncUri = document.getElementById("sync-uri");
-const syncAdd = document.getElementById("sync-add");
-const syncError = document.getElementById("sync-error");
 const instanceList = document.getElementById("instances");
 const instancesEmpty = document.getElementById("instances-empty");
-const pendingBlock = document.getElementById("pending-block");
-const pendingList = document.getElementById("pending");
 const instanceForm = document.getElementById("instance-form");
 const instanceUrl = document.getElementById("instance-url");
 const instanceError = document.getElementById("instance-error");
@@ -38,8 +29,6 @@ let moved = false;
 let plugins = [];
 let counted = null;
 let running = false;
-/** The targets as the last snapshot reported them — what an add or a remove is applied TO. */
-let targets = [];
 /** The instances as the last snapshot reported them, so an add can say "already connected". */
 let instances = [];
 /** A mistake caught HERE, before anything was sent; the supervisor's own verdict arrives as `instanceCheck`. */
@@ -309,97 +298,16 @@ function renderSystem(sys) {
           up && !sys.lastHeartbeatOk,
         )
       : fact("Registry", "none — see st0 instances"),
-    // A dead file service is not a detail of a running engine: no browser can reach a file.
-    fact(
-      "File service",
-      sys.fileServiceFailed
-        ? `not answering on :${sys.filePort}`
-        : up
-          ? `ok · :${sys.filePort}`
-          : "—",
-      sys.fileServiceFailed,
-    ),
   );
   adopted.hidden = !(up && !sys.ownsEngine);
   byId("engine-start").disabled = !sys.canStart;
-  for (const id of ["engine-stop", "engine-restart", "file-restart", "waveforms-clear"])
-    byId(id).disabled = !sys.canAct;
-}
-
-// --- the sync targets -------------------------------------------------------
-
-/** The two schemes, checked here only to answer AT ONCE; the supervisor's normaliser is the gate. */
-function badUri(uri) {
-  let url;
-  try {
-    url = new URL(uri);
-  } catch {
-    return "not an address — file:///… or ftp://…";
-  }
-  if (url.protocol === "file:") {
-    if (url.hostname && url.hostname !== "localhost")
-      return "a file:// address names this machine's own disk";
-    return url.pathname && url.pathname !== "/" ? "" : "no folder in that address";
-  }
-  if (url.protocol === "ftp:") return url.hostname ? "" : "no host in that address";
-  // Named rather than ignored: sftp:// is a different protocol, and ftps:// is not this one either.
-  return `${url.protocol.replace(":", "")}:// cannot be copied to — file:// or ftp:// only`;
-}
-
-/** Send the whole list up, as the audio ranking does: an edit is one act. */
-function commitTargets(next) {
-  targets = next;
-  api?.core.invoke("sync_targets", { targets: next });
-}
-
-function buildTarget(t) {
-  const node = document.createElement("li");
-  node.innerHTML =
-    '<div class="row"><span class="body"><span class="name"></span><br />' +
-    '<span class="detail"></span></span></div>';
-  node.querySelector(".name").textContent = t.name;
-  // The URI in full, password included: this window runs ON the machine that holds the file.
-  node.querySelector(".detail").textContent = t.uri;
-  const drop = document.createElement("button");
-  drop.className = "forget";
-  drop.type = "button";
-  drop.textContent = "Remove";
-  drop.addEventListener("click", () =>
-    commitTargets(targets.filter((x) => x.name !== t.name)),
-  );
-  node.querySelector(".row").append(drop);
-  return node;
-}
-
-function renderSync(rows) {
-  targets = rows;
-  syncList.replaceChildren(...rows.map(buildTarget));
-  syncEmpty.hidden = rows.length > 0;
-  syncEmpty.textContent = "No target yet — a playlist can be copied nowhere.";
-}
-
-function addTarget() {
-  const name = syncName.value.trim();
-  const uri = syncUri.value.trim();
-  const wrong = !name ? "give it a name" : badUri(uri);
-  syncError.textContent = wrong;
-  syncError.hidden = !wrong;
-  if (wrong) return;
-  // The NAME is the identity a playlist screen sends back, so two of one would be ambiguous.
-  if (targets.some((t) => t.name === name)) {
-    syncError.textContent = `there is already a target called ${name}`;
-    syncError.hidden = false;
-    return;
-  }
-  commitTargets([...targets, { name, uri }]);
-  syncName.value = "";
-  syncUri.value = "";
+  for (const id of ["engine-stop", "engine-restart"]) byId(id).disabled = !sys.canAct;
 }
 
 // --- the st0 instances ------------------------------------------------------
 
 /** What the user typed, reduced to an origin the way the supervisor will, or an error sentence. Checked here only
- *  to answer AT ONCE — the supervisor's normaliser is the gate (packages/engine-host/src/webOrigins.ts). */
+ *  to answer AT ONCE — the supervisor's normaliser is the gate (engine/st0-supervisor/src/Url.cpp). */
 function instanceOrigin(input) {
   const raw = input.trim();
   if (!raw) return { error: "type the address of a st0 instance" };
@@ -417,12 +325,7 @@ function instanceOrigin(input) {
 }
 
 function instanceDetail(i) {
-  const what =
-    i.registry && i.allowed
-      ? "listed in its picker · its pages may reach this machine"
-      : i.registry
-        ? "listed in its picker"
-        : "its pages may reach this machine · not listed in its picker";
+  const what = "listed in its picker";
   // Said rather than just missing a button: otherwise the row reads as one the window forgot to make removable.
   return i.removable ? what : `${what} · set by STUDIO_REGISTRY_URL`;
 }
@@ -445,25 +348,6 @@ function buildInstance(i) {
   return node;
 }
 
-/** One origin the file service refused: allow it, or dismiss it so the question stops being asked. */
-function buildPending(origin) {
-  const node = document.createElement("li");
-  node.innerHTML = '<div class="row"><span class="body"><span class="name"></span></span></div>';
-  node.querySelector(".name").textContent = origin;
-  for (const [label, cmd] of [
-    ["Allow", "instance_allow"],
-    ["Ignore", "instance_deny"],
-  ]) {
-    const b = document.createElement("button");
-    b.className = "forget";
-    b.type = "button";
-    b.textContent = label;
-    b.addEventListener("click", () => api?.core.invoke(cmd, { origin }));
-    node.querySelector(".row").append(b);
-  }
-  return node;
-}
-
 /** The form's one line: a local mistake, else what the supervisor said about the last add. */
 function paintInstanceError() {
   const checking = instanceCheck?.state === "checking";
@@ -481,15 +365,13 @@ function paintInstanceError() {
   instanceAdd.disabled = checking;
 }
 
-function renderInstances(rows, pending, check) {
+function renderInstances(rows, check) {
   instances = rows;
   instanceCheck = check;
   paintInstanceError();
   instanceList.replaceChildren(...rows.map(buildInstance));
   instancesEmpty.hidden = rows.length > 0;
   instancesEmpty.textContent = "Not connected to any st0 instance.";
-  pendingList.replaceChildren(...pending.map(buildPending));
-  pendingBlock.hidden = pending.length === 0;
 }
 
 function addInstance(e) {
@@ -513,8 +395,7 @@ function render(view) {
   if (!dragging) renderAudio(view.audio);
   renderPlugins();
   renderSessions(view.sessions, view.orphanPlugins);
-  renderSync(view.syncTargets);
-  renderInstances(view.instances, view.pending, view.instanceCheck);
+  renderInstances(view.instances, view.instanceCheck);
   renderSystem(view.system);
 }
 
@@ -534,8 +415,6 @@ for (const [id, cmd] of [
   ["engine-start", "engine_start"],
   ["engine-stop", "engine_stop"],
   ["engine-restart", "engine_restart"],
-  ["file-restart", "file_service_restart"],
-  ["waveforms-clear", "waveforms_clear"],
 ])
   byId(id).addEventListener("click", () => api?.core.invoke(cmd));
 
@@ -546,12 +425,6 @@ document.addEventListener("keydown", (e) => {
   if (api && e.key === "Escape") api.core.invoke("settings_close");
 });
 filter.addEventListener("input", renderPlugins);
-syncAdd.addEventListener("click", addTarget);
-// Enter in either field adds, the bar being two fields and a button rather than a form.
-for (const field of [syncName, syncUri])
-  field.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") addTarget();
-  });
 rescan.addEventListener("click", () => api?.core.invoke("plugins_rescan"));
 instanceForm.addEventListener("submit", addInstance);
 

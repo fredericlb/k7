@@ -1,8 +1,9 @@
 # Splitting a mix into stems
 
-`POST /separate` runs HT-Demucs over an audio file on this machine and writes four 24-bit
-WAVs — drums, bass, other, vocals — into `stems/` beside it. It answers with a **job to
-poll**, not with audio.
+A separation runs HT-Demucs over an audio file on an ENGINE's machine and writes four 24-bit
+WAVs — drums, bass, other, vocals — into `stems/` beside it. It is a **job to poll**, not a call
+that answers with audio. The cut is the native supervisor's (`engine/st0-supervisor/src/Separation.cpp`
+and its neighbours); this package is the seam a server hands it through.
 
 ## Why it is a module, and why it cannot be a plugin
 
@@ -125,7 +126,7 @@ because the next person to measure an mp3 against a wav will find it. And `stems
 asks the whole folder rather than its existence: a deck plays the four parts in place of the
 record, so three of four is a song missing an instrument, not a separation that half-worked.
 
-## Windows, and how they are folded back — `separateAudio.ts`
+## Windows, and how they are folded back — `SeparationAudio.cpp`
 
 The graph's input length is fixed, so a five-minute song is cut into windows of exactly
 `SEGMENT` samples and the results are folded back into one signal. Three details decide
@@ -151,49 +152,53 @@ channel, since every stem sees the same windows.
 
 The WAV writer is by hand: a 44-byte header is smaller than the argument for a dependency.
 
-## The second door is `POST /process`
+## Two callers, one job
 
-There are two doors. `POST /separate` is per MACHINE and takes absolute paths, including the
-model's: a caller that already knows both.
+A cut is asked for from two places: a project's `clip process`, in the account's file service, and
+pl8's `POST /api/stems`, which holds the masters and drives the cut of a song in the library
+(`apps/pl8/docs/stems.md`). The worker, the job and `stems/` below are the same either way — only
+who is waiting differs.
 
-`POST /process` is the other ([processChain.md](processChain.md)). The audio ARRIVES in the request
-body rather than being named and looked up, because the caller is pl8, which holds the masters and
-drives the cut; nothing on this side resolves a song by name. The worker, the registry and `stems/`
-below are the same either way — only where the bytes come from and who is waiting differ.
+**The chain is the account's answer.** `stemsChain` in the account's `preferences.yaml`, written
+once by `system stems <chaîne>` — or `instrumentalChain`, written by `system instrumental` — is
+what a cut falls back to when the caller names none (`packages/file-service/docs/processChain.md`).
+Which module separates and which model it wants does not vary by set list, by project or by record,
+so a caller made to name one would be asked the same question at every use.
 
-**The chain is the machine's answer.** `<state>/preferences.yaml`'s `stemsChain`, written
-once by `system stems <chaîne>` — or `instrumentalChain`, written by `system instrumental` and
-read when the caller asks for `?want=instrumental` — is what `/process` falls back to when the
-caller names none. That
-is the shape rather than a shortcut: which module separates and which model it wants does not vary
-by set list, by project or by record, so a caller made to name one would be asked the same question
-at every use. A caller MAY name one all the same, because pl8 knows which song and this machine
-knows how it cuts — the default carries that rule without forbidding the other.
+The freshness check is pl8's: **it asks its own disk first**, and a song whose `stems/` already
+holds audio never reaches an engine's machine at all.
 
-The freshness check is pl8's too: **it asks its own disk first**, and a song whose `stems/`
-already holds audio never reaches this machine at all. That is what lets a machine which has never
-been told how to separate still light the knobs on songs somebody prepared earlier.
+## Where it runs: the engine's machine, always
 
-## Why a worker thread
+A separation runs its model on the machine an ENGINE runs on — its CPU, its GPU, its downloaded
+models — and never on the server that hosts the workspaces. The server-hosted file service still
+starts and polls jobs through `startSeparate` / `separateJob`, but it installs a **runner**
+(`setSeparationRunner`) that sends each one over the jobs channel of the engine it is bound to
+(`packages/engine-tunnel/docs/jobs.md`), and the supervisor there runs it. The mix and the model
+travel to that machine before the run, the stems back before the reply — so every caller works in
+the server's paths.
 
-The file service is **shared**. It serves every workspace on the machine, prewarms
-waveforms, polls the médiathèque every 60 s and answers `revision()` every two. An hour of
-inference on the event loop would stall all of it.
+With no engine bound the job fails at once and says so, rather than cutting on the server: a
+server image carries neither the GPU nor, on Alpine, a build of the runtime.
 
-Every other heavy job in this repo is an out-of-process spawn with a timeout, which buys
-that isolation for free. ONNX Runtime lives *in* this process, so a `worker_thread` is what
-buys the same property — and the job keeps the handle, so a wedged run can be terminated.
+## A thread of its own, and a run that can be told to stop
+
+The supervisor is **shared**: it holds the engine, the tunnel and the heartbeats. An hour of
+inference on its loop would stall all of it, so a separation runs on a thread of its own and the
+asker polls it.
+
+A thread cannot be killed, but an ONNX Runtime run can be told to stop (`RunOptions` terminate),
+and that is what the job's hour uses: past it the job is failed and the run in progress aborted.
 
 The timeout is an hour. That is not the five minutes `render.ts` uses, because it bounds a
-different thing: a render taking five minutes has hung, while a separation taking five
-minutes is a long song on a CPU. It is set past any honest run rather than near the
-expected one.
+different thing: a render taking five minutes has hung, while a separation taking five minutes is
+a long song on a CPU. It is set past any honest run rather than near the expected one.
 
 ## The model
 
 `htdemucs_fp16weights.onnx` — 166 MB, MIT, weights stored fp16. The graph's input is a
 **fixed** `[1, 2, 343980]`: stereo, 44.1 kHz, 7.8 seconds. Not a hint — the graph will not
-accept another length, which is why `separateAudio.ts` is entirely about reaching exactly
+accept another length, which is why `SeparationAudio.cpp` is entirely about reaching exactly
 it. The output is `[1, 4, 2, 343980]`, and the stem order is `[drums, bass, other, vocals]`.
 Nothing in the tensor says so; `STEMS` is that knowledge, and getting it wrong silently
 swaps two stems.
@@ -226,17 +231,17 @@ ORT throws at session creation when a provider is unavailable, so trying is the 
 **Which one won is logged** into the job's `lines`. The difference is minutes per song, and
 a silent fall back to CPU is indistinguishable from a slow machine.
 
-### Why the default stopped guessing
+### Why the default does not guess
 
-It used to be `dml` then `cpu` on Windows. That order was a **guess about the hardware**, and the
-section below is a machine where the guess is wrong in a way nothing recovers from: DirectML does
-not fail there, it hangs — un-interruptible from JavaScript, holding a worker and 26 GB of RSS until
-the job's hour is up. The two outcomes are not comparable, so the guess is not worth making:
+Any order with `dml` first is a **guess about the hardware**, and the section below is a machine
+where the guess is wrong in a way nothing recovers from: DirectML does not fail there, it hangs,
+holding a thread and 26 GB of RSS until the job's hour is up. The two outcomes are not comparable,
+so the guess is not worth making:
 
 | the guess is wrong | it costs |
 |---|---|
 | CPU where DML would have been faster | a slower song, correctly separated |
-| DML where it wedges | an hour of a held worker, and no stems |
+| DML where it wedges | an hour of a held thread, and no stems |
 
 A machine that has **measured** a faster provider says so once, and it survives every restart:
 
@@ -245,10 +250,13 @@ system onnx dml,cpu     # …or cuda,cpu, or coreml,cpu
 system onnx ""          # back to the CPU
 ```
 
-It lands in `<state>/preferences.yaml` as `onnxProviders`, beside the audio device and the
-headphone pair, and `defaultProviders()` reads it. `STUDIO_ONNX_PROVIDERS` still overrides
-everything for one run — it is an escape hatch now, not how a machine is configured. The order it
-used to be needed FOR is the default.
+It lands in the **engine machine's** own settings, `<state>/engine-host.json`, as `onnxProviders`:
+the verb runs on the server, and asks the bound machine over the tunnel (`onnx-providers`), because
+the provider is a fact about the hardware that runs the separation and about no account. The
+separate job reads it there. `STUDIO_ONNX_PROVIDERS` overrides it for one run — an escape hatch,
+not how a machine is configured.
+
+CoreML is offered on macOS and cannot compile HT-Demucs; the job says so and runs on the CPU.
 
 ### When DirectML is the slow one — measured, 2026-08
 
@@ -284,41 +292,18 @@ What this does *not* establish is whether the fault is DirectML's, this driver's
 architecture's. It was not chased further, because the provider that works is four times faster
 than real time and the question stopped being expensive.
 
-### Which GPU, when there are two — `dmlAdapters.ts`
+### Which GPU, when there are two
 
-A machine with an APU and a graphics card has **two** D3D12 adapters, and `onnxruntime-node`'s
-DirectML option is an `deviceId` — an index into DXGI's adapter order — with no way to ask for a
-name, a vendor or a class. The three keys that would say it in ORT's C++ API
-(`performancePreference`, `deviceFilter`, DXGI's own high-performance preference) do not appear
-anywhere in `onnxruntime_binding.node`: `deviceId` is the whole vocabulary. So asking for `dml` and
-nothing else is asking for **whichever adapter is first**, which on a laptop is the integrated one
-driving the panel.
+A machine with an APU and a graphics card has **two** D3D12 adapters, and ONNX Runtime's DirectML
+option is a `deviceId` — an index into DXGI's adapter order — with no way to ask for a name, a
+vendor or a class. So asking for `dml` and nothing else is asking for **whichever adapter is
+first**, which on a laptop is the integrated one driving the panel.
 
-The mapping is therefore rebuilt from Windows' own DirectX cache,
-`HKLM\SOFTWARE\Microsoft\DirectX`, one entry per adapter it has seen, read with `reg query` because
-Node has no registry API and this must not cost a PowerShell spawn. Three `AdapterType` bits carry
-it (`D3DKMT_ADAPTERTYPE`):
-
-| bit | meaning | what it decides |
-|---|---|---|
-| `0x4` `SoftwareDevice` | a rasteriser, not a GPU | dropped, **and it must not shift the indices** — ORT does not enumerate it either |
-| `0x8` `PostDevice` | the adapter that POSTed | this is the one DXGI returns first, so it is index 0 |
-| `0x20` `HybridIntegrated` | an iGPU | never chosen |
-
-An adapter with under a gigabyte of dedicated video memory counts as integrated whatever its flags
-say, since a machine old enough to set neither bit is not one to run a transformer on.
-
-The order past the POST adapter is the registry's, which is a **guess** — DXGI's rule is
-"the primary display's adapter, then the others with outputs, then those without", and only the
-first term is legible from here. It costs little: a wrong index picks another discrete GPU, and
-the run-time fallback below catches the rest. An adapter list with no POST device at all is
-declared `unknown` and asks for `dml` the old way rather than inventing an order.
-
-Verified on the machine this was written for: a Ryzen iGPU plus an RTX 5070 whose display is the
-active one, where the code answers `deviceId 0, NVIDIA GeForce RTX 5070` — and a node process
-holding a DML session on `deviceId` 0 does appear in `nvidia-smi --query-compute-apps`, while the
-same on `deviceId` 1 does not. `dmlAdapters.test.ts` holds that machine's `reg query` output as its
-fixture, plus the laptop shape (the iGPU POSTs, so the card is index 1).
+So the supervisor asks DXGI itself (`chooseDml` in `OnnxSession.cpp`), in the order ORT indexes:
+a software rasteriser is skipped, and the first adapter with a gigabyte of dedicated video memory
+of its own is the one named — a machine old enough to have a discrete GPU under that is not one to
+run a transformer on. The name and the index go into the job's line, so which card ran is never a
+guess.
 
 **A machine whose only GPU is integrated gets no DirectML at all** and separates on the CPU. That
 is a choice rather than a fallback: what is asked of an adapter here is one dispatch covering 7.8
@@ -341,10 +326,10 @@ Nothing already folded into `OverlapAdd` is lost either way — the throw happen
 is added, and the windows the GPU did produce are correct. Only the seam between two providers
 differs, by less than the quantisation floor the file is written at.
 
-When the second failure does come, the registry **remembers** for the life of the file service and
-the next job starts on the CPU without asking the GPU again. That is the difference between
+When the second failure does come, the supervisor **remembers** for as long as it runs, and the
+next job starts on the CPU without asking the GPU again. That is the difference between
 `playlist stems` costing one device reset and costing thirty: a GPU that has now failed twice on
-this model is not having a bad minute. Restarting the service clears it, and it is deliberately not
+this model is not having a bad minute. Restarting the supervisor clears it, and it is deliberately not
 a preference — the machine that answers "can this GPU do it" is the one that just tried.
 
 What this is *not* is a slow-GPU story, and the arithmetic says so: one window is a few hundred
@@ -371,24 +356,14 @@ look at their audio.
 
 ## Packaging
 
-`onnxruntime-node` is native, and both Node bundles here are esbuilt to a single `.mjs` run
-by a vendored Node with no `node_modules` beside it. `external` alone does not fix that —
-`fsevents` survives being external only because chokidar has a pure-JS fallback, and ORT has
-none. So it is external **and staged** into `resources/node_modules/`, where ordinary Node
-resolution finds it. See `engine/st0-tray/scripts/docs/buildEngine.md`.
+ONNX Runtime is a prebuilt shared library, hash-pinned by the supervisor's CMake and **loaded** at
+the first separation rather than linked, so a machine missing it still runs its engine and only the
+cut says what is missing (`engine/st0-supervisor/docs/supervisor.md`).
 
-**macOS is not covered.** Nothing in this repo signs a third-party `.dylib`, so a notarised
-`.app` carrying `libonnxruntime.dylib` is unsolved. Windows and Linux bundles carry it.
+**macOS is not covered by signing.** Nothing in this repo signs a third-party `.dylib`, so a
+notarised `.app` carrying `libonnxruntime.dylib` is unsolved.
 
-That is also why `separateWorker.ts` imports ORT **by name through a variable** and types it
-against a four-member interface written out in the file rather than against the package. Two
-reasons, the second load-bearing: the module has to be importable — by a test, by a `tsc --noEmit`
-on a machine that has not installed 300 MB of native code — without the dependency resolving; and
-esbuild must leave the specifier alone for `external` to work. Naming the four members is not
-ceremony either: it is the contract the separation depends on, so an ORT release that changed it
-fails against a declaration somebody can read instead of somewhere deep in an inference loop.
-
-`decode()` is the one ffmpeg call in this repo that is **not** best-effort, for the reason the
+The decode is the one ffmpeg call in this repo that is **not** best-effort, for the reason the
 section above gives: elsewhere a missing ffmpeg costs a format and the wav survives, here it costs
 the only thing the request asked for. Resampling and mono-to-stereo are ffmpeg's job because the
 model's input length is fixed — arriving at 48 kHz is not a quality question, it is the wrong
@@ -404,12 +379,11 @@ pass in place of the bounce — no render, no repoint, four files under `stems/`
 follow (a chain separates or treats, never both; the pass runs before the engine check) are in
 `@studio/commands`' [processChain.md](../../commands/docs/processChain.md).
 
-The running arrives **as a function**, and has to: the inference is here, in a package that
-depends on `@studio/commands`, so importing it back would be a cycle. The seam
-is `CommandHost.runColdStep`, and this service's implementation is the one place that knows what
-"run it" means here: `startSeparate` + poll, so a `clip process` gets the registry's two
-properties for free — the id hashes the WORK, so a retry or a second tab joins the run in flight,
-and the hour of arithmetic stays on a worker thread while the service answers everything else.
+The running arrives **as a function**: the seam is `CommandHost.runColdStep`, and the file
+service's implementation is the one place that knows what "run it" means — `startSeparate` + poll,
+through the runner to the bound machine. So a `clip process` gets two properties for free: the id
+hashes the WORK, so a retry or a second tab joins the run in flight, and the hour of arithmetic
+runs on the engine's machine while the service answers everything else.
 
 The cost, said out loud: one `/command` request stays open for the length of a separation. The
 job registry exists precisely so that a *browser* need not — `POST /separate` is start-then-poll

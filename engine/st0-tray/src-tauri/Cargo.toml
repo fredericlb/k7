@@ -7,7 +7,7 @@ description = "studio menu-bar/tray engine supervisor"
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-# This list is short on purpose. The tray is a VIEW over @studio/engine-host, so
+# This list is short on purpose. The tray is a VIEW over st0-supervisor, so
 # everything it used to need to BE a supervisor — an HTTP client, a WebSocket client, a
 # hasher, MAC/hostname/IP enumeration, UUIDs, a process-table walker, URL parsing — went
 # with the supervision. Thirteen crates left in one commit, `reqwest` (hyper + rustls +
@@ -24,10 +24,6 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"
-# The one exception to the note above, and it is view rather than logic: a machine with no git
-# has nothing to supervise, so the refusal has to be drawn BEFORE the supervisor exists to say
-# it. A native modal is also the only thing a Windows release build can show — see deps.rs.
-tauri-plugin-dialog = "2"
 # Deriving the snapshot/event mirror of hostProtocol.ts (host.rs), and writing commands.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -38,7 +34,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"
 # support, so this stays: the format is contract with the web UI's Logs panel, which
 # polls that file by byte offset.
 chrono = { version = "0.4", features = ["clock"] }
-# ~/.st0 resolution. The LAYOUT lives in engine-host's paths.ts; this is only the
+# ~/.st0 resolution. The LAYOUT lives in st0-supervisor's Paths.cpp; this is only the
 # home dir the three remaining paths hang off.
 dirs = "5"
 

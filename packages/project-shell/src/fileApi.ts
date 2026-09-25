@@ -1,6 +1,6 @@
-// fileApi.ts — the transport to the engine-side file service: where it is, the three headers
-// that identify the caller, and the two verbs everything else is built from. Cross-origin and
-// header-authenticated, never same-origin — see apps/st0/AGENTS.md for the three servers a
+// fileApi.ts — the transport to the file service behind pl8's file hub: where it is, the headers
+// that identify the caller, and the two verbs everything else is built from. Header-authenticated
+// by the hub's ticket, never by the cookie — see apps/st0/AGENTS.md for the three servers a
 // project app talks to and which is which.
 
 import {
@@ -10,10 +10,10 @@ import {
 } from "@studio/web-protocol";
 
 export interface FileCfg {
-  base: string; // http://<engine-host>:<filePort>
-  userEmail: string; // trusted, not verified — the engine token below is the gate
+  base: string; // the file hub's URL, under pl8
+  userEmail: string; // informative only — the hub stamps the user from the ticket
   workspace: string; // the folder on that machine holding the repository
-  engineToken: string; // the light LAN gate (from the whoami probe)
+  engineToken: string; // the hub's ticket, `<ticket>~<engineId>`
   /** WHICH engine this is — not for reaching it, but for naming it to another service, docs/fileApi.md. */
   engineId: string;
   /** A FROZEN document — a shared snapshot, and the whole of read-only mode. See docs/fileApi.md. */
