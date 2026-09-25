@@ -129,7 +129,7 @@ jobs:
   retryDelay: 30
   timeout: 3600
 # Manual-only (no triggers): a cheap, fast stand-in for the desktop build's real archive —
-# run this from the OneDev UI BEFORE "build linux desktop" to find a too-low upload limit
+# run this from the OneDev UI BEFORE the first "build linux desktop" to find a too-low upload limit
 # in seconds rather than after a 30+ minute compile. Raise PROBE_MB and re-run if it passes
 # at 250 but the real archive turns out bigger; check both OneDev's own Administration ->
 # Performance Settings and any reverse proxy in front of it (nginx's client_max_body_size)
@@ -157,14 +157,14 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 600
-# Manual-only (no triggers): mirrors .github/workflows/desktop.yml's linux-x64 leg — same
-# preset, same apt list, same build-engine.mjs / package-release.mjs pair — but publishes
-# the archive as a OneDev build artifact instead of a GitHub release. Not on BranchUpdateTrigger
-# like the two jobs above: a cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM and
-# then compiles them, tens of minutes, and this is new, little-walked territory on this side
-# (see docs/desktop-release.md) — a release cadence, not every push. Run "check artifact
-# upload size" first if you have not already confirmed the limit.
-- name: build linux desktop (engine + tray + file-service)
+# Every master push: mirrors .github/workflows/desktop.yml's linux-x64 leg — same presets, same
+# apt list, same build-engine.mjs / package-release.mjs pair — but publishes the archive as a
+# OneDev build artifact instead of a GitHub release. The archive holds both Linux deliverables:
+# the tray (.deb and .AppImage, supervisor inside) and the headless engine, st0-engine on its own.
+# A cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM and compiles them, tens of
+# minutes a push — the price of knowing on the push, not at release time, that master still
+# builds. Run "check artifact upload size" once if the limit is unconfirmed.
+- name: build linux desktop (engine + supervisor + tray)
   steps:
   - type: CheckoutStep
     name: checkout
@@ -213,9 +213,11 @@ jobs:
         # since this job has no image tag needing the buildspec's own @build_version@.
         STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
 
-        # linuxdeploy cannot strip inside its own AppImage staging tree on a container
-        # image — docs/desktop-release.md.
-        STUDIO_ENGINE_PRESET=release-gcc NO_STRIP=true node engine/st0-tray/scripts/build-engine.mjs
+        # Release presets for both native programs, as the GitHub leg names them: the supervisor
+        # otherwise takes its host default, dev-gcc. linuxdeploy cannot strip inside its own
+        # AppImage staging tree on a container image — docs/desktop-release.md.
+        STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc NO_STRIP=true \
+          node engine/st0-tray/scripts/build-engine.mjs
         node engine/st0-tray/scripts/package-release.mjs --stamp "$STAMP"
     runAs: 0:0
     useTTY: true
@@ -226,6 +228,101 @@ jobs:
     artifacts: dist/release/*.tar.gz
     condition: SUCCESSFUL
     optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: master
+    userMatch: anyone
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 5400
+# Every master push: the Android app, engine/st0-android — the engine as libst0engine.so, built by
+# its android-arm64 preset, inside a DEBUG-signed APK (there is no release key). Gradle builds the
+# engine itself through scripts/build.mjs with the SDK's pinned NDK; engine/st0-engine/docs/android.md.
+# The SDK is fetched and pinned like every other dependency and kept in a cache keyed by its
+# versions, so a bump of any of them is a new key rather than a stale SDK.
+- name: build android app
+  steps:
+  - type: CheckoutStep
+    name: checkout
+    cloneCredential:
+      type: HttpCredential
+      accessTokenSecret: submodule-token
+    withLfs: false
+    withSubmodules: true
+    condition: SUCCESSFUL
+    optional: false
+  - type: SetupCacheStep
+    name: set up android sdk cache
+    key: android-sdk-cmdline23.0-platform36-build36.0.0-ndk29.0.14206865
+    paths:
+    - /opt/android-sdk
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
+  - type: SetupCacheStep
+    name: set up gradle cache
+    key: gradle-cache
+    paths:
+    - /root/.gradle
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
+  - type: CommandStep
+    name: build apk
+    runInContainer: true
+    # trixie, not bookworm: it carries JDK 21, which the command-line tools and AGP run on.
+    image: node:22-trixie
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        set -e
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        # The C++ toolchain is for the HOST half of the build: JUCE compiles juceaide for the
+        # machine running the build, whatever the target.
+        apt-get install -y --no-install-recommends \
+          openjdk-21-jdk-headless build-essential cmake ninja-build pkg-config \
+          git curl ca-certificates unzip
+
+        export ANDROID_HOME=/opt/android-sdk
+        SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        if [ ! -x "$SDKMANAGER" ]; then
+          curl -sfL -o /tmp/cmdline-tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip
+          echo "0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8  /tmp/cmdline-tools.zip" \
+            | sha256sum -c -
+          rm -rf /tmp/cmdline-tools && unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+        fi
+        yes | "$SDKMANAGER" --licenses > /dev/null
+        # The versions engine/st0-android/app/build.gradle.kts names: compileSdk and ndkVersion.
+        "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
+
+        # Same YY.MMDDHHmm stamp as the linux desktop archive, so two artifacts of one push match.
+        STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
+
+        cd engine/st0-android
+        ./gradlew --no-daemon assembleDebug
+        mkdir -p ../../dist/release
+        cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/st0-android_${STAMP}_arm64.apk"
+    runAs: 0:0
+    useTTY: true
+    condition: SUCCESSFUL
+    optional: false
+  - type: PublishArtifactStep
+    name: publish android apk
+    artifacts: dist/release/*.apk
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: BranchUpdateTrigger
+    branches: master
+    userMatch: anyone
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true

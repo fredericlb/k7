@@ -97,3 +97,16 @@ node engine/st0-tray/scripts/package-release.mjs --stamp local
 
 `.github/workflows/st0.yml` stays as it is and compiles no C++: it is the gate every push runs
 through, and it must be minutes rather than hours.
+
+## On OneDev
+
+`.onedev-buildspec.yml` carries the Linux leg too, on every master push, after "lint and test":
+**build linux desktop** runs the same presets and scripts and publishes the same `.tar.gz` — the
+tray's `.deb` and `.AppImage`, and the headless `st0-engine` — as a build artifact rather than a
+release. Beside it, **build android app** builds `engine/st0-android` and publishes a debug-signed
+APK (`engine/st0-engine/docs/android.md`). Android is built on OneDev only; this workflow builds
+the three desktops.
+
+Both are native builds from a cold configure, so a master push costs tens of minutes of agent
+time on each. That is the trade taken for knowing, on the push that broke it, that master no
+longer builds for a musician's machine.

@@ -59,6 +59,12 @@ there. Every other caller of it is a CLI mode, which Android never runs, so they
 | `-Dtls_model(x)=unused` on `tracktion_graph.cpp` | the rpmalloc it compiles in pins its thread heap to initial-exec TLS, and Android's loader refuses that in a library opened by `System.loadLibrary` — the app dies loading the engine. The rewrite turns the attribute into `unused`. A compile OPTION, because CMake drops function-style definitions silently. `llvm-readelf -d libst0engine.so` must not show `STATIC_TLS`. |
 | `CMAKE_POLICY_VERSION_MINIMUM=3.5` | Oboe's own `CMakeLists.txt`, which JUCE adds on Android, declares a minimum CMake 4 refuses. |
 
+## In CI
+
+OneDev's **build android app** job builds the APK on every master push, from a cold SDK install
+pinned by version and checksum (`.onedev-buildspec.yml`). It is DEBUG-signed: there is no release
+key, and a sideloaded debug APK is what a phone on the bench needs.
+
 ## Logs
 
 Everything the engine writes goes to stderr, which Android discards. `nativeServe` pipes stderr into
