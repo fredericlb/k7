@@ -50,10 +50,16 @@ when that account **holds a claim** on it in the registry. The registry lists ev
 everyone, and a header is not permission; the claim is (`packages/engine-registry/docs/claim.md`).
 A binding that fails leaves the files reachable and says why in the log.
 
-A bound engine sees exactly two roots of the account: its `workspace/` folder, writable, so a take
-comes back; and the médiathèque, read-only. **Never the rest of `$STUDIO_HOME`**, which holds the
+A bound engine sees exactly three roots of the account: its `workspace/` folder, writable, so a take
+comes back; its `models/`, read-only; and the médiathèque, read-only. **Never the rest of
+`$STUDIO_HOME`**, which holds the
 account's SSH deploy key: an engine's machine may be a shared studio box, and the key is what
 pushes to the account's repositories.
+
+A binding is two loopback paths to the same machine: the engine's, and its **jobs** — where every
+separation the account asks for runs, since cutting stems belongs to the engine's machine
+(`packages/stem-separation/docs/stemSplit.md`). The account's `models/` is shared too, read-only,
+so a model downloaded once here reaches that machine once.
 
 The engine's plugin list is fetched over the tunnel at binding time and written as
 `<home>/exts.json`, the scan file's own shape, so everything that reads the engine's catalogue

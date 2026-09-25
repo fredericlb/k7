@@ -30,6 +30,8 @@ export interface Instance {
   /** The engine this instance drives, and the loopback path the tunnel hub bound for it. */
   engineId: string | null;
   localPath: string | null;
+  /** …and the path the same machine takes jobs on — its separations. */
+  jobsPath: string | null;
   /** Bindings run one at a time, chained here. */
   binding: Promise<void>;
 }
@@ -149,6 +151,7 @@ export class Instances {
       lastUsed: Date.now(),
       engineId: null,
       localPath: null,
+      jobsPath: null,
       binding: Promise.resolve(),
     };
     // An orphan would keep its port and its engine link after the hub is gone.

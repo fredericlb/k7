@@ -3,9 +3,11 @@
 // it drives whichever engine the hub binds it to. See packages/file-hub/docs/fileHub.md.
 
 import { timingSafeEqual } from "node:crypto";
+import { setSeparationRunner } from "@studio/stem-separation/separateJobs";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import express, { type RequestHandler, type Router } from "express";
 import { clearSelectedEngine, setSelectedEngine } from "./engineLink.ts";
+import { remoteSeparationRunner } from "./remoteSeparation.ts";
 
 // biome-ignore-start lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
 /** Whether this process belongs to a file hub rather than to an engine's machine. */
@@ -17,6 +19,10 @@ if (HOSTED && !SECRET)
   throw new Error(
     "a hosted file service needs $STUDIO_HUB_SECRET — it has no other gate",
   );
+
+/** Where this process's separations run: the bound engine's machine, never this server. */
+let jobsUrl: string | null = null;
+if (HOSTED) setSeparationRunner(remoteSeparationRunner(() => jobsUrl));
 
 /** Constant-time compare against the hub's secret. */
 export function hubSecretOk(supplied: string | undefined): boolean {
@@ -31,13 +37,15 @@ export const requireHubSecret: RequestHandler = (req, res, next) => {
   res.status(401).json({ error: "not from this service's file hub" });
 };
 
-/** The hub's own route: which engine to drive, as a loopback `ws://` URL, or none. */
+/** The hub's own route: which engine to drive and where its machine takes jobs, as loopback `ws://` URLs, or none. */
 export function hubRouter(): Router {
   const r = express.Router();
   r.post("/hub/engine", (req, res) => {
-    const url = String((req.body as { url?: unknown })?.url ?? "");
+    const body = req.body as { url?: unknown; jobsUrl?: unknown };
+    const url = String(body?.url ?? "");
     if (url) setSelectedEngine(url);
     else clearSelectedEngine();
+    jobsUrl = url ? String(body?.jobsUrl ?? "") || null : null;
     res.json({ ok: true });
   });
   return r;

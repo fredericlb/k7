@@ -20,7 +20,7 @@ const jobs = new Map<string, SeparateJob & { at: number; worker?: Worker }>();
 let lost: string | null = null;
 
 /** Keyed by the WORK — who, which file, which model, which outputs — and not by a workspace; docs/stemSplit.md. */
-function idFor(
+export function separationId(
   userEmail: string,
   source: string,
   model: string,
@@ -46,12 +46,34 @@ export interface StartSeparate {
   outputs?: readonly SeparationOutput[];
 }
 
+/** Where a separation RUNS: in this process unless the host installed another — docs/stemSplit.md. */
+export interface SeparationRunner {
+  start(opts: StartSeparate): SeparateJob;
+  job(id: string): SeparateJob | null;
+}
+
+let runner: SeparationRunner | null = null;
+
+/** Send every separation elsewhere — a hosted file service, to its engine's machine — or back here with null. */
+export function setSeparationRunner(r: SeparationRunner | null): void {
+  runner = r;
+}
+
 /** Start a separation, or return the one already running for exactly this work. */
 export function startSeparate(opts: StartSeparate): SeparateJob {
+  return runner ? runner.start(opts) : startLocal(opts);
+}
+
+/** Where a separation got to, wherever it runs; null for one this process has forgotten. */
+export function separateJob(id: string): SeparateJob | null {
+  return runner ? runner.job(id) : localJob(id);
+}
+
+function startLocal(opts: StartSeparate): SeparateJob {
   sweep();
   const { userEmail, source, model, outDir } = opts;
   const outputs = opts.outputs?.length ? [...opts.outputs] : [...STEMS];
-  const id = idFor(userEmail, source, model, outputs);
+  const id = separationId(userEmail, source, model, outputs);
   const running = jobs.get(id);
   if (running && !running.done) return snapshot(running);
 
@@ -144,7 +166,7 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
   return snapshot(job);
 }
 
-export function separateJob(id: string): SeparateJob | null {
+function localJob(id: string): SeparateJob | null {
   const j = jobs.get(id);
   return j ? snapshot(j) : null;
 }

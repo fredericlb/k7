@@ -21,6 +21,7 @@
     "@studio/audio-analysis": "*",
     "@studio/audio-passes": "*",
     "@studio/audio-probe": "*",
+    "@studio/engine-tunnel": "*",
     "@studio/commands": "*",
     "@studio/engine-client": "*",
     "@studio/engine-host": "*",

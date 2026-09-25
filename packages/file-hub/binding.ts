@@ -22,7 +22,7 @@ export interface BindingDeps {
 /** How long the engine gets to list its plugins; a cold scan is slow, and nothing waits on this. */
 const PLUGINS_TIMEOUT_MS = 30_000;
 
-/** What an engine may see of an account: its workspaces, and the médiathèque read-only — never its keys. */
+/** What an engine's machine may see of an account: its workspaces, its models and the médiathèque read-only — never its keys. */
 export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
   const roots: TunnelRoot[] = [
     {
@@ -30,10 +30,27 @@ export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
       name: `ws-${inst.slug}`,
       writable: true,
     },
+    // The models a separation or an amp names, downloaded once here and copied once there.
+    {
+      remote: join(inst.home, "models"),
+      name: `models-${inst.slug}`,
+      writable: false,
+    },
   ];
   if (mediatekRoot)
     roots.push({ remote: mediatekRoot, name: "mediatek", writable: false });
   return roots;
+}
+
+/** Drop both loopback paths an instance holds, the engine's and its machine's jobs. */
+export function unbindAll(
+  deps: Pick<BindingDeps, "tunnels">,
+  inst: Instance,
+): void {
+  if (inst.localPath) deps.tunnels.unbindLocal(inst.localPath);
+  if (inst.jobsPath) deps.tunnels.unbindLocal(inst.jobsPath);
+  inst.localPath = null;
+  inst.jobsPath = null;
 }
 
 /** Whether `user` holds a live claim on engine `id`. */
@@ -48,14 +65,18 @@ export function holdsClaim(
   return false;
 }
 
-async function tell(inst: Instance, url: string | null): Promise<void> {
+async function tell(
+  inst: Instance,
+  url: string | null,
+  jobsUrl: string | null = null,
+): Promise<void> {
   const r = await fetch(`http://127.0.0.1:${inst.port}/hub/engine`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       [HUB_SECRET_HEADER]: inst.secret,
     },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, jobsUrl }),
   });
   if (!r.ok)
     throw new Error(`the file service refused the binding (${r.status})`);
@@ -70,16 +91,22 @@ export function bindEngine(
   const run = inst.binding.then(async () => {
     if (inst.engineId === id || !holdsClaim(deps.registry, id, inst.user))
       return;
-    const path = deps.tunnels.bindLocal(id, rootsFor(inst, deps.mediatekRoot));
+    const roots = rootsFor(inst, deps.mediatekRoot);
+    const path = deps.tunnels.bindLocal(id, roots);
+    // Beside it, the machine's own jobs: every separation this account asks for runs there.
+    const jobsPath = deps.tunnels.bindLocal(id, roots, "jobs");
+    const at = `ws://127.0.0.1:${deps.selfPort()}`;
     try {
-      await tell(inst, `ws://127.0.0.1:${deps.selfPort()}${path}`);
+      await tell(inst, `${at}${path}`, `${at}${jobsPath}`);
     } catch (e) {
       deps.tunnels.unbindLocal(path);
+      deps.tunnels.unbindLocal(jobsPath);
       throw e;
     }
-    if (inst.localPath) deps.tunnels.unbindLocal(inst.localPath);
+    unbindAll(deps, inst);
     inst.engineId = id;
     inst.localPath = path;
+    inst.jobsPath = jobsPath;
     deps.log(`[${inst.slug}] drives engine ${id}`);
     void refreshPlugins(deps, inst, id);
   });
@@ -97,9 +124,8 @@ export function releaseIfUnclaimed(
     const id = inst.engineId;
     if (!id || holdsClaim(deps.registry, id, inst.user)) return;
     await tell(inst, null);
-    if (inst.localPath) deps.tunnels.unbindLocal(inst.localPath);
+    unbindAll(deps, inst);
     inst.engineId = null;
-    inst.localPath = null;
     deps.log(`[${inst.slug}] let go of engine ${id}: its claim moved on`);
   });
   inst.binding = run.catch(() => {});

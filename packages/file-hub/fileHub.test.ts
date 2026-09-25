@@ -43,7 +43,9 @@ describe("the file hub", () => {
   let server: Server;
   let hub: FileHub;
   let base: string;
-  let bound: { id: string; roots: unknown[] }[];
+  let bound: { id: string; roots: unknown[]; kind: string }[];
+  /** The ENGINE bindings; each comes with a jobs one for the same machine. */
+  const engineBinds = () => bound.filter((b) => b.kind === "engine");
   let claims: Map<string, string[]>;
 
   beforeEach(async () => {
@@ -73,8 +75,8 @@ describe("the file hub", () => {
             : undefined,
       },
       tunnels: {
-        bindLocal: (id, roots) => {
-          bound.push({ id, roots });
+        bindLocal: (id, roots, kind) => {
+          bound.push({ id, roots, kind: kind ?? "engine" });
           return `/api/engine-tunnel/local/k${bound.length}`;
         },
         unbindLocal: () => {},
@@ -167,7 +169,8 @@ describe("the file hub", () => {
         headers: { "x-studio-engine-id": "e1" },
       })
     ).echo;
-    expect(bound).toHaveLength(1);
+    expect(engineBinds()).toHaveLength(1);
+    expect(bound.map((b) => b.kind)).toEqual(["engine", "jobs"]);
     expect(echo.engine).toBe("ws://127.0.0.1:4242/api/engine-tunnel/local/k1");
     const roots = bound[0].roots as {
       remote: string;
@@ -179,7 +182,9 @@ describe("the file hub", () => {
     expect(
       roots[0].remote.endsWith(join(roots[0].name.slice(3), "workspace")),
     ).toBe(true);
-    expect(roots[1]).toEqual({
+    expect(roots[1].name).toBe(`models-${roots[0].name.slice(3)}`);
+    expect(roots[1].writable).toBe(false);
+    expect(roots[2]).toEqual({
       remote: "/library",
       name: "mediatek",
       writable: false,
@@ -200,7 +205,7 @@ describe("the file hub", () => {
     expect(alice.engine).toContain("/local/");
     fred = (await call("/x", { session: "fred@example.com" })).echo;
     expect(fred.engine).toBeNull();
-    expect(bound.map((b) => b.id)).toEqual(["e1", "e1"]);
+    expect(engineBinds().map((b) => b.id)).toEqual(["e1", "e1"]);
   });
 
   const hello = async (session?: string) => {
@@ -247,7 +252,7 @@ describe("the file hub", () => {
     const { echo } = await call("/x", {
       headers: { "x-studio-engine-token": `${ticket}~e9` },
     });
-    expect(bound.map((b) => b.id)).toEqual(["e9"]);
+    expect(engineBinds().map((b) => b.id)).toEqual(["e9"]);
     expect(echo.engine).toContain("/api/engine-tunnel/local/");
   });
 });

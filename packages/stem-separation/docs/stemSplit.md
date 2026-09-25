@@ -174,6 +174,19 @@ The freshness check is pl8's too: **it asks its own disk first**, and a song who
 already holds audio never reaches this machine at all. That is what lets a machine which has never
 been told how to separate still light the knobs on songs somebody prepared earlier.
 
+## Where it runs: the engine's machine, always
+
+A separation runs its model on the machine an ENGINE runs on — its CPU, its GPU, its downloaded
+models — and never on the server that hosts the workspaces. The server-hosted file service still
+starts and polls jobs through `startSeparate` / `separateJob`, but it installs a **runner**
+(`setSeparationRunner`) that sends each one over the jobs channel of the engine it is bound to
+(`packages/engine-tunnel/docs/jobs.md`); the supervisor there runs it with this package, locally.
+The mix and the model travel to that machine before the run, the stems back before the reply —
+so every caller keeps working in the server's paths, and nothing above this seam changed.
+
+With no engine bound the job fails at once and says so, rather than cutting on the server: a
+server image carries neither the GPU nor, on Alpine, a build of the runtime.
+
 ## Why a worker thread
 
 The file service is **shared**. It serves every workspace on the machine, prewarms

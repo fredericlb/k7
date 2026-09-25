@@ -15,7 +15,12 @@ import {
   USER_HEADER,
 } from "@studio/web-protocol";
 import type { Request, RequestHandler, Response } from "express";
-import { type BindingDeps, bindEngine, releaseIfUnclaimed } from "./binding.ts";
+import {
+  type BindingDeps,
+  bindEngine,
+  releaseIfUnclaimed,
+  unbindAll,
+} from "./binding.ts";
 import {
   type Instance,
   Instances,
@@ -66,9 +71,7 @@ export class FileHub {
     this.instances = new Instances({
       ...opts,
       log,
-      onExit: (inst) => {
-        if (inst.localPath) opts.tunnels.unbindLocal(inst.localPath);
-      },
+      onExit: (inst) => unbindAll(opts, inst),
     });
     const idle = opts.idleMs ?? 30 * 60_000;
     this.reaper = setInterval(
