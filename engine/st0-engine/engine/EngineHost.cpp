@@ -57,10 +57,10 @@ EngineHost::~EngineHost() {
         // The tuner FIRST: a live audio callback must stop being called before anything it reads through goes away.
         if (impl_->tunerAttached)
             impl_->engine.getDeviceManager().deviceManager.removeAudioCallback(&impl_->tuner);
-        // EVERY session, the destructor being nobody's in particular: taps off and meter clients unregistered before anything they touch goes away.
+        // EVERY session, the destructor being nobody's in particular: the teardown an apply does before its Edit dies, since ~Edit calls the record listener it would otherwise outlive.
         for (const auto& id : impl_->ids()) {
             enableBroadcast(id, false);
-            if (auto* s = impl_->find(id)) s->detachLevelMeters();
+            teardownProjectState(id);
         }
         impl_->detachInputClients();   // and input clients before the devices (their measurers) do
     }
