@@ -217,7 +217,8 @@ jobs:
         npm ci
 
         # Same YY.MMDDHHmm stamp as "compute build version" above, computed inline here
-        # since this job has no image tag needing the buildspec's own @build_version@.
+        # since this job has no image tag needing the buildspec's own build version. (No
+        # at-sign placeholders in this text, comments included: OneDev substitutes them all.)
         STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
 
         # linuxdeploy cannot strip inside its own AppImage staging tree on a container
