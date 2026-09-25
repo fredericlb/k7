@@ -47,7 +47,9 @@ fs::path extsCache() { return studioDir() / "exts.json"; }
 fs::path engineLog() { return studioDir() / ".studio-engine.log"; }
 fs::path mergedLog() { return studioDir() / ".studio.log"; }
 fs::path rootDir() { return studioDir() / "workspace"; }
-fs::path remoteCache(const std::string& key) { return studioDir() / "remote" / fs::u8path(key); }
+fs::path remoteCache(const std::string& key) { return studioDir() / "remote" / fromUtf8(key); }
+
+fs::path fromUtf8(const std::string& s) { return fs::path(std::u8string(s.begin(), s.end())); }
 
 std::string utf8(const fs::path& p)
 {

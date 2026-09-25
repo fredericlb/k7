@@ -9,14 +9,17 @@
 #include "EngineProcess.h"
 #include "EngineQueries.h"
 #include "HostLock.h"
+#include "MachineJobs.h"
 #include "Log.h"
 #include "Paths.h"
 #include "Performance.h"
 #include "Registry.h"
 #include "TrustRoots.h"
+#include "TunnelAgent.h"
 #include "Url.h"
 
 #include <algorithm>
+#include <future>
 #include <map>
 #include <optional>
 #include <stdexcept>
@@ -65,6 +68,8 @@ struct Supervisor::Impl {
     std::optional<std::pair<std::string, std::string>> lastAttempt;
     std::vector<std::uint64_t> timers;
     std::uint64_t pluginsTimer = 0;
+    /** One tunnel agent per registry, the way IN for a server that cannot dial this machine. */
+    std::map<std::string, std::shared_ptr<tunnel::TunnelAgent>> tunnels;
 
     Impl(Loop& l, std::function<void()> e) : loop(l), exit(std::move(e)) {}
 
@@ -299,6 +304,54 @@ struct Supervisor::Impl {
         });
     }
 
+    // --- tunnels ------------------------------------------------------------------------------------
+
+    /** What a job asks of the settings, answered HERE: the loop is their one writer, or a save would undo another's. */
+    MachineAccess access()
+    {
+        MachineAccess a;
+        a.onnxProviders = [this](const std::optional<std::vector<std::string>>& set) {
+            auto answer = std::make_shared<std::promise<std::vector<std::string>>>();
+            auto got = answer->get_future();
+            loop.post([this, set, answer] {
+                if (set) {
+                    settings.onnxProviders = *set;
+                    saveSettings(settings);
+                }
+                answer->set_value(settings.onnxProviders);
+            });
+            return got.get();
+        };
+        return a;
+    }
+
+    /** An agent for every registry that has none, and none for a registry that left the list. */
+    void syncTunnels()
+    {
+        for (auto it = tunnels.begin(); it != tunnels.end();) {
+            if (std::find(registryUrls.begin(), registryUrls.end(), it->first) == registryUrls.end()) {
+                it->second->stop();
+                it = tunnels.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        for (const auto& u : registryUrls) {
+            if (tunnels.count(u)) continue;
+            tunnel::AgentOptions o;
+            o.registryUrl = u;
+            o.id = identity.id;
+            o.token = identity.token;
+            o.enginePort = settings.port;
+            o.cacheDir = paths::remoteCache(url::cacheKey(u));
+            o.jobs = machineJobs(access());
+            o.log = [](const std::string& m) { log::line("tunnel", m); };
+            auto agent = tunnel::TunnelAgent::create(std::move(o));
+            agent->start();
+            tunnels[u] = agent;
+        }
+    }
+
     // --- registry -----------------------------------------------------------------------------------
 
     nlohmann::json presenceNow() const
@@ -311,6 +364,8 @@ struct Supervisor::Impl {
     /** Gated on the PIDFILE rather than our status: ground truth across a crash not yet noticed. */
     void beat(std::function<void()> then = nullptr)
     {
+        // Kept in step with the list here rather than hooked into each place that edits it.
+        syncTunnels();
         if (!engine::running()) {
             snap.lastHeartbeatOk = false;
             publish();
@@ -483,6 +538,8 @@ struct Supervisor::Impl {
         shuttingDown = true;
         for (auto t : timers) loop.cancel(t);
         loop.cancel(pluginsTimer);
+        for (auto& [_, agent] : tunnels) agent->stop();
+        tunnels.clear();
         engine->close();
         // Deregister FIRST, while the entry still means something — bounded, or a hung registry hangs Quit.
         auto finished = std::make_shared<bool>(false);

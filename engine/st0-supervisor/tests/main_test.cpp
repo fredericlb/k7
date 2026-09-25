@@ -8,6 +8,7 @@ void runSettingsTests();
 void runHostProtocolTests();
 void runAudioPolicyTests();
 void runPerformanceTests();
+void runMachineJobsTests();
 
 int main()
 {
@@ -16,5 +17,6 @@ int main()
     runHostProtocolTests();
     runAudioPolicyTests();
     runPerformanceTests();
+    runMachineJobsTests();
     TEST_MAIN_END();
 }

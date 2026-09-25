@@ -44,4 +44,7 @@ fs::path remoteCache(const std::string& key);
 /** A path as UTF-8, whatever the platform's native encoding — for JSON and logs. */
 std::string utf8(const fs::path& p);
 
+/** A path from UTF-8 text, the inverse of `utf8`. */
+fs::path fromUtf8(const std::string& s);
+
 }  // namespace st0::paths

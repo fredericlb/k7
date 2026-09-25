@@ -73,6 +73,13 @@ add_library(st0_supervisor_core STATIC
     src/Registry.cpp
     src/Addresses.cpp
     src/Performance.cpp
+    src/FileTime.cpp
+    src/TunnelFrames.cpp
+    src/TunnelFiles.cpp
+    src/PathMap.cpp
+    src/TunnelAgent.cpp
+    src/MachineJobs.cpp
+    src/Separation.cpp
     src/Supervisor.cpp)
 target_include_directories(st0_supervisor_core PUBLIC src)
 target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket mbedtls mbedx509 mbedcrypto)
@@ -95,7 +102,12 @@ add_executable(st0_supervisor_tests
     tests/Settings_test.cpp
     tests/HostProtocol_test.cpp
     tests/AudioPolicy_test.cpp
-    tests/Performance_test.cpp)
+    tests/Performance_test.cpp
+    tests/MachineJobs_test.cpp)
 target_include_directories(st0_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../st0-engine/tests)
 target_link_libraries(st0_supervisor_tests PRIVATE st0_supervisor_core)
 add_test(NAME st0_supervisor_tests COMMAND st0_supervisor_tests)
+
+# The agent alone, for packages/engine-tunnel's suites to run against the real TypeScript hub.
+add_executable(tunnel_harness tests/tunnel_harness.cpp)
+target_link_libraries(tunnel_harness PRIVATE st0_supervisor_core)

@@ -18,9 +18,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
-import { TunnelAgent } from "./agent.ts";
 import type { TunnelChannel } from "./channel.ts";
 import { TunnelHub } from "./hub.ts";
+import { type AgentHandle, agentKinds } from "./testAgents.ts";
 
 const TOKEN = "tok";
 
@@ -40,10 +40,10 @@ const until = async (ok: () => boolean, ms = 3000): Promise<void> => {
   }
 };
 
-describe("the engine tunnel", () => {
+describe.each(agentKinds)("the engine tunnel — $name agent", ({ make }) => {
   let server: Server;
   let hub: TunnelHub;
-  let agent: TunnelAgent;
+  let agent: AgentHandle;
   let engine: WebSocketServer;
   let engineGot: string[];
   let engineSock: WebSocket | null;
@@ -69,7 +69,7 @@ describe("the engine tunnel", () => {
     });
     hub.attach(server);
     port = await listen(server);
-    agent = new TunnelAgent({
+    agent = make({
       registryUrl: `http://127.0.0.1:${port}`,
       id: "e1",
       token: TOKEN,

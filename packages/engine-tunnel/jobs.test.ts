@@ -9,9 +9,9 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import { TunnelAgent } from "./agent.ts";
 import { TunnelHub } from "./hub.ts";
 import { JobError, requestJob } from "./jobsClient.ts";
+import { type AgentHandle, agentKinds } from "./testAgents.ts";
 
 const until = async (ok: () => boolean, ms = 5000): Promise<void> => {
   const end = Date.now() + ms;
@@ -21,10 +21,10 @@ const until = async (ok: () => boolean, ms = 5000): Promise<void> => {
   }
 };
 
-describe("a jobs channel", () => {
+describe.each(agentKinds)("a jobs channel — $name agent", ({ make }) => {
   let server: Server;
   let hub: TunnelHub;
-  let agent: TunnelAgent;
+  let agent: AgentHandle;
   let remote: string;
   let port: number;
   let cache: string;
@@ -37,7 +37,7 @@ describe("a jobs channel", () => {
     hub.attach(server);
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
     port = (server.address() as AddressInfo).port;
-    agent = new TunnelAgent({
+    agent = make({
       registryUrl: `http://127.0.0.1:${port}`,
       id: "e1",
       token: "t",
