@@ -1,0 +1,1 @@
+s("hh*8").degradeBy(0.3).sometimes(x => x.fast(2))
