@@ -1,13 +1,17 @@
 #!/usr/bin/env node
-// dev-native.mjs — the native half of the dev session: builds the C++ engine and the tray,
-// launches the tray, then watches both source trees and rebuilds+restarts on save. One
-// process owns both watches because both rebuilds need the SAME tray stopped first — a
-// running image cannot be relinked on Windows. See docs/dev.md.
+// dev-native.mjs — the native half of the dev session: builds the C++ engine, the native
+// supervisor and the tray, launches the tray, then watches the three source trees and
+// rebuilds+restarts on save. One process owns every watch because every rebuild needs the SAME
+// tray stopped first — a running image cannot be relinked on Windows. See docs/dev.md.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, watch } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  buildSupervisor,
+  findSupervisor,
+} from "../engine/st0-tray/scripts/supervisorBuild.mjs";
 import {
   buildDevApp,
   launch,
@@ -16,6 +20,7 @@ import {
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const engineDir = join(repo, "engine", "st0-engine");
+const supervisorDir = join(repo, "engine", "st0-supervisor");
 
 // Long enough that a formatter's write burst is one rebuild, short enough to feel like a save.
 const DEBOUNCE_MS = 500;
@@ -42,6 +47,19 @@ const TARGETS = {
       },
     ],
     build: buildEngine,
+  },
+  // The supervisor the tray spawns: a separate CMake project, so its build never touches the engine's.
+  "st0-supervisor": {
+    dirs: [
+      { path: join(supervisorDir, "src"), recursive: true, match: isCxx },
+      {
+        path: supervisorDir,
+        recursive: false,
+        match: (base) =>
+          base === "CMakeLists.txt" || base === "CMakePresets.json",
+      },
+    ],
+    build: () => buildSupervisor(repo),
   },
   // The tray; build.rs and tauri.conf.json are in because cargo re-runs on both.
   "st0-tray": {
@@ -72,7 +90,7 @@ const TARGETS = {
 };
 
 // Rebuild order: the slow one first, so a broken C++ never costs a cargo run (../docs/dev.md).
-const ORDER = ["st0-engine", "st0-tray"];
+const ORDER = ["st0-engine", "st0-supervisor", "st0-tray"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
 function buildEngine() {
@@ -224,6 +242,11 @@ if (!bin) {
   log("the engine is older than its sources — rebuilding");
   dirty.add("st0-engine");
 }
+const sup = findSupervisor(repo);
+if (!sup || statSync(sup).mtimeMs < newestSource("st0-supervisor")) {
+  log("the supervisor is missing or older than its sources — building it");
+  dirty.add("st0-supervisor");
+}
 dirty.add("st0-tray"); // always: a cargo no-op is seconds, and it is what guarantees out/dev matches src
 
 await cycle();
@@ -243,6 +266,6 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
   }
 
 log(
-  "watching engine/st0-engine and engine/st0-tray — save to rebuild and restart",
+  "watching engine/st0-engine, engine/st0-supervisor and engine/st0-tray — save to rebuild and restart",
 );
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

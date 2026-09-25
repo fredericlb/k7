@@ -92,13 +92,13 @@ for (const name of readdirSync(release))
   if (name.toLowerCase().endsWith(".dll"))
     cpSync(join(release, name), join(APP, name));
 
-// The sidecars, with the triple taken back off: the app looks for `node.exe`, not `node-<triple>.exe`.
+// The sidecars, with the triple taken back off: the tray looks for `st0-supervisor.exe`, not `st0-supervisor-<triple>.exe`.
 const triple = hostTriple();
 const binaries = join(trayDir, "src-tauri", "binaries");
 for (const name of readdirSync(binaries))
   cpSync(join(binaries, name), join(APP, name.replace(`-${triple}`, "")));
 
-// `resources/` keeps its name: that is the tier hostcmd.rs, bundle.ts and FaustPlugin.cpp all probe.
+// `resources/` keeps its name: that is where the supervisor finds ONNX Runtime and FaustPlugin.cpp its libraries.
 cpSync(join(trayDir, "src-tauri", "resources"), join(APP, "resources"), {
   recursive: true,
   dereference: true,

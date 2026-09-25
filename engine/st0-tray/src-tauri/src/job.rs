@@ -1,6 +1,6 @@
 // job.rs — a Windows Job Object with kill-on-close, so a force-killed or crashed tray can't
-// orphan the engine and file service holding their ports. Membership is inherited, which
-// covers the tsx-forked file service for free. See docs/tray.md.
+// orphan the supervisor and the engine holding its port. Membership is inherited, which covers
+// whatever the supervisor spawns for free. See docs/tray.md.
 
 #[cfg(windows)]
 mod imp {

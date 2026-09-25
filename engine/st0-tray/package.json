@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0 menu-bar / system-tray supervisor (Tauri v2, native Rust). Runs the C++ engine as a background app and registers it with the web server. Interchangeable with @studio/engine-host over the same ~/.st0 + registry contract.",
+  "description": "st0 menu-bar / system-tray view (Tauri v2, native Rust) over the native supervisor, engine/st0-supervisor, which it spawns and drives over NDJSON on stdio.",
   "scripts": {
     "predev": "node scripts/build-engine.mjs --sidecar-only",
     "dev": "tauri dev",

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// build-engine.mjs — `npm run engine:build`: builds the C++ engine and the tray app and
-// collects both into the repo's dist/. The engine is staged as the tray's sidecar first,
-// so the bundle carries its own copy and needs no repo build dir. See docs/buildEngine.md.
+// build-engine.mjs — `npm run engine:build`: builds the C++ engine, the native supervisor and the
+// tray app, and collects them into the repo's dist/. The engine and the supervisor are staged as
+// the tray's sidecars first, so the bundle carries its own copies and needs no repo build dir.
+// See docs/buildEngine.md.
 
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -29,6 +29,11 @@ import {
   tauriCmd,
   WORK_DIRS,
 } from "./buildTools.mjs";
+import {
+  buildSupervisor,
+  findSupervisor,
+  onnxRuntimeFiles,
+} from "./supervisorBuild.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 const trayDir = dirname(here); //                      engine/st0-tray — this app IS the tray
@@ -36,9 +41,6 @@ const repo = join(trayDir, "..", ".."); //             the monorepo root
 const engineDir = join(repo, "engine", "st0-engine");
 const OUT = distDir(repo); //                          <repo>/dist — the monorepo's output root
 const CACHE = join(trayDir, ".cache"); // vendored downloads (gitignored)
-
-// The Node we vendor: pinned and downloaded, a Homebrew one being a shim (docs/buildEngine.md).
-const NODE_VERSION = "v22.23.1";
 
 // The CMake preset for this host, overridable because a CI runner carries an older toolchain (docs/desktop-release.md).
 const PRESET =
@@ -77,89 +79,6 @@ const sidecarOnly = process.argv.includes("--sidecar-only");
 // `--dev`: a DEBUG tray app carrying nothing, so the Rust takes its fallbacks (docs/buildEngine.md).
 const devMode = process.argv.includes("--dev");
 
-/** Refuse a vendored Node that is not the one nodejs.org published — see docs/buildEngine.md. */
-function verifyNodeArchive(archivePath, archive) {
-  const sumsPath = join(CACHE, `SHASUMS256-${NODE_VERSION}.txt`);
-  if (!existsSync(sumsPath))
-    run(
-      "curl",
-      [
-        "-fsSL",
-        "-o",
-        sumsPath,
-        `https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt`,
-      ],
-      CACHE,
-    );
-
-  const line = readFileSync(sumsPath, "utf8")
-    .split("\n")
-    .find((l) => l.trim().endsWith(` ${archive}`));
-  if (!line) {
-    console.error(`\nerror: ${archive} is not listed in SHASUMS256.txt.`);
-    process.exit(1);
-  }
-  const want = line.trim().split(/\s+/)[0].toLowerCase();
-  const got = createHash("sha256")
-    .update(readFileSync(archivePath))
-    .digest("hex");
-  if (got !== want) {
-    // Removed, not just refused: leaving it means the next run finds it "cached" and trusts it.
-    rmSync(archivePath, { force: true });
-    console.error(
-      `\nerror: ${archive} failed its checksum and has been deleted.\n` +
-        `  expected ${want}\n  got      ${got}`,
-    );
-    process.exit(1);
-  }
-  console.log(`  sha256 ok — ${archive}`);
-}
-
-// Download (once, cached) an official self-contained Node and return its binary.
-function vendorNode() {
-  const plat = { darwin: "darwin", win32: "win", linux: "linux" }[
-    process.platform
-  ];
-  const arch = { arm64: "arm64", x64: "x64" }[process.arch];
-  if (!plat || !arch) {
-    console.error(
-      `error: no vendored Node for ${process.platform}/${process.arch}.`,
-    );
-    process.exit(1);
-  }
-  const name = `node-${NODE_VERSION}-${plat}-${arch}`;
-  const isWin = plat === "win";
-  const archive = `${name}.${isWin ? "zip" : "tar.gz"}`;
-  const cached = join(CACHE, name, isWin ? "node.exe" : "bin/node");
-  if (existsSync(cached)) return cached;
-
-  mkdirSync(CACHE, { recursive: true });
-  const archivePath = join(CACHE, archive);
-  console.log(`\n=== vendoring Node ${NODE_VERSION} (${plat}-${arch}) ===`);
-  if (!existsSync(archivePath))
-    run(
-      "curl",
-      [
-        "-fsSL",
-        "-o",
-        archivePath,
-        `https://nodejs.org/dist/${NODE_VERSION}/${archive}`,
-      ],
-      CACHE,
-    );
-  verifyNodeArchive(archivePath, archive);
-  // Windows: System32's bsdtar BY PATH — it reads .zip, and a bare `tar` may resolve to Git Bash's GNU tar.
-  const tar = isWin
-    ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
-    : "tar";
-  run(tar, ["-xf", archive], CACHE);
-  if (!existsSync(cached)) {
-    console.error(`error: ${cached} missing after extracting ${archive}.`);
-    process.exit(1);
-  }
-  return cached;
-}
-
 /** The Faust standard libraries out of the engine's build tree, newest preset winning (docs/buildEngine.md). */
 function stageFaustLibs(destDir) {
   const build = join(engineDir, "build");
@@ -186,65 +105,6 @@ function stageFaustLibs(destDir) {
       n++;
     }
   console.log(`  ${n} Faust library file(s) from ${found[0]}`);
-}
-
-/** One installed package into `resources/node_modules/`, for what a bundle cannot inline (docs/buildEngine.md). */
-function stageNodeModule(name, destRoot, prune) {
-  const src = join(repo, "node_modules", name);
-  if (!existsSync(src)) {
-    console.error(
-      `error: ${name} is not installed at ${src} — run \`npm install\` at the repo root.`,
-    );
-    process.exit(1);
-  }
-  const dest = join(destRoot, name);
-  rmSync(dest, { recursive: true, force: true });
-  cpSync(src, dest, {
-    recursive: true,
-    dereference: true, // a workspace install may symlink; the bundle needs the bytes
-    filter: (p) => !prune?.(relative(src, p)),
-  });
-  console.log(`  ${name}: ${src}\n     → ${dest}`);
-}
-
-// The platform tree ONNX Runtime will actually load, e.g. `bin/napi-v3/win32/x64`.
-const ORT_KEEP = join("bin", "napi-v3", process.platform, process.arch);
-
-/** Everything under `bin/napi-v3/` that is not this host's — see stageNodeModule's `prune`. */
-function pruneOtherPlatforms(rel) {
-  const parts = rel.split(/[\\/]/);
-  if (parts[0] !== "bin" || parts.length < 4) return false; // not deep enough to judge yet
-  return !rel.startsWith(ORT_KEEP);
-}
-
-// Bundle one TypeScript entry into a single .mjs the vendored `node` runs with no node_modules beside it.
-async function bundleTs(entry, outFile) {
-  // esbuild's JS API, not its CLI: run() goes through cmd.exe on Windows, which splits --banner:js=... on spaces.
-  let esbuild;
-  try {
-    esbuild = await import("esbuild");
-  } catch {
-    console.error(
-      "error: esbuild not found — run `npm install` at the repo root.",
-    );
-    process.exit(1);
-  }
-  mkdirSync(dirname(outFile), { recursive: true });
-  console.log(`\n▸ esbuild (API) ${relative(repo, entry)} → ${outFile}`);
-  await esbuild.build({
-    entryPoints: [entry],
-    bundle: true,
-    platform: "node",
-    format: "esm",
-    target: "node22",
-    // Native modules, external for OPPOSITE reasons — only one of the two is also staged (docs/buildEngine.md).
-    external: ["fsevents", "onnxruntime-node"],
-    // ESM output has no `require`, but the CommonJS deps here call it — without this the bundle dies at runtime.
-    banner: {
-      js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);",
-    },
-    outfile: outFile,
-  });
 }
 
 // Collect the real deliverables out of a Tauri bundle dir — it also holds tooling and huge scratch images.
@@ -379,8 +239,8 @@ function buildDevApp() {
   console.log(`\n✔ dev app in ${OUT_DEV}`);
   for (const n of got) console.log(`   • ${n}`);
   console.log(
-    "\n  It uses the REPO's engine (engine/st0-engine/build) and runs the file service from\n" +
-      "  source via tsx — edit either and just restart the app. Not distributable.",
+    "\n  It uses the REPO's engine and supervisor (their build/ directories) — rebuild either\n" +
+      "  and just restart the app. Not distributable.",
   );
   process.exit(status);
 }
@@ -391,6 +251,8 @@ function buildDevApp() {
 if (!sidecarOnly && !devMode) {
   console.log(`\n=== engine (${PRESET}) ===`);
   run("node", [join("scripts", "build.mjs"), PRESET], engineDir);
+  console.log("\n=== supervisor ===");
+  buildSupervisor(repo);
 }
 
 const engineBin = findEngineBinary();
@@ -399,6 +261,13 @@ if (!engineBin && !devMode) {
     sidecarOnly
       ? "error: no engine binary under engine/st0-engine/build — build it first (npm run engine:build)."
       : "error: the engine built but no binary was found under engine/st0-engine/build.",
+  );
+  process.exit(1);
+}
+const supervisorBin = findSupervisor(repo);
+if (!supervisorBin && !devMode) {
+  console.error(
+    "error: no supervisor binary under engine/st0-supervisor/build — build it first (npm run engine:build).",
   );
   process.exit(1);
 }
@@ -420,7 +289,7 @@ const triple = hostTriple();
 const sidecarDir = join(trayDir, "src-tauri", "binaries");
 mkdirSync(sidecarDir, { recursive: true });
 
-// Everything the app must carry to run without the repo: the engine, and a self-contained node.
+// Everything the app must carry to run without the repo: the engine and the supervisor.
 const stage = (src, name) => {
   // Tauri resolves externalBin as `<name>-<triple>` PLUS the platform's executable extension (.exe on Windows).
   const ext = process.platform === "win32" ? ".exe" : "";
@@ -432,30 +301,20 @@ const stage = (src, name) => {
 
 console.log("\n=== sidecars ===");
 stage(engineBin, "st0-engine");
-stage(vendorNode(), "node");
+stage(supervisorBin, "st0-supervisor");
 
-// The one Node process the app ships — the supervisor; the file service runs on the server, not here.
-console.log("\n=== supervisor bundle ===");
-await bundleTs(
-  join(repo, "packages", "engine-host", "src", "main.ts"),
-  join(trayDir, "src-tauri", "resources", "engine-host.mjs"),
-);
-
-// …and the one dependency neither bundle could swallow, plus what IT requires (docs/buildEngine.md).
-console.log("\n=== native node modules ===");
-const resourceModules = join(trayDir, "src-tauri", "resources", "node_modules");
-mkdirSync(resourceModules, { recursive: true });
-stageNodeModule("onnxruntime-node", resourceModules, pruneOtherPlatforms);
-stageNodeModule("onnxruntime-common", resourceModules);
-// OPTIONAL, as the package is: without it the supervisor declines WebRTC and the relay remains.
-if (existsSync(join(repo, "node_modules", "node-datachannel"))) {
-  stageNodeModule("node-datachannel", resourceModules);
-  const platformPkg = `@node-datachannel/${process.platform}-${process.arch}${process.platform === "win32" ? "-msvc" : process.platform === "linux" ? "-gnu" : ""}`;
-  if (existsSync(join(repo, "node_modules", platformPkg)))
-    stageNodeModule(platformPkg, resourceModules);
-} else
+// ONNX Runtime, which the supervisor LOADS from its resources rather than links (docs/buildEngine.md).
+console.log("\n=== onnx runtime ===");
+const ortDir = join(trayDir, "src-tauri", "resources", "onnxruntime");
+rmSync(ortDir, { recursive: true, force: true });
+mkdirSync(ortDir, { recursive: true });
+const ortFiles = onnxRuntimeFiles(supervisorBin);
+for (const f of ortFiles) cpSync(f, join(ortDir, basename(f)));
+if (ortFiles.length)
+  console.log(`  ${ortFiles.map((f) => basename(f)).join(", ")}`);
+else
   console.warn(
-    "  node-datachannel not installed — the packaged supervisor will offer no WebRTC path",
+    "  no ONNX Runtime beside the supervisor — the packaged app will not separate stems",
   );
 
 // The Faust standard libraries, which the engine resolves at RUNTIME — fatal when missing (docs/buildEngine.md).

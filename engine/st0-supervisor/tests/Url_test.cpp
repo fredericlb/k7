@@ -1,5 +1,5 @@
-// Url_test.cpp — the cases of packages/web-protocol/services.test.ts and engine-host's
-// instanceUrl.test.ts, replayed: the two supervisors must derive the same registry from the same text.
+// Url_test.cpp — the cases of packages/web-protocol/services.test.ts, replayed: the supervisor and
+// the web apps must derive the same registry from the same text.
 
 #include "Url.h"
 

@@ -14,8 +14,7 @@
     "@vitejs/plugin-react",
     "@tailwindcss/vite",
     "esbuild",
-    "yaml",
-    "onnxruntime-node"
+    "yaml"
   ],
   "ignoreBinaries": [
     "cmake",
@@ -60,12 +59,6 @@
     },
     "packages/file-service": {
       "entry": ["src/render.ts"]
-    },
-    "packages/stem-separation": {
-      "entry": ["src/separateWorker.ts"]
-    },
-    "packages/engine-host": {
-      "entry": ["src/engineQueries.ts"]
     },
     "packages/take-render": {
       "entry": ["src/timeline.ts"]

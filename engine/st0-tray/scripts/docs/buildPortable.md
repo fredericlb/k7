@@ -1,8 +1,8 @@
 # `npm run engine:portable`
 
 `build-portable.mjs` produces **one Windows `.exe`** — `dist/st0-portable_<stamp>.exe` at the
-monorepo root — carrying the C++ engine, the tray, the supervisor, the
-vendored Node and every resource the app reads. Nothing is installed, nothing is required on
+monorepo root — carrying the C++ engine, the tray, the supervisor and every resource the app
+reads. Nothing is installed, nothing is required on
 `PATH`, and the machine that runs it needs no checkout.
 
 It is the portable counterpart of `npm run engine:build`, whose Windows deliverable is an NSIS
@@ -27,11 +27,10 @@ starts from:
 
 | beside `st0-tray.exe` | read by |
 |---|---|
-| `node.exe` | `hostcmd.rs` — the supervisor's runtime |
-| `st0-engine.exe` | `packages/engine-client/src/engineBinary.ts`, from `process.execPath`'s directory |
-| `resources/engine-host.mjs` | `hostcmd.rs` |
+| `st0-supervisor.exe` | `hostcmd.rs` |
+| `st0-engine.exe` | the supervisor's `EngineProcess.cpp`, beside its own executable |
 | `resources/faust-libs` | `engine/st0-engine/engine/FaustPlugin.cpp` |
-| `resources/node_modules` | the ONNX Runtime and `node-datachannel`, which the `.mjs` bundle could not inline |
+| `resources/onnxruntime` | the supervisor's `OnnxSession.cpp`, loaded for a stem cut |
 
 The sidecars lose the `-<triple>` suffix Tauri names them with: that suffix is Tauri's
 convention for *selecting* a sidecar, and the code above looks for the plain name.
@@ -55,9 +54,8 @@ Unpacking goes through a `.unpacking` staging directory renamed into place at th
 killed mid-extract otherwise leaves a tree that *looks* complete on the next launch, and the app
 then dies on a file that was never written.
 
-It shells out to **System32's `tar.exe` by path**, the same choice `build-engine.mjs` makes when
-it extracts the vendored Node: that bsdtar reads `.zip`, and a bare `tar` may resolve to Git
-Bash's GNU tar, which does not.
+It shells out to **System32's `tar.exe` by path**: that bsdtar reads `.zip`, and a bare `tar` may
+resolve to Git Bash's GNU tar, which does not.
 
 ## Failures are loud
 

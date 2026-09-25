@@ -23,7 +23,6 @@
     "@studio/engine-tunnel": "*",
     "@studio/commands": "*",
     "@studio/engine-client": "*",
-    "@studio/engine-host": "*",
     "@studio/git-repos": "*",
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",

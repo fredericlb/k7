@@ -24,7 +24,7 @@ remembers cannot.
 ---
 
 `st0-tray` is a tray Tauri app that starts with no window. It is the **VIEW** over the
-supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
+supervisor (`engine/st0-supervisor`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.st0` contract, the registry and the engine. No file service
 runs on this machine — workspaces live on the server (`packages/file-hub/docs/fileHub.md`). The tray renders its snapshots and sends its clicks back.
 
@@ -74,7 +74,7 @@ comes forward on focus and leaves nothing behind when it hides.
 ### Audio — the list IS the ranking
 
 The supervisor keeps an ORDER, not a chosen device: the first name in it that is actually
-present is where the engine goes (`packages/engine-host/docs/supervisorPolicy.md`, *Why a list,
+present is where the engine goes (`engine/st0-supervisor/docs/supervisorPolicy.md`, *Why a list,
 and not a pick plus a fallback*). `audio.priority` carries the WHOLE ranking in one command,
 because a reorder is a single act and two halves of it could interleave with a poll. That
 command's argument is simply what is on screen: the ranking, then every other interface plugged
@@ -92,7 +92,7 @@ under the pointer. The other two tabs redraw regardless — nothing there is und
 ### Plugins — read-only, and rescanned from here
 
 The catalogue rides the snapshot like every other list, gated on `pluginsSig`
-(`packages/engine-host/docs/hostProtocol.md` weighs what that costs). What the engine answers is
+(`engine/st0-supervisor/docs/hostProtocol.md` weighs what that costs). What the engine answers is
 already the full list — the count was only ever `.length` of it — so nothing extra is asked of the
 engine to draw this.
 
@@ -104,7 +104,7 @@ The filter is there because a working machine has hundreds of rows.
 
 A fresh machine is connected to **no** st0 instance, and nothing is suggested: the supervisor has no
 default registry, seeds no origin, and ignores the local backends' `web-endpoints/` advertisements —
-running `npm run dev` connects nothing either (`packages/engine-host/docs/supervisorPolicy.md`). This tab is
+running `npm run dev` connects nothing either (`engine/st0-supervisor/docs/supervisorPolicy.md`). This tab is
 where one is added — its address typed into the form, and nowhere else.
 
 Each row is one instance as the supervisor's `instances` reports it: the registries this engine
@@ -124,7 +124,7 @@ must be refused rather than connected. The form reads the snapshot's
 `instanceCheck` — *Checking https://play.st0.app…*, then nothing on success or the reason in red on a
 refusal — and holds its Add button while one is being asked. The line under the form says what adding
 means, because the check proves the software and not the owner
-(`packages/engine-host/docs/supervisorPolicy.md`).
+(`engine/st0-supervisor/docs/supervisorPolicy.md`).
 
 ### Sessions — what the status line could never say
 
@@ -212,7 +212,7 @@ Two halves, and the split is the whole point:
 
 ## The remaining loops (`supervisor.rs`)
 
-The name is a misnomer — the supervisor is `@studio/engine-host`. The registry heartbeat,
+The name is a misnomer — the supervisor is `engine/st0-supervisor`. The registry heartbeat,
 the crash watch and all three engine-query polls belong to it: it owns those files, those processes, and the one connection to the
 engine.
 
@@ -241,19 +241,19 @@ a healthy one:
 
 1. **`$STUDIO_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch
    for testing a custom supervisor build.
-2. **Packaged** — the vendored `node` beside our executable, running the esbuild'd
-   `engine-host.mjs` from the app's resources. Nothing on PATH, no repo needed.
-3. **Dev** — `node` from PATH running the repo's `tsx` CLI on the TypeScript source, so
-   `npm run engine:dev` supervises with no build step.
+2. **Packaged** — the `st0-supervisor` sidecar beside our executable. Nothing on PATH, no repo
+   needed.
+3. **Dev** — the newest `st0-supervisor` under the repo's `engine/st0-supervisor/build`, Release
+   before Debug, which `npm run dev` rebuilds on save.
 
-Tier 3 exists only because `buildDevApp()` deliberately ships an app with an empty
-`resources` list; that is what makes a dev build take this path rather than a stale bundle.
+Tier 3 exists only because `buildDevApp()` deliberately ships an app with no sidecars; that is
+what makes a dev build take this path rather than a stale copy.
 
 ## The link itself (`host.rs`)
 
 One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
 commands go down its stdin. The written definition of the format is
-`packages/engine-host/src/hostProtocol.ts`; the structs in `host.rs` are its hand-written
+`engine/st0-supervisor/src/HostProtocol.h`; the structs in `host.rs` are its hand-written
 Rust mirror — the same arrangement `engine-protocol` has with the C++ engine.
 
 It is deliberately **partial**: only the fields the tray consumes are mirrored. serde

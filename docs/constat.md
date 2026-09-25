@@ -215,7 +215,7 @@ would cost.
 The callback does not suffer (max 0.278 ms during a burst against 0.356 without), so it is not a
 real-time problem; it is the only repeated solicitation imposed on a single-client driver while it is
 streaming. `DEVICES_POLL_MS` is at 10 s — 360 scans an hour instead of 1800; a near-zero-cost
-experiment, not a proven fix: `packages/engine-host/docs/supervisorPolicy.md`.
+experiment, not a proven fix: `engine/st0-supervisor/docs/supervisorPolicy.md`.
 
 **What this closes.** The engine never approaches its deadline: a factor of twenty of margin on the
 worst block observed, in every condition tried. The "we send the card too many instructions" theory
@@ -240,7 +240,7 @@ A measurement taken on the stand-in measures a graph with no EQ, no filter and n
 unhandled rejection **terminates the process**. TypeScript side, one `guard()` per process and the
 net at both entry points cover that, with the two halves deliberately asymmetric: a rejection is
 logged and we live, an uncaught exception is logged with its stack and we exit. Page:
-[`packages/engine-host/docs/background.md`](../packages/engine-host/docs/background.md).
+[`packages/file-service/docs/background.md`](../packages/file-service/docs/background.md).
 
 The failure mode that net parries is instructive because it goes unnoticed: when the supervisor
 dies, **the engine stays alive behind it**, the tray restarts it on its fallback and the new
@@ -297,7 +297,7 @@ Biome sees only intra-file — an `export` nobody imports is invisible to it **b
 not block a merge.
 
 Its exception list is the inventory's §0 translated into configuration, without which it kills live
-code: `dspRunner.mjs`, `separateWorker.ts`, the tray's esbuild entries, `emit.ts`, the `jsdsp.ts`
+code: `dspRunner.mjs`, `emit.ts`, the `jsdsp.ts`
 files, the harnesses in `engine/st0-engine/scripts/`.
 
 Output: **1 file, 1 undeclared dependency, 2 undeclared binaries, 120 exports, 45 types** — 169

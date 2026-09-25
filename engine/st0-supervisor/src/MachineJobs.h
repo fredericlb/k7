@@ -1,7 +1,7 @@
 // MachineJobs.h — what this MACHINE does when a server asks over a jobs channel: separate a mix on
 // its CPU, say where a médiathèque song is on its disk, count a set list brought down ahead of a gig,
 // read its log, keep what it separates on. Paths arrive already local and leave already the server's:
-// the tunnel moves the files. The twin of engine-host's machineJobs.ts; see docs/supervisor.md.
+// the tunnel moves the files. The TS reference agent's jobs are the twin; see docs/supervisor.md.
 
 #pragma once
 

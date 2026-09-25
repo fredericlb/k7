@@ -1,5 +1,5 @@
-// AudioPolicy_test.cpp — the rules stated in the test names, replayed from engine-host's
-// audioPolicy.test.ts: there is one list, and the first entry present wins.
+// AudioPolicy_test.cpp — the rules stated in the test names: there is one list,
+// and the first entry present wins.
 
 #include "AudioPolicy.h"
 

@@ -1,6 +1,6 @@
 // Url.h — the URL rules the supervisor shares with the web apps: which registry a typed address
 // means, which studio family it belongs to, what a server's cache folder is called. The C++ twin
-// of packages/web-protocol/services.ts and engine-host's instanceUrl.ts; the tests replay theirs,
+// of packages/web-protocol/services.ts; the tests replay its cases,
 // since two spellings of one rule is what makes an engine heartbeat to the wrong place.
 
 #pragma once

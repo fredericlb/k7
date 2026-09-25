@@ -1,7 +1,7 @@
 // Rtc.h — the engine machine's end of a WebRTC data channel, answered for a browser that cannot reach
 // the engine directly: the offer and answer travel over the tunnel, and the channel is then piped to
 // the local engine like any other socket, cut into rtcframes fragments. libdatachannel is what
-// node-datachannel wraps, so the browser meets the same peer as before. See docs/supervisor.md.
+// node-datachannel wraps, which is also the TS reference agent's, so both answer as one peer. See docs/supervisor.md.
 
 #pragma once
 

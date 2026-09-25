@@ -17,19 +17,19 @@ learns WebRTC exists. An engine is offered this path only when its supervisor ho
 Signalling is **one request and one answer**, candidates included — no trickle. It costs up to
 1.5 s of gathering on the first connect, and it spares the server a signalling session to keep.
 
-## node-datachannel, and why it is optional
+## libdatachannel
 
-The supervisor uses **node-datachannel** (libdatachannel): its transport runs on native threads,
-off the supervisor's event loop, and it is the established stack for the encryption and SCTP a
-data channel needs. It is an **optional** dependency, loaded on first use: a machine where its
-prebuilt binary is missing answers the offer with a refusal, and the browser keeps the relay.
-Nothing else in the supervisor depends on it.
+The supervisor answers with **libdatachannel** (`engine/st0-supervisor/src/Rtc.cpp`), the
+established stack for the encryption and SCTP a data channel needs, on native threads of its own.
+The TypeScript reference agent answers with node-datachannel, which wraps the same library: an
+optional dependency, loaded on first use, so the server's tests run where its binary is missing
+and skip only the WebRTC case. The suite here runs against both (`testAgents.ts`).
 
 ## The local network only, by default
 
 Neither end is given a STUN or TURN server, so the candidates are the machines' own addresses: the
 path works on the engine's network, which is where a second device usually is, and falls back to
-the relay elsewhere. `TunnelAgentOptions.iceServers` is where the supervisor's side would take one;
+the relay elsewhere. `rtc::Options::iceServers` (`Rtc.h`) is where the supervisor's side would take one;
 the browser's would need the same, and neither is configured today.
 
 ## Frames are fragmented

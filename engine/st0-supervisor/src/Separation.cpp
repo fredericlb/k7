@@ -1,7 +1,7 @@
 // Separation.cpp — see Separation.h. A job runs on a thread of its own and is POLLED by whoever asked,
 // once a second, which is how a second request for the same cut joins the first. An hour ends a job
-// whatever it is doing: the run is terminated and the job says why. The pipeline follows
-// separateWorker.ts step for step; the rationale is stem-separation's docs/stemSplit.md.
+// whatever it is doing: the run is terminated and the job says why. The rationale for
+// every step is stem-separation's docs/stemSplit.md.
 
 #include "Separation.h"
 

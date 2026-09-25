@@ -307,7 +307,7 @@ function renderSystem(sys) {
 // --- the st0 instances ------------------------------------------------------
 
 /** What the user typed, reduced to an origin the way the supervisor will, or an error sentence. Checked here only
- *  to answer AT ONCE — the supervisor's normaliser is the gate (packages/engine-host/src/instanceUrl.ts). */
+ *  to answer AT ONCE — the supervisor's normaliser is the gate (engine/st0-supervisor/src/Url.cpp). */
 function instanceOrigin(input) {
   const raw = input.trim();
   if (!raw) return { error: "type the address of a st0 instance" };

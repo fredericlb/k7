@@ -5,27 +5,25 @@ It starts with no window and opens exactly one on demand: the settings window, i
 the audio ranking dragged into order, the plugin catalogue, the sessions this engine holds, the st0
 instances this engine is connected to, and the machine itself. The menu bar keeps one status line and the way in.
 
-It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
+It is not itself a supervisor. It spawns **`st0-supervisor`** (engine/st0-supervisor, native) as a
 child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
 contract, the registry and the engine. There is no file service on this machine: workspaces live
 on the server, and the supervisor runs the jobs the server hands it over the tunnel. The tray
 draws what the supervisor reports and sends clicks back.
 
-There is exactly ONE implementation of the contract, and it is the TypeScript one. If
-you find yourself about to add a second, that is the thing this arrangement exists to
-prevent.
+There is exactly ONE implementation of the contract, and it is the supervisor's. If you find
+yourself about to add a second, that is the thing this arrangement exists to prevent.
 
 All Rust source lives under `src-tauri/src/`.
 
 ## The protocol
 
-`packages/engine-host/src/hostProtocol.ts` is the written definition; `host.rs` is its
+`engine/st0-supervisor/src/HostProtocol.h` is the written definition; `host.rs` is its
 hand-written Rust mirror, the same arrangement `engine-protocol` has with the C++
 engine. Three rules, all load-bearing:
 
-- **stdout is the protocol.** The supervisor's `ipcStdio.ts` redirects its own stdout to
-  stderr at module load, and every child it spawns is piped, never `inherit`. One stray
-  line corrupts the frame stream. The tray pumps the supervisor's stderr into the merged
+- **stdout is the protocol.** Only the supervisor's `protocol::emit` writes there, and every
+  child it spawns is piped, never `inherit`. One stray line corrupts the frame stream. The tray pumps the supervisor's stderr into the merged
   log like any other child.
 - **Snapshots, not deltas.** A `state` frame is the whole picture, emitted only when its
   serialisation changes — so a supervisor that crashed and relaunched resyncs the tray in
@@ -41,14 +39,14 @@ subsystem over.
 
 ```
 tray (Tauri, windowless)      ← the process the user kills; creates the Job Object
- └─ node engine-host.mjs      ← job::assign() — the ONLY assign call
+ └─ st0-supervisor           ← job::assign() — the ONLY assign call
      └─ st0-engine       ← joins the job automatically (created by a job member)
 ```
 
 - **Windows**: `job::init()` runs in `main.rs` setup before anything spawns. Job
   membership is inherited, so a force-killed tray takes the whole tree with it.
 - **Unix**: the pipe does the same job. When the tray dies the OS closes the
-  supervisor's stdin, `ipcStdio`'s end callback fires, and it tears down.
+  supervisor's stdin, its stdin reader ends, and it tears down.
 - **Supervisor crash**: relaunched with 1s→30s backoff; the status line reads
   `⚠ supervisor restarting…`. The engine survives it — the pidfile lets the fresh
   supervisor re-adopt.
@@ -60,8 +58,8 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
 
 - **`host.rs`** — spawn + `job::assign`, the read thread, `send`, the relaunch backoff.
 - **`hostcmd.rs`** — where the supervisor lives: `$STUDIO_ENGINE_HOST_CMD`, else the
-  vendored `node` + `engine-host.mjs` from resources, else the repo's tsx on the TS
-  source. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
+  `st0-supervisor` sidecar beside the tray, else the repo's newest build under
+  `engine/st0-supervisor/build`. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
   looks identical to a healthy one.
 - **`tray.rs`** — the icon and menu, which is now one status line and `Settings…`.
   Quit stops the engine **only if THIS app owns it**; it won't kill an engine another supervisor
@@ -90,31 +88,27 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   animated, described in a unit square and 3× oversampled. See `docs/trayIcon.md`.
 - **`job.rs` / `pidkill.rs`** — the two backstops that stop a supervisor outliving the tray.
 
-**The tray spawns no process.** There is no `engine.rs`: the supervisor (`@studio/engine-host`)
+**The tray spawns no process** but the supervisor. There is no `engine.rs`: the supervisor
 owns starting the engine, and the tray only asks it to. Anything that needs a process started belongs there, not here.
 
 ## reqwest and trust roots
 
 `reqwest` uses **NATIVE OS trust roots**, not the bundled webpki set. A st0 instance added from
-the tray is routinely fronted by a local proxy with a private CA (a private CA
-for a `.test` host), which lives in the OS store and nowhere else. With webpki-only roots
-the heartbeat handshake fails and the engine silently never appears in that UI's picker.
-
-**This is a live constraint on the port, not history.** Node's `fetch` (undici) uses
-Node's own bundled Mozilla store, so the supervisor must be launched with
-`--use-system-ca` to keep that case working.
+the tray is routinely fronted by a local proxy with a private CA, which lives in the OS store and
+nowhere else. The supervisor makes the same choice for its own TLS
+(`engine/st0-supervisor/docs/supervisor.md`), so the two cannot disagree about a studio.
 
 ## Build / run
 
 Needs the MSVC Rust toolchain on Windows, not `-gnu`.
 
-- `npm run dev` (`tauri dev`) — a debug tray app that carries nothing: no vendored
-  engine/node, and an empty `resources` list. The Rust finds the engine in the repo's
-  `engine/st0-engine/build/` and the supervisor via `hostcmd.rs`'s dev tier.
+- `npm run dev` (`tauri dev`) — a debug tray app that carries nothing: no sidecars and an
+  empty `resources` list. The Rust finds the supervisor in the repo's
+  `engine/st0-supervisor/build/`, and the supervisor finds the engine in `engine/st0-engine/build/`.
 - `npm run build` (`tauri build`) — full release bundle. Both run `predev`/`prebuild` =
-  `node ../scripts/build-engine.mjs --sidecar-only`, which stages the sidecars **and
-  builds both `.mjs` bundles** — Tauri errors on a resource glob matching nothing, so
-  even `cargo check` needs them present.
+  `node ../scripts/build-engine.mjs --sidecar-only`, which stages the two sidecars and the
+  resources — Tauri errors on a resource glob matching nothing, so even `cargo check` needs them
+  present.
 - `npm run tray:restart` — stop → `engine:dev` → `engine:start` → wait for the merged log
   to say `supervisor up`, exit non-zero if it didn't. The loop to use when nobody is
   watching a terminal: `tauri dev` never returns, so it can't report. It stops **every**
@@ -128,5 +122,5 @@ Needs the MSVC Rust toolchain on Windows, not `-gnu`.
 `cargo check` under `src-tauri/`. Behavioural check: launch the tray, confirm the engine
 registers and appears in a web picker, then quit and confirm the engine stops (only if
 the tray owns it). Force-kill the tray and confirm nothing survives — on Windows check
-Task Manager for `node.exe`/`st0-engine.exe` and that 8765/8770 are free. A Windows
+Task Manager for `st0-supervisor.exe`/`st0-engine.exe` and that 8765 is free. A Windows
 build requires the MSVC toolchain — make the edit, explain it, and have the user build.

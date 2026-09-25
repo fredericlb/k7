@@ -12,15 +12,16 @@ end of the page.
 ## Scope
 
 Two services really talk to the engine: **st0** and **pl8**, each by its two halves (browser +
-backend), plus the **supervisor** (`engine-host`), which announces it to the registries. At the
+backend), plus the **supervisor** (`engine/st0-supervisor`), which announces it to the registries. At the
 margin: **z0** links to it at one point only, a 74-line offline render
 (`apps/z0/backend/src/render.ts`) that goes through the file service over HTTP and never the
 socket; **k7** does not touch it at all.
 
 Volume: ~7,400 lines of TypeScript in the five engine packages (`engine-protocol` 959,
-`engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029, `engine-registry` 793), 52 C++
-files, and 35 app files that import `@studio/engine-*`. The most churned files are
-`engine-host/src/supervisor.ts` and `engine-browser/src/engine.ts` — reliability is decided there.
+`engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029 — the TypeScript supervisor
+`engine/st0-supervisor` now replaces —, `engine-registry` 793), 52 C++ files, and 35 app files that
+import `@studio/engine-*`. The most churned files were the supervisor's loop and
+`engine-browser/src/engine.ts` — reliability is decided there.
 
 ## What works, and must not be undone
 

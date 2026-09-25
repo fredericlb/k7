@@ -84,7 +84,7 @@ server/
 scripts/               Node harnesses that drive a running engine, not build steps
   two-sessions.ts        two sessions on one engine stay separate
   track-delta.ts         `tracks` amends the document a session holds, and refuses the rest
-  list-sessions.ts       what the supervisor sees, and drop-session
+  list-sessions.ts       an engine's sessions, and drop-session, over the control socket
   broadcast-sessions.mjs per-session streaming
   gen-builtin-params.mjs ask a real instance of every built-in what its parameters are, and write
                          packages/song-schema/src/builtinParams.generated.ts. The one script here that is a

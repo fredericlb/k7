@@ -1,5 +1,5 @@
 // main.rs — the st0 tray app: a Tauri tray that is the VIEW over the supervisor
-// (@studio/engine-host), spawned as a child and driven over NDJSON on stdio. It starts
+// (engine/st0-supervisor), spawned as a child and driven over NDJSON on stdio. It starts
 // with no window and opens exactly one on demand, the settings window (settingswin.rs).
 // The Windows job object is created HERE, before anything is spawned, so a force-killed
 // tray takes the whole stack with it. See docs/tray.md.

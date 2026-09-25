@@ -1,13 +1,17 @@
-// list-sessions.ts — the supervisor's view of a running engine, through the SAME EngineQueries
-// the tray uses, so this proves the whole chain up to HostSnapshot rather than just the wire.
+// list-sessions.ts — the supervisor's view of a running engine: a client on the DEFAULT session,
+// driving nothing, asking what the native supervisor asks (engine/st0-supervisor/src/EngineQueries.cpp).
 // Creates two sessions, lists them, drops one, lists again.
 //   npx tsx engine/st0-engine/scripts/list-sessions.ts            (a throwaway engine on :8833)
 //   npx tsx engine/st0-engine/scripts/list-sessions.ts 8765 --peek  (LOOK at a live one, change nothing)
 
+import { once } from "node:events";
 import { EngineClient } from "@studio/engine-client/engineClient";
+import {
+  type EditPluginInfo,
+  EngineControl,
+  type SessionInfo,
+} from "@studio/engine-client/engineControl";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-// By RELATIVE path: engineQueries is internal to @studio/engine-host (../docs/sessions.md).
-import { EngineQueries } from "../../../packages/engine-host/src/engineQueries.ts";
 
 const doc = (name: string): ProjectDoc =>
   ({
@@ -42,13 +46,41 @@ const doc = (name: string): ProjectDoc =>
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The supervisor's own client: the DEFAULT session, one question at a time, each with its deadline. */
+class Supervisor {
+  private readonly c: EngineControl;
+  constructor(port: number) {
+    this.c = new EngineControl(`ws://127.0.0.1:${port}`);
+    this.c.on("wserror", () => {});
+  }
+  async open(): Promise<void> {
+    this.c.connect();
+    await once(this.c, "open", { signal: AbortSignal.timeout(4000) });
+  }
+  private async ask<T>(event: string, send: () => void): Promise<T> {
+    const reply = once(this.c, event, { signal: AbortSignal.timeout(6000) });
+    send();
+    return (await reply)[0] as T;
+  }
+  listSessions = () =>
+    this.ask<SessionInfo[]>("sessions", () => this.c.listSessions());
+  listEditPlugins = () =>
+    this.ask<EditPluginInfo[]>("editPlugins", () => this.c.listEditPlugins());
+  listPlugins = () => this.ask<unknown[]>("plugins", () => this.c.listPlugins());
+  listAudioDevices = () =>
+    this.ask<unknown[]>("audioDevices", () => this.c.listAudioDevices());
+  dropSession = (s: string) => this.c.dropSession(s);
+  close = () => this.c.close();
+}
+
 const PORT = Number(process.argv[2] || 8833);
 // Read-only against a REAL engine, or it is a way to lose a song (../docs/sessions.md).
 const PEEK = process.argv.includes("--peek");
 
 async function main() {
   if (PEEK) {
-    const q = new EngineQueries(PORT);
+    const q = new Supervisor(PORT);
+    await q.open();
     console.log("sessions sur :" + PORT, await q.listSessions());
     q.close();
     return process.exit(0);
@@ -65,18 +97,19 @@ async function main() {
   await wait(1500);
 
   // The supervisor's own client, on the DEFAULT session, driving nothing (../docs/sessions.md).
-  const q = new EngineQueries(PORT);
+  const q = new Supervisor(PORT);
+  await q.open();
 
   // Ask everything the tray polls BEFORE listing: a read must never CREATE (../docs/sessions.md).
   const plugins = await q.listEditPlugins();
-  await q.pluginCount();
+  await q.listPlugins();
   await q.listAudioDevices();
 
   const before = await q.listSessions();
   console.log("vues par le superviseur :", before);
   console.log("edit-plugins            :", plugins);
 
-  await q.dropSession("m9");
+  q.dropSession("m9");
   await wait(500);
   const after = await q.listSessions();
   console.log("apres drop de m9        :", after);

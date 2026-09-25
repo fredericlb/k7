@@ -7,7 +7,9 @@
    builds" is defined once. The preset comes from the host platform, or from
    `STUDIO_ENGINE_PRESET` when the build machine's toolchain is not the dev machine's — which is
    what a CI runner is (`docs/desktop-release.md`).
-2. the **tray app** — a Tauri release bundle: `nsis` on Windows, `deb` + `appimage` on Linux,
+2. the **supervisor** — `engine/st0-supervisor`, its own CMake project, through
+   `supervisorBuild.mjs`; `STUDIO_SUPERVISOR_PRESET` is its preset override;
+3. the **tray app** — a Tauri release bundle: `nsis` on Windows, `deb` + `appimage` on Linux,
    and on macOS the `app` wrapper `tauri.conf.json` names, which `makeDmg` then packages.
 
 ## `dist/` is the repo's, not the tray's
@@ -38,40 +40,31 @@ Everything needed to run with no repo and nothing on `PATH`:
 | staged as | what |
 |---|---|
 | `externalBin` sidecar | `st0-engine` — the audio engine |
-| `externalBin` sidecar | `node` — runs the supervisor |
-| resource | the supervisor, bundled to one `.mjs` |
+| `externalBin` sidecar | `st0-supervisor` — the supervisor the tray spawns |
+| resource `onnxruntime/` | ONNX Runtime, which the supervisor loads for a stem cut |
+| resource `faust-libs/` | the Faust standard libraries the engine compiles against |
 
 Tauri copies `externalBin` into the bundle beside the tray executable
-(`Contents/MacOS/st0-engine` on macOS), which is what makes the `.app` self-contained
-— the supervisor prefers that copy over the repo's build directory. Tauri resolves a sidecar
-as `<name>-<triple>` **plus** the platform's executable extension, so on Windows the
-`.exe`-suffixed file is the one it looks for and bundles.
+(`Contents/MacOS/` on macOS), which is what makes the `.app` self-contained — the tray finds the
+supervisor there, and the supervisor finds the engine beside itself. Tauri resolves a sidecar as
+`<name>-<triple>` **plus** the platform's executable extension, so on Windows the `.exe`-suffixed
+file is the one it looks for and bundles.
 
 No file service and no demo songs are in it: workspaces live on the server
 (`packages/file-hub/docs/fileHub.md`), and what the machine needs of them the tunnel brings down.
-Without them every new workspace on an installed app opens empty. They are replaced
-wholesale each build, so a demo deleted from the repo does not linger in the app, and the
-per-machine junk a working checkout accumulates (caches, VCS, deps) is filtered out.
 
-### Why Node is downloaded, not copied
+### ONNX Runtime, as a resource and not beside the supervisor
 
-The vendored `node` is pinned and fetched from nodejs.org rather than copied off the build
-machine. A Homebrew `node` is a small shim that links Homebrew dylibs under
-`/opt/homebrew/opt/...`, so it breaks the moment it leaves that machine; official builds
-are self-contained. It stays on the repo's Node 22 line (`.nvmrc`).
+The supervisor LOADS ONNX Runtime rather than linking it
+(`engine/st0-supervisor/docs/supervisor.md`), and looks for it in the resources as well as beside
+itself. It goes in the resources because a sidecar must be an executable Tauri names by triple, and
+a shared library is not one. Its build copies the library beside the supervisor binary, and
+`onnxRuntimeFiles` takes it from there — `libonnxruntime.*.dylib`, `.so.*`, or `onnxruntime.dll`
+with `DirectML.dll` on Windows. Missing is a warning, not a failure: the app runs, and says it
+cannot cut stems.
 
-The archive is **checksummed before it is trusted**. This binary is what runs
-`engine-host.mjs` inside the signed app, so a substituted archive is
-arbitrary code shipped under our signature. `verifyNodeArchive` is what compares it. The C++
-side pins its ASIO SDK by digest (`engine/st0-engine/CMakeLists.txt`); this is the same rule for
-the other downloaded dependency.
-
-It is checked against the release's own `SHASUMS256.txt` rather than a digest pinned in the
-script, because a table would need an entry per platform and arch and would go stale at every Node
-bump — the failure mode being a build that silently stops verifying. It catches a truncated,
-corrupted or swapped archive; it does not, on its own, defend against nodejs.org itself being
-compromised. A failing archive is **deleted**, not merely refused: leaving it means the next run
-finds it "cached" and trusts it.
+**macOS is not covered by signing.** `makeDmg` signs nothing, and a third-party dylib inside a
+`.app` is a notarisation problem this repo has not solved.
 
 ### The Faust standard libraries
 
@@ -86,42 +79,10 @@ builds any more would ship a different Faust than the engine beside it. Only the
 copied; the submodule also carries its own docs, tests and CI config, none of which the compiler
 reads.
 
-Missing is **fatal**, following `vendorNode`. Without it every Faust module fails to compile in the
+Missing is **fatal**. Without it every Faust module fails to compile in the
 installed app, one warning at a time, from a build that reported nothing wrong — the failure mode
 this repo goes out of its way to avoid, and one `cmake --build` away from being impossible to
 reproduce on the machine that made the bundle.
-
-### Bundling the two Node processes
-
-Each is bundled with esbuild into a single `.mjs` the vendored Node runs directly — no
-`tsx`, no `node_modules`. ESM output, so the ESM-only dependencies in the brain (Strudel)
-need no interop shimming. Two things this needs:
-
-- **`require` shim.** ESM output has no `require`, but CommonJS dependencies in this tree
-  (Express and friends) call it at runtime. Without a real one the bundle dies on
-  `Dynamic require of "path" is not supported`.
-- **`fsevents` marked external.** An optional native module chokidar probes for and falls
-  back from. It cannot be bundled and must not fail the build.
-- **`onnxruntime-node` marked external *and staged*.** The other native module, and the
-  contrast is the point: `fsevents` survives being external because a require that throws
-  costs chokidar nothing. This one has no fallback, so external alone would only move the
-  failure from build time to first use. `stageNodeModule` copies the package (and
-  `onnxruntime-common`, which it requires) into `resources/node_modules/`, where the
-  `.mjs` in `resources/` resolves it by ordinary Node lookup. Only the host's own
-  `bin/napi-v3/<platform>/<arch>` tree is copied — ONNX Runtime ships one shared library
-  per platform and the rest would be dead weight.
-
-  **macOS is not covered.** `makeDmg` signs nothing, and a third-party `libonnxruntime.dylib`
-  inside a `.app` is a notarisation problem this repo has never solved. Windows and Linux
-  bundles carry it correctly; a macOS bundle needs signing work that does not exist yet.
-
-esbuild is driven through its **JS API, not its CLI**: `run()` goes through `cmd.exe` on
-Windows, which splits the spaces inside `--banner:js=...` into separate arguments, and
-esbuild then errors with *"Must use outdir when there are multiple input files"*.
-
-Both bundles are produced in the `--sidecar-only` path too, and must be:
-`tauri.conf.json` lists both files as resources and Tauri **errors on a resource glob that
-matches nothing**, so without them even `cargo check` and `tauri dev` fail.
 
 ## The flags
 
@@ -134,13 +95,13 @@ plain `cargo check` / `tauri dev` workflow.
 ### `--dev`
 
 Builds a **debug tray app that carries nothing**: the config override empties `externalBin`
-and `resources`, so the Rust finds no bundled engine or node beside itself and takes its dev
-fallbacks — the repo's `engine/st0-engine/build` for the engine, and `tsx` for the supervisor.
+and `resources`, so the tray finds no supervisor beside itself and takes its dev fallback — the
+repo's `engine/st0-supervisor/build` — and that supervisor finds the engine in
+`engine/st0-engine/build` the same way.
 
 So editing engine or supervisor code needs no rebuild of this app. Fast to produce, not
-distributable. Dev mode never
-rebuilds the engine either — it points at whatever is already in `engine/st0-engine/build`, which is
-what makes the loop fast.
+distributable. Dev mode builds neither — it points at whatever is already built, which is what
+makes the loop fast; `npm run dev` is what rebuilds them on save.
 
 The build number the tray displays is local wall-clock `YYYYMMDD.HHMM`, stamped into the
 binary via `build.rs` (`STUDIO_BUILD`), so it records when *this binary* was produced
@@ -160,11 +121,6 @@ That is the `.app` wrapper. Asking for it on Windows or Linux just builds the ex
 produces no `bundle/` directory at all — the debug executable *is* the dev artifact there, so
 `--dev` passes `--no-bundle` and collects it directly. A release build names its own targets
 instead: the NSIS installer on Windows, `.deb` + `.AppImage` on Linux.
-
-### Windows: use System32's `bsdtar` by path
-
-It reads `.zip`. A bare `tar` can resolve to Git Bash's GNU tar depending on `PATH` order,
-which does not.
 
 ### macOS: we build the `.dmg` ourselves
 
@@ -189,5 +145,5 @@ interactive GUI session. A dmg failure is deliberately non-fatal: the bundler bu
 
 ## Still repo-dependent
 
-The tray spawns the **supervisor** through the repo's `tsx` in a dev build, and a packaged app
-carries its own bundle — but the engine itself is still built from this checkout.
+A dev build runs the supervisor and the engine from this checkout's build directories; a packaged
+app carries its own copies of both.

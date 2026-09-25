@@ -143,9 +143,9 @@ is working on. It connects the way the supervisor does — on the DEFAULT sessio
 and asking about everyone — which is why `list-sessions` carries no session field at all. It asks
 everything the tray polls BEFORE listing, because that is the regression it guards: should reading
 ever CREATE again, those queries conjure a `""` session which then appears in the tray's own
-Sessions submenu, reported by the process that has just invented it. It imports `engineQueries` by
-relative path rather than as a subpath, since that module is internal to `@studio/engine-host` and
-its `exports` says so — widening a package's public surface for a probe is the wrong trade.
+Sessions submenu, reported by the process that has just invented it. It asks through
+`EngineControl`, the way `engine/st0-supervisor/src/EngineQueries.cpp` does: one question at a
+time, each waiting for its typed reply.
 
 ## When a session goes away
 

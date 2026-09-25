@@ -70,10 +70,10 @@ that is supposed to take it down:
    gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray lets a build
    start while the engine is still up.
 2. **An ADOPTED engine is in no job at all.** Job membership is inherited at creation, so an engine
-   started by an earlier tray and adopted by this one (`engineProcess.ts`: *"It is NOT ours — Stop
-   must leave it alone"*) belongs to the DEAD tray's job, and nothing takes it down. `devReload.ts`
-   makes that routine in dev: every edit under `packages/engine-host/src` restarts the supervisor
-   and has the engine adopted.
+   started by an earlier tray and adopted by this one (the supervisor's `EngineProcess.cpp`: an
+   adopted engine is not ours to stop) belongs to the DEAD tray's job, and nothing takes it down.
+   A supervisor restarted on its own — a crash, a rebuild — makes that routine: the engine it
+   started lives on and the new one adopts it.
 
 Either way the survivor keeps `st0-engine.exe` open for execute and the next relink cannot
 replace the image — silently, which is what makes it expensive. Every engine is stopped, whoever

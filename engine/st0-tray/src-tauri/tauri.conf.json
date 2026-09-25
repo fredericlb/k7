@@ -16,12 +16,8 @@
   "bundle": {
     "active": true,
     "targets": ["app"],
-    "externalBin": ["binaries/st0-engine", "binaries/node"],
-    "resources": [
-      "resources/engine-host.mjs",
-      "resources/faust-libs",
-      "resources/node_modules"
-    ],
+    "externalBin": ["binaries/st0-engine", "binaries/st0-supervisor"],
+    "resources": ["resources/faust-libs", "resources/onnxruntime"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -44,13 +44,13 @@ engine/st0-engine/               the C++ project (st0-engine)             — na
   CMakeLists.txt · CMakePresets.json · docs/design.md
   engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
   server/    app st0-engine          (WebSocket audio server, main.cpp)
-apps/st0-desktop/                the menu-bar view (spawns @studio/engine-host, the supervisor)
+engine/st0-supervisor/           the supervisor (C++): identity, registry, engine, tunnel, machine jobs
+engine/st0-tray/                 the menu-bar view (spawns st0-supervisor)
 apps/st0/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
   song/                    @studio/song            — song model + compiler + Strudel patterns
   commands/                @studio/commands        — shared command layer, file edits, timeline, mixing
   engine-client/           @studio/engine-client   — drives the engine over the WebSocket protocol
-  engine-host/             @studio/engine-host     — THE supervisor: identity, registry, engine + file-service processes
   engine-protocol/         @studio/engine-protocol — the JSON wire shapes shared with the C++ engine
   file-service/            @studio/file-service    — serves file ops + compiles projects for the browser
   ui-chains/               @studio/ui-chains       — routing-graph engine: dagre layout (drawn by the web app as DOM nodes + SVG cables)

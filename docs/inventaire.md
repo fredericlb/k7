@@ -50,8 +50,8 @@ without anyone seeing it.
 
 **Three method traps:**
 
-- **Extensions count.** `engine-host` writes `from "./addresses.ts"`. A search on `"…/addresses"`
-  misses it and declares five of its six subpaths dead — all of them live.
+- **Extensions count.** An import written `from "./addresses.ts"` escapes a search on
+  `"…/addresses"`, which then declares a live subpath dead.
 - **A specifier does not span two lines.** Too permissive a regex catches the word `from` in prose
   and invents dozens of phantom dependencies.
 - **A NUL byte makes a file INVISIBLE.** ripgrep classes any file containing one as binary and skips
@@ -75,8 +75,7 @@ without anyone seeing it.
 | `packages/song/src/dspRunner.mjs` | launched as a **child process** by `nodeProject.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
 | a library module's `jsdsp.ts` | MODULE DSPs, in the account's library repository rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import — so nothing here can see them and knip cannot either. |
 | `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
-| `packages/stem-separation/src/separateWorker.ts` | launched by `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
-| `packages/engine-host/src/cli.ts`, `packages/file-service/src/server.ts` | **esbuild entries** of `engine/st0-tray/scripts/build-engine.mjs`, which bundles them into the application. Zero imports is not zero callers. |
+| `packages/file-service/src/server.ts` | **spawned** by `packages/file-hub/instances.ts` through `tsx`, one process per account. Zero imports is not zero callers. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
 | `packages/dsp/src/emit.ts` | the package's `build` script (`tsx src/emit.ts`). A pass looking only at `bin` and esbuild entries declares it dead; **a `package.json` `scripts` entry is a caller.** |
 
@@ -94,10 +93,9 @@ The TypeScript version is the **executable specification** the C++ copies, and `
 the contract holding the two together — the same arrangement as `fileFingerprint` and its "MUST
 match" comment.
 
-### Two deep imports bypass the `exports` maps
+### A deep import bypasses the `exports` maps
 
-`engine/st0-engine/scripts/list-sessions.ts` → `packages/engine-host/src/engineQueries.ts`, and
-`engine/st0-engine/scripts/render-once.ts` → `packages/file-service/src/render.ts`. Both files look
+`engine/st0-engine/scripts/render-once.ts` → `packages/file-service/src/render.ts`. The file looks
 unreachable if you look only at `exports`.
 
 ### `commons/` is a submodule
@@ -114,14 +112,8 @@ The parent repo's `git ls-files` does not list it. `OIDC_ISSUER`, `GRIST_API_KEY
 relative import.
 
 Shrinking the map therefore deletes almost nothing: it documents the real surface. The widest
-publishers are `engine-host` (5 subpaths with no external consumer, out of 6) and `song` (5), then
-four tied at 3 — `engine-browser`, `player-web`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
+publisher is `song` (5), then four tied at 3 — `engine-browser`, `player-web`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
 reflex.
-
-`engine-host` is the case to look at: of its seven subpaths, only `/hostProtocol` has an external
-importer (st0's frontend). **Not to be confused with §0's trap**: that one is about internal
-imports written `from "./addresses.ts"`, extension included, and says those files are alive. They
-are — inside. The two findings coexist without contradiction.
 
 `ui-turntables` publishes **4** — `.`, `/surface`, `/engine`, `/deck-set`. Its other internal
 plumbing stays reachable by relative import inside the package.
@@ -289,8 +281,3 @@ that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the 
 > under "a deck's modules, in the document".
 >
 > The rule: **a test file does not die with its subject, its tests die one by one.**
-
-## 7. Generated, no effect
-
-`apps/st0-desktop/staging/{file-service,engine-host}.mjs` is a build artefact: it disappears
-at the next `stage.mjs`. The source of truth is `packages/engine-protocol/sessions.ts`.

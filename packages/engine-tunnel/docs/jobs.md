@@ -14,8 +14,9 @@ the same `id` as it has news, and the caller decides which one is the last (`req
 machine and **not awaited**: a separation takes minutes, and the next request on the channel must
 not wait behind it.
 
-What a machine does is registered by type (`TunnelAgentOptions.jobs`); the supervisor's list is
-`packages/engine-host/src/machineJobs.ts`. A type it does not know is refused by name.
+What a machine does is registered by type; the supervisor's list is
+`engine/st0-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
+agent the server's tests run on). A type it does not know is refused by name.
 
 ## The files travel as they do for the engine
 

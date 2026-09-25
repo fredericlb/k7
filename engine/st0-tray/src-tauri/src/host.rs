@@ -229,7 +229,7 @@ fn run_forever(app: AppHandle) {
     let Some(cmd) = hostcmd::resolve() else {
         // Not retried — resolution is static, so a second attempt fails identically. LOUD on purpose: a tray
         // supervising nothing looks exactly like a healthy one from the menu bar.
-        logbus::line("host", "supervisor not found (no bundle, no repo tsx)");
+        logbus::line("host", "supervisor not found (no bundled st0-supervisor, no repo build)");
         tray::set_host_error(&app, Some("supervisor not found".into()));
         return;
     };
@@ -240,22 +240,13 @@ fn run_forever(app: AppHandle) {
             "host",
             &format!("starting supervisor: {}", cmd.program.display()),
         );
-        let outcome = match launch(&app, &cmd) {
-            Ok(code) => code,
-            Err(e) => {
-                logbus::line("host", &format!("could not start supervisor: {e}"));
-                tray::set_host_error(&app, Some(format!("supervisor won't start: {e}")));
-                None
-            }
-        };
+        if let Err(e) = launch(&app, &cmd) {
+            logbus::line("host", &format!("could not start supervisor: {e}"));
+            tray::set_host_error(&app, Some(format!("supervisor won't start: {e}")));
+        }
         let link = app.state::<Arc<HostLink>>();
         if link.stopping.load(Ordering::SeqCst) {
             return; // we asked it to go
-        }
-        // A deliberate dev reload is not a failure: relaunch at once and leave the backoff where it was.
-        if outcome == Some(RELOAD_EXIT_CODE) {
-            tray::set_host_error(&app, Some("supervisor reloading…".into()));
-            continue;
         }
         // One that ran a while and died is a one-off; one that dies immediately is broken and would bury the log.
         // Reset the backoff only on the former.
@@ -268,11 +259,6 @@ fn run_forever(app: AppHandle) {
     }
 }
 
-/// The supervisor's "restart me now" exit code — it saw its own source change (dev only; mirrored from
-/// devReload.ts). It exists to keep the crash backoff out of the way: two quick edits would otherwise leave a
-/// dev waiting 4s, then 8s, for a relaunch that is recovering from nothing.
-const RELOAD_EXIT_CODE: i32 = 77;
-
 /// Run one supervisor to completion, blocking on its stdout until the pipe closes; returns its exit code.
 fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32>> {
     let mut command = Command::new(&cmd.program);
@@ -281,7 +267,7 @@ fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    // No console window: `node` is a console subprocess and the tray is windowless, so Windows would pop a terminal.
+    // No console window: the supervisor is a console program and the tray is windowless, so Windows would pop a terminal.
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -353,7 +339,6 @@ fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32
         .and_then(|mut c| c.wait().ok())
         .and_then(|s| s.code());
     match code {
-        Some(RELOAD_EXIT_CODE) => logbus::line("host", "supervisor reloading"),
         Some(c) => logbus::line("host", &format!("supervisor exited ({c})")),
         None => logbus::line("host", "supervisor exited"),
     }
