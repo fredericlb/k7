@@ -10,6 +10,7 @@ import {
   separateJob,
   startSeparate,
 } from "@studio/stem-separation/separateJobs";
+import { readLog } from "./machineLog.ts";
 import { syncJobs } from "./machineSync.ts";
 
 /** How often a running separation reports; a cut takes minutes, and every report crosses the network. */
@@ -47,9 +48,27 @@ const local: JobHandler = (req, emit) => {
   emit({ type: "local", raw: { path } });
 };
 
+/** The songs a set list names, already brought down by the channel before this runs — so this only says so. */
+const prefetch: JobHandler = (req, emit) => {
+  const files = Array.isArray(req.files) ? req.files.map(String) : [];
+  emit({
+    type: "prefetched",
+    count: files.filter((f) => existsSync(f)).length,
+  });
+};
+
+/** A slice of this machine's log; `raw`, because a log line naming a path must read as this machine wrote it. */
+const log: JobHandler = (req, emit) => {
+  const offset = typeof req.offset === "number" ? req.offset : undefined;
+  const tail = typeof req.tail === "number" ? req.tail : undefined;
+  emit({ type: "log", raw: readLog({ offset, tail }) });
+};
+
 /** Every job this machine answers, by request type. */
 export const machineJobs: Record<string, JobHandler> = {
   separate,
   local,
+  prefetch,
+  log,
   ...syncJobs,
 };

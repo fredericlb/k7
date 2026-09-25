@@ -26,8 +26,6 @@ const syncAdd = document.getElementById("sync-add");
 const syncError = document.getElementById("sync-error");
 const instanceList = document.getElementById("instances");
 const instancesEmpty = document.getElementById("instances-empty");
-const pendingBlock = document.getElementById("pending-block");
-const pendingList = document.getElementById("pending");
 const instanceForm = document.getElementById("instance-form");
 const instanceUrl = document.getElementById("instance-url");
 const instanceError = document.getElementById("instance-error");
@@ -309,21 +307,10 @@ function renderSystem(sys) {
           up && !sys.lastHeartbeatOk,
         )
       : fact("Registry", "none — see st0 instances"),
-    // A dead file service is not a detail of a running engine: no browser can reach a file.
-    fact(
-      "File service",
-      sys.fileServiceFailed
-        ? `not answering on :${sys.filePort}`
-        : up
-          ? `ok · :${sys.filePort}`
-          : "—",
-      sys.fileServiceFailed,
-    ),
   );
   adopted.hidden = !(up && !sys.ownsEngine);
   byId("engine-start").disabled = !sys.canStart;
-  for (const id of ["engine-stop", "engine-restart", "file-restart", "waveforms-clear"])
-    byId(id).disabled = !sys.canAct;
+  for (const id of ["engine-stop", "engine-restart"]) byId(id).disabled = !sys.canAct;
 }
 
 // --- the sync targets -------------------------------------------------------
@@ -399,7 +386,7 @@ function addTarget() {
 // --- the st0 instances ------------------------------------------------------
 
 /** What the user typed, reduced to an origin the way the supervisor will, or an error sentence. Checked here only
- *  to answer AT ONCE — the supervisor's normaliser is the gate (packages/engine-host/src/webOrigins.ts). */
+ *  to answer AT ONCE — the supervisor's normaliser is the gate (packages/engine-host/src/instanceUrl.ts). */
 function instanceOrigin(input) {
   const raw = input.trim();
   if (!raw) return { error: "type the address of a st0 instance" };
@@ -417,12 +404,7 @@ function instanceOrigin(input) {
 }
 
 function instanceDetail(i) {
-  const what =
-    i.registry && i.allowed
-      ? "listed in its picker · its pages may reach this machine"
-      : i.registry
-        ? "listed in its picker"
-        : "its pages may reach this machine · not listed in its picker";
+  const what = "listed in its picker";
   // Said rather than just missing a button: otherwise the row reads as one the window forgot to make removable.
   return i.removable ? what : `${what} · set by STUDIO_REGISTRY_URL`;
 }
@@ -445,25 +427,6 @@ function buildInstance(i) {
   return node;
 }
 
-/** One origin the file service refused: allow it, or dismiss it so the question stops being asked. */
-function buildPending(origin) {
-  const node = document.createElement("li");
-  node.innerHTML = '<div class="row"><span class="body"><span class="name"></span></span></div>';
-  node.querySelector(".name").textContent = origin;
-  for (const [label, cmd] of [
-    ["Allow", "instance_allow"],
-    ["Ignore", "instance_deny"],
-  ]) {
-    const b = document.createElement("button");
-    b.className = "forget";
-    b.type = "button";
-    b.textContent = label;
-    b.addEventListener("click", () => api?.core.invoke(cmd, { origin }));
-    node.querySelector(".row").append(b);
-  }
-  return node;
-}
-
 /** The form's one line: a local mistake, else what the supervisor said about the last add. */
 function paintInstanceError() {
   const checking = instanceCheck?.state === "checking";
@@ -481,15 +444,13 @@ function paintInstanceError() {
   instanceAdd.disabled = checking;
 }
 
-function renderInstances(rows, pending, check) {
+function renderInstances(rows, check) {
   instances = rows;
   instanceCheck = check;
   paintInstanceError();
   instanceList.replaceChildren(...rows.map(buildInstance));
   instancesEmpty.hidden = rows.length > 0;
   instancesEmpty.textContent = "Not connected to any st0 instance.";
-  pendingList.replaceChildren(...pending.map(buildPending));
-  pendingBlock.hidden = pending.length === 0;
 }
 
 function addInstance(e) {
@@ -514,7 +475,7 @@ function render(view) {
   renderPlugins();
   renderSessions(view.sessions, view.orphanPlugins);
   renderSync(view.syncTargets);
-  renderInstances(view.instances, view.pending, view.instanceCheck);
+  renderInstances(view.instances, view.instanceCheck);
   renderSystem(view.system);
 }
 
@@ -534,8 +495,6 @@ for (const [id, cmd] of [
   ["engine-start", "engine_start"],
   ["engine-stop", "engine_stop"],
   ["engine-restart", "engine_restart"],
-  ["file-restart", "file_service_restart"],
-  ["waveforms-clear", "waveforms_clear"],
 ])
   byId(id).addEventListener("click", () => api?.core.invoke(cmd));
 

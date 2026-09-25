@@ -299,7 +299,7 @@ playlist: ete-2026
 Two consequences, and the second is the one that matters:
 
 - the desk searches the evening's twelve songs rather than the volume's 279;
-- the machine that plays **pulls those songs onto its disk in advance** (`mediatekPull`), because
+- the machine that plays **pulls those songs onto its disk in advance** (`mediatekPrefetch`), because
   the engine opens file paths and the venue has no wifi.
 
 That is also what gives this screen its stakes: the playlist filled in here is the one that gets

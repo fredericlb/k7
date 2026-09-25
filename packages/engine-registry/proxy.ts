@@ -4,7 +4,6 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
-import { request as httpRequest } from "node:http";
 import type { Socket } from "node:net";
 import type { TunnelChannel } from "@studio/engine-tunnel/channel";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
@@ -12,7 +11,6 @@ import {
   ENGINE_DIAL_TIMEOUT_MS,
   ENGINE_REACH_BUDGET_MS,
 } from "@studio/web-protocol";
-import type { RequestHandler } from "express";
 import { WebSocket, WebSocketServer } from "ws";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
 
@@ -205,7 +203,7 @@ export function attachEngineProxy(
   });
 }
 
-/** What a body parser in FRONT of this route already swallowed, ready to send again, or null when the stream is still ours — see docs/proxy.md. */
+/** What a body parser in FRONT of a relaying route already swallowed, ready to send again, or null when the stream is still ours — the file hub's. */
 export function replayBody(req: {
   readableEnded: boolean;
   body?: unknown;
@@ -216,72 +214,4 @@ export function replayBody(req: {
   if (Buffer.isBuffer(b)) return b;
   if (typeof b === "string") return Buffer.from(b);
   return Buffer.from(JSON.stringify(b));
-}
-
-/** Relay `/api/engine/<id>/files/*` to the engine machine's file service — an ordinary route, so the session middleware gates it and it needs no ticket. */
-export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
-  return (req, res) => {
-    const engine = reg.get(String(req.params.id));
-    if (!engine) return void res.status(404).json({ error: "unknown engine" });
-    // Express strips the mount path; `req.url` is what remains, which is the file service's own.
-    const path = req.url.startsWith("/") ? req.url : `/${req.url}`;
-    const hosts = hostsFor(engine);
-    const body = replayBody(req);
-
-    const attempt = (i: number): void => {
-      const host = hosts[i];
-      if (!host)
-        return void res
-          .status(502)
-          .json({ error: "engine file service unreachable from the server" });
-      const headers: Record<string, string | string[]> = {
-        ...(req.headers as Record<string, string | string[]>),
-        host: `${host}:${engine.addresses.filePort}`,
-      };
-      // `host` came from an ENGINE on the open heartbeat route, so the browser's session credentials must not travel to it.
-      delete headers.cookie;
-      delete headers.authorization;
-      if (body) {
-        // Re-serialized bytes are not the bytes we were sent, so the original length is a lie, and a chunked encoding beside it a second.
-        headers["content-length"] = String(body.length);
-        delete headers["transfer-encoding"];
-      }
-      const up = httpRequest(
-        {
-          host,
-          port: engine.addresses.filePort,
-          path,
-          method: req.method,
-          headers,
-          timeout: ENGINE_DIAL_TIMEOUT_MS,
-        },
-        (upRes) => {
-          // Belt and braces: the timer is dropped on connect below, and again here, since a keep-alive reuse never fires `connect`.
-          up.setTimeout(0);
-          res.status(upRes.statusCode ?? 502);
-          for (const [k, v] of Object.entries(upRes.headers))
-            if (v !== undefined && k.toLowerCase() !== "transfer-encoding")
-              res.setHeader(k, v as string | string[]);
-          upRes.pipe(res);
-        },
-      );
-      /** Drop the timer the moment the socket is UP, not when the answer starts; a connected socket gets no bound — see docs/proxy.md. */
-      up.on("socket", (s) => {
-        if (s.connecting) s.once("connect", () => up.setTimeout(0));
-        else up.setTimeout(0); // a pooled socket is already open — nothing to dial
-      });
-      // Only a host that never answered is worth retrying: a committed response would be written twice, and a piped body is spent.
-      up.on("error", () => {
-        if (res.headersSent) return void res.end();
-        if (body || !req.readableEnded) return attempt(i + 1);
-        res
-          .status(502)
-          .json({ error: "engine file service unreachable from the server" });
-      });
-      up.on("timeout", () => up.destroy());
-      if (body) up.end(body);
-      else req.pipe(up);
-    };
-    attempt(0);
-  };
 }

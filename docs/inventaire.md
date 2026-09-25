@@ -118,8 +118,8 @@ publishers are `engine-host` (5 subpaths with no external consumer, out of 6) an
 four tied at 3 — `engine-browser`, `player-web`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
 reflex.
 
-`engine-host` is the case to look at: of its six subpaths, only `/webOrigins` has an external
-importer (`file-service`, twice). **Not to be confused with §0's trap**: that one is about internal
+`engine-host` is the case to look at: of its seven subpaths, only `/hostProtocol` has an external
+importer (st0's frontend). **Not to be confused with §0's trap**: that one is about internal
 imports written `from "./addresses.ts"`, extension included, and says those files are alive. They
 are — inside. The two findings coexist without contradiction.
 

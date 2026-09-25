@@ -9,8 +9,6 @@ import type { SyncTarget } from "@studio/song-schema/syncTarget";
 export interface HostOwnership {
   /** Spawning, adopting, stopping and crash-watching the C++ engine. */
   engine: boolean;
-  /** Spawning, stopping and watching the engine-side file service. */
-  fileService: boolean;
   /** Device/plugin/edit-plugin queries over the engine WebSocket, and audio policy. */
   engineQueries: boolean;
 }
@@ -64,14 +62,10 @@ export interface HostSession {
   listeners: number;
 }
 
-/** One st0 instance this engine is connected to, for the tray's "st0 instances" tab: the union of the registries it heartbeats to and the web origins it lets through. */
+/** One st0 instance this engine is connected to, for the tray's "st0 instances" tab: a registry it heartbeats to, and holds a tunnel with. */
 export interface HostInstance {
-  /** The origin, or the registry URL as configured when it is not a bare origin. */
+  /** The instance's origin, or the registry URL as configured when it is not a bare origin. */
   url: string;
-  /** This engine heartbeats here, so it shows in that instance's picker. */
-  registry: boolean;
-  /** In `web-origins.json`: that instance's pages may reach the file service. */
-  allowed: boolean;
   /** False for a registry that came from `$STUDIO_REGISTRY_URL` rather than from the user — nothing here can un-set it. */
   removable: boolean;
 }
@@ -89,7 +83,6 @@ export interface HostInstanceCheck {
 export interface HostPaths {
   root: string;
   mergedLog: string;
-  webOrigins: string;
 }
 
 /** The whole of what the tray draws, in one object, emitted only when its serialisation CHANGES — see docs/hostProtocol.md. */
@@ -108,12 +101,6 @@ export interface HostSnapshot {
   /** The engine's auth token, present ONLY while `owns.engine` is false, because the tray still spawns the engine at that stage. */
   engineToken?: string;
   enginePort: number;
-  filePort: number;
-
-  // --- file service ---------------------------------------------------------
-
-  /** Nothing is answering the file port while we expect it to be — the red icon and the "⚠ file service down" suffix. */
-  fileServiceFailed: boolean;
 
   // --- registry -------------------------------------------------------------
   registryUrl: string;
@@ -146,16 +133,11 @@ export interface HostSnapshot {
   /** Where this machine may COPY a set list, as `preferences.yaml` declares them — packages/engine-host/docs/playlistSync.md. */
   syncTargets: SyncTarget[];
 
-  // --- web UI allowlist -----------------------------------------------------
+  // --- st0 instances --------------------------------------------------------
   /** The st0 instances this engine is connected to — empty on a fresh machine, which assumes none. */
   instances: HostInstance[];
   /** An add in flight or just refused; null once one succeeds. */
   instanceCheck: HostInstanceCheck | null;
-  webOrigins: string[];
-  /** Origins the file service refused, offered for one-click approval. */
-  webPending: string[];
-  /** Something in the menu needs the user (today: a refused web UI). The icon's dot. */
-  attention: boolean;
 
   paths: HostPaths;
 }
@@ -174,7 +156,6 @@ export type HostCommandName =
   | "engine.start"
   | "engine.stop"
   | "engine.restart"
-  | "fileService.restart"
   | "plugins.rescan"
   | "audio.priority"
   | "sync.targets"
@@ -182,9 +163,6 @@ export type HostCommandName =
   | "session.drop"
   | "weburi.add"
   | "weburi.remove"
-  | "weburi.allow"
-  | "weburi.deny"
-  | "waveforms.clear"
   | "registry.deregister"
   | "shutdown";
 

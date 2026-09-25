@@ -38,10 +38,8 @@ Everything needed to run with no repo and nothing on `PATH`:
 | staged as | what |
 |---|---|
 | `externalBin` sidecar | `st0-engine` — the audio engine |
-| `externalBin` sidecar | `node` — runs the bundled JS processes |
-| resource | the file service, bundled to one `.mjs` |
+| `externalBin` sidecar | `node` — runs the supervisor |
 | resource | the supervisor, bundled to one `.mjs` |
-| resource | the demo songs |
 
 Tauri copies `externalBin` into the bundle beside the tray executable
 (`Contents/MacOS/st0-engine` on macOS), which is what makes the `.app` self-contained
@@ -49,11 +47,8 @@ Tauri copies `externalBin` into the bundle beside the tray executable
 as `<name>-<triple>` **plus** the platform's executable extension, so on Windows the
 `.exe`-suffixed file is the one it looks for and bundles.
 
-The demo songs matter for the same reason: a new workspace is seeded from them (see
-`packages/file-service/src/demos.ts`), and a double-clicked `.app` has no repo to copy them out of.
-They are the repo's `demos/`, staged under the name `resources/songs` — the two spellings are
-not interchangeable: `demos/` is where `demosDir()` finds them in a checkout, and
-`resources/songs` is the one `packages/engine-host/src/bundle.ts` probes in a bundle.
+No file service and no demo songs are in it: workspaces live on the server
+(`packages/file-hub/docs/fileHub.md`), and what the machine needs of them the tunnel brings down.
 Without them every new workspace on an installed app opens empty. They are replaced
 wholesale each build, so a demo deleted from the repo does not linger in the app, and the
 per-machine junk a working checkout accumulates (caches, VCS, deps) is filtered out.
@@ -66,7 +61,7 @@ machine. A Homebrew `node` is a small shim that links Homebrew dylibs under
 are self-contained. It stays on the repo's Node 22 line (`.nvmrc`).
 
 The archive is **checksummed before it is trusted**. This binary is what runs
-`engine-host.mjs` and `file-service.mjs` inside the signed app, so a substituted archive is
+`engine-host.mjs` inside the signed app, so a substituted archive is
 arbitrary code shipped under our signature. `verifyNodeArchive` is what compares it. The C++
 side pins its ASIO SDK by digest (`engine/st0-engine/CMakeLists.txt`); this is the same rule for
 the other downloaded dependency.
@@ -139,13 +134,11 @@ plain `cargo check` / `tauri dev` workflow.
 ### `--dev`
 
 Builds a **debug tray app that carries nothing**: the config override empties `externalBin`
-and `resources`, so the Rust finds no bundled engine, node or file service beside itself
-and takes its dev fallbacks — the repo's `engine/st0-engine/build` for the engine, and `tsx` for the
-file service. With no bundled file service the tray does not run one at all: it is started
-separately with hot-reload by `npm run dev` (see `fileservice.rs`).
+and `resources`, so the Rust finds no bundled engine or node beside itself and takes its dev
+fallbacks — the repo's `engine/st0-engine/build` for the engine, and `tsx` for the supervisor.
 
-So editing engine or file-service code needs no rebuild of this app. Only `engine:build`
-bundles and runs the file service. Fast to produce, not distributable. Dev mode never
+So editing engine or supervisor code needs no rebuild of this app. Fast to produce, not
+distributable. Dev mode never
 rebuilds the engine either — it points at whatever is already in `engine/st0-engine/build`, which is
 what makes the loop fast.
 
@@ -196,6 +189,5 @@ interactive GUI session. A dmg failure is deliberately non-fatal: the bundler bu
 
 ## Still repo-dependent
 
-The tray spawns the **file service** through the repo's `tsx` in a dev build, and a
-packaged app carries its own bundle — but the engine itself is still built from this
-checkout. Bundling a Node runtime for every platform is a separate, deferred step.
+The tray spawns the **supervisor** through the repo's `tsx` in a dev build, and a packaged app
+carries its own bundle — but the engine itself is still built from this checkout.

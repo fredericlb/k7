@@ -13,7 +13,6 @@
     "./settings": "./src/settings.ts",
     "./hostProtocol": "./src/hostProtocol.ts",
     "./supervisor": "./src/supervisor.ts",
-    "./webOrigins": "./src/webOrigins.ts",
     "./audioPolicy": "./src/audioPolicy.ts",
     "./logbus": "./src/logbus.ts"
   },

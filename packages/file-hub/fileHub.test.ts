@@ -23,8 +23,9 @@ createServer((req, res) => {
     if (req.url === "/hub/engine") engine = JSON.parse(body).url;
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ url: req.url, headers: req.headers, body, engine,
-      home: process.env.STUDIO_HOME, hosted: process.env.STUDIO_FILE_HOSTED,
-      secret: process.env.STUDIO_HUB_SECRET }));
+      home: process.env.STUDIO_HOME,
+      secret: process.env.STUDIO_HUB_SECRET,
+      mediatek: [process.env.MEDIATEK_URL, process.env.MEDIATEK_TOKEN] }));
   });
 }).listen(Number(process.env.STUDIO_FILE_PORT), "127.0.0.1");
 `;
@@ -35,8 +36,8 @@ interface Echo {
   body: string;
   engine: string | null;
   home: string;
-  hosted: string;
   secret: string;
+  mediatek: [string, string];
 }
 
 describe("the file hub", () => {
@@ -59,6 +60,10 @@ describe("the file hub", () => {
     hub = new FileHub({
       dataRoot: join(dir, "data"),
       mediatekRoot: "/library",
+      mediatekLink: (user) => ({
+        url: "http://pl8",
+        token: `token-of-${user}`,
+      }),
       command: () => ({ cmd: process.execPath, args: [fake], cwd: dir }),
       userOf: (req) => String(req.headers["x-test-session"] ?? ""),
       registry: {
@@ -122,7 +127,6 @@ describe("the file hub", () => {
     expect(echo.url).toBe("/workspaces?x=1");
     expect(echo.headers["x-studio-user"]).toBe("fred@example.com");
     expect(echo.headers["x-studio-hub-secret"]).toBe(echo.secret);
-    expect(echo.hosted).toBe("1");
   });
 
   it("replays a JSON body a parser in front already consumed", async () => {
@@ -143,6 +147,11 @@ describe("the file hub", () => {
     expect(b.secret).not.toBe(a.secret);
     expect(a.home).not.toBe(b.home);
     expect(a.home).toMatch(/a_example_com-[0-9a-f]{10}$/);
+  });
+
+  it("hands each account's service a pl8 bearer of its own", async () => {
+    const a = (await call("/x", { session: "a@example.com" })).echo;
+    expect(a.mediatek).toEqual(["http://pl8", "token-of-a@example.com"]);
   });
 
   it("keeps apart two emails that slug alike", async () => {

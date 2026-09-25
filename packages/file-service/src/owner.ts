@@ -1,15 +1,14 @@
-// owner.ts — who may reach the WORKSPACES this process serves. Only the server holds workspaces:
-// a hosted process is one account's, recorded on disk so nothing but that account ever passes;
-// an engine's machine is shared by every account that plays on it, holds none, and refuses the
-// routes outright. Recorded beside the root, never in it, since an absent root is what seeds a
-// new account's Examples. See docs/owner.md.
+// owner.ts — the ONE account this file service's workspaces belong to. The hub runs one process
+// per account; the first account to reach it is recorded on disk, and no other ever passes, so a
+// mistake upstream fails closed rather than handing one account's workspaces to another. Recorded
+// beside the root, never in it, since an absent root is what seeds a new account's Examples.
+// See docs/owner.md.
 
 import { closeSync, openSync, readFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { studioDir } from "@studio/engine-client/paths";
 import type { RequestHandler } from "express";
 import { noteOwner } from "./engineLink.ts";
-import { HOSTED } from "./hosted.ts";
 
 /** `<state>/owner.json` — `{ "owner": "<email>" }`. */
 export function ownerPath(): string {
@@ -59,20 +58,10 @@ export const requireRootOwner: RequestHandler = (req, res, next) => {
   next();
 };
 
-/** An engine's machine holds no workspace: it plays copies of the server's, for whoever holds its claim. */
-export const noWorkspacesHere: RequestHandler = (_req, res) => {
-  res.status(404).json({
-    error: "workspaces live on the server — this is an engine's machine",
-    hint: "the server hosts them when $STUDIO_FILES_ROOT is set (packages/file-hub/docs/fileHub.md)",
-  });
-};
+/** What stands in front of every workspace- and account-shaped route. */
+export const workspaceGate: RequestHandler = requireRootOwner;
 
-/** What stands in front of every workspace- and account-shaped route, by where this process runs. */
-export const workspaceGate: RequestHandler = HOSTED
-  ? requireRootOwner
-  : noWorkspacesHere;
-
-/** At boot, hosted: the session is the recorded owner's before any request names anyone. */
+/** At boot: the session is the recorded owner's before any request names anyone. */
 export function adoptRecordedOwner(): void {
   const owner = rootOwner();
   if (owner) noteOwner(owner);

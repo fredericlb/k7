@@ -21,7 +21,6 @@ import { NEEDS_META } from "@studio/take-render/render";
 import express, { Router } from "express";
 import { z } from "zod";
 import { guard } from "../background.ts";
-import { startModelDownload } from "../modelDownloads.ts";
 import {
   applyClientProject,
   enginePreview,
@@ -39,7 +38,8 @@ import {
   webGitEnv,
 } from "../engineLink.ts";
 import { commitLibraries, ensureLibraries } from "../libraries.ts";
-import { readLog } from "../logs.ts";
+import { boundMachineLog } from "../machineLog.ts";
+import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import {
   preferences,
@@ -917,17 +917,17 @@ filesRouter.post(
     res.json({ ok: true, removed });
   }),
 );
-// The merged log for the Logs panel: `?tail=N` seeds, `?offset=X` continues. Machine-global, not per workspace.
+// The bound engine machine's log for the Logs panel: `?tail=N` seeds, `?offset=X` continues.
 filesRouter.get(
   "/logs",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const rawOffset = Number(req.query.offset);
     const offset =
       req.query.offset != null && Number.isFinite(rawOffset)
         ? rawOffset
         : undefined;
     const tail = Math.max(1, Math.min(2000, Number(req.query.tail) || 300));
-    res.json(readLog({ offset, tail }));
+    res.json(await boundMachineLog({ offset, tail }));
   }),
 );
 filesRouter.get(

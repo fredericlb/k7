@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // `$STUDIO_HOME` is the seam, and the documented one: every reader of the state dir
 // honours it, so the road under test is the road that runs.
-const { mediatekUrlFor, probeRegistry, resolveRegistryUrls, setRegistryFetch } =
-  await import("./registryClient.ts");
+const { probeRegistry, resolveRegistryUrls, setRegistryFetch } = await import(
+  "./registryClient.ts"
+);
 
 // ONE registry per studio family, pl8's: st0 lists its engines from there, so an engine heartbeats nowhere else.
 
@@ -71,34 +72,6 @@ describe("where an engine announces itself", () => {
         "not a url",
       ]),
     ).toEqual(["https://play.st0.app", "http://localhost:8795"]);
-  });
-});
-
-describe("which médiathèque this machine caches", () => {
-  it("is pl8's own subdomain, off the registry's origin", () => {
-    // Never configured; the registry URL's own path is DROPPED and pl8's label put on instead, whichever of the two shapes it arrived in.
-    expect(mediatekUrlFor(["https://studio.frediver.se"])).toBe(
-      "https://play.studio.frediver.se",
-    );
-    expect(mediatekUrlFor(["https://st0.priv.frediver.se/pl8"])).toBe(
-      "https://play.st0.priv.frediver.se",
-    );
-  });
-
-  it("takes the first registry that is a URL at all", () => {
-    // A pinned list is hand-editable and can hold junk; a machine pinned to several studios caches from the one it announces to first.
-    expect(
-      mediatekUrlFor([
-        "not a url",
-        "https://b.example/m9",
-        "https://c.example",
-      ]),
-    ).toBe("https://play.b.example");
-  });
-
-  it("answers nothing when nothing resolves, rather than guessing", () => {
-    // The local folder is then a cache of nothing, which is a working state.
-    expect(mediatekUrlFor([])).toBeNull();
   });
 });
 

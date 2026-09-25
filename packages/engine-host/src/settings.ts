@@ -17,59 +17,14 @@ export interface Settings {
   registryUrls: string[];
   /** The engine's WebSocket port. */
   port: number;
-  /** The engine-side file service's HTTP port. */
-  filePort: number;
   /** The interfaces in the user's own order, best first: the first one PRESENT is where the engine goes. Absent names keep their rank, so replugging restores it. */
   audioPriority: string[];
-  /** The media library's root, null meaning `~/.st0/mediatek`; hand-edited like the ports, and passed down as $STUDIO_MEDIATEK. */
-  mediatekDir: string | null;
-  /** The token this machine syncs its cache with, since a headless service has no cookie jar; the library's URL is derived, not stored. */
-  mediatekToken: string | null;
-  /**
-   * The desktop app's own HTTP port — where it serves st0 and proxies what needs a server.
-   * FIXED and persisted rather than ephemeral, and each reason is a bug you would meet: the
-   * file service captures its CORS allowlist at SPAWN, `advertiseRegistry` writes a URL other
-   * processes read, a second device has the address bookmarked, and a service worker's scope
-   * is per-origin. See apps/st0-desktop/docs/server.md.
-   */
-  webPort: number;
-  /**
-   * Who this machine's workspaces belong to. Offline there is no OIDC to ask, and the file
-   * service keys `~/.st0/root/<slug>` on an email — so one is REMEMBERED rather than
-   * derived afresh, or a project would move house whenever the answer changed.
-   * See apps/st0-desktop/docs/identity.md.
-   */
-  identity: string | null;
-  /**
-   * The libraries repository, for a machine with NO server to hold it. pl8 owns the account's
-   * pointer and wins whenever it can be asked; this is the fallback so shared modules work
-   * offline — see apps/st0-desktop/docs/pl8Shim.md.
-   */
-  librariesUri: string | null;
-  /** The studio server this machine is paired with, or null for a machine on its own. */
-  serverUrl: string | null;
-  /**
-   * The bearer that stands in for a session against that server. The desktop page holds NO
-   * cookie for it — the proxy attaches this, and only for a loopback caller. That is what
-   * keeps the whole third-party-cookie and ITP class of problem out of the app.
-   */
-  serverToken: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   registryUrls: [],
   port: 8765,
-  filePort: 8770,
   audioPriority: [],
-  mediatekDir: null,
-  mediatekToken: null,
-  librariesUri: null,
-  // Free against 8765/8770 (engine, file service), 8789/8795/8787/8080 (the hosted backends),
-  // 5223 (vite) and 10350 (Tilt).
-  webPort: 8780,
-  identity: null,
-  serverUrl: null,
-  serverToken: null,
 };
 
 // A hand-edited file is normal here, so each field is validated alone: one bad key must not lose the other four.
@@ -121,15 +76,7 @@ export function loadSettings(): Settings {
   return {
     registryUrls: urls(raw),
     port: port(raw.port, DEFAULT_SETTINGS.port),
-    filePort: port(raw.filePort, DEFAULT_SETTINGS.filePort),
     audioPriority: priority(raw),
-    mediatekDir: str(raw.mediatekDir),
-    mediatekToken: str(raw.mediatekToken),
-    librariesUri: str(raw.librariesUri),
-    webPort: port(raw.webPort, DEFAULT_SETTINGS.webPort),
-    identity: str(raw.identity),
-    serverUrl: str(raw.serverUrl),
-    serverToken: str(raw.serverToken),
   };
 }
 

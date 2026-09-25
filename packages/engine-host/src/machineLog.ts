@@ -1,15 +1,13 @@
-// logs.ts — serve the tray's merged engine + file-service log (~/.st0/.studio.log)
-// to the web UI's Logs panel: seed with a tail, then poll by byte offset. Falls back to
-// the CLI's engine-only log when there's no tray, and to nothing when there's neither.
+// machineLog.ts — this machine's merged log (~/.st0/.studio.log) for the web UI's Logs panel,
+// asked by the server over the jobs channel: seed with a tail, then poll by byte offset. Falls
+// back to the CLI's engine-only log when there's no tray, and to nothing when there's neither.
 
 import { readFileSync, statSync } from "node:fs";
 import { engineLogPath, mergedLogPath } from "@studio/engine-client/paths";
 
-// Merged first, then the CLI's engine-only log; both names come from the contract module.
-const CANDIDATES = [mergedLogPath(), engineLogPath()];
-
+// Merged first, then the CLI's engine-only log; asked at each read, since `$STUDIO_HOME` may move.
 function logFile(): string | null {
-  for (const p of CANDIDATES) {
+  for (const p of [mergedLogPath(), engineLogPath()]) {
     try {
       if (statSync(p).isFile()) return p;
     } catch {

@@ -25,10 +25,16 @@ export function mountFileHub(
   requireAuth: RequestHandler,
   port: number,
   dataRoot: string,
+  issueApiToken: (sub: string) => string,
 ): FileHub {
   const hub = new FileHub({
     dataRoot,
     mediatekRoot: mediatekDir(),
+    // Each account's service calls THIS process back over loopback, as that account.
+    mediatekLink: (user) => ({
+      url: `http://127.0.0.1:${port}`,
+      token: issueApiToken(user),
+    }),
     registry: engine.registry,
     tunnels: engine.tunnels,
     selfPort: () => port,

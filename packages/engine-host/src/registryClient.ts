@@ -8,8 +8,6 @@ import {
   engineRegistryUrl,
   REGISTRY_HELLO_PATH,
   REGISTRY_SERVICE,
-  serviceUrl,
-  studioOrigin,
 } from "@studio/web-protocol/services";
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
@@ -29,15 +27,6 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
   const env = process.env.STUDIO_REGISTRY_URL;
   if (env) return asRegistries(env.split(","));
   return [];
-}
-
-/** The hosted médiathèque this machine caches, DERIVED from the registry origins rather than configured — see docs/supervisorPolicy.md. */
-export function mediatekUrlFor(registryUrls: string[]): string | null {
-  for (const u of registryUrls) {
-    const origin = studioOrigin(u);
-    if (origin) return serviceUrl(origin, "pl8");
-  }
-  return null; // nothing resolvable — the local folder is then a cache of nothing, which works
 }
 
 export interface HeartbeatBody extends EnginePresence {

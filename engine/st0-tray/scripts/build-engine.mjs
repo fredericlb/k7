@@ -160,29 +160,6 @@ function vendorNode() {
   return cached;
 }
 
-// The repo's demos/ into the app's resources, replaced wholesale (docs/buildEngine.md).
-function stageDemos(destDir) {
-  const src = join(repo, "demos");
-  if (!existsSync(src)) {
-    console.error(`error: no demo songs at ${src}.`);
-    process.exit(1);
-  }
-  rmSync(destDir, { recursive: true, force: true });
-  cpSync(src, destDir, {
-    recursive: true,
-    filter: (p) => {
-      const base = basename(p);
-      return (
-        base !== "node_modules" &&
-        base !== ".git" &&
-        !base.startsWith(".studio-")
-      );
-    },
-  });
-  const names = readdirSync(destDir).filter((n) => !n.startsWith("."));
-  console.log(`  ${names.length} demo(s): ${names.join(", ")}`);
-}
-
 /** The Faust standard libraries out of the engine's build tree, newest preset winning (docs/buildEngine.md). */
 function stageFaustLibs(destDir) {
   const build = join(engineDir, "build");
@@ -457,13 +434,7 @@ console.log("\n=== sidecars ===");
 stage(engineBin, "st0-engine");
 stage(vendorNode(), "node");
 
-// The two Node processes the app ships, built in --sidecar-only too (docs/buildEngine.md).
-console.log("\n=== file service bundle ===");
-await bundleTs(
-  join(repo, "packages", "file-service", "src", "server.ts"),
-  join(trayDir, "src-tauri", "resources", "file-service.mjs"),
-);
-
+// The one Node process the app ships — the supervisor; the file service runs on the server, not here.
 console.log("\n=== supervisor bundle ===");
 await bundleTs(
   join(repo, "packages", "engine-host", "src", "main.ts"),
@@ -476,10 +447,16 @@ const resourceModules = join(trayDir, "src-tauri", "resources", "node_modules");
 mkdirSync(resourceModules, { recursive: true });
 stageNodeModule("onnxruntime-node", resourceModules, pruneOtherPlatforms);
 stageNodeModule("onnxruntime-common", resourceModules);
-
-// The demo songs. A new workspace is seeded from these, and an installed .app has no repo to copy them from.
-console.log("\n=== demo songs ===");
-stageDemos(join(trayDir, "src-tauri", "resources", "songs"));
+// OPTIONAL, as the package is: without it the supervisor declines WebRTC and the relay remains.
+if (existsSync(join(repo, "node_modules", "node-datachannel"))) {
+  stageNodeModule("node-datachannel", resourceModules);
+  const platformPkg = `@node-datachannel/${process.platform}-${process.arch}${process.platform === "win32" ? "-msvc" : process.platform === "linux" ? "-gnu" : ""}`;
+  if (existsSync(join(repo, "node_modules", platformPkg)))
+    stageNodeModule(platformPkg, resourceModules);
+} else
+  console.warn(
+    "  node-datachannel not installed — the packaged supervisor will offer no WebRTC path",
+  );
 
 // The Faust standard libraries, which the engine resolves at RUNTIME — fatal when missing (docs/buildEngine.md).
 console.log("\n=== faust libraries ===");

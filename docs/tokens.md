@@ -30,35 +30,31 @@ issuing service, the identity the callee will see, and where the caller reads it
 
 | link | signed with | `sub` | written to |
 |---|---|---|---|
-| st0 → pl8 | `pl8-backend.API_TOKEN_SECRET` | `service:st0` | `<state>/engine-host.json` (`mediatekToken`) |
-| k7 → pl8 | the same secret | `service:k7` | `env.yaml` (`k7-backend.MEDIATEK_TOKEN`) |
+| k7 → pl8 | `pl8-backend.API_TOKEN_SECRET` | `service:k7` | `env.yaml` (`k7-backend.MEDIATEK_TOKEN`) |
 
 The env section is `pl8-backend`, and that spelling matters: a section name `env.yaml` does not
 recognise falls back to `common` alone, silently, so a wrong one produces a configuration that
-looks like it worked. (`MEDIATEK_TOKEN` and `mediatekToken` keep their names on purpose — they
-name the médiathèque, the concept, which is what pl8 serves.)
+looks like it worked. (`MEDIATEK_TOKEN` keeps its name on purpose — it names the médiathèque, the
+concept, which is what pl8 serves.)
 
-One secret, because one service verifies both — and a `sub` each, so the library's log says
-which service wrote. A third caller is one more row.
+One secret per verifying service, and a `sub` per caller, so the library's log says which service
+wrote. A second caller is one more row.
+
+The file service needs no row: pl8 starts it, and mints its bearer for the account it serves at
+that moment (`packages/file-service/docs/mediatekLink.md`).
 
 **The secret is generated on first run** when the service has none. Left unset, the médiathèque
 falls back to `${SESSION_SECRET}:pl8` — which works, and is exactly what nobody should rely
-on: rotating the session secret would then log everyone out *and* revoke every machine's sync in
-one move. Restart the pl8 backend after a secret is written; a token signed with the new
+on: rotating the session secret would then log everyone out *and* revoke every token in one
+move. Restart the pl8 backend after a secret is written; a token signed with the new
 one is refused by a process still holding the old.
-
-**The token goes to the tray settings, not to `env.yaml`,** because its consumer is the file
-service — spawned by the supervisor beside the engine — and that credential belongs to a
-machine, not to a deployment. `env.yaml` is committed-adjacent and per checkout; the two are
-different scopes and the script writes to both accordingly.
 
 **`devUrl` is the one URL anything here writes,** and only into a checkout. A service sits at
 a FIXED path under one origin, which is what every caller defaults to — but in a checkout that
 origin goes out to the LAN proxy and straight back for nothing, so a server-to-server hop takes the
 loopback port instead and the script writes it so nobody types a URL. It is written only when the
 file has none and is **never** overwritten: a checkout pointed somewhere deliberate is a checkout
-somebody set up on purpose. The st0 → pl8 link needs none, since the file service derives its URL
-from the registries the supervisor already announces to.
+somebody set up on purpose.
 
 **A token that still verifies is left alone.** Re-minting one has a real cost: every machine
 holding the old one keeps it and they all keep working, so a "refresh" that changes nothing
@@ -68,7 +64,7 @@ secret voids every old token whether or not it verified.
 The token scheme is duplicated byte for byte from `commons/packages/oidc/apiToken.ts` rather
 than imported: this is a plain node script with no TypeScript loader, and booting tsx to sign 100
 bytes buys nothing. The pair is pinned by a test that mints here and verifies with the real one,
-`packages/engine-host/src/tokensScript.test.ts`, which lives there because that package owns the
+`apps/k7/backend/src/tokensScript.test.ts`, which lives there because that package owns the
 consumer half. `env.yaml` is edited as a yaml DOCUMENT, so its comments survive.
 
 ## Rotation and revocation
@@ -98,10 +94,6 @@ else.
 
 So nothing asks for a service's URL:
 
-- the supervisor **derives** the médiathèque from the registries it already announces to
-  (`mediatekUrlFor`) rather than reading a URL out of `<state>/engine-host.json`. A
-  hand-typed second copy of a fact already on disk is precisely how a machine ends up
-  heartbeating to one studio and syncing from another;
 - the st0 frontend derives it from `window.location.origin`, so no host is named at build time;
 - k7's backend **defaults** to `serviceUrl(STUDIO_ORIGIN, "pl8")`, so a deployment sets
   nothing. (`"pl8"` is the `StudioService` key; `"mediatek"` is not one and would not typecheck.)

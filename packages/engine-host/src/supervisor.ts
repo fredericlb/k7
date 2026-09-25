@@ -1,31 +1,21 @@
 // supervisor.ts — the engine supervisor proper: owns the ~/.st0 contract, keeps the
-// registry entry live, maintains the web-UI allowlist, and answers the tray's commands.
+// registry entry and the tunnels live, and answers the tray's commands.
 // One mutable `state`, slow loops that mutate it, and publish() emitting a snapshot ONLY
 // when the bytes changed — which is what keeps an idle app quiet on the wire.
 
 import type { ChildProcess } from "node:child_process";
 import { engineRunning } from "@studio/engine-client/engineDaemon";
-import {
-  mergedLogPath,
-  rootDir,
-  webOriginsPath,
-} from "@studio/engine-client/paths";
+import { mergedLogPath, rootDir } from "@studio/engine-client/paths";
 import { loadPreferences, setSyncTargets } from "@studio/song/preferences";
 import type { SyncTarget } from "@studio/song-schema/syncTarget";
 import type { EnginePerformance } from "@studio/web-protocol/performance";
-import {
-  engineRegistryUrl,
-  isLoopbackHost,
-  serviceUrl,
-  studioFamily,
-} from "@studio/web-protocol/services";
+import { engineRegistryUrl, studioFamily } from "@studio/web-protocol/services";
 import { type EnginePresence, gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
 import { guard } from "./background.ts";
 import { setBundleRoot, setRepoRoot } from "./bundle.ts";
 import * as engineProcess from "./engineProcess.ts";
 import { EngineQueries } from "./engineQueries.ts";
-import * as fileService from "./fileServiceProcess.ts";
 import { acquire, release } from "./hostLock.ts";
 import type {
   EngineRunState,
@@ -42,31 +32,21 @@ import type {
 } from "./hostProtocol.ts";
 import { PRIORITY_SEP, SHOW_UI_SEP } from "./hostProtocol.ts";
 import { type EngineIdentity, ensureEngineIdentity } from "./identity.ts";
+import { normaliseUserOrigin } from "./instanceUrl.ts";
 import { line } from "./logbus.ts";
 import { measurePerformance } from "./performance.ts";
 import {
   deregister,
   heartbeat,
-  mediatekUrlFor,
   probeRegistry,
   resolveRegistryUrls,
   setRegistryFetch,
 } from "./registryClient.ts";
 import { loadSettings, type Settings, saveSettings } from "./settings.ts";
 import { Tunnels } from "./tunnels.ts";
-import {
-  addOrigin,
-  clearPending,
-  loadOrigins,
-  normaliseUserOrigin,
-  pendingOrigins,
-  pendingStamp,
-  removeOrigin,
-} from "./webOrigins.ts";
 
 const HEARTBEAT_MS = 5000;
-const PENDING_POLL_MS = 2000;
-/** Both process watches — every pace on this page is argued in docs/supervisorPolicy.md. */
+/** The engine watch — every pace on this page is argued in docs/supervisorPolicy.md. */
 const WATCH_MS = 2000;
 /** Relaunch backoff for a crashing engine: 1s doubling to 30s. */
 const BACKOFF_MAX_S = 30;
@@ -105,7 +85,6 @@ interface State {
   error: string | null;
   ownsEngine: boolean;
   userStopped: boolean;
-  fileServiceFailed: boolean;
   lastHeartbeatOk: boolean;
   /** Measured once at startup, before the engine; null until then — web-protocol/docs/performance.md. */
   performance: EnginePerformance | null;
@@ -118,22 +97,14 @@ interface State {
   editPluginsSig: string;
   sessions: HostSession[];
   sessionsSig: string;
-  webOrigins: string[];
-  webPending: string[];
   /** The last add, while its registry is asked and after a refusal — what the tray's form says. */
   instanceCheck: HostInstanceCheck | null;
-  /** mtime+size of pending-origins.json when last parsed, so a quiet tick skips the read entirely. */
-  pendingStamp: string;
-  /** Origins already banner'd. One per origin, EVER — a blocked browser retries endlessly. */
-  notified: Set<string>;
   shuttingDown: boolean;
 
   // --- owned processes ------------------------------------------------------
 
   /** The engine we spawned, null when adopted or stopped; `ownsEngine` says which, since a foreign engine is never killed from here. */
   engineChild: ChildProcess | null;
-  /** The file service we spawned. Null when the dev watcher owns the port. */
-  fileChild: ChildProcess | null;
   /** Seconds to wait before the next relaunch attempt. */
   backoff: number;
 
@@ -143,43 +114,19 @@ interface State {
   lastAttempt: { target: string; sig: string } | null;
 }
 
-/** The st0 instance a registry URL or an origin belongs to — its family's st0 origin, which pl8's registry and both services' pages share. */
+/** The st0 instance a registry URL belongs to — its family's st0 origin, which pl8's registry shares. */
 function instanceKey(url: string): string {
   return studioFamily(url) || url;
 }
 
-/** The pages of one instance that reach the file service: st0's (z0 lives under it) and pl8's. None on loopback, where the file service admits any private http origin already. */
-function familyOrigins(origin: string): string[] {
-  const host = new URL(origin).hostname;
-  if (isLoopbackHost(host)) return [];
-  return [serviceUrl(origin, "st0"), serviceUrl(origin, "pl8")];
-}
-
-/** The registries and the allowed origins as ONE list, a row per family: to the user, st0, pl8's registry and both sets of pages are one st0 instance. */
+/** The registries as the st0 instances they belong to, a row per family: to the user, st0 and pl8's registry are one instance. */
 function instances(s: State): HostInstance[] {
   const pinned = new Set((s.settings.registryUrls ?? []).map(instanceKey));
   const rows = new Map<string, HostInstance>();
   for (const url of s.registryUrls) {
     const key = instanceKey(url);
-    rows.set(key, {
-      url: key,
-      registry: true,
-      allowed: false,
-      // One from `$STUDIO_REGISTRY_URL` would come straight back: the environment is not ours to edit.
-      removable: pinned.has(key),
-    });
-  }
-  for (const origin of s.webOrigins) {
-    const key = instanceKey(origin);
-    const row = rows.get(key);
-    if (row) row.allowed = true;
-    else
-      rows.set(key, {
-        url: key,
-        registry: false,
-        allowed: true,
-        removable: true,
-      });
+    // One from `$STUDIO_REGISTRY_URL` would come straight back: the environment is not ours to edit.
+    rows.set(key, { url: key, removable: pinned.has(key) });
   }
   return [...rows.values()];
 }
@@ -195,8 +142,6 @@ function snapshot(s: State): HostSnapshot {
     // Only while the TRAY still spawns the engine — it needs the token. Drops off the wire once we own the process.
     ...(s.own.engine ? {} : { engineToken: s.identity.token }),
     enginePort: s.settings.port,
-    filePort: s.settings.filePort,
-    fileServiceFailed: s.fileServiceFailed,
     // Joined for display: the tray draws ONE registry line, and a hidden second registry is a picker you cannot explain.
     registryUrl: s.registryUrls.join(", "),
     lastHeartbeatOk: s.lastHeartbeatOk,
@@ -205,8 +150,7 @@ function snapshot(s: State): HostSnapshot {
     pluginsSig: s.pluginsSig,
     audioDevices: s.audioDevices,
     audioPriority: s.settings.audioPriority,
-    // Read from `preferences.yaml` rather than held: the file service reads the same file, and
-    // one of the two caching it is how the window and the copy come to disagree.
+    // Read from `preferences.yaml` rather than held: the sync job reads the same file, and two caches of it can disagree.
     syncTargets: loadPreferences().syncTargets ?? [],
     audioMenuSig: s.audioMenuSig,
     editPlugins: s.editPlugins,
@@ -214,14 +158,10 @@ function snapshot(s: State): HostSnapshot {
     sessions: s.sessions,
     sessionsSig: s.sessionsSig,
     instances: instances(s),
-    webOrigins: s.webOrigins,
-    webPending: s.webPending,
     instanceCheck: s.instanceCheck,
-    attention: s.webPending.length > 0,
     paths: {
       root: rootDir(),
       mergedLog: mergedLogPath(),
-      webOrigins: webOriginsPath(),
     },
   };
 }
@@ -253,7 +193,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     error: null,
     ownsEngine: false,
     userStopped: false,
-    fileServiceFailed: false,
     lastHeartbeatOk: false,
     performance: null,
     pluginCount: null,
@@ -265,14 +204,9 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     editPluginsSig: "",
     sessions: [],
     sessionsSig: "",
-    webOrigins: loadOrigins(),
-    webPending: [],
     instanceCheck: null,
-    pendingStamp: "",
-    notified: new Set(),
     shuttingDown: false,
     engineChild: null,
-    fileChild: null,
     backoff: 1,
     lastAttempt: null,
   };
@@ -286,9 +220,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
 
   // Declared up front: `shutdown` clears them and can fire from listen's end callback before the loops are installed.
   let beatTimer: NodeJS.Timeout | undefined;
-  let pendingTimer: NodeJS.Timeout | undefined;
   let crashTimer: NodeJS.Timeout | undefined;
-  let fileTimer: NodeJS.Timeout | undefined;
   let devicesTimer: NodeJS.Timeout | undefined;
   let editPluginsTimer: NodeJS.Timeout | undefined;
   let sessionsTimer: NodeJS.Timeout | undefined;
@@ -302,48 +234,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     opts.transport.emit(JSON.parse(frame));
   };
 
-  const notify = (
-    kind: "passive" | "modal",
-    title: string,
-    body: string,
-  ): void => {
-    opts.transport.emit({ t: "notify", kind, title, body });
-  };
-
-  // --- the engine and the file service --------------------------------------
-
-  /** Bring the file service up for whatever engine is running, owned or adopted — see docs/supervisorPolicy.md. */
-  const ensureFileService = async (): Promise<void> => {
-    if (state.fileChild) return;
-    const r = await fileService.ensure(
-      state.identity,
-      state.settings.port,
-      state.settings.filePort,
-      // ALL of them, comma-joined: the file service builds its CORS allowlist from this — see docs/supervisorPolicy.md.
-      state.registryUrls.join(","),
-      state.settings.mediatekDir,
-      {
-        // Derived from the registries, never configured — see mediatekUrlFor.
-        url: mediatekUrlFor(state.registryUrls),
-        token: state.settings.mediatekToken,
-      },
-    );
-    if (r.kind === "spawned") {
-      state.fileChild = r.child;
-      // A child that exits on its own is noticed here; the watch is for the case where nothing tells us.
-      r.child.once("exit", () => {
-        if (state.fileChild === r.child) {
-          state.fileChild = null;
-          if (!state.shuttingDown && !state.userStopped) {
-            state.fileServiceFailed = true;
-            publish();
-          }
-        }
-      });
-    }
-    // "foreign" clears the flag as firmly as "spawned": this is the one place that actually looked.
-    state.fileServiceFailed = r.kind === "unavailable";
-  };
+  // --- the engine -----------------------------------------------------------
 
   /** Returns whether an engine is running afterwards — spawned or adopted. */
   const startEngine = async (): Promise<boolean> => {
@@ -371,24 +262,18 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         state.error = `spawn failed: ${r.message}`;
         break;
     }
-    const running = state.status === "running";
-    if (running) await ensureFileService();
     publish();
-    return running;
+    return state.status === "running";
   };
 
   const stopEngine = (): void => {
     state.userStopped = true;
-    // Only kill an ENGINE we own. The file service is always ours, so stop it unconditionally.
+    // Only kill an ENGINE we own: a foreign one is never stopped from here.
     if (state.ownsEngine) engineProcess.stop();
-    fileService.stop(state.fileChild);
     state.engineChild = null;
-    state.fileChild = null;
     state.ownsEngine = false;
     state.status = "stopped";
     state.error = null;
-    // The file service went with it — clear the failure, so a stopped engine shows a plain red dot, not a "down".
-    state.fileServiceFailed = false;
     state.pluginCount = null;
     state.plugins = [];
     state.pluginsSig = "";
@@ -428,20 +313,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       backoffUntil = Date.now() + state.backoff * 1000;
       state.backoff = Math.min(state.backoff * 2, BACKOFF_MAX_S);
     }
-  };
-
-  /** Watch the file service and flag it when it isn't there; it never relaunches — see docs/supervisorPolicy.md. */
-  const fileServiceWatch = async (): Promise<void> => {
-    if (state.shuttingDown || state.userStopped) return;
-    if (state.status !== "running") return;
-    if (state.fileChild) return; // ours, and its 'exit' handler is the watch
-    const up = await fileService.isServing(state.settings.filePort);
-    if (state.fileServiceFailed === !up) return;
-    // Re-check the gate: the probe took time, and a stop may have landed meanwhile.
-    if (state.shuttingDown || state.userStopped || state.status !== "running")
-      return;
-    state.fileServiceFailed = !up;
-    publish();
   };
 
   // --- engine queries -------------------------------------------------------
@@ -528,7 +399,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
 
   /** What the heartbeat announces: the addresses, re-read every beat, and the rating once there is one. */
   const presenceNow = (): EnginePresence => ({
-    ...gatherAddresses(state.settings.port, state.settings.filePort),
+    ...gatherAddresses(state.settings.port),
     ...(state.performance ? { performance: state.performance } : {}),
   });
 
@@ -543,36 +414,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     const presence = presenceNow();
     const ok = await heartbeat(state.registryUrls, state.identity, presence);
     state.lastHeartbeatOk = ok;
-    publish();
-  };
-
-  // --- the refused-origin poll ----------------------------------------------
-
-  // Poll the origins CORS turned away: the list changes while the user stares at the menu bar, so it can't wait for a click.
-  const pollPending = (): void => {
-    const stamp = pendingStamp();
-    if (stamp === state.pendingStamp) return;
-    state.pendingStamp = stamp;
-    state.webOrigins = loadOrigins();
-    state.webPending = pendingOrigins();
-    publish();
-    // Tell the user once per ORIGIN: the only other signal is a broken page whose browser can't say why.
-    for (const origin of state.webPending) {
-      if (state.notified.has(origin)) continue;
-      state.notified.add(origin);
-      notify(
-        "passive",
-        "A web UI was blocked",
-        `${origin} tried to reach this engine. Allow it from Settings… ▸ st0 instances.`,
-      );
-    }
-  };
-
-  // Re-read allowlist and pending, then publish — every weburi command ends here, so the menu follows one path.
-  const refreshOrigins = (): void => {
-    state.webOrigins = loadOrigins();
-    state.webPending = pendingOrigins();
-    state.pendingStamp = pendingStamp();
     publish();
   };
 
@@ -609,11 +450,9 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     publish();
   };
 
-  /** Disconnect one instance, every part of its family: its pages leave the allowlist, its registry the pinned list — told at once, so it leaves the picker now rather than aging out. */
+  /** Disconnect one instance: its registry leaves the pinned list — told at once, so it leaves the picker now rather than aging out. */
   const removeInstance = async (url: string): Promise<void> => {
     const key = instanceKey(url);
-    for (const origin of loadOrigins())
-      if (instanceKey(origin) === key) removeOrigin(origin);
     const pinned = state.settings.registryUrls ?? [];
     const dropped = pinned.filter((u) => instanceKey(u) === key);
     if (dropped.length) {
@@ -627,7 +466,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       if (engineRunning())
         await deregister(resolveRegistryUrls(dropped), state.identity);
     }
-    refreshOrigins();
+    publish();
   };
 
   const onCommand = async (cmd: HostCommand): Promise<void> => {
@@ -650,51 +489,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         reply(cmd.id, up, state.error ?? undefined);
         return;
       }
-      case "fileService.restart": {
-        if (state.status !== "running") {
-          reply(cmd.id, false, "the engine isn't running");
-          return;
-        }
-        fileService.stop(state.fileChild);
-        state.fileChild = null;
-        await ensureFileService();
-        publish();
-        if (state.fileServiceFailed) {
-          notify(
-            "modal",
-            "Couldn't restart the file service",
-            "No file-service runtime was found (the bundled node, or the dev watcher).",
-          );
-        }
-        reply(cmd.id, !state.fileServiceFailed);
-        return;
-      }
-      case "waveforms.clear": {
-        // Destructive: the next waveform request re-decodes. Only reachable while a file service of ours is up.
-        if (state.status !== "running") {
-          reply(cmd.id, false, "the engine isn't running");
-          return;
-        }
-        let ok = false;
-        try {
-          const res = await fetch(
-            `http://127.0.0.1:${state.settings.filePort}/waveforms/clear`,
-            { method: "POST", signal: AbortSignal.timeout(5000) },
-          );
-          ok = res.ok;
-        } catch {
-          ok = false;
-        }
-        notify(
-          "modal",
-          ok ? "Waveform cache cleared" : "Couldn't clear waveform cache",
-          ok
-            ? "All cached waveforms have been removed."
-            : "The file service is not reachable.",
-        );
-        reply(cmd.id, ok);
-        return;
-      }
       case "weburi.add": {
         const origin = normaliseUserOrigin(arg);
         if (!origin) {
@@ -707,8 +501,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
           reply(cmd.id, false, "not a valid web UI address");
           return;
         }
-        // ASKED before anything is written: a heartbeat carries this engine's token, and its pages would reach the
-        // file service. A URL that is not a studio must get neither — docs/supervisorPolicy.md.
+        // ASKED before anything is written: a heartbeat carries this engine's token, and a URL that is not a studio must not get it — docs/supervisorPolicy.md.
         const registry = engineRegistryUrl(origin);
         state.instanceCheck = { url: registry, state: "checking" };
         publish();
@@ -724,38 +517,13 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
           return;
         }
         state.instanceCheck = null;
-        addOrigin(origin);
-        // The whole family, whichever of its services was typed: st0's pages and pl8's both reach the file service.
-        for (const o of familyOrigins(origin)) {
-          addOrigin(o);
-          clearPending(o);
-        }
-        clearPending(origin);
-        refreshOrigins();
-        // And the engine heartbeats to the family's ONE registry, pl8's — which is what fills st0's picker too.
+        // The engine heartbeats to the family's ONE registry, pl8's — which is what fills st0's picker too.
         await addRegistryUrl(origin);
-        reply(cmd.id, true, origin);
-        return;
-      }
-      case "weburi.allow": {
-        // Unlike "add", this does NOT repoint the registry: approval widens one thing, which origins the file service talks to.
-        const origin = addOrigin(arg);
-        if (!origin) {
-          reply(cmd.id, false, "not a valid web UI address");
-          return;
-        }
-        clearPending(arg);
-        refreshOrigins();
         reply(cmd.id, true, origin);
         return;
       }
       case "weburi.remove":
         await removeInstance(arg);
-        reply(cmd.id, true);
-        return;
-      case "weburi.deny":
-        clearPending(arg);
-        refreshOrigins();
         reply(cmd.id, true);
         return;
       case "registry.deregister":
@@ -857,9 +625,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     if (state.shuttingDown) return;
     state.shuttingDown = true;
     clearInterval(beatTimer);
-    clearInterval(pendingTimer);
     clearInterval(crashTimer);
-    clearInterval(fileTimer);
     clearInterval(devicesTimer);
     clearInterval(editPluginsTimer);
     clearInterval(sessionsTimer);
@@ -872,7 +638,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       new Promise((r) => setTimeout(r, DEREGISTER_TIMEOUT_MS)),
     ]);
     // Then tear down, and unlike Stop this does NOT spare an adopted engine — see docs/supervisorPolicy.md.
-    fileService.stop(state.fileChild);
     engineProcess.stop();
     release();
     exit();
@@ -894,7 +659,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     process.on("SIGHUP", () => void shutdown());
   }
 
-  refreshOrigins(); // the first snapshot: the tray draws nothing until it arrives
+  publish(); // the first snapshot: the tray draws nothing until it arrives
 
   // Before the engine, so the CPU loop is not measuring its plugin scan; well under a second.
   try {
@@ -910,18 +675,11 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   await beat();
   // Every timer below reaches the network or the disk, and `void` catches nothing — see docs/background.md.
   beatTimer = setInterval(() => guard("heartbeat", beat()), HEARTBEAT_MS);
-  pendingTimer = setInterval(pollPending, PENDING_POLL_MS);
   if (opts.own.engine)
     crashTimer = setInterval(
       () => guard("crash watch", crashWatch()),
       WATCH_MS,
     );
-  if (opts.own.fileService) {
-    fileTimer = setInterval(
-      () => guard("file-service watch", fileServiceWatch()),
-      WATCH_MS,
-    );
-  }
   if (opts.own.engineQueries) {
     devicesTimer = setInterval(
       () => guard("device poll", pollDevices()),

@@ -20,7 +20,6 @@ use crate::tray;
 #[serde(rename_all = "camelCase", default)]
 pub struct Ownership {
     pub engine: bool,
-    pub file_service: bool,
     pub engine_queries: bool,
 }
 
@@ -89,16 +88,12 @@ pub struct Session {
     pub listeners: usize,
 }
 
-/// One st0 instance this engine is connected to, for the "st0 instances" tab — the supervisor's union of the
-/// registries it heartbeats to and the origins it lets through. Serialize as well: the window draws it verbatim.
+/// One st0 instance this engine is connected to, for the "st0 instances" tab — a registry it heartbeats to and
+/// holds a tunnel with. Serialize as well: the window draws it verbatim.
 #[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Instance {
     pub url: String,
-    /// Heartbeated to, so this engine shows in that instance's picker.
-    pub registry: bool,
-    /// Its pages may reach the file service.
-    pub allowed: bool,
     /// False for a registry from `$STUDIO_REGISTRY_URL`: removing it here would not stick.
     pub removable: bool,
 }
@@ -136,9 +131,6 @@ pub struct Snapshot {
     pub user_stopped: bool,
     pub engine_id: String,
     pub engine_port: u16,
-    pub file_port: u16,
-    /// Nothing is answering the file port while one is expected. The red icon.
-    pub file_service_failed: bool,
     pub registry_url: String,
     pub last_heartbeat_ok: bool,
     /// None means "the engine hasn't answered yet" — the spinner, not "none found".
@@ -166,9 +158,6 @@ pub struct Snapshot {
     pub instances: Vec<Instance>,
     /// An add in flight or just refused; None once one succeeds.
     pub instance_check: Option<InstanceCheck>,
-    /// Origins the file service just refused, offered for one-click approval in the same tab.
-    pub web_pending: Vec<String>,
-    pub attention: bool,
     pub paths: Paths,
 }
 
@@ -184,8 +173,6 @@ impl Default for Snapshot {
             user_stopped: false,
             engine_id: String::new(),
             engine_port: 8765,
-            file_port: 8770,
-            file_service_failed: false,
             registry_url: String::new(),
             last_heartbeat_ok: false,
             plugin_count: None,
@@ -201,8 +188,6 @@ impl Default for Snapshot {
             sync_targets: Vec::new(),
             instances: Vec::new(),
             instance_check: None,
-            web_pending: Vec::new(),
-            attention: false,
             paths: Paths::default(),
         }
     }

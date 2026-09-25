@@ -89,14 +89,9 @@ kinds, each for a reason:
 
 The root `build` and `test` scripts stay outside this list — Tilt only owns the dev session.
 
-The **file service** is in the list deliberately. In dev the supervisor does not spawn one
-(`fileServiceProcess.ts`), because the session's own already owns port 8770 and a second
-would fight it for the port. If the app comes up before the session does, the supervisor's
-file-service watch notices within two seconds and the settings page goes green on its own —
-no ordering to get right. It is the package's own `tsx watch`. On Windows that watcher has been
-seen starting the replacement before the old process lets go of 8770: the new one dies on
-`EADDRINUSE` while the old one keeps serving, so a save looks applied and is not. If one stops
-taking effect, restart the row (`tilt trigger`) and look for a stray `server.ts` process.
+The **file service** is not a row: pl8's file hub starts one per account on first use
+(`packages/file-hub/docs/fileHub.md`), so an edit to its code takes effect once `pl8-backend`
+restarts (`tilt trigger pl8-backend`) — an account's running process is not watched.
 
 ## `claude-rc` — Claude Code's Remote Control, inside the session
 
@@ -234,7 +229,7 @@ does the same while the supervisor has `st0-engine.exe` running. The order is
 therefore stop → build → start, exactly as `restart-tray.mjs` does it.
 
 And the thing that must be stopped is *the same tray* for both targets: killing it takes
-the supervisor, the engine and the file service down with it through the job object. Two
+the supervisor and the engine down with it through the job object. Two
 independent watchers would race to stop and restart one process. So there is one, and a
 cycle that needs both rebuilds does one stop, both builds, one start.
 

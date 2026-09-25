@@ -19,8 +19,6 @@
     "externalBin": ["binaries/st0-engine", "binaries/node"],
     "resources": [
       "resources/engine-host.mjs",
-      "resources/file-service.mjs",
-      "resources/songs",
       "resources/faust-libs",
       "resources/node_modules"
     ],

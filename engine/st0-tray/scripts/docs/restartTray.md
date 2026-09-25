@@ -57,7 +57,7 @@ goes: taking the menu bar from another build is worth saying out loud.
 **The kill is hard, and that is fine.** The tray is windowless: there is no close message
 to send it, and on Windows `process.kill` is `TerminateProcess`, so `cleanup()` in
 `main.rs` never runs. Nothing leaks — the job object created in `main.rs` before anything
-spawns terminates the supervisor, the engine and the file service when the tray's last
+spawns terminates the supervisor and the engine when the tray's last
 handle to it closes. What is skipped is the *graceful* path: the supervisor does not get
 to deregister, so the registry keeps a stale entry until the fresh instance re-registers
 seconds later. On Unix the same `process.kill` sends SIGTERM, which the signal task in

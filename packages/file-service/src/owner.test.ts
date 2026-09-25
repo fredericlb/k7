@@ -8,13 +8,7 @@ import { join } from "node:path";
 import type { NextFunction, Request, Response } from "express";
 import { beforeEach, describe, expect, it } from "vitest";
 import { sessionOf } from "./engineLink.ts";
-import {
-  claimRoot,
-  ownerPath,
-  requireRootOwner,
-  rootOwner,
-  workspaceGate,
-} from "./owner.ts";
+import { claimRoot, ownerPath, requireRootOwner, rootOwner } from "./owner.ts";
 import { rootDir } from "./slug.ts";
 
 beforeEach(() => {
@@ -67,25 +61,6 @@ describe("the root's one owner", () => {
     expect(gate("a@x.org")).toEqual({ passed: true, status: undefined });
     expect(gate("b@x.org")).toEqual({ passed: false, status: 403 });
     expect(gate("")).toEqual({ passed: false, status: 403 });
-  });
-
-  it("serves no workspace at all on an engine's machine, whoever asks", () => {
-    let status: number | undefined;
-    let passed = false;
-    const res = {
-      status(code: number) {
-        status = code;
-        return this;
-      },
-      json() {
-        return this;
-      },
-    } as unknown as Response;
-    workspaceGate({ userEmail: "a@x.org" } as Request, res, (() => {
-      passed = true;
-    }) as NextFunction);
-    expect({ passed, status }).toEqual({ passed: false, status: 404 });
-    expect(existsSync(ownerPath())).toBe(false);
   });
 
   it("keeps the engine session the owner's, whoever asks after", () => {

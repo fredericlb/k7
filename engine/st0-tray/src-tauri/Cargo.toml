@@ -24,10 +24,6 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"
-# The one exception to the note above, and it is view rather than logic: a machine with no git
-# has nothing to supervise, so the refusal has to be drawn BEFORE the supervisor exists to say
-# it. A native modal is also the only thing a Windows release build can show — see deps.rs.
-tauri-plugin-dialog = "2"
 # Deriving the snapshot/event mirror of hostProtocol.ts (host.rs), and writing commands.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

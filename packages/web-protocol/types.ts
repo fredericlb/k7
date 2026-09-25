@@ -693,7 +693,6 @@ export interface EngineAddresses {
   loopback: string; // "127.0.0.1" — reachable only from the same machine
   lanIps: string[]; // non-internal IPv4s — reachable from the same LAN
   port: number; // the engine's WebSocket port (same on every address)
-  filePort: number; // the engine-side file service's HTTP port (same host set)
 }
 
 /** A workspace under ~/.st0/root/<slug>/, as the picker lists them. */

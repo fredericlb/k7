@@ -21,11 +21,10 @@ function statusLine(s: HostSnapshot): string {
   const plugins =
     s.pluginCount === null ? "scanning…" : `${s.pluginCount} plugins`;
   const registry = s.lastHeartbeatOk ? "registered" : "registry unreachable";
-  const down = s.fileServiceFailed ? ", FILE SERVICE DOWN" : "";
   const sessions = s.sessions.length
     ? `, ${s.sessions.length} session${s.sessions.length === 1 ? "" : "s"}`
     : "";
-  return `running${adopted} · id ${s.engineId.slice(0, 8)} · :${s.enginePort} · ${plugins} · ${registry}${sessions}${down}`;
+  return `running${adopted} · id ${s.engineId.slice(0, 8)} · :${s.enginePort} · ${plugins} · ${registry}${sessions}`;
 }
 
 /** Print only what CHANGED, so a log kept for a week is readable and a tty is not a waterfall. */
@@ -57,7 +56,7 @@ if (!isTty)
   say("(not a terminal: SIGHUP will not arrive; send SIGTERM to stop cleanly)");
 
 void startSupervisor({
-  own: { engine: true, fileService: true, engineQueries: true },
+  own: { engine: true, engineQueries: true },
   transport: makeTransport(),
 }).catch((e: unknown) => {
   // The lock refusal lands here, and it is the message that matters most: a second supervisor

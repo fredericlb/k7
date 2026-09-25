@@ -1,7 +1,7 @@
 # `npm run engine:portable`
 
 `build-portable.mjs` produces **one Windows `.exe`** — `dist/st0-portable_<stamp>.exe` at the
-monorepo root — carrying the C++ engine, the tray, the supervisor, the file service, the
+monorepo root — carrying the C++ engine, the tray, the supervisor, the
 vendored Node and every resource the app reads. Nothing is installed, nothing is required on
 `PATH`, and the machine that runs it needs no checkout.
 
@@ -30,9 +30,8 @@ starts from:
 | `node.exe` | `hostcmd.rs` — the supervisor's runtime |
 | `st0-engine.exe` | `packages/engine-client/src/engineBinary.ts`, from `process.execPath`'s directory |
 | `resources/engine-host.mjs` | `hostcmd.rs` |
-| `resources/file-service.mjs`, `resources/songs` | `packages/engine-host/src/bundle.ts` |
 | `resources/faust-libs` | `engine/st0-engine/engine/FaustPlugin.cpp` |
-| `resources/node_modules` | the ONNX Runtime the two `.mjs` bundles could not inline |
+| `resources/node_modules` | the ONNX Runtime and `node-datachannel`, which the `.mjs` bundle could not inline |
 
 The sidecars lose the `-<triple>` suffix Tauri names them with: that suffix is Tauri's
 convention for *selecting* a sidecar, and the code above looks for the plain name.
@@ -72,7 +71,5 @@ executable that is not there after unpacking.
 - **Windows only.** The script refuses to run elsewhere: the stub is Rust-on-Windows and the
   extraction is System32's bsdtar.
 - **Unsigned.** SmartScreen prompts on first run, as it does for the NSIS installer.
-- **`git` and `git-lfs` are still required on the machine**, and `deps.rs` says so on startup. A
-  workspace is a git repository; that is not something a bundle can carry.
 - The unpacked tree is never garbage-collected. Each build stamp is its own directory under
   `%LOCALAPPDATA%\st0\portable`, and old ones are deleted by hand.

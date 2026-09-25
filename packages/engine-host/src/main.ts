@@ -25,7 +25,6 @@ if (
 void startSupervisor({
   own: {
     engine: true,
-    fileService: true,
     engineQueries: true,
   },
   // NDJSON on stdio, which is what the tray drives us over; `cli.ts` is the other front end.

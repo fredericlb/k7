@@ -125,12 +125,11 @@ jobs:
         working-directory: engine/st0-tray
         run: |
           set -euo pipefail
-          mkdir -p src-tauri/binaries src-tauri/resources/songs dist
+          mkdir -p src-tauri/binaries src-tauri/resources dist
           for name in st0-engine node; do
             : > "src-tauri/binaries/${name}-x86_64-pc-windows-msvc.exe"
           done
           : > src-tauri/resources/engine-host.mjs
-          : > src-tauri/resources/file-service.mjs
           [ -f dist/index.html ] || printf '<!doctype html><html><head><title>studio-capot</title></head><body></body></html>\n' > dist/index.html
 
       - name: cargo check

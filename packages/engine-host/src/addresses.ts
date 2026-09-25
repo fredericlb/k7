@@ -12,7 +12,6 @@ export interface EngineAddresses {
   loopback: string; // always "127.0.0.1"
   lanIps: string[]; // non-internal IPv4s
   port: number; // the engine's WebSocket port
-  filePort: number; // the engine-side file service's HTTP port (same host set)
 }
 
 export interface EnginePresence {
@@ -63,15 +62,12 @@ function machineFingerprint(host: string): string {
   return createHash("sha256").update(seed).digest("hex");
 }
 
-export function gatherAddresses(
-  port: number,
-  filePort: number,
-): EnginePresence {
+export function gatherAddresses(port: number): EnginePresence {
   const host = osHostname();
   return {
     hostname: host,
     machineFingerprint: machineFingerprint(host),
     port,
-    addresses: { loopback: "127.0.0.1", lanIps: lanIPv4s(), port, filePort },
+    addresses: { loopback: "127.0.0.1", lanIps: lanIPv4s(), port },
   };
 }

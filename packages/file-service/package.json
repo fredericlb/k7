@@ -3,14 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0's engine-side file service. Runs on the engine's machine, owns ~/.st0/root/<userSlug>/<workspace>, and serves workspaces + all file operations to the browser directly (the C++ engine stays file-free). Consumed as source; run under tsx.",
+  "description": "st0's file service: one account's workspaces and every file operation on them, run on the SERVER by @studio/file-hub, one process per account, driving the engine the account claimed through its tunnel (the C++ engine stays file-free). Consumed as source; run under tsx.",
   "main": "src/server.ts",
   "bin": {
     "studio-file-service": "./src/server.ts"
   },
   "scripts": {
     "start": "tsx src/server.ts",
-    "dev": "tsx watch src/server.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -28,7 +27,6 @@
     "@studio/git-repos": "*",
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",
-    "@studio/mpv-player": "*",
     "@studio/song": "*",
     "@studio/song-edit": "*",
     "@studio/song-schema": "*",
@@ -40,12 +38,10 @@
     "@studio/translator": "*",
     "@studio/web-protocol": "*",
     "chokidar": "^3.6.0",
-    "cors": "^2.8.5",
     "express": "^4.19.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
     "tsx": "^4.16.0",

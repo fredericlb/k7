@@ -1,29 +1,26 @@
-// hosted.ts — the file service run by the SERVER's file hub, one process per account, instead
-// of on the engine's machine. It listens on loopback only, its one gate is the hub's secret, and
-// it drives whichever engine the hub binds it to. See packages/file-hub/docs/fileHub.md.
+// hosted.ts — what makes this process one of a file hub's: its one gate is the hub's secret, it
+// drives whichever engine the hub binds it to, and every separation runs on that engine's machine.
+// See packages/file-hub/docs/fileHub.md.
 
 import { timingSafeEqual } from "node:crypto";
 import { setSeparationRunner } from "@studio/stem-separation/separateJobs";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import express, { type RequestHandler, type Router } from "express";
+import { boundJobsUrl, setBoundJobsUrl } from "./boundMachine.ts";
 import { resolveColdRun } from "./coldRun.ts";
 import { clearSelectedEngine, setSelectedEngine } from "./engineLink.ts";
 import { remoteSeparationRunner } from "./remoteSeparation.ts";
 
-// biome-ignore-start lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
-/** Whether this process belongs to a file hub rather than to an engine's machine. */
-export const HOSTED = process.env.STUDIO_FILE_HOSTED === "1";
+// biome-ignore lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
 const SECRET = process.env.STUDIO_HUB_SECRET ?? "";
-// biome-ignore-end lint/suspicious/noUndeclaredEnvVars: see above
 
-if (HOSTED && !SECRET)
+if (!SECRET)
   throw new Error(
-    "a hosted file service needs $STUDIO_HUB_SECRET — it has no other gate",
+    "the file service runs under a file hub, and needs $STUDIO_HUB_SECRET — it has no other gate",
   );
 
-/** Where this process's separations run: the bound engine's machine, never this server. */
-let jobsUrl: string | null = null;
-if (HOSTED) setSeparationRunner(remoteSeparationRunner(() => jobsUrl));
+// Every separation runs on the bound engine's machine, never on this server.
+setSeparationRunner(remoteSeparationRunner(boundJobsUrl));
 
 /** Constant-time compare against the hub's secret. */
 export function hubSecretOk(supplied: string | undefined): boolean {
@@ -46,7 +43,7 @@ export function hubRouter(): Router {
     const url = String(body?.url ?? "");
     if (url) setSelectedEngine(url);
     else clearSelectedEngine();
-    jobsUrl = url ? String(body?.jobsUrl ?? "") || null : null;
+    setBoundJobsUrl(url ? String(body?.jobsUrl ?? "") || null : null);
     res.json({ ok: true });
   });
   // What a cut of this account's runs — for pl8, which drives the cut and holds the song.

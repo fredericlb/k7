@@ -80,7 +80,14 @@ app.use("/api/settings", requireAuth, settingsRouter);
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
 
 // The accounts' workspaces, which live here and nowhere else — packages/file-hub/docs/fileHub.md.
-const fileHub = mountFileHub(app, engine, requireAuth, PORT, FILES_ROOT);
+const fileHub = mountFileHub(
+  app,
+  engine,
+  requireAuth,
+  PORT,
+  FILES_ROOT,
+  issueApiToken,
+);
 
 // Play on THIS host's outputs: the library is right here, so a path is all that crosses —
 // packages/mpv-player/docs/mpvPlayer.md. Under a dot-directory, like the prefs below, so no

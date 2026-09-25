@@ -25,34 +25,18 @@ remembers cannot.
 
 `st0-tray` is a tray Tauri app that starts with no window. It is the **VIEW** over the
 supervisor (`@studio/engine-host`), which it spawns as a child and drives over NDJSON on
-stdio: the supervisor owns the `~/.st0` contract, the registry, and — stage by stage —
-the engine and the file service. The tray renders its snapshots and sends its clicks back.
+stdio: the supervisor owns the `~/.st0` contract, the registry and the engine. No file service
+runs on this machine — workspaces live on the server (`packages/file-hub/docs/fileHub.md`). The tray renders its snapshots and sends its clicks back.
 
 Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. What to allow,
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
 snapshot (`host.rs`), and a click goes back up as a command.
 
-## What the machine must already have (`deps.rs`)
+## Nothing to install beside it
 
-`git` and `git-lfs` are probed once at startup, before any of the stack is spawned. A machine
-missing either gets a native dialog naming what to install and where, and then nothing else: the
-tray exits rather than bringing up a stack that cannot import a workspace.
-
-**Here rather than in the file service**, which is what actually shells out to them, for two
-reasons. The supervisor and the file service are this process's descendants and inherit its
-environment, so what the tray finds on PATH is exactly what they will find — the check and the
-use cannot disagree about which `git` is meant. And a Windows release build has no console, so a
-refusal that is not a native modal is a refusal nobody reads.
-
-**It refuses rather than degrades**, because otherwise every symptom arrives far from the cause.
-Without `git` a workspace is created but silently never versioned, publishing fails on a raw
-`spawn git ENOENT`, and the library never mounts — which surfaces later still as `extends unknown
-module '@st0/audio/utility/mixer'` on a project nobody touched. Without `git-lfs` a clone lands
-pointer text where audio should be, and the song plays silence with every track present, unmuted
-and looking correct (`packages/file-service/docs/workspaces.md`).
-
-`tauri-plugin-dialog` is the one crate here that does not draw the tray, and this is what it is
-for: the refusal has to be shown before the supervisor that would otherwise report it exists.
+The tray probes for no CLI at startup. `git` and `git-lfs` are the server's business: workspaces are
+cloned there, and what this machine plays arrives as files through the tunnel
+(`packages/engine-tunnel/docs/tunnel.md`). A probe here would refuse a machine for a tool it never runs.
 
 ## The settings window
 
@@ -66,8 +50,8 @@ ever urgent:
 | Plugins | the installed catalogue, filtered, and the rescan that refills it |
 | Sessions | what this engine is holding, and the plugin editors it can open |
 | Sync | where a playlist may be copied to — a stick, a folder, an FTP box |
-| st0 instances | which st0 instances this engine is connected to, the origins just blocked, and a form to add one |
-| System | version, engine, registry, file service — and every button that acts on them |
+| st0 instances | which st0 instances this engine is connected to, and a form to add one |
+| System | version, engine, registry — and every button that acts on them |
 
 **The menu bar keeps one line and no buttons.** A status line is what a menu bar is for; a
 ranking, a catalogue of several hundred rows, a list of live sessions and a row of destructive
@@ -151,27 +135,20 @@ default registry, seeds no origin, and ignores the local backends' `web-endpoint
 running `npm run dev` connects nothing either (`packages/engine-host/docs/supervisorPolicy.md`). This tab is
 where one is added — its address typed into the form, and nowhere else.
 
-Each row is one instance as the supervisor's `instances` reports it: the union of the registries this
-engine heartbeats to and the origins `web-origins.json` lets through, keyed by studio family and shown
-as st0's origin, because to the user those are the same thing. Adding sends `weburi.add`, which does
-both — st0's and pl8's pages are allowed, and the engine heartbeats to the family's one registry, pl8's,
-which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connects the same instance. **Remove** sends `weburi.remove`,
-which undoes both and deregisters at once. A registry that came from `$STUDIO_REGISTRY_URL` gets no Remove
-and says why: the environment is not the tray's to edit.
-
-Beneath the list sit the origins the file service **just refused**, with Allow and Ignore. This is how
-an instance gets let in without anyone typing its URL — the blocked browser names itself. Allowing
-one does *not* announce the engine there: approval widens which pages may call the file service, and
-nothing else. Ignoring matters as much, or an origin you do not trust sits there training you to skip
-the section.
+Each row is one instance as the supervisor's `instances` reports it: the registries this engine
+heartbeats to, keyed by studio family and shown as st0's origin, because to the user those are the
+same thing. Adding sends `weburi.add`, and the engine heartbeats to the family's one registry, pl8's,
+which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connects the same instance.
+**Remove** sends `weburi.remove`, which deregisters at once. A registry that came from
+`$STUDIO_REGISTRY_URL` gets no Remove and says why: the environment is not the tray's to edit.
 
 The address is checked here, the way a sync URI is, only to answer at once — `ftp:// is not a web
 address`, `already connected to …` — and reduced to the origin before it is sent. The supervisor's
 `normaliseUserOrigin` is the gate. A bare host gets `https://`, as it does there.
 
 Then the supervisor **asks** the instance's registry whether it is one, before anything is written:
-an added instance receives this engine's token and its pages reach the file service, so
-`https://google.com` must be refused rather than connected. The form reads the snapshot's
+an added instance receives this engine's token and the tunnel it dials, so `https://google.com`
+must be refused rather than connected. The form reads the snapshot's
 `instanceCheck` — *Checking https://play.st0.app…*, then nothing on success or the reason in red on a
 refusal — and holds its Add button while one is being asked. The line under the form says what adding
 means, because the check proves the software and not the owner
@@ -204,8 +181,7 @@ that blinks out of existence for one poll is worse than a heading nobody reads.
 
 ### System — the machine, and the buttons that act on it
 
-Version, engine, registry and file service as four facts, then Start / Stop / Restart, Restart
-file service, and Clear waveform cache. A page has room for the sentence a greyed-out menu row
+Version, engine and registry as three facts, then Start / Stop / Restart. A page has room for the sentence a greyed-out menu row
 never had: an adopted engine says *why* its buttons are dead, rather than just being dead.
 
 `canAct` only GREYS those buttons. The rule that this app never stops an engine it did not spawn
@@ -220,15 +196,15 @@ written beside them, so this app can never kill a process another owner manages 
 
 ## The Windows job object (`job.rs`)
 
-The graceful path (`cleanup_async`) stops the engine and file service when the user picks
-Quit, but nothing runs when the tray is force-killed or crashes — and its children would
-then orphan and keep the engine and file ports bound.
+The graceful path (`cleanup_async`) stops the engine when the user picks Quit, but nothing
+runs when the tray is force-killed or crashes — and its children would then orphan and keep
+the engine's port bound.
 
 A job object closes that gap. Every process the tray spawns is assigned to one job whose
 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag terminates all members when the last handle to
 the job closes, and the OS closes our handles when the tray ends however it ends. It also
 subsumes the grandchild problem for free: a process created *by* a job member joins the job
-automatically, so the `tsx`-forked file-service node is covered with no tree walking.
+automatically, so a separation worker the supervisor starts is covered with no tree walking.
 
 This is why the job is created in `main.rs` **before anything is spawned** — membership is
 inherited, so a force-killed tray takes the whole stack with it. Off Windows the closing
@@ -237,9 +213,8 @@ stdin pipe plays the same role.
 ## Quitting
 
 On quit the supervisor does the actual work: deregister from the registry (while the engine
-is still up and the entry still means something), then stop the file service and the
-engine, foreign or not — closing the app is terminal, and an engine left listening holds
-the audio device and both ports.
+is still up and the entry still means something), then stop the engine, foreign or not —
+closing the app is terminal, and an engine left listening holds the audio device and its port.
 
 `pidkill.rs` is the second half of that sentence, and runs after the supervisor on the way
 out for the case where it never got there: it hung on an unresponsive registry and was
@@ -255,8 +230,8 @@ Signals get the same treatment as menu Quit: launchd sends SIGTERM to stop a Lau
 
 Two halves, and the split is the whole point:
 
-- **`snapshot`** is what the SUPERVISOR reported. The engine, the file service, the
-  identity, the ports, the registry, the audio picks, the allowlist — none of it is
+- **`snapshot`** is what the SUPERVISOR reported. The engine, the identity, the ports, the
+  registry, the audio picks — none of it is
   computed or written here. It arrives whole and replaces what was.
 - **everything else** is view state the tray genuinely owns, and there is very little left:
   the spinner frame, the menu-bar darkness, the menu handles, and the two signatures
@@ -266,8 +241,7 @@ Two halves, and the split is the whole point:
 ## The remaining loops (`supervisor.rs`)
 
 The name is a misnomer — the supervisor is `@studio/engine-host`. The registry heartbeat,
-the refused-origin poll, the crash watch, the file-service watch and all three engine-query
-polls belong to it: it owns those files, those processes, and the one connection to the
+the crash watch and all three engine-query polls belong to it: it owns those files, those processes, and the one connection to the
 engine.
 
 Two loops live here, and both are genuinely view work:
@@ -321,8 +295,8 @@ that because the pidfile lets the fresh supervisor re-adopt it.
 
 ## The merged log (`logbus.rs`)
 
-`~/.st0/.studio.log` is written by the supervisor, which owns the engine and the
-file service and pumps both into it. Two jobs are left on the tray side:
+`~/.st0/.studio.log` is written by the supervisor, which owns the engine and pumps its
+output into it. Two jobs are left on the tray side:
 
 1. **Truncate it once, at startup.** The tray's lifetime is what "a session" means, and it
    is the only process that knows a session began: the supervisor can be relaunched

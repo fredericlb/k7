@@ -58,22 +58,12 @@ export function extsCachePath(): string {
   return EXTS_PATH;
 }
 
-/** The web UIs the user has allowed, read by the file service's CORS policy on EVERY request, which is what makes adding one take effect at once. */
-export function webOriginsPath(): string {
-  return join(studioDir(), "web-origins.json");
-}
-
-/** Origins the file service refused, waiting to be allowed or dismissed; written by packages/file-service/src/pendingOrigins.ts. */
-export function pendingOriginsPath(): string {
-  return join(studioDir(), "pending-origins.json");
-}
-
 /** The engine log written when NOT under the supervisor; its name follows the directory around it, so it is never looked for under another. */
 export function engineLogPath(): string {
   return join(studioDir(), ".studio-engine.log");
 }
 
-/** The MERGED log — the engine's and the file service's output, interleaved and tagged; what "Show logs" opens and the Logs panel reads. */
+/** The MERGED log — the engine's and the supervisor's output, interleaved and tagged; what "Show logs" opens and the Logs panel reads. */
 export function mergedLogPath(): string {
   return join(studioDir(), ".studio.log");
 }

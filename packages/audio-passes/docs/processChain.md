@@ -136,8 +136,8 @@ project, deliberately and to the filename: see `@studio/mediatek`'s `docs/chains
 resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the
 eq's plugin, params and preset folded in.
 
-That vocabulary is a cache, and it can be short: the unattended pull fetches the modules the
-open songs NAME (`@studio/file-service`'s `mediatekPull.ts`), and a library chain names its own.
+That vocabulary can be short: a library chain names modules of its own, and one the workspace
+does not hold is simply not there.
 A step whose module has never been synced is refused **before the first render**, by name —
 a chain half-applied writes a file that sounds like the chain minus one treatment, and nothing
 about that file says so afterwards.

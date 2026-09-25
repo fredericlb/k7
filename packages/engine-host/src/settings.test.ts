@@ -62,7 +62,7 @@ describe("where they are written", () => {
     write("engine-host.json", {
       port: 9002,
       audioPriority: ["Scarlett"],
-      webPort: 8781,
+      registryUrls: ["http://localhost:8795"],
     });
     saveSettings(loadSettings());
     const now = JSON.parse(
@@ -71,7 +71,7 @@ describe("where they are written", () => {
     expect(now).toMatchObject({
       port: 9002,
       audioPriority: ["Scarlett"],
-      webPort: 8781,
+      registryUrls: ["http://localhost:8795"],
     });
   });
 });

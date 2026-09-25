@@ -41,6 +41,8 @@ export interface InstancesOptions {
   dataRoot: string;
   /** The shared médiathèque, if this server holds one. */
   mediatekRoot?: string;
+  /** Where an account's service calls pl8 back, and the bearer it calls with — minted per account. */
+  mediatekLink?: (user: string) => { url: string; token: string };
   /** How to run the file service; the default is tsx over its own source. */
   command?: () => { cmd: string; args: string[]; cwd: string };
   readyTimeoutMs?: number;
@@ -125,11 +127,15 @@ export class Instances {
       ...process.env,
       STUDIO_HOME: home,
       STUDIO_FILE_PORT: String(port),
-      STUDIO_FILE_HOSTED: "1",
       STUDIO_HUB_SECRET: secret,
     };
     delete env.STUDIO_ENGINE_TOKEN;
     if (this.opts.mediatekRoot) env.STUDIO_MEDIATEK = this.opts.mediatekRoot;
+    const link = this.opts.mediatekLink?.(user);
+    if (link) {
+      env.MEDIATEK_URL = link.url;
+      env.MEDIATEK_TOKEN = link.token;
+    }
     const child = spawn(cmd, args, {
       cwd,
       env,

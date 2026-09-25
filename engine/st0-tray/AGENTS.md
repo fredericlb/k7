@@ -8,8 +8,9 @@ itself. The menu bar keeps one status line and the way in.
 
 It is not itself a supervisor. It spawns **`@studio/engine-host`** (TypeScript) as a
 child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
-contract and the registry, and — stage by stage — the engine and the file service. The
-tray draws what the supervisor reports and sends clicks back.
+contract, the registry and the engine. There is no file service on this machine: workspaces live
+on the server, and the supervisor runs the jobs the server hands it over the tunnel. The tray
+draws what the supervisor reports and sends clicks back.
 
 There is exactly ONE implementation of the contract, and it is the TypeScript one. If
 you find yourself about to add a second, that is the thing this arrangement exists to
@@ -30,8 +31,8 @@ engine. Three rules, all load-bearing:
 - **Snapshots, not deltas.** A `state` frame is the whole picture, emitted only when its
   serialisation changes — so a supervisor that crashed and relaunched resyncs the tray in
   one message, and an idle app is silent on the wire.
-- **The tray computes no policy.** Ports, identity, the registry URL, the audio picks and
-  the allowlist all arrive in the snapshot. A click goes back up as a `cmd`.
+- **The tray computes no policy.** Ports, identity, the registry URL and the audio picks
+  all arrive in the snapshot. A click goes back up as a `cmd`.
 
 `host.rs`'s `Snapshot` is deliberately PARTIAL: it mirrors only the fields the tray
 consumes today. serde ignores the rest, and adding a field is how a later stage takes a
@@ -42,8 +43,7 @@ subsystem over.
 ```
 tray (Tauri, windowless)      ← the process the user kills; creates the Job Object
  └─ node engine-host.mjs      ← job::assign() — the ONLY assign call
-     ├─ st0-engine       ← joins the job automatically (created by a job member)
-     └─ node file-service.mjs ← joins; its forked grandchild joins too
+     └─ st0-engine       ← joins the job automatically (created by a job member)
 ```
 
 - **Windows**: `job::init()` runs in `main.rs` setup before anything spawns. Job
@@ -69,13 +69,13 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   started.
 - **`settingswin.rs`** — the one window, opened from `Settings…`: audio ranking, plugin catalogue,
   sessions with the plugin editors they can open, the playlist sync targets, the st0 instances
-  (connected ones, blocked origins to allow, and a form to add one by URL), and System (version,
-  engine, registry, file service, and the buttons). It draws the snapshot and sends commands back, like every other click
+  (connected ones and a form to add one by URL), and System (version, engine, registry, and the
+  buttons). It draws the snapshot and sends commands back, like every other click
   here. Closing HIDES it — a destroyed last window makes Tauri ask the app to exit. See
   `docs/tray.md`.
 - **`supervisor.rs`** — the loops the tray still runs: the spinner and the menu-bar
-  appearance re-read (view work that stays), plus crash-watch, the file-service watch and
-  the engine query polls (not yet migrated). Rule: snapshot state under the std `Mutex`
+  appearance re-read (view work that stays), plus crash-watch and the engine query polls (not yet
+  migrated). Rule: snapshot state under the std `Mutex`
   and **drop the guard before any `.await`** — a std mutex must never be held across an
   await point, and never across a blocking call either.
 - **`logbus.rs`** — the tray's end of the merged log. The supervisor writes it; the tray
@@ -91,9 +91,8 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   animated, described in a unit square and 3× oversampled. See `docs/trayIcon.md`.
 - **`job.rs` / `pidkill.rs`** — the two backstops that stop a supervisor outliving the tray.
 
-**The tray spawns no process.** There is no `engine.rs` and no `fileservice.rs`: the supervisor
-(`@studio/engine-host`) owns starting the engine and the file service, and the tray only asks it
-to. Anything that needs a process started belongs there, not here.
+**The tray spawns no process.** There is no `engine.rs`: the supervisor (`@studio/engine-host`)
+owns starting the engine, and the tray only asks it to. Anything that needs a process started belongs there, not here.
 
 ## reqwest and trust roots
 

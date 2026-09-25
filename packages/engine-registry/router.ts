@@ -8,7 +8,7 @@ import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
 import { Router } from "express";
 import { z } from "zod";
-import { engineFilesProxy, issueEngineTicket } from "./proxy.ts";
+import { issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
 
 // Addresses are ADDRESSES: `/registry/heartbeat` is open by design, and an unvalidated string would let anyone aim this server at a name.
@@ -16,7 +16,6 @@ const addressesSchema = z.object({
   loopback: z.ipv4(),
   lanIps: z.array(z.ipv4()),
   port: z.number().int().min(1).max(65535),
-  filePort: z.number().int().min(1).max(65535),
 });
 
 // Bounded, because the heartbeat is open: a rating is a hint for a picker, never a number to trust blindly.
@@ -142,9 +141,6 @@ export function engineRegistryRouter(
       }
     }),
   );
-
-  // The engine machine's file service, relayed under `/engine/:id/` so the session middleware in front of `/api/engine` covers it.
-  router.use("/engine/:id/files", engineFilesProxy(reg));
 
   router.post(
     "/engine/select",

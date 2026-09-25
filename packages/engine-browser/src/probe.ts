@@ -21,7 +21,6 @@ export interface ProbeTarget {
     loopback: string;
     lanIps: string[];
     port: number;
-    filePort: number;
   };
   /** Minted per engine by `/engines`. Absent simply means no relay candidate is offered. */
   proxyTicket?: string;
@@ -34,7 +33,8 @@ export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
   /** What this link costs, measured. Null when nothing answered — unreachable is not a latency. */
   latency: EngineLatency | null;
   wsUrl: string | null; // the engine ws address that answered; null when unreachable
-  fileBase: string | null; // the file service on the SAME host; null when unreachable
+  /** The account's file service — the server's file hub, when it hosts the files; null otherwise. */
+  fileBase: string | null;
   token: string | null; // from the whoami reply; null when unreachable
   /** What the FILE service's gate takes when it is not `token`: a hub ticket, for files the server hosts. */
   fileToken?: string | null;
@@ -47,13 +47,12 @@ export function fileTokenOf(r: RankedEngine): string | null {
   return r.fileToken ?? r.token;
 }
 
-/** Reachable, and therefore measured. Narrows the four nullable fields in one test. */
+/** Reachable, and therefore measured. Narrows the three nullable fields the engine answered, in one test. */
 export function isReachable<E extends ProbeTarget>(
   r: RankedEngine<E>,
 ): r is RankedEngine<E> & {
   latency: EngineLatency;
   wsUrl: string;
-  fileBase: string;
   token: string;
 } {
   return r.latency !== null && r.wsUrl !== null;
@@ -130,20 +129,16 @@ function probeOne(
 
 interface Candidate {
   url: string; // the WebSocket to try
-  fileBase: string; // the file service that goes WITH it — the same host, or the same relay
 }
 
 /** Every way this browser might reach one engine — the order is documentation only, since `rank` races them and keeps the FASTEST. */
 function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
-  const { loopback, lanIps, port, filePort } = e.addresses;
+  const { loopback, lanIps, port } = e.addresses;
   /** The addresses this page may actually dial in the clear; an HTTPS page counts a LAN attempt as MIXED CONTENT — see docs/access.md. */
   const dialable =
     location.protocol === "https:" ? [loopback] : [loopback, ...lanIps];
   const direct = dialable.map(
-    (host): Candidate => ({
-      url: `ws://${host}:${port}`,
-      fileBase: `http://${host}:${filePort}`,
-    }),
+    (host): Candidate => ({ url: `ws://${host}:${port}` }),
   );
   if (!e.proxyTicket) return direct;
   // Same origin as the page, so it inherits its scheme: an HTTPS page relays over `wss:`.
@@ -152,15 +147,11 @@ function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
   const relayed: Candidate[] = [
     {
       url: `${scheme}//${location.host}${path}/ws?ticket=${encodeURIComponent(e.proxyTicket)}`,
-      fileBase: `${location.origin}${path}/files`,
     },
   ];
-  // Straight to the engine's machine, with the relay's file base: the files never travel over this channel.
+  // Straight to the engine's machine; the files are the server's, never this channel's.
   if (e.rtc)
-    relayed.push({
-      url: `${RTC_SCHEME}${location.origin}${path}/rtc`,
-      fileBase: `${location.origin}${path}/files`,
-    });
+    relayed.push({ url: `${RTC_SCHEME}${location.origin}${path}/rtc` });
   return [...direct, ...relayed];
 }
 
@@ -196,8 +187,8 @@ async function rank<E extends ProbeTarget>(
       best.reply.sampleRate,
     ),
     wsUrl: best.c.url,
-    // Whatever goes with the address that answered; a relayed socket beside a direct `http://` would be the mixed-content wall again.
-    fileBase: best.c.fileBase,
+    // The files are the server's hub's, set by `engineAccess` when it hosts them — never the engine machine's.
+    fileBase: null,
     token: best.reply.token,
   };
 }
