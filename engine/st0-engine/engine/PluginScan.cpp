@@ -283,6 +283,12 @@ std::vector<PluginInfo> loadPluginCache() {
     return out;
 }
 
+bool hostsExternalPlugins() {
+    juce::AudioPluginFormatManager formats;
+    formats.addDefaultFormats();
+    return formats.getNumFormats() > 0;
+}
+
 std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
     juce::AudioPluginFormatManager formats;
     formats.addDefaultFormats();

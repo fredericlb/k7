@@ -1,6 +1,7 @@
-// MainActivity.kt — the whole app for now: start the engine, keep the screen on, say where to dial it.
-// FOREGROUND ONLY: there is no service, so leaving this activity stops the engine and ends the process,
-// which is also the only way to restart one (EngineBridge). See docs/android.md.
+// MainActivity.kt — the tray, on a phone: starts the supervisor (which starts the engine), draws its
+// snapshot, and sends the few commands a phone needs — connect a studio, disconnect one, quit. FOREGROUND
+// ONLY: there is no service, so leaving this activity quits the supervisor and ends the process, which is
+// also the only way to restart an engine (EngineBridge). See docs/android.md.
 
 package se.frediver.st0
 
@@ -9,55 +10,134 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import org.json.JSONObject
 import java.net.Inet4Address
 import kotlin.system.exitProcess
 
-class MainActivity : Activity() {
+class MainActivity : Activity(), SupervisorHost.Listener {
     private lateinit var status: TextView
+    private lateinit var studios: LinearLayout
+    private lateinit var check: TextView
+    private var engineExit: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        status = TextView(this).apply { textSize = 20f; gravity = Gravity.CENTER }
-        val stop = Button(this).apply { text = "Stop"; setOnClickListener { finish() } }
-        setContentView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(48, 48, 48, 48)
-            addView(status)
-            addView(stop)
+        status = TextView(this).apply { textSize = 18f }
+        studios = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        check = TextView(this)
+        val address = EditText(this).apply {
+            hint = "https://studio.example"
+            inputType = InputType.TYPE_TEXT_VARIATION_URI
+        }
+        val connect = Button(this).apply {
+            text = "Connect a studio"
+            setOnClickListener {
+                val url = address.text.toString().trim()
+                if (url.isNotEmpty()) SupervisorHost.command("weburi.add", url)
+            }
+        }
+        val quit = Button(this).apply { text = "Quit"; setOnClickListener { finish() } }
+        setContentView(ScrollView(this).apply {
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(48, 48, 48, 48)
+                addView(status)
+                addView(label("Studios"))
+                addView(studios)
+                addView(address)
+                addView(connect)
+                addView(check)
+                addView(quit)
+            })
         })
+        status.text = "starting…"
+        SupervisorHost.listen(this)
 
         // The engine opens its device WITH inputs, so ask first; a refusal still starts it, output only.
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
-            startEngine()
+            startSupervisor()
         else
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_AUDIO)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_AUDIO) startEngine()
+        if (requestCode == REQUEST_AUDIO) startSupervisor()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        SupervisorHost.listen(null)
+        // Android recreates this activity on its own; only the user leaving ends the process.
         if (!isFinishing) return
-        EngineBridge.stop(STOP_TIMEOUT_MS)
+        // Supervisor FIRST: it deregisters while the engine still answers, then asks the engine to stop.
+        SupervisorHost.stop(SUPERVISOR_STOP_MS)
+        EngineBridge.stop(ENGINE_STOP_MS)
         exitProcess(0)
     }
 
-    private fun startEngine() {
-        status.text = "starting…"
-        EngineBridge.start(this) { rc -> runOnUiThread { status.text = "engine stopped ($rc)" } }
-        status.text = "listening on\nws://${lanAddress() ?: "127.0.0.1"}:${EngineBridge.PORT}"
+    override fun onState(frame: JSONObject) = runOnUiThread { draw(frame) }
+
+    override fun onEngineExit(code: Int) = runOnUiThread {
+        engineExit = code
+        status.text = "engine stopped ($code)"
     }
+
+    private fun startSupervisor() = SupervisorHost.start(this)
+
+    private fun draw(frame: JSONObject) {
+        if (engineExit != null) return
+        val state = frame.optString("status")
+        val lines = mutableListOf(
+            when (state) {
+                "running" -> "engine running on\nws://${lanAddress() ?: "127.0.0.1"}:${frame.optInt("enginePort")}"
+                "error" -> "engine: ${frame.optString("error")}"
+                else -> "engine $state"
+            },
+        )
+        val listed = frame.optJSONArray("instances")?.length() ?: 0
+        if (listed > 0) lines += if (frame.optBoolean("lastHeartbeatOk")) "listed at every studio" else "a studio is not answering"
+        status.text = lines.joinToString("\n")
+
+        studios.removeAllViews()
+        val rows = frame.optJSONArray("instances")
+        if (rows == null || rows.length() == 0) studios.addView(TextView(this).apply { text = "none connected" })
+        for (i in 0 until (rows?.length() ?: 0)) {
+            val row = rows!!.getJSONObject(i)
+            val url = row.optString("url")
+            studios.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(TextView(this@MainActivity).apply {
+                    text = url
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                if (row.optBoolean("removable")) addView(Button(this@MainActivity).apply {
+                    text = "Remove"
+                    setOnClickListener { SupervisorHost.command("weburi.remove", url) }
+                })
+            })
+        }
+
+        val c = frame.optJSONObject("instanceCheck")
+        check.text = when (c?.optString("state")) {
+            "checking" -> "checking ${c.optString("url")}…"
+            "refused" -> c.optString("message")
+            else -> ""
+        }
+    }
+
+    private fun label(text: String) = TextView(this).apply { this.text = text; textSize = 16f; setPadding(0, 32, 0, 8) }
 
     // The active network's IPv4, which is what a browser on the same LAN dials.
     private fun lanAddress(): String? {
@@ -68,6 +148,7 @@ class MainActivity : Activity() {
 
     private companion object {
         const val REQUEST_AUDIO = 1
-        const val STOP_TIMEOUT_MS = 3000L
+        const val SUPERVISOR_STOP_MS = 4000L
+        const val ENGINE_STOP_MS = 3000L
     }
 }

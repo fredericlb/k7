@@ -1,7 +1,8 @@
 // EngineProcess.h — find, start, adopt and stop the C++ engine. One engine per machine, with
 // `<state>/engine.pid` as the guard: that pidfile is what makes a supervisor crash survivable, the
 // engine outliving us and the next supervisor ADOPTING it. A pid is not an identity, so adopting
-// also asks the PORT. See docs/supervisor.md.
+// also asks the PORT. On Android the engine is a library in the app that spawned us, so starting and
+// stopping it are REQUESTS to that app over stdout (engine/st0-engine/docs/android.md). See docs/supervisor.md.
 
 #pragma once
 

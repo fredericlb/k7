@@ -1,6 +1,7 @@
 // TrustRoots.cpp — see TrustRoots.h. macOS: the system anchors plus every certificate an admin or
 // the user gave trust settings to (a private CA lands there). Windows: the ROOT stores of the user
-// and of the machine. Linux: the distribution's bundle, the first that exists.
+// and of the machine. Android: one file per CA, the updatable module's set before the image's.
+// Linux: the distribution's bundle, the first that exists.
 
 #include "TrustRoots.h"
 
@@ -17,6 +18,8 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #include <wincrypt.h>
+#elif defined(__ANDROID__)
+#include <filesystem>
 #endif
 
 namespace st0::tls {
@@ -91,6 +94,27 @@ std::string platformRoots()
     appendStore(CERT_SYSTEM_STORE_CURRENT_USER, out);
     appendStore(CERT_SYSTEM_STORE_LOCAL_MACHINE, out);
     return out;
+}
+#elif defined(__ANDROID__)
+std::string platformRoots()
+{
+    // Android 14+ updates its CAs through the conscrypt module, so that set wins when it exists.
+    for (const char* dir : {"/apex/com.android.conscrypt/cacerts", "/system/etc/security/cacerts"}) {
+        std::string pem;
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+            // Each file is the PEM followed by a text dump of it: keep the blocks, drop the prose.
+            const std::string text = readFile(entry.path().string());
+            const std::string begin = "-----BEGIN CERTIFICATE-----", end = "-----END CERTIFICATE-----";
+            for (size_t at = text.find(begin); at != std::string::npos; at = text.find(begin, at + 1)) {
+                const size_t stop = text.find(end, at);
+                if (stop == std::string::npos) break;
+                pem += text.substr(at, stop + end.size() - at) + "\n";
+            }
+        }
+        if (!pem.empty()) return pem;
+    }
+    return {};
 }
 #else
 std::string platformRoots()

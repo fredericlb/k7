@@ -590,7 +590,8 @@ int serve(int port) {
                     const auto externals = std::count_if(
                         cached.begin(), cached.end(),
                         [](const studio::PluginInfo& p) { return p.format != "internal"; });
-                    if (externals == 0) {
+                    // A build with no plugin format (Android) finds none by scanning, and would rescan on every poll.
+                    if (externals == 0 && studio::hostsExternalPlugins()) {
                         std::cerr << "[plugins] no EXTERNAL plugins cached (" << cached.size()
                                   << " built-in) — scanning once to fill it, this can take a while\n";
                         std::thread([reply] { reply(ensurePluginsScanned(false)); }).detach();
@@ -1141,7 +1142,7 @@ int serve(int port) {
 
     // Warm the plugin cache in the background at startup so the first list-plugins never waits on a cold sweep — a no-op when warm, and serialized with the on-demand path.
     std::thread([] {
-        if (studio::loadPluginCache().empty()) {
+        if (studio::hostsExternalPlugins() && studio::loadPluginCache().empty()) {
             std::cerr << "[plugins] cache cold at startup — warming in the background, "
                          "this can take a while\n";
             ensurePluginsScanned(false);

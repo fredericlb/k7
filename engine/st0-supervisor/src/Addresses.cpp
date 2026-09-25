@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <regex>
 #include <set>
 
@@ -138,6 +139,8 @@ std::vector<Iface> interfaces()
 
 std::string hostName()
 {
+    // Android answers "localhost" for every phone, so its app names the device instead.
+    if (const char* named = std::getenv("STUDIO_MACHINE_NAME"); named && *named) return named;
     char buf[256] = {0};
     if (gethostname(buf, sizeof buf - 1) != 0) return "localhost";
     return buf;

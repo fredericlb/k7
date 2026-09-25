@@ -78,6 +78,7 @@ FetchContent_MakeAvailable(libdatachannel)
 # --- ONNX Runtime : stem separation, the prebuilt library per platform, hashes pinned ---------------
 # A SHARED library, loaded at run time from beside the executable or the tray's resources. Windows
 # takes the DirectML package, which stops at 1.24; a platform with no binary builds without separation.
+# Android is one: it is UNIX and aarch64, but the linux-aarch64 build is glibc and loads on no phone.
 set(ST0_ORT_URL "")
 if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
     set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz)
@@ -85,10 +86,10 @@ if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_OSX_ARCHITECTURES
 elseif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(ST0_ORT_URL https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg)
     set(ST0_ORT_HASH 57e9f11b73437bef7a309496135d4c1f96b1a8e9ddba60013fa27bfc1d788681)
-elseif(UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+elseif(UNIX AND NOT APPLE AND NOT ANDROID AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz)
     set(ST0_ORT_HASH a5ed5a3cac51fbb2e90da632ae43d19212faaa20e76484e62bcb7c23ddb3b3fd)
-elseif(UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+elseif(UNIX AND NOT APPLE AND NOT ANDROID AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
     set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz)
     set(ST0_ORT_HASH e16a27a8ed330bbc698df7330b0cf56e722f354e3bcc92118682c74ef3c3e3da)
 endif()

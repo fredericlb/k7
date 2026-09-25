@@ -44,6 +44,13 @@ name, session id or plugin id can contain: `audio.priority` sends the whole rank
 (a reorder is one act, and two halves of it could interleave with a device poll), `plugin.showUI`
 sends `<session>\x1f<id>`. An empty `audio.priority` is meaningful — rank nothing.
 
+## One frame only Android sends
+
+`{"t":"engine","action":"start","id","token","port","host"}` and `{"t":"engine","action":"stop"}`.
+On Android the engine is a library in the app that spawned the supervisor, so `EngineProcess.cpp`
+cannot start or kill it and asks the app instead (`engine/st0-engine/docs/android.md`). The desktop
+build never emits it, which is why the tray has no reader for it.
+
 ## Why stdio and not a localhost socket
 
 The tray is the process the user kills, and a socket-attached supervisor that outlives a

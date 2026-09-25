@@ -3,6 +3,7 @@
 
 #include "EngineProcess.h"
 
+#include "HostProtocol.h"
 #include "Log.h"
 #include "Paths.h"
 #include "Process.h"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -132,6 +134,44 @@ bool isServing(int port)
     return up;
 }
 
+#ifdef __ANDROID__
+namespace {
+// How long the app gets to bind the engine's port: JUCE and the audio device come up first.
+constexpr auto kAppStartBound = std::chrono::seconds(20);
+}  // namespace
+
+StartResult start(const EngineIdentity& identity, int port)
+{
+    std::error_code ec;
+    fs::create_directories(paths::studioDir(), ec);
+    // The engine lives in the process that spawned us, so the pidfile names our parent.
+    const int app = static_cast<int>(getppid());
+    if (isServing(port)) {
+        std::ofstream(paths::enginePid(), std::ios::trunc) << app;
+        log::host("adopting the engine the app already serves on :" + std::to_string(port));
+        return {StartKind::Adopted, app};
+    }
+    protocol::emit({{"t", "engine"}, {"action", "start"}, {"id", identity.id}, {"token", identity.token},
+                    {"port", port}, {"host", "0.0.0.0"}});
+    const auto until = std::chrono::steady_clock::now() + kAppStartBound;
+    while (!isServing(port)) {
+        if (std::chrono::steady_clock::now() > until)
+            return {StartKind::Error, 0, "the app did not start the engine on :" + std::to_string(port)};
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    std::ofstream(paths::enginePid(), std::ios::trunc) << app;
+    log::host("the app started the engine on :" + std::to_string(port));
+    return {StartKind::Spawned, app};
+}
+
+void stop()
+{
+    // Never a kill: the pid is the app's own, and the engine is a thread of it.
+    protocol::emit({{"t", "engine"}, {"action", "stop"}});
+    std::error_code ec;
+    fs::remove(paths::enginePid(), ec);
+}
+#else
 StartResult start(const EngineIdentity& identity, int port)
 {
     if (running()) {
@@ -170,5 +210,6 @@ void stop()
     std::error_code ec;
     fs::remove(paths::enginePid(), ec);
 }
+#endif
 
 }  // namespace st0::engine

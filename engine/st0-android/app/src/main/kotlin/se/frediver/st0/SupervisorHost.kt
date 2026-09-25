@@ -1,0 +1,113 @@
+// SupervisorHost.kt — the app's half of the supervisor's NDJSON channel: what engine/st0-tray's host.rs
+// is on desktop. It runs st0-supervisor from the native library directory, the one place Android lets an
+// app execute its own binary, and adds the one Android duty: the supervisor's `engine` requests, since
+// the engine is a library in THIS process rather than a program it could spawn. See docs/android.md.
+
+package se.frediver.st0
+
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
+import android.util.Log
+import org.json.JSONObject
+import java.io.BufferedWriter
+import java.io.File
+import java.util.concurrent.TimeUnit
+
+/** One per PROCESS, like the engine: Android recreates activities on its own, and a second supervisor is refused. */
+object SupervisorHost {
+    /** What the current activity draws: the latest snapshot, and the engine's exit code once it stopped. */
+    interface Listener {
+        fun onState(frame: JSONObject)
+        fun onEngineExit(code: Int)
+    }
+
+    private var process: Process? = null
+    private var stdin: BufferedWriter? = null
+    private var nextId = 1
+    private var listener: Listener? = null
+    private var lastState: JSONObject? = null
+    private var engineExit: Int? = null
+
+    /** Start once per process; a later call only keeps the app context. */
+    @Synchronized
+    fun start(context: Context) {
+        if (process != null) return
+        val app = context.applicationContext
+        // Packaged as a lib*.so so the installer extracts it, executable, beside the engine's library.
+        val binary = File(app.applicationInfo.nativeLibraryDir, "libst0supervisor.so")
+        val p = ProcessBuilder(binary.absolutePath).apply {
+            environment()["STUDIO_HOME"] = EngineBridge.stateDir(app).absolutePath
+            environment()["STUDIO_MACHINE_NAME"] = deviceName(app)
+        }.start()
+        process = p
+        stdin = p.outputStream.bufferedWriter()
+        Thread({ p.inputStream.bufferedReader().forEachLine { onFrame(app, it) } }, "st0-supervisor-out").start()
+        Thread({ p.errorStream.bufferedReader().forEachLine { Log.i(TAG, it) } }, "st0-supervisor-err").start()
+    }
+
+    /** The activity now on screen, told at once what is already known. */
+    fun listen(l: Listener?) {
+        val (state, exit) = synchronized(this) {
+            listener = l
+            lastState to engineExit
+        }
+        if (l == null) return
+        state?.let(l::onState)
+        exit?.let(l::onEngineExit)
+    }
+
+    /** One command, as the tray sends it: `arg` is always one string. */
+    @Synchronized
+    fun command(cmd: String, arg: String = "") {
+        val w = stdin ?: return
+        val line = JSONObject().put("t", "cmd").put("id", nextId++).put("cmd", cmd).put("arg", arg)
+        try {
+            w.write(line.toString())
+            w.newLine()
+            w.flush()
+        } catch (e: java.io.IOException) {
+            Log.w(TAG, "supervisor gone: ${e.message}")
+        }
+    }
+
+    /** Close stdin, which IS the supervisor's quit: it deregisters, asks the engine to stop, and exits. */
+    fun stop(timeoutMs: Long) {
+        val p = synchronized(this) {
+            runCatching { stdin?.close() }
+            stdin = null
+            process
+        } ?: return
+        if (!p.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) p.destroyForcibly()
+    }
+
+    private fun onFrame(context: Context, line: String) {
+        val frame = runCatching { JSONObject(line) }.getOrNull() ?: return
+        when (frame.optString("t")) {
+            "state" -> synchronized(this) { lastState = frame; listener }?.onState(frame)
+            "engine" -> onEngine(context, frame)
+            "result" -> if (!frame.optBoolean("ok", true)) Log.w(TAG, "command ${frame.optInt("id")}: ${frame.optString("message")}")
+        }
+    }
+
+    private fun onEngine(context: Context, frame: JSONObject) {
+        when (frame.optString("action")) {
+            "start" -> EngineBridge.start(
+                context,
+                frame.getString("id"),
+                frame.getString("token"),
+                frame.getInt("port"),
+                frame.optString("host", "0.0.0.0"),
+            ) { code -> synchronized(this) { engineExit = code; listener }?.onEngineExit(code) }
+            // Off this reader thread: the join would hold up every frame behind it.
+            "stop" -> Thread({ EngineBridge.stop(ENGINE_STOP_MS) }, "st0-engine-stop").start()
+        }
+    }
+
+    // What the picker shows for this engine: the name the user gave the phone, else its model.
+    private fun deviceName(context: Context): String =
+        Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
+
+    private const val TAG = "st0-supervisor"
+    private const val ENGINE_STOP_MS = 3000L
+}

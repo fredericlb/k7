@@ -267,8 +267,8 @@ often locked while the engine is running — stop it before rebuilding.
 
 **Android** — `npm run build:android --workspace st0-engine` with `ANDROID_NDK_HOME` set to an NDK
 r28+, or let the app build it: `./gradlew assembleDebug` in `engine/st0-android`, which passes the
-SDK's own NDK. The `android-arm64` preset makes `libst0engine.so`, a library the app loads, with
-no `main()`, no VST3/LADSPA and no tests. What differs there and why: [docs/android.md](docs/android.md).
+SDK's own NDK — it builds the supervisor's `android-arm64` preset too. The engine's makes
+`libst0engine.so`, a library the app loads, with no `main()`, no VST3/LADSPA and no tests. What differs there and why: [docs/android.md](docs/android.md).
 
 ### A half-rebuilt engine now REFUSES to start — it used to crash on the first project
 

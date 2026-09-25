@@ -10,7 +10,7 @@ it is shaped this way: [docs/supervisor.md](docs/supervisor.md). The wire to the
 ## Build and test
 
 ```
-cmake --preset macos-clang        # windows-msvc, dev-gcc, release-gcc…
+cmake --preset macos-clang        # windows-msvc, dev-gcc, release-gcc, android-arm64 (docs: st0-engine/docs/android.md)…
 cmake --build --preset macos-clang
 build/macos-clang/st0_supervisor_tests
 ```

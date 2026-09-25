@@ -1,11 +1,12 @@
 # The engine on Android
 
-The same engine, built for arm64 Android by the `android-arm64` preset and run by the app in
-`engine/st0-android`. It serves the same WebSocket protocol on port 8765, bound to every interface,
-and a browser on the LAN drives it exactly as it drives a desktop engine.
+The same engine and the same supervisor, built for arm64 Android by their `android-arm64` presets
+and run by the app in `engine/st0-android`, which plays the tray's part. The supervisor lists the
+phone at the studios it is connected to, exactly as on desktop, and the engine serves the same
+WebSocket protocol on port 8765, bound to every interface.
 
-**Foreground only.** There is no service: the engine lives as long as `MainActivity`, and leaving it
-stops the engine and ends the process.
+**Foreground only.** There is no service: both live as long as `MainActivity`, and leaving it
+deregisters the engine, stops it and ends the process.
 
 ## A library in the app, not a process it spawns
 
@@ -46,11 +47,47 @@ JUCE forces `JUCE_MODAL_LOOPS_PERMITTED` to 0 on Android, so `runDispatchLoopUnt
 there. Every other caller of it is a CLI mode, which Android never runs, so they all go through
 `pumpMessages()` (`engine/MessagePump.h`), a no-op on Android.
 
+## The supervisor is a program the app runs; the engine is a library it loads
+
+The supervisor needs no Java — no JUCE, no audio — and is built to be a child driven over NDJSON on
+stdio, so it stays exactly that. The app packages it as `libst0supervisor.so`: only files named like
+a library reach the native library directory, the one place Android lets an app execute its own
+binary, and `useLegacyPackaging` has the installer extract them as real files. `SupervisorHost.kt`
+is then what `host.rs` is to the tray — it starts the program, reads its frames, sends its commands,
+and closes stdin to quit it.
+
+Only the ENGINE changes hands. On desktop the supervisor spawns it and kills its process tree; here
+it lives in the app, so `EngineProcess.cpp` asks instead:
+
+- **start** emits an `engine` frame carrying the id, token and port it would have put in the
+  child's environment, then waits for the port to answer. The app sets that environment and serves.
+  The pidfile names the supervisor's PARENT, which is the process the engine is a thread of.
+- **stop** emits the request and never kills anything: that pid is the app's own.
+- An engine already serving is **adopted**, as on desktop — a supervisor the app restarted finds it.
+
+**One supervisor per process, not per activity.** Android recreates an activity on its own — an
+overlay change is enough, and `configChanges` does not cover it — and a second supervisor is refused
+by the host lock while the first keeps drawing into the dead activity. So `SupervisorHost` is an
+`object`, like `EngineBridge`: it starts once, keeps the last snapshot, and whichever activity is on
+screen listens.
+
+Two things a phone answers differently from a desktop:
+
+- **Trusted roots.** Android keeps one file per CA, the updatable conscrypt module's set on Android
+  14+ before the system image's, each a PEM followed by a text dump. `TrustRoots.cpp` reads the
+  blocks out of them.
+- **The machine's name.** `gethostname()` is "localhost" on every phone, so the app passes the name
+  the user gave the device, else its model, as `STUDIO_MACHINE_NAME`, and that is what the picker
+  shows.
+
+No ONNX Runtime ships for Android, so the supervisor builds without stem separation: the job says
+what is missing, as it does on any platform without the library.
+
 ## Build choices, and what forced each
 
 | choice | why |
 |---|---|
-| The preset builds the library, Gradle stages it | AGP's `externalNativeBuild` would configure a second CMake tree and fetch Tracktion into it. `app/build.gradle.kts` runs `scripts/build.mjs android-arm64` with the SDK's NDK and copies the result in as a JNI library. |
+| The presets build, Gradle stages | AGP's `externalNativeBuild` would configure second CMake trees and fetch Tracktion into one. `app/build.gradle.kts` runs the engine's `scripts/build.mjs android-arm64` and the tray's `supervisorBuild.mjs` with `STUDIO_SUPERVISOR_PRESET=android-arm64`, against the SDK's NDK, and copies both in. |
 | API 29 | JUCE's Android font code calls `AFontMatcher`, which is 29+. AAudio, which Oboe prefers, only needs 26. |
 | arm64-v8a only | every phone worth playing on; a second ABI doubles a 35 MB library for nothing. |
 | No VST3 / LADSPA | there is nothing to host and no window for an editor. `loadVstPreset` answers false, as it does for a built-in. |
@@ -76,8 +113,10 @@ also catches the GL driver's chatter, which is noise.
 - **The Faust standard libraries are not on the device.** `FaustPlugin::faustLibrariesDir()` looks
   beside the executable, and an APK has no such layout, so a module that imports `stdfaust.lib`
   fails to compile. They need shipping as assets and extracting into the app's files.
-- **No supervisor.** No id or token, no registry heartbeat, no tunnel: nothing lists this engine in
-  a studio's picker, and a browser has to dial `ws://<phone>:8765` itself.
+- **No way to trust a private CA.** A user-installed certificate is out of an app's reach, so a
+  studio behind one is refused; `STUDIO_EXTRA_CA_CERTS` exists, and the app does not set it yet.
+- **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
+  studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
 - **No foreground service**, so the screen is kept on and the engine stops with the activity.
 
@@ -94,6 +133,9 @@ through `adb forward`:
 | jitter spread | 4.6–6.2 ms |
 | realtime ratio | **0.88, steady** |
 | Stop with a project loaded | the engine tears down and the process exits cleanly |
+| supervisor start | 145 trusted roots read; engine started by the app with the supervisor's identity |
+| connecting a studio (a stand-in registry through `adb reverse`) | hello answered, a heartbeat every 5 s carrying id, LAN addresses, name and performance |
+| Quit | deregister sent, pidfile and host lock removed, both processes gone |
 
 The realtime ratio is the emulator's audio device consuming 12 % less than wall-clock time at a
 nominal 48 kHz: steady from 8 s to 25 s, with nothing dropped, so the engine keeps up with the
