@@ -11,7 +11,7 @@ import {
   withModuleStamp,
 } from "@studio/song/loader";
 import { setFoldersStill } from "@studio/song/moduleCache";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   closeModuleWatch,
   moduleFoldersMoved,
@@ -43,8 +43,17 @@ const node_ = (dirAt: string, name: string): void => {
   );
 };
 
-// fs.watch delivers on its own schedule; a fixed sleep is what a real event needs, and a longer
-// one is cheaper than a flake when the whole suite's watchers are contending for the same OS queue.
+// A watch arms asynchronously and never reports a change made before it is live (the ceiling's job), so the change repeats until seen.
+const seen = (change: () => void, check: () => void): Promise<void> =>
+  vi.waitFor(
+    () => {
+      change();
+      check();
+    },
+    { timeout: 5000, interval: 50 },
+  );
+
+// A quiet period, for the one place the point is to let a write's late event land BEFORE a watch opens.
 const settle = (ms = 500): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
@@ -79,9 +88,10 @@ describe("moduleFoldersStill", () => {
     watchModuleFolders(dir);
     moduleFoldersStill(dir); // the first, forced no
     expect(moduleFoldersStill(dir)).toBe(true);
-    module_("delay");
-    await settle();
-    expect(moduleFoldersStill(dir)).toBe(false);
+    await seen(
+      () => module_("delay"),
+      () => expect(moduleFoldersStill(dir)).toBe(false),
+    );
     expect(moduleFoldersStill(dir)).toBe(true); // …and settles again
   });
 
@@ -89,13 +99,15 @@ describe("moduleFoldersStill", () => {
     watchModuleFolders(dir);
     moduleFoldersStill(dir);
     expect(moduleFoldersStill(dir)).toBe(true);
-    writeFileSync(
-      join(root, "_modules", "audio", "reverb", "module.yaml"),
-      "# reverb\nplugin:\n  type: internal\n  name: Mixer\nparams:\n  Volume: 3\n",
-      "utf8",
+    await seen(
+      () =>
+        writeFileSync(
+          join(root, "_modules", "audio", "reverb", "module.yaml"),
+          "# reverb\nplugin:\n  type: internal\n  name: Mixer\nparams:\n  Volume: 3\n",
+          "utf8",
+        ),
+      () => expect(moduleFoldersStill(dir)).toBe(false),
     );
-    await settle();
-    expect(moduleFoldersStill(dir)).toBe(false);
   });
 
   it("stops claiming anything once closed", () => {
@@ -120,9 +132,11 @@ describe("moduleFoldersStill", () => {
     expect(moduleFoldersStill(dir)).toBe(true);
     expect(moduleFoldersStill(other)).toBe(true);
 
-    node_(dir, "delay"); // …only the first one moves
-    await settle();
-    expect(moduleFoldersStill(dir)).toBe(false);
+    // …only the first one moves.
+    await seen(
+      () => node_(dir, "delay"),
+      () => expect(moduleFoldersStill(dir)).toBe(false),
+    );
     expect(moduleFoldersStill(other)).toBe(true);
 
     // …and closing one leaves the other watching.
@@ -151,9 +165,10 @@ describe("the vocabulary the oracle governs", () => {
     watchModuleFolders(dir);
     setFoldersStill(moduleFoldersStill);
     expect(workspaceAudioRefs(dir)).toEqual(["reverb"]);
-    module_("delay");
-    await settle();
-    expect(workspaceAudioRefs(dir)).toEqual(["delay", "reverb"]);
+    await seen(
+      () => module_("delay"),
+      () => expect(workspaceAudioRefs(dir)).toEqual(["delay", "reverb"]),
+    );
   });
 
   /** The case a watcher gets WRONG on its own, and why `moduleFoldersMoved` exists — docs/moduleWatch.md. */
