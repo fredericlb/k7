@@ -100,7 +100,14 @@ through, and it must be minutes rather than hours.
 
 ## On OneDev
 
-`.onedev-buildspec.yml` carries a Linux leg and a Windows leg, both manual. The Linux one runs in
+`.onedev-buildspec.yml` carries a Linux leg and a Windows leg, both NIGHTLY: a `ScheduleTrigger` at
+02:00 server time. OneDev makes a new build at every firing, even on a commit it has built before,
+so each leg's first command skips the night when the branch took no commit in the last 24 hours —
+a short green build rather than a red one, since a skipped night is not a failure, and a git that
+cannot answer builds anyway rather than skipping silently. Either can still be run by hand, and a
+hand-run on a day without commits skips the same way.
+
+The Linux one runs in
 a `node:22-bookworm` container and installs its toolchain on every run. The Windows one runs on a
 Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, Rust (rustup), CMake, Ninja
 and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
