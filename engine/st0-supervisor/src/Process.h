@@ -46,4 +46,17 @@ Spawned spawn(const SpawnOptions& opts);
 /** Run a program to completion, `out` receiving what it printed; false when it could not start. */
 bool runCapture(const std::filesystem::path& program, const std::vector<std::string>& args, std::string& out);
 
+/** What `run` gives back: the exit code, -1 when it did not start, and the two streams apart. */
+struct RunResult {
+    int code = -1;
+    std::string out;
+    std::string err;
+};
+
+/** Run a program to completion, `input` on its stdin, its stdout and stderr captured APART. */
+RunResult run(const std::filesystem::path& program, const std::vector<std::string>& args, const std::string& input = {});
+
+/** A tool by name: on PATH, then where a package manager puts it — a tray's PATH is not a shell's. */
+std::filesystem::path findTool(const std::string& name);
+
 }  // namespace st0::process

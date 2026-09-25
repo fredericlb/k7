@@ -75,6 +75,55 @@ set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
 set(NO_TESTS ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libdatachannel)
 
+# --- ONNX Runtime : stem separation, the prebuilt library per platform, hashes pinned ---------------
+# A SHARED library, shipped beside the executable as onnxruntime-node shipped it. Windows takes the
+# DirectML package, which stops at 1.24; a platform with no binary builds without separation.
+set(ST0_ORT_URL "")
+if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
+    set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz)
+    set(ST0_ORT_HASH 6ebb5062a934537c352937821f9fe9718e7de1a2db1122a93dd363ffd53a7012)
+elseif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(ST0_ORT_URL https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg)
+    set(ST0_ORT_HASH 57e9f11b73437bef7a309496135d4c1f96b1a8e9ddba60013fa27bfc1d788681)
+elseif(UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz)
+    set(ST0_ORT_HASH a5ed5a3cac51fbb2e90da632ae43d19212faaa20e76484e62bcb7c23ddb3b3fd)
+elseif(UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz)
+    set(ST0_ORT_HASH e16a27a8ed330bbc698df7330b0cf56e722f354e3bcc92118682c74ef3c3e3da)
+endif()
+set(ST0_ORT_RUNTIME "")
+if(ST0_ORT_URL)
+    FetchContent_Declare(onnxruntime URL ${ST0_ORT_URL} URL_HASH SHA256=${ST0_ORT_HASH} DOWNLOAD_EXTRACT_TIMESTAMP ON)
+    FetchContent_MakeAvailable(onnxruntime)
+    add_library(st0_onnxruntime SHARED IMPORTED)
+    if(WIN32)
+        set_target_properties(st0_onnxruntime PROPERTIES
+            IMPORTED_LOCATION ${onnxruntime_SOURCE_DIR}/runtimes/win-x64/native/onnxruntime.dll
+            IMPORTED_IMPLIB ${onnxruntime_SOURCE_DIR}/runtimes/win-x64/native/onnxruntime.lib
+            INTERFACE_INCLUDE_DIRECTORIES ${onnxruntime_SOURCE_DIR}/build/native/include)
+        # DirectML itself, which the ORT package expects to find beside it.
+        FetchContent_Declare(directml
+            URL      https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg
+            URL_HASH SHA256=4e7cb7ddce8cf837a7a75dc029209b520ca0101470fcdf275c1f49736a3615b9
+            DOWNLOAD_EXTRACT_TIMESTAMP ON)
+        FetchContent_MakeAvailable(directml)
+        set(ST0_ORT_RUNTIME ${onnxruntime_SOURCE_DIR}/runtimes/win-x64/native/onnxruntime.dll
+                            ${onnxruntime_SOURCE_DIR}/runtimes/win-x64/native/onnxruntime_providers_shared.dll
+                            ${directml_SOURCE_DIR}/bin/x64-win/DirectML.dll)
+    else()
+        file(GLOB ST0_ORT_LIB ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so.1.* ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.1.*.dylib)
+        list(FILTER ST0_ORT_LIB EXCLUDE REGEX "dSYM")
+        list(GET ST0_ORT_LIB 0 ST0_ORT_LIB)
+        set_target_properties(st0_onnxruntime PROPERTIES
+            IMPORTED_LOCATION ${ST0_ORT_LIB}
+            INTERFACE_INCLUDE_DIRECTORIES ${onnxruntime_SOURCE_DIR}/include)
+        set(ST0_ORT_RUNTIME ${ST0_ORT_LIB})
+    endif()
+else()
+    message(STATUS "ONNX Runtime ships no binary for this platform: building without stem separation")
+endif()
+
 # --- the program ----------------------------------------------------------------------------------
 # Everything but main.cpp is a library, so the tests link exactly what ships.
 add_library(st0_supervisor_core STATIC
@@ -103,6 +152,8 @@ add_library(st0_supervisor_core STATIC
     src/MachineJobs.cpp
     src/RtcFrames.cpp
     src/Rtc.cpp
+    src/SeparationAudio.cpp
+    src/OnnxSession.cpp
     src/Separation.cpp
     src/Supervisor.cpp)
 target_include_directories(st0_supervisor_core PUBLIC src)
@@ -114,9 +165,30 @@ endif()
 if(APPLE)
     target_link_libraries(st0_supervisor_core PUBLIC "-framework Security" "-framework CoreFoundation")
 endif()
+if(ST0_ORT_URL)
+    target_link_libraries(st0_supervisor_core PUBLIC st0_onnxruntime)
+    target_compile_definitions(st0_supervisor_core PUBLIC ST0_WITH_ONNX)
+    if(WIN32)
+        target_link_libraries(st0_supervisor_core PUBLIC dxgi)
+    endif()
+endif()
+
+# The runtime library beside every executable, and the executables told to look there.
+function(st0_beside_runtime target)
+    if(APPLE)
+        set_target_properties(${target} PROPERTIES BUILD_RPATH "@executable_path")
+    elseif(UNIX)
+        set_target_properties(${target} PROPERTIES BUILD_RPATH "$ORIGIN")
+    endif()
+    foreach(lib ${ST0_ORT_RUNTIME})
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${lib} $<TARGET_FILE_DIR:${target}>)
+    endforeach()
+endfunction()
 
 add_executable(st0-supervisor src/main.cpp)
 target_link_libraries(st0-supervisor PRIVATE st0_supervisor_core)
+st0_beside_runtime(st0-supervisor)
 
 # --- tests: the engine's tiny harness, one binary, no device and no network -----------------------
 enable_testing()
@@ -128,11 +200,14 @@ add_executable(st0_supervisor_tests
     tests/AudioPolicy_test.cpp
     tests/Performance_test.cpp
     tests/MachineJobs_test.cpp
-    tests/RtcFrames_test.cpp)
+    tests/RtcFrames_test.cpp
+    tests/SeparationAudio_test.cpp)
 target_include_directories(st0_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../st0-engine/tests)
 target_link_libraries(st0_supervisor_tests PRIVATE st0_supervisor_core)
+st0_beside_runtime(st0_supervisor_tests)
 add_test(NAME st0_supervisor_tests COMMAND st0_supervisor_tests)
 
 # The agent alone, for packages/engine-tunnel's suites to run against the real TypeScript hub.
 add_executable(tunnel_harness tests/tunnel_harness.cpp)
 target_link_libraries(tunnel_harness PRIVATE st0_supervisor_core)
+st0_beside_runtime(tunnel_harness)

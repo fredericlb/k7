@@ -10,6 +10,7 @@ void runAudioPolicyTests();
 void runPerformanceTests();
 void runMachineJobsTests();
 void runRtcFramesTests();
+void runSeparationAudioTests();
 
 int main()
 {
@@ -20,5 +21,6 @@ int main()
     runPerformanceTests();
     runMachineJobsTests();
     runRtcFramesTests();
+    runSeparationAudioTests();
     TEST_MAIN_END();
 }
