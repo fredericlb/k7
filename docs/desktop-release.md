@@ -97,3 +97,17 @@ node engine/st0-tray/scripts/package-release.mjs --stamp local
 
 `.github/workflows/st0.yml` stays as it is and compiles no C++: it is the gate every push runs
 through, and it must be minutes rather than hours.
+
+## On OneDev
+
+`.onedev-buildspec.yml` carries a Linux leg and a Windows leg, both manual. The Linux one runs in
+a `node:22-bookworm` container and installs its toolchain on every run. The Windows one runs on a
+Windows agent through a **Remote Shell Executor** — named `windows`, which is what the job's
+`jobExecutor` asks for — so nothing is installed per run: Node, Git, Rust (rustup), CMake, Ninja
+and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
+container would buy isolation at the price of MSVC in a Windows container, which is heavier than
+the machine it would run on.
+
+The preset follows the Visual Studio the agent has, for the reason the section above gives:
+`windows-msvc-2022` for 2022, `windows-msvc` for 2026. Every other job in the file is a container
+job and must never land on that executor, so its job match names this job and nothing else.
