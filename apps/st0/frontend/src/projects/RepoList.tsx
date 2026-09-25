@@ -1,4 +1,4 @@
-// RepoList.tsx — the machine's workspaces, each with its projects indented: add one by SSH URI
+// RepoList.tsx — the account's workspaces, each with its projects indented: add one by SSH URI
 // (which registers it with pl8 AND clones it), or open a project straight into a new tab.
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
@@ -96,7 +96,7 @@ export function RepoList({
   /** Where the running clone is, in git's own words, or null. */
   adding: string | null;
   hasMachine: boolean;
-  /** Clone a repository onto this machine — the Import button's act. */
+  /** Clone a repository onto the server — the Import button's act. */
   onImport: (uri: string) => Promise<void>;
   /** A workspace of one's own, git-initialised here with no repository behind it and nothing in it. */
   onCreateWorkspace: (
@@ -110,7 +110,7 @@ export function RepoList({
     onStep: (s: string) => void,
   ) => Promise<void>;
   onOpen: (ws: MachineWorkspace) => void;
-  /** Why create and delete are impossible, or "" — both go through the machine, which is also what READS this list (../../docs/projects.md). */
+  /** Why create and delete are impossible, or "" — both go through the file service, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
   /** What stops a workspace being MADE or IMPORTED, on top of `blocked` — the account's library, which everything in one resolves through. */
   blockedWorkspace: string;
@@ -136,7 +136,7 @@ export function RepoList({
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** Copy a project into ANOTHER workspace on this machine — the destination commits, and pushes if it has a repository. */
+  /** Copy a project into ANOTHER workspace — the destination commits, and pushes if it has a repository. */
   onCopy: (
     ws: MachineWorkspace,
     project: RepoProject,
@@ -148,7 +148,7 @@ export function RepoList({
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
   /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */
   workspaceHref: (ws: MachineWorkspace) => string;
-  /** Take a whole workspace off the machine — the folder and everything in it. */
+  /** Delete a whole workspace — the folder and everything in it. */
   onRemoveWorkspace: (ws: MachineWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
@@ -176,7 +176,7 @@ export function RepoList({
       )}
 
       {!hasMachine ? (
-        // The price of the move, said where it is paid: with no machine there is no list, and an empty one would read as a new account.
+        // With no file service there is no list, and an empty one would read as a new account.
         <div className="flex flex-col items-center gap-2 rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           <ServerOff className="h-5 w-5 text-amber-500" />
           <span>{m["repos.noMachineTitle"]()}</span>

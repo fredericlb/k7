@@ -274,10 +274,10 @@ describe("project new", () => {
     expect(h.refused.join(" ")).toMatch(/created, but: push refusé/);
   });
 
-  it("says there is no machine rather than failing at the far end", async () => {
+  it("says the file service is not answering rather than failing at the far end", async () => {
     const h = harness({ machine: null });
     await h.run("project new mix hiver");
-    expect(h.refused.join(" ")).toMatch(/no engine machine/);
+    expect(h.refused.join(" ")).toMatch(/file service is not answering/);
     expect(h.seen.create).toEqual([]);
   });
 });

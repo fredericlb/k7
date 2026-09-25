@@ -1,4 +1,4 @@
-// ProjectsPane.tsx — the home page's body: the machine's workspaces, or the tree of whichever one
+// ProjectsPane.tsx — the home page's body: the account's workspaces, or the tree of whichever one
 // is unfolded. It holds the async for the two presentational views beside it. Which one is open
 // comes from the address (Home.tsx), not from local state. See ../../docs/projects.md.
 
@@ -40,7 +40,7 @@ export function ProjectsPane({
   onChanged,
   onOpenSettings,
 }: {
-  /** What the machine holds, projects included — the only source, a project being a folder there. */
+  /** The account's workspaces, projects included — the only source, a project being a folder there. */
   /** Forwarded to RepoList, whose prose points at the deploy key. */
   onOpenSettings: () => void;
   workspaces: MachineWorkspace[];
@@ -49,7 +49,7 @@ export function ProjectsPane({
   busy: boolean;
   /** The unfolded workspace's name, taken from the address, or null for the list. */
   openWs: string | null;
-  /** The chosen machine, or null when none answers — it is what READS the list, projects being its folders. */
+  /** The account's file service, or null when it does not answer — it is what READS the list. */
   machine: Machine | null;
   onOpen: (name: string | null) => void;
   /** Call after any write, so the page reloads without waiting for the poll. */
@@ -68,11 +68,11 @@ export function ProjectsPane({
   const [libraries, setLibraries] = useState<RepoRef | null | undefined>(
     undefined,
   );
-  /** …and what that costs the two workspace buttons. Still reading is not yet a refusal: the machine says no anyway. */
+  /** …and what that costs the two workspace buttons. Still reading is not yet a refusal: the file service says no anyway. */
   const blockedWorkspace =
     blocked || (libraries === null ? m["ws.needLibraries"]() : "");
 
-  /** The machine, or a refusal that reads — reaching here means it vanished between the dialog opening and the click. */
+  /** The file service, or a refusal that reads — reaching here means it vanished between the dialog opening and the click. */
   const chosen = useCallback((): Machine => {
     if (!machine) throw new Error(blocked);
     return machine;
@@ -95,7 +95,7 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /** Take a workspace off the machine. Final: there is no bin a whole workspace fits in. */
+  /** Delete a workspace. Final: there is no bin a whole workspace fits in. */
   const removeWorkspace = useCallback(
     async (w: MachineWorkspace) => {
       setError(null);
@@ -120,7 +120,7 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /** …and its first repository, which is the remote and the push on the machine. */
+  /** …and its first repository, which is the remote and the push. */
   const publish = useCallback(
     (w: MachineWorkspace, uri: string, onStep: (s: string) => void) => {
       setError(null);
@@ -145,7 +145,7 @@ export function ProjectsPane({
         !w.origin,
       );
       onChanged();
-      // The project EXISTS on the machine; only the push failed. Throwing would invite a retry.
+      // The project EXISTS; only the push failed. Throwing would invite a retry.
       if (gripe) setError(m["projects.createdBut"]({ folder, gripe }));
     },
     [chosen, onChanged],
@@ -254,14 +254,14 @@ export function ProjectsPane({
         !w.origin,
       );
       onChanged();
-      // Renamed on the machine, unpushed: the same rule the other three follow — say it, do not throw.
+      // Renamed, unpushed: the same rule the other three follow — say it, do not throw.
       if (gripe)
         setError(m["projects.renamedBut"]({ path: p.path, folder, gripe }));
     },
     [chosen, onChanged],
   );
 
-  /** The unfolded workspace's tree, read off the machine — one request, no retry: it is a `readdir` on a disk that is there. */
+  /** The unfolded workspace's tree, read off the file service — one request, no retry: it is a `readdir` on a disk that is there. */
   useEffect(() => {
     if (!openWs || !machine) {
       setNodes(null);

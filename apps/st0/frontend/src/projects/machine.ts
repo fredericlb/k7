@@ -1,5 +1,5 @@
-// machine.ts — creating, copying and deleting a project go through the MACHINE: that is where the
-// working copy being committed lives, and pl8 has only ever held the register of repositories.
+// machine.ts — creating, copying and deleting a project go through the account's file service on
+// the server: that is where the working copy being committed lives, and pl8 holds only the register.
 // `ensureWorkspace` is what clones, and also serves ADDING one. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
@@ -19,7 +19,7 @@ const CLONE_CAP_MS = 10 * 60_000;
 const sleep = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
-/** This repository's workspace on this machine, cloned if it is not there — the only way to create a project in an EMPTY repository. */
+/** This repository's workspace, cloned if it is not there — the only way to create a project in an EMPTY repository. */
 /**
  * git's ANSWER out of everything it wrote: the last two non-empty lines. A failed clone ends
  * with the reason and then the fatal that followed from it — "Permission denied (publickey)."
@@ -54,7 +54,7 @@ export async function ensureWorkspace(
   let logged = 0;
   while (!job.done) {
     if (Date.now() > until)
-      // The MACHINE is still cloning: only this page gave up, and the workspace appears by
+      // The SERVER is still cloning: only this page gave up, and the workspace appears by
       // itself when git is done — nothing is removed for taking long (docs/projects.md).
       throw new Error(msg["machine.cloneSlow"]());
     await sleep(CLONE_POLL_MS);
@@ -104,7 +104,7 @@ export async function commitAndPush(
 }
 
 /**
- * A workspace of one's own: git-initialised on the machine, with no repository behind it and
+ * A workspace of one's own: git-initialised on the server, with no repository behind it and
  * NOTHING in it. Nothing here needs a server, which is the point — and no project either,
  * because choosing an archetype is a question the editor asks better, on the empty workspace
  * itself. See ../../docs/projects.md.
@@ -119,7 +119,7 @@ export async function createLocalWorkspace(
   return { workspace: name };
 }
 
-/** Its FIRST repository: the remote and the push in one call on the machine, which is the whole of publishing. */
+/** Its FIRST repository: the remote and the push in one call, which is the whole of publishing. */
 export async function publishWorkspace(
   m: Machine,
   workspace: string,
@@ -133,7 +133,7 @@ export async function publishWorkspace(
 /** Create a project: clone if needed, scaffold, commit — and a failed commit does not undo the creation. */
 export async function createProjectOnMachine(
   m: Machine,
-  /** The workspace folder on THIS machine — the page already holds it; `ensureWorkspace` still serves, but for ADDING a repository. */
+  /** The workspace folder — the page already holds it; `ensureWorkspace` still serves, but for ADDING a repository. */
   workspace: string,
   folder: string,
   onStep: (s: string) => void,
@@ -159,9 +159,9 @@ export async function createProjectOnMachine(
 }
 
 /**
- * Copy a project into ANOTHER workspace: the copy on the machine, then the DESTINATION's commit
+ * Copy a project into ANOTHER workspace: the copy, then the DESTINATION's commit
  * — a copy is a change to the workspace that receives it, and the push is what carries it off
- * this disk. `noRemote` is that workspace having no repository, where there is nothing to push.
+ * the server. `noRemote` is that workspace having no repository, where there is nothing to push.
  */
 export async function copyProjectOnMachine(
   m: Machine,
@@ -184,8 +184,8 @@ export async function copyProjectOnMachine(
 }
 
 /**
- * …and rename one: the folder moves on the machine, then the workspace commits — a rename is a
- * DELETE and an ADD to git, so what carries it off this disk is the push, exactly as a copy's is.
+ * …and rename one: the folder moves, then the workspace commits — a rename is a
+ * DELETE and an ADD to git, so what carries it to the repository is the push, exactly as a copy's is.
  */
 export async function renameProjectOnMachine(
   m: Machine,
@@ -211,7 +211,7 @@ export async function renameProjectOnMachine(
   };
 }
 
-/** …and delete one: the service recycles it, and the COMMIT is what removes it from the repository and from every other machine. */
+/** …and delete one: the service recycles it, and the COMMIT is what removes it from the repository. */
 export async function deleteProjectOnMachine(
   m: Machine,
   workspace: string,

@@ -306,7 +306,7 @@ be looked at. Everything works in it but pushing; `Publier` is the day it gets a
 ## the HOME page is where a workspace is chosen
 
 **This app does not own workspaces**, and never will: pl8 stores the repositories
-(`apps/pl8/docs/projects.md`) and the engine's machine holds every working copy. What this app
+(`apps/pl8/docs/projects.md`) and the account's file service on the server holds every working copy. What this app
 owns is the SCREEN above a project, at `/` with nothing after it — the repositories, the
 projects inside them, the libraries repository and the published shares. The deploy key is NOT
 here any more — it is the Sync tab of `/@settings`,
@@ -322,9 +322,9 @@ A project is named by an ADDRESS — the repository by its short name, then the 
 ```
 
 `ProjectGate` asks pl8 for the git URI behind that name
-(`GET /api/projects/by-name/:name`), resolves it to a folder on the chosen engine's machine —
-`GET /workspaces/by-repo`, cloning it with a visible progress bar if that machine has never
-seen it — then opens the project. Arriving with no project in the address is the home page rather
+(`GET /api/projects/by-name/:name`), resolves it to one of the account's workspaces on the server —
+`GET /workspaces/by-repo`, cloning it with a visible progress bar if it is not there yet — then
+opens the project. Arriving with no project in the address is the home page rather
 than an error to redirect away from, and `main.tsx` branches on `parseLaunch` before mounting
 anything. There is deliberately no SECOND picker — z0's editor comes back to this one.
 
@@ -340,8 +340,7 @@ is a wrapper holding this app's wording and what to render once the project is o
 
 **There is no workspace picker anywhere in this app**, and a folder under
 `<state>/workspace/<you>/` is the wrong level to offer a choice at. The home page lists
-REPOSITORIES, which belong to a person rather than to a machine, and a workspace is what the gate
-resolves one INTO. The deploy key is pl8's — one key per person, which the file service fetches a
+REPOSITORIES, which belong to a person, and a workspace is what the gate resolves one INTO. The deploy key is pl8's — one key per person, which the file service fetches a
 copy of (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
 
 Identity is the OIDC email, which names the engine SESSION rather than a folder — the workspaces are `<state>/workspace/<workspace>` with nobody underneath (`packages/engine-client/docs/paths.md`) — and the active

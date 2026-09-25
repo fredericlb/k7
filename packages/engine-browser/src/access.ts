@@ -39,6 +39,14 @@ export interface EngineAccess<
   wsUrlFor(id: string): Promise<string | null>;
   /** What to hand `new EngineClient(...)`: the address just measured, then a fresh one on every reconnect after it. */
   linkUrl(chosen: RankedEngine<E>): () => string | Promise<string | null>;
+  /** The account's files on the server with no engine bound, or null when the server hosts none — see docs/access.md. */
+  hostedFiles(): Promise<HostedFiles | null>;
+}
+
+/** Where the server's file service answers, and the ticket its gate takes. */
+export interface HostedFiles {
+  fileBase: string;
+  fileToken: string;
 }
 
 /** Where an app keeps its preferences, when that is not where the registry is — st0, whose registry is pl8's. */
@@ -119,6 +127,12 @@ export function engineAccess<
         measured = null; // spent: from here on, ask for a live one
         return first ?? this.wsUrlFor(chosen.engine.id);
       };
+    },
+    async hostedFiles() {
+      const hub = opts.hostedFiles ? await hubHello() : null;
+      return hub
+        ? { fileBase: `${base}${hub.path}`, fileToken: hub.ticket }
+        : null;
     },
     async wsUrlFor(id) {
       // Through the registry rather than a cache: the ticket is minted by that call, so there is no fresh URL to be had without it.

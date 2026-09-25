@@ -1,22 +1,21 @@
-// api.ts — the two services this screen talks to, and they are not the same machine:
-// pl8 (same origin, session cookie) holds the SHARES and nothing about git; the file service on
-// the chosen ENGINE holds every working copy, the deploy key and the libraries pointer, so what
-// projects EXIST — and creating, deleting and opening one — is its answer.
+// api.ts — the two services this screen talks to: pl8 holds the SHARES and nothing about git;
+// the account's file service, on the server, holds every working copy, the deploy key and the
+// libraries pointer, so what projects EXIST — and creating, deleting and opening one — is its answer.
 //
-// Every call to it names its MACHINE: this screen opens no project, so `fileApi`'s module-level
-// transport is unconfigured here and would throw. See ../../docs/projects.md.
+// Every call to it names its `Machine` (that service and its ticket): this screen opens no project,
+// so `fileApi`'s module-level transport is unconfigured here and would throw. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
   type CloneJob,
+  type ColdChainsReply,
   type CommentState,
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type MachineWorkspace,
   type MachineWorkspaceList,
-  type RepoProject,
-  type ColdChainsReply,
   type ModelDownloadJob,
+  type RepoProject,
   type RepoRef,
   type ServedProject,
   type ServedProjectReply,
@@ -72,15 +71,14 @@ async function json<T>(res: Response, what: string): Promise<T> {
 /** The three fields an address is chosen from — narrower than `MachineWorkspace` on purpose, the surfaces listing carrying the same identity flattened. */
 type Addressable = Pick<MachineWorkspace, "name" | "repoName" | "uniqueName">;
 
-/** Where a project opens. ALWAYS `@local`: a project is a folder on the machine that holds it,
- *  and no service outlives that machine to say otherwise (../../docs/projects.md). */
+/** Where a project opens: by its workspace's folder name, the one address (../../docs/projects.md). */
 export function projectHref(ws: Addressable, p: RepoProject): string {
   return localProjectUrl(window.location.origin, ws.name, p.path, p.app);
 }
 
 /**
  * Where the WORKSPACE itself opens — the same choice of address with `.` for the project, which
- * the machine then resolves: the one last open, else the first, else the first-project wizard.
+ * the file service then resolves: the one last open, else the first, else the first-project wizard.
  * This is the only way into a workspace that holds nothing (../../docs/projects.md).
  */
 export function workspaceHref(ws: Addressable): string {
@@ -149,7 +147,7 @@ export const shares = {
 
 // ── the chosen engine's file service: the working copies ────────────────────────
 
-/** The machine chosen for this screen: its file service, and the token that opens the door. */
+/** The file service this screen acts on — the account's, on the server — and the token that opens the door. */
 export interface Machine {
   fileBase: string;
   token: string;
@@ -238,7 +236,7 @@ export const engineMachine = {
       "models",
     ),
 
-  /** The deploy key, MADE on this machine and never leaving it: one per machine, not one per account. */
+  /** The account's deploy key, MADE by its file service and never leaving the server. */
   sshKey: async (m: Machine): Promise<SshKeyInfo> =>
     json(
       await fetch(`${m.fileBase}/ssh-key`, { headers: machineHeaders(m) }),
@@ -255,7 +253,7 @@ export const engineMachine = {
       "ssh-key",
     ),
 
-  /** Every workspace on this machine, with the projects in it — the MACHINE answers, they being folders on its disk. */
+  /** Every workspace of the account, with the projects in it — the file service answers, they being folders on the server. */
   workspaces: async (m: Machine): Promise<MachineWorkspace[]> => {
     const { workspaces } = await json<MachineWorkspaceList>(
       await fetch(`${m.fileBase}/workspaces/projects`, {

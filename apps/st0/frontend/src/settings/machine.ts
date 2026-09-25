@@ -1,20 +1,25 @@
-// machine.ts — which file service the settings panel acts on: the account's, found the way the
-// home page finds it. The sections that read or change the account's files share it, since the
-// panel opens no project and the module-level file transport is unconfigured.
+// machine.ts — which file service a page that opens no project acts on: the account's, on the
+// server, whether or not an engine answers. The home page and the settings share it, since the
+// module-level file transport is unconfigured there. An engine only rides along in the ticket.
 
 import { fileTokenOf } from "@studio/engine-browser/probe";
 import { api, engines } from "../api";
 import type { Machine } from "../projects/api";
 
-/** The account's file service and the token its gate takes, or null when nothing answers. */
-export async function probeMachine(): Promise<Machine | null> {
+/** The account's file service and the token its gate takes, or null when nothing answers; `bindEngine` waits for the probe so the chosen engine's machine is bound. */
+export async function probeMachine(bindEngine = true): Promise<Machine | null> {
   try {
     const me = await api.getMe().catch(() => null);
     const userEmail = me?.email || me?.sub || "unknown";
-    const { chosen } = await engines.find();
+    const hosted = await engines.hostedFiles();
+    if (hosted && !bindEngine)
+      return { fileBase: hosted.fileBase, token: hosted.fileToken, userEmail };
+    const { chosen } = await engines.find().catch(() => ({ chosen: null }));
     const token = chosen ? fileTokenOf(chosen) : null;
-    return chosen?.fileBase && token
-      ? { fileBase: chosen.fileBase, token, userEmail }
+    if (chosen?.fileBase && token)
+      return { fileBase: chosen.fileBase, token, userEmail };
+    return hosted
+      ? { fileBase: hosted.fileBase, token: hosted.fileToken, userEmail }
       : null;
   } catch {
     return null;

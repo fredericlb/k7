@@ -1,7 +1,7 @@
-// Home.tsx — what st0 draws when its address names NO project: the machine's workspaces and the
-// projects in them, the libraries, the shares, the key. It holds the async — identity, machine,
-// and the two polls — for the presentational body beside it. The project list comes from the
-// MACHINE and so needs one; the rest of the screen reads without. See ../../docs/projects.md.
+// Home.tsx — what st0 draws when its address names NO project: the account's workspaces and the
+// projects in them, the libraries, the shares, the key. It holds the async — identity, the file
+// service, and the two polls — for the presentational body beside it. The list is the SERVER's
+// files and needs no engine. See ../../docs/projects.md.
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
@@ -12,20 +12,19 @@ import {
   SlidersHorizontal,
   Tablet,
 } from "@frediverse/ui/icons";
-import { fileTokenOf } from "@studio/engine-browser/probe";
 import { AskHost } from "@studio/project-shell/ask";
 import { AppSwitch } from "@studio/ui-app-switch";
 import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
 import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, engines } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { RightPanel } from "../components/RightPanel";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import { HomeSettings } from "../settings/HomeSettings";
+import { probeMachine } from "../settings/machine";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
 import { engineMachine, shares as sharesApi } from "./api";
 import {
@@ -65,29 +64,15 @@ export function Home() {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // The chosen machine, or null; `undefined` until probed — "none" is a refusal we draw, "looking" is not.
+  // The account's file service, or null; `undefined` until asked — "none" is a refusal we draw, "looking" is not.
   const [machine, setMachine] = useState<Machine | null | undefined>(undefined);
   const [probing, setProbing] = useState(false);
 
-  /** Identity, then the machine — and `find()` and NOTHING else: a claim is a lease ON A PROJECT, which this page has none of. */
+  /** The account's files on the server, engine or none — and no `hold()`: a claim is a lease ON A PROJECT, which this page has none of. */
   const probe = useCallback(async () => {
     setProbing(true);
     try {
-      const me = await api.getMe().catch(() => null);
-      const userEmail = me?.email || me?.sub || "unknown";
-      const { chosen } = await engines.find();
-      setMachine(
-        chosen?.fileBase && fileTokenOf(chosen)
-          ? {
-              fileBase: chosen.fileBase,
-              token: fileTokenOf(chosen) ?? "",
-              userEmail,
-            }
-          : null,
-      );
-    } catch {
-      // A failed probe is not this page failing: it just leaves the two buttons grey.
-      setMachine(null);
+      setMachine(await probeMachine(false));
     } finally {
       setProbing(false);
     }
@@ -115,13 +100,13 @@ export function Home() {
     seen.current = { shares: "" };
   }, []);
 
-  /** The project list comes from the MACHINE and nowhere else; with none there is nothing to ask, which is the price of the move. */
+  /** The project list is the file service's answer, over the account's workspaces on the server. */
   const loadWorkspaces = useCallback(async (m: Machine) => {
     try {
       setWorkspaces(await engineMachine.workspaces(m));
       setError(null);
     } catch (e) {
-      // The machine IS the screen's subject: say it failed rather than draw an empty list.
+      // The list IS the screen's subject: say it failed rather than draw an empty one.
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -147,7 +132,7 @@ export function Home() {
     };
   }, [machine, loadWorkspaces]);
 
-  /** What pl8 still holds: the shares, which are its own bytes. A repository is a folder on a machine and is asked of that machine. */
+  /** What pl8 holds: the shares, which are its own bytes. A workspace is the file service's and is asked of it. */
   useEffect(() => {
     let stop = false;
     const tick = async () => {
@@ -251,7 +236,7 @@ export function Home() {
         className="z-20"
         actions={
           <>
-            {/* Which machine will write, said BEFORE the click: without one two buttons here are grey, and finding out by clicking is what this avoids. */}
+            {/* Whether the files answer, said BEFORE the click: without them two buttons here are grey, and finding out by clicking is what this avoids. */}
             <span
               className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex"
               title={

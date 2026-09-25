@@ -17,9 +17,9 @@ missing, this is where you notice.
 too — [apps/pl8/docs/projects.md](../../pl8/docs/projects.md) says why that service is the right
 custodian.
 
-**The SOURCE of the list is the machine.** What lists the projects is the file service, over the
-cloned workspaces. A separate index would be a second copy of what the engine's machine already
-holds, and a worse one: one `git fetch` behind, and blind to a project created and committed
+**The SOURCE of the list is the file service.** What lists the projects is the account's file
+service on the server, over its workspaces (`packages/file-hub/docs/fileHub.md`). A separate index
+would be a second copy of what that service already holds, and a worse one: one `git fetch` behind, and blind to a project created and committed
 whose push did not go through — the exact case `commitOutcome` treats as recoverable.
 
 Two underlying reasons, in the order they weigh:
@@ -28,9 +28,9 @@ Two underlying reasons, in the order they weigh:
    person own, and what is in them" is not a catalogue question; it is the editor's first
    question, the one that has to be answered before there is anything to edit. Modules and chains
    follow the same rule: they are WRITTEN, and writing happens here.
-2. **The machine is on this side.** Creating, deleting and LISTING a project all go through the
-   engine's file service, because a project is a folder on it. The médiathèque would have to reach
-   for a machine it does nothing else with; st0 is wired to one permanently.
+2. **The file service is on this side.** Creating, deleting and LISTING a project all go through
+   the account's file service, because a project is a folder in it. st0 is wired to that service
+   for every project it opens; the médiathèque does nothing else with it.
 
 The corollary is that the médiathèque has **Morceaux** as its landing section: exactly what you do
 not write in a text editor. Projects are here, modules and chains too, playlists next
@@ -91,21 +91,22 @@ switched off:
 The `Profiler` stays on the third only: it bills every commit of the subtree to keep the rare long
 ones, and this page has no bursts of commits to measure.
 
-### The engine is required for the list, and that is the price of everything else
+### The list needs the server's files, and no engine
 
-This page needs a machine for **the list of projects**, and for adding a repository (which clones
-it): projects are folders on that machine, so only it knows which exist. Without it the list is
-replaced by the sentence that says so, rather than by an empty screen that would look like a new
-account. The header says which machine: "machine prête" or "aucune machine", with the address in a
-tooltip and a button to re-probe.
+The list of projects, and adding a repository (which clones it), need the account's file service
+on the server and nothing else: the workspaces are there whether or not an engine is running, so
+the page does not wait on an engine probe to draw them (`settings/machine.ts`'s `probeMachine`,
+asked with `bindEngine` off). If that service does not answer, the list is replaced by the
+sentence that says so, rather than by an empty screen that would look like a new account. The
+header says whether the files answer, with the address in a tooltip and a button to ask again.
 
-What can be read and set **without a machine** is what saves installation day: the libraries
+What can be read and set **without the file service** is what saves installation day: the libraries
 repository here, and the deploy key in the settings. A page an engine picker would strike out
 entirely would be a page where nothing can be set until there is an engine. The Sync tab needs
 only pl8, so it draws with no engine; on the hosted studio, where the other three tabs have
 nothing to show, it draws alone.
 
-Shares are behind a button on a project's row, so behind a list that needs a machine (§ Shares).
+Shares are behind a button on a project's row, so behind a list that needs the file service (§ Shares).
 That does not touch the installation argument — a new account has published nothing — but it is
 the price noted there.
 
@@ -313,12 +314,11 @@ projects.
 
 ### One row per WORKSPACE, not per repository
 
-The list shows what the machine holds, so its folders under `<state>/workspace/`. Two consequences,
-and both are needed:
+The list shows the account's folders under its `workspace/` on the server. Two consequences, and
+both are needed:
 
-**A repository registered at pl8 that this machine has not cloned has no row.** A second machine
-shows here only what is on this one. Its `/<dépôt>/<projet>` address keeps working — `ProjectGate`
-clones it on opening — and that is how to bring it over.
+**A repository registered at pl8 that has not been cloned has no row.** Its `/<dépôt>/<projet>`
+address keeps working — `ProjectGate` clones it on opening — and that is how to bring it in.
 
 **A workspace with NO repository has one too.** `Examples`, seeded with the demos on first
 contact, is a clone of nothing — and it is what a new account has on the day it has nothing else.
@@ -362,10 +362,9 @@ and the project is `"."`, so nothing downstream changes.
 **It is now the ONLY address.** There was a second — `/<dépôt>/<projet>`, resolved by asking pl8's
 register what URI a short name stood for — and it is gone with the register. `projectHref`,
 `workspaceHref` and `externalHref` no longer take a set of registered names and no longer choose:
-a project is a folder on the machine that holds it, and nothing outlives that machine to say
-otherwise.
+a project is a folder in the account's workspaces, and its folder name is what addresses it.
 
-What that gives up is portability between machines: a link pasted to somebody names a folder on
+What that gives up is portability between accounts: a link pasted to somebody names a folder in
 yours. What it buys is that there is one answer instead of two, and no service to ask. It also
 makes the second-device case free rather than delicate — `projectClaimKey` is computed from the
 address, and where there is one address both ends compute it alike, which is the failure
