@@ -76,8 +76,8 @@ set(NO_TESTS ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(libdatachannel)
 
 # --- ONNX Runtime : stem separation, the prebuilt library per platform, hashes pinned ---------------
-# A SHARED library, shipped beside the executable as onnxruntime-node shipped it. Windows takes the
-# DirectML package, which stops at 1.24; a platform with no binary builds without separation.
+# A SHARED library, loaded at run time from beside the executable or the tray's resources. Windows
+# takes the DirectML package, which stops at 1.24; a platform with no binary builds without separation.
 set(ST0_ORT_URL "")
 if(APPLE AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64"))
     set(ST0_ORT_URL https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz)
@@ -96,12 +96,10 @@ set(ST0_ORT_RUNTIME "")
 if(ST0_ORT_URL)
     FetchContent_Declare(onnxruntime URL ${ST0_ORT_URL} URL_HASH SHA256=${ST0_ORT_HASH} DOWNLOAD_EXTRACT_TIMESTAMP ON)
     FetchContent_MakeAvailable(onnxruntime)
-    add_library(st0_onnxruntime SHARED IMPORTED)
+    # Headers only: the library is LOADED at the first separation, never linked (src/OnnxSession.cpp).
+    add_library(st0_onnxruntime INTERFACE)
     if(WIN32)
-        set_target_properties(st0_onnxruntime PROPERTIES
-            IMPORTED_LOCATION ${onnxruntime_SOURCE_DIR}/runtimes/win-x64/native/onnxruntime.dll
-            IMPORTED_IMPLIB ${onnxruntime_SOURCE_DIR}/runtimes/win-x64/native/onnxruntime.lib
-            INTERFACE_INCLUDE_DIRECTORIES ${onnxruntime_SOURCE_DIR}/build/native/include)
+        target_include_directories(st0_onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/build/native/include)
         # DirectML itself, which the ORT package expects to find beside it.
         FetchContent_Declare(directml
             URL      https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg
@@ -115,9 +113,7 @@ if(ST0_ORT_URL)
         file(GLOB ST0_ORT_LIB ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so.1.* ${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.1.*.dylib)
         list(FILTER ST0_ORT_LIB EXCLUDE REGEX "dSYM")
         list(GET ST0_ORT_LIB 0 ST0_ORT_LIB)
-        set_target_properties(st0_onnxruntime PROPERTIES
-            IMPORTED_LOCATION ${ST0_ORT_LIB}
-            INTERFACE_INCLUDE_DIRECTORIES ${onnxruntime_SOURCE_DIR}/include)
+        target_include_directories(st0_onnxruntime INTERFACE ${onnxruntime_SOURCE_DIR}/include)
         set(ST0_ORT_RUNTIME ${ST0_ORT_LIB})
     endif()
 else()
@@ -166,20 +162,15 @@ if(APPLE)
     target_link_libraries(st0_supervisor_core PUBLIC "-framework Security" "-framework CoreFoundation")
 endif()
 if(ST0_ORT_URL)
-    target_link_libraries(st0_supervisor_core PUBLIC st0_onnxruntime)
+    target_link_libraries(st0_supervisor_core PUBLIC st0_onnxruntime ${CMAKE_DL_LIBS})
     target_compile_definitions(st0_supervisor_core PUBLIC ST0_WITH_ONNX)
     if(WIN32)
         target_link_libraries(st0_supervisor_core PUBLIC dxgi)
     endif()
 endif()
 
-# The runtime library beside every executable, and the executables told to look there.
+# The runtime library beside every executable of the build, the first place the loader looks.
 function(st0_beside_runtime target)
-    if(APPLE)
-        set_target_properties(${target} PROPERTIES BUILD_RPATH "@executable_path")
-    elseif(UNIX)
-        set_target_properties(${target} PROPERTIES BUILD_RPATH "$ORIGIN")
-    endif()
     foreach(lib ${ST0_ORT_RUNTIME})
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different ${lib} $<TARGET_FILE_DIR:${target}>)
