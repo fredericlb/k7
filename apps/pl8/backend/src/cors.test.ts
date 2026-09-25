@@ -41,6 +41,19 @@ describe("openCors", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it("allows the headers the file hub's calls carry, and not the hub secret", () => {
+    const { headers } = exchange("https://play.priv.st0.app", "OPTIONS");
+    const allowed = headers["Access-Control-Allow-Headers"].toLowerCase();
+    for (const h of [
+      "x-studio-user",
+      "x-studio-workspace",
+      "x-studio-engine-token",
+      "x-studio-engine-id",
+    ])
+      expect(allowed).toContain(h);
+    expect(allowed).not.toContain("x-studio-hub-secret");
+  });
+
   it("sets nothing and just continues when there is no Origin header", () => {
     const { headers, next } = exchange(undefined);
     expect(headers["Access-Control-Allow-Origin"]).toBeUndefined();
