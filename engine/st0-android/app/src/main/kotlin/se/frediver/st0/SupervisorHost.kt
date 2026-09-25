@@ -28,6 +28,7 @@ object SupervisorHost {
     private var listener: Listener? = null
     private var lastState: JSONObject? = null
     private var engineExit: Int? = null
+    private var restarting = false
 
     /** Start once per process; a later call only keeps the app context. */
     @Synchronized
@@ -39,10 +40,11 @@ object SupervisorHost {
         val p = ProcessBuilder(binary.absolutePath).apply {
             environment()["STUDIO_HOME"] = EngineBridge.stateDir(app).absolutePath
             environment()["STUDIO_MACHINE_NAME"] = deviceName(app)
+            TrustedCas.file(app).takeIf { it.isFile }?.let { environment()["STUDIO_EXTRA_CA_CERTS"] = it.absolutePath }
         }.start()
         process = p
         stdin = p.outputStream.bufferedWriter()
-        Thread({ p.inputStream.bufferedReader().forEachLine { onFrame(app, it) } }, "st0-supervisor-out").start()
+        Thread({ p.inputStream.bufferedReader().forEachLine { onFrame(app, p, it) } }, "st0-supervisor-out").start()
         Thread({ p.errorStream.bufferedReader().forEachLine { Log.i(TAG, it) } }, "st0-supervisor-err").start()
     }
 
@@ -71,6 +73,17 @@ object SupervisorHost {
         }
     }
 
+    /** A new supervisor for what only its start reads — the trusted CAs; the engine keeps serving, and the new one adopts it. */
+    fun restart(context: Context, timeoutMs: Long) {
+        synchronized(this) { restarting = true }
+        stop(timeoutMs)
+        synchronized(this) {
+            process = null
+            restarting = false
+        }
+        start(context)
+    }
+
     /** Close stdin, which IS the supervisor's quit: it deregisters, asks the engine to stop, and exits. */
     fun stop(timeoutMs: Long) {
         val p = synchronized(this) {
@@ -81,11 +94,12 @@ object SupervisorHost {
         if (!p.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) p.destroyForcibly()
     }
 
-    private fun onFrame(context: Context, line: String) {
+    private fun onFrame(context: Context, from: Process, line: String) {
         val frame = runCatching { JSONObject(line) }.getOrNull() ?: return
         when (frame.optString("t")) {
             "state" -> synchronized(this) { lastState = frame; listener }?.onState(frame)
-            "engine" -> onEngine(context, frame)
+            // Only the CURRENT supervisor's: a restarted one's last words — "stop the engine" — may still be in its pipe.
+            "engine" -> if (synchronized(this) { from == process && !restarting }) onEngine(context, frame)
             "result" -> if (!frame.optBoolean("ok", true)) Log.w(TAG, "command ${frame.optInt("id")}: ${frame.optString("message")}")
         }
     }

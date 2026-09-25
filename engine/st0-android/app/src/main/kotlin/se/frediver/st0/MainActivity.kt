@@ -7,6 +7,7 @@ package se.frediver.st0
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.os.Bundle
@@ -26,6 +27,7 @@ class MainActivity : Activity(), SupervisorHost.Listener {
     private lateinit var status: TextView
     private lateinit var studios: LinearLayout
     private lateinit var check: TextView
+    private lateinit var cas: TextView
     private var engineExit: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +48,21 @@ class MainActivity : Activity(), SupervisorHost.Listener {
                 if (url.isNotEmpty()) SupervisorHost.command("weburi.add", url)
             }
         }
+        cas = TextView(this)
+        val trust = Button(this).apply {
+            text = "Trust a CA certificate…"
+            setOnClickListener {
+                val pick = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+                startActivityForResult(pick, REQUEST_CA)
+            }
+        }
+        val forget = Button(this).apply {
+            text = "Forget trusted CAs"
+            setOnClickListener {
+                TrustedCas.forget(this@MainActivity)
+                applyCas("trusting Android's CAs only")
+            }
+        }
         val quit = Button(this).apply { text = "Quit"; setOnClickListener { finish() } }
         setContentView(ScrollView(this).apply {
             addView(LinearLayout(this@MainActivity).apply {
@@ -58,10 +75,15 @@ class MainActivity : Activity(), SupervisorHost.Listener {
                 addView(address)
                 addView(connect)
                 addView(check)
+                addView(label("Certificates"))
+                addView(cas)
+                addView(trust)
+                addView(forget)
                 addView(quit)
             })
         })
         status.text = "starting…"
+        drawCas(null)
         SupervisorHost.listen(this)
 
         // The engine opens its device WITH inputs, so ask first; a refusal still starts it, output only.
@@ -74,6 +96,17 @@ class MainActivity : Activity(), SupervisorHost.Listener {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_AUDIO) startSupervisor()
+    }
+
+    @Deprecated("the platform Activity has no other way to receive a picked document")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (requestCode != REQUEST_CA || resultCode != RESULT_OK || uri == null) return
+        val outcome = runCatching { TrustedCas.import(this, uri) }
+        outcome.onSuccess { added ->
+            applyCas(if (added.isEmpty()) "already trusted" else "now trusting ${added.joinToString("; ")}")
+        }.onFailure { drawCas("not a certificate: ${it.message}") }
     }
 
     override fun onDestroy() {
@@ -137,6 +170,21 @@ class MainActivity : Activity(), SupervisorHost.Listener {
         }
     }
 
+    // The supervisor reads its roots once, at start: a new one takes the change and adopts the running engine.
+    private fun applyCas(said: String) {
+        drawCas("$said — reconnecting…")
+        Thread({
+            SupervisorHost.restart(applicationContext, SUPERVISOR_STOP_MS)
+            runOnUiThread { drawCas(said) }
+        }, "st0-supervisor-restart").start()
+    }
+
+    private fun drawCas(said: String?) {
+        val n = TrustedCas.count(this)
+        val base = if (n == 0) "Android's CAs only" else "Android's CAs and $n of yours"
+        cas.text = if (said == null) base else "$base\n$said"
+    }
+
     private fun label(text: String) = TextView(this).apply { this.text = text; textSize = 16f; setPadding(0, 32, 0, 8) }
 
     // The active network's IPv4, which is what a browser on the same LAN dials.
@@ -148,6 +196,7 @@ class MainActivity : Activity(), SupervisorHost.Listener {
 
     private companion object {
         const val REQUEST_AUDIO = 1
+        const val REQUEST_CA = 2
         const val SUPERVISOR_STOP_MS = 4000L
         const val ENGINE_STOP_MS = 3000L
     }

@@ -83,6 +83,15 @@ Two things a phone answers differently from a desktop:
 No ONNX Runtime ships for Android, so the supervisor builds without stem separation: the job says
 what is missing, as it does on any platform without the library.
 
+**A private CA is the user's to add, in the app.** A studio behind one is exactly the case the
+desktop answers from the OS store, and on Android the certificates a user installs in Settings are
+out of an app's reach. So the app takes the CA itself, through the document picker — PEM or DER,
+one or a bundle, parsed by the platform's X.509 factory so a file that is not a certificate is
+refused rather than stored — and keeps them as one PEM file handed to the supervisor as
+`STUDIO_EXTRA_CA_CERTS`. The supervisor reads its roots once, at start, so a change restarts it:
+the running engine is adopted, never stopped, and only the CURRENT supervisor's `engine` requests
+are obeyed, since the old one's last words — stop the engine — may still be in its pipe.
+
 ## Build choices, and what forced each
 
 | choice | why |
@@ -120,8 +129,6 @@ also catches the GL driver's chatter, which is noise.
 
 ## What it does not have yet
 
-- **No way to trust a private CA.** A user-installed certificate is out of an app's reach, so a
-  studio behind one is refused; `STUDIO_EXTRA_CA_CERTS` exists, and the app does not set it yet.
 - **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
@@ -145,6 +152,8 @@ through `adb forward`:
 | Quit | deregister sent, pidfile and host lock removed, both processes gone |
 | a Faust module importing `stdfaust.lib` (−6 dB with `ba.db2linear`) | compiles, no warning; the note's peak halves, 0.64 → 0.32 |
 | the same importing a library that does not exist | `faust: ERROR : unable to open file nosuch.lib`, and the audio passes untouched |
+| an HTTPS studio whose certificate a private CA signed | refused; after importing that CA (DER) 146 roots, the engine adopted, connected and heartbeating; after forgetting it 145 and refused again — one engine start throughout |
+| importing a file that is not a certificate | refused with a message; nothing stored, nothing restarted |
 
 The realtime ratio is the emulator's audio device consuming 12 % less than wall-clock time at a
 nominal 48 kHz: steady from 8 s to 25 s, with nothing dropped, so the engine keeps up with the
