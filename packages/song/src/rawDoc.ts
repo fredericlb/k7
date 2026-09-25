@@ -155,6 +155,7 @@ export interface LoadedModule {
   disabled?: unknown; // excluded from the render entirely, chains and all
   tracks?: unknown; // a GROUP lane's member names
   strudel?: unknown; // a GENERATED lane's pattern file (algo/<name>.strudel)
+  clock?: unknown; // who plays that pattern: the Node clock (absent, "server") or the engine ("engine")
   // -- added by the loader ------------------------------------------------------
   kind: ModuleKind; // from the type folder (MODULE_TYPES)
   // The module's ports, its own or its type folder's, resolved by the loader — see docs/ports.md.

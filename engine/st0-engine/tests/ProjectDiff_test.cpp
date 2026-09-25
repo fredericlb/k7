@@ -163,6 +163,35 @@ void diff_plugin_swap_is_replace_and_rebuild() {
     CHECK(d.front().kind == ChangeKind::PluginRemoved);
 }
 
+ProjectDoc patternLane(const std::string& source, const std::string& label) {
+    ProjectDoc d;
+    auto t = mkTrack("pad", "pad");
+    auto p = mkPlugin("pad:pattern", "studio_pattern", "Pattern");
+    p.patternSource = source;
+    p.patternLabel = label;
+    t.plugins.push_back(p);
+    d.tracks.push_back(t);
+    return d;
+}
+
+// A save of the pattern file is the live-coding loop: it must reach the plugin IN PLACE, or every save restarts the lane.
+void diff_pattern_edit_is_in_place() {
+    const auto d = diff(patternLane("s(\"bd sn\")", "pad"), patternLane("s(\"bd*2 sn\")", "pad"));
+    CHECK(d.size() == 1);
+    CHECK(hasKind(d, ChangeKind::PatternChanged));
+    CHECK(!hasKind(d, ChangeKind::PluginRemoved));
+    CHECK(!needsFullRebuild(d));
+    if (!d.empty() && d[0].plugin) CHECK(d[0].plugin->patternSource == "s(\"bd*2 sn\")");
+}
+
+// The label is fixed for the plugin's life (it picks the events), so a new one is a new plugin.
+void diff_pattern_label_is_identity() {
+    const auto d = diff(patternLane("s(\"bd\")", "pad"), patternLane("s(\"bd\")", "kit"));
+    CHECK(hasKind(d, ChangeKind::PluginRemoved));
+    CHECK(hasKind(d, ChangeKind::PluginAdded));
+    CHECK(!hasKind(d, ChangeKind::PatternChanged));
+}
+
 // Adding a plugin must NOT rebuild: a full rebuild re-instantiates every plugin in the song, measured at 4.4 s on a 32-plugin project against 6 ms for the incremental insert.
 void diff_plugin_add_is_incremental() {
     ProjectDoc a;
@@ -474,6 +503,8 @@ int main() {
     RUN(diff_plugin_add_is_incremental);
     RUN(diff_plugin_remove_is_incremental);
     RUN(diff_plugin_add_rebuilds_when_it_must);
+    RUN(diff_pattern_edit_is_in_place);
+    RUN(diff_pattern_label_is_identity);
     RUN(diff_clip_moved);
     RUN(clip_name_is_the_placement_not_the_material);
     RUN(diff_clip_retimed_by_every_field);

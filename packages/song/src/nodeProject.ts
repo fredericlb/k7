@@ -22,6 +22,7 @@ import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
+import { isEngineClocked, notesHalf, patternPlugin } from "./enginePattern";
 import { activeFreezePlans } from "./freeze";
 import {
   type Chain,
@@ -754,6 +755,12 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     root.trackOrder,
   ).flatMap(([lane, t]): TrackDoc[] => {
     const halves = halvesOf(lane);
+    // An engine-clocked lane's pattern plays from a plugin at the head of its NOTES half, which it must therefore have.
+    const patternOn = isEngineClocked(t) ? notesHalf(halves) : undefined;
+    if (isEngineClocked(t) && !patternOn)
+      laneErrs.push(
+        `lane '${lane}': clock: engine plays notes, but only its audio output is wired — add a '${lane}#midi:' key to graph.yaml`,
+      );
     // Which half each of this lane's events plays on; one whose material has no half is NAMED rather than dropped.
     const eventsFor = (evts: typeof t.events, half: Half) =>
       evts.filter((p) => {
@@ -815,7 +822,10 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
               events.map((p) =>
                 placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
               ),
-        plugins: trackPlugins[id] ?? [],
+        plugins: [
+          ...(patternOn === half ? [patternPlugin(dir, lane, t)] : []),
+          ...(trackPlugins[id] ?? []),
+        ],
         sends: trackSends[id] ?? [],
         automation: [],
         // No `docs`/`todos` carried through: a note is a doc module (docs/docModules.md).

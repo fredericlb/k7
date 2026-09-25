@@ -38,6 +38,9 @@ struct PluginDoc {
     std::string dspGraph;
     // …and a "Faust" module's SOURCE, likewise inline, but as text for THIS side to compile (FaustPlugin.h).
     std::string faustDsp;
+    // An engine-clocked PATTERN lane's Strudel source, and the label its events are picked by (PatternPlugin.h).
+    std::string patternSource;
+    std::string patternLabel;
     // The TRACK feeding this plugin's SECOND input port, by id; empty for one input or an unwired port (docs/sidechain.md).
     std::string sidechainFrom;
     std::unordered_map<std::string, double> params;    // param name -> normalised value

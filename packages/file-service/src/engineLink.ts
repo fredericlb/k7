@@ -4,7 +4,7 @@
 // The PatternClock is the one real singleton — see docs/activeProject.md.
 
 import type { Stats } from "node:fs";
-import { basename, relative } from "node:path";
+import { basename, relative, resolve } from "node:path";
 import {
   argClass,
   argHint,
@@ -27,7 +27,10 @@ import { listBaseModules } from "@studio/song/loader";
 import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { PatternClock } from "@studio/song-strudel/patternClock";
-import { strudelPatterns } from "@studio/song-strudel/strudel";
+import {
+  enginePatternFiles,
+  strudelPatterns,
+} from "@studio/song-strudel/strudel";
 import {
   separateJob,
   startSeparate,
@@ -499,17 +502,22 @@ export function outsideTheWatch(
   return stats?.isFile() ? !name.endsWith(".strudel") : false;
 }
 
-function watchStrudel(dir: string | null): void {
+function watchStrudel(ws: Workspace, dir: string | null): void {
   if (strudelWatcher) {
     void closeStrudelWatcher(); // switching projects: the old handle can close in the background
   }
   if (!dir) return;
   const onChange = (p: string): void => {
-    if (p.endsWith(".strudel"))
-      guard(
-        "pattern refresh",
-        patternClock.refreshPatterns(strudelPatterns(dir), dir),
-      );
+    if (!p.endsWith(".strudel")) return;
+    // An ENGINE lane's pattern is in the document, so its save is a recompile; the engine applies it in place.
+    if (enginePatternFiles(dir).includes(resolve(p))) {
+      ws.invalidateProjectDoc();
+      if (!clientDoc) setClockProject(ws, ws.cachedProjectDoc(dir));
+    }
+    guard(
+      "pattern refresh",
+      patternClock.refreshPatterns(strudelPatterns(dir), dir),
+    );
   };
   strudelWatcher = chokidar
     .watch(dir, {
@@ -534,7 +542,7 @@ export function startEngineForActive(ws: Workspace): void {
   // What THIS session was serving: another person opening their song is not a switch here.
   const before = served.get(sessionOf(ws))?.project ?? null;
   const switching = before !== null && p !== before;
-  watchStrudel(p);
+  watchStrudel(ws, p);
   // …and the module folders, for a different consumer — see docs/activeProject.md.
   watchModuleFolders(p);
   if (switching) {

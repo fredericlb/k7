@@ -7,11 +7,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 // @ts-ignore — @strudel/* ship no types; shimmed for this package, ignored so others can compile it too.
-import { evalScope, noteToMidi } from "@strudel/core";
+import { evalScope } from "@strudel/core";
 // @ts-ignore
 import { evaluate } from "@strudel/transpiler";
 import { loadLanes } from "@studio/song/loader";
 import type { Lane } from "@studio/song/trackModule";
+import { queryEvents, type StrudelEvent } from "./events";
+
+export { fallbackPitch, hapPitch, type StrudelEvent } from "./events";
 
 // A track that declares itself the destination of one of a pattern's lanes.
 export interface StrudelLane {
@@ -45,7 +48,14 @@ export function strudelPatterns(dir: string): StrudelLink[] {
   for (const [track, t] of Object.entries(tracks).sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
-    if (t.type !== "strudel" || !t.strudel || t.disabled) continue;
+    // An engine-clocked lane is the engine's to play: streaming it too would double every note.
+    if (
+      t.type !== "strudel" ||
+      !t.strudel ||
+      t.disabled ||
+      t.clock === "engine"
+    )
+      continue;
     const path = resolve(dir, t.strudel);
     const link = byPath.get(path) ?? {
       path,
@@ -64,6 +74,26 @@ export function strudelPatterns(dir: string): StrudelLink[] {
     byPath.set(path, link);
   }
   return [...byPath.values()];
+}
+
+// The pattern files an ENGINE-clocked lane plays, absolute: a save of one must re-send the document, not the clock's window.
+export function enginePatternFiles(dir: string): string[] {
+  let tracks: Record<string, Lane>;
+  try {
+    tracks = loadLanes(dir) ?? {};
+  } catch {
+    return [];
+  }
+  const out = new Set<string>();
+  for (const t of Object.values(tracks))
+    if (
+      t.type === "strudel" &&
+      t.strudel &&
+      !t.disabled &&
+      t.clock === "engine"
+    )
+      out.add(resolve(dir, t.strudel));
+  return [...out];
 }
 
 // An id fragment scoping the live tracks a pattern mints — the basename is enough, since links are deduped by path.
@@ -87,66 +117,10 @@ function ensureScope(): Promise<unknown> {
   ));
 }
 
-// A raw pattern event. HOW it plays is the caller's call — `s` may be a waveform, a module, or a sample name.
-export interface StrudelEvent {
-  cycle: number; // onset, in cycles (absolute along the pattern timeline)
-  dur: number; // duration, in cycles
-  vel: number; // 0..1 (gain)
-  orbit: number; // Strudel/Tidal orbit
-  note?: number | string; // explicit pitch (name or MIDI number)
-  n?: number; // scale degree / sample-variant index
-  s?: string; // sound: synth waveform, project instrument, or sample name
-  label?: string; // `.label("kick")` — names the track these events land on
-}
-
 export interface StrudelPattern {
   path: string;
   orbits: number[]; // the orbits this pattern uses (discovered by sampling)
   query(fromCycle: number, toCycle: number): StrudelEvent[];
-}
-
-// A GM-ish drum map for common Dirt names, giving a fallback pitch when a sound resolves to nothing.
-const DRUM: Record<string, number> = {
-  bd: 36,
-  kick: 36,
-  sn: 38,
-  sd: 38,
-  snare: 38,
-  cp: 39,
-  clap: 39,
-  hh: 42,
-  hc: 42,
-  ho: 46,
-  oh: 46,
-  rim: 37,
-  lt: 45,
-  mt: 47,
-  ht: 50,
-  cy: 49,
-  cr: 49,
-  ride: 51,
-  tom: 45,
-};
-function hashPitch(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return 48 + (Math.abs(h) % 25); // c3..c5
-}
-
-// A hap's explicit pitch -> MIDI note: `note` wins, else `n` as a semitone offset from middle C, else null.
-export function hapPitch(note?: number | string, n?: number): number | null {
-  if (typeof note === "number") return Math.round(note);
-  if (typeof note === "string") {
-    const m = noteToMidi(note);
-    return Number.isFinite(m) ? Math.round(m) : null;
-  }
-  if (typeof n === "number") return 60 + Math.round(n);
-  return null;
-}
-
-// A deterministic pitch for a sound name with no explicit pitch (drum map, else hash).
-export function fallbackPitch(name: string): number {
-  return DRUM[name] ?? hashPitch(name);
 }
 
 // Load + evaluate a .strudel file into a queryable pattern; throws on a bad file (querying a valid one never throws).
@@ -155,51 +129,8 @@ export async function loadPattern(path: string): Promise<StrudelPattern> {
   const code = readFileSync(path, "utf8");
   const { pattern } = await evaluate(code);
 
-  const query = (from: number, to: number): StrudelEvent[] => {
-    const out: StrudelEvent[] = [];
-    let haps: any[];
-    try {
-      haps = pattern.queryArc(from, to);
-    } catch {
-      return out; // a query that blows up (rare) yields nothing rather than crashing the clock
-    }
-    for (const h of haps) {
-      if (!h.whole) continue; // a continuous/analog fragment — no discrete onset
-      const hasOnset =
-        typeof h.hasOnset === "function"
-          ? h.hasOnset()
-          : h.whole.begin.valueOf() >= from;
-      if (!hasOnset) continue; // a note that started before this window — don't re-trigger it
-      const v = (h.value ?? {}) as Record<string, unknown>;
-      const note =
-        typeof v.note === "number" || typeof v.note === "string"
-          ? (v.note as number | string)
-          : undefined;
-      const n = typeof v.n === "number" ? v.n : undefined;
-      const s = typeof v.s === "string" ? v.s : undefined;
-      if (note === undefined && n === undefined && s === undefined) continue; // a control-only hap — no sound
-      const label =
-        typeof v.label === "string" && v.label.trim()
-          ? v.label.trim()
-          : undefined;
-      const begin = h.whole.begin.valueOf();
-      const end = h.whole.end.valueOf();
-      out.push({
-        cycle: begin,
-        dur: Math.max(0.01, end - begin),
-        vel: Math.max(
-          0,
-          Math.min(1, typeof v.gain === "number" ? v.gain : 0.9),
-        ),
-        orbit: typeof v.orbit === "number" ? Math.round(v.orbit) : 0,
-        note,
-        n,
-        s,
-        label,
-      });
-    }
-    return out;
-  };
+  const query = (from: number, to: number): StrudelEvent[] =>
+    queryEvents(pattern, from, to);
 
   const orbits = [...new Set(query(0, 8).map((e) => e.orbit))];
   if (!orbits.length) orbits.push(0);

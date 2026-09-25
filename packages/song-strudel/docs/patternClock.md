@@ -20,6 +20,15 @@ While active, the clock is the SOLE sender to the engine (base project + its tra
 pass-through when no group links a pattern. Played clips are pruned as the playhead
 passes them; with the engine's `ClipRemoved` they're removed there too.
 
+## Lanes this clock does not play
+
+A lane with `clock: engine` is the ENGINE's: `strudelPatterns` leaves it out, and its pattern plays
+from a plugin in the compiled document instead (engine/st0-engine/docs/patternPlugin.md). Streaming
+it here as well would double every note. What that lane gives up is sample names and undeclared
+labels, which only this clock resolves.
+
+The hap → event mapping both use is `events.ts`, which is why it imports nothing from `node:`.
+
 ## `switchTo`
 
 Everything the clock tracks is derived from the OLD project — its orbit track defs, the

@@ -99,6 +99,10 @@ export interface PluginDoc {
   dspGraph?: string;
   // A Faust module's source, INLINE for the same reason — except the ENGINE compiles it, so the `.dsp` text itself travels.
   faustDsp?: string;
+  // An engine-clocked PATTERN lane's Strudel source, played by the engine's PatternPlugin; an edit is applied in place.
+  patternSource?: string;
+  // …and the label its events are picked by — the lane's name, matched the way the Node clock matches it.
+  patternLabel?: string;
   // The TRACK id feeding this module's SECOND input port (@studio/song docs/ports.md); absent when unwired, which is legitimate.
   sidechainFrom?: string;
   presetSave: string; // absolute path where a UI edit saves THIS module's .vstpreset ('' if n/a)

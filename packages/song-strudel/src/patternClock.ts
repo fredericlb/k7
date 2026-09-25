@@ -16,9 +16,9 @@ import type {
   TrackDoc,
 } from "@studio/song/project";
 import { enginePlugin } from "@studio/song/project";
+import { labelKey, notePitch } from "./events";
 import { resolveSample } from "./samples";
 import {
-  fallbackPitch,
   hapPitch,
   loadPattern,
   type StrudelEvent,
@@ -35,15 +35,6 @@ function pushTo<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   const a = m.get(k);
   if (a) a.push(v);
   else m.set(k, [v]);
-}
-
-// A pattern's `.label(...)` -> the id fragment keying its track; the `lbl-` prefix keeps it out of orbit ids.
-function labelKey(label: string): string {
-  const slug = label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return `lbl-${slug || "x"}`;
 }
 
 function fourOsc(trackId: string): PluginDoc {
@@ -286,7 +277,7 @@ export class PatternClock {
         ? { trackId: half, sample: src }
         : {
             trackId: half,
-            note: hapPitch(e.note, e.n) ?? (s ? fallbackPitch(s) : 60),
+            note: notePitch(e),
           };
     }
 
@@ -328,7 +319,7 @@ export class PatternClock {
     );
     return {
       trackId,
-      note: hapPitch(e.note, e.n) ?? (s ? fallbackPitch(s) : 60),
+      note: notePitch(e),
     };
   }
 

@@ -283,6 +283,8 @@ const MODULE_FIELDS = {
     .string()
     .regex(/^algo\/.+\.strudel$/, "expected algo/<name>.strudel")
     .optional(),
+  // WHO plays that pattern: the file service's clock (the default) or the engine itself — engine/st0-engine/docs/patternPlugin.md.
+  clock: z.enum(["server", "engine"]).optional(),
   // FROZEN at this module: the render standing in for everything UPSTREAM of it — see docs/freeze.md.
   frozen: z.string().min(1).optional(),
 };

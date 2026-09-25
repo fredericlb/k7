@@ -373,6 +373,15 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
     // A built-in is created from a STATE tree when the module carries what the plugin must know before its constructor returns.
     const auto makeBuiltIn = [&]() -> te::Plugin::Ptr {
         const juce::String type{resolveBuiltInType(p.type)};
+        // A pattern lane's plugin reads its source, its label and the id its warnings name, all before its worker starts.
+        if (!p.patternSource.empty() || !p.patternLabel.empty()) {
+            juce::ValueTree v(te::IDs::PLUGIN);
+            v.setProperty(te::IDs::type, type, nullptr);
+            v.setProperty("pattern", juce::String(p.patternSource), nullptr);
+            v.setProperty("label", juce::String(p.patternLabel), nullptr);
+            v.setProperty("docId", juce::String(p.id), nullptr);
+            return edit.getPluginCache().createNewPlugin(v);
+        }
         // Never both: a module names one plugin, and that plugin reads one of these two properties.
         const char* const prop = !p.dspGraph.empty() ? "graph" : (!p.faustDsp.empty() ? "faust" : nullptr);
         if (prop == nullptr)

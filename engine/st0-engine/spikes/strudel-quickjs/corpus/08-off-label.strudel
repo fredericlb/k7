@@ -1,1 +1,0 @@
-note("c e g b").off(1/8, x => x.add(note(12))).legato(0.5).label(" Lead ")

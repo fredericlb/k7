@@ -368,6 +368,13 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                         it != impl_->session(session).pluginsById.end() && it->second != nullptr)
                         it->second->setEnabled(c.enabled);
                 break;
+            case ChangeKind::PatternChanged:
+                // The new source onto the LIVE plugin's state, which PatternPlugin listens to; the lane keeps its notes and its time.
+                if (c.plugin)
+                    if (auto it = impl_->session(session).pluginsById.find(c.plugin->id);
+                        it != impl_->session(session).pluginsById.end() && it->second != nullptr)
+                        it->second->state.setProperty("pattern", juce::String(c.plugin->patternSource), nullptr);
+                break;
             case ChangeKind::AutomationChanged:
                 // Re-bake the lane onto its target plugin's parameter curve, keyed by the plugin id it carries; one absent from the edit is skipped, like a param change.
                 if (c.automation)

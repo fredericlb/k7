@@ -75,6 +75,8 @@ export interface Lane {
   tracks: string[];
   /** A generated lane's pattern file, project-relative. */
   strudel?: string;
+  /** Who plays that pattern: the Node clock (absent) or the engine (`engine`, see enginePattern.ts). */
+  clock?: "engine";
   /** Left out of the render entirely, chains and all. */
   disabled: boolean;
 }
@@ -96,6 +98,7 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
       strudel && typeof m.strudel === "string" && m.strudel
         ? m.strudel
         : undefined,
+    ...(strudel && m.clock === "engine" ? { clock: "engine" as const } : {}),
     disabled: m.disabled === true,
   };
 }

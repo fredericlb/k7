@@ -135,3 +135,16 @@ if (WIN32)
     target_link_libraries(studio_faust_tests PRIVATE ws2_32)
 endif()
 add_test(NAME studio_faust_tests COMMAND studio_faust_tests)
+
+# --- Pattern lane tests -------------------------------------------------------
+# Two fast binaries for PatternPlugin's two JUCE-free halves: the schedule between the worker and the
+# audio thread (header-only), and the QuickJS host with the embedded Strudel bundle (studio_strudel).
+# The plugin around them needs a live te::Edit — its proof is an offline render, ../docs/patternPlugin.md.
+add_executable(studio_pattern_tests PatternSchedule_test.cpp)
+target_include_directories(studio_pattern_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_pattern_tests COMMAND studio_pattern_tests)
+
+add_executable(studio_strudel_tests StrudelHost_test.cpp)
+target_link_libraries(studio_strudel_tests PRIVATE studio_strudel)
+add_test(NAME studio_strudel_tests COMMAND studio_strudel_tests)

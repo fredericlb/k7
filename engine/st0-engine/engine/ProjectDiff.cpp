@@ -30,6 +30,8 @@ std::string keyOf(const PluginDoc& p) {
     if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
     // A jsdsp GRAPH is built there too, params and all, so editing a module must read as a replace.
     if (!p.dspGraph.empty()) k += "~" + p.dspGraph;
+    // A pattern's LABEL picks its events for good; its SOURCE is not identity — an edit is PatternChanged, in place.
+    if (!p.patternLabel.empty()) k += "%" + p.patternLabel;
     // A platter's RECORD is loaded at insert, so putting another one on has to read as a replace.
     if (!p.deckFile.empty()) k += "@" + p.deckFile;
     // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".
@@ -110,6 +112,12 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
             Change ch{ChangeKind::PluginEnabledChanged, to.id};
             ch.plugin = *p;
             ch.enabled = p->enabled;
+            out.push_back(std::move(ch));
+        }
+        // A save of the pattern file: the plugin re-evaluates it and plays on, where a replace would restart the lane.
+        if (p->patternSource != it->second->patternSource) {
+            Change ch{ChangeKind::PatternChanged, to.id};
+            ch.plugin = *p;
             out.push_back(std::move(ch));
         }
         // Same plugin: emit a param change per differing/added parameter.
@@ -307,6 +315,8 @@ std::string describe(const Change& c) {
         case ChangeKind::PluginEnabledChanged: s << "~ " << c.trackId << ": "
                                                  << (c.plugin ? c.plugin->id : std::string{})
                                                  << (c.enabled ? " active" : " bypassed"); break;
+        case ChangeKind::PatternChanged:       s << "~ " << c.trackId << ": "
+                                                 << (c.plugin ? c.plugin->id : std::string{}) << " pattern edited"; break;
         case ChangeKind::AutomationChanged:    s << "~ automation on " << c.trackId; break;
     }
     return s.str();

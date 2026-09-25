@@ -1,2 +1,0 @@
-const bass = n("0 3 5 7").add(-12).s("tri");
-stack(bass.every(3, x => x.rev()), s(`bd [~ bd] sn ~`).label("Drums"))
