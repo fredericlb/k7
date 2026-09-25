@@ -183,6 +183,27 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
+  # What makes a push minutes rather than tens of them: every C/C++ object (JUCE, Tracktion,
+  # Faust, NAM, the supervisor's TLS and WebRTC stacks) through ccache, and the tray's Rust
+  # dependencies through a kept target/. Neither changes from one push to the next.
+  - type: SetupCacheStep
+    name: set up ccache
+    key: ccache-linux
+    paths:
+    - /root/.ccache
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
+  - type: SetupCacheStep
+    name: set up rust cache
+    key: rust-linux
+    paths:
+    - /root/.rustup
+    - /root/.cargo
+    - /root/.cache/st0-tray-target
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
   - type: CommandStep
     name: build and package
     runInContainer: true
@@ -196,7 +217,7 @@ jobs:
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
         apt-get install -y --no-install-recommends \
-          build-essential cmake ninja-build git curl ca-certificates pkg-config python3 \
+          build-essential cmake ninja-build ccache git curl ca-certificates pkg-config python3 \
           libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf \
           libayatana-appindicator3-dev libssl-dev \
           libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
@@ -204,8 +225,25 @@ jobs:
           libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
           libcurl4-openssl-dev
 
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+        # A cached toolchain is kept, and moved to the latest stable only when one exists.
+        if [ -x "$HOME/.cargo/bin/rustup" ]; then
+          "$HOME/.cargo/bin/rustup" update stable
+        else
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+        fi
         . "$HOME/.cargo/env"
+
+        # CMake takes the launcher from the environment for every build tree it configures,
+        # nested ones included. BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
+        export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=4G
+        ccache --zero-stats
+
+        # build-engine.mjs reads the bundles from src-tauri/target, so the cached one is linked
+        # there; last push's bundles go first, or they would ride into this push's archive.
+        mkdir -p /root/.cache/st0-tray-target
+        rm -rf /root/.cache/st0-tray-target/release/bundle
+        ln -sfn /root/.cache/st0-tray-target engine/st0-tray/src-tauri/target
 
         npm ci
 
@@ -219,6 +257,7 @@ jobs:
         STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc NO_STRIP=true \
           node engine/st0-tray/scripts/build-engine.mjs
         node engine/st0-tray/scripts/package-release.mjs --stamp "$STAMP"
+        ccache --show-stats
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
@@ -271,6 +310,15 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
+  # Its own key, never the linux job's: the same sources compile to arm64 objects here.
+  - type: SetupCacheStep
+    name: set up ccache
+    key: ccache-android
+    paths:
+    - /root/.ccache
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
   - type: CommandStep
     name: build apk
     runInContainer: true
@@ -285,8 +333,13 @@ jobs:
         # The C++ toolchain is for the HOST half of the build: JUCE compiles juceaide for the
         # machine running the build, whatever the target.
         apt-get install -y --no-install-recommends \
-          openjdk-21-jdk-headless build-essential cmake ninja-build pkg-config \
+          openjdk-21-jdk-headless build-essential cmake ninja-build ccache pkg-config \
           git curl ca-certificates unzip
+
+        # Gradle hands its environment to the engine's CMake, so this reaches the NDK's clang too.
+        export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=3G
+        ccache --zero-stats
 
         export ANDROID_HOME=/opt/android-sdk
         SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
@@ -310,6 +363,7 @@ jobs:
         ./gradlew --no-daemon assembleDebug
         mkdir -p ../../dist/release
         cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/st0-android_${STAMP}_arm64.apk"
+        ccache --show-stats
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
