@@ -96,6 +96,16 @@ what is missing, as it does on any platform without the library.
 | `-Dtls_model(x)=unused` on `tracktion_graph.cpp` | the rpmalloc it compiles in pins its thread heap to initial-exec TLS, and Android's loader refuses that in a library opened by `System.loadLibrary` — the app dies loading the engine. The rewrite turns the attribute into `unused`. A compile OPTION, because CMake drops function-style definitions silently. `llvm-readelf -d libst0engine.so` must not show `STATIC_TLS`. |
 | `CMAKE_POLICY_VERSION_MINIMUM=3.5` | Oboe's own `CMakeLists.txt`, which JUCE adds on Android, declares a minimum CMake 4 refuses. |
 
+## Faust's libraries travel as assets
+
+`import("stdfaust.lib")` is resolved when the engine compiles a module, so the libraries must be on
+the phone, as files: the Faust compiler opens them by path, and an asset is not one. Gradle copies
+the 43 `.lib` files — 2 MB — out of the folder the engine's CMake cache names (`STUDIO_FAUST_LIBS`),
+and fails when `stdfaust.lib` is not there, as the desktop staging does. The app unpacks them into
+its files once per install, marking the copy done only once every file is written, and names the
+folder in `STUDIO_FAUST_LIBS`, which `faustLibrariesDir()` reads before looking beside an executable
+this platform does not have.
+
 ## In CI
 
 OneDev's **build android app** job builds the APK on every master push, from a cold SDK install
@@ -110,9 +120,6 @@ also catches the GL driver's chatter, which is noise.
 
 ## What it does not have yet
 
-- **The Faust standard libraries are not on the device.** `FaustPlugin::faustLibrariesDir()` looks
-  beside the executable, and an APK has no such layout, so a module that imports `stdfaust.lib`
-  fails to compile. They need shipping as assets and extracting into the app's files.
 - **No way to trust a private CA.** A user-installed certificate is out of an app's reach, so a
   studio behind one is refused; `STUDIO_EXTRA_CA_CERTS` exists, and the app does not set it yet.
 - **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
@@ -136,6 +143,8 @@ through `adb forward`:
 | supervisor start | 145 trusted roots read; engine started by the app with the supervisor's identity |
 | connecting a studio (a stand-in registry through `adb reverse`) | hello answered, a heartbeat every 5 s carrying id, LAN addresses, name and performance |
 | Quit | deregister sent, pidfile and host lock removed, both processes gone |
+| a Faust module importing `stdfaust.lib` (−6 dB with `ba.db2linear`) | compiles, no warning; the note's peak halves, 0.64 → 0.32 |
+| the same importing a library that does not exist | `faust: ERROR : unable to open file nosuch.lib`, and the audio passes untouched |
 
 The realtime ratio is the emulator's audio device consuming 12 % less than wall-clock time at a
 nominal 48 kHz: steady from 8 s to 25 s, with nothing dropped, so the engine keeps up with the

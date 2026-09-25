@@ -30,6 +30,7 @@ object EngineBridge {
         Os.setenv("STUDIO_ENGINE_HOST", host, true)
         Os.setenv("STUDIO_ENGINE_ID", id, true)
         Os.setenv("STUDIO_ENGINE_TOKEN", token, true)
+        Os.setenv("STUDIO_FAUST_LIBS", faustLibs(context).absolutePath, true)
         // Loads libst0engine (Java's static block), whose JNI_OnLoad registered this very method.
         Java.initialiseJUCE(context.applicationContext)
         thread = Thread({
@@ -49,5 +50,23 @@ object EngineBridge {
     /** `~/.st0` on a phone: the app's own files, shared by the engine and the supervisor. */
     fun stateDir(context: Context) = File(context.filesDir, ".st0")
 
+    /** Faust's standard libraries, out of the APK's assets and onto disk, where the compiler reads them; redone per install. */
+    private fun faustLibs(context: Context): File {
+        val dir = File(context.filesDir, FAUST_LIBS)
+        val marker = File(dir, ".installed")
+        val stamp = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime.toString()
+        if (marker.isFile && marker.readText() == stamp) return dir
+        dir.deleteRecursively()
+        dir.mkdirs()
+        val names = context.assets.list(FAUST_LIBS).orEmpty()
+        for (name in names)
+            context.assets.open("$FAUST_LIBS/$name").use { from -> File(dir, name).outputStream().use(from::copyTo) }
+        // Last, so a copy cut short by a kill is redone on the next start rather than trusted.
+        marker.writeText(stamp)
+        Log.i(TAG, "unpacked ${names.size} Faust libraries")
+        return dir
+    }
+
     private const val TAG = "st0-engine"
+    private const val FAUST_LIBS = "faust-libs"
 }

@@ -137,7 +137,9 @@ target on a machine that is building at the same time.
 At **runtime**, when the engine compiles a module — not at build time. So the folder has to travel
 with the app: `stage.mjs` copies the submodule's 43 `.lib` files into `resources/faust-libs/`, and
 `faustLibrariesDir()` probes the four layouts an Electron package can take, in the same order and
-for the same reason `bundle.ts` does for the file service.
+for the same reason `bundle.ts` does for the file service. `$STUDIO_FAUST_LIBS` comes first: a host
+with no executable to look beside — the Android app — names the folder it unpacked them into
+(`docs/android.md`).
 
 The fallback is the folder the engine's CMake fetched. It lives in a build directory and does not
 travel: reaching it in an installed app means the resource staging did not happen. Which is why the

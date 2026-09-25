@@ -63,6 +63,9 @@ bool isVoiceControl(const std::string& label)
 
 juce::File FaustPlugin::faustLibrariesDir()
 {
+    // Named by the host when there is no executable to look beside: the Android app, which unpacks them (docs/android.md).
+    if (const auto named = juce::SystemStats::getEnvironmentVariable("STUDIO_FAUST_LIBS", {}); named.isNotEmpty())
+        return juce::File{named};
     const auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
                          .getParentDirectory();
     // The four layouts a packaged app may use, PROBED rather than assumed, as hostcmd.rs does.

@@ -66,4 +66,23 @@ val stageEngine by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("engine-jni/arm64-v8a"))
 }
 
-tasks.named("preBuild") { dependsOn(stageEngine) }
+// Faust's standard libraries, which `import("stdfaust.lib")` resolves at RUNTIME: from wherever the
+// engine's CMake fetched them — its cache names the folder — into the APK's assets. The app unpacks them.
+val stageFaustLibs by tasks.registering(Copy::class) {
+    dependsOn(buildEngine)
+    val libs = provider {
+        val cache = engineDir.resolve("build/android-arm64/CMakeCache.txt").readLines()
+        val dir = cache.firstOrNull { it.startsWith("STUDIO_FAUST_LIBS:") }?.substringAfter("=")
+        val folder = dir?.let(::File)
+        require(folder != null && folder.resolve("stdfaust.lib").isFile) {
+            "no Faust libraries at '$dir' — the faustlibraries submodule was not fetched with the engine"
+        }
+        folder
+    }
+    from(libs) { include("*.lib") }
+    into(layout.buildDirectory.dir("engine-assets/faust-libs"))
+}
+
+android.sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("engine-assets"))
+
+tasks.named("preBuild") { dependsOn(stageEngine, stageFaustLibs) }
