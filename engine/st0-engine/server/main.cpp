@@ -125,6 +125,13 @@ studio::PluginDoc pluginFromJson(const json& p) {
     pl.deckFile = p.value("deckFile", std::string{});
     pl.dspGraph = p.value("dspGraph", std::string{});
     pl.faustDsp = p.value("faustDsp", std::string{});
+    pl.patternSource = p.value("patternSource", std::string{});
+    pl.patternLabel = p.value("patternLabel", std::string{});
+    pl.patternCatchAll = p.value("patternCatchAll", false);
+    pl.patternClaimed = p.value("patternClaimed", std::vector<std::string>{});
+    pl.patternPlays = p.value("patternPlays", std::string{});
+    pl.patternOnly = p.value("patternOnly", true);
+    pl.patternBanks = p.value("patternBanks", std::vector<std::string>{});
     pl.sidechainFrom = p.value("sidechainFrom", std::string{});
     if (p.contains("params"))
         for (const auto& [k, v] : p.at("params").items())

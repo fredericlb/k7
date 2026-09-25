@@ -148,13 +148,13 @@ actually stuck still fails, just later, and later is cheap compared to a suite n
 `hookTimeout` matters as much as `testTimeout`: the git-backed suites clone their fixture in
 `beforeEach`, and a hook that times out fails the whole file rather than one case.
 
-### It has to be repeated in five files
+### It has to be repeated in four files
 
-A package-level `vitest.config.ts` **replaces** the root one; it does not merge with it. Five
+A package-level `vitest.config.ts` **replaces** the root one; it does not merge with it. Four
 packages carry their own (to pin `$STUDIO_MEDIATEK` away from the developer's real médiathèque),
-so those five repeat the two timeouts:
+so those four repeat the two timeouts:
 
-`packages/{song,song-edit,song-video,song-strudel,file-service}/vitest.config.ts`
+`packages/{song,song-edit,song-video,file-service}/vitest.config.ts`
 
 Every other package inherits the root `vitest.config.ts`, because vitest walks up from the
 package directory when it finds no config of its own. That is also why the root file's `exclude`

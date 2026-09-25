@@ -144,14 +144,19 @@ tracks: [pad, kit]
 
 ## nodes/<name>.yaml — strudel
 
-Streams one `algo/` pattern; the lane's name picks the part by its `.label`. How an event reads
-is the EVENT's business: a sound that resolves to a sample plays as a one-shot, anything else
-plays as a note for whatever instrument the chain provides (`s(…)` then picks a waveform, not a
-plugin). So one pattern lane can be half drums and half melody.
+Plays one `algo/` pattern, in the engine; the lane's name picks the part by its `.label`. The
+first lane on a file (by name) also plays the unlabelled events and any label no lane claims. How
+an event reads is the EVENT's business: a sound that resolves to a sample — in the project's
+`samples/`, then `$DIRT_SAMPLES`, then `$STRUDEL_SAMPLES`, as `<name>/*.wav` or `<name>.wav` —
+plays as a one-shot, anything else plays as a note for whatever instrument the chain provides
+(`s(…)` then picks a waveform, not a plugin). So one pattern lane can be half drums and half
+melody.
 
-A streaming lane holds nothing until the transport rolls, so it is the one case where the WIRING
+A pattern lane holds nothing until the transport rolls, so it is the one case where the WIRING
 has to say what the file cannot: `pad#midi: [ synth ]` is where "these events are notes for the
-synth" is written down.
+synth" is written down. Wired bare, the lane plays both through one chain; its samples enter at
+the head of it, so an instrument there covers them — wire `#audio` and `#midi` apart for a kit and a
+synth on one lane. Saving the pattern file changes what plays without stopping.
 
 ```yaml schema=Module
 extends: "@meta/strudel-track"

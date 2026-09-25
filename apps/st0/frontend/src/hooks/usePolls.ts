@@ -1,6 +1,5 @@
-// usePolls.ts — the shell's background polls, one hook each: the git badge, the strudel
-// lanes, the project errors, the waveform prewarm, and the follow of a project switch
-// made under us. Apart from App.tsx so each cadence is one readable hook.
+// usePolls.ts — the shell's background polls, one hook each: the git badge, the project
+// errors, the waveform prewarm, and the follow of a project switch made under us. Apart from App.tsx so each cadence is one readable hook.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
@@ -8,7 +7,6 @@ import type {
   Diagnostic,
   GitStatus,
   WaveformStatus,
-  WebTrack,
   WorkspaceInfo,
 } from "../types";
 import { useRevision } from "./useRevision";
@@ -31,38 +29,6 @@ export function useGitStatus(): {
     return () => clearInterval(id);
   }, [refreshGitStatus]);
   return { gitStatus, refreshGitStatus };
-}
-
-/** Whether two answers from the pattern clock say the same thing — by serialisation, a hand-rolled equality quietly missing what was added last. */
-const sameTracks = (a: WebTrack[], b: WebTrack[]): boolean =>
-  a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
-
-/** The pattern clock's live lanes, polled only in a song that HAS a strudel track; clearing on the way out is what stops lanes stranding. */
-export function useOrbit(hasStrudel: boolean): WebTrack[] {
-  const [orbit, setOrbit] = useState<WebTrack[]>([]);
-  useEffect(() => {
-    if (!hasStrudel) {
-      setOrbit([]);
-      return;
-    }
-    let alive = true;
-    // Only when they actually CHANGED: this lands a fresh array 1.4 times a second, and the timeline derives its whole row list from it.
-    const tick = () =>
-      api
-        .strudelTracks()
-        .then((t) => {
-          if (!alive) return;
-          setOrbit((prev) => (sameTracks(prev, t) ? prev : t));
-        })
-        .catch(() => {});
-    void tick();
-    const id = setInterval(tick, 700);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [hasStrudel]);
-  return orbit;
 }
 
 /** The project's errors, gated on the change token rather than a timer — `/project-errors` compiles the project, `/revision` is a 2 ms file walk. */

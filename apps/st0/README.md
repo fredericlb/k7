@@ -115,10 +115,9 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   plugin) — so one pattern lane can be half drums and half melody. It holds nothing until
   the transport rolls, so its WIRING is the one place "these are notes for the synth" can
   be written: `pad#midi: [ synth-pad ]`.
-- **A lane no track declares still plays.** The clock mints a live track for it, named
-  after its label — or, for unlabelled events, one per orbit named `strudel <orbit> …`.
-  Declaring a lane is the opt-in that buys the id, the chain and the mixer strip;
-  jamming in a fresh pattern needs no ceremony.
+- **A label no lane declares still plays** — on the pattern file's FIRST lane by name, which
+  also takes the unlabelled events. Declaring a lane named after a label is what buys that part
+  its own chain and mixer strip.
 - **A module carries a plugin (or io, or a rack) plus params**, and may **`extends`**
   another module to inherit its defaults — a defaults-plus-overrides merge between any
   two modules. Its **kind** and input port come from its type folder. Several modules can

@@ -101,7 +101,7 @@ Once, at the top, so nothing downstream knows inheritance exists:
 
 - `buildGraph` resolves both `modules` and `moduleRefs` before `toModule` normalises them;
 - `compileNodeProject` resolves the map `withChainModuleRefs` hands it;
-- `projectHints` and `patternClock` resolve their own maps.
+- `projectHints` resolves its own map.
 
 `resolvedType`, `resolvedRack` and `resolvedUI` take ONE module rather than a
 `(base, module)` pair, because after resolution there is no pair. `resolvedUI` also drops

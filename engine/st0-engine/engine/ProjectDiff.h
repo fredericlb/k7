@@ -41,6 +41,7 @@ enum class ChangeKind {
     PluginRemoved,
     PluginParamChanged,
     PluginEnabledChanged,     // bypass toggled — applied in place, like a param
+    PatternChanged,           // a pattern lane's source edited — applied in place, so the lane keeps its time
     AutomationChanged,        // coarse for now: whole lane replaced
 };
 

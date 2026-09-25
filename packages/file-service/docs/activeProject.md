@@ -104,11 +104,10 @@ bare session, but it has to be written down.
 
 ### What is legitimately global
 
-The **PatternClock**, the strudel **file watcher**, and `clientDoc`, the document the turntables
-surface hands over. Those are one running thing, not one per person: one project's patterns, one
-watcher, one overlay. Several sessions can be served at once, but only the most recent one owns
-the clock — last write wins. The clock's sends go to `clockWs`'s session rather than to a global
-set only by `/open`, so an overlay pushed after a restart lands in the room the song is in.
+The strudel **file watcher** and `clientDoc`, the document the turntables surface hands over.
+Those are one running thing, not one per person: one project's patterns, one overlay. `clientDoc`
+belongs to the workspace that handed it over (`clientWs`), and only that session's leaving gives it
+up.
 
 `selectedEngineUrl` is global too, and that one is simply true: there is one engine.
 
@@ -233,9 +232,7 @@ back in lockstep. And a refused dial is not silent: with no trace at all, "the e
 
 On `open` the link also **replays the machine's preferences**: the audio device, then how that
 interface's inputs are GROUPED. The order is load-bearing — opening a device rebuilds the wave
-devices from scratch, so a pairing sent first would be thrown away. And the pattern clock is told to
-forget what it believes the engine holds BEFORE anything is re-sent, so the first emit after a fresh
-socket is a whole document and not a delta aimed at a project that is not there.
+devices from scratch, so a pairing sent first would be thrown away.
 
 ## Waiting for one answer on a broadcast channel
 
@@ -370,11 +367,15 @@ where a pattern is allowed to live. The two-call shape is chokidar 3's — a two
 once with the path alone and again with its `Stats` — and nothing may be ignored on the first call, or a
 file would be dropped before its kind is known.
 
-Narrowing it is the kind of change that fails SILENTLY: a pattern edit simply stops reloading, and nothing
-says why. So the predicate is tested rather than trusted, and a watcher that dies says so on the console —
+It re-sends the document only for a file a pattern LANE plays (`patternFiles`): a lane's pattern travels
+IN the document, so a save is a recompile, and the engine applies the new source in place
+(`engine/st0-engine/docs/patternPlugin.md`).
+
+Narrowing it is the kind of change that fails SILENTLY: a pattern edit simply stops reaching the engine, and
+nothing says why. So the predicate is tested rather than trusted, and a watcher that dies says so on the console —
 unlike `moduleWatch`, this one has no walk-anyway ceiling to heal it.
 
-A `watchModuleFolders` runs beside it for a different consumer: the strudel watcher RELOADS patterns, that
+A `watchModuleFolders` runs beside it for a different consumer: the strudel watcher RE-SENDS the song, that
 one only lets `@studio/song` skip its stamp walk. It is closed by `forgetModuleWatch` unless somebody else
 is still being served the same project — two people can have one shared project open, so "this session left
 it" is not "nobody is on it". Closing it under them would cost them the fast path and nothing else, but
@@ -390,14 +391,13 @@ because two writers for one engine — the service pushing the compile from disk
 the compile-with-decks — means whichever wrote last wins. One socket and one rule, both in
 `engineLink.ts` (`packages/song/docs/surfaces.md`).
 
-It becomes the pattern clock's BASE, which is what makes it one path rather than two: a strudel lane
-still overlays its events, and the actual `sendProject` is the same call the disk-driven push makes.
-The engine diffs, so a song already playing keeps playing under it. `applyClientProject` takes the
+It goes out through `sendDoc`, the same call the disk-driven push makes, which is what makes it one
+path rather than two. The engine diffs, so a song already playing keeps playing under it. `applyClientProject` takes the
 requesting workspace for the same reason `enginePreview` does — the surface can hand over a
 deck-filled document before anything has opened a project on this service, and without it that
 document would go to the bare session and never be heard.
 
-While a browser holds the document, `loadPatternsFor` does not re-base the clock: it would push the
+While a browser holds the document, `pushProject` does not send the compile: it would push the
 bare compile — the same project with the decks' clips gone — and the surface would blink empty until
 its next gesture. The browser polls `/revision`, rebuilds from the fresh compile and hands its own
 back, so the new state arrives complete instead of arriving twice. Two things override it: an
@@ -405,9 +405,8 @@ explicit `reload`, because somebody asked for what is on disk and answering "no,
 engine" would refuse the one command that exists to force this; and switching project, because a
 document built for the project being LEFT must not survive into the next one.
 
-`setClockProject` takes the workspace and the document together or not at all: the clock sends from
-inside `setBaseProject`, so a base set without an owner goes wherever the previous one went — which
-after a restart is the bare session, the empty room.
+`sendDoc` takes the workspace and the document together: a document sent without its workspace goes to
+the bare session, which after a restart is the empty room.
 
 ## What a command run answers
 

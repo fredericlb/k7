@@ -94,7 +94,6 @@ export function platterDoc(source: string, rate: number, params = {}) {
     settings: { metronome: false, countIn: 0 },
     groups: [],
     markers: [],
-    strudel: false,
     tracks: [
       {
         id: "deckA",

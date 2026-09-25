@@ -101,8 +101,8 @@ Nothing is neutralised by hand. Gain and pan are a `Mixer` **module**: upstream 
 belongs in the render, downstream it is not in the cut doc at all. What a per-track freeze would
 have to flatten, the plan already answers.
 
-A **strudel** lane inside the set is refused: its material is streamed by `PatternClock` while the
-transport rolls, so a stopped one has no clips and the render would be a file of silence.
+A **strudel** lane inside the set is refused: its pattern is endless, and the engine makes its
+notes as the transport rolls, so there is no length a render of it could stop at.
 
 ## On screen
 

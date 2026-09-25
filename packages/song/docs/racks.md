@@ -74,7 +74,7 @@ contain the playhead.
 |---|---|---|
 | a sequence in the project | yes | its notes are in the compiled doc |
 | a live MIDI input | **no** | those notes were never written down |
-| a strudel lane | **no** | `PatternClock` streams them; the browser never sees them |
+| a strudel lane | **no** | the engine makes them as it plays; the browser never sees them |
 | accuracy | ~50 ms | the state frame's own rate |
 
 A very short note is floored to `MIN_FLASH_BEATS` **on the display only**: a thirty-second drum hit

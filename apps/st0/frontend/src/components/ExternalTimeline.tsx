@@ -24,7 +24,6 @@ import {
   nodeMenu,
   withAmbient,
 } from "../contextMenu";
-import { useOrbit } from "../hooks/usePolls";
 import { useProjectDoc } from "../hooks/useProjectDoc";
 import { useRevision } from "../hooks/useRevision";
 import type { SurfaceCommands } from "../hooks/useSurfaceCommands";
@@ -85,18 +84,16 @@ export function ExternalTimeline({
   const rolling = recordEnabled && playing;
   const [takeStart, setTakeStart] = useState(0);
 
-  /** The compiled document's shell-side slice — the tempo, the lanes the mixer acts on, and whether patterns are worth polling for. */
+  /** The compiled document's shell-side slice — the tempo and the lanes the mixer acts on. */
   const noMidiSeqs = useCallback(() => {}, []);
-  const { recInfo, docTracks, hasStrudel, midiSeqRef } = useProjectDoc(
-    reloadKey,
-    { onMidiSeqs: noMidiSeqs },
-  );
+  const { recInfo, docTracks, midiSeqRef } = useProjectDoc(reloadKey, {
+    onMidiSeqs: noMidiSeqs,
+  });
   useEffect(() => {
     if (!rolling) return;
     setTakeStart((store.getSnapshot().playhead * recInfo.tempo) / 60);
   }, [rolling, store, recInfo.tempo]);
 
-  const orbit = useOrbit(hasStrudel);
   const videoTracks = videoDoc?.videoTracks ?? EMPTY_VIDEO_TRACKS;
   const applyVideoEdit = useVideoEdits(project, bumpReload, setStatus);
 
@@ -230,7 +227,6 @@ export function ExternalTimeline({
           rolling={rolling}
           takeStartBeat={takeStart}
           takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
-          orbit={orbit}
           videoTracks={videoTracks}
           onVideoEdit={applyVideoEdit}
           setStatus={setStatus}

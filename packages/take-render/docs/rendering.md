@@ -135,5 +135,4 @@ specifier: the subpath would be one nothing can import. Run it with `npx tsx`, a
 positionals mirror `graph.ts`'s.
 
 The output clusters like the web timeline so both surfaces describe one project alike, and a
-dangling `group` shows as ungrouped — print what the song has. A group that reads empty is not
-necessarily empty: its undeclared strudel lanes are minted as the transport rolls.
+dangling `group` shows as ungrouped — print what the song has.

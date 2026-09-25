@@ -41,7 +41,6 @@ export function emptyDoc(over: Partial<ProjectDoc> = {}): ProjectDoc {
     recordDir: "",
     tracks: [],
     groups: [],
-    strudel: false,
     markers: [],
     settings: DEFAULT_SETTINGS,
     ...over,

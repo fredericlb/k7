@@ -119,6 +119,14 @@ FetchContent_Declare(faust
     GIT_SHALLOW    ON
     SOURCE_SUBDIR  build)
 
+# --- QuickJS (quickjs-ng) : evaluates Strudel patterns, for PatternPlugin --------
+# A small C interpreter, statically linked; the pattern language itself is a committed bundle
+# (engine/strudel/strudel.bundle.js). Why an interpreter in the engine at all: docs/patternPlugin.md.
+FetchContent_Declare(quickjs
+    GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git
+    GIT_TAG        v0.17.0
+    GIT_SHALLOW    ON)
+
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
 FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
@@ -237,7 +245,7 @@ if(WIN32)
     add_compile_definitions(JUCE_ASIO=1)
 endif()
 
-FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust)
+FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust quickjs)
 
 # Where engine/CMakeLists.txt finds the headers and the standard libraries. The LIBRARY itself
 # is linked as the `staticlib` TARGET rather than by path — see the note there.

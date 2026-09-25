@@ -38,6 +38,14 @@ struct PluginDoc {
     std::string dspGraph;
     // …and a "Faust" module's SOURCE, likewise inline, but as text for THIS side to compile (FaustPlugin.h).
     std::string faustDsp;
+    // A PATTERN lane's Strudel source, and how its events are picked and played (PatternPlugin.h, docs/patternPlugin.md).
+    std::string patternSource;
+    std::string patternLabel;
+    bool patternCatchAll = false;             // also plays the file's unlabelled and unclaimed events
+    std::vector<std::string> patternClaimed;  // every label the file's lanes claim, for the catch-all
+    std::string patternPlays;                 // "notes" | "samples" | "both"
+    bool patternOnly = true;                  // the lane's only pattern plugin: what it cannot play is played nowhere
+    std::vector<std::string> patternBanks;    // where a sound name is looked for as a sample, in order
     // The TRACK feeding this plugin's SECOND input port, by id; empty for one input or an unwired port (docs/sidechain.md).
     std::string sidechainFrom;
     std::unordered_map<std::string, double> params;    // param name -> normalised value

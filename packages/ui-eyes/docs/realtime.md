@@ -79,8 +79,7 @@ chasing one with a `<video>` has to know when the answer stopped being **continu
 hard-seek instead of nudging a `playbackRate` towards a target that moved.
 
 `EngineClock` interpolates because the engine reports about 20 times a second: 50 ms of jitter is a
-visible stutter at 30 fps, so a frame sets an anchor and wall time carries it forward — the same
-interpolation `patternClock` does in the brain. It reads `performance.now()` and never `Date.now()`:
+visible stutter at 30 fps, so a frame sets an anchor and wall time carries it forward. It reads `performance.now()` and never `Date.now()`:
 the latter is the WALL clock, which an NTP correction or a daylight step can move backwards under a
 running transport, and every reader here subtracts two readings, so a backwards step reads as the
 picture jumping. It is also coarser. Monotonic is the whole requirement.
