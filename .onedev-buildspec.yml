@@ -236,7 +236,8 @@ jobs:
 # The Windows leg of .github/workflows/desktop.yml, on the Windows AGENT — a Remote Shell Executor,
 # so no container: the steps run in cmd on the machine itself, with whatever it has installed
 # (Node, Git, Rust via rustup, CMake, Ninja, Visual Studio Build Tools). Manual-only, like the
-# Linux build above. `jobExecutor` names the executor bound to that agent; rename one or the other.
+# Linux build above. It names no executor: the Remote Shell Executor whose JOB MATCH takes this job
+# runs it, on an agent its AGENT SELECTOR picks by OS — docs/desktop-release.md.
 #
 # windows-msvc-2022 picks the Visual Studio 2022 generator, as on GitHub's runner; an agent with
 # Visual Studio 2026 builds with windows-msvc instead — docs/desktop-release.md.
@@ -244,7 +245,6 @@ jobs:
 # cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
 # is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.
 - name: build windows desktop (engine + tray + file-service)
-  jobExecutor: windows
   steps:
   - type: CheckoutStep
     name: checkout
