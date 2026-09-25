@@ -1,8 +1,7 @@
-// settings.js — the window's six tabs. The audio list IS the ranking: what is on screen, in
+// settings.js — the window's five tabs. The audio list IS the ranking: what is on screen, in
 // the order it is on screen, is what `audio.priority` gets sent on every move. The plugin list
 // is read-only — the engine's catalogue, and the rescan that refills it. Sessions is what the
-// engine holds right now; Sync is where a set list may be copied; st0 instances is who this
-// engine is connected to; System is the machine.
+// engine holds right now; st0 instances is who this engine is connected to; System is the machine.
 // The drag is pointer-driven rather than HTML5 dnd: one behaviour across the three webviews,
 // and the dragged node stays alive under its pointer capture.
 
@@ -18,12 +17,6 @@ const sessionList = document.getElementById("sessions");
 const sessionsEmpty = document.getElementById("sessions-empty");
 const systemList = document.getElementById("system");
 const adopted = document.getElementById("adopted");
-const syncList = document.getElementById("sync");
-const syncEmpty = document.getElementById("sync-empty");
-const syncName = document.getElementById("sync-name");
-const syncUri = document.getElementById("sync-uri");
-const syncAdd = document.getElementById("sync-add");
-const syncError = document.getElementById("sync-error");
 const instanceList = document.getElementById("instances");
 const instancesEmpty = document.getElementById("instances-empty");
 const instanceForm = document.getElementById("instance-form");
@@ -36,8 +29,6 @@ let moved = false;
 let plugins = [];
 let counted = null;
 let running = false;
-/** The targets as the last snapshot reported them — what an add or a remove is applied TO. */
-let targets = [];
 /** The instances as the last snapshot reported them, so an add can say "already connected". */
 let instances = [];
 /** A mistake caught HERE, before anything was sent; the supervisor's own verdict arrives as `instanceCheck`. */
@@ -313,75 +304,6 @@ function renderSystem(sys) {
   for (const id of ["engine-stop", "engine-restart"]) byId(id).disabled = !sys.canAct;
 }
 
-// --- the sync targets -------------------------------------------------------
-
-/** A file:// folder, checked here only to answer AT ONCE; the supervisor's normaliser is the gate. */
-function badUri(uri) {
-  let url;
-  try {
-    url = new URL(uri);
-  } catch {
-    return "not an address — file:///…";
-  }
-  // Named rather than ignored: a network box is reached by mounting it, then naming the folder.
-  if (url.protocol !== "file:")
-    return `${url.protocol.replace(":", "")}:// cannot be copied to — mount it, then give its file:// folder`;
-  if (url.hostname && url.hostname !== "localhost")
-    return "a file:// address names this machine's own disk";
-  if (url.username || url.password) return "a file:// address carries no login";
-  return url.pathname && url.pathname !== "/" ? "" : "no folder in that address";
-}
-
-/** Send the whole list up, as the audio ranking does: an edit is one act. */
-function commitTargets(next) {
-  targets = next;
-  api?.core.invoke("sync_targets", { targets: next });
-}
-
-function buildTarget(t) {
-  const node = document.createElement("li");
-  node.innerHTML =
-    '<div class="row"><span class="body"><span class="name"></span><br />' +
-    '<span class="detail"></span></span></div>';
-  node.querySelector(".name").textContent = t.name;
-  // The URI in full, password included: this window runs ON the machine that holds the file.
-  node.querySelector(".detail").textContent = t.uri;
-  const drop = document.createElement("button");
-  drop.className = "forget";
-  drop.type = "button";
-  drop.textContent = "Remove";
-  drop.addEventListener("click", () =>
-    commitTargets(targets.filter((x) => x.name !== t.name)),
-  );
-  node.querySelector(".row").append(drop);
-  return node;
-}
-
-function renderSync(rows) {
-  targets = rows;
-  syncList.replaceChildren(...rows.map(buildTarget));
-  syncEmpty.hidden = rows.length > 0;
-  syncEmpty.textContent = "No target yet — a playlist can be copied nowhere.";
-}
-
-function addTarget() {
-  const name = syncName.value.trim();
-  const uri = syncUri.value.trim();
-  const wrong = !name ? "give it a name" : badUri(uri);
-  syncError.textContent = wrong;
-  syncError.hidden = !wrong;
-  if (wrong) return;
-  // The NAME is the identity a playlist screen sends back, so two of one would be ambiguous.
-  if (targets.some((t) => t.name === name)) {
-    syncError.textContent = `there is already a target called ${name}`;
-    syncError.hidden = false;
-    return;
-  }
-  commitTargets([...targets, { name, uri }]);
-  syncName.value = "";
-  syncUri.value = "";
-}
-
 // --- the st0 instances ------------------------------------------------------
 
 /** What the user typed, reduced to an origin the way the supervisor will, or an error sentence. Checked here only
@@ -473,7 +395,6 @@ function render(view) {
   if (!dragging) renderAudio(view.audio);
   renderPlugins();
   renderSessions(view.sessions, view.orphanPlugins);
-  renderSync(view.syncTargets);
   renderInstances(view.instances, view.instanceCheck);
   renderSystem(view.system);
 }
@@ -504,12 +425,6 @@ document.addEventListener("keydown", (e) => {
   if (api && e.key === "Escape") api.core.invoke("settings_close");
 });
 filter.addEventListener("input", renderPlugins);
-syncAdd.addEventListener("click", addTarget);
-// Enter in either field adds, the bar being two fields and a button rather than a form.
-for (const field of [syncName, syncUri])
-  field.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") addTarget();
-  });
 rescan.addEventListener("click", () => api?.core.invoke("plugins_rescan"));
 instanceForm.addEventListener("submit", addInstance);
 

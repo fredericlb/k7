@@ -4,10 +4,6 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import {
-  parseSyncTarget,
-  type SyncTarget,
-} from "@studio/song-schema/syncTarget";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { studioHome } from "./studioHome";
 
@@ -42,8 +38,6 @@ export interface Preferences {
   cueOutput?: string | number[];
   /** The ONNX execution providers this machine SEPARATES on, in order — packages/stem-separation/docs/stemSplit.md. */
   onnxProviders?: string[];
-  /** Where this machine can COPY a set list to — a `file://` folder; packages/engine-host/docs/playlistSync.md. */
-  syncTargets?: SyncTarget[];
 }
 
 // The defaults, in ONE place — every other module builds on this rather than its own literal.
@@ -116,21 +110,6 @@ export function normalizePreferences(v: any): Preferences {
         .filter(Boolean);
       if (eps.length) p.onnxProviders = eps;
     }
-    // A target whose URI this cannot copy to is DROPPED here, so no surface offers a dead button.
-    if (Array.isArray(v.syncTargets)) {
-      const seen = new Set<string>();
-      const targets: SyncTarget[] = [];
-      for (const raw of v.syncTargets) {
-        const name = String(raw?.name ?? "").trim();
-        const uri = String(raw?.uri ?? "").trim();
-        if (!name || !uri || !parseSyncTarget(uri)) continue;
-        // The NAME is the identity a caller sends back, so two of one would be ambiguous.
-        if (seen.has(name)) continue;
-        seen.add(name);
-        targets.push({ name, uri });
-      }
-      if (targets.length) p.syncTargets = targets;
-    }
   }
   return p;
 }
@@ -182,16 +161,6 @@ export function setOnnxProviders(eps: readonly string[]): Preferences {
   const p = loadPreferences();
   const want = eps.map((s) => s.trim().toLowerCase()).filter(Boolean);
   p.onnxProviders = want.length ? want : undefined;
-  savePreferences(p);
-  return p;
-}
-
-/** Remember where this machine may copy a set list. An empty list clears them all. */
-export function setSyncTargets(targets: readonly SyncTarget[]): Preferences {
-  const p = loadPreferences();
-  // Through the normaliser, so a target written by a route is judged exactly as one read off disk.
-  const kept = normalizePreferences({ syncTargets: targets }).syncTargets;
-  p.syncTargets = kept?.length ? kept : undefined;
   savePreferences(p);
   return p;
 }

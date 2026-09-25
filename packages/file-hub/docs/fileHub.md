@@ -76,5 +76,5 @@ simply there again when that account comes back.
 ## What stays on the engine's machine
 
 What drives or needs the machine's own hardware, for every account alike: its audio devices, its
-plugins, its playlist sync targets (a USB stick is plugged into it), and playing a song on its
-speakers. The engine machine's own file service still runs for those, with no workspace routes.
+plugins, the separations its CPU runs, and playing a song on its speakers. No file service runs
+there: the server asks for that work as jobs over the tunnel (`packages/engine-tunnel/docs/jobs.md`).

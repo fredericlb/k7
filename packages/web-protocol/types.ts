@@ -794,30 +794,6 @@ export interface SeparateJob {
   files: string[]; // the stems written, absolute. Empty until `done`.
 }
 
-/** Copying a set list onto one of a machine's targets — packages/engine-host/docs/playlistSync.md. */
-export interface SyncJob {
-  id: string;
-  /** The target's NAME on that machine; the URI never leaves it un-blanked. */
-  target: string;
-  /** That target's URI with any password replaced — what a screen and a log may show. */
-  uri: string;
-  playlist: string;
-  done: boolean;
-  failed: boolean;
-  error: string | null;
-  phase: string;
-  /** 0–100 over the TRACKS, so a bar moves once per file rather than once per byte. */
-  percent: number;
-  total: number;
-  copied: number;
-  /** Already there at the same size — the reason a second sync is nearly free. */
-  skipped: number;
-  /** A track that could not be copied does not stop the run; each one says why here. */
-  lines: string[];
-  /** Where the m3u landed, or null when the target has no `playlists/` folder. */
-  m3u: string | null;
-}
-
 /** What `POST /stems` answers: `ready` is the disk, `job` only when there was work — see docs/machine.md. */
 export interface StemsReply {
   ready: boolean;

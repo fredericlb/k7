@@ -16,7 +16,6 @@
     "./seqWindow": "./src/seqWindow.ts",
     "./songRef": "./src/songRef.ts",
     "./stems": "./src/stems.ts",
-    "./syncTarget": "./src/syncTarget.ts",
     "./timecode": "./src/timecode.ts",
     "./trackKind": "./src/trackKind.ts",
     "./warpPoints": "./src/warpPoints.ts",

@@ -6,8 +6,6 @@
 import type { ChildProcess } from "node:child_process";
 import { engineRunning } from "@studio/engine-client/engineDaemon";
 import { mergedLogPath, rootDir } from "@studio/engine-client/paths";
-import { loadPreferences, setSyncTargets } from "@studio/song/preferences";
-import type { SyncTarget } from "@studio/song-schema/syncTarget";
 import type { EnginePerformance } from "@studio/web-protocol/performance";
 import { engineRegistryUrl, studioFamily } from "@studio/web-protocol/services";
 import { type EnginePresence, gatherAddresses } from "./addresses.ts";
@@ -150,8 +148,6 @@ function snapshot(s: State): HostSnapshot {
     pluginsSig: s.pluginsSig,
     audioDevices: s.audioDevices,
     audioPriority: s.settings.audioPriority,
-    // Read from `preferences.yaml` rather than held: the sync job reads the same file, and two caches of it can disagree.
-    syncTargets: loadPreferences().syncTargets ?? [],
     audioMenuSig: s.audioMenuSig,
     editPlugins: s.editPlugins,
     editPluginsSig: s.editPluginsSig,
@@ -533,24 +529,6 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         await deregister(state.registryUrls, state.identity);
         reply(cmd.id, true);
         return;
-      case "sync.targets": {
-        // The WHOLE list in one command, as the ranking is: an edit is one act, and the
-        // normaliser is what refuses a URI nothing can copy to — packages/song/src/preferences.ts.
-        let want: SyncTarget[] = [];
-        try {
-          const raw = arg ? JSON.parse(arg) : [];
-          if (Array.isArray(raw)) want = raw as SyncTarget[];
-        } catch {
-          // A malformed frame is REFUSED rather than clearing somebody's targets.
-          reply(cmd.id, false, "sync.targets: not a list of targets");
-          return;
-        }
-        setSyncTargets(want);
-        publish();
-        reply(cmd.id, true);
-        return;
-      }
-
       case "audio.priority": {
         // The WHOLE ranking, in one command: a reorder is one act, and two halves of it could be interleaved with a poll.
         const ranked = arg ? arg.split(PRIORITY_SEP).filter(Boolean) : [];

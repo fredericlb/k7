@@ -32,7 +32,6 @@ import { publicShareRouter } from "./routes/publicShare.ts";
 import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
-import { syncRouter } from "./routes/sync.ts";
 
 // Dev config layered INTO process.env, never read into a value — ../docs/config.md.
 Object.assign(process.env, loadServiceEnv("pl8-backend"));
@@ -55,7 +54,7 @@ const { requireAuth } = await setupAuth(app, {
   service: "pl8-backend",
 });
 
-// A bearer stands in for the session: the LOCAL service syncing a cache has no cookie jar.
+// A bearer stands in for the session: a service calling pl8 — k7, an account's file service — has no cookie jar.
 const { issueApiToken, bearerOrSession } = apiTokenAuth(
   process.env.API_TOKEN_SECRET || `${process.env.SESSION_SECRET ?? ""}:pl8`,
 );
@@ -113,9 +112,6 @@ app.use(
     fileHub.coldRun(user, chain, want),
   ),
 );
-
-// Copying a set list onto a machine's stick or folder — same division as the cut, docs/sync.md.
-app.use("/api/sync", bearerOrSession(requireAuth), syncRouter(engine));
 
 // Where a song is on an engine's machine, fetched there first — what the player hands the engine.
 app.use("/api/engine-local", requireAuth, engineLocalRouter(engine));

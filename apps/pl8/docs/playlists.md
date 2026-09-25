@@ -104,21 +104,6 @@ A row adds the **master**; the pills beside it add a **variant**, without which 
 The songs are already here — this is the médiathèque — so there is no link away to file one first.
 That is the one thing this screen has that st0's does not.
 
-## Synchroniser — the set list onto a stick or a folder
-
-The header carries a **Synchroniser** button whose dropdown lists the targets the chosen machine
-declares. What a target is, and what the copy does — `[artist]/[album]/[title]`, additive, the m3u
-where a `playlists/` folder already exists — is
-[sync.md](sync.md) and
-[packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
-
-Two things about it belong here, being properties of THIS screen:
-
-- it acts on the whole set list, which is why it sits in the header beside the title rather than in
-  the row toolbar, where every control acts on one line;
-- **variants are ignored** — a line naming `instrumental` copies the original. The pills that put a
-  variant in a set list are for listening and for the desk; a target holds one file per song.
-
 ## The same format as a workspace's
 
 A playlist here is byte-for-byte a playlist under a workspace's `_playlists/`: one schema, one

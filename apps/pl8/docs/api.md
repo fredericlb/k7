@@ -43,7 +43,7 @@ wrong": a folder with no sidecar yet is a state, a dead backend is not.
 ## An engine's machine, through this backend
 
 What this app needs of an engine's MACHINE — where a song is on its disk (`/api/engine-local`), a
-cut of a song into stems (`/api/stems`), a set list copied onto its stick (`/api/sync`) — is asked
+cut of a song into stems (`/api/stems`) — is asked
 of this backend, which reaches the machine through its tunnel
 (`packages/engine-tunnel/docs/jobs.md`). There is no file service on that machine to call, and a
 browser on an HTTPS page could not call one there anyway. The engine itself is the one thing this

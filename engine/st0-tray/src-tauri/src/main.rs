@@ -30,7 +30,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             settingswin::settings_view,
             settingswin::audio_rank,
-            settingswin::sync_targets,
             settingswin::instance_add,
             settingswin::instance_remove,
             settingswin::plugins_rescan,

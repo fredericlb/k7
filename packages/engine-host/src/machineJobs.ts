@@ -11,7 +11,6 @@ import {
   startSeparate,
 } from "@studio/stem-separation/separateJobs";
 import { readLog } from "./machineLog.ts";
-import { syncJobs } from "./machineSync.ts";
 
 /** How often a running separation reports; a cut takes minutes, and every report crosses the network. */
 const REPORT_MS = 1000;
@@ -70,5 +69,4 @@ export const machineJobs: Record<string, JobHandler> = {
   local,
   prefetch,
   log,
-  ...syncJobs,
 };

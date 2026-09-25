@@ -3,8 +3,6 @@
 // Stdout IS the protocol, frames are snapshots not deltas, and the tray computes no
 // policy of its own. Full rationale: docs/hostProtocol.md.
 
-import type { SyncTarget } from "@studio/song-schema/syncTarget";
-
 /** Which of the STAGED subsystems the host owns yet — see docs/hostProtocol.md. */
 export interface HostOwnership {
   /** Spawning, adopting, stopping and crash-watching the C++ engine. */
@@ -130,9 +128,6 @@ export interface HostSnapshot {
   /** The same trick for "Native plugin UI ▸": the ids of the openable plugins. */
   editPluginsSig: string;
 
-  /** Where this machine may COPY a set list, as `preferences.yaml` declares them — packages/engine-host/docs/playlistSync.md. */
-  syncTargets: SyncTarget[];
-
   // --- st0 instances --------------------------------------------------------
   /** The st0 instances this engine is connected to — empty on a fresh machine, which assumes none. */
   instances: HostInstance[];
@@ -158,7 +153,6 @@ export type HostCommandName =
   | "engine.restart"
   | "plugins.rescan"
   | "audio.priority"
-  | "sync.targets"
   | "plugin.showUI"
   | "session.drop"
   | "weburi.add"
@@ -171,7 +165,7 @@ export interface HostCommand {
   /** Correlates the `result`. The tray allocates these; the host only echoes them. */
   id: number;
   cmd: HostCommandName;
-  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.priority`, where it means "rank nothing", and for `sync.targets`, where it means "none". */
+  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.priority`, where it means "rank nothing". */
   arg?: string;
 }
 

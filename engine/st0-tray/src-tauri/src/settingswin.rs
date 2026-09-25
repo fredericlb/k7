@@ -1,6 +1,6 @@
-// settingswin.rs — the tray's one window, in six tabs: the audio ranking as a drag list, the
-// installed plugin catalogue, the sessions this engine is holding, the sync targets, the st0
-// instances this engine is connected to, and the machine itself.
+// settingswin.rs — the tray's one window, in five tabs: the audio ranking as a drag list, the
+// installed plugin catalogue, the sessions this engine is holding, the st0 instances this engine
+// is connected to, and the machine itself.
 // Like tray.rs it is a VIEW: it draws the supervisor's snapshot and sends commands back,
 // computing nothing. Closing HIDES it — Tauri asks a windowless app to exit, and this app's
 // exit stops the engine. See docs/tray.md.
@@ -8,9 +8,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-use crate::host::{
-    self, EditPlugin, Instance, InstanceCheck, Plugin, Session, Snapshot, SyncTarget,
-};
+use crate::host::{self, EditPlugin, Instance, InstanceCheck, Plugin, Session, Snapshot};
 use crate::logbus;
 use crate::state::SharedState;
 use crate::tray;
@@ -84,8 +82,6 @@ pub struct View {
     /// None while the engine has not answered: the page says "scanning…", never "none installed".
     plugin_count: Option<usize>,
     sessions: Vec<SessionRow>,
-    /// Where this machine may copy a set list. Drawn verbatim — the page adds and removes, nothing else.
-    sync_targets: Vec<SyncTarget>,
     /// The st0 instances this engine is connected to, as the supervisor reported them.
     instances: Vec<Instance>,
     /// The last add, while its registry is asked or after it refused — the form's own line.
@@ -172,7 +168,6 @@ fn view(app: &AppHandle) -> View {
         plugin_count: snap.plugin_count,
         sessions,
         orphan_plugins,
-        sync_targets: snap.sync_targets.clone(),
         instances: snap.instances.clone(),
         instance_check: snap.instance_check.clone(),
         engine_running: s.running(),
@@ -196,7 +191,6 @@ fn view(app: &AppHandle) -> View {
 /// serialising the view and comparing: the catalogue is hundreds of rows and this runs on every frame.
 pub fn differs(a: &Snapshot, b: &Snapshot) -> bool {
     a.audio_menu_sig != b.audio_menu_sig
-        || a.sync_targets != b.sync_targets
         || a.instances != b.instances
         || a.instance_check != b.instance_check
         || a.plugins_sig != b.plugins_sig
@@ -224,16 +218,8 @@ pub fn audio_rank(app: AppHandle, names: Vec<String>) {
     tray::send_audio_priority(&app, &names);
 }
 
-/// The WHOLE list in one command, as the ranking is: an edit is one act. The supervisor's
-/// normaliser is what refuses a URI nothing can copy to, so this sends what is on screen.
-#[tauri::command]
-pub fn sync_targets(app: AppHandle, targets: Vec<SyncTarget>) {
-    let arg = serde_json::to_string(&targets).unwrap_or_else(|_| "[]".to_string());
-    host::send(&app, "sync.targets", Some(&arg));
-}
-
-/// Connect this engine to a st0 instance by its URL: `weburi.add` asks the instance's registry first, then lets its
-/// pages through AND heartbeats to it. Progress and refusal come back as the snapshot's `instanceCheck`.
+/// Connect this engine to a st0 instance by its URL: `weburi.add` asks the instance's registry first, then
+/// heartbeats to it. Progress and refusal come back as the snapshot's `instanceCheck`.
 #[tauri::command]
 pub fn instance_add(app: AppHandle, url: String) {
     host::send(&app, "weburi.add", Some(&url));

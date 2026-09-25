@@ -41,7 +41,7 @@ cloned there, and what this machine plays arrives as files through the tunnel
 ## The settings window
 
 One window, `src-tauri/src/settingswin.rs`, holding what a MACHINE is set to rather than what a
-project is. Six tabs, because they answer six different questions and only one of them is
+project is. Five tabs, because they answer five different questions and only one of them is
 ever urgent:
 
 | tab | what it is |
@@ -49,7 +49,6 @@ ever urgent:
 | Audio | the interface ranking, as a list you drag |
 | Plugins | the installed catalogue, filtered, and the rescan that refills it |
 | Sessions | what this engine is holding, and the plugin editors it can open |
-| Sync | where a playlist may be copied to — a stick, a folder, a mounted share |
 | st0 instances | which st0 instances this engine is connected to, and a form to add one |
 | System | version, engine, registry — and every button that acts on them |
 
@@ -65,7 +64,7 @@ and this app's exit stops the engine. `windows` in `tauri.conf.json` stays empty
 reason it always was — nothing is opened until someone asks for it.
 
 The page is hand-written HTML, CSS and JS under `dist/`, served as-is. The tray has no frontend
-build and gains none for six tabs, which is what `withGlobalTauri` buys: a `<script>` tag
+build and gains none for five tabs, which is what `withGlobalTauri` buys: a `<script>` tag
 reaches `invoke` with no bundler in front of it. The window draws only what a snapshot said and
 sends back only commands, so the rule that **the tray computes no policy** holds here too.
 
@@ -101,28 +100,6 @@ The list is read-only, deliberately: this is the INSTALLED catalogue, and everyt
 a plugin you do to an instance of it in a project, which is st0's business rather than the tray's.
 The filter is there because a working machine has hundreds of rows.
 
-### Sync — the targets a playlist can be copied to
-
-A target is a name and a `file://` URI, and what a copy DOES with one is
-[packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
-It is edited here for the reason the audio ranking is: it names something only this machine can
-reach. A hosted screen cannot know what `file:///media/usb` is, and pl8 offers the button but never
-learns the address behind it.
-
-The list is the **whole value**, sent in one `sync.targets` as a reorder sends one `audio.priority`:
-an edit is a single act, and two halves of it could interleave with a poll.
-
-**The URI is checked here to answer at once, and that check is not the gate.** The supervisor's
-normaliser is (`packages/song/src/preferences.ts`), and it drops a target it cannot copy to, so a
-window that let one through would simply see it absent from the next snapshot. What the local check
-buys is a sentence naming the mistake — `ftp:// cannot be copied to` — instead of a row that
-silently fails to appear. The tray still computes no policy: it refuses nothing the supervisor would
-have kept.
-
-Removing one is a button on its row rather than a drag, since dropping a target is the only thing
-this list does that reordering could not say — the same argument that gives an unplugged audio
-device its **Forget**.
-
 ### st0 instances — none until you add one
 
 A fresh machine is connected to **no** st0 instance, and nothing is suggested: the supervisor has no
@@ -137,7 +114,7 @@ which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connec
 **Remove** sends `weburi.remove`, which deregisters at once. A registry that came from
 `$STUDIO_REGISTRY_URL` gets no Remove and says why: the environment is not the tray's to edit.
 
-The address is checked here, the way a sync URI is, only to answer at once — `ftp:// is not a web
+The address is checked here only to answer at once — `ftp:// is not a web
 address`, `already connected to …` — and reduced to the origin before it is sent. The supervisor's
 `normaliseUserOrigin` is the gate. A bare host gets `https://`, as it does there.
 

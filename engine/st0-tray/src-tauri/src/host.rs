@@ -33,16 +33,6 @@ pub struct AudioDevice {
     pub current: bool,
 }
 
-/// One place this machine may COPY a set list to, as `preferences.yaml` declares it. Serialize as
-/// well as Deserialize: the window draws these rows verbatim — packages/engine-host/docs/playlistSync.md.
-#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct SyncTarget {
-    pub name: String,
-    /// `file:///…`, the folder a copy lands in.
-    pub uri: String,
-}
-
 /// One INSTALLED plugin, for the settings window's list. The catalogue, not the instances `EditPlugin` names.
 /// Serialize as well as Deserialize: the window draws these rows verbatim, so a second struct would only drift.
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -151,8 +141,6 @@ pub struct Snapshot {
     /// The same trick again for "Sessions": what the rows SHOW, so a moving playhead does
     /// not tear down a submenu the user has open.
     pub sessions_sig: String,
-    /// Where this machine may copy a set list — the Sync tab's whole content.
-    pub sync_targets: Vec<SyncTarget>,
     /// The st0 instances this engine is connected to — empty on a fresh machine, which assumes none.
     pub instances: Vec<Instance>,
     /// An add in flight or just refused; None once one succeeds.
@@ -184,7 +172,6 @@ impl Default for Snapshot {
             edit_plugins_sig: String::new(),
             sessions: Vec::new(),
             sessions_sig: String::new(),
-            sync_targets: Vec::new(),
             instances: Vec::new(),
             instance_check: None,
             paths: Paths::default(),

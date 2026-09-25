@@ -28,9 +28,9 @@ Every workspace- and account-shaped route answers **404** there, whoever asks: `
 `/engine/served`, `/account/*`, `/ssh-key`, and every route that resolves a workspace. There is
 nothing to own, so nothing is recorded.
 
-What stays is what belongs to the **machine**, for every account alike: its médiathèque cache, its
-speakers, its plugin scan, the renders and separations a hosted service asks of it, and its
-playlist sync targets.
+What stays on an engine's machine is what belongs to the **machine**, for every account alike: its
+copy of the médiathèque, its speakers, its plugin scan, and the separations a hosted service asks of
+it — as jobs over the tunnel, with no file service there.
 
 The server is where a project lives, so pl8 refuses to start without `$STUDIO_FILES_ROOT`
 (`packages/file-hub/docs/fileHub.md`).
