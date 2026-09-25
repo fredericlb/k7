@@ -25,3 +25,10 @@ Two things keep that surface narrow rather than closing it:
   plain `<img>` or a form post — CORS governs whether the *response* can be **read**, not whether
   the request can be **sent**. Opening it stops hiding a read that a same-site trick could already
   get most of, and buys back the debugging cost the allowlist was charging.
+
+## The headers are a list
+
+`Access-Control-Allow-Headers` names what a page actually sends, not whatever it asks for: the
+file hub's calls (`/api/files`, `packages/file-hub/docs/fileHub.md`) carry the user, workspace,
+engine-token and engine-id headers, so those are listed. The hub secret is not: a browser never
+holds it, and a preflight asking for it is refused rather than answered.
