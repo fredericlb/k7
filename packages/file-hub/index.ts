@@ -15,7 +15,7 @@ import {
   USER_HEADER,
 } from "@studio/web-protocol";
 import type { Request, RequestHandler, Response } from "express";
-import { type BindingDeps, bindEngine } from "./binding.ts";
+import { type BindingDeps, bindEngine, releaseIfUnclaimed } from "./binding.ts";
 import {
   type Instance,
   Instances,
@@ -125,6 +125,12 @@ export class FileHub {
     res: Response,
   ): Promise<void> {
     const inst = await this.instances.get(user);
+    // An engine is one account's at a time: whoever claimed it since, this account's link goes first.
+    await releaseIfUnclaimed(this.deps, inst).catch((e: Error) =>
+      this.deps.log(
+        `[${inst.slug}] could not let go of its engine: ${e.message}`,
+      ),
+    );
     // A binding that fails leaves the files reachable; only the engine is not, and the log says why.
     if (engineId)
       await bindEngine(this.deps, inst, engineId).catch((e: Error) =>

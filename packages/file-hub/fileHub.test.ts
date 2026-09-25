@@ -186,6 +186,23 @@ describe("the file hub", () => {
     });
   });
 
+  it("hands an engine from one account to the next, one at a time", async () => {
+    claims.set("e1", ["fred@example.com"]);
+    const drive = { "x-studio-engine-id": "e1" };
+    let fred = (
+      await call("/x", { session: "fred@example.com", headers: drive })
+    ).echo;
+    expect(fred.engine).toContain("/local/");
+    claims.set("e1", ["alice@example.com"]);
+    const alice = (
+      await call("/x", { session: "alice@example.com", headers: drive })
+    ).echo;
+    expect(alice.engine).toContain("/local/");
+    fred = (await call("/x", { session: "fred@example.com" })).echo;
+    expect(fred.engine).toBeNull();
+    expect(bound.map((b) => b.id)).toEqual(["e1", "e1"]);
+  });
+
   const hello = async (session?: string) => {
     const r = await fetch(base.replace("/api/files", "/api/files-hub"), {
       headers: session ? { "x-test-session": session } : {},

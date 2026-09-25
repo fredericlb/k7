@@ -3,8 +3,9 @@
 A workspace belongs to its account, not to whichever engine happens to be running. So the
 server keeps it: `$STUDIO_FILES_ROOT/<account>/workspace/…`, served at `/api/files` by pl8, and
 an engine only ever plays a **copy** it fetched through its tunnel
-(`packages/engine-tunnel/docs/tunnel.md`). Unset, nothing is mounted, and projects stay on the
-engines' machines as before — the two arrangements coexist, per server.
+(`packages/engine-tunnel/docs/tunnel.md`). The server is the ONLY place a workspace lives: an
+engine's machine is shared by whichever accounts play on it and holds none
+(`packages/file-service/docs/owner.md`). Unset, nothing is mounted, and there are no workspaces.
 
 ## One file-service process per account
 
@@ -57,8 +58,16 @@ The engine's plugin list is fetched over the tunnel at binding time and written 
 `<home>/exts.json`, the scan file's own shape, so everything that reads the engine's catalogue
 works unchanged. A rescan on the engine's machine reaches the server at the next binding.
 
+## An engine serves one account at a time
+
+An engine is shared, never concurrently: the account holding its claim drives it. When the claim
+moves on, the previous account's file service **lets go** of the engine at its next request, before
+anything else, so a tab left open cannot push its project into an engine someone else is playing.
+Each account's copy on the engine's machine stays in its own folder, `ws-<accountKey>`, and is
+simply there again when that account comes back.
+
 ## What stays on the engine's machine
 
-What drives or needs the machine's own hardware: its audio devices, its plugins, its playlist
-sync targets (a USB stick is plugged into it), and playing a song on its speakers. The engine
-machine's own file service still exists for all of those, and for projects not hosted anywhere.
+What drives or needs the machine's own hardware, for every account alike: its audio devices, its
+plugins, its playlist sync targets (a USB stick is plugged into it), and playing a song on its
+speakers. The engine machine's own file service still runs for those, with no workspace routes.

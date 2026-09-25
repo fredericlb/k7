@@ -56,7 +56,7 @@ services:
       # Without this, @studio/mediatek defaults to a per-machine state dir
       # (~/.st0/mediatek) instead of the volume below, and the library is empty.
       STUDIO_MEDIATEK: /library
-      # The accounts' workspaces, hosted here; unset, projects stay on the engines' machines.
+      # The accounts' workspaces, and the only place they live — engines hold copies, never workspaces.
       STUDIO_FILES_ROOT: /workspaces
     volumes:
       # pl8 IS this volume — apps/pl8/docker/Dockerfile.

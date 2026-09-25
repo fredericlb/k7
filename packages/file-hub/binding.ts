@@ -88,6 +88,24 @@ export function bindEngine(
   return run;
 }
 
+/** Let go of the bound engine once the account no longer holds its claim — an engine serves one account at a time, and the next one took it. */
+export function releaseIfUnclaimed(
+  deps: BindingDeps,
+  inst: Instance,
+): Promise<void> {
+  const run = inst.binding.then(async () => {
+    const id = inst.engineId;
+    if (!id || holdsClaim(deps.registry, id, inst.user)) return;
+    await tell(inst, null);
+    if (inst.localPath) deps.tunnels.unbindLocal(inst.localPath);
+    inst.engineId = null;
+    inst.localPath = null;
+    deps.log(`[${inst.slug}] let go of engine ${id}: its claim moved on`);
+  });
+  inst.binding = run.catch(() => {});
+  return run;
+}
+
 /** The engine's plugin list, written where the file service reads the scan — `<home>/exts.json`. */
 async function refreshPlugins(
   deps: BindingDeps,

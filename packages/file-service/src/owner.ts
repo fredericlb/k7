@@ -1,13 +1,15 @@
-// owner.ts — the ONE account this file service's workspaces belong to. Every workspace under the
-// root is that account's and nobody else's: the first account to reach a root claims it, on disk,
-// and any other is refused everything workspace- or account-shaped. Recorded beside the root,
-// never in it, since an absent root is what seeds a new account's Examples. See docs/owner.md.
+// owner.ts — who may reach the WORKSPACES this process serves. Only the server holds workspaces:
+// a hosted process is one account's, recorded on disk so nothing but that account ever passes;
+// an engine's machine is shared by every account that plays on it, holds none, and refuses the
+// routes outright. Recorded beside the root, never in it, since an absent root is what seeds a
+// new account's Examples. See docs/owner.md.
 
 import { closeSync, openSync, readFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { studioDir } from "@studio/engine-client/paths";
 import type { RequestHandler } from "express";
 import { noteOwner } from "./engineLink.ts";
+import { HOSTED } from "./hosted.ts";
 
 /** `<state>/owner.json` — `{ "owner": "<email>" }`. */
 export function ownerPath(): string {
@@ -43,13 +45,12 @@ export function claimRoot(email: string): boolean {
   }
 }
 
-/** The gate in front of every workspace- and account-shaped route; the machine's own routes stay open. */
+/** A hosted root's gate: its one account passes, every other is refused. */
 export const requireRootOwner: RequestHandler = (req, res, next) => {
   const email = req.userEmail ?? "";
   if (!email || !claimRoot(email)) {
     res.status(403).json({
       error: "these workspaces belong to another account",
-      hint: "a workspace has exactly one owner — open your own, on a machine or server of yours",
     });
     return;
   }
@@ -58,7 +59,20 @@ export const requireRootOwner: RequestHandler = (req, res, next) => {
   next();
 };
 
-/** At boot: the session is the recorded owner's before any request names anyone. */
+/** An engine's machine holds no workspace: it plays copies of the server's, for whoever holds its claim. */
+export const noWorkspacesHere: RequestHandler = (_req, res) => {
+  res.status(404).json({
+    error: "workspaces live on the server — this is an engine's machine",
+    hint: "the server hosts them when $STUDIO_FILES_ROOT is set (packages/file-hub/docs/fileHub.md)",
+  });
+};
+
+/** What stands in front of every workspace- and account-shaped route, by where this process runs. */
+export const workspaceGate: RequestHandler = HOSTED
+  ? requireRootOwner
+  : noWorkspacesHere;
+
+/** At boot, hosted: the session is the recorded owner's before any request names anyone. */
 export function adoptRecordedOwner(): void {
   const owner = rootOwner();
   if (owner) noteOwner(owner);
