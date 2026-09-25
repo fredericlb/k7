@@ -119,7 +119,7 @@ a fresh scaffold, so the fixture cannot drift from the template.
 | the machine | `cueOutput` in `preferences.yaml`, written by `system cue`, read by `resolveCueOutput` |
 | compiled | `nodeProject.ts`: the bus track carries `outputChannels`, or `mute` if there is no pair |
 | the wire | `TrackDoc.outputChannels`, an exact mirror of `inputChannels` |
-| decoded | `docFromJson` in `server/main.cpp` |
+| decoded | `docFromJson` in `server/DocJson.cpp` |
 | applied | `routeTrackOutput` — from `populateEdit` AND from the live diff |
 | diffed | `ChangeKind::TrackOutputChanged` — applied in place, no rebuild |
 | excluded | `tracksOnTheMix()` in `OfflineRender.cpp` |

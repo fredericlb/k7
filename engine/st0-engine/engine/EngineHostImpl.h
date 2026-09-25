@@ -1,4 +1,4 @@
-// The private JUCE state behind EngineHost's PImpl. INTERNAL: it includes Tracktion/JUCE, so server/main.cpp
+// The private JUCE state behind EngineHost's PImpl. INTERNAL: it includes Tracktion/JUCE, so server/
 // must never include it. Impl is the single owner of every piece of JUCE state — behaviour splits across
 // several TUs, but STATE stays here undivided, because the declaration and teardown order below is load-bearing
 // (juceInit outlives engine, meters detach before the Edit, windows drop before their plugins) and untested.

@@ -71,7 +71,7 @@ only frames that arrive unstamped are genuinely the machine's. Against an engine
 sessions nothing is stamped, and that is the case pass-on-absence exists for — requiring the
 field would make a new client silently deaf rather than merely unsorted.
 
-So the correctness of one line here lives in `engine/st0-engine/server/main.cpp`, in its choice
+So the correctness of one line here lives in `engine/st0-engine/server/Serve.cpp`, in its choice
 between the `broadcast` and `broadcastTo` verbs. Stamp one reply too few and a pl8 module
 audition makes st0 flash `busy` and receive `applied`/`flushed`/`recorded` for a project it
 does not own.

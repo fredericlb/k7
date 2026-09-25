@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const moteur = dirname(dirname(fileURLToPath(import.meta.url)));
 const preset = process.argv[2];
 if (!preset) {
-  console.error("usage: build.mjs <preset>   e.g. windows-msvc, macos-clang");
+  console.error("usage: build.mjs <preset>   e.g. windows-msvc, macos-clang, android-arm64");
   process.exit(1);
 }
 

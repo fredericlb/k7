@@ -248,7 +248,7 @@ supervisor re-adopts the engine by its pidfile. It recovers, so it passes unseen
 file-service side, where `wrap()` can see nothing: it only catches what the handler *returns*.
 
 **Open: the C++.** One `catch` in the whole library (`NamPlugin.cpp`) across **55** files, no `try`
-at `main()` level, no `set_terminate`. `server/main.cpp` carries seven, all nested and local —
+at `main()` level, no `set_terminate`. `server/Serve.cpp` carries seven, all nested and local —
 `main()` opens at line 331, and the `try`s before it are in a loading utility.
 
 ### git blocks the process holding the engine
@@ -360,7 +360,7 @@ To check this page's claims one by one:
 git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
 # the token goes out on any socket
-git grep -n "engineToken" -- engine/st0-engine/server/main.cpp
+git grep -n "engineToken" -- engine/st0-engine/server/Serve.cpp
 
 # one catch in the library, and main() is unguarded
 for f in $(git ls-files 'engine/st0-engine/engine/*.cpp' 'engine/st0-engine/engine/*.h'); do

@@ -79,7 +79,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   InputTuner.{h,cpp}                            pitch detection on inputs (docs/inputTuner.md)
 
 server/
-  main.cpp               WebSocket server (IXWebSocket) wiring JSON → EngineHost
+  main.cpp               the executable: the CLI's one-shot modes, else serve()
+  Serve.{h,cpp}          WebSocket server (IXWebSocket) wiring JSON → EngineHost
+  DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
+  android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)
 
 scripts/               Node harnesses that drive a running engine, not build steps
   two-sessions.ts        two sessions on one engine stay separate
@@ -167,7 +170,7 @@ changes. Getting identity wrong means a changed plugin/param silently keeps the 
 ### EngineHost
 
 `EngineHost.h` is the **only public header** and is JUCE-free (forward-decls only), so
-`server/main.cpp` compiles against it without seeing JUCE. `EngineHost.cpp` is the
+`server/` compiles against it without seeing JUCE. `EngineHost.cpp` is the
 lifecycle spine: ctor/dtor, project apply/reset, transport, metering, and the
 server-support loop (post/onState/run/quit). All JUCE state stays in `struct
 EngineHost::Impl` (`EngineHostImpl.h`).
@@ -261,6 +264,11 @@ often locked while the engine is running — stop it before rebuilding.
 **Linux** — a preset from `CMakePresets.json` (`dev-gcc`, `dev-clang`, `asan`,
 `release-gcc`). First configure fetches JUCE + Tracktion (~hundreds of MB). Needs CMake
 ≥ 3.24, C++20, and the JUCE Linux dev deps.
+
+**Android** — `npm run build:android --workspace st0-engine` with `ANDROID_NDK_HOME` set to an NDK
+r28+, or let the app build it: `./gradlew assembleDebug` in `engine/st0-android`, which passes the
+SDK's own NDK. The `android-arm64` preset makes `libst0engine.so`, a library the app loads, with
+no `main()`, no VST3/LADSPA and no tests. What differs there and why: [docs/android.md](docs/android.md).
 
 ### A half-rebuilt engine now REFUSES to start — it used to crash on the first project
 

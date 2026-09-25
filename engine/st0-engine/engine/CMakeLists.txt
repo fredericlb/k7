@@ -128,10 +128,28 @@ endif()
 
 # Headless JUCE build flags — only the engine compiles JUCE, so keep them PRIVATE.
 target_compile_definitions(studio_engine PRIVATE
-    JUCE_MODAL_LOOPS_PERMITTED=1
     JUCE_USE_CURL=0
     JUCE_WEB_BROWSER=0
     DONT_SET_USING_JUCE_NAMESPACE=1)
+
+# Modal loops are what the CLI modes pump with (MessagePump.h). JUCE forces them off on Android, whose
+# message loop is the app's Looper, and it logs assertions in RELEASE there unless told not to — which
+# compiles Tracktion's debug-only `jassert (hasPrefetched)` against a member that does not exist.
+# The JNI helpers are for EngineHost::run, which spins the thread's android.os.Looper (docs/android.md).
+if(ANDROID)
+    target_compile_definitions(studio_engine PRIVATE JUCE_LOG_ASSERTIONS=0 JUCE_CORE_INCLUDE_JNI_HELPERS=1)
+    # rpmalloc, which tracktion_graph.cpp compiles in, pins its thread heap to INITIAL-EXEC TLS, and
+    # Android's loader refuses that in a library opened by System.loadLibrary — the app would die
+    # loading the engine. Rewriting the attribute's name makes it `__attribute__((unused))`, in that
+    # one file, so the variable takes the ordinary dynamic model. An OPTION, not a definition: CMake
+    # drops function-style COMPILE_DEFINITIONS without a word.
+    set_source_files_properties(
+        "${tracktion_engine_SOURCE_DIR}/modules/tracktion_graph/tracktion_graph.cpp"
+        TARGET_DIRECTORY studio_engine
+        PROPERTIES COMPILE_OPTIONS "-Dtls_model(x)=unused")
+else()
+    target_compile_definitions(studio_engine PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1)
+endif()
 
 # ASIO is enabled in the TOP-LEVEL CMakeLists (JUCE_ASIO + the SDK's include dir):
 # it has to reach the juce_audio_devices target that actually compiles the ASIO

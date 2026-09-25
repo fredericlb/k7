@@ -1,0 +1,95 @@
+# The engine on Android
+
+The same engine, built for arm64 Android by the `android-arm64` preset and run by the app in
+`engine/st0-android`. It serves the same WebSocket protocol on port 8765, bound to every interface,
+and a browser on the LAN drives it exactly as it drives a desktop engine.
+
+**Foreground only.** There is no service: the engine lives as long as `MainActivity`, and leaving it
+stops the engine and ends the process.
+
+## A library in the app, not a process it spawns
+
+JUCE's Oboe backend asks Android's `AudioManager` for the device's rate and buffer through JNI, and
+JUCE as a whole wants `Java.initialiseJUCE(context)` before anything else. A bare executable has no
+JavaVM to give it. So on Android the `st0-engine` target is a **shared library**, `libst0engine.so`,
+built from `server/Serve.cpp` and `server/DocJson.cpp` plus `server/android/EngineJni.cpp`, and
+`server/main.cpp` — the CLI — is not built at all. `serve()` is the whole server on every platform;
+the desktop `main()` calls it once its CLI modes have declined.
+
+`com.rmsl.juce.Java` in the app is JUCE's bootstrap class under JUCE's own name, because the
+engine's `JNI_OnLoad` (JUCE's) registers `initialiseJUCE` on exactly that class. JUCE's copy loads a
+library called `juce_jni`; the app's loads `st0engine`, which is where JUCE lives here.
+
+## JUCE's message thread is a thread with a prepared Looper
+
+On Android, JUCE posts every message through an `android.os.Handler` it creates with no argument —
+which binds to the Looper of **the thread that first creates the MessageManager**. That decides the
+whole shape:
+
+- `EngineBridge` starts a plain `Thread` that calls `Looper.prepare()` and then `nativeServe`. The
+  `EngineHost` constructor is the first JUCE call on it, so that thread becomes the message thread.
+  Not a `HandlerThread`: a runnable posted to one already runs inside its `loop()`, and the engine
+  looping it again would nest two loops that one quit then tears down together.
+- `EngineHost::run()` calls `Looper.loop()`, which blocks and dispatches exactly as the desktop's
+  `runDispatchLoopUntil` loop does. The rest of `serve()` is unchanged: its locals live on that
+  stack for as long as the engine runs.
+- `EngineHost::quit()` posts `quitSafely()` to that Looper, from its own thread. JUCE's
+  `stopDispatchLoop()` would instead finish the app's Activity.
+- **Once per process.** After the quit, JUCE is still bound to a Looper that cannot loop again, so an
+  engine is restarted by a new process. `MainActivity` exits the process when it finishes.
+
+Teardown after the quit posts a few messages to the dead Looper; Android logs "sending message to a
+Handler on a dead thread" and drops them. That is the same as a desktop message posted after its
+dispatch loop stopped: never delivered, and nothing waits for it.
+
+JUCE forces `JUCE_MODAL_LOOPS_PERMITTED` to 0 on Android, so `runDispatchLoopUntil` does not exist
+there. Every other caller of it is a CLI mode, which Android never runs, so they all go through
+`pumpMessages()` (`engine/MessagePump.h`), a no-op on Android.
+
+## Build choices, and what forced each
+
+| choice | why |
+|---|---|
+| The preset builds the library, Gradle stages it | AGP's `externalNativeBuild` would configure a second CMake tree and fetch Tracktion into it. `app/build.gradle.kts` runs `scripts/build.mjs android-arm64` with the SDK's NDK and copies the result in as a JNI library. |
+| API 29 | JUCE's Android font code calls `AFontMatcher`, which is 29+. AAudio, which Oboe prefers, only needs 26. |
+| arm64-v8a only | every phone worth playing on; a second ABI doubles a 35 MB library for nothing. |
+| No VST3 / LADSPA | there is nothing to host and no window for an editor. `loadVstPreset` answers false, as it does for a built-in. |
+| Tracktion populated, not built from its root | its root always adds its examples, and `EngineInPluginDemo` depends on a VST3 target that does not exist here, so configure fails. `modules/juce` and `modules` are added by hand instead. |
+| `JUCE_LOG_ASSERTIONS=0` | JUCE logs assertions in RELEASE on Android, which compiles Tracktion's `jassert (hasPrefetched)` against a member that only exists in debug. |
+| `-Dtls_model(x)=unused` on `tracktion_graph.cpp` | the rpmalloc it compiles in pins its thread heap to initial-exec TLS, and Android's loader refuses that in a library opened by `System.loadLibrary` — the app dies loading the engine. The rewrite turns the attribute into `unused`. A compile OPTION, because CMake drops function-style definitions silently. `llvm-readelf -d libst0engine.so` must not show `STATIC_TLS`. |
+| `CMAKE_POLICY_VERSION_MINIMUM=3.5` | Oboe's own `CMakeLists.txt`, which JUCE adds on Android, declares a minimum CMake 4 refuses. |
+
+## Logs
+
+Everything the engine writes goes to stderr, which Android discards. `nativeServe` pipes stderr into
+logcat under the tag `st0-engine`; JUCE's own lines appear under `JUCE`. On the emulator the pipe
+also catches the GL driver's chatter, which is noise.
+
+## What it does not have yet
+
+- **The Faust standard libraries are not on the device.** `FaustPlugin::faustLibrariesDir()` looks
+  beside the executable, and an APK has no such layout, so a module that imports `stdfaust.lib`
+  fails to compile. They need shipping as assets and extracting into the app's files.
+- **No supervisor.** No id or token, no registry heartbeat, no tunnel: nothing lists this engine in
+  a studio's picker, and a browser has to dial `ws://<phone>:8765` itself.
+- **No external plugins, no plugin scan, no offline render or freeze.**
+- **No foreground service**, so the screen is kept on and the engine stops with the activity.
+
+## What was measured
+
+On an Android 15 arm64 emulator on an Apple Silicon Mac, with `scripts/measure-broadcast.mjs`
+through `adb forward`:
+
+| | measured |
+|---|---|
+| library load, JUCE init, port bound | 60 ms after launch |
+| audio device | Oboe, 48 kHz, 1 in / 2 out, 960-frame buffer (the emulator's own) |
+| a 4OSC note over 25 s | every frame carries signal, 0 dropped, 0 undecodable |
+| jitter spread | 4.6–6.2 ms |
+| realtime ratio | **0.88, steady** |
+| Stop with a project loaded | the engine tears down and the process exits cleanly |
+
+The realtime ratio is the emulator's audio device consuming 12 % less than wall-clock time at a
+nominal 48 kHz: steady from 8 s to 25 s, with nothing dropped, so the engine keeps up with the
+device and the device is what runs slow. It says nothing about a phone. The number that matters —
+latency and the ratio on real hardware with a real audio path — is still to be measured.

@@ -140,7 +140,7 @@ sound**. It brings the file back in line with what the words mean, before a real
 | derived | `chainsGraph.ts`: `MIX` starts a run, like `@in` and like a track |
 | compiled | `nodeProject.ts`: that run's owner is `@master`, and its steps become `masterPlugins` |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc.masterPlugins` — always sent, empty by default |
-| decoded | `docFromJson` in `engine/st0-engine/server/main.cpp` (via `pluginFromJson`, shared with tracks) |
+| decoded | `docFromJson` in `engine/st0-engine/server/DocJson.cpp` (via `pluginFromJson`, shared with tracks) |
 | placed | `populateMasterChain` in `EditBuilder.cpp`, at the head of the master list — followed by the output gain |
 | drawn | the graph's `MIX` and `OUT` cards (`MAIN_OUT_UI` in `@studio/ui-chains`), the second with its fader |
 | diffed | `ChangeKind::MasterChainChanged` — full rebuild |

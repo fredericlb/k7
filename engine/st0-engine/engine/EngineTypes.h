@@ -1,6 +1,6 @@
 #pragma once
 
-// The shared Tracktion/JUCE include and the aliases every internal TU uses — INTERNAL, so server/main.cpp must never include it and stays JUCE-free.
+// The shared Tracktion/JUCE include and the aliases every internal TU uses — INTERNAL, so server/ must never include it and stays JUCE-free.
 
 #include <tracktion_engine/tracktion_engine.h>
 

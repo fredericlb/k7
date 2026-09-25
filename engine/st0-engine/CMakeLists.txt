@@ -146,11 +146,19 @@ set(ENV{GIT_CONFIG_COUNT} 1)
 set(ENV{GIT_CONFIG_KEY_0} "url.https://github.com/.insteadOf")
 set(ENV{GIT_CONFIG_VALUE_0} "git@github.com:")
 
+# On Android, populate only: Tracktion's root always adds its examples, and EngineInPluginDemo
+# depends on a VST3 target that does not exist there — configure fails on a demo we never build.
+# The two directories the engine needs are added by hand after MakeAvailable, below.
+if(ANDROID)
+    set(STUDIO_TRACKTION_SUBDIR SOURCE_SUBDIR studio-does-not-build-this)
+endif()
+
 FetchContent_Declare(tracktion_engine
     GIT_REPOSITORY https://github.com/Tracktion/tracktion_engine.git
     GIT_TAG        v3.2.0
     GIT_SUBMODULES_RECURSE ON
-    GIT_SHALLOW    OFF)               # submodules need full history to resolve
+    GIT_SHALLOW    OFF                # submodules need full history to resolve
+    ${STUDIO_TRACKTION_SUBDIR})
 
 # --- Steinberg ASIO SDK : low-latency Windows audio (engine) ------------------
 # REQUIRED on Windows: ASIO is how a real interface is driven there (the other
@@ -204,8 +212,11 @@ endif()
 # Enable VST3 (and LADSPA) hosting in the JUCE modules Tracktion compiles. These
 # must be set BEFORE tracktion_engine is made available so juce_audio_processors
 # picks them up. Global scope so they reach the Tracktion/JUCE targets created by
-# the add_subdirectory inside FetchContent_MakeAvailable.
-add_compile_definitions(JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_LADSPA=1)
+# the add_subdirectory inside FetchContent_MakeAvailable. Not on Android: there is no
+# plugin to host there, and no window to give its editor.
+if(NOT ANDROID)
+    add_compile_definitions(JUCE_PLUGINHOST_VST3=1 JUCE_PLUGINHOST_LADSPA=1)
+endif()
 
 # Enable a time-stretch backend so imported clip warp/stretch actually stretches
 # (see EditBuilder::applyClipWarp). Without any TRACKTION_ENABLE_TIMESTRETCH_* flag,
@@ -238,6 +249,13 @@ if(WIN32)
 endif()
 
 FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust)
+
+# Android populated Tracktion without building its root (see its declaration): add JUCE and the
+# Tracktion modules the way that root does, minus the examples.
+if(ANDROID)
+    add_subdirectory(${tracktion_engine_SOURCE_DIR}/modules/juce ${tracktion_engine_BINARY_DIR}/juce)
+    add_subdirectory(${tracktion_engine_SOURCE_DIR}/modules ${tracktion_engine_BINARY_DIR}/modules)
+endif()
 
 # Where engine/CMakeLists.txt finds the headers and the standard libraries. The LIBRARY itself
 # is linked as the `staticlib` TARGET rather than by path — see the note there.

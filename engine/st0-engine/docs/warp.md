@@ -2,7 +2,7 @@
 
 A clip carries a **warp map**: a list of `[timeline beat, source second]` markers saying where
 each moment of the file should land. `@studio/song` compiles it into `ClipDoc::warp`
-(`packages/song/docs/warp.md` is the authoring half), `main.cpp` parses it, and
+(`packages/song/docs/warp.md` is the authoring half), `server/DocJson.cpp` parses it, and
 `EditBuilder::applyClipWarp` is what turns it into Tracktion state.
 
 The map does **two** things at once, and Tracktion realises them through two different

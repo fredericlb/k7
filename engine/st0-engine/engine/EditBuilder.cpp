@@ -222,7 +222,11 @@ bool loadVstPreset(te::Plugin& plugin, const juce::File& file) {
     juce::MemoryBlock bytes;
     if (inst == nullptr || !file.loadFileAsData(bytes))
         return false;
+#if JUCE_PLUGINHOST_VST3
     return juce::VST3PluginFormat::setStateFromVSTPresetFile(inst, bytes);
+#else
+    return false;  // no VST3 hosting (Android): there is no external plugin to hand a preset to
+#endif
 }
 
 te::AudioTrack* trackById(te::Edit& edit, const std::string& id,

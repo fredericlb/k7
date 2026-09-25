@@ -43,7 +43,7 @@ stays local to the surface that suffered** as long as no package carries it.
 
 ## B. Security — to be decided, not mechanically corrected
 
-**The engine token leaks by design.** `main.cpp:1094-1108`: `whoami` returns the token to any
+**The engine token leaks by design.** `server/Serve.cpp`, the `whoami` branch: `whoami` returns the token to any
 socket that asks for it, with no prior authentication.
 
 Consequences: anyone reaching `ws://<engine>:8765` — loopback, or the whole LAN when the supervisor

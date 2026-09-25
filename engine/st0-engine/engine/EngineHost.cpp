@@ -13,6 +13,7 @@
 #include "WaveformTapPlugin.h" // the transparent tap plugin for waveform display
 #include "TurntablePlugin.h"   // the platter, which carries a clock of its own
 #include "Warnings.h"          // WarningScope — which project an apply's warnings belong to
+#include "MessagePump.h"       // pumpMessages — the loop run() spins, where one may be spun
 
 #include <algorithm>
 #include <iostream>
@@ -751,7 +752,7 @@ public:
         : host_(h), cb_(std::move(cb)) {}
 
     void timerCallback() override {
-        // ONE FRAME PER SESSION, each carrying the id it describes, so main.cpp sends a session's state only to the connections driving it.
+        // ONE FRAME PER SESSION, each carrying the id it describes, so Serve.cpp sends a session's state only to the connections driving it.
         const auto ids = host_.sessionIds();
         for (const auto& sid : ids) emit(sid);
         // Forget the idle counters of sessions that went, so the map tracks what exists.
@@ -902,14 +903,42 @@ void EngineHost::onState(std::function<void(const EngineState&)> cb, int interva
     impl_->stateTimer = std::move(timer);
 }
 
-void EngineHost::run() {
-    // NOT runDispatchLoop(): on macOS that is `[NSApp run]`, and NSApp is nil here, so it returns instantly and the engine would exit ~0.3s after binding. docs/design.md.
-    while (juce::MessageManager::getInstance()->runDispatchLoopUntil(100)) {
+#if JUCE_ANDROID
+namespace {
+// Call a method of android.os.Looper: static `loop` when `self` is false, else `method` on this thread's own Looper.
+void callLooper(const char* method, bool self) {
+    auto* env = juce::getEnv();
+    const jclass cls = env->FindClass("android/os/Looper");
+    if (!self) {
+        env->CallStaticVoidMethod(cls, env->GetStaticMethodID(cls, method, "()V"));
+    } else if (const jobject mine = env->CallStaticObjectMethod(
+                   cls, env->GetStaticMethodID(cls, "myLooper", "()Landroid/os/Looper;"))) {
+        env->CallVoidMethod(mine, env->GetMethodID(cls, method, "()V"));
+        env->DeleteLocalRef(mine);
     }
+    env->DeleteLocalRef(cls);
+}
+}  // namespace
+#endif
+
+void EngineHost::run() {
+#if JUCE_ANDROID
+    // The message loop IS this thread's Looper — JUCE's Handler bound to it — so loop it until quit(). docs/android.md.
+    callLooper("loop", false);
+#else
+    // NOT runDispatchLoop(): on macOS that is `[NSApp run]`, and NSApp is nil here, so it returns instantly and the engine would exit ~0.3s after binding. docs/design.md.
+    while (pumpMessages(100)) {
+    }
+#endif
 }
 
 void EngineHost::quit() {
+#if JUCE_ANDROID
+    // Quit the Looper run() spins, from ITS thread: stopDispatchLoop on Android finishes the app's Activity instead.
+    juce::MessageManager::callAsync([] { callLooper("quitSafely", true); });
+#else
     juce::MessageManager::getInstance()->stopDispatchLoop();
+#endif
 }
 
 }  // namespace studio

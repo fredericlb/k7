@@ -1,5 +1,7 @@
 #include "TurntablePlugin.h"
 
+#include <algorithm>
+
 namespace studio {
 
 namespace te = tracktion::engine;
@@ -96,7 +98,7 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error)
         error = "cannot decode " + file.getFileName();
         return false;
     }
-    const auto frames = static_cast<int>(juce::jmin<juce::int64>(
+    const auto frames = static_cast<int>(std::min<juce::int64>(
         reader->lengthInSamples, std::numeric_limits<int>::max()));
     std::vector<int16_t> packed(static_cast<size_t>(juce::jmax(1, frames)) * 2);
     float scale = 1.0f;

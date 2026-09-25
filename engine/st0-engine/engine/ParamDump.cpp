@@ -15,6 +15,7 @@
 #include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
 #include "EditBuilder.h"     // loadVstPreset — the ONE reader of a .vstpreset container
 #include "Warnings.h"       // warn — an orphan belongs to no session, so it warns unstamped
+#include "MessagePump.h"    // pumpMessages — the drain before a CLI returns
 
 #include <chrono>
 #include <iostream>
@@ -350,7 +351,7 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     // The answer is printed; now let the message thread actually FREE the plugins, which their destructors do not — docs/plugins.md.
     plugin->deleteFromParent();
     plugin = nullptr;  // the cache's reference is gone with deleteFromParent; this drops ours
-    juce::MessageManager::getInstance()->runDispatchLoopUntil(500);
+    pumpMessages(500);
     return 0;
 }
 

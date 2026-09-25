@@ -1,10 +1,10 @@
-# The engine's WebSocket protocol (`server/main.cpp`)
+# The engine's WebSocket protocol (`server/Serve.cpp`)
 
 `st0-engine` is a headless audio server: a thin WebSocket bridge over
 `studio::engine`, speaking JSON. The engine does not parse files — the Node brain
 interprets the song, resolves clip paths to absolute, and sends the project as JSON.
 
-`main.cpp` includes **no** JUCE or Tracktion headers: all engine threading sits behind
+`Serve.cpp` includes **no** JUCE or Tracktion headers: all engine threading sits behind
 `EngineHost`'s `post()` / `onState()` / `run()` API.
 
 ## Every message carries a session
@@ -22,7 +22,7 @@ and `whoami`. That is a closed set — it is `ENGINE_GLOBAL_REPLIES` in
 `packages/engine-protocol/sessions.ts`, with `PER_SESSION_REPLIES` beside it, and
 `sessions.test.ts` pins both. It matters that the set is closed: the client's filter passes a
 frame with **no** session at all (so an older engine does not strike it deaf), which is safe
-only for as long as this engine stamps everything else. In `main.cpp` the choice is a verb —
+only for as long as this engine stamps everything else. In `Serve.cpp` the choice is a verb —
 `broadcast` or `broadcastTo`.
 
 A session is created by a client **driving** one — sending a project, subscribing to its audio,
@@ -38,7 +38,7 @@ are in `packages/engine-protocol/docs/sessions.md`.
 
 ## A malformed message is ANSWERED, never thrown
 
-The whole dispatch in `server/main.cpp` sits inside one `try`, and that is load-bearing rather than
+The whole dispatch in `server/Serve.cpp` sits inside one `try`, and that is load-bearing rather than
 tidy: **IXWebSocket contains no `catch` at all**, so an exception leaving the handler unwinds the
 connection thread and leaves that socket alive-looking and permanently deaf — no reply, no close
 frame, so nothing on the client ever triggers a reconnect. The measurement, and what it costs the
@@ -135,7 +135,7 @@ announces its own. `engine/st0-engine/scripts/track-delta.ts` exercises the thre
 |---|---|
 | `{ type: "applied", changes: ["tempo -> 124 bpm", …] }` | the diff that ran |
 | `{ type: "flushed" }` | flush completed |
-| `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `main.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
+| `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `Serve.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
 | `{ type: "session-dropped", session }` | a session was forgotten |
 | `{ type: "state", playing, playhead, levels, inputLevels, waveform }` | the ~20 Hz state frame |
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
@@ -188,7 +188,7 @@ A client must not read the cadence as a signal: it is not a heartbeat, and
 ### …and it goes only to the sockets that asked about that project
 
 The state frame is the one reply nobody requested, so it is the only one addressed by SOCKET
-rather than by verb. `main.cpp` remembers which session each connection named in its first real
+rather than by verb. `Serve.cpp` remembers which session each connection named in its first real
 message — the same test that earns it a `[client] connected` line — and sends each frame to those
 sockets alone. A plain `broadcast` here makes every socket on the port decode every session's
 meters and waveform envelopes before its own `forSession` drops them; and since the idle divider
@@ -216,5 +216,5 @@ socket's own filter drops.
 One message type, and the only binary this socket carries: a frame of master audio, sent
 only to connections that asked with `broadcast`. A 32-byte header then interleaved
 float32 — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
-`server/main.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
+`server/Serve.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
 checks that they do but a listener. See docs/broadcast.md.

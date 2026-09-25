@@ -9,7 +9,7 @@ The engine answers `whoami` — **on any socket, with no prior authentication** 
 token and its audio timing:
 
 ```
-// engine/st0-engine/server/main.cpp, the `whoami` / `hello` branch
+// engine/st0-engine/server/Serve.cpp, the `whoami` / `hello` branch
 ws.send(json{{"type", "whoami"}, {"id", engineId}, {"token", engineToken}, …}.dump());
 ```
 

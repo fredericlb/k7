@@ -34,7 +34,7 @@ write from two threads.
 
 "The ring outlives every edit" is true of the ring and does not extend to the **lookup that finds
 it**, now that the ring lives inside a map keyed by session. The case is reachable rather than
-theoretical: `main.cpp` records a new listener's session under `listenersMx` *before* the posted
+theoretical: `Serve.cpp` records a new listener's session under `listenersMx` *before* the posted
 `enableBroadcast` runs, so the sender thread can be the first to touch a brand-new id.
 
 `tests/SessionRegistry_test.cpp` pins the invariants. Its concurrency case is a **stress test,
@@ -57,7 +57,7 @@ Route a `const` accessor through the inserting form and three things follow at o
 - the state timer re-touches every session it lists, forever.
 - there is no "unknown session" path at all, because there is no such thing as an unknown one.
 
-`main.cpp` still reads `session` with no allowlist, deliberately: naming a session is what
+`Serve.cpp` still reads `session` with no allowlist, deliberately: naming a session is what
 creates it, and a whitelist would mean the engine had to be told about every app in advance.
 What it does have is a **ceiling** — an id longer than 256 bytes is refused, so a malformed
 client cannot grow the map without bound.
@@ -76,7 +76,7 @@ the supervisor's own client.
 ## Which replies carry a session
 
 `packages/engine-protocol/sessions.ts` holds the two lists, `PER_SESSION_REPLIES` and
-`ENGINE_GLOBAL_REPLIES`, and `sessions.test.ts` pins them. In `main.cpp` the choice is a **verb**:
+`ENGINE_GLOBAL_REPLIES`, and `sessions.test.ts` pins them. In `Serve.cpp` the choice is a **verb**:
 
 | verb | for |
 |---|---|

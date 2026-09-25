@@ -8,6 +8,7 @@
 #include "EngineTypes.h"
 #include "EditBuilder.h"
 #include "PluginScan.h"
+#include "MessagePump.h"
 
 #include <chrono>
 #include <iostream>
@@ -97,7 +98,7 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
 
     // Pump BEFORE allocating contexts: populateEdit builds 4OSC and Sampler voices on async message-thread work, and without this the probe reported playing=no on both.
     for (int i = 0; i < 20; ++i)
-        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        pumpMessages(50);
 
     // THIS is the call under test: each Edit registering its own playback context with the one shared DeviceManager.
     for (size_t i = 0; i < sessions.size(); ++i) {
@@ -105,13 +106,13 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
         std::cerr << "[probe] session " << i << " context allocated\n";
     }
     for (int i = 0; i < 10; ++i)
-        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        pumpMessages(50);
 
     for (auto& s : sessions) s->edit->getTransport().play(false);
 
     // …and again after play: the transport's start is itself dispatched.
     for (int i = 0; i < 10; ++i)
-        juce::MessageManager::getInstance()->runDispatchLoopUntil(50);
+        pumpMessages(50);
     for (size_t i = 0; i < sessions.size(); ++i)
         std::cerr << "[probe] session " << i << " transport playing="
                   << (sessions[i]->edit->getTransport().isPlaying() ? "yes" : "no") << "\n";
@@ -120,7 +121,7 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
     const auto until = std::chrono::steady_clock::now() +
                        std::chrono::milliseconds((long long)(seconds * 1000));
     while (std::chrono::steady_clock::now() < until) {
-        juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
+        pumpMessages(100);
         for (auto& s : sessions)
             if (s->client) {
                 const auto lv = s->client->getAndClearAudioLevel(0);

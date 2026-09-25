@@ -9,6 +9,7 @@
 #include "EngineTypes.h"     // Tracktion/JUCE + the te/tt/fs aliases
 #include "PluginScan.h"      // registerBuiltInPlugins
 #include "EditBuilder.h"     // populateEdit
+#include "MessagePump.h"     // pumpMessages — the render loop's dispatch
 
 #include <atomic>
 #include <chrono>
@@ -191,11 +192,10 @@ bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger&
     if (!task) return false;
     trace("runJob loop");
     // Dispatch between blocks: a non-wav source plays off a PROXY whose render is kicked off by a juce Timer, so a loop that never pumps waits forever on a file nobody writes (docs/cliModes.md).
-    auto* mm = juce::MessageManager::getInstance();
     auto lastProgress = progress.load();
     auto lastMoved = std::chrono::steady_clock::now();
     while (task->runJob() == juce::ThreadPoolJob::jobNeedsRunningAgain) {
-        mm->runDispatchLoopUntil(0);
+        pumpMessages(0);
         const auto now = std::chrono::steady_clock::now();
         if (progress.load() > lastProgress) { lastProgress = progress.load(); lastMoved = now; }
         // A source the engine cannot decode leaves its node forever un-ready; fail loudly rather than spin, since a render that never returns reads as a wedged machine.
@@ -220,15 +220,15 @@ std::unique_ptr<te::Edit> buildRenderEdit(te::Engine& engine, const ProjectDoc& 
     trace("populateEdit done");
     // One pump, or SamplerPlugin never builds its sounds and a rack track renders silent — and the watchdog guards THIS line, since pumping runs the MIDI timer too (AGENTS.md).
     watchdogStack(20);
-    juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
+    pumpMessages(200);
     trace("pump done");
     return edit;
 }
 
 // Let the message thread finish what the render left queued before the Edit is destroyed — "A CLI must drain the message queue before it returns" in AGENTS.md.
 void drainMessageQueue(int ms = 200) {
-    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
-        mm->runDispatchLoopUntil(ms);
+    if (juce::MessageManager::getInstanceWithoutCreating() != nullptr)
+        pumpMessages(ms);
 }
 
 // Everything the edit plays, plus a 2s tail for synth release and reverb.

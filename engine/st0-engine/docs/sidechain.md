@@ -39,7 +39,7 @@ and reading it is `base = port * 2`. No names cross the gap between the module f
 | `DspGraph` | `Kind::ain` reads channels `2n / 2n+1`, and `inputs()` reports how many ports the description names |
 | `GraphDspPlugin::getChannelNames` | a stereo pair per port past the first |
 | `GraphDspPlugin::canSidechain` | true when the graph declares more than one input |
-| `PluginDoc::sidechainFrom` + `server/main.cpp` | the source TRACK id, on the wire |
+| `PluginDoc::sidechainFrom` + `server/DocJson.cpp` | the source TRACK id, on the wire |
 | `EditBuilder` | `setSidechainSourceID` plus `guessSidechainRouting`, in a pass of its own |
 | `ProjectDiff::keyOf` | folds the source into plugin identity, so re-aiming a cable is not an empty diff |
 

@@ -61,7 +61,7 @@ public:
             lastRead_ = written - SAFE;
             avail = SAFE;
         }
-        // Parenthesised so windows.h's min() macro cannot claim the call — main.cpp pulls winsock2 in through IXWebSocket, the same trap WaveformTap.h names.
+        // Parenthesised so windows.h's min() macro cannot claim the call — Serve.cpp pulls winsock2 in through IXWebSocket, the same trap WaveformTap.h names.
         const size_t n = (std::min)(avail, maxFrames);
         if (n == 0) {
             out.clear();

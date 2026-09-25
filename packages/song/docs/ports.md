@@ -173,7 +173,7 @@ The route from that to the engine, in one line each:
 | `DspGraph` | `Kind::ain` carries a port index and reads channels 2n / 2n+1 |
 | `GraphDspPlugin::getChannelNames` | a stereo PAIR per input port past the first |
 | `GraphDspPlugin::canSidechain` | true when the graph declares more than one input |
-| `PluginDoc.sidechainFrom` + `server/main.cpp` | the source track id, on the wire |
+| `PluginDoc.sidechainFrom` + `server/DocJson.cpp` | the source track id, on the wire |
 | `EditBuilder` | `setSidechainSourceID` plus its wires, in a pass after every lane exists |
 | `nodeProject` | emits `sidechainFrom` from `step.in`, which this layer already produced |
 

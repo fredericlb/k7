@@ -141,7 +141,7 @@ master put back to unity would never come back down.
 | authored | `project.yaml`'s `project.masterVolume` — `ProjectSettingsSchema` |
 | compiled | `ProjectDoc.masterVolume` — `nodeProject.ts`, `project.ts`, defaulted to 0 |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc` |
-| decoded | `docFromJson` in `engine/st0-engine/server/main.cpp` |
+| decoded | `docFromJson` in `engine/st0-engine/server/DocJson.cpp` |
 | applied | `MasterGainPlugin`, put on the master list by `populateMasterChain` after the song's chain and before the meter — so playback and an offline render both get it — and re-set in `EngineHost.cpp` on diff |
 | drawn | the fader under the header meter, the Fix button beside it (`apps/st0/frontend/docs/masterMeter.md`), and the OUT card's own fader in the chains graph (`MAIN_OUT_UI`) |
 | written | `node param "OUT" Volume <dB>`, or `project master <dB>` — one implementation, `writeMasterVolume` |

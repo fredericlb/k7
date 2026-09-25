@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foreground only for now: no service, so the engine lives exactly as long as MainActivity (docs/android.md). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The engine's WebSocket server, which browsers on the LAN dial. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The IPv4 the activity shows, so a browser knows what to dial. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- The engine opens the device WITH its inputs (docs/engineHost.md); Oboe wants both below. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <application
+        android:allowBackup="false"
+        android:label="st0 engine"
+        android:theme="@android:style/Theme.DeviceDefault">
+        <!-- configChanges: a rotation must not recreate the activity, which would stop the engine. -->
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

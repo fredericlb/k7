@@ -43,7 +43,7 @@ binary, built separately.
 engine/st0-engine/               the C++ project (st0-engine)             — native, not a workspace
   CMakeLists.txt · CMakePresets.json · docs/design.md
   engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
-  server/    app st0-engine          (WebSocket audio server, main.cpp)
+  server/    app st0-engine          (WebSocket audio server, Serve.cpp)
 engine/st0-supervisor/           the supervisor (C++): identity, registry, engine, tunnel, machine jobs
 engine/st0-tray/                 the menu-bar view (spawns st0-supervisor)
 apps/st0/                the web editor — frontend / backend
