@@ -14,6 +14,7 @@
 #include "Paths.h"
 #include "Performance.h"
 #include "Registry.h"
+#include "Rtc.h"
 #include "TrustRoots.h"
 #include "TunnelAgent.h"
 #include "Url.h"
@@ -346,6 +347,13 @@ struct Supervisor::Impl {
             o.cacheDir = paths::remoteCache(url::cacheKey(u));
             o.jobs = machineJobs(access());
             o.log = [](const std::string& m) { log::line("tunnel", m); };
+            const int port = settings.port;
+            o.answerOffer = [port](const std::string& offer) {
+                rtc::Options r;
+                r.enginePort = port;
+                r.log = [](const std::string& m) { log::line("tunnel", m); };
+                return rtc::answerOffer(offer, r);
+            };
             auto agent = tunnel::TunnelAgent::create(std::move(o));
             agent->start();
             tunnels[u] = agent;

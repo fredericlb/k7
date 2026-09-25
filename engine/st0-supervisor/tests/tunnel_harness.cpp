@@ -4,6 +4,7 @@
 // closes — the test's way of stopping it.
 
 #include "Paths.h"
+#include "Rtc.h"
 #include "TunnelAgent.h"
 
 #include <cctype>
@@ -48,6 +49,12 @@ int main(int argc, char** argv)
         const fs::path out = outDir / (source.filename().string() + ".up");
         std::ofstream(out, std::ios::binary) << text;
         emit({{"type", "done"}, {"files", {st0::paths::utf8(out)}}});
+    };
+    const int port = o.enginePort;
+    o.answerOffer = [port](const std::string& offer) {
+        st0::rtc::Options r;
+        r.enginePort = port;
+        return st0::rtc::answerOffer(offer, r);
     };
     auto agent = TunnelAgent::create(o);
     agent->start();

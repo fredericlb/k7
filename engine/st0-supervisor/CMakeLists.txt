@@ -13,6 +13,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(MSVC)
     add_compile_options(/MP /FS /utf-8)
 endif()
+# Every dependency is linked statically into one executable; position-independent code keeps that legal on Linux.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+# Nothing here is installed, and a dependency's export set would name our mbedTLS targets, which none holds.
+set(CMAKE_SKIP_INSTALL_RULES ON)
 
 include(FetchContent)
 
@@ -33,7 +38,12 @@ set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
 set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
 set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+set(MBEDTLS_USER_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/mbedtls_user_config.h CACHE FILEPATH "" FORCE)
 FetchContent_MakeAvailable(nlohmann_json mbedtls)
+# The one name libdatachannel asks for, over the three libraries mbedTLS builds.
+add_library(st0_mbedtls INTERFACE)
+target_link_libraries(st0_mbedtls INTERFACE mbedtls mbedx509 mbedcrypto)
+add_library(MbedTLS::MbedTLS ALIAS st0_mbedtls)
 
 # --- IXWebSocket : the engine socket, the tunnel, and HTTPS, all over the mbedTLS above ---------
 FetchContent_Declare(ixwebsocket
@@ -43,8 +53,6 @@ FetchContent_Declare(ixwebsocket
 set(USE_TLS ON CACHE BOOL "" FORCE)
 set(USE_MBED_TLS ON CACHE BOOL "" FORCE)
 set(USE_ZLIB OFF CACHE BOOL "" FORCE)
-# Nothing here is installed, and its export would name mbedTLS targets no export set holds.
-set(IXWEBSOCKET_INSTALL OFF CACHE BOOL "" FORCE)
 # Told where the fetched mbedTLS is, since its FindMbedTLS looks only for an installed one.
 set(MBEDTLS_FOUND TRUE)
 set(MBEDTLS_INCLUDE_DIRS ${mbedtls_SOURCE_DIR}/include)
@@ -52,6 +60,20 @@ set(MBEDTLS_LIBRARIES mbedtls mbedx509 mbedcrypto)
 FetchContent_MakeAvailable(ixwebsocket)
 # The define its finder would have set for an mbedTLS 3, skipped because we said it was found.
 target_compile_definitions(ixwebsocket PRIVATE IXWEBSOCKET_USE_MBED_TLS_MIN_VERSION_3)
+
+# --- libdatachannel : the WebRTC path to a browser, DTLS over the same mbedTLS (docs/supervisor.md) ---
+# Data channels only: no media, no WebSocket of its own, and the three submodules that needs.
+FetchContent_Declare(libdatachannel
+    GIT_REPOSITORY https://github.com/paullouisageneau/libdatachannel.git
+    GIT_TAG        v0.24.5
+    GIT_SHALLOW    ON
+    GIT_SUBMODULES "deps/plog;deps/usrsctp;deps/libjuice")
+set(USE_MBEDTLS ON CACHE BOOL "" FORCE)
+set(NO_MEDIA ON CACHE BOOL "" FORCE)
+set(NO_WEBSOCKET ON CACHE BOOL "" FORCE)
+set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
+set(NO_TESTS ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(libdatachannel)
 
 # --- the program ----------------------------------------------------------------------------------
 # Everything but main.cpp is a library, so the tests link exactly what ships.
@@ -79,10 +101,12 @@ add_library(st0_supervisor_core STATIC
     src/PathMap.cpp
     src/TunnelAgent.cpp
     src/MachineJobs.cpp
+    src/RtcFrames.cpp
+    src/Rtc.cpp
     src/Separation.cpp
     src/Supervisor.cpp)
 target_include_directories(st0_supervisor_core PUBLIC src)
-target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket mbedtls mbedx509 mbedcrypto)
+target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket datachannel mbedtls mbedx509 mbedcrypto)
 if(WIN32)
     target_link_libraries(st0_supervisor_core PUBLIC ws2_32 iphlpapi crypt32)
     target_compile_definitions(st0_supervisor_core PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -103,7 +127,8 @@ add_executable(st0_supervisor_tests
     tests/HostProtocol_test.cpp
     tests/AudioPolicy_test.cpp
     tests/Performance_test.cpp
-    tests/MachineJobs_test.cpp)
+    tests/MachineJobs_test.cpp
+    tests/RtcFrames_test.cpp)
 target_include_directories(st0_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../st0-engine/tests)
 target_link_libraries(st0_supervisor_tests PRIVATE st0_supervisor_core)
 add_test(NAME st0_supervisor_tests COMMAND st0_supervisor_tests)

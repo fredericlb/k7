@@ -9,6 +9,7 @@ void runHostProtocolTests();
 void runAudioPolicyTests();
 void runPerformanceTests();
 void runMachineJobsTests();
+void runRtcFramesTests();
 
 int main()
 {
@@ -18,5 +19,6 @@ int main()
     runAudioPolicyTests();
     runPerformanceTests();
     runMachineJobsTests();
+    runRtcFramesTests();
     TEST_MAIN_END();
 }
