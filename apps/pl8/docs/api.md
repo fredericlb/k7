@@ -1,9 +1,10 @@
 # The client side of the seams
 
-`apps/pl8/frontend/src/api.ts` talks to three things, and they are not the same kind of thing at
-all: this app's own backend (same origin, under a prefix), the ORIGIN's auth (no prefix), and the
-engine MACHINE's file service (cross-origin, and the only side that knows anything about a disk).
-This page holds the reasoning; the file itself keeps one line per fact.
+`apps/pl8/frontend/src/api.ts` talks to two things, and they are not the same kind of thing at all:
+this app's own backend (same origin, under a prefix) and the ORIGIN's auth (no prefix). An engine's
+machine is never called from here: what this app needs of one goes through its backend, which
+reaches it through the engine's tunnel. This page holds the reasoning; the file itself keeps one
+line per fact.
 
 ## `BASE`, and the one path that must not carry it
 
@@ -29,8 +30,7 @@ st0 and k7 too.
 
 `signedInAs` is set once, by the gate, before anything below it renders — this SPA has exactly one
 gate and therefore exactly one user for its whole life. A prop threaded through three components
-would say the same thing three times. The file service's gate wants it on every call, beside the
-machine's token, which is what `machineHeaders` writes once instead of six times.
+would say the same thing three times.
 
 ## Errors carry the server's sentence
 
@@ -40,50 +40,14 @@ throwing the status code is how you end up staring at a number the server alread
 status is carried alongside, because one caller has to tell "there is nothing there" from "it went
 wrong": a folder with no sidecar yet is a state, a dead backend is not.
 
-## The engine machine's own file service
+## An engine's machine, through this backend
 
-`engineMachine` is reached cross-origin and directly — the same seam st0 uses, and the only way to
-learn a fact about that MACHINE rather than about the library. This app's backend is hosted: it has
-no scan cache and never will. The origin has to be trusted on that machine
-(`<state>/web-origins.json`, offered by the tray); a refusal reads as a network error here, which
-is why a caller treats an empty list as "cannot say" rather than as "nothing there".
-
-It is also the only thing that can WRITE into a repository — create or delete a project — because
-it alone holds a working copy.
-
-**Analysing a file** (waveform envelope, transient onsets, tempo) is asked of the machine because
-THIS service cannot: it has no engine, and the engine is what decodes audio. The machine downloads
-the file from here, runs its engine, pushes the `.cache` sidecar back beside the audio, and seeds
-`song.yaml` with the tempo it found (`packages/file-service/src/routes/mediatek.ts`). It is the one
-route here worth CANCELLING, hence the signal: it answers nothing until the whole decode is done,
-so a caller that has moved on would hold a request open for minutes. Cancelling does not stop the
-work on the far machine — nothing propagates that — it stops this tab waiting on an answer it will
-throw away.
-
-**The audio device takes two calls, and both are needed.** The engine's own `set-audio-device`
-switches the running one; `setAudioDevice` here makes it survive a restart. They are separate
-because they are separate facts — a live engine and a file on a disk — and the engine holds no
-memory of its device by design (`engine/st0-engine/docs/audioDevice.md`). Sending only the first is how
-a machine ends up back on the Windows endpoint after every rebuild, monitoring at four times the
-latency, with nothing on screen saying so. `audioDevicePref` reads what is REMEMBERED, with null
-for "(system default)" — the state that leaves the engine on that endpoint.
-
-**Cloning is a job, not a request.** A real repository takes tens of seconds, longer than a request
-should stay open, so `startClone` returns a handle and `cloneJob` polls it. `null` means the machine
-has forgotten the job: nothing can wait on state nobody holds.
-
-**Creating a project sends `shape` as a field of its own.** `name` already carries its suffix
-(`hiver.st0`) and the service takes it as the folder name, so the ARCHETYPE — `arrangement`, `mix`
-or `video` — cannot travel inside it. A file service older than those three names answers 400 on
-its `z.enum`, which is the right failure: "unknown archetype" beats a template guessed wrong. See
-`PROJECT_SHAPES` in `@studio/song`.
-
-**Deleting bins rather than erases.** The commit that follows is what removes the project from the
-repository.
-
-**The machine's player** is mpv on its own outputs, without the engine, and every path is RELATIVE
-to the médiathèque — mpv knows only absolutes, and returning one would expose the machine's tree.
-See `packages/mpv-player/docs/mpvPlayer.md`.
+What this app needs of an engine's MACHINE — where a song is on its disk (`/api/engine-local`), a
+cut of a song into stems (`/api/stems`), a set list copied onto its stick (`/api/sync`) — is asked
+of this backend, which reaches the machine through its tunnel
+(`packages/engine-tunnel/docs/jobs.md`). There is no file service on that machine to call, and a
+browser on an HTTPS page could not call one there anyway. The engine itself is the one thing this
+app still talks to directly: its socket, for transport and meters (`@studio/engine-browser`).
 
 ## The registry is THE registry
 
@@ -97,8 +61,7 @@ id, and the preference document is the host's rather than the registry's — not
 
 ## Asking whether a file is there
 
-`library.exists` fetches ONE BYTE (`Range: bytes=0-0`), the same trick `cachedOnMachine` uses on the
-engine's side: asking costs a request, and downloading a master to find out it is there costs the
+`library.exists` fetches ONE BYTE (`Range: bytes=0-0`): asking costs a request, and downloading a master to find out it is there costs the
 master. It exists for what the catalogue cannot answer — a song's listing carries no file list,
 since a song is a folder the scan stops at, so a render written beside the master is invisible to
 it. Any refusal reads as absent; the caller's next move is the same either way.

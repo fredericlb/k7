@@ -25,6 +25,7 @@ import { z } from "zod";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { openCors } from "./cors.ts";
 import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
+import { engineLocalRouter } from "./routes/engineLocal.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
@@ -108,6 +109,9 @@ app.use(
 
 // Copying a set list onto a machine's stick or FTP box — same division as the cut, docs/sync.md.
 app.use("/api/sync", bearerOrSession(requireAuth), syncRouter(engine));
+
+// Where a song is on an engine's machine, fetched there first — what the player hands the engine.
+app.use("/api/engine-local", requireAuth, engineLocalRouter(engine));
 
 // `engineId` is this app's own choice, `playbackTarget` a plain string — docs/playbackTarget.md.
 const prefsSchema = z.object({

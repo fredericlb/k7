@@ -144,11 +144,17 @@ export class PathMap {
     } catch {
       return text;
     }
+    // A reply's `raw` is delivered as the machine wrote it: its caller needs the machine's own spelling.
+    const { raw, ...rest } =
+      msg && typeof msg === "object" && !Array.isArray(msg)
+        ? (msg as Record<string, unknown>)
+        : { raw: undefined };
     const named = new Set<string>();
-    collect(msg, (s) => this.toRemote(s) !== null, named);
+    collect(rest, (s) => this.toRemote(s) !== null, named);
     for (const local of named) await this.sendUp(local);
+    const mapped = mapStrings(rest, (s) => this.toRemote(s)?.remote ?? null);
     return JSON.stringify(
-      mapStrings(msg, (s) => this.toRemote(s)?.remote ?? null),
+      raw === undefined ? mapped : { ...(mapped as object), raw },
     );
   }
 

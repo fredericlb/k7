@@ -27,9 +27,11 @@ describe("a jobs channel", () => {
   let agent: TunnelAgent;
   let remote: string;
   let port: number;
+  let cache: string;
 
   beforeEach(async () => {
     remote = mkdtempSync(join(tmpdir(), "jobs-remote-"));
+    cache = mkdtempSync(join(tmpdir(), "jobs-cache-"));
     server = createServer();
     hub = new TunnelHub({ verify: () => true, log: () => {} });
     hub.attach(server);
@@ -40,10 +42,14 @@ describe("a jobs channel", () => {
       id: "e1",
       token: "t",
       enginePort: 1, // no engine at all: a jobs channel never dials one
-      cacheDir: mkdtempSync(join(tmpdir(), "jobs-cache-")),
+      cacheDir: cache,
       log: () => {},
       jobs: {
         // Reads the source it was handed, writes one "stem" beside it, reporting progress first.
+        // Answers the same path twice: once as the server's, once under `raw` as the machine's.
+        where(req, emit) {
+          emit({ type: "where", path: req.source, raw: { path: req.source } });
+        },
         async upper(req, emit) {
           const text = readFileSync(String(req.source), "utf8");
           emit({ type: "progress", percent: 50 });
@@ -89,6 +95,21 @@ describe("a jobs channel", () => {
     expect(readFileSync(join(remote, "stems", "song.txt.up"), "utf8")).toBe(
       "LA LA",
     );
+  });
+
+  it("delivers a reply's `raw` as the machine wrote it, and maps the rest", async () => {
+    writeFileSync(join(remote, "w.txt"), "w");
+    const ch = await hub.openReady("e1", roots(), 5000, "jobs");
+    if (!ch) throw new Error("no channel");
+    const reply = await requestJob(
+      ch,
+      { type: "where", source: `${remote}/w.txt` },
+      (r) => r.type === "where",
+    );
+    expect(reply.path).toBe(`${remote}/w.txt`);
+    const local = (reply.raw as { path: string }).path;
+    expect(local).toBe(join(cache, "lib", "w.txt"));
+    expect(readFileSync(local, "utf8")).toBe("w");
   });
 
   it("says so when the machine does not do what was asked", async () => {

@@ -25,5 +25,11 @@ request, and a file a reply names, written under a writable root, is uploaded be
 sees the reply. So a handler works on local paths only, and a caller on server paths only — a
 separation's source and model arrive on the machine, and its stems land where the server asked.
 
+Two exceptions, both explicit. A request that names too many files to fetch before it starts — a
+set list of thirty songs — brings each down when it gets to it (`JobContext.fetch`), so it can
+report as it goes. And a reply's **`raw`** field crosses unmapped: the one caller that needs the
+machine's own spelling of a path is a browser about to hand that path to the engine (`local`, the
+song a player is about to play).
+
 Who may open one is who may open any channel: a process holding the tunnel hub, or one given a
 bound loopback path by it (`TunnelHub.bindLocal(…, "jobs")`).

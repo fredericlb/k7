@@ -3,6 +3,7 @@
 // local and leave already the server's; the tunnel moves the files. See
 // packages/engine-tunnel/docs/jobs.md.
 
+import { existsSync } from "node:fs";
 import type { JobHandler } from "@studio/engine-tunnel/agent";
 import type { SeparationOutput } from "@studio/song-schema/stems";
 import {
@@ -38,8 +39,17 @@ const separate: JobHandler = async (req, emit) => {
   }
 };
 
+/** Where a song of the médiathèque is on THIS disk, brought down first — for a browser about to hand the engine that path. */
+const local: JobHandler = (req, emit) => {
+  const path = String(req.path ?? "");
+  if (!path || !existsSync(path)) throw new Error("not in the médiathèque");
+  // Under `raw`, so the channel does not spell it back into the server's path on the way out.
+  emit({ type: "local", raw: { path } });
+};
+
 /** Every job this machine answers, by request type. */
 export const machineJobs: Record<string, JobHandler> = {
   separate,
+  local,
   ...syncJobs,
 };

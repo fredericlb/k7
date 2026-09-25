@@ -15,10 +15,8 @@ import { currentUser, engines } from "../api";
 export interface SongEngine {
   /** An engine answered: the menu row is offerable, whether or not anything is connected to it. */
   available: boolean;
-  /** That machine's file service — every per-MACHINE fact lives behind it, the cache root first. */
-  fileBase: string | null;
-  /** Its token, from the whoami the probe already ran: what the file service's header gate wants. */
-  token: string | null;
+  /** Which engine answered: what the server is asked about when a song must reach its machine. */
+  engineId: string | null;
   /** Whether the engine says it is playing, and where its playhead is. */
   playing: boolean;
   playhead: number;
@@ -36,8 +34,6 @@ export interface SongEngine {
 /** @param connected whether the account's destination IS the engine — see ../../docs/playbackTarget.md. */
 export function useSongEngine(connected: boolean): SongEngine {
   const [chosenId, setChosenId] = useState<string | null>(null);
-  const [fileBase, setFileBase] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [warning, setWarning] = useState<EngineWarning | null>(null);
@@ -57,8 +53,6 @@ export function useSongEngine(connected: boolean): SongEngine {
       if (cancelled) return;
       pick.current = chosen;
       setChosenId(chosen?.engine.id ?? null);
-      setFileBase(chosen?.fileBase ?? null);
-      setToken(chosen?.token ?? null);
     })();
     return () => {
       cancelled = true;
@@ -123,8 +117,7 @@ export function useSongEngine(connected: boolean): SongEngine {
 
   return {
     available: !!chosenId,
-    fileBase,
-    token,
+    engineId: chosenId,
     playing,
     playhead,
     warning,
