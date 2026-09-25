@@ -17,6 +17,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 extern char** environ;
 #endif
 
@@ -126,6 +129,15 @@ void pump(HANDLE h, bool isErr, std::function<void(const std::string&, bool)> on
 }  // namespace
 
 int currentPid() { return static_cast<int>(GetCurrentProcessId()); }
+
+std::filesystem::path executablePath()
+{
+    std::wstring buf(32768, L'\0');
+    const DWORD n = GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+    if (n == 0 || n >= buf.size()) return {};
+    buf.resize(n);
+    return std::filesystem::path(buf);
+}
 
 bool pidAlive(int pid)
 {
@@ -257,6 +269,22 @@ std::vector<std::string> environmentWith(const std::map<std::string, std::string
 }  // namespace
 
 int currentPid() { return static_cast<int>(getpid()); }
+
+std::filesystem::path executablePath()
+{
+    std::error_code ec;
+#ifdef __APPLE__
+    uint32_t size = 0;
+    _NSGetExecutablePath(nullptr, &size);
+    std::string buf(size, '\0');
+    if (_NSGetExecutablePath(buf.data(), &size) != 0) return {};
+    buf.resize(std::strlen(buf.c_str()));
+    auto p = std::filesystem::canonical(buf, ec);
+#else
+    auto p = std::filesystem::read_symlink("/proc/self/exe", ec);
+#endif
+    return ec ? std::filesystem::path() : p;
+}
 
 bool pidAlive(int pid)
 {

@@ -16,6 +16,9 @@ namespace st0::process {
 /** This process's pid. */
 int currentPid();
 
+/** This executable, symlinks resolved; empty when the platform will not say. */
+std::filesystem::path executablePath();
+
 /** Whether `pid` names a live process — ours or not; a pid is not an identity, so callers ask more. */
 bool pidAlive(int pid);
 

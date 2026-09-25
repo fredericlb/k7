@@ -1,11 +1,14 @@
-// main.cpp — the supervisor's entry point. Spawned BY the tray and driven over NDJSON on stdio: takes
-// no arguments, reads what it needs from `~/.st0`, and has no standalone mode — a supervisor outliving
-// the tray would be a ghost engine. Stdin ending IS the tray going away, and that ends us too.
+// main.cpp — the supervisor's entry point. Spawned BY the tray and driven over NDJSON on stdio: reads
+// what it needs from `~/.st0`, and has no standalone mode — a supervisor outliving the tray would be
+// a ghost engine. Stdin ending IS the tray going away, and that ends us too. The one argument it
+// takes is `--probe <address>`: ask a studio's registry, print the answer, touch nothing.
 
 #include "HostProtocol.h"
 #include "Log.h"
 #include "Loop.h"
+#include "Registry.h"
 #include "Supervisor.h"
+#include "Url.h"
 
 #include <csignal>
 #include <cstdio>
@@ -32,8 +35,19 @@ extern "C" void onSignal(int)
 
 }  // namespace
 
-int main()
+int main(int argc, char** argv)
 {
+    if (argc == 3 && std::string(argv[1]) == "--probe") {
+        const auto origin = st0::url::normaliseUserOrigin(argv[2]);
+        if (!origin) {
+            std::printf("%s is not a web address\n", argv[2]);
+            return 2;
+        }
+        const auto reg = st0::url::engineRegistryUrl(*origin);
+        const auto p = st0::registry::probe(reg);
+        std::printf("%s: %s\n", reg.c_str(), p.ok ? "an st0 registry" : p.why.c_str());
+        return p.ok ? 0 : 1;
+    }
 #ifdef _WIN32
     // Binary stdio, so a frame's `\n` is not turned into `\r\n` and a UTF-8 byte is never translated.
     _setmode(_fileno(stdout), _O_BINARY);

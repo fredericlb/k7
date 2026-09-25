@@ -6,11 +6,15 @@
 void runUrlTests();
 void runSettingsTests();
 void runHostProtocolTests();
+void runAudioPolicyTests();
+void runPerformanceTests();
 
 int main()
 {
     runUrlTests();
     runSettingsTests();
     runHostProtocolTests();
+    runAudioPolicyTests();
+    runPerformanceTests();
     TEST_MAIN_END();
 }

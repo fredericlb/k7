@@ -65,6 +65,14 @@ add_library(st0_supervisor_core STATIC
     src/HostLock.cpp
     src/Url.cpp
     src/HostProtocol.cpp
+    src/AudioPolicy.cpp
+    src/EngineProcess.cpp
+    src/EngineQueries.cpp
+    src/TrustRoots.cpp
+    src/Http.cpp
+    src/Registry.cpp
+    src/Addresses.cpp
+    src/Performance.cpp
     src/Supervisor.cpp)
 target_include_directories(st0_supervisor_core PUBLIC src)
 target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket mbedtls mbedx509 mbedcrypto)
@@ -85,7 +93,9 @@ add_executable(st0_supervisor_tests
     tests/main_test.cpp
     tests/Url_test.cpp
     tests/Settings_test.cpp
-    tests/HostProtocol_test.cpp)
+    tests/HostProtocol_test.cpp
+    tests/AudioPolicy_test.cpp
+    tests/Performance_test.cpp)
 target_include_directories(st0_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../st0-engine/tests)
 target_link_libraries(st0_supervisor_tests PRIVATE st0_supervisor_core)
 add_test(NAME st0_supervisor_tests COMMAND st0_supervisor_tests)
