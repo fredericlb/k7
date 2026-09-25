@@ -67,9 +67,7 @@ import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
-import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
-import { separateRouter } from "./routes/separate.ts";
 import { syncRouter } from "./routes/sync.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
@@ -402,12 +400,6 @@ if (!HOSTED) app.use(createPlayerRouter((req) => req.userEmail!));
 
 // An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);
-
-// Stem separation, started and polled because it takes minutes and produces four files — docs/stemSplit.md.
-app.use(separateRouter);
-
-// …and the same work for a caller that holds the audio and no cache path — docs/processChain.md.
-app.use(processRouter);
 
 // Copying a set list onto a stick or an FTP box: a target belongs to the MACHINE — docs/playlistSync.md.
 app.use(syncRouter);

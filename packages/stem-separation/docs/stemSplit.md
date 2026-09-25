@@ -1,8 +1,8 @@
 # Splitting a mix into stems
 
-`POST /separate` runs HT-Demucs over an audio file on this machine and writes four 24-bit
-WAVs — drums, bass, other, vocals — into `stems/` beside it. It answers with a **job to
-poll**, not with audio.
+A separation runs HT-Demucs over an audio file on an ENGINE's machine and writes four 24-bit
+WAVs — drums, bass, other, vocals — into `stems/` beside it. It is a **job to poll**, not a call
+that answers with audio.
 
 ## Why it is a module, and why it cannot be a plugin
 
@@ -151,28 +151,21 @@ channel, since every stem sees the same windows.
 
 The WAV writer is by hand: a 44-byte header is smaller than the argument for a dependency.
 
-## The second door is `POST /process`
+## Two callers, one job
 
-There are two doors. `POST /separate` is per MACHINE and takes absolute paths, including the
-model's: a caller that already knows both.
+A cut is asked for from two places: a project's `clip process`, in the account's file service, and
+pl8's `POST /api/stems`, which holds the masters and drives the cut of a song in the library
+(`apps/pl8/docs/stems.md`). The worker, the job and `stems/` below are the same either way — only
+who is waiting differs.
 
-`POST /process` is the other ([processChain.md](processChain.md)). The audio ARRIVES in the request
-body rather than being named and looked up, because the caller is pl8, which holds the masters and
-drives the cut; nothing on this side resolves a song by name. The worker, the registry and `stems/`
-below are the same either way — only where the bytes come from and who is waiting differ.
+**The chain is the account's answer.** `stemsChain` in the account's `preferences.yaml`, written
+once by `system stems <chaîne>` — or `instrumentalChain`, written by `system instrumental` — is
+what a cut falls back to when the caller names none (`packages/file-service/docs/processChain.md`).
+Which module separates and which model it wants does not vary by set list, by project or by record,
+so a caller made to name one would be asked the same question at every use.
 
-**The chain is the machine's answer.** `<state>/preferences.yaml`'s `stemsChain`, written
-once by `system stems <chaîne>` — or `instrumentalChain`, written by `system instrumental` and
-read when the caller asks for `?want=instrumental` — is what `/process` falls back to when the
-caller names none. That
-is the shape rather than a shortcut: which module separates and which model it wants does not vary
-by set list, by project or by record, so a caller made to name one would be asked the same question
-at every use. A caller MAY name one all the same, because pl8 knows which song and this machine
-knows how it cuts — the default carries that rule without forbidding the other.
-
-The freshness check is pl8's too: **it asks its own disk first**, and a song whose `stems/`
-already holds audio never reaches this machine at all. That is what lets a machine which has never
-been told how to separate still light the knobs on songs somebody prepared earlier.
+The freshness check is pl8's: **it asks its own disk first**, and a song whose `stems/` already
+holds audio never reaches an engine's machine at all.
 
 ## Where it runs: the engine's machine, always
 

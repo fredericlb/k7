@@ -116,7 +116,7 @@ target's playlists folder is flat.
 ## Start-then-poll
 
 A copy is minutes and a person is watching, so `POST /sync` answers with a job and `GET /sync/:id`
-follows it — the shape `/separate` uses, for the same reason. The percentage counts **tracks**, not
+follows it — the shape a separation uses, for the same reason. The percentage counts **tracks**, not
 bytes: a bar driven by bytes would need a total this does not know until every file has been asked
 for.
 

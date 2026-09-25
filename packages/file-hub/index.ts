@@ -6,6 +6,7 @@
 import { randomBytes } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { replayBody } from "@studio/engine-registry";
+import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import {
   ENGINE_ID_HEADER,
   ENGINE_TOKEN_HEADER,
@@ -18,6 +19,7 @@ import type { Request, RequestHandler, Response } from "express";
 import {
   type BindingDeps,
   bindEngine,
+  cutRoots,
   releaseIfUnclaimed,
   unbindAll,
 } from "./binding.ts";
@@ -142,6 +144,40 @@ export class FileHub {
         ),
       );
     pipeTo(inst, user, req, res);
+  }
+
+  /** What a cut of this account's runs, and what it shares with the machine that runs it — pl8's stems (packages/stem-separation/docs/stemSplit.md). */
+  async coldRun(
+    user: string,
+    chain: string,
+    want: string,
+  ): Promise<{ model: string; outputs: string[]; roots: TunnelRoot[] }> {
+    const inst = await this.instances.get(user);
+    if (!this.opts.mediatekRoot)
+      throw new Error("this server holds no médiathèque to cut from");
+    const r = await fetch(`http://127.0.0.1:${inst.port}/hub/cold-chain`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [HUB_SECRET_HEADER]: inst.secret,
+        [USER_HEADER]: user,
+      },
+      body: JSON.stringify({ chain, want }),
+    });
+    const body = (await r.json().catch(() => ({}))) as {
+      model?: string;
+      outputs?: string[];
+      error?: string;
+    };
+    if (!r.ok || !body.model)
+      throw new Error(
+        body.error ?? `could not resolve the chain (${r.status})`,
+      );
+    return {
+      model: body.model,
+      outputs: body.outputs ?? [],
+      roots: cutRoots(inst, this.opts.mediatekRoot),
+    };
   }
 
   async stop(): Promise<void> {

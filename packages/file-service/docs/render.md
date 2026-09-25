@@ -36,7 +36,7 @@ One request, one file, no job id. A render of an z0 clip takes seconds and the c
 is a server: a polling protocol would be machinery in front of a wait shorter than the poll
 interval. `--stems` is deliberately not offered here — N files need a job to hold them.
 
-Stem **separation** does need exactly that, and has its own route — `POST /separate`,
+Stem **separation** does need exactly that, and is a job run on an engine's machine,
 start-then-poll, see [stemSplit.md](../../stem-separation/docs/stemSplit.md). A render's stems are a different thing:
 per-TRACK bounces of a document the caller already has, seconds apart from the one file it
 wanted, which is why the one-request shape still fits here.

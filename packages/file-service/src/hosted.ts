@@ -6,6 +6,7 @@ import { timingSafeEqual } from "node:crypto";
 import { setSeparationRunner } from "@studio/stem-separation/separateJobs";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import express, { type RequestHandler, type Router } from "express";
+import { resolveColdRun } from "./coldRun.ts";
 import { clearSelectedEngine, setSelectedEngine } from "./engineLink.ts";
 import { remoteSeparationRunner } from "./remoteSeparation.ts";
 
@@ -47,6 +48,19 @@ export function hubRouter(): Router {
     else clearSelectedEngine();
     jobsUrl = url ? String(body?.jobsUrl ?? "") || null : null;
     res.json({ ok: true });
+  });
+  // What a cut of this account's runs — for pl8, which drives the cut and holds the song.
+  r.post("/hub/cold-chain", (req, res) => {
+    const body = req.body as { chain?: unknown; want?: unknown };
+    const run = resolveColdRun(
+      String(body?.want ?? ""),
+      String(body?.chain ?? ""),
+    );
+    if (!run.ok) {
+      res.status(run.status).json({ error: run.error });
+      return;
+    }
+    res.json({ model: run.model, outputs: run.outputs });
   });
   return r;
 }

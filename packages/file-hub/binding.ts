@@ -42,6 +42,23 @@ export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
   return roots;
 }
 
+/** What a médiathèque CUT shares with the engine's machine: the song's library writable, for the stems, and the model's homes read-only. */
+export function cutRoots(inst: Instance, mediatekRoot: string): TunnelRoot[] {
+  return [
+    { remote: mediatekRoot, name: "mediatek", writable: true },
+    {
+      remote: join(inst.home, "models"),
+      name: `models-${inst.slug}`,
+      writable: false,
+    },
+    {
+      remote: join(inst.home, "workspace"),
+      name: `ws-${inst.slug}`,
+      writable: false,
+    },
+  ];
+}
+
 /** Drop both loopback paths an instance holds, the engine's and its machine's jobs. */
 export function unbindAll(
   deps: Pick<BindingDeps, "tunnels">,

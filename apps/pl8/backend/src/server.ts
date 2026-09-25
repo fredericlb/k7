@@ -98,7 +98,13 @@ app.use(
 );
 
 // Cutting a song into stems, driven from HERE because the bytes are here; a bearer too, unlike /api/hunt above — docs/stems.md.
-app.use("/api/stems", bearerOrSession(requireAuth), stemsRouter(engine));
+app.use(
+  "/api/stems",
+  bearerOrSession(requireAuth),
+  stemsRouter(engine, (user, chain, want) =>
+    fileHub.coldRun(user, chain, want),
+  ),
+);
 
 // Copying a set list onto a machine's stick or FTP box — same division as the cut, docs/sync.md.
 app.use("/api/sync", bearerOrSession(requireAuth), syncRouter(engine));
