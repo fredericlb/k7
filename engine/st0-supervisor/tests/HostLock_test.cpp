@@ -5,7 +5,7 @@
 #include "FileTime.h"
 #include "HostLock.h"
 #include "Paths.h"
-#include "Process.h"
+#include "Processes.h"
 
 #include "test_harness.h"
 

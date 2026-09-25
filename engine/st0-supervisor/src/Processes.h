@@ -1,4 +1,4 @@
-// Process.h — the three things the supervisor does with processes: ask whether a pid is alive,
+// Processes.h — the three things the supervisor does with processes: ask whether a pid is alive,
 // start a child in a process group of its own with its output piped, and kill a child AND
 // everything it spawned. A plain kill reaches one pid, and a plugin-scan child left behind holds
 // the audio device. POSIX and Win32 each need their own mechanism. See docs/supervisor.md.
