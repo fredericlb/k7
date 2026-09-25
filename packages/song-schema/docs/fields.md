@@ -19,7 +19,7 @@ node is an ordinary module that happens to live in `nodes/`, LANES INCLUDED
 `validate.ts` reads the folder the same way.
 
 There is no per-kind narrowing for a lane either. A lane is a node, so which of `events:` /
-`tracks:` / `strudel:` / `clock:` it may write is decided by what it extends — a question about the project,
+`tracks:` / `strudel:` it may write is decided by what it extends — a question about the project,
 not about the one file this answers for.
 
 ## The two tiers of `project.yaml`

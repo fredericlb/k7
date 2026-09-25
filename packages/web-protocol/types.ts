@@ -562,8 +562,6 @@ export interface WebProject {
   metronome: boolean;
   // …and how loud it clicks, 0.2 … 1; never 0, because silence is the flag above (see METRONOME_MIN).
   metronomeLevel: number;
-  // Whether any track streams from an algo/ pattern; false == the shell need not poll the pattern clock.
-  strudel: boolean;
   // Count-in length in BARS from settings.yaml (0 == none); the engine applies the actual pre-roll.
   countIn: number;
   // Named timeline markers, sorted by beat. Empty when the song has none.

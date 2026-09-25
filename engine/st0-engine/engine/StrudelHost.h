@@ -14,12 +14,14 @@ struct JSContext;
 
 namespace studio {
 
-/** One note of one lane, in CYCLES; the caller turns cycles into time with the edit's tempo and metre. */
-struct LaneNote {
+/** One event of one lane, in CYCLES; the caller turns cycles into time with the edit's tempo and metre. */
+struct LaneEvent {
     double cycle = 0.0;
     double dur = 0.0;
-    int key = 60;
+    int key = 60;      // the pitch it plays at if it is a NOTE
     float vel = 0.9f;
+    std::string s;     // the sound name, tried as a sample first; empty when the event names none
+    int n = 0;         // the sample variant
 };
 
 class StrudelHost {
@@ -37,8 +39,12 @@ public:
     /** Evaluates a pattern file's source; on failure the previous pattern stays current and `error` says why. */
     bool loadPattern(const std::string& code, std::string& error);
 
-    /** The notes whose onset lies in [from, to) cycles, for `label` (empty: every event). */
-    std::vector<LaneNote> laneNotes(double from, double to, const std::string& label, std::string& error);
+    /** The lane's events with an onset in [from, to) cycles: `label`'s, plus every unclaimed one when `catchAll`. */
+    std::vector<LaneEvent> laneEvents(double from, double to, const std::string& label, bool catchAll,
+                                      const std::vector<std::string>& claimed, std::string& error);
+
+    /** The labels the pattern uses in [from, to) cycles, as written. */
+    std::vector<std::string> labels(double from, double to);
 
     /** Bytes the JS heap holds. */
     std::size_t memoryBytes();
@@ -48,6 +54,7 @@ public:
 
 private:
     static int interrupt(JSRuntime*, void* opaque);
+    friend struct JsonCall;
 
     std::mutex lock_;
     JSRuntime* rt_ = nullptr;

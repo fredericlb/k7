@@ -15,13 +15,21 @@
 
 namespace studio {
 
-/** One note to play, in edit seconds, from the epoch it was scheduled in. */
+/** One note to play, in edit seconds, from the epoch it was scheduled in; a `sample` slot makes it a one-shot instead. */
 struct TimedNote {
     double start = 0.0;
     double end = 0.0;
     int key = 60;
     float vel = 0.9f;
     uint32_t epoch = 0;
+    int sample = -1;  // a slot of the plugin's sample store, or -1 for a MIDI note
+};
+
+/** A one-shot to start `at` seconds into the block — a sample has no note-off, it plays to its end. */
+struct SampleHit {
+    double at = 0.0;
+    int slot = 0;
+    float gain = 1.0f;
 };
 
 /** The edit's tempo and metre, which is what turns a cycle into seconds: one cycle is one BAR (the Tidal convention). */
@@ -72,9 +80,9 @@ public:
 
     /** The notes to emit in [blockStart, blockEnd), `at` seconds into the block, ordered; returns how many were written. */
     int process(double blockStart, double blockEnd, bool playing, const PatternTempo& tempo,
-                NoteEvent* out, int maxOut) {
+                NoteEvent* out, int maxOut, SampleHit* hits = nullptr, int* numHits = nullptr, int maxHits = 0) {
         const int n = begin(blockStart, blockEnd, playing, tempo, out, maxOut);
-        return emit(blockStart, blockEnd, playing, out, n, maxOut);
+        return emit(blockStart, blockEnd, playing, out, n, maxOut, true, hits, numHits, maxHits);
     }
 
     /** Phase one: a new epoch wherever the queued notes stop being the right ones, releasing what sounds; returns the offs written. */
@@ -100,7 +108,8 @@ public:
     /** Phase two: take what the ring holds and play this block's share of it after the `n` events already in `out`. */
     /** `takeRing` false discards what the worker sent instead: an offline render queries for itself (insert) and the two must not both land. */
     int emit(double blockStart, double blockEnd, bool playing, NoteEvent* out, int n, int maxOut,
-             bool takeRing = true) {
+             bool takeRing = true, SampleHit* hits = nullptr, int* numHits = nullptr, int maxHits = 0) {
+        if (numHits) *numHits = 0;
         const auto put = [&](double at, int key, float vel) {
             if (n < maxOut) out[n++] = {at, key, 1, vel};
         };
@@ -125,6 +134,10 @@ public:
                 continue;
             }
             const double at = std::max(0.0, p.start - blockStart);
+            if (p.sample >= 0) {
+                if (hits && numHits && *numHits < maxHits) hits[(*numHits)++] = {at, p.sample, p.vel};
+                continue;
+            }
             for (int k = 0; k < numSounding_; ++k)
                 if (sounding_[k].key == p.key) {
                     put(at, p.key, 0.0f);
@@ -231,10 +244,10 @@ struct PatternCursor {
         return true;
     }
 
-    /** A lane note in cycles → a note in edit seconds, stamped with the cursor's epoch. */
-    TimedNote timed(double cycle, double dur, int key, float vel, const PatternTempo& tempo) const {
+    /** A lane event in cycles → a note (or, with a slot, a one-shot) in edit seconds, stamped with the cursor's epoch. */
+    TimedNote timed(double cycle, double dur, int key, float vel, const PatternTempo& tempo, int sample = -1) const {
         const double spc = tempo.secondsPerCycle();
-        return {cycle * spc, (cycle + dur) * spc, key, vel, epoch};
+        return {cycle * spc, (cycle + dur) * spc, key, vel, epoch, sample};
     }
 };
 

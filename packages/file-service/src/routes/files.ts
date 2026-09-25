@@ -29,7 +29,6 @@ import {
   runWebCommand,
   snapshotPluginBase,
   startEngineForActive,
-  strudelOrbitTracks,
   takeJustRecorded,
   unloadEngine,
   unloadEngineIfServing,
@@ -45,7 +44,6 @@ import {
   preferences,
   setAudioDevicePref,
   setVim,
-  toWebTracks,
 } from "../workspace.ts";
 
 export const filesRouter = Router();
@@ -656,10 +654,6 @@ filesRouter.post(
 filesRouter.get(
   "/project",
   wrap((req, res) => res.json(req.ws!.projectInfo())),
-);
-filesRouter.get(
-  "/strudel-tracks",
-  wrap((_req, res) => res.json(toWebTracks(strudelOrbitTracks()))),
 );
 filesRouter.get(
   "/project-doc",

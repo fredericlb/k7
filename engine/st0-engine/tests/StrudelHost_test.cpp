@@ -1,4 +1,4 @@
-// The embedded Strudel bundle, run in QuickJS: the same lane notes packages/song-strudel/src/engineEntry.test.ts asserts
+// The embedded Strudel bundle, run in QuickJS: the same lane events packages/song-strudel/src/engineEntry.test.ts asserts
 // under Node, so the two runtimes are held to one answer. JUCE-free, linked against studio_strudel only.
 //
 // What would be wrong SILENTLY: a bad save that silences the lane (the previous pattern must keep playing), and a
@@ -8,10 +8,11 @@
 
 #include "test_harness.h"
 
+#include <algorithm>
 #include <thread>
 #include <vector>
 
-using studio::LaneNote;
+using studio::LaneEvent;
 using studio::StrudelHost;
 
 namespace {
@@ -19,11 +20,15 @@ namespace {
 const char* kDemo = R"(stack(
   note("c e g c5").s("sawtooth").slow(2).label("Pad"),
   sound("bd hh sn hh").label("Kit"),
+  note("a4 b4"),
+  s("cp").label("Stray"),
 ))";
 
-std::vector<int> keys(const std::vector<LaneNote>& notes) {
+const std::vector<std::string> kClaimed{"pad", "kit"};
+
+std::vector<int> keys(const std::vector<LaneEvent>& ev) {
     std::vector<int> k;
-    for (const auto& n : notes) k.push_back(n.key);
+    for (const auto& e : ev) k.push_back(e.key);
     return k;
 }
 
@@ -33,15 +38,36 @@ void theBundleBoots() {
     if (!h.ready()) std::printf("  boot: %s\n", h.bootError().c_str());
 }
 
-void aLaneGetsItsOwnLabelAsNotes() {
+void aLaneGetsItsOwnLabel() {
     StrudelHost h;
     std::string err;
     CHECK(h.loadPattern(kDemo, err));
-    const auto pad = h.laneNotes(0, 1, "pad", err);
+    const auto pad = h.laneEvents(0, 1, "pad", false, kClaimed, err);
     CHECK((keys(pad) == std::vector<int>{48, 52}));
-    CHECK(pad.size() == 2 && pad[0].cycle == 0.0 && pad[0].dur == 0.5);
-    CHECK((keys(h.laneNotes(0, 1, "Kit", err)) == std::vector<int>{36, 42, 38, 42}));
-    CHECK(h.laneNotes(0, 1, "", err).size() == 6);
+    CHECK(pad.size() == 2 && pad[0].cycle == 0.0 && pad[0].dur == 0.5 && pad[0].s == "sawtooth");
+    const auto kit = h.laneEvents(0, 1, "Kit", false, kClaimed, err);
+    CHECK((keys(kit) == std::vector<int>{36, 42, 38, 42}));
+    CHECK(kit.size() == 4 && kit[0].s == "bd");
+}
+
+void theCatchAllLaneTakesWhatNoLaneClaims() {
+    StrudelHost h;
+    std::string err;
+    CHECK(h.loadPattern(kDemo, err));
+    // Its own two, the two unlabelled notes, and the one labelled for no lane.
+    const auto all = h.laneEvents(0, 1, "pad", true, kClaimed, err);
+    CHECK(all.size() == 5);
+    CHECK(std::count_if(all.begin(), all.end(), [](const LaneEvent& e) { return e.s == "cp"; }) == 1);
+    CHECK(std::count_if(all.begin(), all.end(), [](const LaneEvent& e) { return e.s.empty(); }) == 2);
+}
+
+void theLabelsAreListed() {
+    StrudelHost h;
+    std::string err;
+    CHECK(h.loadPattern(kDemo, err));
+    auto l = h.labels(0, 2);
+    std::sort(l.begin(), l.end());
+    CHECK((l == std::vector<std::string>{"Kit", "Pad", "Stray"}));
 }
 
 void aBadSaveKeepsThePreviousPattern() {
@@ -50,7 +76,7 @@ void aBadSaveKeepsThePreviousPattern() {
     CHECK(h.loadPattern("s(\"bd sn hh\")", err));
     CHECK(!h.loadPattern("s(\"bd\"", err));
     CHECK(!err.empty());
-    CHECK(h.laneNotes(0, 1, "", err).size() == 3);
+    CHECK(h.laneEvents(0, 1, "x", true, {}, err).size() == 3);
 }
 
 void aRunawayPatternIsCutOff() {
@@ -60,7 +86,7 @@ void aRunawayPatternIsCutOff() {
     CHECK(!h.loadPattern("while (true) {}\ns(\"bd\")", err));
     CHECK(err.find("interrupted") != std::string::npos);
     CHECK(h.loadPattern("s(\"bd sn\")", err));
-    CHECK(h.laneNotes(0, 1, "", err).size() == 2);
+    CHECK(h.laneEvents(0, 1, "x", true, {}, err).size() == 2);
 }
 
 void anotherThreadCanQueryIt() {
@@ -70,7 +96,7 @@ void anotherThreadCanQueryIt() {
     size_t got = 0;
     std::thread t([&] {
         std::string e;
-        for (int i = 0; i < 200; ++i) got += h.laneNotes(i * 0.1, (i + 1) * 0.1, "Kit", e).size();
+        for (int i = 0; i < 200; ++i) got += h.laneEvents(i * 0.1, (i + 1) * 0.1, "Kit", false, kClaimed, e).size();
     });
     t.join();
     CHECK(got == 80);  // 20 cycles of four hits
@@ -80,7 +106,9 @@ void anotherThreadCanQueryIt() {
 
 int main() {
     RUN(theBundleBoots);
-    RUN(aLaneGetsItsOwnLabelAsNotes);
+    RUN(aLaneGetsItsOwnLabel);
+    RUN(theCatchAllLaneTakesWhatNoLaneClaims);
+    RUN(theLabelsAreListed);
     RUN(aBadSaveKeepsThePreviousPattern);
     RUN(aRunawayPatternIsCutOff);
     RUN(anotherThreadCanQueryIt);

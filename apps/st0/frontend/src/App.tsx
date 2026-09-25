@@ -157,7 +157,6 @@ import { useMidiRecording } from "./hooks/useMidiRecording";
 import {
   useActiveProjectFollow,
   useGitStatus,
-  useOrbit,
   useProjectErrors,
   useWarmWaveforms,
 } from "./hooks/usePolls";
@@ -973,7 +972,6 @@ export default function App({
     docTracks,
     doc: projectDoc,
     mixerStrips,
-    hasStrudel,
     midiSeqRef,
   } = useProjectDoc(reloadKey, {
     // If the currently-armed track lost its sequence, disarm it.
@@ -1138,9 +1136,8 @@ export default function App({
       quietCommand,
     });
 
-  // Background polls: the git badge, the strudel lanes, the project errors, the waveform prewarm.
+  // Background polls: the git badge, the project errors, the waveform prewarm.
   const { gitStatus, refreshGitStatus } = useGitStatus();
-  const orbit = useOrbit(hasStrudel);
   const { projectErrors, diagnostics } = useProjectErrors(reloadKey);
   const warm = useWarmWaveforms(reloadKey, playing);
 
@@ -3075,7 +3072,6 @@ export default function App({
                       takeStartBeat={takeStart}
                       // The pre-roll, in beats: the growing clip skips it, since those bars record nothing.
                       takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
-                      orbit={orbit}
                       videoTracks={videoTracks}
                       // The picture drag guards on this handler's own presence, so a snapshot simply has none.
                       onVideoEdit={frozen ? undefined : applyVideoEdit}
@@ -3864,7 +3860,6 @@ export default function App({
             {minimapDocked && (
               <Minimap
                 reloadKey={reloadKey}
-                orbit={orbit}
                 // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
                 automation={laneNodes.automation}
                 caret={caret}
@@ -3901,7 +3896,6 @@ export default function App({
             />
             <Minimap
               reloadKey={reloadKey}
-              orbit={orbit}
               caret={caret}
               highlight={openItem}
               onSeek={seek}

@@ -1,7 +1,7 @@
 // engineLink.ts — run the brain's command layer and drive the LOCAL C++ engine, dialled
 // once at boot. One engine, but one SESSION per workspace owner: `served` says what this
 // service sent to each of them, so a re-send or a take resolves its workspace explicitly.
-// The PatternClock is the one real singleton — see docs/activeProject.md.
+// The one singleton is the document a browser hands over — see docs/activeProject.md.
 
 import type { Stats } from "node:fs";
 import { basename, relative, resolve } from "node:path";
@@ -23,14 +23,10 @@ import {
 } from "@studio/engine-client/engineClient";
 import type { SessionInfo } from "@studio/engine-client/engineControl";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
+import { patternFiles } from "@studio/song/enginePattern";
 import { listBaseModules } from "@studio/song/loader";
 import { loadPreferences } from "@studio/song/preferences";
-import type { ProjectDoc, TrackDoc } from "@studio/song/project";
-import { PatternClock } from "@studio/song-strudel/patternClock";
-import {
-  enginePatternFiles,
-  strudelPatterns,
-} from "@studio/song-strudel/strudel";
+import type { ProjectDoc } from "@studio/song/project";
 import {
   separateJob,
   startSeparate,
@@ -146,8 +142,6 @@ function wireEngine(session: string, e: EngineClient): void {
       l.ready = true;
       l.attempt = 0; // a socket that opened earns the next outage a fresh, short first wait
     }
-    // A fresh socket can mean a fresh engine, and this is said BEFORE anything is re-sent.
-    patternClock.forgetSent();
     try {
       const prefs = loadPreferences();
       if (prefs.audioDevice)
@@ -180,9 +174,6 @@ function wireEngine(session: string, e: EngineClient): void {
   // Not silent: with no trace of a refused dial, "off" and "wedged" look identical.
   e.on("wserror", (err: Error) =>
     console.error(`   ✗ engine socket ${session}: ${err.message}`),
-  );
-  e.on("state", (s: { playing?: boolean; playhead?: number }) =>
-    patternClock.onState(!!s.playing, Number(s.playhead ?? 0)),
   );
   // The session is carried by the SOCKET, not the frame, so it is what a take belongs to.
   e.on("recorded", (take: RecordedTake) => onRecorded(session, take));
@@ -255,54 +246,31 @@ function isReady(ws: Workspace | null): boolean {
   return links.get(sessionOf(ws))?.ready ?? false;
 }
 
-let orbitTracks: TrackDoc[] = [];
-export function strudelOrbitTracks(): TrackDoc[] {
-  return orbitTracks;
-}
-
-/** Whose session the pattern clock sends in — legitimately global, see docs/activeProject.md. */
-let clockWs: Workspace | null = null;
-
-const patternClock = new PatternClock(
-  (doc: ProjectDoc) => ensureEngine(clockWs)?.sendProject(doc),
-  undefined,
-  (tracks) => {
-    orbitTracks = tracks;
-  },
-  // The delta channel, on the same socket and outbox, so it cannot overtake what it amends.
-  (doc: ProjectDoc, ids: string[]) =>
-    ensureEngine(clockWs)?.sendTracks(doc, ids),
-);
-
 /** A document a BROWSER built, in force until the project changes under it — docs/activeProject.md. */
 let clientDoc: ProjectDoc | null = null;
+/** …and the workspace that handed it over, the only one whose leaving gives it up. */
+let clientWs: Workspace | null = null;
 
 /** Forget any browser-supplied document — a different project is being served. */
 function dropClientProject(): void {
   clientDoc = null;
 }
 
-/** Hand the clock a document AND the workspace whose session to send in — the two go together. */
-function setClockProject(ws: Workspace, doc: ProjectDoc): void {
-  clockWs = ws;
-  patternClock.setBaseProject(doc);
+/** Send a document in `ws`' session — the engine diffs it against what that session holds. */
+function sendDoc(ws: Workspace, doc: ProjectDoc): void {
+  ensureEngine(ws)?.sendProject(doc);
 }
 
 /** Play a document a browser built, through the service's own link — see docs/activeProject.md. */
 export function applyClientProject(ws: Workspace, doc: ProjectDoc): void {
   clientDoc = doc;
-  setClockProject(ws, doc);
+  clientWs = ws;
+  sendDoc(ws, doc);
 }
 
-function loadPatternsFor(ws: Workspace, dir: string): void {
-  clockWs = ws; // BEFORE switchTo: the clock sends from inside it, and must know where to
-  patternClock.switchTo(dir);
-  // NOT while a browser holds the document, or the surface blinks empty — docs/activeProject.md.
-  if (!clientDoc) setClockProject(ws, ws.cachedProjectDoc(dir));
-  guard(
-    "pattern refresh",
-    patternClock.refreshPatterns(strudelPatterns(dir), dir),
-  );
+/** Compile `dir` and send it — NOT while a browser holds the document, or the surface blinks empty (docs/activeProject.md). */
+function pushProject(ws: Workspace, dir: string): void {
+  if (!clientDoc) sendDoc(ws, ws.cachedProjectDoc(dir));
 }
 
 function enginePlugins(
@@ -469,7 +437,7 @@ function safeBaseModules(dir: string): string[] {
 function sendActiveProject(ws: Workspace, p: string): void {
   noteServed(ws, p);
   try {
-    loadPatternsFor(ws, p);
+    pushProject(ws, p);
   } catch (e) {
     // Not fatal — /project-doc and /graph surface it — but never silent, see docs/activeProject.md.
     console.error(
@@ -508,15 +476,13 @@ function watchStrudel(ws: Workspace, dir: string | null): void {
   }
   if (!dir) return;
   const onChange = (p: string): void => {
-    if (!p.endsWith(".strudel")) return;
-    // An ENGINE lane's pattern is in the document, so its save is a recompile; the engine applies it in place.
-    if (enginePatternFiles(dir).includes(resolve(p))) {
-      ws.invalidateProjectDoc();
-      if (!clientDoc) setClockProject(ws, ws.cachedProjectDoc(dir));
-    }
+    // A lane's pattern is IN the document, so its save is a recompile; the engine applies it in place.
+    if (!p.endsWith(".strudel") || !patternFiles(dir).includes(resolve(p)))
+      return;
+    ws.invalidateProjectDoc();
     guard(
-      "pattern refresh",
-      patternClock.refreshPatterns(strudelPatterns(dir), dir),
+      "pattern save",
+      Promise.resolve().then(() => pushProject(ws, dir)),
     );
   };
   strudelWatcher = chokidar
@@ -679,9 +645,9 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
     }
   }
   served.delete(leaving);
-  // The clock and the browser's document are singletons, given up only by the session that owned them.
-  if (clockWs && sessionOf(clockWs) === leaving) {
-    clockWs = null;
+  // The browser's document is a singleton, given up only by the session that handed it over.
+  if (clientWs && sessionOf(clientWs) === leaving) {
+    clientWs = null;
     dropClientProject();
   }
   // The one place that means "this workspace is DONE", so the SESSION goes, not just the socket.
@@ -731,7 +697,7 @@ function onRecorded(session: string, take: RecordedTake): void {
   try {
     const id = addTakeToTrack(project, ws.cachedProjectDoc(project), take);
     ws.invalidateProjectDoc();
-    loadPatternsFor(ws, project);
+    pushProject(ws, project);
     lastTakes.set(session, { clip: id, track: take.track });
     console.log(`[rec] ${take.track}: added clip ${id}`);
   } catch (e) {
@@ -837,7 +803,7 @@ function makeHost(
     reload: () => {
       try {
         ws.invalidateProjectDoc();
-        loadPatternsFor(ws, requireDir());
+        pushProject(ws, requireDir());
       } catch (e) {
         out.push(`reload error: ${(e as Error).message}`);
       }
@@ -854,9 +820,9 @@ function makeHost(
     },
     applyProject: (p) => {
       ws.setCachedProjectDoc(requireDir(), p);
-      setClockProject(ws, p);
+      sendDoc(ws, p);
     },
-    sendProject: (p) => setClockProject(ws, p),
+    sendProject: (p) => sendDoc(ws, p),
     // Say so when there is nothing to ask, or "opening…" reads as a dead button.
     showNativePluginUI: (id) => {
       const e = ensureEngine(ws);

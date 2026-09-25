@@ -1,4 +1,4 @@
-# The pattern's "Pad" part, as a GENERATED lane: its clips are streamed from
+# The pattern's "Pad" part, as a GENERATED lane: the engine plays it from
 # algo/pattern.strudel while the transport rolls, which is why it says `strudel:` where an
 # authored lane says `events:`.
 #

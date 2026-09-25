@@ -23,11 +23,4 @@ export class EngineClient extends EngineControl {
   sendProject(doc: ProjectDoc): void {
     this.send({ type: "project", doc: withGroupMix(doc) });
   }
-
-  /** REPLACE these tracks in the document the engine holds; it takes the WHOLE doc so the delta is a piece of what a full send would produce. */
-  sendTracks(doc: ProjectDoc, ids: readonly string[]): void {
-    const want = new Set(ids);
-    const tracks = withGroupMix(doc).tracks.filter((t) => want.has(t.id));
-    if (tracks.length) this.send({ type: "tracks", tracks });
-  }
 }

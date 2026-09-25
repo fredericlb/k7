@@ -75,7 +75,6 @@ export function describeTimeline(p: ProjectDoc): string[] {
     const members = p.tracks.filter((t) => t.group === g.id);
     const flags = [g.mute ? "muted" : "", g.solo ? "solo" : ""].filter(Boolean);
     lines.push(`${g.id}  (${["group", ...flags].join(", ")})`);
-    // A group's undeclared strudel lanes are minted as the transport rolls, so it can read empty and still fill up.
     if (!members.length) lines.push("  (no tracks)");
     for (const t of members) {
       shown.add(t.id);

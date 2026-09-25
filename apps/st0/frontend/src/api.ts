@@ -29,7 +29,6 @@ import type {
   PreviewReq,
   PublicEngine,
   WaveformStatus,
-  WebTrack,
   WebWaveform,
 } from "./types";
 
@@ -126,8 +125,6 @@ export const api = {
 
   // The LISTING only: a track goes up with `upload` and is played over `mediaUrl`, both of which already take any workspace path.
   references: () => fget<{ references: ReferenceTrack[] }>("/references"),
-  // Only st0 has a timeline, so only st0 asks for the tracks a Strudel pattern drives; `createProject` and `deleteProject` are pl8's.
-  strudelTracks: () => fget<WebTrack[]>("/strudel-tracks"),
 
   // --- A node's model, fetched onto this machine (the right-click's "Download model") ---
 

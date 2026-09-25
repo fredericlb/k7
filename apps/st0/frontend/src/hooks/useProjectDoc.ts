@@ -39,7 +39,6 @@ export interface ProjectDocState {
   doc: WebProject | null;
   /** The modules the Mixer view lines up, in track order — `mixerStrips.ts` decides which. */
   mixerStrips: string[];
-  hasStrudel: boolean;
   /** The MIDI sequence each track carries ({seqId, start-in-beats}), by track id. */
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
 }
@@ -67,7 +66,6 @@ export function useProjectDoc(
   const [doc, setDoc] = useState<WebProject | null>(null);
   // Off the SAME doc, so the row and the faders can never be one reload apart.
   const [mixerStrips, setMixerStrips] = useState<string[]>([]);
-  const [hasStrudel, setHasStrudel] = useState(false);
   const midiSeqRef = useRef<Record<string, { seqId: string; start: number }>>(
     {},
   );
@@ -112,12 +110,10 @@ export function useProjectDoc(
             solo: t.solo,
           })),
         );
-        setHasStrudel(!!p.strudel);
       })
       .catch(() => {
         // No doc: reset what is derived from it.
         if (!alive) return;
-        setHasStrudel(false);
         setDocTracks([]);
         setMixerStrips([]);
       });
@@ -134,7 +130,6 @@ export function useProjectDoc(
     docTracks,
     doc,
     mixerStrips,
-    hasStrudel,
     midiSeqRef,
   };
 }

@@ -18,8 +18,8 @@ export interface StrudelEvent {
 }
 
 // The events whose onset lies in [from, to) cycles; a query that throws yields nothing rather than crashing a clock.
-// biome-ignore lint/suspicious/noExplicitAny: a Strudel pattern is untyped
 export function queryEvents(
+  // biome-ignore lint/suspicious/noExplicitAny: a Strudel pattern is untyped
   pattern: any,
   from: number,
   to: number,

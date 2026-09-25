@@ -31,7 +31,7 @@ opens it; the agent rewrites every JSON string under a root as frames cross:
 
 - **server → engine**: the file is downloaded **before** the frame naming it is delivered. A
   whole document (`project`) is re-checked against the server; a delta trusts what the last
-  document settled, since the pattern clock sends deltas at note rate.
+  document settled, since a delta is meant to be sent at note rate.
 - **engine → server**: a file the engine changed (a take, a plugin snapshot) is uploaded
   **before** the frame naming it is delivered, so a server that files the take finds it there.
 

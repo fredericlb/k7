@@ -8,7 +8,7 @@ import { api } from "../api";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { HATCH, projectRows, type RowKey, rowIndexOf } from "../rows";
-import type { WebAutomationLane, WebProject, WebTrack } from "../types";
+import type { WebAutomationLane, WebProject } from "../types";
 
 const MAX_H = 80; // the minimap never grows past this
 const ROW_MAX = 12; // per-track row height ceiling (few tracks shouldn't look bloated)
@@ -22,14 +22,12 @@ export interface MinimapItem {
 
 export function Minimap({
   reloadKey,
-  orbit,
   automation,
   caret,
   highlight,
   onSeek,
 }: {
   reloadKey: number;
-  orbit: WebTrack[]; // the live Strudel lanes — see the rows note below
   // Each lane's automation, by track id — taken for the reason the rows are built the same way: they must line up with the timeline's.
   automation?: Record<string, WebAutomationLane[]>;
   // The timeline caret. `beat < 0` means its row's LABEL is selected, so there is no column to mark.
@@ -56,11 +54,10 @@ export function Minimap({
     return Math.ceil((end + 1) / barBeats) * barBeats;
   }, [proj, barBeats]);
 
-  // The same rows the timeline draws, from the same track list — filtering the live lanes out also drops the groups they are in.
+  // The same rows the timeline draws, from the same track list, so the two line up.
   const rows = useMemo(
-    () =>
-      proj ? projectRows(proj, [...proj.tracks, ...orbit], [], automation) : [],
-    [proj, orbit, automation],
+    () => (proj ? projectRows(proj, proj.tracks, [], automation) : []),
+    [proj, automation],
   );
   // Rows are fractional so every one fits inside MAX_H, however many there are.
   const rowH = rows.length ? Math.min(ROW_MAX, MAX_H / rows.length) : 0;

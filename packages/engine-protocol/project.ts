@@ -99,10 +99,19 @@ export interface PluginDoc {
   dspGraph?: string;
   // A Faust module's source, INLINE for the same reason — except the ENGINE compiles it, so the `.dsp` text itself travels.
   faustDsp?: string;
-  // An engine-clocked PATTERN lane's Strudel source, played by the engine's PatternPlugin; an edit is applied in place.
+  // A PATTERN lane's Strudel source, played by the engine's PatternPlugin; an edit is applied in place.
   patternSource?: string;
-  // …and the label its events are picked by — the lane's name, matched the way the Node clock matches it.
+  // …the label its events are picked by — the lane's name, matched like a `.label()` slug…
   patternLabel?: string;
+  // …whether it also takes the file's unlabelled events and the labels no lane claims, and which labels are claimed…
+  patternCatchAll?: boolean;
+  patternClaimed?: string[];
+  // …what it plays: a bare lane both, a split one its notes on `#midi` and its samples on `#audio`…
+  patternPlays?: "notes" | "samples" | "both";
+  // …whether it is the lane's only one, so what it cannot play is played nowhere and is said so…
+  patternOnly?: boolean;
+  // …and where a sound name is looked for as a sample, in order.
+  patternBanks?: string[];
   // The TRACK id feeding this module's SECOND input port (@studio/song docs/ports.md); absent when unwired, which is legitimate.
   sidechainFrom?: string;
   presetSave: string; // absolute path where a UI edit saves THIS module's .vstpreset ('' if n/a)
@@ -175,7 +184,6 @@ export interface ProjectDoc {
   recordDir: string;
   tracks: TrackDoc[];
   groups: GroupDoc[]; // what the tracks' `group` pointers refer to; the engine ignores it
-  strudel: boolean; // whether any track streams from an algo/ pattern — surfaces skip the clock poll when false
   markers: Marker[]; // sorted by beat
   settings: SettingsDoc; // always present, defaulted when settings.yaml is absent
 }

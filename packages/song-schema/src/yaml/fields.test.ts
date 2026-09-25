@@ -47,8 +47,6 @@ describe("derived module fields", () => {
       "disabled",
       "tracks",
       "strudel",
-      // WHO plays that pattern — the Node clock or the engine (engine/st0-engine/docs/patternPlugin.md).
-      "clock",
       // FROZEN at this module: the render standing in for everything upstream of it — see docs/freeze.md.
       "frozen",
       // …and the module's other attribute SETS, last because they are ABOUT the fields above (docs/fields.md).

@@ -30,8 +30,12 @@ std::string keyOf(const PluginDoc& p) {
     if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
     // A jsdsp GRAPH is built there too, params and all, so editing a module must read as a replace.
     if (!p.dspGraph.empty()) k += "~" + p.dspGraph;
-    // A pattern's LABEL picks its events for good; its SOURCE is not identity — an edit is PatternChanged, in place.
-    if (!p.patternLabel.empty()) k += "%" + p.patternLabel;
+    // How a pattern picks and plays its events is fixed at construction; its SOURCE is not — an edit is PatternChanged, in place.
+    if (!p.patternLabel.empty()) {
+        k += "%" + p.patternLabel + (p.patternCatchAll ? "*" : "") + "/" + p.patternPlays + (p.patternOnly ? "!" : "");
+        for (const auto& c : p.patternClaimed) k += "," + c;
+        for (const auto& b : p.patternBanks) k += ";" + b;
+    }
     // A platter's RECORD is loaded at insert, so putting another one on has to read as a replace.
     if (!p.deckFile.empty()) k += "@" + p.deckFile;
     // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".

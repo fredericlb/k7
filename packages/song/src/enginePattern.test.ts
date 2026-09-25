@@ -1,18 +1,23 @@
-// A strudel lane with `clock: engine` compiles to a lane whose NOTES half starts with the pattern plugin, carrying the
-// file's text — and a lane without it compiles exactly as before. See engine/st0-engine/docs/patternPlugin.md.
+// Every strudel lane compiles to a lane whose halves are headed by the engine's pattern plugin, carrying the file's
+// text, how the file is shared between lanes, and where samples are looked for. See engine/st0-engine/docs/patternPlugin.md.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PATTERN_PLUGIN_TYPE } from "./enginePattern";
+import { PATTERN_PLUGIN_TYPE, patternFiles } from "./enginePattern";
 import { compileNodeProject } from "./nodeProject";
 
 let dir: string;
 const SOURCE = 's("bd sn").label("kit")\n';
 
-/** One strudel lane `kit` over algo/beat.strudel, with `extra` on its node and `chains` as graph.yaml. */
-function project(extra: string, chains = "modules:\n  kit: [ OUT ]\n"): string {
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), "td-pattern-"));
+});
+afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+/** Strudel lanes over algo/beat.strudel (each `[name, extra node yaml]`), wired by `chains`. */
+function project(lanes: [string, string?][], chains?: string): string {
   const p = join(dir, "song.st0");
   mkdirSync(join(p, "nodes"), { recursive: true });
   mkdirSync(join(p, "algo"), { recursive: true });
@@ -20,56 +25,78 @@ function project(extra: string, chains = "modules:\n  kit: [ OUT ]\n"): string {
   writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(join(p, "modules", "io", "OUT", "module.yaml"), "io: out\n");
   writeFileSync(join(p, "algo", "beat.strudel"), SOURCE);
+  for (const [name, extra] of lanes)
+    writeFileSync(
+      join(p, "nodes", `${name}.yaml`),
+      `extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n${extra ?? ""}`,
+    );
   writeFileSync(
-    join(p, "nodes", "kit.yaml"),
-    `extends: "@meta/strudel-track"\nstrudel: algo/beat.strudel\n${extra}`,
+    join(p, "graph.yaml"),
+    chains ?? `modules:\n${lanes.map(([n]) => `  ${n}: [ OUT ]\n`).join("")}`,
   );
-  writeFileSync(join(p, "graph.yaml"), chains);
   return p;
 }
 
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "td-pattern-"));
-});
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+const patternsOf = (p: string) =>
+  compileNodeProject(p)
+    .tracks.flatMap((t) => t.plugins.map((pl) => ({ track: t, pl })))
+    .filter(({ pl }) => pl.type === PATTERN_PLUGIN_TYPE);
 
-describe("an engine-clocked pattern lane", () => {
-  it("starts its notes half with the pattern plugin, source and label inline", () => {
-    const doc = compileNodeProject(project("clock: engine\n"));
-    const kit = doc.tracks.find((t) => t.id === "kit");
-    const head = kit?.plugins[0];
-    expect(head?.type).toBe(PATTERN_PLUGIN_TYPE);
-    expect(head?.id).toBe("kit:pattern");
-    expect(head?.patternSource).toBe(SOURCE);
-    expect(head?.patternLabel).toBe("kit");
+describe("a pattern lane", () => {
+  it("is headed by ONE plugin playing both when it is bare-wired", () => {
+    const p = project([["kit"]]);
+    const [only, ...rest] = patternsOf(p);
+    expect(rest).toEqual([]);
+    expect(only.track.plugins[0]).toBe(only.pl);
+    expect(only.pl).toMatchObject({
+      id: "kit:pattern",
+      patternSource: SOURCE,
+      patternLabel: "kit",
+      patternPlays: "both",
+      patternOnly: true,
+      patternCatchAll: true,
+      patternClaimed: ["kit"],
+    });
+    expect(only.pl.patternBanks?.[0]).toBe(join(p, "samples"));
   });
 
-  it("is left alone without `clock: engine` — the Node clock plays it, as before", () => {
-    const doc = compileNodeProject(project(""));
-    const kit = doc.tracks.find((t) => t.id === "kit");
-    expect(kit?.plugins.some((p) => p.type === PATTERN_PLUGIN_TYPE)).toBe(
-      false,
+  it("plays its notes on #midi and its samples on #audio when the two are wired apart", () => {
+    const p = project(
+      [["kit"]],
+      "modules:\n  kit#audio: [ OUT ]\n  kit#midi: [ OUT ]\n",
     );
+    const got = patternsOf(p).map(({ track, pl }) => [
+      track.contentType,
+      pl.patternPlays,
+      pl.patternOnly,
+    ]);
+    expect(got.sort()).toEqual([
+      ["audio", "samples", false],
+      ["notes", "notes", false],
+    ]);
+    // Two plugins, two ids: the engine keys its plugins by id.
+    expect(new Set(patternsOf(p).map(({ pl }) => pl.id)).size).toBe(2);
   });
 
-  it("lands on the midi half when the two outputs are wired apart", () => {
-    const doc = compileNodeProject(
-      project(
-        "clock: engine\n",
-        "modules:\n  kit#audio: [ OUT ]\n  kit#midi: [ OUT ]\n",
-      ),
-    );
-    const withPattern = doc.tracks.filter((t) =>
-      t.plugins.some((p) => p.type === PATTERN_PLUGIN_TYPE),
-    );
-    expect(withPattern.map((t) => t.contentType)).toEqual(["notes"]);
+  it("with one half wired, plays only that and knows nothing else will", () => {
+    const p = project([["kit"]], "modules:\n  kit#audio: [ OUT ]\n");
+    expect(
+      patternsOf(p).map(({ pl }) => [pl.patternPlays, pl.patternOnly]),
+    ).toEqual([["samples", true]]);
   });
 
-  it("names the missing output rather than playing nothing", () => {
-    expect(() =>
-      compileNodeProject(
-        project("clock: engine\n", "modules:\n  kit#audio: [ OUT ]\n"),
-      ),
-    ).toThrow(/clock: engine plays notes.*kit#midi/);
+  it("shares its file: the first lane by name takes what no lane claims", () => {
+    const p = project([["pad"], ["kit"]]);
+    const byLane = Object.fromEntries(
+      patternsOf(p).map(({ pl }) => [pl.patternLabel, pl]),
+    );
+    expect(byLane.kit.patternCatchAll).toBe(true);
+    expect(byLane.pad.patternCatchAll).toBe(false);
+    expect(byLane.pad.patternClaimed).toEqual(["kit", "pad"]);
+  });
+
+  it("names its file among the ones whose save is a recompile", () => {
+    const p = project([["kit"]]);
+    expect(patternFiles(p)).toEqual([join(p, "algo", "beat.strudel")]);
   });
 });

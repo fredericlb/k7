@@ -29,7 +29,6 @@
     "@studio/song": "*",
     "@studio/song-edit": "*",
     "@studio/song-schema": "*",
-    "@studio/song-strudel": "*",
     "@studio/song-video": "*",
     "@studio/stem-separation": "*",
     "@studio/st0-plugins": "*",

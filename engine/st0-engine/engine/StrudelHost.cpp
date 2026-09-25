@@ -131,39 +131,60 @@ bool StrudelHost::loadPattern(const std::string& code, std::string& error) {
     return ok;
 }
 
-std::vector<LaneNote> StrudelHost::laneNotes(double from, double to, const std::string& label,
-                                             std::string& error) {
-    std::lock_guard<std::mutex> g(lock_);
-    std::vector<LaneNote> out;
-    if (!ready_) return out;
-    JS_UpdateStackTop(rt_);
-    deadlineAt_ = nowMs() + deadlineMs_;
-
-    JSValue api;
-    JSValue fn = apiFunction(ctx_, "laneNotesJson", api);
-    JSValue args[3] = {JS_NewFloat64(ctx_, from), JS_NewFloat64(ctx_, to),
-                       JS_NewStringLen(ctx_, label.data(), label.size())};
-    JSValue r = JS_Call(ctx_, fn, api, 3, args);
-    for (auto& a : args) JS_FreeValue(ctx_, a);
-    JS_FreeValue(ctx_, fn);
-    JS_FreeValue(ctx_, api);
-    deadlineAt_ = 0.0;
-
-    if (JS_IsException(r)) {
-        error = takeException(ctx_);
-        return out;
+// One call into the bundle's JSON API, the lock already held: st0Strudel.<fn>(args…) parsed, or null with `error` set.
+struct JsonCall {
+    static nlohmann::json run(StrudelHost& h, const char* fn, std::vector<JSValue> args, std::string& error) {
+        JS_UpdateStackTop(h.rt_);
+        h.deadlineAt_ = nowMs() + h.deadlineMs_;
+        JSValue api;
+        JSValue f = apiFunction(h.ctx_, fn, api);
+        JSValue r = JS_Call(h.ctx_, f, api, (int)args.size(), args.data());
+        for (auto& a : args) JS_FreeValue(h.ctx_, a);
+        JS_FreeValue(h.ctx_, f);
+        JS_FreeValue(h.ctx_, api);
+        h.deadlineAt_ = 0.0;
+        if (JS_IsException(r)) {
+            error = takeException(h.ctx_);
+            return nullptr;
+        }
+        size_t len = 0;
+        const char* s = JS_ToCStringLen(h.ctx_, &len, r);
+        JS_FreeValue(h.ctx_, r);
+        if (s == nullptr) return nullptr;
+        auto parsed = nlohmann::json::parse(s, s + len, nullptr, false);
+        JS_FreeCString(h.ctx_, s);
+        return parsed;
     }
-    size_t len = 0;
-    const char* s = JS_ToCStringLen(ctx_, &len, r);
-    JS_FreeValue(ctx_, r);
-    if (s == nullptr) return out;
-    const auto parsed = nlohmann::json::parse(s, s + len, nullptr, false);
-    JS_FreeCString(ctx_, s);
+};
+
+std::vector<LaneEvent> StrudelHost::laneEvents(double from, double to, const std::string& label, bool catchAll,
+                                               const std::vector<std::string>& claimed, std::string& error) {
+    std::lock_guard<std::mutex> g(lock_);
+    std::vector<LaneEvent> out;
+    if (!ready_) return out;
+    const std::string claimedJson = nlohmann::json(claimed).dump();
+    const auto parsed = JsonCall::run(*this, "laneEventsJson",
+                                 {JS_NewFloat64(ctx_, from), JS_NewFloat64(ctx_, to),
+                                  JS_NewStringLen(ctx_, label.data(), label.size()), JS_NewBool(ctx_, catchAll),
+                                  JS_NewStringLen(ctx_, claimedJson.data(), claimedJson.size())},
+                                 error);
     if (!parsed.is_array()) return out;
     out.reserve(parsed.size());
     for (const auto& e : parsed)
-        out.push_back({e.value("cycle", 0.0), e.value("dur", 0.0), e.value("key", 60),
-                       e.value("vel", 0.9f)});
+        out.push_back({e.value("cycle", 0.0), e.value("dur", 0.0), e.value("key", 60), e.value("vel", 0.9f),
+                       e.value("s", std::string{}), e.value("n", 0)});
+    return out;
+}
+
+std::vector<std::string> StrudelHost::labels(double from, double to) {
+    std::lock_guard<std::mutex> g(lock_);
+    std::vector<std::string> out;
+    if (!ready_) return out;
+    std::string error;
+    const auto parsed = JsonCall::run(*this, "labelsJson", {JS_NewFloat64(ctx_, from), JS_NewFloat64(ctx_, to)}, error);
+    if (parsed.is_array())
+        for (const auto& l : parsed)
+            if (l.is_string()) out.push_back(l.get<std::string>());
     return out;
 }
 

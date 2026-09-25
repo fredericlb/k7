@@ -145,6 +145,11 @@ target_include_directories(studio_pattern_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_pattern_tests COMMAND studio_pattern_tests)
 
+add_executable(studio_samplebanks_tests SampleBanks_test.cpp)
+target_include_directories(studio_samplebanks_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_samplebanks_tests COMMAND studio_samplebanks_tests)
+
 add_executable(studio_strudel_tests StrudelHost_test.cpp)
 target_link_libraries(studio_strudel_tests PRIVATE studio_strudel)
 add_test(NAME studio_strudel_tests COMMAND studio_strudel_tests)

@@ -127,6 +127,21 @@ void anOverlappingNoteOfTheSameKeyIsNotCutByTheFirstOnesEnd() {
     CHECK(block(s, 0.04, 0.1).empty());  // the second note is still sounding
 }
 
+void aSampleIsAHitNotANote() {
+    PatternSchedule s;
+    primeAt(s, 0.0);
+    s.ring.push(TimedNote{0.01, 0.2, 36, 0.5f, s.epoch(), 3});
+    push(s, 0.02, 0.03, 60);
+    NoteEvent notes[16];
+    studio::SampleHit hits[4];
+    int numHits = 0;
+    const int n = s.process(0.0, 0.04, true, k120, notes, 16, hits, &numHits, 4);
+    CHECK(n == 2);  // the note's on and off, nothing for the sample
+    CHECK(numHits == 1 && hits[0].slot == 3 && near(hits[0].at, 0.01) && hits[0].gain == 0.5f);
+    // …and it owes no note-off: nothing is left sounding.
+    CHECK(block(s, 0.3, 0.3, false).empty());
+}
+
 void theCursorCoversTheLookAheadWithoutOverlap() {
     PatternSchedule s;
     primeAt(s, 1.0);  // stopped at 1 s = cycle 0.5
@@ -156,6 +171,7 @@ int main() {
     RUN(aTempoChangeStartsANewEpoch);
     RUN(aRepeatedKeyIsReleasedBeforeItIsStruckAgain);
     RUN(anOverlappingNoteOfTheSameKeyIsNotCutByTheFirstOnesEnd);
+    RUN(aSampleIsAHitNotANote);
     RUN(theCursorCoversTheLookAheadWithoutOverlap);
     TEST_MAIN_END();
 }

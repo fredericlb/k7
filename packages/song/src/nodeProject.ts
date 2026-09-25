@@ -22,7 +22,12 @@ import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
-import { isEngineClocked, notesHalf, patternPlugin } from "./enginePattern";
+import {
+  isPatternLane,
+  patternPlugins,
+  patternShares,
+  sampleBanks,
+} from "./enginePattern";
 import { activeFreezePlans } from "./freeze";
 import {
   type Chain,
@@ -417,7 +422,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
           `track '${trackId}': clip '${ref}' is placed with loop: ${loops}, but declares no 'to' — a repeat needs the window's end`,
         );
     }
-  // The pattern file must exist; whether it HAS the named lane needs it evaluated, so patternClock reports that.
+  // The pattern file must exist; whether it HAS the named lane needs it evaluated, so the engine reports that.
   for (const [trackId, t] of Object.entries(lanesMap))
     if (t.strudel && !existsSync(resolve(dir, t.strudel)))
       refErrs.push(
@@ -747,6 +752,9 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
 
   // One entry per HALF, ordered over the LANES so both halves stay adjacent — see docs/trackKind.md.
   const laneErrs: string[] = [];
+  // How the pattern lanes share their files, and where their samples are looked for — once per compile.
+  const shares = patternShares(dir, lanesMap);
+  const banks = sampleBanks(dir);
   const tracks: TrackDoc[] = orderTracks(
     Object.entries(lanesMap).filter(
       ([, t]) => t.type !== "group" && !t.disabled,
@@ -755,12 +763,12 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     root.trackOrder,
   ).flatMap(([lane, t]): TrackDoc[] => {
     const halves = halvesOf(lane);
-    // An engine-clocked lane's pattern plays from a plugin at the head of its NOTES half, which it must therefore have.
-    const patternOn = isEngineClocked(t) ? notesHalf(halves) : undefined;
-    if (isEngineClocked(t) && !patternOn)
-      laneErrs.push(
-        `lane '${lane}': clock: engine plays notes, but only its audio output is wired — add a '${lane}#midi:' key to graph.yaml`,
-      );
+    // A pattern lane is played by the ENGINE, from a plugin heading each half it has — see enginePattern.ts.
+    const share = shares.get(lane);
+    const patterns =
+      isPatternLane(t) && share
+        ? patternPlugins(dir, lane, t, halves, share, banks)
+        : new Map<string, PluginDoc>();
     // Which half each of this lane's events plays on; one whose material has no half is NAMED rather than dropped.
     const eventsFor = (evts: typeof t.events, half: Half) =>
       evts.filter((p) => {
@@ -823,7 +831,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
                 placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
               ),
         plugins: [
-          ...(patternOn === half ? [patternPlugin(dir, lane, t)] : []),
+          ...(patterns.has(id) ? [patterns.get(id) as PluginDoc] : []),
           ...(trackPlugins[id] ?? []),
         ],
         sends: trackSends[id] ?? [],
@@ -980,8 +988,6 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     recordDir: "", // set by loadProject, which is what knows this is a folder project
     tracks,
     groups,
-    // Read off the AUTHORED lanes — a strudel lane compiles to an empty one, so by then the fact it streams is gone.
-    strudel: Object.values(lanesMap).some((t) => t.type === "strudel"),
     markers: parseMarkers(root.markers, num || 4, den || 4),
     // settings.yaml is a flat root file, loaded on its own and validated as it is read (a bad value fails the compile).
     settings: parseSettings(loadSettings(dir, true)),
