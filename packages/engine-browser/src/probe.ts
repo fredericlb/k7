@@ -141,18 +141,31 @@ function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
     (host): Candidate => ({ url: `ws://${host}:${port}` }),
   );
   if (!e.proxyTicket) return direct;
-  // Same origin as the page, so it inherits its scheme: an HTTPS page relays over `wss:`.
-  const scheme = location.protocol === "https:" ? "wss:" : "ws:";
-  const path = `${relayBase}/api/engine/${encodeURIComponent(e.id)}`;
-  const relayed: Candidate[] = [
-    {
-      url: `${scheme}//${location.host}${path}/ws?ticket=${encodeURIComponent(e.proxyTicket)}`,
-    },
-  ];
+  const relay = relayUrls(relayBase, e.id, e.proxyTicket, location.href);
+  const relayed: Candidate[] = [{ url: relay.ws }];
   // Straight to the engine's machine; the files are the server's, never this channel's.
-  if (e.rtc)
-    relayed.push({ url: `${RTC_SCHEME}${location.origin}${path}/rtc` });
+  if (e.rtc) relayed.push({ url: relay.rtc });
   return [...direct, ...relayed];
+}
+
+/** The relay's two doors for one engine; `relayBase` is a path on the page's origin or another origin's URL, both resolved against `pageHref`. */
+export function relayUrls(
+  relayBase: string,
+  id: string,
+  ticket: string,
+  pageHref: string,
+): { ws: string; rtc: string } {
+  const http = new URL(
+    `${relayBase}/api/engine/${encodeURIComponent(id)}`,
+    pageHref,
+  );
+  // The relay's own scheme decides, not the page's: an HTTPS relay is reached over `wss:`.
+  const ws = new URL(http.href);
+  ws.protocol = http.protocol === "https:" ? "wss:" : "ws:";
+  return {
+    ws: `${ws.href}/ws?ticket=${encodeURIComponent(ticket)}`,
+    rtc: `${RTC_SCHEME}${http.href}/rtc`,
+  };
 }
 
 async function rank<E extends ProbeTarget>(
