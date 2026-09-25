@@ -96,7 +96,8 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error)
         error = "cannot decode " + file.getFileName();
         return false;
     }
-    const auto frames = static_cast<int>(juce::jmin<juce::int64>(
+    // std::min, not juce::jmin<juce::int64>: juce_dsp's SIMDRegister overload of jmin fails on Linux, where int64_t is not long long.
+    const auto frames = static_cast<int>(std::min<juce::int64>(
         reader->lengthInSamples, std::numeric_limits<int>::max()));
     std::vector<int16_t> packed(static_cast<size_t>(juce::jmax(1, frames)) * 2);
     float scale = 1.0f;
