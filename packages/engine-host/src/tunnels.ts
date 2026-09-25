@@ -7,6 +7,7 @@ import { studioDir } from "@studio/engine-client/paths";
 import { TunnelAgent } from "@studio/engine-tunnel/agent";
 import type { EngineIdentity } from "./identity.ts";
 import { line } from "./logbus.ts";
+import { machineJobs } from "./machineJobs.ts";
 
 /** A folder name for a server, from its host alone: `pl8.priv.frediver.se:443` → `pl8.priv.frediver.se_443`. */
 export function cacheKey(registryUrl: string): string {
@@ -37,6 +38,7 @@ export class Tunnels {
         token,
         enginePort: this.enginePort(),
         cacheDir: join(studioDir(), "remote", cacheKey(url)),
+        jobs: machineJobs,
         log: (m) => line("tunnel", m),
       });
       this.agents.set(url, agent);

@@ -9,7 +9,8 @@
     "./agent": "./agent.ts",
     "./channel": "./channel.ts",
     "./frames": "./frames.ts",
-    "./rtc": "./rtc.ts"
+    "./rtc": "./rtc.ts",
+    "./jobs-client": "./jobsClient.ts"
   },
   "scripts": {
     "test": "vitest run",

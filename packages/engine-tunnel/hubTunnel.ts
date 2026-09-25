@@ -9,6 +9,7 @@ import {
   type AgentMessage,
   asBuffer,
   type BinaryHeader,
+  type ChannelKind,
   decodeBinary,
   encodeBinary,
   type HubMessage,
@@ -64,12 +65,12 @@ export class HubTunnel implements ChannelSink {
     if (this.channels.delete(ch)) this.tell({ t: "close", ch });
   }
 
-  /** A new channel to the engine, sharing `roots` with it; it emits `open` once the engine answered. */
-  open(roots: TunnelRoot[]): TunnelChannel {
+  /** A new channel sharing `roots`: to the engine, or to the agent's own jobs; it emits `open` once answered. */
+  open(roots: TunnelRoot[], kind: ChannelKind = "engine"): TunnelChannel {
     const ch = this.nextCh++;
     const channel = new TunnelChannel(ch, this);
     this.channels.set(ch, { channel, roots });
-    this.tell({ t: "open", ch, roots });
+    this.tell({ t: "open", ch, roots, kind });
     return channel;
   }
 

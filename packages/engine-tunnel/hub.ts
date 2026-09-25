@@ -9,7 +9,12 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
 import { OPEN, type TunnelChannel } from "./channel.ts";
-import { TUNNEL_PATH, TUNNEL_TOKEN_HEADER, type TunnelRoot } from "./frames.ts";
+import {
+  type ChannelKind,
+  TUNNEL_PATH,
+  TUNNEL_TOKEN_HEADER,
+  type TunnelRoot,
+} from "./frames.ts";
 import { HubTunnel } from "./hubTunnel.ts";
 
 export interface TunnelHubOptions {
@@ -23,6 +28,7 @@ export interface TunnelHubOptions {
 interface LocalBinding {
   engineId: string;
   roots: TunnelRoot[];
+  kind: ChannelKind;
 }
 
 const LOCAL_ROUTE = new RegExp(`^${TUNNEL_PATH}/local/([A-Za-z0-9_-]+)$`);
@@ -53,8 +59,12 @@ export class TunnelHub {
   }
 
   /** A channel to engine `id`, or null when it has no tunnel; it emits `open` when the engine answered. */
-  open(id: string, roots: TunnelRoot[] = []): TunnelChannel | null {
-    return this.tunnels.get(id)?.open(roots) ?? null;
+  open(
+    id: string,
+    roots: TunnelRoot[] = [],
+    kind: ChannelKind = "engine",
+  ): TunnelChannel | null {
+    return this.tunnels.get(id)?.open(roots, kind) ?? null;
   }
 
   /** …the same, resolved once the engine answered, or null after `timeoutMs`. */
@@ -62,8 +72,9 @@ export class TunnelHub {
     id: string,
     roots: TunnelRoot[] = [],
     timeoutMs = 5000,
+    kind: ChannelKind = "engine",
   ): Promise<TunnelChannel | null> {
-    const ch = this.open(id, roots);
+    const ch = this.open(id, roots, kind);
     if (!ch) return Promise.resolve(null);
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -89,9 +100,13 @@ export class TunnelHub {
   }
 
   /** A loopback path that reaches engine `id` with `roots` shared; the key in it is the only credential. */
-  bindLocal(engineId: string, roots: TunnelRoot[]): string {
+  bindLocal(
+    engineId: string,
+    roots: TunnelRoot[],
+    kind: ChannelKind = "engine",
+  ): string {
     const key = randomBytes(24).toString("base64url");
-    this.locals.set(key, { engineId, roots });
+    this.locals.set(key, { engineId, roots, kind });
     return `${TUNNEL_PATH}/local/${key}`;
   }
 
@@ -177,7 +192,9 @@ export class TunnelHub {
     const binding = isLoopback(req.socket.remoteAddress)
       ? this.locals.get(key)
       : undefined;
-    const channel = binding ? this.open(binding.engineId, binding.roots) : null;
+    const channel = binding
+      ? this.open(binding.engineId, binding.roots, binding.kind)
+      : null;
     if (!channel) {
       deny(socket, binding ? "503 Service Unavailable" : "403 Forbidden");
       return;

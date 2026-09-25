@@ -24,6 +24,22 @@ const available = (() => {
   }
 })();
 
+/** The slice of a browser's peer connection this test drives; this package has no DOM types. */
+interface BrowserPeer {
+  createDataChannel(label: string): {
+    binaryType: string;
+    readyState: string;
+    onmessage: ((ev: { data: unknown }) => void) | null;
+    send(data: Uint8Array): void;
+  };
+  createOffer(): Promise<{ type: string; sdp?: string }>;
+  setLocalDescription(d: { type: string; sdp?: string }): Promise<void>;
+  setRemoteDescription(d: { type: string; sdp: string }): Promise<void>;
+  localDescription: { sdp: string } | null;
+  iceGatheringState: string;
+  close(): void;
+}
+
 const until = async (ok: () => boolean, ms = 8000): Promise<void> => {
   const end = Date.now() + ms;
   while (!ok()) {
@@ -75,15 +91,13 @@ describe.skipIf(!available)("the WebRTC path", () => {
   it("carries a frame larger than a fragment to the engine and back", async () => {
     const { RTCPeerConnection } = (await import(
       "node-datachannel/polyfill"
-    )) as unknown as {
-      RTCPeerConnection: typeof globalThis.RTCPeerConnection;
-    };
+    )) as unknown as { RTCPeerConnection: new (cfg: object) => BrowserPeer };
     const pc = new RTCPeerConnection({ iceServers: [] });
     const dc = pc.createDataChannel("engine");
     dc.binaryType = "arraybuffer";
     const joiner = new FragmentJoiner();
     const back: string[] = [];
-    dc.onmessage = (ev) => {
+    dc.onmessage = (ev: { data: unknown }) => {
       const f = joiner.push(new Uint8Array(ev.data as ArrayBuffer));
       if (f && "text" in f) back.push(f.text);
     };

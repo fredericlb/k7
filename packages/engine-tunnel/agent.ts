@@ -8,6 +8,7 @@ import { WebSocket } from "ws";
 import { FileRequests } from "./agentFiles.ts";
 import {
   asBuffer,
+  type ChannelKind,
   decodeBinary,
   encodeBinary,
   type HubMessage,
@@ -28,8 +29,23 @@ export interface TunnelAgentOptions {
   cacheDir: string;
   /** STUN/TURN servers for the WebRTC path; none keeps it to the local network. */
   iceServers?: string[];
+  /** What this machine does when asked on a jobs channel, by request `type` — docs/jobs.md. */
+  jobs?: Record<string, JobHandler>;
   log?: (msg: string) => void;
 }
+
+/** One request on a jobs channel; `id` is the caller's, echoed on every reply. */
+export interface JobRequest {
+  type: string;
+  id?: string;
+  [field: string]: unknown;
+}
+
+/** Answer a request, as often as it has news; paths in `emit`'s replies go back through the map. */
+export type JobHandler = (
+  req: JobRequest,
+  emit: (reply: Record<string, unknown>) => void,
+) => Promise<void> | void;
 
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const MAX_BACKOFF_MS = 30_000;
@@ -45,7 +61,8 @@ export function tunnelUrl(registryUrl: string, id: string): string {
 }
 
 interface AgentChannel {
-  engine: WebSocket;
+  /** The local engine's socket; null on a jobs channel, which this agent answers itself. */
+  engine: WebSocket | null;
   map: PathMap | null;
   toEngine: Promise<void>;
   toHub: Promise<void>;
@@ -110,7 +127,7 @@ export class TunnelAgent {
       if (this.connected) this.log(`down from ${this.opts.registryUrl}`);
       this.connected = false;
       this.files.failAll();
-      for (const c of this.channels.values()) c.engine.terminate();
+      for (const c of this.channels.values()) c.engine?.terminate();
       this.channels.clear();
       const step = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** this.attempt++);
       setTimeout(
@@ -133,10 +150,10 @@ export class TunnelAgent {
     }
     switch (m.t) {
       case "open":
-        this.openChannel(m.ch, m.roots);
+        this.openChannel(m.ch, m.roots, m.kind ?? "engine");
         break;
       case "close":
-        this.channels.get(m.ch)?.engine.close();
+        this.channels.get(m.ch)?.engine?.close();
         this.channels.delete(m.ch);
         break;
       case "data":
@@ -176,7 +193,11 @@ export class TunnelAgent {
     else if (d.header.t === "data") this.toEngine(d.header.ch, d.payload, true);
   }
 
-  private openChannel(ch: number, roots: TunnelRoot[]): void {
+  private openChannel(
+    ch: number,
+    roots: TunnelRoot[],
+    kind: ChannelKind,
+  ): void {
     if (roots.some((r) => !SAFE_NAME.test(r.name))) {
       this.tell({ t: "close", ch, reason: "refused a root name" });
       return;
@@ -193,6 +214,17 @@ export class TunnelAgent {
           this.log,
         )
       : null;
+    if (kind === "jobs") {
+      const settled = Promise.resolve();
+      this.channels.set(ch, {
+        engine: null,
+        map,
+        toEngine: settled,
+        toHub: settled,
+      });
+      this.tell({ t: "opened", ch });
+      return;
+    }
     const engine = new WebSocket(`ws://127.0.0.1:${this.opts.enginePort}`);
     const opened = new Promise<void>((res) => engine.once("open", () => res()));
     const c: AgentChannel = {
@@ -220,12 +252,41 @@ export class TunnelAgent {
     c.toEngine = c.toEngine.then(async () => {
       const out =
         !binary && c.map ? await c.map.outbound(data as string) : data;
+      if (!c.engine) {
+        // A request is started once its files are here, and NOT awaited: a job takes minutes.
+        if (!binary) this.runJob(ch, out as string);
+        return;
+      }
       if (c.engine.readyState === WebSocket.OPEN)
         c.engine.send(out, { binary });
     });
     c.toEngine = c.toEngine.catch((e) =>
       this.log(`ch${ch} → engine: ${(e as Error).message}`),
     );
+  }
+
+  /** Hand one request to its handler; every reply travels back through the channel's map. */
+  private runJob(ch: number, text: string): void {
+    let req: JobRequest;
+    try {
+      req = JSON.parse(text);
+    } catch {
+      return;
+    }
+    const emit = (reply: Record<string, unknown>): void =>
+      this.toHub(
+        ch,
+        Buffer.from(JSON.stringify({ id: req.id, ...reply })),
+        false,
+      );
+    const handler = this.opts.jobs?.[req.type];
+    if (!handler) {
+      emit({ type: "error", error: `this machine does not do '${req.type}'` });
+      return;
+    }
+    Promise.resolve()
+      .then(() => handler(req, emit))
+      .catch((e: Error) => emit({ type: "error", error: e.message }));
   }
 
   private toHub(ch: number, data: Buffer, binary: boolean): void {

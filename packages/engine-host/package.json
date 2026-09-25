@@ -30,6 +30,7 @@
   "dependencies": {
     "@studio/engine-client": "*",
     "@studio/engine-tunnel": "*",
+    "@studio/stem-separation": "*",
     "@studio/web-protocol": "*",
     "@studio/song": "*",
     "@studio/song-schema": "*"

@@ -26,9 +26,12 @@ export interface RemoteStat {
   mtimeMs?: number;
 }
 
+/** What a channel carries: frames piped to the engine, or requests the agent answers itself — docs/jobs.md. */
+export type ChannelKind = "engine" | "jobs";
+
 /** Hub → agent. */
 export type HubMessage =
-  | { t: "open"; ch: number; roots: TunnelRoot[] }
+  | { t: "open"; ch: number; roots: TunnelRoot[]; kind?: ChannelKind }
   | { t: "close"; ch: number }
   | { t: "data"; ch: number; text: string }
   | { t: "stat-reply"; req: number; entries: RemoteStat[] }
