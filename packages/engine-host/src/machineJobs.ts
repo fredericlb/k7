@@ -11,6 +11,7 @@ import {
   startSeparate,
 } from "@studio/stem-separation/separateJobs";
 import { readLog } from "./machineLog.ts";
+import { loadSettings, providers, saveSettings } from "./settings.ts";
 
 /** How often a running separation reports; a cut takes minutes, and every report crosses the network. */
 const REPORT_MS = 1000;
@@ -26,6 +27,7 @@ const separate: JobHandler = async (req, emit) => {
     model: String(req.model ?? ""),
     outDir: String(req.outDir ?? ""),
     outputs,
+    providers: loadSettings().onnxProviders,
   });
   let last = "";
   for (;;) {
@@ -63,10 +65,21 @@ const log: JobHandler = (req, emit) => {
   emit({ type: "log", raw: readLog({ offset, tail }) });
 };
 
+/** What this machine separates on; given `set`, it is written first — the server's `system onnx` asks here. */
+const onnxProviders: JobHandler = (req, emit) => {
+  const s = loadSettings();
+  if (Array.isArray(req.set)) {
+    s.onnxProviders = providers(req.set);
+    saveSettings(s);
+  }
+  emit({ type: "onnx-providers", providers: s.onnxProviders });
+};
+
 /** Every job this machine answers, by request type. */
 export const machineJobs: Record<string, JobHandler> = {
   separate,
   local,
   prefetch,
   log,
+  "onnx-providers": onnxProviders,
 };

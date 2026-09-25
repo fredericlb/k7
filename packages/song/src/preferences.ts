@@ -36,8 +36,6 @@ export interface Preferences {
   instrumentalChain?: string;
   /** Which output pair the `CUE` bus leaves by — a label from `channels.out`, or the numbers. See docs/cue.md. */
   cueOutput?: string | number[];
-  /** The ONNX execution providers this machine SEPARATES on, in order — packages/stem-separation/docs/stemSplit.md. */
-  onnxProviders?: string[];
 }
 
 // The defaults, in ONE place — every other module builds on this rather than its own literal.
@@ -99,17 +97,6 @@ export function normalizePreferences(v: any): Preferences {
       if (ch.length) p.cueOutput = ch;
     } else if (typeof v.cueOutput === "string" && v.cueOutput.trim())
       p.cueOutput = v.cueOutput.trim();
-    // Lowercased, because ORT's provider names are and a `DML` here would match nothing in silence.
-    if (Array.isArray(v.onnxProviders)) {
-      const eps = v.onnxProviders
-        .map((s: unknown) =>
-          String(s ?? "")
-            .trim()
-            .toLowerCase(),
-        )
-        .filter(Boolean);
-      if (eps.length) p.onnxProviders = eps;
-    }
   }
   return p;
 }
@@ -152,15 +139,6 @@ export function setCueOutput(spec: string | number[] | undefined): Preferences {
   const p = loadPreferences();
   const want = Array.isArray(spec) ? spec : String(spec ?? "").trim();
   p.cueOutput = (Array.isArray(want) ? want.length : want) ? want : undefined;
-  savePreferences(p);
-  return p;
-}
-
-/** Remember what this machine separates ON. Empty clears it, back to the safe default. */
-export function setOnnxProviders(eps: readonly string[]): Preferences {
-  const p = loadPreferences();
-  const want = eps.map((s) => s.trim().toLowerCase()).filter(Boolean);
-  p.onnxProviders = want.length ? want : undefined;
   savePreferences(p);
   return p;
 }

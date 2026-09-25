@@ -251,10 +251,11 @@ system onnx dml,cpu     # …or cuda,cpu, or coreml,cpu
 system onnx ""          # back to the CPU
 ```
 
-It lands in `<state>/preferences.yaml` as `onnxProviders`, beside the audio device and the
-headphone pair, and `defaultProviders()` reads it. `STUDIO_ONNX_PROVIDERS` still overrides
-everything for one run — it is an escape hatch now, not how a machine is configured. The order it
-used to be needed FOR is the default.
+It lands in the **engine machine's** own settings, `<state>/engine-host.json`, as `onnxProviders`:
+the verb runs on the server, and asks the bound machine over the tunnel (`onnx-providers`), because
+the provider is a fact about the hardware that runs the separation and about no account. Each
+separation then carries that list with its job. `STUDIO_ONNX_PROVIDERS` still overrides everything
+for one run — an escape hatch, not how a machine is configured.
 
 ### When DirectML is the slow one — measured, 2026-08
 

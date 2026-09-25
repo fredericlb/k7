@@ -19,12 +19,15 @@ export interface Settings {
   port: number;
   /** The interfaces in the user's own order, best first: the first one PRESENT is where the engine goes. Absent names keep their rank, so replugging restores it. */
   audioPriority: string[];
+  /** The ONNX execution providers this machine separates on, in order; empty is the CPU — stem-separation/docs/stemSplit.md. */
+  onnxProviders: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   registryUrls: [],
   port: 8765,
   audioPriority: [],
+  onnxProviders: [],
 };
 
 // A hand-edited file is normal here, so each field is validated alone: one bad key must not lose the other four.
@@ -77,7 +80,24 @@ export function loadSettings(): Settings {
     registryUrls: urls(raw),
     port: port(raw.port, DEFAULT_SETTINGS.port),
     audioPriority: priority(raw),
+    onnxProviders: providers(raw.onnxProviders),
   };
+}
+
+/** Lowercased, because ORT's provider names are and a `DML` here would match nothing in silence. */
+export function providers(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return [
+    ...new Set(
+      v
+        .map((s) =>
+          String(s ?? "")
+            .trim()
+            .toLowerCase(),
+        )
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export function saveSettings(s: Settings): void {

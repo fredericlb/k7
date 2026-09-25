@@ -13,7 +13,6 @@ import {
   setCueOutput,
   setInputPair,
   setInstrumentalChain,
-  setOnnxProviders,
   setStemsChain,
 } from "@studio/song/preferences";
 import { INSTRUMENTAL } from "@studio/song-schema/stems";
@@ -162,34 +161,38 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
   },
 
   /** What this machine SEPARATES on — packages/stem-separation/docs/stemSplit.md. */
-  "system.onnx": (a, h) => {
+  "system.onnx": async (a, h) => {
+    const NO_MACHINE =
+      "system onnx: no engine is chosen — the setting lives on its machine";
+    if (!h.onnxProviders) return h.refuse([NO_MACHINE]);
     const spec = a.trim();
-    const prefs = loadPreferences();
-    const current = prefs.onnxProviders?.join(", ");
-    if (!spec)
+    if (!spec) {
+      const current = await h.onnxProviders();
+      if (current === null) return h.refuse([NO_MACHINE]);
       return h.refuse([
         "usage: system onnx <providers>   e.g. system onnx dml,cpu",
-        current
-          ? `currently: ${current} — pass "" to go back to cpu`
+        current.length
+          ? `currently: ${current.join(", ")} — pass "" to go back to cpu`
           : "nothing is set, so this machine separates on the CPU, which cannot be unavailable",
       ]);
+    }
     if (spec === '""' || spec === "''") {
-      setOnnxProviders([]);
+      if ((await h.onnxProviders([])) === null) return h.refuse([NO_MACHINE]);
       return h.log(["separation goes back to the CPU"]);
     }
-    const eps = splitWords(spec.replace(/,/g, " "));
+    const eps = splitWords(spec.replace(/,/g, " ")).map((e) => e.toLowerCase());
     const known = ["cpu", "dml", "cuda", "coreml"];
-    const bad = eps.filter((e) => !known.includes(e.toLowerCase()));
+    const bad = eps.filter((e) => !known.includes(e));
     if (bad.length)
       return h.refuse([
         `unknown execution provider(s): ${bad.join(", ")}`,
         `known here: ${known.join(", ")}`,
       ]);
-    setOnnxProviders(eps);
+    if ((await h.onnxProviders(eps)) === null) return h.refuse([NO_MACHINE]);
     // The warning is the whole point of the verb: `dml` is what wedged this machine for an hour.
     h.log([
       `separation tries ${eps.join(", ")}, in that order`,
-      ...(eps.some((e) => e.toLowerCase() === "dml")
+      ...(eps.includes("dml")
         ? [
             "note: `dml` HANGS on some rigs — un-interruptible, and only the job's hour ends it. " +
               "Measure a song before trusting it (packages/stem-separation/docs/stemSplit.md).",

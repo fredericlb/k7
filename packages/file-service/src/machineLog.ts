@@ -2,9 +2,8 @@
 // engine, so it asks the bound machine over the jobs channel. No machine bound, or one that does
 // not answer, reads as an empty log rather than an error — the panel polls, and will catch up.
 
-import { JobError, requestJob } from "@studio/engine-tunnel/jobs-client";
-import { WebSocket } from "ws";
-import { boundJobsUrl } from "./boundMachine.ts";
+import { JobError } from "@studio/engine-tunnel/jobs-client";
+import { askBoundMachine } from "./boundMachine.ts";
 
 export interface LogChunk {
   offset: number;
@@ -18,21 +17,11 @@ export async function boundMachineLog(opts: {
   offset?: number;
   tail?: number;
 }): Promise<LogChunk> {
-  const url = boundJobsUrl();
-  if (!url) return EMPTY;
-  const ws = new WebSocket(url);
-  ws.on("error", () => {});
   try {
-    const reply = await requestJob(
-      ws,
-      { type: "log", ...opts },
-      (r) => r.type === "log",
-    );
-    return (reply.raw as LogChunk | undefined) ?? EMPTY;
+    const reply = await askBoundMachine({ type: "log", ...opts }, "log");
+    return (reply?.raw as LogChunk | undefined) ?? EMPTY;
   } catch (e) {
     if (!(e instanceof JobError)) throw e;
     return EMPTY;
-  } finally {
-    ws.close();
   }
 }

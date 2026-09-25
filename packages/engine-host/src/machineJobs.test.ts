@@ -39,6 +39,18 @@ describe("the machine's small jobs", () => {
     expect(r).toEqual({ type: "log", raw: { offset: 0, lines: [] } });
   });
 
+  it("keeps what the machine separates on, lowercased, and answers it", async () => {
+    const [set] = await ask({
+      type: "onnx-providers",
+      set: ["DML", "cpu", "dml"],
+    });
+    expect(set).toEqual({ type: "onnx-providers", providers: ["dml", "cpu"] });
+    const [read] = await ask({ type: "onnx-providers" });
+    expect(read).toEqual({ type: "onnx-providers", providers: ["dml", "cpu"] });
+    const [cleared] = await ask({ type: "onnx-providers", set: [] });
+    expect(cleared).toEqual({ type: "onnx-providers", providers: [] });
+  });
+
   it("counts the prefetched songs that are on this disk", async () => {
     const home = process.env.STUDIO_HOME as string;
     writeFileSync(join(home, "song.flac"), "x");

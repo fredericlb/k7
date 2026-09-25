@@ -7,8 +7,6 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
-// The `preferences` subpath only — node builtins plus `yaml`, not the compiler behind the rest of it.
-import { loadPreferences } from "@studio/song/preferences";
 import {
   INSTRUMENTAL,
   INSTRUMENTAL_STEMS,
@@ -207,9 +205,6 @@ export const defaultProviders = (): string[] => {
   // The env var stays as an escape hatch for one run; it is no longer how a machine is configured.
   const asked = process.env.STUDIO_ONNX_PROVIDERS?.trim();
   if (asked) return asked.split(/[,\s]+/).filter(Boolean);
-  // A machine that MEASURED a faster provider says so once, and it survives every restart.
-  const remembered = loadPreferences().onnxProviders;
-  if (remembered?.length) return remembered;
   // No guess about the hardware: where `dml` wedges it takes an hour with it — docs/stemSplit.md.
   return ["cpu"];
 };

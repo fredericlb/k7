@@ -44,6 +44,8 @@ export interface StartSeparate {
   outDir: string; // where the stems land — <song folder>/stems
   /** What to write: the four stems when absent — see docs/stemSplit.md. */
   outputs?: readonly SeparationOutput[];
+  /** The execution providers to try, in order, as the machine is set; the CPU when absent. */
+  providers?: readonly string[];
 }
 
 /** Where a separation RUNS: in this process unless the host installed another — docs/stemSplit.md. */
@@ -108,7 +110,11 @@ function startLocal(opts: StartSeparate): SeparateJob {
         model,
         outDir,
         outputs,
-        providers: lost ? ["cpu"] : undefined,
+        providers: lost
+          ? ["cpu"]
+          : opts.providers
+            ? [...opts.providers]
+            : undefined,
       },
     },
   );
