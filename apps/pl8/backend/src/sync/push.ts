@@ -1,19 +1,21 @@
 // push.ts — copying a set list onto one of a machine's targets. pl8 resolves the playlist against
-// its own catalogue and drives; the engine's machine holds the target and does the writing, the
-// same division as a stem cut. The URI never comes here — a target is named. See ../../docs/sync.md.
+// its own catalogue and drives; the engine's machine holds the target and does the writing, asked
+// over a jobs channel of its tunnel, the same division as a stem cut. The URI never comes here — a
+// target is named. See ../../docs/sync.md.
 
 import { readFileSync } from "node:fs";
-import type { EngineEntry } from "@studio/engine-registry";
+import type { TunnelRoot } from "@studio/engine-tunnel/frames";
+import { type JobSocket, requestJob } from "@studio/engine-tunnel/jobs-client";
 import { listFamily } from "@studio/mediatek/catalogue";
 import { safePath } from "@studio/mediatek/layout";
 import { resolveItems } from "@studio/mediatek/playlistItems";
 import { playlistPath } from "@studio/mediatek/playlists";
 import { parsePlaylist } from "@studio/song-schema/playlist";
-import { ENGINE_TOKEN_HEADER, USER_HEADER } from "@studio/web-protocol";
+import type { SyncJob } from "@studio/web-protocol";
 
 export class SyncError extends Error {}
 
-/** One track as the machine needs it: where to fetch it, and the three words that lay it out. */
+/** One track as the machine needs it: where it is in the médiathèque, and the three words that lay it out. */
 export interface SyncTrack {
   path: string;
   artist: string;
@@ -21,73 +23,55 @@ export interface SyncTrack {
   title: string;
 }
 
-/** Where an engine's file service answers — loopback first, then each LAN address, as `cut.ts` does. */
-function fileServiceBases(engine: EngineEntry): string[] {
-  const { loopback, lanIps, filePort } = engine.addresses;
-  return [loopback, ...lanIps]
-    .filter(Boolean)
-    .map((host) => `http://${host}:${filePort}`);
+/** How a sync reaches the machine that holds the target, and where the songs it copies live here. */
+export interface SyncDeps {
+  jobsChannel(
+    engineId: string,
+    roots: TunnelRoot[],
+  ): Promise<(JobSocket & { close(): void }) | null>;
+  mediatekRoot: string;
 }
 
-function headersFor(
-  engine: EngineEntry,
-  userEmail: string,
-): Record<string, string> {
-  return {
-    [ENGINE_TOKEN_HEADER]: engine.token,
-    [USER_HEADER]: userEmail,
-    "content-type": "application/json",
-  };
+/** A finished run is kept this long for its last poll. */
+const KEEP_MS = 10 * 60 * 1000;
+const runs = new Map<string, SyncJob>();
+
+async function channel(
+  deps: SyncDeps,
+  engineId: string,
+  roots: TunnelRoot[],
+): Promise<JobSocket & { close(): void }> {
+  const ch = await deps.jobsChannel(engineId, roots);
+  if (!ch)
+    throw new SyncError(
+      "that engine is not connected to this server — its supervisor holds no tunnel here",
+    );
+  return ch;
 }
 
-/** Try each address in turn; a REFUSAL is the engine answering and is reported rather than retried. */
-async function reach(
-  engine: EngineEntry,
-  userEmail: string,
-  path: string,
-  init?: { method?: string; body?: string },
-): Promise<unknown> {
-  const bases = fileServiceBases(engine);
-  if (!bases.length)
-    throw new SyncError("that engine advertises no address to reach it on");
-  let lastError = "";
-  for (const base of bases) {
-    let res: Response;
-    try {
-      res = await fetch(`${base}${path}`, {
-        method: init?.method ?? "GET",
-        headers: headersFor(engine, userEmail),
-        ...(init?.body ? { body: init.body } : {}),
-      });
-    } catch (e) {
-      lastError = (e as Error).message;
-      continue;
-    }
-    if (!res.ok) {
-      const said = ((await res.json().catch(() => ({}))) as { error?: string })
-        .error;
-      throw new SyncError(said ?? `the machine refused (${res.status})`);
-    }
-    return await res.json();
+/** What that machine can copy to. The URIs come back with their passwords already blanked. */
+export async function targetsOn(
+  deps: SyncDeps,
+  engineId: string,
+): Promise<{ targets: unknown[] }> {
+  const ch = await channel(deps, engineId, []);
+  try {
+    const r = await requestJob(
+      ch,
+      { type: "sync-targets" },
+      (x) => x.type === "sync-targets",
+    );
+    return { targets: (r.targets as unknown[]) ?? [] };
+  } catch (e) {
+    throw new SyncError((e as Error).message);
+  } finally {
+    ch.close();
   }
-  throw new SyncError(`no engine address answered: ${lastError}`);
 }
 
-/** What this machine can copy to. The URIs come back with their passwords already blanked. */
-export function targetsOn(
-  engine: EngineEntry,
-  userEmail: string,
-): Promise<unknown> {
-  return reach(engine, userEmail, "/sync/targets");
-}
-
-/** Poll one run. Forwarded VERBATIM: this service is a pipe for the machine's progress. */
-export function syncStatus(
-  engine: EngineEntry,
-  userEmail: string,
-  id: string,
-): Promise<unknown> {
-  return reach(engine, userEmail, `/sync/${encodeURIComponent(id)}`);
+/** One run as it stands, from what the machine last reported. */
+export function syncStatus(id: string): SyncJob | null {
+  return runs.get(id) ?? null;
 }
 
 /**
@@ -134,20 +118,42 @@ export function tracksOf(playlist: string): {
   return { tracks, skipped };
 }
 
-/** Hand the resolved set list to the machine and answer with the job it started. */
+/** Hand the resolved set list to the machine and answer with its first report; the rest keeps arriving. */
 export async function startSyncOn(opts: {
-  engine: EngineEntry;
-  userEmail: string;
+  deps: SyncDeps;
+  engineId: string;
   target: string;
   playlist: string;
   tracks: SyncTrack[];
-}): Promise<unknown> {
-  return reach(opts.engine, opts.userEmail, "/sync", {
-    method: "POST",
-    body: JSON.stringify({
-      target: opts.target,
-      playlist: opts.playlist,
-      tracks: opts.tracks,
-    }),
+}): Promise<SyncJob> {
+  const { deps } = opts;
+  // Read-only: the machine fetches each song as it copies, and writes nothing back here.
+  const ch = await channel(deps, opts.engineId, [
+    { remote: deps.mediatekRoot, name: "mediatek", writable: false },
+  ]);
+  return new Promise((resolve, reject) => {
+    let first = true;
+    requestJob(
+      ch,
+      {
+        type: "sync",
+        target: opts.target,
+        playlist: opts.playlist,
+        root: deps.mediatekRoot,
+        tracks: opts.tracks,
+      },
+      (r) => (r.job as SyncJob).done,
+      (r) => {
+        const job = r.job as SyncJob;
+        runs.set(job.id, job);
+        if (job.done) setTimeout(() => runs.delete(job.id), KEEP_MS).unref();
+        if (first) resolve(job);
+        first = false;
+      },
+    )
+      .catch((e: Error) => {
+        if (first) reject(new SyncError(e.message));
+      })
+      .finally(() => ch.close());
   });
 }

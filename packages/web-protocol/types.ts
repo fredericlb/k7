@@ -795,7 +795,7 @@ export interface SeparateJob {
   files: string[]; // the stems written, absolute. Empty until `done`.
 }
 
-/** Copying a set list onto one of a machine's targets — packages/file-service/docs/playlistSync.md. */
+/** Copying a set list onto one of a machine's targets — packages/engine-host/docs/playlistSync.md. */
 export interface SyncJob {
   id: string;
   /** The target's NAME on that machine; the URI never leaves it un-blanked. */

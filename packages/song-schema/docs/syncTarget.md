@@ -2,7 +2,7 @@
 
 The rationale behind `packages/song-schema/src/syncTarget.ts` — what a target URI may say, and how a
 track and an m3u are NAMED on one. What a sync DOES with all of it, and why the machine holds the
-URI, is [packages/file-service/docs/playlistSync.md](../../file-service/docs/playlistSync.md).
+URI, is [packages/engine-host/docs/playlistSync.md](../../engine-host/docs/playlistSync.md).
 
 This file is here rather than beside the copying because it has no `node:` in it. The machine that
 writes and the screen that offers the button read one definition of what a target is — a dropdown

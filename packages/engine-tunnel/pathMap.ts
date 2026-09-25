@@ -103,6 +103,16 @@ export class PathMap {
     return null;
   }
 
+  /** Bring ONE file down by its local path, for a handler that fetches as it goes; false when the server has no such file. */
+  async ensureLocal(local: string): Promise<boolean> {
+    const mapped = this.toRemote(local);
+    if (!mapped) return false;
+    const [entry] = await this.files.stat([mapped.remote]);
+    if (entry?.kind !== "file") return false;
+    await this.ensureFile(entry, local);
+    return true;
+  }
+
   /** A server→engine frame, rewritten, with every file it names present locally first. */
   async outbound(text: string): Promise<string> {
     if (!this.remoteNeedles.some((n) => text.includes(n))) return text;

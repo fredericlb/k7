@@ -41,10 +41,17 @@ export interface JobRequest {
   [field: string]: unknown;
 }
 
+/** What a handler may ask of its channel beyond replying. */
+export interface JobContext {
+  /** Bring one file down by its LOCAL path, when a request names too many to fetch before it starts. */
+  fetch(local: string): Promise<boolean>;
+}
+
 /** Answer a request, as often as it has news; paths in `emit`'s replies go back through the map. */
 export type JobHandler = (
   req: JobRequest,
   emit: (reply: Record<string, unknown>) => void,
+  ctx: JobContext,
 ) => Promise<void> | void;
 
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -279,13 +286,17 @@ export class TunnelAgent {
         Buffer.from(JSON.stringify({ id: req.id, ...reply })),
         false,
       );
+    const map = this.channels.get(ch)?.map ?? null;
+    const ctx: JobContext = {
+      fetch: (local) => (map ? map.ensureLocal(local) : Promise.resolve(false)),
+    };
     const handler = this.opts.jobs?.[req.type];
     if (!handler) {
       emit({ type: "error", error: `this machine does not do '${req.type}'` });
       return;
     }
     Promise.resolve()
-      .then(() => handler(req, emit))
+      .then(() => handler(req, emit, ctx))
       .catch((e: Error) => emit({ type: "error", error: e.message }));
   }
 

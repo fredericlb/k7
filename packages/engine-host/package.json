@@ -28,6 +28,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "basic-ftp": "^6.2.1",
     "@studio/engine-client": "*",
     "@studio/engine-tunnel": "*",
     "@studio/stem-separation": "*",

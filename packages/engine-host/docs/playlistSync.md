@@ -44,24 +44,26 @@ ask for it. A scheme that said one thing and did another would be the worst of t
 |---|---|---|
 | resolve the playlist into tracks | **pl8** | it holds the catalogue; this machine has no songs list |
 | hold the target and its URI | **this machine** | it is the only one that can reach it |
-| fetch the bytes | **this machine** | from the hosted médiathèque, over its own link |
+| fetch the bytes | **this machine** | through its tunnel, into its copy of the médiathèque |
 | write them | **this machine** | one writer per scheme, and the sync knows neither |
 
-So `POST /sync` takes a target NAME and a list of tracks each carrying its médiathèque path plus the
-three words that lay it out. This file therefore knows nothing about songs, variants or sidecars —
-which is what keeps a second, disagreeing copy of "what is the master" out of it.
+So a `sync` job (`machineSync.ts`, asked over a jobs channel —
+`packages/engine-tunnel/docs/jobs.md`) takes a target NAME and a list of tracks each carrying its
+médiathèque path plus the three words that lay it out. This file therefore knows nothing about
+songs, variants or sidecars — which is what keeps a second, disagreeing copy of "what is the
+master" out of it.
 
-## The bytes do not land here
+## The bytes come one song at a time
 
-Each track is fetched from the médiathèque and piped **straight into the writer**. Nothing is
-written to this machine's disk on the way, and no cache is filled: a sync of thirty songs onto an FTP
-box would otherwise cost a gigabyte here for files nobody asked to keep.
+The channel shares the médiathèque read-only, and each song is brought down through it **just
+before it is written** (`JobContext.fetch`), not all before the run starts: a set list of thirty
+songs would otherwise sit at 0 % for as long as the whole download takes. They land in the
+machine's copy of the médiathèque, the one an engine plays from, so a song synced once is not
+fetched again for the next sync or the next gig. A song the server does not have is one line in
+the run, not a failed run.
 
-That is also why this is not built on `mediatekPull`. That loop MIRRORS what the open projects name,
-onto this disk, and is a different job with a different lifetime.
-
-The one thing it needs is the machine's médiathèque link (`mediatekLink.ts`). Without one there is
-nothing to copy FROM, and the job fails saying so rather than writing an empty tree.
+No credential for the médiathèque lives on this machine: the tunnel is the way in, and its own
+token the only secret.
 
 ## ADDITIVE — nothing is ever deleted
 
@@ -113,10 +115,10 @@ decoded anything to learn one. A wrong duration in a playlist is worse than an a
 A playlist filed under a folder (`live/repet`) keeps only its **leaf** in the m3u's name, since the
 target's playlists folder is flat.
 
-## Start-then-poll
+## Reported as it goes
 
-A copy is minutes and a person is watching, so `POST /sync` answers with a job and `GET /sync/:id`
-follows it — the shape a separation uses, for the same reason. The percentage counts **tracks**, not
+A copy is minutes and a person is watching, so the machine sends a report of the run on every
+change and pl8 keeps the latest, which is what its `GET /api/sync/:id` answers. The percentage counts **tracks**, not
 bytes: a bar driven by bytes would need a total this does not know until every file has been asked
 for.
 

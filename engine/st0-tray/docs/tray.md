@@ -120,7 +120,7 @@ The filter is there because a working machine has hundreds of rows.
 ### Sync — the targets a playlist can be copied to
 
 A target is a name and a URI, `file://` or `ftp://`, and what a copy DOES with one is
-[packages/file-service/docs/playlistSync.md](../../../packages/file-service/docs/playlistSync.md).
+[packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
 It is edited here for the reason the audio ranking is: it names something only this machine can
 reach. A hosted screen cannot know what `file:///media/usb` is, and pl8 offers the button but never
 learns the address behind it.

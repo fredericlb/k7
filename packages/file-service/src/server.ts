@@ -68,7 +68,6 @@ import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
-import { syncRouter } from "./routes/sync.ts";
 import { rootDir, workspaceRoot } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
 import {
@@ -400,9 +399,6 @@ if (!HOSTED) app.use(createPlayerRouter((req) => req.userEmail!));
 
 // An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);
-
-// Copying a set list onto a stick or an FTP box: a target belongs to the MACHINE — docs/playlistSync.md.
-app.use(syncRouter);
 
 // What this machine's engine has SCANNED, in the two shapes both used — see docs/activeProject.md.
 app.get(

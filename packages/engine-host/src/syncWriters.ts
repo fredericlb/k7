@@ -1,7 +1,7 @@
-// writers.ts — the one seam between a `file://` target and an `ftp://` one. A writer answers
+// syncWriters.ts — the one seam between a `file://` target and an `ftp://` one. A writer answers
 // three questions and nothing more: does this path already hold that many bytes, put this stream
 // there, and is there a folder by that name. The sync itself knows no protocol.
-// See ../../docs/playlistSync.md.
+// See ../docs/playlistSync.md.
 
 import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";

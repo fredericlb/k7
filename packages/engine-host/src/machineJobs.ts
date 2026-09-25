@@ -9,6 +9,7 @@ import {
   separateJob,
   startSeparate,
 } from "@studio/stem-separation/separateJobs";
+import { syncJobs } from "./machineSync.ts";
 
 /** How often a running separation reports; a cut takes minutes, and every report crosses the network. */
 const REPORT_MS = 1000;
@@ -38,4 +39,7 @@ const separate: JobHandler = async (req, emit) => {
 };
 
 /** Every job this machine answers, by request type. */
-export const machineJobs: Record<string, JobHandler> = { separate };
+export const machineJobs: Record<string, JobHandler> = {
+  separate,
+  ...syncJobs,
+};

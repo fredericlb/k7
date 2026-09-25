@@ -143,7 +143,7 @@ export interface HostSnapshot {
   /** The same trick for "Native plugin UI ▸": the ids of the openable plugins. */
   editPluginsSig: string;
 
-  /** Where this machine may COPY a set list, as `preferences.yaml` declares them — packages/file-service/docs/playlistSync.md. */
+  /** Where this machine may COPY a set list, as `preferences.yaml` declares them — packages/engine-host/docs/playlistSync.md. */
   syncTargets: SyncTarget[];
 
   // --- web UI allowlist -----------------------------------------------------

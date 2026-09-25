@@ -42,7 +42,7 @@ export interface Preferences {
   cueOutput?: string | number[];
   /** The ONNX execution providers this machine SEPARATES on, in order — packages/stem-separation/docs/stemSplit.md. */
   onnxProviders?: string[];
-  /** Where this machine can COPY a set list to — `file://` or `ftp://`; packages/file-service/docs/playlistSync.md. */
+  /** Where this machine can COPY a set list to — `file://` or `ftp://`; packages/engine-host/docs/playlistSync.md. */
   syncTargets?: SyncTarget[];
 }
 

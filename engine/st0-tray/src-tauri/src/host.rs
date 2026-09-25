@@ -35,7 +35,7 @@ pub struct AudioDevice {
 }
 
 /// One place this machine may COPY a set list to, as `preferences.yaml` declares it. Serialize as
-/// well as Deserialize: the window draws these rows verbatim — packages/file-service/docs/playlistSync.md.
+/// well as Deserialize: the window draws these rows verbatim — packages/engine-host/docs/playlistSync.md.
 #[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SyncTarget {

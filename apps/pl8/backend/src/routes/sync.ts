@@ -1,12 +1,14 @@
 // sync.ts (routes) — copy a set list onto one of an engine machine's targets. This service
-// resolves the playlist (it holds the catalogue) and the machine writes (it holds the target).
-// The target's URI never reaches here: it is named. See ../../docs/sync.md.
+// resolves the playlist (it holds the catalogue) and the machine writes (it holds the target),
+// asked through its tunnel. The target's URI never reaches here: it is named. See ../../docs/sync.md.
 
 import { validate, wrap } from "@frediverse/http/route";
 import type { EngineMount } from "@studio/engine-registry";
-import { type Request, Router } from "express";
+import { mediatekDir } from "@studio/mediatek/layout";
+import { Router } from "express";
 import { z } from "zod";
 import {
+  type SyncDeps,
   SyncError,
   startSyncOn,
   syncStatus,
@@ -14,10 +16,8 @@ import {
   tracksOf,
 } from "../sync/push.ts";
 
-/** pl8 has no express type augmentation, so the user is read this way, as in `routes/stems.ts`. */
-function emailOf(req: Request): string | null {
-  return (req as { user?: { email?: string } }).user?.email ?? null;
-}
+/** How long an engine's machine gets to take a jobs channel before the request is refused. */
+const OPEN_JOBS_MS = 10_000;
 
 const body = z.object({
   /** `playlists/`-relative and without the extension, as the listing names one. */
@@ -30,6 +30,11 @@ const body = z.object({
 
 export function syncRouter(engines: EngineMount): Router {
   const router: Router = Router();
+  const deps: SyncDeps = {
+    jobsChannel: (id, roots) =>
+      engines.tunnels.openReady(id, roots, OPEN_JOBS_MS, "jobs"),
+    mediatekRoot: mediatekDir(),
+  };
 
   /** A registry miss is a 409, not a 404: the engine existed when the browser picked it. */
   const engineOr409 = (id: string) => {
@@ -55,9 +60,7 @@ export function syncRouter(engines: EngineMount): Router {
       if (!engineId)
         return res.status(400).json({ error: "engineId required" });
       try {
-        res.json(
-          await targetsOn(engineOr409(engineId), emailOf(req) ?? "unknown"),
-        );
+        res.json(await targetsOn(deps, engineOr409(engineId).id));
       } catch (e) {
         const { status, error } = said(e);
         res.status(e instanceof SyncError ? status : 500).json({ error });
@@ -81,8 +84,8 @@ export function syncRouter(engines: EngineMount): Router {
             skipped,
           });
         const job = await startSyncOn({
-          engine,
-          userEmail: emailOf(req) ?? "unknown",
+          deps,
+          engineId: engine.id,
           target,
           playlist,
           tracks,
@@ -96,24 +99,13 @@ export function syncRouter(engines: EngineMount): Router {
     }),
   );
 
+  /** One run, as the machine last reported it — kept here, since the machine streams rather than answers polls. */
   router.get(
     "/:id",
-    wrap(async (req, res) => {
-      const engineId = String(req.query.engineId ?? "");
-      if (!engineId)
-        return res.status(400).json({ error: "engineId required" });
-      try {
-        res.json(
-          await syncStatus(
-            engineOr409(engineId),
-            emailOf(req) ?? "unknown",
-            req.params.id,
-          ),
-        );
-      } catch (e) {
-        const { status, error } = said(e);
-        res.status(e instanceof SyncError ? status : 500).json({ error });
-      }
+    wrap((req, res) => {
+      const job = syncStatus(req.params.id);
+      if (!job) return res.status(404).json({ error: "unknown sync job" });
+      res.json(job);
     }),
   );
 

@@ -3,11 +3,11 @@
 ```
 POST /api/sync   { playlist, engineId, target }   →   { job, skipped }
 GET  /api/sync/targets?engineId=…                 →   { targets: [{name, uri, scheme}] }
-GET  /api/sync/:id?engineId=…                     →   the job, verbatim
+GET  /api/sync/:id                                 →   the job, as the machine last reported it
 ```
 
 The target itself, its two schemes and what the copy does are
-[packages/file-service/docs/playlistSync.md](../../../packages/file-service/docs/playlistSync.md).
+[packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
 This page is the button and this service's half.
 
 ## The same division as a stem cut
@@ -27,20 +27,20 @@ The consequence worth stating out loud: **no FTP credential ever reaches this se
 a target; the machine looks the URI up in its own preferences. pl8 mints everybody's session and
 holds the one deploy key, and `docs/projects.md` is the page about not adding to that pile.
 
-The bytes do not pass through here either. The machine fetches each track from `/api/mediatek/file`
-on its own médiathèque link — the same route every other reader uses — so a sync is not one long
-request held open by this service.
+The bytes do not pass through a request either. The machine brings each track down through its
+tunnel as it copies (`packages/engine-host/docs/playlistSync.md`), and reports the run as it goes;
+this service keeps the latest report, which is what the poll answers.
 
 ## Which engine
 
 Named by the caller (`engineId`), as a stem cut is, and for the same reason: it is the engine that
-browser is already on, and this service has no opinion about which machine is yours. The registry
-turns the id into the addresses the engine advertised and each is tried in turn, loopback first.
+browser is already on, and this service has no opinion about which machine is yours. It is reached
+through its tunnel (`packages/engine-tunnel/docs/jobs.md`), wherever it is; an engine with no tunnel
+here is refused by name.
 
 A registry **miss** is a 409 and not a 404 — the engine was there when the browser picked it, and the
-remedy is to bring the machine back up. A **refusal** from the machine is forwarded verbatim rather
-than retried at the next address: "this machine has no target named X" is a sentence with a remedy in
-it, and retrying would turn it into "no engine responded".
+remedy is to bring the machine back up. A **refusal** from the machine is forwarded verbatim: "this
+machine has no target named X" is a sentence with a remedy in it.
 
 ## A line naming no song is skipped, not fatal
 

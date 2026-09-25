@@ -110,7 +110,7 @@ The header carries a **Synchroniser** button whose dropdown lists the targets th
 declares. What a target is, and what the copy does — `[artist]/[album]/[title]`, additive, the m3u
 where a `playlists/` folder already exists — is
 [sync.md](sync.md) and
-[packages/file-service/docs/playlistSync.md](../../../packages/file-service/docs/playlistSync.md).
+[packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
 
 Two things about it belong here, being properties of THIS screen:
 
