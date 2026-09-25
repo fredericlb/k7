@@ -22,9 +22,9 @@ import {
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import {
+  type AccountWorkspaceList,
   type ColdChainsReply,
   HUB_SECRET_HEADER,
-  type MachineWorkspaceList,
   type ServedProjectReply,
   type SurfacedProjectList,
   type WorkspaceList,
@@ -239,7 +239,7 @@ app.post(
 app.get(
   "/workspaces/projects",
   wrap(async (req, res) => {
-    const reply: MachineWorkspaceList = {
+    const reply: AccountWorkspaceList = {
       workspaces: await listMachineWorkspaces(req.userEmail!),
     };
     res.json(reply);

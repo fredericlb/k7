@@ -217,7 +217,7 @@ a short name only identifies a workspace when no other workspace answers to it. 
 shared by two clones is reported as NOT unique rather than resolved — pl8 answers 409 for such a
 name, and picking a winner here would send somebody to the other one. Whether pl8 knows the
 repository at all is the OTHER half of that question and is not asked here; see
-`MachineWorkspace`.
+`AccountWorkspace`.
 
 `repoNameOfKey` and not `repoName`: these origins are already normalized keys, and the validating
 door refuses its own output. See `packages/git-repos/src/uri.ts`.

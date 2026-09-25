@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Copy, MoreVertical, PenLine, Trash2 } from "@frediverse/ui/icons";
-import type { MachineWorkspace } from "@studio/web-protocol";
+import type { AccountWorkspace } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -35,12 +35,12 @@ export function ProjectMenu({
   path: string;
   label: string;
   app: ProjectApp;
-  /** Why nothing here can run — no machine, or one busy. Empty when it can. */
+  /** Why nothing here can run — no file service, or one busy. Empty when it can. */
   blocked: string;
-  /** Where a copy may land — every OTHER workspace on this machine. */
-  targets: MachineWorkspace[];
+  /** Where a copy may land — every OTHER workspace of the account. */
+  targets: AccountWorkspace[];
   onCopy: (
-    to: MachineWorkspace,
+    to: AccountWorkspace,
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;

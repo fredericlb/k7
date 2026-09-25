@@ -1,4 +1,4 @@
-// sharesForProject.ts — which shares came out of THIS project. `origin` is written by the machine
+// sharesForProject.ts — which shares came out of THIS project. `origin` is written by the file service
 // as two basenames, not as a project's portable address, and that asymmetry is what the page must
 // cross to put a button on a row. Named at length rather than "projectShares": on Windows it would
 // collide with ProjectShares.tsx, whose case vite's resolver ignores.

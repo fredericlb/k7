@@ -1,5 +1,5 @@
 // NewWorkspace.tsx — the gesture that needs no server at all: a workspace of one's own, git
-// initialised on the machine with NO repository behind it. It holds nothing yet, deliberately —
+// initialised on the server with NO repository behind it. It holds nothing yet, deliberately —
 // which archetype the first project takes is a question the editor asks on the empty workspace,
 // where the answer is about to be looked at. See ../../docs/projects.md.
 
@@ -19,7 +19,7 @@ import { m } from "../paraglide/messages.js";
 import { workspaceFolderName } from "./projectName";
 
 export function NewWorkspace({
-  /** Why it is impossible, or "" — an offline machine is the ordinary state. */
+  /** Why it is impossible, or "" — a file service not answering is one. */
   blocked,
   onCreate,
 }: {

@@ -1,4 +1,4 @@
-// RepoList.tsx — the machine's workspaces, each with its projects indented: add one by SSH URI
+// RepoList.tsx — the account's workspaces, each with its projects indented: add one by SSH URI
 // (which registers it with pl8 AND clones it), or open a project straight into a new tab.
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
@@ -15,7 +15,7 @@ import {
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
-  MachineWorkspace,
+  AccountWorkspace,
   RepoProject,
   ShareSummary,
 } from "@studio/web-protocol";
@@ -41,9 +41,9 @@ const nameOf = (p: RepoProject): string =>
  * single project — those list nothing under them, so a copy in one would exist and never show.
  */
 const targetsFor = (
-  all: MachineWorkspace[],
-  from: MachineWorkspace,
-): MachineWorkspace[] =>
+  all: AccountWorkspace[],
+  from: AccountWorkspace,
+): AccountWorkspace[] =>
   all.filter((w) => w.name !== from.name && !w.isSingleProject);
 
 /** The folder holding the project, or null when it sits at the workspace root. */
@@ -69,7 +69,7 @@ export function RepoList({
   busy,
   error,
   adding,
-  hasMachine,
+  hasFileService,
   onImport,
   onCreateWorkspace,
   onPublish,
@@ -90,13 +90,13 @@ export function RepoList({
 }: {
   /** Opens the settings PANEL beside this list — the key is read there, not on a page. */
   onOpenSettings: () => void;
-  workspaces: MachineWorkspace[];
+  workspaces: AccountWorkspace[];
   busy: boolean;
   error: string | null;
   /** Where the running clone is, in git's own words, or null. */
   adding: string | null;
-  hasMachine: boolean;
-  /** Clone a repository onto this machine — the Import button's act. */
+  hasFileService: boolean;
+  /** Clone a repository onto the server — the Import button's act. */
   onImport: (uri: string) => Promise<void>;
   /** A workspace of one's own, git-initialised here with no repository behind it and nothing in it. */
   onCreateWorkspace: (
@@ -105,51 +105,51 @@ export function RepoList({
   ) => Promise<void>;
   /** Its first repository: the remote and the push — offered on a local workspace only. */
   onPublish: (
-    ws: MachineWorkspace,
+    ws: AccountWorkspace,
     uri: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  onOpen: (ws: MachineWorkspace) => void;
-  /** Why create and delete are impossible, or "" — both go through the machine, which is also what READS this list (../../docs/projects.md). */
+  onOpen: (ws: AccountWorkspace) => void;
+  /** Why create and delete are impossible, or "" — both go through the file service, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
   /** What stops a workspace being MADE or IMPORTED, on top of `blocked` — the account's library, which everything in one resolves through. */
   blockedWorkspace: string;
   /** Files dropped ON a row: everything dropped, since which one is importable — and what to say
    *  when none is — belongs with the state that can report it (packages/translator/docs/import.md). */
-  onDropProject: (ws: MachineWorkspace, files: File[]) => void;
+  onDropProject: (ws: AccountWorkspace, files: File[]) => void;
   onCreate: (
-    ws: MachineWorkspace,
+    ws: AccountWorkspace,
     folder: string,
     onStep: (s: string) => void,
     /** `arrangement`, `mix` or `video`. See NewProject. */
     shape: ProjectShape,
   ) => Promise<void>;
   onDelete: (
-    ws: MachineWorkspace,
+    ws: AccountWorkspace,
     project: RepoProject,
     onStep: (s: string) => void,
   ) => Promise<void>;
   /** Rename a project's folder in place — the SAME workspace commits, and pushes if it has a repository. */
   onRename: (
-    ws: MachineWorkspace,
+    ws: AccountWorkspace,
     project: RepoProject,
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** Copy a project into ANOTHER workspace on this machine — the destination commits, and pushes if it has a repository. */
+  /** Copy a project into ANOTHER workspace — the destination commits, and pushes if it has a repository. */
   onCopy: (
-    ws: MachineWorkspace,
+    ws: AccountWorkspace,
     project: RepoProject,
-    to: MachineWorkspace,
+    to: AccountWorkspace,
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
   /** A project's address in ITS app — an address and not an action: the row is a link, opening in a new tab. */
-  projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
+  projectHref: (ws: AccountWorkspace, project: RepoProject) => string;
   /** …and where the WORKSPACE opens, for a row that has no project to link to yet. */
-  workspaceHref: (ws: MachineWorkspace) => string;
-  /** Take a whole workspace off the machine — the folder and everything in it. */
-  onRemoveWorkspace: (ws: MachineWorkspace) => Promise<void>;
+  workspaceHref: (ws: AccountWorkspace) => string;
+  /** Delete a whole workspace — the folder and everything in it. */
+  onRemoveWorkspace: (ws: AccountWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
@@ -175,13 +175,13 @@ export function RepoList({
         </code>
       )}
 
-      {!hasMachine ? (
-        // The price of the move, said where it is paid: with no machine there is no list, and an empty one would read as a new account.
+      {!hasFileService ? (
+        // With no file service there is no list, and an empty one would read as a new account.
         <div className="flex flex-col items-center gap-2 rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           <ServerOff className="h-5 w-5 text-amber-500" />
-          <span>{m["repos.noMachineTitle"]()}</span>
+          <span>{m["repos.noFilesTitle"]()}</span>
           <span className="text-xs">
-            {parts((h) => m["repos.noMachineAside"](h), {
+            {parts((h) => m["repos.noFilesAside"](h), {
               settings: (
                 <button
                   type="button"
@@ -202,7 +202,7 @@ export function RepoList({
               {m["common.loading"]()}
             </span>
           ) : (
-            parts((h) => m["repos.emptyMachine"](h), {
+            parts((h) => m["repos.empty"](h), {
               new: <strong>{m["repos.newWord"]()}</strong>,
               import: <strong>{m["repos.importWord"]()}</strong>,
               key: (
@@ -345,7 +345,7 @@ export function RepoList({
                           </span>
                         )}
                       </a>
-                      {/* Before Supprimer: reading what you published comes ahead of the destructive act, and needs a machine (../../docs/projects.md). */}
+                      {/* Before Supprimer: reading what you published comes ahead of the destructive act, and needs the file service (../../docs/projects.md). */}
                       <ProjectShares
                         label={p.path === "." ? w.name : nameOf(p)}
                         shares={sharesOf(shares, w.name, p.path)}
@@ -371,7 +371,7 @@ export function RepoList({
                 </ul>
               )}
 
-              {/* A workspace whose portable address does not resolve opens through `@local`, which names a folder on THIS machine alone. */}
+              {/* A workspace whose portable address does not resolve opens through `@local`, which names the workspace's own folder. */}
               {w.origin && !w.uniqueName && (
                 <span className="mt-2 flex items-start gap-1 text-xs text-amber-500">
                   <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />

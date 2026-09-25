@@ -708,7 +708,7 @@ export interface WorkspaceList {
 }
 
 /** One workspace on the machine with the projects it holds — the only side that can answer; see docs/machine.md. */
-export interface MachineWorkspace {
+export interface AccountWorkspace {
   name: string;
   origin: string | null;
   repoName: string | null;
@@ -718,8 +718,8 @@ export interface MachineWorkspace {
 }
 
 /** Reply to GET /workspaces/projects on the file service. */
-export interface MachineWorkspaceList {
-  workspaces: MachineWorkspace[];
+export interface AccountWorkspaceList {
+  workspaces: AccountWorkspace[];
 }
 
 /** One surface a project declares, named and typed — enough to build its address and to gate a device. */

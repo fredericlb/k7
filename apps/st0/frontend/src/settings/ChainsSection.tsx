@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 import { parts } from "../i18nParts";
 import { describeDownload, followDownload } from "../modelDownload";
 import { m } from "../paraglide/messages.js";
-import { engineMachine, type Machine } from "../projects/api";
-import { probeMachine } from "./machine";
+import { type AccountFiles, accountFiles } from "../projects/api";
+import { findAccountFiles } from "./accountFiles";
 import { Section } from "./Section";
 
 type Which = "stems" | "instrumental";
@@ -114,17 +114,19 @@ function ChainPicker({
 }
 
 export function ChainsSection() {
-  const [machine, setMachine] = useState<Machine | null | undefined>(undefined);
+  const [fileService, setFileService] = useState<
+    AccountFiles | null | undefined
+  >(undefined);
   const [view, setView] = useState<ColdChainsReply | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<Fetching | null>(null);
 
   useEffect(() => {
-    void probeMachine().then((mc) => {
-      setMachine(mc);
+    void findAccountFiles().then((mc) => {
+      setFileService(mc);
       if (!mc) return;
-      void engineMachine
+      void accountFiles
         .coldChains(mc)
         .then(setView)
         .catch((e: Error) => setError(e.message));
@@ -133,11 +135,11 @@ export function ChainsSection() {
 
   /** Set it; the reply IS the new state, so a refused pick snaps back to what is actually stored. */
   const choose = (which: Which, ref: string) => {
-    if (!machine) return;
+    if (!fileService) return;
     setBusy(true);
     setError(null);
-    void engineMachine
-      .setColdChain(machine, which, ref)
+    void accountFiles
+      .setColdChain(fileService, which, ref)
       .then(setView)
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
@@ -145,22 +147,22 @@ export function ChainsSection() {
 
   /** Fetch every model the chain is missing, one after the other, then re-read the list — which is what turns it usable. */
   const download = (ref: string) => {
-    if (!machine) return;
+    if (!fileService) return;
     const say = (text: string, running: boolean, failed = false) =>
       setFetching({ ref, text, running, failed });
     say("…", true);
     void (async () => {
       try {
-        const jobs = await engineMachine.downloadChainModels(machine, ref);
+        const jobs = await accountFiles.downloadChainModels(fileService, ref);
         for (const job of jobs) {
           const end = await followDownload(
             job,
-            (id) => engineMachine.modelDownload(machine, id),
+            (id) => accountFiles.modelDownload(fileService, id),
             (j) => say(describeDownload(j), !j.done, !!j.error),
           );
           if (end.error) return;
         }
-        setView(await engineMachine.coldChains(machine));
+        setView(await accountFiles.coldChains(fileService));
       } catch (e) {
         say((e as Error).message, false, true);
       }
@@ -173,7 +175,7 @@ export function ChainsSection() {
       title={m["settings.chains.title"]()}
       hint={m["settings.chains.hint"]()}
     >
-      {machine === null ? (
+      {fileService === null ? (
         <p className="px-4 py-2.5 text-neutral-500 text-xs">
           {m["settings.chains.noMachine"]()}
         </p>

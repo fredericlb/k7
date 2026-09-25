@@ -16,7 +16,7 @@ import { SHAPES } from "./shapes";
 
 export function FirstProject({
   workspace,
-  /** Re-runs the gate's whole resolve, so what opens is what the machine now holds. */
+  /** Re-runs the gate's whole resolve, so what opens is what the file service now holds. */
   onCreated,
 }: {
   workspace: string;
