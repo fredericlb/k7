@@ -1,5 +1,5 @@
 // machineSync.ts — copying a set list onto one of THIS machine's targets (a stick plugged into it,
-// an FTP box it reaches), asked over a jobs channel. The tracks arrive resolved — pl8 holds the
+// a folder or a share it mounts), asked over a jobs channel. The tracks arrive resolved — pl8 holds the
 // catalogue — and each song is brought down through the tunnel just before it is written, so a
 // long set list reports as it goes. ADDITIVE: nothing on a target is ever deleted.
 // See ../docs/playlistSync.md.
@@ -14,12 +14,11 @@ import {
   m3uName,
   m3uText,
   parseSyncTarget,
-  safeUri,
   TARGET_PLAYLISTS_DIR,
   targetTrackPath,
 } from "@studio/song-schema/syncTarget";
 import type { SyncJob } from "@studio/web-protocol";
-import { type TargetWriter, writerFor } from "./syncWriters.ts";
+import { TargetFolder } from "./targetFolder.ts";
 
 /** One track to copy, as pl8 resolved it — `path` is médiathèque-relative, the rest is the layout. */
 export interface SyncTrack {
@@ -29,16 +28,12 @@ export interface SyncTrack {
   title: string;
 }
 
-/** The targets, every URI BLANKED of its password: the listing crosses to a browser. */
+/** The targets, by name and URI: a caller picks one by name and never sends a URI back. */
 const syncTargets: JobHandler = (_req, emit) => {
   const targets = loadPreferences().syncTargets ?? [];
   emit({
     type: "sync-targets",
-    targets: targets.map((t) => ({
-      name: t.name,
-      uri: safeUri(t.uri),
-      scheme: parseSyncTarget(t.uri)?.scheme ?? null,
-    })),
+    targets: targets.map((t) => ({ name: t.name, uri: t.uri })),
   });
 };
 
@@ -58,7 +53,7 @@ const sync: JobHandler = async (req, emit, ctx) => {
   const job: SyncJob = {
     id: String(req.id ?? ""),
     target: target.name,
-    uri: safeUri(target.uri),
+    uri: target.uri,
     playlist: String(req.playlist ?? ""),
     done: false,
     failed: false,
@@ -74,9 +69,8 @@ const sync: JobHandler = async (req, emit, ctx) => {
   const report = (): void =>
     emit({ type: "sync-job", job: { ...job, lines: [...job.lines] } });
   report();
-  let writer: TargetWriter | null = null;
+  const folder = new TargetFolder(parsed.root);
   try {
-    writer = writerFor(parsed);
     const written: string[] = [];
     for (const [i, t] of tracks.entries()) {
       job.phase = t.title;
@@ -89,13 +83,13 @@ const sync: JobHandler = async (req, emit, ctx) => {
         if (!(await ctx.fetch(local)))
           throw new Error("not in the médiathèque");
         const size = (await stat(local)).size;
-        const there = await writer.sizeOf(rel);
+        const there = await folder.sizeOf(rel);
         // Same size is "already there": a byte-for-byte check would re-read the whole target.
         if (there !== null && there === size) {
           job.skipped += 1;
           continue;
         }
-        await writer.put(rel, createReadStream(local));
+        await folder.put(rel, createReadStream(local));
         job.copied += 1;
       } catch (e) {
         // One track's failure is one line: a set list that stopped at its third song is not a sync.
@@ -105,22 +99,20 @@ const sync: JobHandler = async (req, emit, ctx) => {
     // The m3u goes in a folder the target ALREADY has — never created, see ../docs/playlistSync.md.
     job.phase = "playlist";
     report();
-    if (await writer.hasDir(TARGET_PLAYLISTS_DIR)) {
+    if (await folder.hasDir(TARGET_PLAYLISTS_DIR)) {
       const file = m3uName(job.playlist);
       const rel = `${TARGET_PLAYLISTS_DIR}/${file}`;
       try {
-        await writer.put(rel, Readable.from([m3uText(job.playlist, written)]));
+        await folder.put(rel, Readable.from([m3uText(job.playlist, written)]));
         job.m3u = rel;
       } catch (e) {
         job.lines.push(`${file}: ${(e as Error).message}`);
       }
     }
   } catch (e) {
-    // The RUN failed — a target that does not answer at all, unlike a track that did not copy.
+    // The RUN failed — a target that cannot be written at all, unlike a track that did not copy.
     job.failed = true;
     job.error = (e as Error).message;
-  } finally {
-    await writer?.close().catch(() => {});
   }
   job.done = true;
   job.phase = job.failed ? "failed" : "done";

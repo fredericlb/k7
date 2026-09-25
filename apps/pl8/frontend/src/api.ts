@@ -213,16 +213,15 @@ export const settings = {
     ),
 };
 
-/** One target as the machine offers it: the URI is already blanked, so this may be shown. */
+/** One target as the machine offers it: a name, and the folder's URI to show beside it. */
 export interface SyncTargetRow {
   name: string;
   uri: string;
-  scheme: string | null;
 }
 
 /** Copying a set list onto a machine's target. The engine holds the URI; here it is a NAME. */
 export const sync = {
-  /** What that machine can copy to — its URIs already blanked of any password. */
+  /** What that machine can copy to. */
   targets: async (engineId: string) =>
     json<{ targets: SyncTargetRow[] }>(
       await fetch(

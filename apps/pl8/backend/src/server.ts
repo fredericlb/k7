@@ -114,7 +114,7 @@ app.use(
   ),
 );
 
-// Copying a set list onto a machine's stick or FTP box — same division as the cut, docs/sync.md.
+// Copying a set list onto a machine's stick or folder — same division as the cut, docs/sync.md.
 app.use("/api/sync", bearerOrSession(requireAuth), syncRouter(engine));
 
 // Where a song is on an engine's machine, fetched there first — what the player hands the engine.

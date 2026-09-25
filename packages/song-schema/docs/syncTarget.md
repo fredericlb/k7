@@ -9,31 +9,26 @@ writes and the screen that offers the button read one definition of what a targe
 saying `file:///media/usb` while the writer resolves something else is the bug this arrangement makes
 impossible.
 
-## Two schemes, and the URI parsed rather than pattern-matched
+## A folder, and the URI parsed rather than pattern-matched
 
-`file://` and `ftp://`, through `new URL`. Percent-encoding, credentials, a port and an empty path
-all come out right for free, and a mount point called `Clé USB` arrives as those characters rather
-than as `Cl%C3%A9`.
+`file://` only, through `new URL`. Percent-encoding and an empty path come out right for free, and a
+mount point called `Clé USB` arrives as those characters rather than as `Cl%C3%A9`. A box on the
+network is a folder too, once the OS has mounted it — the reason is in
+[playlistSync.md](../../engine-host/docs/playlistSync.md).
 
-Three refusals are worth naming, since each is a URI somebody would reasonably write:
+The refusals worth naming, since each is a URI somebody would reasonably write:
 
 - **`file://otherbox/music`** — a file URI naming a host is a different machine's disk, which nothing
   here can write to. `localhost` is the legal spelling of "ours" and is kept.
 - **`file:///`** — parses, and names nothing to copy into.
-- **`sftp://`, `ftps://`, `smb://`, `http://`** — not promoted, not approximated. `sftp` is a
-  different protocol from `ftp`, and a scheme quietly treated as another is worse than a refusal:
-  somebody who wrote `ftps://` wants TLS, and getting a plaintext session instead is a security
-  answer given by accident.
+- **`file://user:pass@localhost/…`** — a folder takes no login; a URI carrying one is a credential in
+  a hand-edited file, which is what folders-only exists to avoid.
+- **`ftp://`, `sftp://`, `smb://`, `http://`** — not promoted, not approximated: somebody who wrote one
+  is told, rather than handed a copy by some other means.
 
 `null` rather than a throw, because this runs on a value out of a YAML file somebody typed. The
 caller reports it beside the field it breaks — the preferences normaliser drops the target, so no
 surface offers a button that cannot work.
-
-## `safeUri` exists so a listing can be shown
-
-An FTP target legitimately carries a password, and a listing crosses to a browser. `safeUri` blanks
-it and leaves everything else legible, so a person can still tell two boxes apart in a dropdown.
-It is what the target route answers with; the real URI never leaves the machine.
 
 ## `[artist]/[album]/[title].<ext>`
 

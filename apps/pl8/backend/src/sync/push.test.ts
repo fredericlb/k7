@@ -52,7 +52,7 @@ describe("a sync driven from pl8", () => {
         "sync-targets": (_req, emit) =>
           emit({
             type: "sync-targets",
-            targets: [{ name: "stick", uri: "file:///x", scheme: "file" }],
+            targets: [{ name: "stick", uri: "file:///x" }],
           }),
         async sync(req, emit) {
           asked.push(req);
@@ -108,7 +108,7 @@ describe("a sync driven from pl8", () => {
 
   it("lists the machine's own targets", async () => {
     expect(await targetsOn(deps, "e1")).toEqual({
-      targets: [{ name: "stick", uri: "file:///x", scheme: "file" }],
+      targets: [{ name: "stick", uri: "file:///x" }],
     });
   });
 

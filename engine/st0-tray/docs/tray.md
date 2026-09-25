@@ -49,7 +49,7 @@ ever urgent:
 | Audio | the interface ranking, as a list you drag |
 | Plugins | the installed catalogue, filtered, and the rescan that refills it |
 | Sessions | what this engine is holding, and the plugin editors it can open |
-| Sync | where a playlist may be copied to — a stick, a folder, an FTP box |
+| Sync | where a playlist may be copied to — a stick, a folder, a mounted share |
 | st0 instances | which st0 instances this engine is connected to, and a form to add one |
 | System | version, engine, registry — and every button that acts on them |
 
@@ -103,7 +103,7 @@ The filter is there because a working machine has hundreds of rows.
 
 ### Sync — the targets a playlist can be copied to
 
-A target is a name and a URI, `file://` or `ftp://`, and what a copy DOES with one is
+A target is a name and a `file://` URI, and what a copy DOES with one is
 [packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
 It is edited here for the reason the audio ranking is: it names something only this machine can
 reach. A hosted screen cannot know what `file:///media/usb` is, and pl8 offers the button but never
@@ -112,15 +112,10 @@ learns the address behind it.
 The list is the **whole value**, sent in one `sync.targets` as a reorder sends one `audio.priority`:
 an edit is a single act, and two halves of it could interleave with a poll.
 
-**The URI is shown in full, password and all.** Everywhere else in this repo it is blanked — pl8's
-dropdown gets `ftp://dj:***@box.lan` — and here it is not, because this window runs on the machine
-that already holds the file: hiding it would only stop you checking what you typed, while protecting
-nothing. It is the one surface where showing it sends it nowhere.
-
-**The scheme is checked here to answer at once, and that check is not the gate.** The supervisor's
+**The URI is checked here to answer at once, and that check is not the gate.** The supervisor's
 normaliser is (`packages/song/src/preferences.ts`), and it drops a target it cannot copy to, so a
 window that let one through would simply see it absent from the next snapshot. What the local check
-buys is a sentence naming the mistake — `sftp:// cannot be copied to` — instead of a row that
+buys is a sentence naming the mistake — `ftp:// cannot be copied to` — instead of a row that
 silently fails to appear. The tray still computes no policy: it refuses nothing the supervisor would
 have kept.
 

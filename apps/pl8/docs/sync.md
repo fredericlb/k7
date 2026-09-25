@@ -2,11 +2,11 @@
 
 ```
 POST /api/sync   { playlist, engineId, target }   →   { job, skipped }
-GET  /api/sync/targets?engineId=…                 →   { targets: [{name, uri, scheme}] }
+GET  /api/sync/targets?engineId=…                 →   { targets: [{name, uri}] }
 GET  /api/sync/:id                                 →   the job, as the machine last reported it
 ```
 
-The target itself, its two schemes and what the copy does are
+The target itself, why it is a folder and what the copy does are
 [packages/engine-host/docs/playlistSync.md](../../../packages/engine-host/docs/playlistSync.md).
 This page is the button and this service's half.
 
@@ -20,11 +20,11 @@ anything but a list of tracks.
 |---|---|---|
 | the playlist file, and the songs it names | ✓ | — |
 | which file is a song's master | ✓ | — |
-| the target's URI and its password | — | ✓ |
+| the target's folder | — | ✓ |
 | the bytes, and where they land | — | ✓ |
 
-The consequence worth stating out loud: **no FTP credential ever reaches this service.** A run names
-a target; the machine looks the URI up in its own preferences. pl8 mints everybody's session and
+The consequence worth stating out loud: **no path on anyone's machine is chosen here.** A run names
+a target; the machine looks the folder up in its own preferences. pl8 mints everybody's session and
 holds the one deploy key, and `docs/projects.md` is the page about not adding to that pile.
 
 The bytes do not pass through a request either. The machine brings each track down through its
@@ -75,8 +75,8 @@ Three states are told apart, because the remedies are in three different places:
 
 The second has its remedy on the machine and not here: targets are declared in the tray's settings
 window, Sync tab ([engine/st0-tray/docs/tray.md](../../../engine/st0-tray/docs/tray.md)). This screen
-deliberately offers no way to add one — it would mean typing an FTP password into a hosted page, and
-the whole arrangement is built so that credential never leaves the machine.
+deliberately offers no way to add one — a hosted page cannot know what `file:///media/usb` is on
+the machine it would be written to.
 
 While a run goes, a bar counts **tracks**, and the phase is the song being copied. When it finishes
 the line reads what was copied, what was already there, and where the m3u went when there was a

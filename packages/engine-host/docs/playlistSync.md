@@ -1,7 +1,7 @@
 # Copying a set list onto a target
 
-A **target** is somewhere this machine can put music: a stick, a folder, an FTP box. It has a name
-and a URI, it belongs to the MACHINE, and it is declared in `<state>/preferences.yaml` beside the
+A **target** is somewhere this machine can put music: a stick, a folder, a network share the OS
+has mounted. It has a name and a `file://` URI, it belongs to the MACHINE, and it is declared in `<state>/preferences.yaml` beside the
 audio device and the stems chain.
 
 ```yaml
@@ -9,7 +9,7 @@ syncTargets:
   - name: Clé USB
     uri: file:///media/usb/MUSIC
   - name: Régie
-    uri: ftp://dj:s3cret@box.lan/music
+    uri: file:///Volumes/regie/music
 ```
 
 They are edited in the **tray's settings window**, on its Sync tab
@@ -20,23 +20,22 @@ treats both the same way.
 ## Why the machine holds it, and not pl8
 
 Because a target is only reachable from here. `file:///media/usb` means nothing to a hosted
-container, and an FTP box on the rehearsal-room LAN is not on the internet. The same reasoning that
+container, and a share on the rehearsal-room LAN is not on the internet. The same reasoning that
 puts the stems chain in this file: it is a property of a machine rather than of an account.
 
-It has a second consequence that is the point rather than a side effect: **the URI never leaves this
-machine.** A listing blanks the password (`safeUri`), and a caller starts a run by naming the target,
-never by handing one over. So pl8 — the service holding everybody's session and the one deploy key —
-never sees a credential for anyone's FTP server.
+A caller starts a run by **naming** the target, never by handing a URI over, so pl8 can never point a
+run at a folder this machine did not declare.
 
-## Two schemes, and why not a third
+## Folders only
 
-`file://` and `ftp://`, and a target whose URI is neither is **dropped by the normaliser** rather
-than kept and refused later: a dead entry in a dropdown is a button that cannot work, and the file is
-hand-edited. `sftp://` is a different protocol and is not silently promoted to it — someone who wrote
-one meant it, and being told is the remedy.
+`file://`, and a target whose URI is anything else is **dropped by the normaliser** rather than kept
+and refused later: a dead entry in a dropdown is a button that cannot work, and the file is
+hand-edited.
 
-`ftps://` is not accepted either, so the FTP client never negotiates TLS behind a URI that did not
-ask for it. A scheme that said one thing and did another would be the worst of the three answers.
+A box on the network is reached by **mounting** it, then naming the mounted folder. The OS then
+holds the login, its reconnection and its encryption, and this file holds no credential at all —
+a URI carrying a login is refused for the same reason. One way to write a file is also one rule
+for "is it already there", `.part` included.
 
 ## The division of labour
 
@@ -45,7 +44,7 @@ ask for it. A scheme that said one thing and did another would be the worst of t
 | resolve the playlist into tracks | **pl8** | it holds the catalogue; this machine has no songs list |
 | hold the target and its URI | **this machine** | it is the only one that can reach it |
 | fetch the bytes | **this machine** | through its tunnel, into its copy of the médiathèque |
-| write them | **this machine** | one writer per scheme, and the sync knows neither |
+| write them | **this machine** | into a folder it can already see |
 
 So a `sync` job (`machineSync.ts`, asked over a jobs channel —
 `packages/engine-tunnel/docs/jobs.md`) takes a target NAME and a list of tracks each carrying its
@@ -71,12 +70,12 @@ A track already on the target **at the same size** is skipped; one that is absen
 is copied. Nothing on a target is removed, ever, whatever the set list says.
 
 This is the deliberate answer to "sync", and the reason is that the destination is somebody's disk:
-a URI one folder too high, or a mistyped FTP root, would otherwise delete what is under it. A wrong
+a URI one folder too high would otherwise delete what is under it. A wrong
 target here costs some copied files, which is a cost you can undo.
 
-Size and not a checksum: reading a whole FTP target back to hash it would cost the transfer this is
-trying to avoid. A server that answers no size at all reports `null`, which reads as "copy it" — the
-safe direction.
+Size and not a checksum: reading a whole target back to hash it — a stick, a share across the
+network — would cost the transfer this is trying to avoid. A copy is written to a `.part` and
+renamed, so an interrupted one never reads as a complete file of the wrong size.
 
 A track that fails is **one line in the job**, not the end of the run. A set list that stopped at its
 third song because one file was locked is not a sync.
@@ -121,9 +120,6 @@ A copy is minutes and a person is watching, so the machine sends a report of the
 change and pl8 keeps the latest, which is what its `GET /api/sync/:id` answers. The percentage counts **tracks**, not
 bytes: a bar driven by bytes would need a total this does not know until every file has been asked
 for.
-
-One FTP connection is held for the whole run and closed in a `finally`. A login per track is most of
-the wall-clock time of a sync onto a slow box.
 
 Jobs are forgotten ten minutes after they finish. Long enough to read the result of a long copy,
 short enough not to be a leak in a service that runs for weeks.

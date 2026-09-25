@@ -6,21 +6,22 @@ const targets = (v: unknown) =>
   normalizePreferences({ syncTargets: v }).syncTargets;
 
 describe("the sync targets a machine declares", () => {
-  it("keeps a file:// and an ftp:// one, in the order written", () => {
+  it("keeps its file:// targets, in the order written", () => {
     expect(
       targets([
         { name: "Clé USB", uri: "file:///media/usb/MUSIC" },
-        { name: "Régie", uri: "ftp://dj@box.lan/music" },
+        { name: "Régie", uri: "file:///Volumes/regie/music" },
       ]),
     ).toEqual([
       { name: "Clé USB", uri: "file:///media/usb/MUSIC" },
-      { name: "Régie", uri: "ftp://dj@box.lan/music" },
+      { name: "Régie", uri: "file:///Volumes/regie/music" },
     ]);
   });
 
   it("drops a URI nothing can copy to, so no dead button is ever offered", () => {
     expect(
       targets([
+        { name: "FTP", uri: "ftp://dj@box.lan/music" },
         { name: "SFTP", uri: "sftp://box.lan/music" },
         { name: "Web", uri: "http://box.lan/music" },
         { name: "Vide", uri: "" },

@@ -1,30 +1,20 @@
-// syncTarget.ts — where a machine can COPY a set list to: a name and a URI, `file://` or `ftp://`.
-// The vocabulary only — parsing a URI, laying a track out as `[artist]/[album]/[title]`, writing an
-// m3u. No `node:`, so the machine that copies and the screen that offers the button read the same
-// rules. See docs/syncTarget.md.
-
-/** The two schemes a target may use. `sftp` is a different protocol and is deliberately not one. */
-export const SYNC_SCHEMES = ["file", "ftp"] as const;
-export type SyncScheme = (typeof SYNC_SCHEMES)[number];
+// syncTarget.ts — where a machine can COPY a set list to: a name and a `file://` URI — a stick, a
+// folder, a share the OS already mounts. The vocabulary only — parsing a URI, laying a track out as
+// `[artist]/[album]/[title]`, writing an m3u. No `node:`, so the machine that copies and the screen
+// that offers the button read the same rules. See docs/syncTarget.md.
 
 /** One destination a machine knows about, as `preferences.yaml` declares it. */
 export interface SyncTarget {
   /** What the dropdown shows. Free text: it names a place a person recognises, not a path. */
   name: string;
-  /** `file:///media/usb/MUSIC` or `ftp://user:pass@box.lan/music`. */
+  /** `file:///media/usb/MUSIC`. */
   uri: string;
 }
 
 /** A target's URI, taken apart. Null for a URI this cannot copy to — the caller says so by name. */
 export interface ParsedTarget {
-  scheme: SyncScheme;
-  /** Where the tree starts, in the scheme's own terms: an absolute path, or the FTP root path. */
+  /** The folder the tree starts in, as an absolute path. */
   root: string;
-  /** FTP only. */
-  host?: string;
-  port?: number;
-  user?: string;
-  password?: string;
 }
 
 /** The folder a target must already HAVE for an m3u to be written — never created, see docs/syncTarget.md. */
@@ -38,40 +28,16 @@ export function parseSyncTarget(uri: string): ParsedTarget | null {
   } catch {
     return null;
   }
-  const scheme = url.protocol.replace(/:$/, "");
-  if (scheme === "file") {
-    // A file URI's path is percent-encoded and its host must be empty or `localhost`.
-    if (url.hostname && url.hostname !== "localhost") return null;
-    const path = decodeURIComponent(url.pathname);
-    if (!path || path === "/") return null;
-    // Windows spells `file:///C:/x` — the leading slash is the URI's, not the path's.
-    const root = /^\/[a-zA-Z]:/.test(path) ? path.slice(1) : path;
-    return { scheme: "file", root };
-  }
-  if (scheme === "ftp") {
-    if (!url.hostname) return null;
-    return {
-      scheme: "ftp",
-      host: url.hostname,
-      ...(url.port ? { port: Number(url.port) } : {}),
-      ...(url.username ? { user: decodeURIComponent(url.username) } : {}),
-      ...(url.password ? { password: decodeURIComponent(url.password) } : {}),
-      // The FTP root is the URI's path, "" meaning "wherever the login lands".
-      root: decodeURIComponent(url.pathname).replace(/^\/+|\/+$/g, ""),
-    };
-  }
-  return null;
-}
-
-/** A URI with any password blanked — what a listing, a log line and an error may show. */
-export function safeUri(uri: string): string {
-  try {
-    const url = new URL(uri);
-    if (url.password) url.password = "***";
-    return url.toString();
-  } catch {
-    return uri;
-  }
+  if (url.protocol !== "file:") return null;
+  // A file URI's host must be empty or `localhost`, and it carries no credentials.
+  if (url.hostname && url.hostname !== "localhost") return null;
+  if (url.username || url.password) return null;
+  // A file URI's path is percent-encoded.
+  const path = decodeURIComponent(url.pathname);
+  if (!path || path === "/") return null;
+  // Windows spells `file:///C:/x` — the leading slash is the URI's, not the path's.
+  const root = /^\/[a-zA-Z]:/.test(path) ? path.slice(1) : path;
+  return { root };
 }
 
 /** Characters no FAT/exFAT volume accepts, which is what a stick handed to a player is formatted as. */

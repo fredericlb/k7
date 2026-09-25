@@ -49,7 +49,7 @@ async function channel(
   return ch;
 }
 
-/** What that machine can copy to. The URIs come back with their passwords already blanked. */
+/** What that machine can copy to, by name and folder URI. */
 export async function targetsOn(
   deps: SyncDeps,
   engineId: string,

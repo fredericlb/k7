@@ -24,7 +24,7 @@ const body = z.object({
   playlist: z.string().min(1),
   /** Which registered engine holds the target — the browser is already on one. */
   engineId: z.string().min(1),
-  /** The target's NAME on that machine; its URI stays there, password included. */
+  /** The target's NAME on that machine; its URI stays there. */
   target: z.string().min(1),
 });
 

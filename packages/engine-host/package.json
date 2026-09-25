@@ -27,13 +27,12 @@
     "node": ">=18"
   },
   "dependencies": {
-    "basic-ftp": "^6.2.1",
     "@studio/engine-client": "*",
     "@studio/engine-tunnel": "*",
-    "@studio/stem-separation": "*",
-    "@studio/web-protocol": "*",
     "@studio/song": "*",
-    "@studio/song-schema": "*"
+    "@studio/song-schema": "*",
+    "@studio/stem-separation": "*",
+    "@studio/web-protocol": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

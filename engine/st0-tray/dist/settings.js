@@ -315,22 +315,21 @@ function renderSystem(sys) {
 
 // --- the sync targets -------------------------------------------------------
 
-/** The two schemes, checked here only to answer AT ONCE; the supervisor's normaliser is the gate. */
+/** A file:// folder, checked here only to answer AT ONCE; the supervisor's normaliser is the gate. */
 function badUri(uri) {
   let url;
   try {
     url = new URL(uri);
   } catch {
-    return "not an address — file:///… or ftp://…";
+    return "not an address — file:///…";
   }
-  if (url.protocol === "file:") {
-    if (url.hostname && url.hostname !== "localhost")
-      return "a file:// address names this machine's own disk";
-    return url.pathname && url.pathname !== "/" ? "" : "no folder in that address";
-  }
-  if (url.protocol === "ftp:") return url.hostname ? "" : "no host in that address";
-  // Named rather than ignored: sftp:// is a different protocol, and ftps:// is not this one either.
-  return `${url.protocol.replace(":", "")}:// cannot be copied to — file:// or ftp:// only`;
+  // Named rather than ignored: a network box is reached by mounting it, then naming the folder.
+  if (url.protocol !== "file:")
+    return `${url.protocol.replace(":", "")}:// cannot be copied to — mount it, then give its file:// folder`;
+  if (url.hostname && url.hostname !== "localhost")
+    return "a file:// address names this machine's own disk";
+  if (url.username || url.password) return "a file:// address carries no login";
+  return url.pathname && url.pathname !== "/" ? "" : "no folder in that address";
 }
 
 /** Send the whole list up, as the audio ranking does: an edit is one act. */

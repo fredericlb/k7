@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { FolderSync, HardDrive, Loader2, Server } from "@frediverse/ui/icons";
+import { FolderSync, HardDrive, Loader2 } from "@frediverse/ui/icons";
 import type { SyncJob } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type SyncTargetRow, sync } from "./api";
@@ -92,11 +92,7 @@ export function PlaylistSync({ playlist }: { playlist: string }) {
             ) : targets.length ? (
               targets.map((t) => (
                 <DropdownMenuItem key={t.name} onClick={() => void run(t.name)}>
-                  {t.scheme === "ftp" ? (
-                    <Server className="mr-2 h-4 w-4" />
-                  ) : (
-                    <HardDrive className="mr-2 h-4 w-4" />
-                  )}
+                  <HardDrive className="mr-2 h-4 w-4" />
                   <span className="truncate">{t.name}</span>
                   <span className="ml-2 truncate text-muted-foreground text-xs">
                     {t.uri}

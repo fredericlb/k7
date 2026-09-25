@@ -104,7 +104,7 @@ A row adds the **master**; the pills beside it add a **variant**, without which 
 The songs are already here — this is the médiathèque — so there is no link away to file one first.
 That is the one thing this screen has that st0's does not.
 
-## Synchroniser — the set list onto a stick or an FTP box
+## Synchroniser — the set list onto a stick or a folder
 
 The header carries a **Synchroniser** button whose dropdown lists the targets the chosen machine
 declares. What a target is, and what the copy does — `[artist]/[album]/[title]`, additive, the m3u

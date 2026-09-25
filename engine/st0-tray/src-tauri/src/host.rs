@@ -39,8 +39,7 @@ pub struct AudioDevice {
 #[serde(rename_all = "camelCase", default)]
 pub struct SyncTarget {
     pub name: String,
-    /// `file:///…` or `ftp://…`, shown in full. This window runs ON the machine that holds the
-    /// file, so it is the one surface where a password in it is not being sent anywhere.
+    /// `file:///…`, the folder a copy lands in.
     pub uri: String,
 }
 

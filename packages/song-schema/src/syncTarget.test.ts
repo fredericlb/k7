@@ -3,7 +3,6 @@ import {
   m3uName,
   m3uText,
   parseSyncTarget,
-  safeUri,
   targetSegment,
   targetTrackPath,
 } from "./syncTarget.ts";
@@ -11,7 +10,6 @@ import {
 describe("reading a target URI", () => {
   it("takes a file:// path, the triple slash included", () => {
     expect(parseSyncTarget("file:///media/usb/MUSIC")).toEqual({
-      scheme: "file",
       root: "/media/usb/MUSIC",
     });
   });
@@ -27,24 +25,10 @@ describe("reading a target URI", () => {
     expect(parseSyncTarget("file:///C:/Music")?.root).toBe("C:/Music");
   });
 
-  it("takes an ftp:// host, with the credentials when they are there", () => {
-    expect(parseSyncTarget("ftp://dj:s3cret@box.lan:2121/music")).toEqual({
-      scheme: "ftp",
-      host: "box.lan",
-      port: 2121,
-      user: "dj",
-      password: "s3cret",
-      root: "music",
-    });
-  });
-
-  it("reads an ftp:// with no path as the login's own folder", () => {
-    expect(parseSyncTarget("ftp://box.lan")?.root).toBe("");
-  });
-
-  it("refuses everything that is not one of the two schemes", () => {
-    // `sftp` is a DIFFERENT protocol, and http would silently copy nothing.
+  it("refuses everything that is not a folder on this machine", () => {
+    // A network box is reached by mounting it, so the OS holds the credentials and not this file.
     for (const bad of [
+      "ftp://dj:s3cret@box.lan/music",
       "sftp://box.lan/music",
       "http://box.lan/music",
       "smb://nas/music",
@@ -54,6 +38,8 @@ describe("reading a target URI", () => {
       "file://otherbox/music",
       // Nothing to copy INTO.
       "file:///",
+      // A file URI has no business carrying a login.
+      "file://dj:pw@localhost/media/usb",
     ])
       expect(parseSyncTarget(bad)).toBeNull();
   });
@@ -62,15 +48,6 @@ describe("reading a target URI", () => {
     expect(parseSyncTarget("file://localhost/media/usb")?.root).toBe(
       "/media/usb",
     );
-  });
-});
-
-describe("showing one", () => {
-  it("blanks the password and leaves everything else legible", () => {
-    expect(safeUri("ftp://dj:s3cret@box.lan/music")).toBe(
-      "ftp://dj:***@box.lan/music",
-    );
-    expect(safeUri("file:///media/usb")).toBe("file:///media/usb");
   });
 });
 
