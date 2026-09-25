@@ -154,7 +154,7 @@ layout; almost nothing else.
 | slot | what st0 puts there |
 |---|---|
 | `title` / `subtitle` | **nothing**, inside a project — see below |
-| `children` | the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
+| `children` | the project's name, the engine playing it, its alternatives picker, the workspace warning, and the **transport** centred over them |
 | `items` | **empty** — see below |
 | `actions` | the **master meter**, then the pane row, Playlists (a SET only), Share, the cog — or, on a phone, the one menu they collapse into |
 
@@ -170,6 +170,12 @@ while playing, not clicked, and the divider after it is what says so.
 
 The **way back to the home page** is the project's own name, the only name left in the bar. It is a
 whole-page navigation, and plain text on a frozen share (`docs/shared.md`).
+
+**The engine is named right after it** (`components/EngineSwitch.tsx`), because which machine plays
+the song is the first thing to check when it sounds wrong or not at all. Its menu lists the engines
+MEASURED when it opens, not a list kept from the gate, and picking one moves the project there
+without the full-screen picker: the files are the server's, so a switch costs the playing position
+and nothing else. An engine another tab or person holds is shown and refused before the click.
 
 The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
 control goes in `actions`*), and here it lands on a real distinction. A **pane** button fullscreens

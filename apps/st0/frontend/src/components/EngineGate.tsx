@@ -90,7 +90,10 @@ export function EngineGate({
 
   // The claim is a LEASE this tab keeps alive ON THIS PROJECT (@studio/engine-browser/docs/lease.md); asleep, the cleanup releases it.
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only while phase.k is "chosen", and depending on the whole object would re-hold on every phase change.
+  /** The engine held, by id: a switch from one engine to another keeps `phase.k` and must still move the lease. */
+  const heldId = phase.k === "chosen" ? phase.engine.engine.id : null;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only while phase.k is "chosen"; `heldId` is what says it changed.
   useEffect(() => {
     if (phase.k !== "chosen" || asleep) return;
     const engine = phase.engine;
@@ -104,7 +107,7 @@ export function EngineGate({
           tookFor: why.tookFor,
         }),
     });
-  }, [phase.k, claimProject, asleep]);
+  }, [phase.k, heldId, claimProject, asleep]);
 
   useEffect(() => {
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
@@ -135,6 +138,8 @@ export function EngineGate({
           setPhase({ k: "picking" });
           void refresh();
         }}
+        // From the header's engine menu: straight to that engine, no picker in between.
+        onSwitchEngine={(r) => void pick(r)}
         onIdle={() => setAsleep(true)}
         onResume={() => setAsleep(false)}
       />

@@ -102,6 +102,7 @@ import { CommentsPanel } from "./components/CommentsPanel";
 import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
+import { EngineSwitch } from "./components/EngineSwitch";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
@@ -182,9 +183,9 @@ import {
 } from "./keys";
 import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
-import { describeDownload, followDownload } from "./modelDownload";
 import { BARE_TRANSPORT, isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
+import { describeDownload, followDownload } from "./modelDownload";
 import {
   chainRefFromCreate,
   createForGraphCommand,
@@ -233,6 +234,7 @@ import { isTool, TOOLS, type Tool } from "./timelineTools";
 import type {
   CommandInfo,
   ProjectInfo,
+  RankedEngine,
   WebAutomationLane,
   WebGraph,
   WebVideoTrack,
@@ -260,6 +262,8 @@ export default function App({
   userEmail,
   onQuitWorkspace,
   onChangeEngine,
+  engine,
+  onSwitchEngine,
   snapshot,
 }: {
   engineUrl: EngineUrl;
@@ -270,6 +274,10 @@ export default function App({
   onQuitWorkspace: () => void;
   /** Back to the engine picker — the settings panel's Compte tab. */
   onChangeEngine: () => void;
+  /** The engine playing this project, for the header's engine menu; absent on a share, which has none. */
+  engine?: RankedEngine;
+  /** Move this project to another engine from that menu. */
+  onSwitchEngine?: (r: RankedEngine) => void;
   /** The FROZEN snapshot this shell draws when it was opened through a share link — see docs/shared.md. */
   snapshot?: OpenShare;
 }) {
@@ -2757,6 +2765,10 @@ export default function App({
               >
                 {project?.name || "…"}
               </a>
+            )}
+            {/* Which engine plays this project, and the way to another (components/EngineSwitch.tsx). */}
+            {!frozen && engine && onSwitchEngine && (
+              <EngineSwitch current={engine} onSwitch={onSwitchEngine} />
             )}
             {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
             {snapshot && (

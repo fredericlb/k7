@@ -652,5 +652,8 @@
   "project.renameWarning": "A link to the old address stops answering, and so does an editor already open on it. If this machine is playing the project, the engine stops.",
   "project.renameSame": "that is the name it has already",
   "project.menu": "What can be done with {label}",
-  "hc.renameSame": "{name} is called that already"
+  "hc.renameSame": "{name} is called that already",
+  "engineSwitch.hint": "Playing on {engine} — click to move this project to another engine",
+  "engineSwitch.none": "No engine answers",
+  "engineSwitch.inUse": "in use"
 }
