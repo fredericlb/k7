@@ -5,7 +5,8 @@ server keeps it: `$STUDIO_FILES_ROOT/<account>/workspace/…`, served at `/api/f
 an engine only ever plays a **copy** it fetched through its tunnel
 (`packages/engine-tunnel/docs/tunnel.md`). The server is the ONLY place a workspace lives: an
 engine's machine is shared by whichever accounts play on it and holds none
-(`packages/file-service/docs/owner.md`). Unset, nothing is mounted, and there are no workspaces.
+(`packages/file-service/docs/owner.md`). So `$STUDIO_FILES_ROOT` is **required**: a pl8 without
+it refuses to start, since the origin it would serve could open no project at all.
 
 ## One file-service process per account
 

@@ -24,7 +24,7 @@ import express from "express";
 import { z } from "zod";
 import { startAnalysisSweep } from "./analysisSweep.ts";
 import { openCors } from "./cors.ts";
-import { mountFileHub } from "./fileHub.ts";
+import { mountFileHub, requireFilesRoot } from "./fileHub.ts";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
@@ -35,6 +35,9 @@ import { syncRouter } from "./routes/sync.ts";
 
 // Dev config layered INTO process.env, never read into a value — ../docs/config.md.
 Object.assign(process.env, loadServiceEnv("pl8-backend"));
+
+// Before anything listens: without it no project can open anywhere — packages/file-hub/docs/fileHub.md.
+const FILES_ROOT = requireFilesRoot();
 
 const PORT = Number(process.env.PORT || 8795);
 
@@ -75,8 +78,8 @@ app.use("/api/settings", requireAuth, settingsRouter);
 // This service's OWN engine registry, mounted as st0 mounts one — see docs/engine.md.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
 
-// The accounts' workspaces, when this server hosts them — packages/file-hub/docs/fileHub.md.
-const fileHub = mountFileHub(app, engine, requireAuth, PORT);
+// The accounts' workspaces, which live here and nowhere else — packages/file-hub/docs/fileHub.md.
+const fileHub = mountFileHub(app, engine, requireAuth, PORT, FILES_ROOT);
 
 // Play on THIS host's outputs: the library is right here, so a path is all that crosses —
 // packages/mpv-player/docs/mpvPlayer.md. Under a dot-directory, like the prefs below, so no
@@ -177,5 +180,5 @@ const server = app.listen(PORT, () => {
     );
   }
   // Advertised so this machine's file service finds the médiathèque; an engine joins this registry only once the user adds it in the tray.
-  engine.serve(server, url, () => void fileHub?.stop());
+  engine.serve(server, url, () => void fileHub.stop());
 });

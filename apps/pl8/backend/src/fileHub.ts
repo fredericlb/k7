@@ -1,21 +1,31 @@
-// fileHub.ts — pl8 hosts the accounts' WORKSPACES when `$STUDIO_FILES_ROOT` says where: one
-// file service per account, beside the registry whose tunnels reach the engines that play them.
-// Unset, nothing is mounted and projects stay on the engines' machines. See
-// packages/file-hub/docs/fileHub.md.
+// fileHub.ts — pl8 hosts the accounts' WORKSPACES under `$STUDIO_FILES_ROOT`: one file service per
+// account, beside the registry whose tunnels reach the engines that play them. It is the only place
+// a workspace lives, so a pl8 without it refuses to start rather than serve an origin where no
+// project can open. See packages/file-hub/docs/fileHub.md.
 
 import type { EngineMount } from "@studio/engine-registry";
 import { FILE_HUB_HELLO, FILE_HUB_PATH, FileHub } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
 import type { Express, RequestHandler } from "express";
 
+/** `$STUDIO_FILES_ROOT`, or the process exits with what to set — called before anything listens. */
+export function requireFilesRoot(): string {
+  const dataRoot = process.env.STUDIO_FILES_ROOT?.trim();
+  if (dataRoot) return dataRoot;
+  console.error(
+    "✗ $STUDIO_FILES_ROOT is not set — it is where the accounts' workspaces live, and there is no other place.\n" +
+      "  Set it to a writable folder (env.yaml's pl8-backend in dev, the compose file in production).",
+  );
+  process.exit(1);
+}
+
 export function mountFileHub(
   app: Express,
   engine: EngineMount,
   requireAuth: RequestHandler,
   port: number,
-): FileHub | null {
-  const dataRoot = process.env.STUDIO_FILES_ROOT;
-  if (!dataRoot) return null;
+  dataRoot: string,
+): FileHub {
   const hub = new FileHub({
     dataRoot,
     mediatekRoot: mediatekDir(),

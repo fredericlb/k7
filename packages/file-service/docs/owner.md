@@ -32,5 +32,5 @@ What stays is what belongs to the **machine**, for every account alike: its méd
 speakers, its plugin scan, the renders and separations a hosted service asks of it, and its
 playlist sync targets.
 
-A deployment whose server hosts no workspace (`$STUDIO_FILES_ROOT` unset) therefore has none at
-all: the server is where a project lives, or it lives nowhere.
+The server is where a project lives, so pl8 refuses to start without `$STUDIO_FILES_ROOT`
+(`packages/file-hub/docs/fileHub.md`).
