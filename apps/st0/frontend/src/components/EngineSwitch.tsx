@@ -4,8 +4,9 @@
 // engine: the files are the server's, so nothing is lost but the playing position. See ../../docs/shell.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Check, Loader2, Server } from "@frediverse/ui/icons";
+import { Check, Loader2, Server, TriangleAlert } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import type { Compatibility } from "@studio/engine-browser/compat";
 import { formatLatency } from "@studio/web-protocol/quality";
 import { useEffect, useRef, useState } from "react";
 import { engines } from "../api";
@@ -19,10 +20,21 @@ const nameOf = (r: RankedEngine): string =>
 export function EngineSwitch({
   current,
   onSwitch,
+  compat,
 }: {
   current: RankedEngine;
   onSwitch: (r: RankedEngine) => void;
+  /** How compatible `current` is with the open project; under 100 draws a warning beside its name. Null: not known, nothing drawn. */
+  compat?: Compatibility | null;
 }) {
+  // What the warning says, or null when there is none to draw.
+  const incompatible =
+    compat && compat.score < 100
+      ? m["engineSwitch.incompatible"]({
+          score: compat.score,
+          missing: compat.missing.map((p) => p.name).join(", "),
+        })
+      : null;
   const [open, setOpen] = useState(false);
   const [ranked, setRanked] = useState<RankedEngine[] | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -68,6 +80,16 @@ export function EngineSwitch({
       >
         <Server className="h-3 w-3 shrink-0" />
         <span className="max-w-[8rem] truncate">{nameOf(current)}</span>
+        {incompatible && (
+          <span
+            className="flex shrink-0 text-amber-500"
+            title={incompatible}
+            role="img"
+            aria-label={incompatible}
+          >
+            <TriangleAlert className="h-3 w-3" />
+          </span>
+        )}
       </Button>
       {open && (
         <div

@@ -36,6 +36,19 @@ a route beside this one: a route that remembers the pairing while the browser te
 on its own socket makes one act two doors, and the verb does both, in the order that survives a
 slow rig.
 
+## `/project-plugins` answers about a project that is NOT open
+
+`GET /project-plugins?project=<rel>` lists the plugins one project of the workspace needs its
+engine to host — internal ones and externals (VST and kin), each once — as `{ format, name }`
+(`pluginNeeds.ts`). jsdsp, Faust and offline modules are left out: they are built from the
+project's own source on whichever engine plays it.
+
+It takes the project in the query rather than reading the active one because st0's `EngineGate`
+asks it BEFORE any engine is chosen, to score each candidate's catalogue against it
+(`packages/engine-browser/src/compat.ts`); opening the project would already need the engine.
+The header asks it again of the open project on each revision, since adding a module can add a
+plugin.
+
 ## The three routes that answer about things OUTSIDE the open song
 
 `/module-libraries`, `/library-chains` and `/playlists` sit beside `/tree` rather than inside

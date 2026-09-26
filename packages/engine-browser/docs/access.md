@@ -97,6 +97,16 @@ engine a document itself, which the server's files would name in paths the engin
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
 - **The picker's policy**: pl8 leaves an editor open with no engine, st0's gate does not. A
   product difference, not a plumbing one. st0 also never asks when `find()` answers
-  `ambiguous`: it takes `bestEngine` (`choose.ts`) — best latency tier, then the highest
-  performance score, then the lowest latency — and does not store it as the preference, so the
-  next open ranks afresh.
+  `ambiguous`: it takes `bestEngine` (`choose.ts`), and does not store that as the preference,
+  so the next open ranks afresh. The order:
+  1. **compatibility** with the project (`compat.ts`): the share of the plugins the project
+     needs its engine to host — internal and VST alike — that the engine's catalogue has,
+     `available / required × 100`, floored so only a full house reads 100. An engine whose
+     catalogue did not arrive in time ranks below any score;
+  2. the **remembered** engine, but only among the most compatible — never over a better one;
+  3. the latency **tier**, then the **performance** score, then the latency in ms.
+
+  The project's needs come from the file service's `/project-plugins`, which the server answers
+  with no engine bound; each catalogue from the engine itself, `list-plugins` on a socket of its
+  own — a probe query, answered without a session. When the needs cannot be told (not a `@local`
+  address, no hosted files) compatibility is left out and the order starts at 2.

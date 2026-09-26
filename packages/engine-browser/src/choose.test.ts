@@ -119,4 +119,48 @@ describe("bestEngine", () => {
     expect(bestEngine([rated("busy", 2, "Q1", 900, true)])).toBeNull();
     expect(bestEngine([])).toBeNull();
   });
+
+  // An engine missing a plugin plays the song wrong: no link or machine makes up for that.
+  it("compares compatibility before the link and the machine", () => {
+    const scores: Record<string, number> = { fast: 50, slow: 100 };
+    const r = bestEngine(
+      [rated("fast", 2, "Q1", 3000), rated("slow", 40, "Q3", 500)],
+      { compat: (id) => scores[id] },
+    );
+    expect(r?.engine.id).toBe("slow");
+  });
+
+  it("among equally compatible engines, falls back to link then machine", () => {
+    const r = bestEngine(
+      [
+        rated("partial", 2, "Q1", 3000),
+        rated("full-weak", 4, "Q1", 800),
+        rated("full-strong", 9, "Q1", 1600),
+      ],
+      { compat: (id) => (id === "partial" ? 80 : 100) },
+    );
+    expect(r?.engine.id).toBe("full-strong");
+  });
+
+  // Unknown is not "fully compatible": an engine that could not say ranks under one that could.
+  it("ranks an engine whose compatibility is unknown below any known score", () => {
+    const r = bestEngine(
+      [rated("silent", 2, "Q1", 3000), rated("known", 30, "Q2", 500)],
+      { compat: (id) => (id === "known" ? 0 : null) },
+    );
+    expect(r?.engine.id).toBe("known");
+  });
+
+  it("prefers the remembered engine only among the most compatible", () => {
+    const eng = [rated("mine", 30, "Q2", 500), rated("other", 2, "Q1", 3000)];
+    expect(
+      bestEngine(eng, { compat: () => 100, preferId: "mine" })?.engine.id,
+    ).toBe("mine");
+    expect(
+      bestEngine(eng, {
+        compat: (id) => (id === "mine" ? 90 : 100),
+        preferId: "mine",
+      })?.engine.id,
+    ).toBe("other");
+  });
 });

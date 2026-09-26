@@ -7,6 +7,7 @@
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
 import { engineAccess } from "@studio/engine-browser/access";
+import type { PluginNeed } from "@studio/engine-browser/compat";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
@@ -125,6 +126,13 @@ export const api = {
 
   // The LISTING only: a track goes up with `upload` and is played over `mediaUrl`, both of which already take any workspace path.
   references: () => fget<{ references: ReferenceTrack[] }>("/references"),
+
+  // --- What a project asks of its engine (engineCompat.ts) ---
+
+  projectPlugins: (project: string) =>
+    fget<{ plugins: PluginNeed[] }>(
+      `/project-plugins?project=${encodeURIComponent(project)}`,
+    ),
 
   // --- A node's model, fetched onto this machine (the right-click's "Download model") ---
 

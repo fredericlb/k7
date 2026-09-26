@@ -91,6 +91,21 @@ filesRouter.put(
 );
 // No input-pair route: grouping an interface's inputs is `system channel type` — see docs/fileRoutes.md.
 
+/** The plugins a project of this workspace needs its engine to host — asked BEFORE an engine is chosen, see docs/fileRoutes.md. */
+filesRouter.get(
+  "/project-plugins",
+  wrap((req, res) => {
+    const project = String(req.query.project ?? "");
+    if (!project)
+      return res.status(400).json({ error: "project is required" });
+    try {
+      res.json({ plugins: req.ws!.pluginNeeds(project) });
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  }),
+);
+
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(
   "/module-libraries",

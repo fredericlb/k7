@@ -3,9 +3,10 @@
 ## What wraps the editor (`main.tsx`)
 
 The gates, outermost first: **AuthGate** (you must be signed in — hosted backend OIDC),
-**EngineGate** (pick which registered engine to drive — the account's remembered one if it
-answers, else the best one `bestEngine` finds, without asking; the picker shows only when no engine
-is usable, or when you ask to change), and **ProjectGate** (rendered by
+**EngineGate** (pick which registered engine to drive, without asking: the one most COMPATIBLE
+with the project — it has the plugins the project uses, `engineCompat.ts` — then the account's
+remembered one among those, then the best link and machine; the picker shows only when no engine
+is usable, or when you ask to change — `@studio/engine-browser/docs/access.md`), and **ProjectGate** (rendered by
 EngineGate: resolve the repository this editor was opened on into a folder on that engine's
 machine — cloning it if it has never been there — then mount the editor). Several tabs may open
 one project at once; there is no single-tab lease.
@@ -178,6 +179,11 @@ the song is the first thing to check when it sounds wrong or not at all. Its men
 MEASURED when it opens, not a list kept from the gate, and picking one moves the project there
 without the full-screen picker: the files are the server's, so a switch costs the playing position
 and nothing else. An engine another tab or person holds is shown and refused before the click.
+
+A **warning triangle** follows the name when that engine lacks a plugin the open project uses —
+its compatibility under 100 — and its tooltip says the score and which plugins are missing
+(`hooks/useEngineCompat.ts`). Nothing is drawn while either half is unknown: a warning that might
+be false is worse than none.
 
 The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
 control goes in `actions`*), and here it lands on a real distinction. A **pane** button fullscreens

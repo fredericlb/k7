@@ -1,8 +1,9 @@
 // EngineGate.tsx — choose the engine before the editor mounts. There is no fixed localhost
 // socket: engines register themselves, so this lists them, MEASURES each one's latency,
-// and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
-// back on any browser — and is reused whenever it is still reachable; without one, the best
-// engine is taken (`bestEngine`), and the picker only appears when none is usable or on asking.
+// and mounts <App/> with the chosen ws address. It picks for you (`bestEngine`): the engine
+// most COMPATIBLE with the project first (it has the plugins the project uses —
+// ../engineCompat.ts), the account's remembered one among those, then the best link and
+// machine. The picker only appears when none is usable, or on asking.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { bestEngine } from "@studio/engine-browser/choose";
@@ -16,6 +17,7 @@ import {
 } from "@studio/project-shell/launch";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { engines } from "../api";
+import { addressedProjectNeeds, compatByEngine } from "../engineCompat";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
@@ -119,10 +121,23 @@ export function EngineGate({
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
     let cancelled = false;
     void (async () => {
-      // List, preference, probe and policy in one call — the same four steps in the same order as pl8.
-      const { ranked: r, chosen } = await engines.find();
+      // List, preference, probe and policy in one call — the same four steps in the same order as pl8 — beside what the project needs.
+      const [{ ranked: r, chosen, rememberedId }, needs] = await Promise.all([
+        engines.find(),
+        addressedProjectNeeds(),
+      ]);
       if (cancelled) return;
       setRanked(r);
+      // Needs known: compatibility decides first, and the remembered engine only wins among the most compatible.
+      if (needs) {
+        const compat = await compatByEngine(r, needs);
+        if (cancelled) return;
+        const fit = bestEngine(r, {
+          compat: (id) => compat.get(id)?.score ?? null,
+          preferId: rememberedId,
+        });
+        if (fit && (await pick(fit, false))) return;
+      }
       if (chosen && (await pick(chosen))) return;
       // Nothing remembered and reachable: take the best link, then the strongest machine, rather than ask. Not remembered, so a better engine appearing later still wins the next open.
       const best = bestEngine(r);

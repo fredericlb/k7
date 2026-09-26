@@ -168,6 +168,7 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
+import { type PluginNeed, pluginNeedsOf } from "./pluginNeeds.ts";
 // The four export acts, behind a host of six members — see shareOps.ts.
 import {
   buildShare,
@@ -1187,6 +1188,13 @@ export class Workspace {
     const marked = this.readActiveMarker();
     if (marked && isProjectDir(marked)) return this.toRel(marked);
     return projectDirsUnder(this.root)[0] ?? null;
+  }
+
+  /** The plugins one project of this workspace needs its engine to host, read without opening it — pluginNeeds.ts. */
+  pluginNeeds(project: string): PluginNeed[] {
+    const dir = this.safePath(project);
+    if (!isProjectDir(dir)) throw new Error(`not a project: ${project}`);
+    return pluginNeedsOf(dir);
   }
 
   /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */

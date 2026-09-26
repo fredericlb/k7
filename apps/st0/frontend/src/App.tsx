@@ -150,6 +150,7 @@ import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import { useCameras } from "./hooks/useCameras";
 import { useCommandKeys } from "./hooks/useCommandKeys";
+import { useEngineCompat } from "./hooks/useEngineCompat";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useInputDevices } from "./hooks/useInputDevices";
 import { useLogs } from "./hooks/useLogs";
@@ -714,6 +715,14 @@ export default function App({
   // Read by `onLaneToggle`, which must not re-bind every time the picture doc is refetched.
   const videoTracksRef = useRef(videoTracks);
   videoTracksRef.current = videoTracks;
+
+  // Has the engine every plugin the open project uses? The header's warning when not — hooks/useEngineCompat.ts.
+  const engineCompat = useEngineCompat(
+    engineRef,
+    connected,
+    frozen ? null : (ws?.activeProject ?? null),
+    rev,
+  );
 
   // Commit a finished picture drag — hooks/useVideoEdits.ts, shared with the surface a second device draws.
   const applyVideoEdit = useVideoEdits(
@@ -2765,7 +2774,11 @@ export default function App({
             )}
             {/* Which engine plays this project, and the way to another (components/EngineSwitch.tsx). */}
             {!frozen && engine && onSwitchEngine && (
-              <EngineSwitch current={engine} onSwitch={onSwitchEngine} />
+              <EngineSwitch
+                current={engine}
+                onSwitch={onSwitchEngine}
+                compat={engineCompat}
+              />
             )}
             {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
             {snapshot && (
