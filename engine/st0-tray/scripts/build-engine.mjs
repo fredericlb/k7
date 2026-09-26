@@ -79,17 +79,24 @@ const sidecarOnly = process.argv.includes("--sidecar-only");
 // `--dev`: a DEBUG tray app carrying nothing, so the Rust takes its fallbacks (docs/buildEngine.md).
 const devMode = process.argv.includes("--dev");
 
-/** The Faust standard libraries out of the engine's build tree, newest preset winning (docs/buildEngine.md). */
+/** Where a preset's CMake cache says the Faust libraries are — `$STUDIO_FETCHCONTENT_DIR` can put them outside the build tree. */
+function faustLibsOf(cmakeCache) {
+  if (!existsSync(cmakeCache)) return null;
+  const m = /^STUDIO_FAUST_LIBS:[A-Z]+=(.*)$/m.exec(readFileSync(cmakeCache, "utf8"));
+  return m ? m[1].trim() : null;
+}
+
+/** The Faust standard libraries the engine's CMake fetched, newest preset winning (docs/buildEngine.md). */
 function stageFaustLibs(destDir) {
   const build = join(engineDir, "build");
   const found = existsSync(build)
     ? readdirSync(build)
-        .map((preset) => join(build, preset, "_deps", "faust-src", "libraries"))
-        .filter((p) => existsSync(join(p, "stdfaust.lib")))
+        .map((preset) => faustLibsOf(join(build, preset, "CMakeCache.txt")))
+        .filter((p) => p && existsSync(join(p, "stdfaust.lib")))
     : [];
   if (!found.length) {
     console.error(
-      "error: no Faust libraries found under engine/st0-engine/build/*/_deps/faust-src/libraries.\n" +
+      "error: no Faust libraries named by any engine/st0-engine/build/*/CMakeCache.txt (STUDIO_FAUST_LIBS).\n" +
         "       Build the engine first — the libraries are a git submodule fetched by its CMake.",
     );
     process.exit(1);

@@ -70,11 +70,13 @@ cannot cut stems.
 
 `import("stdfaust.lib")` is resolved when the ENGINE compiles a module — at runtime, on the
 musician's machine — so `libraries/` has to travel with the app. Its only other copy is
-`_deps/faust-src`, which is a build directory and does not ship.
+the folder the engine's CMake fetched, which is not part of any package.
 
 `stageFaustLibs` finds it by walking the build presets rather than naming one: which preset was
 used is the caller's business, and `findEngineBinary` already answers the same question the same
-way. The NEWEST wins, for the same reason it does there — a stale `libraries/` from a preset nobody
+way. Each preset's `CMakeCache.txt` NAMES the folder (`STUDIO_FAUST_LIBS`) rather than the script
+guessing `_deps/faust-src`: with `$STUDIO_FETCHCONTENT_DIR` set, as CI sets it, the sources live
+outside the build tree altogether. The NEWEST wins, for the same reason it does there — a stale `libraries/` from a preset nobody
 builds any more would ship a different Faust than the engine beside it. Only the `.lib` files are
 copied; the submodule also carries its own docs, tests and CI config, none of which the compiler
 reads.
