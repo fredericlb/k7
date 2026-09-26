@@ -71,6 +71,9 @@ FetchContent_Declare(nam_core
     # NB upstream's own NAM/version.h reads 0.5.3 at this tag; the tag is the truth here.
     GIT_TAG        v0.5.4
     GIT_SHALLOW    ON
+    # None of its submodules: we compile NAM/ only, against the eigen declared below. Recursing
+    # cloned Eigen twice more (its own, and AudioDSPTools') — ~300 MB of full history for nothing.
+    GIT_SUBMODULES ""
     SOURCE_SUBDIR  studio-does-not-build-this)
 
 # NAM's linear algebra. Header-only, so nothing is built.
