@@ -216,7 +216,7 @@ void warps_oscillator_is_in_tune_at_its_own_rate()
         c.render(zero.data(), zero.data(), l.data(), r.data());
         aux.insert(aux.end(), r.begin(), r.end());
     }
-    // AUX carries the internal carrier: the pitch table assumes 96 kHz, which is why the core runs at it.
+    // The auxiliary output carries the internal carrier; its pitch table assumes 96 kHz, hence the core's rate.
     CHECK(near(f0(aux, WarpsCore::RATE, 0.2), 440.0));
 }
 

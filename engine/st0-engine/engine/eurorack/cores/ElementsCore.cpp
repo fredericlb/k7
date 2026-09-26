@@ -119,7 +119,7 @@ void ElementsCore::render(const float* in, float* left, float* right)
     ps.strength = 0.2f + 0.8f * s.velocity;
     s.part.Process(ps, s.blow, s.strike, s.out, s.aux, BLOCK);
 
-    // The module's own wiring: AUX is its left output, MAIN its right.
+    // Wired as on the module: its auxiliary output is the left jack, its main output the right.
     for (int i = 0; i < BLOCK; ++i) {
         left[i] = s.aux[i] * OUTPUT_GAIN;
         right[i] = s.out[i] * OUTPUT_GAIN;

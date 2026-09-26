@@ -101,6 +101,36 @@ params:
   Output: -1.5
 ```
 
+## _modules/<type>/<name>/module.yaml — the eurorack modules
+
+Eight modules come with the engine, built from the open-source firmware of Mutable Instruments' eurorack modules, by Émilie Gillet (MIT licence). There is nothing to install, and they play the same everywhere the engine runs, the phone included. Each carries a descriptive name rather than the original's, as its author asks of derivatives:
+
+| name | what it is | plays |
+|---|---|---|
+| `Macro Oscillator 2` | 24 synthesis models: analog, FM, wavetable, chords, speech, strings, drums… | notes, 8 voices |
+| `Macro Oscillator` | its predecessor: 47 shapes, with bit and sample-rate reduction | notes, 8 voices, an envelope each |
+| `Resonator` | modal and string resonators, and a hidden string synth | notes strum it; the track's audio excites it |
+| `Modal Synthesizer` | a bow, a breath and a mallet on a resonator, with its reverb | notes, one at a time; the track's audio excites it too |
+| `Tidal Modulator` | a sculpted slope at audio rate, spread over four outputs | notes, 8 voices, an envelope each |
+| `Drum Voices` | kick, snare, hi-hat and an FM drum | the General MIDI drum notes; the FM drum on every other note |
+| `Texture Synthesizer` | grains, stretches, loops and spectral freezes of the track's audio | an effect; a note fires a grain |
+| `Meta Modulator` | cross-modulation and a vocoder between two signals | an effect: the track modulates; the carrier is its own oscillator, played by notes, or the track wired to its second input |
+
+A menu parameter (`Model`, `Shape`, `Mode`…) takes the position of its entry, from 0, as its value.
+
+```yaml schema=Module
+# _modules/instruments/bells/module.yaml — the modal resonator model, struck
+plugin:
+  type: internal
+  name: Macro Oscillator 2
+params:
+  Model: 20          # Modal resonator
+  Harmonics: 0.3
+  Timbre: 0.7
+  Decay: 0.8
+  Envelope: 1        # ping: struck, and left to ring
+```
+
 ## _modules/<type>/<name>/module.yaml — jsdsp: a module whose DSP is written in JS
 
 A module of type `jsdsp` gets its audio from a **description** rather than from code compiled into the engine. There is nothing to name: the type says the DSP is in **`jsdsp.ts`, in the module's own folder**, and that is the whole rule. A module is a directory you can copy, clone or share, and the source travels with it.
