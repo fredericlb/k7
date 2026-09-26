@@ -9,3 +9,4 @@
 #include "eurorack/TextureSynthesizerPlugin.h"
 #include "eurorack/MetaModulatorPlugin.h"
 #include "eurorack/TidalModulatorPlugin.h"
+#include "eurorack/DrumVoicesPlugin.h"
