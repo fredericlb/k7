@@ -45,12 +45,12 @@ public:
                 break;
             case Stage::decay:
                 value_ = sustain_ + (value_ - sustain_) * decayCoef_;
-                if (value_ - sustain_ < 1.0e-4f) stage_ = Stage::sustain;
+                if (value_ - sustain_ < SILENT) stage_ = Stage::sustain;
                 break;
             case Stage::sustain: value_ = sustain_; break;
             case Stage::release:
                 value_ *= releaseCoef_;
-                if (value_ < 1.0e-5f) kill();
+                if (value_ < SILENT) kill();
                 break;
             case Stage::idle: break;
         }
@@ -61,11 +61,14 @@ public:
     Stage stage() const { return stage_; }
 
 private:
+    // -80 dB: what every "time" here means by silent, so a release of 0.1 s is over at 0.1 s.
+    static constexpr float SILENT = 1.0e-4f;
+
     // The per-sample factor that takes a level to -80 dB in `seconds`: "time" means to silence, not to 1/e.
     static float coef(double rate, float seconds)
     {
         const double n = std::max(1.0, (double)seconds * rate);
-        return (float)std::exp(std::log(1.0e-4) / n);
+        return (float)std::exp(std::log((double)SILENT) / n);
     }
 
     Stage stage_ = Stage::idle;

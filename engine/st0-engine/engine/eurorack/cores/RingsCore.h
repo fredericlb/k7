@@ -16,7 +16,7 @@ public:
 
     struct Params {
         int model = 0;
-        int polyphony = 1;   // index into 1, 2, 4
+        int polyphony = 0;   // index into 1, 2, 4: one voice, the module's own default
         float structure = 0.5f, brightness = 0.5f, damping = 0.5f, position = 0.5f;
         bool internalExciter = true;
         float transpose = 0.0f;
