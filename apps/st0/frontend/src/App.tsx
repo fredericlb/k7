@@ -722,6 +722,7 @@ export default function App({
     connected,
     frozen ? null : (ws?.activeProject ?? null),
     rev,
+    !!engine?.filesHosted,
   );
 
   // Commit a finished picture drag — hooks/useVideoEdits.ts, shared with the surface a second device draws.

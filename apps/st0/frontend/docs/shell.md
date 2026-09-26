@@ -182,7 +182,8 @@ and nothing else. An engine another tab or person holds is shown and refused bef
 
 A **warning triangle** follows the name when that engine lacks a plugin the open project uses —
 its compatibility under 100 — and its tooltip says the score and which plugins are missing
-(`hooks/useEngineCompat.ts`). Nothing is drawn while either half is unknown: a warning that might
+(`hooks/useEngineCompat.ts`). Scored in the browser when the files are the server's, by the file
+service beside the engine when they live on its machine (`/project-compat`). Nothing is drawn while either half is unknown: a warning that might
 be false is worse than none.
 
 The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a

@@ -13,6 +13,7 @@
     "./quality": "./quality.ts",
     "./rtc-frames": "./rtcFrames.ts",
     "./performance": "./performance.ts",
+    "./compat": "./compat.ts",
     "./hunt": "./hunt.ts",
     "./pairing": "./pairing.ts",
     "./settings": "./settings.ts"

@@ -106,6 +106,21 @@ filesRouter.get(
   }),
 );
 
+/** …and that project SCORED against this machine's engine, for a project living beside its engine — see docs/fileRoutes.md. */
+filesRouter.get(
+  "/project-compat",
+  wrap((req, res) => {
+    const project = String(req.query.project ?? "");
+    if (!project)
+      return res.status(400).json({ error: "project is required" });
+    try {
+      res.json({ compat: req.ws!.pluginCompat(project) });
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  }),
+);
+
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(
   "/module-libraries",

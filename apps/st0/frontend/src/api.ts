@@ -7,7 +7,10 @@
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
 import { engineAccess } from "@studio/engine-browser/access";
-import type { PluginNeed } from "@studio/engine-browser/compat";
+import type {
+  Compatibility,
+  PluginNeed,
+} from "@studio/engine-browser/compat";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
@@ -132,6 +135,11 @@ export const api = {
   projectPlugins: (project: string) =>
     fget<{ plugins: PluginNeed[] }>(
       `/project-plugins?project=${encodeURIComponent(project)}`,
+    ),
+  // …scored by the file service itself against its engine's scan: only meaningful beside the engine, not on the server.
+  projectCompat: (project: string) =>
+    fget<{ compat: Compatibility | null }>(
+      `/project-compat?project=${encodeURIComponent(project)}`,
     ),
 
   // --- A node's model, fetched onto this machine (the right-click's "Download model") ---

@@ -17,7 +17,7 @@ import {
 } from "@studio/project-shell/launch";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { engines } from "../api";
-import { addressedProjectNeeds, compatByEngine } from "../engineCompat";
+import { compatByEngine } from "../engineCompat";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
@@ -122,16 +122,13 @@ export function EngineGate({
     let cancelled = false;
     void (async () => {
       // List, preference, probe and policy in one call — the same four steps in the same order as pl8 — beside what the project needs.
-      const [{ ranked: r, chosen, rememberedId }, needs] = await Promise.all([
-        engines.find(),
-        addressedProjectNeeds(),
-      ]);
+      const { ranked: r, chosen, rememberedId } = await engines.find();
       if (cancelled) return;
       setRanked(r);
-      // Needs known: compatibility decides first, and the remembered engine only wins among the most compatible.
-      if (needs) {
-        const compat = await compatByEngine(r, needs);
-        if (cancelled) return;
+      // Compatibility decides first wherever it could be told, and the remembered engine only wins among the most compatible.
+      const compat = await compatByEngine(r);
+      if (cancelled) return;
+      if (compat.size) {
         const fit = bestEngine(r, {
           compat: (id) => compat.get(id)?.score ?? null,
           preferId: rememberedId,

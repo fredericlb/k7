@@ -1,16 +1,30 @@
 // pluginNeeds.ts — the plugins a project needs its ENGINE to host: the internal ones and the
-// externals (VST and kin), each once. What a browser scores an engine's catalogue against before
-// choosing it (packages/engine-browser/src/compat.ts), so it is read WITHOUT opening the project —
-// the engine is exactly what has not been chosen yet. See docs/fileRoutes.md.
+// externals (VST and kin), each once — and how compatible an engine's catalogue is with them.
+// Read WITHOUT opening the project: the engine is exactly what has not been chosen yet. Scored
+// here when the project lives on the engine's machine, in the browser when it lives on the
+// server; one formula either way (@studio/web-protocol/compat). See docs/fileRoutes.md.
 
 import { loadGraph } from "@studio/song/graph";
 import { EXTERNAL_PLUGIN_FORMATS } from "@studio/song/project";
 import { hostsPlugin } from "@studio/song-schema/moduleTypes";
+import {
+  type CataloguePlugin,
+  type Compatibility,
+  compatibility,
+  type PluginNeed,
+} from "@studio/web-protocol/compat";
 
-/** One plugin as the project authors it: `format` lowercased ("internal", "vst3"…). */
-export interface PluginNeed {
-  format: string;
-  name: string;
+export type { PluginNeed };
+
+/** The project's needs scored against a catalogue; null when an EMPTY catalogue cannot say — the scan's own rule. */
+export function projectCompatOf(
+  dir: string,
+  catalogue: CataloguePlugin[],
+): Compatibility | null {
+  const needs = pluginNeedsOf(dir);
+  // An empty scan is "we cannot say", never "nothing installed" (docs/enginePlugin.md) — unless nothing is asked of it.
+  if (!catalogue.length && needs.length) return null;
+  return compatibility(needs, catalogue);
 }
 
 /** Every plugin the project's modules load from the engine, deduplicated, sorted for a stable answer. */

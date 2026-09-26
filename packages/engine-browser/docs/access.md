@@ -106,7 +106,13 @@ engine a document itself, which the server's files would name in paths the engin
   2. the **remembered** engine, but only among the most compatible — never over a better one;
   3. the latency **tier**, then the **performance** score, then the latency in ms.
 
-  The project's needs come from the file service's `/project-plugins`, which the server answers
-  with no engine bound; each catalogue from the engine itself, `list-plugins` on a socket of its
-  own — a probe query, answered without a session. When the needs cannot be told (not a `@local`
-  address, no hosted files) compatibility is left out and the order starts at 2.
+  The formula is `@studio/web-protocol/compat`, and it is applied on one of two roads, by where
+  the project's files live (`apps/st0/frontend/src/engineCompat.ts`):
+  - **on the server** (hosted files): the server lists the needs, `/project-plugins`, with no
+    engine bound; each catalogue comes from the engine itself, `list-plugins` on a socket of its
+    own — a probe query, answered without a session — and the browser scores;
+  - **on the engine's machine**: that machine's file service scores the project against its own
+    engine's scan, `/project-compat`, and each candidate answers for itself.
+
+  When nothing could be told (no `@local` project in the address, no engine answered)
+  compatibility is left out and the order starts at 2.

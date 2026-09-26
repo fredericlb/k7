@@ -29,7 +29,10 @@ import {
 } from "node:path";
 import type { ShareBundle } from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import { scannedPluginNames } from "@studio/engine-client/pluginCache";
+import {
+  scannedPluginNames,
+  scannedPlugins,
+} from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's: an app that draws chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
 import {
@@ -139,6 +142,7 @@ import type {
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
+import type { Compatibility } from "@studio/web-protocol/compat";
 import {
   PROJECT_SUFFIXES,
   type ProjectApp,
@@ -168,7 +172,11 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
-import { type PluginNeed, pluginNeedsOf } from "./pluginNeeds.ts";
+import {
+  type PluginNeed,
+  pluginNeedsOf,
+  projectCompatOf,
+} from "./pluginNeeds.ts";
 // The four export acts, behind a host of six members — see shareOps.ts.
 import {
   buildShare,
@@ -1192,9 +1200,18 @@ export class Workspace {
 
   /** The plugins one project of this workspace needs its engine to host, read without opening it — pluginNeeds.ts. */
   pluginNeeds(project: string): PluginNeed[] {
+    return pluginNeedsOf(this.projectDirOf(project));
+  }
+
+  /** …scored against THIS machine's engine scan, for a project living beside its engine; null when the scan cannot say. */
+  pluginCompat(project: string): Compatibility | null {
+    return projectCompatOf(this.projectDirOf(project), scannedPlugins());
+  }
+
+  private projectDirOf(project: string): string {
     const dir = this.safePath(project);
     if (!isProjectDir(dir)) throw new Error(`not a project: ${project}`);
-    return pluginNeedsOf(dir);
+    return dir;
   }
 
   /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */

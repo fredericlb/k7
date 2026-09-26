@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { pluginNeedsOf } from "./pluginNeeds";
+import { pluginNeedsOf, projectCompatOf } from "./pluginNeeds";
 
 let root = "";
 let dir = "";
@@ -48,5 +48,28 @@ describe("pluginNeedsOf", () => {
   it("is empty for a project that loads no plugin", () => {
     writeFileSync(join(dir, "graph.yaml"), "modules: {}\n");
     expect(pluginNeedsOf(dir)).toEqual([]);
+  });
+});
+
+describe("projectCompatOf", () => {
+  beforeEach(() => {
+    node("synth", "instruments", "plugin:\n  type: internal\n  name: 4osc\n");
+    node("lead", "instruments", "plugin:\n  type: vst3\n  name: Serum\n");
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  synth: [ OUT ]\n  lead: [ OUT ]\n",
+    );
+  });
+
+  // The engine's machine scores against its own scan: a built-in by type name, a VST by name.
+  it("scores the project against the engine's scan", () => {
+    expect(
+      projectCompatOf(dir, [{ format: "internal", name: "4OSC", id: "4osc" }]),
+    ).toEqual({ score: 50, missing: [{ format: "vst3", name: "Serum" }] });
+  });
+
+  // No scan yet is not "nothing installed": null, so no engine is ranked down for it.
+  it("cannot say against an empty scan", () => {
+    expect(projectCompatOf(dir, [])).toBeNull();
   });
 });

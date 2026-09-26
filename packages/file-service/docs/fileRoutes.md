@@ -49,6 +49,14 @@ asks it BEFORE any engine is chosen, to score each candidate's catalogue against
 The header asks it again of the open project on each revision, since adding a module can add a
 plugin.
 
+`GET /project-compat?project=<rel>` is the same list SCORED here, against this machine's engine
+scan (`scannedPlugins()`), as `{ compat: { score, missing } | null }` — the formula is
+`@studio/web-protocol/compat`, the browser's own. It is for a project that lives BESIDE its engine:
+each candidate engine's machine answers for itself, so the browser never needs the catalogue. On
+the server (hosted files) it means nothing — that scan is whichever engine the hub bound last —
+and the browser scores `/project-plugins` against the engine's own `list-plugins` instead.
+`null` is an empty scan, which cannot say; it is not "compatible with nothing".
+
 ## The three routes that answer about things OUTSIDE the open song
 
 `/module-libraries`, `/library-chains` and `/playlists` sit beside `/tree` rather than inside
