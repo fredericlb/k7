@@ -42,13 +42,19 @@ to adjust a knob mid-take.
 
 The engine already broadcasts a session's master bus to any socket that subscribes
 (`engine/st0-engine/docs/broadcast.md`), which is what lets z0 be hosted. k7 subscribes on its own
-socket, on **st0's session** (`sessionFor("st0", …)`) — the bench plays there — and the frames go
+socket, on the **bench's session** (`sessionFor("banc", …)`) — the bench plays there, beside your
+song rather than instead of it — and the frames go
 through `StreamPlayer` into an `AudioWorklet`, then into a `MediaStreamDestination` that the recorder
 takes. No engine change was needed.
 
 - **Finding the engine.** st0 chooses the engine, not k7: k7 waits for the registry to list an
-  engine whose `heldProject` is the bench address it opened, for this account. Choosing on both
-  sides would be two policies that can disagree.
+  engine whose claims (`heldProjects`) include the bench address it opened, for this account.
+  Choosing on both sides would be two policies that can disagree. st0 in turn opens the bench on the
+  engine your song is already on, since your files drive one engine at a time.
+- **The song stays open.** The bench is a session of its own (`packages/engine-protocol/docs/sessions.md`),
+  and the registry lets one account hold its bench beside its song
+  (`packages/engine-registry/docs/claim.md`). Both play into the same outputs, so a song left
+  playing is heard — and recorded — under the chain.
 - **k7's socket says it is a driver**, which is `EngineClient`'s default. That is deliberate: a
   person is looking at k7, and if st0's frame were gone the engine would otherwise free the rig 45
   seconds into the take (`engine/st0-engine/docs/sessions.md`). It sends no project.
@@ -67,4 +73,5 @@ None of this is covered past `chainSource.test.ts` and `packages/file-service/sr
 - pick one → st0 opens in the frame on the bench, with the chain between `IN` and `fader`;
 - the status goes *waiting* → *connecting* → *live*, and the meter moves when the input is played;
 - **Record** → the recorder draws the usual live waveform; **Chain** in its header brings st0 back;
+- with a song open in another st0 tab → it stays open and loaded, and the bench opens on its engine;
 - stop and save → the session is an ordinary one, and the frame is gone.

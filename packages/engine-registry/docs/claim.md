@@ -28,11 +28,21 @@ It is deliberately narrow. A different ACCOUNT on this engine is displaced, beca
 people. The same account on a different ENGINE is displaced, because that is a second session and
 the project really has moved machines. Only the two that share one loaded project are spared.
 
-**2. One project per engine.** Not tidiness. The file service on that machine holds a **single**
-active project — `packages/file-service/src/engineLink.ts` says so in its header, *"Several
-browser tabs share it — last write wins"* — so a second project on one machine does not coexist
-with the first, it clobbers it, and the symptom lands somewhere else entirely (a take recorded
-into the wrong workspace, a transport that moves the wrong song).
+**2. One project per engine and SESSION.** Not tidiness. An account's file service serves one
+project per engine session (`packages/file-service/src/engineLink.ts`, keyed by `sessionOf`), so a
+second project in the same session does not coexist with the first, it clobbers it, and the symptom
+lands somewhere else entirely (a take recorded into the wrong workspace, a transport that moves the
+wrong song).
+
+An account has two sessions st0 plays in: its song's and its **bench**'s
+(`packages/engine-protocol/docs/sessions.md`). The registry tells them apart by the claimed address
+— `claimSlot`, `@banc/…` being the bench — so an account's bench sits beside its own song on one
+engine rather than taking the song's place. That is what lets k7 record through a library chain
+while the song stays open (`apps/k7/docs/chainSource.md`). A different ACCOUNT still displaces
+either: an engine serves one account at a time (`packages/file-hub/docs/fileHub.md`).
+
+The list names every claim (`heldProjects`) beside the one a picker shows (`heldProject`, the song
+before the bench), since a client looking for the bench must find it on an engine a song holds too.
 
 **3. A claim with no project conflicts with nothing.** pl8 drives an engine and opens no
 project: it auditions modules and plays songs out of the médiathèque. It passes `project: null`,

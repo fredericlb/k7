@@ -230,6 +230,45 @@ describe("the engine claim", () => {
     expect(row?.heldProject).toBe("band/winter.st0");
   });
 
+  describe("the bench is a session of its own", () => {
+    const SONG = "@local/ws/song.st0";
+    const BENCH = "@banc/vocals/warm/live.st0";
+
+    it("sits beside its account's song on one engine, and both are listed", () => {
+      const song = grant(reg.claim("e1", { project: SONG, holder: "alice" }));
+      const bench = grant(reg.claim("e1", { project: BENCH, holder: "alice" }));
+      expect(bench.tookOver).toBeUndefined();
+      // The song's tab renews as if nothing happened.
+      expect(
+        reg.claim("e1", { project: SONG, holder: "alice", secret: song.secret })
+          .ok,
+      ).toBe(true);
+      const row = reg.list().find((e) => e.id === "e1");
+      expect(row?.heldProject).toBe(SONG);
+      expect(row?.heldProjects?.map((h) => h.project).sort()).toEqual(
+        [BENCH, SONG].sort(),
+      );
+    });
+
+    it("still gives way to another account, and a second song still takes the first's place", () => {
+      grant(reg.claim("e1", { project: SONG, holder: "alice" }));
+      const bob = grant(reg.claim("e1", { project: BENCH, holder: "bob" }));
+      expect(bob.tookOver).toEqual({ holder: "alice", project: SONG });
+
+      const other = grant(
+        reg.claim("e1", { project: "@local/ws/other.st0", holder: "bob" }),
+      );
+      expect(other.tookOver).toBeUndefined();
+      const again = grant(
+        reg.claim("e1", { project: "@local/ws/third.st0", holder: "bob" }),
+      );
+      expect(again.tookOver).toEqual({
+        holder: "bob",
+        project: "@local/ws/other.st0",
+      });
+    });
+  });
+
   /** The three refusals are three different sentences on screen, which is the whole point of `lost` — see docs/claim.md. */
   describe("says WHY the claim is gone", () => {
     it("`project` — the same project, taken by somebody else", () => {

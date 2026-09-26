@@ -168,6 +168,11 @@ export function isBenchProject(project: string): boolean {
   return benchChainOf(project) !== undefined;
 }
 
+/** Which of an account's engine sessions a claimed address plays in: the bench has its own, so it shares an engine with the song — docs/addresses.md. */
+export function claimSlot(claim: string): "bench" | "project" {
+  return claim.startsWith(`${BENCH_REPO}/`) ? "bench" : "project";
+}
+
 /** The project half of a bench address, seeded with `chain` when one is given. */
 export function benchProject(chain?: string | null): string {
   return chain ? `${chain}/${BENCH_PROJECT}` : BENCH_PROJECT;

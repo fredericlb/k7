@@ -71,6 +71,9 @@ A chain with a **cold** step is refused on the seeded address, since it cannot r
   carries a **reserved** repository name, `@banc`: `@` cannot start a git short name, so collision
   is impossible, and `@studio/project-shell`'s gate takes another route on seeing it — no name
   resolution at pl8, no clone, one call to the machine.
+- **Not in the song's way.** It plays in a session of its own, `banc:<you>`, so it opens beside the
+  song you have open rather than taking its place — on the same engine, since your files drive one
+  engine at a time ([packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md)).
 - **Not shared.** It lives in your account's `Banc` workspace, on the chosen machine. Two people
   have two benches — and, by the "one project, one engine" rule
   ([claim.md](../../../packages/engine-registry/docs/claim.md)), two different addresses, so

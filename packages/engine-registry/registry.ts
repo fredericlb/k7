@@ -3,7 +3,7 @@
 // Engines announce themselves with a periodic heartbeat and drop out after REGISTRY_TTL_MS of
 // silence. list() is token-stripped and verifyToken stops a lookalike claiming a real engine's
 // id — but the token is NOT a secret from the browser: docs/token.md.
-// The claim's rules — one project per engine, one engine per project, newcomer wins — and why
+// The claim's rules — one project per engine and session, one engine per project, newcomer wins — and why
 // they are three rules and not one, are in docs/claim.md.
 
 import { randomBytes } from "node:crypto";
@@ -13,6 +13,7 @@ import {
   type PublicEngine,
 } from "@studio/web-protocol";
 import type { EnginePerformance } from "@studio/web-protocol/performance";
+import { claimSlot } from "@studio/web-protocol/projects";
 
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
@@ -118,13 +119,20 @@ export function createRegistry(): EngineRegistry {
     return e;
   };
 
-  /** A holder on this engine whose project is not this one; at most one, by rule 2 — see docs/claim.md. */
+  /** A holder on this engine whose project is not this one and would share its session; at most one, by rule 2 — see docs/claim.md. */
   const otherProjectOn = (
     e: EngineEntry,
     project: string,
+    holder: string,
     now = Date.now(),
   ): EngineHolder | undefined =>
-    holdersOf(e, now).find((h) => h.project !== null && h.project !== project);
+    holdersOf(e, now).find(
+      (h) =>
+        h.project !== null &&
+        h.project !== project &&
+        // The same account in ANOTHER of its sessions is not in the way: its bench beside its song.
+        !(h.holder === holder && claimSlot(h.project) !== claimSlot(project)),
+    );
 
   /** Every live engine, scanned rather than indexed by project: a second Map would be three places to forget, over a handful of engines. */
   const liveEngines = (now: number): EngineEntry[] =>
@@ -193,7 +201,7 @@ export function createRegistry(): EngineRegistry {
             return { ok: false, lost: "project", heldBy: onMyProject.holder };
           // Nobody has our project but a DIFFERENT one has our engine; asked only if we HAD a project, a null holder never being displaced.
           const sitting = req.project
-            ? otherProjectOn(e, req.project, now)
+            ? otherProjectOn(e, req.project, req.holder, now)
             : undefined;
           if (sitting)
             return {
@@ -225,7 +233,7 @@ export function createRegistry(): EngineRegistry {
             if (h.project === req.project && !sameInstance(other, h))
               displace(other, h);
         // Rule 2: a DIFFERENT project already on this engine.
-        const sitting = otherProjectOn(e, req.project, now);
+        const sitting = otherProjectOn(e, req.project, req.holder, now);
         if (sitting) displace(e, sitting);
       }
 
@@ -255,8 +263,12 @@ export function createRegistry(): EngineRegistry {
       const now = Date.now();
       return live().map((e) => {
         const holders = holdersOf(e, now);
-        // Whoever has a PROJECT on it is the interesting one to name; a null holder is pl8 looking at its catalogue.
-        const owner = holders.find((h) => h.project !== null) ?? holders[0];
+        // Whoever has a PROJECT on it is the interesting one to name — a song before a bench; a null holder is pl8 looking at its catalogue.
+        const claimed = holders.filter((h) => h.project !== null);
+        const owner =
+          claimed.find((h) => claimSlot(h.project ?? "") === "project") ??
+          claimed[0] ??
+          holders[0];
         return {
           id: e.id,
           hostname: e.hostname,
@@ -266,6 +278,10 @@ export function createRegistry(): EngineRegistry {
           // Who and what, so a picker can say "busy with X's winter.st0" rather than just "busy".
           heldBy: owner?.holder,
           heldProject: owner?.project ?? undefined,
+          heldProjects: claimed.map((h) => ({
+            holder: h.holder,
+            project: h.project ?? "",
+          })),
           sameSourceIp:
             !!requesterIp && !!e.publicIpHint && e.publicIpHint === requesterIp,
         };

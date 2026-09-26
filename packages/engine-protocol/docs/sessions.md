@@ -33,6 +33,14 @@ them — the same collision, moved up a level.
 One session per person, not per workspace. A person drives one project at a time, and
 splitting per workspace would leave a stopped project loaded in the engine forever.
 
+**The bench is the exception, and a service of its own** — `SESSIONS.bench`, `banc:<person>`. It
+is the one project a person opens BESIDE the song rather than instead of it: a rig to hear a chain
+through, which k7 records while the song stays loaded (`apps/k7/docs/chainSource.md`). It is also
+thrown away on every open, so the "stopped project loaded forever" above costs one small rig at
+most. The browser names it from the `@banc` address, the file service from the `Banc` workspace
+(`apps/st0/frontend/src/engineSession.ts`, `sessionOf`), and a test on each side pins both to this
+constant.
+
 `sessionFor` takes the raw email and slugs it itself. Each caller slugging first would be
 two chances to slug differently, which is exactly the failure the next section is about.
 

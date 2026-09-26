@@ -2,8 +2,8 @@
 // heard HERE. st0 (in an iframe) opens the rig; k7 finds the engine holding it, subscribes to its
 // master broadcast and turns that into the MediaStream the recorder takes — ../../docs/chainSource.md.
 //
-// What reads wrong: k7 sends the engine nothing but the subscription. It is a second window on
-// st0's session, never a second driver of the project.
+// What reads wrong: k7 sends the engine no project, only the subscription. It is a second window on
+// the BENCH's session, which runs beside the person's song rather than replacing it.
 
 import { EngineClient } from "@studio/engine-browser";
 import { type EngineAccess, engineAccess } from "@studio/engine-browser/access";
@@ -74,8 +74,10 @@ export function holderOf(
   claim: string,
   email: string,
 ): PublicEngine | undefined {
-  return list.find(
-    (e) => e.heldProject === claim && (!e.heldBy || e.heldBy === email),
+  return list.find((e) =>
+    (e.heldProjects ?? []).some(
+      (h) => h.project === claim && h.holder === email,
+    ),
   );
 }
 
@@ -195,11 +197,11 @@ export function openChainSource(
     if (!ranked?.wsUrl)
       return fail(m["chain.unreachable"]({ host: held.hostname }));
     local = isLocalEngine(ranked.wsUrl);
-    // st0's session, since that is the project the bench plays in — @studio/engine-protocol/docs/sessions.md.
+    // The bench's own session, beside the song's — @studio/engine-protocol/docs/sessions.md.
     client = new EngineClient(
       acc.linkUrl(ranked),
       undefined,
-      sessionFor(SESSIONS.st0, email),
+      sessionFor(SESSIONS.bench, email),
     );
     client.onStreamFrame(onFrame);
     client.broadcast(true);

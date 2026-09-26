@@ -29,10 +29,21 @@ describe("the chain source", () => {
 
   it("follows the engine holding that claim for this account, and no other", () => {
     const claim = benchClaim("vocals/warm");
+    const held = (holder: string, project: string) => ({
+      heldProjects: [{ holder, project }],
+    });
     const list = [
-      engine({ id: "song", heldProject: "@local/ws/song.st0", heldBy: "me@x" }),
-      engine({ id: "theirs", heldProject: claim, heldBy: "them@x" }),
-      engine({ id: "mine", heldProject: claim, heldBy: "me@x" }),
+      engine({ id: "song", ...held("me@x", "@local/ws/song.st0") }),
+      engine({ id: "theirs", ...held("them@x", claim) }),
+      // The song is what the listing names, and the bench sits beside it on the same engine.
+      engine({
+        id: "mine",
+        heldProject: "@local/ws/song.st0",
+        heldProjects: [
+          { holder: "me@x", project: "@local/ws/song.st0" },
+          { holder: "me@x", project: claim },
+        ],
+      }),
     ];
     expect(holderOf(list, claim, "me@x")?.id).toBe("mine");
     expect(holderOf(list.slice(0, 2), claim, "me@x")).toBeUndefined();

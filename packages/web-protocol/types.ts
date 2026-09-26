@@ -885,6 +885,8 @@ export interface PublicEngine {
   /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
   heldBy?: string;
   heldProject?: string;
+  /** EVERY project claimed on it and by whom — an account's bench sits beside its song, docs/claim.md. */
+  heldProjects?: { holder: string; project: string }[];
   // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
   /** A short-lived pass for the relay, minted by `/engines` and not by the registry — packages/engine-registry/proxy.ts. */
