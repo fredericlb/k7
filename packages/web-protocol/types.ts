@@ -215,6 +215,14 @@ export interface ColdChainsReply {
   instrumentalChain: string | null;
 }
 
+/** One chain of the library, and whether the bench can PLAY it live — `GET /account/live-chains`. */
+export interface LiveChain {
+  /** Its path under `chains/` (`vocals/warm`), what the bench's `chain` names. */
+  ref: string;
+  /** Why it cannot run on a live input (a cold step, a clashing node name), null when it can. */
+  unavailable: string | null;
+}
+
 // User preferences, formatted for display. `vim` is the only one the web writes back; the rest mirror rig config.
 export interface WebPreferences {
   audioDevice: string | null;

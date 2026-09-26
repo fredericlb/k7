@@ -17,7 +17,7 @@ import type {
 // The backend's own MEDIATEK_URL, not a guess: a deployment can point k7 at a pl8 that isn't
 // the sibling subdomain a browser-side guess would land on. Fetched once and cached.
 let base: Promise<string> | null = null;
-function pl8Base(): Promise<string> {
+export function pl8Base(): Promise<string> {
   if (!base)
     base = fetch("/api/config", { credentials: "include" })
       .then((res) => res.json())

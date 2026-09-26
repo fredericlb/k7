@@ -29,11 +29,16 @@ import {
   type SurfacedProjectList,
   type WorkspaceList,
 } from "@studio/web-protocol";
-import { BENCH_PROJECT, isBenchProject } from "@studio/web-protocol/projects";
+import {
+  BENCH_PROJECT,
+  benchChainOf,
+  isBenchProject,
+} from "@studio/web-protocol/projects";
 import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
 import { BENCH_WORKSPACE, ensureBench, ensureBenchLibraries } from "./bench.ts";
+import { liveChains } from "./benchChain.ts";
 import { boundJobsUrl } from "./boundMachine.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import { resolveUser, resolveWorkspace } from "./context.ts";
@@ -295,8 +300,10 @@ app.post(
     // The account's library repository, from the browser — the side that holds pl8's session.
     const libraries = String(req.body?.libraries ?? "");
     if (!libraries) return res.status(400).json({ error: NO_LIBRARIES });
+    // A library chain the address puts on the rig — what k7 records through, apps/k7/docs/chainSource.md.
+    const chain = benchChainOf(String(req.body.project)) ?? undefined;
     try {
-      res.json(await ensureBench(req.userEmail!, libraries));
+      res.json(await ensureBench(req.userEmail!, libraries, chain));
     } catch (e) {
       // A library that will not mount is the USER's problem to read, so it is a 409 and not a fault.
       res.status(409).json({ error: (e as Error).message });
@@ -470,6 +477,18 @@ const coldChainsView = (): ColdChainsReply => {
     instrumentalChain: prefs.instrumentalChain ?? null,
   };
 };
+
+/** The library's chains and whether each can be PLAYED live on the bench — k7's chain source, read off the bench's clone like the cold ones. */
+app.get(
+  "/account/live-chains",
+  wrap((_req, res) => {
+    res.json({
+      chains: librariesUri()
+        ? liveChains(join(workspaceRoot(BENCH_WORKSPACE), BENCH_PROJECT))
+        : [],
+    });
+  }),
+);
 
 app.get(
   "/account/cold-chains",

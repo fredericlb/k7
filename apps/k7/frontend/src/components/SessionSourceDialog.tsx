@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Mic, RadioTower } from "@frediverse/ui/icons";
+import { Mic, RadioTower, Workflow } from "@frediverse/ui/icons";
 import { BASE } from "../api";
 import { m } from "../paraglide/messages.js";
 
@@ -21,10 +21,11 @@ interface Props {
   error: string | null;
   onLocal: () => void;
   onRemote: () => void;
+  onChain: () => void;
   onClose: () => void;
 }
 
-// Asked when a session starts: this device's microphone, or the one at the remote page.
+// Asked when a session starts: this device's microphone, the one at the remote page, or a chain of st0's library.
 export function SessionSourceDialog({
   open,
   remoteAvailable,
@@ -32,6 +33,7 @@ export function SessionSourceDialog({
   error,
   onLocal,
   onRemote,
+  onChain,
   onClose,
 }: Props) {
   return (
@@ -59,6 +61,14 @@ export function SessionSourceDialog({
             }
           >
             <RadioTower className="size-4" /> {m["source.remote"]()}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={onChain}
+            title={m["source.useChain"]()}
+          >
+            <Workflow className="size-4" /> {m["source.chain"]()}
           </Button>
         </div>
 

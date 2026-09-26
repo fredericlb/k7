@@ -9,6 +9,11 @@ nothing: no repository, no chain, no project of the account's. What answers is a
 input, a fader, the master run out — with the account's library mounted beside it, which is where
 every module it can name comes from.
 
+`/@banc/<chain ref>/live.st0` is the same rig with a **copy** of that library chain between the
+input and the fader. It is how a chain is HEARD on a live input — k7 records through it
+([apps/k7/docs/chainSource.md](../../k7/docs/chainSource.md)) — and the copy is thrown away with
+the rest of the bench.
+
 > **Nothing on the bench is saved.** The folder is deleted and written again on every open, and no
 > write in it reaches anything shared. What a session keeps is what was written into the LIBRARY:
 > a module edited there is written in place and published by a commit, like any other library edit.
@@ -51,8 +56,13 @@ probably already names the modules the chain is made of
 That is the same reason a MODULE is not edited here either. The two things editing needs, an
 editable catalogue and a loaded plugin, are both there without fabricating anything.
 
-`/@banc/` therefore answers exactly one project. Anything else under it — `chains/<path>.st0`,
-`modules.st0` — is a 404 whose sentence says where the editing happens.
+`/@banc/` therefore answers exactly one project, bare or seeded with a chain. Seeding is not
+editing: what is turned on the copy reaches nothing shared, so an edit meant to last is still made
+from the chains builder. Anything else under it — `chains/<path>.st0`, `modules.st0` — is a 404
+whose sentence says where the editing happens.
+
+A chain with a **cold** step is refused on the seeded address, since it cannot run on a live input
+(`packages/file-service/src/benchChain.ts`).
 
 ## What it is not
 
@@ -79,5 +89,7 @@ proves the folder is rebuilt and that nothing leaves it.
 - reopen the bench → the graph is the scaffold again, and what you wired is gone;
 - edit a library module from the tree, reopen the bench → the edit is there, because it is in the
   library and not in the bench;
+- open `/@banc/<chain ref>/live.st0` → the chain sits between `IN` and `fader`; reopen `/@banc/live.st0`
+  → it is gone, and the library's own copy was never written;
 - open `/@banc/chains/x.st0` or `/@banc/modules.st0` → a refusal saying where a chain and a module
   are edited.

@@ -1787,3 +1787,78 @@ select {
 .pub-unlinked-title {
   margin: 20px 0 6px;
 }
+
+/* ---- Chain source: st0's bench in a frame ------------------------------- */
+
+/* Hidden during a take rather than unmounted: the frame is st0's open bench, ../../docs/chainSource.md. */
+.chain-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4vh 16px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.55);
+}
+.chain-panel-backdrop.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+.chain-panel {
+  width: 100%;
+  max-width: 1100px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.chain-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.chain-panel-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.chain-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.chain-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+}
+.chain-row:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.chain-frame {
+  width: 100%;
+  height: min(62vh, 640px);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.chain-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}

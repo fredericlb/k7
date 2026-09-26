@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { normalizeGitUri } from "@studio/git-repos/uri";
 import { scaffoldLive } from "@studio/song/scaffoldLive";
 import { BENCH_PROJECT } from "@studio/web-protocol/projects";
+import { spliceChain } from "./benchChain.ts";
 import { clonedFrom, ensureLibraries, librariesDir } from "./libraries.ts";
 import { workspaceRoot } from "./slug.ts";
 
@@ -37,10 +38,11 @@ export async function ensureBenchLibraries(
   await ensureLibraries(userEmail, root, uri);
 }
 
-/** The bench, made fresh: the folder is REMOVED and written again, which is the whole of `jetable`. */
+/** The bench, made fresh: the folder is REMOVED and written again, which is the whole of `jetable`; `chain` seeds it with a copy of that library chain. */
 export async function ensureBench(
   userEmail: string,
   libraries: string,
+  chain?: string,
 ): Promise<{ workspace: string; project: string }> {
   // A workspace of its own, so a library submodule of its own: every module the rig can name is in it.
   const root = workspaceRoot(BENCH_WORKSPACE);
@@ -54,6 +56,7 @@ export async function ensureBench(
   rmSync(dir, { recursive: true, force: true });
   // Named after the workspace and not after the folder: what the app says everywhere is "the bench".
   scaffoldLive(dir, BENCH_WORKSPACE);
+  if (chain) spliceChain(dir, chain);
 
   return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };
 }
