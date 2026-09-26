@@ -562,8 +562,6 @@ export interface WebProject {
   metronome: boolean;
   // …and how loud it clicks, 0.2 … 1; never 0, because silence is the flag above (see METRONOME_MIN).
   metronomeLevel: number;
-  // Whether any track streams from an algo/ pattern; false == the shell need not poll the pattern clock.
-  strudel: boolean;
   // Count-in length in BARS from settings.yaml (0 == none); the engine applies the actual pre-roll.
   countIn: number;
   // Named timeline markers, sorted by beat. Empty when the song has none.
@@ -708,7 +706,7 @@ export interface WorkspaceList {
 }
 
 /** One workspace on the machine with the projects it holds — the only side that can answer; see docs/machine.md. */
-export interface MachineWorkspace {
+export interface AccountWorkspace {
   name: string;
   origin: string | null;
   repoName: string | null;
@@ -718,8 +716,8 @@ export interface MachineWorkspace {
 }
 
 /** Reply to GET /workspaces/projects on the file service. */
-export interface MachineWorkspaceList {
-  workspaces: MachineWorkspace[];
+export interface AccountWorkspaceList {
+  workspaces: AccountWorkspace[];
 }
 
 /** One surface a project declares, named and typed — enough to build its address and to gate a device. */

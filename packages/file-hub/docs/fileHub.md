@@ -13,7 +13,7 @@ it refuses to start, since the origin it would serve could open no project at al
 The hub does not reimplement the file service: it runs `@studio/file-service` itself, one
 process per account with that account's folder as its `$STUDIO_HOME`, and it is the only thing
 that ever starts one. A process and not one shared service, because the file service holds one
-person's state in module globals — the owner, the pattern clock, the watchers, the document a
+person's state in module globals — the owner, the watchers, the document a
 browser built — and a process boundary is the one isolation nobody can forget to thread through.
 The price is a Node process per **active** account; an instance nobody called for 30 minutes is
 stopped and starts again, in well under a second, on the next request.

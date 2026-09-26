@@ -67,6 +67,13 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             the FAST binary, like TurntableLoop.h (docs/arpeggiator.md)
   FaustPlugin.{h,cpp}       the same seam for a module written in Faust: it COMPILES the source
                             with the Faust interpreter and runs it (docs/faust.md)
+  PatternPlugin.{h,cpp}     a strudel lane, played HERE: its source evaluated in QuickJS, its notes and
+                            its sample one-shots locked to the transport (docs/patternPlugin.md)
+  PatternSchedule.h         …and the notes between its worker and the audio thread, by epoch. JUCE-free
+                            and header-only, so tests/ has it in the FAST binary
+  SampleBanks.h             a sound name → the WAV it plays, by the Dirt layout. JUCE-free, FAST binary
+  StrudelHost.{h,cpp}       the QuickJS runtime and the embedded bundle (strudel/strudel.bundle.js,
+                            generated and committed). Its own JUCE-free library, `studio_strudel`
   AirWindowsList.h          generated effect list (docs/airWindowsList.md)
 
   taps — pull state out of the running graph without owning it:
@@ -89,9 +96,12 @@ scripts/               Node harnesses that drive a running engine, not build ste
   track-delta.ts         `tracks` amends the document a session holds, and refuses the rest
   list-sessions.ts       an engine's sessions, and drop-session, over the control socket
   broadcast-sessions.mjs per-session streaming
+  gen-strudel-bundle.mjs bundle @studio/song-strudel's engineEntry.ts into engine/strudel/strudel.bundle.js,
+                         the script PatternPlugin runs. A GENERATOR, output committed: run it after
+                         touching events.ts or engineEntry.ts. `npm run gen:strudel-bundle --workspace st0-engine`.
   gen-builtin-params.mjs ask a real instance of every built-in what its parameters are, and write
-                         packages/song-schema/src/builtinParams.generated.ts. The one script here that is a
-                         GENERATOR: run it after bumping Tracktion or adding a built-in, and commit
+                         packages/song-schema/src/builtinParams.generated.ts. A GENERATOR, like the one
+                         above: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace st0-engine`. docs/builtinParams.md.
   warp-points.ts         a clip's INTERIOR warp points move the sound — rendered and measured,
                          since this is timing no TypeScript test can see (docs/warp.md)
@@ -137,6 +147,8 @@ before touching the audio callback, `applyFull`, or the build flags),
 `quickMaster.md` (why that one is compiled rather than a `jsdsp` graph, the allpass the three-way
 split needs, and what its ceiling really guarantees),
 `faust.md` (the interpreter factory, the polyphonic seam, and the one question left open),
+`patternPlugin.md` (why the engine plays pattern lanes, why QuickJS, how a file's events are shared
+between its lanes, samples, the epoch rule, the offline-render path, and what is not yet proven),
 `dspGraph.md` (the graph model `@studio/dsp` emits, and the three places the audio thread is kept
 from allocating — read it before adding a node kind),
 `sidechain.md` (a module's second input),
@@ -367,15 +379,17 @@ Build gotchas:
 **The test targets are not built by an ordinary build, so a suite that stopped compiling stays
 invisible.** The presets pin `"targets": ["st0-engine"]`, so `studio_engine_tests` /
 `studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
-`studio_recorder_tests` are only built when named — rename a field of the data layer and the
-suite still referencing it reports nothing until someone names it. Build them explicitly after
+`studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_strudel_tests` are only built when
+named — rename a field of the data layer and the suite still referencing it reports nothing until
+someone names it. Build them explicitly after
 touching the data layer — **all of them**, or `ctest` reports the missing one as "Not Run", which
 reads as a failure:
 
 ```
 cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
-      studio_dspgraph_tests studio_recorder_tests
+      studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
+      studio_strudel_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

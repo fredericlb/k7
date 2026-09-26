@@ -20,7 +20,7 @@ import {
 } from "@studio/git-repos/uri";
 import { projectSurfaces } from "@studio/song/surfaces";
 import type {
-  MachineWorkspace,
+  AccountWorkspace,
   SurfacedProject,
   WorkspaceSummary,
 } from "@studio/web-protocol";
@@ -442,7 +442,7 @@ function workspaceNames(dir: string): string[] {
 /** Every workspace on this machine, with its projects and origin — what st0's home page draws (docs/workspaces.md). */
 export async function listMachineWorkspaces(
   userEmail: string,
-): Promise<MachineWorkspace[]> {
+): Promise<AccountWorkspace[]> {
   const slug = slugify(userEmail);
   const hit = listings.get(slug);
   if (hit && Date.now() - hit.at < LISTING_RESCAN_MS) return hit.rows;
@@ -455,7 +455,7 @@ export async function listMachineWorkspaces(
   const times = new Map<string, number>();
   for (const n of shortNames) if (n) times.set(n, (times.get(n) ?? 0) + 1);
 
-  const rows = names.map((name, i): MachineWorkspace => {
+  const rows = names.map((name, i): AccountWorkspace => {
     const abs = join(dir, name);
     const single = isProjectDir(abs);
     const short = shortNames[i];
@@ -478,7 +478,7 @@ export async function listMachineWorkspaces(
 
 /** The window under the listing above, so a polling home page does not walk every tree per tick (docs/workspaces.md). */
 const LISTING_RESCAN_MS = 5_000;
-const listings = new Map<string, { at: number; rows: MachineWorkspace[] }>();
+const listings = new Map<string, { at: number; rows: AccountWorkspace[] }>();
 // Both listings, since the second is built on the first — see docs/workspaces.md.
 export const forgetListing = (slug: string) => {
   listings.delete(slug);

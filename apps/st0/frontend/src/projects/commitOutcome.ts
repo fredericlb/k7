@@ -1,6 +1,6 @@
 // commitOutcome.ts — reading `project commit`'s answer as an OUTCOME. Pure and kept apart: this is
 // exactly the logic that announced a success for a commit that never happened, and a module
-// importing nothing is a module a test can load. See ./machine.ts.
+// importing nothing is a module a test can load. See ./workspaceOps.ts.
 
 import { m } from "../paraglide/messages.js";
 

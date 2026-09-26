@@ -3,10 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Strudel patterns over a song: resolving a pattern to events, and streaming them onto engine tracks locked to the transport. Split out of @studio/song so that the three @strudel/* packages are pulled in only by what actually plays a pattern — the file service — and not by every screen that reads a song file. Consumed as source.",
+  "description": "The Strudel side of a pattern lane: the hap -> event mapping and the API the ENGINE runs, bundled into engine/st0-engine/engine/strudel/strudel.bundle.js by the engine's gen-strudel-bundle script and tested here under Node. Nothing imports it at run time — the engine plays every pattern lane (engine/st0-engine/docs/patternPlugin.md). Consumed as source.",
   "exports": {
-    "./strudel": "./src/strudel.ts",
-    "./patternClock": "./src/patternClock.ts"
+    "./events": "./src/events.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -20,9 +19,7 @@
   "dependencies": {
     "@strudel/core": "1.1.0",
     "@strudel/mini": "1.1.0",
-    "@strudel/transpiler": "1.1.0",
-    "@studio/engine-protocol": "*",
-    "@studio/song": "*"
+    "@strudel/transpiler": "1.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

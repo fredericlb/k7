@@ -127,7 +127,7 @@ add_library(st0_supervisor_core STATIC
     src/Loop.cpp
     src/Paths.cpp
     src/Log.cpp
-    src/Process.cpp
+    src/Processes.cpp
     src/Settings.cpp
     src/Identity.cpp
     src/HostLock.cpp
@@ -153,6 +153,7 @@ add_library(st0_supervisor_core STATIC
     src/OnnxSession.cpp
     src/Separation.cpp
     src/Supervisor.cpp)
+# `src` is searched before the system headers, and Windows ignores case: no header here may share a system header's name.
 target_include_directories(st0_supervisor_core PUBLIC src)
 target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket datachannel mbedtls mbedx509 mbedcrypto)
 if(WIN32)

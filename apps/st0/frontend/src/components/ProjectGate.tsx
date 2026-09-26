@@ -16,6 +16,7 @@ export function ProjectGate({
   engine,
   external,
   onChangeEngine,
+  onSwitchEngine,
   onIdle,
   onResume,
 }: {
@@ -24,6 +25,8 @@ export function ProjectGate({
   external?: string | null;
   /** Passed straight through to the settings menu: the engine choice belongs to the gate ABOVE this one. */
   onChangeEngine: () => void;
+  /** Move this project to another measured engine — the header's engine menu; the gate above does it. */
+  onSwitchEngine: (r: RankedEngine) => void;
   /** The session went to sleep — the lease belongs to the gate ABOVE, so this only forwards the news (@studio/project-shell/docs/idle.md). */
   onIdle: () => void;
   /** …and taking it back. */
@@ -91,6 +94,8 @@ export function ProjectGate({
             userEmail={userEmail}
             onQuitWorkspace={quit}
             onChangeEngine={onChangeEngine}
+            engine={engine}
+            onSwitchEngine={onSwitchEngine}
           />
         )
       }

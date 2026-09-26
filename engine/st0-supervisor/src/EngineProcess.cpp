@@ -6,7 +6,7 @@
 #include "HostProtocol.h"
 #include "Log.h"
 #include "Paths.h"
-#include "Process.h"
+#include "Processes.h"
 
 #include <algorithm>
 #include <chrono>

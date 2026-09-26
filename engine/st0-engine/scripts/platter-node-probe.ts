@@ -75,7 +75,6 @@ function doc(deckFile?: string, extraTracks = 0, fillerFile?: string) {
     settings: { metronome: false, countIn: 0 },
     groups: [],
     markers: [],
-    strudel: false,
     tracks: [
       platterTrack("deckA", deckFile),
       ...Array.from({ length: extraTracks }, (_, i) =>

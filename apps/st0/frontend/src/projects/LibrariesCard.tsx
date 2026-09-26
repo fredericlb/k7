@@ -17,14 +17,14 @@ import type { RepoRef } from "@studio/web-protocol";
 import { useEffect, useState } from "react";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
-import { engineMachine } from "./api";
-import type { Machine } from "./machine";
+import { accountFiles } from "./api";
+import type { AccountFiles } from "./workspaceOps";
 
 export function LibrariesCard({
-  machine,
+  fileService,
   onRepo,
 }: {
-  machine: Machine | null;
+  fileService: AccountFiles | null;
   /** Reported UP because it decides more than this card: with no library, no workspace may be made either. */
   onRepo?: (repo: RepoRef | null) => void;
 }) {
@@ -36,16 +36,16 @@ export function LibrariesCard({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // The MACHINE holds it, so there is nothing to read until one answers.
-    if (!machine) return setRepo(null);
-    void engineMachine
-      .libraries(machine)
+    // The file service holds it, so there is nothing to read until it answers.
+    if (!fileService) return setRepo(null);
+    void accountFiles
+      .libraries(fileService)
       .then(setRepo)
       .catch((e: Error) => {
         setError(e.message);
         setRepo(null);
       });
-  }, [machine]);
+  }, [fileService]);
 
   // Announced UP from the state and not from each setter: what this card holds is the one answer,
   // and it decides more than this card — with no library, no workspace may be made either.
@@ -58,9 +58,9 @@ export function LibrariesCard({
     if (!v) return;
     setBusy(true);
     setError(null);
-    if (!machine) return setError(m["libs.noMachine"]());
-    void engineMachine
-      .setLibraries(machine, v)
+    if (!fileService) return setError(m["libs.noFiles"]());
+    void accountFiles
+      .setLibraries(fileService, v)
       .then((r) => {
         setRepo(r);
         setUri("");
@@ -157,7 +157,7 @@ export function LibrariesCard({
         </code>
       )}
 
-      {/* Changing the repository touches NO machine: a submodule already cloned into a workspace still points at the old one. */}
+      {/* Changing the repository touches NO workspace: a submodule already cloned into a workspace still points at the old one. */}
       {editing && !missing && (
         <p className="text-xs text-amber-500">{m["libs.changeWarning"]()}</p>
       )}

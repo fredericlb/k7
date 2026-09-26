@@ -80,6 +80,9 @@ chosen engine's id after a `~`. The ticket rides in the header the file service'
 reads, so none of the calls that build that header change, and none of them need a cookie
 across origins. `token` stays the engine's own, since the claim is checked against it.
 
+`hostedFiles()` answers the same hub with no engine in the ticket, for a page that lists or edits
+files and plays nothing — st0's home page, whose workspaces exist whether or not an engine runs.
+
 st0 and z0's editor opt in: they open a project, and a project is the server's. pl8 does not —
 its player resolves songs against the engine machine's own médiathèque cache and sends the
 engine a document itself, which the server's files would name in paths the engine cannot open.

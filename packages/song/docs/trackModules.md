@@ -191,8 +191,8 @@ The engine does not believe a track is typed: `EditBuilder` dispatches per CLIP
 into `ProjectDoc.h` and then used by nothing at all. Only the authoring model could have.
 
 `contentType` on the wire has three values — `"audio" | "notes" | "audio notes"` — and the third
-is what a bare-wired lane is. That is what `patternClock` asks to find which half of a lane a
-streamed event lands on, so no second field is needed to ask it with.
+is what a bare-wired lane is. That is what the pattern compile reads to know which half of a lane
+plays a pattern's notes and which its samples (`enginePattern.ts`), so no second field is needed.
 
 `graph.ts`'s `Track` is a *projection* of a track module, and `trackModule.ts`'s `Lane` is the one
 place that projection is computed: `graph.ts` turns it into what every surface draws (timecodes

@@ -14,6 +14,7 @@
 #include "NamPlugin.h"
 #include "QuickMasterPlugin.h"
 #include "TurntablePlugin.h"
+#include "PatternPlugin.h"
 #include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
 #include "RecorderPlugin.h"         // …and the recorder NODE, which the document declares
@@ -260,6 +261,8 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::RecorderPlugin>();
     pm.createBuiltInType<studio::QuickMasterPlugin>();
     pm.createBuiltInType<studio::TurntablePlugin>();
+    // Registered but not LISTED, like the platter: the song compile puts it on a pattern lane, no module names it.
+    pm.createBuiltInType<studio::PatternPlugin>();
     // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue above — see MasterGainPlugin.h.
     pm.createBuiltInType<studio::MasterGainPlugin>();
     // Tracktion SHIPS the convolver and the 186 AirWindows effects but registers neither, so both were dead weight in the binary.

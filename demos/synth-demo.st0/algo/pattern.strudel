@@ -1,15 +1,15 @@
 // A live Strudel (TidalCycles-in-JS) pattern, linked by the "pad" and "kit" tracks.
-// While the transport plays it streams onto them, locked to the beat — edit + save
-// to hear it change live.
+// The engine plays it on them while the transport rolls, locked to the beat — edit +
+// save to hear it change live.
 //
 // `.label(...)` names the lane a part plays on. A label matching a strudel track's
 // name lands there — "Pad" on the "pad" track, so it plays through that track's chain
-// and mixer strip. A label no track declares still plays, on a live track named after
-// it; so does an unlabelled part, bucketed by orbit.
+// and mixer strip. A label no track declares still plays, on the file's first track by
+// name ("kit"); so does an unlabelled part.
 //
-// What `s(...)` means depends on the lane's contentType: a waveform on "pad" (its
-// chain brings the instrument), a sample name on "kit" — the bundled kit, your
-// project `samples/` folder, or $DIRT_SAMPLES.
+// What `s(...)` means is the event's business: a name found as a sample — in your
+// project's `samples/` folder, $DIRT_SAMPLES or $STRUDEL_SAMPLES — is a one-shot,
+// anything else is a note for the lane's instrument ("sawtooth" on "pad").
 stack(
   note("c e g c5").s("sawtooth").slow(2).label("Pad"),
   sound("bd hh sn hh").label("Kit"),

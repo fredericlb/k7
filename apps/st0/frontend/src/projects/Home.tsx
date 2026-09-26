@@ -1,7 +1,7 @@
-// Home.tsx — what st0 draws when its address names NO project: the machine's workspaces and the
-// projects in them, the libraries, the shares, the key. It holds the async — identity, machine,
-// and the two polls — for the presentational body beside it. The project list comes from the
-// MACHINE and so needs one; the rest of the screen reads without. See ../../docs/projects.md.
+// Home.tsx — what st0 draws when its address names NO project: the account's workspaces and the
+// projects in them, the libraries, the shares, the key. It holds the async — identity, the file
+// service, and the two polls — for the presentational body beside it. The list is the SERVER's
+// files and needs no engine. See ../../docs/projects.md.
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
@@ -12,22 +12,21 @@ import {
   SlidersHorizontal,
   Tablet,
 } from "@frediverse/ui/icons";
-import { fileTokenOf } from "@studio/engine-browser/probe";
 import { AskHost } from "@studio/project-shell/ask";
 import { AppSwitch } from "@studio/ui-app-switch";
-import type { MachineWorkspace, ShareSummary } from "@studio/web-protocol";
+import type { AccountWorkspace, ShareSummary } from "@studio/web-protocol";
 import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, engines } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { RightPanel } from "../components/RightPanel";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
+import { findAccountFiles } from "../settings/accountFiles";
 import { HomeSettings } from "../settings/HomeSettings";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
-import { engineMachine, shares as sharesApi } from "./api";
+import { accountFiles, shares as sharesApi } from "./api";
 import {
   type ArmedDelete,
   buildHomePalette,
@@ -35,8 +34,8 @@ import {
   homeArgValues,
   runHomeCommand,
 } from "./homeCommands";
-import type { Machine } from "./machine";
 import { ProjectsPane } from "./ProjectsPane";
+import type { AccountFiles } from "./workspaceOps";
 
 /** The médiathèque's own: brisk enough that a finishing `git fetch` shows, slow enough to cost nothing on a ten-row list. */
 const POLL_MS = 3000;
@@ -60,34 +59,22 @@ export function Home() {
     });
   }, []);
 
-  const [workspaces, setWorkspaces] = useState<MachineWorkspace[]>([]);
+  const [workspaces, setWorkspaces] = useState<AccountWorkspace[]>([]);
   const [shares, setShares] = useState<ShareSummary[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // The chosen machine, or null; `undefined` until probed — "none" is a refusal we draw, "looking" is not.
-  const [machine, setMachine] = useState<Machine | null | undefined>(undefined);
+  // The account's file service, or null; `undefined` until asked — "none" is a refusal we draw, "looking" is not.
+  const [fileService, setFileService] = useState<
+    AccountFiles | null | undefined
+  >(undefined);
   const [probing, setProbing] = useState(false);
 
-  /** Identity, then the machine — and `find()` and NOTHING else: a claim is a lease ON A PROJECT, which this page has none of. */
+  /** The account's files on the server, engine or none — and no `hold()`: a claim is a lease ON A PROJECT, which this page has none of. */
   const probe = useCallback(async () => {
     setProbing(true);
     try {
-      const me = await api.getMe().catch(() => null);
-      const userEmail = me?.email || me?.sub || "unknown";
-      const { chosen } = await engines.find();
-      setMachine(
-        chosen?.fileBase && fileTokenOf(chosen)
-          ? {
-              fileBase: chosen.fileBase,
-              token: fileTokenOf(chosen) ?? "",
-              userEmail,
-            }
-          : null,
-      );
-    } catch {
-      // A failed probe is not this page failing: it just leaves the two buttons grey.
-      setMachine(null);
+      setFileService(await findAccountFiles(false));
     } finally {
       setProbing(false);
     }
@@ -115,13 +102,13 @@ export function Home() {
     seen.current = { shares: "" };
   }, []);
 
-  /** The project list comes from the MACHINE and nowhere else; with none there is nothing to ask, which is the price of the move. */
-  const loadWorkspaces = useCallback(async (m: Machine) => {
+  /** The project list is the file service's answer, over the account's workspaces on the server. */
+  const loadWorkspaces = useCallback(async (m: AccountFiles) => {
     try {
-      setWorkspaces(await engineMachine.workspaces(m));
+      setWorkspaces(await accountFiles.workspaces(m));
       setError(null);
     } catch (e) {
-      // The machine IS the screen's subject: say it failed rather than draw an empty list.
+      // The list IS the screen's subject: say it failed rather than draw an empty one.
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -129,15 +116,15 @@ export function Home() {
   }, []);
 
   useEffect(() => {
-    if (machine === undefined) return; // still probing: neither a list nor a refusal
-    if (machine === null) {
+    if (fileService === undefined) return; // still probing: neither a list nor a refusal
+    if (fileService === null) {
       setWorkspaces([]);
       setBusy(false);
       return;
     }
     let stop = false;
     const tick = async () => {
-      if (!stop) await loadWorkspaces(machine);
+      if (!stop) await loadWorkspaces(fileService);
     };
     void tick();
     const t = setInterval(() => void tick(), POLL_MS);
@@ -145,9 +132,9 @@ export function Home() {
       stop = true;
       clearInterval(t);
     };
-  }, [machine, loadWorkspaces]);
+  }, [fileService, loadWorkspaces]);
 
-  /** What pl8 still holds: the shares, which are its own bytes. A repository is a folder on a machine and is asked of that machine. */
+  /** What pl8 holds: the shares, which are its own bytes. A workspace is the file service's and is asked of it. */
   useEffect(() => {
     let stop = false;
     const tick = async () => {
@@ -180,14 +167,14 @@ export function Home() {
   /** Reload NOW after a write from here, or a just-created project would take three seconds to appear. */
   const reread = useCallback(() => {
     changed();
-    if (machine) void loadWorkspaces(machine);
-  }, [changed, machine, loadWorkspaces]);
+    if (fileService) void loadWorkspaces(fileService);
+  }, [changed, fileService, loadWorkspaces]);
 
   const run = useCallback(
     async (line: string) => {
       setSaid(null);
       const known = await runHomeCommand(line, {
-        machine: machine ?? null,
+        fileService: fileService ?? null,
         workspaces,
         openWs,
         acts: HOME_ACTS,
@@ -203,7 +190,7 @@ export function Home() {
           refused: true,
         });
     },
-    [machine, workspaces, openWs, reread],
+    [fileService, workspaces, openWs, reread],
   );
 
   /** Two bare Shifts give it the keyboard, the editor's own gesture; the bar never takes focus itself, and `e.repeat` drops a held Shift. */
@@ -251,25 +238,25 @@ export function Home() {
         className="z-20"
         actions={
           <>
-            {/* Which machine will write, said BEFORE the click: without one two buttons here are grey, and finding out by clicking is what this avoids. */}
+            {/* Whether the files answer, said BEFORE the click: without them two buttons here are grey, and finding out by clicking is what this avoids. */}
             <span
               className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex"
               title={
-                machine
-                  ? m["home.machineReadyHint"]({ machine: machine.fileBase })
-                  : m["home.noMachineHint"]()
+                fileService
+                  ? m["home.filesReadyHint"]({ address: fileService.fileBase })
+                  : m["home.noFilesHint"]()
               }
             >
-              {machine ? (
+              {fileService ? (
                 <Server className="h-3.5 w-3.5" />
               ) : (
                 <ServerOff className="h-3.5 w-3.5 text-amber-500" />
               )}
-              {machine === undefined
+              {fileService === undefined
                 ? "…"
-                : machine
-                  ? m["home.machineReady"]()
-                  : m["home.noMachine"]()}
+                : fileService
+                  ? m["home.filesReady"]()
+                  : m["home.noFiles"]()}
             </span>
             <Button
               variant="ghost"
@@ -332,7 +319,7 @@ export function Home() {
             shares={shares}
             busy={busy}
             openWs={openWs}
-            machine={machine ?? null}
+            fileService={fileService ?? null}
             onOpen={open}
             onChanged={changed}
             onOpenSettings={() => setSettingsOpen(true)}
@@ -362,7 +349,7 @@ export function Home() {
             // Everything a field can offer is already on screen, so the answer is immediate.
             listArg={async (command, prior) =>
               homeArgValues(command, prior.length, {
-                machine: machine ?? null,
+                fileService: fileService ?? null,
                 workspaces,
                 openWs,
               })

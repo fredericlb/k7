@@ -106,9 +106,9 @@ They go on the master plugin list **before** the meter and the broadcast tap, an
 
 ### `tracks` — the delta, and what it deliberately cannot do
 
-The pattern clock rewrites a handful of lanes' clips six or seven times a second while the rest
-of the song sits still. Sending `project` each time is 137 KB of document parsed and diffed to be
-told about eight notes, against 3.7 KB of `tracks`.
+A sender that rewrites a handful of lanes several times a second while the rest of the song sits
+still would pay, with `project`, 137 KB of document parsed and diffed to say eight notes moved,
+against 3.7 KB of `tracks`.
 
 The engine **merges into the document it holds and then runs the same `apply`**. That is what
 makes this cheap and boring at once: the diff, the incremental paths and the rebuild fallback are
@@ -121,9 +121,13 @@ It **replaces by id**, and can neither add nor remove a track. Three consequence
   not, which is what a restart looks like — so it is warned about and dropped. Appending would
   hide exactly the case the reconnect re-send exists for;
 - a session holding nothing answers `error`, rather than starting a song out of a fragment;
-- the sender is responsible for a whole `project` whenever the SET of tracks changes.
-  `PatternClock` keeps the ids it last sent and falls back on any difference; it also forgets them
-  whenever the socket reopens, since a fresh socket can mean a fresh engine.
+- the sender is responsible for a whole `project` whenever the SET of tracks changes, and must
+  forget the ids it last sent whenever the socket reopens, since a fresh socket can mean a fresh
+  engine.
+
+Nothing sends it today: it was the Node pattern clock's channel, and pattern lanes are now played
+by the engine itself (`patternPlugin.md`). It stays because it costs nothing unused and a live
+source of notes from outside the engine would want exactly this.
 
 No `busy` and no `applied` come back. This path is incremental by construction, and announcing a
 changeset six times a second would drown the one that matters — the full-document path still
@@ -197,8 +201,7 @@ machine holding three sessions (`scripts/two-sessions.ts`, which counts frames o
 that is 200 frames received per socket in nine seconds, 34 of them wanted.
 
 The test is deliberately not `role: "driver"` — the file service declares nothing (its link would
-otherwise count as a driver and no project would ever look abandoned) and its pattern clock runs
-off these frames. And it binds once per socket: `drop-session` and `show-native-plugin-ui` carry
+otherwise count as a driver and no project would ever look abandoned). And it binds once per socket: `drop-session` and `show-native-plugin-ui` carry
 another session's id as an override, and a socket that rebound on those would go deaf.
 
 A probe — the tray asking for devices and hanging up — names nothing and gets nothing, which is

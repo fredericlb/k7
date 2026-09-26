@@ -334,7 +334,7 @@ function LaneAlternative({
 // The lanes' grid layer is `Grid`, in Ruler.tsx beside the ticks it matches — its memo is documented there.
 
 interface Caret {
-  row: RowKey; // identity, not an index — the orbit lanes renumber the rows
+  row: RowKey; // identity, not an index — a lane added or removed renumbers the rows
   beat: number; // >= 0 a beat cell; LABEL the row's label
 }
 
@@ -495,7 +495,6 @@ export function TimelineTab({
   rolling,
   takeStartBeat,
   takeCountInBeats,
-  orbit,
   videoTracks,
   onVideoEdit,
   setStatus,
@@ -540,8 +539,6 @@ export function TimelineTab({
   takeStartBeat: number;
   /** The take's pre-roll in BEATS, so the growing clip can skip it: those bars record nothing. */
   takeCountInBeats: number;
-  // The live pattern lanes, polled by the shell: one poll feeds both this and the minimap, so they can't disagree.
-  orbit: WebTrack[];
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
   videoTracks: WebVideoTrack[];
   /** A picture placement was dragged: set these fields of it in SECONDS, by `ref`, as a LIST — one gesture, one read-modify-write (docs/picture.md). */
@@ -707,12 +704,8 @@ export function TimelineTab({
   }, [proj]);
 
   const barBeats = Math.max(1, proj?.timeSigNumerator || 4);
-  // The song's tracks plus any live pattern lanes, and the rows they draw as (groups with members nested under).
-  const allTracks = useMemo(
-    () =>
-      orbit.length ? [...(proj?.tracks ?? []), ...orbit] : (proj?.tracks ?? []),
-    [proj, orbit],
-  );
+  // The song's tracks, and the rows they draw as (groups with members nested under).
+  const allTracks = useMemo(() => proj?.tracks ?? [], [proj]);
   const rows = useMemo(
     () =>
       proj
@@ -2343,7 +2336,7 @@ export function TimelineTab({
               </div>
             </div>
 
-            {/* lanes — group headers with their members nested under them, then any live Strudel orbit lanes, which nest too. */}
+            {/* lanes — group headers with their members nested under them. */}
             {visRows.map((row, ri) => {
               // Is this the caret's row, with its LABEL selected? The gutter wears the caret's own marks, because it IS the caret.
               const onRow = rowKey(row) === caret.row;

@@ -100,13 +100,36 @@ through, and it must be minutes rather than hours.
 
 ## On OneDev
 
-`.onedev-buildspec.yml` carries the Linux leg too, on every master push, after "lint and test":
-**build linux desktop** runs the same presets and scripts and publishes the same `.tar.gz` — the
-tray's `.deb` and `.AppImage`, and the headless `st0-engine` — as a build artifact rather than a
-release. Beside it, **build android app** builds `engine/st0-android` and publishes a debug-signed
-APK (`engine/st0-engine/docs/android.md`). Android is built on OneDev only; this workflow builds
-the three desktops.
+`.onedev-buildspec.yml` carries a Linux leg and a Windows leg, both NIGHTLY: a `ScheduleTrigger` at
+02:00 server time. OneDev makes a new build at every firing, even on a commit it has built before,
+so each leg's first command skips the night when the branch took no commit in the last 24 hours —
+a short green build rather than a red one, since a skipped night is not a failure, and a git that
+cannot answer builds anyway rather than skipping silently. Either can still be run by hand, and a
+hand-run on a day without commits skips the same way.
 
-Both are native builds from a cold configure, so a master push costs tens of minutes of agent
-time on each. That is the trade taken for knowing, on the push that broke it, that master no
-longer builds for a musician's machine.
+The Linux one runs in
+a `node:22-bookworm` container and installs its toolchain on every run, and publishes the same
+`.tar.gz` as the release — the tray's `.deb` and `.AppImage`, and the headless `st0-engine`. It keeps
+a ccache and the tray's Rust `target/` between runs, since the third-party code is the bulk of the
+compile and does not change from one night to the next. The Windows one runs on a
+Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, Rust (rustup), CMake, Ninja
+and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
+container would buy isolation at the price of MSVC in a Windows container, which is heavier than
+the machine it would run on.
+
+The job names no executor and no agent, so neither has to be called anything. The executor's
+**agent selector** picks by OS (an agent query on `Os`, checked on the Agents page first), and its
+**job match** takes this job and nothing else: every other job in the file is a container job and
+must never land on it. OneDev tries executors in the order they are listed and uses the first whose
+job match accepts the job, so the Docker executor must not accept this one either — list the shell
+executor first, or narrow the Docker one's match.
+
+It overrides no preset, so the agent builds with the host default, `windows-msvc` (Visual Studio
+2026), exactly as the machine does by hand. `windows-msvc-2022` is for GitHub's runner only: on an
+agent without VS 2022 its generator is "could not find any instance of Visual Studio".
+
+**build android app** is the exception to the nightly cadence: it runs on every master push and
+publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is the only build of the
+Android port, whose seams — the engine as a library, the supervisor as a packaged executable —
+break on changes to either program made with only the desktops in mind, and a push is where that
+is cheapest to hear. Its SDK is pinned and cached, and its C++ goes through its own ccache.

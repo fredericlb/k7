@@ -10,8 +10,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=18"

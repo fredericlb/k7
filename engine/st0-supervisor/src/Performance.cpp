@@ -4,7 +4,7 @@
 
 #include "Performance.h"
 
-#include "Process.h"
+#include "Processes.h"
 
 #include <chrono>
 #include <cmath>
@@ -13,6 +13,7 @@
 #include <vector>
 
 #ifdef _WIN32
+#include <fcntl.h>
 #include <io.h>
 #include <windows.h>
 #else

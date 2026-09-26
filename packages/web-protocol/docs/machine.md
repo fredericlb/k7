@@ -7,7 +7,7 @@ holds the reasoning; the type file keeps the names.
 
 ## Two services answer two different questions
 
-**The machine** answers what is INSIDE a repository — `MachineWorkspace`, from the working clone
+**The machine** answers what is INSIDE a repository — `AccountWorkspace`, from the working clone
 it actually holds. Nothing else does. A hosted mirror answering the same question from the other
 side would be a second copy of what the working clone already has, and a worse one — a fetch
 behind, and blind to a project that is committed but not yet pushed. See
@@ -26,7 +26,7 @@ goes in the link: `/<name>/<project>`. Derived from `uri` rather than stored, so
 drift; the URI itself never reaches the address bar, because it carries a host, a port and a user,
 none of which belong in a bookmark.
 
-`MachineWorkspace.uniqueName: false` says the short name does NOT identify this workspace *on this
+`AccountWorkspace.uniqueName: false` says the short name does NOT identify this workspace *on this
 machine*: two clones whose origins end in the same name make `/<name>/…` ambiguous, and pl8
 refuses such an address (409) rather than picking one.
 
@@ -43,7 +43,7 @@ nothing the `origin` has not already paid for.
 ## `active` is not the same as `served`
 
 `SurfacedProject` is one project on this machine that declares at least one surface, with those
-surfaces. Its identity fields are `MachineWorkspace`'s, repeated per project rather than nested,
+surfaces. Its identity fields are `AccountWorkspace`'s, repeated per project rather than nested,
 because the list is read as a flat one: the caller is looking for a SURFACE and the workspace it
 lives in is a detail of the address. `path` is workspace-relative, `.` for a lone-project clone.
 

@@ -10,6 +10,7 @@
     "build:mac": "node scripts/build.mjs macos-clang",
     "build:android": "node scripts/build.mjs android-arm64",
     "gen:builtin-params": "node scripts/gen-builtin-params.mjs && npx biome format --write ../../packages/song-schema/src/builtinParams.generated.ts",
+    "gen:strudel-bundle": "node scripts/gen-strudel-bundle.mjs",
     "test": "node scripts/run-tests.mjs",
     "test:all": "node scripts/run-tests.mjs --all",
     "test:mac": "cmake --preset macos-clang && cmake --build build/macos-clang --target studio_engine_tests && ctest --test-dir build/macos-clang -R studio_engine_tests --output-on-failure"

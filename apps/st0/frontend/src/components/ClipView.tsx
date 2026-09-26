@@ -40,7 +40,6 @@ const FALLBACK_PROJECT: WebProject = {
   timeSigNumerator: 4,
   timeSigDenominator: 4,
   masterVolume: 0, // unity — a stand-in draws no fader, and a roll asks nothing of it
-  strudel: false,
   tracks: [],
   groups: [],
   metronome: false,

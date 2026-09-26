@@ -236,7 +236,6 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
     recordDir: "", // loadProject sets it for a folder project; a single file can't record
     tracks: activeTracks,
     groups,
-    strudel: false, // …nor a pattern lane: algo/ is a folder a single-file song hasn't got
     markers: parseMarkers(doc.markers, num, den),
     settings: parseSettings(doc.settings),
   };

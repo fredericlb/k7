@@ -157,13 +157,15 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 600
-# Every master push: mirrors .github/workflows/desktop.yml's linux-x64 leg — same presets, same
-# apt list, same build-engine.mjs / package-release.mjs pair — but publishes the archive as a
-# OneDev build artifact instead of a GitHub release. The archive holds both Linux deliverables:
-# the tray (.deb and .AppImage, supervisor inside) and the headless engine, st0-engine on its own.
-# A cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM and compiles them, tens of
-# minutes a push — the price of knowing on the push, not at release time, that master still
-# builds. Run "check artifact upload size" once if the limit is unconfirmed.
+# NIGHTLY, at 02:00 server time: mirrors .github/workflows/desktop.yml's linux-x64 leg — same
+# presets, same apt list, same build-engine.mjs / package-release.mjs pair — but publishes the
+# archive as a OneDev build artifact instead of a GitHub release. The archive holds both Linux
+# deliverables: the tray (.deb and .AppImage, supervisor inside) and the headless engine,
+# st0-engine on its own. Not on BranchUpdateTrigger like the two jobs above: a cold configure
+# fetches JUCE, Tracktion, Faust, Eigen and NAM and then compiles them, tens of minutes. OneDev
+# makes a new build at EVERY firing, so the first command skips the night when master took no
+# commit in the last 24 hours. Run "check artifact upload size" first if you have not already
+# confirmed the limit.
 - name: build linux desktop (engine + supervisor + tray)
   steps:
   - type: CheckoutStep
@@ -211,6 +213,13 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
+        # A quiet day builds nothing; a git that cannot answer (no repo, dubious ownership) builds anyway.
+        git config --global --add safe.directory '*'
+        if LAST=$(git log -1 --since='24 hours ago' --format=%H) && [ -z "$LAST" ]; then
+          echo "no commit on this branch in the last 24 hours — nothing to build"
+          exit 0
+        fi
+
         # Two dep sets, same as the GitHub workflow: Tauri's GTK/appindicator set for the
         # tray, JUCE's ALSA/JACK/X11 set for the engine — plus the ordinary toolchain
         # (cmake/ninja/build-essential/git/python3) a bare node image carries none of.
@@ -223,7 +232,7 @@ jobs:
           libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
           libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
           libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
-          libcurl4-openssl-dev
+          libcurl4-openssl-dev ladspa-sdk
 
         # A cached toolchain is kept, and moved to the latest stable only when one exists.
         if [ -x "$HOME/.cargo/bin/rustup" ]; then
@@ -248,7 +257,8 @@ jobs:
         npm ci
 
         # Same YY.MMDDHHmm stamp as "compute build version" above, computed inline here
-        # since this job has no image tag needing the buildspec's own @build_version@.
+        # since this job has no image tag needing the buildspec's own build version. (No
+        # at-sign placeholders in this text, comments included: OneDev substitutes them all.)
         STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
 
         # Release presets for both native programs, as the GitHub leg names them: the supervisor
@@ -268,9 +278,8 @@ jobs:
     condition: SUCCESSFUL
     optional: false
   triggers:
-  - type: BranchUpdateTrigger
-    branches: master
-    userMatch: anyone
+  - type: ScheduleTrigger
+    cronExpression: 0 0 2 * * ?
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true
@@ -384,3 +393,57 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 5400
+# The Windows leg of .github/workflows/desktop.yml, on the Windows AGENT — a Remote Shell Executor,
+# so no container: the steps run in cmd on the machine itself, with whatever it has installed
+# (Node, Git, Rust via rustup, CMake, Ninja, Visual Studio Build Tools). Nightly at 02:00 and
+# skipped on a day without commits, like the Linux build above. It names no executor: the Remote Shell Executor whose JOB MATCH takes this job
+# runs it, on an agent its AGENT SELECTOR picks by OS — docs/desktop-release.md.
+#
+# No preset override: the agent builds with the host default, windows-msvc (Visual Studio 2026), as
+# a developer does. windows-msvc-2022 is GitHub's runner's, and fails where VS 2022 is absent.
+#
+# cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
+# is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.
+- name: build windows desktop (engine + tray + file-service)
+  steps:
+  - type: CheckoutStep
+    name: checkout
+    cloneCredential:
+      type: HttpCredential
+      accessTokenSecret: submodule-token
+    withLfs: false
+    withSubmodules: true
+    condition: SUCCESSFUL
+    optional: false
+  - type: CommandStep
+    name: build and package
+    runInContainer: false
+    interpreter:
+      type: DefaultInterpreter
+      commands: |
+        git log -1 --since="24 hours ago" --oneline > last_commit || echo unknown> last_commit
+        findstr . last_commit >nul || (echo no commit on this branch in the last 24 hours - nothing to build & exit /b 0)
+        git config core.longpaths true || exit /b 1
+        call npm ci || exit /b 1
+        node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version || exit /b 1
+        set /p STUDIO_RELEASE_STAMP=<build_version
+        node engine/st0-tray/scripts/build-engine.mjs || exit /b 1
+        node engine/st0-tray/scripts/package-release.mjs || exit /b 1
+    useTTY: false
+    condition: SUCCESSFUL
+    optional: false
+  - type: PublishArtifactStep
+    name: publish windows desktop archive
+    artifacts: dist/release/*.zip
+    condition: SUCCESSFUL
+    optional: false
+  triggers:
+  - type: ScheduleTrigger
+    cronExpression: 0 0 2 * * ?
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 7200

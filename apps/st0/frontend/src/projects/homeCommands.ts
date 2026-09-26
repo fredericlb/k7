@@ -5,21 +5,21 @@
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
-import type { MachineWorkspace, RepoProject } from "@studio/web-protocol";
+import type { AccountWorkspace, RepoProject } from "@studio/web-protocol";
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
-// `m` is the MACHINE in these branches, so the catalogue comes in under its own name.
+// `m` is the file service in these branches, so the catalogue comes in under its own name.
 import { m as msg } from "../paraglide/messages.js";
-import { engineMachine, type Machine } from "./api";
+import { type AccountFiles, accountFiles } from "./api";
+import { projectFolderName, workspaceFolderName } from "./projectName";
 import {
-  copyProjectOnMachine,
+  copyProjectAndCommit,
   createLocalWorkspace,
-  createProjectOnMachine,
-  deleteProjectOnMachine,
+  createProjectAndCommit,
+  deleteProjectAndCommit,
   ensureWorkspace,
   publishWorkspace,
-  renameProjectOnMachine,
-} from "./machine";
-import { projectFolderName, workspaceFolderName } from "./projectName";
+  renameProjectAndCommit,
+} from "./workspaceOps";
 
 /** The catalogue, in the same shape the editor's is — imperative, no example, no full stop, 60 characters at most in each language. */
 export const HOME_COMMANDS: {
@@ -129,8 +129,8 @@ export const HOME_COMMANDS: {
   {
     canonical: "system repo add",
     readable: {
-      en: "Clone a repository onto this machine",
-      fr: "Cloner un dépôt sur cette machine",
+      en: "Clone a repository onto the server",
+      fr: "Cloner un dépôt sur le serveur",
     },
     args: [
       {
@@ -150,7 +150,7 @@ export const HOME_COMMANDS: {
       {
         name: "repo_name",
         kind: "choice",
-        hint: "a repository on this machine",
+        hint: "one of your workspaces",
       },
     ],
   },
@@ -169,24 +169,24 @@ export function buildHomePalette(locale: string): PaletteCommand[] {
   }));
 }
 
-/** What this screen knows when a line is run: the machine, what it holds, and what pl8 registers. */
+/** What this screen knows when a line is run: the file service, what it holds, and what pl8 registers. */
 export interface HomeContext {
-  machine: Machine | null;
-  workspaces: MachineWorkspace[];
+  fileService: AccountFiles | null;
+  workspaces: AccountWorkspace[];
   /** The workspace the address has unfolded (`?ws=`), or null. */
   openWs: string | null;
 }
 
-/** Which workspace a `project …` line acts in: the address first, then a machine holding exactly one — anything else refused by name. */
+/** Which workspace a `project …` line acts in: the address first, then an account holding exactly one — anything else refused by name. */
 export function resolveWorkspace(
   ctx: HomeContext,
-): { ws: MachineWorkspace } | { error: string } {
+): { ws: AccountWorkspace } | { error: string } {
   const open = ctx.openWs
     ? ctx.workspaces.find((w) => w.name === ctx.openWs)
     : null;
   if (open) return { ws: open };
   if (ctx.workspaces.length === 1)
-    return { ws: ctx.workspaces[0] as MachineWorkspace };
+    return { ws: ctx.workspaces[0] as AccountWorkspace };
   if (!ctx.workspaces.length)
     return {
       error: msg["hc.noWorkspaces"](),
@@ -200,7 +200,7 @@ export function resolveWorkspace(
 
 /** A project of that workspace, named by its path or by the folder's stem (`hiver`). */
 export function findProject(
-  ws: MachineWorkspace,
+  ws: AccountWorkspace,
   name: string,
 ): RepoProject | null {
   const want = name.trim();
@@ -246,7 +246,7 @@ export function homeArgValues(
   // Only the ones that HAVE none: offering the rest would offer an act that is refused by definition.
   if (canonical === "system workspace publish" && argIndex === 0)
     return ctx.workspaces.filter((w) => !w.origin).map((w) => w.name);
-  // SYNC offers what the MACHINE holds: a clone added by hand is one you can push like any other.
+  // SYNC offers every workspace the account holds: a clone added by hand is one you can push like any other.
   if (canonical === "system repo sync" && argIndex === 0)
     return ctx.workspaces.map((w) => w.repoName || w.name);
   return [];
@@ -258,27 +258,27 @@ export interface ArmedDelete {
   path: string;
 }
 
-/** What a line DOES, injected — so the dispatcher below is testable without a machine, and the bar and the buttons cannot diverge. */
+/** What a line DOES, injected — so the dispatcher below is testable without a file service, and the bar and the buttons cannot diverge. */
 export interface HomeActs {
-  create: typeof createProjectOnMachine;
-  copy: typeof copyProjectOnMachine;
-  rename: typeof renameProjectOnMachine;
-  remove: typeof deleteProjectOnMachine;
+  create: typeof createProjectAndCommit;
+  copy: typeof copyProjectAndCommit;
+  rename: typeof renameProjectAndCommit;
+  remove: typeof deleteProjectAndCommit;
   clone: typeof ensureWorkspace;
   newWorkspace: typeof createLocalWorkspace;
   publish: typeof publishWorkspace;
-  command: typeof engineMachine.command;
+  command: typeof accountFiles.command;
 }
 
 export const HOME_ACTS: HomeActs = {
-  create: createProjectOnMachine,
-  copy: copyProjectOnMachine,
-  rename: renameProjectOnMachine,
-  remove: deleteProjectOnMachine,
+  create: createProjectAndCommit,
+  copy: copyProjectAndCommit,
+  rename: renameProjectAndCommit,
+  remove: deleteProjectAndCommit,
   clone: ensureWorkspace,
   newWorkspace: createLocalWorkspace,
   publish: publishWorkspace,
-  command: engineMachine.command,
+  command: accountFiles.command,
 };
 
 export interface HomeDeps extends HomeContext {
@@ -293,10 +293,10 @@ export interface HomeDeps extends HomeContext {
   armed: { current: ArmedDelete | null };
 }
 
-/** The machine, or the sentence saying why there is nothing to act on. */
-const machineOf = (d: HomeDeps): Machine | null => {
-  if (d.machine) return d.machine;
-  d.refuse(msg["hc.noMachine"]());
+/** The file service, or the sentence saying why there is nothing to act on. */
+const machineOf = (d: HomeDeps): AccountFiles | null => {
+  if (d.fileService) return d.fileService;
+  d.refuse(msg["hc.noFiles"]());
   return null;
 };
 
@@ -366,7 +366,7 @@ export async function runHomeCommand(
       if (!p) return use(d.refuse, projectGripe(found.ws, name));
       const dest = d.workspaces.find((w) => w.name === to);
       if (!dest) return use(d.refuse, msg["hc.noWorkspaceNamed"]({ name: to }));
-      // Said rather than attempted: the machine refuses both too, and later.
+      // Said rather than attempted: the file service refuses both too, and later.
       if (dest.name === found.ws.name)
         return use(d.refuse, msg["hc.copySameWs"]({ to }));
       if (dest.isSingleProject)
@@ -408,7 +408,7 @@ export async function runHomeCommand(
       if (!p) return use(d.refuse, projectGripe(found.ws, name));
       const { folder, error } = projectFolderName(label, p.app);
       if (error) return use(d.refuse, error);
-      // Said rather than attempted: the machine would answer the same thing, one round trip later.
+      // Said rather than attempted: the file service would answer the same thing, one round trip later.
       if (folder === p.path.split("/").pop())
         return use(d.refuse, msg["hc.renameSame"]({ name: folder }));
       const m = machineOf(d);
@@ -505,7 +505,7 @@ export async function runHomeCommand(
         );
       const ws = d.workspaces.find((w) => w.name === name);
       if (!ws) return use(d.refuse, msg["hc.noWorkspaceNamed"]({ name }));
-      // Said rather than attempted: the machine would refuse it too, and later.
+      // Said rather than attempted: the file service would refuse it too, and later.
       if (ws.origin)
         return use(
           d.refuse,
@@ -574,7 +574,7 @@ export async function runHomeCommand(
 }
 
 /** No such project, with the ones there are — a refusal that names nothing is a refusal you retype. */
-const projectGripe = (ws: MachineWorkspace, name: string): string =>
+const projectGripe = (ws: AccountWorkspace, name: string): string =>
   msg["hc.noProject"]({
     name,
     workspace: ws.name,

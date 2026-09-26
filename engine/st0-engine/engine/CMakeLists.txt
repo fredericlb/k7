@@ -27,6 +27,7 @@ add_library(studio_engine STATIC
     DspGraph.cpp
     GraphDspPlugin.cpp
     FaustPlugin.cpp
+    PatternPlugin.cpp
     MasterGainPlugin.cpp
     MixerPlugin.cpp
     QuickMasterPlugin.cpp
@@ -103,6 +104,24 @@ target_link_libraries(studio_engine PRIVATE
 # leave them in studio_engine.lib, where the self-registering ones get dropped (see the
 # object library above).
 target_link_libraries(studio_engine PUBLIC studio_nam)
+
+# --- QuickJS + the Strudel bundle, for PatternPlugin --------------------------
+#
+# The bundle is committed (scripts/gen-strudel-bundle.mjs) and turned into a byte array at BUILD
+# time, so regenerating it rebuilds without a reconfigure and the engine build needs no Node.
+set(STUDIO_STRUDEL_BUNDLE "${CMAKE_CURRENT_SOURCE_DIR}/strudel/strudel.bundle.js")
+set(STUDIO_STRUDEL_EMBED "${CMAKE_CURRENT_BINARY_DIR}/StrudelBundle.generated.cpp")
+add_custom_command(
+    OUTPUT "${STUDIO_STRUDEL_EMBED}"
+    COMMAND "${CMAKE_COMMAND}" -DIN=${STUDIO_STRUDEL_BUNDLE} -DOUT=${STUDIO_STRUDEL_EMBED}
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/strudel/EmbedBundle.cmake"
+    DEPENDS "${STUDIO_STRUDEL_BUNDLE}" "${CMAKE_CURRENT_SOURCE_DIR}/strudel/EmbedBundle.cmake"
+    VERBATIM)
+# Its own library, JUCE-free, so tests/ links it without Tracktion (studio_strudel_tests).
+add_library(studio_strudel STATIC StrudelHost.cpp "${STUDIO_STRUDEL_EMBED}")
+target_include_directories(studio_strudel PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(studio_strudel PRIVATE qjs nlohmann_json::nlohmann_json)
+target_link_libraries(studio_engine PRIVATE studio_strudel)
 
 # --- Faust, for FaustPlugin ---------------------------------------------------
 #

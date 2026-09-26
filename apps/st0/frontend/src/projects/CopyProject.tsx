@@ -14,7 +14,7 @@ import {
 } from "@frediverse/ui/dialog";
 import { Copy, FolderGit2, HardDrive, Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
-import type { MachineWorkspace } from "@studio/web-protocol";
+import type { AccountWorkspace } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -36,15 +36,15 @@ export function CopyProject({
   path: string;
   label: string;
   app: ProjectApp;
-  /** Where it may land — every OTHER workspace on this machine that holds several projects. */
-  targets: MachineWorkspace[];
+  /** Where it may land — every OTHER workspace of the account that holds several projects. */
+  targets: AccountWorkspace[];
   onCopy: (
-    to: MachineWorkspace,
+    to: AccountWorkspace,
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
 }) {
-  const [to, setTo] = useState<MachineWorkspace | null>(null);
+  const [to, setTo] = useState<AccountWorkspace | null>(null);
   const [name, setName] = useState(label);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");

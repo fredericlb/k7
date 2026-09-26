@@ -1,8 +1,8 @@
-// Process.cpp — see Process.h. The child's pipes are drained on detached threads until they close:
+// Processes.cpp — see Processes.h. The child's pipes are drained on detached threads until they close:
 // a full pipe blocks the writer, so draining is not optional. Windows arguments are quoted by the
 // CommandLineToArgvW rules, since CreateProcess takes one string.
 
-#include "Process.h"
+#include "Processes.h"
 
 #include <algorithm>
 #include <cstdlib>

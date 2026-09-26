@@ -1989,7 +1989,6 @@ export class Workspace {
         metronome: p.settings.metronome,
         metronomeLevel: p.settings.metronomeLevel,
         countIn: p.settings.countIn,
-        strudel: p.strudel,
         markers: p.markers.map((m) => ({
           beat: m.beat,
           name: m.name,
