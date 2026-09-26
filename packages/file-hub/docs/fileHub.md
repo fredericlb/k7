@@ -29,6 +29,19 @@ it. What only makes sense on an engine's machine is off: CORS (the hub answers t
 machine's speakers (mpv), the médiathèque puller (the library is already on this disk) and the
 dial to a local engine at boot.
 
+### In dev, an edit stops them
+
+pl8's `tsx watch` restarts pl8 on an edit to what pl8 IMPORTS, and a spawned process is not an
+import: an account's file service would keep running yesterday's `commands` or `song` until
+somebody restarted pl8 by hand. So with `watchSources` (`STUDIO_FILES_WATCH=1`, set by pl8's dev
+script and never by the image) the hub watches `@studio/file-service` and every `@studio/*`
+package it depends on, transitively, and stops all its instances on a change.
+
+Stopping, not a `tsx watch` child. A child that restarts itself keeps its process, so the hub
+would never hear of it, and would go on believing in the engine binding the new process has
+never been told about. A stopped instance goes through the ordinary exit — its binding
+released — and the next request starts a fresh one, as it does after the idle stop.
+
 ## A ticket says who is calling
 
 The browser's identity headers are **dropped**, not trusted: `x-studio-user` is set by the hub,

@@ -39,6 +39,8 @@ export function mountFileHub(
     tunnels: engine.tunnels,
     selfPort: () => port,
     userOf: (req) => req.user?.email ?? "",
+    // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
+    watchSources: process.env.STUDIO_FILES_WATCH === "1",
     // Stable across restarts, so an open page keeps its ticket through a deploy.
     ticketKey: process.env.SESSION_SECRET
       ? `${process.env.SESSION_SECRET}:files`
