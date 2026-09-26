@@ -133,6 +133,12 @@ kind of module ever gains one, this will need an explicit mark.
 wins over this ground: a state beats an identity, which is the right order — knowing an edge is in a
 render matters more than recognising it as an edge.
 
+**An automatically frozen node is frosted too, and gives way.** `n.autoFrozen` (a VST's automatic
+render, `packages/song/docs/autoFreeze.md`) takes the same wash and snowflake, but where `frozen`
+refuses a drag and hides the plugin and bypass bubbles, `autoFrozen` keeps them: a drag or the
+plugin bubble first calls the host's `onThawAutoFreeze` with the VST the render was taken at, so the
+edit reaches a live plugin.
+
 ## A note is drawn before the LOD branch
 
 Every other card drops to its name when the camera pulls back, because widgets stop being readable

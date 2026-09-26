@@ -655,5 +655,6 @@
   "hc.renameSame": "{name} is called that already",
   "engineSwitch.hint": "Playing on {engine} — click to move this project to another engine",
   "engineSwitch.none": "No engine answers",
-  "engineSwitch.inUse": "in use"
+  "engineSwitch.inUse": "in use",
+  "engineSwitch.incompatible": "{score}% compatible — this engine is missing: {missing}"
 }

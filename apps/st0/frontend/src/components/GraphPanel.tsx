@@ -12,7 +12,7 @@ import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import { type Cam, DomChains } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { useDocument } from "../hooks/useDocument";
@@ -181,6 +181,7 @@ export function GraphPanel({
         camStore={camStore}
         command={command}
         onBypassModule={onBypassModule}
+        onThawAutoFreeze={thawAutoFreeze}
         onModuleField={onModuleField}
         onRecorder={onRecorder}
         onProjectField={onProjectField}

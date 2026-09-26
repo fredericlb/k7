@@ -2,6 +2,7 @@
 // by one render. Pure graph work over the derived chains, no filesystem, so a browser can ask the
 // same question the compiler does. Full rationale: docs/freeze.md.
 
+import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { splitPort } from "@studio/song-schema/moduleTypes";
 import type { Chain } from "./graph";
 
@@ -101,6 +102,40 @@ export function freezePlans(
       for (const n of inside) (isLane(n) ? lanes : modules).add(n);
       return { at, render, lanes, modules };
     });
+}
+
+/** The module a compiled plugin belongs to — `<chain>:<module>`, split on the FIRST colon. */
+export const pluginModule = (id: string): string =>
+  id.slice(id.indexOf(":") + 1);
+
+/**
+ * The compiled doc cut down to exactly one plan — those lanes, those plugins, the sends between
+ * them — which is what a freeze RENDERS, and what an automatic freeze fingerprints
+ * (docs/autoFreeze.md): one cut, so the two cannot disagree about what the render contains. The
+ * master is neutral: the render plays back through it live, and baking it in would apply it twice.
+ */
+export function freezeCut(
+  doc: ProjectDoc,
+  plan: { lanes: Set<string>; modules: Set<string> },
+): ProjectDoc {
+  const kept = doc.tracks.filter(
+    (t) =>
+      plan.lanes.has(t.id) ||
+      t.plugins.some((p) => plan.modules.has(pluginModule(p.id))),
+  );
+  const ids = new Set(kept.map((t) => t.id));
+  return {
+    ...doc,
+    masterVolume: 0,
+    masterPlugins: [],
+    tracks: kept.map((t) => ({
+      ...t,
+      solo: false, // nothing outside the plan is in the doc, so a solo could only silence the render
+      plugins: t.plugins.filter((p) => plan.modules.has(pluginModule(p.id))),
+      // A send leaving the plan has nowhere to land; one inside it is how the lanes meet.
+      sends: t.sends.filter((s) => ids.has(s.to)),
+    })),
+  };
 }
 
 /** The plans really IN FORCE, `exists` injected so a diskless surface can ask too — docs/freeze.md. */

@@ -29,7 +29,10 @@ import {
 } from "node:path";
 import type { ShareBundle } from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import { scannedPluginNames } from "@studio/engine-client/pluginCache";
+import {
+  scannedPluginNames,
+  scannedPlugins,
+} from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's: an app that draws chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
 import {
@@ -37,6 +40,7 @@ import {
   assemblyIssues,
   libraryAssemblies,
 } from "@studio/song/assemblies";
+import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { loadGraph } from "@studio/song/graph";
@@ -71,7 +75,11 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
-import { isFrozenClipId, materialRefOf } from "@studio/song/nodeProject";
+import {
+  compileWithAutoFreezes,
+  isFrozenClipId,
+  materialRefOf,
+} from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
   formatChannels,
@@ -139,6 +147,7 @@ import type {
   WebWaveform,
   WorkspaceInfo,
 } from "@studio/web-protocol";
+import type { Compatibility } from "@studio/web-protocol/compat";
 import {
   PROJECT_SUFFIXES,
   type ProjectApp,
@@ -168,6 +177,11 @@ import {
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
+import {
+  type PluginNeed,
+  pluginNeedsOf,
+  projectCompatOf,
+} from "./pluginNeeds.ts";
 // The four export acts, behind a host of six members — see shareOps.ts.
 import {
   buildShare,
@@ -264,6 +278,9 @@ const RECYCLE_DIR = "_recycle_bin";
 
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.ya?ml$/i;
+// What moves the revision: the YAML, and a VST's .vstpreset — its params, rewritten IN PLACE by its
+// own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
+const REVISION_FILE = /\.(ya?ml|vstpreset)$/i;
 
 // Hidden files and deps are never shown, edited or WATCHED — the strudel watcher prunes this same list.
 export const skip = (name: string): boolean =>
@@ -949,7 +966,7 @@ export class Workspace {
           continue;
         }
         // A project SOURCE — an out-of-band edit to one moves the token, a media copy does not.
-        const source = PROJECT_FILE.test(e.name);
+        const source = REVISION_FILE.test(e.name);
         if (sourcesOnly && !source) continue;
         try {
           const s = statSync(p);
@@ -1187,6 +1204,31 @@ export class Workspace {
     const marked = this.readActiveMarker();
     if (marked && isProjectDir(marked)) return this.toRel(marked);
     return projectDirsUnder(this.root)[0] ?? null;
+  }
+
+  /** The active project's automatic freezes, ready or not, memoised on the revision — packages/song/docs/autoFreeze.md. */
+  autoFreezes(): AutoFreeze[] {
+    return this.onRevision(
+      "autoFreezes",
+      (dir) => compileWithAutoFreezes(dir).freezes,
+      [],
+    );
+  }
+
+  /** The plugins one project of this workspace needs its engine to host, read without opening it — pluginNeeds.ts. */
+  pluginNeeds(project: string): PluginNeed[] {
+    return pluginNeedsOf(this.projectDirOf(project));
+  }
+
+  /** …scored against THIS machine's engine scan, for a project living beside its engine; null when the scan cannot say. */
+  pluginCompat(project: string): Compatibility | null {
+    return projectCompatOf(this.projectDirOf(project), scannedPlugins());
+  }
+
+  private projectDirOf(project: string): string {
+    const dir = this.safePath(project);
+    if (!isProjectDir(dir)) throw new Error(`not a project: ${project}`);
+    return dir;
   }
 
   /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */
@@ -2109,6 +2151,7 @@ export class Workspace {
       dir,
       this.clipExtents(dir),
       this.trackMixers(dir),
+      this.autoFreezes(),
     );
     this.graphCache = { dir, rev, graph };
     return graph;

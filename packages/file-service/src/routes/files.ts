@@ -30,6 +30,7 @@ import {
   snapshotPluginBase,
   startEngineForActive,
   takeJustRecorded,
+  thawAutoFreeze,
   unloadEngine,
   unloadEngineIfServing,
   webCommandList,
@@ -90,6 +91,48 @@ filesRouter.put(
   }),
 );
 // No input-pair route: grouping an interface's inputs is `system channel type` — see docs/fileRoutes.md.
+
+/** The plugins a project of this workspace needs its engine to host — asked BEFORE an engine is chosen, see docs/fileRoutes.md. */
+filesRouter.get(
+  "/project-plugins",
+  wrap((req, res) => {
+    const project = String(req.query.project ?? "");
+    if (!project)
+      return res.status(400).json({ error: "project is required" });
+    try {
+      res.json({ plugins: req.ws!.pluginNeeds(project) });
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** …and that project SCORED against this machine's engine, for a project living beside its engine — see docs/fileRoutes.md. */
+filesRouter.get(
+  "/project-compat",
+  wrap((req, res) => {
+    const project = String(req.query.project ?? "");
+    if (!project)
+      return res.status(400).json({ error: "project is required" });
+    try {
+      res.json({ compat: req.ws!.pluginCompat(project) });
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** Leave an automatically frozen VST live while somebody edits it (`on`), or let it freeze again — packages/song/docs/autoFreeze.md. */
+const thawBody = z.object({ module: z.string().min(1), on: z.boolean() });
+filesRouter.post(
+  "/auto-freeze/thaw",
+  validate(thawBody),
+  wrap((req, res) => {
+    const { module, on } = req.body as z.infer<typeof thawBody>;
+    thawAutoFreeze(req.ws!, module, on);
+    res.json({ ok: true });
+  }),
+);
 
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(

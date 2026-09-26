@@ -36,6 +36,39 @@ a route beside this one: a route that remembers the pairing while the browser te
 on its own socket makes one act two doors, and the verb does both, in the order that survives a
 slow rig.
 
+## `/project-plugins` answers about a project that is NOT open
+
+`GET /project-plugins?project=<rel>` lists the plugins one project of the workspace needs its
+engine to host — internal ones and externals (VST and kin), each once — as `{ format, name }`
+(`pluginNeeds.ts`). jsdsp, Faust and offline modules are left out: they are built from the
+project's own source on whichever engine plays it.
+
+It takes the project in the query rather than reading the active one because st0's `EngineGate`
+asks it BEFORE any engine is chosen, to score each candidate's catalogue against it
+(`packages/engine-browser/src/compat.ts`); opening the project would already need the engine.
+The header asks it again of the open project on each revision, since adding a module can add a
+plugin.
+
+`GET /project-compat?project=<rel>` is the same list SCORED here, against this machine's engine
+scan (`scannedPlugins()`), as `{ compat: { score, missing } | null }` — the formula is
+`@studio/web-protocol/compat`, the browser's own. It is for a project that lives BESIDE its engine:
+each candidate engine's machine answers for itself, so the browser never needs the catalogue. On
+the server (hosted files) it means nothing — that scan is whichever engine the hub bound last —
+and the browser scores `/project-plugins` against the engine's own `list-plugins` instead.
+`null` is an empty scan, which cannot say; it is not "compatible with nothing".
+
+Both COUNT a plugin baked into a render in force — a manual freeze or an automatic VST one: the
+render lets an engine without it play the track but not edit it, so that engine keeps its loss
+(`packages/song/docs/autoFreeze.md`).
+
+## `/auto-freeze/thaw` leaves a VST live while it is edited
+
+`POST /auto-freeze/thaw { module, on }`: the graph sends it when a control on an automatically
+frozen node is touched, since the baked VST has no plugin a knob could reach. It leaves the module
+live for the session — in memory, never in the song — and reloads the engine. The scheduler
+(`autoFreezeJobs.ts`) ends the thaw itself once the engine has been stopped for a while with no
+edit; `on: false` ends it at once.
+
 ## The three routes that answer about things OUTSIDE the open song
 
 `/module-libraries`, `/library-chains` and `/playlists` sit beside `/tree` rather than inside

@@ -38,6 +38,7 @@ import {
   ENGINE_RECONNECT_MIN_MS,
 } from "@studio/web-protocol";
 import chokidar from "chokidar";
+import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { askBoundMachine } from "./boundMachine.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
@@ -62,6 +63,8 @@ interface Link {
   lastUsed: number;
   /** Consecutive failed dials, reset by a socket that opened. Drives the reconnect backoff. */
   attempt: number;
+  /** The transport, off the engine's state frames: an automatic freeze waits for it to stop. */
+  playing: boolean;
 }
 const links = new Map<string, Link>();
 
@@ -177,6 +180,11 @@ function wireEngine(session: string, e: EngineClient): void {
   );
   // The session is carried by the SOCKET, not the frame, so it is what a take belongs to.
   e.on("recorded", (take: RecordedTake) => onRecorded(session, take));
+  // Only the transport is kept: an automatic freeze swaps a track's contents, never under the playhead.
+  e.on("state", (st: { playing: boolean }) => {
+    const l = links.get(session);
+    if (l) l.playing = st.playing;
+  });
 }
 
 /** Take a link out of the map and close it, in that order — see docs/activeProject.md. */
@@ -235,10 +243,46 @@ export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
     ready: false,
     lastUsed: Date.now(),
     attempt: 0,
+    playing: false,
   });
   wireEngine(session, client);
   client.connect();
+  startAutoFreeze();
   return client;
+}
+
+/** How often each served project is looked at for a VST render to make — cheap when nothing moved. */
+const AUTO_FREEZE_EVERY_MS = 3_000;
+let autoFreezeTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Freeze VST tracks while nobody is listening — autoFreezeJobs.ts, packages/song/docs/autoFreeze.md. */
+function startAutoFreeze(): void {
+  if (autoFreezeTimer) return;
+  autoFreezeTimer = setInterval(() => {
+    for (const [session, s] of served) {
+      const link = links.get(session);
+      if (!link?.ready) continue;
+      guard(
+        "auto-freeze",
+        autoFreezer.tick({
+          dir: s.project,
+          rev: () => s.ws.revision().rev,
+          playing: () => link.playing,
+          reload: () => reloadActiveProject(s.ws),
+          gitEnv: webGitEnv(owner || undefined),
+        }),
+      );
+    }
+  }, AUTO_FREEZE_EVERY_MS);
+  autoFreezeTimer.unref();
+}
+
+/** Leave `module` live while somebody edits it, or let it freeze again — the graph's knobs ask. */
+export function thawAutoFreeze(ws: Workspace, module: string, on: boolean): void {
+  const p = ws.activeProjectPath();
+  if (!p) return;
+  autoFreezer.thaw(p, module, on);
+  reloadActiveProject(ws);
 }
 
 /** Whether this session's socket is open. A fresh one is not, and says so. */

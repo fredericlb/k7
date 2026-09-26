@@ -7,6 +7,10 @@
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
 import { engineAccess } from "@studio/engine-browser/access";
+import type {
+  Compatibility,
+  PluginNeed,
+} from "@studio/engine-browser/compat";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
@@ -126,6 +130,21 @@ export const api = {
 
   // The LISTING only: a track goes up with `upload` and is played over `mediaUrl`, both of which already take any workspace path.
   references: () => fget<{ references: ReferenceTrack[] }>("/references"),
+
+  // --- What a project asks of its engine (engineCompat.ts) ---
+
+  projectPlugins: (project: string) =>
+    fget<{ plugins: PluginNeed[] }>(
+      `/project-plugins?project=${encodeURIComponent(project)}`,
+    ),
+  // Leave an automatically frozen VST live while it is edited — packages/song/docs/autoFreeze.md.
+  thawAutoFreeze: (module: string, on = true) =>
+    fsend<{ ok: true }>("POST", "/auto-freeze/thaw", { module, on }),
+  // …scored by the file service itself against its engine's scan: only meaningful beside the engine, not on the server.
+  projectCompat: (project: string) =>
+    fget<{ compat: Compatibility | null }>(
+      `/project-compat?project=${encodeURIComponent(project)}`,
+    ),
 
   // --- A node's model, fetched onto this machine (the right-click's "Download model") ---
 
@@ -461,3 +480,8 @@ export const moduleStore: ModuleStore = {
     };
   },
 };
+
+/** The graph's thaw, fire-and-forget: a control on an automatically frozen VST asks, and the reload is the answer. */
+export function thawAutoFreeze(module: string): void {
+  api.thawAutoFreeze(module).catch(() => {});
+}

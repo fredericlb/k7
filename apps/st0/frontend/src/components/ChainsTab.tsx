@@ -34,7 +34,7 @@ import {
   DomChains,
 } from "@studio/ui-chains-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { useDocument } from "../hooks/useDocument";
@@ -826,6 +826,7 @@ export function ChainsTab({
             camStore={camStore}
             command={command}
             onBypassModule={bypassModule}
+            onThawAutoFreeze={thawAutoFreeze}
             onModuleField={onModuleField}
             onRecorder={onRecorder}
             onProjectField={onProjectField}

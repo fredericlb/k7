@@ -96,4 +96,29 @@ engine a document itself, which the server's files would name in paths the engin
   **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
 - **The picker's policy**: pl8 leaves an editor open with no engine, st0's gate does not. A
-  product difference, not a plumbing one.
+  product difference, not a plumbing one. st0 never asks, and never reuses the remembered
+  engine either: every open takes `bestEngine` (`choose.ts`) afresh, and does not store it as
+  the preference. The order, each step only among the equals of the one before:
+  1. **compatibility** with the project (`compat.ts`): the share of the plugins the project
+     needs its engine to host — internal and VST alike — that the engine's catalogue has,
+     `available / required × 100`, floored so only a full house reads 100. An engine whose
+     catalogue did not arrive in time ranks below any score;
+  2. the **latency class** (Q1, Q2, Q3);
+  3. the **performance** score.
+
+  The latency in ms only breaks a tie left after all three. The remembered engine is used only
+  when no candidate qualifies at all.
+
+  The formula is `@studio/web-protocol/compat`, and it is applied on one of two roads, by where
+  the project's files live (`apps/st0/frontend/src/engineCompat.ts`):
+  - **on the server** (hosted files): the server lists the needs, `/project-plugins`, with no
+    engine bound; each catalogue comes from the engine itself, `list-plugins` on a socket of its
+    own — a probe query, answered without a session — and the browser scores;
+  - **on the engine's machine**: that machine's file service scores the project against its own
+    engine's scan, `/project-compat`, and each candidate answers for itself.
+
+  When nothing could be told (no `@local` project in the address, no engine answered)
+  compatibility is left out and the order starts at 2.
+
+  The header's engine menu (st0's `EngineSwitch`) is still an explicit choice, and it still
+  saves the preference; the gate simply no longer reads it first.

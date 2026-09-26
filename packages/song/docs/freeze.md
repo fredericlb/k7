@@ -101,6 +101,11 @@ Nothing is neutralised by hand. Gain and pan are a `Mixer` **module**: upstream 
 belongs in the render, downstream it is not in the cut doc at all. What a per-track freeze would
 have to flatten, the plan already answers.
 
+The one exception is the **master**: the cut (`freezeCut`, `freeze.ts`) sends it neutral — no
+master plugins, unity volume — because the render plays back THROUGH the master live, and baking
+it in too applied it twice. The automatic VST freeze renders the same cut
+([autoFreeze.md](autoFreeze.md)).
+
 A **strudel** lane inside the set is refused: its pattern is endless, and the engine makes its
 notes as the transport rolls, so there is no length a render of it could stop at.
 
@@ -125,6 +130,12 @@ there would name the wrong one.
 A lane is a module ([trackModules.md](trackModules.md)), so one verb reaches a lane and a reverb
 by the same name — and the thing you actually want to stop paying for, "everything before here",
 is sayable. A freeze that only ever took one lane and its own modules cannot say it.
+
+## Freezing without asking
+
+A VST module is frozen automatically, the same way, while the engine is stopped — the module chosen
+for you, the render named for its inputs so that any change plays live again. See
+[autoFreeze.md](autoFreeze.md).
 
 ## The limit worth knowing
 

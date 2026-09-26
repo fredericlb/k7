@@ -1,9 +1,12 @@
 // EngineGate.tsx — choose the engine before the editor mounts. There is no fixed localhost
 // socket: engines register themselves, so this lists them, MEASURES each one's latency,
-// and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
-// back on any browser — and is reused whenever it is still reachable.
+// and mounts <App/> with the chosen ws address. It picks for you (`bestEngine`): the engine
+// most COMPATIBLE with the project first (it has the plugins the project uses —
+// ../engineCompat.ts), then the best latency class, then the best performance score. The
+// picker only appears when none is usable, or on asking.
 
 import { Loader2 } from "@frediverse/ui/icons";
+import { bestEngine } from "@studio/engine-browser/choose";
 import type { ClaimTakenReason } from "@studio/engine-browser/lease";
 import { useRelook } from "@studio/engine-browser/relook";
 import { ProjectTakenOver } from "@studio/project-shell/gate";
@@ -14,6 +17,7 @@ import {
 } from "@studio/project-shell/launch";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { engines } from "../api";
+import { compatByEngine } from "../engineCompat";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
@@ -80,13 +84,17 @@ export function EngineGate({
     return target ? projectClaimKey(target) : null;
   }, []);
 
-  const pick = useCallback(async (r: RankedEngine): Promise<boolean> => {
-    if (!r.wsUrl || !r.fileBase || r.token === null) return false;
-    // Remembered on the ACCOUNT rather than in this tab, and fire-and-forget: failing the pick because a preference did not save would take the engine away.
-    engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
-    setPhase({ k: "chosen", engine: r });
-    return true;
-  }, []);
+  const pick = useCallback(
+    async (r: RankedEngine, remember = true): Promise<boolean> => {
+      if (!r.wsUrl || !r.fileBase || r.token === null) return false;
+      // Remembered on the ACCOUNT rather than in this tab, and fire-and-forget: failing the pick because a preference did not save would take the engine away.
+      if (remember)
+        engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
+      setPhase({ k: "chosen", engine: r });
+      return true;
+    },
+    [],
+  );
 
   // The claim is a LEASE this tab keeps alive ON THIS PROJECT (@studio/engine-browser/docs/lease.md); asleep, the cleanup releases it.
 
@@ -113,12 +121,20 @@ export function EngineGate({
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
     let cancelled = false;
     void (async () => {
-      // List, preference, probe and policy in one call — the same four steps in the same order as pl8.
+      // List, preference, probe and policy in one call — the same four steps in the same order as pl8 — beside what the project needs.
       const { ranked: r, chosen } = await engines.find();
       if (cancelled) return;
       setRanked(r);
+      // Compatibility, then latency class, then performance — compatibility left out where it could not be told. Not remembered, so every open ranks afresh.
+      const compat = await compatByEngine(r);
+      if (cancelled) return;
+      const best = bestEngine(r, {
+        compat: compat.size ? (id) => compat.get(id)?.score ?? null : undefined,
+      });
+      if (best && (await pick(best, false))) return;
+      // No candidate qualified (all in use, say): the policy's own answer, if it has one.
       if (chosen && (await pick(chosen))) return;
-      // Nothing remembered and reachable, or several to choose between: the picker is the honest answer, and the preference is left alone.
+      // Nothing usable at all: the picker says so, and offers Refresh.
       if (!cancelled) setPhase({ k: "picking" });
     })();
     return () => {

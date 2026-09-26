@@ -167,6 +167,8 @@ export interface GraphNode extends Carried, Flags {
   bypassed?: boolean; // the chain step is `enabled: false` — passes its input through
   /** BAKED into a render — not `dim`, which is one click from audible. See packages/song/docs/freeze.md. */
   frozen?: "at" | "inside";
+  /** Baked into an AUTOMATIC VST freeze — the VST module whose render holds it; touching a control thaws it (packages/song/docs/autoFreeze.md). */
+  autoFrozen?: string;
   // A node that does not exist yet: the module being created, drawn where it will land.
   pending?: boolean;
   /** The sockets to DRAW, already decided — see `jacksFor` and docs/graphBuild.md. */
@@ -1159,6 +1161,9 @@ export function buildGraph(
           : {}),
         // …and whether it is inside somebody's render — one map answers for a lane and a module alike.
         ...(graph.frozen?.[s.module] ? { frozen: graph.frozen[s.module] } : {}),
+        ...(graph.autoFrozen?.[s.module]
+          ? { autoFrozen: graph.autoFrozen[s.module] }
+          : {}),
         // Everything the step itself says, in one move — see CARRIED/FLAGS.
         ...carryStep(s),
         // The panel the node actually DRAWS, over the raw one `carryStep` brought — docs/graphBuild.md.
@@ -1261,6 +1266,9 @@ export function buildGraph(
           module: c.from,
           ...(graph.trackAlternatives?.[c.from] ?? {}),
           ...(graph.frozen?.[c.from] ? { frozen: graph.frozen[c.from] } : {}),
+          ...(graph.autoFrozen?.[c.from]
+            ? { autoFrozen: graph.autoFrozen[c.from] }
+            : {}),
           dim: false,
           missing: false,
           stub: false,
@@ -1368,6 +1376,7 @@ export function buildGraph(
       module: id,
       ...(graph.trackAlternatives?.[id] ?? {}),
       ...(graph.frozen?.[id] ? { frozen: graph.frozen[id] } : {}),
+      ...(graph.autoFrozen?.[id] ? { autoFrozen: graph.autoFrozen[id] } : {}),
       dim: false,
       missing: false,
       stub: false,

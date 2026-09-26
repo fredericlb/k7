@@ -28,11 +28,13 @@ import {
   patternShares,
   sampleBanks,
 } from "./enginePattern";
+import { type AutoFreeze, autoFreezes } from "./autoFreeze";
 import { activeFreezePlans } from "./freeze";
 import {
   type Chain,
   checkChainInputs,
   inputLandingTrack,
+  loadGraph,
   parseChains,
 } from "./graph";
 import {
@@ -334,10 +336,45 @@ function normGain(v: unknown): number {
 
 // A compile READS the project, so one walk of the module folders covers however often it asks the cache (moduleCache.ts).
 export function compileNodeProject(dir: string): ProjectDoc {
-  return withModuleStamp(dir, () => compileNodeProjectIn(dir));
+  return compileWithAutoFreezes(dir).doc;
 }
 
-function compileNodeProjectIn(dir: string): ProjectDoc {
+/**
+ * The compile in two passes when the song has VSTs (docs/autoFreeze.md): LIVE first, since an
+ * automatic freeze is fingerprinted from what it would replace, then again with every automatic
+ * freeze whose render is on disk standing in for its modules. Also answers the freezes themselves,
+ * ready or not, for whoever schedules the missing renders.
+ */
+export function compileWithAutoFreezes(dir: string): {
+  doc: ProjectDoc;
+  freezes: AutoFreeze[];
+} {
+  return withModuleStamp(dir, () => {
+    const live = compileNodeProjectIn(dir);
+    let freezes: AutoFreeze[];
+    try {
+      freezes = autoFreezes(dir, loadGraph(dir), live);
+    } catch {
+      // The compile read the song; a graph that will not load here is no reason to stop playing it live.
+      return { doc: live, freezes: [] };
+    }
+    const ready = freezes.filter((f) => f.ready);
+    if (!ready.length) return { doc: live, freezes };
+    return {
+      doc: compileNodeProjectIn(
+        dir,
+        Object.fromEntries(ready.map((f) => [f.module, f.render])),
+      ),
+      freezes,
+    };
+  });
+}
+
+function compileNodeProjectIn(
+  dir: string,
+  /** Automatic freezes in force, module → render: frozen exactly as a `frozen:` field would be. */
+  autoFrozen: Record<string, string> = {},
+): ProjectDoc {
   // The rig, not the song — unreadable preferences mean no labels resolve, never a failed compile.
   let prefs: Preferences;
   try {
@@ -497,9 +534,21 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
         : "";
 
   // --- FROZEN points: a `frozen:` module stands in for everything upstream of it (docs/freeze.md) ---
+  // …and an AUTOMATIC one (docs/autoFreeze.md) is the same field, set here rather than in a file.
+  const withAutoFrozen = Object.keys(autoFrozen).length
+    ? {
+        ...modulesMap,
+        ...Object.fromEntries(
+          Object.entries(autoFrozen).map(([m, render]) => [
+            m,
+            { ...modulesMap[m], frozen: render },
+          ]),
+        ),
+      }
+    : modulesMap;
   const plans = activeFreezePlans(
     chains,
-    modulesMap,
+    withAutoFrozen,
     (n) => n in lanesMap,
     (r) => existsSync(resolve(dir, r)),
   );
