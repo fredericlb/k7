@@ -47,7 +47,8 @@ add_library(studio_engine STATIC
     eurorack/MacroOscillatorPlugin.cpp
     eurorack/ResonatorPlugin.cpp
     eurorack/ModalSynthesizerPlugin.cpp
-    eurorack/TextureSynthesizerPlugin.cpp)
+    eurorack/TextureSynthesizerPlugin.cpp
+    eurorack/MetaModulatorPlugin.cpp)
 
 add_library(studio::engine ALIAS studio_engine)
 
