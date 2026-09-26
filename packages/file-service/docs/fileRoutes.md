@@ -57,8 +57,9 @@ the server (hosted files) it means nothing — that scan is whichever engine the
 and the browser scores `/project-plugins` against the engine's own `list-plugins` instead.
 `null` is an empty scan, which cannot say; it is not "compatible with nothing".
 
-Both leave out a plugin baked into a render in force — a manual freeze or an automatic VST one
-(`packages/song/docs/autoFreeze.md`): no engine loads it, so no engine is asked for it.
+Both COUNT a plugin baked into a render in force — a manual freeze or an automatic VST one: the
+render lets an engine without it play the track but not edit it, so that engine keeps its loss
+(`packages/song/docs/autoFreeze.md`).
 
 ## `/auto-freeze/thaw` leaves a VST live while it is edited
 

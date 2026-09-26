@@ -95,6 +95,7 @@ gives way to them. Both wear the frost; only a manual freeze hides the plugin an
 
 ## Compatibility
 
-A plugin baked into a render in force — manual or automatic — is not counted in what a project
-needs its engine to host (`packages/file-service/src/pluginNeeds.ts`). Once a VST track is frozen,
-an engine without that VST scores 100 for it, and the auto-pick stops holding it against them.
+A frozen VST still COUNTS in what a project needs its engine to host
+(`packages/file-service/src/pluginNeeds.ts`). The render lets an engine without the VST play the
+track, not edit it — a knob, the plugin window, a param change all need the real plugin — so that
+engine keeps its compatibility loss, and the auto-pick still prefers one that has the VST.

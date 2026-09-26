@@ -4,11 +4,7 @@
 // here when the project lives on the engine's machine, in the browser when it lives on the
 // server; one formula either way (@studio/web-protocol/compat). See docs/fileRoutes.md.
 
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { activeFreezePlans } from "@studio/song/freeze";
-import { type GraphDoc, loadGraph } from "@studio/song/graph";
-import { compileWithAutoFreezes } from "@studio/song/nodeProject";
+import { loadGraph } from "@studio/song/graph";
 import { EXTERNAL_PLUGIN_FORMATS } from "@studio/song/project";
 import { hostsPlugin } from "@studio/song-schema/moduleTypes";
 import {
@@ -31,31 +27,16 @@ export function projectCompatOf(
   return compatibility(needs, catalogue);
 }
 
-/** The modules a render plays instead of — manual freezes and automatic ones on disk: no engine loads their plugin. */
-function bakedModules(dir: string, g: GraphDoc): Set<string> {
-  const isLane = (n: string) => n in g.tracks;
-  const baked = new Set<string>();
-  for (const p of activeFreezePlans(g.chains, g.modules, isLane, (r) =>
-    existsSync(resolve(dir, r)),
-  ))
-    for (const m of p.modules) baked.add(m);
-  // The automatic freezes are what makes a VST project playable on an engine without the VST.
-  try {
-    for (const f of compileWithAutoFreezes(dir).freezes)
-      if (f.ready) for (const m of f.plan.modules) baked.add(m);
-  } catch {
-    // A song that will not compile has no renders in force: every plugin counts.
-  }
-  return baked;
-}
-
-/** Every plugin the project's modules load from the engine, deduplicated, sorted for a stable answer. */
+/**
+ * Every plugin the project's modules use, deduplicated, sorted for a stable answer. A plugin baked
+ * into a render — a manual freeze or an automatic VST one — COUNTS all the same: the render lets an
+ * engine without it play the song, but not edit that track, so it stays a compatibility loss
+ * (packages/song/docs/autoFreeze.md).
+ */
 export function pluginNeedsOf(dir: string): PluginNeed[] {
   const g = loadGraph(dir);
-  const baked = bakedModules(dir, g);
   const needs = new Map<string, PluginNeed>();
-  for (const [node, module] of Object.entries(g.modules)) {
-    if (baked.has(node)) continue;
+  for (const module of Object.values(g.modules)) {
     // The same test the graph's flags make: a plugin SLOT holding a plugin — docs/graphFlags.md.
     if (module.kind !== "plugin" || !hostsPlugin(module.category)) continue;
     const format = String(module.plugin?.type ?? "").toLowerCase();
