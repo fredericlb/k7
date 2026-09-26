@@ -110,8 +110,11 @@ hand-run on a day without commits skips the same way.
 The Linux one runs in
 a `node:22-bookworm` container and installs its toolchain on every run, and publishes the same
 `.tar.gz` as the release — the tray's `.deb` and `.AppImage`, and the headless `st0-engine`. It keeps
-a ccache and the tray's Rust `target/` between runs, since the third-party code is the bulk of the
-compile and does not change from one night to the next. The Windows one runs on a
+a ccache, the tray's Rust `target/` and the dependency SOURCES between runs — the last through
+`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set — since the
+third-party code is the bulk of the download and of the compile, and does not change from one night
+to the next. That cache holds sources only: what CMake builds inside it depends on the preset, and
+the job deletes it on its way out, failed or not. The Windows one runs on a
 Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, Rust (rustup), CMake, Ninja
 and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
 container would buy isolation at the price of MSVC in a Windows container, which is heavier than
@@ -131,4 +134,4 @@ agent without VS 2022 its generator is "could not find any instance of Visual St
 **build android app** keeps the same cadence — nightly at 02:00, skipped on a day without commits —
 and publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is a native build of the
 same weight, so it is paid for on the same schedule. Its SDK is pinned and cached, and its C++ goes
-through its own ccache.
+through its own ccache and its own sources cache — its own because it builds them for arm64.

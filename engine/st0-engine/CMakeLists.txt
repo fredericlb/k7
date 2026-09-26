@@ -28,6 +28,14 @@ include(FetchContent)
 # reads as a hang in a CI log. GIT_PROGRESS on each git source below is the other half.
 set(FETCHCONTENT_QUIET OFF)
 
+# $STUDIO_FETCHCONTENT_DIR, which CI sets and keeps between runs, holds every download instead of the
+# build tree, so a fresh build clones nothing; this project gets its own folder in it. A folder of
+# SOURCES only: the job deletes what gets built in it, which differs per preset and per target.
+if(NOT "$ENV{STUDIO_FETCHCONTENT_DIR}" STREQUAL "")
+    set(FETCHCONTENT_BASE_DIR "$ENV{STUDIO_FETCHCONTENT_DIR}/st0-engine" CACHE PATH "" FORCE)
+    set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+endif()
+
 # --- nlohmann/json : parse the JSON project the frontend sends (server) --------
 FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git

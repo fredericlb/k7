@@ -196,6 +196,16 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
+  # The dependency SOURCES — Tracktion and JUCE, Faust, Eigen, NAM, QuickJS, the supervisor's stacks —
+  # kept in STUDIO_FETCHCONTENT_DIR, so a run clones nothing; what gets built there is deleted at exit.
+  - type: SetupCacheStep
+    name: set up dependency sources cache
+    key: fetch-linux
+    paths:
+    - /root/.cache/st0-fetch
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
   - type: SetupCacheStep
     name: set up rust cache
     key: rust-linux
@@ -245,6 +255,9 @@ jobs:
         # CMake takes the launcher from the environment for every build tree it configures,
         # nested ones included. BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
         export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
+        export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
+        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
         export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=4G
         ccache --zero-stats
 
@@ -329,6 +342,16 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
+  # The dependency SOURCES — Tracktion and JUCE, Faust, Eigen, NAM, QuickJS, the supervisor's stacks —
+  # kept in STUDIO_FETCHCONTENT_DIR, so a run clones nothing; what gets built there is deleted at exit.
+  - type: SetupCacheStep
+    name: set up dependency sources cache
+    key: fetch-android
+    paths:
+    - /root/.cache/st0-fetch
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
   - type: CommandStep
     name: build apk
     runInContainer: true
@@ -355,6 +378,9 @@ jobs:
 
         # Gradle hands its environment to the engine's CMake, so this reaches the NDK's clang too.
         export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
+        export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
+        trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
         export CCACHE_DIR=/root/.ccache CCACHE_BASEDIR="$PWD" CCACHE_NOHASHDIR=true CCACHE_MAXSIZE=3G
         ccache --zero-stats
 
