@@ -95,6 +95,25 @@ refused rather than stored — and keeps them as one PEM file handed to the supe
 the running engine is adopted, never stopped, and only the CURRENT supervisor's `engine` requests
 are obeyed, since the old one's last words — stop the engine — may still be in its pipe.
 
+## The buffer: two bursts at least, and more when the phone underruns
+
+JUCE's Oboe device calls back one hardware **burst** at a time — 96, 192 or 240 frames on most
+phones — and the buffer size the engine sets is only how many frames Oboe keeps queued ahead of
+that. The desktop's 256 (`docs/audioDevice.md`) snaps to the nearest whole burst, which on a
+192- or 240-frame phone is ONE: no slack at all, so every callback that runs late — a core
+migration, a frequency step, one heavy block of the graph — is an underrun. It is heard as clicks
+and crackle laid over playback that otherwise runs on time, not as a stutter, which is what makes
+it read like a DSP bug rather than a timing one. The emulator hides it: its device hands out 960.
+
+So on Android the engine asks for **at least two bursts**, and `checkXRuns` reads the stream's
+underrun count once a second: when it moved, the buffer goes up ONE size and the log says so
+(`[audio] N underruns at X frames — buffer now Y`). It stops at 40 ms, JUCE's own default for a
+low-latency Android device; past that the log says the cap was reached, once. Growing reopens the
+stream, a short gap, bounded by the cap — against a crackle that would otherwise never stop. It
+never shrinks back: a phone that underran once will again.
+
+To check on a phone: `adb logcat -s st0-engine` shows the buffer at open and every step.
+
 ## Build choices, and what forced each
 
 | choice | why |

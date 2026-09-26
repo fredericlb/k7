@@ -309,6 +309,8 @@ public:
 
     // Once a second: when the OPEN device has stopped calling back, reopen that same device and re-wire the inputs. MESSAGE THREAD ONLY. docs/audioDevice.md.
     void checkAudioCallback();
+    // Once a second, Android only: a device that underran gets the next buffer size up, to a cap. MESSAGE THREAD ONLY. docs/android.md.
+    void checkXRuns();
 
     // Enumerate the interfaces (ASIO first) and open one for input and output, false when not found; an empty `type` is "any backend". See docs/engineHost.md.
     std::vector<AudioDeviceInfo> listAudioDevices();

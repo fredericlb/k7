@@ -184,7 +184,8 @@ stays as inert as `Settings.xml`.
 
 ## The buffer size the engine asks for
 
-`kPreferredBufferFrames` is **256**, asked of every device the engine opens, and it decides the
+`kPreferredBufferFrames` is **256**, asked of every device the engine opens (a phone asks for at
+least two Oboe bursts instead, and grows on underruns — `docs/android.md`), and it decides the
 engine's quality band — which decides what you can DO here. A browser reads `2 × buffer / rate` as
 the audio half of the link's latency (a block in, a block out) and adds its measured round trip;
 under 20 ms is playable, see `packages/web-protocol/docs/quality.md`. At 48 kHz, 256 frames is

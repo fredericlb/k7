@@ -13,6 +13,7 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace studio {
@@ -33,6 +34,19 @@ int deviceTypeRank(const juce::String& t) {
 
 // Asked of every device we open, in frames — a PREFERENCE and not a promise, and what it costs: docs/audioDevice.md.
 constexpr int kPreferredBufferFrames = 256;
+
+// The most a phone's buffer grows to on underruns, in ms: JUCE's own default for a low-latency Android device (docs/android.md).
+constexpr int kMaxXRunBufferMs = 40;
+
+// What to ask of this device: kPreferredBufferFrames, but never under two Oboe bursts on a phone — one leaves no slack (docs/android.md).
+int preferredBufferFrames([[maybe_unused]] const juce::Array<int>& sizes) {
+#if JUCE_ANDROID
+    // JUCE lists an Oboe device's sizes as whole bursts, a single burst first.
+    return juce::jmax(kPreferredBufferFrames, 2 * sizes[0]);
+#else
+    return kPreferredBufferFrames;
+#endif
+}
 
 // Enumerate the interfaces the backends offer, ASIO first and ONE row per name — the dedup and what it costs: docs/audioDevice.md.
 std::vector<AudioDeviceInfo> enumerateDevices(juce::AudioDeviceManager& jdm) {
@@ -95,10 +109,11 @@ void applyPreferredBufferSize(juce::AudioDeviceManager& jdm) {
 
     const auto sizes = dev->getAvailableBufferSizes();
     if (sizes.isEmpty()) return; // the driver owns it — nothing to ask for
+    const int preferred = preferredBufferFrames(sizes);
     int want = sizes[0];
     for (const int s : sizes) {
-        const int d = std::abs(s - kPreferredBufferFrames);
-        const int best = std::abs(want - kPreferredBufferFrames);
+        const int d = std::abs(s - preferred);
+        const int best = std::abs(want - preferred);
         if (d < best || (d == best && s > want)) want = s;
     }
     if (want == dev->getCurrentBufferSizeSamples()) return;
@@ -112,8 +127,8 @@ void applyPreferredBufferSize(juce::AudioDeviceManager& jdm) {
         return;
     }
     std::cerr << "[audio] buffer " << want << " frames";
-    if (want != kPreferredBufferFrames)
-        std::cerr << " (nearest this device offers to " << kPreferredBufferFrames << ")";
+    if (want != preferred)
+        std::cerr << " (nearest this device offers to " << preferred << ")";
     std::cerr << "\n";
 }
 
@@ -279,6 +294,53 @@ void EngineHost::checkAudioCallback() {
                   << now->getActiveOutputChannels().countNumberOfSetBits() << " out\n";
     else
         warn("audio interface '" + name + "' could not be reopened");
+}
+
+// Android only: a device that underran since the last check moves up ONE buffer size, up to kMaxXRunBufferMs — docs/android.md.
+void EngineHost::checkXRuns() {
+#if JUCE_ANDROID
+    auto& dm = impl_->engine.getDeviceManager();
+    auto& jdm = dm.deviceManager;
+    auto* dev = jdm.getCurrentAudioDevice();
+    if (dev == nullptr || !dev->isOpen()) {
+        impl_->xruns = -1;
+        return;
+    }
+    const int now = dev->getXRunCount();
+    const int before = std::exchange(impl_->xruns, now);
+    if (before < 0 || now <= before) return;
+
+    const int current = dev->getCurrentBufferSizeSamples();
+    const int cap = static_cast<int>(dev->getCurrentSampleRate() * kMaxXRunBufferMs / 1000.0);
+    int next = 0;
+    for (const int s : dev->getAvailableBufferSizes())
+        if (s > current && (next == 0 || s < next)) next = s;
+    if (next == 0 || next > cap) {
+        if (!std::exchange(impl_->xrunsAtCap, true))
+            std::cerr << "[audio] " << (now - before) << " underruns at " << current
+                      << " frames, the largest buffer this engine asks for\n";
+        return;
+    }
+
+    // What was armed, BEFORE the reopen a new buffer size costs: afterwards there is only the reopened device's empty arm flags to read.
+    std::map<std::string, std::vector<std::string>> armedBefore;
+    for (const auto& sid : impl_->ids())
+        if (auto armed = armedTracks(sid); !armed.empty()) armedBefore[sid] = std::move(armed);
+
+    auto setup = jdm.getAudioDeviceSetup();
+    setup.bufferSize = next;
+    const auto err = jdm.setAudioDeviceSetup(setup, true);
+    dm.rescanWaveDeviceList();
+    publishAudioTiming();
+    reconnectTrackInputs(armedBefore);
+    impl_->xruns = -1;   // a reopened stream counts from zero
+    if (err.isNotEmpty())
+        std::cerr << "[audio] " << (now - before) << " underruns, and the device refused " << next
+                  << " frames: " << err << "\n";
+    else
+        std::cerr << "[audio] " << (now - before) << " underruns at " << current << " frames — buffer now "
+                  << next << "\n";
+#endif
 }
 
 std::string EngineHost::outputDeviceName() const {

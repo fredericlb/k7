@@ -774,6 +774,7 @@ public:
         if (++pulseTicks_ >= kTicksPerPulse) {
             pulseTicks_ = 0;
             host_.checkAudioCallback();
+            host_.checkXRuns();
         }
         // Ride this timer rather than add one: both sweeps are cheap.
         if (++ticks_ >= kTicksPerRelease) {
