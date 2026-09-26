@@ -165,7 +165,9 @@ FetchContent_Declare(tracktion_engine
     GIT_REPOSITORY https://github.com/Tracktion/tracktion_engine.git
     GIT_TAG        v3.2.0
     GIT_SUBMODULES_RECURSE ON
-    GIT_SHALLOW    OFF                # submodules need full history to resolve
+    # Shallow: Tracktion's history is 1.6 GB, cloned in silence, which on a CI agent reads as a hang.
+    # The JUCE submodule is still fetched whole, at the very commit v3.2.0 pins.
+    GIT_SHALLOW    ON
     ${STUDIO_TRACKTION_SUBDIR})
 
 # --- Steinberg ASIO SDK : low-latency Windows audio (engine) ------------------
