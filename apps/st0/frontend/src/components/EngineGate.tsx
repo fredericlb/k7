@@ -1,9 +1,11 @@
 // EngineGate.tsx — choose the engine before the editor mounts. There is no fixed localhost
 // socket: engines register themselves, so this lists them, MEASURES each one's latency,
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
-// back on any browser — and is reused whenever it is still reachable.
+// back on any browser — and is reused whenever it is still reachable; without one, the best
+// engine is taken (`bestEngine`), and the picker only appears when none is usable or on asking.
 
 import { Loader2 } from "@frediverse/ui/icons";
+import { bestEngine } from "@studio/engine-browser/choose";
 import type { ClaimTakenReason } from "@studio/engine-browser/lease";
 import { useRelook } from "@studio/engine-browser/relook";
 import { ProjectTakenOver } from "@studio/project-shell/gate";
@@ -80,13 +82,17 @@ export function EngineGate({
     return target ? projectClaimKey(target) : null;
   }, []);
 
-  const pick = useCallback(async (r: RankedEngine): Promise<boolean> => {
-    if (!r.wsUrl || !r.fileBase || r.token === null) return false;
-    // Remembered on the ACCOUNT rather than in this tab, and fire-and-forget: failing the pick because a preference did not save would take the engine away.
-    engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
-    setPhase({ k: "chosen", engine: r });
-    return true;
-  }, []);
+  const pick = useCallback(
+    async (r: RankedEngine, remember = true): Promise<boolean> => {
+      if (!r.wsUrl || !r.fileBase || r.token === null) return false;
+      // Remembered on the ACCOUNT rather than in this tab, and fire-and-forget: failing the pick because a preference did not save would take the engine away.
+      if (remember)
+        engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
+      setPhase({ k: "chosen", engine: r });
+      return true;
+    },
+    [],
+  );
 
   // The claim is a LEASE this tab keeps alive ON THIS PROJECT (@studio/engine-browser/docs/lease.md); asleep, the cleanup releases it.
 
@@ -118,7 +124,10 @@ export function EngineGate({
       if (cancelled) return;
       setRanked(r);
       if (chosen && (await pick(chosen))) return;
-      // Nothing remembered and reachable, or several to choose between: the picker is the honest answer, and the preference is left alone.
+      // Nothing remembered and reachable: take the best link, then the strongest machine, rather than ask. Not remembered, so a better engine appearing later still wins the next open.
+      const best = bestEngine(r);
+      if (best && (await pick(best, false))) return;
+      // Nothing usable at all: the picker says so, and offers Refresh.
       if (!cancelled) setPhase({ k: "picking" });
     })();
     return () => {

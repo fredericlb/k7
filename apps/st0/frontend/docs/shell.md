@@ -3,7 +3,9 @@
 ## What wraps the editor (`main.tsx`)
 
 The gates, outermost first: **AuthGate** (you must be signed in — hosted backend OIDC),
-**EngineGate** (pick which registered engine to drive), and **ProjectGate** (rendered by
+**EngineGate** (pick which registered engine to drive — the account's remembered one if it
+answers, else the best one `bestEngine` finds, without asking; the picker shows only when no engine
+is usable, or when you ask to change), and **ProjectGate** (rendered by
 EngineGate: resolve the repository this editor was opened on into a folder on that engine's
 machine — cloning it if it has never been there — then mount the editor). Several tabs may open
 one project at once; there is no single-tab lease.

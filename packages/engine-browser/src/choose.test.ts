@@ -4,7 +4,7 @@
 
 import type { PublicEngine } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
-import { chooseEngine } from "./choose.ts";
+import { bestEngine, chooseEngine } from "./choose.ts";
 import type { RankedEngine } from "./probe.ts";
 
 const engine = (id: string, ms: number | null): RankedEngine<PublicEngine> =>
@@ -62,5 +62,61 @@ describe("chooseEngine", () => {
 
   it("has nothing to offer when the registry is empty", () => {
     expect(chooseEngine([], "a")).toEqual({ engine: null, ambiguous: false });
+  });
+});
+
+const rated = (
+  id: string,
+  ms: number | null,
+  quality: "Q1" | "Q2" | "Q3",
+  score?: number,
+  assigned = false,
+): RankedEngine<PublicEngine> => {
+  const r = engine(id, ms);
+  return {
+    ...r,
+    latency: r.latency && { ...r.latency, quality },
+    engine: {
+      ...r.engine,
+      assigned,
+      performance: score === undefined ? undefined : { score },
+    },
+  } as unknown as RankedEngine<PublicEngine>;
+};
+
+describe("bestEngine", () => {
+  // A strong machine behind a link you cannot play through is not the better choice.
+  it("prefers the better latency tier over a stronger machine", () => {
+    const r = bestEngine([
+      rated("far", 40, "Q2", 3000),
+      rated("near", 8, "Q1", 900),
+    ]);
+    expect(r?.engine.id).toBe("near");
+  });
+
+  it("within a tier, takes the stronger machine over the lower latency", () => {
+    const r = bestEngine([
+      rated("fast-link", 4, "Q1", 800),
+      rated("fast-box", 9, "Q1", 1600),
+    ]);
+    expect(r?.engine.id).toBe("fast-box");
+  });
+
+  it("falls back to latency when neither reports a score", () => {
+    const r = bestEngine([rated("b", 9, "Q1"), rated("a", 4, "Q1")]);
+    expect(r?.engine.id).toBe("a");
+  });
+
+  // Exactly what the picker greys out: unreachable, or somebody else's.
+  it("never takes an unreachable or in-use engine", () => {
+    expect(
+      bestEngine([
+        rated("gone", null, "Q1", 5000),
+        rated("busy", 2, "Q1", 5000, true),
+        rated("ok", 30, "Q2", 500),
+      ])?.engine.id,
+    ).toBe("ok");
+    expect(bestEngine([rated("busy", 2, "Q1", 900, true)])).toBeNull();
+    expect(bestEngine([])).toBeNull();
   });
 });

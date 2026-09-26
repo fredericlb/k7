@@ -96,4 +96,7 @@ engine a document itself, which the server's files would name in paths the engin
   **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
 - **The picker's policy**: pl8 leaves an editor open with no engine, st0's gate does not. A
-  product difference, not a plumbing one.
+  product difference, not a plumbing one. st0 also never asks when `find()` answers
+  `ambiguous`: it takes `bestEngine` (`choose.ts`) — best latency tier, then the highest
+  performance score, then the lowest latency — and does not store it as the preference, so the
+  next open ranks afresh.

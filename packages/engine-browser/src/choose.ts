@@ -31,3 +31,33 @@ export function chooseEngine<E extends ProbeTarget>(
 
   return { engine: null, ambiguous: reachable.length > 1 };
 }
+
+/** What `bestEngine` reads beyond the probe: both optional, so an engine that reports neither still ranks on its latency. */
+export interface RatedTarget extends ProbeTarget {
+  assigned?: boolean;
+  performance?: { score: number } | null;
+}
+
+/**
+ * The engine to take when nobody has to be asked: the best LINK first, by quality tier — a
+ * machine you cannot play through is no use however fast it is — then, within a tier, the
+ * stronger MACHINE (performance score), then the lower latency. Only what a picker would let
+ * you pick is a candidate: reachable, with a token, and not in use. Null when there is none.
+ */
+export function bestEngine<E extends RatedTarget>(
+  ranked: RankedEngine<E>[],
+): RankedEngine<E> | null {
+  const candidates = ranked.flatMap((r) =>
+    r.latency && r.wsUrl && r.token && !r.engine.assigned
+      ? [{ r, latency: r.latency }]
+      : [],
+  );
+  candidates.sort(
+    (a, b) =>
+      a.latency.quality.localeCompare(b.latency.quality) ||
+      (b.r.engine.performance?.score ?? 0) -
+        (a.r.engine.performance?.score ?? 0) ||
+      a.latency.totalMs - b.latency.totalMs,
+  );
+  return candidates[0]?.r ?? null;
+}
