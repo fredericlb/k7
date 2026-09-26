@@ -17,7 +17,12 @@ describe("the sealed password", () => {
   it("refuses a value that was tampered with", () => {
     const sealed = seal("hunter2");
     const [iv, tag, body] = sealed.split(".");
-    const flipped = `${body.slice(0, -2)}${body.slice(-2) === "AA" ? "AB" : "AA"}`;
+    // Flip a BIT, not base64 characters: the last character of an unpadded body carries only
+    // two real bits, so swapping it for another could decode to the very same bytes — about one
+    // run in 256 "tampered" with nothing, and the test failed on a correct unseal.
+    const bytes = Buffer.from(body, "base64url");
+    bytes[0] ^= 1;
+    const flipped = bytes.toString("base64url");
     expect(() => unseal(`${iv}.${tag}.${flipped}`)).toThrow();
   });
 

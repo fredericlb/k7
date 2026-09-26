@@ -13,7 +13,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // lcdScreen.compressor.test.ts reads the demo module's widgets.js off disk.
+    "types": ["node"]
   },
   "include": ["src"]
 }
