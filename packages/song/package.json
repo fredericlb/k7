@@ -9,6 +9,7 @@
     "./basePreset": "./src/basePreset.ts",
     "./alternatives": "./src/alternatives.ts",
     "./freeze": "./src/freeze.ts",
+    "./autoFreeze": "./src/autoFreeze.ts",
     "./preferences": "./src/preferences.ts",
     "./curves": "./src/curves.ts",
     "./moduleFork": "./src/moduleFork.ts",

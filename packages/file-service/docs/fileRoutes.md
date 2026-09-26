@@ -57,6 +57,17 @@ the server (hosted files) it means nothing — that scan is whichever engine the
 and the browser scores `/project-plugins` against the engine's own `list-plugins` instead.
 `null` is an empty scan, which cannot say; it is not "compatible with nothing".
 
+Both leave out a plugin baked into a render in force — a manual freeze or an automatic VST one
+(`packages/song/docs/autoFreeze.md`): no engine loads it, so no engine is asked for it.
+
+## `/auto-freeze/thaw` leaves a VST live while it is edited
+
+`POST /auto-freeze/thaw { module, on }`: the graph sends it when a control on an automatically
+frozen node is touched, since the baked VST has no plugin a knob could reach. It leaves the module
+live for the session — in memory, never in the song — and reloads the engine. The scheduler
+(`autoFreezeJobs.ts`) ends the thaw itself once the engine has been stopped for a while with no
+edit; `on: false` ends it at once.
+
 ## The three routes that answer about things OUTSIDE the open song
 
 `/module-libraries`, `/library-chains` and `/playlists` sit beside `/tree` rather than inside

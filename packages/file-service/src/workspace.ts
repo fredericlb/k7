@@ -40,6 +40,7 @@ import {
   assemblyIssues,
   libraryAssemblies,
 } from "@studio/song/assemblies";
+import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { loadGraph } from "@studio/song/graph";
@@ -74,7 +75,11 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
-import { isFrozenClipId, materialRefOf } from "@studio/song/nodeProject";
+import {
+  compileWithAutoFreezes,
+  isFrozenClipId,
+  materialRefOf,
+} from "@studio/song/nodeProject";
 import {
   formatAudioDevice,
   formatChannels,
@@ -273,6 +278,9 @@ const RECYCLE_DIR = "_recycle_bin";
 
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.ya?ml$/i;
+// What moves the revision: the YAML, and a VST's .vstpreset — its params, rewritten IN PLACE by its
+// own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
+const REVISION_FILE = /\.(ya?ml|vstpreset)$/i;
 
 // Hidden files and deps are never shown, edited or WATCHED — the strudel watcher prunes this same list.
 export const skip = (name: string): boolean =>
@@ -958,7 +966,7 @@ export class Workspace {
           continue;
         }
         // A project SOURCE — an out-of-band edit to one moves the token, a media copy does not.
-        const source = PROJECT_FILE.test(e.name);
+        const source = REVISION_FILE.test(e.name);
         if (sourcesOnly && !source) continue;
         try {
           const s = statSync(p);
@@ -1196,6 +1204,15 @@ export class Workspace {
     const marked = this.readActiveMarker();
     if (marked && isProjectDir(marked)) return this.toRel(marked);
     return projectDirsUnder(this.root)[0] ?? null;
+  }
+
+  /** The active project's automatic freezes, ready or not, memoised on the revision — packages/song/docs/autoFreeze.md. */
+  autoFreezes(): AutoFreeze[] {
+    return this.onRevision(
+      "autoFreezes",
+      (dir) => compileWithAutoFreezes(dir).freezes,
+      [],
+    );
   }
 
   /** The plugins one project of this workspace needs its engine to host, read without opening it — pluginNeeds.ts. */
@@ -2134,6 +2151,7 @@ export class Workspace {
       dir,
       this.clipExtents(dir),
       this.trackMixers(dir),
+      this.autoFreezes(),
     );
     this.graphCache = { dir, rev, graph };
     return graph;

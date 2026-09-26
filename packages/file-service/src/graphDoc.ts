@@ -11,6 +11,7 @@ import type {
   WebNodeAssembly,
   WebRackSound,
 } from "@studio/graph-model";
+import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadCurves } from "@studio/song/curves";
 import { missingModel } from "@studio/song/modelCache";
@@ -166,6 +167,8 @@ export function buildGraphDoc(
   dir: string,
   extents?: ClipExtents,
   mixers?: TrackMixers,
+  /** The project's automatic freezes, from the caller's memo of the compile — none drawn when absent. */
+  autoFreezes?: AutoFreeze[],
 ): WebGraph {
   // loadGraph reads graph.yaml exactly as the compile does.
   const g = loadGraph(dir);
@@ -354,6 +357,12 @@ export function buildGraphDoc(
     for (const n of [...p.lanes, ...p.modules]) frozen[n] = "inside";
     frozen[p.at] = "at";
   }
+  // …and what an automatic freeze bakes, each node naming the VST whose render holds it — packages/song/docs/autoFreeze.md.
+  const autoFrozen: NonNullable<WebGraph["autoFrozen"]> = {};
+  for (const f of autoFreezes ?? [])
+    if (f.ready)
+      for (const n of [...f.plan.lanes, ...f.plan.modules])
+        autoFrozen[n] = f.module;
   // A lane's other attribute sets, from the module it IS — only past one, docs/graphFlags.md.
   const trackAlternatives: NonNullable<WebGraph["trackAlternatives"]> = {};
   // The song's meter, for spelling a clip's position: a header that says nothing is 4/4.
@@ -443,6 +452,7 @@ export function buildGraphDoc(
     ...(Object.keys(trackClips).length ? { trackClips } : {}),
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     ...(Object.keys(frozen).length ? { frozen } : {}),
+    ...(Object.keys(autoFrozen).length ? { autoFrozen } : {}),
     ...(Object.keys(assemblies).length ? { assemblies } : {}),
     modules,
     // EVERY curve the project has, not only the bound ones — see docs/graphFlags.md.

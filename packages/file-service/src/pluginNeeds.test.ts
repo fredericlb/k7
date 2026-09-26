@@ -45,6 +45,23 @@ describe("pluginNeedsOf", () => {
     ]);
   });
 
+  // A render plays instead of the VST, so no engine is asked for it — the point of freezing one.
+  it("leaves out a plugin baked into a freeze", () => {
+    node("lead", "instruments", "plugin:\n  type: vst3\n  name: Serum\n");
+    node("synth", "instruments", "plugin:\n  type: internal\n  name: 4osc\n");
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  lead: [ OUT ]\n  synth: [ OUT ]\n",
+    );
+    mkdirSync(join(dir, "renders"), { recursive: true });
+    writeFileSync(join(dir, "renders", "lead.wav"), "");
+    writeFileSync(
+      join(dir, "nodes", "lead.yaml"),
+      'extends: "@workspace/instruments/lead"\nfrozen: renders/lead.wav\n',
+    );
+    expect(pluginNeedsOf(dir)).toEqual([{ format: "internal", name: "4osc" }]);
+  });
+
   it("is empty for a project that loads no plugin", () => {
     writeFileSync(join(dir, "graph.yaml"), "modules: {}\n");
     expect(pluginNeedsOf(dir)).toEqual([]);

@@ -136,6 +136,9 @@ export const api = {
     fget<{ plugins: PluginNeed[] }>(
       `/project-plugins?project=${encodeURIComponent(project)}`,
     ),
+  // Leave an automatically frozen VST live while it is edited — packages/song/docs/autoFreeze.md.
+  thawAutoFreeze: (module: string, on = true) =>
+    fsend<{ ok: true }>("POST", "/auto-freeze/thaw", { module, on }),
   // …scored by the file service itself against its engine's scan: only meaningful beside the engine, not on the server.
   projectCompat: (project: string) =>
     fget<{ compat: Compatibility | null }>(
@@ -452,3 +455,8 @@ export const moduleStore: ModuleStore = {
     };
   },
 };
+
+/** The graph's thaw, fire-and-forget: a control on an automatically frozen VST asks, and the reload is the answer. */
+export function thawAutoFreeze(module: string): void {
+  api.thawAutoFreeze(module).catch(() => {});
+}

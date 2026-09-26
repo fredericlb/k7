@@ -30,6 +30,7 @@ import {
   snapshotPluginBase,
   startEngineForActive,
   takeJustRecorded,
+  thawAutoFreeze,
   unloadEngine,
   unloadEngineIfServing,
   webCommandList,
@@ -118,6 +119,18 @@ filesRouter.get(
     } catch (e) {
       res.status(404).json({ error: (e as Error).message });
     }
+  }),
+);
+
+/** Leave an automatically frozen VST live while somebody edits it (`on`), or let it freeze again — packages/song/docs/autoFreeze.md. */
+const thawBody = z.object({ module: z.string().min(1), on: z.boolean() });
+filesRouter.post(
+  "/auto-freeze/thaw",
+  validate(thawBody),
+  wrap((req, res) => {
+    const { module, on } = req.body as z.infer<typeof thawBody>;
+    thawAutoFreeze(req.ws!, module, on);
+    res.json({ ok: true });
   }),
 );
 

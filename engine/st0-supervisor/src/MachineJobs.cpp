@@ -3,7 +3,9 @@
 
 #include "MachineJobs.h"
 
+#include "EngineProcess.h"
 #include "Paths.h"
+#include "Processes.h"
 #include "Separation.h"
 #include "Settings.h"
 
@@ -120,6 +122,50 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
         separation::run(r, [&](const json& job) {
             emit({{"type", job.value("done", false) ? "separated" : "separating"}, {"job", job}});
         });
+    };
+
+    // Bounce a ProjectDoc through THIS machine's engine binary — the machine whose plugins the doc
+    // names — to `out`, a server path under the writable workspace the tunnel uploads on the reply.
+    // What a VST freeze is rendered with, since the server has no plugins (packages/song/docs/autoFreeze.md).
+    // The doc's clip paths arrive already local: the channel brought them down before this ran.
+    jobs["render"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
+        const std::string out = req.value("out", "");
+        const auto doc = req.find("doc");
+        if (out.empty() || doc == req.end() || !doc->is_object())
+            throw std::runtime_error("render: a doc and an out path are required");
+        const auto exe = engine::findBinary();
+        if (!exe) throw std::runtime_error("no st0-engine binary on this machine to render with");
+
+        std::error_code ec;
+        const fs::path tmp = fs::temp_directory_path(ec) / ("st0-render-" + std::to_string(process::currentPid()) + "-" +
+                                                             std::to_string(std::hash<std::string>{}(out)));
+        fs::create_directories(tmp, ec);
+        emit({{"type", "rendering"}});
+        // The doc on stdin (`--render -`): no file of it to leave behind.
+        const auto r = process::run(*exe, {"--render", "-", "--out", paths::utf8(tmp)}, doc->dump());
+        const auto cleanup = [&] { fs::remove_all(tmp, ec); };
+        if (r.code != 0) {
+            cleanup();
+            throw std::runtime_error("engine render failed (exit " + std::to_string(r.code) + ")");
+        }
+        // The manifest is the LAST line the engine printed: {"mix": "<file>", "stems": [...]}.
+        std::string mix;
+        const auto lines = splitLines(r.out);
+        for (auto it = lines.rbegin(); it != lines.rend() && mix.empty(); ++it) {
+            const auto m = json::parse(*it, nullptr, false);
+            if (m.is_object()) mix = m.value("mix", "");
+        }
+        if (mix.empty()) {
+            cleanup();
+            throw std::runtime_error("could not read the engine's render manifest");
+        }
+        const fs::path dest = paths::fromUtf8(out);
+        fs::create_directories(dest.parent_path(), ec);
+        fs::copy_file(tmp / paths::fromUtf8(mix), dest, fs::copy_options::overwrite_existing, ec);
+        cleanup();
+        if (ec) throw std::runtime_error("could not write the render: " + ec.message());
+        // Named as a FILE, so the tunnel uploads it before the server reads this reply.
+        emit({{"type", "rendered"}, {"file", out}});
     };
 
     return jobs;

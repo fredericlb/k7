@@ -3,7 +3,7 @@
 // WAV; mp3/flac are an optional ffmpeg transcode, so a missing ffmpeg only costs the
 // compressed formats. shareToK7 renders a mixdown + stems and uploads a release.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   copyFileSync,
@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { freezeCut } from "@studio/song/freeze";
 import { loadProject, type ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
 
@@ -52,9 +53,6 @@ export function renderMixdown(
   }
 }
 
-/** The module a compiled plugin belongs to — `<chain>:<module>`, split on the FIRST colon. */
-const pluginModule = (id: string): string => id.slice(id.indexOf(":") + 1);
-
 /** Bounce a freeze's upstream closure to `outWav` — a MIXDOWN of the plan, see docs/rendering.md. */
 export function freezeUpstreamRender(
   engineBin: string,
@@ -62,25 +60,59 @@ export function freezeUpstreamRender(
   plan: { lanes: Set<string>; modules: Set<string> },
   outWav: string,
 ): void {
-  const kept = doc.tracks.filter(
-    (t) =>
-      plan.lanes.has(t.id) ||
-      t.plugins.some((p) => plan.modules.has(pluginModule(p.id))),
-  );
-  const ids = new Set(kept.map((t) => t.id));
-  const cut: ProjectDoc = {
-    ...doc,
-    tracks: kept.map((t) => ({
-      ...t,
-      solo: false, // nothing outside the plan is in the doc, so a solo could only silence the render
-      plugins: t.plugins.filter((p) => plan.modules.has(pluginModule(p.id))),
-      // A send leaving the plan has nowhere to land; one inside it is how the lanes meet.
-      sends: t.sends.filter((s) => ids.has(s.to)),
-    })),
-  };
+  renderCut(engineBin, freezeCut(doc, plan), outWav);
+}
+
+/** Render an already-cut doc (`freezeCut`) to `outWav` through a local engine binary. */
+export function renderCut(
+  engineBin: string,
+  cut: ProjectDoc,
+  outWav: string,
+): void {
   const tmp = mkdtempSync(join(tmpdir(), "tbfreeze-"));
   try {
     const manifest = renderMixdown(engineBin, cut, tmp);
+    copyFileSync(join(tmp, manifest.mix), outWav);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * `renderCut` without blocking: a service rendering in the BACKGROUND (an automatic freeze,
+ * packages/song/docs/autoFreeze.md) must keep answering while the engine bounces.
+ */
+export async function renderCutAsync(
+  engineBin: string,
+  cut: ProjectDoc,
+  outWav: string,
+): Promise<void> {
+  const tmp = mkdtempSync(join(tmpdir(), "tbfreeze-"));
+  try {
+    const docFile = join(tmp, "doc.json");
+    writeFileSync(docFile, JSON.stringify(cut));
+    const stdout = await new Promise<string>((ok, fail) => {
+      const child = spawn(engineBin, ["--render", docFile, "--out", tmp], {
+        stdio: ["ignore", "pipe", "inherit"],
+      });
+      let out = "";
+      child.stdout.on("data", (d: Buffer) => {
+        out += d.toString("utf8");
+      });
+      child.on("error", fail);
+      child.on("close", (code) =>
+        code === 0
+          ? ok(out)
+          : fail(new Error(`engine render failed (exit ${code ?? "?"})`)),
+      );
+    });
+    const line = stdout.trim().split(/\r?\n/).filter(Boolean).pop() || "";
+    let manifest: RenderManifest;
+    try {
+      manifest = JSON.parse(line) as RenderManifest;
+    } catch {
+      throw new Error(`could not read the engine's render manifest:\n${stdout}`);
+    }
     copyFileSync(join(tmp, manifest.mix), outWav);
   } finally {
     rmSync(tmp, { recursive: true, force: true });

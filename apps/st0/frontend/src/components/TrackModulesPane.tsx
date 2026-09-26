@@ -8,7 +8,7 @@ import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx, NodeMenuTarget } from "../contextMenu";
 import { nodeNameFor } from "../nodeInsert";
@@ -190,6 +190,7 @@ export function TrackModulesPane({
       onProjectField={onProjectField}
       onContextMenu={onContextMenu}
       onBypassModule={onBypassModule}
+      onThawAutoFreeze={thawAutoFreeze}
       onNodeMenu={onNodeMenu}
       onAssetBrowse={onAssetBrowse}
       onWatchWaveform={onWatchWaveform}

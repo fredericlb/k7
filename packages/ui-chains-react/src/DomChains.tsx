@@ -1529,7 +1529,7 @@ function NodeInner({
     edge ? "edge" : "",
     "tappable",
     sel ? "sel" : "",
-    n.frozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
+    n.frozen || n.autoFrozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
     n.pending ? "pending" : "",
     far ? "far" : "", // far ⇒ name only; every other LOD draws header + content
   ]
@@ -1849,6 +1849,22 @@ function NodeInner({
           aria-label={`engine warning: ${warning}`}
         >
           !
+        </span>
+      )}
+
+      {/* AUTOMATICALLY frozen: the same snowflake, saying it gives way to a touch — packages/song/docs/autoFreeze.md. */}
+      {!n.frozen && n.autoFrozen && (
+        <span
+          className="dgx-fbtn auto"
+          role="img"
+          aria-label="frozen automatically"
+          title={
+            n.autoFrozen === n.module
+              ? "Frozen automatically — this VST and everything upstream play as a render, so an engine without the VST can play it. Touch a control to edit it live."
+              : `Inside ${n.autoFrozen}'s automatic render. Touch a control to edit it live.`
+          }
+        >
+          <Snowflake />
         </span>
       )}
 
@@ -2314,6 +2330,7 @@ export function DomChains({
   fitAxis = "both",
   command,
   onBypassModule,
+  onThawAutoFreeze,
   onModuleField,
   onToggleAssembly,
   onNodeMenu,
@@ -2398,6 +2415,8 @@ export function DomChains({
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
+  /** Thaw an AUTOMATIC freeze before a control on it is used: its VST is baked, and an edit must reach a live one (packages/song/docs/autoFreeze.md). */
+  onThawAutoFreeze?: (module: string) => void;
   /** Set a module's own FIELD, `node param <node> @<field> <v>`. Separate for onBypassModule's
    *  reason and one more: an intrinsic has no optimistic value, so the reload IS the feedback. */
   onModuleField?: (line: string) => void | Promise<void>;
@@ -2525,6 +2544,7 @@ export function DomChains({
     onMoveNode,
     command,
     onBypassModule,
+    onThawAutoFreeze,
     onModuleField,
     onNodeMenu,
     onTriggerRack,
@@ -2552,6 +2572,7 @@ export function DomChains({
     onMoveNode,
     command,
     onBypassModule,
+    onThawAutoFreeze,
     onModuleField,
     onNodeMenu,
     onTriggerRack,
@@ -3260,6 +3281,8 @@ export function DomChains({
       e.stopPropagation(); // don't select the node or start a pan
       // A frozen MODULE has no plugin in the engine; a frozen LANE carries its own controls.
       if (n.frozen && n.kind === "module") return;
+      // An AUTOMATIC freeze gives way instead: thawed first, so the drag reaches a live plugin.
+      if (n.autoFrozen) cb.current.onThawAutoFreeze?.(n.autoFrozen);
       const tgt = widgetTarget(n, w, ch.offlineChannel);
       if (!tgt) return;
       const v = widgetValue(n, w, ch);
@@ -3546,10 +3569,19 @@ export function DomChains({
     [],
   );
   // The plugin's OWN window: the verb names an INSTANCE, since a window belongs to what is loaded.
-  const openPlugin = useCallback(
-    (module: string) => void cb.current.command(`node external-ui ${module}`),
-    [],
+  // Which VST's render holds each node, by module — so the plugin bubble can thaw it first.
+  const autoFrozenOf = useRef<Record<string, string>>({});
+  autoFrozenOf.current = Object.fromEntries(
+    graph.nodes.flatMap((n) =>
+      n.module && n.autoFrozen ? [[n.module, n.autoFrozen]] : [],
+    ),
   );
+  const openPlugin = useCallback((module: string) => {
+    // A baked VST has no window to open: thaw its freeze, then ask.
+    const at = autoFrozenOf.current[module];
+    if (at) cb.current.onThawAutoFreeze?.(at);
+    void cb.current.command(`node external-ui ${module}`);
+  }, []);
   // Bare `node bypass` toggles, and NOT the quiet path: bypass changes the graph's shape, so it must reload.
   const bypassModule = useCallback(
     (module: string) => cb.current.onBypassModule?.(module),
