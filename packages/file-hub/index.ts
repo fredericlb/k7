@@ -28,6 +28,7 @@ import {
   Instances,
   type InstancesOptions,
 } from "./instances.ts";
+import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
@@ -47,6 +48,8 @@ export interface FileHubOptions
   ticketKey?: string;
   /** An instance nobody used for this long is stopped. */
   idleMs?: number;
+  /** DEV: stop every instance when the file service's source changes — sourceWatch.ts. */
+  watchSources?: boolean;
   log?: (msg: string) => void;
 }
 
@@ -81,6 +84,14 @@ export class FileHub {
       Math.min(idle, 5 * 60_000),
     );
     this.reaper.unref();
+    if (opts.watchSources) {
+      const dirs = fileServiceSourceDirs();
+      watchSources(dirs, (file) => {
+        log(`source changed (${file}) — stopping the file services`);
+        void this.instances.stopAll();
+      });
+      log(`watching ${dirs.length} packages of the file service`);
+    }
   }
 
   /** The hello, mounted BEHIND the session guard: it is where a session becomes a ticket. */

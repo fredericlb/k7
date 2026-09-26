@@ -90,8 +90,9 @@ kinds, each for a reason:
 The root `build` and `test` scripts stay outside this list — Tilt only owns the dev session.
 
 The **file service** is not a row: pl8's file hub starts one per account on first use
-(`packages/file-hub/docs/fileHub.md`), so an edit to its code takes effect once `pl8-backend`
-restarts (`tilt trigger pl8-backend`) — an account's running process is not watched.
+(`packages/file-hub/docs/fileHub.md`). `pl8-backend`'s dev script sets `STUDIO_FILES_WATCH=1`,
+and the hub then watches the file service and every `@studio/*` package it runs: an edit stops
+the account processes and the next request starts them on the new code.
 
 ## `claude-rc` — Claude Code's Remote Control, inside the session
 
