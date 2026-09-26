@@ -24,9 +24,14 @@ endif()
 # -----------------------------------------------------------------------------
 include(FetchContent)
 
+# Every download SAID, with its progress: a first configure fetches hundreds of MB, and a silent one
+# reads as a hang in a CI log. GIT_PROGRESS on each git source below is the other half.
+set(FETCHCONTENT_QUIET OFF)
+
 # --- nlohmann/json : parse the JSON project the frontend sends (server) --------
 FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_PROGRESS   ON
     GIT_TAG        v3.11.3
     GIT_SHALLOW    ON)
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
@@ -49,6 +54,7 @@ set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 # FetchContent_Populate that used to mean this is deprecated).
 FetchContent_Declare(nam_core
     GIT_REPOSITORY https://github.com/sdatkinson/NeuralAmpModelerCore.git
+    GIT_PROGRESS   ON
     # v0.5.4, the newest tag: v0.4.0 accepted .nam files up to format 0.6.0, and models
     # exported by current NAM trainers are 0.7.0 — get_dsp threw on them, NamPlugin kept a
     # null DSP, and the plugin passed audio through untouched. A refused model sounded
@@ -67,6 +73,7 @@ FetchContent_Declare(nam_core
 # GIT_SHALLOW, because a shallow clone can only fetch a ref, not an arbitrary commit.
 FetchContent_Declare(eigen
     GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_PROGRESS   ON
     GIT_TAG        87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1
     SOURCE_SUBDIR  studio-does-not-build-this)
 
@@ -114,6 +121,7 @@ set(INCLUDE_WASM_GLUE  OFF CACHE BOOL "" FORCE)
 # for architectures we do not build.
 FetchContent_Declare(faust
     GIT_REPOSITORY https://github.com/grame-cncm/faust.git
+    GIT_PROGRESS   ON
     GIT_TAG        2.85.9
     GIT_SUBMODULES "libraries"
     GIT_SHALLOW    ON
@@ -124,12 +132,14 @@ FetchContent_Declare(faust
 # (engine/strudel/strudel.bundle.js). Why an interpreter in the engine at all: docs/patternPlugin.md.
 FetchContent_Declare(quickjs
     GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git
+    GIT_PROGRESS   ON
     GIT_TAG        v0.17.0
     GIT_SHALLOW    ON)
 
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
 FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+    GIT_PROGRESS   ON
     GIT_TAG        v12.0.1
     GIT_SHALLOW    ON)
 set(USE_TLS OFF CACHE BOOL "" FORCE)          # localhost IPC — no TLS needed
@@ -163,6 +173,7 @@ endif()
 
 FetchContent_Declare(tracktion_engine
     GIT_REPOSITORY https://github.com/Tracktion/tracktion_engine.git
+    GIT_PROGRESS   ON
     GIT_TAG        v3.2.0
     GIT_SUBMODULES_RECURSE ON
     # Shallow: Tracktion's history is 1.6 GB, cloned in silence, which on a CI agent reads as a hang.

@@ -21,9 +21,14 @@ set(CMAKE_SKIP_INSTALL_RULES ON)
 
 include(FetchContent)
 
+# Every download SAID, with its progress: a first configure fetches hundreds of MB, and a silent one
+# reads as a hang in a CI log. GIT_PROGRESS on each git source below is the other half.
+set(FETCHCONTENT_QUIET OFF)
+
 # --- nlohmann/json : every frame and every settings file, the same tag as the engine's --------
 FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_PROGRESS   ON
     GIT_TAG        v3.11.3
     GIT_SHALLOW    ON)
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
@@ -48,6 +53,7 @@ add_library(MbedTLS::MbedTLS ALIAS st0_mbedtls)
 # --- IXWebSocket : the engine socket, the tunnel, and HTTPS, all over the mbedTLS above ---------
 FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+    GIT_PROGRESS   ON
     GIT_TAG        v12.0.1
     GIT_SHALLOW    ON)
 set(USE_TLS ON CACHE BOOL "" FORCE)
@@ -65,6 +71,7 @@ target_compile_definitions(ixwebsocket PRIVATE IXWEBSOCKET_USE_MBED_TLS_MIN_VERS
 # Data channels only: no media, no WebSocket of its own, and the three submodules that needs.
 FetchContent_Declare(libdatachannel
     GIT_REPOSITORY https://github.com/paullouisageneau/libdatachannel.git
+    GIT_PROGRESS   ON
     GIT_TAG        v0.24.5
     GIT_SHALLOW    ON
     GIT_SUBMODULES "deps/plog;deps/usrsctp;deps/libjuice")
