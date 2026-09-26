@@ -40,7 +40,11 @@ add_library(studio_engine STATIC
     InputTuner.cpp
     PluginEditor.cpp
     Recording.cpp
-    Recorder.cpp)
+    Recorder.cpp
+    eurorack/RateBridge.cpp
+    eurorack/EurorackPlugin.cpp
+    eurorack/MacroOscillator2Plugin.cpp
+    eurorack/MacroOscillatorPlugin.cpp)
 
 add_library(studio::engine ALIAS studio_engine)
 
@@ -104,6 +108,11 @@ target_link_libraries(studio_engine PRIVATE
 # leave them in studio_engine.lib, where the self-registering ones get dropped (see the
 # object library above).
 target_link_libraries(studio_engine PUBLIC studio_nam)
+
+# --- The eurorack modules' DSP, for the plugins under eurorack/ ---------------
+# Its own JUCE-free library, so the firmware's macros and its TEST define reach nothing else.
+add_subdirectory(eurorack)
+target_link_libraries(studio_engine PRIVATE studio_eurorack)
 
 # --- QuickJS + the Strudel bundle, for PatternPlugin --------------------------
 #

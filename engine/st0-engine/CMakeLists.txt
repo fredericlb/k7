@@ -144,6 +144,23 @@ FetchContent_Declare(quickjs
     GIT_TAG        v0.17.0
     GIT_SHALLOW    ON)
 
+# --- Mutable Instruments' eurorack firmware : the DSP of eight modules (engine) --
+# The STM32 modules' code is MIT; only their DSP folders are compiled, never the drivers or UI, and
+# built with TEST defined, which is how the firmware's own desktop harnesses build it. Archives
+# pinned by hash rather than git: a shallow clone cannot fetch a commit, and the full history is
+# hundreds of MB of hardware files. stmlib is the firmware's submodule, at the commit it pins, and
+# sits in a folder NAMED stmlib because every module includes it as "stmlib/...".
+# Why these modules and not the rest: docs/eurorack.md.
+FetchContent_Declare(eurorack
+    URL      https://github.com/pichenettes/eurorack/archive/08460a69a7e1f7a81c5a2abcc7189c9a6b7208d4.tar.gz
+    URL_HASH SHA256=9f83180320097b6f461e996845fd34153238c4956ccb5a64e27c5048e0d4c180
+    SOURCE_SUBDIR studio-does-not-build-this)
+FetchContent_Declare(stmlib
+    URL      https://github.com/pichenettes/stmlib/archive/e3bd7c9cc00e4364166f9905c0509b6ffd0535ec.tar.gz
+    URL_HASH SHA256=eff5d6642a93498996661e0dd4b5a1de4b98093f25a009166910726d1262b5d2
+    SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/stmlib-root/stmlib"
+    SOURCE_SUBDIR studio-does-not-build-this)
+
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
 FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
@@ -277,7 +294,8 @@ if(WIN32)
     add_compile_definitions(JUCE_ASIO=1)
 endif()
 
-FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust quickjs)
+FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust quickjs
+                           eurorack stmlib)
 
 # Android populated Tracktion without building its root (see its declaration): add JUCE and the
 # Tracktion modules the way that root does, minus the examples.
@@ -300,6 +318,11 @@ set(STUDIO_EIGEN_DIR "${eigen_SOURCE_DIR}" CACHE INTERNAL "Eigen source")
 # NAM includes its JSON as <json.hpp>, not <nlohmann/json.hpp>, so it needs the directory
 # the header sits IN — the nlohmann_json target's own interface points one level up.
 set(STUDIO_JSON_DIR "${nlohmann_json_SOURCE_DIR}/include/nlohmann" CACHE INTERNAL "nlohmann/json.hpp's own directory")
+
+# The eurorack sources, and the folder ABOVE stmlib: the two include roots engine/eurorack/ compiles with.
+set(STUDIO_EURORACK_DIR "${eurorack_SOURCE_DIR}" CACHE INTERNAL "Mutable Instruments eurorack source")
+get_filename_component(_stmlib_parent "${stmlib_SOURCE_DIR}" DIRECTORY)
+set(STUDIO_STMLIB_ROOT "${_stmlib_parent}" CACHE INTERNAL "The folder holding stmlib/")
 
 # --- macOS deployment target: re-assert AFTER Tracktion (order matters) --------
 # Every tracktion examples/*/CMakeLists.txt does, inside if(APPLE):
