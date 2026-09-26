@@ -8,3 +8,4 @@
 #include "eurorack/ModalSynthesizerPlugin.h"
 #include "eurorack/TextureSynthesizerPlugin.h"
 #include "eurorack/MetaModulatorPlugin.h"
+#include "eurorack/TidalModulatorPlugin.h"

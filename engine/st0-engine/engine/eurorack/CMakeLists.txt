@@ -15,6 +15,7 @@ add_library(studio_eurorack STATIC
     cores/ElementsCore.cpp
     cores/CloudsCore.cpp
     cores/WarpsCore.cpp
+    cores/TidesCore.cpp
 
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/atan.cc
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/units.cc
@@ -93,7 +94,11 @@ add_library(studio_eurorack STATIC
     ${ER}/warps/dsp/filter_bank.cc
     ${ER}/warps/dsp/modulator.cc
     ${ER}/warps/dsp/oscillator.cc
-    ${ER}/warps/dsp/vocoder.cc)
+    ${ER}/warps/dsp/vocoder.cc
+
+    ${ER}/tides2/resources.cc
+    ${ER}/tides2/poly_slope_generator.cc
+    ${ER}/tides2/ramp/ramp_extractor.cc)
 
 # PUBLIC is only this folder: a core's header is the whole interface, and names nothing of the firmware's.
 target_include_directories(studio_eurorack
