@@ -66,8 +66,11 @@ app.use(
   ),
 );
 
-// The module builder's "AI organize" — off unless ANTHROPIC_API_KEY is set (./aiOrganize.ts).
-app.use("/api/ai", aiOrganizeRouter(requireAuth));
+// The module builder's "AI organize", with each account's own key, kept beside its preferences (./aiSettings.ts).
+app.use(
+  "/api/ai",
+  aiOrganizeRouter(prefsStore(join(PREFS_DIR, "ai")), requireAuth),
+);
 
 // The built SPA — this process's own frontend/dist, since there is no nginx in this image.
 // Static files first (an asset request that matches a real file wins outright), then a

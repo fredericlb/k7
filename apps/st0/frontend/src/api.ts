@@ -486,8 +486,30 @@ export const moduleStore: ModuleStore = {
   },
 };
 
-/** The module builder's "AI organize", on THIS backend — the one holding the key (backend/src/aiOrganize.ts). */
+/** The account's Claude settings as the browser may see them: the key only as a hint (backend/src/aiSettings.ts). */
+export interface AiSettingsView {
+  model: string | null;
+  defaultModel: string;
+  keyHint: string | null;
+}
+
+/** The module builder's "AI organize", on THIS backend — the one holding the account's key (backend/src/aiOrganize.ts). */
 export const aiOrganize = {
+  settings: async (): Promise<AiSettingsView> =>
+    json(await fetch(`${BASE}/api/ai/settings`), "ai/settings"),
+  /** A PATCH: an absent field is kept, null clears it — the key is never sent back to be kept. */
+  saveSettings: async (patch: {
+    apiKey?: string | null;
+    model?: string | null;
+  }): Promise<AiSettingsView> =>
+    json(
+      await fetch(`${BASE}/api/ai/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      }),
+      "ai/settings",
+    ),
   /** Whether the button should exist at all; any failure reads as "no", since the button is optional. */
   enabled: async (): Promise<boolean> => {
     const res = await fetch(`${BASE}/api/ai/organize`).catch(() => null);

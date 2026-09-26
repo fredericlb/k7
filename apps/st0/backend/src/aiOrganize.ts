@@ -1,12 +1,11 @@
-// aiOrganize.ts — the module builder's "AI organize": the one route that holds a Claude key.
-// The browser sends the module (params, current panel, screens); this asks Claude for a whole
-// new panel, CHECKS it with the builder's own rules and hands the model its mistakes once
-// before giving up. The answer streams as NDJSON so a minute of thinking keeps the socket busy
-// and the button can say what is happening. Off unless ANTHROPIC_API_KEY is set.
+// aiOrganize.ts — the module builder's "AI organize", with the ACCOUNT's Claude key and model
+// (aiSettings.ts). The browser sends the module (params, current panel, screens); this asks
+// Claude for a whole new panel, CHECKS it with the builder's own rules and hands the model its
+// mistakes once before giving up. The answer streams as NDJSON so a minute of thinking keeps
+// the socket busy and the button can say what is happening. Off for an account with no key.
 // Rationale: packages/ui-module-builder/docs/aiOrganize.md.
 
 import Anthropic from "@anthropic-ai/sdk";
-import { defineEnv, z } from "@frediverse/env";
 import {
   AI_RESULT_SCHEMA,
   type AiOrganizeEvent,
@@ -16,18 +15,14 @@ import {
   readAiAnswer,
 } from "@studio/ui-module-builder/ai-organize";
 import { aiSystemPrompt } from "@studio/ui-module-builder/ai-prompt";
+import type { PrefsStore } from "@studio/user-prefs";
 import express, { type RequestHandler } from "express";
-
-const env = defineEnv(
-  {
-    ANTHROPIC_API_KEY: z.string().optional(),
-    // Not ANTHROPIC_MODEL: a developer's shell sets that for their own tools, often to an alias the API refuses.
-    ST0_AI_MODEL: z.string().optional(),
-  },
-  { service: "st0-backend" },
-);
-
-const MODEL = env.ST0_AI_MODEL || "claude-opus-5";
+import { z } from "zod";
+import {
+  type AiSettings,
+  aiSettingsRoutes,
+  DEFAULT_AI_MODEL,
+} from "./aiSettings";
 
 /** One proposal and one repair: a second round of the same mistakes is not worth a third minute. */
 const ROUNDS = 2;
@@ -73,6 +68,7 @@ function answerText(msg: Anthropic.Message): string {
 /** Ask, check, and hand back the mistakes once; `say` reports progress to the browser. */
 async function organize(
   client: Anthropic,
+  model: string,
   req: AiOrganizeRequest,
   say: (e: AiOrganizeEvent) => void,
   signal: AbortSignal,
@@ -92,7 +88,7 @@ async function organize(
     });
     const stream = client.messages.stream(
       {
-        model: MODEL,
+        model,
         max_tokens: 64000,
         // The stable half is cached: a second click on another module re-reads only the module.
         system: [
@@ -105,7 +101,7 @@ async function organize(
         messages,
         output_config: {
           // Haiku takes no effort setting; every other current model thinks harder for `high`.
-          ...(MODEL.includes("haiku") ? {} : { effort: "high" as const }),
+          ...(model.includes("haiku") ? {} : { effort: "high" as const }),
           format: { type: "json_schema", schema: AI_RESULT_SCHEMA },
         },
       },
@@ -149,22 +145,31 @@ async function organize(
 /** Its own body limit, mounted BEFORE the app's parser: a big plugin's params outgrow the default 100 kB. */
 export const aiOrganizeBody = express.json({ limit: "2mb" });
 
-/** `GET` says whether the button should exist; `POST` runs one organize and streams NDJSON. */
-export function aiOrganizeRouter(requireAuth: RequestHandler): express.Router {
+/** `/settings` is the account's key and model; `GET /organize` says whether the button should exist; `POST` runs one. */
+export function aiOrganizeRouter(
+  store: PrefsStore<AiSettings>,
+  requireAuth: RequestHandler,
+): express.Router {
   const router = express.Router();
-  const client = env.ANTHROPIC_API_KEY
-    ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
-    : null;
+  router.use(aiSettingsRoutes(store, requireAuth));
+  // Read per request: a key set in the panel a second ago is the one this click uses.
+  const settingsOf = (req: express.Request) =>
+    req.user?.sub ? store.read(req.user.sub) : null;
 
-  router.get("/organize", requireAuth, (_req, res) => {
-    res.json({ enabled: !!client, model: client ? MODEL : null });
+  router.get("/organize", requireAuth, (req, res) => {
+    const s = settingsOf(req);
+    res.json({
+      enabled: !!s?.apiKey,
+      model: s?.apiKey ? s.model || DEFAULT_AI_MODEL : null,
+    });
   });
 
   router.post("/organize", requireAuth, async (req, res) => {
-    if (!client) {
-      res
-        .status(404)
-        .json({ error: "AI organize is not configured (ANTHROPIC_API_KEY)" });
+    const s = settingsOf(req);
+    if (!s?.apiKey) {
+      res.status(404).json({
+        error: "no Claude key for this account — set one in the settings panel",
+      });
       return;
     }
     const body = requestSchema.safeParse(req.body);
@@ -180,7 +185,14 @@ export function aiOrganizeRouter(requireAuth: RequestHandler): express.Router {
     const abort = new AbortController();
     res.on("close", () => res.writableEnded || abort.abort());
     try {
-      await organize(client, body.data, say, abort.signal);
+      const client = new Anthropic({ apiKey: s.apiKey });
+      await organize(
+        client,
+        s.model || DEFAULT_AI_MODEL,
+        body.data,
+        say,
+        abort.signal,
+      );
     } catch (e) {
       const error =
         e instanceof Anthropic.APIError

@@ -302,7 +302,7 @@ export default function App({
     /** Whether this shared module has been unlocked for editing; whether it IS shared is read off the path. */
     unlocked?: boolean;
   } | null>(null);
-  /** Whether this backend holds a Claude key, asked when the builder opens until it says yes: no key, no button. */
+  /** Whether this ACCOUNT has a Claude key (the settings panel), asked when the builder opens until it says yes: no key, no button. */
   const [aiEnabled, setAiEnabled] = useState(false);
   const builderOpen = !!builder;
   useEffect(() => {

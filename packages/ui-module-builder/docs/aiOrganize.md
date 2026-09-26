@@ -12,25 +12,28 @@ draws screens that show the sound's shape.
 | `src/aiPrompt.ts` | the system prompt: the grid, every widget, the lcdscreen contract, the design brief |
 | `src/aiOrganize.ts` | the wire types, the per-module message, the check |
 | `src/useAiOrganize.ts` | the builder's half: ask, send, land the answer in the buffers |
-| `apps/st0/backend/src/aiOrganize.ts` | the host's half: the key, the model, the call, one repair round |
+| `apps/st0/backend/src/aiOrganize.ts` | the host's half: the call, one repair round |
+| `apps/st0/backend/src/aiSettings.ts` | the account's key and model, write-only from the browser |
 
-## The key lives on a server, so the button is the host's to offer
+## The key is the account's, and the button is the host's to offer
 
-A Claude key cannot reach a browser. So the builder does not call Claude: it takes an optional
-`onAiOrganize` and draws the button only when a host passes one, the rule `onScanParams` follows
-(`builder.md`). st0 passes it when its backend says a key is configured. The médiathèque passes
-nothing, and draws no button.
+The builder does not call Claude itself. It takes an optional `onAiOrganize` and draws the
+button only when a host passes one, the rule `onScanParams` follows (`builder.md`). st0 passes it
+when its backend says this account has a key. The médiathèque passes nothing, and draws no
+button.
 
-The backend reads two variables, from `env.yaml`'s `st0-backend` section or the environment:
+**Each account sets its own key and model** in st0's settings panel
+(`apps/st0/frontend/docs/settings.md`), and st0's backend keeps them in a file per account
+beside the preferences. An account is a person, and a request billed to somebody else's key is
+one they never agreed to. Nothing in the server's environment has to change for one person to
+turn the feature on. The model is optional: `claude-opus-5` when none is named.
 
-| variable | |
-|---|---|
-| `ANTHROPIC_API_KEY` | required; unset, the route answers `enabled: false` and the button is not drawn |
-| `ST0_AI_MODEL` | optional; `claude-opus-5` when unset |
-
-The model variable is not `ANTHROPIC_MODEL` because a developer's shell often sets that one for
-their own tools, sometimes to an alias the API refuses. A dev backend would then fail with a
-message that points nowhere near the cause.
+**The key is write-only from the browser.** A read answers the model and a hint
+(`sk-ant-…wxyz`), never the key. That is why the settings are not a field of the preferences
+document: the browser reads that one whole and writes it back whole, so the key would travel to
+every page that loads a preference. The settings route takes a PATCH instead. A field left out
+is kept, and null clears it, because a browser that never holds the key cannot send it back to be
+kept.
 
 ## The prompt is split into a constant half and a per-module half
 

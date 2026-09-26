@@ -259,9 +259,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 ## The backend in detail
 
-**Three source files**: `server.ts`, `types/express.d.ts` and `aiOrganize.ts` — the module
-builder's AI organize, the one route here that holds a secret (a Claude key, `ANTHROPIC_API_KEY`;
-`packages/ui-module-builder/docs/aiOrganize.md`). That is the whole thing. There is
+**Four source files**: `server.ts`, `types/express.d.ts`, and the module builder's AI organize in
+`aiOrganize.ts` and `aiSettings.ts`. The latter holds the one secret here, each account's own
+Claude key, which the browser can set and never read back
+(`packages/ui-module-builder/docs/aiOrganize.md`). That is the whole thing. There is
 no engine registry here at all: the one registry is pl8's (`@studio/engine-registry`, whose
 `docs/shared.md` says why), and the frontend's `engines` lists from it across the origin — the
 relay included — while keeping its preferences here (`prefsBase`).
