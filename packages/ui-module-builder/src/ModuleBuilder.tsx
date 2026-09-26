@@ -92,7 +92,11 @@ import {
 } from "./moduleUi";
 import { setParamDrag } from "./paramDrag";
 import type { ModuleStore } from "./store";
+import { type AiOrganizeCall, useAiOrganize } from "./useAiOrganize";
 import { WidgetGridEditor } from "./WidgetGridEditor";
+
+export type { AiOrganizeCall } from "./useAiOrganize";
+
 import { YamlPane } from "./YamlPane";
 
 /** What the left column shows; `params` is the odd entry, being a list rather than a file — docs/builder.md. */
@@ -180,6 +184,7 @@ export function ModuleBuilder({
   baseModules,
   onRelocated,
   renderPreview,
+  onAiOrganize,
 }: {
   // Everything file-shaped. The one thing the two apps don't share — see store.ts.
   store: ModuleStore;
@@ -230,6 +235,8 @@ export function ModuleBuilder({
     // The `widgets.js` AS EDITED, which draws the grid's lcdscreen widgets.
     script?: string;
   }) => ReactNode;
+  /** Ask Claude for the panel; the HOST holds the key and the model, so absent means no button — docs/aiOrganize.md. */
+  onAiOrganize?: AiOrganizeCall;
 }) {
   const [content, setContent] = useState<string | null>(null);
   /** The module's `status:` off the BUFFER, so the dropdown shows the edit you just made — docs/builder.md. */
@@ -827,6 +834,20 @@ export function ModuleBuilder({
     return out;
   }, [content]);
 
+  // Claude's panel lands in the two buffers it replaces, exactly as a code edit would — docs/aiOrganize.md.
+  const ai = useAiOrganize({
+    call: onAiOrganize,
+    module: moduleName,
+    moduleYaml: content ?? "",
+    params: paramRows,
+    uiYaml: uiFile?.content ?? "",
+    widgetsJs: scriptFile?.content ?? "",
+    canWriteScript: !!scriptFile,
+    onPanel: onPanelChange,
+    onScript: onScriptChange,
+    setStatus,
+  });
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex items-center gap-3 border-b border-border px-3 py-2">
@@ -1172,6 +1193,8 @@ export function ModuleBuilder({
                         : false
                 }
                 onChange={onUiChange}
+                onAiOrganize={ai.run}
+                aiBusy={ai.busy}
               />
             </div>
             {renderPreview && (

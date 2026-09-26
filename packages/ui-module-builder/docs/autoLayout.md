@@ -9,6 +9,9 @@ arrangement of dragging 151 rows onto a grid that is a reasonable afternoon, and
 panel worth having that omits them silently. So the builder proposes one and you edit it —
 which is the only honest contract a guess can offer.
 
+Its sibling, **AI organize**, asks Claude to *design* a panel instead of sorting one, and is the
+host's to offer (`aiOrganize.md`). This one stays: it is instant, free and needs no key.
+
 `autoLayout.ts` is pure and `autoLayout.test.ts` is where the guess is pinned. The grid does
 not know how the guessing works, and the guessing does not know there is a grid.
 

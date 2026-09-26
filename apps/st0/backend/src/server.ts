@@ -15,11 +15,14 @@ import { prefsStore } from "@studio/user-prefs";
 import { preferencesRouter } from "@studio/user-prefs/router";
 import express from "express";
 import { z } from "zod";
+import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
 
 const PORT = process.env.PORT || 8789;
 const app = express();
 
-// Preferences are the only bodies left here; the relay that needed a file-service-sized limit is pl8's now.
+// The module builder's AI organize takes a whole module, so it parses first, with its own limit.
+app.use("/api/ai", aiOrganizeBody);
+// Preferences are the other bodies here; the relay that needed a file-service-sized limit is pl8's now.
 app.use(express.json());
 
 // Empty stays undefined, not []: setupAuth falls back on nullish only, and [] asks for NO scopes.
@@ -62,6 +65,9 @@ app.use(
     prefsSchema,
   ),
 );
+
+// The module builder's "AI organize" — off unless ANTHROPIC_API_KEY is set (./aiOrganize.ts).
+app.use("/api/ai", aiOrganizeRouter(requireAuth));
 
 // The built SPA — this process's own frontend/dist, since there is no nginx in this image.
 // Static files first (an asset request that matches a real file wins outright), then a
