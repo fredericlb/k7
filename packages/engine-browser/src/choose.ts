@@ -38,21 +38,19 @@ export interface RatedTarget extends ProbeTarget {
   performance?: { score: number } | null;
 }
 
-/** What else `bestEngine` may weigh, both optional. */
+/** What else `bestEngine` may weigh. */
 export interface BestEngineOptions {
   /** The engine's compatibility with the project (0–100, see compat.ts); null when it could not be told, which ranks below any score. */
   compat?: (engineId: string) => number | null;
-  /** The account's remembered engine: preferred among the MOST compatible, never over a more compatible one. */
-  preferId?: string;
 }
 
 /**
- * The engine to take when nobody has to be asked. COMPATIBILITY with the project first — an
- * engine missing a plugin plays the song wrong, however fast it is — then the remembered one
- * among the equals, then the best LINK, by quality tier — a machine you cannot play through is
- * no use either — then, within a tier, the stronger MACHINE (performance score), then the lower
- * latency. Only what a picker would let you pick is a candidate: reachable, with a token, and
- * not in use. Null when there is none.
+ * The engine to take when nobody has to be asked, in three steps: COMPATIBILITY with the project
+ * first — an engine missing a plugin plays the song wrong, however fast it is — then the LATENCY
+ * CLASS (quality tier) — a machine you cannot play through is no use either — then the MACHINE's
+ * performance score. The latency in ms only breaks a tie left after all three. Only what a picker
+ * would let you pick is a candidate: reachable, with a token, and not in use. Null when there is
+ * none.
  */
 export function bestEngine<E extends RatedTarget>(
   ranked: RankedEngine<E>[],
@@ -60,8 +58,6 @@ export function bestEngine<E extends RatedTarget>(
 ): RankedEngine<E> | null {
   const compat = (r: RankedEngine<E>): number =>
     opts.compat?.(r.engine.id) ?? -1;
-  const preferred = (r: RankedEngine<E>): number =>
-    opts.preferId !== undefined && r.engine.id === opts.preferId ? 1 : 0;
   const candidates = ranked.flatMap((r) =>
     r.latency && r.wsUrl && r.token && !r.engine.assigned
       ? [{ r, latency: r.latency }]
@@ -70,7 +66,6 @@ export function bestEngine<E extends RatedTarget>(
   candidates.sort(
     (a, b) =>
       compat(b.r) - compat(a.r) ||
-      preferred(b.r) - preferred(a.r) ||
       a.latency.quality.localeCompare(b.latency.quality) ||
       (b.r.engine.performance?.score ?? 0) -
         (a.r.engine.performance?.score ?? 0) ||

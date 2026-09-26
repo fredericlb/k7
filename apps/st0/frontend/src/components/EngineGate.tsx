@@ -2,8 +2,8 @@
 // socket: engines register themselves, so this lists them, MEASURES each one's latency,
 // and mounts <App/> with the chosen ws address. It picks for you (`bestEngine`): the engine
 // most COMPATIBLE with the project first (it has the plugins the project uses —
-// ../engineCompat.ts), the account's remembered one among those, then the best link and
-// machine. The picker only appears when none is usable, or on asking.
+// ../engineCompat.ts), then the best latency class, then the best performance score. The
+// picker only appears when none is usable, or on asking.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { bestEngine } from "@studio/engine-browser/choose";
@@ -122,23 +122,18 @@ export function EngineGate({
     let cancelled = false;
     void (async () => {
       // List, preference, probe and policy in one call — the same four steps in the same order as pl8 — beside what the project needs.
-      const { ranked: r, chosen, rememberedId } = await engines.find();
+      const { ranked: r, chosen } = await engines.find();
       if (cancelled) return;
       setRanked(r);
-      // Compatibility decides first wherever it could be told, and the remembered engine only wins among the most compatible.
+      // Compatibility, then latency class, then performance — compatibility left out where it could not be told. Not remembered, so every open ranks afresh.
       const compat = await compatByEngine(r);
       if (cancelled) return;
-      if (compat.size) {
-        const fit = bestEngine(r, {
-          compat: (id) => compat.get(id)?.score ?? null,
-          preferId: rememberedId,
-        });
-        if (fit && (await pick(fit, false))) return;
-      }
-      if (chosen && (await pick(chosen))) return;
-      // Nothing remembered and reachable: take the best link, then the strongest machine, rather than ask. Not remembered, so a better engine appearing later still wins the next open.
-      const best = bestEngine(r);
+      const best = bestEngine(r, {
+        compat: compat.size ? (id) => compat.get(id)?.score ?? null : undefined,
+      });
       if (best && (await pick(best, false))) return;
+      // No candidate qualified (all in use, say): the policy's own answer, if it has one.
+      if (chosen && (await pick(chosen))) return;
       // Nothing usable at all: the picker says so, and offers Refresh.
       if (!cancelled) setPhase({ k: "picking" });
     })();

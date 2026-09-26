@@ -151,16 +151,26 @@ describe("bestEngine", () => {
     expect(r?.engine.id).toBe("known");
   });
 
-  it("prefers the remembered engine only among the most compatible", () => {
-    const eng = [rated("mine", 30, "Q2", 500), rated("other", 2, "Q1", 3000)];
-    expect(
-      bestEngine(eng, { compat: () => 100, preferId: "mine" })?.engine.id,
-    ).toBe("mine");
-    expect(
-      bestEngine(eng, {
-        compat: (id) => (id === "mine" ? 90 : 100),
-        preferId: "mine",
-      })?.engine.id,
-    ).toBe("other");
+  // The three steps in order: compatibility, latency class, performance — each only among the equals of the one before.
+  it("orders by compatibility, then latency class, then performance", () => {
+    const scores: Record<string, number> = {
+      partial: 90,
+      "full-q2-strong": 100,
+      "full-q1-weak": 100,
+      "full-q1-strong": 100,
+    };
+    const eng = [
+      rated("partial", 1, "Q1", 5000),
+      rated("full-q2-strong", 20, "Q2", 4000),
+      rated("full-q1-weak", 3, "Q1", 700),
+      rated("full-q1-strong", 8, "Q1", 1500),
+    ];
+    const pickOf = (list: typeof eng) =>
+      bestEngine(list, { compat: (id) => scores[id] })?.engine.id;
+    expect(pickOf(eng)).toBe("full-q1-strong");
+    // Latency class before performance: the weaker Q1 machine over the stronger Q2 one.
+    expect(pickOf(eng.filter((e) => e.engine.id !== "full-q1-strong"))).toBe(
+      "full-q1-weak",
+    );
   });
 });
