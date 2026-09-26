@@ -128,8 +128,7 @@ It overrides no preset, so the agent builds with the host default, `windows-msvc
 2026), exactly as the machine does by hand. `windows-msvc-2022` is for GitHub's runner only: on an
 agent without VS 2022 its generator is "could not find any instance of Visual Studio".
 
-**build android app** is the exception to the nightly cadence: it runs on every master push and
-publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is the only build of the
-Android port, whose seams — the engine as a library, the supervisor as a packaged executable —
-break on changes to either program made with only the desktops in mind, and a push is where that
-is cheapest to hear. Its SDK is pinned and cached, and its C++ goes through its own ccache.
+**build android app** keeps the same cadence — nightly at 02:00, skipped on a day without commits —
+and publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is a native build of the
+same weight, so it is paid for on the same schedule. Its SDK is pinned and cached, and its C++ goes
+through its own ccache.
