@@ -6,3 +6,4 @@
 #include "eurorack/MacroOscillatorPlugin.h"
 #include "eurorack/ResonatorPlugin.h"
 #include "eurorack/ModalSynthesizerPlugin.h"
+#include "eurorack/TextureSynthesizerPlugin.h"

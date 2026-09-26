@@ -154,6 +154,8 @@ FetchContent_Declare(quickjs
 FetchContent_Declare(eurorack
     URL      https://github.com/pichenettes/eurorack/archive/08460a69a7e1f7a81c5a2abcc7189c9a6b7208d4.tar.gz
     URL_HASH SHA256=9f83180320097b6f461e996845fd34153238c4956ccb5a64e27c5048e0d4c180
+    # Upstream bugs this port fixes, each named and explained in the script.
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/eurorack.cmake"
     SOURCE_SUBDIR studio-does-not-build-this)
 FetchContent_Declare(stmlib
     URL      https://github.com/pichenettes/stmlib/archive/e3bd7c9cc00e4364166f9905c0509b6ffd0535ec.tar.gz

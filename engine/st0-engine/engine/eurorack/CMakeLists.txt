@@ -13,6 +13,7 @@ add_library(studio_eurorack STATIC
     cores/BraidsCore.cpp
     cores/RingsCore.cpp
     cores/ElementsCore.cpp
+    cores/CloudsCore.cpp
 
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/atan.cc
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/units.cc
@@ -77,7 +78,15 @@ add_library(studio_eurorack STATIC
     ${ER}/elements/dsp/resonator.cc
     ${ER}/elements/dsp/string.cc
     ${ER}/elements/dsp/tube.cc
-    ${ER}/elements/dsp/voice.cc)
+    ${ER}/elements/dsp/voice.cc
+
+    ${ER}/clouds/resources.cc
+    ${ER}/clouds/dsp/correlator.cc
+    ${ER}/clouds/dsp/granular_processor.cc
+    ${ER}/clouds/dsp/mu_law.cc
+    ${ER}/clouds/dsp/pvoc/frame_transformation.cc
+    ${ER}/clouds/dsp/pvoc/phase_vocoder.cc
+    ${ER}/clouds/dsp/pvoc/stft.cc)
 
 # PUBLIC is only this folder: a core's header is the whole interface, and names nothing of the firmware's.
 target_include_directories(studio_eurorack
