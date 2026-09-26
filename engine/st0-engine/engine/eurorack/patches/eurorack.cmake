@@ -2,15 +2,7 @@
 # A CMake script rather than a .patch, so no `patch` binary is needed on any of the three desktops.
 # Each one fails LOUDLY when its text is not found: a bump that moved the code must be looked at.
 
-function(studio_replace file from to)
-    file(READ "${file}" text)
-    string(FIND "${text}" "${from}" at)
-    if(at EQUAL -1)
-        message(FATAL_ERROR "eurorack patch: text not found in ${file} — was the source bumped?")
-    endif()
-    string(REPLACE "${from}" "${to}" text "${text}")
-    file(WRITE "${file}" "${text}")
-endfunction()
+include("${CMAKE_CURRENT_LIST_DIR}/studio_replace.cmake")
 
 # Clouds' stretch mode: Window::Start never clears done_, so no window ever plays and the mode is
 # silent. VCV Rack's fork of this code carries the same one-line fix.

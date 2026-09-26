@@ -85,6 +85,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
     cores/                    one per module, JUCE-free with a pimpl: stmlib #defines NULL and CLIP,
                               so a firmware header never shares a TU with JUCE. `studio_eurorack`
     patches/eurorack.cmake    the upstream bug fixed at fetch time (Clouds' silent stretch mode)
+    patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
     <Name>Plugin.{h,cpp}      Macro Oscillator 2 (Plaits), Macro Oscillator (Braids), Resonator
                               (Rings), Modal Synthesizer (Elements), Tidal Modulator (Tides 2), Drum
                               Voices (Peaks), Texture Synthesizer (Clouds), Meta Modulator (Warps)

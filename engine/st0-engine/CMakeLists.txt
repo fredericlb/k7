@@ -164,6 +164,8 @@ FetchContent_Declare(stmlib
     URL      https://github.com/pichenettes/stmlib/archive/e3bd7c9cc00e4364166f9905c0509b6ffd0535ec.tar.gz
     URL_HASH SHA256=eff5d6642a93498996661e0dd4b5a1de4b98093f25a009166910726d1262b5d2
     SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/stmlib-root/stmlib"
+    # What MSVC cannot compile as shipped, explained in the script.
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/stmlib.cmake"
     SOURCE_SUBDIR studio-does-not-build-this)
 
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
