@@ -6,6 +6,7 @@ package se.frediver.st0
 
 import android.content.Context
 import android.net.Uri
+import android.net.http.SslError
 import android.util.Base64
 import java.io.File
 import java.security.cert.CertificateFactory
@@ -34,6 +35,25 @@ object TrustedCas {
     /** Trust Android's CAs only again. */
     fun forget(context: Context) {
         file(context).delete()
+    }
+
+    /**
+     * Whether these CAs vouch for a page's certificate the WebView refused (AppViewsPlugin): its ONLY fault
+     * is an unknown issuer, and it is one of them or signed by one of them. The WebView hands over the leaf
+     * alone, so a studio whose certificate hangs off an intermediate needs that intermediate trusted here.
+     */
+    fun vouch(context: Context, error: SslError): Boolean {
+        val faults = listOf(
+            SslError.SSL_NOTYETVALID, SslError.SSL_EXPIRED, SslError.SSL_IDMISMATCH,
+            SslError.SSL_UNTRUSTED, SslError.SSL_DATE_INVALID, SslError.SSL_INVALID,
+        ).filter(error::hasError)
+        if (faults != listOf(SslError.SSL_UNTRUSTED)) return false
+        val leaf = error.certificate.x509Certificate ?: return false
+        if (runCatching { leaf.checkValidity() }.isFailure) return false
+        return read(context).any { ca ->
+            ca.encoded.contentEquals(leaf.encoded) ||
+                (ca.subjectX500Principal == leaf.issuerX500Principal && runCatching { leaf.verify(ca.publicKey) }.isSuccess)
+        }
     }
 
     private fun read(context: Context): List<X509Certificate> {

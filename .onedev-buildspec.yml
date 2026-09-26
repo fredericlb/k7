@@ -306,7 +306,7 @@ jobs:
   timeout: 5400
 # NIGHTLY, at 02:00 like the desktops, and skipped the same way on a day without commits: the
 # Android app, engine/st0-android — the engine as libst0engine.so, built by its android-arm64 preset,
-# with the supervisor, inside a DEBUG-signed APK (there is no release key). Gradle builds the
+# with the supervisor and the Capacitor page (web/), inside a DEBUG-signed APK (there is no release key). Gradle builds the
 # engine itself through scripts/build.mjs with the SDK's pinned NDK; engine/st0-engine/docs/android.md.
 # The SDK is fetched and pinned like every other dependency and kept in a cache keyed by its
 # versions, so a bump of any of them is a new key rather than a stale SDK.
@@ -407,6 +407,10 @@ jobs:
 
         # Same YY.MMDDHHmm stamp as the linux desktop archive, so the night's artifacts match.
         STAMP=$(node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))")
+
+        # The app's page (engine/st0-android/web) is a workspace, and Capacitor's Android runtime,
+        # which settings.gradle.kts includes, is one of its packages: both come from the root install.
+        npm ci
 
         cd engine/st0-android
         ./gradlew --no-daemon assembleDebug

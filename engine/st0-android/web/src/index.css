@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@frediverse/ui/theme.css";
+
+/* @frediverse/ui is consumed as source from the commons submodule: Tailwind scans only what it is
+   told to, and a wrong path drops every design-system class WITHOUT a warning (see pl8's index.css). */
+@source "../../../../commons/packages/ui/src";
+
+/* The WebView draws edge to edge (Android 15 enforces it): the page pads itself by the system
+   bars. Capacitor also sets --safe-area-inset-* for WebViews whose env() is still zero. */
+:root {
+  --safe-top: max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px));
+}

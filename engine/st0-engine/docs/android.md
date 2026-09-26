@@ -8,6 +8,52 @@ WebSocket protocol on port 8765, bound to every interface.
 **Foreground only.** There is no service: both live as long as `MainActivity`, and leaving it
 deregisters the engine, stops it and ends the process.
 
+## The app is also where the studio is used: st0, pl8 and k7 in tabs
+
+`MainActivity` is a Capacitor `BridgeActivity`. Its WebView shows `engine/st0-android/web`, a small
+React page bundled into the APK: a header whose buttons switch between **st0**, **pl8**, **k7** and
+the **engine** tab, which is the tray this activity used to draw natively (the studio list, "Connect a
+studio", the private CA, Quit). The page reaches the native half only through two plugins that
+`MainActivity` registers itself, typed once in `web/src/native.ts`:
+
+- **`St0Engine`** (`EnginePlugin.kt`): `SupervisorHost`'s snapshots as `state` events and its commands
+  as methods. `SupervisorHost` itself is unchanged.
+- **`AppViews`** (`AppViewsPlugin.kt`): one native WebView per app, laid over the page's WebView below
+  the header's measured height. Each is created the first time its tab opens and is only hidden after
+  that, so an app keeps its state while another is on screen: a k7 session, a playing pl8 track.
+
+**The apps load from the studio, not from the APK.** Each app is same-origin with its backend
+(relative `/api` and `/auth`, cookie sessions), so a bundled copy would be an app with no server.
+The page takes the studio from the supervisor's own list and gives each tab
+`serviceUrl(origin, "st0" | "pl8" | "k7")`, the mapping `AppSwitch` uses. With several studios
+connected, the engine tab picks which one the tabs open.
+
+What the app views do that a browser would do on its own:
+
+- **A link to a sibling app switches tab** instead of opening a window: `AppSwitch`'s links,
+  `target=_blank` and cross-app links all go to that tab, at that URL. Only a link the *user* followed
+  does this. A redirect stays in its view, since the sign-in flow bounces pl8 and k7 through st0's
+  `/auth`. Other hosts in a new window open in the browser.
+- **The microphone** goes to the studio's apps only (k7's remote mic), and only once the app holds
+  RECORD_AUDIO, which it asks for at start for the engine.
+- **The private CA** covers the tabs too: a certificate the WebView refuses only for its unknown issuer
+  is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf
+  alone, so a studio whose certificate hangs off an intermediate needs the intermediate imported.
+- **Back** walks the visible app's history. With none left it does what it always did: it finishes
+  the activity, which quits.
+
+**No `cap sync`.** Gradle stages the page the way it stages the engine: `stageShell` runs the
+workspace's `npm run build` and lays `dist/` out as `cap copy` would (`public/`,
+`capacitor.config.json`, an empty `capacitor.plugins.json`). `settings.gradle.kts` includes
+`:capacitor-android` from the root `node_modules`, so `npm ci` at the repo root has to run before
+Gradle. The config is `.json` for the reason phare's is: the Capacitor CLI trips over a `.ts` one
+under TypeScript 7.
+
+**Reaching the phone's own engine from st0's tab.** st0 is an https page, and the engine serves plain
+`ws://`. The WebView, like any browser, lets an https page open `ws://127.0.0.1` but blocks
+`ws://<LAN IP>` as mixed content. The engine picker probes each address an engine announces and
+keeps one that answers, so a blocked one is simply not chosen. Mixed content stays off.
+
 ## A library in the app, not a process it spawns
 
 JUCE's Oboe backend asks Android's `AudioManager` for the device's rate and buffer through JNI, and
@@ -136,6 +182,8 @@ also catches the GL driver's chatter, which is noise.
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
 - **No foreground service**, so the screen is kept on and the engine stops with the activity.
+- **The app tabs have not been driven through a real sign-in on a phone yet.** The routing rules
+  above are the design; each needs checking against a live studio.
 
 ## What was measured
 
