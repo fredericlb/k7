@@ -118,7 +118,10 @@ the job deletes it on its way out, failed or not. The Windows one runs on a
 Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, Rust (rustup), CMake, Ninja
 and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
 container would buy isolation at the price of MSVC in a Windows container, which is heavier than
-the machine it would run on.
+the machine it would run on. The dependency sources stay on that disk too, in `$STUDIO_FETCHCONTENT_DIR`
+(`%LOCALAPPDATA%\st0-ci\fetch` unless the agent names another), rather than in an OneDev cache:
+the machine already keeps them, so nothing crosses the network. `cmd` has no exit trap, so what the
+last night built there is deleted before a run instead of after it.
 
 The job names no executor and no agent, so neither has to be called anything. The executor's
 **agent selector** picks by OS (an agent query on `Os`, checked on the Agents page first), and its
