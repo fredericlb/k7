@@ -44,7 +44,8 @@ add_library(studio_engine STATIC
     eurorack/RateBridge.cpp
     eurorack/EurorackPlugin.cpp
     eurorack/MacroOscillator2Plugin.cpp
-    eurorack/MacroOscillatorPlugin.cpp)
+    eurorack/MacroOscillatorPlugin.cpp
+    eurorack/ResonatorPlugin.cpp)
 
 add_library(studio::engine ALIAS studio_engine)
 

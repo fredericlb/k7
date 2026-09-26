@@ -4,3 +4,4 @@
 
 #include "eurorack/MacroOscillator2Plugin.h"
 #include "eurorack/MacroOscillatorPlugin.h"
+#include "eurorack/ResonatorPlugin.h"

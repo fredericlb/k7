@@ -11,6 +11,7 @@ set(ER "${STUDIO_EURORACK_DIR}")
 add_library(studio_eurorack STATIC
     cores/PlaitsCore.cpp
     cores/BraidsCore.cpp
+    cores/RingsCore.cpp
 
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/atan.cc
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/units.cc
@@ -58,7 +59,14 @@ add_library(studio_eurorack STATIC
     ${ER}/braids/resources.cc
     ${ER}/braids/analog_oscillator.cc
     ${ER}/braids/digital_oscillator.cc
-    ${ER}/braids/macro_oscillator.cc)
+    ${ER}/braids/macro_oscillator.cc
+
+    ${ER}/rings/resources.cc
+    ${ER}/rings/dsp/fm_voice.cc
+    ${ER}/rings/dsp/part.cc
+    ${ER}/rings/dsp/resonator.cc
+    ${ER}/rings/dsp/string.cc
+    ${ER}/rings/dsp/string_synth_part.cc)
 
 # PUBLIC is only this folder: a core's header is the whole interface, and names nothing of the firmware's.
 target_include_directories(studio_eurorack
