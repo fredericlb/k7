@@ -184,4 +184,29 @@ describe("node new", () => {
     );
     expect(existsSync(join(dir, "nodes", "e1.yaml"))).toBe(false);
   });
+
+  it("reads a module's OWN ref as 'use it', whatever it extends — the picker sends one", async () => {
+    mkdirSync(join(root, "_modules", "audio", "echo"), { recursive: true });
+    writeFileSync(
+      join(root, "_modules", "audio", "echo", "module.yaml"),
+      'extends: "@workspace/audio/amp"\n',
+      "utf8",
+    );
+    await runCommand(
+      "node new audio/echo e1 @workspace/audio/echo",
+      host(),
+      "cli",
+    );
+    expect(logs.join("\n")).not.toContain("not '@workspace/audio/echo'");
+    expect(readFileSync(join(dir, "nodes", "e1.yaml"), "utf8")).toContain(
+      '"@workspace/audio/echo"',
+    );
+    // …and the module is left extending what it did.
+    expect(
+      readFileSync(
+        join(root, "_modules", "audio", "echo", "module.yaml"),
+        "utf8",
+      ),
+    ).toBe('extends: "@workspace/audio/amp"\n');
+  });
 });

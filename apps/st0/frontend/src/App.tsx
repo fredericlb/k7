@@ -1983,8 +1983,11 @@ export default function App({
         /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
         setReload((r) => ({ key: r.key + 1, files: changed ?? null }));
         // The picker's second half, as its own journalled command — and null when there is nothing left to do.
+        // Not after a refusal: there is no node to wire, and its own refusal would bury the real one.
         const after =
-          madeRef && wire ? wireCommand(madeRef, wire.at, wire.spawn) : null;
+          !refused && madeRef && wire
+            ? wireCommand(madeRef, wire.at, wire.spawn)
+            : null;
         if (after) await runCommandRef.current(after);
         // The repo verbs move the badge, the view AND the workspace — a pull can add projects.
         if (/^project (commit|pull|alternative)\b/.test(s)) onRepoChanged();

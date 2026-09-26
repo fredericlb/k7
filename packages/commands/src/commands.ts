@@ -518,6 +518,9 @@ function makeModule(
     return { error: `'${target}' is not <category>/<name>` };
   const [category, name] = segs;
   const exists = existsSync(localModuleFolder(songPath, category, name));
+  // The picker names a local module by its OWN ref: that is "use it", not "make it inherit itself".
+  const own = `${isProjectFolder(songPath) ? "@workspace" : "@project"}/${category}/${name}`;
+  if (exists && extendsRef === own) return { ref: name, rel: null };
   // Already there AND told to inherit something else is a real disagreement: a module cannot be re-parented.
   if (exists && extendsRef) {
     const inherits = existingExtends(songPath, category, name);
