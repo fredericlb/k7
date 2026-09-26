@@ -79,7 +79,7 @@ import {
   formatLatency,
 } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, engines, moduleStore, PL8_API } from "./api";
+import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
 import { canonicalizeCommand } from "./commandI18n";
@@ -302,6 +302,12 @@ export default function App({
     /** Whether this shared module has been unlocked for editing; whether it IS shared is read off the path. */
     unlocked?: boolean;
   } | null>(null);
+  /** Whether this ACCOUNT has a Claude key (the settings panel), asked when the builder opens until it says yes: no key, no button. */
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const builderOpen = !!builder;
+  useEffect(() => {
+    if (builderOpen && !aiEnabled) void aiOrganize.enabled().then(setAiEnabled);
+  }, [builderOpen, aiEnabled]);
   /** The assembly TEMPLATE open in its builder: the file, and its folder's graph once it lands. */
   const [assemblyBuilder, setAssemblyBuilder] = useState<{
     file: string;
@@ -4125,6 +4131,8 @@ export default function App({
                 editorRef.current?.open(next);
               }}
               // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
+              // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
+              onAiOrganize={aiEnabled ? aiOrganize.run : undefined}
               renderPreview={({ ui, params, bases, script }) => (
                 <ModulePreview
                   icons={STUDIO_ICONS}

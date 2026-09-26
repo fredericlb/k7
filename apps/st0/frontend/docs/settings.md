@@ -123,6 +123,21 @@ snaps back. The empty option clears it: "this machine does not do that" is a rea
 chain the library no longer holds still shows, so a renamed chain does not read as "nothing is set".
 `system stems` and `system instrumental` still set the same two answers from the command bar.
 
+## AI — the account's Claude key
+
+`AiSection.tsx`. The key and model the module builder's AI organize runs on
+(`packages/ui-module-builder/docs/aiOrganize.md`). It is here, on the home page's panel and not on
+the editor's, because it belongs to the ACCOUNT: the same key serves every project and every
+machine, and it is kept by st0's backend, the service that knows who you are.
+
+**The key can be set, replaced and removed, and never read.** The row shows a hint
+(`sk-ant-…wxyz`), enough to tell which key is stored and not enough to use it, and the field
+empties once a key is saved. A key shown again is a key that can be copied from any browser left
+logged in.
+
+With no key, the builder draws no AI organize button rather than a dead one. That makes this
+section the one place the feature can be found, and its row says so.
+
 ## Why the sections that were here are gone
 
 Audio, Engine, Sessions, Server and Machine each drew a supervisor snapshot and sent commands

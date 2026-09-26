@@ -1,0 +1,146 @@
+// What "AI organize" tells the model and what it refuses from it. The model is not under test —
+// the CHECK is: every way a proposal can break the panel must come back as a sentence the model
+// can fix, and a good proposal must pass untouched.
+
+import { WIDGET_TYPES } from "@studio/song-schema/yaml/moduleSchema";
+import { describe, expect, it } from "vitest";
+import {
+  type AiOrganizeResult,
+  aiUserPrompt,
+  checkAiResult,
+  readAiAnswer,
+} from "./aiOrganize";
+import { aiSystemPrompt, WIDGET_DOCS } from "./aiPrompt";
+
+const PARAMS = ["Cutoff", "Resonance", "Attack", "Mode"];
+
+const result = (uiYaml: string, widgetsJs = ""): AiOrganizeResult => ({
+  uiYaml,
+  widgetsJs,
+  notes: "",
+});
+
+const GOOD_UI = `# filter
+cols: 8
+rows: 5
+widgets:
+  screen: { type: lcdscreen, col: 0, row: 0, colSpan: 8, rowSpan: 2 }
+  cutoff: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
+  res: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance, min: 0, max: 1 }
+`;
+const GOOD_JS = `export default {
+  screen(lcd) {
+    lcd.ctx.fillStyle = "#000";
+    lcd.ctx.fillRect(0, 0, lcd.width, lcd.height);
+  },
+};
+`;
+
+describe("the prompt", () => {
+  it("describes every widget kind the schema accepts, and no other", () => {
+    expect(Object.keys(WIDGET_DOCS).sort()).toEqual([...WIDGET_TYPES].sort());
+    for (const t of WIDGET_TYPES)
+      expect(aiSystemPrompt()).toContain(`\`${t}\``);
+  });
+
+  it("quotes every param name exactly, and the author's direction when there is one", () => {
+    const text = aiUserPrompt({
+      module: "filter",
+      moduleYaml: "extends: '@engine/lowpass'",
+      params: [
+        { name: "Cutoff", meta: { min: 20, max: 20000 }, value: "440" },
+        {
+          name: "Mode",
+          meta: { min: 0, max: 1, states: [{ label: "LP", value: 0 }] },
+        },
+      ],
+      uiYaml: "",
+      widgetsJs: "",
+      direction: "  make the screen big ",
+    });
+    expect(text).toContain('- "Cutoff": range 20..20000, value 440');
+    expect(text).toContain('"Mode": states: [{"label":"LP","value":0}]');
+    expect(text).toContain("make the screen big");
+  });
+});
+
+describe("reading the answer", () => {
+  it("takes the promised JSON and strips a fence the model should not have added", () => {
+    const r = readAiAnswer(
+      JSON.stringify({
+        ui_yaml: "```yaml\ncols: 1\n```",
+        widgets_js: "",
+        notes: "n",
+      }),
+    );
+    expect(r).toEqual({ uiYaml: "cols: 1\n", widgetsJs: "", notes: "n" });
+  });
+
+  it("is null for anything else", () => {
+    expect(readAiAnswer("not json")).toBeNull();
+    expect(readAiAnswer(JSON.stringify({ ui_yaml: 3 }))).toBeNull();
+  });
+});
+
+describe("the check", () => {
+  it("passes a sound panel with a drawn screen", () => {
+    const { ui, issues } = checkAiResult(result(GOOD_UI, GOOD_JS), PARAMS);
+    expect(issues).toEqual([]);
+    expect(Object.keys(ui?.widgets ?? {})).toEqual(["screen", "cutoff", "res"]);
+  });
+
+  it("names a bind that is not a parameter", () => {
+    const bad = GOOD_UI.replace("bind: Resonance", "bind: Reso");
+    expect(checkAiResult(result(bad, GOOD_JS), PARAMS).issues).toEqual([
+      "`res` binds `Reso`, which is not a parameter",
+    ]);
+  });
+
+  it("names a screen nothing draws, and a script that does not compile", () => {
+    expect(checkAiResult(result(GOOD_UI, ""), PARAMS).issues).toEqual([
+      "lcdscreen `screen` has no draw function in widgets_js",
+    ]);
+    const broken = checkAiResult(result(GOOD_UI, `${GOOD_JS}{`), PARAMS).issues;
+    expect(broken[0]).toMatch(/^widgets_js does not compile/);
+  });
+
+  it("names overlaps and widgets outside the grid", () => {
+    const bad = GOOD_UI.replace("col: 2, row: 2", "col: 1, row: 2").replace(
+      "rows: 5",
+      "rows: 3",
+    );
+    const issues = checkAiResult(result(bad, GOOD_JS), PARAMS).issues;
+    expect(issues).toContain("panel: `cutoff` runs outside the 8×3 grid");
+    expect(issues).toContain("panel: `cutoff` overlaps `res`");
+  });
+
+  it("checks each page together with the panel-level widgets drawn over it", () => {
+    const tabs = `cols: 8
+rows: 6
+widgets:
+  screen: { type: lcdscreen, col: 0, row: 4, colSpan: 8, rowSpan: 2 }
+  tabs:
+    type: tabs
+    col: 0
+    row: 0
+    colSpan: 8
+    pages:
+      Main:
+        cutoff: { type: knob, col: 0, row: 1, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
+      Env:
+        attack: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, bind: Attack, min: 0, max: 1 }
+        cutoff: { type: knob, col: 2, row: 1, bind: Cutoff, min: 0, max: 1 }
+`;
+    const issues = checkAiResult(result(tabs, GOOD_JS), PARAMS).issues;
+    expect(issues).toContain("tabs/Env: `screen` overlaps `attack`");
+    expect(issues).toContain("widget id `cutoff` is used twice");
+    expect(issues.some((i) => i.startsWith("tabs/Main"))).toBe(false);
+  });
+
+  it("hands the schema's own complaint back, with its path", () => {
+    const bad = GOOD_UI.replace("label: Res,", "label: Res, options: [],");
+    const { ui, issues } = checkAiResult(result(bad, GOOD_JS), PARAMS);
+    expect(ui).toBeNull();
+    expect(issues[0]).toMatch(/^ui_yaml widgets\.res/);
+  });
+});

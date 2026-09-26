@@ -12,7 +12,9 @@
     "./module-ui": "./src/moduleUi.ts",
     "./input-channels": "./src/InputChannelBar.tsx",
     "./yaml-pane": "./src/YamlPane.tsx",
-    "./param-drag": "./src/paramDrag.ts"
+    "./param-drag": "./src/paramDrag.ts",
+    "./ai-organize": "./src/aiOrganize.ts",
+    "./ai-prompt": "./src/aiPrompt.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

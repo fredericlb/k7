@@ -14,6 +14,7 @@ import {
   Hash,
   LayoutGrid,
   List,
+  LoaderCircle,
   type LucideIcon,
   Minus,
   Monitor,
@@ -21,6 +22,7 @@ import {
   RectangleHorizontal,
   SlidersHorizontal,
   SlidersVertical,
+  Sparkles,
   ToggleLeft,
   Trash2,
   Type,
@@ -161,6 +163,8 @@ export function WidgetGridEditor({
   params,
   disabled,
   onChange,
+  onAiOrganize,
+  aiBusy,
 }: {
   ui: ModuleUI;
   // The params taking a FILE, whose dropdown offers the module's own assets/ instead of settings.
@@ -170,6 +174,10 @@ export function WidgetGridEditor({
   /** WHY the grid takes no gesture: a reason, not a boolean, since only a FAULT warrants a warning. */
   disabled?: false | "unparsable" | "locked";
   onChange: (ui: ModuleUI) => void;
+  /** Ask Claude for a whole panel — drawn only when the host offers it; docs/aiOrganize.md. */
+  onAiOrganize?: () => void;
+  /** What the running request is doing, or null when none is. */
+  aiBusy?: string | null;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   /** WHICH widget map the grid edits: the panel (`null`), or one PAGE of a tabs widget — docs/pages.md. */
@@ -410,6 +418,27 @@ export function WidgetGridEditor({
             <Wand2 className="mr-1 h-3.5 w-3.5" />
             Auto organize
           </Button>
+          {onAiOrganize && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!!disabled || !params?.length || !!aiBusy}
+              onClick={onAiOrganize}
+              title={
+                aiBusy ??
+                (params?.length
+                  ? `Ask Claude to design a panel for ${params.length} parameters, with screens where a picture helps`
+                  : "No parameters to organize — scan the plugin or open a module that declares some")
+              }
+            >
+              {aiBusy ? (
+                <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1 h-3.5 w-3.5" />
+              )}
+              {aiBusy ?? "AI organize"}
+            </Button>
+          )}
           <Stepper
             label="cols"
             value={ui.cols}

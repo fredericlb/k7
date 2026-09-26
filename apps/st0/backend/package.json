@@ -10,8 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@frediverse/oidc": "*",
     "@studio/engine-registry": "*",
+    "@studio/ui-module-builder": "*",
     "@studio/user-prefs": "*",
     "express": "^4.19.2",
     "tsx": "^4.16.0",

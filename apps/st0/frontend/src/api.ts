@@ -19,6 +19,11 @@ import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
+import type {
+  AiOrganizeEvent,
+  AiOrganizeRequest,
+  AiOrganizeResult,
+} from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
   ModelDownloadJob,
@@ -478,6 +483,65 @@ export const moduleStore: ModuleStore = {
           ? `, and repointed ${forked.chains.join(", ")}`
           : ""),
     };
+  },
+};
+
+/** The account's Claude settings as the browser may see them: the key only as a hint (backend/src/aiSettings.ts). */
+export interface AiSettingsView {
+  model: string | null;
+  defaultModel: string;
+  keyHint: string | null;
+}
+
+/** The module builder's "AI organize", on THIS backend — the one holding the account's key (backend/src/aiOrganize.ts). */
+export const aiOrganize = {
+  settings: async (): Promise<AiSettingsView> =>
+    json(await fetch(`${BASE}/api/ai/settings`), "ai/settings"),
+  /** A PATCH: an absent field is kept, null clears it — the key is never sent back to be kept. */
+  saveSettings: async (patch: {
+    apiKey?: string | null;
+    model?: string | null;
+  }): Promise<AiSettingsView> =>
+    json(
+      await fetch(`${BASE}/api/ai/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      }),
+      "ai/settings",
+    ),
+  /** Whether the button should exist at all; any failure reads as "no", since the button is optional. */
+  enabled: async (): Promise<boolean> => {
+    const res = await fetch(`${BASE}/api/ai/organize`).catch(() => null);
+    if (!res?.ok) return false;
+    return ((await res.json()) as { enabled?: boolean }).enabled === true;
+  },
+  /** One run: progress lines arrive as NDJSON, and the last one is the answer or the reason there is none. */
+  run: async (
+    req: AiOrganizeRequest,
+    onStatus: (text: string) => void,
+  ): Promise<AiOrganizeResult> => {
+    const res = await fetch(`${BASE}/api/ai/organize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok || !res.body) return json<never>(res, "ai/organize");
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      buf += value ?? "";
+      const lines = buf.split("\n");
+      buf = done ? "" : (lines.pop() ?? "");
+      for (const line of lines.filter((l) => l.trim())) {
+        const e = JSON.parse(line) as AiOrganizeEvent;
+        if (e.type === "status") onStatus(e.text);
+        else if (e.type === "done") return e.result;
+        else throw new Error([e.error, ...(e.issues ?? [])].join(" — "));
+      }
+      if (done) throw new Error("the answer stopped before it was complete");
+    }
   },
 };
 
