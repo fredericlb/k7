@@ -82,7 +82,9 @@ const devMode = process.argv.includes("--dev");
 /** Where a preset's CMake cache says the Faust libraries are — `$STUDIO_FETCHCONTENT_DIR` can put them outside the build tree. */
 function faustLibsOf(cmakeCache) {
   if (!existsSync(cmakeCache)) return null;
-  const m = /^STUDIO_FAUST_LIBS:[A-Z]+=(.*)$/m.exec(readFileSync(cmakeCache, "utf8"));
+  const m = /^STUDIO_FAUST_LIBS:[A-Z]+=(.*)$/m.exec(
+    readFileSync(cmakeCache, "utf8"),
+  );
   return m ? m[1].trim() : null;
 }
 

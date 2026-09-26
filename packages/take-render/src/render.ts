@@ -111,7 +111,9 @@ export async function renderCutAsync(
     try {
       manifest = JSON.parse(line) as RenderManifest;
     } catch {
-      throw new Error(`could not read the engine's render manifest:\n${stdout}`);
+      throw new Error(
+        `could not read the engine's render manifest:\n${stdout}`,
+      );
     }
     copyFileSync(join(tmp, manifest.mix), outWav);
   } finally {

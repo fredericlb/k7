@@ -20,6 +20,7 @@ import { materialRefOf, placementId } from "@studio/song-schema/placementId";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
+import { type AutoFreeze, autoFreezes } from "./autoFreeze";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
 import {
@@ -28,7 +29,6 @@ import {
   patternShares,
   sampleBanks,
 } from "./enginePattern";
-import { type AutoFreeze, autoFreezes } from "./autoFreeze";
 import { activeFreezePlans } from "./freeze";
 import {
   type Chain,

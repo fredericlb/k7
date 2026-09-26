@@ -31,9 +31,9 @@ import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
 import { librariesDirFor } from "@studio/song/sharedFolders";
-import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
+import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import {
   retimeWarpMarkers,
   type WarpMarker,

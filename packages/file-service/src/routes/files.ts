@@ -41,11 +41,7 @@ import { commitLibraries, ensureLibraries } from "../libraries.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
-import {
-  preferences,
-  setAudioDevicePref,
-  setVim,
-} from "../workspace.ts";
+import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
 
 export const filesRouter = Router();
 
@@ -97,8 +93,7 @@ filesRouter.get(
   "/project-plugins",
   wrap((req, res) => {
     const project = String(req.query.project ?? "");
-    if (!project)
-      return res.status(400).json({ error: "project is required" });
+    if (!project) return res.status(400).json({ error: "project is required" });
     try {
       res.json({ plugins: req.ws!.pluginNeeds(project) });
     } catch (e) {
@@ -112,8 +107,7 @@ filesRouter.get(
   "/project-compat",
   wrap((req, res) => {
     const project = String(req.query.project ?? "");
-    if (!project)
-      return res.status(400).json({ error: "project is required" });
+    if (!project) return res.status(400).json({ error: "project is required" });
     try {
       res.json({ compat: req.ws!.pluginCompat(project) });
     } catch (e) {

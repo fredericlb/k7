@@ -76,9 +76,21 @@
     { "name": "dev-gcc", "configurePreset": "dev-gcc" },
     { "name": "dev-clang", "configurePreset": "dev-clang" },
     { "name": "release-gcc", "configurePreset": "release-gcc" },
-    { "name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "RelWithDebInfo" },
-    { "name": "windows-msvc-2022", "configurePreset": "windows-msvc-2022", "configuration": "RelWithDebInfo" },
+    {
+      "name": "windows-msvc",
+      "configurePreset": "windows-msvc",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "windows-msvc-2022",
+      "configurePreset": "windows-msvc-2022",
+      "configuration": "RelWithDebInfo"
+    },
     { "name": "macos-clang", "configurePreset": "macos-clang" },
-    { "name": "android-arm64", "configurePreset": "android-arm64", "targets": ["st0-supervisor"] }
+    {
+      "name": "android-arm64",
+      "configurePreset": "android-arm64",
+      "targets": ["st0-supervisor"]
+    }
   ]
 }

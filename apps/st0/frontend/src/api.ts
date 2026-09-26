@@ -7,10 +7,7 @@
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
 import { engineAccess } from "@studio/engine-browser/access";
-import type {
-  Compatibility,
-  PluginNeed,
-} from "@studio/engine-browser/compat";
+import type { Compatibility, PluginNeed } from "@studio/engine-browser/compat";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";

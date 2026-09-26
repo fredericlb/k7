@@ -2,13 +2,13 @@
 // a clicked lyric line starts — as opposed to what plays it (../../docs/audio.md).
 
 import { Button } from "@frediverse/ui/button";
-import { Input } from "@frediverse/ui/input";
 import {
   Minus,
   Plus,
   RotateCcw,
   SlidersHorizontal,
 } from "@frediverse/ui/icons";
+import { Input } from "@frediverse/ui/input";
 import { formatTranspose } from "@k7/score";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";

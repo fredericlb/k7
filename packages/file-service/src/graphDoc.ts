@@ -14,10 +14,10 @@ import type {
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadCurves } from "@studio/song/curves";
-import { missingModel } from "@studio/song/modelCache";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
+import { missingModel } from "@studio/song/modelCache";
 import {
   type AssetLookup,
   assetLookup,

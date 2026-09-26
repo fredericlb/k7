@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  collectChords,
   formatTimecode,
+  isChord,
   isTabLine,
   looseChordLine,
-  stripTimecodes,
-  timecodeOf,
-  collectChords,
-  isChord,
   parseChordSheet,
   splitChord,
+  stripTimecodes,
+  timecodeOf,
   transposeChord,
   transposeLine,
 } from "./chords";

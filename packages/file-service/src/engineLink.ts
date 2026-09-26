@@ -278,7 +278,11 @@ function startAutoFreeze(): void {
 }
 
 /** Leave `module` live while somebody edits it, or let it freeze again — the graph's knobs ask. */
-export function thawAutoFreeze(ws: Workspace, module: string, on: boolean): void {
+export function thawAutoFreeze(
+  ws: Workspace,
+  module: string,
+  on: boolean,
+): void {
   const p = ws.activeProjectPath();
   if (!p) return;
   autoFreezer.thaw(p, module, on);

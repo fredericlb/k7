@@ -16,8 +16,8 @@ import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { setThawed, thawedIn } from "@studio/song/autoFreeze";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  AutoFreezer,
   type AutoFreezeDeps,
+  AutoFreezer,
   type FreezeTarget,
   THAW_IDLE_MS,
 } from "./autoFreezeJobs";
@@ -159,7 +159,10 @@ describe("AutoFreezer", () => {
   it("keeps one render per module: the older fingerprint goes", async () => {
     mkdirSync(join(dir, "renders/auto"), { recursive: true });
     writeFileSync(join(dir, "renders/auto/amp-ffffffffffffffff.wav"), "old");
-    writeFileSync(join(dir, "renders/auto/amp-2-ffffffffffffffff.wav"), "other");
+    writeFileSync(
+      join(dir, "renders/auto/amp-2-ffffffffffffffff.wav"),
+      "other",
+    );
     const r = rig({ freezes: () => [freeze("amp")] });
     await r.freezer.tick(r.target);
     expect(readdirSync(join(dir, "renders/auto")).sort()).toEqual([

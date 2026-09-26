@@ -155,9 +155,7 @@ export class AutoFreezer {
       try {
         await this.deps.render(f, out);
       } catch (e) {
-        this.deps.log(
-          `   ✗ auto-freeze ${f.module}: ${(e as Error).message}`,
-        );
+        this.deps.log(`   ✗ auto-freeze ${f.module}: ${(e as Error).message}`);
         continue;
       }
       if (!existsSync(out)) continue;

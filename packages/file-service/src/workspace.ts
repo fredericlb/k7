@@ -60,12 +60,12 @@ import {
   notSupportedModules,
   withModuleStamp,
 } from "@studio/song/loader";
-import { SETTLE_MS } from "@studio/song/moduleCache";
 import {
   type MissingModel,
   missingModel,
   modelsRoot,
 } from "@studio/song/modelCache";
+import { SETTLE_MS } from "@studio/song/moduleCache";
 import {
   type CatalogueModule,
   moduleCatalogue,
@@ -172,16 +172,16 @@ import { walkLibraryChains } from "./libraryChains.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
+  type PluginNeed,
+  pluginNeedsOf,
+  projectCompatOf,
+} from "./pluginNeeds.ts";
+import {
   copyProjectInto,
   createProjectIn,
   importProjectBytes,
   importProjectInto,
 } from "./projectLifecycle.ts";
-import {
-  type PluginNeed,
-  pluginNeedsOf,
-  projectCompatOf,
-} from "./pluginNeeds.ts";
 // The four export acts, behind a host of six members — see shareOps.ts.
 import {
   buildShare,
