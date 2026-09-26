@@ -68,19 +68,25 @@ val stageEngine by tasks.registering(Copy::class) {
 
 // Faust's standard libraries, which `import("stdfaust.lib")` resolves at RUNTIME: from wherever the
 // engine's CMake fetched them — its cache names the folder — into the APK's assets. The app unpacks them.
-val stageFaustLibs by tasks.registering(Copy::class) {
+val faustLibsOut = layout.buildDirectory.dir("engine-assets/faust-libs")
+
+// The folder is found when the task RUNS: the cache naming it is written by buildEngine, and a Copy's
+// source is resolved while Gradle plans the build, before a fresh checkout has any cache to read.
+val stageFaustLibs by tasks.registering {
     dependsOn(buildEngine)
-    val libs = provider {
+    outputs.dir(faustLibsOut)
+    doLast {
         val cache = engineDir.resolve("build/android-arm64/CMakeCache.txt").readLines()
         val dir = cache.firstOrNull { it.startsWith("STUDIO_FAUST_LIBS:") }?.substringAfter("=")
         val folder = dir?.let(::File)
         require(folder != null && folder.resolve("stdfaust.lib").isFile) {
             "no Faust libraries at '$dir' — the faustlibraries submodule was not fetched with the engine"
         }
-        folder
+        val out = faustLibsOut.get().asFile
+        out.deleteRecursively()
+        out.mkdirs()
+        folder.listFiles { f -> f.name.endsWith(".lib") }.orEmpty().forEach { it.copyTo(out.resolve(it.name)) }
     }
-    from(libs) { include("*.lib") }
-    into(layout.buildDirectory.dir("engine-assets/faust-libs"))
 }
 
 android.sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("engine-assets"))
