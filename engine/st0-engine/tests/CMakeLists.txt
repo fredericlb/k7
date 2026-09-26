@@ -153,3 +153,13 @@ add_test(NAME studio_samplebanks_tests COMMAND studio_samplebanks_tests)
 add_executable(studio_strudel_tests StrudelHost_test.cpp)
 target_link_libraries(studio_strudel_tests PRIVATE studio_strudel)
 add_test(NAME studio_strudel_tests COMMAND studio_strudel_tests)
+
+# --- Eurorack core tests ------------------------------------------------------
+# FAST like the others: the cores are JUCE-free by construction (the firmware's macros forbid sharing
+# a TU with JUCE), so their pitch and their voice and envelope rules are tested without Tracktion.
+# The plugins around them — the resampler, the MIDI cut, the sidechain — are not; ../docs/eurorack.md.
+add_executable(studio_eurorack_tests Eurorack_test.cpp)
+target_include_directories(studio_eurorack_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/eurorack)
+target_link_libraries(studio_eurorack_tests PRIVATE studio_eurorack)
+add_test(NAME studio_eurorack_tests COMMAND studio_eurorack_tests)

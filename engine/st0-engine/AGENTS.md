@@ -75,6 +75,19 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   StrudelHost.{h,cpp}       the QuickJS runtime and the embedded bundle (strudel/strudel.bundle.js,
                             generated and committed). Its own JUCE-free library, `studio_strudel`
   AirWindowsList.h          generated effect list (docs/airWindowsList.md)
+  eurorack/                 eight modules from Mutable Instruments' MIT firmware (docs/eurorack.md):
+    EurorackPlugin.{h,cpp}    the Tracktion side they share — params, the MIDI cut, the sidechain pair
+    RateBridge.{h,cpp}        host rate and blocks ↔ a core's FIXED rate and block, with Tracktion's
+                              own libsamplerate; a processor's latency is measured, then reported
+    EurorackList.h            the eight, once: PluginScan.cpp expands it into the catalogue AND the
+                              registrations, as AirWindowsList.h does
+    VoiceAllocator.h, Adsr.h  voices and envelopes: JUCE-free and header-only, FAST binary
+    cores/                    one per module, JUCE-free with a pimpl: stmlib #defines NULL and CLIP,
+                              so a firmware header never shares a TU with JUCE. `studio_eurorack`
+    patches/eurorack.cmake    the upstream bug fixed at fetch time (Clouds' silent stretch mode)
+    <Name>Plugin.{h,cpp}      Macro Oscillator 2 (Plaits), Macro Oscillator (Braids), Resonator
+                              (Rings), Modal Synthesizer (Elements), Tidal Modulator (Tides 2), Drum
+                              Voices (Peaks), Texture Synthesizer (Clouds), Meta Modulator (Warps)
 
   taps — pull state out of the running graph without owning it:
   BroadcastTap.h + BroadcastTapPlugin.{h,cpp}   master audio over the wire (docs/broadcast.md)
@@ -164,6 +177,8 @@ the Edit and input ones do not, and why `inputClients` is keyed by device name),
 interface change does to the live inputs),
 `cueOutput.md` (a track routed OFF the mixer's sum onto a second pair — why an absent pair must be
 silent rather than folded back, and why a mixdown had to learn to exclude it),
+`eurorack.md` (the eight firmware modules: which ones and why not the rest, the fixed block every
+core needs, the resampler and the latency it reports, and each module's choices),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.
 
 ## Key concepts
@@ -379,7 +394,8 @@ Build gotchas:
 **The test targets are not built by an ordinary build, so a suite that stopped compiling stays
 invisible.** The presets pin `"targets": ["st0-engine"]`, so `studio_engine_tests` /
 `studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
-`studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_strudel_tests` are only built when
+`studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_strudel_tests` /
+`studio_eurorack_tests` are only built when
 named — rename a field of the data layer and the suite still referencing it reports nothing until
 someone names it. Build them explicitly after
 touching the data layer — **all of them**, or `ctest` reports the missing one as "Not Run", which
@@ -389,7 +405,7 @@ reads as a failure:
 cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
       studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
-      studio_strudel_tests
+      studio_strudel_tests studio_eurorack_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

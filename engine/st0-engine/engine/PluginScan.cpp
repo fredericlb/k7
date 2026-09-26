@@ -15,6 +15,7 @@
 #include "QuickMasterPlugin.h"
 #include "TurntablePlugin.h"
 #include "PatternPlugin.h"
+#include "eurorack/EurorackPlugins.h"  // the modules EurorackList.h names
 #include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
 #include "RecorderPlugin.h"         // …and the recorder NODE, which the document declares
@@ -232,6 +233,11 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Recorder", studio::RecorderPlugin::xmlTypeName, "audioEffect", "utility"),
         // A master bus in one module: three bands compressed, a spreader, a limiter (docs/quickMaster.md).
         e("Quick Master", studio::QuickMasterPlugin::xmlTypeName, "audioEffect", "dynamics"),
+        // The eurorack modules, from their one list (docs/eurorack.md).
+       #define EURORACK(cls, role, category) \
+        e(studio::eurorack::cls::getPluginName(), studio::eurorack::cls::xmlTypeName, role, category),
+       #include "eurorack/EurorackList.h"
+       #undef EURORACK
     };
 }
 
@@ -260,6 +266,9 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::MixerPlugin>();
     pm.createBuiltInType<studio::RecorderPlugin>();
     pm.createBuiltInType<studio::QuickMasterPlugin>();
+   #define EURORACK(cls, role, category) pm.createBuiltInType<studio::eurorack::cls>();
+   #include "eurorack/EurorackList.h"
+   #undef EURORACK
     pm.createBuiltInType<studio::TurntablePlugin>();
     // Registered but not LISTED, like the platter: the song compile puts it on a pattern lane, no module names it.
     pm.createBuiltInType<studio::PatternPlugin>();
