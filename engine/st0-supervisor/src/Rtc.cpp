@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <cstring>
 #include <mutex>
 #include <set>
 #include <thread>

@@ -230,6 +230,10 @@ jobs:
           exit 0
         fi
 
+        # From here any failing command fails the step: sh otherwise answers with the LAST command's
+        # status, and a build that broke would publish nothing under a green step.
+        set -e
+
         # Two dep sets, same as the GitHub workflow: Tauri's GTK/appindicator set for the
         # tray, JUCE's ALSA/JACK/X11 set for the engine — plus the ordinary toolchain
         # (cmake/ninja/build-essential/git/python3) a bare node image carries none of.
