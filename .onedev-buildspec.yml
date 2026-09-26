@@ -374,11 +374,13 @@ jobs:
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
-        # The C++ toolchain is for the HOST half of the build: JUCE compiles juceaide for the
-        # machine running the build, whatever the target.
+        # The C++ toolchain and the X11 and font headers are for the HOST half of the build: JUCE
+        # compiles juceaide, its GUI module included, for the machine running the build, whatever the target.
         apt-get install -y --no-install-recommends \
           openjdk-21-jdk-headless build-essential cmake ninja-build ccache pkg-config \
-          git curl ca-certificates unzip
+          git curl ca-certificates unzip \
+          libfreetype-dev libfontconfig-dev libx11-dev libxcomposite-dev libxcursor-dev \
+          libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
 
         # Gradle hands its environment to the engine's CMake, so this reaches the NDK's clang too.
         export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
