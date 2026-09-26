@@ -7,4 +7,4 @@ include("${CMAKE_CURRENT_LIST_DIR}/studio_replace.cmake")
 # declaration, then rejects each definition as a second body, and the Windows build stops. The
 # attribute is only an inlining hint on tiny inline functions, so it goes, on every platform.
 # Not a blanket `#define __attribute__(x)` for the target: that strips system headers' too.
-studio_replace("utils/dsp.h" "\n  __attribute__((always_inline));" ";")
+studio_replace("utils/dsp.h" "\n  __attribute__((always_inline));" ";  // studio: always_inline stripped, for MSVC")
