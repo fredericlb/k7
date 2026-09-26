@@ -12,6 +12,8 @@
 #include "Supervisor.h"
 #include "Url.h"
 
+#include <ixwebsocket/IXNetSystem.h>
+
 #include <csignal>
 #include <cstdio>
 #include <exception>
@@ -39,6 +41,13 @@ extern "C" void onSignal(int)
 
 int main(int argc, char** argv)
 {
+    // Winsock first, before ANY socket — `--probe` below speaks HTTP too. IXWebSocket leaves it to the
+    // program, as the engine's Serve.cpp does. Without it every socket on Windows fails WSANOTINITIALISED,
+    // and nothing says so: no engine query is answered (the tray showed every interface "not connected"),
+    // and isServing() never sees the engine, so one is never adopted. A no-op elsewhere; no teardown, since
+    // we leave by _Exit.
+    ix::initNetSystem();
+
     if (argc == 3 && std::string(argv[1]) == "--probe") {
         const auto origin = st0::url::normaliseUserOrigin(argv[2]);
         if (!origin) {
