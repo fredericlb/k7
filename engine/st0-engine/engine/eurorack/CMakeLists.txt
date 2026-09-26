@@ -12,6 +12,7 @@ add_library(studio_eurorack STATIC
     cores/PlaitsCore.cpp
     cores/BraidsCore.cpp
     cores/RingsCore.cpp
+    cores/ElementsCore.cpp
 
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/atan.cc
     ${STUDIO_STMLIB_ROOT}/stmlib/dsp/units.cc
@@ -66,7 +67,17 @@ add_library(studio_eurorack STATIC
     ${ER}/rings/dsp/part.cc
     ${ER}/rings/dsp/resonator.cc
     ${ER}/rings/dsp/string.cc
-    ${ER}/rings/dsp/string_synth_part.cc)
+    ${ER}/rings/dsp/string_synth_part.cc
+
+    ${ER}/elements/resources.cc
+    ${ER}/elements/dsp/exciter.cc
+    ${ER}/elements/dsp/multistage_envelope.cc
+    ${ER}/elements/dsp/ominous_voice.cc
+    ${ER}/elements/dsp/part.cc
+    ${ER}/elements/dsp/resonator.cc
+    ${ER}/elements/dsp/string.cc
+    ${ER}/elements/dsp/tube.cc
+    ${ER}/elements/dsp/voice.cc)
 
 # PUBLIC is only this folder: a core's header is the whole interface, and names nothing of the firmware's.
 target_include_directories(studio_eurorack

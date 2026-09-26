@@ -5,3 +5,4 @@
 #include "eurorack/MacroOscillator2Plugin.h"
 #include "eurorack/MacroOscillatorPlugin.h"
 #include "eurorack/ResonatorPlugin.h"
+#include "eurorack/ModalSynthesizerPlugin.h"

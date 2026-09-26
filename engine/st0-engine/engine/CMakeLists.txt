@@ -45,7 +45,8 @@ add_library(studio_engine STATIC
     eurorack/EurorackPlugin.cpp
     eurorack/MacroOscillator2Plugin.cpp
     eurorack/MacroOscillatorPlugin.cpp
-    eurorack/ResonatorPlugin.cpp)
+    eurorack/ResonatorPlugin.cpp
+    eurorack/ModalSynthesizerPlugin.cpp)
 
 add_library(studio::engine ALIAS studio_engine)
 

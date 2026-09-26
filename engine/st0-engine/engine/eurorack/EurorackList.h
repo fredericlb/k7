@@ -5,3 +5,4 @@
 EURORACK(MacroOscillator2Plugin, "instrument", "instrument")
 EURORACK(MacroOscillatorPlugin, "instrument", "instrument")
 EURORACK(ResonatorPlugin, "instrument", "instrument")
+EURORACK(ModalSynthesizerPlugin, "instrument", "instrument")
