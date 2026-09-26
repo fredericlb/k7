@@ -195,8 +195,11 @@ export class EngineClient {
   private broadcasting = false;
   // Plugins we asked to follow. The subscription lives in the ENGINE, so it is replayed on every open.
   private watched = new Set<string>();
-  // Active waveform subscriptions, replayed on reconnect like `watched`. Keyed "id:side".
-  private waveformSubs = new Map<string, { id: string; side: string }>();
+  // Active waveform subscriptions, replayed on reconnect like `watched`. Keyed "id:side", COUNTED: two widgets may share a tap.
+  private waveformSubs = new Map<
+    string,
+    { id: string; side: string; count: number }
+  >();
   private closed = false;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   /** Which attempt owns the client, bumped by every `connect()` so a late event schedules no second ladder — see docs/reliability.md. */
@@ -600,13 +603,20 @@ export class EngineClient {
   // Subscribe to a module's waveform: the engine taps the chain and broadcasts envelope points at 20 Hz — see docs/meters.md.
   subscribeWaveform(id: string, side: "input" | "output"): void {
     const key = `${id}:${side}`;
-    if (this.waveformSubs.has(key)) return;
-    this.waveformSubs.set(key, { id, side });
+    const sub = this.waveformSubs.get(key);
+    if (sub) {
+      sub.count++;
+      return;
+    }
+    this.waveformSubs.set(key, { id, side, count: 1 });
     this.send({ type: "subscribe-waveform", id, side });
   }
+  // The engine's tap goes with the LAST widget reading it, not the first to unmount.
   unsubscribeWaveform(id: string, side: "input" | "output"): void {
     const key = `${id}:${side}`;
-    if (!this.waveformSubs.has(key)) return;
+    const sub = this.waveformSubs.get(key);
+    if (!sub) return;
+    if (--sub.count > 0) return;
     this.waveformSubs.delete(key);
     this.send({ type: "unsubscribe-waveform", id, side });
   }

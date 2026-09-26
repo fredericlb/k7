@@ -73,6 +73,7 @@ import {
   applyPresetToText,
   channelOf,
   extendsRefOf,
+  hasLcd,
   hasMalformedPresets,
   hasMalformedUiFile,
   ioOf,
@@ -86,6 +87,7 @@ import {
   setLabelIn,
   setStatusIn,
   statusOf,
+  WIDGETS_SCRIPT,
   writeUiFile,
 } from "./moduleUi";
 import { setParamDrag } from "./paramDrag";
@@ -102,7 +104,13 @@ const STATUS_LABEL: Record<ModuleStatus, string> = {
   hidden: "hidden",
 };
 
-export type BuilderPane = "module" | "panel" | "presets" | "dsp" | "params";
+export type BuilderPane =
+  | "module"
+  | "panel"
+  | "presets"
+  | "dsp"
+  | "widgets"
+  | "params";
 
 /** The DSP source a plugin type implies — ONE table, since the tab, the fetch and the stub must agree. */
 const DSP_SOURCE: Record<string, string> = {
@@ -219,6 +227,8 @@ export function ModuleBuilder({
     params: Record<string, number>;
     // The module's named bases: a dropdown bound to `@base` is filled by the graph, not by the file.
     bases: readonly string[];
+    // The `widgets.js` AS EDITED, which draws the grid's lcdscreen widgets.
+    script?: string;
   }) => ReactNode;
 }) {
   const [content, setContent] = useState<string | null>(null);
@@ -234,6 +244,7 @@ export function ModuleBuilder({
   const [savedUi, setSavedUi] = useState("");
   const [savedPresets, setSavedPresets] = useState("");
   const [savedDsp, setSavedDsp] = useState("");
+  const [savedScript, setSavedScript] = useState("");
   const dirty = content != null && content !== savedModule;
   // The `ui.yaml` beside the module file, which is what the grid edits; it may not exist yet — docs/builder.md.
   const [uiFile, setUiFile] = useState<ModuleUiFile | null>(null);
@@ -244,6 +255,9 @@ export function ModuleBuilder({
   // …and the fourth, which only a jsdsp module has: its own DSP source, fetched only when it claims one.
   const [dspFile, setDspFile] = useState<ModulePresetsFile | null>(null);
   const dspDirty = !!dspFile && dspFile.content !== savedDsp;
+  // …and the fifth, the script that draws the lcdscreen widgets — fetched whenever the host serves it.
+  const [scriptFile, setScriptFile] = useState<ModulePresetsFile | null>(null);
+  const scriptDirty = !!scriptFile && scriptFile.content !== savedScript;
   // Which file the CODE pane shows; the PANEL opens first, being what the grid beside it edits.
   const [pane, setPane] = useState<BuilderPane>(initialPane ?? "panel");
   const [error, setError] = useState<string | null>(null);
@@ -260,7 +274,9 @@ export function ModuleBuilder({
         ? presetFile
         : pane === "dsp"
           ? dspFile
-          : null;
+          : pane === "widgets"
+            ? scriptFile
+            : null;
 
   // Whether the DSP is the module's own source and in which language, read off the BUFFER so the tab lands at once.
   const dspSourceName = useMemo(
@@ -365,6 +381,24 @@ export function ModuleBuilder({
     };
   }, [dspSourceName, path, store]);
 
+  // The lcdscreen script, beside the panel it draws for; absent is a stub, like every sidecar.
+  useEffect(() => {
+    if (!store.widgetsScript) return setScriptFile(null);
+    let alive = true;
+    void store
+      .widgetsScript(path)
+      .then((f) => {
+        if (!alive) return;
+        const kept = recallBuffer(f.path);
+        setScriptFile(kept == null ? f : { ...f, content: kept });
+        setSavedScript(f.content);
+      })
+      .catch(() => alive && setScriptFile(null));
+    return () => {
+      alive = false;
+    };
+  }, [path, store]);
+
   // A visual edit rewrites the PANEL file; the code pane is controlled by it, so switching to it shows the change.
   const onUiChange = useCallback((next: ModuleUI) => {
     setUi(next);
@@ -398,6 +432,13 @@ export function ModuleBuilder({
       if (!f || f.content === text) return f;
       return { ...f, content: text };
     });
+  }, []);
+
+  // A code edit in the script: the preview recompiles it, nothing here reads it.
+  const onScriptChange = useCallback((text: string) => {
+    setScriptFile((f) =>
+      !f || f.content === text ? f : { ...f, content: text },
+    );
   }, []);
 
   // A code edit in the MODULE file touches no grid — the panel moved out of it.
@@ -453,6 +494,20 @@ export function ModuleBuilder({
       [dspFile, writeSidecar],
     ),
   });
+  const scriptSave = useAutosave({
+    path: scriptFile?.path ?? null,
+    enabled: !readOnly,
+    manual: true,
+    text: scriptFile?.content ?? "",
+    saved: savedScript,
+    write: useCallback(
+      async (text: string) => {
+        await writeSidecar(scriptFile, setScriptFile, text);
+        setSavedScript(text);
+      },
+      [scriptFile, writeSidecar],
+    ),
+  });
   const presetsSave = useAutosave({
     path: presetFile?.path ?? null,
     enabled: !readOnly,
@@ -491,7 +546,13 @@ export function ModuleBuilder({
   });
 
   // One badge for four files: the loudest thing any has to say, its tab already naming which.
-  const saveState = loudest([moduleSave, panelSave, dspSave, presetsSave]);
+  const saveState = loudest([
+    moduleSave,
+    panelSave,
+    dspSave,
+    scriptSave,
+    presetsSave,
+  ]);
 
   /** Save: write every dirty file, then publish them as ONE act — all four; see docs/builder.md. */
   const [publishing, setPublishing] = useState(false);
@@ -500,6 +561,7 @@ export function ModuleBuilder({
       moduleSave.flush(),
       panelSave.flush(),
       dspSave.flush(),
+      scriptSave.flush(),
       presetsSave.flush(),
     ]);
     if (!landed.every(Boolean) || !store.publish) return;
@@ -512,7 +574,16 @@ export function ModuleBuilder({
     } finally {
       setPublishing(false);
     }
-  }, [moduleSave, panelSave, dspSave, presetsSave, store, path, setStatus]);
+  }, [
+    moduleSave,
+    panelSave,
+    dspSave,
+    scriptSave,
+    presetsSave,
+    store,
+    path,
+    setStatus,
+  ]);
   /** Ctrl+S on the parameters pane, the one pane with no CodeMirror to wire it — see docs/builder.md. */
   useEffect(() => {
     if (pane !== "params") return;
@@ -526,7 +597,7 @@ export function ModuleBuilder({
   }, [pane, saveAll]);
 
   // What Save has to offer: any of the four differing from disk, derived and never a flag.
-  const anyDirty = dirty || uiDirty || presetsDirty || dspDirty;
+  const anyDirty = dirty || uiDirty || presetsDirty || dspDirty || scriptDirty;
   // This screen is MANUAL, so nothing writes behind you: a reload here loses all four files at once.
   useUnsavedGuard(anyDirty);
 
@@ -535,7 +606,7 @@ export function ModuleBuilder({
     if (!anyDirty) return onBack();
     const agreed = await askConfirm({
       title: "Leave without saving?",
-      body: "Four files are changed here, and Save writes them together.",
+      body: "The module's files are changed here, and Save writes them together.",
       confirmLabel: "Quitter",
       danger: true,
     });
@@ -968,6 +1039,20 @@ export function ModuleBuilder({
                         ],
                       ] as const)
                     : []),
+                  // Only once the panel draws a screen, or the file is there anyway — the DSP tab's rule.
+                  ...(scriptFile && (scriptFile.exists || hasLcd(ui))
+                    ? ([
+                        [
+                          "widgets",
+                          baseName(scriptFile.path) ?? WIDGETS_SCRIPT,
+                          scriptDirty,
+                          true,
+                          scriptFile.exists
+                            ? null
+                            : "doesn't exist yet — saving creates it",
+                        ],
+                      ] as const)
+                    : []),
                   // Not a file, and last for that reason — see BuilderPane.
                   ["params", "parameters", false, true, null],
                   [
@@ -1046,7 +1131,9 @@ export function ModuleBuilder({
                         ? onPresetsChange
                         : pane === "dsp"
                           ? onDspChange
-                          : onCodeChange
+                          : pane === "widgets"
+                            ? onScriptChange
+                            : onCodeChange
                   }
                   // Ctrl+S and vim's `:w` mean Save — the same button, not just this pane.
                   onSave={() => void saveAll()}
@@ -1089,7 +1176,12 @@ export function ModuleBuilder({
             </div>
             {renderPreview && (
               <div className="h-[30%] min-h-0 shrink-0 grow-0 border-t border-border">
-                {renderPreview({ ui, params: paramValues, bases })}
+                {renderPreview({
+                  ui,
+                  params: paramValues,
+                  bases,
+                  script: scriptFile?.content,
+                })}
               </div>
             )}
           </div>

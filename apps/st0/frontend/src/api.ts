@@ -14,6 +14,7 @@ import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
+import { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
   ModelDownloadJob,
@@ -387,6 +388,37 @@ function dspStub(ref: string, file: string): string {
   return `${head}\n`;
 }
 
+/** What an absent `widgets.js` opens on: one screen, drawn, so the contract is on the page. */
+function widgetsStub(ref: string): string {
+  return `// ${ref} — what the panel's lcdscreen widgets draw, keyed by widget id.
+// lcd: { ctx, width, height, params, input, output, state, color, now } — see the LCD screen doc.
+export default {
+  screen(lcd) {
+    lcd.ctx.fillStyle = lcd.color.ink;
+    lcd.ctx.font = "10px ui-monospace, monospace";
+    lcd.ctx.fillText("${ref.split("/").pop()}", 4, 12);
+  },
+};
+`;
+}
+
+/** A module's sibling SOURCE by name, or where it would go plus a stub — absent is not an error. */
+async function siblingSource(
+  path: string,
+  file: string,
+  stub: (ref: string) => string,
+) {
+  const parts = path.split("/");
+  const ref = parts.slice(0, -1).join("/");
+  const at = [...parts.slice(0, -1), file].join("/");
+  try {
+    const f = await api.read(at);
+    return { ref, path: at, content: f.content, exists: true };
+  } catch {
+    return { ref, path: at, content: stub(ref), exists: false };
+  }
+}
+
 /** The shared module builder's view of the file service — shapes, not behaviour, except `write`, which may be REDIRECTED onto a project copy (moduleFork.ts). */
 export const moduleStore: ModuleStore = {
   // Absent is `null`, not a throw (see ModuleStore.read): a module the project has yet to write is exactly that.
@@ -401,17 +433,10 @@ export const moduleStore: ModuleStore = {
   moduleUi: (path) => api.moduleUi(path),
   presets: (path) => api.modulePresets(path),
   /** The module's DSP source, derived HERE rather than on the server: it is always the plain sibling, and absent is not an error. */
-  dspSource: async (path, file) => {
-    const parts = path.split("/");
-    const ref = parts.slice(0, -1).join("/");
-    const at = [...parts.slice(0, -1), file].join("/");
-    try {
-      const f = await api.read(at);
-      return { ref, path: at, content: f.content, exists: true };
-    } catch {
-      return { ref, path: at, content: dspStub(ref, file), exists: false };
-    }
-  },
+  dspSource: (path, file) =>
+    siblingSource(path, file, (ref) => dspStub(ref, file)),
+  /** …and the lcdscreen script, the same plain sibling of the same folder. */
+  widgetsScript: (path) => siblingSource(path, WIDGETS_SCRIPT, widgetsStub),
   hints: () => api.hints(),
   /** Publish a SHARED module: commit the library repository and push it — only for one in `_libraries`, which the PATH says (libraryTree.ts). */
   publish: async (path) => {

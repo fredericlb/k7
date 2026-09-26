@@ -74,7 +74,12 @@ export const WIDGET_TYPES = [
   "dropdown",
   // Picks a FILE the module carries for a file-valued param (`bind: nam`) — see docs/filePicker.md.
   "filepicker",
+  // A screen the module's WIDGETS_SCRIPT draws, looked up by the widget's id; it binds nothing.
+  "lcdscreen",
 ] as const;
+
+/** The script beside `ui.yaml` that draws a panel's lcdscreen widgets — packages/ui-chains-react/docs/lcdScreen.md. */
+export const WIDGETS_SCRIPT = "widgets.js";
 
 // A refinement, not a union: a union would reject the half-second where the editor changed `type` but not the fields.
 const WidgetBase = z.object({
@@ -122,6 +127,8 @@ export const WidgetSchema: z.ZodType<Widget> = WidgetBase.extend({
         wrong(f, "only knob, slider, fader and number carry a range");
   if (w.type !== "label" && w.text !== undefined)
     wrong("text", "only a label draws text");
+  if (w.type === "lcdscreen" && w.bind !== undefined)
+    wrong("bind", "an lcdscreen drives no param — widgets.js draws it");
   if (w.type !== "waveform" && w.source !== undefined)
     wrong("source", "only a waveform picks an audio tap");
   if (w.type !== "dropdown") {

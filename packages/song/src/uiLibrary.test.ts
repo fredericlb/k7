@@ -12,6 +12,7 @@ import { UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { loadModuleRefs, loadModules } from "./loader";
+import { resolvedUI } from "./moduleResolve";
 import { writeLibraries, writeLibrary, writeYaml } from "./testSupport";
 import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
@@ -202,6 +203,60 @@ describe("the loader overlays the panels", () => {
   it("leaves modules alone when nothing has been drawn", () => {
     writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
     expect(loadModuleRefs(dir)["@workspace/audio/reverb"].ui).toBeUndefined();
+  });
+});
+
+describe("a panel's widgets.js", () => {
+  const SCRIPT = "export default { screen(lcd) {} };\n";
+  const LCD = {
+    cols: 2,
+    rows: 1,
+    widgets: { screen: { type: "lcdscreen" as const, col: 0, row: 0 } },
+  };
+  const withScript = (): void => {
+    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeUiFile(dir, "@workspace/audio/reverb", LCD);
+    writeFileSync(
+      join(root, "_modules", "audio", "reverb", "widgets.js"),
+      SCRIPT,
+      "utf8",
+    );
+  };
+
+  it("rides on the panel it sits beside, as text", () => {
+    withScript();
+    const ui = loadModuleRefs(dir)["@workspace/audio/reverb"].ui as {
+      script?: string;
+    };
+    expect(ui.script).toBe(SCRIPT);
+  });
+
+  it("reaches the nodes that use the module, and survives resolution", () => {
+    withScript();
+    mkdirSync(join(dir, "nodes"), { recursive: true });
+    writeFileSync(
+      join(dir, "nodes", "hall.yaml"),
+      'extends: "@workspace/audio/reverb"\n',
+      "utf8",
+    );
+    const hall = loadModules(dir).hall;
+    expect(resolvedUI(hall as never)?.script).toBe(SCRIPT);
+  });
+
+  it("is absent when the folder has none", () => {
+    writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
+    writeUiFile(dir, "@workspace/audio/reverb", LCD);
+    const ui = loadModuleRefs(dir)["@workspace/audio/reverb"].ui as object;
+    expect("script" in ui).toBe(false);
+  });
+
+  it("is what an lcdscreen needs — it binds no param", () => {
+    expect(UISchema.safeParse(LCD).success).toBe(true);
+    const bound = {
+      ...LCD,
+      widgets: { screen: { ...LCD.widgets.screen, bind: "Mix" } },
+    };
+    expect(UISchema.safeParse(bound).success).toBe(false);
   });
 });
 

@@ -16,6 +16,7 @@ import {
   List,
   type LucideIcon,
   Minus,
+  Monitor,
   Plus,
   RectangleHorizontal,
   SlidersHorizontal,
@@ -46,6 +47,7 @@ const TYPES: { type: WidgetType; icon: LucideIcon; label: string }[] = [
   { type: "number", icon: Hash, label: "Number" },
   { type: "meter", icon: Activity, label: "Meter" },
   { type: "waveform", icon: AudioWaveform, label: "Waveform" },
+  { type: "lcdscreen", icon: Monitor, label: "LCD screen" },
   { type: "label", icon: Type, label: "Label" },
   { type: "tabs", icon: LayoutGrid, label: "Tabs" },
 ];
@@ -65,9 +67,12 @@ const BUTTON_PLACEHOLDER_LABEL = "B";
 const hasOwnLabel = (w: Widget) =>
   !!w.label && !(w.type === "button" && w.label === BUTTON_PLACEHOLDER_LABEL);
 
-// Which widget kinds carry a `bind`, and so the only three a dragged parameter can bounce off.
+// Which widget kinds carry a `bind`, and so the only ones a dragged parameter can bounce off.
 export const bindable = (w: Pick<Widget, "type">) =>
-  w.type !== "label" && w.type !== "tabs" && w.type !== "waveform";
+  w.type !== "label" &&
+  w.type !== "tabs" &&
+  w.type !== "waveform" &&
+  w.type !== "lcdscreen";
 
 // …and which carry a RANGE. Not a dropdown: it addresses its param by named setting, and its options are the set.
 const ranged = (w: Widget) =>
@@ -265,18 +270,20 @@ export function WidgetGridEditor({
               }
             : type === "waveform"
               ? { type, col, row, colSpan: 2, rowSpan: 2, source: "output" }
-              : // A fader placed one cell tall would be a worse slider. Three rows is a strip's throw, and the
-                // author can still drag it shorter — the widget reads whatever height it ends up with.
-                type === "fader"
-                ? { type, col, row, rowSpan: 3 }
-                : {
-                    type,
-                    col,
-                    row,
-                    ...(type !== "toggle" && type !== "meter"
-                      ? { min: 0, max: 1 }
-                      : {}),
-                  };
+              : type === "lcdscreen"
+                ? { type, col, row, colSpan: 3, rowSpan: 2 }
+                : // A fader placed one cell tall would be a worse slider. Three rows is a strip's throw, and the
+                  // author can still drag it shorter — the widget reads whatever height it ends up with.
+                  type === "fader"
+                  ? { type, col, row, rowSpan: 3 }
+                  : {
+                      type,
+                      col,
+                      row,
+                      ...(type !== "toggle" && type !== "meter"
+                        ? { min: 0, max: 1 }
+                        : {}),
+                    };
     writeWidgets({ ...widgets, [id]: w });
     setSelected(id);
   };
@@ -684,6 +691,7 @@ function Inspector({
   const isLabel = w.type === "label";
   const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
+  const isLcd = w.type === "lcdscreen";
   // A file picker's `bind` is chosen from the File select below, so the bind chip steps aside.
   const isLibrary =
     w.type === "filepicker" || (w.type === "dropdown" && !!w.library);
@@ -761,6 +769,13 @@ function Inspector({
               disabled={!!disabled}
               onChange={(e) => onPatch({ text: e.target.value })}
             />
+          </Field>
+        ) : isLcd ? (
+          // Nothing to bind: the screen is whatever widgets.js draws under this id.
+          <Field label="Drawn by">
+            <span className="block truncate rounded border border-border bg-muted/40 px-2 py-1 font-mono text-xs">
+              widgets.js → {id}
+            </span>
           </Field>
         ) : isTabs || isWaveform || isLibrary ? null : (
           // Not a text field: a binding is DRAGGED, and both halves are the same drop target.

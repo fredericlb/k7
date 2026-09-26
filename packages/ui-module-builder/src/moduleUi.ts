@@ -25,8 +25,18 @@ export type {
   Widget,
   WidgetType,
 } from "@studio/song-schema/yaml/moduleSchema";
+export { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
+
+/** Does the panel draw a screen anywhere, a tabs page included? That is what earns widgets.js a tab. */
+export function hasLcd(ui: ModuleUI | null): boolean {
+  const any = (ws: Record<string, Widget>): boolean =>
+    Object.values(ws).some(
+      (w) => w.type === "lcdscreen" || Object.values(w.pages ?? {}).some(any),
+    );
+  return !!ui && any(ui.widgets);
+}
 
 /** A fresh, empty UI for a file that has none yet — small enough to see the whole grid. */
 export const EMPTY_UI: ModuleUI = { cols: 4, rows: 2, widgets: {} };
@@ -93,6 +103,7 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
   const isLabel = w.type === "label";
   const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
+  const isLcd = w.type === "lcdscreen";
   const isDropdown = w.type === "dropdown";
   const isRanged =
     w.type === "knob" ||
@@ -121,7 +132,10 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
     rowSpan: w.rowSpan && w.rowSpan > 1 ? w.rowSpan : undefined,
     label: w.label || undefined,
     text: isLabel ? w.text || undefined : undefined,
-    bind: !isLabel && !isTabs && !isWaveform ? w.bind || undefined : undefined,
+    bind:
+      !isLabel && !isTabs && !isWaveform && !isLcd
+        ? w.bind || undefined
+        : undefined,
     // Range fields belong to the NUMERIC kinds only: a `min` on a toggle fails to load — docs/builder.md.
     min: isRanged ? w.min : undefined,
     max: isRanged ? w.max : undefined,

@@ -1,8 +1,9 @@
-// YamlPane.tsx — one of the module's files as text. YAML for three of them and FAUST for the
-// fourth, chosen by extension. Deliberately smaller than st0's EditorPane: no sequence tracker,
+// YamlPane.tsx — one of the module's files as text. YAML for three of them, FAUST or JavaScript
+// for the sources, chosen by extension. Deliberately smaller than st0's EditorPane: no sequence tracker,
 // no waveform, no video readers. Those exist because st0 edits a SONG's material.
 
 import { autocompletion } from "@codemirror/autocomplete";
+import { javascript } from "@codemirror/lang-javascript";
 import { Prec } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
@@ -17,6 +18,7 @@ import { useMemo, useRef } from "react";
 
 /** Is this Faust source? The EXTENSION decides, since a pane is a place rather than a language. */
 const isFaust = (path: string): boolean => path.toLowerCase().endsWith(".dsp");
+const isJs = (path: string): boolean => path.toLowerCase().endsWith(".js");
 
 export function YamlPane({
   path,
@@ -45,11 +47,12 @@ export function YamlPane({
   vocabRef.current = vocab;
 
   const faust = isFaust(path);
+  const js = isJs(path);
   const extensions = useMemo(() => {
     const base = [
-      faust ? faustLanguage() : projectLanguage(),
-      // …and no YAML completions on a Faust file: schema-derived, so every one would be wrong there.
-      ...(faust
+      faust ? faustLanguage() : js ? javascript() : projectLanguage(),
+      // …and no YAML completions on a source file: schema-derived, so every one would be wrong there.
+      ...(faust || js
         ? []
         : [
             autocompletion({
@@ -76,7 +79,7 @@ export function YamlPane({
       ),
     ];
     return vimMode && !readOnly ? [vim(), ...base] : base;
-  }, [vimMode, readOnly, onSave, faust]);
+  }, [vimMode, readOnly, onSave, faust, js]);
 
   return (
     <CodeMirror

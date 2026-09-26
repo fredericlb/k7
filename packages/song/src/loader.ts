@@ -83,7 +83,7 @@ import {
   SHARED_MODULES_PATH,
 } from "./sharedFolders";
 import { type Lane, lanesOf, trackModules } from "./trackModule";
-import { loadUiLibrary } from "./uiLibrary";
+import { loadUiLibrary, uiWithScript } from "./uiLibrary";
 import { setFileValue } from "./yaml/edit";
 import {
   entityFileFor,
@@ -470,7 +470,7 @@ function applyUiLibrary(
   // One ref, or several tried in order, first hit winning — so the specific beats the general.
   refOf: (m: LoadedModule, key: string) => string | string[],
 ): void {
-  applyByRef(out, refOf, loadUiLibrary(dir).byRef, "ui", (e) => e.ui);
+  applyByRef(out, refOf, loadUiLibrary(dir).byRef, "ui", uiWithScript);
   applyByRef(out, refOf, loadControllerLibrary(dir).byRef, "cc", (e) => e.cc);
 }
 

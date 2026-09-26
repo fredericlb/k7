@@ -425,6 +425,19 @@ cols/rows is the layout; each widget sits on a cell and binds a plugin parameter
 
 `filepicker` is the odd one: it picks a FILE the module carries rather than a number. `bind` names a file-valued parameter (`nam`), and that one word decides everything — the key written, and which files are offered, since a parameter is named after the format it loads. Clicking it opens a searchable tree of the module's `assets/`, its own and those of every module it extends, so a thin module that inherits a shared amp offers that amp's profiles.
 
+`lcdscreen` is a screen the module draws itself. It binds nothing: a `widgets.js` beside `ui.yaml` returns an object keyed by widget id, and the function under a screen's id paints it on every change, given a 2D canvas, the module's live parameters, and the peak level of the signal going IN and coming OUT of the module over the last few seconds. The module editor shows a `widgets.js` tab as soon as the panel has a screen.
+
+```js
+// _modules/audio/compressor/widgets.js
+export default {
+  screen(lcd) {
+    const { ctx, width, height, params, input, output, color } = lcd;
+    ctx.fillStyle = color.ink;
+    ctx.fillText(`ratio ${params.Ratio}`, 4, 12);
+  },
+};
+```
+
 `fader` is the mixer strip's control: vertical, with the value read out above it, and it fills whatever height its `rowSpan` gives it — so its throw is something you author rather than a fixed bar. Give it the rows to be worth using (the editor starts it at 3); one cell tall it is only a worse slider. Its drag sweeps the range over its own height, so the cap stays under the pointer. On a track's chain it also carries that track's VU beside the throw — the same signal, span and colours as the Mix panel's meter, because it is the same strip. A chain that is not a track (a bus, a disabled lane) has no one level to show, and the fader simply has no meter.
 
 ```yaml schema=UiFile
@@ -437,6 +450,7 @@ widgets:
         options: [ { label: Low, value: 0 }, { label: High, value: 1 } ] }
   w3: { type: waveform, col: 2, row: 0, colSpan: 2, rowSpan: 2, source: output }
   w4: { type: fader, col: 3, row: 0, rowSpan: 6, bind: Volume, min: -60, max: 6, label: Vol }
+  w5: { type: lcdscreen, col: 0, row: 1, colSpan: 2 }
 ```
 
 A panel is a file of its own rather than a `ui:` block inside `module.yaml`, so that a rebuilt `_modules/` never takes hand-drawn work with it and a plugin every song reaches for is drawn once: a panel is saved where its module is, shared library included, and that is the one edit a shared module accepts without being forked. A plugin the engine merely reports has no folder anywhere, so it has no panel until somebody makes it a module. An inline `ui:` block is still read, and a ui.yaml replaces it whole; `ui migrate` moves the inline ones out into their file.

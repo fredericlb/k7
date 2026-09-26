@@ -61,6 +61,11 @@ component sit over a workspace and over a hosted library without knowing which i
 `moduleUi`, `presets` and `dspSource` are calls rather than a sibling derivation: such a rule would
 be right in both path spaces today and is exactly the kind of rule that rots.
 
+`widgetsScript` answers the same way for the `widgets.js` that draws a panel's lcdscreen
+widgets (`packages/ui-chains-react/docs/lcdScreen.md`). It is a call of its own rather than
+`dspSource` with another name, because it is not DSP: every module may have one, whatever its
+plugin, and the stub a host writes for it is a screen, not a graph.
+
 `dspSource` takes the source's NAME (`jsdsp.ts`, `dsp.dsp`) because a module's DSP can be written
 in more than one language and the builder is what read the type. The host resolves that name in its
 own path space and picks the stub it writes for an absent file from it — it is the one that knows

@@ -3,11 +3,12 @@
 // which module a panel belongs to; the file only says how it looks. Read across every module library the project
 // can see, nearest first. Rationale: docs/uiLibrary.md.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   type ModuleUI,
   UiFileSchema,
+  WIDGETS_SCRIPT,
 } from "@studio/song-schema/yaml/moduleSchema";
 import { parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { eachLibrarySibling } from "./moduleSiblings";
@@ -22,6 +23,8 @@ export interface UiEntry {
   ui: ModuleUI;
   /** Absolute path of the file it came from. */
   path: string;
+  /** The `widgets.js` beside it, as TEXT: the browser runs it, this side never does. */
+  script?: string;
 }
 
 export interface UiLibrary {
@@ -50,9 +53,30 @@ export function loadUiLibrary(dir: string): UiLibrary {
       );
       return;
     }
-    out.byRef[ref] = { ref, ui: parsed.value, path };
+    const script = readScriptBeside(path);
+    out.byRef[ref] = {
+      ref,
+      ui: parsed.value,
+      path,
+      ...(script ? { script } : {}),
+    };
   });
   return out;
+}
+
+/** The panel with its script riding on it, which is how every hop after this one carries it. */
+export const uiWithScript = (e: UiEntry): ModuleUI & { script?: string } =>
+  e.script ? { ...e.ui, script: e.script } : e.ui;
+
+// A panel's script is a sibling like the panel itself: same folder, same precedence.
+function readScriptBeside(uiPath: string): string | undefined {
+  const at = join(dirname(uiPath), WIDGETS_SCRIPT);
+  if (!existsSync(at)) return undefined;
+  try {
+    return readFileSync(at, "utf8");
+  } catch {
+    return undefined; // unreadable is absent: the screen says so, and the panel still loads
+  }
 }
 
 /** Serialise a panel as a `ui.yaml`; its header NAMES the module, as a comment — docs/uiLibrary.md. */

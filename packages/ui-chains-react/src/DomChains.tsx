@@ -120,6 +120,7 @@ import {
   zoomAbout,
 } from "./camera";
 import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
+import { LcdScreenWidget } from "./LcdScreenWidget";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
 import {
   advanceMotion,
@@ -678,6 +679,7 @@ function TabsWidget({
             <Widget
               key={id}
               n={n}
+              wid={id}
               w={sub}
               ch={ch}
               onDragStart={onDragStart}
@@ -943,6 +945,7 @@ function WaveformWidget({
 // One widget at its widgetRect box: knob/slider/number drag, toggle/button tap, painted off the override.
 function WidgetInner({
   n,
+  wid,
   w,
   ch,
   onDragStart,
@@ -955,6 +958,8 @@ function WidgetInner({
   styleOverride,
 }: {
   n: GraphNode;
+  /** The widget's key in its map — what a panel's `widgets.js` names an lcdscreen by. */
+  wid: string;
   w: WebWidget;
   ch: Channels;
   onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
@@ -1025,6 +1030,21 @@ function WidgetInner({
       <WaveformWidget
         n={n}
         w={w}
+        onWatch={onWatchWaveform}
+        style={
+          styleOverride ?? { left: r.x, top: r.y, width: r.w, height: r.h }
+        }
+      />
+    );
+  }
+
+  if (w.type === "lcdscreen") {
+    return (
+      <LcdScreenWidget
+        n={n}
+        id={wid}
+        params={ch.params}
+        override={ch.override}
         onWatch={onWatchWaveform}
         style={
           styleOverride ?? { left: r.x, top: r.y, width: r.w, height: r.h }
@@ -2041,6 +2061,7 @@ function NodeInner({
           <Widget
             key={k}
             n={n}
+            wid={k}
             w={w}
             ch={ch}
             onDragStart={onDragStart}

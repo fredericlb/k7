@@ -114,6 +114,10 @@ author's layout inside another's is a grid nobody drew.
 
 Nodes share their generic's ref, so a panel drawn once shows on every node — the generic-wins rule.
 
+A `widgets.js` in the same folder rides on the panel as `ui.script`, as text: it draws the panel's lcdscreen
+widgets in the browser, and it is read with the panel rather than on its own so the two can never come from
+different folders (`packages/ui-chains-react/docs/lcdScreen.md`).
+
 A [module fork](moduleFork.md) copies the whole folder, so the panel comes along by itself. It is rewritten
 anyway, with a header naming the copy: a `ui.yaml` whose comment still points at `@engine/…` reads as the fork
 having borrowed a face rather than been given one.

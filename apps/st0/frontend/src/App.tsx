@@ -4108,13 +4108,13 @@ export default function App({
                 editorRef.current?.open(next);
               }}
               // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
-              renderPreview={({ ui, params, bases }) => (
+              renderPreview={({ ui, params, bases, script }) => (
                 <ModulePreview
                   icons={STUDIO_ICONS}
                   command={runCommand}
                   name={builder.path.split("/").slice(-2)[0] ?? builder.path}
                   path={builder.path}
-                  ui={ui}
+                  ui={script ? { ...ui, script } : ui}
                   params={params}
                   bases={bases}
                   paramsStore={builderPlugin ? pluginParamsStore : undefined}

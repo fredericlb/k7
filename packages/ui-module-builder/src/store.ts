@@ -30,6 +30,9 @@ export interface ModuleStore {
   /** The DSP source, `file` being its NAME so the host writes the right stub — see docs/store.md. */
   dspSource?(path: string, file: string): Promise<ModulePresetsFile>;
 
+  /** The `widgets.js` beside the module, answered like `presets` — its lcdscreen widgets' drawing; docs/store.md. */
+  widgetsScript?(path: string): Promise<ModulePresetsFile>;
+
   /** What the code pane completes against. A host with nothing to offer returns empty lists. */
   hints(): Promise<Hints>;
 

@@ -13,6 +13,7 @@
     "./flow": "./src/flow.ts",
     "./graph": "./src/graph.ts",
     "./hang": "./src/hang.ts",
+    "./lcdScreen": "./src/lcdScreen.ts",
     "./modulePreview": "./src/modulePreview.ts",
     "./noteLoad": "./src/noteLoad.ts",
     "./patchGesture": "./src/patchGesture.ts",

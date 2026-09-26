@@ -212,7 +212,9 @@ export function resolvedUI(
   const widgets: Record<string, Widget> = { ...(ui.widgets ?? {}) };
   for (const [id, w] of Object.entries(widgets))
     if (w?.hidden) delete widgets[id];
-  return { cols: ui.cols ?? 0, rows: ui.rows ?? 0, widgets };
+  const out: ModuleUI = { cols: ui.cols ?? 0, rows: ui.rows ?? 0, widgets };
+  if (typeof ui.script === "string" && ui.script) out.script = ui.script;
+  return out;
 }
 
 /** The MIDI map a module PLAYS BY, VALIDATED rather than trusted — see docs/moduleResolve.md. */

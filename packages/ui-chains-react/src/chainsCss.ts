@@ -280,6 +280,11 @@ const CSS = `
 .dgx-wtext { font:8px ui-monospace,monospace; color:#e7e6ea; }
 /* A RECORDER's waveform box: the canvas fills it, the two labels sit on top — docs/nodeCard.md. */
 .dgx-wave { position:relative; }
+.dgx-lcd { position:relative; padding:3px; border-radius:4px; background:#0f1a10;
+  box-shadow: inset 0 0 0 1px #2b3a2c, inset 0 2px 6px rgba(0,0,0,.6); }
+.dgx-lcd canvas { width:100%; height:100%; display:block; }
+.dgx-lcd-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  padding:4px; text-align:center; font:8px ui-monospace,monospace; color:rgba(184,240,160,.6); }
 /* "no record" — CENTRED and alone, the canvas having drawn nothing beside it (takeClock.ts). */
 .dgx-wave-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   font:8px ui-monospace,monospace; color:var(--faint); letter-spacing:.06em; pointer-events:none; }

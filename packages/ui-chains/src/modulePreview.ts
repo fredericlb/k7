@@ -37,6 +37,7 @@ export function visibleGrid(ui: {
   cols: number;
   rows: number;
   widgets: Record<string, WebWidget & { hidden?: boolean }>;
+  script?: string;
 }): WebModuleUI {
   return {
     cols: ui.cols,
@@ -44,6 +45,8 @@ export function visibleGrid(ui: {
     widgets: Object.fromEntries(
       Object.entries(ui.widgets).filter(([, w]) => !w.hidden),
     ),
+    // The `widgets.js` AS EDITED, so a screen redraws before the script is saved.
+    ...(ui.script ? { script: ui.script } : {}),
   };
 }
 

@@ -32,7 +32,7 @@ re-reading a médiathèque that has not changed since the app was opened.
 - `<state>/exts.json`, the engine's plugin scan, which is a module source with no folder
 
 For each entry it mixes the NAME into an FNV-1a hash, counts it, and — for the files whose
-content decides what a module is (`.yaml`, `.yml`, `.ts`, `.vstpreset`) — takes the newest
+content decides what a module is (`.yaml`, `.yml`, `.ts`, `.js`, `.vstpreset`) — takes the newest
 mtime. Names rather than a plain count because a rename keeps both the count and the mtime,
 and a stamp that missed one would serve a module under a name nobody wrote.
 

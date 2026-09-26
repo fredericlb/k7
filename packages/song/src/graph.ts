@@ -126,7 +126,8 @@ export type WidgetType =
   | "meter"
   | "tabs"
   | "waveform"
-  | "dropdown";
+  | "dropdown"
+  | "lcdscreen";
 
 // One widget on a module's grid — see #Widget in the schema above for the contract.
 export interface Widget {
@@ -155,6 +156,8 @@ export interface ModuleUI {
   cols: number;
   rows: number;
   widgets: Record<string, Widget>;
+  // The source of the `widgets.js` beside the panel, which draws its lcdscreen widgets.
+  script?: string;
 }
 
 // One rack sound triggered by a MIDI note: its own `clip` in a "samples" rack, a [from, to) second window in a "slice" one.

@@ -25,7 +25,9 @@ export interface WebWidget {
     | "waveform"
     | "dropdown"
     // Picks a FILE the module carries for the file-valued param it binds — see filePicker.md.
-    | "filepicker";
+    | "filepicker"
+    // A screen the panel's `widgets.js` draws under this widget's id — ui-chains-react's lcdScreen.md.
+    | "lcdscreen";
   col: number;
   row: number;
   colSpan?: number;
@@ -50,6 +52,8 @@ export interface WebModuleUI {
   cols: number;
   rows: number;
   widgets: Record<string, WebWidget>;
+  // The `widgets.js` source beside the panel, run by the BROWSER to draw its lcdscreen widgets.
+  script?: string;
 }
 /** What a wire carries; `event` stays OUT of the signal path and is typed only to colour a socket. */
 export type WebSignal = "audio" | "midi" | "video" | "event";
