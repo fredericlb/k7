@@ -85,6 +85,11 @@ const CATALOGUE: CommandInfo[] = [
     ],
   },
   {
+    command: "node external-ui",
+    help: "open the plugin's own UI window for one instance",
+    args: [a("module", "module", "nodes")],
+  },
+  {
     // The SAME argument shape as `node param`: only the argument's name separates them, which is why the param slot pins one.
     command: "module clone",
     help: "clone a module folder (e.g. module clone instruments/bass bass2)",
@@ -429,6 +434,18 @@ describe("a module node", () => {
     expect(
       lines(contextMenu({ kind: "module", id: "split" }, CATALOGUE)),
     ).not.toContain("ui model split");
+  });
+
+  it("offers the plugin's own window on an external plugin (VST, AU…), and nowhere else", () => {
+    // `native` is the graph's own corner-button test, so the menu and the button agree.
+    expect(
+      lines(
+        contextMenu({ kind: "module", id: "lead", native: true }, CATALOGUE),
+      ),
+    ).toContain("node external-ui lead");
+    expect(
+      lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE)),
+    ).not.toContain("node external-ui lead");
   });
 
   it("shrinks to the verbs that survive a DANGLING node", () => {

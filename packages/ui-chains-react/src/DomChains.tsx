@@ -142,7 +142,13 @@ export interface SinkPlay {
 
 export type GraphMenuCtx =
   | { kind: "track"; id: string }
-  | { kind: "module"; id: string; missing?: boolean; model?: boolean }
+  | {
+      kind: "module";
+      id: string;
+      missing?: boolean;
+      model?: boolean;
+      native?: boolean;
+    }
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
   // A BOX right-clicked: the instance, and the template behind it — a host may offer either.
@@ -2293,6 +2299,10 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
             missing: n.missing,
             // Its model can be fetched: the menu grows "Download model".
             ...(n.modelDownload ? { model: true } : {}),
+            // The same test as the corner bubble, so the menu offers `node external-ui` exactly where the button shows.
+            ...(cornerButtons(n, false).includes("plugin")
+              ? { native: true }
+              : {}),
           }
         : null;
     case "chain":
