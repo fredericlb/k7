@@ -538,7 +538,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_macro_oscillator_2: {
-    name: "Macro Oscillator 2",
+    name: "mu-plaits",
     role: "instrument",
     params: [
       {
@@ -607,7 +607,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_macro_oscillator: {
-    name: "Macro Oscillator",
+    name: "mu-braids",
     role: "instrument",
     params: [
       {
@@ -708,7 +708,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_resonator: {
-    name: "Resonator",
+    name: "mu-rings",
     role: "instrument",
     params: [
       {
@@ -760,7 +760,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_modal_synthesizer: {
-    name: "Modal Synthesizer",
+    name: "mu-elements",
     role: "instrument",
     params: [
       {
@@ -804,7 +804,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_texture_synthesizer: {
-    name: "Texture Synthesizer",
+    name: "mu-clouds",
     role: "audioEffect",
     params: [
       {
@@ -863,7 +863,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_meta_modulator: {
-    name: "Meta Modulator",
+    name: "mu-warps",
     role: "audioEffect",
     params: [
       { name: "Algorithm", min: 0, max: 1, def: 0 },
@@ -896,7 +896,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_tidal_modulator: {
-    name: "Tidal Modulator",
+    name: "mu-tides",
     role: "instrument",
     params: [
       {
@@ -923,7 +923,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     ],
   },
   studio_drum_voices: {
-    name: "Drum Voices",
+    name: "mu-peaks",
     role: "instrument",
     params: [
       { name: "Kick pitch", min: 0, max: 1, def: 0.5 },

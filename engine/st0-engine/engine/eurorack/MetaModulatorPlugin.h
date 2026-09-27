@@ -12,13 +12,13 @@ class MetaModulatorPlugin : public EurorackPlugin {
 public:
     explicit MetaModulatorPlugin(tracktion::engine::PluginCreationInfo);
 
-    static const char* getPluginName() { return "Meta Modulator"; }
+    static const char* getPluginName() { return "mu-warps"; }
     static const char* xmlTypeName;
     static juce::ValueTree create() { return createState(xmlTypeName); }
 
     juce::String getName() const override { return getPluginName(); }
     juce::String getPluginType() override { return xmlTypeName; }
-    juce::String getShortName(int) override { return "MetaMod"; }
+    juce::String getShortName(int) override { return "mu-warps"; }
     juce::String getSelectableDescription() override { return getPluginName(); }
 
 private:

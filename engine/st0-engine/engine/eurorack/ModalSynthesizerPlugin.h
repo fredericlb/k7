@@ -12,13 +12,13 @@ class ModalSynthesizerPlugin : public EurorackPlugin {
 public:
     explicit ModalSynthesizerPlugin(tracktion::engine::PluginCreationInfo);
 
-    static const char* getPluginName() { return "Modal Synthesizer"; }
+    static const char* getPluginName() { return "mu-elements"; }
     static const char* xmlTypeName;
     static juce::ValueTree create() { return createState(xmlTypeName); }
 
     juce::String getName() const override { return getPluginName(); }
     juce::String getPluginType() override { return xmlTypeName; }
-    juce::String getShortName(int) override { return "Modal"; }
+    juce::String getShortName(int) override { return "mu-elements"; }
     juce::String getSelectableDescription() override { return getPluginName(); }
 
 private:
