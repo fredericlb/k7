@@ -26,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -299,6 +300,36 @@ bool hostsExternalPlugins() {
     juce::AudioPluginFormatManager formats;
     formats.addDefaultFormats();
     return formats.getNumFormats() > 0;
+}
+
+// Asked of the FILE, never of loadPluginCache(): that list always holds the built-ins, so "not empty" was
+// always true, no scan ever ran, and exts.json — which the TypeScript reads for @engine/… — was never written.
+bool pluginCacheWarm() {
+    const auto cache = loadCacheMap();
+
+    // The built-ins it holds must be the ones this binary has: one added or renamed since the last scan
+    // is invisible to the TypeScript until exts.json is rewritten. The scan is incremental, so this is cheap.
+    std::set<std::pair<std::string, std::string>> code, cached;
+    auto builtins = builtInPlugins();
+    for (auto& aw : airWindowsPlugins())
+        builtins.push_back(std::move(aw));
+    for (const auto& p : builtins)
+        code.insert({p.identifier, p.name});
+    bool externals = false;
+    for (const auto& [id, e] : cache) {
+        const bool builtin = id.rfind("builtin:", 0) == 0;
+        for (const auto& p : e.plugins)
+            if (builtin)
+                cached.insert({p.identifier, p.name});
+            else
+                externals = true;
+    }
+    if (cached != code)
+        return false;
+
+    // Count the EXTERNALS: a truncated exts.json still carries every built-in. A build with no plugin
+    // format (Android) finds none by scanning, and would otherwise rescan on every list.
+    return externals || !hostsExternalPlugins();
 }
 
 std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan) {
