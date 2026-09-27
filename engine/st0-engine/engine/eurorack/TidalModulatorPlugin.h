@@ -12,13 +12,13 @@ class TidalModulatorPlugin : public EurorackPlugin {
 public:
     explicit TidalModulatorPlugin(tracktion::engine::PluginCreationInfo);
 
-    static const char* getPluginName() { return "Tidal Modulator"; }
+    static const char* getPluginName() { return "mu-tides"; }
     static const char* xmlTypeName;
     static juce::ValueTree create() { return createState(xmlTypeName); }
 
     juce::String getName() const override { return getPluginName(); }
     juce::String getPluginType() override { return xmlTypeName; }
-    juce::String getShortName(int) override { return "Tidal"; }
+    juce::String getShortName(int) override { return "mu-tides"; }
     juce::String getSelectableDescription() override { return getPluginName(); }
 
 private:

@@ -12,13 +12,13 @@ class TextureSynthesizerPlugin : public EurorackPlugin {
 public:
     explicit TextureSynthesizerPlugin(tracktion::engine::PluginCreationInfo);
 
-    static const char* getPluginName() { return "Texture Synthesizer"; }
+    static const char* getPluginName() { return "mu-clouds"; }
     static const char* xmlTypeName;
     static juce::ValueTree create() { return createState(xmlTypeName); }
 
     juce::String getName() const override { return getPluginName(); }
     juce::String getPluginType() override { return xmlTypeName; }
-    juce::String getShortName(int) override { return "Texture"; }
+    juce::String getShortName(int) override { return "mu-clouds"; }
     juce::String getSelectableDescription() override { return getPluginName(); }
 
 private:

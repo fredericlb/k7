@@ -12,13 +12,13 @@ class ResonatorPlugin : public EurorackPlugin {
 public:
     explicit ResonatorPlugin(tracktion::engine::PluginCreationInfo);
 
-    static const char* getPluginName() { return "Resonator"; }
+    static const char* getPluginName() { return "mu-rings"; }
     static const char* xmlTypeName;
     static juce::ValueTree create() { return createState(xmlTypeName); }
 
     juce::String getName() const override { return getPluginName(); }
     juce::String getPluginType() override { return xmlTypeName; }
-    juce::String getShortName(int) override { return "Reso"; }
+    juce::String getShortName(int) override { return "mu-rings"; }
     juce::String getSelectableDescription() override { return getPluginName(); }
 
 private:

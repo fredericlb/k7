@@ -442,6 +442,8 @@ std::vector<PluginInfo> loadPluginCache();
 std::vector<PluginInfo> scanInstalledPlugins(bool forceRescan);
 /** Whether this build can host an external plugin at all — false on Android, where only the built-ins exist. */
 bool hostsExternalPlugins();
+/** Whether `<state>/exts.json` needs no scan: written, holding this binary's built-ins, and an external if this build can host one. */
+bool pluginCacheWarm();
 int runPluginScanChild(const std::string& format, const std::string& identifier);
 int runPluginScanCli(bool forceRescan);
 

@@ -86,9 +86,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                               so a firmware header never shares a TU with JUCE. `studio_eurorack`
     patches/eurorack.cmake    the upstream bug fixed at fetch time (Clouds' silent stretch mode)
     patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
-    <Name>Plugin.{h,cpp}      Macro Oscillator 2 (Plaits), Macro Oscillator (Braids), Resonator
-                              (Rings), Modal Synthesizer (Elements), Tidal Modulator (Tides 2), Drum
-                              Voices (Peaks), Texture Synthesizer (Clouds), Meta Modulator (Warps)
+    <Name>Plugin.{h,cpp}      named mu-<module>: MacroOscillator2 = mu-plaits, MacroOscillator =
+                              mu-braids, Resonator = mu-rings, ModalSynthesizer = mu-elements,
+                              TidalModulator = mu-tides (Tides 2), DrumVoices = mu-peaks,
+                              TextureSynthesizer = mu-clouds, MetaModulator = mu-warps
 
   taps — pull state out of the running graph without owning it:
   BroadcastTap.h + BroadcastTapPlugin.{h,cpp}   master audio over the wire (docs/broadcast.md)

@@ -8,18 +8,19 @@ of them in the generated table (`builtinParams.md`).
 
 | built-in | module | kind | core rate | block |
 |---|---|---|---|---|
-| Macro Oscillator 2 | Plaits | instrument, 8 voices | 48 kHz | 12 |
-| Macro Oscillator | Braids | instrument, 8 voices + ADSR | 96 kHz | 24 |
-| Resonator | Rings | instrument, audio in excites it | 48 kHz | 24 |
-| Modal Synthesizer | Elements | instrument, mono, audio in excites it | 32 kHz | 16 |
-| Tidal Modulator | Tides 2 | instrument, 8 voices + ADSR | 62.5 kHz | 8 |
-| Drum Voices | Peaks (drums only) | instrument, General MIDI drum map | 48 kHz | 16 |
-| Texture Synthesizer | Clouds | audio effect | 32 kHz | 32 |
-| Meta Modulator | Warps | audio effect, sidechain carrier | 96 kHz | 32 |
+| mu-plaits | Plaits | instrument, 8 voices | 48 kHz | 12 |
+| mu-braids | Braids | instrument, 8 voices + ADSR | 96 kHz | 24 |
+| mu-rings | Rings | instrument, audio in excites it | 48 kHz | 24 |
+| mu-elements | Elements | instrument, mono, audio in excites it | 32 kHz | 16 |
+| mu-tides | Tides 2 | instrument, 8 voices + ADSR | 62.5 kHz | 8 |
+| mu-peaks | Peaks (drums only) | instrument, General MIDI drum map | 48 kHz | 16 |
+| mu-clouds | Clouds | audio effect | 32 kHz | 32 |
+| mu-warps | Warps | audio effect, sidechain carrier | 96 kHz | 32 |
 
-**The names are descriptive on purpose.** "Mutable Instruments" is a registered trademark, and the
-repository's README asks derivatives not to reuse the modules' names. The code says Plaits and
-Rings; nothing a musician reads does.
+**Each is named `mu-` and the module's own name**, lowercase: `mu-plaits`, `mu-clouds`. The
+prefix says whose firmware it is, and keeps the names off anything a user or another plugin
+already calls "Clouds". The engine ref follows the name (`@engine/mu-plaits`); the type ids
+(`studio_macro_oscillator_2`…) and the class names predate the rename and are unchanged.
 
 ## Which modules, and why not the rest
 
@@ -93,45 +94,45 @@ the mixer. Elements is brought down 6 dB because it runs hot into its own soft l
 is brought UP 6 dB because its codec conversion (`SoftConvert`) halves the level and the module's
 output stage makes it back. Its fully dry path is then the equal-power crossfade's -3 dB.
 
-**Macro Oscillator 2** plays its low-pass gate from the keyboard. A note-on is the TRIG input, and
+**mu-plaits** plays its low-pass gate from the keyboard. A note-on is the TRIG input, and
 `Envelope` decides LEVEL: `gate` patches it with the velocity while the key is held, so the gate
 follows the note and releases through `Decay`. `ping` leaves it unpatched, so the gate is struck
 and decays whatever the key does. The three envelope depths are the module's attenuverters, fed by
 its internal decay as they are when TRIG is patched. A voice that has been silent for 250 ms after
 its release is not computed until its next note.
 
-**Macro Oscillator** is an oscillator and nothing else, so each voice gets an ADSR (`Adsr.h`), which
+**mu-braids** is an oscillator and nothing else, so each voice gets an ADSR (`Adsr.h`), which
 also reaches TIMBRE and COLOR once per block the way the module's AD does. The bit and rate
 reduction are the firmware's own, from its render loop, since they are half of its sound.
 
-**Resonator.** A note sets the pitch and STRUMS, and its voices are its own (1, 2 or 4). A strum
+**mu-rings.** A note sets the pitch and STRUMS, and its voices are its own (1, 2 or 4). A strum
 moves to the next voice and lets the last one ring, and with more than one voice odd voices come
 out left and even ones right. The strummer ignores a strum within 10 ms of the last, so notes wait
 in a queue and leave one per 10.5 ms: a chord is strummed rather than collapsed into one note.
 **Its setters re-initialise every resonator** (`set_polyphony` sets `dirty_` unconditionally), so
 they are called on change only. Called per block, nothing rings for more than 20 ms.
 
-**Modal Synthesizer** is monophonic like the module: last note wins, a new note over a held one
+**mu-elements** is monophonic like the module: last note wins, a new note over a held one
 drops the gate for one block so the exciter re-strikes, and releasing it falls back to the
 previous held key without one. The firmware seeds its noise from the chip's unique id; a fixed
 seed makes a render repeatable.
 
-**Texture Synthesizer.** The module's one BLEND knob switches between four settings; here each of
+**mu-clouds.** The module's one BLEND knob switches between four settings; here each of
 dry/wet, spread, feedback and reverb is its own parameter. `Prepare()` is called before every
 block: the firmware calls it in its main loop, it only does work when the mode or quality changed,
 and in stretch mode it advances the correlator's search by a quarter each call. A note fires a
 grain (TRIG), and `Follow notes` adds its distance from C4 to the pitch.
 
-**Meta Modulator** runs at the module's own 96 kHz, although `Modulator::Init` takes a rate: only
+**mu-warps** runs at the module's own 96 kHz, although `Modulator::Init` takes a rate: only
 part of the code honours it, and the oscillator's pitch table is normalised to 96 kHz, so at the
 host's rate every note is off by the rate's ratio. The track's audio is the MODULATOR. The carrier
 is the internal oscillator, which notes play, or the sidechain (`sidechain.md`), which is what makes
 its vocoder usable on a voice.
 
-**Tidal Modulator** leaves out the module's gates mode, whose outputs are DC gate levels, not audio.
+**mu-tides** leaves out the module's gates mode, whose outputs are DC gate levels, not audio.
 The four outputs are mixed as 1+3 left and 2+4 right.
 
-**Drum Voices** folds the General MIDI drum map onto Peaks' four drums: kick on 35-36, snare on
+**mu-peaks** folds the General MIDI drum map onto Peaks' four drums: kick on 35-36, snare on
 37-40, hi-hat on 42, 44 and 46, and the FM drum on every other note, so the toms land somewhere.
 Each drum takes the module's four "expert mode" parameters; the hi-hat has none on the module.
 
@@ -150,9 +151,9 @@ Open:
 
 - **Only the macOS build is verified.** The firmware was written for an embedded GCC. MSVC and the
   Android NDK have not compiled it yet.
-- **Resonator and Modal Synthesizer are filed as instruments**, so st0 gives them a MIDI input and
+- **mu-rings and mu-elements are filed as instruments**, so st0 gives them a MIDI input and
   no audio input port. The engine hands them the track's audio either way: that is how the renders
   above excited them with noise bursts. Whether a chain can wire audio INTO one is st0's port model
   to decide (`packages/song-schema/src/moduleTypes.ts`).
-- **CPU.** Not measured per module. Voices are skipped when idle for Macro Oscillator 2, and when
+- **CPU.** Not measured per module. Voices are skipped when idle for mu-plaits, and when
   their envelope is done for the other polyphonic cores.

@@ -143,10 +143,8 @@ studio::EngineHost* g_host = nullptr;   // for the signal handler
 std::vector<studio::PluginInfo> ensurePluginsScanned(bool force) {
     static std::mutex m;
     std::lock_guard<std::mutex> lock(m);
-    if (!force) {
-        auto cached = studio::loadPluginCache();
-        if (!cached.empty()) return cached;   // another caller already warmed it
-    }
+    if (!force && studio::pluginCacheWarm())
+        return studio::loadPluginCache();   // another caller already warmed it
     return studio::scanInstalledPlugins(force);
 }
 
@@ -590,10 +588,10 @@ int serve(int port) {
                     const auto externals = std::count_if(
                         cached.begin(), cached.end(),
                         [](const studio::PluginInfo& p) { return p.format != "internal"; });
-                    // A build with no plugin format (Android) finds none by scanning, and would rescan on every poll.
-                    if (externals == 0 && studio::hostsExternalPlugins()) {
-                        std::cerr << "[plugins] no EXTERNAL plugins cached (" << cached.size()
-                                  << " built-in) — scanning once to fill it, this can take a while\n";
+                    // Never written, stale built-ins, or no externals where there could be: pluginCacheWarm says which counts.
+                    if (!studio::pluginCacheWarm()) {
+                        std::cerr << "[plugins] exts.json cold (" << cached.size() << " listed, "
+                                  << externals << " external) — scanning once to fill it, this can take a while\n";
                         std::thread([reply] { reply(ensurePluginsScanned(false)); }).detach();
                     } else {
                         std::cerr << "[plugins] " << cached.size() << " from cache (" << externals
@@ -1142,7 +1140,7 @@ int serve(int port) {
 
     // Warm the plugin cache in the background at startup so the first list-plugins never waits on a cold sweep — a no-op when warm, and serialized with the on-demand path.
     std::thread([] {
-        if (studio::hostsExternalPlugins() && studio::loadPluginCache().empty()) {
+        if (!studio::pluginCacheWarm()) {
             std::cerr << "[plugins] cache cold at startup — warming in the background, "
                          "this can take a while\n";
             ensurePluginsScanned(false);

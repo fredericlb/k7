@@ -12,13 +12,13 @@ class DrumVoicesPlugin : public EurorackPlugin {
 public:
     explicit DrumVoicesPlugin(tracktion::engine::PluginCreationInfo);
 
-    static const char* getPluginName() { return "Drum Voices"; }
+    static const char* getPluginName() { return "mu-peaks"; }
     static const char* xmlTypeName;
     static juce::ValueTree create() { return createState(xmlTypeName); }
 
     juce::String getName() const override { return getPluginName(); }
     juce::String getPluginType() override { return xmlTypeName; }
-    juce::String getShortName(int) override { return "Drums"; }
+    juce::String getShortName(int) override { return "mu-peaks"; }
     juce::String getSelectableDescription() override { return getPluginName(); }
 
 private:
