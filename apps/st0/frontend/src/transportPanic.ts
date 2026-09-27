@@ -25,3 +25,21 @@ export function stopOrPanic(
     ? "panic"
     : "stop";
 }
+
+type Verb = "play" | "stop" | "toggle" | "rewind" | "panic";
+
+/**
+ * One transport verb through the rule: what to send, and the new "last stop". Only a verb that can
+ * START sound ends the gesture — the Stop button sends stop then rewind, and that rewind must not
+ * turn the button's double-click back into two plain stops.
+ */
+export function throughPanicRule(
+  verb: Verb,
+  now: number,
+  lastStopAt: number | null,
+): { send: Verb; lastStopAt: number | null } {
+  if (verb === "stop")
+    return { send: stopOrPanic(now, lastStopAt), lastStopAt: now };
+  if (verb === "play" || verb === "toggle") return { send: verb, lastStopAt: null };
+  return { send: verb, lastStopAt };
+}

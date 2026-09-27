@@ -26,7 +26,9 @@ the last one is promoted. It sits at the app's single transport callback rather 
 BUTTON, because the button, the key and the command bar are one gesture to a musician and a rule on
 one of them would be a rule a third of the time.
 
-Anything else in between ends it — stop, play, stop is two stops. And a third press inside the
+A verb that can start sound in between ends it — stop, play, stop is two stops. A rewind does not:
+the transport bar's Stop button sends stop then rewind on every click, and a rewind that ended the
+gesture would make the button the one place a double-click never panics. And a third press inside the
 window panics again: a panic is idempotent, and somebody pressing a third time is not asking for
 less.
 

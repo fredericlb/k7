@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { engineSession } from "../engineSession";
 import { beginActivity, tally } from "../freezeWatchdog";
-import { stopOrPanic } from "../transportPanic";
+import { throughPanicRule } from "../transportPanic";
 
 export interface EngineLink {
   engineRef: React.RefObject<EngineClient | undefined>;
@@ -145,16 +145,9 @@ export function useEngineLink(
     (a: Parameters<EngineClient["transport"]>[0]) => {
       // Dropped, not queued: a Play sent while the engine is applying fires seconds later with every other click made meanwhile.
       if (engineBusyRef.current) return;
-      let action = a;
-      if (a === "stop") {
-        const now = Date.now();
-        action = stopOrPanic(now, lastStopAt.current);
-        lastStopAt.current = now;
-      } else if (a !== "panic") {
-        // Anything else in between ends the gesture: a stop, a play, then a stop is two stops.
-        lastStopAt.current = null;
-      }
-      engineRef.current?.transport(action);
+      const step = throughPanicRule(a, Date.now(), lastStopAt.current);
+      lastStopAt.current = step.lastStopAt;
+      engineRef.current?.transport(step.send);
     },
     [],
   );
