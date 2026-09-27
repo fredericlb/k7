@@ -1,4 +1,4 @@
-import { ChevronDown } from "@frediverse/ui/icons";
+import { ChevronDown, Workflow } from "@frediverse/ui/icons";
 import {
   acquireMicrophone,
   describeMicError,
@@ -16,6 +16,7 @@ import {
 } from "react-router-dom";
 import { api } from "./api";
 import { signIn, signInLooped, signInSettled } from "./auth";
+import { ChainSourcePanel } from "./components/ChainSourcePanel";
 import { SessionSourceDialog } from "./components/SessionSourceDialog";
 import { MomentDetailContainer } from "./containers/MomentDetailContainer";
 import { PageDetailContainer } from "./containers/PageDetailContainer";
@@ -59,8 +60,10 @@ interface RecordingCtx {
   resumeFrom?: number;
   // The saved recording's envelope, shown as history behind the new take.
   baseEnvelope?: Envelope;
-  // Present for a remote stream: closing it tears down the WebRTC connection.
+  // Present for a stream that needs tearing down: the WebRTC connection, or the chain's listener.
   rtc?: { close: () => void };
+  // Recorded through a chain of st0's library, whose panel stays mounted for the take.
+  chain?: boolean;
 }
 
 // The `songbook` tab lives at `/songs`, and a grouped entry opens on its first tab; the rest map to their own name.
@@ -195,6 +198,9 @@ export default function App() {
   const [remoteAvailable, setRemoteAvailable] = useState<boolean | null>(null);
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
+  // The chain source's panel: mounted from the choice to the end of the take, drawn while `chainShown`.
+  const [chainOpen, setChainOpen] = useState(false);
+  const [chainShown, setChainShown] = useState(false);
 
   const refresh = () => api.listSessions().then(setSessions);
   const refreshReleases = () => api.listReleases().then(setReleases);
@@ -278,11 +284,12 @@ export default function App() {
   const beginSession = async (
     stream: MediaStream,
     rtc?: { close: () => void },
+    chain?: boolean,
   ) => {
     // Sessions have no name — they're identified by their recording date/time.
     const s = await api.createSession();
     await refresh();
-    setRecording({ session: s, stream, rtc });
+    setRecording({ session: s, stream, rtc, chain });
     setSourceOpen(false);
     // A take started on a song stays there, collapsed to the bar — ../../docs/audio.md.
     setRecOpen(!isSongPage(location.pathname));
@@ -317,6 +324,29 @@ export default function App() {
     } finally {
       setSourceBusy(false);
     }
+  };
+
+  // The third source: the chooser gives way to the chain panel — ../../docs/chainSource.md.
+  const startChainSession = () => {
+    setSourceOpen(false);
+    setChainShown(true);
+    setChainOpen(true);
+  };
+
+  // Record the chain's output; ending the take closes the listener AND the panel with its frame.
+  const recordChain = async (stream: MediaStream, close: () => void) => {
+    await beginSession(
+      stream,
+      {
+        close: () => {
+          close();
+          setChainOpen(false);
+          setChainShown(false);
+        },
+      },
+      true,
+    );
+    setChainShown(false);
   };
 
   const handleResumeSession = async (session: Session) => {
@@ -683,14 +713,26 @@ export default function App() {
                   onExpand={() => setRecOpen(true)}
                   headerActions={
                     recOpen && (
-                      <button
-                        type="button"
-                        className="rec-popin-hide"
-                        onClick={() => setRecOpen(false)}
-                        title={m["rec.hideTitle"]()}
-                      >
-                        <ChevronDown className="size-4" /> {m["rec.hide"]()}
-                      </button>
+                      <>
+                        {recording.chain && (
+                          <button
+                            type="button"
+                            className="rec-popin-hide"
+                            onClick={() => setChainShown(true)}
+                            title={m["chain.showTitle"]()}
+                          >
+                            <Workflow className="size-4" /> {m["chain.show"]()}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="rec-popin-hide"
+                          onClick={() => setRecOpen(false)}
+                          title={m["rec.hideTitle"]()}
+                        >
+                          <ChevronDown className="size-4" /> {m["rec.hide"]()}
+                        </button>
+                      </>
                     )
                   }
                   onSave={handleSaveRecording}
@@ -714,8 +756,23 @@ export default function App() {
         error={sourceError}
         onLocal={startLocalSession}
         onRemote={startRemoteSession}
+        onChain={startChainSession}
         onClose={() => setSourceOpen(false)}
       />
+
+      {chainOpen && user && (
+        <ChainSourcePanel
+          who={user.email || user.sub}
+          recording={!!recording?.chain}
+          shown={chainShown}
+          onRecord={recordChain}
+          onCancel={() => {
+            setChainOpen(false);
+            setChainShown(false);
+          }}
+          onHide={() => setChainShown(false)}
+        />
+      )}
     </div>
   );
 }

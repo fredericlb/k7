@@ -143,12 +143,17 @@ generated, and deleted and generated again whenever it is opened, so putting it 
 control would version something with a lifetime of one session. `ProjectGate` does no lookup, no
 clone, one call to the machine that makes the folder.
 
-It answers **one** address, `/@banc/live.st0`, and `isBenchProject` is the whole rule — spelled
-once, in this package, so the browser that builds the link and the service that reads it cannot
-drift. Anything else under `@banc` names nothing and is a 404 whose sentence says where a chain and
-a module are edited instead: from a project you already have open
-(`apps/st0/frontend/docs/sharedModules.md`). That is what makes the project part safe to join onto
-a root — it is a constant, never a path taken off an address.
+It answers **one** project, `/@banc/live.st0`, which may be preceded by a library chain's ref —
+`/@banc/vocals/warm/live.st0` seeds the rig with a copy of that chain, what k7 records through
+(`apps/k7/docs/chainSource.md`). `benchChainOf` is the whole rule — spelled once, in this package,
+so the browser that builds the link and the service that reads it cannot drift. Anything else under
+`@banc` names nothing and is a 404 whose sentence says where a chain and a module are edited
+instead: from a project you already have open (`apps/st0/frontend/docs/sharedModules.md`).
+
+The project part is still safe to join onto a root, because it never is: the folder is the constant
+`live.st0` whatever the address says, and the chain ref is only ever MATCHED against the chains the
+library holds. A ref is folder names — no empty, dotted or `.st0` segment — so a traversal is not
+even a candidate.
 
 ### `@shares` — a frozen snapshot
 

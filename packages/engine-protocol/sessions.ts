@@ -10,6 +10,8 @@ export const DEFAULT_SESSION = "";
 export const SESSIONS = {
   st0: "st0",
   pl8: "pl8",
+  // st0's BENCH, a session of its own so it plays beside the person's song — see docs/sessions.md.
+  bench: "banc",
 } as const;
 
 export type SessionId = string;

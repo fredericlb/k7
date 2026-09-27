@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   BENCH_PROJECT,
   BENCH_REPO,
+  benchChainOf,
+  benchProject,
   EXTERNAL_INDEX,
   EXTERNAL_SEGMENT,
   externalIndexUrl,
@@ -257,6 +259,26 @@ describe("the bench's address", () => {
     expect(isBenchProject("chains/bass/amp.st0")).toBe(false);
     expect(isBenchProject("modules.st0")).toBe(false);
     expect(isBenchProject("live")).toBe(false);
+  });
+
+  it("may carry a library chain in front of the rig, and nothing else", () => {
+    expect(benchChainOf(BENCH_PROJECT)).toBeNull();
+    expect(benchChainOf(benchProject("vocals/warm"))).toBe("vocals/warm");
+    expect(isBenchProject(benchProject("vocals/warm"))).toBe(true);
+    // A traversal, an empty segment or a project in the middle is no chain ref.
+    expect(benchChainOf(`../x/${BENCH_PROJECT}`)).toBeUndefined();
+    expect(benchChainOf(`a//b/${BENCH_PROJECT}`)).toBeUndefined();
+    expect(benchChainOf(`song.st0/${BENCH_PROJECT}`)).toBeUndefined();
+    expect(benchChainOf(`/${BENCH_PROJECT}`)).toBeUndefined();
+    // …and it survives the address k7 builds for it.
+    const url = launchUrl(
+      "https://studio.example",
+      BENCH_REPO,
+      benchProject("vocals/warm"),
+      "st0",
+    );
+    const at = parseLaunch(new URL(url).pathname, "st0", "/");
+    expect(benchChainOf(at?.project ?? "")).toBe("vocals/warm");
   });
 
   it("survives the round trip st0's home page makes it take", () => {

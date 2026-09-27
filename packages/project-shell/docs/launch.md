@@ -89,7 +89,7 @@ sequence below, because in each there is no repository to resolve.
 | address | what it opens | what it skips |
 |---|---|---|
 | `/@shares/<token>.st0` | a frozen snapshot pl8 holds | everything: no account, no engine, no working copy |
-| `/@banc/live.st0` | the bench: one live rig, generated | the lookup and the clone — the rig is written again on every open |
+| `/@banc/live.st0` | the bench: one live rig, generated — `/@banc/<chain>/live.st0` seeds it with a library chain | the lookup and the clone — the rig is written again on every open |
 | `/@local/<espace>/<projet>` | a project in a workspace with no repository | the lookup, the clone, **and the libraries check** |
 
 `@local` is the one that disagrees with step 0 below, and deliberately: a workspace with no

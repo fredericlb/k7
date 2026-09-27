@@ -6,9 +6,9 @@ import { EngineClient, type EngineUrl } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
-import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
+import { engineSession } from "../engineSession";
 import { beginActivity, tally } from "../freezeWatchdog";
 import { stopOrPanic } from "../transportPanic";
 
@@ -62,11 +62,15 @@ export function useEngineLink(
   const [presets, setPresets] = useState<Record<string, PresetInfo[]>>({});
 
   useEffect(() => {
-    // The session id is per SERVICE and per PERSON, spelled through `sessionFor` so the file service cannot derive a different one.
+    // Per SERVICE and per PERSON, the bench a service of its own — the file service derives the same name from the workspace.
     const engine = new EngineClient(
       engineUrl,
       beginActivity,
-      sessionFor(SESSIONS.st0, userEmail),
+      engineSession(
+        userEmail,
+        window.location.pathname,
+        import.meta.env.BASE_URL,
+      ),
       tally,
     );
     engineRef.current = engine;

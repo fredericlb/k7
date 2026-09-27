@@ -472,6 +472,9 @@ timeline is offset by the length of the existing envelope, so the two stretches 
 edge. The recorder's own timeline — detected moments, listening, pending annotations — stays
 relative to the new take.
 
+A third source records the output of a chain of st0's library, played on st0's bench and heard
+here through the engine's broadcast: [chainSource.md](chainSource.md).
+
 ## The remote microphone: a Web Audio bridge
 
 A second device can serve as the microphone: signalling goes over a WebSocket to the backend's

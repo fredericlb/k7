@@ -436,7 +436,7 @@ than a fork: `sendDecks` knows nothing about a socket.
 
 #### The ordering rule, in one place
 
-Inside the service (`engineLink.ts`) a browser-supplied document is held as `clientDoc` and becomes
+Inside the service (`engineLink.ts`) a browser-supplied document is held per session in `clientDocs` and becomes
 the **pattern clock's base**, so it goes out through the same single `sendProject` the disk-driven
 push uses — a strudel lane still overlays its events onto it. While one is in force:
 

@@ -102,14 +102,16 @@ And every engine call takes its workspace as an argument — `ensureEngine(ws)` 
 which is the point: a caller that does not say cannot compile. `null` is allowed and means the
 bare session, but it has to be written down.
 
+The strudel **file watcher** and the document a browser hands over are per session too. One
+account plays two sessions at once — its song and its bench (`packages/engine-protocol/docs/sessions.md`)
+— and a single watcher would stop the song's pattern edits reaching the engine the moment the bench
+opened.
+
 ### What is legitimately global
 
-The strudel **file watcher** and `clientDoc`, the document the turntables surface hands over.
-Those are one running thing, not one per person: one project's patterns, one overlay. `clientDoc`
-belongs to the workspace that handed it over (`clientWs`), and only that session's leaving gives it
-up.
-
-`selectedEngineUrl` is global too, and that one is simply true: there is one engine.
+`selectedEngineUrl`, and that one is simply true: an account's files drive one engine at a time,
+which is why st0 opens the bench on the engine the account's song is already on
+(`apps/st0/frontend/src/engineSession.ts`).
 
 ## The engine may have forgotten, and only it knows
 
@@ -384,7 +386,7 @@ inside a directory is what makes its parent refuse a rename.
 
 ## The document a browser hands over
 
-`clientDoc` is a document a BROWSER built, in force until the project changes underneath it. The
+`clientDocs` holds, per session, a document a BROWSER built, in force until the project changes underneath it. The
 turntables surface is the one thing that makes one: it takes this project's compile and fills the
 decks' clips into it. It hands that over here rather than pushing it out of the browser's own socket,
 because two writers for one engine — the service pushing the compile from disk, the surface pushing

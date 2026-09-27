@@ -15,9 +15,11 @@ import {
   projectClaimKey,
   projectsUrl,
 } from "@studio/project-shell/launch";
+import { claimSlot } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { engines } from "../api";
 import { compatByEngine } from "../engineCompat";
+import { accountEngine } from "../engineSession";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 import { EngineSelect } from "./EngineSelect";
@@ -128,6 +130,22 @@ export function EngineGate({
       // Compatibility, then latency class, then performance — compatibility left out where it could not be told. Not remembered, so every open ranks afresh.
       const compat = await compatByEngine(r);
       if (cancelled) return;
+      // The BENCH plays beside the account's song, on its engine: the account's files drive one at a time.
+      if (claimProject && claimSlot(claimProject) === "bench") {
+        const me = await fetch("/auth/me")
+          .then((res) =>
+            res.ok
+              ? (res.json() as Promise<{
+                  user?: { email?: string; sub?: string };
+                }>)
+              : null,
+          )
+          .catch(() => null);
+        const who = me?.user?.email || me?.user?.sub || "";
+        const mine = who ? accountEngine(r, who) : undefined;
+        if (cancelled) return;
+        if (mine && (await pick(mine, false))) return;
+      }
       const best = bestEngine(r, {
         compat: compat.size ? (id) => compat.get(id)?.score ?? null : undefined,
       });
@@ -140,7 +158,7 @@ export function EngineGate({
     return () => {
       cancelled = true;
     };
-  }, [pick]);
+  }, [pick, claimProject]);
 
   if (phase.k === "chosen")
     // Hand the chosen engine to the project gate; key by wsUrl so switching engines remounts cleanly.

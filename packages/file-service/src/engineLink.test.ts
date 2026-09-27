@@ -98,6 +98,17 @@ describe("sessionOf", () => {
     );
   });
 
+  // The bench runs BESIDE the song, so its workspace is a session of its own — st0's engineSession.test.ts is the other half.
+  it("gives the bench's workspace the bench's session, and nothing else", () => {
+    noteOwner("a@x.org");
+    expect(sessionOf(wsFor("a@x.org", "Banc"))).toBe(
+      sessionFor(SESSIONS.bench, "a@x.org"),
+    );
+    expect(sessionOf(wsFor("a@x.org", "Bancs"))).toBe(
+      sessionFor(SESSIONS.st0, "a@x.org"),
+    );
+  });
+
   // Nothing served, or a folder outside the root: the bare session, as before.
   it("falls back to the bare service id outside the workspaces root", () => {
     noteOwner("a@x.org");

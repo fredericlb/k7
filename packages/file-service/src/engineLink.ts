@@ -40,6 +40,7 @@ import {
 import chokidar from "chokidar";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
+import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
 import { saveTake } from "./recorderSave.ts";
@@ -119,6 +120,9 @@ export function sessionOf(ws: { root: string } | null): string {
   const rel = relative(rootDir(), ws.root);
   // Outside the root is a workspace this service does not own — the bare session, as before.
   if (!rel || rel.startsWith("..")) return SESSIONS.st0;
+  // The bench's workspace plays in a session of its own, beside the song — apps/pl8/docs/banc.md.
+  if (rel.split(/[\\/]/)[0] === BENCH_WORKSPACE)
+    return sessionFor(SESSIONS.bench, owner);
   return sessionFor(SESSIONS.st0, owner);
 }
 
@@ -294,14 +298,12 @@ function isReady(ws: Workspace | null): boolean {
   return links.get(sessionOf(ws))?.ready ?? false;
 }
 
-/** A document a BROWSER built, in force until the project changes under it — docs/activeProject.md. */
-let clientDoc: ProjectDoc | null = null;
-/** …and the workspace that handed it over, the only one whose leaving gives it up. */
-let clientWs: Workspace | null = null;
+/** A document a BROWSER built, per session, in force until that session's project changes under it — docs/activeProject.md. */
+const clientDocs = new Map<string, ProjectDoc>();
 
-/** Forget any browser-supplied document — a different project is being served. */
-function dropClientProject(): void {
-  clientDoc = null;
+/** Forget the browser-supplied document of `ws`' session — a different project is being served there. */
+function dropClientProject(ws: Workspace): void {
+  clientDocs.delete(sessionOf(ws));
 }
 
 /** Send a document in `ws`' session — the engine diffs it against what that session holds. */
@@ -311,14 +313,13 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
 
 /** Play a document a browser built, through the service's own link — see docs/activeProject.md. */
 export function applyClientProject(ws: Workspace, doc: ProjectDoc): void {
-  clientDoc = doc;
-  clientWs = ws;
+  clientDocs.set(sessionOf(ws), doc);
   sendDoc(ws, doc);
 }
 
 /** Compile `dir` and send it — NOT while a browser holds the document, or the surface blinks empty (docs/activeProject.md). */
 function pushProject(ws: Workspace, dir: string): void {
-  if (!clientDoc) sendDoc(ws, ws.cachedProjectDoc(dir));
+  if (!clientDocs.has(sessionOf(ws))) sendDoc(ws, ws.cachedProjectDoc(dir));
 }
 
 function enginePlugins(
@@ -494,12 +495,13 @@ function sendActiveProject(ws: Workspace, p: string): void {
   }
 }
 
-let strudelWatcher: ReturnType<typeof chokidar.watch> | null = null;
-// Close the strudel watcher and WAIT for the OS to release its handle — on Windows a rename needs it gone.
-async function closeStrudelWatcher(): Promise<void> {
-  if (!strudelWatcher) return;
-  const prev = strudelWatcher;
-  strudelWatcher = null;
+/** One pattern watcher per SESSION: the bench beside a song must not silence the song's — docs/activeProject.md. */
+const strudelWatchers = new Map<string, ReturnType<typeof chokidar.watch>>();
+// Close a session's strudel watcher and WAIT for the OS to release its handle — on Windows a rename needs it gone.
+async function closeStrudelWatcher(session: string): Promise<void> {
+  const prev = strudelWatchers.get(session);
+  if (!prev) return;
+  strudelWatchers.delete(session);
   try {
     await prev.close();
   } catch {
@@ -519,9 +521,9 @@ export function outsideTheWatch(
 }
 
 function watchStrudel(ws: Workspace, dir: string | null): void {
-  if (strudelWatcher) {
-    void closeStrudelWatcher(); // switching projects: the old handle can close in the background
-  }
+  const session = sessionOf(ws);
+  // Switching projects: the old handle can close in the background.
+  void closeStrudelWatcher(session);
   if (!dir) return;
   const onChange = (p: string): void => {
     // A lane's pattern is IN the document, so its save is a recompile; the engine applies it in place.
@@ -533,7 +535,7 @@ function watchStrudel(ws: Workspace, dir: string | null): void {
       Promise.resolve().then(() => pushProject(ws, dir)),
     );
   };
-  strudelWatcher = chokidar
+  const watcher = chokidar
     .watch(dir, {
       ignoreInitial: true,
       ignored: (p: string, stats?: Stats) => outsideTheWatch(dir, p, stats),
@@ -547,6 +549,7 @@ function watchStrudel(ws: Workspace, dir: string | null): void {
         `   ✗ strudel watcher: ${err instanceof Error ? err.message : String(err)}`,
       ),
     );
+  strudelWatchers.set(session, watcher);
 }
 
 // Point the engine at the active project and send it; switching to a DIFFERENT project flushes it first.
@@ -562,7 +565,7 @@ export function startEngineForActive(ws: Workspace): void {
   if (switching) {
     ensureEngine(ws)?.flush();
     // A document built for the project we are LEAVING must not survive into this one.
-    dropClientProject();
+    dropClientProject(ws);
     // …nor its module watch, or every project ever opened would keep four directory handles.
     forgetModuleWatch(before);
   }
@@ -578,7 +581,7 @@ function forgetModuleWatch(project: string): void {
 // Recompile from disk and push — the explicit reload an out-of-band edit needs, since write() only invalidates.
 export function reloadActiveProject(ws: Workspace): void {
   // An explicit reload outranks a browser's document — see docs/activeProject.md.
-  dropClientProject();
+  dropClientProject(ws);
   ws.invalidateProjectDoc();
   startEngineForActive(ws);
 }
@@ -693,15 +696,12 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
     }
   }
   served.delete(leaving);
-  // The browser's document is a singleton, given up only by the session that handed it over.
-  if (clientWs && sessionOf(clientWs) === leaving) {
-    clientWs = null;
-    dropClientProject();
-  }
+  // The browser's document belongs to its session, so only this one's goes.
+  clientDocs.delete(leaving);
   // The one place that means "this workspace is DONE", so the SESSION goes, not just the socket.
   dropLink(leaving, { tellEngine: true });
   // Await the watcher close: a caller about to rename or delete must not race the OS releasing the handle.
-  await closeStrudelWatcher();
+  await closeStrudelWatcher(leaving);
   // The module watch on THIS workspace's project, for the same reason — `fs.watch` closes synchronously.
   if (leftProject) forgetModuleWatch(leftProject);
 }

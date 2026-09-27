@@ -150,9 +150,32 @@ const ST0 = PROJECT_SUFFIXES.st0;
 /** The bench's ONE project — a live rig thrown away and rebuilt on every open, apps/pl8/docs/banc.md. */
 export const BENCH_PROJECT = `live${ST0}`;
 
-/** Whether the project half of a `@banc` address names that rig; nothing else under `@banc` names anything. */
+/** The library chain a `@banc` address seeds the rig with (`<ref>/live.st0`), `null` for the bare rig, `undefined` for no bench — docs/addresses.md. */
+export function benchChainOf(project: string): string | null | undefined {
+  if (project === BENCH_PROJECT) return null;
+  const tail = `/${BENCH_PROJECT}`;
+  if (!project.endsWith(tail)) return undefined;
+  const ref = project.slice(0, -tail.length);
+  const segments = ref.split("/");
+  // Folder names only: an empty or dotted segment, or one claiming a project, is not a chain ref.
+  return segments.every((s) => s && s !== "." && s !== ".." && !s.endsWith(ST0))
+    ? ref
+    : undefined;
+}
+
+/** Whether the project half of a `@banc` address names that rig, bare or seeded with a chain; nothing else under `@banc` names anything. */
 export function isBenchProject(project: string): boolean {
-  return project === BENCH_PROJECT;
+  return benchChainOf(project) !== undefined;
+}
+
+/** Which of an account's engine sessions a claimed address plays in: the bench has its own, so it shares an engine with the song — docs/addresses.md. */
+export function claimSlot(claim: string): "bench" | "project" {
+  return claim.startsWith(`${BENCH_REPO}/`) ? "bench" : "project";
+}
+
+/** The project half of a bench address, seeded with `chain` when one is given. */
+export function benchProject(chain?: string | null): string {
+  return chain ? `${chain}/${BENCH_PROJECT}` : BENCH_PROJECT;
 }
 
 /** A SHARED project, `/@shares/<token>.st0` — the `.st0` is what makes it parse ordinarily; docs/addresses.md. */
