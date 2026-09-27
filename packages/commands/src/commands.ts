@@ -16,7 +16,10 @@ import type {
   AudioDeviceInfo,
   PluginInfo,
 } from "@studio/engine-client/engineClient";
-import { METRONOME_MIN } from "@studio/engine-protocol/build";
+import {
+  EXTERNAL_PLUGIN_FORMATS,
+  METRONOME_MIN,
+} from "@studio/engine-protocol/build";
 import {
   assemblyMembers,
   createAssembly,
@@ -2953,12 +2956,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // The external UI of ONE INSTANCE — the argument names a node, since a module with no instance has no window.
   "node.externalUi": async (a, h) => {
     const name = a.trim();
-    const modules = collectPluginModules(h.project());
+    // Only an external plugin (VST, AU, CLAP…) has a window of its own; a built-in or a jsdsp one has none.
+    const modules = collectPluginModules(h.project()).filter((b) =>
+      EXTERNAL_PLUGIN_FORMATS.has(b.type.toLowerCase()),
+    );
     if (!name) {
       h.refuse([
         modules.length
           ? `open which? ${modules.map((b) => b.module).join(", ")}`
-          : "no plugins in this project",
+          : "no external plugins in this project",
       ]);
       return;
     }
@@ -2967,7 +2973,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       modules.find((b) => b.module.toLowerCase() === name.toLowerCase());
     if (!match) {
       h.refuse([
-        `no plugin module '${name}'${modules.length ? ` — try: ${modules.map((b) => b.module).join(", ")}` : ""}`,
+        `no external plugin module '${name}'${modules.length ? ` — try: ${modules.map((b) => b.module).join(", ")}` : ""}`,
       ]);
       return;
     }

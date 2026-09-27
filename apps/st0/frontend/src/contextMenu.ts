@@ -14,12 +14,14 @@ export type MenuCtx =
   | { kind: "group"; id: string }
   // A 'block' in the graph: `missing` is no file, no plugin and no param; `ambient` is the ENGINE's, and can be given a folder.
   // `model`: it names a model this machine has not got, and its module's `model_url` says where to fetch it.
+  // `native`: an external plugin (VST, AU…) with its own window — the only node `node external-ui` is offered on.
   | {
       kind: "module";
       id: string;
       missing?: boolean;
       ambient?: boolean;
       model?: boolean;
+      native?: boolean;
     }
   // A placed clip — `track` + `tc` say WHICH placement, and `sel` is the RECTANGLE the click landed in, which the range verbs need.
   | {
@@ -337,7 +339,7 @@ export function contextMenu(
       const own = [
         ...from([{ provider: "nodes", value: ctx.id }]),
         ...from([{ provider: "modules", value: ctx.id }]),
-      ];
+      ].filter((e) => ctx.native || e.verb !== "node external-ui");
       if (ctx.missing)
         return offer(own.filter((e) => SURVIVES_MISSING.has(e.verb)));
       return offer([
