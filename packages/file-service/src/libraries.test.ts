@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sshDir } from "@studio/engine-client/paths";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   commitLibrary,
@@ -26,6 +27,7 @@ import {
   settingsProblem,
   syncLibrary,
 } from "./libraries.ts";
+import { slugify } from "./slug.ts";
 
 // Every fixture drives REAL git — a dozen subprocesses per test, well past vitest's 5 s default.
 vi.setConfig({ testTimeout: 30_000 });
@@ -79,6 +81,11 @@ beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "fs-libs-"));
   for (const k of ENV_KEYS) saved[k] = process.env[k];
   process.env.STUDIO_HOME = join(tmp, "home");
+  // A key already "there", so `ensureKey` makes none: CI's image has git and no ssh-keygen, and
+  // the SSH URI below is rewritten to a path on disk, so no key is ever used.
+  const keyDir = sshDir(slugify(EMAIL));
+  mkdirSync(keyDir, { recursive: true });
+  writeFileSync(join(keyDir, "id_ed25519"), "placeholder\n");
   origin = join(tmp, "origin.git");
   git(tmp, "init", "-q", "--bare", "--initial-branch=main", origin);
   publishElsewhere("modules/amp.yaml", "gain: 1\n");
