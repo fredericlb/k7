@@ -26,7 +26,7 @@ opening one of its own.
 | `Plugins: n` + `Rescan plugins` | « Plugins » card | `list-plugins` / `rescan-plugins` — **incremental**: the full rescan deletes the engine machine's `exts.json` first, which only the supervisor can do |
 | `Native plugin UI ▸` | « UI native » card | `list-edit-plugins` / `show-native-plugin-ui` — the window opens on the engine machine's screen |
 | `Clear waveform cache` | « Maintenance » | `POST <fileBase>/waveforms/clear`, the same route the supervisor calls |
-| `Show logs` | « Maintenance » → Journal | `GET <fileBase>/logs?tail=300` — the merged log, read instead of opened |
+| `Show logs` | « Maintenance » → Journal | `GET <fileBase>/logs?tail=300` — the merged log, read instead of opened, with the file service's own lines beside it (`service`) |
 | `Start/Stop/Restart engine`, `Restart file service` | **absent, on purpose** | the supervisor's only client is the stdio peer that spawned it; it has no network surface, and that is a security stance, not a gap (`engine/st0-supervisor/docs/hostProtocol.md`) |
 | audio FALLBACK, web origins, autostart, folders | absent | supervisor/OS policy, same reason — the fallback is a rule about a device that is *not* there, which only something watching continuously can apply. The preferred one is NOT in this row: the page writes it, because a pick nobody remembers is how a machine ends up back on the Windows endpoint after every restart |
 

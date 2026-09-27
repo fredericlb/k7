@@ -45,6 +45,7 @@ import {
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
+import { serviceLogSince } from "../serviceLog.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
 
 export const filesRouter = Router();
@@ -965,17 +966,21 @@ filesRouter.post(
     res.json({ ok: true, removed });
   }),
 );
-// The bound engine machine's log for the Logs panel: `?tail=N` seeds, `?offset=X` continues.
+// The Logs panel's two halves: the bound engine machine's `.studio.log` (`?tail=N` seeds, `?offset=X`
+// continues) and this service's own lines (`?after=S` continues) — docs/serviceLog.md.
 filesRouter.get(
   "/logs",
   wrap(async (req, res) => {
-    const rawOffset = Number(req.query.offset);
-    const offset =
-      req.query.offset != null && Number.isFinite(rawOffset)
-        ? rawOffset
-        : undefined;
+    const num = (v: unknown): number | undefined => {
+      const n = Number(v);
+      return v != null && Number.isFinite(n) ? n : undefined;
+    };
+    const offset = num(req.query.offset);
     const tail = Math.max(1, Math.min(2000, Number(req.query.tail) || 300));
-    res.json(await boundMachineLog({ offset, tail }));
+    res.json({
+      ...(await boundMachineLog({ offset, tail })),
+      service: serviceLogSince(num(req.query.after), tail),
+    });
   }),
 );
 filesRouter.get(

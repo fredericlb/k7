@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <iterator>
 #include <regex>
 #include <set>
 
@@ -141,6 +142,13 @@ std::string hostName()
 {
     // Android answers "localhost" for every phone, so its app names the device instead.
     if (const char* named = std::getenv("STUDIO_MACHINE_NAME"); named && *named) return named;
+#ifdef _WIN32
+    // The WIDE name, as UTF-8: `gethostname` answers in the ANSI code page, and a name like
+    // "PC-FRÉDÉRIC" in cp1252 is not UTF-8 — which JSON refuses (docs/supervisor.md).
+    wchar_t wbuf[256] = {0};
+    DWORD n = static_cast<DWORD>(std::size(wbuf));
+    if (GetComputerNameExW(ComputerNameDnsHostname, wbuf, &n) && n > 0) return narrow(wbuf);
+#endif
     char buf[256] = {0};
     if (gethostname(buf, sizeof buf - 1) != 0) return "localhost";
     return buf;

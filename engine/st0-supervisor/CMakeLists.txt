@@ -210,7 +210,8 @@ add_executable(st0_supervisor_tests
     tests/MachineJobs_test.cpp
     tests/RtcFrames_test.cpp
     tests/SeparationAudio_test.cpp
-    tests/HostLock_test.cpp)
+    tests/HostLock_test.cpp
+    tests/Registry_test.cpp)
 target_include_directories(st0_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../st0-engine/tests)
 target_link_libraries(st0_supervisor_tests PRIVATE st0_supervisor_core)
 st0_beside_runtime(st0_supervisor_tests)

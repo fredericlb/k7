@@ -71,6 +71,14 @@ struct Supervisor::Impl {
     std::uint64_t pluginsTimer = 0;
     /** One tunnel agent per registry, the way IN for a server that cannot dial this machine. */
     std::map<std::string, std::shared_ptr<tunnel::TunnelAgent>> tunnels;
+    /** Per registry: how many heartbeats in a row it refused and why — what `.studio.log` says, and when. */
+    struct BeatTrack {
+        int failures = 0;
+        std::string lastDetail;
+        bool everOk = false;
+    };
+    std::map<std::string, BeatTrack> beats;
+    bool saidNoRegistry = false;
 
     Impl(Loop& l, std::function<void()> e) : loop(l), exit(std::move(e)) {}
 
@@ -89,7 +97,8 @@ struct Supervisor::Impl {
         snap.rootPath = paths::utf8(paths::rootDir());
         snap.mergedLogPath = paths::utf8(paths::mergedLog());
         const auto frame = protocol::stateFrame(snap);
-        const std::string bytes = frame.dump();
+        // `replace`: a device or host name not in UTF-8 must cost one character, never the frame.
+        const std::string bytes = frame.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
         if (bytes == lastFrame) return;
         lastFrame = bytes;
         protocol::emit(frame);
@@ -143,6 +152,8 @@ struct Supervisor::Impl {
                                                    snap.error = "spawn failed: " + r.message;
                                                    break;
                                            }
+                                           // The tray shows the error; the log is what is still there tomorrow.
+                                           if (snap.status == "error") log::host("engine did not start: " + snap.error);
                                            publish();
                                            if (done) done(snap.status == "running");
                                        });
@@ -381,22 +392,65 @@ struct Supervisor::Impl {
             return;
         }
         auto urls = registryUrls;
+        if (urls.empty()) {
+            // Said once: an engine no studio lists is a setup question, and the tray has the field for it.
+            if (!saidNoRegistry) log::host("no registry configured — this engine is listed at no studio");
+            saidNoRegistry = true;
+            snap.lastHeartbeatOk = false;
+            publish();
+            if (then) then();
+            return;
+        }
+        saidNoRegistry = false;
         auto id = identity;
         auto presence = presenceNow();
-        loop.work<bool>([urls, id, presence] { return registry::heartbeat(urls, id, presence); },
-                        [this, then](bool ok) {
-                            snap.lastHeartbeatOk = ok;
-                            publish();
-                            if (then) then();
-                        });
+        loop.work<registry::Result>([urls, id, presence] { return registry::heartbeat(urls, id, presence); },
+                                    [this, then](registry::Result r) {
+                                        for (const auto& o : r.outcomes) noteBeat(o);
+                                        snap.lastHeartbeatOk = r.ok();
+                                        publish();
+                                        if (then) then();
+                                    });
+    }
+
+    /** One registry's answer, into `.studio.log` — its first refusal, each NEW reason, a reminder a minute, the recovery. */
+    void noteBeat(const registry::Outcome& o)
+    {
+        auto& t = beats[o.url];
+        if (o.ok) {
+            if (t.failures > 0)
+                log::line("registry", "heartbeat to " + o.url + " accepted again after " + std::to_string(t.failures) +
+                                          " failure(s)");
+            else if (!t.everOk)
+                log::line("registry", "listed at " + o.url + " (heartbeat accepted)");
+            t = {0, "", true};
+            return;
+        }
+        ++t.failures;
+        // A minute of heartbeats between reminders: a registry down for an hour is sixty lines, not seven hundred.
+        const int perMinute = static_cast<int>(60000 / kHeartbeat.count());
+        if (t.failures == 1 || o.detail != t.lastDetail)
+            log::line("registry", "heartbeat to " + o.url + " failed: " + o.detail +
+                                      " — until it is accepted, browsers cannot select this engine");
+        else if (t.failures % perMinute == 0)
+            log::line("registry", "heartbeat to " + o.url + " still failing (" + std::to_string(t.failures) +
+                                      " in a row): " + o.detail);
+        t.lastDetail = o.detail;
     }
 
     void deregisterFrom(std::vector<std::string> urls, std::function<void()> then)
     {
         auto id = identity;
-        loop.work<bool>([urls, id] { return registry::deregister(urls, id); }, [then](bool) {
-            if (then) then();
-        });
+        loop.work<registry::Result>([urls, id] { return registry::deregister(urls, id); },
+                                    [this, then](registry::Result r) {
+                                        for (const auto& o : r.outcomes) {
+                                            beats.erase(o.url);
+                                            if (!o.ok)
+                                                log::line("registry", "could not leave " + o.url + ": " + o.detail +
+                                                                          " — it drops this engine once its heartbeats stop");
+                                        }
+                                        if (then) then();
+                                    });
     }
 
     /** ADD a registry — always its family's pl8 — persist, adopt, announce; an add and never a replace. */
@@ -408,6 +462,7 @@ struct Supervisor::Impl {
             return;
         }
         if (std::find(registryUrls.begin(), registryUrls.end(), u) == registryUrls.end()) {
+            log::line("registry", "added " + u);
             registryUrls.push_back(u);
             // Persisted as the explicit list, so the next boot takes it rather than the ambient env var.
             settings.registryUrls = registryUrls;
@@ -430,6 +485,7 @@ struct Supervisor::Impl {
         }
         settings.registryUrls = kept;
         saveSettings(settings);
+        for (const auto& d : dropped) log::line("registry", "removed " + d);
         // Emptied, the list falls back to `$STUDIO_REGISTRY_URL` — what a fresh boot would resolve.
         registryUrls = registry::resolve(settings.registryUrls);
         publish();
@@ -456,6 +512,7 @@ struct Supervisor::Impl {
         publish();
         loop.work<registry::Probe>([reg] { return registry::probe(reg); }, [this, cmd, reg, o = *origin](registry::Probe p) {
             if (!p.ok) {
+                log::line("registry", "not adding " + reg + ": " + p.why);
                 snap.instanceCheck = protocol::InstanceCheck{reg, "refused", p.why + " — nothing was added"};
                 publish();
                 reply(cmd.id, false, p.why);
@@ -593,12 +650,16 @@ void Supervisor::start()
     // The first snapshot: the tray draws nothing until it arrives.
     s.publish();
     log::host("supervisor started (native), " + std::to_string(tls::rootCount()) + " trusted roots");
+    // What every heartbeat will carry, said once: when a registry refuses one, the reason names a field of this.
+    log::host("engine " + s.identity.id + ", presence " +
+              addresses::presence(s.settings.port).dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
 
     // Before the engine, so the CPU loop is not measuring its plugin scan.
     auto dir = paths::studioDir();
     s.loop.work<performance::Metrics>([dir] { return performance::measure(dir); }, [&s](performance::Metrics m) {
         s.performance = performance::toJson(m);
-        log::host("performance " + std::to_string(performance::score(m)));
+        log::host("performance " + std::to_string(performance::score(m)) + " " +
+                  s.performance->dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
         // Started HERE rather than on a tray command: nothing should wait for a menu to be built.
         s.startEngine([&s](bool) { s.beat([&s] { s.installLoops(); }); });
     });

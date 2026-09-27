@@ -12,6 +12,7 @@ void runMachineJobsTests();
 void runRtcFramesTests();
 void runSeparationAudioTests();
 void runHostLockTests();
+void runRegistryTests();
 
 int main()
 {
@@ -24,5 +25,6 @@ int main()
     runRtcFramesTests();
     runSeparationAudioTests();
     runHostLockTests();
+    runRegistryTests();
     TEST_MAIN_END();
 }

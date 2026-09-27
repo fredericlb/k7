@@ -8,35 +8,9 @@ import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import { REGISTRY_SERVICE } from "@studio/web-protocol/services";
 import { Router } from "express";
 import { z } from "zod";
+import { readHeartbeat, throttledLog } from "./heartbeat.ts";
 import { issueEngineTicket } from "./proxy.ts";
 import type { EngineRegistry } from "./registry.ts";
-
-// Addresses are ADDRESSES: `/registry/heartbeat` is open by design, and an unvalidated string would let anyone aim this server at a name.
-const addressesSchema = z.object({
-  loopback: z.ipv4(),
-  lanIps: z.array(z.ipv4()),
-  port: z.number().int().min(1).max(65535),
-});
-
-// Bounded, because the heartbeat is open: a rating is a hint for a picker, never a number to trust blindly.
-const performanceSchema = z.object({
-  score: z.number().int().min(0).max(1_000_000),
-  cores: z.number().int().min(1).max(4096),
-  singleThread: z.number().min(0).max(1_000_000),
-  diskWriteMBps: z.number().min(0).max(1_000_000).nullable(),
-  fsyncPerSec: z.number().min(0).max(10_000_000).nullable(),
-  memoryGB: z.number().min(0).max(1_000_000),
-});
-
-// No top-level `port`: the one that matters is addresses.port, and zod strips unknown keys, so a sender may still send it.
-const heartbeatBody = z.object({
-  id: z.string().min(1),
-  token: z.string().min(1),
-  hostname: z.string(),
-  machineFingerprint: z.string(),
-  addresses: addressesSchema,
-  performance: performanceSchema.optional(),
-});
 
 const deregisterBody = z.object({
   id: z.string().min(1),
@@ -73,19 +47,45 @@ const releaseBody = z.object({
 export function engineRegistryRouter(
   reg: EngineRegistry,
   tunnels?: TunnelHub,
+  // Where a refused heartbeat or select is said — the server's own log; injected for the tests.
+  log: (line: string) => void = (l) => console.warn(`[registry] ${l}`),
 ): Router {
   const router = Router();
+  // Once a minute per (engine, complaint): a machine refused every 5 s is one line, not twelve.
+  const complain = throttledLog(log);
+  /** Who a refusal is about, as the log should name it. */
+  const who = (id: string, hostname?: string, ip?: string) =>
+    `engine ${id}${hostname ? ` (${hostname})` : ""}${ip ? ` from ${ip}` : ""}`;
 
   // Open like the heartbeat, and says nothing but WHAT this is: the supervisor asks before it sends a token here.
   router.get("/registry/hello", (_req, res) => {
     res.json({ service: REGISTRY_SERVICE });
   });
 
+  // Only the id, the token and the port can refuse one; any other odd field is CLEANED and said (heartbeat.ts).
   router.post(
     "/registry/heartbeat",
-    validate(heartbeatBody),
     wrap((req, res) => {
-      const b = req.body as z.infer<typeof heartbeatBody>;
+      const read = readHeartbeat(req.body);
+      const body = (req.body ?? {}) as { id?: unknown; hostname?: unknown };
+      const id = typeof body.id === "string" ? body.id : "?";
+      const host = typeof body.hostname === "string" ? body.hostname : "";
+      if (!read.ok) {
+        complain(
+          `${id}|refused`,
+          `refused a heartbeat from ${who(id, host, req.ip)}: ${read.error}`,
+        );
+        // The reason in the body, so the supervisor's log carries it too.
+        return res
+          .status(400)
+          .json({ error: `heartbeat refused — ${read.error}` });
+      }
+      const b = read.beat;
+      if (b.cleaned.length)
+        complain(
+          `${b.id}|cleaned|${b.cleaned.join("|")}`,
+          `took a heartbeat from ${who(b.id, b.hostname, req.ip)} with fields cleaned: ${b.cleaned.join("; ")}`,
+        );
       const ok = reg.upsert({
         id: b.id,
         token: b.token,
@@ -95,8 +95,20 @@ export function engineRegistryRouter(
         performance: b.performance,
         publicIpHint: req.ip,
       });
-      if (!ok) return res.status(409).json({ error: "id/token mismatch" });
-      res.json({ ok: true });
+      if (!ok) {
+        complain(
+          `${b.id}|mismatch`,
+          `refused a heartbeat from ${who(b.id, b.hostname, req.ip)}: its token is not the one this id registered with`,
+        );
+        return res.status(409).json({
+          error:
+            "id/token mismatch — this id is registered with another token; it is freed 15 s after that one's last heartbeat",
+        });
+      }
+      res.json({
+        ok: true,
+        ...(b.cleaned.length ? { cleaned: b.cleaned } : {}),
+      });
     }),
   );
 
@@ -149,9 +161,27 @@ export function engineRegistryRouter(
       const { id, token, project, secret } = req.body as z.infer<
         typeof selectBody
       >;
-      if (!reg.verifyToken(id, token))
-        return res.status(403).json({ error: "unknown engine or bad token" });
-      if (!reg.get(id)) return res.status(404).json({ error: "engine gone" });
+      // The two refusals told APART: a lapsed heartbeat is the engine's machine to look at, a wrong token this page's.
+      if (!reg.get(id)) {
+        complain(
+          `${id}|select-gone`,
+          `select of ${who(id)} refused: no heartbeat from it in the last 15 s`,
+        );
+        return res.status(404).json({
+          error:
+            "engine gone — its machine has not sent a heartbeat in the last 15 s; its .studio.log says why",
+        });
+      }
+      if (!reg.verifyToken(id, token)) {
+        complain(
+          `${id}|select-token`,
+          `select of ${who(id)} refused: the browser's token is not the registered one`,
+        );
+        return res.status(403).json({
+          error:
+            "bad token — this engine registered with another token; reload the engine list",
+        });
+      }
 
       // WHO comes from the session, never from the body: a claim you can sign with someone else's name is not a claim.
       const holder = req.user?.email || req.user?.sub || "";

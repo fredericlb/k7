@@ -25,10 +25,24 @@ struct Probe {
 /** Ask `url` whether it IS an engine registry; a redirect is refused, not followed. */
 Probe probe(const std::string& url);
 
-/** Announce to every registry in parallel; true only if they ALL answered — the tray shows one light. */
-bool heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence);
+/** What one registry answered: its status (0 when nothing did) and, when it refused, why in one line. */
+struct Outcome {
+    std::string url;
+    bool ok = false;
+    int status = 0;
+    std::string detail;
+};
+
+/** Every registry's outcome; `ok()` only when they ALL answered — the tray shows one light. */
+struct Result {
+    std::vector<Outcome> outcomes;
+    bool ok() const;
+};
+
+/** Announce to every registry in parallel. Never throws: a payload that will not serialise is an outcome too. */
+Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence);
 
 /** Leave every registry, in parallel; bounded, since it runs while somebody waits to quit. */
-bool deregister(const std::vector<std::string>& urls, const EngineIdentity& id);
+Result deregister(const std::vector<std::string>& urls, const EngineIdentity& id);
 
 }  // namespace st0::registry

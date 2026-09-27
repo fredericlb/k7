@@ -184,8 +184,21 @@ export const projectApi = {
   preferences: () => fget<WebPreferences>("/preferences"),
   setVim: (vim: boolean) =>
     fsend<{ vim: boolean }>("PUT", "/preferences/vim", { vim }),
-  logs: (offset?: number, tail = 300) =>
-    fget<{ offset: number; lines: string[] }>(
-      offset != null ? `/logs?offset=${offset}` : `/logs?tail=${tail}`,
+  /** Both halves of the Logs panel: the engine machine's `.studio.log` by byte `offset`, this service's own lines after `after`. */
+  logs: (offset?: number, tail = 300, after?: number) =>
+    fget<{
+      offset: number;
+      lines: string[];
+      service?: {
+        seq: number;
+        lines: {
+          seq: number;
+          t: number;
+          level: "info" | "warn" | "error";
+          text: string;
+        }[];
+      };
+    }>(
+      `/logs?${offset != null ? `offset=${offset}` : `tail=${tail}`}${after != null ? `&after=${after}` : ""}`,
     ),
 };

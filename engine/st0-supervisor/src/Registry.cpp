@@ -27,25 +27,46 @@ std::vector<std::string> asRegistries(const std::vector<std::string>& urls)
     return out;
 }
 
-bool post(const std::string& base, const std::string& path, const nlohmann::json& body)
+/** What one registry answered, cut to a line: a 400's body names the field it refused. */
+std::string detailOf(const http::Response& res)
 {
-    http::Request r;
-    r.method = "POST";
-    r.url = url::join(base, path);
-    r.body = body.dump();
-    r.contentType = "application/json";
-    // Not up yet, or too slow to matter: the next tick retries.
-    return http::send(r).ok();
+    if (res.status == 0) return "no answer (" + (res.error.empty() ? std::string("timed out") : res.error) + ")";
+    std::string body = res.body;
+    for (char& c : body)
+        if (c == '\n' || c == '\r') c = ' ';
+    if (body.size() > 300) body = body.substr(0, 300) + "…";
+    return "HTTP " + std::to_string(res.status) + (body.empty() ? "" : " " + body);
 }
 
-/** `post` to every url at once, true when all of them answered. */
-bool all(const std::vector<std::string>& urls, const std::string& path, const nlohmann::json& body)
+Outcome post(const std::string& base, const std::string& path, const nlohmann::json& body)
 {
-    std::vector<std::future<bool>> calls;
+    Outcome o{base, false, 0, ""};
+    try {
+        http::Request r;
+        r.method = "POST";
+        r.url = url::join(base, path);
+        // `replace`, never the default `strict`: one byte of a hostname in the ANSI code page must
+        // not turn every heartbeat into an exception nobody sees (docs/supervisor.md).
+        r.body = body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+        r.contentType = "application/json";
+        const auto res = http::send(r);
+        o.status = res.status;
+        o.ok = res.ok();
+        if (!o.ok) o.detail = detailOf(res);
+    } catch (const std::exception& e) {
+        o.detail = std::string("could not send: ") + e.what();
+    }
+    return o;
+}
+
+/** `post` to every url at once, each one's outcome kept: the tray shows one light, the log says which. */
+Result all(const std::vector<std::string>& urls, const std::string& path, const nlohmann::json& body)
+{
+    std::vector<std::future<Outcome>> calls;
     for (const auto& u : urls) calls.push_back(std::async(std::launch::async, [u, path, body] { return post(u, path, body); }));
-    bool ok = true;
-    for (auto& c : calls) ok = c.get() && ok;
-    return ok;
+    Result r;
+    for (auto& c : calls) r.outcomes.push_back(c.get());
+    return r;
 }
 
 }  // namespace
@@ -84,16 +105,23 @@ Probe probe(const std::string& base)
     return {false, base + " is not an st0 instance"};
 }
 
-bool heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence)
+bool Result::ok() const
 {
-    if (urls.empty()) return false;
+    if (outcomes.empty()) return false;
+    for (const auto& o : outcomes)
+        if (!o.ok) return false;
+    return true;
+}
+
+Result heartbeat(const std::vector<std::string>& urls, const EngineIdentity& id, const nlohmann::json& presence)
+{
     nlohmann::json body = presence;
     body["id"] = id.id;
     body["token"] = id.token;
     return all(urls, "/api/registry/heartbeat", body);
 }
 
-bool deregister(const std::vector<std::string>& urls, const EngineIdentity& id)
+Result deregister(const std::vector<std::string>& urls, const EngineIdentity& id)
 {
     return all(urls, "/api/registry/deregister", {{"id", id.id}, {"token", id.token}});
 }

@@ -307,3 +307,8 @@ onset and a large value makes none, so neither end is a useful thing to ask for.
 They live in the SONG, which the engine never sees, so they are handled brain-side.
 `/presets/apply` takes a NAME, not a path: the shelf is a file in the module's folder, so
 there is nothing for a crafted path to escape.
+
+## `GET /logs` — the Logs panel's two halves
+
+The bound engine machine's `.studio.log` (`?tail=N` seeds, `?offset=X` continues, by byte) and this
+service's own lines under `service` (`?after=S` continues, by number). See `docs/serviceLog.md`.

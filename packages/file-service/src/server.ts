@@ -66,6 +66,7 @@ import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
+import { installServiceLog } from "./serviceLog.ts";
 import { rootDir } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
 import {
@@ -81,6 +82,9 @@ import {
   workspaceForRepo,
   workspaceNameFor,
 } from "./workspaces.ts";
+
+// First, so every line this process writes from here on is also the Logs panel's (docs/serviceLog.md).
+installServiceLog();
 
 installBuiltinPlugins();
 

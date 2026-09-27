@@ -84,6 +84,31 @@ why it did not answer — a refused certificate and a missing host read differen
 `st0-supervisor --separate <mix> <model> <outDir> [providers]` runs one stem separation on this
 machine and prints its progress. Neither touches the state directory.
 
+## What `.studio.log` says, and when
+
+The merged log is where a machine's trouble is read after the fact, so what fails says so there —
+not only on the tray's light, which is gone when the tray is:
+
+- **At start:** the engine id and the whole presence a heartbeat will carry (hostname, addresses),
+  then the performance figures with the rating. When a registry refuses a heartbeat, the reason
+  names a field of those two lines.
+- **`[registry]`, per registry:** `listed at …` on the first accepted heartbeat; the FIRST failure,
+  with the registry's own answer (`HTTP 400 {"error":"heartbeat refused — …"}`, or `no answer
+  (…)`); again whenever the reason changes; a reminder once a minute while it keeps failing; and
+  `accepted again after N failure(s)` when it recovers. A registry added, removed or refused on add,
+  and a deregister that did not land. No registry configured at all is said once.
+- **`[host]`:** an engine that did not start, and why.
+- **`[tunnel]`:** why a tunnel failed or closed (the socket's error, or the close code), once per
+  distinct reason rather than on every redial; a job the machine refused or that threw.
+
+A heartbeat cannot fail silently any more, which is how the Windows machine came to be listed and
+then unselectable with nothing in its log: the registry refused every heartbeat, and nothing here
+read the answer. Two things were fixed with it. The JSON is dumped with `error_handler_t::replace`,
+so a byte that is not UTF-8 costs one character rather than throwing the whole heartbeat away; and
+on Windows the hostname is `GetComputerNameExW`'s, converted to UTF-8, since `gethostname` answers
+in the ANSI code page and `PC-FRÉDÉRIC` there is not UTF-8. The registry's half is
+`packages/engine-registry/docs/heartbeat.md`.
+
 ## The performance rating moved
 
 The single-core figure of the rating is the same biquad over the same budget, compiled rather than

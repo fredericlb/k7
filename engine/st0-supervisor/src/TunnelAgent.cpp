@@ -76,6 +76,8 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
     bool dropped = false;
     std::atomic<bool> up{false};
     int attempt = 0;
+    /** The last reason the socket failed or closed — logged again only when it changes. Socket thread only. */
+    std::string lastFail;
     std::map<int, std::shared_ptr<Channel>> channels;
     SyncLedger ledger;
     FileRequests files{*this};
@@ -184,6 +186,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
             case ix::WebSocketMessageType::Open:
                 attempt = 0;
                 up = true;
+                lastFail.clear();
                 opts.log("up to " + opts.registryUrl);
                 break;
             case ix::WebSocketMessageType::Message:
@@ -194,6 +197,15 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
                 break;
             case ix::WebSocketMessageType::Close:
             case ix::WebSocketMessageType::Error: {
+                // WHY, once per reason: a server down for an hour redials a hundred times and says it once.
+                const std::string why = m->type == ix::WebSocketMessageType::Error
+                                            ? m->errorInfo.reason + (m->errorInfo.http_status
+                                                                         ? " (HTTP " + std::to_string(m->errorInfo.http_status) + ")"
+                                                                         : std::string())
+                                            : "closed " + std::to_string(m->closeInfo.code) +
+                                                  (m->closeInfo.reason.empty() ? "" : " " + m->closeInfo.reason);
+                if (why != lastFail) opts.log("tunnel to " + opts.registryUrl + ": " + why);
+                lastFail = why;
                 {
                     std::lock_guard lock(mutex);
                     dropped = true;
@@ -402,16 +414,20 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         const std::string type = req.value("type", "");
         auto it = opts.jobs.find(type);
         if (it == opts.jobs.end()) {
+            // Said here too: the server shows it to one person, the log keeps it for whoever looks at this machine.
+            if (opts.log) opts.log("refused job '" + type + "': this machine does not do it");
             emit({{"type", "error"}, {"error", "this machine does not do '" + type + "'"}});
             return;
         }
         JobHandler handler = it->second;
-        std::thread([handler, req, emit, c] {
+        auto log = opts.log;
+        std::thread([handler, req, emit, c, type, log] {
             JobContext ctx;
             ctx.fetch = [c](const std::string& local) { return c->map ? c->map->ensureLocal(local) : false; };
             try {
                 handler(req, emit, ctx);
             } catch (const std::exception& e) {
+                if (log) log("job '" + type + "' failed: " + e.what());
                 emit({{"type", "error"}, {"error", e.what()}});
             }
         }).detach();
