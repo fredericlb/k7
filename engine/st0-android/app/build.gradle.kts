@@ -23,9 +23,10 @@ android {
         ndk { abiFilters += "arm64-v8a" }
     }
 
+    // 21: Capacitor's runtime is built for it, and the app's own Java and Kotlin must agree with each other.
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     sourceSets["main"].jniLibs.srcDir(layout.buildDirectory.dir("engine-jni"))
@@ -35,7 +36,17 @@ android {
 }
 
 kotlin {
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21) }
+}
+
+// The versions Capacitor's own module is built against (its build.gradle's defaults), for what the app
+// uses of them directly: BridgeActivity is an AppCompatActivity, and AppViewsPlugin draws under the insets.
+dependencies {
+    implementation(project(":capacitor-android"))
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.activity:activity:1.11.0")
+    implementation("androidx.core:core:1.17.0")
+    implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
 }
 
 val engineDir = rootDir.resolve("../st0-engine")
@@ -91,4 +102,27 @@ val stageFaustLibs by tasks.registering {
 
 android.sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("engine-assets"))
 
-tasks.named("preBuild") { dependsOn(stageEngine, stageFaustLibs) }
+// The page (web/: the header, the engine tray), built by its workspace and staged the way `cap copy` would
+// lay it out: the bundle under public/, beside the config Capacitor reads at start and the list of npm
+// plugins it would load — none, since the app's two plugins are registered by MainActivity itself.
+val webDir = rootDir.resolve("web")
+val shellOut = layout.buildDirectory.dir("shell-assets")
+
+val buildShell by tasks.registering(Exec::class) {
+    workingDir = webDir
+    inputs.files(fileTree(webDir.resolve("src")), webDir.resolve("index.html"), webDir.resolve("vite.config.ts"), webDir.resolve("package.json"))
+    outputs.dir(webDir.resolve("dist"))
+    commandLine("npm", "run", "build")
+}
+
+val stageShell by tasks.registering(Sync::class) {
+    dependsOn(buildShell)
+    from(webDir.resolve("dist")) { into("public") }
+    from(webDir.resolve("capacitor.config.json"))
+    from(resources.text.fromString("[]")) { rename { "capacitor.plugins.json" } }
+    into(shellOut)
+}
+
+android.sourceSets["main"].assets.srcDir(shellOut)
+
+tasks.named("preBuild") { dependsOn(stageEngine, stageFaustLibs, stageShell) }

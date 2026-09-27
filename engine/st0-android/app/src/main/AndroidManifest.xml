@@ -2,7 +2,7 @@
 <!-- Foreground only for now: no service, so the engine lives exactly as long as MainActivity (docs/android.md). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- The engine's WebSocket server, which browsers on the LAN dial. -->
+    <!-- The engine's WebSocket server, which browsers on the LAN dial; and the studio apps, loaded from the studio. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- The IPv4 the activity shows, so a browser knows what to dial. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -13,8 +13,8 @@
 
     <application
         android:allowBackup="false"
-        android:label="st0 engine"
-        android:theme="@android:style/Theme.DeviceDefault">
+        android:label="st0"
+        android:theme="@style/AppTheme.NoActionBar">
         <!-- configChanges: a rotation must not recreate the activity, which would stop the engine. -->
         <activity
             android:name=".MainActivity"

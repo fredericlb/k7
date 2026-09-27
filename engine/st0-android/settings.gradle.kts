@@ -1,5 +1,5 @@
-// The Android shell around st0-engine: one app module, and the engine itself built by CMake from
-// ../st0-engine (app/build.gradle.kts). See docs/android.md.
+// The Android shell around st0-engine: one app module, the engine itself built by CMake from ../st0-engine
+// (app/build.gradle.kts), and Capacitor's runtime for the page in web/. See docs/android.md.
 
 pluginManagement {
     repositories {
@@ -10,7 +10,8 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // PREFER, not FAIL_ON: Capacitor's own module declares repositories of its own, the same two.
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
@@ -19,3 +20,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "st0-android"
 include(":app")
+
+// Capacitor's Android runtime, from the workspace install (web/ is an npm workspace, hoisted to the repo
+// root) — what `cap sync` would write into a capacitor.settings.gradle. There is no `cap sync` here: web/
+// is staged by app/build.gradle.kts like the engine is, and this is the one line it would contribute.
+include(":capacitor-android")
+project(":capacitor-android").projectDir = rootDir.resolve("../../node_modules/@capacitor/android/capacitor")

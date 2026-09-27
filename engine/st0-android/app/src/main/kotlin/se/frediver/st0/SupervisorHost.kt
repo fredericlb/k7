@@ -59,6 +59,10 @@ object SupervisorHost {
         exit?.let(l::onEngineExit)
     }
 
+    /** What is already known, for a page that asks before it listens: the latest snapshot and the engine's exit code. */
+    @Synchronized
+    fun known(): Pair<JSONObject?, Int?> = lastState to engineExit
+
     /** One command, as the tray sends it: `arg` is always one string. */
     @Synchronized
     fun command(cmd: String, arg: String = "") {

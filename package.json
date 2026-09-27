@@ -25,7 +25,8 @@
     "apps/pl8/frontend",
     "apps/pl8/backend",
     "engine/st0-engine",
-    "engine/st0-tray"
+    "engine/st0-tray",
+    "engine/st0-android/web"
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
