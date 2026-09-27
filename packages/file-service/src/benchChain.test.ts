@@ -19,13 +19,13 @@ import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
 
 const EMAIL = "someone@example.test";
-const LIBRARIES_URI = "git@example.test:studio/libraries.git";
 const PINNED_HOME = process.env.STUDIO_HOME;
 let home: string;
 
 const benchRoot = (): string => join(rootDir(), BENCH_WORKSPACE);
 const benchDir = (): string => join(benchRoot(), BENCH_PROJECT);
-const library = (rel: string): string => join(benchRoot(), "_libraries", rel);
+/** The account's `st0` library, where the file service clones it — under `$STUDIO_HOME`. */
+const library = (rel: string): string => join(home, "libraries", "st0", rel);
 
 const put = (rel: string, text: string): void => {
   mkdirSync(dirname(library(rel)), { recursive: true });
@@ -71,13 +71,16 @@ afterEach(() => {
 describe("the bench, on a library chain", () => {
   it("lists every chain, refusing a cold one by name", () => {
     const chains = liveChains(benchDir());
-    expect(chains.map((c) => c.ref)).toEqual(["master/norm", "vocals/warm"]);
+    expect(chains.map((c) => c.ref)).toEqual([
+      "@st0/master/norm",
+      "@st0/vocals/warm",
+    ]);
     expect(chains[0].unavailable).toContain("on disk");
     expect(chains[1].unavailable).toBeNull();
   });
 
   it("puts the chain between the input and the fader, the rest of the rig untouched", async () => {
-    await ensureBench(EMAIL, LIBRARIES_URI, "vocals/warm");
+    await ensureBench(EMAIL, "vocals/warm");
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).toContain("IN: [ comp ]");
     expect(graph).toContain("eq: [ fader ]");
@@ -92,12 +95,10 @@ describe("the bench, on a library chain", () => {
   });
 
   it("refuses a chain that cannot run live, and one the library does not hold", async () => {
-    await expect(
-      ensureBench(EMAIL, LIBRARIES_URI, "master/norm"),
-    ).rejects.toThrow(/cannot run live/);
-    await expect(ensureBench(EMAIL, LIBRARIES_URI, "nope")).rejects.toThrow(
-      /no chain/,
+    await expect(ensureBench(EMAIL, "master/norm")).rejects.toThrow(
+      /cannot run live/,
     );
+    await expect(ensureBench(EMAIL, "nope")).rejects.toThrow(/no chain/);
   });
 
   it("is gone at the next open with no chain, and the library was never written", async () => {
@@ -105,8 +106,8 @@ describe("the bench, on a library chain", () => {
       library("chains/vocals/warm/graph.yaml"),
       "utf8",
     );
-    await ensureBench(EMAIL, LIBRARIES_URI, "vocals/warm");
-    await ensureBench(EMAIL, LIBRARIES_URI);
+    await ensureBench(EMAIL, "vocals/warm");
+    await ensureBench(EMAIL);
     expect(readFileSync(join(benchDir(), "graph.yaml"), "utf8")).toContain(
       "IN: [ fader ]",
     );

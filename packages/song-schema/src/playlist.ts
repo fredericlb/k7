@@ -5,7 +5,7 @@
 
 import { parse as parseYaml } from "yaml";
 
-/** The folder a workspace keeps its playlists in, beside `_modules` and `_libraries` — see docs/playlistFile.md. */
+/** The folder a workspace keeps its playlists in, beside `_modules` — see docs/playlistFile.md. */
 export const PLAYLISTS_DIR = "_playlists";
 
 /** What a playlist file is called at its end — a playlist IS its file, so the extension is the whole rule. */

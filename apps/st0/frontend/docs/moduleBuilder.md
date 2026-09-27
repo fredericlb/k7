@@ -52,7 +52,7 @@ below, **still a parameter list for a built-in**. That is an ordinary state and 
 
 The case that matters most is the one the section above cannot answer.
 
-A module in the LIBRARIES repository — `_libraries/modules/instruments/4osc/module.yaml`, which
+A module in a LIBRARY — `_libraries/st0/modules/instruments/4osc/module.yaml`, which
 is where a shared module is authored — is not a base of the open song, is not instantiated by it,
 and the builder overlay holds no engine link. st0 passes `paramRef={null}` when it opens a module
 from the file tree, so `paramsByBase` is not consulted either. Every source above is empty, and
@@ -71,7 +71,7 @@ plugin: { type: internal, name: 4OSC }   # a module that DECLARES the plugin
 extends: "@engine/4osc"                  # a module that is only a FACE for one
 ```
 
-The whole of `_libraries/modules/instruments/4osc/module.yaml` is that second line, plus two
+The whole of `_libraries/st0/modules/instruments/4osc/module.yaml` is that second line, plus two
 comments. **Both** forms have to be read: the table on its own answers nothing for a file that
 only ever names its plugin through `extends:`.
 
@@ -148,7 +148,7 @@ The suites here mount nothing, so none of this is covered by a green run:
 - turn a knob in the builder's card → the value moves in the graph too, and the sound changes;
 - open the builder on a module the project does NOT instantiate, declaring an EXTERNAL plugin →
   an empty parameter list, and everything else still editable;
-- open `_libraries/modules/instruments/4osc/module.yaml` from the Libraries tab, with no project
+- open `_libraries/st0/modules/instruments/4osc/module.yaml` from the Libraries tab, with no project
   using it and no engine → the bind dropdown lists 4OSC's parameters, `Tune 1` offers -36..+36,
   and dragging one onto a knob gives it that range rather than 0..1;
 - close the builder, then watch the engine log → no subscription left behind.

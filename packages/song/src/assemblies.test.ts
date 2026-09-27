@@ -17,6 +17,7 @@ import {
   resolveAssemblies,
 } from "./assemblies";
 import { loadGraph, validate } from "./graph";
+import { librariesFixture } from "./testSupport";
 
 let root: string;
 beforeEach(() => {
@@ -45,7 +46,7 @@ members:
 /** A workspace holding one library template and one project that uses it. */
 function workspace(instance: string, template = TEMPLATE): string {
   const dir = join(root, "song.st0");
-  const lib = join(root, "_libraries", "assemblies", "turntable");
+  const lib = join(librariesFixture(root), "assemblies", "turntable");
   mkdirSync(lib, { recursive: true });
   writeFileSync(join(lib, "assembly.yaml"), template);
   writeFileSync(join(lib, "graph.yaml"), "modules:\n  level: [ fade ]\n");
@@ -115,7 +116,7 @@ describe("resolving one against its template", () => {
 
   it("still yields the box when the template resolves to nothing", () => {
     const dir = workspace(INSTANCE);
-    rmSync(join(root, "_libraries"), { recursive: true, force: true });
+    rmSync(join(root, ".studio-home"), { recursive: true, force: true });
     const a = resolveAssemblies(dir).turntableA;
     expect(a.missing).toBe(true);
     expect(a.label).toBe("turntableA");

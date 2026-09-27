@@ -90,15 +90,16 @@ here — it would make a folder the loader does not recognise and a row that ope
 This writes `<root>/<type>/<name>/module.yaml`, and the builder takes it from there.
 
 `root` is a library path the caller was GIVEN (`/module-libraries` answered it), never one it
-built: the same rule the module builder's store follows, and what keeps `_libraries` and a
-project's own `modules/` from being told apart by string surgery here.
+built: the same rule the module builder's store follows, and what keeps a library's
+`_libraries/<name>/modules` and a project's own `modules/` from being told apart by string surgery
+here.
 
 ## `POST /libraries/publish`
 
-What the module builder's Save calls once every file has landed: commit everything in
-`_libraries` and push it. It touches the LIBRARY repository only — the workspace holding it is
-somebody's song, and committing to that is `project commit`. See
-`packages/file-service/src/libraries.ts`.
+What the module builder's Save calls once every file has landed: commit what changed in the
+libraries it names — the builder names the one the module is in — or in every one with something to
+publish, and push it. It touches the LIBRARY repositories only; no song records a library version.
+See `docs/libraries.md`.
 
 A refusal is answered rather than thrown: "committed but not pushed" is a real outcome with
 work safely on disk behind it, and the builder says so in its status line.

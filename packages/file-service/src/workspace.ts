@@ -46,6 +46,7 @@ import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
+import { libraryChainDirs } from "@studio/song/libraryChains";
 import {
   type BaseModuleRef,
   cloneModuleFile,
@@ -96,8 +97,11 @@ import {
   trackMixer,
 } from "@studio/song/project";
 import {
+  accountLibraries,
   isInSharedModules,
-  librariesDirFor,
+  LIBRARIES_DIR,
+  librariesHome,
+  libraryOf,
   moduleLibraryDirs,
   moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
@@ -168,7 +172,6 @@ import {
   isHistoryDir,
   ProjectHistory,
 } from "./history.ts";
-import { walkLibraryChains } from "./libraryChains.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
@@ -550,6 +553,38 @@ function diffBin(
   return blobs;
 }
 
+/** `abs` if it stays inside `root` both LEXICALLY and on the REAL path, else a throw — docs/workspace.md. */
+function confined(
+  abs: string,
+  root: string,
+  rel: string,
+  what: "workspace" | "libraries",
+  realRoot?: string,
+): string {
+  if (abs !== root && !abs.startsWith(root + sep))
+    throw new Error(`path escapes the ${what}: ${rel}`);
+
+  let existing = abs;
+  const tail: string[] = [];
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) break; // hit the filesystem root
+    tail.unshift(basename(existing));
+    existing = parent;
+  }
+  let real: string;
+  let realTop: string;
+  try {
+    real = resolve(realpathSync(existing), ...tail);
+    realTop = realRoot ?? realpathSync(root);
+  } catch {
+    return abs; // unreadable ancestor, or no libraries yet — the lexical check already passed
+  }
+  if (real !== realTop && !real.startsWith(realTop + sep))
+    throw new Error(`path escapes the ${what}: ${rel}`);
+  return abs;
+}
+
 /** `@engine` as a library — synthesised, not a folder. See docs/workspace.md. */
 function engineLibrary(): ModuleLibrary | null {
   const byType = new Map<string, FileNode[]>();
@@ -632,31 +667,32 @@ export class Workspace {
     return abs === this.root || abs.startsWith(this.root + sep);
   }
 
-  /** Resolve `rel` inside the workspace, or throw — TWO gates, both needed, docs/workspace.md. */
+  /** Resolve `rel` inside the workspace, or throw — TWO gates, both needed, docs/workspace.md.
+   *
+   * `_libraries/<name>/…` is the one path that is not IN the workspace: it names the account's
+   * library `<name>`, cloned under `<studioHome>/libraries`, and is confined THERE by the same two
+   * gates — docs/sharedFolders.md. */
   private safePath(rel: string): string {
-    const abs = rel === "." ? this.root : resolve(this.root, rel);
-    if (abs !== this.root && !abs.startsWith(this.root + sep))
-      throw new Error(`path escapes the workspace: ${rel}`);
-
-    let existing = abs;
-    const tail: string[] = [];
-    while (!existsSync(existing)) {
-      const parent = dirname(existing);
-      if (parent === existing) break; // hit the filesystem root
-      tail.unshift(basename(existing));
-      existing = parent;
+    const segs = rel.split(/[\\/]+/).filter((s) => s && s !== ".");
+    if (segs[0] === LIBRARIES_DIR) {
+      const home = librariesHome();
+      return confined(resolve(home, ...segs.slice(1)), home, rel, "libraries");
     }
-    let real: string;
-    try {
-      real = resolve(realpathSync(existing), ...tail);
-    } catch {
-      return abs; // unreadable ancestor — the lexical check already passed
-    }
-    if (real !== this.realRoot && !real.startsWith(this.realRoot + sep))
-      throw new Error(`path escapes the workspace: ${rel}`);
-    return abs;
+    return confined(
+      rel === "." ? this.root : resolve(this.root, rel),
+      this.root,
+      rel,
+      "workspace",
+      this.realRoot,
+    );
   }
   private toRel(abs: string): string {
+    // A library file answers to the virtual folder it is reached through, never to where it is cloned.
+    if (libraryOf(abs))
+      return [LIBRARIES_DIR, relative(librariesHome(), abs)]
+        .join(sep)
+        .split(sep)
+        .join("/");
     return abs === this.root
       ? "."
       : relative(this.root, abs).split(sep).join("/");
@@ -1240,6 +1276,10 @@ export class Workspace {
       ns: moduleNamespaceOf(abs),
       abs,
     }));
+    // Every cloned library is a row, one with no `modules/` yet included: its chains are listed under it.
+    for (const lib of accountLibraries())
+      if (!roots.some((r) => r.ns === lib.name))
+        roots.push({ ns: lib.name, abs: join(lib.root, "modules") });
     const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
       const exists = existsSync(abs);
       return {
@@ -1254,12 +1294,14 @@ export class Workspace {
     return out;
   }
 
-  /** The CHAINS the account's library repository holds — see docs/workspace.md. */
+  /** The CHAINS the account's libraries hold, by `@<library>/<path>` — see docs/workspace.md. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
     // The walk is shared with the ACCOUNT's own listing, which has no workspace to be relative to.
-    return walkLibraryChains(
-      librariesDirFor(this.activeProject ?? this.root, "chains"),
-    ).map((c) => ({ ref: c.ref, path: this.toRel(c.dir), nodes: c.nodes }));
+    return libraryChainDirs().map((c) => ({
+      ref: c.ref,
+      path: this.toRel(c.dir),
+      nodes: c.nodes,
+    }));
   }
 
   /** The ASSEMBLY templates the library holds — what the builder lists and `assembly new` completes on.
@@ -1447,8 +1489,8 @@ export class Workspace {
   }
 
   /** Save a file, forking a `_modules` one instead of refusing it — see docs/workspace.md. */
-  // `_modules` and `_libraries/…` are both ORDINARY paths now — a module lives at `@workspace` or
-  // `@st0` and is edited in place, there being no project-local copy left to fork into instead
+  // `_modules` and `_libraries/<name>/…` are both ORDINARY paths now — a module lives at `@workspace`
+  // or `@<name>` and is edited in place, there being no project-local copy left to fork into instead
   // (docs/workspace.md). Renaming or deleting either is still refused, by guardShared elsewhere.
   write(
     rel: string,
@@ -1520,6 +1562,12 @@ export class Workspace {
   // Never the root, the recycle bin, or the active project's own folder — but anything INSIDE it is fair game.
   private guardMutable(abs: string, verb: string): void {
     if (abs === this.root) throw new Error(`can't ${verb} the workspace root`);
+    // A library is added and removed from the account's settings, never from a workspace's tree.
+    const lib = abs === librariesHome() ? null : libraryOf(abs);
+    if (abs === librariesHome() || lib?.root === abs)
+      throw new Error(
+        `can't ${verb} '${this.toRel(abs)}': the account's libraries are set in its settings, not moved from a workspace`,
+      );
     this.guardShared(abs, verb);
     if (this.isRecycled(abs))
       throw new Error(`'${this.toRel(abs)}' is already in the recycle bin`);
@@ -1850,7 +1898,8 @@ export class Workspace {
       if (!spec) throw new Error("preview: empty source");
       if (isAbsolute(spec) && AUDIO_EXT.test(spec)) {
         const abs = resolve(spec);
-        if (!this.withinRoot(abs))
+        // A library module's own audio is the other place a preview may play from.
+        if (!this.withinRoot(abs) && !libraryOf(abs))
           throw new Error("audio path is outside the workspace");
         return abs;
       }

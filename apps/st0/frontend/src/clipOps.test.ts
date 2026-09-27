@@ -4,14 +4,13 @@
 // and nothing mounts a component in this app to catch it if they did.
 
 import { describe, expect, it } from "vitest";
-import { chainOps, filterOps, MEDIATEK_CHAIN, processLine } from "./clipOps";
+import { chainOps, filterOps, processLine } from "./clipOps";
 
 describe("chainOps", () => {
-  it("prefixes every ref with the token the verb demands", () => {
-    expect(chainOps([{ ref: "mastering/loud" }, { ref: "clean" }])).toEqual([
-      `${MEDIATEK_CHAIN}mastering/loud`,
-      `${MEDIATEK_CHAIN}clean`,
-    ]);
+  it("names every chain by its whole `@<library>/…` ref, the one the verb takes", () => {
+    expect(
+      chainOps([{ ref: "@st0/mastering/loud" }, { ref: "@drums/clean" }]),
+    ).toEqual(["@st0/mastering/loud", "@drums/clean"]);
   });
 
   it("answers an empty list for a library that has not arrived yet", () => {
@@ -23,23 +22,21 @@ describe("chainOps", () => {
 
 describe("filterOps", () => {
   const ops = chainOps([
-    { ref: "mastering/loud" },
-    { ref: "repair/declick" },
-    { ref: "clean" },
+    { ref: "@st0/mastering/loud" },
+    { ref: "@st0/repair/declick" },
+    { ref: "@st0/clean" },
   ]);
 
   it("matches the WHOLE ref, so a folder name finds its chains", () => {
-    expect(filterOps(ops, "repair")).toEqual([
-      `${MEDIATEK_CHAIN}repair/declick`,
-    ]);
+    expect(filterOps(ops, "repair")).toEqual([`@st0/repair/declick`]);
   });
 
   it("matches a word wherever it sits in the path", () => {
-    expect(filterOps(ops, "loud")).toEqual([`${MEDIATEK_CHAIN}mastering/loud`]);
+    expect(filterOps(ops, "loud")).toEqual([`@st0/mastering/loud`]);
   });
 
   it("ignores case and surrounding space", () => {
-    expect(filterOps(ops, "  CLEAN ")).toEqual([`${MEDIATEK_CHAIN}clean`]);
+    expect(filterOps(ops, "  CLEAN ")).toEqual([`@st0/clean`]);
   });
 
   it("an empty search is every chain, not none", () => {
@@ -50,7 +47,7 @@ describe("filterOps", () => {
 
 describe("processLine", () => {
   it("names the clip by its REF, which is the stem of clips/<ref>.yaml", () => {
-    expect(processLine("audio_13_0", `${MEDIATEK_CHAIN}clean`)).toBe(
+    expect(processLine("audio_13_0", `@st0/clean`)).toBe(
       "clip process audio_13_0 @st0/clean",
     );
   });

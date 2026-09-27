@@ -57,7 +57,7 @@ export function createAssembly(
   const loaded = loadAssemblyTemplate(dir, ref);
   if (!loaded)
     throw new Error(
-      `no assembly template '${ref}' in this workspace's library (_libraries/${ASSEMBLIES_DIR}/)`,
+      `no assembly template '${ref}' in the account's libraries (a library's ${ASSEMBLIES_DIR}/, named @<library>/<path>)`,
     );
   // A member is a node file the template carries: that is what makes it a use of a module.
   const files = entityFiles(join(loaded.folder, "nodes"), "nodes");

@@ -49,10 +49,8 @@ export const projectApi = {
     fsend<CloneJob>("POST", "/workspaces/clone", { uri }),
   cloneStatus: (id: string) => fget<CloneJob>(`/workspaces/clone/${id}`),
   /** The BENCH, INSTEAD of the three calls above — see docs/fileApi.md. */
-  openBench: (project: string | undefined, libraries: string) =>
+  openBench: (project: string | undefined) =>
     fsend<{ workspace: string; project: string }>("POST", "/workspaces/bench", {
-      // The account's library repository: every module the rig can name is in it.
-      libraries,
       // What the address named, verbatim: the machine builds the bench, so the machine decides.
       project,
     }),
@@ -80,8 +78,8 @@ export const projectApi = {
   createProject: (shape: string, name: string) =>
     fsend<{ project: string }>("POST", "/project/create", { shape, name }),
   /** Open the project, and say which library repository to mount — see docs/fileApi.md. */
-  open: (path: string, libraries?: string) =>
-    fsend<WorkspaceInfo>("POST", "/open", { path, libraries }),
+  /** Open a project; the machine brings the account's libraries up to date on the way — docs/fileApi.md. */
+  open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
 
   /** Play a document this browser built, through the service so ONE thing writes to the engine. */

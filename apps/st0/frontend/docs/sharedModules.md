@@ -12,14 +12,15 @@ So a shared module is edited from inside a project, against the engine already p
 | tab | what it lists |
 |---|---|
 | **Project** | the song's own files — a project has no modules of its own to hold back |
-| **Libraries** | one row per LEVEL — `@workspace`, `@engine` — with the modules under it, and `@st0`, the library REPOSITORY, with its `modules`, `chains` and `assemblies` |
+| **Libraries** | one row per LEVEL — `@workspace`, `@engine` — with the modules under it, and one per LIBRARY of the account (`@st0`, `@drums`…), each a repository with its `modules`, `chains` and `assemblies` |
 
 **They are two different answers, and the difference is worth writing down.** Looking for
-`_libraries` and `_modules` *inside the file tree* finds nothing, because `/tree` is deliberately
-rooted at the ACTIVE PROJECT and excludes exactly those folders: *"the rest of the clone is the
-REPOSITORY, not the song"* (`packages/file-service/docs/activeProject.md`, and a test that says
-so). The two shared levels sit BESIDE the project, so no amount of searching the song's own tree
-can find them.
+`_modules` *inside the file tree* finds nothing, because `/tree` is deliberately rooted at the
+ACTIVE PROJECT: *"the rest of the clone is the REPOSITORY, not the song"*
+(`packages/file-service/docs/activeProject.md`, and a test that says so). `_modules` sits BESIDE
+the project, and the libraries are not in the workspace at all — the file service clones them
+under `<studioHome>/libraries` and answers them at the virtual `_libraries/<name>/…` — so no amount
+of searching the song's own tree can find either.
 
 So they have a route of their own, `GET /module-libraries`, whose roots come from
 `@studio/song`'s `moduleLibraryDirs`. It therefore lists what the LOADER resolves against and
@@ -27,7 +28,8 @@ cannot drift from it, which searching a tree cannot guarantee.
 
 ```
 @workspace    _modules/                  shared by every project beside it
-@st0          _libraries/modules/        the account's library repository (a submodule)
+@st0          _libraries/st0/modules/    one of the account's libraries, cloned by the file service
+@drums        _libraries/drums/modules/  …another, each under its own name
 @engine       — no folder —              this machine's plugin scan, READ-ONLY
 ```
 
@@ -42,8 +44,9 @@ so hiding it would leave nowhere to start on a workspace whose `_modules` does n
 which is every fresh one. `exists: false` and "empty" are kept apart in the answer for the
 same reason: only one of them is fixed by adding a module.
 
-`@st0` is the one level that disappears when absent. It is a git submodule somebody has to
-mount, not a folder to fill in, so an empty row would be an offer nothing here can honour.
+A library is listed when the machine has cloned it, whether or not it has a `modules/` yet — its
+chains still have to go somewhere. Which libraries the account has is set on the home page, never
+from this tab: a library's own row cannot be renamed, moved or deleted from here.
 
 ## `@engine`, which is not a folder
 
@@ -100,21 +103,21 @@ no type folder — `audio/reverb` is the shortest thing the loader will key.
 all rather than opening with everything greyed out. A scanned plugin has no folder, so there is
 nothing to make one in (`packages/song/docs/moduleNamespaces.md`).
 
-Note the two shapes: a workspace library holds its type folders **directly**, where the
-account's repository holds two FAMILIES and `modules` is one of them. That difference is why the
+Note the two shapes: a workspace library holds its type folders **directly**, where each of the
+account's repositories holds three FAMILIES and `modules` is one of them. That difference is why the
 rows are found from a list rather than a pattern.
 
-**The Project tab has no `modules/` to drop.** A module lives at `@workspace` or `@st0` now,
+**The Project tab has no `modules/` to drop.** A module lives at `@workspace` or in a library now,
 never inside the song, so there is nothing under the Project tab that the Libraries tab also
 owns — the two tabs are already disjoint, by where the files sit rather than by anything drawn
 here choosing to leave one out.
 
 The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref — and under
-each, the catalogue exactly as a ref spells it. `@st0` is drawn one level deeper, because it is a
-REPOSITORY holding three families side by side, and the row shows it as it is on disk:
+each, the catalogue exactly as a ref spells it. A library is drawn one level deeper, because it is
+a REPOSITORY holding three families side by side, and the row shows it as it is on disk:
 
 ```
-@st0                      _libraries/
+@st0                      _libraries/st0/
   modules                   modules/        the @st0 module level
     audio
       delay
@@ -122,6 +125,9 @@ REPOSITORY holding three families side by side, and the row shows it as it is on
   chains                    chains/         → @st0/<path>, opened in the chains builder
   assemblies                assemblies/     → opened in the assembly builder
 ```
+
+A chain or a template is filed under ITS library's row, by the `@<name>/` its ref starts with, and
+drawn without that prefix — the row it sits under already says it.
 
 It used to be `modules/` drawn AS `@st0`, with the chains in a row of their own labelled
 `@st0/chains` — two sibling folders that read as a folder and its child, under a label that is not
@@ -137,16 +143,16 @@ The listing is fetched the first time somebody looks at the tab, not on mount �
 its own over three levels, and most sessions never open it. It is not re-polled: nothing st0 does
 from here adds or removes a module.
 
-## Read-only, then a decision — `@st0` only
+## Read-only, then a decision — the libraries only
 
 `@workspace` opens straight into the builder, writable, exactly as st0 writes everywhere else:
 no lock, no Edit button, each file written as soon as it reads as a document. It has no publish
 step — the workspace is one git repository, already yours, and a save is just a save.
 
-`@st0` is the one level this gate is for. It opens in the builder **locked**. Everything works —
+A library module is what this gate is for. It opens in the builder **locked**. Everything works —
 the four files are shown, the params list is populated, the live plugin's knobs move — and
 nothing is written: the code panes refuse keystrokes, the widget grid takes no drags, no autosave
-is armed, and the shelf presets (which are edits) are not offered — a `@st0` module cannot hold
+is armed, and the shelf presets (which are edits) are not offered — a library module cannot hold
 presets at all, in fact, for the same reason: they would be an edit to the one copy every song
 in the account reads (`packages/song/docs/userPresets.md`). The header says `read-only`
 where the save badge normally is.
@@ -172,8 +178,9 @@ So the builder's live-plugin lookup is the ordinary one — read the compiled gr
 step whose `module` matches the ref the module's own folder spells out:
 
 ```
-_modules/audio/delay/tape-delay/module.yaml            →  @workspace/audio/delay/tape-delay
-_libraries/modules/audio/delay/tape-delay/module.yaml  →  @st0/audio/delay/tape-delay
+_modules/audio/delay/tape-delay/module.yaml                →  @workspace/audio/delay/tape-delay
+_libraries/st0/modules/audio/delay/tape-delay/module.yaml  →  @st0/audio/delay/tape-delay
+_libraries/drums/modules/audio/kick/module.yaml            →  @drums/audio/kick
 ```
 
 `libraryModuleRef` is that spelling (`src/libraryTree.ts`), and getting it wrong is what would
@@ -187,17 +194,20 @@ To hear a module no project uses, wire it into the song you have open.
 
 ```
 the workspace's own   _modules/audio/reverb/module.yaml
-the library's          _libraries/modules/audio/reverb/module.yaml
+a library's            _libraries/st0/modules/audio/reverb/module.yaml
 ```
 
-Both are workspace paths, both served by the file service, both written by the same route. The
+Both are workspace paths, both served by the file service, both written by the same route — the
+second one lands in the account's clone of `st0`, since `_libraries/<name>/` is a VIRTUAL folder
+the file service maps there and confines there (`packages/file-service/docs/workspace.md`). The
 builder gets `moduleStore` either way, and what tells them apart is a folder name rather than
 which tab you clicked — `isLibraryPath` reads it off the path, so `ui builder <path>` locks
-exactly as a click in the Libraries tab does.
+exactly as a click in the Libraries tab does, and `libraryOfPath` says which library a Save
+publishes.
 
-That is what the submodule buys: one path space where a library served from somewhere else would
-need two that spell a module *identically*, a second store, and a rule that the choice between
-them must never be re-derived from a path.
+That is what the virtual folder buys: one path space where libraries served from somewhere else
+would need two that spell a module *identically*, a second store, and a rule that the choice
+between them must never be re-derived from a path.
 
 ## The builder has a Save button, and it is the only screen here that does
 
@@ -224,35 +234,14 @@ and a file held back because it would not compile reports false — committing a
 
 ## What a save actually does
 
-1. `PUT /file` on the file service for each dirty file, into the submodule's working copy. The
-   same route a project file takes.
-2. `POST /libraries/publish` — in the LIBRARY: `git add -A`, a commit authored by you, a push.
-3. …and then, in the SONG: one commit moving the gitlink, so the project records which version
-   of the library it now uses.
+1. `PUT /file` on the file service for each dirty file, into the library's clone. The same route a
+   project file takes.
+2. `POST /libraries/publish`, naming THAT library — `git add -A`, a commit authored by you, a push.
 
-**Two repositories, two different rules**, and the difference is the whole design:
-
-| | the library | the song |
-|---|---|---|
-| what is committed | everything that changed | the gitlink, and `.gitmodules` if it is new |
-| how | `git add -A` | **path-limited** — `git commit -- .gitmodules _libraries` |
-| pushed | yes | **no** |
-
-The song's commit is path-limited and that is load-bearing, not tidiness: a commit *about a
-module* must not carry half a song with it. Whatever you had dirty or staged when you pressed
-Save is exactly as dirty or staged afterwards.
-
-And it is **not pushed**. Pushing a song is `project commit` — a decision about your work, not a
-side effect of saving a module. So the version is recorded locally the moment you save it, and
-travels when you decide the song does.
-
-**Nothing is recorded unless the library push succeeded.** A gitlink promises the commit is
-fetchable; pointing one at a commit that never left this machine breaks the song for everybody
-who clones it — including you on the next machine. So a refused push reports "committed, not
-pushed", keeps the work locally, and leaves the song saying what it said before. The next Save
-pushes both commits.
-
-Nothing to commit is not a failure either — two saves with no edit between them land there.
+That is all of it. No song repository is touched: none records which version of a library it uses
+any more — a library is at its latest, for every song (`packages/song/docs/sharedFolders.md`). A
+refused push reports "committed, not pushed" and keeps the work in the clone; the next Save pushes
+it. Nothing to commit is not a failure either — two saves with no edit between them land there.
 
 ## What the bench is for
 
@@ -262,30 +251,26 @@ to the library module itself, made from this tab, which is why the bench needs n
 one. `apps/pl8/docs/banc.md` is its page.
 
 Neither a MODULE nor a CHAIN is edited there: both are authored from a project that is already
-open, and every other address under `@banc` answers 404 with a sentence pointing here. The bench's
-workspace mounts the library like any other, so `@st0/…` resolves there the way it does in a
-song.
+open, and every other address under `@banc` answers 404 with a sentence pointing here. The bench
+sees the account's libraries like any other workspace, so `@st0/…` resolves there the way it does
+in a song.
 
 ## What to check in a browser
 
 The suites here mount nothing, so none of this is covered by a green run:
 
-- with **no libraries repository** on the account, open any project → st0 refuses with "no
-  libraries repository" and a button back to pl8, before it clones anything;
-- add an **empty** repository from st0's home page (the card is above everything else), then
-  open a project → `_libraries/` is there beside it, filled with the catalogue pl8 already held,
-  committed and pushed, with `.gitmodules` staged in the workspace. Look at the repository on
-  your git host: `modules/` and `chains/` are in it;
-- open a project in a SECOND workspace → the library clones with its content and is not seeded
-  again;
-- switch the tree to **Libraries** → three rows, `@workspace` / `@st0` / `@engine`, in that
-  order, each holding its own modules;
+- with **no library** on the account, open any project → st0 refuses with "no libraries" before it
+  clones anything;
+- add an **empty** repository from st0's home page (the card is above everything else), leaving the
+  name blank → it is listed as `@st0`, cloned under `<studioHome>/libraries/st0`, and no workspace
+  gains a `_libraries/` folder;
+- add a SECOND repository named `drums` → switch the tree to **Libraries** → `@workspace`, `@drums`,
+  `@st0`, `@engine`, each library with `modules`, `chains` and `assemblies`;
 - open a workspace with no `_modules` → `@workspace` is there and empty. Right-click it →
   **New module…** → type `audio/test` → the folder is made, the builder opens on it, writable
   with no lock;
-- unmount the library submodule → `@st0` disappears rather than offering an empty row;
 - `@engine` is last, greyed, and grouped by type; clicking a row opens nothing and right-clicking
-  offers no menu. On this machine it holds 254 scanned plugins;
+  offers no menu;
 - right-click a type folder inside `@workspace` → **New folder…** and **New module…**, the second
   taking just a name there and `<type>/<name>` on the level's own row;
 - click an `@st0` module → the builder opens read-only, with `read-only` in the header and an
@@ -293,20 +278,16 @@ The suites here mount nothing, so none of this is covered by a green run:
   → it opens straight into writable, no lock and no Edit button;
 - click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save
   button lights up instead;
-- edit two of the four files, press **Save** once → both land, and one commit appears in the
-  library repository, pushed. Not two commits, and not one per file;
-- look at the SONG's repository → one commit on top, touching `_libraries` and nothing else.
-  Leave something half-edited before you save and check it is still half-edited after;
-- `git log` in the song → the message names the library's short sha, so which version this song
-  uses is readable without opening the submodule;
+- edit two of the four files, press **Save** once → both land, and one commit appears in THAT
+  library's repository, pushed. Not two commits, not one per file, and none in the song's
+  repository;
 - type something that will not parse and press Save → it is held back with the reason, and
   nothing is committed;
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob
   changes the sound;
-- `project commit` → a commit in the submodule and a gitlink bump in the workspace; another
-  machine that clones the workspace gets the same modules at the same commit;
-- open a second project in the same workspace → the same `_libraries`, not a second copy;
-- change the libraries repository in pl8, then reopen a workspace that already has the old one →
-  it is left alone, and the refusal names both URIs rather than rewriting the submodule;
-- open `/@banc/modules.st0` → a refusal that says where a module is edited.
-- open `/@banc/live.st0` → the rig, with `@st0/…` resolved out of this workspace's library.
+- publish a change to a library from ANOTHER machine, then open a project here (or press
+  **Update** on the home page) → the module is the new one, in every workspace at once;
+- open a workspace that still has the old `_libraries` submodule → it is gone after the open, with
+  one unpushed commit "libraries: no longer a submodule…" in that workspace;
+- open `/@banc/modules.st0` → a refusal that says where a module is edited;
+- open `/@banc/live.st0` → the rig, with `@st0/…` resolved out of the account's libraries.

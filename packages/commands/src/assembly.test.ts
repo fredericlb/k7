@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { librariesFixture } from "@studio/song/testSupport";
 import { parseAssembly } from "@studio/song-schema/yaml/assemblyFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -39,7 +40,7 @@ beforeEach(() => {
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(join(dir, "graph.yaml"), "modules:\n  MIX: [ OUT ]\n", "utf8");
   // A template in the library: two members, wired, one of them bypassed.
-  const lib = join(root, "_libraries", "assemblies", "turntable");
+  const lib = join(librariesFixture(root), "assemblies", "turntable");
   mkdirSync(join(lib, "nodes"), { recursive: true });
   writeFileSync(
     join(lib, "assembly.yaml"),

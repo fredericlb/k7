@@ -17,6 +17,7 @@ import { loadLanes } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
 import { scaffoldSet } from "./scaffoldSet";
+import { librariesFixture } from "./testSupport";
 
 // Two jsdsp graphs shell out to esbuild here, which overran the 5 s default under a parallel run.
 vi.setConfig({ testTimeout: 30_000 });
@@ -33,7 +34,7 @@ beforeEach(() => {
   dir = join(ws, "winter.st0");
 
   // A set NAMES the médiathèque's modules, so a test writes `_libraries/` in the workspace itself.
-  mediatek = join(ws, "_libraries");
+  mediatek = librariesFixture(ws);
 
   // Every module a set NAMES, written INLINE — this repo ships none to copy, they live in an
   // account's library (packages/dsp/docs/catalogue.md). What is pinned here is that the scaffold

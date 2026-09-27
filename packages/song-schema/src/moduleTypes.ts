@@ -393,9 +393,41 @@ export const isTrackRef = (ref: unknown): boolean =>
 // The port vocabulary lives in @studio/graph-model, the one tier both the compiler and the renderer reach (docs/moduleTypes.md).
 export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
 
-/** The three levels a module can live at, outermost first — and `@st0` names the MÉDIATHÈQUE, not the app: docs/moduleTypes.md. */
-export const MODULE_NAMESPACES = ["engine", "st0", "workspace"] as const;
-export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
+/** The two FIXED levels a module can live at; every other `@<name>` is one of the account's libraries — docs/moduleTypes.md. */
+export const FIXED_NAMESPACES = ["engine", "workspace"] as const;
+
+/** A module's level: `engine`, `workspace`, or the NAME of a library the account has cloned. */
+export type ModuleNamespace = string;
+
+/** The library an account's first repository is named, so every `@st0/…` written before libraries had names still resolves. */
+export const DEFAULT_LIBRARY = "st0";
+
+/** What a library may be called: a ref segment and a folder name at once, lowercase so no filesystem can disagree. */
+export const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** Names a library cannot take, because a ref spelled with them already means something else. */
+export const RESERVED_LIBRARY_NAMES: readonly string[] = [
+  ...FIXED_NAMESPACES,
+  META_NS.slice(1),
+  "studio", // LEGACY_META_NS
+  "mediatek", // LEGACY_MEDIATEK_NS
+];
+
+/** Can a library be called this? */
+export const isLibraryName = (name: string): boolean =>
+  LIBRARY_NAME.test(name) && !RESERVED_LIBRARY_NAMES.includes(name);
+
+/** `@<library>/<rest>` split into its library and the rest, or null for a ref no library answers to. */
+export function libraryRefParts(
+  ref: string,
+): { library: string; rest: string } | null {
+  const m = /^@([^/]+)\/(.+)$/.exec(ref);
+  return m && isLibraryName(m[1]) ? { library: m[1], rest: m[2] } : null;
+}
+
+/** The ref a library gives the thing at `rest` inside it: `@st0/audio/reverb`. */
+export const libraryRef = (library: string, rest: string): string =>
+  `@${library}/${rest}`;
 
 /** The other name this level answers to on disk — a NAME and not an accepted spelling, since nothing resolves it (docs/moduleTypes.md). */
 export const LEGACY_MEDIATEK_NS = "mediatek";
@@ -403,14 +435,14 @@ export const LEGACY_MEDIATEK_NS = "mediatek";
 /** `@meta`'s old spelling — a NAME for the migration script alone, since nothing resolves it (docs/moduleTypes.md). */
 export const LEGACY_META_NS = "studio";
 
-/** Where the account's LIBRARY REPOSITORY is mounted at the workspace root — fixed, never declared (docs/sharedFolders.md). */
+/** The folder the account's libraries answer to in a workspace's file API: `_libraries/<name>/…`, VIRTUAL — no workspace holds it on disk (docs/sharedFolders.md). */
 export const LIBRARIES_DIR = "_libraries";
+
+/** Where the file service clones them, under the machine's state (`<studioHome>/libraries/<name>`). */
+export const LIBRARIES_HOME_DIR = "libraries";
 
 /** The folder a WORKSPACE's own shared library sits in, at the workspace root — the `@workspace` level. */
 export const SHARED_MODULES_DIR = "_modules";
-
-/** …and where that is, relative to a project inside the workspace. */
-export const LIBRARIES_PATH = `../${LIBRARIES_DIR}`;
 
 // --- module nodes (see docs/loader.md) --------------------------------------
 export const NODE_SEP = ":";

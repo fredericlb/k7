@@ -6,6 +6,7 @@ import { Loader2, Workflow, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askText } from "@studio/project-shell/ask";
 import { projectApi } from "@studio/project-shell/project";
+import { DEFAULT_LIBRARY, libraryRef } from "@studio/song-schema/moduleTypes";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
@@ -58,8 +59,12 @@ export function ChainsBuilder({
     };
   }, []);
 
+  // A BARE ref is the default library's: a URL written before libraries had names still opens its chain.
   const chosen = useMemo(
-    () => chains?.find((c) => c.ref === open) ?? null,
+    () =>
+      chains?.find(
+        (c) => c.ref === open || c.ref === libraryRef(DEFAULT_LIBRARY, open),
+      ) ?? null,
     [chains, open],
   );
 

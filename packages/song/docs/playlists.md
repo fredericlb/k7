@@ -40,14 +40,13 @@ It is the one you build while listening.
 the file that names may be ours, the bytes named remain pl8's. st0 searches that catalogue and
 deposits into it — see `apps/st0/frontend/docs/playlists.md`.
 
-## `_playlists`, beside `_modules` and `_libraries`
+## `_playlists`, beside `_modules`
 
 Same **kind** of folder, so same place and same rule: found by where it is, never by a line
 declaring it (`docs/sharedFolders.md`). A playlist is not a project and has no business inside one
 — you build a setlist once and open it from any project in the workspace.
 
-Hence `Workspace.playlists()` working at the workspace root and not beside the active project,
-unlike `_libraries`. A four-song workspace would otherwise have four separate playlist folders,
+Hence `Workspace.playlists()` working at the workspace root and not beside the active project. A four-song workspace would otherwise have four separate playlist folders,
 which is exactly what a playlist is not.
 
 And hence its being a **separate route** (`GET /playlists`) rather than a corner of `/tree`: that

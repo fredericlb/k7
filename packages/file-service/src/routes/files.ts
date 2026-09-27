@@ -37,7 +37,11 @@ import {
   webCompletions,
   webGitEnv,
 } from "../engineLink.ts";
-import { commitLibraries, ensureLibraries } from "../libraries.ts";
+import {
+  commitLibraries,
+  refreshLibraries,
+  retireWorkspaceLibraries,
+} from "../libraries.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -213,38 +217,51 @@ filesRouter.post(
   }),
 );
 
-/** Commit everything in `_libraries` and push it; a refusal is answered, not thrown — see docs/fileRoutes.md. */
-const publishBody = z.object({ message: z.string().min(1).max(500) });
+/** Commit what changed in the account's libraries — all of them, or those named — and push it; a refusal is answered, not thrown — see docs/fileRoutes.md. */
+const publishBody = z.object({
+  message: z.string().min(1).max(500),
+  libraries: z.array(z.string().min(1)).optional(),
+});
 filesRouter.post(
   "/libraries/publish",
   validate(publishBody),
   wrap(async (req, res) => {
-    const { message } = req.body as z.infer<typeof publishBody>;
+    const { message, libraries } = req.body as z.infer<typeof publishBody>;
     try {
-      res.json(await commitLibraries(req.userEmail!, req.ws!.root, message));
+      res.json(await commitLibraries(req.userEmail!, message, libraries));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
   }),
 );
 
-/** Open a project — and mount the account's LIBRARIES beside it first — see docs/fileRoutes.md. */
+/** Open a project — the account's LIBRARIES brought up to date first — see docs/fileRoutes.md. */
 const openBody = z.object({
   path: z.string().min(1),
-  libraries: z.string().min(1).optional(),
+  // Sent by browsers that still hold the old single URI; the file service knows the list itself.
+  libraries: z.string().optional(),
 });
 filesRouter.post(
   "/open",
   validate(openBody),
   wrap(async (req, res) => {
-    const { path, libraries } = req.body as z.infer<typeof openBody>;
-    if (libraries)
-      try {
-        await ensureLibraries(req.userEmail!, req.ws!.root, libraries);
-      } catch (e) {
-        // A mount that refuses is not a project that refuses: the song opens with its `@st0/…` refs missing.
-        console.warn(`[libraries] ${(e as Error).message}`);
-      }
+    const { path } = req.body as z.infer<typeof openBody>;
+    // The account's libraries at their latest — at most once a minute, however many opens. A
+    // library that will not sync is not a project that refuses: its refs resolve to what is here.
+    await refreshLibraries(req.userEmail!);
+    // …and what this workspace held of them before, taken out now that nothing reads it.
+    try {
+      const retired = await retireWorkspaceLibraries(
+        req.userEmail!,
+        req.ws!.root,
+      );
+      if (retired)
+        (retired.retired ? console.log : console.warn)(
+          `[libraries] ${req.ws!.root}: ${retired.note}`,
+        );
+    } catch (e) {
+      console.warn(`[libraries] ${(e as Error).message}`);
+    }
     try {
       // `.` is the WORKSPACE, which now holds several projects: it names one only when the
       // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.

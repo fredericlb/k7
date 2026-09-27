@@ -4,7 +4,7 @@ A module holds the material it plays — an amp profile, the samples on a shelf 
 **`assets/` folder inside the module itself**:
 
 ```
-_modules/audio/amp/    ← @workspace, beside the project; @st0's _libraries/modules/ the same shape
+_modules/audio/amp/    ← @workspace, beside the project; a library's modules/ the same shape
   module.yaml        ← what the module IS
   ui.yaml
   assets/            ← what it LOADS

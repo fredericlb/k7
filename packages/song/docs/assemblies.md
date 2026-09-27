@@ -20,7 +20,7 @@ Each of these already exists under a name close enough to confuse, and none of t
 | existing | what it is | why not |
 |---|---|---|
 | a group LANE (`@meta/group-track`, `ProjectDoc.groups`, [mixFolding.md](mixFolding.md)) | a mixer relationship over lanes | members must be **lanes**. It holds `deckA` and the stem lanes; it cannot hold `trimA`, `platterA` or `fadeA`, which are modules. And it carries mute/solo, not topology |
-| a chain TEMPLATE (`_libraries/chains/<ref>/`) | a reusable graph with `@in`/`@out` ends | nothing inlines one into a host graph. It is edited standalone from the project that uses it, or bounced offline (`processChain.ts`). Its ends are unnamed and it has one of each |
+| a chain TEMPLATE (a library's `chains/<ref>/`) | a reusable graph with `@in`/`@out` ends | nothing inlines one into a host graph. It is edited standalone from the project that uses it, or bounced offline (`processChain.ts`). Its ends are unnamed and it has one of each |
 | `frozen: "inside"` ([freeze.md](freeze.md)) | one card standing for everything upstream | a **render**, not a document node. It cannot be opened, and it refuses when the region leaks |
 
 The word is **assembly** deliberately. `group` is taken by the first row and `rack` by
@@ -31,19 +31,20 @@ review.
 
 ### The template — in the library, beside `modules/` and `chains/`
 
-`librariesDirFor(dir, kind)` takes a third family ([sharedFolders.md](sharedFolders.md)):
+A library carries a third family ([sharedFolders.md](sharedFolders.md)), and a template is named
+by its library like everything else in it:
 
 ```
-ws/_libraries/modules/       @st0/audio/utility/trim
-ws/_libraries/chains/        @st0/process/normalize
-ws/_libraries/assemblies/    @st0/turntable
+<studioHome>/libraries/st0/modules/       @st0/audio/utility/trim
+<studioHome>/libraries/st0/chains/        @st0/process/normalize
+<studioHome>/libraries/st0/assemblies/    @st0/turntable
 ```
 
 A template is laid out **exactly as a chain template is** — `graph.yaml` and `nodes/` — plus one
 file that is the whole of what makes it an assembly:
 
 ```yaml
-# _libraries/assemblies/turntable/assembly.yaml
+# <library>/assemblies/turntable/assembly.yaml
 label: Turntable
 inputs: []                                     # a turntable is a SOURCE, and that is a real state
 outputs:

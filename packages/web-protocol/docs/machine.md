@@ -92,8 +92,8 @@ dated by `revokedAt`: a share that vanished would leave a doubt.
 ## Module libraries: absent is not the same as empty
 
 `ModuleLibrary` gets its own answer beside the file tree, because the tree is the SONG and these
-are outside it: the workspace's `_modules` and the account's `_libraries` sit beside the project,
-not in it. Ordered by precedence, nearest first, by whoever answers.
+are outside it: the workspace's `_modules` sits beside the project, and the account's libraries
+are not in the workspace at all (`_libraries/<name>/…` is a virtual folder). Ordered by precedence, nearest first, by whoever answers.
 
 `exists: false` with no nodes is a real state and not an absence: a level you *could* put a module
 in is worth drawing, so somebody can. Distinguishing it from an empty one matters because only one

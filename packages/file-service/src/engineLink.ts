@@ -42,6 +42,7 @@ import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
+import { syncLibraries } from "./libraries.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
 import { saveTake } from "./recorderSave.ts";
 import { rootDir, slugify } from "./slug.ts";
@@ -968,6 +969,8 @@ function makeHost(
     gitEnv: webGitEnv(userEmail),
     // Whole-repo git runs at the workspace root — a workspace is one cloned repo — so it works with no project open.
     repoDir: ws.root,
+    // The account's libraries are this service's to keep, not the workspace's — docs/libraries.md.
+    updateLibraries: () => syncLibraries(userEmail ?? "", { force: true }),
     // A process backs up each render here before overwriting it, feeding the recordChange journal.
     snapshot,
   };

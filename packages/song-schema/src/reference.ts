@@ -3,7 +3,7 @@
 // `node:fs` so the file service and the browser go by the same rules. See
 // docs/references.md.
 
-/** The folder a workspace keeps them in, beside `_modules`, `_libraries` and `_playlists`. */
+/** The folder a workspace keeps them in, beside `_modules` and `_playlists`. */
 export const REFERENCES_DIR = "_references";
 
 /** The extensions offered as reference tracks — what a browser's `<audio>` can be asked to decode. */

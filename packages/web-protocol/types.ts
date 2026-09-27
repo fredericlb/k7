@@ -197,10 +197,30 @@ export interface ModelDownloadJob {
   error: string | null;
 }
 
-/** The machine's two separating choices and the library's COLD chains to make them from — `GET /account/cold-chains`. */
+/** One of the account's libraries: the name its refs use (`@<name>/…`), its repository, and whether this machine holds a clone yet. */
+export interface AccountLibrary {
+  name: string;
+  uri: string;
+  cloned: boolean;
+}
+
+/** What a sync or a prune did to one library, said as the file service would say it. */
+export interface LibraryNote {
+  name: string;
+  state: "cloned" | "updated" | "current" | "kept" | "failed";
+  note: string;
+}
+
+/** `GET`/`PUT /account/libraries` and `POST /account/libraries/update` — the list, and what the call did to each. */
+export interface AccountLibrariesReply {
+  libraries: AccountLibrary[];
+  notes?: LibraryNote[];
+}
+
+/** The machine's two separating choices and the libraries' COLD chains to make them from — `GET /account/cold-chains`. */
 export interface ColdChainsReply {
   /**
-   * `@st0/<path>` refs; `instrumental` when one of its offline steps writes an instrumental;
+   * `@<library>/<path>` refs; `instrumental` when one of its offline steps writes an instrumental;
    * `unavailable` says why THIS machine cannot run it yet (a model not downloaded), null when it can.
    */
   chains: {

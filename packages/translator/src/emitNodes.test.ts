@@ -14,6 +14,7 @@ import { notSupportedModules } from "@studio/song/loader";
 import { compileNodeProject } from "@studio/song/nodeProject";
 import { trackMixer } from "@studio/song/project";
 import { projectSurfaces } from "@studio/song/surfaces";
+import { librariesFixture } from "@studio/song/testSupport";
 import { NOT_SUPPORTED_REF } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emitFolder } from "./emit";
@@ -52,7 +53,13 @@ beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-emit-"));
   dir = join(ws, "song.st0");
   mkdirSync(dir, { recursive: true });
-  const mixer = join(ws, "_libraries", "modules", "audio", "utility", "mixer");
+  const mixer = join(
+    librariesFixture(ws),
+    "modules",
+    "audio",
+    "utility",
+    "mixer",
+  );
   mkdirSync(mixer, { recursive: true });
   // Its plugin inline, so the fixture needs no engine scan to compile to a `Mixer`.
   writeFileSync(

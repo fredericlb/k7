@@ -1,114 +1,87 @@
 # sharedFolders.ts — extended notes
 
-A workspace holds folders every project in it draws from, and a project finds them **by
-where they are**:
+A project finds the modules it can extend **by where they are**:
 
 ```
-ws/_modules/              the workspace's own    → @workspace/<type>/<name>
-ws/_libraries/modules/    the account's library  → @st0/<type>/<name>
-ws/_libraries/chains/     …and its chains
-ws/song/                  a project
+ws/_modules/                         the workspace's own  → @workspace/<type>/<name>
+<studioHome>/libraries/st0/modules/  a library, `st0`     → @st0/<type>/<name>
+<studioHome>/libraries/st0/chains/   …its chains          → @st0/<path>
+<studioHome>/libraries/drums/…       another, `drums`     → @drums/…
+ws/song/                             a project
 ```
 
-`moduleLibraryDirs()` answers that: what sits beside the project, then the library.
-Order is PRECEDENCE — nearest first.
+`moduleLibraryDirs()` answers that: what sits beside the project, then every library, in name
+order. Order is PRECEDENCE — nearest first — and two libraries never compete, since each keys its
+modules under its own name.
 
-## `_libraries` is a git submodule
+## Libraries are the ACCOUNT's, and the file service keeps them
 
-The account registers ONE library repository with pl8, from st0's home page
-(`apps/st0/frontend/docs/projects.md`), and the
-file service mounts it into every workspace it makes — `git submodule add` where the workspace
-is a repository, a plain clone where it is not. `packages/file-service/src/libraries.ts` is the
-whole of it, and `POST /open` is where it runs, on every launch rather than only on clone: the
-setting can be added after a workspace already exists.
+An account has a list of named library repositories, set on st0's home page. The file service
+clones each one to `<studioHome>/libraries/<name>` and keeps it at its latest commit
+(`packages/file-service/docs/libraries.md`). **Every workspace of the account sees every library;
+none holds a copy.** They used to be mounted INTO each workspace at `_libraries`, as a git
+submodule pinned by its gitlink, and three things made that the wrong owner:
 
-### A new repository needs ONE thing, and it is not modules
+- **The same repository, cloned once per workspace**, each copy drifting from the others and from
+  its own gitlink — a `git pull` never moved a submodule, and nothing reconciled them.
+- **A song repository had to carry somebody else's version pointer**, which meant commits made to
+  it on the song author's behalf (the gitlink bumps) and a `.git/info/exclude` guard against `git
+  add -A` sweeping the whole catalogue into the song.
+- **One library per account**, because a fixed folder name was what made `@st0` mean it.
 
-**It needs a commit.** A gitlink has to point at one, and `git submodule add` on an unborn HEAD
-fails. So the first machine to mount one commits and pushes, which is all `registerSubmodule`
-needs. That is the whole of `initIfEmpty`.
+**What that costs, and it is deliberate: no version is pinned.** A library is at its remote's
+latest commit, and a song opened tomorrow hears the modules as they are tomorrow. A module is the
+library's to change, the way a plugin update is the vendor's; a song that must not move bounces
+what it needs (`packages/audio-passes/docs/processChain.md`).
 
-**Nothing is put IN it, and this repo ships no modules to put.** The repository is the reference:
-what is in it is what its projects inherit, and nothing anywhere else has an opinion about what a
-library ought to contain. A build shipping its own copy of somebody's modules would be a second
-source of truth — so there is no copy to ship. Modules written with `@studio/dsp` are authored
-straight into a library; what the library gains is argued in
-[packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md), which describes decisions rather
-than holding files.
+**Still found by location, never declared.** `accountLibraries()` is the folders under
+`<studioHome>/libraries` whose name a library could have (`isLibraryName`); the SETTING that says
+which ones to clone is the file service's, and resolution never reads it. A folder there is a root,
+a folder not there is not one, and nothing can fail — the same bargain `_modules` has always had.
+A clone still filling is `.cloning-…`, a dot-name no library can take, so it is never read half-way.
 
-**What that costs, and it is deliberate:** a new library is empty, so every `@st0/…` ref resolves
-to nothing until modules are put there — including the four a scaffolded set writes for its decks
-(`@st0/audio/utility/fade`, `…/tempo`, `@st0/audio/filter/eq3`, `…/sweep`). An unresolved ref
-is **not** a compile error (below), so such a project reads as one whose modules are bypassed. The
-day that needs to be visible, the place to say it is the compile — not a seed putting files in
-somebody's repository so the question never comes up.
+**The name IS the namespace.** `moduleNamespaceOf(root)` is the library a root sits in, by path, or
+`workspace`. A library cannot be called `engine`, `workspace` or `meta` (`RESERVED_LIBRARY_NAMES`),
+so no library collides with the synthesised catalogue or the fixed levels; the name is lowercase
+letters, digits and dashes, because it is a ref segment and a folder name at once.
 
-Two details are load-bearing:
+**The account's first library is named `st0`.** That is what every `@st0/…` written before
+libraries had names meant — songs, chains, the four refs a scaffolded set writes for its decks — so
+none of them needs a line changed. `DEFAULT_LIBRARY` is that name, and a BARE chain ref (`bass/di`,
+as a bench address or a machine setting written earlier may hold one) is read as `@st0/bass/di`.
 
-- **The gitlink is recorded only after the push succeeds.** A gitlink promises that a commit is
-  fetchable; pointing one at a commit that never left the machine breaks the workspace for
-  everybody who clones it. Two machines racing to adopt the same new repository is the ordinary
-  way this happens — the loser is told, keeps its checkout, and records nothing.
-- **The FILE SERVICE does it, not pl8.** pl8 holds the repository's ADDRESS but is deliberately
-  not a git writer (`apps/pl8/docs/projects.md`: the service that mints everyone's session and
-  holds the one deploy key must not also be able to push to every repository). This machine
-  already writes to git, already has a working copy, and already has a copy of the key.
+**Nothing is put IN a library, and this repo ships no modules to put.** The repository is the
+reference: what is in it is what its projects inherit. Modules written with `@studio/dsp` are
+authored straight into a library; what the library gains is argued in
+[packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md). A new library is empty, every ref
+into it resolves to nothing until modules are put there, and an unresolved ref is **not** a compile
+error, so such a project reads as one whose modules are bypassed.
 
-### The library is written to. A project repository is not
+**A module root is a git checkout, never the médiathèque cache.** `<state>/mediatek/modules` is not
+one: a mirror of the médiathèque deletes whatever the owner's manifest does not list, and over a
+git checkout that would delete files somebody committed. So `mediatekPrefetch` carries `songs` and
+nothing else.
 
-The mount commits and pushes to the LIBRARY repository, and to nothing else. The only mark it
-leaves on a project repository is `submodule add`'s: a `.gitmodules` entry and a gitlink,
-**staged and not committed** — publishing them is `project commit`, which is somebody's
-decision. A song repository is somebody's work and nothing here has business committing to it.
+**A shared module is editable in place.** In a workspace's file API a library answers at the
+VIRTUAL folder `_libraries/<name>/…` — confined to that library's clone, never on the workspace's
+disk (`packages/file-service/docs/workspace.md`). st0 opens it read-only behind a confirmation, and
+its builder has a **Save button** that commits and pushes that library once the files land
+(`apps/st0/frontend/docs/sharedModules.md`) — a decision somebody takes rather than a mechanism that
+absorbs it. No song repository gets a commit: none records a version any more.
 
-One leak has to stay closed for that to hold. Until `submodule add` has run — the first commit
-could not be pushed, or the mount only just happened — `_libraries` is an *untracked folder
-inside a song repository*, and `project commit` does `git add -A` over the whole tree. Git would
-then either commit the whole library into the song, or record an "embedded repository" gitlink
-with no `.gitmodules` beside it, which is a submodule nobody who clones can resolve.
-
-So the file service writes `/_libraries/` into the project repository's **`.git/info/exclude`**
-before it puts anything there. Per-checkout, never committed, never travelling — so it touches
-no tracked file of a repository that is not ours — and inert once the submodule is registered,
-since an ignore rule has no say over a path git already tracks.
-
-**A module root is a git checkout, never the médiathèque cache.** `<state>/mediatek/modules`
-is not one. Three things follow:
-
-- **Two writers on one tree is what that avoids.** A mirror of the médiathèque deletes whatever
-  the owner's manifest does not list — over a git checkout that would delete files somebody
-  committed. So `mediatekPrefetch` carries `songs` and nothing else: not `modules`, not `chains`.
-- **What a project inherits travels with the repository it is cloned from.** A workspace on a
-  second machine gets the same modules at the same commit, because the gitlink pins one. A
-  per-machine cache can only ever hold "whatever this machine last synced".
-- **A shared module is editable in place.** There is no fork and no push-through: `_libraries/…`
-  is an ordinary workspace path, written by the ordinary write route. st0 opens it read-only
-  behind a confirmation, and its builder has a **Save button** that commits and pushes the
-  library repository once the files land (`apps/st0/frontend/docs/sharedModules.md`) — a decision
-  somebody takes rather than a mechanism that absorbs it. The song's repository then gets ONE
-  more commit, moving the gitlink so it records which version it uses: path-limited to
-  `.gitmodules` and `_libraries` so nothing else in flight goes with it, and never pushed.
-
-`_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing
-every project beside it, and it forks on write (`docs/moduleFork.md`) — nothing gives it a way
-back.
-
-The médiathèque holds songs and samples, serves them over HTTP, and `<state>/mediatek` is the
-cache a machine plays them from. Modules do not live there.
+`_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
+project beside it, and it forks on write (`docs/moduleFork.md`).
 
 There is no row for assets either: a module carries the files it loads in its own `assets/`, so
 the module travels whole. See `docs/moduleAssets.md`.
 
-### …or you are standing INSIDE it
+### …or you are standing INSIDE one
 
-`librariesModulesRoot` has a second arm: `dir` may already be inside the library repository — a
-chain template, whose nodes name `@st0/…` modules living two folders up in the same repo.
-`../_libraries` resolves to nothing from there, so without this arm a chain loaded on its own
-sees NO catalogue at all and draws every node as a missing plugin.
-
-Still a fixed location, which is the rule this file exists to keep: `_libraries` is a folder NAME,
-not a declaration, and finding the one you are standing in is the same layout read from within.
-Nothing there is a search — the segment either is on the path or it is not.
+A chain template lives in a library, and its nodes name `@<name>/…` modules of the same library or
+another. `moduleLibraryDirs(dir)` needs no second arm for that any more: the libraries are the
+account's, so a folder inside one sees them exactly as a project does. `libraryOf(dir)` says which
+library a path is in — what the builder's Save publishes, and what the file API maps back to
+`_libraries/<name>/…`.
 
 ## Why nothing declares them
 
@@ -130,7 +103,7 @@ them, and refusing the key would turn a working project into one that will not o
 `deadProjectFields` reports them as a warning naming the lines to delete — because "accepted and
 silently ignored" is the failure mode this codebase keeps paying for.
 
-## Which `@st0/…` a project actually names — mediatekRefs.ts
+## Which library modules a project actually names — mediatekRefs.ts
 
 The machine caches what its songs reach for rather than mirroring a whole catalogue, so something
 has to answer "which ones are those" — and it has to answer from the FILES, before the loader can
@@ -189,24 +162,17 @@ that forked a shared module draws its own face rather than the one it was copied
 `writeUiFile` writes the panel where its module is, shared library included — see
 `docs/uiLibrary.md` for why that exception exists and what it costs.
 
-`moduleNamespaceOf()` lives here too, because it is the one fact that separates the two kinds
-of root: the médiathèque's modules key as `@st0/…`, anything else as `@workspace/…`, and
-a project's own `modules/` keys bare. Everything that turns a folder into a ref, or a ref back
-into a folder, turns on that — and it asks the PATH, never a declaration. See
-docs/moduleNamespaces.md.
+`moduleNamespaceOf()` lives here too, because it is the one fact that separates the kinds of
+root: a library's modules key as `@<its name>/…`, the workspace's as `@workspace/…`, and a project's
+own `modules/` keys bare. Everything that turns a folder into a ref, or a ref back into a folder,
+turns on that — and it asks the PATH, never a declaration. See docs/moduleNamespaces.md.
 
-The level is STRUCTURAL and never declared. A per-root declaration would make it a free string an
-author chose: a workspace library could call itself `engine` and collide head-on with the
-synthesised catalogue, and nothing would tie the name to how deep the folder actually sits.
-Inheritance is what expresses "the same module, adjusted here", so a declaration has nothing left
-to decide. Anything that is not the library repository is the workspace's own `_modules`: those
-are the only two shared roots there are.
+The level is STRUCTURAL and never declared by the root. A per-root declaration would make it a free
+string an author chose inside the library: a workspace library could call itself `engine` and
+collide head-on with the synthesised catalogue, and nothing would tie the name to where the folder
+sits. A library's name is the one the ACCOUNT gave it, which is its folder's, which is its refs'.
 
-Recognised by the folder it SITS IN (`_libraries/modules`) rather than by an absolute path. There
-is one library per workspace, so there is no single path to compare against — and the structural
-test is the same kind of answer `@workspace` gives.
-
-**Why the level is spelled `@st0`.** It names neither of the things its spelling suggests: the
-médiathèque is **pl8** and `apps/st0` is the editor. It stays on purpose — a level is written into
-user files, and moving it would cost every repository a rewrite for a name nobody types.
-`packages/song/scripts/migrateNamespace.ts` is what such a rewrite takes.
+**Why the default library is spelled `@st0`.** It names neither of the things its spelling
+suggests: the médiathèque is **pl8** and `apps/st0` is the editor. It stays on purpose — a level is
+written into user files, and moving it would cost every repository a rewrite for a name nobody
+types. `packages/song/scripts/migrateNamespace.ts` is what such a rewrite takes.

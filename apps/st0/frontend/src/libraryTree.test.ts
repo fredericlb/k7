@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isLibraryPath,
   libraryModuleRef,
+  libraryOfPath,
   libraryTree,
   readOnlyPaths,
   rootOf,
@@ -39,8 +40,8 @@ const lib = (
 /** What the file service answers for a project with both levels present. */
 const all = (): ModuleLibrary[] => [
   lib("workspace", "_modules", true, [audio("_modules", "tape-delay")]),
-  lib("st0", "_libraries/modules", true, [
-    audio("_libraries/modules", "reverb"),
+  lib("st0", "_libraries/st0/modules", true, [
+    audio("_libraries/st0/modules", "reverb"),
   ]),
 ];
 
@@ -57,8 +58,8 @@ describe("libraryTree", () => {
     const [ws, st0] = libraryTree(all());
     expect(ws.path).toBe("_modules");
     // `@st0` is the REPOSITORY, whose `modules/` is the level — see the repository block below.
-    expect(st0.path).toBe("_libraries");
-    expect(st0.children?.[0].path).toBe("_libraries/modules");
+    expect(st0.path).toBe("_libraries/st0");
+    expect(st0.children?.[0].path).toBe("_libraries/st0/modules");
   });
 
   it("passes each subtree through untouched — foldModules does the folding", () => {
@@ -86,17 +87,30 @@ describe("libraryTree", () => {
     ).toEqual(["@workspace"]);
   });
 
-  it("hides @st0 when it is not mounted", () => {
-    // The one level that is not a folder to fill in: it is a submodule somebody has to mount, so an empty row would be a false offer.
-    const noSub = [
+  it("draws a library with no `modules/` yet — the service lists only the ones it cloned", () => {
+    const noModules = [
       lib("workspace", "_modules", true, [audio("_modules", "a")]),
-      lib("st0", "_libraries/modules", false),
+      lib("st0", "_libraries/st0/modules", false),
     ];
-    expect(libraryTree(noSub).map((n) => n.name)).toEqual(["@workspace"]);
+    expect(libraryTree(noModules).map((n) => n.name)).toEqual([
+      "@workspace",
+      "@st0",
+    ]);
   });
 
-  it("draws @st0 when it IS mounted but still empty", () => {
-    const mounted = [lib("st0", "_libraries/modules", true, [])];
+  it("draws every library the account has, each as its own repository row", () => {
+    const two = [
+      lib("drums", "_libraries/drums/modules", true, []),
+      lib("st0", "_libraries/st0/modules", true, []),
+    ];
+    expect(libraryTree(two).map((n) => [n.name, n.path])).toEqual([
+      ["@drums", "_libraries/drums"],
+      ["@st0", "_libraries/st0"],
+    ]);
+  });
+
+  it("draws @st0 when it IS cloned but still empty", () => {
+    const mounted = [lib("st0", "_libraries/st0/modules", true, [])];
     expect(libraryTree(mounted).map((n) => n.name)).toEqual(["@st0"]);
   });
 });
@@ -140,7 +154,7 @@ describe("@engine", () => {
     expect(frozen.has("@engine/nam")).toBe(true);
     // …and nothing of a writable level.
     expect(frozen.has("_modules")).toBe(false);
-    expect(frozen.has("_libraries/modules")).toBe(false);
+    expect(frozen.has("_libraries/st0/modules")).toBe(false);
   });
 });
 
@@ -148,7 +162,7 @@ describe("rootOf — what a create resolves against", () => {
   it("finds the level a row belongs to, at any depth", () => {
     expect(rootOf(all(), "_modules")?.ns).toBe("workspace");
     expect(rootOf(all(), "_modules/audio")?.ns).toBe("workspace");
-    expect(rootOf(all(), "_libraries/modules/audio/delay")?.ns).toBe("st0");
+    expect(rootOf(all(), "_libraries/st0/modules/audio/delay")?.ns).toBe("st0");
   });
 
   it("refuses a read-only level, so no menu opens on it", () => {
@@ -169,7 +183,7 @@ describe("rootOf — what a create resolves against", () => {
 describe("libraryModuleRef", () => {
   it("names an account-library module the way a chain does", () => {
     expect(
-      libraryModuleRef("_libraries/modules/audio/reverb/module.yaml"),
+      libraryModuleRef("_libraries/st0/modules/audio/reverb/module.yaml"),
     ).toBe("@st0/audio/reverb");
   });
 
@@ -181,34 +195,57 @@ describe("libraryModuleRef", () => {
 
   it("keeps the category segment", () => {
     expect(
-      libraryModuleRef("_libraries/modules/audio/delay/tape-delay/ui.yaml"),
+      libraryModuleRef("_libraries/st0/modules/audio/delay/tape-delay/ui.yaml"),
     ).toBe("@st0/audio/delay/tape-delay");
   });
 
   it("drops the last segment whatever it is spelt like", () => {
     expect(
-      libraryModuleRef("_libraries/modules/audio/tape.delay/module.yaml"),
+      libraryModuleRef("_libraries/st0/modules/audio/tape.delay/module.yaml"),
     ).toBe("@st0/audio/tape.delay");
   });
 
   it("answers nothing for a path in neither shared level", () => {
-    // A project's own files are never a module ref — a module lives at `@workspace` or `@st0` now.
+    // A project's own files are never a module ref — a module lives at `@workspace` or in a library now.
     expect(libraryModuleRef("song.st0/nodes/lead.yaml")).toBeNull();
+  });
+
+  it("names a module of ANOTHER library by that library", () => {
+    expect(
+      libraryModuleRef("_libraries/drums/modules/audio/kick/module.yaml"),
+    ).toBe("@drums/audio/kick");
   });
 
   it("answers nothing for the library's chains", () => {
     expect(
-      libraryModuleRef("_libraries/chains/live/vocals/graph.yaml"),
+      libraryModuleRef("_libraries/st0/chains/live/vocals/graph.yaml"),
     ).toBeNull();
+  });
+});
+
+describe("libraryOfPath — which library a Save publishes", () => {
+  it("reads the library off a `_libraries/<name>/…` path", () => {
+    expect(libraryOfPath("_libraries/st0/modules/audio/x/module.yaml")).toBe(
+      "st0",
+    );
+    expect(libraryOfPath("_libraries/drums/chains/kit/graph.yaml")).toBe(
+      "drums",
+    );
+  });
+
+  it("answers nothing outside the libraries, or for a name no library could have", () => {
+    expect(libraryOfPath("_modules/audio/x/module.yaml")).toBeNull();
+    expect(libraryOfPath("_libraries/engine/modules/x.yaml")).toBeNull();
+    expect(libraryOfPath("_libraries")).toBeNull();
   });
 });
 
 describe("isLibraryPath", () => {
   it("is true only for the ACCOUNT's library", () => {
     // `_modules` is shared too, but a save aimed at it forks into the workspace: it has a way back already and needs no gate.
-    expect(isLibraryPath("_libraries/modules/audio/reverb/module.yaml")).toBe(
-      true,
-    );
+    expect(
+      isLibraryPath("_libraries/st0/modules/audio/reverb/module.yaml"),
+    ).toBe(true);
     expect(isLibraryPath("_modules/audio/reverb/module.yaml")).toBe(false);
     expect(isLibraryPath("song.st0/nodes/lead.yaml")).toBe(false);
   });
@@ -218,24 +255,28 @@ describe("isLibraryPath", () => {
   });
 });
 
-// `@st0` is the library REPOSITORY, drawn as it is on disk: `modules/`, `chains/` and `assemblies/`
+// A library is a REPOSITORY, drawn as it is on disk: `modules/`, `chains/` and `assemblies/`
 // side by side. It used to be `modules/` drawn AS `@st0`, with the chains beside it as `@st0/chains` —
 // two siblings that read as a folder and its child.
 describe("the library repository row", () => {
-  const LEVELS = [lib("st0", "_libraries/modules", true, [])];
+  const LEVELS = [lib("st0", "_libraries/st0/modules", true, [])];
   const CHAINS = [
     {
-      ref: "process/normalize",
-      path: "_libraries/chains/process/normalize",
+      ref: "@st0/process/normalize",
+      path: "_libraries/st0/chains/process/normalize",
       nodes: ["normalize.yaml"],
     },
-    { ref: "live/vocals", path: "_libraries/chains/live/vocals", nodes: [] },
+    {
+      ref: "@st0/live/vocals",
+      path: "_libraries/st0/chains/live/vocals",
+      nodes: [],
+    },
   ];
   const ASSEMBLIES = [
     {
-      ref: "band/four-piece",
-      path: "_libraries/assemblies/band/four-piece",
-      file: "_libraries/assemblies/band/four-piece/assembly.yaml",
+      ref: "@st0/band/four-piece",
+      path: "_libraries/st0/assemblies/band/four-piece",
+      file: "_libraries/st0/assemblies/band/four-piece/assembly.yaml",
     },
   ];
   const repo = () => libraryTree(LEVELS, CHAINS, ASSEMBLIES)[0];
@@ -243,25 +284,25 @@ describe("the library repository row", () => {
   it("is ONE row, the repository, with its three families under it", () => {
     expect(libraryTree(LEVELS, CHAINS, ASSEMBLIES)).toHaveLength(1);
     expect(repo().name).toBe("@st0");
-    expect(repo().path).toBe("_libraries");
+    expect(repo().path).toBe("_libraries/st0");
     expect(repo().children?.map((c) => [c.name, c.path])).toEqual([
-      ["modules", "_libraries/modules"],
-      ["chains", "_libraries/chains"],
-      ["assemblies", "_libraries/assemblies"],
+      ["modules", "_libraries/st0/modules"],
+      ["chains", "_libraries/st0/chains"],
+      ["assemblies", "_libraries/st0/assemblies"],
     ]);
   });
 
   it("keeps the module level's own path and subtree, which 'New module…' resolves against", () => {
     const answer = [
-      lib("st0", "_libraries/modules", true, [
-        audio("_libraries/modules", "reverb"),
+      lib("st0", "_libraries/st0/modules", true, [
+        audio("_libraries/st0/modules", "reverb"),
       ]),
     ];
     const modules = libraryTree(answer)[0].children?.[0];
     expect(modules?.children).toBe(answer[0].nodes);
     expect(rootOf(answer, modules?.path ?? "")?.ns).toBe("st0");
     // …and the repository row is no level: nothing is created at its root.
-    expect(rootOf(answer, "_libraries")).toBeNull();
+    expect(rootOf(answer, "_libraries/st0")).toBeNull();
   });
 
   it("draws each chain as a FOLDER holding its nodes, at their real paths", () => {
@@ -273,12 +314,12 @@ describe("the library repository row", () => {
     // A chain is a folder on disk — a graph and the nodes it names — and the tree says so rather than hiding half of it.
     expect(chains?.children?.every((c) => c.dir)).toBe(true);
     const first = chains?.children?.[0];
-    expect(first?.path).toBe("_libraries/chains/process/normalize");
+    expect(first?.path).toBe("_libraries/st0/chains/process/normalize");
     // The path is what tells a node's row from its chain's when one is clicked, so it is the real one and not a label.
     expect(first?.children?.map((n) => [n.name, n.path, n.dir])).toEqual([
       [
         "normalize.yaml",
-        "_libraries/chains/process/normalize/nodes/normalize.yaml",
+        "_libraries/st0/chains/process/normalize/nodes/normalize.yaml",
         false,
       ],
     ]);
@@ -291,7 +332,7 @@ describe("the library repository row", () => {
     expect(
       repo().children?.[2].children?.map((a) => [a.name, a.path, a.dir]),
     ).toEqual([
-      ["band/four-piece", "_libraries/assemblies/band/four-piece", false],
+      ["band/four-piece", "_libraries/st0/assemblies/band/four-piece", false],
     ]);
   });
 
@@ -304,13 +345,19 @@ describe("the library repository row", () => {
     ]);
   });
 
-  it("draws nothing of it — chains included — when the library is not mounted", () => {
-    expect(
-      libraryTree(
-        [lib("st0", "_libraries/modules", false)],
-        CHAINS,
-        ASSEMBLIES,
-      ),
-    ).toEqual([]);
+  it("files each chain and template under ITS library's row, named within it", () => {
+    const tree = libraryTree(
+      [...LEVELS, lib("drums", "_libraries/drums/modules", true, [])],
+      [
+        ...CHAINS,
+        { ref: "@drums/kit/room", path: "_libraries/drums/chains/kit/room" },
+      ],
+      ASSEMBLIES,
+    );
+    const chainsOf = (row: FileNode) =>
+      row.children?.[1].children?.map((c) => c.name);
+    expect(chainsOf(tree[0])).toEqual(["process/normalize", "live/vocals"]);
+    expect(chainsOf(tree[1])).toEqual(["kit/room"]);
+    expect(tree[1].children?.[2].children).toEqual([]);
   });
 });

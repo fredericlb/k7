@@ -1,7 +1,7 @@
-// Mounting the account's library repository into a workspace: giving a brand-new one the commit
-// a gitlink needs, keeping it out of the song repo's `git add -A` until it is registered,
-// adopting it as a submodule, and publishing an edit back. Nothing is seeded into it — the
-// repository is the reference. See packages/song/docs/sharedFolders.md.
+// The account's libraries over REAL git: the list and its legacy form, cloning one to
+// `<studioHome>/libraries/<name>`, keeping it at its latest without ever losing work, publishing
+// an edit back, and taking a workspace's OLD `_libraries` (submodule or clone) out of it. A mocked
+// git would prove the opposite of what is claimed. See docs/libraries.md.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -13,339 +13,286 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-// `lib` sits directly under `tmp`, so `dirname(lib)` is the "workspace" commitLibraries takes.
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const {
-  clonedFrom,
-  commitLibraries,
-  excludeFromProjectRepo,
-  registerSubmodule,
-  initIfEmpty,
-} = await import("./libraries.ts");
-
-/** git refuses a file:// submodule by default (CVE-2022-39253); the real thing is SSH. */
-const ALLOW_FILE = { ...process.env, GIT_ALLOW_PROTOCOL: "file:ssh" };
+import {
+  commitLibrary,
+  defaultLibraryName,
+  libraryDir,
+  librarySettings,
+  pruneLibraries,
+  retireWorkspaceLibraries,
+  setLibrarySettings,
+  settingsProblem,
+  syncLibrary,
+} from "./libraries.ts";
 
 // Every fixture drives REAL git — a dozen subprocesses per test, well past vitest's 5 s default.
 vi.setConfig({ testTimeout: 30_000 });
 
-let tmp: string;
+const EMAIL = "someone@example.test";
+/** What the setting says: an SSH URI, which is all the service accepts… */
+const URI = "git@example.test:studio/st0.git";
+/** …rewritten by git, through the environment, to a bare repository on disk. */
 let origin: string;
-let lib: string;
-/** A scratch HOME, so `mediatekBase()` cannot fall back to the developer's own `~/.st0` endpoint. */
-let realHome: { HOME?: string; USERPROFILE?: string };
 
+let tmp: string;
+const saved: Record<string, string | undefined> = {};
+const ENV_KEYS = [
+  "STUDIO_HOME",
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_KEY_0",
+  "GIT_CONFIG_VALUE_0",
+  "GIT_CONFIG_KEY_1",
+  "GIT_CONFIG_VALUE_1",
+];
+
+/** git for the FIXTURES, blind to the developer's own config (a `commit.gpgsign` would stop every commit). */
 const git = (cwd: string, ...args: string[]): string =>
-  execFileSync("git", args, { cwd, encoding: "utf8" });
+  execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_AUTHOR_NAME: "t",
+      GIT_AUTHOR_EMAIL: "t@t.test",
+      GIT_COMMITTER_NAME: "t",
+      GIT_COMMITTER_EMAIL: "t@t.test",
+    },
+  }).trim();
+
+/** Somebody else's publish, as seen from here: a commit pushed to the origin from another clone. */
+function publishElsewhere(file: string, body: string): void {
+  const other = mkdtempSync(join(tmp, "other-"));
+  git(other, "clone", "-q", origin, ".");
+  mkdirSync(join(other, "modules"), { recursive: true });
+  writeFileSync(join(other, file), body);
+  git(other, "add", "-A");
+  git(other, "commit", "-q", "-m", `publish ${file}`);
+  git(other, "push", "-q", "origin", "HEAD");
+}
 
 beforeEach(() => {
-  tmp = mkdtempSync(join(tmpdir(), "fs-seed-"));
+  tmp = mkdtempSync(join(tmpdir(), "fs-libs-"));
+  for (const k of ENV_KEYS) saved[k] = process.env[k];
+  process.env.STUDIO_HOME = join(tmp, "home");
   origin = join(tmp, "origin.git");
-  lib = join(tmp, "_libraries");
-  mkdirSync(origin, { recursive: true });
-  mkdirSync(lib, { recursive: true });
-  // A real remote and a real checkout: a mocked git would prove the opposite of what is claimed.
-  git(origin, "init", "--bare", "--initial-branch=main");
-  git(lib, "init", "--initial-branch=main");
-  git(lib, "remote", "add", "origin", origin);
-
-  realHome = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
-  process.env.HOME = tmp;
-  process.env.USERPROFILE = tmp;
+  git(tmp, "init", "-q", "--bare", "--initial-branch=main", origin);
+  publishElsewhere("modules/amp.yaml", "gain: 1\n");
+  // `insteadOf` as COMMAND-LEVEL config: it survives the GIT_CONFIG_GLOBAL=/dev/null the service sets.
+  process.env.GIT_CONFIG_COUNT = "2";
+  process.env.GIT_CONFIG_KEY_0 = `url.${origin}.insteadOf`;
+  process.env.GIT_CONFIG_VALUE_0 = URI;
+  process.env.GIT_CONFIG_KEY_1 = "protocol.file.allow";
+  process.env.GIT_CONFIG_VALUE_1 = "always";
 });
 
 afterEach(() => {
-  for (const [k, v] of Object.entries(realHome))
-    if (v === undefined) delete process.env[k];
-    else process.env[k] = v;
+  for (const k of ENV_KEYS)
+    if (saved[k] === undefined) delete process.env[k];
+    else process.env[k] = saved[k];
   rmSync(tmp, { recursive: true, force: true });
 });
 
-/** What the ORIGIN ended up holding — the only proof that matters. */
-const pushed = (): string[] =>
-  git(origin, "ls-tree", "-r", "--name-only", "main")
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-describe("what a mounted library was cloned from", () => {
-  it("answers the remote, which is what says a clone is still the account's", async () => {
-    // The URI is checked by CLONING when it is added, and a clone of ANOTHER repository is
-    // thrown away rather than found later — see docs/libraries.md.
-    expect(await clonedFrom(lib)).toBe(origin);
+describe("the setting", () => {
+  it("reads the old single `{ uri }` as a library called st0", () => {
+    mkdirSync(process.env.STUDIO_HOME as string, { recursive: true });
+    writeFileSync(
+      join(process.env.STUDIO_HOME as string, "libraries.json"),
+      JSON.stringify({ uri: URI }),
+    );
+    expect(librarySettings()).toEqual([{ name: "st0", uri: URI }]);
   });
 
-  it("says it cannot tell, rather than throwing, for a folder that is no clone", async () => {
-    // A workspace's `_libraries` that was never mounted is an ordinary state, not a fault.
-    expect(await clonedFrom(join(tmp, "nothing-here"))).toBeNull();
+  it("writes and reads back a list, in order", () => {
+    const list = [
+      { name: "st0", uri: URI },
+      { name: "drums", uri: "git@example.test:studio/drums.git" },
+    ];
+    setLibrarySettings(list);
+    expect(librarySettings()).toEqual(list);
+  });
+
+  it("refuses a list it could not honour, saying which line", () => {
+    const other = "git@example.test:studio/other.git";
+    expect(settingsProblem([{ name: "engine", uri: URI }])).toMatch(/engine/);
+    expect(settingsProblem([{ name: "Big Drums", uri: URI }])).toMatch(
+      /cannot name/,
+    );
+    expect(
+      settingsProblem([
+        { name: "a", uri: URI },
+        { name: "a", uri: other },
+      ]),
+    ).toMatch(/two libraries/);
+    expect(
+      settingsProblem([
+        { name: "a", uri: URI },
+        { name: "b", uri: URI },
+      ]),
+    ).toMatch(/twice/);
+    expect(settingsProblem([{ name: "a", uri: "/tmp/repo" }])).toMatch(/SSH/);
+    expect(() => setLibrarySettings([{ name: "engine", uri: URI }])).toThrow();
+  });
+
+  it("names the first library st0 and any other after its repository", () => {
+    expect(defaultLibraryName(URI, [])).toBe("st0");
+    expect(
+      defaultLibraryName("git@example.test:studio/Drum_Kits.git", [
+        { name: "st0", uri: URI },
+      ]),
+    ).toBe("drum-kits");
   });
 });
 
-describe("a brand-new library repository", () => {
-  it("gets a commit, and pushes it", async () => {
-    expect(await initIfEmpty(lib)).toBe("initialised");
-    // On the REMOTE, not merely committed here: a gitlink promises the commit is fetchable.
-    expect(git(origin, "rev-parse", "main").trim()).toHaveLength(40);
-  });
+describe("syncLibrary", () => {
+  const lib = { name: "st0", uri: URI };
 
-  it("writes NOTHING into it — the repository is the reference", async () => {
-    // A new library is EMPTY, and its refs resolve to nothing until somebody puts modules there.
-    await initIfEmpty(lib);
-    expect(pushed()).toEqual([]);
-    expect(existsSync(join(lib, "modules"))).toBe(false);
-  });
-
-  it("does nothing at all the second time", async () => {
-    await initIfEmpty(lib);
-    const head = git(lib, "rev-parse", "HEAD").trim();
-    // "Already started" is a question about the CHECKOUT, not a flag somebody has to keep.
-    expect(await initIfEmpty(lib)).toBe("filled");
-    expect(git(lib, "rev-parse", "HEAD").trim()).toBe(head);
-  });
-
-  it("leaves a repository that already has a commit alone, whatever is in it", async () => {
-    // ONE question: is there something for a gitlink to point at — not "has it got modules".
-    writeFileSync(join(lib, "README.md"), "# les bibliotheques\n", "utf8");
-    git(lib, "add", "-A");
-    git(
-      lib,
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@t",
-      "commit",
-      "-m",
-      "readme",
-    );
-    const head = git(lib, "rev-parse", "HEAD").trim();
-    expect(await initIfEmpty(lib)).toBe("filled");
-    expect(git(lib, "rev-parse", "HEAD").trim()).toBe(head);
-    // …and it pushed nothing: a repository that has been here before is not this function's business.
-    expect(() => git(origin, "rev-parse", "main")).toThrow();
-  });
-
-  it("keeps an unregistered library out of the project repo's `git add -A`", async () => {
-    // The leak: until `submodule add` has run, `_libraries` is untracked inside a song repo (docs/libraries.md).
-    const project = join(tmp, "ws2");
-    mkdirSync(project, { recursive: true });
-    git(project, "init", "--initial-branch=main");
-
-    const inside = join(project, "_libraries");
-    mkdirSync(join(inside, "modules", "audio", "reverb"), { recursive: true });
-    writeFileSync(
-      join(inside, "modules", "audio", "reverb", "module.yaml"),
-      "plugin: {}\n",
-      "utf8",
-    );
-    await excludeFromProjectRepo(project);
-
-    writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
-    git(project, "add", "-A");
-    const staged = git(project, "diff", "--cached", "--name-only");
-    expect(staged).toContain("song.yaml");
-    expect(staged).not.toContain("_libraries");
-  });
-
-  it("registers the submodule even though the exclusion is in the way", async () => {
-    // `git submodule add` REFUSES a path the exclusion ignores, which is why `--force` — docs/libraries.md.
-    const project = join(tmp, "ws7");
-    mkdirSync(project, { recursive: true });
-    git(project, "init", "--initial-branch=main");
-    writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
-    git(project, "add", "-A");
-    git(
-      project,
-      "-c",
-      "user.name=t",
-      "-c",
-      "user.email=t@t",
-      "commit",
-      "-m",
-      "the song",
-    );
-
-    const inside = join(project, "_libraries");
-    mkdirSync(inside, { recursive: true });
-    git(inside, "init", "--initial-branch=main");
-    git(inside, "remote", "add", "origin", origin);
-    await initIfEmpty(inside);
-
-    await excludeFromProjectRepo(project);
-    expect(git(project, "check-ignore", "-v", "_libraries")).toContain(
-      "_libraries",
-    );
-
-    await registerSubmodule(project, origin, ALLOW_FILE);
-    // Staged, not committed: publishing is somebody's decision.
-    expect(git(project, "diff", "--cached", "--name-only").split("\n")).toEqual(
-      expect.arrayContaining([".gitmodules", "_libraries"]),
-    );
-    expect(readFileSync(join(project, ".gitmodules"), "utf8")).toContain(
-      "_libraries",
-    );
-  });
-
-  it("adds the exclusion once, however often it runs", async () => {
-    const project = join(tmp, "ws3");
-    mkdirSync(project, { recursive: true });
-    git(project, "init", "--initial-branch=main");
-    await excludeFromProjectRepo(project);
-    await excludeFromProjectRepo(project);
-    const text = readFileSync(join(project, ".git", "info", "exclude"), "utf8");
-    expect(text.split("/_libraries/").length - 1).toBe(1);
-  });
-
-  /** A song repository with the library mounted inside it as a real submodule. */
-  async function songWithLibrary(name: string): Promise<string> {
-    const project = join(tmp, name);
-    mkdirSync(project, { recursive: true });
-    git(project, "init", "--initial-branch=main");
-    writeFileSync(join(project, "song.yaml"), "a: 1\n", "utf8");
-    git(project, "add", "-A");
-    const who = ["-c", "user.name=t", "-c", "user.email=t@t"];
-    git(project, ...who, "commit", "-m", "the song");
-
-    // Committed and pushed FIRST, adopted second — the order `ensureLibraries` takes, and why.
-    const inside = join(project, "_libraries");
-    mkdirSync(inside, { recursive: true });
-    git(inside, "init", "--initial-branch=main");
-    git(inside, "remote", "add", "origin", origin);
-    await initIfEmpty(inside);
-    // A module for the publish tests below to EDIT, standing in for a library somebody has used.
-    mkdirSync(join(inside, "modules", "audio", "reverb"), { recursive: true });
-    writeFileSync(
-      join(inside, "modules", "audio", "reverb", "module.yaml"),
-      "plugin: {type: vst3}\n",
-      "utf8",
-    );
-    git(inside, "add", "-A");
-    git(inside, ...who, "commit", "-m", "un module");
-    git(inside, "push", "origin", "HEAD");
-    // `protocol.file.allow`: git refuses a file:// submodule by default (CVE-2022-39253).
-    git(
-      project,
-      "-c",
-      "protocol.file.allow=always",
-      "submodule",
-      "add",
-      "--force",
-      "--",
-      origin,
-      "_libraries",
-    );
-    git(project, ...who, "commit", "-m", "mount the libraries");
-    return project;
-  }
-
-  it("publishes the edit and records the new version in the project", async () => {
-    const project = await songWithLibrary("ws4");
-    const songHead = git(project, "rev-parse", "HEAD").trim();
-
-    writeFileSync(
-      join(project, "_libraries", "modules", "audio", "reverb", "module.yaml"),
-      "plugin: {type: vst3}\nparams:\n  Mix: 0.5\n",
-      "utf8",
-    );
-    const out = await commitLibraries(
-      "me@example.test",
-      project,
-      "@st0/audio/reverb",
-    );
-    expect(out).toMatchObject({ committed: true, pushed: true });
-
-    // On the remote, so everybody else has it.
+  it("clones a library this machine has none of, where resolution looks for it", async () => {
+    expect((await syncLibrary(EMAIL, lib)).state).toBe("cloned");
     expect(
-      git(origin, "show", "main:modules/audio/reverb/module.yaml"),
-    ).toContain("Mix: 0.5");
-    // …and the song now SAYS it uses that version: one new commit, moving the gitlink.
-    expect(out.recorded).toBeTruthy();
-    expect(git(project, "rev-parse", "HEAD").trim()).not.toBe(songHead);
+      readFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "utf8"),
+    ).toBe("gain: 1\n");
+  });
+
+  it("brings a clone to the latest commit, and says when there was nothing new", async () => {
+    await syncLibrary(EMAIL, lib);
+    expect((await syncLibrary(EMAIL, lib)).state).toBe("current");
+    publishElsewhere("modules/amp.yaml", "gain: 2\n");
+    expect((await syncLibrary(EMAIL, lib)).state).toBe("updated");
     expect(
-      git(project, "show", "--name-only", "--format=", "HEAD").trim(),
-    ).toBe("_libraries");
-    expect(git(project, "log", "-1", "--format=%s")).toContain("libraries:");
+      readFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "utf8"),
+    ).toBe("gain: 2\n");
   });
 
-  it("leaves everything else in the song alone, staged or not", async () => {
-    // A commit ABOUT a module must not carry half a song with it, so it is path-limited.
-    const project = await songWithLibrary("ws5");
-    writeFileSync(join(project, "wip.yaml"), "unfinished: true\n", "utf8");
-    writeFileSync(join(project, "staged.yaml"), "half: true\n", "utf8");
-    git(project, "add", "--", "staged.yaml");
-
-    writeFileSync(
-      join(project, "_libraries", "modules", "audio", "reverb", "ui.yaml"),
-      "cols: 4\n",
-      "utf8",
-    );
-    await commitLibraries("me@example.test", project, "@st0/audio/reverb");
-
+  it("never updates over work not yet published, and says what it kept", async () => {
+    await syncLibrary(EMAIL, lib);
+    writeFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "gain: 9\n");
+    publishElsewhere("modules/cab.yaml", "size: 2\n");
+    const r = await syncLibrary(EMAIL, lib);
+    expect(r.state).toBe("kept");
+    expect(r.note).toMatch(/not published/);
     expect(
-      git(project, "show", "--name-only", "--format=", "HEAD").trim(),
-    ).toBe("_libraries");
-    // The half-finished work is exactly where it was: one staged, one not.
-    expect(git(project, "diff", "--cached", "--name-only").trim()).toBe(
-      "staged.yaml",
-    );
-    expect(git(project, "status", "--porcelain")).toContain("wip.yaml");
+      readFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "utf8"),
+    ).toBe("gain: 9\n");
   });
 
-  it("records nothing when the library could not be pushed", async () => {
-    // A gitlink pointing at a commit that never left this machine breaks the song for everybody.
-    const project = await songWithLibrary("ws6");
-    const songHead = git(project, "rev-parse", "HEAD").trim();
-    git(
-      join(project, "_libraries"),
-      "remote",
-      "set-url",
-      "origin",
-      join(tmp, "nowhere.git"),
-    );
-
-    writeFileSync(
-      join(project, "_libraries", "modules", "audio", "reverb", "ui.yaml"),
-      "cols: 8\n",
-      "utf8",
-    );
-    const out = await commitLibraries("me@example.test", project, "a module");
-    expect(out).toMatchObject({ committed: true, pushed: false });
-    expect(out.recorded).toBeUndefined();
-    expect(git(project, "rev-parse", "HEAD").trim()).toBe(songHead);
-  });
-
-  it("says there was nothing to commit rather than making an empty one", async () => {
-    await initIfEmpty(lib);
-    const project = dirname(lib);
-    expect(await commitLibraries("me@example.test", project, "again")).toEqual({
-      committed: false,
-      pushed: false,
-      note: "nothing to commit",
+  it("reports a remote nobody can clone as a failure, and leaves nothing behind", async () => {
+    const r = await syncLibrary(EMAIL, {
+      name: "gone",
+      uri: "git@example.test:studio/gone.git",
     });
+    expect(r.state).toBe("failed");
+    expect(existsSync(libraryDir("gone"))).toBe(false);
   });
+});
 
-  it("keeps the work and says so when the push is refused", async () => {
-    await initIfEmpty(lib);
-    mkdirSync(join(lib, "modules"), { recursive: true });
-    writeFileSync(join(lib, "modules", "new.yaml"), "a: 1\n", "utf8");
-    git(lib, "remote", "set-url", "origin", join(tmp, "nowhere.git"));
-    const out = await commitLibraries(
-      "me@example.test",
-      dirname(lib),
-      "a module",
+describe("commitLibrary — the builder's Save", () => {
+  it("commits what changed and pushes it where everybody else fetches", async () => {
+    await syncLibrary(EMAIL, { name: "st0", uri: URI });
+    writeFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "gain: 3\n");
+    const r = await commitLibrary(EMAIL, "st0", "louder amp");
+    expect(r).toMatchObject({ committed: true, pushed: true });
+    expect(git(origin, "show", "main:modules/amp.yaml")).toBe("gain: 3");
+    expect(git(origin, "log", "-1", "--format=%ae %s")).toBe(
+      `${EMAIL} louder amp`,
     );
-    expect(out.committed).toBe(true);
-    expect(out.pushed).toBe(false);
-    // Committed locally, so the next Save pushes both — the work is never the thing that is lost.
-    expect(git(lib, "log", "--oneline")).toContain("a module");
   });
 
-  it("reports a push it could not make, rather than claiming it landed", async () => {
-    // The race: two machines mounting the same new repository, and the loser must record no gitlink.
-    git(lib, "remote", "set-url", "origin", join(tmp, "nowhere.git"));
-    expect(await initIfEmpty(lib)).toBe("unpushed");
-    // Still committed locally, so the next open has something to push rather than starting over.
-    expect(git(lib, "log", "--oneline")).toContain("premier commit");
+  it("says so when there is nothing to publish", async () => {
+    await syncLibrary(EMAIL, { name: "st0", uri: URI });
+    const r = await commitLibrary(EMAIL, "st0", "nothing");
+    expect(r).toMatchObject({ committed: false, pushed: false });
+  });
+
+  it("refuses a library the account does not have", async () => {
+    await expect(commitLibrary(EMAIL, "nope", "x")).rejects.toThrow(
+      /no library/,
+    );
+  });
+});
+
+describe("pruneLibraries", () => {
+  it("removes the clone of a library the list dropped, but never one holding work", async () => {
+    await syncLibrary(EMAIL, { name: "st0", uri: URI });
+    await syncLibrary(EMAIL, { name: "old", uri: URI });
+    writeFileSync(join(libraryDir("old"), "modules/amp.yaml"), "gain: 7\n");
+    await syncLibrary(EMAIL, { name: "gone", uri: URI });
+    setLibrarySettings([{ name: "st0", uri: URI }]);
+
+    const notes = await pruneLibraries(EMAIL);
+    expect(existsSync(libraryDir("gone"))).toBe(false);
+    expect(existsSync(libraryDir("old"))).toBe(true);
+    expect(notes).toEqual([
+      expect.objectContaining({ name: "old", state: "kept" }),
+    ]);
+  });
+});
+
+describe("retireWorkspaceLibraries — what a workspace held before", () => {
+  let ws: string;
+  beforeEach(() => {
+    ws = join(tmp, "workspace");
+    mkdirSync(ws, { recursive: true });
+  });
+
+  it("has nothing to do in a workspace that never held one", async () => {
+    expect(await retireWorkspaceLibraries(EMAIL, ws)).toBeNull();
+  });
+
+  it("removes a SUBMODULE in one path-limited commit, and nothing else of the workspace", async () => {
+    git(ws, "init", "-q", "--initial-branch=main");
+    writeFileSync(join(ws, "readme.md"), "a workspace\n");
+    git(ws, "add", "-A");
+    git(ws, "commit", "-q", "-m", "first");
+    git(ws, "submodule", "add", "-q", "--", URI, "_libraries");
+    git(ws, "commit", "-q", "-m", "les bibliotheques");
+    // Work in flight elsewhere in the workspace, which the retirement must not sweep up.
+    writeFileSync(join(ws, "readme.md"), "edited\n");
+
+    const r = await retireWorkspaceLibraries(EMAIL, ws);
+    expect(r).toMatchObject({ retired: true });
+    expect(existsSync(join(ws, "_libraries"))).toBe(false);
+    expect(existsSync(join(ws, ".gitmodules"))).toBe(false);
+    expect(git(ws, "log", "-1", "--format=%s")).toMatch(
+      /no longer a submodule/,
+    );
+    expect(git(ws, "ls-files", "--", "_libraries", ".gitmodules")).toBe("");
+    expect(git(ws, "status", "--porcelain")).toBe("M readme.md");
+  });
+
+  it("keeps a submodule holding edits nobody published, and says what they are", async () => {
+    git(ws, "init", "-q", "--initial-branch=main");
+    git(ws, "commit", "-q", "--allow-empty", "-m", "first");
+    git(ws, "submodule", "add", "-q", "--", URI, "_libraries");
+    git(ws, "commit", "-q", "-m", "les bibliotheques");
+    writeFileSync(join(ws, "_libraries", "modules/amp.yaml"), "gain: 5\n");
+
+    const r = await retireWorkspaceLibraries(EMAIL, ws);
+    expect(r).toMatchObject({ retired: false });
+    expect(r?.note).toMatch(/not published/);
+    expect(
+      readFileSync(join(ws, "_libraries", "modules/amp.yaml"), "utf8"),
+    ).toBe("gain: 5\n");
+  });
+
+  it("deletes a plain clone in a workspace that is no repository", async () => {
+    git(tmp, "clone", "-q", URI, join(ws, "_libraries"));
+    const r = await retireWorkspaceLibraries(EMAIL, ws);
+    expect(r).toMatchObject({ retired: true });
+    expect(existsSync(join(ws, "_libraries"))).toBe(false);
+  });
+
+  it("keeps a folder git cannot account for — cannot tell is never nothing to lose", async () => {
+    mkdirSync(join(ws, "_libraries", "modules"), { recursive: true });
+    writeFileSync(join(ws, "_libraries", "modules", "mine.yaml"), "x: 1\n");
+    const r = await retireWorkspaceLibraries(EMAIL, ws);
+    expect(r).toMatchObject({ retired: false });
+    expect(existsSync(join(ws, "_libraries", "modules", "mine.yaml"))).toBe(
+      true,
+    );
   });
 });

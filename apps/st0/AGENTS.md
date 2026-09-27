@@ -222,21 +222,22 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   re-render of the whole shell per keystroke (`frontend/docs/shell.md`).
 
   The file tree has a **second tab, Libraries**, listing every level a module can live at —
-  `@workspace`, `@st0`, `@engine` — nearest first, which is precedence. They come
+  `@workspace`, each of the account's libraries (`@st0`, `@drums`…), `@engine` — nearest first,
+  which is precedence. They come
   from `GET /module-libraries`, NOT from `/tree`: that one is rooted at the active project and
   excludes the shared folders on purpose — a project keeps no `modules/` of its own to exclude.
   `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
-  other two offer **New folder…** and **New module…**. Only an `@st0` module
+  others offer **New folder…** and **New module…**. Only a library module
   opens the same builder **read-only**, with an Edit button
-  behind a confirmation; Save then writes into `_libraries/…`, commits and pushes that
-  repository, and records the new version in the song with one path-limited commit moving the
-  gitlink — nothing forks, because that library is the only copy. One store and one path
-  space: the libraries are a git submodule inside the workspace
-  (`packages/song/docs/sharedFolders.md`), so the file service already serves them.
+  behind a confirmation; Save then writes into `_libraries/<name>/…` and commits and pushes
+  THAT library — nothing forks, because the library is the only copy, and no song repository is
+  touched. One store and one path space: the file service clones the account's libraries under
+  `<studioHome>/libraries` and answers them at the virtual `_libraries/<name>/…` in every
+  workspace (`packages/song/docs/sharedFolders.md`), so it already serves them.
   `frontend/docs/sharedModules.md` is the page to read; `@banc` opens one live RIG,
   kept nowhere, and nothing else.
 
-  **st0 will not open a project without a libraries repository.** The account declares one on
+  **st0 will not open a project without a library.** The account declares its libraries on
   this app's own home page — the card above everything else — and `ProjectGate` refuses before it
   clones anything. See `frontend/docs/projects.md` and
   `packages/project-shell/docs/launch.md`.

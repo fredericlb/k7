@@ -118,13 +118,29 @@ export function writeLibrary(
     writeYaml(join(lib, path, "module.yaml"), value);
 }
 
-/** The account's LIBRARY submodule as a plain folder: the `@st0` level comes from `_libraries/modules`. */
+/**
+ * Where library `name` is, for a test whose temp folder is `root`: `$STUDIO_HOME` is pointed at a
+ * dot-folder INSIDE `root`, so the libraries go when the test's folder does and no two tests share
+ * one. Returns the library's own folder — `<home>/libraries/<name>`, as the file service clones it.
+ */
+export function librariesFixture(root: string, name = "st0"): string {
+  const home = join(root, ".studio-home");
+  process.env.STUDIO_HOME = home;
+  const lib = join(home, "libraries", name);
+  mkdirSync(lib, { recursive: true });
+  return lib;
+}
+
+/** One of the account's LIBRARIES as a plain folder: the `@<name>` level comes from its `modules/`. */
 export function writeLibraries(
   root: string,
   modules: Record<string, unknown> = {
     "audio/reverb": { plugin: { type: "vst3", name: "Big Reverb" } },
   },
-): void {
+  name = "st0",
+): string {
+  const lib = librariesFixture(root, name);
   for (const [path, value] of Object.entries(modules))
-    writeYaml(join(root, "_libraries", "modules", path, "module.yaml"), value);
+    writeYaml(join(lib, "modules", path, "module.yaml"), value);
+  return lib;
 }

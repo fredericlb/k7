@@ -295,13 +295,12 @@ own answer: none of them can be read out of that tree.
   `module.yaml` into an openable row, and this has no such file, so what draws is a name that opens
   nothing, which is the truth about a scanned plugin. Null when the machine has never scanned — an
   empty `@engine` says nothing true.
-- **`libraryChains()`** — a chain is a folder holding a `graph.yaml`, at any depth under `chains/`,
-  and nothing inside one is another. That is the médiathèque's own rule and the same walk
-  `processChain`'s `libraryChains` does for `@st0/…` refs; it is restated rather than imported
-  because that one is bound to a command's argument and this answers a browser — but it is one rule,
-  and if it ever gains a case both have to learn it. `ref` is what the chain is CALLED
-  (`process/normalize`), `path` where it is, workspace-relative, because that is the only address a
-  browser may hand back. A missing submodule is an empty list, never a throw.
+- **`libraryChains()`** — every library's chains, walked by `@studio/song`'s `libraryChainDirs`,
+  the one walk `processChain` and the account's own listings use too: a chain is a folder holding a
+  `graph.yaml`, at any depth under a library's `chains/`, and nothing inside one is another. `ref` is
+  what the chain is CALLED, whole (`@st0/process/normalize`), `path` where it is in this API
+  (`_libraries/st0/chains/…`), because that is the only address a browser may hand back. No
+  library, or one with no `chains/`, is an empty list, never a throw.
 - **`playlists()`** — `_playlists/**/*.yaml`, rooted at the workspace ROOT and not beside the
   project where the two module libraries live. A set list belongs to the repository rather than to
   one song in it — you build one once and open it against whichever project you are working in — and
@@ -345,16 +344,25 @@ problem to read, so it is a 409 and not a fault.
 
 The rig is scaffolded fresh on every open, so a write into the project folder survives exactly as
 long as the session: no translation, no promotion, no path out of it. What a bench session keeps is
-what was written into the LIBRARY — `_libraries/…`, which is an ordinary path here as it is in
-every other workspace (`apps/pl8/docs/banc.md`).
+what was written into a LIBRARY — `_libraries/<name>/…`, which is an ordinary path here as it is
+in every other workspace (`apps/pl8/docs/banc.md`).
 
-That workspace holds the rig and the library mount, and nothing else: a `chains/` folder in it is
-swept on open, because a project folder that saves nowhere is worse than no folder at all.
+That workspace holds the rig and nothing else: a `chains/` folder in it is swept on open, because a
+project folder that saves nowhere is worse than no folder at all.
 
-A library write is a plain write into the submodule: the libraries are a git submodule inside the workspace,
-so `_libraries/…` is an ORDINARY path and nothing is pushed anywhere by the write itself.
-What publishes it is `project commit`, which is somebody's decision rather than a side effect of
-typing. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
+### `_libraries/<name>/…` is a VIRTUAL folder
+
+No workspace holds the libraries: the file service clones them under `<studioHome>/libraries`
+(`libraries.md`). `safePath` maps a path whose first segment is `_libraries` there, and confines it
+THERE by the same two gates the workspace has — lexical, then on the real path — so
+`_libraries/../..` escapes nothing, and neither does a symlink a library carries. `toRel` maps back,
+so every path this API hands out for a library file is a `_libraries/<name>/…` one. A library's own
+folder, and `_libraries` itself, cannot be renamed, moved or deleted from a workspace: which
+libraries the account has is its settings' business.
+
+A library write is a plain write into the account's clone, and nothing is pushed anywhere by the
+write itself. What publishes it is the builder's Save (`POST /libraries/publish`), which is
+somebody's decision rather than a side effect of typing. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
 one copy backing every project beside it, and nothing has given it a way back. The one exception
 either way is a module's `ui.yaml` — a panel is drawn for the plugin, not for the song, so it is
 written where the module is, and forking a whole module to move a knob is precisely the copy nobody

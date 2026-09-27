@@ -1,9 +1,11 @@
-// sharedFolders.ts — the shared `_modules/` and `_library/` a project sees, found by WHERE
-// they are and nothing else: the workspace's own beside the project, then the machine's
-// médiathèque. No project field declares them. Full rationale: docs/sharedFolders.md.
+// sharedFolders.ts — the shared module folders a project sees, found by WHERE they are and
+// nothing else: the workspace's own `_modules/` beside the project, then every library the file
+// service cloned under `<studioHome>/libraries/`. No project field declares them. Full
+// rationale: docs/sharedFolders.md.
 
-import { existsSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { studioHome } from "./studioHome";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
 export const SHARED_MODULES_PATH = "../_modules";
@@ -13,31 +15,71 @@ export { SHARED_MODULES_DIR } from "@studio/song-schema/moduleTypes";
 
 import { SHARED_MODULES_DIR } from "@studio/song-schema/moduleTypes";
 
-// …and so does the library submodule's, for st0's file tree; re-exported as MODULE_NAMESPACES is.
-export { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song-schema/moduleTypes";
+// …and so do the libraries' folder names, for st0's file tree; re-exported as one vocabulary.
+export {
+  DEFAULT_LIBRARY,
+  isLibraryName,
+  LIBRARIES_DIR,
+  LIBRARIES_HOME_DIR,
+} from "@studio/song-schema/moduleTypes";
 
-import { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song-schema/moduleTypes";
+import {
+  isLibraryName,
+  LIBRARIES_HOME_DIR,
+} from "@studio/song-schema/moduleTypes";
 
-/** The three families the library repository carries — `library/` is not one, see docs/moduleAssets.md. */
-export const librariesDirFor = (
-  dir: string,
-  kind: "modules" | "chains" | "assemblies",
-) => resolve(dir, LIBRARIES_PATH, kind);
+/** The three families a library repository carries — `library/` is not one, see docs/moduleAssets.md. */
+export type LibraryFamily = "modules" | "chains" | "assemblies";
 
-/** …and the same folder when `dir` is INSIDE the library already, which a template being edited is. */
-export function librariesFamilyRoot(
-  dir: string,
-  kind: "modules" | "chains" | "assemblies",
+/** Where the file service clones the account's libraries: `<studioHome>/libraries` — docs/sharedFolders.md. */
+export const librariesHome = (): string =>
+  join(studioHome(), LIBRARIES_HOME_DIR);
+
+/** One of the account's libraries: its name, which is its ref's namespace, and its checkout. */
+export interface AccountLibrary {
+  name: string;
+  root: string;
+}
+
+/** Every library cloned on this machine, by NAME order — found by where they are, never declared (docs/sharedFolders.md). */
+export function accountLibraries(): AccountLibrary[] {
+  const home = librariesHome();
+  let names: string[];
+  try {
+    names = readdirSync(home, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && isLibraryName(e.name))
+      .map((e) => e.name);
+  } catch {
+    return []; // no libraries yet — the ordinary state of a new machine
+  }
+  return names.sort().map((name) => ({ name, root: join(home, name) }));
+}
+
+/** One family of every library, those that have it: each library's `chains/`, say. */
+export function libraryFamilyRoots(kind: LibraryFamily): AccountLibrary[] {
+  return accountLibraries()
+    .map((l) => ({ name: l.name, root: join(l.root, kind) }))
+    .filter((l) => existsSync(l.root));
+}
+
+/** The library `path` lies in, or null — a template being edited stands INSIDE one. */
+export function libraryOf(path: string): AccountLibrary | null {
+  const rel = relative(librariesHome(), resolve(path));
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
+  const name = rel.split(/[\\/]+/)[0];
+  return isLibraryName(name)
+    ? { name, root: join(librariesHome(), name) }
+    : null;
+}
+
+/** One library's family folder, or null when that library is not here or carries none of it. */
+export function libraryFamilyRoot(
+  library: string,
+  kind: LibraryFamily,
 ): string | null {
-  const root = librariesDirFor(dir, kind);
-  if (existsSync(root)) return root;
-  const abs = resolve(dir);
-  const segs = abs.split(/[\\/]+/);
-  const at = segs.lastIndexOf(LIBRARIES_DIR);
-  if (at < 0) return null;
-  // Walked UP rather than rejoined: a POSIX path splits to a leading "" that join() drops, answering a RELATIVE path.
-  const inside = resolve(abs, ...Array(segs.length - 1 - at).fill(".."), kind);
-  return existsSync(inside) ? inside : null;
+  if (!isLibraryName(library)) return null;
+  const root = join(librariesHome(), library, kind);
+  return existsSync(root) ? root : null;
 }
 
 /** Is this path inside a shared module library, by SEGMENT and either separator? See docs/moduleFork.md. */
@@ -50,34 +92,27 @@ export function hasSharedModules(dir: string): boolean {
   return existsSync(join(dir, SHARED_MODULES_PATH));
 }
 
-/** The library repository's modules as mounted beside this project, or null — docs/sharedFolders.md. */
-export function librariesModulesRoot(dir: string): string | null {
-  return librariesFamilyRoot(dir, "modules");
-}
-
 /** Every shared module root this project inherits, nearest FIRST, none of them declared — docs/sharedFolders.md. */
 export function moduleLibraryDirs(dir: string): string[] {
   const out: string[] = [];
   const shared = resolve(dir, SHARED_MODULES_PATH);
   if (existsSync(shared)) out.push(shared);
-  const libs = librariesModulesRoot(dir);
-  if (libs && !out.includes(libs)) out.push(libs);
+  for (const l of libraryFamilyRoots("modules"))
+    if (!out.includes(l.root)) out.push(l.root);
   return out;
 }
 
-// The four levels live in moduleTypes.ts, which a browser may import and this file may not.
+// The fixed levels live in moduleTypes.ts, which a browser may import and this file may not.
 export {
-  MODULE_NAMESPACES,
+  FIXED_NAMESPACES,
   type ModuleNamespace,
 } from "@studio/song-schema/moduleTypes";
 
 import type { ModuleNamespace } from "@studio/song-schema/moduleTypes";
 
-/** The namespace a module root answers to, decided by the folder it SITS IN — docs/sharedFolders.md. */
+/** The namespace a module root answers to, decided by WHERE it is: a library's name, else `workspace` — docs/sharedFolders.md. */
 export function moduleNamespaceOf(root: string): ModuleNamespace {
-  return basename(dirname(resolve(root))) === LIBRARIES_DIR
-    ? "st0"
-    : "workspace";
+  return libraryOf(root)?.name ?? "workspace";
 }
 
 /** Every module library this project can see, nearest first — panels included, docs/sharedFolders.md. */

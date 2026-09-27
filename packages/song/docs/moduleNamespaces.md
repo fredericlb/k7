@@ -1,21 +1,22 @@
-# moduleNamespaces — the three levels a module lives at
+# moduleNamespaces — the levels a module lives at
 
 A module ref carries its level as an `@` prefix:
 
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@st0/audio/delay/tape-delay` | the account's library repository, mounted at `<workspace>/_libraries/modules` | st0's Libraries tab |
+| `@st0/audio/delay/tape-delay` | the account's library called `st0`, cloned at `<studioHome>/libraries/st0/modules` — every library is a level of its own name (`@drums/…`) | st0's Libraries tab |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
 
-## `@st0` is a git submodule in the workspace
+## A library is a level, named by the account
 
-The level's folder is `<workspace>/_libraries/modules` — the account's library repository,
-mounted by the file service into every workspace. There is one per workspace, so
-`moduleNamespaceOf`'s test is structural rather than a string comparison against a single path:
-the root's parent folder is named `_libraries`. See [sharedFolders.md](sharedFolders.md).
+Each of the account's libraries is cloned by the file service at `<studioHome>/libraries/<name>`,
+and its `modules/` is the level `@<name>`. `moduleNamespaceOf`'s test is structural: the library a
+root sits in, by path, else `workspace`. `engine`, `workspace` and `meta` cannot name a library, so
+no library collides with a fixed level, and the account's first library is `st0` — the level every
+ref written before libraries had names uses. See [sharedFolders.md](sharedFolders.md).
 
-## `@st0` names a FOLDER of modules, and the cache folder is called `mediatek`
+## `@st0` names a LIBRARY of modules, and the cache folder is called `mediatek`
 
 The level's name follows the folder of modules rather than the path on the origin: the
 médiathèque answers under `/pl8` and is `apps/pl8`, and the level is `@st0` all the same.
@@ -74,12 +75,13 @@ Every root is at a fixed place, so nothing in `project.yaml` names one:
 | level | where |
 |---|---|
 | `@engine` | nowhere — synthesised from the machine's plugin scan |
-| `@st0` | `../_libraries/modules`, the account's library submodule |
+| `@<library>` | `<studioHome>/libraries/<library>/modules`, one level per library the account cloned |
 | `@workspace` | `../_modules`, beside the project |
 
 `moduleLibraryDirs()` states that once (sharedFolders.ts) and everything reads it: the modules,
 their panels (`modulePanelRoots`), the fork path (`sharedRoots`) and the builder's catalogue —
-which is what keeps the three from disagreeing about what a project can reach.
+which is what keeps the three from disagreeing about what a project can reach. Which libraries the
+account HAS is the file service's setting; resolution only ever looks at which are cloned.
 
 Nothing in `project.yaml` declares one. A `modules_from` naming the middle one, or a
 `libraries_from` doing the same for assets, could only ever name a fixed place: it would

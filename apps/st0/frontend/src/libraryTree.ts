@@ -1,10 +1,12 @@
-// libraryTree.ts — the LIBRARIES tab: one row per module level, its modules under it, and the
-// library repository as one row with its three families. The
+// libraryTree.ts — the LIBRARIES tab: one row per module level, its modules under it, and each of
+// the account's library repositories as one row with its three families. The
 // levels come from the file service (`GET /module-libraries`), which reads the same roots the
 // LOADER resolves against — they sit outside the active project, so the file tree does not and
 // must not contain them. Why the tab exists: apps/st0/frontend/docs/sharedModules.md.
 
 import {
+  FIXED_NAMESPACES,
+  isLibraryName,
   LIBRARIES_DIR,
   SHARED_MODULES_DIR,
 } from "@studio/song-schema/moduleTypes";
@@ -13,7 +15,7 @@ import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 /** How a level is written wherever a person reads one: in a ref, and on a tree row. */
 export const nsLabel = (ns: string): string => `@${ns}`;
 
-/** A library chain, as the tab lists it: `ref` is its path under `chains/`, `nodes` its node files. */
+/** A library chain, as the tab lists it: `ref` is `@<library>/<path under chains/>`, `nodes` its node files. */
 export interface LibraryChainRow {
   ref: string;
   path: string;
@@ -27,47 +29,57 @@ export interface LibraryAssemblyRow {
   file: string;
 }
 
+/** Is this level one of the account's LIBRARIES, rather than `@workspace` or `@engine`? */
+const isRepository = (ns: string): boolean =>
+  !(FIXED_NAMESPACES as readonly string[]).includes(ns);
+
 /**
  * The libraries as tree rows. `@workspace` and `@engine` are module LEVELS, one row each with their
- * modules under it. `@st0` is different: it is the library REPOSITORY, and it is drawn as one — its
- * three families side by side as they are on disk, `modules/` (the `@st0` module level),
- * `chains/` and `assemblies/`. Drawing `modules/` AS `@st0` and the chains beside it as `@st0/chains`
- * made two siblings read as a folder and its child. `@st0` is the one that disappears when absent.
+ * modules under it. Every other level is one of the account's library REPOSITORIES, and it is drawn
+ * as one — its three families side by side as they are on disk, `modules/` (the `@<name>` module
+ * level), `chains/` and `assemblies/`. Drawing `modules/` AS `@st0` and the chains beside it as
+ * `@st0/chains` made two siblings read as a folder and its child.
  */
 export function libraryTree(
   libraries: ModuleLibrary[],
-  // The library's CHAINS, from the same repository and in the same tab — the builder being what opens one.
+  // The libraries' CHAINS, by `@<library>/…` ref — each filed under its own library's row.
   chains: readonly LibraryChainRow[] = [],
-  // …and its ASSEMBLY templates, the third family — one leaf each, the assembly builder being what opens one.
+  // …and their ASSEMBLY templates, the third family — one leaf each, the assembly builder being what opens one.
   assemblies: readonly LibraryAssemblyRow[] = [],
 ): FileNode[] {
-  return libraries
-    .filter((l) => l.exists || l.ns !== "st0")
-    .map((l) =>
-      l.ns === "st0"
-        ? repositoryRow(l, chains, assemblies)
-        : {
-            name: nsLabel(l.ns),
-            // The real path, workspace-relative like every other here; `@engine` has none, its label being all that identifies its row.
-            path: l.path || nsLabel(l.ns),
-            dir: true,
-            children: l.nodes,
-          },
-    );
+  return libraries.map((l) =>
+    isRepository(l.ns)
+      ? repositoryRow(
+          l,
+          chains.filter((c) => c.ref.startsWith(`${nsLabel(l.ns)}/`)),
+          assemblies.filter((a) => a.ref.startsWith(`${nsLabel(l.ns)}/`)),
+        )
+      : {
+          name: nsLabel(l.ns),
+          // The real path, workspace-relative like every other here; `@engine` has none, its label being all that identifies its row.
+          path: l.path || nsLabel(l.ns),
+          dir: true,
+          children: l.nodes,
+        },
+  );
 }
 
-/** The repository's own folder: the `@st0` level is always its `modules/` (`librariesDirFor`), so its parent. */
-function repositoryPath(modules: string): string {
-  const at = modules.lastIndexOf("/");
-  return at > 0 ? modules.slice(0, at) : LIBRARIES_DIR;
+/** The repository's own folder: a library's module level is always its `modules/`, so its parent. */
+function repositoryPath(l: ModuleLibrary): string {
+  const at = l.path.lastIndexOf("/");
+  return at > 0 ? l.path.slice(0, at) : `${LIBRARIES_DIR}/${l.ns}`;
 }
+
+/** A ref as its library's row shows it: the `@<library>/` is the row it sits under. */
+const withinLibrary = (ns: string, ref: string): string =>
+  ref.startsWith(`${nsLabel(ns)}/`) ? ref.slice(nsLabel(ns).length + 1) : ref;
 
 function repositoryRow(
   l: ModuleLibrary,
   chains: readonly LibraryChainRow[],
   assemblies: readonly LibraryAssemblyRow[],
 ): FileNode {
-  const root = repositoryPath(l.path);
+  const root = repositoryPath(l);
   return {
     name: nsLabel(l.ns),
     path: root,
@@ -81,7 +93,7 @@ function repositoryRow(
         dir: true,
         // A chain OPENS and its nodes are under it — a chain with none is still a folder, one node away from having some.
         children: chains.map((c) => ({
-          name: c.ref,
+          name: withinLibrary(l.ns, c.ref),
           path: c.path,
           dir: true,
           children: (c.nodes ?? []).map((n) => ({
@@ -97,7 +109,7 @@ function repositoryRow(
         path: `${root}/assemblies`,
         dir: true,
         children: assemblies.map((a) => ({
-          name: a.ref,
+          name: withinLibrary(l.ns, a.ref),
           path: a.path,
           dir: false,
         })),
@@ -142,10 +154,12 @@ export function rootOf(
 export function libraryModuleRef(file: string): string | null {
   const parts = file.split("/").filter(Boolean);
   const at = parts.indexOf(LIBRARIES_DIR);
-  if (at >= 0)
-    return parts[at + 1] === "modules"
-      ? refOf("st0", parts.slice(at + 2, -1))
+  if (at >= 0) {
+    const name = parts[at + 1] ?? "";
+    return isLibraryName(name) && parts[at + 2] === "modules"
+      ? refOf(name, parts.slice(at + 3, -1))
       : null;
+  }
   const shared = parts.indexOf(SHARED_MODULES_DIR);
   return shared >= 0 ? refOf("workspace", parts.slice(shared + 1, -1)) : null;
 }
@@ -154,6 +168,14 @@ export function libraryModuleRef(file: string): string | null {
 const refOf = (ns: string, segs: string[]): string | null =>
   segs.length >= 2 ? `${nsLabel(ns)}/${segs.join("/")}` : null;
 
-/** Is this workspace path inside the ACCOUNT's library? Only `_libraries`; a `@workspace` module forks instead (packages/song/docs/moduleFork.md). */
+/** Is this workspace path inside one of the ACCOUNT's libraries? Only `_libraries/…`; a `@workspace` module forks instead (packages/song/docs/moduleFork.md). */
 export const isLibraryPath = (path: string): boolean =>
   path.split("/").includes(LIBRARIES_DIR);
+
+/** WHICH library a `_libraries/<name>/…` path is in — the one a Save publishes — or null. */
+export function libraryOfPath(path: string): string | null {
+  const parts = path.split("/").filter(Boolean);
+  const at = parts.indexOf(LIBRARIES_DIR);
+  const name = at >= 0 ? (parts[at + 1] ?? "") : "";
+  return isLibraryName(name) ? name : null;
+}

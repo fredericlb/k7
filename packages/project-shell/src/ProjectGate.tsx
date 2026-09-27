@@ -35,7 +35,7 @@ import {
 import { sleepMove, useIdleTimeout } from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
-import { librariesRepo } from "./repoLookup.ts";
+import { accountLibraries } from "./repoLookup.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
 
@@ -262,9 +262,8 @@ export function ProjectGate({
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
 
-        // `@local` names a folder already here: no lookup and no clone. It DOES need the
-        // libraries pointer — every `@st0/…` a project extends resolves through `_libraries`,
-        // and this was the only address left after the register went (docs/launch.md).
+        // `@local` names a folder already here: no lookup and no clone. The account's libraries
+        // are the machine's business — `/open` brings them up to date (docs/launch.md).
         if (isLocal(repoName)) {
           const local = localTarget(project);
           if (!local)
@@ -274,12 +273,10 @@ export function ProjectGate({
                 "@local opens a project in a workspace on this machine — `/@local/<workspace>/<projet>`.",
             });
           configure(userEmail, local.workspace);
-          // Absent is not a refusal here: a song started on this machine may extend nothing
+          // No library is not a refusal here: a song started on this machine may extend nothing
           // shared, and the project's own "unresolved reference" is the better complaint.
-          const localLibs = await librariesRepo().catch(() => null);
-          if (cancelled) return;
           try {
-            await projectApi.open(local.project, localLibs?.uri);
+            await projectApi.open(local.project);
           } catch (e) {
             if (cancelled) return;
             const status = (e as { status?: number }).status;
@@ -297,9 +294,9 @@ export function ProjectGate({
         }
 
         // The LIBRARIES, before anything about the project — including the bench, docs/launch.md.
-        const libraries = await librariesRepo();
+        const libraries = await accountLibraries();
         if (cancelled) return;
-        if (!libraries) return setPhase({ k: "no-libraries" });
+        if (!libraries.length) return setPhase({ k: "no-libraries" });
 
         // The BENCH has no repository, and it is a `.st0` one — hence `app`, see docs/launch.md.
         if (app === "st0" && isBench(repoName)) {
@@ -312,7 +309,7 @@ export function ProjectGate({
           // The project part goes with it: the machine is the side that says which address it answers.
           let bench: { workspace: string; project: string };
           try {
-            bench = await projectApi.openBench(project, libraries.uri);
+            bench = await projectApi.openBench(project);
           } catch (e) {
             if (cancelled) return;
             // 404 is an address under `@banc` that names nothing; 409 a library that will not mount.
@@ -325,7 +322,7 @@ export function ProjectGate({
           }
           if (cancelled) return;
           configure(userEmail, bench.workspace);
-          await projectApi.open(bench.project, libraries.uri);
+          await projectApi.open(bench.project);
           if (cancelled) return;
           return setPhase({
             k: "open",

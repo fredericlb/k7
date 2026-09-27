@@ -27,7 +27,11 @@ import type {
 import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
-import { ensureLibraries, librariesUri } from "./libraries.ts";
+import {
+  librarySettings,
+  refreshLibraries,
+  retireWorkspaceLibraries,
+} from "./libraries.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
@@ -220,19 +224,25 @@ export async function cloneWorkspace(
   forgetRemotes(slug);
   forgetListing(slug);
 
-  // The LIBRARY, here rather than at the first open: `git clone` writes `.gitmodules` and leaves
-  // `_libraries` empty, so an import that stopped here would land a workspace whose every
-  // `@st0/…` is unresolved until something else thought to mount it. Non-fatal for the same
-  // reason the media fetch is — the workspace is cloned, and this says so instead of undoing it.
-  const libraries = librariesUri();
-  if (libraries)
+  // The LIBRARIES, here rather than at the first open: the account's clones brought up to date,
+  // and a workspace committed when libraries were a submodule taken out of that arrangement.
+  // Non-fatal for the same reason the media fetch is — the workspace is cloned, and this says so
+  // instead of undoing it.
+  if (librarySettings().length)
     try {
       onProgress?.({
         phase: "libraries",
         percent: null,
-        line: "LIBRARIES: mounting",
+        line: "LIBRARIES: updating",
       });
-      await ensureLibraries(userEmail, root, libraries);
+      await refreshLibraries(userEmail);
+      const retired = await retireWorkspaceLibraries(userEmail, root);
+      if (retired)
+        onProgress?.({
+          phase: "libraries",
+          percent: null,
+          line: `LIBRARIES: ${retired.note}`,
+        });
     } catch (e) {
       onProgress?.({
         phase: "libraries",

@@ -17,7 +17,7 @@ Two cases, and `moduleFileOf` picks between them:
   only shape `loadModules` returns now, a project keeping no modules of its own any more;
   reached FIRST, since a node needs no lookup elsewhere to answer for itself;
 - a **shared** one, `"@engine/io/IN:in-2"`, whose file lives in the workspace's `_modules` (or
-  the médiathèque's `_libraries/modules`) and not in this project at all.
+  one of the account's libraries) and not in this project at all.
 
 That second case is `sharedModuleFileOf`, and it returns null for anything that is not a
 namespaced ref. Writing there changes the module for every project beside it, which is right

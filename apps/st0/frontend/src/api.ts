@@ -29,7 +29,7 @@ import type {
 } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
-import { libraryModuleRef } from "./libraryTree";
+import { libraryModuleRef, libraryOfPath } from "./libraryTree";
 import type {
   PlaylistInfo,
   PresetInfo,
@@ -319,12 +319,12 @@ export const api = {
   applyPreset: (module: string, name: string) =>
     fsend<{ ok: true }>("POST", "/presets/apply", { module, name }),
 
-  /** Commit and push the LIBRARY repository — what a Save in the module builder does; the workspace's own repository is untouched. */
-  publishLibraries: (message: string) =>
+  /** Commit and push the account's LIBRARIES — those named, or every one with changes — what a Save in the module builder does; the workspace's own repository is untouched. */
+  publishLibraries: (message: string, libraries?: string[]) =>
     fsend<{ committed: boolean; pushed: boolean; note: string }>(
       "POST",
       "/libraries/publish",
-      { message },
+      { message, ...(libraries ? { libraries } : {}) },
     ),
 };
 
@@ -459,11 +459,12 @@ export const moduleStore: ModuleStore = {
   /** …and the lcdscreen script, the same plain sibling of the same folder. */
   widgetsScript: (path) => siblingSource(path, WIDGETS_SCRIPT, widgetsStub),
   hints: () => api.hints(),
-  /** Publish a SHARED module: commit the library repository and push it — only for one in `_libraries`, which the PATH says (libraryTree.ts). */
+  /** Publish a SHARED module: commit ITS library and push it — only for one in `_libraries/<name>`, which the PATH says (libraryTree.ts). */
   publish: async (path) => {
     const ref = libraryModuleRef(path);
-    if (!ref) return {}; // the project's own — saved, and there is nowhere else for it to go
-    return api.publishLibraries(`${ref}`);
+    const library = libraryOfPath(path);
+    if (!ref || !library) return {}; // the project's own — saved, and there is nowhere else for it to go
+    return api.publishLibraries(`${ref}`, [library]);
   },
   /** Keep the plugin's current state as a named base — straight through to the route, the only side that knows where `base/` is. */
   snapshotBase: (path, name, ref) => api.snapshotModuleBase(path, name, ref),

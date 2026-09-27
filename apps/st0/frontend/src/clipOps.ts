@@ -2,14 +2,11 @@
 // waveform panel offers it as its "operations" menu, the text editor as a Process button, and
 // both mean one command. Kept here so a second surface cannot spell any part of it differently.
 
-/** The token a library chain is named by — a copy of `@studio/commands`' own, kept here so there is exactly one. */
-export const MEDIATEK_CHAIN = "@st0/";
-
-/** Every library chain, as `clip process` names it. */
+/** Every library chain, as `clip process` names it — its `@<library>/<path>` ref, which the file service answers whole. */
 export function chainOps(
   chains: { ref: string }[] | null | undefined,
 ): string[] {
-  return (chains ?? []).map((c) => `${MEDIATEK_CHAIN}${c.ref}`);
+  return (chains ?? []).map((c) => c.ref);
 }
 
 /** Filtered on the WHOLE ref: a chain is filed by path, and an empty search is every chain rather than none. */

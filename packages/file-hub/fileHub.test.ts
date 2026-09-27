@@ -191,9 +191,15 @@ describe("the file hub", () => {
     expect(
       roots[0].remote.endsWith(join(roots[0].name.slice(3), "workspace")),
     ).toBe(true);
-    expect(roots[1].name).toBe(`models-${roots[0].name.slice(3)}`);
+    // The account's libraries, READ-ONLY: a module's files the engine loads live in one.
+    expect(roots[1].name).toBe(`libs-${roots[0].name.slice(3)}`);
     expect(roots[1].writable).toBe(false);
-    expect(roots[2]).toEqual({
+    expect(
+      roots[1].remote.endsWith(join(roots[0].name.slice(3), "libraries")),
+    ).toBe(true);
+    expect(roots[2].name).toBe(`models-${roots[0].name.slice(3)}`);
+    expect(roots[2].writable).toBe(false);
+    expect(roots[3]).toEqual({
       remote: "/library",
       name: "mediatek",
       writable: false,

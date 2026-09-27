@@ -323,7 +323,7 @@ field: a blank label and no label are the same state, and only one of them shoul
   base ref of the OPEN song, and st0 passes `paramRef={null}` when it opens a module from the file
   tree — so a module in the libraries repository had nothing at all: not a base of this project, not
   instantiated, no engine behind the overlay. That is
-  `_libraries/modules/instruments/4osc/module.yaml`, where a shared module is authored, which makes
+  `_libraries/st0/modules/instruments/4osc/module.yaml`, where a shared module is authored, which makes
   it the case that mattered most. There are TWO ways a file names a built-in, and the second is the
   one that file actually uses:
 

@@ -276,17 +276,24 @@ constant exists so the migration and the diagnostics can say that word out loud 
 it inline in three places. It is also the measure of what a level rename costs, and the argument for
 not spending it again. See `packages/song/docs/moduleNamespaces.md`.
 
-## `_libraries` and `_modules`
+## The libraries, and `_modules`
 
-`LIBRARIES_DIR` is where the account's library repository is mounted, at the workspace root: a git
-submodule put there by the file service, holding the two families a project inherits, `modules/` and
-`chains/`. It is what `@st0/…` resolves against, and not the machine-wide `<state>/mediatek`
-cache. Fixed, and not declared anywhere, by the argument that leaves `modules_from` dead: a path in
-a `project.yaml` can be wrong about a folder the loader can simply look for. Both it and
-`SHARED_MODULES_DIR` are here rather than beside `moduleLibraryDirs` because a
-browser names these folders too — st0's file tree keeps `_libraries` off the Project tab, since it
-has a tab of its own — and `sharedFolders.ts` reads the disk on its first line
-(`packages/song/docs/sharedFolders.md`).
+The account has named LIBRARIES, each a repository the file service clones at
+`<studioHome>/<LIBRARIES_HOME_DIR>/<name>` (`libraries`), holding the families a project inherits:
+`modules/`, `chains/`, `assemblies/`. Library `<name>` is the level `@<name>` — `FIXED_NAMESPACES`
+is only `engine` and `workspace`, and every other `@` prefix is a library. `isLibraryName` says what
+a library may be called (a ref segment and a folder name at once, never `engine`, `workspace` or
+`meta`), `libraryRefParts` splits `@<library>/<rest>`, and `DEFAULT_LIBRARY` is `st0`, the name the
+account's first library gets so every `@st0/…` written before libraries had names still resolves.
+Not the machine-wide `<state>/mediatek` cache, and not declared anywhere, by the argument that
+leaves `modules_from` dead: a path in a `project.yaml` can be wrong about a folder the loader can
+simply look for.
+
+`LIBRARIES_DIR` (`_libraries`) is the VIRTUAL folder a workspace's file API answers the libraries
+at — `_libraries/<name>/…` — though no workspace holds one on disk. It and `SHARED_MODULES_DIR` are
+here rather than beside `moduleLibraryDirs` because a browser names these folders too — st0's
+Libraries tab reads a module's ref and its library off such a path — and `sharedFolders.ts` reads
+the disk on its first line (`packages/song/docs/sharedFolders.md`).
 
 ## The three spellings a built-in answers to
 
@@ -303,7 +310,7 @@ The third is the SLUG, and it is the one a library module actually uses. A modul
 for a plugin the engine provides states nothing else at all — this is the whole file:
 
 ```yaml
-# _libraries/modules/instruments/4osc/module.yaml
+# <library>/modules/instruments/4osc/module.yaml
 extends: "@engine/4osc"
 ```
 

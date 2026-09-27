@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs, loadModules } from "./loader";
 import { moduleAssetChoices } from "./moduleAssetChoices";
 import { resolveModuleMap } from "./moduleResolve";
+import { librariesFixture } from "./testSupport";
 
 let root: string;
 let project: string;
@@ -44,7 +45,7 @@ const mkNode = (name: string, yaml: string, assets: string[] = []) => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "assets-"));
   project = join(root, "ws", "song.st0");
-  libraries = join(root, "ws", "_libraries", "modules");
+  libraries = join(librariesFixture(join(root, "ws")), "modules");
   mkdirSync(project, { recursive: true });
 });
 

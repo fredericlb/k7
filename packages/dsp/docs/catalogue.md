@@ -108,8 +108,8 @@ roar. +30 is generous for anything worth normalising and finite for everything e
 This folder is copied into no account library. **The reference is the account's libraries
 repository**: what it holds is what a project inherits, and a build shipping its own copy of
 someone's modules would be a second source of truth — two sources can only end up contradicting
-each other. `initIfEmpty` does one thing: give a commit to a repository that has none, because a
-gitlink has to point somewhere.
+each other. `initIfEmpty` does one thing: give a commit to a repository that has none, so it has
+a branch for the next machine to fetch.
 
 What that costs, said here because here is where you would come looking for a seed: **a new
 library is empty**, so any `@st0/…` reference resolves to nothing until something is put in it —

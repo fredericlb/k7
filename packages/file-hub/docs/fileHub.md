@@ -84,7 +84,10 @@ An engine is shared, never concurrently: the account holding its claim drives it
 moves on, the previous account's file service **lets go** of the engine at its next request, before
 anything else, so a tab left open cannot push its project into an engine someone else is playing.
 Each account's copy on the engine's machine stays in its own folder, `ws-<accountKey>`, and is
-simply there again when that account comes back.
+simply there again when that account comes back. Its libraries travel beside it, read-only, as
+`libs-<accountKey>` (`<home>/libraries`, where the account's file service clones them): a module's
+files the engine loads — a Faust source, an amp's model, its samples — live in one, and no
+workspace holds a copy any more (`packages/file-service/docs/libraries.md`).
 
 ## What stays on the engine's machine
 

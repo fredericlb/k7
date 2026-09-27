@@ -92,16 +92,16 @@ sequence below, because in each there is no repository to resolve.
 | `/@banc/live.st0` | the bench: one live rig, generated — `/@banc/<chain>/live.st0` seeds it with a library chain | the lookup and the clone — the rig is written again on every open |
 | `/@local/<espace>/<projet>` | a project in a workspace with no repository | the lookup, the clone, **and the libraries check** |
 
-`@local` is the one that disagrees with step 0 below, and deliberately: a workspace with no
-repository mounts no submodule, and it is what a NEW account has — `Examples`, seeded with the
-demos. Refusing to open it without a library repository would put those demos behind the single
-piece of setup they exist to precede. See `apps/st0/frontend/docs/projects.md`.
+`@local` is the one that disagrees with step 0 below, and deliberately: a workspace on this
+machine is what a NEW account has — `Examples`, seeded with the demos — and a new account has no
+library. Refusing to open it without one would put those demos behind the single piece of setup
+they exist to precede. See `apps/st0/frontend/docs/projects.md`.
 
 The bench is the one the gate matches on the **app** as well as the name. It is a `.st0` project,
 so `/z0/editor/@banc/…` names nothing at all and must fall through to the ordinary road, where pl8
 answers "no such repository" — which is exactly what it is. Its wait is reported as `cloning` because from
-here it is the same thing: a visible wait while a machine mounts a library, and the first one is
-the slow one. The project part of the address rides along with it, since the machine is the side
+here it is the same thing: a visible wait while a machine brings the libraries up to date, and the
+first one is the slow one. The project part of the address rides along with it, since the machine is the side
 that says which address the bench answers.
 
 **`parseLaunch` knows about none of them.** All three are ordinary addresses whose repository part
@@ -113,10 +113,9 @@ name in front of an ordinary project path. The only rule any of them adds is a r
 
 ## What the gate does with an ordinary one
 
-0. `GET /api/projects/libraries` on **pl8** — the account's library repository, or null.
-   Before everything below, including the bench: a workspace mounts it as a submodule and every
-   `@st0/…` ref resolves inside it, so without one a song opens with every shared module
-   missing. That reads as a broken song rather than as an account nobody finished setting up,
+0. `GET /account/libraries` on the **file service** — the account's libraries, possibly none.
+   Before everything below, including the bench: every `@<library>/…` ref resolves against one
+   of them, so without any a song opens with every shared module missing. That reads as a broken song rather than as an account nobody finished setting up,
    which is why it gets a screen of its own and gets it *before* a thirty-second clone rather
    than after. No Retry — the answer was clear, and it stays that answer until somebody goes
    and sets it, on st0's home page (`apps/st0/frontend/docs/projects.md`).
@@ -128,11 +127,11 @@ name in front of an ordinary project path. The only rule any of them adds is a r
 3. If not, `POST /workspaces/clone` and poll the job, showing git's own progress. This is the
    visible wait the whole arrangement is designed around —
    `packages/file-service/docs/cloneJobs.md`.
-4. `configureFileApi` with the workspace it resolved, then `POST /open` on the project —
-   carrying the library URI from step 0, which is what mounts `_libraries` in that workspace if
-   it is not there yet. The URI rides on the request because the BROWSER is the side that knows
-   who is asking: it read it on this person's session, where the file service holds a machine
-   token and no session at all.
+4. `configureFileApi` with the workspace it resolved, then `POST /open` on the project. The
+   file service brings the account's libraries to their latest on the way — waiting only for one
+   not cloned yet — and takes out whatever old `_libraries` submodule the workspace still holds
+   (`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
+   they are the machine's, and it knows them.
 5. Render the app, through the `children` callback.
 
 Two failures get a screen of their own rather than a diagnosis, because in both the machine
@@ -155,8 +154,8 @@ holds `.z0` folders and a second one would be the second thing to keep in step w
 > **The screen is st0's, the storage is pl8's**, and that split is the whole arrangement: the
 > catalogue is what a project draws ON, while "which repositories do I have" is the first
 > question of the app that opens one, and the machine that scaffolds a project is st0's side of
-> the wire. So the list lives here and every route it calls — `repoByName`, `librariesRepo` —
-> is pl8's.
+> the wire. So the list lives here and the route it calls — `repoByName` — is pl8's; the
+> libraries are the machine's, and `accountLibraries` asks the file service.
 >
 > st0 answers the ORIGIN and the médiathèque is at `/pl8`, so this page is `<origin>/` and not
 > `<origin>/st0/`. `projectsUrl` asks `SERVICE_PATHS` rather than spelling either.

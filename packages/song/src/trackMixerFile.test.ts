@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { trackMixer } from "./project";
+import { librariesFixture } from "./testSupport";
 import {
   addTrackMixer,
   hasTrackMixer,
@@ -53,7 +54,13 @@ beforeEach(() => {
     "project:\n  name: t\n  tempo: 120\n",
     "utf8",
   );
-  const mixer = join(ws, "_libraries", "modules", "audio", "utility", "mixer");
+  const mixer = join(
+    librariesFixture(ws),
+    "modules",
+    "audio",
+    "utility",
+    "mixer",
+  );
   mkdirSync(mixer, { recursive: true });
   // The plugin inline in the FIXTURE's library, so nothing here waits on an engine scan.
   writeFileSync(

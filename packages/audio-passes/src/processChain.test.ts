@@ -16,6 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
+import { librariesFixture } from "@studio/song/testSupport";
 import { wavSeconds } from "@studio/take-render/wavLength";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
@@ -100,7 +101,7 @@ function song(): string {
 
 /** The account's LIBRARY submodule, beside the project rather than at `$STUDIO_MEDIATEK`. */
 function libraries(): string {
-  const d = join(ws, "_libraries");
+  const d = librariesFixture(ws);
   // Descriptive only — the level comes from where the root SITS, not from this line.
   put(d, "modules/config.yaml", "namespace: st0\n");
   put(

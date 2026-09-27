@@ -7,6 +7,7 @@ import { join } from "node:path";
 import type { EngineRegistry } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
+import { LIBRARIES_HOME_DIR } from "@studio/song-schema/moduleTypes";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import type { Instance } from "./instances.ts";
 
@@ -22,7 +23,14 @@ export interface BindingDeps {
 /** How long the engine gets to list its plugins; a cold scan is slow, and nothing waits on this. */
 const PLUGINS_TIMEOUT_MS = 30_000;
 
-/** What an engine's machine may see of an account: its workspaces, its models and the médiathèque read-only — never its keys. */
+/** The account's libraries, read-only: a module's files the engine loads (a Faust source, an amp's model, its samples) live in one. */
+const librariesRoot = (inst: Instance): TunnelRoot => ({
+  remote: join(inst.home, LIBRARIES_HOME_DIR),
+  name: `libs-${inst.slug}`,
+  writable: false,
+});
+
+/** What an engine's machine may see of an account: its workspaces, its libraries, its models and the médiathèque read-only — never its keys. */
 export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
   const roots: TunnelRoot[] = [
     {
@@ -30,6 +38,7 @@ export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
       name: `ws-${inst.slug}`,
       writable: true,
     },
+    librariesRoot(inst),
     // The models a separation or an amp names, downloaded once here and copied once there.
     {
       remote: join(inst.home, "models"),
@@ -56,6 +65,7 @@ export function cutRoots(inst: Instance, mediatekRoot: string): TunnelRoot[] {
       name: `ws-${inst.slug}`,
       writable: false,
     },
+    librariesRoot(inst),
   ];
 }
 

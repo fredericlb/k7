@@ -171,24 +171,27 @@ verbs talk to two services and a silent "that did nothing" is avoided everywhere
 screen does not know is refused **here**: there is no service behind to pass it to, unlike the
 editor's bar, whose lines end at `/command`.
 
-## The LIBRARIES repository, before everything else
+## The LIBRARIES, before everything else
 
-An account declares **one**, at the top of the page, before the list of repositories and before
-the tree: the modules and chains all its projects inherit. Without it, st0 refuses to open
-anything — not on principle, but because no `@st0/…` reference would resolve, and a song opened
+An account declares its libraries at the top of the page, before the list of repositories and
+before the tree: named repositories of the modules and chains all its projects inherit. Without
+one, st0 refuses to open anything — not on principle, but because no `@st0/…` reference would
+resolve, and a song opened
 with all its shared modules missing reads as a broken song rather than as an account somebody has
 not finished setting up. That is also why the card is **at the top and tinted when empty**: it is
 the only thing to do on this screen until it is done, and the refusal `ProjectGate` will meet a
 click later is the same fact, said too late.
 
-One, not a list: it is mounted at a fixed path in every workspace (`<espace>/_libraries`, see
-[packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)), and two
-repositories claiming that path is a question with no answer. A second library is a folder IN that
-repository.
+**A list, each one named.** The name is the level its refs use — `@drums/audio/kick` — and it is
+optional on the card: the first library is called `st0`, which is what every `@st0/…` written before
+libraries had names means, and any other takes its repository's name. The file service clones each
+one under `<studioHome>/libraries/<name>` and keeps it at its latest; no workspace holds a copy
+([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). A row's ✕
+removes one — its clone goes too, unless it holds work nobody published — and **Update** fetches
+them all now rather than at the next open.
 
-**An empty repository gets one empty commit, once.** On the first project opened, the file service
-makes the missing root and pushes it (`initIfEmpty`). A gitlink has to point AT a commit, and a
-repository just created in a web interface has none — `git submodule add` on an unborn HEAD fails.
+**An empty repository gets one empty commit, once**, when it is added (`initIfEmpty`): a
+repository just created in a web interface has no branch for the next machine to fetch.
 
 > **Nothing SEEDS modules into it, deliberately.** `initIfEmpty` lays the commit and nothing else:
 > the libraries repository is the reference, so a new library is **empty** and a scaffolded set's
@@ -215,18 +218,19 @@ scaffold has just written and the workspace does not resolve
 - **The sentence promises no catalogue.** It names the modules owed and says you write them
   yourself, so as not to suggest something is going to fetch them.
 
-**Changing it touches no machine.** Workspaces already cloned keep the old one: their submodule
-still points there, and the file service REFUSES to rewrite it rather than doing so silently.
+**Changing the list changes every workspace at once**, since none holds a copy: that is the
+point. A library pointed at another repository is re-cloned — unless its clone holds work nobody
+published, in which case it is kept and the card says what is there.
 
 ### Adding one CLONES it, and nothing is made before it is there
 
 The card's button waits, and says *Cloning…* while it does: a paste that looks like an SSH URI is
 not yet a repository this machine's key can read, and a clone is the only thing that answers that
-question. A refusal names what git said and stores nothing. Where that clone LANDS, and why it is
-the bench's workspace rather than a place invented for it, is
+question. A refusal names what git said and stores nothing. Where the clone lands and how it is
+kept current is
 [packages/file-service/docs/libraries.md](../../../../packages/file-service/docs/libraries.md).
 
-**Nouveau** and **Importer** are greyed until the card is filled, saying so on the button rather
+**Nouveau** and **Importer** are greyed until the card holds a library, saying so on the button rather
 than on the click, and the file service refuses the same two calls on its own side. A workspace
 made before the library exists is a folder whose every `@st0/…` resolves to nothing — the same
 half-set-up account the card exists to prevent, one level down and harder to read, since by then
@@ -390,8 +394,8 @@ impeccable short name and resolves to a 404 at the gate. That is why this page s
 
 **`@local` does NOT require a libraries repository**, and it is the only place this route disagrees
 with the other two. The `no-libraries` refusal is raised first because an unresolved `@st0/…`
-reference makes a song read as broken rather than as an unfinished account. But a workspace with
-no repository mounts no submodule, and that is what a NEW account has: demanding a library would
+reference makes a song read as broken rather than as an unfinished account. But a demo on this
+machine needs none, and no library is what a NEW account has: demanding one would
 put the demos behind the one thing they exist to precede. A reference that does not resolve
 already reports itself, on its node.
 
@@ -756,7 +760,8 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
 - **add a libraries repository**: the button says *Clonage…* and waits — a clone, not a spelling
   check. Give it a URI whose host is wrong → the refusal carries git's own words, the card still
   reads as empty, and the two workspace buttons are still greyed. Give it a real one → the card
-  fills, both buttons come back, and `<state>/workspace/Banc/_libraries` is on disk;
+  lists `@st0`, both buttons come back, and `<state>/libraries/st0` is on disk;
+- **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ removes it and its clone;
 - **the bench card**, once there is a library: one button, which opens `/@banc/live.st0` on a rig
   you can play. Wire something into it, reopen it → the rig is the scaffold again;
 - **drag a `.dawproject` onto a workspace row**: that row alone lights up, the popin opens on the

@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunColdStep } from "@studio/audio-passes/coldPass";
+import { librariesFixture } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost.ts";
@@ -60,41 +61,41 @@ beforeEach(() => {
   // A project, because the chain is resolved through its module vocabulary.
   put(root, "song/project.yaml", "project:\n  name: t\n  tempo: 120\n");
   // …and the library holding the separator and a chain that names it.
-  put(root, "_libraries/modules/config.yaml", "namespace: st0\n");
+  put(librariesFixture(root), "modules/config.yaml", "namespace: st0\n");
   put(
-    root,
-    "_libraries/modules/audio/stemsplit/module.yaml",
+    librariesFixture(root),
+    "modules/audio/stemsplit/module.yaml",
     "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\n",
   );
   put(
-    root,
-    "_libraries/modules/audio/stemsplit/assets/htdemucs.onnx",
+    librariesFixture(root),
+    "modules/audio/stemsplit/assets/htdemucs.onnx",
     "not a model",
   );
   put(
-    root,
-    "_libraries/chains/stems/graph.yaml",
+    librariesFixture(root),
+    "chains/stems/graph.yaml",
     'modules:\n  "@in": [ split ]\n  split: [ "@out" ]\n',
   );
   put(
-    root,
-    "_libraries/chains/stems/nodes/split.yaml",
+    librariesFixture(root),
+    "chains/stems/nodes/split.yaml",
     'extends: "@st0/audio/stemsplit"\n',
   );
   // …and one that treats rather than separates, for the refusal below.
   put(
-    root,
-    "_libraries/modules/audio/eq/module.yaml",
+    librariesFixture(root),
+    "modules/audio/eq/module.yaml",
     "plugin:\n  type: internal\n  name: 4Band EQ\n",
   );
   put(
-    root,
-    "_libraries/chains/warm/graph.yaml",
+    librariesFixture(root),
+    "chains/warm/graph.yaml",
     'modules:\n  "@in": [ hp ]\n  hp: [ "@out" ]\n',
   );
   put(
-    root,
-    "_libraries/chains/warm/nodes/hp.yaml",
+    librariesFixture(root),
+    "chains/warm/nodes/hp.yaml",
     'extends: "@st0/audio/eq"\n',
   );
 });

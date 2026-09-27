@@ -3,12 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  accountLibraries,
   hasSharedModules,
+  libraryFamilyRoot,
+  libraryFamilyRoots,
+  libraryOf,
   moduleLibraryDirs,
   moduleNamespaceOf,
 } from "./sharedFolders";
+import { librariesFixture } from "./testSupport";
 
-// A project sees `_modules` and `_libraries/modules` by WHERE they sit, not by any declaration.
+// A project sees `_modules` beside it and every library the machine cloned, by WHERE they sit —
+// never by any declaration.
 describe("sharedFolders", () => {
   let ws: string;
   let project: string;
@@ -23,8 +29,8 @@ describe("sharedFolders", () => {
       "project:\n  name: song\n",
       "utf8",
     );
-    // The library submodule is IN the workspace, so there is no machine-wide folder to restore.
-    libraries = join(ws, "_libraries");
+    // The account's `st0` library, where the file service clones it: under `$STUDIO_HOME`.
+    libraries = librariesFixture(ws);
   });
   afterEach(() => {
     rmSync(ws, { recursive: true, force: true });
@@ -46,13 +52,13 @@ describe("sharedFolders", () => {
     expect(moduleLibraryDirs(project)).toEqual([join(ws, "_modules")]);
   });
 
-  it("finds the médiathèque with nothing said anywhere", () => {
+  it("finds a library with nothing said anywhere", () => {
     addMediatek("modules");
     expect(moduleLibraryDirs(project)).toEqual([join(libraries, "modules")]);
   });
 
   it("puts the workspace's own first — order is precedence", () => {
-    // What sits beside the song beats what the account's library brings along.
+    // What sits beside the song beats what the account's libraries bring along.
     addModules();
     addMediatek("modules");
     expect(moduleLibraryDirs(project)).toEqual([
@@ -90,38 +96,69 @@ describe("sharedFolders", () => {
     expect(moduleLibraryDirs(project)).toEqual([join(libraries, "modules")]);
   });
 
-  it("names each root by where it sits", () => {
+  it("names each root by where it sits — a library by its NAME", () => {
     addModules();
     addMediatek("modules");
     expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
-    // `st0` names the app that serves the library, not the folder it sits in.
     expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("st0");
+  });
+
+  it("sees EVERY library the machine cloned, each under its own name", () => {
+    addMediatek("modules");
+    const drums = librariesFixture(ws, "drums");
+    mkdirSync(join(drums, "modules"), { recursive: true });
+    expect(accountLibraries().map((l) => l.name)).toEqual(["drums", "st0"]);
+    expect(moduleLibraryDirs(project)).toEqual([
+      join(drums, "modules"),
+      join(libraries, "modules"),
+    ]);
+    expect(moduleNamespaceOf(join(drums, "modules"))).toBe("drums");
+  });
+
+  it("is not fooled by a folder no library could be called", () => {
+    // A clone still filling, or a name a ref already means something else by, is no library.
+    const home = join(libraries, "..");
+    mkdirSync(join(home, ".cloning-1", "modules"), { recursive: true });
+    mkdirSync(join(home, "engine", "modules"), { recursive: true });
+    mkdirSync(join(home, "Upper", "modules"), { recursive: true });
+    addMediatek("modules");
+    expect(accountLibraries().map((l) => l.name)).toEqual(["st0"]);
+  });
+
+  it("lists one family across the libraries that carry it", () => {
+    addMediatek("chains");
+    librariesFixture(ws, "drums"); // no chains/ at all
+    expect(libraryFamilyRoots("chains")).toEqual([
+      { name: "st0", root: join(libraries, "chains") },
+    ]);
+    expect(libraryFamilyRoot("st0", "chains")).toBe(join(libraries, "chains"));
+    expect(libraryFamilyRoot("drums", "chains")).toBeNull();
+    expect(libraryFamilyRoot("../st0", "chains")).toBeNull();
   });
 });
 
-// A chain template inside the library saw NO catalogue, so every node drew as a missing plugin.
-describe("a folder INSIDE the library repository", () => {
-  it("reaches the library's own modules", () => {
+// A chain template inside a library saw NO catalogue once, so every node drew as a missing plugin.
+describe("a folder INSIDE a library", () => {
+  it("reaches the libraries' modules, and knows which library it is in", () => {
     const ws = mkdtempSync(join(tmpdir(), "inside-"));
     try {
-      mkdirSync(join(ws, "_libraries", "modules", "audio"), {
-        recursive: true,
-      });
-      const chain = join(ws, "_libraries", "chains", "process", "normalize");
+      const lib = librariesFixture(ws);
+      mkdirSync(join(lib, "modules", "audio"), { recursive: true });
+      const chain = join(lib, "chains", "process", "normalize");
       mkdirSync(chain, { recursive: true });
-      expect(moduleLibraryDirs(chain)).toEqual([
-        join(ws, "_libraries", "modules"),
-      ]);
+      expect(moduleLibraryDirs(chain)).toEqual([join(lib, "modules")]);
+      expect(libraryOf(chain)).toEqual({ name: "st0", root: lib });
     } finally {
       rmSync(ws, { recursive: true, force: true });
     }
   });
 
-  it("is not a search — a folder with no `_libraries` on its path finds nothing", () => {
-    // These are FIXED locations: the segment is on the path or it is not, and nothing hunts.
+  it("is not a search — a folder outside the libraries is in none", () => {
     const bare = mkdtempSync(join(tmpdir(), "bare-"));
     try {
-      expect(moduleLibraryDirs(bare)).toEqual([]);
+      librariesFixture(bare);
+      expect(libraryOf(bare)).toBeNull();
+      expect(libraryOf(join(bare, "_libraries", "st0"))).toBeNull();
     } finally {
       rmSync(bare, { recursive: true, force: true });
     }

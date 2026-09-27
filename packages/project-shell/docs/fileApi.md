@@ -93,13 +93,11 @@ waveforms, video; z0's editor uses it as it stands.
   repository, so there is no name to resolve and nothing to clone. `@banc` in the address routes
   here. It can be slow the first time — a library that is not yet mounted — which is why it takes
   over the clone's progress screen rather than being asked for silently
-  (`apps/pl8/docs/banc.md`). It is handed the account's library repository, because every module
-  the rig can name is in it; and it is handed the project part of the address verbatim, because
-  the MACHINE is what builds the bench and therefore what decides which address it answers.
-- **`open`** takes the library URI for the same reason: the BROWSER is the side that knows who is
-  asking. It read the URI from pl8 a moment ago, on this person's session, where the file service
-  holds a machine token and no session at all. The machine mounts it at `_libraries` if it is not
-  there already (`packages/file-service/src/libraries.ts`).
+  (`apps/pl8/docs/banc.md`). It is handed the project part of the address verbatim, because the
+  MACHINE is what builds the bench and therefore what decides which address it answers; the
+  libraries are the machine's already.
+- **`open`** takes the project and nothing else: the machine keeps the account's libraries and
+  brings them up to date on the way (`packages/file-service/docs/libraries.md`).
 - **`moduleLibraries` and `libraryChains`** sit beside `/tree` because that one is the SONG and
   these are outside it. A chain's `path` comes from the service rather than being built by the
   caller, exactly as a module library's does.
@@ -172,7 +170,7 @@ table and this file never has to know it.
 Both errors are raised in the SERVER's words, because pl8 is the side that can be specific — an
 unknown name, or a name two repositories answer to.
 
-`librariesRepo` answers `null` with a **200** and not a 404: "none set" is the ordinary state of a
-new account, and a status code is the wrong place to keep the difference between that and a service
+`accountLibraries` answers an EMPTY list with a **200** and not a 404: "none set" is the ordinary
+state of a new account, and a status code is the wrong place to keep the difference between that and a service
 that is down. Only the second is worth a diagnosis. It is asked before the project is resolved, for
 the reason `launch.md` gives at step 0.

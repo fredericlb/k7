@@ -30,8 +30,8 @@ already carrying it into a folder that no longer opens. `deadProjectFields` repo
 instead, naming the lines to delete — which is what keeps "accepted" from meaning "silently
 ignored".
 
-- `modules_from` / `libraries_from`: a project sees the workspace's `_modules`/`_libraries` and the
-  médiathèque because of where they are (`sharedFolders.ts`), so nothing reads these.
+- `modules_from` / `libraries_from`: a project sees the workspace's `_modules` and the account's
+  libraries because of where they are (`sharedFolders.ts`), so nothing reads these.
 - `video`: what draws the frame is a `surfaces/` file, and what says a song HAS picture is
   `video_tracks/` existing — a boolean agreeing with neither would just be a third answer.
 - `type`: it names the DIALECT for the one case the folder name cannot — a repository that IS the

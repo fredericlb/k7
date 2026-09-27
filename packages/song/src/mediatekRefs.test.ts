@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mediatekPathPrefix, mediatekRefs } from "./mediatekRefs";
+import { librariesFixture } from "./testSupport";
 
 let ws: string;
 let dir: string;
@@ -58,7 +59,7 @@ describe("the médiathèque modules a project names", () => {
 
   it("follows what a library module extends in turn", () => {
     // Fetching a child alone lands a module whose substance is in a parent nobody asked for.
-    const at = join(ws, "_libraries", "modules", "audio", "amp", "child");
+    const at = join(librariesFixture(ws), "modules", "audio", "amp", "child");
     mkdirSync(at, { recursive: true });
     writeFileSync(
       join(at, "module.yaml"),

@@ -262,10 +262,10 @@
   readable:
     en: "Pull the latest changes"
     fr: "Récupérer les dernières modifications"
-# The account's libraries are their own repository, mounted at `_libraries` as a submodule:
-# this fetches the latest of them and records, in one path-limited commit, the version this
-# workspace now uses. The other direction — publishing a module you edited — is the builder's
-# Save. See packages/file-service/docs/libraries.md.
+# The account's libraries are repositories of their own, which the file service clones and keeps
+# at their latest: this fetches every one of them now, instead of at the next open. The other
+# direction — publishing a module you edited — is the builder's Save. See
+# packages/file-service/docs/libraries.md.
 - command: "project libraries update"
   sid: project.libraries.update
   help: "update the shared libraries to their latest version"

@@ -4,10 +4,10 @@
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
+  AccountLibrary,
   AccountWorkspace,
   FileNode,
   RepoProject,
-  RepoRef,
   ShareSummary,
 } from "@studio/web-protocol";
 import { isDroppableProject } from "@studio/web-protocol/projects";
@@ -63,14 +63,14 @@ export function ProjectsPane({
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
   const blocked = fileService ? "" : m["projects.noFilesBlocked"]();
 
-  // The account's library, read by the card below and kept HERE: it also decides whether a
+  // The account's libraries, read by the card below and kept HERE: they also decide whether a
   // workspace may be made at all, and two reads would be two answers.
-  const [libraries, setLibraries] = useState<RepoRef | null | undefined>(
+  const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
     undefined,
   );
   /** …and what that costs the two workspace buttons. Still reading is not yet a refusal: the file service says no anyway. */
   const blockedWorkspace =
-    blocked || (libraries === null ? m["ws.needLibraries"]() : "");
+    blocked || (libraries?.length === 0 ? m["ws.needLibraries"]() : "");
 
   /** The file service, or a refusal that reads — reaching here means it vanished between the dialog opening and the click. */
   const chosen = useCallback((): AccountFiles => {
@@ -295,8 +295,8 @@ export function ProjectsPane({
           setImported(null);
         }}
       />
-      <LibrariesCard fileService={fileService} onRepo={setLibraries} />
-      {/* Under the card that declares the library, because every module the rig can name is in it. */}
+      <LibrariesCard fileService={fileService} onLibraries={setLibraries} />
+      {/* Under the card that declares the libraries, because every module the rig can name is in one. */}
       <BenchCard libraries={libraries} />
       {ws ? (
         <RepoTree

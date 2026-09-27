@@ -17,6 +17,7 @@
     "@studio/engine-registry": "*",
     "@studio/engine-tunnel": "*",
     "@studio/file-service": "*",
+    "@studio/song-schema": "*",
     "@studio/web-protocol": "*",
     "express": "^4.19.2",
     "tsx": "^4.16.0"

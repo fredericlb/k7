@@ -211,7 +211,6 @@ import {
   newAlternative,
   pull,
   switchAlternative,
-  updateLibraries,
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
 import { PICTURE_VERBS } from "./verbs/picture.ts";
@@ -264,6 +263,14 @@ export interface CommandHost {
   gitEnv?: GitEnv;
   // Where the whole-repo git commands run — the workspace ROOT on the web, since a workspace is one cloned repo.
   repoDir?: string;
+  /** Bring the account's libraries to their latest — the FILE SERVICE keeps them, so it is handed in; docs/verbs.md. */
+  updateLibraries?(): Promise<
+    {
+      name: string;
+      state: "cloned" | "updated" | "current" | "kept" | "failed";
+      note: string;
+    }[]
+  >;
   // Back up a file the command is about to overwrite, so undo can restore it — docs/verbs.md.
   snapshot?(absPath: string): void;
   /** Send one recorder take to the médiathèque. Handed in, because the bytes are on the ENGINE's
@@ -4021,30 +4028,26 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  // project libraries update — the SUBMODULE, not the workspace: the libraries are their own repo.
+  // project libraries update — the ACCOUNT's libraries, not the workspace: the file service keeps them.
   "project.libraries.update": async (_a, h) => {
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) {
-      h.refuse(["no repository"]);
+    if (!h.updateLibraries) {
+      h.refuse([
+        "the libraries are kept by the file service — update them from st0",
+      ]);
       return;
     }
-    try {
-      const r = updateLibraries(dir, h.gitEnv);
-      const moved = `libraries ${r.from || "(none)"} → ${r.to}`;
-      h.log([
-        r.upToDate
-          ? `the libraries are already at ${r.to || "their first version"}`
-          : r.recorded
-            ? `${moved}, and this workspace now uses them (${r.recorded})`
-            : r.recordError
-              ? `${moved}, but the version could not be recorded: ${r.recordError}`
-              : moved,
-      ]);
-      // The modules a song resolves through `@st0/…` just moved, so what is open is out of date.
-      if (!r.upToDate && h.songPath) await h.reload();
-    } catch (e) {
-      h.refuse([`libraries update failed: ${(e as Error).message}`]);
+    const results = await h.updateLibraries();
+    if (!results.length) {
+      h.refuse(["this account has no libraries — add one on st0's home page"]);
+      return;
     }
+    h.log(results.map((r) => `${r.name}: ${r.note}`));
+    // The modules a song resolves through `@<library>/…` just moved, so what is open is out of date.
+    if (
+      results.some((r) => r.state === "updated" || r.state === "cloned") &&
+      h.songPath
+    )
+      await h.reload();
   },
 
   // --- alternatives: all four act on the REPO, since an alternative is a branch of the whole clone

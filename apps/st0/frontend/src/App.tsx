@@ -4075,7 +4075,7 @@ export default function App({
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder
-              // ONE store: the libraries are a submodule inside the workspace, so a shared module is an ordinary workspace path.
+              // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
               store={moduleStore}
               path={builder.path}
               kind="module"

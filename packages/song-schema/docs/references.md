@@ -21,7 +21,7 @@ What follows from it, and is the point: **nothing has to be imported**. A folder
 whatever you already use — a clone, a drop from the OS, a copy over ssh — is a listing that is
 already right.
 
-## `_references`, beside `_modules`, `_libraries` and `_playlists`
+## `_references`, beside `_modules` and `_playlists`
 
 Same **kind** of folder, so same place and same rule: found by where it is, never by a line
 declaring it (`@studio/song`'s `docs/sharedFolders.md`). A reference is not part of a project

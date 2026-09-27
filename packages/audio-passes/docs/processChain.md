@@ -121,17 +121,19 @@ name), so there is nothing here to divert — seeing it would mean reading the g
 time. A separation is asked for by naming the library chain that holds it, which is where
 `stemsplit` lives anyway.
 
-**The médiathèque's**, under its own token: `@st0/live/vocal-strip`, or `@st0/vocal-strip`
-by bare name. The project is asked first and the library only under the token, so a project
-chain can never be shadowed by a library one that happens to share its name.
+**A library's**, under its name: `@st0/live/vocal-strip`, or `@st0/vocal-strip` by bare name —
+`@drums/kit/room` for another library. The project is asked first and a library only under its
+`@<name>/`, so a project chain can never be shadowed by a library one that happens to share its
+name. A name with no `@` that no project chain answers is looked for in every library, the default
+`st0` first: that is what a bare chain name meant before libraries had names.
 
 A library chain is a TEMPLATE — a `graph.yaml` with `@in` and `@out` for ends, and a `nodes/`
-folder beside it — read from the workspace's **library repository** (`_libraries/chains/…`, what
-`librariesDirFor` resolves), because that is the disk the engine can open. `libraryChains` walks
-that repository rather than the machine's médiathèque cache, which is why it takes the project
-dir: a chain is a folder holding a `graph.yaml` at any depth, and nothing inside one is another
-— the médiathèque's own rule, restated here because `scanFamily` is bound to the cache root. A
-submodule that is not mounted is an empty list, never a throw. Same layout as a
+folder beside it — read from the account's **libraries** (each one's `chains/…`, walked by
+`@studio/song`'s `libraryChainDirs`), because that is the disk the engine can open, rather than the
+machine's médiathèque cache: a chain is a folder holding a `graph.yaml` at any depth, and nothing
+inside one is another — the médiathèque's own rule, restated there because `scanFamily` is bound to
+the cache root. A library with no `chains/`, or none cloned at all, is an empty list, never a
+throw. Same layout as a
 project, deliberately and to the filename: see `@studio/mediatek`'s `docs/chains.md`. Each node is
 resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the
 eq's plugin, params and preset folded in.
@@ -216,11 +218,11 @@ author there; what the module has to say is in `@studio/dsp`'s `docs/catalogue.m
 two files:
 
 ```yaml
-# _libraries/chains/stems/graph.yaml
+# <library>/chains/stems/graph.yaml
 modules:
   "@in": [ stemsplit ]
   stemsplit: [ "@out" ]
-# _libraries/chains/stems/nodes/stemsplit.yaml
+# <library>/chains/stems/nodes/stemsplit.yaml
 extends: "@st0/audio/separation/stemsplit"
 ```
 

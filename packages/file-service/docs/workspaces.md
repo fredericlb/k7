@@ -326,18 +326,15 @@ person hits removing the folder by hand, where Explorer reports it as a request 
 and elevating does not help. `deleteProject` has carried that rule since it was written
 (*"Release every handle inside the folder before renaming"*); this route follows it.
 
-## An import mounts the LIBRARY too, and that is not the gate's job
+## An import brings the LIBRARIES up to date too
 
-`git clone` writes `.gitmodules` and leaves `_libraries` **empty**: a submodule is not populated
-until something inits it. So a clone that stopped at the media would land a workspace whose every
-`@st0/…` is unresolved — twenty-seven of them on a real song — with nothing on screen to say the
-folder is there but hollow.
+The libraries are the account's, not the workspace's: no workspace holds a copy
+(`libraries.md`). An import still ends with them — after the clone lands and before the media,
+`cloneWorkspace` refreshes the account's clones (waiting only for one not cloned yet), so the first
+open of what was just imported finds every `@<library>/…` it names.
 
-`cloneWorkspace` therefore mounts it, after the clone lands and before the media. Non-fatal, for
-the same reason the LFS fetch is: the workspace IS cloned, and a library that would not mount is
-reported rather than a reason to undo the rest.
-
-It is `_libraries` **per WORKSPACE**, not per project — one library that every project in the
-workspace resolves against, which is what `@st0` means. `ProjectGate` still passes the pointer on
-open, and `ensureLibraries` is idempotent, so the two do not fight: the import is where it usually
-happens, the open is what catches a workspace that predates the pointer.
+A workspace committed back when libraries were a submodule arrives with a `.gitmodules` for
+`_libraries`; the import takes it out (`retireWorkspaceLibraries`) in one path-limited commit, not
+pushed, and says so on the progress line. Non-fatal, for the same reason the LFS fetch is: the
+workspace IS cloned, and a library that would not sync is reported rather than a reason to undo the
+rest. `POST /open` does the same two things, which is what catches a workspace cloned before.

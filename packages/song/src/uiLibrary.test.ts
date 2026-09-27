@@ -58,8 +58,7 @@ describe("panels across more than one library", () => {
   // A SECOND library at `_libraries/modules`, answering to `@st0` by its folder and no config.
   let media: string;
   beforeEach(() => {
-    media = join(root, "_libraries");
-    writeLibraries(root);
+    media = writeLibraries(root);
   });
 
   it("loads a module OUT of the media library, through the @st0 token", () => {

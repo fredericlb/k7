@@ -11,6 +11,7 @@ import {
 import { loadModuleRefs } from "./loader";
 import { resolveModule } from "./moduleResolve";
 import type { LoadedModule } from "./rawDoc";
+import { librariesFixture } from "./testSupport";
 import { loadUiLibrary } from "./uiLibrary";
 
 // A scanned plugin's face is a `@st0` module extending `@engine`, resolved by the PROJECT that loads it.
@@ -35,7 +36,7 @@ let dir: string;
 
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-face-"));
-  media = join(ws, "_libraries");
+  media = librariesFixture(ws);
   dir = join(ws, "song");
   mkdirSync(dir, { recursive: true });
   writeFileSync(

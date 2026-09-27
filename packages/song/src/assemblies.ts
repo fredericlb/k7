@@ -6,6 +6,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { libraryRef, libraryRefParts } from "@studio/song-schema/moduleTypes";
 import {
   ASSEMBLIES_DIR,
   ASSEMBLY_FILE,
@@ -19,14 +20,11 @@ import type {
   AssemblyTemplate,
 } from "@studio/song-schema/yaml/assemblySchema";
 import type { Diagnostic } from "./loader";
-import { librariesFamilyRoot } from "./sharedFolders";
+import { libraryFamilyRoot, libraryFamilyRoots } from "./sharedFolders";
 import { entityFiles } from "./yaml/moduleIO";
 
 export type { ProjectAssemblies, ProjectAssembly };
 export { ASSEMBLIES_DIR, ASSEMBLY_FILE };
-
-/** The level an assembly template is named by — the library repository, as a chain template is. */
-export const ASSEMBLY_NS = "@st0/";
 
 /** Every assembly a project declares, in filename order; an unreadable one is reported and skipped. */
 export function projectAssemblies(dir: string): ProjectAssemblies {
@@ -64,16 +62,16 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
   return { assemblies, diagnostics };
 }
 
-/** The folder a ref names, or null — `@st0/turntable` is `_libraries/assemblies/turntable`. */
-export function assemblyFolder(dir: string, ref: string): string | null {
-  if (!ref.startsWith(ASSEMBLY_NS)) return null;
-  const root = librariesFamilyRoot(dir, ASSEMBLIES_DIR);
+/** The folder a ref names, or null — `@st0/turntable` is the `st0` library's `assemblies/turntable`. */
+export function assemblyFolder(_dir: string, ref: string): string | null {
+  const parts = libraryRefParts(ref);
+  if (!parts) return null;
+  const root = libraryFamilyRoot(parts.library, ASSEMBLIES_DIR);
   if (!root) return null;
   // A ref is a path under the family folder, so a `..` in it would reach out of the library.
-  const rest = ref.slice(ASSEMBLY_NS.length);
-  if (!rest || rest.split(/[\\/]+/).some((s) => !s || s === "." || s === ".."))
-    return null;
-  const folder = join(root, ...rest.split("/"));
+  const segs = parts.rest.split(/[\\/]+/);
+  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const folder = join(root, ...segs);
   return existsSync(join(folder, ASSEMBLY_FILE)) ? folder : null;
 }
 
@@ -95,26 +93,26 @@ export function loadAssemblyTemplate(
   };
 }
 
-/** Every assembly template the library holds, by ref — what a picker and the builder list. */
+/** Every assembly template the libraries hold, by ref — what a picker and the builder list. */
 export function libraryAssemblies(
-  dir: string,
+  _dir: string,
 ): { ref: string; path: string }[] {
-  const root = librariesFamilyRoot(dir, ASSEMBLIES_DIR);
-  if (!root) return [];
   const out: { ref: string; path: string }[] = [];
-  // A folder holding an `assembly.yaml` IS one, and nothing inside one is another.
-  const walk = (folder: string, rel: string[]): void => {
-    if (existsSync(join(folder, ASSEMBLY_FILE))) {
-      out.push({ ref: `${ASSEMBLY_NS}${rel.join("/")}`, path: folder });
-      return;
-    }
-    for (const name of readdirSync(folder).sort())
-      if (statSync(join(folder, name)).isDirectory())
-        walk(join(folder, name), [...rel, name]);
-  };
-  for (const name of readdirSync(root).sort())
-    if (statSync(join(root, name)).isDirectory())
-      walk(join(root, name), [name]);
+  for (const { name: library, root } of libraryFamilyRoots(ASSEMBLIES_DIR)) {
+    // A folder holding an `assembly.yaml` IS one, and nothing inside one is another.
+    const walk = (folder: string, rel: string[]): void => {
+      if (existsSync(join(folder, ASSEMBLY_FILE))) {
+        out.push({ ref: libraryRef(library, rel.join("/")), path: folder });
+        return;
+      }
+      for (const name of readdirSync(folder).sort())
+        if (statSync(join(folder, name)).isDirectory())
+          walk(join(folder, name), [...rel, name]);
+    };
+    for (const name of readdirSync(root).sort())
+      if (statSync(join(root, name)).isDirectory())
+        walk(join(root, name), [name]);
+  }
   return out;
 }
 

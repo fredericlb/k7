@@ -1,16 +1,16 @@
-// repoLookup.ts — the account's library repository, and nothing else. It asked pl8 for two
-// things once: this, and the git URI behind a short name. The register is gone with the
-// portable address, and the pointer moved to the machine that holds the working copies —
+// repoLookup.ts — the account's libraries, and nothing else. It asked pl8 for two things once:
+// the library pointer, and the git URI behind a short name. The register is gone with the
+// portable address, and the libraries moved to the machine that clones them —
 // apps/st0/frontend/docs/projects.md.
 
-import type { RepoRef } from "@studio/web-protocol";
+import type {
+  AccountLibrariesReply,
+  AccountLibrary,
+} from "@studio/web-protocol";
 import { fget } from "./fileApi.ts";
 
-export async function librariesRepo(): Promise<RepoRef | null> {
-  // THIS MACHINE's, not pl8's: nothing outlives the machine that holds the working copies, so
-  // the pointer lives beside them — apps/st0/frontend/docs/projects.md.
-  const { libraries } = await fget<{ libraries: RepoRef | null }>(
-    "/account/libraries",
-  );
-  return libraries ?? null;
+/** THIS MACHINE's list: nothing outlives the machine that holds the clones, so the list lives beside them. */
+export async function accountLibraries(): Promise<AccountLibrary[]> {
+  const { libraries } = await fget<AccountLibrariesReply>("/account/libraries");
+  return libraries ?? [];
 }

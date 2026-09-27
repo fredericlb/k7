@@ -9,6 +9,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isOfflineModule } from "@studio/audio-passes/coldPass";
 import { chainSteps } from "@studio/song/chainsGraph";
+import { findLibraryChain, libraryChainDirs } from "@studio/song/libraryChains";
 import { loadModuleRefs } from "@studio/song/loader";
 import { resolveModule } from "@studio/song/moduleResolve";
 import {
@@ -16,12 +17,10 @@ import {
   LIVE_INPUT,
   LIVE_RECORDER,
 } from "@studio/song/scaffoldLive";
-import { librariesDirFor } from "@studio/song/sharedFolders";
 import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { LiveChain } from "@studio/web-protocol";
 import { parse as parseYaml } from "yaml";
-import { walkLibraryChains } from "./libraryChains.ts";
 
 /** A chain template's two ends, as its graph spells them — docs/graphFile.md. */
 const CHAIN_IN = "@in";
@@ -75,10 +74,10 @@ function refusal(
   return null;
 }
 
-/** The chains of `dir`'s library, each with why it cannot run live — a cold one is listed, not dropped (apps/k7/docs/chainSource.md). */
+/** Every library's chains, by `@<library>/<path>`, each with why it cannot run live against `dir`'s modules — a cold one is listed, not dropped (apps/k7/docs/chainSource.md). */
 export function liveChains(dir: string): LiveChain[] {
   const byRef = loadModuleRefs(dir);
-  return walkLibraryChains(librariesDirFor(dir, "chains")).map((c) => ({
+  return libraryChainDirs().map((c) => ({
     ref: c.ref,
     unavailable: refusal(c.dir, byRef),
   }));
@@ -86,9 +85,8 @@ export function liveChains(dir: string): LiveChain[] {
 
 /** Put the chain `ref` of the library between the bench's input and its fader; throws with the reason. */
 export function spliceChain(benchDir: string, ref: string): void {
-  const chain = walkLibraryChains(librariesDirFor(benchDir, "chains")).find(
-    (c) => c.ref === ref,
-  );
+  // A BARE ref is the default library's: bench addresses minted before libraries had names say one.
+  const chain = findLibraryChain(ref);
   if (!chain) throw new Error(`no chain "${ref}" in the library`);
   const why = refusal(chain.dir, loadModuleRefs(benchDir));
   if (why) throw new Error(`the chain "${ref}" cannot run live: ${why}`);

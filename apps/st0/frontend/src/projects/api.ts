@@ -7,6 +7,7 @@
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
+  type AccountLibrariesReply,
   type AccountWorkspace,
   type AccountWorkspaceList,
   type CloneJob,
@@ -16,7 +17,6 @@ import {
   type FileNode,
   type ModelDownloadJob,
   type RepoProject,
-  type RepoRef,
   type ServedProject,
   type ServedProjectReply,
   type ShareComment,
@@ -158,34 +158,43 @@ export interface AccountFiles {
 /** The file-service calls this page makes, each carrying its file service explicitly: a row touches a different repository every time. */
 export const accountFiles = {
   /**
-   * The LIBRARY repository the account holds — `null` is the ordinary state of a new one, hence
-   * a 200 with a null rather than a 404. It was pl8's until pl8 stopped knowing about git.
+   * The LIBRARIES the account holds — an empty list is the ordinary state of a new one. They were
+   * pl8's until pl8 stopped knowing about git, and one repository until they had names.
    *
    * Named service and not through `fileApi`: this screen opens no project, so the module-level
    * transport is unconfigured and `cfg()` would throw "no project opened yet" (../../docs/projects.md).
    */
-  libraries: async (m: AccountFiles): Promise<RepoRef | null> => {
-    const { libraries } = await json<{ libraries: RepoRef | null }>(
+  libraries: async (m: AccountFiles): Promise<AccountLibrariesReply> =>
+    json<AccountLibrariesReply>(
       await fetch(`${m.fileBase}/account/libraries`, {
         headers: filesHeaders(m),
       }),
       "libraries",
-    );
-    return libraries;
-  },
+    ),
 
-  /** SET it — the same URI twice is the same as once, and the far side CLONES before it writes it down. */
-  setLibraries: async (m: AccountFiles, uri: string): Promise<RepoRef> => {
-    const { libraries } = await json<{ libraries: RepoRef }>(
+  /** SET the whole list — the far side CLONES any library new to it before it writes it down, and drops the clones of those it lost. */
+  setLibraries: async (
+    m: AccountFiles,
+    libraries: { name?: string; uri: string }[],
+  ): Promise<AccountLibrariesReply> =>
+    json<AccountLibrariesReply>(
       await fetch(`${m.fileBase}/account/libraries`, {
         method: "PUT",
         headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ uri }),
+        body: JSON.stringify({ libraries }),
       }),
       "libraries",
-    );
-    return libraries;
-  },
+    ),
+
+  /** Bring every library to its latest commit now, rather than at the next open. */
+  updateLibraries: async (m: AccountFiles): Promise<AccountLibrariesReply> =>
+    json<AccountLibrariesReply>(
+      await fetch(`${m.fileBase}/account/libraries/update`, {
+        method: "POST",
+        headers: filesHeaders(m),
+      }),
+      "libraries",
+    ),
 
   /** Which COLD chains of the library this machine separates and makes instrumentals with, and the ones it could — machine settings, no project open. */
   coldChains: async (m: AccountFiles): Promise<ColdChainsReply> =>

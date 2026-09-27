@@ -1,11 +1,9 @@
-import { isSshGitUri, repoName } from "@studio/git-repos/uri";
 // server.ts — the file service: one account's workspaces and every file op on them, run by the
 // SERVER's file hub, one process per account (packages/file-hub/docs/fileHub.md). Loopback only,
 // gated by the hub's secret. Drives whichever engine the hub binds it to, through that engine's
 // tunnel; engines' machines run no file service. Run under tsx to import the brain's TS.
 
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
 import { validate, wrap } from "@frediverse/http/route";
 import { coldChains } from "@studio/audio-passes/processChain";
 import {
@@ -22,6 +20,7 @@ import {
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import {
+  type AccountLibrariesReply,
   type AccountWorkspaceList,
   type ColdChainsReply,
   HUB_SECRET_HEADER,
@@ -29,15 +28,11 @@ import {
   type SurfacedProjectList,
   type WorkspaceList,
 } from "@studio/web-protocol";
-import {
-  BENCH_PROJECT,
-  benchChainOf,
-  isBenchProject,
-} from "@studio/web-protocol/projects";
+import { benchChainOf, isBenchProject } from "@studio/web-protocol/projects";
 import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
-import { BENCH_WORKSPACE, ensureBench, ensureBenchLibraries } from "./bench.ts";
+import { benchDir, ensureBench } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
 import { boundJobsUrl } from "./boundMachine.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
@@ -52,7 +47,17 @@ import {
   unloadEngineIfServing,
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
-import { librariesUri, setLibrariesUri } from "./libraries.ts";
+import {
+  defaultLibraryName,
+  type LibrarySetting,
+  libraryDir,
+  librarySettings,
+  pruneLibraries,
+  setLibrarySettings,
+  settingsProblem,
+  syncLibraries,
+  syncLibrary,
+} from "./libraries.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -61,7 +66,7 @@ import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
-import { rootDir, workspaceRoot } from "./slug.ts";
+import { rootDir } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
 import {
   assertSshGitUri,
@@ -146,14 +151,14 @@ app.get(
   }),
 );
 /**
- * A workspace is not made or cloned before the account HAS a library. Everything in one resolves
- * `@st0/…` through it, and a workspace made without one opens onto references that resolve to
- * nothing — see docs/libraries.md. The URI is validated by CLONING when it is added, below.
+ * A workspace is not made or cloned before the account HAS a library. Every `@<library>/…` a
+ * project extends resolves through one, and a workspace made without any opens onto references
+ * that resolve to nothing — see docs/libraries.md. A URI is validated by CLONING when it is added.
  */
 const NO_LIBRARIES =
-  "no libraries repository — add one on st0's home page, in the card above the list";
+  "no libraries — add one on st0's home page, in the card above the list";
 const hasLibraries = (res: Response): boolean => {
-  if (librariesUri()) return true;
+  if (librarySettings().length) return true;
   res.status(400).json({ error: NO_LIBRARIES });
   return false;
 };
@@ -297,13 +302,11 @@ app.post(
         error:
           "@banc opens one live rig, and nothing else. A shared MODULE or a CHAIN is edited from a project you already have open — its Libraries tab.",
       });
-    // The account's library repository, from the browser — the side that holds pl8's session.
-    const libraries = String(req.body?.libraries ?? "");
-    if (!libraries) return res.status(400).json({ error: NO_LIBRARIES });
+    if (!hasLibraries(res)) return;
     // A library chain the address puts on the rig — what k7 records through, apps/k7/docs/chainSource.md.
     const chain = benchChainOf(String(req.body.project)) ?? undefined;
     try {
-      res.json(await ensureBench(req.userEmail!, libraries, chain));
+      res.json(await ensureBench(req.userEmail!, chain));
     } catch (e) {
       // A library that will not mount is the USER's problem to read, so it is a 409 and not a fault.
       res.status(409).json({ error: (e as Error).message });
@@ -422,71 +425,113 @@ app.get(
  * cloned nothing, and the screen has a button for it rather than an error.
  */
 /**
- * The account's library repository — the pointer pl8 used to hold, now this machine's. Answered
- * BEFORE `resolveWorkspace`, like the key: the gate asks for it with no workspace chosen yet.
- *
- * `null` with a 200 and not a 404: no library repository is the ordinary state of a new machine,
- * and the gate draws a screen for it rather than an error.
+ * The account's LIBRARIES — named repositories this machine clones and keeps at their latest.
+ * Answered BEFORE `resolveWorkspace`, like the key: the gate asks with no workspace chosen yet,
+ * and an empty list is the ordinary state of a new machine, which the gate has a screen for.
  */
+const librariesView = (notes?: AccountLibrariesReply["notes"]) => {
+  const reply: AccountLibrariesReply = {
+    libraries: librarySettings().map((l) => ({
+      ...l,
+      cloned: existsSync(libraryDir(l.name)),
+    })),
+  };
+  if (notes?.length) reply.notes = notes;
+  return reply;
+};
+
 app.get(
   "/account/libraries",
   wrap((_req, res) => {
-    const uri = librariesUri();
-    res.json({ libraries: uri ? { uri, name: repoName(uri) } : null });
+    res.json(librariesView());
   }),
 );
 
+/**
+ * SET the whole list. `{ uri }` alone ADDS one, as the single-library card used to send. A library
+ * new to the list, or pointing somewhere new, is CLONED before the list is written down: a URI
+ * nobody can clone is not a library. Clones the list dropped are removed, unless they hold
+ * unpublished work — docs/libraries.md.
+ */
+const libraryEntry = z.object({
+  name: z.string().trim().optional(),
+  uri: z.string().trim(),
+});
+const librariesBody = z.union([
+  z.object({ libraries: z.array(libraryEntry) }),
+  libraryEntry,
+]);
 app.put(
   "/account/libraries",
+  validate(librariesBody),
   wrap(async (req, res) => {
-    const uri = String((req.body as { uri?: unknown })?.uri ?? "").trim();
-    // The servers' own rule, so a paste refused here is refused everywhere.
-    if (!isSshGitUri(uri))
-      return res
-        .status(400)
-        .json({ error: `not an SSH git URI: ${uri || "(empty)"}` });
-    // CLONED before it is written down: a URI nobody can clone is not a library, and the clone
-    // this leaves is the one the bench opens against — docs/libraries.md.
-    try {
-      await ensureBenchLibraries(req.userEmail!, uri);
-    } catch (e) {
-      return res
-        .status(400)
-        .json({ error: `could not clone ${uri} — ${(e as Error).message}` });
-    }
-    setLibrariesUri(uri);
-    res.json({ libraries: { uri, name: repoName(uri) } });
+    const body = req.body as z.infer<typeof librariesBody>;
+    const before = librarySettings();
+    const asked =
+      "libraries" in body
+        ? body.libraries
+        : before.some((l) => l.uri === body.uri)
+          ? before
+          : [...before, body];
+    const list: LibrarySetting[] = [];
+    for (const l of asked)
+      list.push({
+        name: l.name || defaultLibraryName(l.uri, list),
+        uri: l.uri,
+      });
+    const problem = settingsProblem(list);
+    if (problem) return res.status(400).json({ error: problem });
+
+    const fresh = list.filter(
+      (l) => !before.some((b) => b.name === l.name && b.uri === l.uri),
+    );
+    const notes = await Promise.all(
+      fresh.map((l) => syncLibrary(req.userEmail!, l)),
+    );
+    const failed = notes.filter((n) => n.state === "failed");
+    if (failed.length)
+      return res.status(400).json({
+        error: failed
+          .map((n) => `could not clone '${n.name}' — ${n.note}`)
+          .join("; "),
+      });
+    setLibrarySettings(list);
+    notes.push(...(await pruneLibraries(req.userEmail!)));
+    res.json(librariesView(notes));
+  }),
+);
+
+/** Bring every library to its latest commit now — the explicit form of what an open does at most once a minute. */
+app.post(
+  "/account/libraries/update",
+  wrap(async (req, res) => {
+    res.json(
+      librariesView(await syncLibraries(req.userEmail!, { force: true })),
+    );
   }),
 );
 
 /**
  * WHICH chains this machine separates a record with and makes an instrumental with — standing
  * answers for the machine, so they are st0's GLOBAL settings and answered before
- * `resolveWorkspace`, like the library: no project is open when they are set. The choice is from
- * the library's COLD chains, judged against the bench's clone of it (`coldChains`). See
- * docs/libraries.md.
+ * `resolveWorkspace`, like the libraries: no project is open when they are set. The choice is
+ * from the libraries' COLD chains (`coldChains`). See docs/libraries.md.
  */
 const coldChainsView = (): ColdChainsReply => {
   const prefs = loadPreferences();
   return {
-    // No library, no chains — and no clone to read, which is the ordinary state of a new machine.
-    chains: librariesUri()
-      ? coldChains(join(workspaceRoot(BENCH_WORKSPACE), BENCH_PROJECT))
-      : [],
+    // No library cloned, no chains — the ordinary state of a new machine, and an empty list.
+    chains: coldChains(benchDir()),
     stemsChain: prefs.stemsChain ?? null,
     instrumentalChain: prefs.instrumentalChain ?? null,
   };
 };
 
-/** The library's chains and whether each can be PLAYED live on the bench — k7's chain source, read off the bench's clone like the cold ones. */
+/** The libraries' chains and whether each can be PLAYED live on the bench — k7's chain source. */
 app.get(
   "/account/live-chains",
   wrap((_req, res) => {
-    res.json({
-      chains: librariesUri()
-        ? liveChains(join(workspaceRoot(BENCH_WORKSPACE), BENCH_PROJECT))
-        : [],
-    });
+    res.json({ chains: liveChains(benchDir()) });
   }),
 );
 

@@ -1,8 +1,8 @@
 # The repository's verbs — commit, pull, status, the libraries, and "alternatives"
 
 Everything in `src/git.ts` acts on the WHOLE repository the working directory belongs to, because
-a workspace IS one clone. The one exception is `updateLibraries`, whose subject is the `_libraries`
-submodule inside it — the section below says what that costs. `gitEnv` is the host's transport config merged over the process env: the
+a workspace IS one clone. The account's libraries are not in it, and the verb that updates them is
+not here either — the section below says why. `gitEnv` is the host's transport config merged over the process env: the
 web host pins `GIT_SSH_COMMAND` to the per-user deploy key, and the CLI passes nothing. An
 `undefined` env inherits `process.env`; a map overrides only the keys it names.
 
@@ -25,27 +25,26 @@ clock along with the request. When the bound is hit, git is killed and the call 
   when there is no repository or no upstream to compare against. `conflicted` is behind AND ahead —
   `pull --ff-only` cannot run, so the badge flags it instead of showing a count.
 
-## `project libraries update` — the one verb whose subject is a SUBMODULE
+## `project libraries update` — handed in, because its subject is the ACCOUNT
 
-The account's libraries are their own repository, mounted at `_libraries`
+The account's libraries are repositories of their own, which the FILE SERVICE clones under
+`<studioHome>/libraries/<name>` and keeps at their latest
 ([file-service/docs/libraries.md](../../file-service/docs/libraries.md)). Publishing a module you
-edited is the builder's Save; this verb is the other direction, and it is two steps, in this order:
+edited is the builder's Save; this verb is the other direction — fetch every library now rather than
+at the next open — and it is the file service's own sync, reached through
+`CommandHost.updateLibraries`: the dependency runs file-service → commands, never back.
 
-1. **`submodule update --init --remote`.** `--remote` is the whole verb — without it, git checks
-   out the commit this workspace already records, which is the opposite of updating.
-2. **One path-limited commit** over `.gitmodules` and `_libraries`, saying which version the
-   workspace now uses. Never pushed: which library version a song is built against is a fact about
-   this workspace until somebody commits the rest of it.
+So the handler only SAYS what happened, one line per library by name, and:
 
-Two mounts exist, because `ensureLibraries` makes two. A workspace that is a git repository gets a
-**submodule**; one that is not gets a **plain clone** in the same place, which has no gitlink and
-so is moved with `pull --ff-only` and recorded nowhere. `isSubmodule` reads `.gitmodules` to tell
-them apart rather than guessing from the folder.
+- **refuses** on a host that hands no sync in, rather than reading as "up to date", and on an
+  account with no library at all;
+- **reloads the open song only when a library MOVED** (`updated` or `cloned`) — the modules it
+  resolves through `@<library>/…` are different now. A library KEPT because it holds unpublished
+  work is said, not reloaded for.
 
-**A failure to record is not a failure to update.** The files have already moved by then, so it
-comes back as `recordError` beside the new sha — the shape `commitAndPush` uses for a push that
-failed after the commit landed. Reporting it as a refusal would send someone looking for an update
-that already happened.
+No workspace repository gets a commit: none records a library version any more. That used to be a
+path-limited gitlink commit written here and in the file service both, and it is gone with the
+submodule.
 
 ## An alternative is a branch, with the branch you left remembered
 

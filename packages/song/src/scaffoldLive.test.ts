@@ -36,6 +36,7 @@ import {
   projectSurfaces,
   surfaceIssues,
 } from "./surfaces";
+import { librariesFixture } from "./testSupport";
 
 /** Every file under `dir`, project-relative and slash-separated. */
 function tree(dir: string): string[] {
@@ -59,7 +60,7 @@ function tree(dir: string): string[] {
  */
 const made = (write: (dir: string, name: string) => unknown): string => {
   const ws = mkdtempSync(join(tmpdir(), "live-"));
-  const lib = join(ws, "_libraries", "modules", "audio", "utility");
+  const lib = join(librariesFixture(ws), "modules", "audio", "utility");
   for (const [name, plugin] of [
     ["mixer", MIXER_PLUGIN],
     ["recorder", RECORDER_PLUGIN],

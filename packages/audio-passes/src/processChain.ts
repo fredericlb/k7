@@ -5,10 +5,8 @@
 
 import {
   copyFileSync,
-  type Dirent,
   existsSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
 } from "node:fs";
@@ -25,14 +23,18 @@ import {
 } from "@studio/engine-protocol/build";
 import { CHAINS_FILE, NODES_DIR } from "@studio/mediatek/types";
 import { chainSteps } from "@studio/song/chainsGraph";
+import { libraryChainDirs } from "@studio/song/libraryChains";
 import { loadModuleRefs } from "@studio/song/loader";
 import { type MissingModel, missingModel } from "@studio/song/modelCache";
 import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
-import { librariesDirFor } from "@studio/song/sharedFolders";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
+import {
+  DEFAULT_LIBRARY,
+  libraryRefParts,
+} from "@studio/song-schema/moduleTypes";
 import { INSTRUMENTAL } from "@studio/song-schema/stems";
 import {
   retimeWarpMarkers,
@@ -51,9 +53,6 @@ import {
   runColdPasses,
 } from "./coldPass";
 import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
-
-/** The token a médiathèque chain is named by, so it cannot collide with a project's own chain names. */
-export const MEDIATEK_CHAIN = "@st0/";
 
 /** The one track a bounce document has. A name, so a doc read by hand says what it was for. */
 const BOUNCE_CHAIN = "process";
@@ -98,39 +97,33 @@ function dspGraphOf(m: LoadedModule): string | undefined {
   }
 }
 
-/** The chains the account's LIBRARY holds, named by their path under `chains/` — see docs/processChain.md. */
-function libraryChains(dir: string): { ref: string; folder: string }[] {
-  const root = librariesDirFor(dir, "chains");
-  const out: { ref: string; folder: string }[] = [];
-  const walk = (at: string, ref: string): void => {
-    let entries: Dirent[];
-    try {
-      entries = readdirSync(at, { withFileTypes: true });
-    } catch {
-      return; // not mounted, or not a folder — both are "no chains here"
-    }
-    if (entries.some((e) => e.isFile() && e.name === CHAINS_FILE))
-      return void out.push({ ref, folder: at });
-    for (const e of entries)
-      if (e.isDirectory())
-        walk(join(at, e.name), ref ? `${ref}/${e.name}` : e.name);
-  };
-  walk(root, "");
-  return out;
+/** A chain of one of the account's LIBRARIES: its ref (`@st0/bass/di`), its library and path, and its folder. */
+interface LibraryChain {
+  ref: string;
+  library: string;
+  path: string;
+  folder: string;
 }
 
-/** The chains this command can name: the project's own, then the médiathèque's under their token. */
-export function chainNames(dir: string, project: ProjectDoc): string[] {
+/** The chains the account's libraries hold — see docs/processChain.md. */
+function libraryChains(): LibraryChain[] {
+  return libraryChainDirs().map((c) => ({
+    ref: c.ref,
+    library: c.library,
+    path: c.path,
+    folder: c.dir,
+  }));
+}
+
+/** The chains this command can name: the project's own, then every library's under its `@<library>/` ref. */
+export function chainNames(_dir: string, project: ProjectDoc): string[] {
   const own = new Set<string>();
   for (const t of project.tracks)
     for (const p of t.plugins) {
       const at = p.id.indexOf(":");
       if (at > 0) own.add(p.id.slice(0, at));
     }
-  return [
-    ...[...own].sort(),
-    ...libraryChains(dir).map((c) => `${MEDIATEK_CHAIN}${c.ref}`),
-  ];
+  return [...[...own].sort(), ...libraryChains().map((c) => c.ref)];
 }
 
 /** A chain of the PROJECT, taken off the compiled document under its `<chain>:` prefix — docs/processChain.md. */
@@ -145,15 +138,24 @@ function projectChain(
   return null;
 }
 
-/** The médiathèque chain a ref names, by path first and then by bare name — a variant's own order. */
+/** The library chain a ref names, by path first and then by bare name — a variant's own order.
+ *
+ * `library` narrows it to one library when the ref named one; a BARE ref looks in the default
+ * library first, since that is what every bare ref meant before libraries had names. */
 function findChainFolder(
-  dir: string,
+  library: string | null,
   want: string,
-): { ref: string; folder: string } | null {
-  const chains = libraryChains(dir);
+): LibraryChain | null {
+  const chains = libraryChains()
+    .filter((c) => library === null || c.library === library)
+    .sort(
+      (a, b) =>
+        Number(b.library === DEFAULT_LIBRARY) -
+        Number(a.library === DEFAULT_LIBRARY),
+    );
   return (
-    chains.find((c) => c.ref === want) ??
-    chains.find((c) => c.ref.split("/").pop() === want) ??
+    chains.find((c) => c.path === want) ??
+    chains.find((c) => c.path.split("/").pop() === want) ??
     null
   );
 }
@@ -259,7 +261,7 @@ export interface ColdChain {
  */
 export function coldChains(dir: string): ColdChain[] {
   const out: ColdChain[] = [];
-  for (const c of libraryChains(dir)) {
+  for (const c of libraryChains()) {
     let chain: ReturnType<typeof mediatekChain>;
     try {
       chain = mediatekChain(dir, c.folder);
@@ -268,7 +270,7 @@ export function coldChains(dir: string): ColdChain[] {
     }
     if (!chain.offline.length || chain.offline.length !== chain.steps) continue;
     out.push({
-      ref: `${MEDIATEK_CHAIN}${c.ref}`,
+      ref: c.ref,
       instrumental: chain.offline.some((s) => s.outputs.includes(INSTRUMENTAL)),
       unavailable: chain.missing.length ? chain.missing.join("; ") : null,
       downloads: chain.offline.flatMap((s) =>
@@ -287,10 +289,10 @@ export function resolveChain(
 ): ResolvedChain {
   const trimmed = ref.trim();
   if (!trimmed) throw new Error("no chain named");
-  const library = trimmed.startsWith(MEDIATEK_CHAIN);
-  const want = (
-    library ? trimmed.slice(MEDIATEK_CHAIN.length) : trimmed
-  ).replace(/^\/+|\/+$/g, "");
+  // `@<library>/<path>` names one library; a bare name is the project's first, then any library's.
+  const named = libraryRefParts(trimmed);
+  const library = named !== null;
+  const want = (named ? named.rest : trimmed).replace(/^\/+|\/+$/g, "");
   const slug =
     want
       .split("/")
@@ -318,14 +320,14 @@ export function resolveChain(
     }
   }
 
-  const found = findChainFolder(dir, want);
+  const found = findChainFolder(named?.library ?? null, want);
   if (!found) {
     const known = chainNames(dir, project);
     throw new Error(
       `no chain '${trimmed}' — known here: ${known.join(", ") || "none"}` +
-        (libraryChains(dir).length
+        (libraryChains().length
           ? ""
-          : " (this machine has synced no médiathèque chains)"),
+          : " (this machine has cloned no library holding chains)"),
     );
   }
   const { plugins, cold, missing } = mediatekChain(dir, found.folder);

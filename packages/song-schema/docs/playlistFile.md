@@ -6,7 +6,7 @@ what one says, and how a line is added to one AS TEXT. What a playlist is FOR li
 
 ## `_playlists/`, at the workspace root
 
-Beside `_modules` and `_libraries` and named like them, because it is the same KIND of thing:
+Beside `_modules` and named like it, because it is the same KIND of thing:
 something every project in the workspace draws on, found by where it sits rather than by a line
 declaring it. A playlist is not a project and does not belong inside one — you build a set list once
 and open it against whichever project you happen to be working in.

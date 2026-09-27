@@ -20,25 +20,22 @@ import { Workspace } from "./workspace.ts";
 
 const EMAIL = "someone@example.test";
 
-/** Never fetched: the mount is pre-populated, so `ensureLibraries` returns without touching git. */
-const LIBRARIES_URI = "git@example.test:studio/libraries.git";
-
 /** The package-wide pin from vitest.config.ts, put back after each test rather than deleted. */
 const PINNED_HOME = process.env.STUDIO_HOME;
 let home: string;
 
-/** The bench's workspace, which is where the library submodule is mounted. */
+/** The bench's workspace — which holds no library: the account's are cloned under `$STUDIO_HOME`. */
 const benchRoot = (): string => join(rootDir(), BENCH_WORKSPACE);
 const benchDir = (): string => join(benchRoot(), BENCH_PROJECT);
-const libraryChain = (): string =>
-  join(benchRoot(), "_libraries", "chains/live/vocals");
+const libraryDir = (): string => join(home, "libraries", "st0");
+const libraryChain = (): string => join(libraryDir(), "chains/live/vocals");
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-bench-home-"));
   // Off the real machine: this test writes a library checkout, and the user's own is not a fixture.
   process.env.STUDIO_HOME = home;
 
-  // The library submodule, laid out by hand where the file service would have cloned it.
+  // The `st0` library, laid out by hand where the file service would have cloned it.
   mkdirSync(libraryChain(), { recursive: true });
   writeFileSync(
     join(libraryChain(), "graph.yaml"),
@@ -54,7 +51,7 @@ afterEach(() => {
 
 describe("the bench", () => {
   it("opens on a live rig, naming no chain of the library", async () => {
-    const { workspace, project } = await ensureBench(EMAIL, LIBRARIES_URI);
+    const { workspace, project } = await ensureBench(EMAIL);
     expect(workspace).toBe(BENCH_WORKSPACE);
     expect(project).toBe(BENCH_PROJECT);
 
@@ -65,7 +62,7 @@ describe("the bench", () => {
   });
 
   it("throws away what was wired on it, at the next open", async () => {
-    await ensureBench(EMAIL, LIBRARIES_URI);
+    await ensureBench(EMAIL);
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
     ws.write(
@@ -73,14 +70,14 @@ describe("the bench", () => {
       "modules:\n  IN: [ reverb ]\n  reverb: [ MIX ]\n",
     );
 
-    await ensureBench(EMAIL, LIBRARIES_URI);
+    await ensureBench(EMAIL);
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).not.toContain("reverb");
     expect(graph).toContain("IN: [ fader ]");
   });
 
   it("sends nothing back to the library, graph or node", async () => {
-    await ensureBench(EMAIL, LIBRARIES_URI);
+    await ensureBench(EMAIL);
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
 
@@ -102,13 +99,28 @@ describe("the bench", () => {
 
   it("writes a shared module in place, with no fork and no push", async () => {
     // The one thing a bench session keeps: a library module is an ORDINARY path here.
-    await ensureBench(EMAIL, LIBRARIES_URI);
+    await ensureBench(EMAIL);
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
 
-    const rel = "_libraries/modules/audio/comp/module.yaml";
+    // Reached through the workspace's VIRTUAL `_libraries/<name>/`, landing in the account's clone.
+    const rel = "_libraries/st0/modules/audio/comp/module.yaml";
     expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
-    expect(readFileSync(join(benchRoot(), rel), "utf8")).toContain("internal");
+    expect(
+      readFileSync(
+        join(libraryDir(), "modules/audio/comp/module.yaml"),
+        "utf8",
+      ),
+    ).toContain("internal");
+    expect(existsSync(join(benchRoot(), "_libraries"))).toBe(false);
+  });
+
+  it("refuses a path that climbs out of the libraries through the virtual folder", async () => {
+    await ensureBench(EMAIL);
+    const ws = new Workspace(benchRoot());
+    expect(() => ws.write("_libraries/../../escape.yaml", "x: 1\n")).toThrow(
+      /escapes/,
+    );
   });
 
   it("clears the per-chain benches an older address left behind", async () => {
@@ -116,7 +128,7 @@ describe("the bench", () => {
     mkdirSync(stale, { recursive: true });
     writeFileSync(join(stale, "project.yaml"), "project:\n  name: x\n", "utf8");
 
-    await ensureBench(EMAIL, LIBRARIES_URI);
+    await ensureBench(EMAIL);
     expect(existsSync(join(benchRoot(), "chains"))).toBe(false);
     // …and the library it was a view of is untouched by the sweep.
     expect(existsSync(join(libraryChain(), "graph.yaml"))).toBe(true);
