@@ -8,6 +8,7 @@
 
 #include "RateBridge.h"
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -33,6 +34,8 @@ public:
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override;
     void deinitialise() override {}
     void reset() override;
+    /** A stop or a panic: every voice let go at the next block — the core is the audio thread's (docs/panic.md). */
+    void midiPanic() override;
     void applyToBuffer(const tracktion::engine::PluginRenderContext&) override;
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
@@ -76,6 +79,9 @@ private:
 
     Shape shape_;
     RateBridge bridge_;
+    // Asked on the message thread, done at the top of the next block, since the core and the bridge run on the audio thread.
+    std::atomic<bool> releasePending_{false};
+    std::atomic<bool> resetPending_{false};
     double hostRate_ = 48000.0;
     // Planar copies of the host block, input and sidechain, sized at initialise so the callback allocates nothing.
     std::vector<std::vector<float>> in_, out_;

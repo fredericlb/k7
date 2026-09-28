@@ -28,8 +28,13 @@ import {
   LIBRARIES_HOME_DIR,
 } from "@studio/song-schema/moduleTypes";
 
-/** The three families a library repository carries — `library/` is not one, see docs/moduleAssets.md. */
-export type LibraryFamily = "modules" | "chains" | "assemblies";
+/** The families a library repository carries — `library/` is not one, see docs/moduleAssets.md and docs/libraryFiles.md. */
+export type LibraryFamily =
+  | "modules"
+  | "chains"
+  | "assemblies"
+  | "samples"
+  | "irs";
 
 /** Where the file service clones the account's libraries: `<studioHome>/libraries` — docs/sharedFolders.md. */
 export const librariesHome = (): string =>

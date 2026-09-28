@@ -41,6 +41,7 @@ import {
   loadGraph,
   parseChains,
 } from "@studio/song/graph";
+import { libraryFiles } from "@studio/song/libraryFiles";
 import {
   cloneModuleFile,
   createModuleFile,
@@ -62,6 +63,7 @@ import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
 import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
 import { addTrackMixer } from "@studio/song/trackMixerFile";
+import { selectModuleAlternative } from "@studio/song-edit/alternativeSwitch";
 import { spliceProjectTime } from "@studio/song-edit/insertTime";
 import {
   consolidateSequenceMaterial,
@@ -83,7 +85,6 @@ import {
   placeChainNode,
   renameChainNode,
   replugChainNodes,
-  selectModuleAlternative,
   setChainNodePosition,
   setChainNodePositions,
   setClipOnsets,
@@ -121,6 +122,8 @@ import {
   CUE_NODE,
   curveRef,
   isBuiltinOutput,
+  isLibraryFileParam,
+  LIBRARY_FILE_PARAMS,
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
@@ -138,6 +141,7 @@ import {
   type Placement,
   PlacementSchema,
 } from "@studio/song-schema/yaml/placementSchema";
+import { withModuleParams } from "./moduleValues";
 
 /** Everything a placement may say beyond WHERE it goes, listed rather than spread — docs/verbs.md. */
 const EVENT_FIELDS = [
@@ -1465,7 +1469,18 @@ async function setFileParam(
   const file = rawFile.replace(/^"(.*)"$/s, "$1").trim();
   const clearing = file === "none";
   // An empty list means the module has no `assets/` — say that, not "no such file".
-  if (!clearing) {
+  if (!clearing && isLibraryFileParam(param)) {
+    // A library's file, by `@<library>/<path>`: the same list the panel's picker offers (packages/song/docs/libraryFiles.md).
+    const shared = libraryFiles(LIBRARY_FILE_PARAMS[param]);
+    if (!shared.includes(file)) {
+      h.refuse([
+        shared.length
+          ? `no '${file}' in the libraries' ${LIBRARY_FILE_PARAMS[param]}/ — they have: ${shared.slice(0, 8).join(", ")}${shared.length > 8 ? ", …" : ""}`
+          : `no library has a ${LIBRARY_FILE_PARAMS[param]}/ folder with a sound file in it yet`,
+      ]);
+      return;
+    }
+  } else if (!clearing) {
     const found = loadModules(h.songPath)[module];
     // Its own assets AND its ancestors': the same answer the panel's picker offers — docs/verbs.md.
     const have = moduleAssetChoices(
@@ -3079,9 +3094,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         ]);
         return;
       }
-      selectModuleAlternative(h.songPath, module, name);
+      const { values } = selectModuleAlternative(h.songPath, module, name);
       h.log([`${module}: running alternative '${name}'`]);
-      await h.reload();
+      // Two sets differing in numbers alone reach the engine as a diff of the held doc, not a recompile.
+      const np =
+        values &&
+        withModuleParams(h.project(), module, values.params, values.whole);
+      if (np) await h.applyProject(np);
+      else await h.reload();
     } catch (e) {
       h.refuse([`node alternative: ${(e as Error).message}`]);
     }
@@ -3186,7 +3206,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     // …and a FILE-valued one (`nam`, `onnx`), whose value is a filename read at BUILD time — setFileParam.
-    if (isFileParam(param)) {
+    if (isFileParam(param) || isLibraryFileParam(param)) {
       await setFileParam(h, module, param, rawValue);
       return;
     }
@@ -3579,12 +3599,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       // What it extended BEFORE, read first because `setModuleExtends` is about to overwrite it.
       const was = moduleLeafOf(loadModules(h.songPath)[key]?.extends);
-      const { rel, dropped } = setModuleExtends(h.songPath, key, ref);
+      const { rel, dropped, alternative } = setModuleExtends(
+        h.songPath,
+        key,
+        ref,
+      );
       h.log([
-        `${key}: extends ${ref} (${rel})` +
+        `${key}${alternative ? `, alternative '${alternative}'` : ""}: extends ${ref} (${rel})` +
           (dropped.length ? ` — dropped its own ${dropped.join(", ")}` : ""),
       ]);
-      const renamed = was ? renameForNewModule(h, key, was, ref) : null;
+      // A SET repointed leaves the node's name alone: it names every set, and the first is still the old module.
+      const renamed =
+        was && !alternative ? renameForNewModule(h, key, was, ref) : null;
       await h.reload();
       if (renamed) h.log([renamed]);
     } catch (e) {

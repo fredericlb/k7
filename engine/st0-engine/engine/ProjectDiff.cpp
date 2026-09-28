@@ -38,6 +38,9 @@ std::string keyOf(const PluginDoc& p) {
     }
     // A platter's RECORD is loaded at insert, so putting another one on has to read as a replace.
     if (!p.deckFile.empty()) k += "@" + p.deckFile;
+    // …and so are a NAM module's model and its cabinet IR: another pick is another plugin, or the diff is empty.
+    if (!p.namFile.empty()) k += "|nam=" + p.namFile;
+    if (!p.irFile.empty()) k += "|ir=" + p.irFile;
     // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".
     for (const auto& e : p.rack)
         k += "|" + e.symbol + "=" + std::to_string(e.note) + "@" + e.clip

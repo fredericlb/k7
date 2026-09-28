@@ -82,7 +82,10 @@ function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
 
 // Named providers behind commands.yaml `complete:`; `satisfies` is load-bearing, docs/completions.md.
 const PROVIDERS = {
-  baseModules: (h) => h.baseModules,
+  // `@engine` refs are for the libraries to extend, never a pick here — `engineModules` is the one verb's that wants them.
+  baseModules: (h) => h.baseModules.filter((r) => !isEngineRef(r)),
+  /** The scanned plugins alone — what `module own` gives a folder to. */
+  engineModules: (h) => h.baseModules.filter(isEngineRef),
   /** The boxes this project declares — read off the folder, since a name is all a verb needs. */
   assemblies: (h) =>
     h.songPath ? projectAssemblies(h.songPath).assemblies.map((a) => a.id) : [],
@@ -389,6 +392,7 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // A node is drawn as a module is — it is one, in use — so the palette colours them alike.
   nodes: "module",
   baseModules: "module",
+  engineModules: "module",
   categories: "module",
   markerNames: "marker",
   sequenceFiles: "file",
@@ -427,7 +431,9 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   assemblyTemplates:
     "an assembly template the library holds (@st0/<path>) — its nodes and wiring are copied in",
   baseModules:
-    "the module to inherit from — the engine's catalogue and this project's",
+    "the module to inherit from — this project's and the account's libraries",
+  engineModules:
+    "a plugin the engine scanned (@engine/<slug>) — it has no folder until one is given",
   categories:
     "<category>/<name> — the category decides the module's kind and its ports",
   markerNames: "a marker of this project",

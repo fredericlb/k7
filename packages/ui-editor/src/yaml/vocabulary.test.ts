@@ -90,6 +90,16 @@ describe("the chains vocabulary", () => {
     expect(at(path, [], "docs", HINTS)).toEqual([]);
   });
 
+  it("offers a scanned `@engine` plugin to a library's module and never to a project's node", () => {
+    // A node reaches a plugin through the library module that gives it a face, or it gets no panel.
+    expect(at("song.st0/nodes/lead.yaml", [], "extends", HINTS)).toEqual([
+      "@st0/audio/utility/mixer",
+    ]);
+    expect(
+      at("_libraries/st0/modules/audio/verb/module.yaml", [], "extends", HINTS),
+    ).toContain("@engine/de-rez");
+  });
+
   it("does not spill the chain vocabulary into another kind of file", () => {
     // A module.yaml keeps its own enums: a project value may only ever fill a field a schema left open.
     expect(

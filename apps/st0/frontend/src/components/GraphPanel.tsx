@@ -35,7 +35,7 @@ export function GraphPanel({
   onModuleField,
   onRecorder,
   onProjectField,
-  onNodeMenu,
+  onAlternative,
   onAssetBrowse,
   onWatchWaveform,
   engineWarnings,
@@ -75,16 +75,8 @@ export function GraphPanel({
     verb: "record" | "clear" | "save",
     node: { module: string; pluginId?: string },
   ) => void;
-  /** The ⋮ bubble on a node → the shell opens that node's menu (alternatives, freeze). */
-  onNodeMenu?: (
-    n: {
-      module?: string;
-      alternatives?: string[];
-      alternative?: string;
-      frozen?: "at" | "inside";
-    },
-    at: { x: number; y: number },
-  ) => void;
+  /** A node's alternative badge → the shell switches to that set, or copies the one on (null). */
+  onAlternative?: (module: string, name: string | null) => void;
   /** A file-valued param's browser: the same cards are drawn here, so the same button has to open. */
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
   /** …and the waveform widget's subscription, for the same reason — it draws nothing unwatched. */
@@ -185,7 +177,7 @@ export function GraphPanel({
         onModuleField={onModuleField}
         onRecorder={onRecorder}
         onProjectField={onProjectField}
-        onNodeMenu={onNodeMenu}
+        onAlternative={onAlternative}
         onAssetBrowse={onAssetBrowse}
         onWatchWaveform={onWatchWaveform}
         engineWarnings={engineWarnings}

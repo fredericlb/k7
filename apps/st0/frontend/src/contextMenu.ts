@@ -229,7 +229,7 @@ const build = (
 // The verbs that still mean something on a node NOTHING answers to — each acts on graph.yaml alone, which the catalogue cannot say.
 const SURVIVES_MISSING = new Set(["node bypass", "graph unlink"]);
 
-/** What the ⋮ bubble is opened ON: a lane's node, as the graph and the timeline both hold it. */
+/** What a lane's gutter badge opens ON: the lane's node, as the timeline holds it. */
 export interface NodeMenuTarget {
   module?: string;
   alternatives?: string[];
@@ -237,7 +237,7 @@ export interface NodeMenuTarget {
   frozen?: "at" | "inside";
 }
 
-/** The ⋮ bubble on a node: its module's other attribute SETS, and its freeze — this project's data rather than the catalogue (packages/song/docs/alternatives.md). */
+/** A lane's gutter menu: its module's other attribute SETS, and its freeze — this project's data rather than the catalogue (packages/song/docs/alternatives.md). */
 export function nodeMenu(n: NodeMenuTarget): MenuItem[] {
   const module = n.module;
   if (!module) return [];
@@ -355,9 +355,9 @@ export function contextMenu(
             ]
           : []),
         ...own,
-        // A module the engine merely reports IS a base-module ref, which `module own` takes; with no file anywhere, it replaces `ui file`.
+        // A module the engine merely reports IS an engine ref, which `module own` takes; with no file anywhere, it replaces `ui file`.
         ...(ctx.ambient
-          ? from([{ provider: "baseModules", value: ctx.id }])
+          ? from([{ provider: "engineModules", value: ctx.id }])
           : [
               {
                 verb: "ui file",

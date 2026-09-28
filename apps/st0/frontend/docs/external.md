@@ -144,11 +144,11 @@ build on the way is for the chains canvas, and there is none here. Its reload ke
 being edited on the laptop, so most of what it must follow is not its own.
 
 The **graph** is refetched here, on that same token, where the shell takes it from the chains pane:
-without it the gutter would draw neither the alternatives ⋮ nor the automation curves.
+without it the gutter would draw neither the alternatives badge nor the automation curves.
 
-The **context menu** is the shell's, `contextMenu.ts`, and the ⋮ bubble is `nodeMenu`, shared with it:
-two derivations of one menu are two menus that end up offering different alternatives on the same
-node.
+The **context menu** is the shell's, `contextMenu.ts`, and the gutter badge's menu is `nodeMenu`,
+shared with it: two derivations of one menu are two menus that end up offering different
+alternatives on the same node.
 
 ### A line, and not a command bar
 

@@ -15,9 +15,10 @@ alternatives:
     plugin: { type: vst3, name: Twin }
 ```
 
-The ⋮ button on the node's corner lists them, switches, and starts another. A LANE names the set it
-is playing in the timeline's gutter too, and clicking that badge opens the SAME menu — one
-behaviour reached from two places, not two (`apps/st0/frontend/docs/timeline.md`).
+On the graph, each set is a badge above the node's corner — click one to switch, and the `+` after
+them copies the set that is on (`packages/ui-chains-react/docs/nodeCard.md`). A LANE names the set
+it is playing in the timeline's gutter too, and clicking that badge opens a menu running the same
+verbs (`apps/st0/frontend/docs/timeline.md`).
 
 ## The module's own fields are the first set
 
@@ -43,13 +44,51 @@ you already know:
 - **A list is a scalar to the merge**, so a set restating `events:` replaces the arrangement
   outright. It is the same rule that lets a node empty an inherited `automations:` with `[]`.
 - **Any field may differ** — the plugin, the panel, the colour. An alternative is a module
-  partial: `AlternativeSchema` is `ModuleSchema` minus `extends` and minus the alternatives
-  themselves, spread from one shared `MODULE_FIELDS`, so a field added to a module is a field an
-  alternative can set without anyone remembering to.
+  partial: `AlternativeSchema` is `ModuleSchema` minus the alternatives themselves, spread from
+  one shared `MODULE_FIELDS`, so a field added to a module is a field an alternative can set
+  without anyone remembering to. `extends` is the one field that changes what a set MEANS — below.
 
 One thing is dropped before the merge: the alternative's **`name`**. It is in `OWN_ONLY`, so
 leaving it in would rename the module to the name of its variant — and a module's name is the key
 a chain calls it by. Silent, and it would repoint every step naming it.
+
+## A set that names ANOTHER module is that module
+
+A set with its own `extends:` is not a patch over the node: it is another module in the node's
+place — a Wurlitzer played by a VST on set 1 and by a Faust module on set 2.
+
+```yaml
+# nodes/wurli.yaml
+extends: "@st0/instruments/wurli-v2"        # set 1: the VST, and its knobs
+params: { Tremolo: 0.9 }
+alternative: faust
+alternatives:
+  - name: faust
+    extends: "@workspace/instruments/faust-wurli"
+    params: { Bark: 0.8 }                   # the Faust module's knobs, over its own
+```
+
+`resolveModule` folds the SET's ancestry instead of the node's (`swappedModule`), and set 1's
+fields do not come along: the VST's `params`, its `plugin`, its panel all describe a module that is
+not playing, and merged under the Faust one they would be knobs it has not got, or a `plugin:` that
+outranks the very `extends` the set named. What the node keeps is its identity — its name, its file,
+its folder, and the list of sets — so it is the same node in the graph, in the chains and in every
+verb, and switching back is the ordinary switch.
+
+**Not for a lane, nor for a lane's fader** (`keepsItsModule`). A lane is what the arrangement is
+built on and its fader is what the mixer is built on; a set that turned either into a synth would
+leave clips with no lane to play on and a mixer strip that is not one. Their sets still switch their
+SETTINGS — a fader's level, a lane's clips — and a set's `extends` on one is ignored when resolving,
+and refused when writing.
+
+It is written by `node replace <node> <ref>` while that set is on: the SET is repointed, and the
+fields it held that described the old module (`plugin`, `params`, `rack`) go, exactly as a plain
+replace drops the node's own. The node is not renamed, as a plain replace would rename it after its
+new module: its name belongs to every set, and set 1 is still the old module. On a lane or a fader
+the verb refuses and writes nothing.
+
+Switching between two such sets is a different PLUGIN, so it is never the values-only fast path of
+`select` (`packages/commands/docs/verbs.md`): the engine rebuilds that plugin.
 
 ## Order against `extends`, and why it is applied ONCE
 
@@ -100,9 +139,11 @@ wishes.
 
 ## The three verbs
 
-`node alternative select|create|copy <node> [name]`, and the ⋮ menu runs the same three. All
-of them end in a project RELOAD rather than a patched doc pushed to the engine: a set may change
-the plugin, the panel or a whole clip list, so there is nothing cheap to diff.
+`node alternative select|create|copy <node> [name]`; the graph's badges run `select` and `copy`,
+the timeline's menu all three. `create` and `copy` end in a project RELOAD: a set may change the
+plugin, the panel or a whole clip list, so there is nothing cheap to diff. `select` between two
+sets that differ in numbers alone is the exception, pushed to the engine as values without a
+recompile (`packages/commands/docs/verbs.md`).
 
 `create` is EMPTY by default, and that is not the empty-looking thing it seems: a set states only
 what it changes, so an empty one is "the module as it is" and you then change the two knobs you
@@ -115,6 +156,16 @@ way for an arrangement: a set that says nothing about `events:` inherits them, s
 open holding the previous take's placements — and a new take is empty. `newModuleAlternative` asks
 `isTrack` of the RESOLVED module (`extends` folded; `loadModules` alone hands back the ref as a
 string) and passes `blankClips`. Not for `copy`, whose whole promise is what is playing.
+
+## A knob turned on a set changes THAT set
+
+`node param` writes into the set that is ON (`setAlternativeParam`): the module's own `params:` for
+set "1", and that entry's `params:` otherwise — so does applying a preset, which goes through the
+same writer. Writing the module's own whichever set is on would make every set an empty `{}` that
+inherits the knobs just turned, and switching between two of them would change nothing you can hear.
+
+No copy is needed first, unlike the clips below: params merge per entry, so a set that states only
+the knob just turned still inherits every other from the module's own.
 
 ## Editing a lane that is on one — the fork
 

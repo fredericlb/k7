@@ -123,6 +123,41 @@ describe("node replace", () => {
     expect(logs.join(" ")).toContain("params");
   });
 
+  it("on a set other than the first, repoints THAT set and leaves the node's own module alone", async () => {
+    writeFileSync(
+      join(dir, "nodes", "lead.yaml"),
+      'extends: "@workspace/audio/amp"\nparams:\n  Depth: 3\nalternatives:\n  - name: other\n    params: { Depth: 5 }\nalternative: other\n',
+      "utf8",
+    );
+    const before = chains();
+    await runCommand("node replace lead @workspace/audio/cab", host(), "cli");
+    const f = parse(nodeFile(), { version: "1.2" }) as {
+      extends?: string;
+      params?: Record<string, number>;
+      alternatives?: { name: string; extends?: string; params?: unknown }[];
+    };
+    expect(f.extends).toBe("@workspace/audio/amp");
+    expect(f.params).toEqual({ Depth: 3 });
+    expect(f.alternatives?.[0].extends).toBe("@workspace/audio/cab");
+    // The set's params addressed the old module's knobs, like a node's own on a plain replace.
+    expect(f.alternatives?.[0].params).toBeUndefined();
+    // …and the node keeps its name: it names every set, and the first is still the old module.
+    expect(chains()).toBe(before);
+    expect(logs.join(" ")).toContain("alternative 'other'");
+  });
+
+  it("refuses to repoint a LANE's set: its alternatives change its settings, not its module", async () => {
+    writeFileSync(
+      join(dir, "nodes", "gtr.yaml"),
+      'extends: "@meta/track"\nevents: []\nalternatives:\n  - name: b\nalternative: b\n',
+      "utf8",
+    );
+    const before = readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
+    await runCommand("node replace gtr @workspace/audio/cab", host(), "cli");
+    expect(logs.join(" ")).toContain("is a lane");
+    expect(readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8")).toBe(before);
+  });
+
   it("repoints a MODULE folder too, not just a node", async () => {
     await runCommand(
       "node replace @workspace/audio/amp @workspace/audio/cab",

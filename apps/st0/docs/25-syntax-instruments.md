@@ -89,6 +89,8 @@ frame: [40, 40, 320, 180] # …and leave THIS out to fill the frame
 
 A `.nam` profile is trained at whatever level its author played at, and it records that level in the file. Nothing makes two profiles agree, so a model can play back several dB below what went in — which sounds like the amp doing nothing at all. The Neural Amp Modeler module carries three parameters for this. `Normalize` (off/on, **on** by default) levels the profile to a fixed reference using its declared loudness, so swapping one amp for another stops being a volume change; `Input` and `Output` are ±20 dB trims around it. `Input` is a tone control as much as a level one — how hard you hit a modelled amp is half of what it sounds like. A profile that declares no loudness gives `Normalize` nothing to work from, and the module shows a warning saying so.
 
+A NAM capture is often the amp without its cabinet, which sounds like no speaker ever made. `ir:` names a **cabinet IR** the module plays after the model: a sound file in one of your libraries' `irs/` folders, written `@<library>/<path>`. The **Cabinet** picker on the module's panel lists every IR your libraries hold, and the **Model** picker beside it the module's `.nam` files; leave `ir:` out for no cabinet. The IR is levelled like the model is, so trying another cabinet does not change the volume. A library's `samples/` folder sits beside `irs/`, for sound files a song picks the same way.
+
 ```yaml schema=Module
 # _modules/audio/amp/module.yaml — a Neural Amp Modeler with its levels set
 plugin:
@@ -96,6 +98,7 @@ plugin:
   name: Neural Amp Modeler
 params:
   nam: "Two-Rock/overdrive.nam"   # a file in this module's own assets/ folder
+  ir: "@st0/fender deluxe verb/DELUXE REVERB OXFORD - BIG.wav"   # a cabinet, from a library's irs/
   Normalize: 1     # 0 turns it off and leaves the profile at its trained level
   Input: 3         # hit it 3 dB harder
   Output: -1.5
@@ -356,13 +359,30 @@ and it states only what it CHANGES. The merge is the one a node already gets ove
 it extends: `params` merge key by key, so a set that touches `Gain` leaves `Tone` alone, while a
 list replaces outright. `extends` is folded first, so the chosen set always wins.
 
+A set can also be **another module entirely** — a Wurlitzer played by a VST on one set and by a
+Faust module on the other. Give the set its own `extends:`, and that set plays that module, with
+its own knobs: nothing of the first set's plugin, params or panel comes along. Switch to the set and
+run `node replace <node> <module>` to write it for you; the node keeps its name, since it is still
+the same node on either set.
+
+```yaml schema=Module
+extends: "@st0/instruments/wurli-v2"   # set 1: the VST
+alternative: faust
+alternatives:
+  - name: faust
+    extends: "@workspace/instruments/faust-wurli"
+```
+
+Not on a **lane**, nor on a lane's **fader**: their sets change their settings — clips, levels —
+but they stay a lane and a fader. `node replace` refuses there.
+
 Names are optional. An unnamed one answers to its number, counting the module's own fields as 1 —
 so the first entry under `alternatives:` is "2". A name wins over a number. A name that matches
 nothing falls back to the first rather than silencing the module.
 
-The **⋮ button** on a node's top-right corner lists them, switches, and starts another — empty or
-as a copy of the one that is on. It lights up while a set other than the module's own is running,
-because a node on a variant otherwise looks exactly like one on its own settings. From the command
+On the graph, each set is a **badge** above the node's top-right corner, the one that is playing
+lit: click another to switch to it. The last badge is a **+**, which adds a set as a copy of the one
+that is on. A node with a single set shows its + only while you hover or select it. From the command
 bar: `node alternative select|create|copy <node> [name]`, and a bare `select` lists them.
 
 For a **lane**, the timeline offers the same thing where you are already looking: a small badge
@@ -400,7 +420,7 @@ render becomes the material. **The module itself is included** — freezing an a
 amped sound, not the sound going into it — and everything **downstream stays live**, which is the
 whole difference between freezing and bouncing.
 
-The **⋮ button** on a node's corner freezes and unfreezes; from the command bar it is
+A node's **right-click menu** freezes and unfreezes it; from the command bar it is
 `node freeze <node>`, the same line both ways. What it writes is `frozen:`, naming the render
 it made, and the badge on the node is a snowflake: cold blue on the point, and on every node the
 render already contains.

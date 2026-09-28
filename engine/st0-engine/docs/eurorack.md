@@ -77,6 +77,9 @@ either side with libsamplerate: **the copy Tracktion already compiles**, declare
 bump that changes that namespace is a link error rather than a silent difference.
 `SRC_SINC_MEDIUM_QUALITY`, one converter pair per plugin rather than per voice.
 
+It has a second user: `NamPlugin` runs a model at the rate it was trained at through the same bridge
+(`namPlugin.md`). A change here is a change to both, and `scripts/nam-rate.ts` is the check on that side.
+
 - **A generator is pulled on demand.** It renders exactly enough core blocks to cover the host
   block, so an instrument adds no latency beyond the converter's filter. A note lands at the core
   block boundary after its sample: at most one core block late, 0.25 ms for Braids, 0.5 ms for

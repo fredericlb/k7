@@ -27,6 +27,7 @@ import {
   widgetDenorm,
   widgetNorm,
   widgetRange,
+  widgetTyped,
 } from "./graph";
 
 const graph = (
@@ -626,6 +627,33 @@ describe("widgetNorm / widgetDenorm round-trip", () => {
       step: 1,
     };
     expect(Number.isInteger(widgetDenorm(stepped, 0.57))).toBe(true);
+  });
+});
+
+describe("widgetTyped", () => {
+  const w: WebWidget = {
+    type: "knob",
+    col: 0,
+    row: 0,
+    min: -24,
+    max: 24,
+    step: 1,
+  };
+
+  it("takes what is typed, with either decimal mark", () => {
+    expect(widgetTyped({ type: "knob", col: 0, row: 0 }, "0.25")).toBe(0.25);
+    expect(widgetTyped({ type: "knob", col: 0, row: 0 }, " 0,5 ")).toBe(0.5);
+  });
+
+  it("clamps to the control's range and rounds to its step", () => {
+    expect(widgetTyped(w, "99")).toBe(24);
+    expect(widgetTyped(w, "-99")).toBe(-24);
+    expect(widgetTyped(w, "7.4")).toBe(7);
+  });
+
+  it("answers null for anything that is not a number, so nothing is sent", () => {
+    expect(widgetTyped(w, "")).toBeNull();
+    expect(widgetTyped(w, "loud")).toBeNull();
   });
 });
 

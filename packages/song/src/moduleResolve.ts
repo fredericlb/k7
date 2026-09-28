@@ -10,7 +10,8 @@ import {
   type ControllerFile,
   ControllerFileSchema,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { applyAlternative } from "./alternatives";
+import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { applyAlternative, swappedModule } from "./alternatives";
 import { resolveModuleAssetIn } from "./assetPath";
 import { basePresetIn } from "./basePreset";
 import type {
@@ -102,7 +103,18 @@ export function resolveModule(
   byRef: Record<string, LoadedModule>,
   seen: Set<string> = new Set(),
 ): ResolvedModule {
-  return applyAlternative(foldExtends(m, byRef, seen));
+  const own = foldExtends(m, byRef, new Set(seen));
+  // A set naming another module makes the node that module — except a lane or a fader (packages/song/docs/alternatives.md).
+  const swapped = keepsItsModule(own) ? null : swappedModule(m);
+  return swapped
+    ? foldExtends(swapped, byRef, new Set(seen))
+    : applyAlternative(own);
+}
+
+/** A LANE and a lane's FADER are what the arrangement and the mixer are built on, so a set may not swap them. */
+export function keepsItsModule(m: LoadedModule): boolean {
+  const plugin = m.plugin as { name?: unknown } | undefined;
+  return m.kind === "track" || plugin?.name === MIXER_PLUGIN;
 }
 
 /** The `extends` half, deepest first, cycle-guarded by ref — see docs/moduleResolve.md. */

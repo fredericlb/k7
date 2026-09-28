@@ -99,11 +99,11 @@ nothing.
 the HOST knows about a live input and the graph does not. The chip is drawn only where
 `onPickTrackInput` is also given, so a host that cannot change one never shows one.
 
-### `onNodeMenu` and `onTriggerRack` — what the graph refuses to own
+### `onAlternative` and `onTriggerRack` — what the graph refuses to own
 
-The ⋮ bubble opens THIS host's menu for that node — its alternatives, and its freeze. The menu is
-the host's because it offers the host's commands and lands in the host's undo; a graph that drew
-one would be a graph that owned a popup. The bubble exists only when the callback is given, like
+A node's alternative badges say WHICH set was clicked — a name to switch to, or null for the `+`
+that copies the one on — and stop there. Running the verb is the host's, because it lands in the
+host's undo and reloads the host's project. The badges exist only when the callback is given, like
 the command bar and the edge inserts.
 
 `onTriggerRack` is the same shape: the graph says WHICH sound was asked for and stops there. How

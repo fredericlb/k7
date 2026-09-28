@@ -1488,7 +1488,7 @@
   help: "give an engine module a folder in this project, so it can carry a panel and presets (e.g. module own @engine/nam)"
   surfaces: [cli]
   menu: [node]
-  args: [{ name: "ref", complete: baseModules }]
+  args: [{ name: "ref", complete: engineModules }]
 # Points a node at ANOTHER module: one edit, to its `extends:` line. Not delete-then-add and
 # not a new folder either — the name stays, so every chain step keeps its place and nothing is
 # rewired, and the file stays, so its position on the graph survives. Only what it IS changes.

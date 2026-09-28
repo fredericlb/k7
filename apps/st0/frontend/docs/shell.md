@@ -944,8 +944,8 @@ difference is that the pick gets **no position**: this row's coordinates are its
 from it would pin the new node somewhere meaningless in the real graph. Handed none, `node insert` lets
 the layout decide.
 
-**A card drawn here is the graph's card, so it is handed the graph's callbacks** — the bypass, the ⋮
-menu, the waveform's subscription, the lane's fader and mute, and the browser a file-valued param's
+**A card drawn here is the graph's card, so it is handed the graph's callbacks** — the bypass, the
+alternative badges, the waveform's subscription, the lane's fader and mute, and the browser a file-valued param's
 button opens. A control drawn from the same card definition and wired to nothing is the worst of the
 three possible states: a `<select>` that will not open reads as a broken app, where an absent control
 reads as a view that does not offer it. What this row deliberately does NOT hand them is the

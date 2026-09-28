@@ -19,7 +19,7 @@ import {
   splitModuleKey,
 } from "@studio/song/loader";
 import { chainsUsing, sharedRoots } from "@studio/song/moduleFork";
-import { resolveModule } from "@studio/song/moduleResolve";
+import { keepsItsModule, resolveModule } from "@studio/song/moduleResolve";
 import { isTrack } from "@studio/song/trackModule";
 import { entityFileFor, moduleFileFor } from "@studio/song/yaml/moduleIO";
 import { currentAlternative } from "@studio/song-schema/alternatives";
@@ -28,7 +28,7 @@ import type { WarpMarker } from "@studio/song-schema/warpPoints";
 import {
   addAlternative,
   alternativeNames,
-  setAlternative,
+  setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
 import {
   addNode,
@@ -129,14 +129,16 @@ function editModuleValue(
   );
 }
 
-// Set one param on a module node, leaving the rest of the file untouched.
+// Set one param on a module node — on the attribute set that is ON, so a knob turned on set 2 changes set 2.
 export function setModuleParam(
   dir: string,
   module: string,
   name: string,
   value: number,
 ): string {
-  return editModuleValue(dir, module, ["params", name], value);
+  return editModuleFile(dir, module, (text) =>
+    setAlternativeParam(text, name, value),
+  );
 }
 
 /** What a module's file says its attribute SETS are called, and which is on — read off the FILE, docs/projectEdit.md. */
@@ -151,15 +153,6 @@ export function moduleAlternatives(
     current:
       names[currentAlternative(parseYaml(text, { version: "1.2" }) ?? {})],
   };
-}
-
-/** Switch a module to another of its attribute SETS by name — see packages/song/docs/alternatives.md. */
-export function selectModuleAlternative(
-  dir: string,
-  module: string,
-  name: string,
-): string {
-  return editModuleFile(dir, module, (text) => setAlternative(text, name));
 }
 
 /** Add one and switch to it — empty, or a copy of the set that is on; a LANE's empty one drops its placements, docs/projectEdit.md. */
@@ -390,12 +383,24 @@ export function setModuleBypass(
 /** What a module file says about WHAT IT IS — repointing its `extends` drops these, docs/projectEdit.md. */
 const DESCRIBES_WHAT_IT_IS = ["plugin", "params", "rack"] as const;
 
+/** A lane or its fader keeps its module whatever set is on, so repointing one of its sets is refused — docs/alternatives.md. */
+function refuseSwap(dir: string, module: string): void {
+  const node = loadModules(dir)[module];
+  if (!node) return;
+  // Its OWN module, the sets aside: what it is on set "1" is what decides.
+  const own = resolveModule({ ...node, alternative: undefined }, loadModuleRefs(dir));
+  if (keepsItsModule(own))
+    throw new Error(
+      `'${module}' is a ${own.kind === "track" ? "lane" : "lane's fader"} — its alternatives can change its settings, not its module`,
+    );
+}
+
 /** Repoint a node at another module: rewrite its `extends`, keep everything else — docs/projectEdit.md. */
 export function setModuleExtends(
   dir: string,
   module: string,
   ref: string,
-): { rel: string; dropped: string[] } {
+): { rel: string; dropped: string[]; alternative?: string } {
   if (module === ref) throw new Error(`'${module}' cannot extend itself`);
   const known = projectModules(dir);
   if (!(ref in known)) {
@@ -405,17 +410,31 @@ export function setModuleExtends(
     );
   }
   const dropped: string[] = [];
+  let set: string | undefined;
   const path = editModuleFile(dir, module, (text) => {
     const doc = parseDocument(text, { version: "1.2" });
-    doc.setIn(["extends"], ref);
+    // On a set other than the first, the SET is repointed: it becomes another module, the node's own untouched.
+    const at = currentAlternative(
+      (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
+    );
+    if (at > 0) {
+      refuseSwap(dir, module);
+      set = alternativeNames(text)[at];
+    }
+    const base = at > 0 ? ["alternatives", at - 1] : [];
+    doc.setIn([...base, "extends"], ref);
     for (const k of DESCRIBES_WHAT_IT_IS)
-      if (doc.hasIn([k])) {
-        doc.deleteIn([k]);
+      if (doc.hasIn([...base, k])) {
+        doc.deleteIn([...base, k]);
         dropped.push(k);
       }
     return doc.toString({ lineWidth: 0 });
   });
-  return { rel: relative(dir, path).split(sep).join("/"), dropped };
+  return {
+    rel: relative(dir, path).split(sep).join("/"),
+    dropped,
+    ...(set ? { alternative: set } : {}),
+  };
 }
 
 /** Take a node out of the SIGNAL PATH, joining what fed it to what it fed, and leave it in the graph wired to nothing. */

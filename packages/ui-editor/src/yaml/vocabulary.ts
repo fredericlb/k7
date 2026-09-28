@@ -7,6 +7,7 @@
 // EditorPane, the médiathèque's, and the module builder's. What it reaches for is pure
 // Zod introspection, no node in it.
 
+import { isEngineRef } from "@studio/song-schema/moduleTypes";
 import type { FileKind } from "@studio/song-schema/yaml/fields";
 import {
   fieldsAt,
@@ -22,11 +23,14 @@ function projectValues(
   keyPath: string[],
   field: string,
   hints: Hints,
+  path: string,
 ): string[] {
-  // What a module may EXTEND: whatever this machine's engine scanned plus whatever anybody wrote.
+  // What a module may EXTEND — a scanned `@engine` plugin only from a LIBRARY's module, never a project's node.
   if (kind === "module")
     return !keyPath.length && field === "extends"
-      ? (hints.baseModules ?? [])
+      ? (hints.baseModules ?? []).filter(
+          (r) => !isNodeFile(path) || !isEngineRef(r),
+        )
       : [];
   if (kind !== "chains") return [];
   // Inside `tracks:` or `modules:` the "field" is a NODE's name and the values are its destinations.
@@ -42,6 +46,10 @@ function projectValues(
   return [];
 }
 
+/** A project's use of a module, `nodes/<name>.yaml` — which reaches a scanned plugin through its library face. */
+const isNodeFile = (path: string): boolean =>
+  /(^|\/)nodes\/[^/]+\.ya?ml$/.test(path.replace(/\\/g, "/"));
+
 /** The vocabulary for the file at `path`. Offers nothing for a file that isn't ours. */
 export function schemaVocabulary(path?: string, hints?: Hints): YamlVocabulary {
   const kind = fileKindFor(path);
@@ -52,7 +60,7 @@ export function schemaVocabulary(path?: string, hints?: Hints): YamlVocabulary {
       const schema = valuesAt(kind, keyPath, field);
       return schema.length || !hints
         ? schema
-        : projectValues(kind, keyPath, field, hints);
+        : projectValues(kind, keyPath, field, hints, path ?? "");
     },
   };
 }

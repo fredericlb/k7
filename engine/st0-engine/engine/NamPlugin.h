@@ -1,6 +1,7 @@
 // NamPlugin.h — a Neural Amp Modeler as a Tracktion built-in: it loads a .nam model and runs its inference,
 // giving the NON-LINEAR half of a guitar rig that convolution cannot (an IR is the cabinet, never the amp).
-// MONO, since every NAM model is one-in/one-out. See docs/namPlugin.md.
+// MONO, since every NAM model is one-in/one-out. A model runs at the rate it was TRAINED at, resampled
+// either side when the engine runs at another (eurorack's RateBridge), and reports that latency. docs/namPlugin.md.
 
 #pragma once
 
@@ -15,9 +16,11 @@
 // NAM_SAMPLE is `float` for us, so the model reads JUCE's buffers with no convert out and back per block.
 #include <NAM/dsp.h>
 
+#include "eurorack/RateBridge.h"
+
 namespace studio {
 
-class NamPlugin : public tracktion::engine::Plugin {
+class NamPlugin : public tracktion::engine::Plugin, private eurorack::RateBridge::Core {
 public:
     explicit NamPlugin(tracktion::engine::PluginCreationInfo info);
     ~NamPlugin() override;
@@ -46,6 +49,8 @@ public:
     void deinitialise() override;
     void reset() override;
     void applyToBuffer(const tracktion::engine::PluginRenderContext& ctx) override;
+    // The converters' delay when the model runs at another rate, so the graph can line the lane up.
+    double getLatencySeconds() override;
 
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
@@ -65,11 +70,16 @@ public:
     // Load `file` and swap it in — MESSAGE thread only, since parsing a model allocates and reads JSON off disk.
     bool loadModel(const juce::File& file, juce::String& error);
 
-    // The model's own sample rate, or 0: it is trained at one rate and this plugin does NOT resample.
+    // The model's own sample rate, or 0 when it declares none — the rate it is RUN at, whatever the engine's.
     double modelSampleRate() const { return modelRate_.load(std::memory_order_relaxed); }
 
     /** The model file currently loaded (empty when none). */
     juce::String modelPath() const;
+
+    // --- cabinet -------------------------------------------------------------
+
+    // The IR convolved AFTER the model — the cabinet a model without one needs. MESSAGE thread; JUCE loads it off it.
+    bool loadImpulseResponse(const juce::File& file, juce::String& error);
 
 private:
     // The loaded model, swapped under `lock_` — which the audio thread only ever TRIES, since blocking is a dropout.
@@ -92,6 +102,18 @@ private:
 
     // The mono buffer the model reads and writes, sized in initialise() and on load, NEVER in applyToBuffer.
     juce::AudioBuffer<float> mono_;
+
+    // The cabinet: resampled to the engine's rate by JUCE itself, and skipped whole until an IR is loaded.
+    juce::dsp::Convolution cab_;
+    std::atomic<bool> hasIr_{false};
+
+    // The engine's rate → the model's, one fixed block at a time, and back; idle when the two agree.
+    eurorack::RateBridge bridge_;
+    std::atomic<bool> bridged_{false};
+    // Re-prepared on the MESSAGE thread whenever the host's rate or the model's changes, under `lock_`.
+    void prepareBridge();
+    // One block at the model's rate: what the bridge calls, on the audio thread.
+    void renderBlock(const float* const* in, float* const* out) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NamPlugin)
 };

@@ -66,9 +66,10 @@ export function ChainsTab({
   command,
   onBypassModule,
   onModuleField,
+  onOrganize,
   onRecorder,
   onProjectField,
-  onNodeMenu,
+  onAlternative,
   engineWarnings,
   onSetModuleAsset,
   onAssetBrowse,
@@ -125,6 +126,8 @@ export function ChainsTab({
   onBypassModule?: (module: string) => void;
   /** Set a module's own field. Wired to the RELOADING sender: an intrinsic dropdown draws the file. */
   onModuleField?: (line: string) => void | Promise<void>;
+  /** The minimap's Organize button: `graph organize` through the shell, which is what re-lays the graph out. */
+  onOrganize?: () => void;
   /** A RECORDER's button — record and clear go to the engine, save is a command (recorder.md). */
   /** Set a PROJECT setting — the RENDER card's frame dropdown (../noteSpans.ts's sibling). */
   onProjectField?: (field: string, value: string) => void;
@@ -132,16 +135,8 @@ export function ChainsTab({
     verb: "record" | "clear" | "save",
     node: { module: string; pluginId?: string },
   ) => void;
-  /** The ⋮ bubble on a node: open that node's menu at those viewport coords — straight through, the menu being the SHELL's. */
-  onNodeMenu?: (
-    n: {
-      module?: string;
-      alternatives?: string[];
-      alternative?: string;
-      frozen?: "at" | "inside";
-    },
-    at: { x: number; y: number },
-  ) => void;
+  /** A node's alternative badge: switch to a set, or copy the one on (null) — straight through, the command being the SHELL's. */
+  onAlternative?: (module: string, name: string | null) => void;
   /** Engine load problems by plugin id, badged onto the module they concern. */
   engineWarnings?: Record<string, string>;
   // Load a library file into a module: `kind` is the asset, `file` library-relative or "none" to clear.
@@ -828,9 +823,12 @@ export function ChainsTab({
             onBypassModule={bypassModule}
             onThawAutoFreeze={thawAutoFreeze}
             onModuleField={onModuleField}
+            // The corner minimap is this pane's: the graph panel and a lane's row are too small to want one.
+            minimap
+            onOrganize={onOrganize}
             onRecorder={onRecorder}
             onProjectField={onProjectField}
-            onNodeMenu={onNodeMenu}
+            onAlternative={onAlternative}
             onTriggerRack={triggerRack}
             rackLit={rackLit}
             engineWarnings={engineWarnings}

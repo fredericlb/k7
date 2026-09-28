@@ -17,6 +17,7 @@ import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
 import { inputLandingTrack, loadGraph } from "@studio/song/graph";
+import { libraryFiles } from "@studio/song/libraryFiles";
 import { missingModel } from "@studio/song/modelCache";
 import {
   type AssetLookup,
@@ -34,6 +35,8 @@ import {
   CAMERA_IO,
   curveIdFromRef,
   hostsPlugin,
+  isLibraryFileParam,
+  LIBRARY_FILE_PARAMS,
   SHADER_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
@@ -55,6 +58,29 @@ function assetChoicesFor(
   } catch {
     return undefined;
   }
+}
+
+/** …plus the libraries' sound files, for a panel that picks one — every step carrying them would bloat each graph. */
+function withLibraryChoices(
+  own: string[] | undefined,
+  ui: unknown,
+): string[] | undefined {
+  const widgets = Object.values(
+    ((ui ?? {}) as { widgets?: Record<string, { bind?: unknown }> }).widgets ??
+      {},
+  );
+  const families = [
+    ...new Set(
+      widgets.flatMap((w) =>
+        typeof w.bind === "string" && isLibraryFileParam(w.bind)
+          ? [LIBRARY_FILE_PARAMS[w.bind]]
+          : [],
+      ),
+    ),
+  ];
+  if (!families.length) return own;
+  const shared = families.flatMap((f) => libraryFiles(f));
+  return own || shared.length ? [...(own ?? []), ...shared] : undefined;
 }
 
 /** The named bases a module may be set to — its own `base/` and its ancestors'. See docs/graphFlags.md. */
@@ -261,7 +287,10 @@ export function buildGraphDoc(
           // As authored (inherited like params), so an asset dropdown can show what's loaded without asking the engine.
           assets: module?.assets,
           // …and what it may choose from: the module's OWN assets/, walked — docs/graphFlags.md.
-          assetChoices: assetChoicesFor(dir, module, moduleRefs, assets),
+          assetChoices: withLibraryChoices(
+            assetChoicesFor(dir, module, moduleRefs, assets),
+            module?.ui,
+          ),
           // Which base this module is on (the MODULE's own field) and the ones it could be on (the folder's).
           base:
             typeof module?.base === "string" && module.base

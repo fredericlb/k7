@@ -688,6 +688,8 @@ function compileNodeProjectIn(
         path: String(module.preset ?? ""), // resolved preset to load
         // The .nam model, absolute, leaving as its OWN field because the engine loads it rather than setting it.
         ...(module.nam ? { namFile: String(module.nam) } : {}),
+        // …and the cabinet IR it convolves after the model, from a library's `irs/` (docs/libraryFiles.md).
+        ...(module.ir ? { irFile: String(module.ir) } : {}),
         // The DSP graph, inline because the engine parses no files and this declares the plugin's parameters.
         ...(() => {
           const src = module.jsdsp;

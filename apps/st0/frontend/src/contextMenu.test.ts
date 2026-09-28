@@ -103,7 +103,7 @@ const CATALOGUE: CommandInfo[] = [
   {
     command: "module own",
     help: "give an engine module a folder of its own",
-    args: [a("ref", "module", "baseModules")],
+    args: [a("ref", "module", "engineModules")],
   },
   {
     command: "clip process",
@@ -409,7 +409,7 @@ describe("a module node", () => {
   });
 
   it("offers `module own` for an engine module, instead of a file it has not got", () => {
-    // Derived too: an `@engine/…` id IS a base-module ref, which is what the command takes.
+    // Derived too: an `@engine/…` id IS an engine ref, which is what the command takes.
     const l = lines(
       contextMenu(
         { kind: "module", id: "@engine/audio/verb", ambient: true },

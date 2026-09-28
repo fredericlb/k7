@@ -95,12 +95,13 @@ describe("derived lane fields", () => {
   });
 
   it("answers inside an ALTERNATIVE with the module's own fields", () => {
-    // A set is a module partial, plus a name and minus `extends` — derived, so the two cannot drift.
+    // A set is a module partial plus a name — derived, so the two cannot drift.
     const inside = fieldsAt("module", ["alternatives", "0"]);
     expect(inside).toContain("name");
     expect(inside).toContain("params");
     expect(inside).toContain("events");
-    expect(inside).not.toContain("extends");
+    // A set may name a module of its own — it is then another module entirely (packages/song/docs/alternatives.md).
+    expect(inside).toContain("extends");
     expect(inside).not.toContain("alternatives");
     // The list itself has no field vocabulary — its entries are positions, not names.
     expect(fieldsAt("module", ["alternatives"])).toEqual([]);

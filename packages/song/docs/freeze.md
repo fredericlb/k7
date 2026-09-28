@@ -121,8 +121,8 @@ there is no live plugin behind a baked module, so there is nothing to bypass and
 Its knobs are refused for the same reason — a param set sent to a plugin the engine never built
 moves, changes nothing, and is discarded on the next reload.
 
-The ⋮ menu offers **Freeze** / **Unfreeze** on the point, and nothing at all on a node inside
-somebody else's render: thawing that one means naming the module downstream of it, and an entry
+The timeline's lane menu offers **Freeze** / **Unfreeze** on the point, and nothing at all on a node
+inside somebody else's render: thawing that one means naming the module downstream of it, and an entry
 there would name the wrong one.
 
 ## One verb for a lane and a reverb

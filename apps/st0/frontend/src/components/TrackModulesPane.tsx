@@ -10,7 +10,7 @@ import { DomChains } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
-import type { MenuCtx, NodeMenuTarget } from "../contextMenu";
+import type { MenuCtx } from "../contextMenu";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
@@ -35,7 +35,7 @@ export function TrackModulesPane({
   trackControls,
   onContextMenu,
   onBypassModule,
-  onNodeMenu,
+  onAlternative,
   onAssetBrowse,
   onWatchWaveform,
   onTrackToggle,
@@ -68,8 +68,8 @@ export function TrackModulesPane({
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** A card's own bypass button — the row draws the graph's cards, so it owes them the graph's answers. */
   onBypassModule?: (module: string) => void;
-  /** …the ⋮ bubble on a node, and the file-valued param's browser, for the same reason. */
-  onNodeMenu?: (n: NodeMenuTarget, at: { x: number; y: number }) => void;
+  /** …the alternative badges on a node, and the file-valued param's browser, for the same reason. */
+  onAlternative?: (module: string, name: string | null) => void;
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
   onWatchWaveform?: (
     pluginId: string,
@@ -191,7 +191,7 @@ export function TrackModulesPane({
       onContextMenu={onContextMenu}
       onBypassModule={onBypassModule}
       onThawAutoFreeze={thawAutoFreeze}
-      onNodeMenu={onNodeMenu}
+      onAlternative={onAlternative}
       onAssetBrowse={onAssetBrowse}
       onWatchWaveform={onWatchWaveform}
       onTrackToggle={onTrackToggle}

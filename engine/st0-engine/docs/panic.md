@@ -46,5 +46,13 @@ Ours are not, and two of them **hold notes of their own**:
 - **`MidiGraphPlugin`** holds whatever its graph does — `mhold`'s keys and `mstrike`'s clock
   (`midiGraph.md`). `DspGraph::reset()` drops both.
 
+The **eurorack modules** (`eurorack/EurorackPlugin`) hold their voices in a firmware core that
+only the audio thread may touch, and `midiPanic()` arrives on the message thread. So it raises a
+flag, and the next block hands the module an All-Notes-Off through `handleMidi` — the path the
+MIDI message itself takes, so each of the eight lets go the way its core already answers one: the
+voices go to their release, never cut. `reset()` is a flag for the same reason, and resets the
+rate bridge on the audio thread. `scripts/eurorack-stop.ts` measures it against a running engine:
+a note with no note-off in reach, through a stop and then a panic.
+
 That is the rule for anything added later: **a MIDI module with state answers `midiPanic()`**, or
 the button silences everything downstream of it and nothing in it.

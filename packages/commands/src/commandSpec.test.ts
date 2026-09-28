@@ -52,6 +52,20 @@ describe("completions (against the real commands.yaml)", () => {
     expect(got).toEqual(["track mute melody", "track mute bass"]);
   });
 
+  it("never suggests an `@engine` ref for a module to inherit — only `module own` does", () => {
+    const h = {
+      ...host([]),
+      baseModules: ["@engine/mu-tides", "@st0/instruments/mu-tides"],
+    };
+    // An engine ref is what a LIBRARY extends; a node reaches it through that library's module.
+    expect(completions("node replace lead ", h, "cli")).toEqual([
+      "node replace lead @st0/instruments/mu-tides",
+    ]);
+    expect(completions("module own ", h, "cli")).toEqual([
+      "module own @engine/mu-tides",
+    ]);
+  });
+
   it("filters the arg provider by the partial token, case-insensitively", () => {
     const got = completions("track mute ME", host(["melody", "bass"]), "cli");
     expect(got).toEqual(["track mute melody"]);

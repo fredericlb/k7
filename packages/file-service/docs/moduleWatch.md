@@ -56,6 +56,13 @@ Deliberately blunt: every write, not only a module's. Knowing which is knowing t
 extra walk after a write is exactly what a write costs without any of this; the five reads that
 follow it are free, which is the point.
 
+`invalidateProjectDoc` is not the only way a write happens, though. A verb writes through
+`@studio/song-edit` on its own, and it reaches that choke point only if it then asks for a reload.
+One that pushes a patched document to the engine instead — `node bypass`, and `node alternative
+select` between two sets of numbers — never does. So `runWebCommand` says so too, after any
+command that moved the revision: otherwise the graph that same request returns is built on the
+module file as it was, and the switch the person just made shows as undone.
+
 The rule this is an instance of, for the next cache backed by a watcher: **a watcher reports the
 FILESYSTEM's events, and the process doing the writing is ahead of them.** Both sources have to be
 wired, not one or the other.

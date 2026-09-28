@@ -2,8 +2,10 @@
 
 #include <NAM/get_dsp.h>
 
+#include <cmath>
 #include <exception>
 #include <filesystem>
+#include <iostream>
 
 namespace studio {
 
@@ -11,6 +13,9 @@ namespace studio {
 const char* NamPlugin::xmlTypeName = "studio_nam";
 
 namespace {
+
+// The model's fixed block when resampled: small, since the bridge's latency grows with it.
+constexpr int BRIDGE_BLOCK = 32;
 
 // The trims' range: the same ±20 dB the official NAM plugin offers, so a badly levelled model is rescuable.
 constexpr float TRIM_DB = 20.0f;
@@ -78,20 +83,69 @@ void NamPlugin::initialise(const tracktion::engine::PluginInitialisationInfo& in
     sampleRate_ = info.sampleRate;
     blockSize_ = info.blockSizeSamples;
     mono_.setSize(1, juce::jmax(1, blockSize_), false, true, false);
-
+    cab_.prepare({sampleRate_, (juce::uint32)juce::jmax(1, blockSize_), 1});
     // A model may already be loaded: EditBuilder loads one right after construction, so this order is not fixed.
+    prepareBridge();
+}
+
+void NamPlugin::prepareBridge()
+{
     const juce::SpinLock::ScopedLockType sl(lock_);
+    const double model = modelRate_.load(std::memory_order_relaxed);
+    const bool bridge = dsp_ != nullptr && model > 0.0 && std::abs(model - sampleRate_) > 1.0;
+    if (bridge) {
+        bridge_.prepare(sampleRate_, model, BRIDGE_BLOCK, 1, 1, *this);
+        // The delay the lane now carries, which Tracktion compensates — said so it can be read, not guessed.
+        std::cerr << "[nam] " << model << " Hz model on a " << sampleRate_ << " Hz engine: +"
+                  << bridge_.latencySamples() << " samples ("
+                  << juce::String(1000.0 * bridge_.latencySamples() / sampleRate_, 2) << " ms)\n";
+    }
+    bridged_.store(bridge, std::memory_order_relaxed);
+    // The model is clocked at the rate it RUNS at, and fed one fixed block at a time when bridged.
     if (dsp_ != nullptr)
-        dsp_->Reset(sampleRate_, blockSize_);   // prewarms by default
+        dsp_->Reset(bridge ? model : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms
+}
+
+void NamPlugin::renderBlock(const float* const* in, float* const* out)
+{
+    // In place on the output: NAM allows it, and the input pointer is the bridge's own buffer, const.
+    juce::FloatVectorOperations::copy(out[0], in[0], BRIDGE_BLOCK);
+    float* io = out[0];
+    dsp_->process(&io, &io, BRIDGE_BLOCK);
+}
+
+double NamPlugin::getLatencySeconds()
+{
+    if (sampleRate_ <= 0.0) return 0.0;
+    const int bridge = bridged_.load(std::memory_order_relaxed) ? bridge_.latencySamples() : 0;
+    const int cab = hasIr_.load(std::memory_order_relaxed) ? cab_.getLatency() : 0;
+    return (bridge + cab) / sampleRate_;
+}
+
+bool NamPlugin::loadImpulseResponse(const juce::File& file, juce::String& error)
+{
+    if (!file.existsAsFile()) {
+        error = "no such IR: " + file.getFullPathName();
+        return false;
+    }
+    // Mono like the model, trimmed of its leading silence, and NORMALISED: a cab is its shape, not its level.
+    cab_.loadImpulseResponse(file, juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0,
+                             juce::dsp::Convolution::Normalise::yes);
+    hasIr_.store(true, std::memory_order_relaxed);
+    return true;
 }
 
 void NamPlugin::deinitialise() {}
 
 void NamPlugin::reset()
 {
+    cab_.reset();
     const juce::SpinLock::ScopedLockType sl(lock_);
+    const bool bridge = bridged_.load(std::memory_order_relaxed);
+    if (bridge) bridge_.reset();
     if (dsp_ != nullptr)
-        dsp_->Reset(sampleRate_, blockSize_);   // prewarms by default
+        dsp_->Reset(bridge ? modelRate_.load(std::memory_order_relaxed) : sampleRate_,
+                    bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms by default
 }
 
 juce::String NamPlugin::modelPath() const
@@ -120,9 +174,6 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         return false;
     }
 
-    // Prewarm HERE, never on the first block: a recurrent model settles slowly, and Reset() prewarms by default.
-    loaded->Reset(sampleRate_, blockSize_);
-
     const double rate = loaded->GetExpectedSampleRate();
     // Read BEFORE the move, and only behind HasLoudness(): GetLoudness() throws when the model declares none.
     const bool hasLoudness = loaded->HasLoudness();
@@ -137,6 +188,8 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
     hasLoudness_.store(hasLoudness, std::memory_order_relaxed);
     // NAM_UNKNOWN_EXPECTED_SAMPLE_RATE (-1) means the model doesn't say — report 0 for "nothing to check".
     modelRate_.store(rate > 0.0 ? rate : 0.0, std::memory_order_relaxed);
+    // Prewarmed HERE, never on the first block, at the rate it will run at — which the bridge decides.
+    prepareBridge();
     return true;
 }
 
@@ -188,7 +241,19 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
                             slice(lastInGain_, inGain, done + n));
 
         float* out = in; // in place: NAM allows input and output to be the same buffer
-        dsp_->process(&in, &out, n);
+        if (bridged_.load(std::memory_order_relaxed)) {
+            const float* ins[1] = {in};
+            bridge_.run(ins, &out, n);   // reads all of `in` before it writes `out`, so in place holds
+        } else {
+            dsp_->process(&in, &out, n);
+        }
+
+        // The cabinet after the amp, at the engine's rate: JUCE resampled the IR to it when it loaded.
+        if (hasIr_.load(std::memory_order_relaxed)) {
+            float* chans[1] = {out};
+            juce::dsp::AudioBlock<float> block(chans, 1, (size_t)n);
+            cab_.process(juce::dsp::ProcessContextReplacing<float>(block));
+        }
 
         mono_.applyGainRamp(0, 0, n, slice(lastOutGain_, outGain, done),
                             slice(lastOutGain_, outGain, done + n));

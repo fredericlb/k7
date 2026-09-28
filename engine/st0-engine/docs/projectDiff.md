@@ -35,6 +35,11 @@ signed `Level` produced exactly that: the knob moved, the value travelled, the l
 `~ stemBassA: Level = 0`, and the plugin on the track had no `Level` at all. Nothing anywhere
 reported a fault — the only symptom was a control that did nothing.
 
+**A NAM module's model and its IR.** Both are FILES loaded when the plugin is created
+(`EditBuilder`), so a different pick is a different plugin. Left out, choosing another amp in the
+picker wrote the file, recompiled the document, reached the engine — and produced an empty diff:
+the old model kept playing until something else forced a rebuild.
+
 **A rack's sounds.** They are built at insert time rather than carried as params, so remapping a
 note or a clip would read as "same plugin" and the sampler would never rebuild. Compiled order is
 stable, so concatenating them is enough.

@@ -510,6 +510,7 @@ export type ArgProvider =
   | "assemblyTemplates"
   | "audioFiles"
   | "baseModules"
+  | "engineModules"
   | "categories"
   | "chains"
   | "clipTargets"

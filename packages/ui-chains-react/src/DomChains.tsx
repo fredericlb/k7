@@ -5,8 +5,8 @@
 // Shared by the Chains tab and the Graph panel — mount it only where it has a
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
-// The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
-import { Play, Snowflake, Square } from "@frediverse/ui/icons";
+// The icons this file draws from a set: the freeze badge, the sink's transport, the alternatives' `+`.
+import { Play, Plus, Snowflake, Square } from "@frediverse/ui/icons";
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import {
   PluginParamsStore,
@@ -80,6 +80,7 @@ import {
   widgetDenorm,
   widgetNorm,
   widgetRect,
+  widgetTyped,
 } from "@studio/ui-chains/graph";
 import {
   type CableSway,
@@ -109,6 +110,8 @@ import {
   approach,
   type Cam,
   clampZoom,
+  flyStep,
+  frameBox,
   frameOriginX,
   isMouseWheel,
   isZoomWheel,
@@ -121,6 +124,7 @@ import {
 } from "./camera";
 import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
 import { LcdScreenWidget } from "./LcdScreenWidget";
+import { Minimap } from "./Minimap";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
 import {
   advanceMotion,
@@ -617,6 +621,7 @@ function TabsWidget({
   onPickAsset,
   onWatchWaveform,
   onContextParam,
+  onTypeValue,
 }: {
   n: GraphNode;
   w: WebWidget;
@@ -629,6 +634,8 @@ function TabsWidget({
   onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
   /** Right-click a sub-widget — passed straight through to each. */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
+  /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
+  onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -694,6 +701,7 @@ function TabsWidget({
               onPickAsset={onPickAsset}
               onWatchWaveform={onWatchWaveform}
               onContextParam={onContextParam}
+              onTypeValue={onTypeValue}
               styleOverride={{
                 position: "absolute",
                 left: sr.x - (style.left as number),
@@ -960,6 +968,7 @@ function WidgetInner({
   onPickAsset,
   onWatchWaveform,
   onContextParam,
+  onTypeValue,
   onLandAutomation,
   styleOverride,
 }: {
@@ -982,6 +991,8 @@ function WidgetInner({
   ) => void;
   /** Right-click on this control — the host's menu for the PARAM it drives (see GraphMenuCtx). */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
+  /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
+  onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
   /** A curve's cable is in hand and this widget is a LANDING TARGET — passed only while one is out. */
   onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
   styleOverride?: React.CSSProperties;
@@ -1009,6 +1020,8 @@ function WidgetInner({
   // saying it is rolling, never the click, which would light on a refusal too.
   const recNode = tgt?.kind === "recorder" ? (tgt.pluginId ?? null) : null;
   const recState = useRecorderState(useEngineStoreOrNull(), recNode);
+  // A double-click swaps the control for a text field, so an exact value can be typed — docs/widgets.md.
+  const [editing, setEditing] = useState(false);
 
   // Tabs widget: delegate to TabsWidget
   if (w.type === "tabs") {
@@ -1026,6 +1039,7 @@ function WidgetInner({
         onPickAsset={onPickAsset}
         onWatchWaveform={onWatchWaveform}
         onContextParam={onContextParam}
+        onTypeValue={onTypeValue}
       />
     );
   }
@@ -1122,6 +1136,13 @@ function WidgetInner({
               },
             }
           : { className: "dgx-w" };
+
+  // Only a value that is a NUMBER along a range can be typed: a knob, a slider, a fader, a number.
+  if (actuable && draggable(w) && onTypeValue)
+    interact.onDoubleClick = (e) => {
+      e.stopPropagation();
+      setEditing(true);
+    };
 
   // A control that drives something can be right-clicked for what drives IT, and stopped there.
   if (actuable && onContextParam)
@@ -1307,7 +1328,56 @@ function WidgetInner({
       {caption && w.type !== "dropdown" && (
         <span className="dgx-wlab">{caption}</span>
       )}
+      {editing && (
+        <ValueEditor
+          initial={value}
+          onDone={(text) => {
+            setEditing(false);
+            const typed = text === null ? null : widgetTyped(w, text);
+            if (typed !== null && typed !== value) onTypeValue?.(n, w, typed);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** The text field a double-clicked control becomes: Enter or leaving it commits, Escape does not. */
+function ValueEditor({
+  initial,
+  onDone,
+}: {
+  initial: number | undefined;
+  /** The text typed, or null for "never mind". Called ONCE, whichever way the field is left. */
+  onDone: (text: string | null) => void;
+}) {
+  const done = useRef(false);
+  const finish = (text: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(text);
+  };
+  return (
+    <input
+      className="dgx-wedit"
+      // Four decimals and no trailing zeros: the value as it is, not as the knob rounds it for display.
+      defaultValue={
+        initial === undefined ? "" : String(Number(initial.toFixed(4)))
+      }
+      // biome-ignore lint/a11y/noAutofocus: the field exists only because a double-click asked for it.
+      autoFocus
+      onFocus={(e) => e.currentTarget.select()}
+      // Kept off the pane and the control under it: a press here is a caret, not a drag.
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") finish(e.currentTarget.value);
+        else if (e.key === "Escape") finish(null);
+      }}
+      onBlur={(e) => finish(e.currentTarget.value)}
+    />
   );
 }
 /** Does a dropdown's caption fit BESIDE its select? Counted in glyphs, never from the DOM — docs/widgets.md. */
@@ -1345,20 +1415,96 @@ function headerNameW(n: GraphNode, hasGlyph: boolean): number {
 }
 
 /** One corner bubble, in the order they sit: the corner first, then leftwards. */
-export type CornerButton = "plugin" | "bypass" | "menu" | "open";
+export type CornerButton = "plugin" | "bypass" | "open";
 
 /** Which bubbles a node's corner shows — ONE list, read by three things, docs/nodeCard.md. */
-function cornerButtons(n: GraphNode, canOpenMenu: boolean): CornerButton[] {
+function cornerButtons(n: GraphNode): CornerButton[] {
   const out: CornerButton[] = [];
   // Neither on a baked module: no live plugin, so no window to open and nothing to bypass.
   const baked = !!n.frozen && n.kind === "module";
   if (n.hasNativePluginUI && n.module && !baked) out.push("plugin");
   if (n.kind === "module" && n.module && !baked) out.push("bypass");
-  if (canOpenMenu && n.module && n.note === undefined) out.push("menu");
   // The only way into a box, and the only way back out of one — see packages/song/docs/assemblies.md.
   if (n.assemblyOf && n.module) out.push("open");
   return out;
 }
+
+/** A module's attribute sets as badges above its corner, the last a `+` that copies the one on — docs/nodeCard.md. */
+function AltBadges({
+  module,
+  names,
+  current,
+  onAlternative,
+}: {
+  module: string;
+  names: string[];
+  current: string;
+  onAlternative: (module: string, name: string | null) => void;
+}) {
+  // The badge clicked, lit before the reply comes back — the graph's own answer replaces it.
+  const [asked, setAsked] = useState<string | null>(null);
+  // …and the `+`, marked busy until the new set arrives.
+  const [adding, setAdding] = useState(false);
+  // Any change to what the graph says is the answer, so the guesses give way to it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the deps are the trigger, not inputs.
+  useEffect(() => {
+    setAsked(null);
+    setAdding(false);
+  }, [current, names.length]);
+  // A refusal changes nothing the graph says, so a guess also gives up on its own.
+  useEffect(() => {
+    if (asked === null && !adding) return;
+    const t = setTimeout(() => {
+      setAsked(null);
+      setAdding(false);
+    }, ALT_GUESS_MS);
+    return () => clearTimeout(t);
+  }, [asked, adding]);
+  const on = asked ?? current;
+  return (
+    // Kept off the pane like a widget's press, or it arms a pan and the click never lands.
+    <div
+      className={`dgx-alts${names.length ? "" : " lone"}`}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {names.map((name) => (
+        <button
+          key={name}
+          type="button"
+          className={`dgx-alt${name === on ? " on" : ""}`}
+          title={
+            name === on
+              ? `Alternative "${name}" — the settings this node is playing now`
+              : `Play this node with the "${name}" settings instead`
+          }
+          onClick={() => {
+            if (name === on) return;
+            setAsked(name);
+            onAlternative(module, name);
+          }}
+        >
+          {name}
+        </button>
+      ))}
+      <button
+        type="button"
+        className={`dgx-alt add${adding ? " busy" : ""}`}
+        title={`New alternative — a copy of "${on}"`}
+        disabled={adding}
+        onClick={() => {
+          setAdding(true);
+          onAlternative(module, null);
+        }}
+      >
+        <Plus />
+      </button>
+    </div>
+  );
+}
+
+// How long a badge's guess waits for the graph before giving up — a refused switch never answers.
+const ALT_GUESS_MS = 4000;
 
 // The glyph's height on the far card, taken from the NODE: it sits on its own line, so it needs a share of height.
 const farIconPx = (w: number, h: number): number =>
@@ -1427,7 +1573,8 @@ function NodeInner({
   onOpenPlugin,
   onBypass,
   onToggleAssembly,
-  onNodeMenu,
+  onAlternative,
+  onZoomTo,
   warning,
   onDragStart,
   onTapWidget,
@@ -1437,6 +1584,7 @@ function NodeInner({
   onPickTrackInput,
   onWatchWaveform,
   onContextParam,
+  onTypeValue,
   sinkPlay,
   onTapJack,
   patchWant,
@@ -1460,8 +1608,10 @@ function NodeInner({
   onBypass: (module: string) => void;
   /** Open or close an assembly's box. Session state: nothing about it is written to the project. */
   onToggleAssembly?: (name: string) => void;
-  /** The ⋮ bubble was clicked: this host's menu for the node — the button exists only when given. */
-  onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
+  /** An alternative badge was clicked: a set's name to switch to, or null to copy the one on — the badges exist only when given. */
+  onAlternative?: (module: string, name: string | null) => void;
+  /** A double-click on the header, or on the whole card when zoomed out: frame this node. */
+  onZoomTo?: (n: GraphNode) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
   warning?: string;
   onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
@@ -1480,6 +1630,8 @@ function NodeInner({
   ) => void;
   /** Right-click on one of this node's controls — the menu for the PARAM, not for the module. */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
+  /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
+  onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
   sinkPlay?: SinkPlay;
   /** A jack was pressed or released — BOTH halves, since `phase` is what tells the two gestures apart. */
   onTapJack?: (
@@ -1528,7 +1680,7 @@ function NodeInner({
       ? moduleDisplayName(n.uses)
       : n.label;
   // The corner cluster, decided once, since three things read this same list.
-  const corners = cornerButtons(n, !!onNodeMenu);
+  const corners = cornerButtons(n);
   const slot = (b: CornerButton) => corners.indexOf(b);
   const sel =
     (!!n.chain && n.chain === selected) ||
@@ -1663,6 +1815,11 @@ function NodeInner({
         data-node-id={n.id}
         // No header at this zoom, so the whole card is the pin gesture's handle — docs/hosting.md.
         onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
+        // …and the double-click's too: at this zoom the name is all there is to aim at.
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onZoomTo?.(n);
+        }}
         style={{
           left: n.x,
           top: n.y,
@@ -1744,6 +1901,10 @@ function NodeInner({
         className={`dgx-hd${onHeaderDrag ? " grab" : ""}`}
         // Drag the header, move the card — the pin gesture, docs/hosting.md.
         onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onZoomTo?.(n);
+        }}
       >
         {/* The TOP row: the glyph, the module's name, and whatever stands beside them. */}
         <span className="dgx-hdtop">
@@ -1846,24 +2007,14 @@ function NodeInner({
         </span>
       )}
 
-      {/* The node's own menu — alternatives and freezing — reported to the HOST rather than drawn here. */}
-      {corners.includes("menu") && (
-        <span
-          className={`dgx-cbtn dgx-abtn${n.alternative && n.alternative !== "1" ? " on" : ""}`}
-          style={{ "--slot": slot("menu") } as React.CSSProperties}
-          title={
-            n.alternative && n.alternative !== "1"
-              ? `Alternative "${n.alternative}" — click for the node's menu`
-              : "Alternatives, freeze…"
-          }
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onNodeMenu?.(n, { x: e.clientX, y: e.clientY });
-          }}
-        >
-          <i />
-        </span>
+      {/* The module's attribute sets, above the card's corner; the switch and the copy are the HOST's commands. */}
+      {onAlternative && n.module && (
+        <AltBadges
+          module={n.module}
+          names={n.alternatives ?? []}
+          current={n.alternative ?? "1"}
+          onAlternative={onAlternative}
+        />
       )}
 
       {/* What the engine said went wrong with THIS plugin, on hover: often the only word on a module doing nothing. */}
@@ -1902,7 +2053,7 @@ function NodeInner({
           aria-label="frozen"
           title={
             n.frozen === "at"
-              ? "Frozen here — everything upstream is playing as one render. Unfreeze from the ⋮ menu."
+              ? "Frozen here — everything upstream is playing as one render. Unfreeze from the right-click menu."
               : "Inside a render — this node is baked and is not running. Unfreeze the point downstream of it."
           }
         >
@@ -2092,6 +2243,7 @@ function NodeInner({
             onPickAsset={onPickAsset}
             onWatchWaveform={onWatchWaveform}
             onContextParam={onContextParam}
+            onTypeValue={onTypeValue}
             // A curve's cable is in hand and this widget could take it — see onLandAutomation.
             onLandAutomation={
               patchWant?.kind === "automation" ? onLandAutomation : undefined
@@ -2300,9 +2452,7 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
             // Its model can be fetched: the menu grows "Download model".
             ...(n.modelDownload ? { model: true } : {}),
             // The same test as the corner bubble, so the menu offers `node external-ui` exactly where the button shows.
-            ...(cornerButtons(n, false).includes("plugin")
-              ? { native: true }
-              : {}),
+            ...(cornerButtons(n).includes("plugin") ? { native: true } : {}),
           }
         : null;
     case "chain":
@@ -2355,6 +2505,8 @@ export function DomChains({
   onMoveNode,
   onCamReady,
   row,
+  minimap,
+  onOrganize,
   camStore,
   engineWarnings,
   fitKey,
@@ -2364,7 +2516,7 @@ export function DomChains({
   onThawAutoFreeze,
   onModuleField,
   onToggleAssembly,
-  onNodeMenu,
+  onAlternative,
   onTriggerRack,
   onRecorder,
   onProjectField,
@@ -2435,6 +2587,10 @@ export function DomChains({
   onCamReady?: (cam: ChainsCamApi) => void;
   /** This graph is arranged as a ROW to be read across — it changes what the navigation MEANS, docs/hosting.md. */
   row?: boolean;
+  /** Draw the corner minimap, with its "Zoom fit" button — docs/minimap.md. Never on a ROW. */
+  minimap?: boolean;
+  /** The minimap's "Organize": the host's auto-layout, which is a command and its reload. */
+  onOrganize?: () => void;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
   camStore?: CamStore;
   /** Engine load problems by PluginDoc id — a node badges itself from this. */
@@ -2453,8 +2609,8 @@ export function DomChains({
   onModuleField?: (line: string) => void | Promise<void>;
   /** Open or close an ASSEMBLY's box. Session state the HOST holds: nothing is written to the project. */
   onToggleAssembly?: (name: string) => void;
-  /** The ⋮ bubble: open THIS host's menu for that node — the menu is the host's, docs/hosting.md. */
-  onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
+  /** An alternative badge: switch a module to a set (`name`), or copy the one on (null) — docs/hosting.md. */
+  onAlternative?: (module: string, name: string | null) => void;
   /** A RACK pad was clicked: the graph says WHICH sound was asked for and stops there — docs/hosting.md. */
   onTriggerRack?: (module: string, symbol: string) => void;
   /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
@@ -2517,11 +2673,17 @@ export function DomChains({
   // The point a zoom holds still: where the wheel was, in host coordinates.
   const anchor = useRef({ px: 0, py: 0 });
   const kick = useRef<() => void>(() => {});
+  // A camera being FLOWN to — a double-click's, not a hand's, so any wheel, drag or pinch drops it.
+  const flight = useRef<Cam | null>(null);
+  // The view before the first zoom onto a node: what a double-click on the bare canvas flies back to.
+  const before = useRef<Cam | null>(null);
   // Through a ref: the wheel and the pan are bound once, and would read `row` as it first was.
   const rowRef = useRef(row);
   rowRef.current = row;
   // Redraws the cable canvas, which sits OUTSIDE `.dgx-world` and so is moved by no transform.
   const paintRef = useRef<() => void>(() => {});
+  // The minimap's own paint, called from the graph's — the one place every camera move passes through.
+  const minimapPaint = useRef<() => void>(() => {});
   // Has the graph been framed? A saved camera means the user already has a view, so it starts true.
   const fitted = useRef(camStore?.current != null);
   // Has the USER taken the camera? Separate from `fitted` — see docs/chainsGraph.md.
@@ -2551,6 +2713,8 @@ export function DomChains({
     }
     persist();
   };
+  const placeRef = useRef(place);
+  placeRef.current = place;
   // A camera restored from the store is never placed by a fit, so it needs this one write.
   useLayoutEffect(() => {
     applyCam(worldRef.current, cam.current);
@@ -2577,7 +2741,7 @@ export function DomChains({
     onBypassModule,
     onThawAutoFreeze,
     onModuleField,
-    onNodeMenu,
+    onAlternative,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -2605,7 +2769,7 @@ export function DomChains({
     onBypassModule,
     onThawAutoFreeze,
     onModuleField,
-    onNodeMenu,
+    onAlternative,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -2977,6 +3141,7 @@ export function DomChains({
   const hostSize = useRef({ w: 0, h: 0 });
   // Reassigned every render, like `fit` below, so the rAF always draws the CURRENT camera and cables.
   paintRef.current = () => {
+    minimapPaint.current();
     const cv = cvRef.current;
     if (!cv) return;
     const ctx = cv.getContext("2d");
@@ -3232,6 +3397,8 @@ export function DomChains({
     startY: number;
     travel: number; // screen px that sweep the whole range for THIS control
     value: number;
+    /** The value the press found — a release that did not move it writes nothing. */
+    from: number;
     sent: boolean;
   } | null>(null);
   const overrideRef = useRef(override);
@@ -3334,6 +3501,7 @@ export function DomChains({
               )
             : DRAG_TRAVEL_PX,
         value: v ?? widgetDenorm(w, 0),
+        from: v ?? widgetDenorm(w, 0),
         sent: false,
       };
     },
@@ -3402,7 +3570,9 @@ export function DomChains({
       const d = drag.current;
       if (d) {
         drag.current = null;
-        if (d.tgt.kind === "track") {
+        if (d.value === d.from) {
+          // A click, or the two presses of a double-click: nothing moved, so nothing is written.
+        } else if (d.tgt.kind === "track") {
           if (d.tgt.control === "volume" || d.tgt.control === "pan")
             cb.current.onTrackSet?.(d.tgt.trackId, d.tgt.control, d.value);
           // A module FIELD is a named setting, not a range, so a drag onto one commits nothing.
@@ -3433,6 +3603,7 @@ export function DomChains({
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    flight.current = null;
     // Grabbing the canvas ends any zoom still in flight: you are steering now — docs/camera.md.
     goal.current.k = cam.current.k;
     pan.current = {
@@ -3462,6 +3633,21 @@ export function DomChains({
         const still = motionStep.current(dt);
         moving = moving || still;
         if (!still) settleMotion.current();
+      }
+      const fl = flight.current;
+      if (fl) {
+        const next = flyStep(
+          c,
+          fl,
+          approach(dt),
+          host.clientWidth,
+          host.clientHeight,
+        );
+        Object.assign(c, next);
+        Object.assign(g, next);
+        if (next.k === fl.k && next.x === fl.x && next.y === fl.y)
+          flight.current = null;
+        else moving = true;
       }
       if (c.k !== g.k) {
         // Within a thousandth of the goal, land on it — an exponential never quite arrives.
@@ -3494,6 +3680,7 @@ export function DomChains({
     // Non-passive: it must preventDefault, and a React onWheel would allocate an event per notch.
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
+      flight.current = null;
       userMoved.current = true; // either way, the camera is theirs now — stop auto-framing
       if (rowRef.current) {
         // A ROW is read across: the wheel walks along it, whatever axis the device reports.
@@ -3527,6 +3714,7 @@ export function DomChains({
     let pinch: { dist: number; k: number; x: number; y: number } | null = null;
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
+      flight.current = null;
       pan.current = null; // a pinch is not a pan, whatever the first finger had started
       setPanning(false);
       pinch = { dist: spreadOf(e.touches[0], e.touches[1]), ...cam.current };
@@ -3562,6 +3750,60 @@ export function DomChains({
       host.removeEventListener("touchcancel", onTouchEnd);
       if (raf) cancelAnimationFrame(raf);
     };
+  }, []);
+
+  // --- the double-click camera: onto a node, and back to where it was — docs/camera.md -----
+  const flyTo = useCallback((to: Cam) => {
+    userMoved.current = true; // a camera somebody asked for; no resize re-frames it away
+    goal.current.k = cam.current.k; // a zoom still gliding gives way, as it does to a press
+    flight.current = to;
+    kick.current();
+  }, []);
+  const zoomToNode = useCallback(
+    (n: GraphNode) => {
+      const host = hostRef.current;
+      // A ROW is walked along rather than zoomed into — docs/camera.md.
+      if (!host || rowRef.current) return;
+      // The view before the FIRST node visited, however many are visited after it.
+      before.current ??= { ...cam.current };
+      flyTo(
+        frameBox(
+          { x: n.x, y: n.y, w: n.w, h: n.h },
+          host.clientWidth,
+          host.clientHeight,
+        ),
+      );
+    },
+    [flyTo],
+  );
+  // Only on the BARE canvas: a card, a badge, a socket or a cable is not empty space.
+  const canvasDoubleClick = (e: React.MouseEvent) => {
+    if (
+      (e.target as Element).closest(
+        ".dgx-node, .dgx-frame, .dgx-alts, .dgx-port, .dgx-hit, .dgx-ins-btn",
+      )
+    )
+      return;
+    const back = before.current;
+    if (!back) return;
+    before.current = null;
+    flyTo(back);
+  };
+
+  // The minimap: a press puts the pane's centre there, and "Zoom fit" is the first frame again.
+  const centerOn = useCallback((wx: number, wy: number) => {
+    const { w, h } = hostSize.current;
+    const k = cam.current.k;
+    flight.current = null;
+    userMoved.current = true;
+    placeRef.current({ k, x: w / 2 - wx * k, y: h / 2 - wy * k });
+  }, []);
+  const zoomFit = useCallback(() => {
+    flight.current = null;
+    before.current = null;
+    // The camera is the graph's again: a resize re-frames it, as it did before anybody moved it.
+    userMoved.current = false;
+    fit.current();
   }, []);
 
   // --- node + widget actions ---------------------------------------------------------
@@ -3618,10 +3860,10 @@ export function DomChains({
     (module: string) => cb.current.onBypassModule?.(module),
     [],
   );
-  // The node only ASKS: a viewport-positioned overlay is the shell's to render — docs/hosting.md.
-  const openNodeMenu = useCallback(
-    (n: GraphNode, at: { x: number; y: number }) =>
-      cb.current.onNodeMenu?.(n, at),
+  // The badge only ASKS: which command switches or copies a set is the host's — docs/hosting.md.
+  const pickAlternative = useCallback(
+    (module: string, name: string | null) =>
+      cb.current.onAlternative?.(module, name),
     [],
   );
   // The widget only ASKS, and the shell writes what comes back — an asset loads at BUILD time.
@@ -3696,6 +3938,22 @@ export function DomChains({
         );
     },
     [setModuleField, rehearsal],
+  );
+
+  // A TYPED value: one step of what a drag does, committed at once — docs/widgets.md.
+  const typeWidget = useCallback(
+    (n: GraphNode, w: WebWidget, value: number) => {
+      // The same two gates a drag has: a baked module has no plugin, an automatic freeze gives way.
+      if (n.frozen && n.kind === "module") return;
+      if (n.autoFrozen) cb.current.onThawAutoFreeze?.(n.autoFrozen);
+      const tgt = widgetTarget(n, w, chRef.current.offlineChannel);
+      if (tgt?.kind !== "track") return pickWidget(n, w, value);
+      // A lane's level and pan, the two a drag commits; a toggle is never typed.
+      if (tgt.control !== "volume" && tgt.control !== "pan") return;
+      setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
+      cb.current.onTrackSet?.(tgt.trackId, tgt.control, value);
+    },
+    [pickWidget],
   );
 
   const tapWidget = useCallback(
@@ -4133,6 +4391,7 @@ export function DomChains({
           ref={hostRef}
           className={`dgx${panning ? " panning" : ""}`}
           onPointerDown={onPointerDown}
+          onDoubleClick={canvasDoubleClick}
           // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
           onPointerMove={patch ? movePatch : undefined}
           onClick={patch ? canvasDrop : undefined}
@@ -4203,7 +4462,8 @@ export function DomChains({
                 onOpenPlugin={openPlugin}
                 onBypass={bypassModule}
                 onToggleAssembly={onToggleAssembly}
-                onNodeMenu={onNodeMenu ? openNodeMenu : undefined}
+                onAlternative={onAlternative ? pickAlternative : undefined}
+                onZoomTo={zoomToNode}
                 warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
                 onDragStart={beginDrag}
                 onTapWidget={tapWidget}
@@ -4217,6 +4477,7 @@ export function DomChains({
                 onPickTrackInput={pickTrackInput}
                 onWatchWaveform={onWatchWaveform}
                 onContextParam={contextParam}
+                onTypeValue={typeWidget}
                 sinkPlay={sinkPlay}
                 onTapJack={onConnect ? tapJack : undefined}
                 patchWant={patchWant}
@@ -4233,6 +4494,19 @@ export function DomChains({
               />
             ))}
           </div>
+          {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
+          {minimap && !row && (
+            <Minimap
+              nodes={graph.nodes}
+              bounds={graph}
+              cam={cam}
+              view={hostSize}
+              paintRef={minimapPaint}
+              onCenter={centerOn}
+              onFit={zoomFit}
+              onOrganize={onOrganize}
+            />
+          )}
         </div>
       </IconsContext.Provider>
     </EngineStoreProvider>

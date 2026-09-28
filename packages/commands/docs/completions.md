@@ -32,8 +32,11 @@ file every other project reads.
 `@engine` refs are the exception on both sides and are NOT offered. That namespace is the plugin
 scan, so its size is a fact about the MACHINE rather than about the song: a rig with four hundred
 plugins puts four hundred entries in front of the dozen modules a project has. It is browsed
-instead, in the file tree's Libraries tab, and it is still what `extends:` inherits from — which
-is the `baseModules` provider. The filter is on the vocabulary half only: a ref the project
+instead, in the file tree's Libraries tab. `baseModules` leaves it out as well: a scanned plugin is
+what a LIBRARY's module extends to give it a face (`packages/song/docs/moduleNamespaces.md`), and a
+node pointed at the raw `@engine` ref instead gets no panel, whatever the library draws for it.
+`module own` is the one verb that takes an engine ref, and it asks `engineModules`, which holds
+nothing else. The filter is on the vocabulary half only: a ref the project
 already USES arrives through `collectPluginModules` and stays completable, because a node that
 exists is a node its verbs have to be able to name.
 

@@ -320,12 +320,25 @@ export const FILE_PARAMS = ["nam", "onnx"] as const;
 /** The extension a file-valued param takes, derived from the param's NAME — `nam` loads `.nam`, see docs/moduleTypes.md. */
 export const assetExtFor = (param: string): string => `.${param.toLowerCase()}`;
 
-/** Those of `files` a param of this name can take. */
+/** Those of `files` a param of this name can take — a library param only the `@<library>/…` sound files. */
 export function assetsForParam(files: string[], param: string): string[] {
+  if (isLibraryFileParam(param))
+    return files.filter((f) => f.startsWith("@") && isLibraryAudio(f));
   const ext = assetExtFor(param);
   return files.filter((f) => f.toLowerCase().endsWith(ext));
 }
 export type FileParam = (typeof FILE_PARAMS)[number];
+
+/** File-valued params whose file is in a LIBRARY's shared folder, named `@<library>/<path>` — packages/song/docs/libraryFiles.md. */
+export const LIBRARY_FILE_PARAMS = { ir: "irs" } as const;
+export type LibraryFileParam = keyof typeof LIBRARY_FILE_PARAMS;
+export const isLibraryFileParam = (name: string): name is LibraryFileParam =>
+  Object.hasOwn(LIBRARY_FILE_PARAMS, name);
+
+/** The sound files a library's `samples/` and `irs/` hold — what those folders are walked for. */
+export const LIBRARY_AUDIO_EXTS = [".wav", ".aif", ".aiff", ".flac"] as const;
+export const isLibraryAudio = (path: string): boolean =>
+  LIBRARY_AUDIO_EXTS.some((e) => path.toLowerCase().endsWith(e));
 export const isFileParam = (name: string): name is FileParam =>
   (FILE_PARAMS as readonly string[]).includes(name);
 

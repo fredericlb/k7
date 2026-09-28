@@ -25,6 +25,7 @@ import {
   IO_MODULES,
   isFileParam,
   isIoSource,
+  LIBRARY_FILE_PARAMS,
   MODULE_EMITS,
   MODULE_TYPES,
   metaRef,
@@ -64,6 +65,7 @@ import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
 import { docModules } from "./docModule";
 import { engineModules, engineRef, ioModules } from "./engineCatalogue";
+import { libraryFile } from "./libraryFiles";
 import { cachedForModules, withModuleStamp } from "./moduleCache";
 import {
   mergeAuthored,
@@ -215,6 +217,13 @@ export function resolveAssets(
     const ref = params[field];
     out[field] = resolveModuleAsset(ref, folderAbs);
     if (typeof ref === "string" && ref) assets[field] = ref;
+  }
+  // …and the ones a LIBRARY shares, named `@<library>/<path>` rather than by the module's own folder.
+  for (const [field, family] of Object.entries(LIBRARY_FILE_PARAMS)) {
+    const ref = params[field];
+    if (typeof ref !== "string" || !ref) continue;
+    out[field] = libraryFile(family, ref);
+    assets[field] = ref;
   }
   return {
     ...out,

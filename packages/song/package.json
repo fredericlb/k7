@@ -52,7 +52,8 @@
     "./scaffoldLive": "./src/scaffoldLive.ts",
     "./scaffoldSet": "./src/scaffoldSet.ts",
     "./videoOutputs": "./src/videoOutputs.ts",
-    "./rawDoc": "./src/rawDoc.ts"
+    "./rawDoc": "./src/rawDoc.ts",
+    "./libraryFiles": "./src/libraryFiles.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

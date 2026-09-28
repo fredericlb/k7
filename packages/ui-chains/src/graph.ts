@@ -904,6 +904,16 @@ export function widgetDenorm(w: WebWidget, t: number): number {
   return Math.min(max, Math.max(min, Math.round(v / w.step) * w.step));
 }
 
+/** A value TYPED into a control: clamped to its range and quantised to its `step`, null when it is no number. */
+export function widgetTyped(w: WebWidget, text: string): number | null {
+  // A comma is the decimal mark half the world types, and nothing else here can mean one.
+  const v = Number(text.trim().replace(",", "."));
+  if (!text.trim() || !Number.isFinite(v)) return null;
+  const [min, max] = widgetRange(w);
+  const stepped = w.step ? Math.round(v / w.step) * w.step : v;
+  return Math.min(max, Math.max(min, stepped));
+}
+
 export interface RawNode extends Omit<GraphNode, "x" | "y"> {
   rank?: number; // dagre rank hint — computed from longest chain position
 }
@@ -1481,26 +1491,44 @@ export function buildGraph(
     if (isSum(String(c.from ?? "")))
       for (const s of c.use ?? []) onMaster.add(moduleId(s.module));
 
-  // dagre rank hints: tracks 0, lane modules 1 + their max position, then the master run, then sinks.
-  let laneMax = 0;
+  // dagre rank hints, top to bottom: inputs, tracks, lane modules, the faders, the sum, the master run, sinks — docs/graphBuild.md.
+  const INPUT_RANK = 0;
+  const TRACK_RANK = 1;
+  const laneRank = new Map<string, number>();
   let masterMax = -1;
   for (const [id, r] of moduleRank)
     if (onMaster.has(id)) masterMax = Math.max(masterMax, r);
-    else laneMax = Math.max(laneMax, r);
-  // The sum comes after every lane. It used to be rank 0 — where a SOURCE is, the master run leaving
-  // it downward — which put it on the track row with `OUT` at the bottom and ONE cable spanning the
-  // whole page. Nothing is drawn INTO the sum, so nothing ever pulled it back down. docs/graphBuild.md.
-  const sumRank = 2 + laneMax;
+    else laneRank.set(id, TRACK_RANK + 1 + r);
+  // The lane FADERS share one row, the deepest of theirs, and what follows one in its chain moves down with it.
+  const faders = [...laneRank.keys()].filter((id) => nodes.get(id)?.trackFace);
+  if (faders.length > 1) {
+    const row = Math.max(...faders.map((id) => laneRank.get(id) ?? 0));
+    for (const c of Object.values(graph.chains)) {
+      if (isSum(String(c.from ?? ""))) continue;
+      const use = c.use ?? [];
+      const at = use.findIndex((s) => mixerOwner.has(s.module));
+      for (let i = Math.max(0, at); at >= 0 && i < use.length; i++) {
+        const id = moduleId(use[i].module);
+        laneRank.set(id, Math.max(laneRank.get(id) ?? 0, row + i - at));
+      }
+    }
+  }
+  const laneMax = Math.max(TRACK_RANK, ...laneRank.values());
+  // The sum comes after every lane: ranked where a SOURCE is, it sat on the track row and one cable spanned the page.
+  const sumRank = laneMax + 1;
   const sinkRank = sumRank + 2 + masterMax;
   for (const n of nodes.values()) {
-    if (n.kind === "track") n.rank = 0;
+    if (n.kind === "track") n.rank = TRACK_RANK;
+    // A live input FEEDS a lane, so its row is above the tracks — ranked as a module, it pushed its track out of line.
+    else if (n.kind === "module" && n.monitor !== undefined)
+      n.rank = INPUT_RANK;
     else if (n.id === mixId || n.id === renderId) n.rank = sumRank;
     else if (n.kind === "module")
       n.rank = onMaster.has(n.id)
         ? sumRank + 1 + (moduleRank.get(n.id) ?? 0)
-        : 1 + (moduleRank.get(n.id) ?? 0);
+        : (laneRank.get(n.id) ?? TRACK_RANK + 1);
     else if (n.kind === "sink") n.rank = sinkRank;
-    else if (n.kind === "chain") n.rank = 1;
+    else if (n.kind === "chain") n.rank = TRACK_RANK + 1;
     else if (n.kind === "curve") {
       // Curves sit at the same rank as their target module.
       const targetEdge = [...edges.values()].find(

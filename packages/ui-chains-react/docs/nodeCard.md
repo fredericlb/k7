@@ -77,12 +77,33 @@ per-card measurement would cost. If the CSS moves, this moves with it.
 all it says: the discs hang off the corner rather than standing in the text, so there is no width to
 give up. One list, read by the buttons themselves, which cannot disagree with anything.
 
-The ⋮ `menu` appears on any node that COULD use one — any module node, a lane included — not only
-on one that already has alternatives or a freeze, since creating either has to start somewhere and
-that somewhere is the node. A note is left out: it is drawn as prose with no header to hang a
-bubble off. A BAKED module gets neither `plugin` nor `bypass`, there being no live plugin behind
-it for the engine to open a window on or to bypass; the ⋮ stays, because that is how the freeze is
-undone.
+A BAKED module gets neither `plugin` nor `bypass`, there being no live plugin behind it for the
+engine to open a window on or to bypass. Its freeze is undone from the right-click menu, where
+`node freeze` sits like every other node verb.
+
+## The alternatives are badges, not a bubble
+
+A module's attribute sets (`packages/song/docs/alternatives.md`) are drawn as a row of badges
+OUTSIDE the card, above its right corner: one per set, the one playing lit, and a `+` last. They
+are not in `cornerButtons`, because they are not one control each module might have — they are a
+list whose length is the module's. A menu hid the one fact worth seeing at a glance, that this node
+has variants and which one is on; a badge per set says it without a click, and switching is one
+click instead of two.
+
+A clicked badge lights AT ONCE, before the command's reply: the graph that proves it can be the
+better part of a second behind, and a badge that stays dark reads as a click that missed. The
+guess gives way to whatever the next graph says, and gives up on its own after a few seconds,
+since a refused switch sends no graph that would correct it. The `+` greys out the same way until
+the new set's badge arrives.
+
+The `+` always DUPLICATES the set that is on (`node alternative copy`), never starts an empty one:
+the reason to add a set is to try a change against what you are hearing, and a copy is that.
+
+A module with only its own settings still gets the `+`, since a second set has to start somewhere
+and that somewhere is the node — but only while the card is hovered or selected, or every card in
+the graph would wear one. The row sits 11 px above the card so the corner bubbles, which overhang
+it by 8, stay clear; dagre's 100 px between ranks leaves room for it. A note draws none: it returns
+before the card that carries them.
 
 ### Where a bubble sits
 
@@ -93,8 +114,8 @@ apart (`nodesep`) and ranks 100 px, and nothing between the card and `.dgx` (the
 
 Every bubble is the same disc; what differs is the SLOT it takes, counted from the corner leftwards
 (`--slot`, 17 px wide plus 3 px of air). One rule rather than a `.paired` variant per pair: there
-are three of them — alternatives, bypass, plugin UI — and a variant per combination is where a
-fourth would go wrong. The header's `padding-right` is driven by the same `--corners` count, so the
+are three of them — plugin UI, bypass, an assembly's open — and a variant per combination is where
+a fourth would go wrong. The header's `padding-right` is driven by the same `--corners` count, so the
 name and the cluster cannot disagree about how many there are.
 
 ## A flagged node has TWO colours, not one

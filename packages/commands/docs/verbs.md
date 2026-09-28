@@ -163,6 +163,21 @@ The names are read off the module's own file rather than off the compiled doc: a
 change any field, so the doc carries the chosen one collapsed in and has nothing left to say about
 the others. See `packages/song/docs/alternatives.md`.
 
+`select` is patched rather than reloaded when it CAN be: when the set that was on and the set
+asked for state nothing but numeric `params`, the switch is sent as values over the held doc
+(`moduleValues.ts`) and the engine takes them as a diff. That is the A/B case the badges are for,
+and a reload there recompiles the whole project to move two knobs.
+
+What to set is read off the module's FILE alone (`paramsSwitch`): the new set's values, and for a
+param only the old set stated, the value the module's own fields give it. Loading every module to
+resolve the one would cost most of what the reload costs — the module maps are rebuilt after any
+write, and they are the bulk of a compile. Only a param the old set stated and the module's own
+fields do not goes through `resolveModule`, since its value is whatever the module extends.
+
+Anything else reloads — a plugin, a panel, a clip list, a file-valued param — and so does a switch
+that leaves a param stated nowhere at all: a diff keeps such a param where it was, a rebuild puts
+it back to the plugin's default, and the two must not sound different.
+
 ## `module new` writes a module and stops
 
 The picker offers two kinds of thing and `makeModule` handles both: something from the CATALOGUE

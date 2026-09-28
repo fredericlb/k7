@@ -23,6 +23,7 @@ studio::PluginDoc pluginFromJson(const json& p) {
     pl.role = p.value("role", std::string{});
     pl.enabled = p.value("enabled", true);
     pl.namFile = p.value("namFile", std::string{});
+    pl.irFile = p.value("irFile", std::string{});
     pl.deckFile = p.value("deckFile", std::string{});
     pl.dspGraph = p.value("dspGraph", std::string{});
     pl.faustDsp = p.value("faustDsp", std::string{});

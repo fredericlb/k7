@@ -144,6 +144,26 @@ void diff_plugin_param_drift_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
+// A NAM module's model and its IR are loaded at insert, so picking another of either is a REPLACE — else the diff was empty.
+void diff_nam_model_or_ir_pick_is_replace() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "gtr");
+        auto p = mkPlugin("t1:amp", "studio_nam", "amp");
+        p.namFile = "/lib/amp-a.nam";
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc model = a;
+    model.tracks[0].plugins[0].namFile = "/lib/amp-b.nam";
+    CHECK(hasKind(diff(a, model), ChangeKind::PluginRemoved));
+    CHECK(hasKind(diff(a, model), ChangeKind::PluginAdded));
+    ProjectDoc ir = a;
+    ir.tracks[0].plugins[0].irFile = "/lib/irs/cab.wav";
+    CHECK(hasKind(diff(a, ir), ChangeKind::PluginAdded));
+    CHECK(!needsFullRebuild(diff(a, ir)));
+}
+
 // Swapping the plugin (same id, different name/type) is a REPLACE: remove + add, in that order, and no rebuild — the pair does the job in place.
 void diff_plugin_swap_is_replace_and_rebuild() {
     ProjectDoc a;
@@ -500,6 +520,7 @@ int main() {
     RUN(diff_track_params_in_place);
     RUN(diff_plugin_param_drift_is_incremental);
     RUN(diff_plugin_swap_is_replace_and_rebuild);
+    RUN(diff_nam_model_or_ir_pick_is_replace);
     RUN(diff_plugin_add_is_incremental);
     RUN(diff_plugin_remove_is_incremental);
     RUN(diff_plugin_add_rebuilds_when_it_must);

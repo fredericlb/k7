@@ -275,8 +275,8 @@ and a caller that threw it away could not derive the chains it had just written.
 `alternatives:`/`alternative:` and `frozen:` belong to the MODULE, which is what a lane is:
 
 - [alternatives.md](alternatives.md) — a module's other sets of attributes, not a lane's other clip
-  lists. The timeline gutter names the set a lane is playing, and clicking it opens the lane node's
-  own ⋮ menu: one menu reached from two places, running the `module` verbs
+  lists. The timeline gutter names the set a lane is playing, and clicking it opens a menu of the
+  lane node's sets — the same `node alternative` verbs the graph's badges run
   (`apps/st0/frontend/docs/timeline.md`).
 - [freeze.md](freeze.md) — a render standing in for everything UPSTREAM of a module, that module
   included, rather than for one lane and its own modules. It needs no neutralisation pass: gain and

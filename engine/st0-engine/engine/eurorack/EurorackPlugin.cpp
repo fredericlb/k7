@@ -92,7 +92,12 @@ void EurorackPlugin::initialise(const te::PluginInitialisationInfo& info)
 
 void EurorackPlugin::reset()
 {
-    bridge_.reset();
+    resetPending_ = true;
+}
+
+void EurorackPlugin::midiPanic()
+{
+    releasePending_ = true;
 }
 
 void EurorackPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
@@ -105,6 +110,10 @@ void EurorackPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     if (n <= 0 || out_.empty() || n > (int)out_[0].size()) return;
 
     readParams();
+
+    if (resetPending_.exchange(false)) bridge_.reset();
+    // Through the path a MIDI all-notes-off takes, so every module's core answers it as it answers the message.
+    if (releasePending_.exchange(false) && shape_.midi) handleMidi(juce::MidiMessage::allNotesOff(1));
 
     const int chans = ctx.destBuffer->getNumChannels();
     for (int c = 0; c < shape_.inChannels; ++c) {

@@ -8,6 +8,10 @@ import {
   approach,
   type Cam,
   clampZoom,
+  FRAME_FILL,
+  FRAME_MAX_ZOOM,
+  flyStep,
+  frameBox,
   frameOriginX,
   isMouseWheel,
   isZoomWheel,
@@ -204,5 +208,50 @@ describe("isMouseWheel", () => {
 
   it("calls a still surface a surface, not a wheel", () => {
     expect(isMouseWheel(ev({}))).toBe(false);
+  });
+});
+
+describe("frameBox", () => {
+  // Where a world point lands on screen under a camera.
+  const at = (c: Cam, x: number, y: number) => ({
+    x: x * c.k + c.x,
+    y: y * c.k + c.y,
+  });
+
+  it("puts the box's centre at the pane's centre", () => {
+    const c = frameBox({ x: 500, y: -200, w: 180, h: 120 }, 1000, 600);
+    const mid = at(c, 590, -140);
+    expect(mid.x).toBeCloseTo(500);
+    expect(mid.y).toBeCloseTo(300);
+  });
+
+  it("fills the pane by FRAME_FILL on the tighter axis", () => {
+    const c = frameBox({ x: 0, y: 0, w: 600, h: 100 }, 1000, 600);
+    expect(c.k).toBeCloseTo((1000 * FRAME_FILL) / 600);
+  });
+
+  it("never zooms a small card past FRAME_MAX_ZOOM, where a card reads fine and the graph around it is gone", () => {
+    expect(frameBox({ x: 0, y: 0, w: 20, h: 20 }, 1000, 600).k).toBe(
+      FRAME_MAX_ZOOM,
+    );
+  });
+});
+
+describe("flyStep", () => {
+  const from: Cam = { x: 0, y: 0, k: 0.5 };
+  const to: Cam = { x: -900, y: -400, k: 2 };
+
+  it("is the start at f = 0 and lands exactly at f = 1", () => {
+    const a = flyStep(from, to, 0, 1000, 600);
+    expect(a.k).toBeCloseTo(from.k);
+    expect(a.x).toBeCloseTo(from.x);
+    expect(flyStep(from, to, 1, 1000, 600)).toEqual(to);
+  });
+
+  it("arrives by repeated steps, as the frame loop runs it", () => {
+    let c = from;
+    for (let i = 0; i < 200 && (c.x !== to.x || c.k !== to.k); i++)
+      c = flyStep(c, to, 0.25, 1000, 600);
+    expect(c).toEqual(to);
   });
 });

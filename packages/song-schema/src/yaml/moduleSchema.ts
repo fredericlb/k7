@@ -294,9 +294,14 @@ const MODULE_FIELDS = {
   frozen: z.string().min(1).optional(),
 };
 
-/** One ALTERNATIVE: the same flat struct a module is, minus `extends` and minus the alternatives — docs/alternatives.md. */
+/** One ALTERNATIVE: the same flat struct a module is, minus the alternatives — docs/alternatives.md. */
 export const AlternativeSchema = z
-  .object({ name: z.string().min(1).optional(), ...MODULE_FIELDS })
+  .object({
+    name: z.string().min(1).optional(),
+    // A set naming its OWN module is another module entirely, not a patch over the node's (packages/song/docs/alternatives.md).
+    extends: z.string().min(1).optional(),
+    ...MODULE_FIELDS,
+  })
   .strict();
 
 export type Alternative = z.infer<typeof AlternativeSchema>;

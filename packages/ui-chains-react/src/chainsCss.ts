@@ -202,10 +202,38 @@ const CSS = `
   width:1.4px; height:5px; background:currentColor; transform:translateX(-50%); }
 /* No reservation for the bubbles: they hang off the corner (top:-8px), so a name is cut by the CARD and nothing else. */
 .dgx-pbtn i { width:9px; height:1.4px; background:currentColor; box-shadow:0 3px currentColor,0 -3px currentColor; }
-/* Alternatives — the module's other attribute sets, lit when a set other than its own is on. */
-.dgx-abtn.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); }
-.dgx-abtn i { width:3px; height:3px; border-radius:50%; background:currentColor;
-  box-shadow:0 -4px currentColor, 0 4px currentColor; }
+/* The corner minimap: over the pane rather than in the world, and above the cards. */
+.dgx-minimap { position:absolute; right:12px; bottom:12px; z-index:5; display:flex; flex-direction:column;
+  gap:4px; align-items:stretch; cursor:default; }
+.dgx-minimap canvas { display:block; background:rgba(13,13,15,.86); border:1px solid var(--line);
+  border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,.5); cursor:crosshair; touch-action:none; }
+/* The buttons sit over the map's right end, as square icons: the map is the thing, they are its tools. */
+.dgx-minimap-bar { display:flex; gap:4px; justify-content:flex-end; }
+.dgx-minimap-bar button { width:24px; height:24px; padding:0; display:grid; place-items:center;
+  color:var(--dim); background:rgba(13,13,15,.86); border:1px solid var(--line); border-radius:5px;
+  cursor:pointer; }
+.dgx-minimap-bar button svg { width:13px; height:13px; }
+.dgx-minimap-bar button:hover { color:#e7e6ea; border-color:var(--sand); }
+/* The field a double-clicked control becomes, over the control it replaces for the moment. */
+.dgx-wedit { position:absolute; left:2px; right:2px; top:50%; transform:translateY(-50%); z-index:3;
+  height:16px; min-width:0; box-sizing:border-box; padding:0 3px; text-align:center;
+  font:10px ui-monospace,monospace; color:#e7e6ea; background:#08080b;
+  border:1px solid var(--sand); border-radius:4px; outline:none; user-select:text; }
+/* Alternatives — one badge per attribute set, OUTSIDE the card above its right corner, clear of the bubbles. */
+.dgx-alts { position:absolute; bottom:calc(100% + 11px); right:0; z-index:2; display:flex; gap:3px; }
+/* A module with no second set shows its lone plus only while the card is hovered or selected. */
+.dgx-alts.lone { opacity:0; transition:opacity .12s; }
+.dgx-node:hover .dgx-alts.lone, .dgx-node.sel .dgx-alts.lone { opacity:1; }
+.dgx-alt { height:15px; min-width:15px; max-width:80px; padding:0 5px; border-radius:8px;
+  display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center;
+  font:9px/13px ui-monospace,monospace; cursor:pointer; color:var(--dim); background:var(--card);
+  border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
+.dgx-alt:hover { color:#e7e6ea; border-color:var(--sand); }
+.dgx-alt.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); cursor:default; }
+.dgx-alt.add { padding:0; display:grid; place-items:center; }
+.dgx-alt.add svg { width:9px; height:9px; }
+/* The copy is on its way: dimmed and inert until the new badge arrives. */
+.dgx-alt.add.busy { opacity:.45; cursor:progress; }
 
 /* An ASSEMBLY's bubble: a box you open, and the same disc closed again when it is. */
 .dgx-obtn.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); }
@@ -362,7 +390,12 @@ const CSS = `
 
 export function useCss(): void {
   useEffect(() => {
-    if (document.getElementById("dgx-css")) return;
+    // Refreshed when it DIFFERS, not only created: a hot reload that kept the old sheet drew new markup unstyled.
+    const held = document.getElementById("dgx-css");
+    if (held) {
+      if (held.textContent !== CSS) held.textContent = CSS;
+      return;
+    }
     const s = document.createElement("style");
     s.id = "dgx-css";
     s.textContent = CSS;

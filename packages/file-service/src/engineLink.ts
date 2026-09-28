@@ -43,7 +43,11 @@ import { guard } from "./background.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
 import { syncLibraries } from "./libraries.ts";
-import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
+import {
+  closeModuleWatch,
+  moduleFoldersMoved,
+  watchModuleFolders,
+} from "./moduleWatch.ts";
 import { saveTake } from "./recorderSave.ts";
 import { rootDir, slugify } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
@@ -1023,6 +1027,8 @@ export async function runWebCommand(
       }
     },
   );
+  // A verb writes beside the service, so the stamp must hear of it BEFORE the graph is built — docs/moduleWatch.md.
+  if (after !== before) moduleFoldersMoved();
   return { output: out, before, after, files };
 }
 

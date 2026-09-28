@@ -374,11 +374,11 @@ has variants at all. The first set's name is `"1"`, the module's own fields havi
 nowhere to carry one, so a single label reads as a number for an unnamed set and as a name for a
 named one without the gutter having to choose.
 
-### Clicking it opens the lane's ⋮ menu
+### Clicking it opens the lane's menu
 
-Not a menu of its own: the **same** one the chains pane opens on that lane's node, through the
-shell's `onNodeMenu`. So the switch, the two `create` entries and the freeze are one behaviour
-with one implementation, and each row is literally the command line it runs —
+The shell's `nodeMenu` (`contextMenu.ts`), through `onNodeMenu`. The chains graph shows the same
+sets as badges on the lane's node and runs the same verbs, so the switch, the two `create` entries
+and the freeze are one behaviour with one set of commands, and each row is literally the command line it runs —
 `node alternative select|create|copy`, `node freeze`. Switching goes on the click; the two
 that need a name arrive in the command bar half-typed, which is what `complete` already means in
 `contextMenu.ts`.

@@ -172,3 +172,25 @@ st0's timeline, piano roll and waveform draw the same line in `usePanZoom.ts`, b
 code: those are **scroll containers**, so their pan is the browser's own — a plain wheel is
 simply handed back, momentum and axis locking included, and only the pinch is intercepted. A
 pane scrolls; this one translates. Shared rule, different mechanism.
+
+## A double-click frames a node, and a double-click on nothing comes back
+
+A double-click on a card's HEADER — or anywhere on the card once it is zoomed out to its name, when
+there is no header to aim at — flies the camera onto that card: centred, filling `FRAME_FILL` of the
+pane on its tighter axis, and never past `FRAME_MAX_ZOOM`. Past that, a small card is legible and
+the graph around it has gone, which is the opposite of why you looked. Only the header takes it
+because the body is full of controls, and a double-click on one of those types a value
+(`widgets.md`).
+
+A double-click on the BARE canvas flies back to where the camera was before the first node was
+framed. Visiting several cards in a row keeps that first camera, so one double-click on nothing
+always returns to the overview you started from, however far you wandered; panning and zooming by
+hand in between does not replace it either, since "back" means back to the view you left. With
+nothing to come back to, it does nothing.
+
+It is a FLIGHT rather than a jump (`flyStep`), because a jump loses the one thing a zoom onto a card
+has to keep: where it was. What moves is the zoom and the world point at the pane's centre, both on
+the wheel's own half-life, so the card stays on screen the whole way — interpolating the screen
+offsets instead drags it off an edge and back. Any wheel, drag or pinch drops the flight at once:
+the hand outranks a double-click that is still arriving. A ROW (the mixer) takes none of this; it
+is walked along, not zoomed into.

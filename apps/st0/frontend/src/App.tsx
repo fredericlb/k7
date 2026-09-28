@@ -2141,13 +2141,23 @@ export default function App({
     );
     if (items.length) setMenu({ items, x, y });
   }, []);
-  /** The ⋮ bubble on a node — the same ContextMenu the right-click uses, over the same rows (`nodeMenu` in contextMenu.ts). */
+  /** A lane's gutter badge on the timeline — the same ContextMenu the right-click uses, over `nodeMenu`'s rows (contextMenu.ts). */
   const openNodeMenu = useCallback(
     (n: NodeMenuTarget, at: { x: number; y: number }) => {
       const items = nodeMenu(n);
       if (items.length) setMenu({ items, x: at.x, y: at.y });
     },
     [],
+  );
+  /** A node's alternative badge on the graph: switch to that set, or copy the one on — packages/song/docs/alternatives.md. */
+  const runAlternative = useCallback(
+    (module: string, name: string | null) =>
+      void runCommand(
+        name === null
+          ? `node alternative copy ${module}`
+          : `node alternative select ${module} ${name}`,
+      ),
+    [runCommand],
   );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingNode | null>(null);
@@ -3358,9 +3368,10 @@ export default function App({
                         void runCommand(`node bypass ${mod}`)
                       }
                       onModuleField={runCommand}
+                      onOrganize={() => void runCommand("graph organize")}
                       onRecorder={onRecorder}
                       onProjectField={onProjectField}
-                      onNodeMenu={openNodeMenu}
+                      onAlternative={runAlternative}
                       engineWarnings={engineWarnings}
                       onAssetBrowse={browseAssets}
                       onWatchWaveform={watchWaveform}
@@ -3532,7 +3543,7 @@ export default function App({
                       onBypassModule={(mod) =>
                         void runCommand(`node bypass ${mod}`)
                       }
-                      onNodeMenu={openNodeMenu}
+                      onAlternative={runAlternative}
                       onAssetBrowse={browseAssets}
                       onWatchWaveform={watchWaveform}
                       onTrackToggle={onLaneToggle}
@@ -3662,7 +3673,7 @@ export default function App({
                     onModuleField={runCommand}
                     onRecorder={onRecorder}
                     onProjectField={onProjectField}
-                    onNodeMenu={openNodeMenu}
+                    onAlternative={runAlternative}
                     onAssetBrowse={browseAssets}
                     onWatchWaveform={watchWaveform}
                     engineWarnings={engineWarnings}

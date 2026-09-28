@@ -428,11 +428,16 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
                 warn(err.toStdString(), p.id);
             else if (const double want = nam->modelSampleRate();
                      want > 0.0 && std::abs(want - edit.engine.getDeviceManager().getSampleRate()) > 1.0)
-                // The plugin does not resample, so a model trained at another rate simply sounds like a different amp.
-                warn("expects " + std::to_string(want) + " Hz but the engine runs at " +
-                         std::to_string(edit.engine.getDeviceManager().getSampleRate()) +
-                         " Hz - the model will not sound as trained",
-                     p.id);
+                // Not a warning: it sounds as trained. Said once, so a latency on this lane has a reason in the log.
+                std::cerr << "[nam] " << p.id << ": model at " << nam->modelSampleRate()
+                          << " Hz, resampled from the engine's rate\n";
+        }
+    // …and the cabinet IR it convolves after the model, the same way and on the same thread.
+    if (!p.irFile.empty())
+        if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get())) {
+            juce::String err;
+            if (!nam->loadImpulseResponse(juce::File{juce::String(p.irFile)}, err))
+                warn(err.toStdString(), p.id);
         }
     // The RECORD a platter owns, decoded here on the message thread — the audio one never touches a file.
     if (!p.deckFile.empty())

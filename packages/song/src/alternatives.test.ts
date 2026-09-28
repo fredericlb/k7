@@ -259,3 +259,109 @@ describe("through the real loader", () => {
     expect(resolved.ampli.params).toEqual({ Gain: 9, Tone: 5 });
   });
 });
+
+describe("a set that names ANOTHER module", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "td-altswap-"));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  // Two modules to be, a strip to be a fader, and a lane: the node under test is written by each case.
+  const project = (nodes: Record<string, string>): string => {
+    const p = join(dir, "song.st0");
+    mkdirSync(join(p, "nodes"), { recursive: true });
+    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
+    const lib = (path: string, text: string) => {
+      mkdirSync(join(dir, "_modules", path), { recursive: true });
+      writeFileSync(join(dir, "_modules", path, "module.yaml"), text);
+    };
+    lib(
+      "instruments/vst-wurli",
+      "plugin: { type: vst3, name: Wurli V2 }\nparams: { Tremolo: 0.3 }\n",
+    );
+    lib(
+      "instruments/faust-wurli",
+      "plugin: { type: internal, name: Faust }\nparams: { Bark: 0.5 }\n",
+    );
+    lib(
+      "audio/strip",
+      "plugin: { type: internal, name: Mixer }\nparams: { Volume: 0 }\n",
+    );
+    for (const [name, text] of Object.entries(nodes))
+      writeFileSync(join(p, "nodes", `${name}.yaml`), text);
+    writeFileSync(
+      join(p, "graph.yaml"),
+      "modules:\n  keys: [ wurli ]\n  wurli: [ OUT ]\n",
+    );
+    return p;
+  };
+  const LANE = 'extends: "@meta/track"\nevents: []\n';
+  const resolved = (p: string) =>
+    resolveModuleMap(loadModules(p), loadModuleRefs(p));
+
+  it("becomes that module: its plugin and its params, none of the node's own", () => {
+    const p = project({
+      keys: LANE,
+      wurli:
+        'extends: "@workspace/instruments/vst-wurli"\nparams: { Tremolo: 0.9 }\n' +
+        "alternative: faust\nalternatives:\n" +
+        '  - name: faust\n    extends: "@workspace/instruments/faust-wurli"\n    params: { Bark: 0.8 }\n',
+    });
+    const w = resolved(p).wurli;
+    expect(w.plugin).toEqual({ type: "internal", name: "Faust" });
+    // The set's own params over the NEW module's — the VST's Tremolo belongs to set "1" and stays there.
+    expect(w.params).toEqual({ Bark: 0.8 });
+    // …and it is still THIS node, with the sets it can be switched between.
+    expect(w.name).toBe("wurli");
+    expect(w.alternatives).toBeDefined();
+  });
+
+  it("is the node's own module again on set 1", () => {
+    const p = project({
+      keys: LANE,
+      wurli:
+        'extends: "@workspace/instruments/vst-wurli"\n' +
+        'alternatives:\n  - name: faust\n    extends: "@workspace/instruments/faust-wurli"\n',
+    });
+    expect(resolved(p).wurli.plugin).toEqual({
+      type: "vst3",
+      name: "Wurli V2",
+    });
+  });
+
+  it("reaches the graph the compile builds, not only the resolver", () => {
+    const p = project({
+      keys: LANE,
+      wurli:
+        'extends: "@workspace/instruments/vst-wurli"\nalternative: faust\n' +
+        'alternatives:\n  - name: faust\n    extends: "@workspace/instruments/faust-wurli"\n',
+    });
+    expect(loadGraph(p).modules.wurli.plugin).toEqual({
+      type: "internal",
+      name: "Faust",
+    });
+  });
+
+  it("does not swap a LANE: the arrangement is built on it", () => {
+    const p = project({
+      keys:
+        'extends: "@meta/track"\nevents: []\nalternative: other\n' +
+        'alternatives:\n  - name: other\n    extends: "@workspace/instruments/faust-wurli"\n',
+      wurli: 'extends: "@workspace/instruments/vst-wurli"\n',
+    });
+    expect(resolved(p).keys.kind).toBe("track");
+  });
+
+  it("does not swap a lane's FADER: the mixer is built on it, though its settings still switch", () => {
+    const p = project({
+      keys: LANE,
+      wurli:
+        'extends: "@workspace/audio/strip"\nalternative: other\n' +
+        'alternatives:\n  - name: other\n    extends: "@workspace/instruments/faust-wurli"\n    params: { Volume: -6 }\n',
+    });
+    const w = resolved(p).wurli;
+    expect(w.plugin).toEqual({ type: "internal", name: "Mixer" });
+    expect(w.params).toEqual({ Volume: -6 });
+  });
+});

@@ -3,7 +3,7 @@
 // document rather than the text, so the comments and the key order survive — these files are
 // hand-edited and they are in git. See ../docs/alternatives.md.
 
-import { isSeq, parseDocument } from "yaml";
+import { isMap, isSeq, parseDocument } from "yaml";
 import {
   alternativesOf,
   currentAlternative,
@@ -30,6 +30,80 @@ export function setAlternative(text: string, name: string): string {
   const doc = parseDocument(text, OPTS);
   if (at === 0) doc.deleteIn(["alternative"]);
   else doc.setIn(["alternative"], name);
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
+/** What a switch to `name` does to the params, when that is ALL it does — null otherwise (docs/alternatives.md). */
+export interface ParamsSwitch {
+  /** The values to set: what the new set states, and the module's own for what only the old set stated. */
+  params: Record<string, number>;
+  /** Params only the old set stated and the module's own fields do not: their value is inherited, not here. */
+  inherited: string[];
+}
+
+/** Read off the file alone, so a running engine can take the switch as values without a recompile. */
+export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
+  const raw = (parseDocument(text, OPTS).toJS() ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const list = Array.isArray(raw.alternatives) ? raw.alternatives : [];
+  const names = alternativesOf(raw).map((a) => a.name);
+  // The numeric params a set STATES, or null when it states anything else — the first states nothing.
+  const stated = (at: number): Record<string, number> | null => {
+    if (at === 0) return {};
+    const {
+      name: _n,
+      params,
+      ...rest
+    } = (list[at - 1] ?? {}) as Record<string, unknown>;
+    if (Object.keys(rest).length) return null;
+    if (params == null) return {};
+    if (typeof params !== "object") return null;
+    // A file-valued param (`nam`, `onnx`) is loaded when the plugin is BUILT, so it is not a value.
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (typeof v !== "number") return null;
+      out[k] = v;
+    }
+    return out;
+  };
+  const from = stated(currentAlternative(raw));
+  const to = stated(pickAlternative(names, name));
+  if (!from || !to) return null;
+  const own = (raw.params ?? {}) as Record<string, unknown>;
+  const params: Record<string, number> = { ...to };
+  const inherited: string[] = [];
+  for (const k of Object.keys(from)) {
+    if (k in to) continue;
+    const v = own[k];
+    if (typeof v === "number") params[k] = v;
+    else if (v === undefined) inherited.push(k);
+    else return null;
+  }
+  return { params, inherited };
+}
+
+/** Set one param on the set that is ON — the module's own for the first, else that entry (docs/alternatives.md). */
+export function setAlternativeParam(
+  text: string,
+  name: string,
+  value: number | string,
+): string {
+  const doc = parseDocument(text, OPTS);
+  const at = currentAlternative(
+    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
+  );
+  if (at === 0) doc.setIn(["params", name], value);
+  else {
+    // An empty set is written `- {}`; opened into block style, so its params read one per line.
+    const entry = doc.getIn(["alternatives", at - 1]);
+    if (isMap(entry)) entry.flow = false;
+    doc.setIn(["alternatives", at - 1, "params", name], value);
+    const params = doc.getIn(["alternatives", at - 1, "params"]);
+    if (isMap(params)) params.flow = false;
+  }
   quoteTimecodes(doc);
   return doc.toString(OUT);
 }

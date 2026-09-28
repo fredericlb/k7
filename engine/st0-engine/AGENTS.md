@@ -147,6 +147,14 @@ scripts/               Node harnesses that drive a running engine, not build ste
   platterBench.ts        what those three share — the wav, the one-platter document, the broadcast
                          frames and the FFT. Not a bench: a second copy of an FFT is a second place
                          for a windowing bug to hide
+  nam-rate.ts            does a NAM model sound as trained on an engine at ANOTHER rate? Offline: one
+                         sawtooth through one model at its own rate and at another, and the harmonic
+                         profiles compared — the only coverage the plugin's resampling has (docs/namPlugin.md)
+  nam-ir.ts              does a NAM module's cabinet IR reach the SOUND, and is it the IR named? The change
+                         at each harmonic against the IR's own response there (docs/namPlugin.md)
+  eurorack-stop.ts       does a Mutable Instruments module let go of a held note on a stop and on a
+                         panic? The level a second after each, against the level while it plays —
+                         the only coverage `EurorackPlugin::midiPanic` has (docs/panic.md)
   cue-bus.ts             the two facts a CUE bus rests on, neither visible to a unit test: how many
                          destinations a source may have and still be heard only through them, and
                          whether `outputChannels` really takes a track off the mixdown (docs/cueOutput.md)

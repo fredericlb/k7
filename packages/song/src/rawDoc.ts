@@ -169,6 +169,7 @@ export interface LoadedModule {
   preset?: string; // resolved .vstpreset path, if any
   nam?: string; // a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
   onnx?: string; // …the same, for the neural model an offline module runs (see docs/moduleAssets.md)
+  ir?: string; // a cabinet IR, resolved against the account libraries' `irs/` (docs/libraryFiles.md)
   jsdsp?: string; // resolved ABSOLUTE path to the module's JS/TS DSP source, when it declares one
   faust?: string; // …and to its Faust source, the other language a module's DSP can be written in
   assets?: Record<string, string>; // …and the name it was authored with

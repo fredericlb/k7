@@ -114,3 +114,52 @@ export const sameLod = (a: Lod, b: Lod): boolean =>
 export function applyCam(el: HTMLElement | null, c: Cam): void {
   if (el) el.style.transform = `translate(${c.x}px,${c.y}px) scale(${c.k})`;
 }
+
+/** How much of the pane a node framed by a double-click fills, and the zoom it never goes past. */
+export const FRAME_FILL = 0.7;
+export const FRAME_MAX_ZOOM = 2;
+
+/** The camera that centres the box (world units) in a `w` × `h` pane, zoomed to fill it — docs/camera.md. */
+export function frameBox(
+  box: { x: number; y: number; w: number; h: number },
+  w: number,
+  h: number,
+): Cam {
+  const k = clampZoom(
+    Math.min(
+      FRAME_MAX_ZOOM,
+      (w * FRAME_FILL) / Math.max(1, box.w),
+      (h * FRAME_FILL) / Math.max(1, box.h),
+    ),
+  );
+  return {
+    k,
+    x: w / 2 - (box.x + box.w / 2) * k,
+    y: h / 2 - (box.y + box.h / 2) * k,
+  };
+}
+
+/** One frame of a FLIGHT to `to`: the zoom and the world point at the pane's centre both close in by `f`. */
+export function flyStep(
+  from: Cam,
+  to: Cam,
+  f: number,
+  w: number,
+  h: number,
+): Cam {
+  // The CENTRE moves in world units rather than x and y in screen px, so the target stays in view throughout.
+  const cx = (w / 2 - from.x) / from.k;
+  const cy = (h / 2 - from.y) / from.k;
+  const tx = (w / 2 - to.x) / to.k;
+  const ty = (h / 2 - to.y) / to.k;
+  const k = from.k + (to.k - from.k) * f;
+  const x = cx + (tx - cx) * f;
+  const y = cy + (ty - cy) * f;
+  const next = { k, x: w / 2 - x * k, y: h / 2 - y * k };
+  // Within a thousandth of the zoom and half a pixel of the place, land on it — an exponential never arrives.
+  const landed =
+    Math.abs(to.k - k) <= k * 1e-3 &&
+    Math.abs(to.x - next.x) < 0.5 &&
+    Math.abs(to.y - next.y) < 0.5;
+  return landed ? { ...to } : next;
+}

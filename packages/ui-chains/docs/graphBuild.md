@@ -781,18 +781,28 @@ lane with the camera cabled to the wrong one. A lane is never a sink: it is alre
 
 ## Layout
 
-Rank hints go to dagre: track nodes at 0, lane modules at 1 + their maximum position across all
-chains, then the MASTER RUN (below), then sinks, and chain pass-through nodes at 1. The *maximum*
-position matters for a shared module — at index 0 in chain A and 2 in chain B it ranks after both,
-so chain A's full pipeline is still respected.
+The graph reads top to bottom as **inputs, tracks, modules, faders**, then the MASTER RUN (below)
+and the sinks. Rank hints say so: a live INPUT at 0, the tracks at 1, lane modules at 2 + their
+maximum position across all chains, chain pass-through nodes at 2. The *maximum* position matters
+for a shared module — at index 0 in chain A and 2 in chain B it ranks after both, so chain A's full
+pipeline is still respected.
+
+- **An input is above the tracks** because it feeds one. Ranked as a lane module it sat below the
+  track row, and `pushBelowInputs` — which never lets a card sit above what feeds it — then pushed
+  that one track down out of its row: the one lane a musician plays live read as out of line.
+- **Every lane's FADER is on one row, the deepest lane's.** A fader ends its lane, so on its lane's
+  own depth a short lane's strip sat high and a long one's low, and reading across the levels of a
+  song meant reading a staircase. What follows a fader in its chain moves down with it, so nothing
+  ever ends up above its own strip. It is the same rule the mixer view applies with
+  `alignModuleRank`, reached here by the ranking itself.
 
 **Every rank ends up on its own row**, and that is `layout`'s doing rather than dagre's, which
 treats the rank as a hint: its `longest-path` ranker pushes a node as LATE as it can, hugging the
 sink below it, so on a fifteen-track song rank 1 spreads over SIX lines, from y=16 to y=1380 — a
 first-in-chain module sitting on the mixer line, at the bottom of a column it belongs at the top of.
 `snapToRankRows` makes the rank mean what it says: one row per rank, in order, each as high as the
-highest thing dagre put there and never overlapping the row above. Tracks are rank 0, so the source
-line falls out of the same rule.
+highest thing dagre put there and never overlapping the row above. The input row, the track row
+and the fader row all fall out of that same rule.
 
 Two things follow, both found by measuring:
 

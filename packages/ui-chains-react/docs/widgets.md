@@ -199,6 +199,24 @@ readout, the caption and the borders all eat into the box, and `clientHeight` is
 the cap's centre line moves over. Arithmetic would drift the moment any of that changed, and the
 drift IS the bug — a cap that does not stay under the finger.
 
+## A value can be TYPED
+
+A double-click on a knob, a slider, a fader or a number swaps it for a text field holding its value.
+Enter or leaving the field commits; Escape leaves everything as it was. Dragging reaches a value
+within a pixel's worth of travel, and a musician copying a setting from somewhere else — a
+frequency off a spectrum, a gain off another track — wants THAT number, not the nearest one a hand
+can land on.
+
+What is typed is clamped to the widget's range and rounded to its `step` (`widgetTyped` in
+`@studio/ui-chains/graph`), the two limits a drag already obeys. The curve plays no part: a log knob
+takes 440 as 440, since the curve shapes the travel and not the value. It is committed as ONE step
+of a drag — the same override, the same `node param` line, the same lane `onTrackSet` — so a typed
+value and a dragged one cannot land differently. Only the controls a drag reaches take a typed
+value: a toggle, a pad or a dropdown already set an exact value in one click.
+
+A drag's release now writes only when the value MOVED. The double-click's two presses each start
+a drag; without that check, each would write the value the control already held.
+
 ## A dropdown's caption, beside or above
 
 `captionFitsBeside` measures from the **glyph counts**, never from the DOM: the real widths only
