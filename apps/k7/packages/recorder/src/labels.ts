@@ -7,6 +7,7 @@ export interface MicErrorTexts {
   notFound: string;
   busy: string;
   insecure: string;
+  lost: string;
 }
 
 export const MIC_ERRORS_EN: MicErrorTexts = {
@@ -17,6 +18,7 @@ export const MIC_ERRORS_EN: MicErrorTexts = {
   busy: "The microphone is busy or unavailable — another app may be using it.",
   insecure:
     "Microphone access needs a secure context (https:// or http://localhost).",
+  lost: "The input went away mid-take — the recording is paused, and what came before is kept.",
 };
 
 export interface RecorderLabels {
@@ -32,6 +34,8 @@ export interface RecorderLabels {
   metronomeStop: string;
   metronomeOn: (bpm: number) => string;
   uploadFailed: (message: string) => string;
+  retryUpload: string;
+  downloadTake: string;
   starting: string;
   intro: string;
   start: string;
@@ -73,6 +77,8 @@ export const RECORDER_LABELS_EN: RecorderLabels = {
   metronomeStop: "Stop the metronome",
   metronomeOn: (bpm) => `Metronome on at ${bpm} BPM — click to stop`,
   uploadFailed: (message) => `Upload failed: ${message}`,
+  retryUpload: "Retry upload",
+  downloadTake: "Download the take",
   starting: "Starting recording… allow microphone access if prompted.",
   intro:
     "Everything except silences (2s+ below the floor) is flagged live as a highlight — click one to pause, listen back, and tag it, then resume.",

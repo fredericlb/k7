@@ -44,9 +44,17 @@ export function GuitarTuner({ onBack }: Props) {
   };
 
   const start = async () => {
+    // One start at a time: a double click would open a second stream the first stop never sees.
+    if (starting.current || streamRef.current) return;
+    starting.current = true;
     setError(null);
     try {
       const stream = await acquireMicrophone();
+      // Left the tuner while the permission prompt was up: stop it here, since stop() already ran.
+      if (!alive.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       const ctx = new AudioContext();
       ctxRef.current = ctx;
@@ -80,11 +88,22 @@ export function GuitarTuner({ onBack }: Props) {
     } catch (err) {
       setError(describeMicError(err, micErrors()));
       stop();
+    } finally {
+      starting.current = false;
     }
   };
 
+  const alive = useRef(true);
+  const starting = useRef(false);
   // Release the mic + audio graph when leaving the tuner.
-  useEffect(() => stop, []);
+  useEffect(() => {
+    // Set again on every mount: StrictMode runs mount, cleanup, mount on the SAME instance.
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      stop();
+    };
+  }, []);
 
   const inTune = reading != null && Math.abs(reading.cents) <= IN_TUNE_CENTS;
   // Map −50..+50 cents onto 0..100% of the meter width.

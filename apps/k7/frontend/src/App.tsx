@@ -17,6 +17,7 @@ import {
 import { api } from "./api";
 import { signIn, signInLooped, signInSettled } from "./auth";
 import { ChainSourcePanel } from "./components/ChainSourcePanel";
+import { RecoveredTakes } from "./components/RecoveredTakes";
 import { SessionSourceDialog } from "./components/SessionSourceDialog";
 import { MomentDetailContainer } from "./containers/MomentDetailContainer";
 import { PageDetailContainer } from "./containers/PageDetailContainer";
@@ -171,6 +172,11 @@ function MomentRoute(props: {
   return <MomentDetailContainer key={id} momentId={id!} {...props} />;
 }
 
+// Every track of a stream nothing will record — what turns the microphone light off.
+function stopTracks(stream: MediaStream): void {
+  for (const t of stream.getTracks()) t.stop();
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -288,7 +294,8 @@ export default function App() {
   ) => {
     // Sessions have no name — they're identified by their recording date/time.
     const s = await api.createSession();
-    await refresh();
+    // The session exists from here: a failed list refresh must not cost the take about to start.
+    await refresh().catch((err: unknown) => console.error(err));
     setRecording({ session: s, stream, rtc, chain });
     setSourceOpen(false);
     // A take started on a song stays there, collapsed to the bar — ../../docs/audio.md.
@@ -300,7 +307,12 @@ export default function App() {
     setSourceError(null);
     try {
       const stream = await acquireMicrophone();
-      await beginSession(stream);
+      try {
+        await beginSession(stream);
+      } catch (err) {
+        stopTracks(stream); // the session never started — the microphone must not stay on
+        throw err;
+      }
     } catch (err) {
       setSourceError(describeMicError(err, micErrors()));
     } finally {
@@ -355,12 +367,26 @@ export default function App() {
       alert(m["rec.finishFirst"]());
       return;
     }
-    const stream = await acquireMicrophone();
-    // Refetch, so the offset is the latest saved duration and the envelope the stored one.
-    const fresh = await api.getSession(session.id);
-    const baseEnvelope = fresh.hasRecording
-      ? await api.getEnvelope(session.id).catch(() => undefined)
-      : undefined;
+    let stream: MediaStream;
+    let fresh: Session;
+    let baseEnvelope: Awaited<ReturnType<typeof api.getEnvelope>> | undefined;
+    try {
+      stream = await acquireMicrophone();
+    } catch (err) {
+      alert(describeMicError(err, micErrors()));
+      return;
+    }
+    try {
+      // Refetch, so the offset is the latest saved duration and the envelope the stored one.
+      fresh = await api.getSession(session.id);
+      baseEnvelope = fresh.hasRecording
+        ? await api.getEnvelope(session.id).catch(() => undefined)
+        : undefined;
+    } catch (err) {
+      stopTracks(stream); // no take will start on this stream — the microphone goes off
+      alert((err as Error).message);
+      return;
+    }
     setRecording({
       session: fresh,
       stream,
@@ -418,12 +444,16 @@ export default function App() {
           );
     // An appended take's annotations are relative to it, so shift onto the whole timeline.
     const offset = resumeFrom ?? 0;
+
+    // The take is SAVED from here on: nothing below may fail the save, or the recorder's Retry would upload it a second time (docs/recordings.md).
     for (const a of result.annotations) {
-      await api.addAnnotation(session.id, {
-        ...a,
-        startSec: a.startSec + offset,
-        endSec: a.endSec + offset,
-      });
+      await api
+        .addAnnotation(session.id, {
+          ...a,
+          startSec: a.startSec + offset,
+          endSec: a.endSec + offset,
+        })
+        .catch((err: unknown) => console.error("annotation not saved", err));
     }
     // Pin the seam where the resumed take begins so it's easy to find later.
     if (resumeFrom != null) {
@@ -434,7 +464,7 @@ export default function App() {
         })
         .catch(() => {});
     }
-    await refresh();
+    await refresh().catch((err: unknown) => console.error(err));
     refreshMoments();
     recording.rtc?.close();
     setRecording(null);
@@ -480,6 +510,7 @@ export default function App() {
       />
 
       <main className="main">
+        <RecoveredTakes />
         <div className={`main-inner${recMinimized ? " has-rec-bar" : ""}`}>
           <Routes>
             <Route path="/" element={<Navigate to="/sessions" replace />} />

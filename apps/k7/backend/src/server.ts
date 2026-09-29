@@ -58,6 +58,28 @@ app.get(/^(?!\/api|\/auth)/, (_req, res) => {
   res.sendFile(join(FRONTEND_DIST, "index.html"));
 });
 
+// The LAST handler: malformed JSON, an upload past its ceiling, a guard that failed — answered as JSON, never Express's HTML page with its stack.
+app.use(
+  (
+    err: Error & { status?: number; statusCode?: number; code?: string },
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    const status = err.status ?? err.statusCode ?? (err.code === "LIMIT_FILE_SIZE" ? 413 : 500);
+    if (status >= 500) console.error(err);
+    if (res.headersSent) return res.destroy();
+    res.status(status).json({ error: status >= 500 ? "internal error" : err.message });
+  },
+);
+
+// A stray rejection is logged and survives; an uncaught exception leaves the process in an unknown state, so it is logged and the container restarts it.
+process.on("unhandledRejection", (reason) => console.error("unhandled rejection:", reason));
+process.on("uncaughtException", (err) => {
+  console.error("uncaught exception:", err);
+  process.exit(1);
+});
+
 // A field schema.ts names but PocketBase lacks would swallow every write to it, so boot adds it.
 if (pocketbaseConfigured()) {
   await ensureSchema((line) => {
@@ -70,8 +92,16 @@ if (pocketbaseConfigured()) {
 }
 
 const server = createServer(app);
+// Node cuts a request off after 300 s; an hours-long take over a phone's uplink needs longer to arrive (docs/recordings.md).
+server.requestTimeout = 30 * 60_000;
 attachRtc(server);
 startSupernoteSchedule();
+
+// A stop lets the requests in flight finish — an upload among them — rather than waiting out the SIGKILL.
+process.on("SIGTERM", () => {
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 25_000).unref();
+});
 
 server.listen(PORT, () => {
   console.log(`🎙  k7 backend listening on http://localhost:${PORT}`);

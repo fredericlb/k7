@@ -89,6 +89,17 @@ describe("listDirectory", () => {
     expect(await listDirectory(session, "0")).toHaveLength(103);
   });
 
+  it("stops when a server answers the same full page again", async () => {
+    const full = Array.from({ length: 100 }, (_, i) => ({ id: `${i}`, fileName: `f${i}`, isFolder: "N" }));
+    stubFetch([
+      { success: true, userFileVOList: full },
+      { success: true, userFileVOList: full },
+      { success: true, userFileVOList: full },
+    ]);
+
+    expect(await listDirectory(session, "0")).toHaveLength(100);
+  });
+
   it("reads a folder off the Y, and carries the token", async () => {
     const calls = stubFetch([
       {

@@ -47,6 +47,8 @@ COPY --from=frontend-build /app/apps/k7/frontend/dist ./apps/k7/frontend/dist
 VOLUME ["/app/apps/k7/backend/data"]
 
 ENV PORT=8787
+# What lets the backend refuse the development secret (backend/src/env.ts); Express also stops printing stacks.
+ENV NODE_ENV=production
 EXPOSE 8787
 WORKDIR /app/apps/k7/backend
 CMD ["node", "--experimental-strip-types", "src/server.ts"]

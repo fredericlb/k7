@@ -50,7 +50,8 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
   const get = async (path: string): Promise<Response> => {
     let res: Response;
     try {
-      res = await fetch(url(path), { headers });
+      // Bounded, body included — a file comes this way too, so minutes, never for ever.
+      res = await fetch(url(path), { headers, signal: AbortSignal.timeout(10 * 60_000) });
     } catch (e) {
       // The ADDRESS, not just the path: it is derived, so which library it tried is half the answer.
       throw new RemoteError(`mediatek GET ${url(path)}: ${why(e)}`);
@@ -103,7 +104,7 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
 
 /** Where a library's content is PUT — separate from `LibrarySource`, because a cache only ever reads. */
 export interface LibrarySink {
-  put(path: string, body: Uint8Array | string): Promise<void>;
+  put(path: string, body: Uint8Array | Blob | string): Promise<void>;
   remove(path: string): Promise<void>;
   /** A whole subtree — its own method, so removing a folder is never done while meaning one entry. */
   removeTree(path: string): Promise<void>;
@@ -120,7 +121,7 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
   const send = async (
     method: string,
     path: string,
-    body?: string | Uint8Array,
+    body?: string | Uint8Array | Blob,
     route = "/file",
   ) => {
     const at = url(`${route}?path=${encodeURIComponent(path)}`);
@@ -136,6 +137,7 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
             : auth,
           // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it.
           body: body as string | undefined,
+          signal: AbortSignal.timeout(30 * 60_000),
         },
       );
     } catch (e) {
@@ -160,7 +162,8 @@ export async function pushSong(
   cfg: RemoteConfig,
   opts: {
     filename: string;
-    bytes: Uint8Array;
+    // A file-backed Blob (fs.openAsBlob) streams from disk; fetch sends either.
+    bytes: Uint8Array | Blob;
     artist?: string;
     album?: string;
     title?: string;
@@ -181,6 +184,7 @@ export async function pushSong(
         "content-type": "application/octet-stream",
       },
       body: opts.bytes as unknown as string,
+      signal: AbortSignal.timeout(30 * 60_000),
     },
   );
   if (!res.ok)
@@ -197,7 +201,8 @@ export async function pushRecording(
   cfg: RemoteConfig,
   opts: {
     filename: string;
-    bytes: Uint8Array;
+    // A file-backed Blob (fs.openAsBlob) streams from disk; fetch sends either.
+    bytes: Uint8Array | Blob;
     at?: Date;
     /** Present == a MOMENT cut out of a session, named as one. See `momentStem`. */
     durationSec?: number;
@@ -220,6 +225,8 @@ export async function pushRecording(
       },
       // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it.
       body: opts.bytes as unknown as string,
+      // An upload of a whole recording: long, but bounded.
+      signal: AbortSignal.timeout(30 * 60_000),
     },
   );
   if (!res.ok)
@@ -242,6 +249,7 @@ export async function pushSongBpm(
       "content-type": "application/json",
     },
     body: JSON.stringify({ path: folder, bpm }),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok)
     throw new RemoteError(`mediatek bpm: ${res.status} ${res.statusText}`);

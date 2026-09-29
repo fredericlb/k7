@@ -37,6 +37,9 @@ interface PbConfig {
   timeoutMs?: number;
 }
 
+// One path segment, encoded: an id from a URL must never reach ANOTHER PocketBase endpoint through a `../`, with a superuser's token behind it.
+const seg = (s: string): string => encodeURIComponent(s);
+
 function escapeFilterValue(v: unknown): string {
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
@@ -75,15 +78,26 @@ export function createPocketbase({
   let authToken: string | null = null;
   let authExp = 0;
 
-  // Superuser auth token, re-fetched well before it would expire.
+  const signal = () => (timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {});
+
+  // Superuser auth token, re-fetched well before it would expire — and shared, so a burst of requests signs in once.
+  let authing: Promise<string> | null = null;
   async function authenticate(): Promise<string> {
     if (authToken && authExp > Date.now()) return authToken;
+    authing ??= signIn().finally(() => {
+      authing = null;
+    });
+    return authing;
+  }
+
+  async function signIn(): Promise<string> {
     const res = await fetch(
       `${base}/api/collections/_superusers/auth-with-password`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identity: email, password }),
+        ...signal(),
       },
     );
     if (!res.ok) {
@@ -110,8 +124,8 @@ export function createPocketbase({
     }
     const token = await authenticate();
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
       ...(init.headers as Record<string, string> | undefined),
+      Authorization: `Bearer ${token}`,
     };
     if (
       init.body &&
@@ -120,11 +134,13 @@ export function createPocketbase({
     ) {
       headers["Content-Type"] = "application/json";
     }
-    const res = await fetch(`${base}${path}`, {
-      ...init,
-      headers,
-      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
-    });
+    let res = await fetch(`${base}${path}`, { ...init, headers, ...signal() });
+    // A token PocketBase no longer accepts — its instance reset, the superuser's key rotated — is re-signed ONCE rather than failing every call until it would expire.
+    if (res.status === 401 && !init.skipAuth) {
+      authToken = null;
+      headers.Authorization = `Bearer ${await authenticate()}`;
+      res = await fetch(`${base}${path}`, { ...init, headers, ...signal() });
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new PocketbaseError(
@@ -137,17 +153,35 @@ export function createPocketbase({
 
   // --- Records ---------------------------------------------------------------
 
+  // An IN-list longer than this is asked in several queries: a filter is a GET query string, and PocketBase caps its length (docs/pocketbase.md).
+  const IN_CHUNK = 40;
+
   const listRecords = async <T = Record<string, unknown>>(
     table: string,
     filter?: Record<string, unknown>,
+    opts: { fields?: string[] } = {},
   ): Promise<PbRecord<T>[]> => {
+    const longest = Object.entries(filter ?? {}).find(
+      ([, v]) => Array.isArray(v) && v.length > IN_CHUNK,
+    );
+    if (longest) {
+      const [key, values] = longest as [string, unknown[]];
+      const out: PbRecord<T>[] = [];
+      for (let i = 0; i < values.length; i += IN_CHUNK)
+        out.push(
+          ...(await listRecords<T>(table, { ...filter, [key]: values.slice(i, i + IN_CHUNK) }, opts)),
+        );
+      return out;
+    }
     const filterQ = filterToQuery(filter);
     const out: PbRecord<T>[] = [];
     let page = 1;
     for (;;) {
       const q = new URLSearchParams({ page: String(page), perPage: "500" });
       if (filterQ) q.set("filter", filterQ);
-      const res = await pbFetch(`/api/collections/${table}/records?${q}`);
+      // A projection, when the caller needs a few fields of rows that carry a large one — a session's envelope is past 100 KB.
+      if (opts.fields) q.set("fields", ["id", ...opts.fields].join(","));
+      const res = await pbFetch(`/api/collections/${seg(table)}/records?${q}`);
       const data = (await res.json()) as {
         items: Record<string, unknown>[];
         totalPages: number;
@@ -172,7 +206,7 @@ export function createPocketbase({
   ): Promise<{ id: string }[]> => {
     const out: { id: string }[] = [];
     for (const fields of fieldsList) {
-      const res = await pbFetch(`/api/collections/${table}/records`, {
+      const res = await pbFetch(`/api/collections/${seg(table)}/records`, {
         method: "POST",
         body: JSON.stringify(fields),
       });
@@ -186,7 +220,7 @@ export function createPocketbase({
     id: string,
     fields: Record<string, unknown>,
   ): Promise<void> => {
-    await pbFetch(`/api/collections/${table}/records/${id}`, {
+    await pbFetch(`/api/collections/${seg(table)}/records/${seg(id)}`, {
       method: "PATCH",
       body: JSON.stringify(fields),
     });
@@ -194,7 +228,7 @@ export function createPocketbase({
 
   const deleteRecords = async (table: string, ids: string[]): Promise<void> => {
     for (const id of ids) {
-      await pbFetch(`/api/collections/${table}/records/${id}`, {
+      await pbFetch(`/api/collections/${seg(table)}/records/${seg(id)}`, {
         method: "DELETE",
       });
     }
@@ -222,11 +256,11 @@ export function createPocketbase({
 
   const downloadAttachment = async (attachmentId: string): Promise<Buffer> => {
     const rec = await pbFetch(
-      `/api/collections/song_sheets/records/${attachmentId}`,
+      `/api/collections/song_sheets/records/${seg(attachmentId)}`,
     );
     const { file } = (await rec.json()) as { file: string };
     const res = await pbFetch(
-      `/api/files/song_sheets/${attachmentId}/${encodeURIComponent(file)}`,
+      `/api/files/song_sheets/${seg(attachmentId)}/${seg(file)}`,
     );
     return Buffer.from(await res.arrayBuffer());
   };
@@ -319,7 +353,7 @@ export function createPocketbase({
   ): Promise<void> => {
     if (!missing.length) return;
     const have = new Set(existingFields.map((f) => f.name));
-    await pbFetch(`/api/collections/${collectionId}`, {
+    await pbFetch(`/api/collections/${seg(collectionId)}`, {
       method: "PATCH",
       body: JSON.stringify({
         fields: [
@@ -337,7 +371,7 @@ export function createPocketbase({
     collectionId: string,
     fields: Record<string, unknown>[],
   ): Promise<void> => {
-    await pbFetch(`/api/collections/${collectionId}`, {
+    await pbFetch(`/api/collections/${seg(collectionId)}`, {
       method: "PATCH",
       body: JSON.stringify({ fields }),
     });

@@ -3,6 +3,7 @@
 import { ownerGuard, sub, validate, wrap } from "@frediverse/http";
 import { Router } from "express";
 import { z } from "zod";
+import { serialized } from "../lock.ts";
 import * as store from "../store.ts";
 
 const NAMETAG = /^[A-Za-z0-9]+$/;
@@ -37,9 +38,12 @@ pagesRouter.post(
   "/",
   validate(createSchema),
   wrap(async (req, res) => {
-    if (await store.nametagExists(req.body.nametag))
-      return res.status(409).json({ error: "nametag already taken" });
-    const page = await store.createPage(sub(req), req.body);
+    // Checked and taken under one key, or two pages created together could share a nametag.
+    const page = await serialized(`nametag:${req.body.nametag}`, async () => {
+      if (await store.nametagExists(req.body.nametag)) return null;
+      return store.createPage(sub(req), req.body);
+    });
+    if (!page) return res.status(409).json({ error: "nametag already taken" });
     res.status(201).json(page);
   }),
 );
@@ -58,16 +62,12 @@ pagesRouter.patch(
   validate(patchSchema),
   wrap(async (req, res) => {
     const { nametag, releaseIds, versionIds } = req.body;
-    if (
-      nametag !== undefined &&
-      (await store.nametagExists(nametag, req.params.pid))
-    )
-      return res.status(409).json({ error: "nametag already taken" });
-    const page = await store.updatePage(req.params.pid, {
-      nametag,
-      releaseIds,
-      versionIds,
+    const taken = Symbol("taken");
+    const page = await serialized(`nametag:${nametag ?? req.params.pid}`, async () => {
+      if (nametag !== undefined && (await store.nametagExists(nametag, req.params.pid))) return taken;
+      return store.updatePage(req.params.pid, { nametag, releaseIds, versionIds });
     });
+    if (page === taken) return res.status(409).json({ error: "nametag already taken" });
     if (!page) return res.status(404).json({ error: "not found" });
     res.json(page);
   }),

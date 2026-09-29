@@ -10,6 +10,7 @@ export const micErrors = (): MicErrorTexts => ({
   notFound: m["mic.notFound"](),
   busy: m["mic.busy"](),
   insecure: m["mic.insecure"](),
+  lost: m["mic.lost"](),
 });
 
 export const recorderLabels = (): RecorderLabels => ({
@@ -28,6 +29,8 @@ export const recorderLabels = (): RecorderLabels => ({
   metronomeStop: m["recorder.metronomeStop"](),
   metronomeOn: (bpm) => m["recorder.metronomeOn"]({ bpm }),
   uploadFailed: (message) => m["recorder.uploadFailed"]({ message }),
+  retryUpload: m["recorder.retryUpload"](),
+  downloadTake: m["recorder.downloadTake"](),
   starting: m["recorder.starting"](),
   intro: m["recorder.intro"](),
   start: m["recorder.start"](),

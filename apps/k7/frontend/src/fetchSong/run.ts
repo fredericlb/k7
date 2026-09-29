@@ -31,6 +31,8 @@ interface Common {
   /** Persists a piece of status, so a reload finds the pipeline where it left off. */
   onStatus?(patch: StatusPatch): void;
   sleep?(ms: number): Promise<void>;
+  /** Aborted when the page that runs the pipeline goes: a poll must not outlive it, PATCHing every 2 s. */
+  signal?: AbortSignal;
 }
 
 export interface FetchSteps extends Common {
@@ -66,6 +68,7 @@ async function inLibrary(
 async function huntEnd(steps: Common, id: string): Promise<HuntRecord> {
   const sleep = steps.sleep ?? wait;
   for (;;) {
+    steps.signal?.throwIfAborted();
     const hunt = (await steps.pl8.hunts()).find((h) => h.id === id);
     if (!hunt) throw new Error(m["fetch.huntRemoved"]());
     if (hunt.status === "done" || hunt.status === "failed") return hunt;
@@ -162,6 +165,7 @@ async function instrumentalReady(
     steps.onStatus?.({ jobId: id });
   }
   for (;;) {
+    steps.signal?.throwIfAborted();
     await sleep(POLL_MS);
     const job = await steps.pl8.separation(id);
     // Swept after it finished: the disk says whether it worked.

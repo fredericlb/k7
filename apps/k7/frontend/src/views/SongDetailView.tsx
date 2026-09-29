@@ -150,13 +150,21 @@ export function SongDetailView({
     [tab, content, transpose],
   );
 
-  // Reset the editor whenever the shown tab (or the reloaded song) changes.
+  // A different song or tab resets the editor; new content alone refreshes the draft only while nobody is typing — a pipeline's status poll replaces `song` every 2 s.
+  const shown = useRef({ id: song.id, tab });
   useEffect(() => {
-    setDraft(content);
-    setEditing(content === "");
-    setTranspose(0);
-    setSelectedChord(null);
-  }, [song, tab, content]);
+    const moved = shown.current.id !== song.id || shown.current.tab !== tab;
+    shown.current = { id: song.id, tab };
+    if (moved) {
+      setDraft(content);
+      setEditing(content === "");
+      setTranspose(0);
+      setSelectedChord(null);
+    } else if (!editing) {
+      setDraft(content);
+      if (content === "") setEditing(true);
+    }
+  }, [song.id, tab, content, editing]);
 
   // Once the kind being added holds something, it is an ordinary tab.
   useEffect(() => {

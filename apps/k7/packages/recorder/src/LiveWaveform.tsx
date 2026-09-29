@@ -110,8 +110,9 @@ export function LiveWaveform({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
+    // Resized only when the size moved: assigning even the same width reallocates the canvas, and this runs every frame.
+    if (canvas.width !== width * dpr) canvas.width = width * dpr;
+    if (canvas.height !== height * dpr) canvas.height = height * dpr;
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
@@ -132,10 +133,9 @@ export function LiveWaveform({
     const n = envelope.samples.length;
     const dt = envelope.intervalMs / 1000;
 
-    // Light smoothing to take the edge off single-sample spikes.
+    // Light smoothing to take the edge off single-sample spikes — computed per sample READ, so a frame costs the window's width, not the take's length.
     const R = 1;
-    const smoothed = new Array<number>(n);
-    for (let i = 0; i < n; i++) {
+    const smoothed = (i: number): number => {
       let sum = 0;
       let cnt = 0;
       for (let k = i - R; k <= i + R; k++) {
@@ -144,19 +144,17 @@ export function LiveWaveform({
           cnt++;
         }
       }
-      smoothed[i] = cnt ? sum / cnt : 0;
-    }
+      return cnt ? sum / cnt : 0;
+    };
 
     const ampAt = (t: number): number => {
       if (n === 0 || t < 0) return 0;
       const c = t / dt;
       const i = Math.floor(c);
       const f = c - i;
-      if (i >= n - 1) return smoothed[n - 1] ?? 0;
-      return (
-        smoothed[Math.max(0, i)] +
-        (smoothed[i + 1] - smoothed[Math.max(0, i)]) * f
-      );
+      if (i >= n - 1) return smoothed(n - 1);
+      const a = smoothed(Math.max(0, i));
+      return a + (smoothed(i + 1) - a) * f;
     };
 
     // The beat grid, anchored where the metronome started; only visible beats are walked.

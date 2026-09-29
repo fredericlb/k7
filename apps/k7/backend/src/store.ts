@@ -22,6 +22,9 @@ import type {
 } from "@k7/shared";
 import { sheetExt } from "@k7/shared/sheetKind";
 import { segment, sidecarFor } from "@studio/mediatek/song";
+import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
+import { serialized } from "./lock.ts";
+import { env } from "./env.ts";
 import * as mediatek from "./mediatek.ts";
 import * as db from "./pocketbase.ts";
 import { envelopeOf } from "./songEnvelope.ts";
@@ -29,6 +32,18 @@ import { envelopeOf } from "./songEnvelope.ts";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.join(__dirname, "..", "data", "cache");
 fs.mkdirSync(CACHE_DIR, { recursive: true });
+
+// Where uploads land while they arrive: the cache's own folder, so keeping one is a rename, never a copy across filesystems.
+export const UPLOAD_DIR = CACHE_DIR;
+
+/** Remove the uploads a request did not keep — the store MOVES the ones it keeps, so what is left is refused or failed. */
+export function discardUploads(files: { path?: string }[]): void {
+  for (const f of files) if (f.path) safeUnlink(f.path);
+}
+
+// One download or measurement per file at a time, however many requests ask for it together (cache.ts).
+const fetching = new Map<string, Promise<unknown>>();
+const measuring = new Map<string, Promise<unknown>>();
 
 // TODO This file should be split in a store/ folder to separate each related entity
 
@@ -117,8 +132,11 @@ export async function getOwner(uid) {
 
 // --- Sessions ---------------------------------------------------------------
 
+// What a session CARD shows — never the envelope, which runs past 100 KB a session.
+const SESSION_LIST_FIELDS = ["Uid", "OwnerId", "CreatedAt", "Duration", "RecordingPath", "RecordingMime", "Gain"];
+
 export async function listSessions(ownerId) {
-  const recs = await db.listRecords("Sessions", { OwnerId: [ownerId] });
+  const recs = await db.listRecords("Sessions", { OwnerId: [ownerId] }, { fields: SESSION_LIST_FIELDS });
   const uids = recs.map((r) => r.fields.Uid);
   const comments = uids.length
     ? await db.listRecords("Comments", { SessionUid: uids })
@@ -238,9 +256,9 @@ async function storeBytes(rec, buffer, ext) {
   return next;
 }
 
-export async function saveRecording(
+async function saveRecordingUnlocked(
   uid,
-  buffer,
+  file: string,
   mime,
   ext,
   duration,
@@ -250,7 +268,8 @@ export async function saveRecording(
   const rec = await getSessionRecord(uid);
   if (!rec) return null;
 
-  const recordingPath = await storeBytes(rec, buffer, ext);
+  // A file-backed Blob: fetch streams it from disk, and the take is never whole in memory (docs/audit.md).
+  const recordingPath = await storeBytes(rec, await fs.openAsBlob(file), ext);
   await db.patchRecord("Sessions", rec.id, {
     RecordingPath: recordingPath,
     HasRecording: true,
@@ -263,16 +282,16 @@ export async function saveRecording(
     }),
   });
 
-  // Prime the disk cache so the first playback streams straight away.
-  fs.writeFileSync(path.join(CACHE_DIR, `${uid}.${ext}`), buffer);
+  // Prime the disk cache so the first playback streams straight away — by MOVING the upload, not copying it.
+  fs.renameSync(file, path.join(CACHE_DIR, `${uid}.${ext}`));
   invalidate(uid);
   return getSession(uid);
 }
 
 // Continue a saved session: the new take is glued onto the old one, so it grows in place.
-export async function appendRecording(
+async function appendRecordingUnlocked(
   uid,
-  buffer,
+  file: string,
   mime,
   ext,
   duration,
@@ -283,20 +302,18 @@ export async function appendRecording(
   if (!rec) return null;
   // Nothing to append TO: the path decides, not the flag beside it.
   if (!rec.fields.RecordingPath)
-    return saveRecording(uid, buffer, mime, ext, duration, envelope, gain);
+    return saveRecordingUnlocked(uid, file, mime, ext, duration, envelope, gain);
 
   const existing = await ensureRecordingCached(uid);
   if (!existing)
-    return saveRecording(uid, buffer, mime, ext, duration, envelope, gain);
+    return saveRecordingUnlocked(uid, file, mime, ext, duration, envelope, gain);
 
-  // WebM/Opus can't be byte-concatenated — re-mux the two takes into one file.
-  const newPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.${ext}`);
-  fs.writeFileSync(newPath, buffer);
-  let combined;
+  // WebM/Opus can't be byte-concatenated — re-mux the two takes into one file, on disk from end to end.
+  let combined: string;
   try {
-    combined = await concatRecordings([existing.filePath, newPath]);
+    combined = await concatRecordings([existing.filePath, file]);
   } finally {
-    safeUnlink(newPath);
+    safeUnlink(file);
   }
 
   // The new samples follow the existing timeline, at their own scale — ../../docs/audio.md.
@@ -314,7 +331,13 @@ export async function appendRecording(
   const combinedGain = Math.min(prevGain, gain || 1);
   const combinedMime = "audio/webm";
 
-  const recordingPath = await storeBytes(rec, combined, "webm");
+  let recordingPath: string;
+  try {
+    recordingPath = await storeBytes(rec, await fs.openAsBlob(combined), "webm");
+  } catch (err) {
+    safeUnlink(combined);
+    throw err;
+  }
   const oldCache = cachePathFor(rec);
   await db.patchRecord("Sessions", rec.id, {
     RecordingPath: recordingPath,
@@ -331,7 +354,7 @@ export async function appendRecording(
   // The combined file is always webm, so drop any stale differently-typed cache file.
   const newCache = path.join(CACHE_DIR, `${uid}.webm`);
   if (oldCache && oldCache !== newCache) safeUnlink(oldCache);
-  fs.writeFileSync(newCache, combined);
+  fs.renameSync(combined, newCache);
   invalidate(uid);
   return getSession(uid);
 }
@@ -342,8 +365,8 @@ export async function ensureRecordingCached(uid) {
   if (!rec?.fields.RecordingPath) return null;
   const mime = rec.fields.RecordingMime || "audio/webm";
   const filePath = path.join(CACHE_DIR, `${uid}.${extFor(mime)}`);
-  if (!fs.existsSync(filePath))
-    await mediatek.download(String(rec.fields.RecordingPath), filePath);
+  if (!cachedFile(filePath))
+    await once(fetching, filePath, () => mediatek.download(String(rec.fields.RecordingPath), filePath));
   return { filePath, mime };
 }
 
@@ -517,7 +540,7 @@ function publicMoment(rec, createdAtByUid) {
 }
 
 async function ownerSessionCreatedAt(ownerId) {
-  const sessions = await db.listRecords("Sessions", { OwnerId: [ownerId] });
+  const sessions = await db.listRecords("Sessions", { OwnerId: [ownerId] }, { fields: ["Uid", "CreatedAt"] });
   return new Map(sessions.map((s) => [s.fields.Uid, s.fields.CreatedAt || ""]));
 }
 
@@ -583,8 +606,8 @@ export async function ensureMomentClipCached(ownerId, momentId) {
   const rec = recs.find((r) => r.id === momentId);
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
-  if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
-  await mediatek.download(String(rec.fields.ClipPath), filePath);
+  if (cachedFile(filePath)) return { filePath, mime: "audio/webm" };
+  await once(fetching, filePath, () => mediatek.download(String(rec.fields.ClipPath), filePath));
   return { filePath, mime: "audio/webm" };
 }
 
@@ -720,8 +743,8 @@ export async function ensureClipCached(sessionUid, momentId) {
   const rec = moments.find((m) => m.id === momentId);
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
-  if (fs.existsSync(filePath)) return { filePath, mime: "audio/webm" };
-  await mediatek.download(String(rec.fields.ClipPath), filePath);
+  if (cachedFile(filePath)) return { filePath, mime: "audio/webm" };
+  await once(fetching, filePath, () => mediatek.download(String(rec.fields.ClipPath), filePath));
   return { filePath, mime: "audio/webm" };
 }
 
@@ -729,9 +752,9 @@ function clipCachePath(momentId) {
   return path.join(CACHE_DIR, `clip-${momentId}.webm`);
 }
 
-// Several audio files into one webm/opus buffer, through ffmpeg's concat filter.
-function concatRecordings(paths) {
-  return new Promise<Buffer>((resolve, reject) => {
+// Several audio files into one webm/opus FILE, through ffmpeg's concat filter; the caller owns the path it resolves.
+function concatRecordings(paths): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
     const args = ["-y", "-hide_banner", "-loglevel", "error"];
     for (const p of paths) args.push("-i", p);
@@ -766,15 +789,11 @@ function concatRecordings(paths) {
       ),
     );
     ff.on("close", (code) => {
-      if (code !== 0)
+      if (code !== 0) {
+        safeUnlink(outPath);
         return reject(new Error("ffmpeg concat failed: " + err.slice(-300)));
-      try {
-        const buf = fs.readFileSync(outPath);
-        fs.unlinkSync(outPath);
-        resolve(buf);
-      } catch (e) {
-        reject(e);
       }
+      resolve(outPath);
     });
   });
 }
@@ -1018,8 +1037,8 @@ function invalidateVersions(releaseUid) {
 export async function addVersion(
   releaseUid,
   { name, isDefault },
-  mixdown: { buffer: Buffer; mime: string },
-  tracks: { buffer: Buffer; mime: string; name?: string }[] = [],
+  mixdown: { file: string; mime: string },
+  tracks: { file: string; mime: string; name?: string }[] = [],
 ) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
@@ -1028,7 +1047,7 @@ export async function addVersion(
   // A published version becomes a song under songs/K7/ — see ../../docs/audio.md.
   const release = await getReleaseRecord(releaseUid);
   const master = await mediatek.pushVersion(
-    mixdown.buffer,
+    await fs.openAsBlob(mixdown.file),
     versionExt(mixdown.mime),
     {
       album: release?.fields.Title || "",
@@ -1051,9 +1070,9 @@ export async function addVersion(
       name: t.name || `stem-${i + 1}`,
       mime: t.mime,
     };
-    await mediatek.putFile(entry.path, t.buffer);
+    await mediatek.putFile(entry.path, await fs.openAsBlob(t.file));
     stems.push(entry);
-    fs.writeFileSync(versionTrackCachePath(uid, entry), t.buffer);
+    fs.renameSync(t.file, versionTrackCachePath(uid, entry));
   }
 
   await db.addRecords("Versions", [
@@ -1068,7 +1087,7 @@ export async function addVersion(
       CreatedAt: createdAt,
     },
   ]);
-  fs.writeFileSync(versionCachePath(uid), mixdown.buffer);
+  fs.renameSync(mixdown.file, versionCachePath(uid));
   invalidateVersions(releaseUid);
 
   const versions = await getVersionRecords(releaseUid);
@@ -1102,7 +1121,7 @@ export async function replaceVersionAudio(releaseUid, versionUid, mixdown) {
 
   // The same album and title, so the bytes land in the folder this version already owns.
   const master = await mediatek.pushVersion(
-    mixdown.buffer,
+    await fs.openAsBlob(mixdown.file),
     versionExt(mixdown.mime),
     {
       album: release?.fields.Title || "",
@@ -1118,7 +1137,7 @@ export async function replaceVersionAudio(releaseUid, versionUid, mixdown) {
   // Another container leaves the old master beside the new one, and the scan takes the FIRST.
   if (previous && previous !== master) await safeRemote(previous);
 
-  fs.writeFileSync(versionCachePath(versionUid), mixdown.buffer);
+  fs.renameSync(mixdown.file, versionCachePath(versionUid));
   invalidateVersions(releaseUid);
   return getRelease(releaseUid);
 }
@@ -1193,8 +1212,12 @@ export async function deleteVersion(releaseUid, versionUid) {
   return true;
 }
 
-/** A version's shape, measured on first ask and kept: decoding is seconds, drawing must not be. */
-export async function versionEnvelope(releaseUid, versionUid) {
+/** A version's shape, measured on first ask and kept: decoding is seconds, drawing must not be — and asked ONCE however many visitors arrive together. */
+export function versionEnvelope(releaseUid, versionUid) {
+  return once(measuring, versionUid, () => measureVersionEnvelope(releaseUid, versionUid));
+}
+
+async function measureVersionEnvelope(releaseUid, versionUid) {
   const versions = await getVersionRecords(releaseUid);
   const rec = versions.find((v) => v.fields.Uid === versionUid);
   if (!rec?.fields.AudioPath) return null;
@@ -1226,8 +1249,8 @@ export async function ensureVersionAudioCached(releaseUid, versionUid) {
     rec.fields.AudioMime || "audio/mpeg",
   );
   const filePath = versionCachePath(versionUid);
-  if (!fs.existsSync(filePath))
-    await mediatek.downloadStreamable(remote, filePath);
+  if (!cachedFile(filePath))
+    await once(fetching, filePath, () => mediatek.downloadStreamable(remote, filePath));
   return { filePath, mime };
 }
 
@@ -1290,8 +1313,8 @@ export async function ensureVersionTrackCached(
   if (!entry?.path) return null;
   const mime = mediatek.streamedMime(entry.path, entry.mime);
   const filePath = versionTrackCachePath(versionUid, { ...entry, mime });
-  if (!fs.existsSync(filePath))
-    await mediatek.downloadStreamable(entry.path, filePath);
+  if (!cachedFile(filePath))
+    await once(fetching, filePath, () => mediatek.downloadStreamable(entry.path, filePath));
   return { filePath, mime, name: entry.name };
 }
 
@@ -1589,7 +1612,7 @@ export async function getSong(uid, viewer = "") {
 }
 
 /** Star or unstar a song for `viewer` alone; null when there is no such song. */
-export async function setSongFavorite(uid, viewer, favorite: boolean) {
+async function setSongFavoriteUnlocked(uid, viewer, favorite: boolean) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const mine = await db.listRecords("SongFavorites", {
@@ -1670,7 +1693,7 @@ async function writeSheets(rec, sheets) {
 }
 
 // Upload { buffer, mime, name } files onto a song's sheet, after the existing ones.
-export async function addSheetFiles(uid, files) {
+async function addSheetFilesUnlocked(uid, files) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const existing = sheetsOf(rec);
@@ -1704,7 +1727,7 @@ export async function addSheetFiles(uid, files) {
 }
 
 // Remove a single sheet file (by its public id) from a song.
-export async function deleteSheetFile(uid, fileId) {
+async function deleteSheetFileUnlocked(uid, fileId) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
   const existing = sheetsOf(rec);
@@ -1839,10 +1862,14 @@ export async function ensureSheetFileCached(uid, fileId) {
   const entry = sheetsOf(rec).find((s) => s.id === fileId);
   if (!entry) return null;
   const filePath = sheetCachePath(uid, entry);
-  if (!fs.existsSync(filePath)) {
-    const buffer = await db.downloadAttachment(entry.attachmentId);
-    fs.writeFileSync(filePath, buffer);
-  }
+  if (!cachedFile(filePath))
+    await once(fetching, filePath, async () => {
+      const buffer = await db.downloadAttachment(entry.attachmentId);
+      // Written under a temporary name and moved, so a reader never serves half a sheet.
+      const tmp = `${filePath}.${randomUUID()}.part`;
+      fs.writeFileSync(tmp, buffer);
+      fs.renameSync(tmp, filePath);
+    });
   return { filePath, mime: entry.mime, name: entry.name };
 }
 
@@ -1921,4 +1948,33 @@ function safeUnlink(p) {
   } catch {
     /* ignore */
   }
+}
+
+// Keep the caches bounded for the life of the process: rows swept every minute, the disk trimmed every ten (docs/audit.md).
+setInterval(() => sweepRowCaches([sessionCache, releaseCache, versionsCache, songCache]), 60_000).unref();
+setInterval(() => {
+  const removed = trimDiskCache(CACHE_DIR, env.cacheMaxBytes);
+  if (removed) console.log(`[cache] trimmed ${removed} file(s) from ${CACHE_DIR}`);
+}, 10 * 60_000).unref();
+
+// One at a time per key — a read-modify-write here has no transaction to lean on (lock.ts).
+
+export function saveRecording(...args: Parameters<typeof saveRecordingUnlocked>) {
+  return serialized(`session:${args[0]}`, () => saveRecordingUnlocked(...args));
+}
+
+export function appendRecording(...args: Parameters<typeof appendRecordingUnlocked>) {
+  return serialized(`session:${args[0]}`, () => appendRecordingUnlocked(...args));
+}
+
+export function addSheetFiles(...args: Parameters<typeof addSheetFilesUnlocked>) {
+  return serialized(`sheets:${args[0]}`, () => addSheetFilesUnlocked(...args));
+}
+
+export function deleteSheetFile(...args: Parameters<typeof deleteSheetFileUnlocked>) {
+  return serialized(`sheets:${args[0]}`, () => deleteSheetFileUnlocked(...args));
+}
+
+export function setSongFavorite(...args: Parameters<typeof setSongFavoriteUnlocked>) {
+  return serialized(`favorite:${args[1]}:${args[0]}`, () => setSongFavoriteUnlocked(...args));
 }

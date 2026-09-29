@@ -20,6 +20,10 @@ import { env } from "./env.ts";
 
 const SECRET = env.sessionSecret;
 const TICKET_TTL_MS = 60_000; // a ticket only needs to survive the ws handshake
+// Signalling is SDP and ICE — a few KB. ws's default ceiling is 100 MiB, relayed verbatim to the peer.
+const MAX_MESSAGE_BYTES = 64 * 1024;
+// A phone that sleeps leaves its socket OPEN to us for as long as TCP takes to notice: a missed pong ends it sooner.
+const HEARTBEAT_MS = 15_000;
 
 type Role = "recorder" | "remote";
 
@@ -86,7 +90,25 @@ function send(ws: WebSocket | undefined, msg: unknown): void {
 
 // Signaling onto the shared HTTP server, taking upgrades on the /rtc path alone.
 export function attachRtc(server: Server): void {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
+
+  // A socket that did not answer the last ping is gone; `close` then runs its cleanup as for any other.
+  const alive = new WeakMap<WebSocket, boolean>();
+  const beat = setInterval(() => {
+    for (const ws of wss.clients) {
+      if (alive.get(ws) === false) {
+        ws.terminate();
+        continue;
+      }
+      alive.set(ws, false);
+      ws.ping();
+    }
+  }, HEARTBEAT_MS);
+  beat.unref();
+  wss.on("connection", (ws) => {
+    alive.set(ws, true);
+    ws.on("pong", () => alive.set(ws, true));
+  });
 
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
     let url: URL;
@@ -107,6 +129,7 @@ export function attachRtc(server: Server): void {
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
       register(ws, userId, role);
     });
   });

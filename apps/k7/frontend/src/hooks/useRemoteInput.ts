@@ -90,9 +90,17 @@ export function useRemoteInput(): RemoteInput {
     }
   }, []);
 
+  // Whether the page is still here to own a stream that arrives after an await.
+  const alive = useRef(true);
+
   const openDevice = useCallback(
     async (id?: string) => {
       const stream = await acquireInput(id);
+      // Unmounted while the permission prompt was up: nothing will ever stop this stream but us.
+      if (!alive.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       // Release the previously-held device.
       rawRef.current?.getTracks().forEach((t) => t.stop());
       rawRef.current = stream;
@@ -118,6 +126,8 @@ export function useRemoteInput(): RemoteInput {
   // Mount: build the fixed output graph, open the default device, run the meter.
   useEffect(() => {
     let cancelled = false;
+    // Set again on every mount: StrictMode runs mount, cleanup, mount on the SAME instance.
+    alive.current = true;
     const ctx = new AudioContext();
     ctxRef.current = ctx;
 
@@ -154,6 +164,7 @@ export function useRemoteInput(): RemoteInput {
 
     return () => {
       cancelled = true;
+      alive.current = false;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rawRef.current?.getTracks().forEach((t) => t.stop());
       ctx.close().catch(() => {});

@@ -16,10 +16,12 @@ import {
 import { Input } from "@frediverse/ui/input";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { detectEvents } from "./detect";
+import { downloadTake } from "./download";
 import { fmtTime, sessionTitle } from "./format";
 import { LiveWaveform } from "./LiveWaveform";
 import { RECORDER_LABELS_EN, type RecorderLabels } from "./labels";
 import { TagInput } from "./TagInput";
+import { forgetTake } from "./takeBackup";
 import type { DetectedEvent, Envelope, Session } from "./types";
 import { useMetronome } from "./useMetronome";
 import { useRecorder } from "./useRecorder";
@@ -287,11 +289,31 @@ export function RecorderView({
       startMetronome(bpm, rec.elapsed);
   };
 
+  // A take that exists nowhere but this tab asks before the tab goes: recording, paused, uploading or refused (docs/recordings.md).
+  const atRisk =
+    rec.status === "recording" ||
+    rec.status === "paused" ||
+    uploading ||
+    uploadErr !== null;
+  useEffect(() => {
+    if (!atRisk) return;
+    const hold = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", hold);
+    return () => window.removeEventListener("beforeunload", hold);
+  }, [atRisk]);
+
+  // The stopped take, kept until it is saved: a failed upload must leave something to retry or download, not an error and nothing else.
+  const stopped = useRef<Awaited<ReturnType<typeof rec.stop>> | null>(null);
+
   const stopAndSave = async () => {
     setUploading(true);
     setUploadErr(null);
     try {
-      const result = await rec.stop();
+      if (!stopped.current) stopped.current = await rec.stop();
+      const result = stopped.current;
       await onSave({
         blob: result.blob,
         envelope: result.envelope,
@@ -299,6 +321,8 @@ export function RecorderView({
         gain: result.gain,
         annotations: pending,
       });
+      // Saved: the crash backup has done its job (takeBackup.ts).
+      void forgetTake(result.takeId);
     } catch (e) {
       setUploadErr((e as Error).message);
       setUploading(false);
@@ -485,6 +509,20 @@ export function RecorderView({
         </p>
       )}
       {uploadErr && <p className="error">{L.uploadFailed(uploadErr)}</p>}
+      {uploadErr && stopped.current && (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={stopAndSave} disabled={uploading}>
+            {L.retryUpload}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadTake(stopped.current!.blob)}
+          >
+            {L.downloadTake}
+          </Button>
+        </div>
+      )}
 
       {/* A hidden preview player, kept mounted so its Web Audio gain node stays wired. */}
       <audio

@@ -115,6 +115,7 @@ export function MomentPlayer({
   return (
     <div className="moment-player">
       <audio
+        preload="none"
         ref={audioRef}
         src={src}
         crossOrigin="use-credentials"

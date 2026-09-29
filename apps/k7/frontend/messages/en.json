@@ -136,6 +136,7 @@
   "mic.busy": "The microphone is busy or unavailable — another app may be using it.",
   "mic.denied": "Microphone permission was denied. Allow it in your browser's site settings and try again.",
   "mic.insecure": "Microphone access needs a secure context (https:// or http://localhost).",
+  "mic.lost": "The input went away mid-take — the recording is paused, and what came before is kept.",
   "mic.notFound": "No microphone was found. Check that an input device is connected and not in use by another app.",
   "moment.adjust": "Adjust range",
   "moment.adjustTitle": "Adjust this moment's time range",
@@ -233,6 +234,8 @@
   "recorder.tagsPending.other": "{n} tags pending",
   "recorder.tempo": "Metronome tempo (BPM)",
   "recorder.uploadFailed": "Upload failed: {message}",
+  "recorder.retryUpload": "Retry upload",
+  "recorder.downloadTake": "Download the take",
   "recorder.uploading": "Uploading & analyzing…",
   "recorder.whatHappened": "What happened here?",
   "recordings.empty": "No sessions yet — start a new recording from the header to get going.",
@@ -416,5 +419,9 @@
   "version.hide": "Hide from pages",
   "version.replace": "Replace the file…",
   "version.setDefault": "Set as default",
-  "version.show": "Show on pages"
+  "version.show": "Show on pages",
+  "recover.found": "{count} take(s) a closed or crashed tab left unsaved — download to keep them.",
+  "recover.download": "Download",
+  "recover.discard": "Discard",
+  "recover.discardConfirm": "Discard this take for good? It is saved nowhere else."
 }

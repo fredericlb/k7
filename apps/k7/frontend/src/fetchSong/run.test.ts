@@ -200,6 +200,28 @@ describe("fetchSong", () => {
   });
 });
 
+describe("a page that goes", () => {
+  it("stops the poll at once rather than PATCHing for as long as the hunt runs", async () => {
+    const leaving = new AbortController();
+    const hunts = vi.fn(async () => [
+      hunt({ id: "h1", status: "searching", artist: "Nina Simone", title: "Sinnerman" }),
+    ]);
+    const pl8 = fakePl8({ listSongs: async () => [], hunts });
+    const run = fetchSong(
+      song(),
+      steps(pl8, {
+        signal: leaving.signal,
+        // The page leaves while the pipeline sleeps between two polls.
+        sleep: async () => leaving.abort(),
+        copyTrack: vi.fn(),
+      }) as never,
+      "h1",
+    );
+    await expect(run).rejects.toMatchObject({ name: "AbortError" });
+    expect(hunts).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("makeInstrumental", () => {
   const found = fakePl8();
   // A song links a track of pl8's library: that recording is what its stems are cut from.

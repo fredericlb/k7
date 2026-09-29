@@ -52,3 +52,22 @@ client, authenticating as a superuser with `POCKETBASE_URL` / `_EMAIL` / `_PASSW
 about PocketBase's own auth model — rules, tokens, realtime subscriptions — is exposed past it.
 The ownership and sharing rules a request has to satisfy are still the ones `ownership.md`
 describes; PocketBase enforces none of them itself.
+
+## Every call is bounded, and a refused token is re-signed
+
+A PocketBase that stalls must fail the request waiting on it: with no timeout, every request queued
+behind it hangs, and so does boot, which reconciles the schema before it listens. Each call — the
+superuser sign-in included — carries `POCKETBASE_TIMEOUT_MS`, 15 s by default. Concurrent requests
+that find the token expired share ONE sign-in, and a 401 on a call signs in again once rather than
+failing every call until the token would have expired.
+
+Every table, record and file id is ENCODED as a path segment. The ids come from URLs, and the
+client holds a superuser's token: an id spelled `../../_superusers/…` would otherwise reach another
+endpoint with every right there is.
+
+## Lists ask for what they show, a few ids at a time
+
+`listRecords` takes a `fields` projection: a session list reads seven small fields rather than
+every session's envelope, which passes 100 KB for a long take. And an IN-list — the comments of
+every session a user has — is asked 40 values at a time: a filter is a GET query string, and
+PocketBase caps its length, so one query per list would fail once a user had enough sessions.

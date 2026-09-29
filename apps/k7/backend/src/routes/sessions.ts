@@ -3,7 +3,7 @@
 */
 
 import { ownerGuard, streamFile, sub, validate, wrap } from "@frediverse/http";
-import { upload } from "@frediverse/http/upload";
+import { diskUpload } from "@frediverse/http/upload";
 import type { Envelope } from "@k7/shared";
 import { Router } from "express";
 import { z } from "zod";
@@ -32,6 +32,15 @@ const markerPatch = z.object({
 });
 
 export const sessionsRouter = Router();
+
+// A take arrives on DISK, not in memory: an hours-long recording over a slow uplink must not sit whole in RAM (docs/audit.md).
+const takeUpload = diskUpload(store.UPLOAD_DIR);
+
+// What a recording's envelope must be before anything is stored against it.
+const envelopeShape = z.object({
+  intervalMs: z.number().positive(),
+  samples: z.array(z.number()),
+});
 
 // Any :id route must resolve to a session owned by the current user.
 sessionsRouter.param("id", ownerGuard(store.getOwner));
@@ -72,50 +81,59 @@ sessionsRouter.delete(
 
 sessionsRouter.post(
   "/:id/recording",
-  upload.single("audio"),
+  takeUpload.single("audio"),
   wrap(async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "missing audio file" });
-    if (!req.file.buffer?.length)
-      return res
-        .status(400)
-        .json({ error: "empty recording — nothing captured" });
-
-    let envelope: Envelope;
     try {
-      envelope = JSON.parse(req.body.envelope);
-    } catch {
-      return res.status(400).json({ error: "invalid envelope json" });
+      await receiveTake(req, res);
+    } finally {
+      // The store MOVES a take it keeps; anything still here was refused or failed.
+      if (req.file) store.discardUploads([req.file]);
     }
-
-    const mime = req.file.mimetype || "audio/webm";
-    const ext = mime.includes("ogg")
-      ? "ogg"
-      : mime.includes("mp4")
-        ? "mp4"
-        : "webm";
-    const duration = Number(req.body.duration) || 0;
-    const gain = Number(req.body.gain) || 1;
-    const append = req.body.append === "true";
-
-    const save = append ? store.appendRecording : store.saveRecording;
-    const updated = await save(
-      req.params.id,
-      req.file.buffer,
-      mime,
-      ext,
-      duration,
-      envelope,
-      gain,
-    );
-
-    // Re-detect over the STORED envelope, which is the whole timeline after an append.
-    const stored = (await store.getEnvelope(req.params.id)) || envelope;
-    const { events } = detectEvents(stored, {});
-    await store.replaceHighlights(req.params.id, events);
-
-    res.json(updated);
   }),
 );
+
+async function receiveTake(req, res) {
+  if (!req.file) return res.status(400).json({ error: "missing audio file" });
+  if (!req.file.size)
+    return res
+      .status(400)
+      .json({ error: "empty recording — nothing captured" });
+
+  let envelope: Envelope;
+  try {
+    envelope = envelopeShape.parse(JSON.parse(req.body.envelope)) as Envelope;
+  } catch {
+    return res.status(400).json({ error: "invalid envelope" });
+  }
+
+  const mime = req.file.mimetype || "audio/webm";
+  const ext = mime.includes("ogg")
+    ? "ogg"
+    : mime.includes("mp4")
+      ? "mp4"
+      : "webm";
+  const duration = Number(req.body.duration) || 0;
+  const gain = Number(req.body.gain) || 1;
+  const append = req.body.append === "true";
+
+  const save = append ? store.appendRecording : store.saveRecording;
+  const updated = await save(
+    req.params.id,
+    req.file.path,
+    mime,
+    ext,
+    duration,
+    envelope,
+    gain,
+  );
+
+  // Re-detect over the STORED envelope, which is the whole timeline after an append.
+  const stored = (await store.getEnvelope(req.params.id)) || envelope;
+  const { events } = detectEvents(stored, {});
+  await store.replaceHighlights(req.params.id, events);
+
+  res.json(updated);
+}
 
 sessionsRouter.get(
   "/:id/recording",

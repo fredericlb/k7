@@ -1,10 +1,31 @@
 /* Releases: standalone finished songs, each with one or more audio versions. */
 
 import { ownerGuard, streamFile, sub, validate, wrap } from "@frediverse/http";
-import { upload } from "@frediverse/http/upload";
+import { diskUpload } from "@frediverse/http/upload";
 import { Router } from "express";
 import { z } from "zod";
 import * as store from "../store.ts";
+
+// Mixdowns and stems arrive on DISK — sixty-four stems of a gigabyte must not sit in RAM (docs/audit.md).
+const upload = diskUpload(store.UPLOAD_DIR);
+
+// Every file a request carried, so what the store did not keep can be removed.
+const uploadsOf = (req): { path?: string }[] => [
+  ...(req.file ? [req.file] : []),
+  ...(Array.isArray(req.files)
+    ? req.files
+    : Object.values(req.files ?? {}).flat()),
+];
+
+// The handler, then the leftovers removed whatever it answered.
+const keepingUploads = (fn) =>
+  wrap(async (req, res) => {
+    try {
+      await fn(req, res);
+    } finally {
+      store.discardUploads(uploadsOf(req));
+    }
+  });
 
 const versionPatch = z.object({
   isDefault: z.boolean().optional(),
@@ -36,12 +57,12 @@ releasesRouter.get(
 releasesRouter.post(
   "/",
   upload.single("audio"),
-  wrap(async (req, res) => {
+  keepingUploads(async (req, res) => {
     const title = String(req.body.title || "").trim();
     const artist = String(req.body.artist || "").trim();
     if (!title || !artist)
       return res.status(400).json({ error: "title and artist are required" });
-    if (!req.file?.buffer?.length)
+    if (!req.file?.size)
       return res.status(400).json({ error: "missing audio file" });
 
     const release = await store.createRelease(
@@ -56,7 +77,7 @@ releasesRouter.post(
       {
         name: String(req.body.versionName || "").trim() || "Version 1",
         mixdown: {
-          buffer: req.file.buffer,
+          file: req.file.path,
           mime: req.file.mimetype || "audio/mpeg",
         },
         tracks: [],
@@ -84,7 +105,7 @@ releasesRouter.post(
     { name: "mixdown", maxCount: 1 },
     { name: "tracks", maxCount: 64 },
   ]),
-  wrap(async (req, res) => {
+  keepingUploads(async (req, res) => {
     const owner = sub(req);
     const songUuid = String(req.body.songUuid || "").trim();
     if (!songUuid)
@@ -94,7 +115,7 @@ releasesRouter.post(
       | { mixdown?: Express.Multer.File[]; tracks?: Express.Multer.File[] }
       | undefined;
     const mix = files?.mixdown?.[0];
-    if (!mix?.buffer?.length)
+    if (!mix?.size)
       return res.status(400).json({ error: "missing mixdown file" });
     const stems = files?.tracks || [];
     const bad = [mix, ...stems].find((f) => !AUDIO_MIME.test(f.mimetype));
@@ -103,9 +124,9 @@ releasesRouter.post(
         .status(400)
         .json({ error: `unsupported file type: ${bad.mimetype}` });
 
-    const mixdown = { buffer: mix.buffer, mime: mix.mimetype };
+    const mixdown = { file: mix.path, mime: mix.mimetype };
     const tracks = stems.map((f) => ({
-      buffer: f.buffer,
+      file: f.path,
       mime: f.mimetype,
       name: f.originalname,
     }));
@@ -179,8 +200,8 @@ releasesRouter.delete(
 releasesRouter.post(
   "/:rid/versions",
   upload.single("audio"),
-  wrap(async (req, res) => {
-    if (!req.file?.buffer?.length)
+  keepingUploads(async (req, res) => {
+    if (!req.file?.size)
       return res.status(400).json({ error: "missing audio file" });
     const version = await store.addVersion(
       req.params.rid,
@@ -188,7 +209,7 @@ releasesRouter.post(
         name: String(req.body.name || "").trim() || "Version",
         isDefault: req.body.isDefault === "true",
       },
-      { buffer: req.file.buffer, mime: req.file.mimetype || "audio/mpeg" },
+      { file: req.file.path, mime: req.file.mimetype || "audio/mpeg" },
       [],
     );
     res.status(201).json(version);
@@ -230,13 +251,13 @@ releasesRouter.get(
 releasesRouter.put(
   "/:rid/versions/:vid/audio",
   upload.single("audio"),
-  wrap(async (req, res) => {
-    if (!req.file?.buffer?.length)
+  keepingUploads(async (req, res) => {
+    if (!req.file?.size)
       return res.status(400).json({ error: "missing audio file" });
     const release = await store.replaceVersionAudio(
       req.params.rid,
       req.params.vid,
-      { buffer: req.file.buffer, mime: req.file.mimetype || "audio/mpeg" },
+      { file: req.file.path, mime: req.file.mimetype || "audio/mpeg" },
     );
     if (!release) return res.status(404).json({ error: "not found" });
     res.json(release);

@@ -21,6 +21,9 @@ interface Props {
   onBack: () => void;
 }
 
+// The pipeline running for each song, across pages: a song's page left and reopened must not run a second one beside the first.
+const pipelines = new Map<string, Promise<void>>();
+
 export function SongDetailContainer({
   songId,
   initialTab,
@@ -76,9 +79,18 @@ export function SongDetailContainer({
     return updated;
   }, []);
 
+  // Aborted when this page goes, so its pipeline's polls stop with it (fetchSong/run.ts).
+  const leaving = useRef(new AbortController());
+  useEffect(() => {
+    // A fresh controller on every mount: StrictMode mounts, unmounts and mounts the same instance.
+    leaving.current = new AbortController();
+    return () => leaving.current.abort();
+  }, []);
+
   const pipelineSteps = useCallback(
     (): PipelineSteps => ({
       pl8,
+      signal: leaving.current.signal,
       onPhase: () => {}, // song.fetchStatus (via onStatus) is what the page actually reads
       onStatus,
       copyTrack: async (path) =>
@@ -109,12 +121,23 @@ export function SongDetailContainer({
       // One run per page: a second would race the first and clear its phase when it finishes.
       if (running.current) return;
       running.current = true;
+      // …and one per SONG across pages: a page left and come back to waits for the old run to wind down before continuing.
+      const before = pipelines.get(songId);
+      let done = () => {};
+      const mine = new Promise<void>((r) => {
+        done = r;
+      });
+      pipelines.set(songId, mine);
+      await before;
       try {
+        if (leaving.current.signal.aborted) return;
         if (start.fetchStatus.phase === "failed")
           void onStatus({ phase: "", error: "" });
         adopt(await runPipeline(start, mode, pipelineSteps()));
         onChangeRef.current();
       } catch (err) {
+        // The page went, not the job: nothing failed, and the next page to open this song picks it up.
+        if (leaving.current.signal.aborted) return;
         // The hunt or job it was polling is dead: a retry must not resume it.
         void onStatus({
           phase: "failed",
@@ -125,9 +148,11 @@ export function SongDetailContainer({
         });
       } finally {
         running.current = false;
+        done();
+        if (pipelines.get(songId) === mine) pipelines.delete(songId);
       }
     },
-    [pipelineSteps, onStatus, adopt],
+    [songId, pipelineSteps, onStatus, adopt],
   );
 
   const load = useCallback(async () => {

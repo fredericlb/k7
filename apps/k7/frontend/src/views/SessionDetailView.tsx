@@ -164,10 +164,19 @@ export function SessionDetailView({
     setCurrentTime(sec);
   };
 
+  // The one range listener live at a time: a range played after another must not be paused by the first one's.
+  const rangeStop = useRef<(() => void) | null>(null);
+  const clearRangeStop = () => {
+    if (rangeStop.current)
+      audioRef.current?.removeEventListener("timeupdate", rangeStop.current);
+    rangeStop.current = null;
+  };
+
   const togglePlay = () => {
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) {
+      clearRangeStop(); // play-all runs to the end, not to a range someone played earlier
       setPlayingRange(null);
       ensurePlaybackGain();
       playCtx.current?.resume().catch(() => {});
@@ -182,14 +191,16 @@ export function SessionDetailView({
     setPlayingRange({ start, end });
     ensurePlaybackGain();
     playCtx.current?.resume().catch(() => {});
+    clearRangeStop();
     audioRef.current.currentTime = start;
     audioRef.current.play();
     const stopAt = () => {
       if (audioRef.current && audioRef.current.currentTime >= end) {
         audioRef.current.pause();
-        audioRef.current.removeEventListener("timeupdate", stopAt);
+        clearRangeStop();
       }
     };
+    rangeStop.current = stopAt;
     audioRef.current.addEventListener("timeupdate", stopAt);
   };
 
@@ -227,24 +238,120 @@ export function SessionDetailView({
     await onUpdateAnnotation(editing.id, { startSec: start, endSec: end });
   };
 
-  // Saved moments and detected candidates in one sorted list; a span leaves it once saved.
-  const detectedEvents = eventsResult?.events ?? [];
-  const isSavedSpan = (ev: DetectedEvent) =>
-    session.annotations.some(
-      (a) =>
-        Math.abs(a.startSec - ev.startSec) < 0.25 &&
-        Math.abs(a.endSec - ev.endSec) < 0.25,
-    );
-  const momentList = [
-    ...session.annotations.map((ann) => ({
-      kind: "saved" as const,
-      startSec: ann.startSec,
-      ann,
-    })),
-    ...detectedEvents
-      .filter((ev) => !isSavedSpan(ev))
-      .map((ev) => ({ kind: "detected" as const, startSec: ev.startSec, ev })),
-  ].sort((a, b) => a.startSec - b.startSec);
+  // Saved moments and detected candidates in one sorted list; a span leaves it once saved — built when they change, not on every playhead frame.
+  const momentList = useMemo(() => {
+    const isSavedSpan = (ev: DetectedEvent) =>
+      session.annotations.some(
+        (a) =>
+          Math.abs(a.startSec - ev.startSec) < 0.25 &&
+          Math.abs(a.endSec - ev.endSec) < 0.25,
+      );
+    return [
+      ...session.annotations.map((ann) => ({
+        kind: "saved" as const,
+        startSec: ann.startSec,
+        ann,
+      })),
+      ...(eventsResult?.events ?? [])
+        .filter((ev) => !isSavedSpan(ev))
+        .map((ev) => ({
+          kind: "detected" as const,
+          startSec: ev.startSec,
+          ev,
+        })),
+    ].sort((a, b) => a.startSec - b.startSec);
+  }, [session.annotations, eventsResult]);
+
+  // The list re-renders when what it SHOWS changes; the playhead moves sixty times a second and it reads none of it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: its handlers touch refs, setters and these props only.
+  const momentsView = useMemo(
+    () => (
+      <ul className="annotation-list">
+        {momentList.map((row) =>
+          row.kind === "saved" ? (
+            <MomentRow
+              key={`saved-${row.ann.id}`}
+              ann={row.ann}
+              envelope={envelope}
+              duration={session.duration}
+              allTags={allTags}
+              validating={validating}
+              momentClipUrl={momentClipUrl}
+              editRange={
+                editing?.id === row.ann.id
+                  ? { start: editing.start, end: editing.end }
+                  : null
+              }
+              onPlay={playRange}
+              onUpdate={onUpdateAnnotation}
+              onValidate={onValidate}
+              onDelete={onDeleteAnnotation}
+              onBeginEdit={() => beginEdit(row.ann)}
+              onEditRange={setEditRange}
+              onApplyEdit={applyEdit}
+              onCancelEdit={cancelEdit}
+            />
+          ) : (
+            <li
+              key={`detected-${row.ev.startSec}-${row.ev.endSec}`}
+              className="event-item"
+            >
+              <span>
+                {fmtTime(row.ev.startSec)} – {fmtTime(row.ev.endSec)}{" "}
+                <span className="muted small">
+                  ({fmtTime(row.ev.durationSec)})
+                </span>{" "}
+                <Badge variant="tag">{m["session.detected"]()}</Badge>
+              </span>
+              <div className="row">
+                {playing &&
+                playingRange?.start === row.ev.startSec &&
+                playingRange.end === row.ev.endSec ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => audioRef.current?.pause()}
+                  >
+                    <Pause className="size-4" /> {m["common.pause"]()}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => playRange(row.ev.startSec, row.ev.endSec)}
+                  >
+                    <Play className="size-4" /> {m["common.play"]()}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => saveMoment(row.ev.startSec, row.ev.endSec)}
+                >
+                  <Diamond className="size-4" /> {m["session.saveAsMoment"]()}
+                </Button>
+              </div>
+            </li>
+          ),
+        )}
+      </ul>
+    ),
+    [
+      momentList,
+      envelope,
+      session.duration,
+      allTags,
+      validating,
+      momentClipUrl,
+      editing,
+      playing,
+      playingRange,
+      onUpdateAnnotation,
+      onValidate,
+      onDeleteAnnotation,
+      onAddAnnotation,
+    ],
+  );
 
   return (
     <div>
@@ -419,78 +526,7 @@ export function SessionDetailView({
           {momentList.length === 0 && (
             <p className="muted">{m["session.noMoments"]()}</p>
           )}
-          <ul className="annotation-list">
-            {momentList.map((row) =>
-              row.kind === "saved" ? (
-                <MomentRow
-                  key={`saved-${row.ann.id}`}
-                  ann={row.ann}
-                  envelope={envelope}
-                  duration={session.duration}
-                  allTags={allTags}
-                  validating={validating}
-                  momentClipUrl={momentClipUrl}
-                  editRange={
-                    editing?.id === row.ann.id
-                      ? { start: editing.start, end: editing.end }
-                      : null
-                  }
-                  onPlay={playRange}
-                  onUpdate={onUpdateAnnotation}
-                  onValidate={onValidate}
-                  onDelete={onDeleteAnnotation}
-                  onBeginEdit={() => beginEdit(row.ann)}
-                  onEditRange={setEditRange}
-                  onApplyEdit={applyEdit}
-                  onCancelEdit={cancelEdit}
-                />
-              ) : (
-                <li
-                  key={`detected-${row.ev.startSec}-${row.ev.endSec}`}
-                  className="event-item"
-                >
-                  <span>
-                    {fmtTime(row.ev.startSec)} – {fmtTime(row.ev.endSec)}{" "}
-                    <span className="muted small">
-                      ({fmtTime(row.ev.durationSec)})
-                    </span>{" "}
-                    <Badge variant="tag">{m["session.detected"]()}</Badge>
-                  </span>
-                  <div className="row">
-                    {playing &&
-                    playingRange?.start === row.ev.startSec &&
-                    playingRange.end === row.ev.endSec ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => audioRef.current?.pause()}
-                      >
-                        <Pause className="size-4" /> {m["common.pause"]()}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          playRange(row.ev.startSec, row.ev.endSec)
-                        }
-                      >
-                        <Play className="size-4" /> {m["common.play"]()}
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => saveMoment(row.ev.startSec, row.ev.endSec)}
-                    >
-                      <Diamond className="size-4" />{" "}
-                      {m["session.saveAsMoment"]()}
-                    </Button>
-                  </div>
-                </li>
-              ),
-            )}
-          </ul>
+          {momentsView}
         </>
       )}
     </div>

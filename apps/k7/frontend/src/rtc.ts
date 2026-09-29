@@ -39,7 +39,14 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
     audioCtx = null; // no Web Audio — we'll fall back to the raw remote stream
   }
 
-  const { ticket } = await api.rtcTicket();
+  let ticket: string;
+  try {
+    ({ ticket } = await api.rtcTicket());
+  } catch (err) {
+    // Nothing else holds the context yet: closed here, or every failed attempt leaks one against the browser's cap.
+    audioCtx?.close().catch(() => {});
+    throw err;
+  }
   const ws = new WebSocket(rtcSocketUrl("recorder", ticket));
   const pc = new RTCPeerConnection(ICE_CONFIG);
 
@@ -77,8 +84,16 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
 
   return new Promise<RemoteMicConnection>((resolve, reject) => {
     let settled = false;
+    // The stream handed to the recorder, once there is one: a failure AFTER that must reach it.
+    let live: MediaStream | null = null;
     const fail = (msg: string) => {
-      if (settled) return;
+      if (settled) {
+        // Too late to reject — the take has started. An `ended` on its tracks is what the recorder listens for (useRecorder.ts).
+        for (const t of live?.getAudioTracks() ?? [])
+          t.dispatchEvent(new Event("ended"));
+        live = null;
+        return;
+      }
       settled = true;
       clearTimeout(timer);
       close();
@@ -112,6 +127,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
           bridgeNode = audioCtx.createMediaStreamSource(remote);
           const dest = audioCtx.createMediaStreamDestination();
           bridgeNode.connect(dest);
+          live = dest.stream;
           resolve({ stream: dest.stream, close });
           return;
         } catch {
@@ -119,6 +135,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
         }
       }
       // Web Audio unavailable — fall back to the raw remote stream.
+      live = remote;
       resolve({ stream: remote, close });
     };
     pc.onconnectionstatechange = () => {
@@ -141,9 +158,16 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
           fail(m["rtc.disconnected"]());
           break;
         case "offer":
-          await pc.setRemoteDescription(msg.sdp as RTCSessionDescriptionInit);
-          await pc.setLocalDescription(await pc.createAnswer());
-          ws.send(JSON.stringify({ type: "answer", sdp: pc.localDescription }));
+          try {
+            await pc.setRemoteDescription(msg.sdp as RTCSessionDescriptionInit);
+            await pc.setLocalDescription(await pc.createAnswer());
+            ws.send(
+              JSON.stringify({ type: "answer", sdp: pc.localDescription }),
+            );
+          } catch {
+            // A refused offer is a failed connection now, not a 20-second wait for the timeout.
+            fail(m["rtc.failed"]());
+          }
           break;
         case "ice":
           if (msg.candidate)

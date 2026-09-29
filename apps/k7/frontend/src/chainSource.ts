@@ -128,9 +128,14 @@ export function openChainSource(
   let local = false;
   const buf = new Float32Array(2048);
 
+  // The stream handed to the recorder once live: a failure after that must reach it, or the take records silence.
+  let live: MediaStream | null = null;
   const fail = (message: string) => {
     if (closed) return;
     onPhase({ k: "error", message });
+    for (const t of live?.getAudioTracks() ?? [])
+      t.dispatchEvent(new Event("ended"));
+    live = null;
     source.close();
   };
 
@@ -156,6 +161,7 @@ export function openChainSource(
       monitorGain.connect(c.destination);
       c.resume().catch(() => {});
       player = new StreamPlayer(sink);
+      live = dest.stream;
       onPhase({ k: "live", stream: dest.stream, local });
     } catch (e) {
       fail((e as Error).message);

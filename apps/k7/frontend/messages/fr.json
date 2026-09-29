@@ -136,6 +136,7 @@
   "mic.busy": "Le micro est occupé ou indisponible — une autre appli l'utilise peut-être.",
   "mic.denied": "L'accès au micro a été refusé. Autorisez-le dans les réglages du site de votre navigateur, puis réessayez.",
   "mic.insecure": "L'accès au micro nécessite un contexte sécurisé (https:// ou http://localhost).",
+  "mic.lost": "L'entrée a disparu en pleine prise — l'enregistrement est en pause, et ce qui précède est gardé.",
   "mic.notFound": "Aucun micro trouvé. Vérifiez qu'un périphérique d'entrée est branché et qu'aucune autre appli ne l'utilise.",
   "moment.adjust": "Ajuster",
   "moment.adjustTitle": "Ajuster les bornes de ce moment",
@@ -233,6 +234,8 @@
   "recorder.tagsPending.other": "{n} étiquettes en attente",
   "recorder.tempo": "Tempo du métronome (BPM)",
   "recorder.uploadFailed": "L'envoi a échoué : {message}",
+  "recorder.retryUpload": "Réessayer l'envoi",
+  "recorder.downloadTake": "Télécharger la prise",
   "recorder.uploading": "Envoi et analyse…",
   "recorder.whatHappened": "Que s'est-il passé ici ?",
   "recordings.empty": "Aucune session pour l'instant — lancez un enregistrement depuis la barre du haut pour commencer.",
@@ -416,5 +419,9 @@
   "version.hide": "Masquer des pages",
   "version.replace": "Remplacer le fichier…",
   "version.setDefault": "Définir par défaut",
-  "version.show": "Afficher sur les pages"
+  "version.show": "Afficher sur les pages",
+  "recover.found": "{count} prise(s) qu'un onglet fermé ou planté a laissée(s) non enregistrée(s) — téléchargez-les pour les garder.",
+  "recover.download": "Télécharger",
+  "recover.discard": "Jeter",
+  "recover.discardConfirm": "Jeter cette prise pour de bon ? Elle n'est enregistrée nulle part ailleurs."
 }

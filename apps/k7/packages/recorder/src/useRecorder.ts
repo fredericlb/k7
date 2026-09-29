@@ -1,6 +1,7 @@
 import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MIC_ERRORS_EN, type MicErrorTexts } from "./labels";
+import { backupChunk, beginTake } from "./takeBackup";
 import type { Envelope } from "./types";
 
 const SAMPLE_INTERVAL_MS = 200; // one loudness sample every 200ms
@@ -13,6 +14,7 @@ export interface RecordingResult {
   envelope: Envelope;
   duration: number;
   gain: number; // playback normalization (loudest sample → just below clip)
+  takeId: string; // its IndexedDB backup, forgotten once the take is saved (takeBackup.ts)
 }
 
 export type RecStatus = "idle" | "recording" | "paused" | "stopped";
@@ -32,6 +34,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const samplesRef = useRef<number[]>([]);
+  const takeIdRef = useRef("");
   const rawPeak = useRef(0); // loudest raw RMS seen so far
   const truePeak = useRef(0); // loudest absolute sample seen so far
   const stream = useRef<MediaStream | null>(null);
@@ -108,8 +111,18 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     };
     rafTimer.current = requestAnimationFrame(tick);
 
+    // Samples are owed by RECORDED time, not by how often this fires: a hidden tab runs it once a second at best, and the envelope still claims SAMPLE_INTERVAL_MS.
     sampleTimer.current = window.setInterval(() => {
-      samplesRef.current = [...samplesRef.current, round(readRmsRef.current())];
+      const recordedMs =
+        accumulatedMs.current + (performance.now() - segmentStart.current);
+      const due = Math.floor(recordedMs / SAMPLE_INTERVAL_MS);
+      const missing = due - samplesRef.current.length;
+      if (missing <= 0) return;
+      const level = round(readRmsRef.current());
+      samplesRef.current = [
+        ...samplesRef.current,
+        ...new Array<number>(missing).fill(level),
+      ];
       setSamples(samplesRef.current);
     }, SAMPLE_INTERVAL_MS);
   }, []);
@@ -162,11 +175,31 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
           media,
           mime ? { mimeType: mime } : undefined,
         );
+        // Every chunk ALSO goes to IndexedDB, so a crash mid-take leaves the audio for the next visit (takeBackup.ts).
+        const takeId = crypto.randomUUID();
+        takeIdRef.current = takeId;
+        let seq = 0;
+        void beginTake(takeId, recorder.mimeType || mime || "audio/webm");
         recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.current.push(e.data);
+          if (e.data.size > 0) {
+            chunks.current.push(e.data);
+            void backupChunk(takeId, seq++, e.data);
+          }
         };
         recorder.start(1000); // flush a chunk every second
         mediaRecorder.current = recorder;
+
+        // A source that DIES mid-take — a mic unplugged, a remote peer gone, a chain that failed — would otherwise record silence: say so and pause, keeping what came before.
+        const lost = () => {
+          if (mediaRecorder.current !== recorder) return;
+          setError(micRef.current.lost);
+          if (recorder.state === "recording") pauseRef.current();
+        };
+        for (const t of media.getAudioTracks())
+          t.addEventListener("ended", lost);
+        recorder.onerror = lost;
+        // A recorder that stops by itself — every track ended — is a loss too; stop() replaces this handler for the stop it asks for.
+        recorder.onstop = lost;
 
         accumulatedMs.current = 0;
         segmentStart.current = performance.now();
@@ -181,6 +214,9 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     },
     [cleanup, startTimers, acquireWakeLock],
   );
+
+  // The loss handler is set up in start(), before pause exists in its closure; it reads the current one through this.
+  const pauseRef = useRef<() => void>(() => {});
 
   const pause = useCallback(() => {
     const r = mediaRecorder.current;
@@ -198,6 +234,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
     setElapsed(accumulatedMs.current / 1000);
     setStatus("paused");
   }, [stopTimers, releaseWakeLock]);
+  pauseRef.current = pause;
 
   const resume = useCallback(() => {
     const r = mediaRecorder.current;
@@ -235,7 +272,7 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
       }
       stopTimers();
 
-      recorder.onstop = async () => {
+      const finish = async () => {
         const durationSec = accumulatedMs.current / 1000;
         let blob = new Blob(chunks.current, {
           type: recorder.mimeType || "audio/webm",
@@ -262,12 +299,19 @@ export function useRecorder(mic: MicErrorTexts = MIC_ERRORS_EN) {
         setStatus("stopped");
         setLevel(0);
         resolve({
+          takeId: takeIdRef.current,
           blob,
           envelope: { intervalMs: SAMPLE_INTERVAL_MS, samples },
           duration: durationSec,
           gain: playbackGain,
         });
       };
+      // A recorder already INACTIVE — it stopped by itself — will fire no stop event for this call to wait on.
+      if (recorder.state === "inactive") {
+        finish();
+        return;
+      }
+      recorder.onstop = finish;
       recorder.stop();
     });
   }, [cleanup, stopTimers]);

@@ -45,6 +45,8 @@ async function call(
     method: "POST",
     headers: { ...JSON_HEADERS, ...headers },
     body: JSON.stringify(body ?? {}),
+    // A hung Supernote would hold the owner's run lock until a restart (sync.ts).
+    signal: AbortSignal.timeout(30_000),
   });
   const answer = (await res.json().catch(() => ({}))) as Answer;
   if (!res.ok || !answer.success) {
@@ -102,7 +104,9 @@ export async function listDirectory(
 ): Promise<RemoteEntry[]> {
   const pageSize = 100;
   const out: RemoteEntry[] = [];
-  for (let pageNo = 1; ; pageNo++) {
+  let previous = "";
+  // Bounded twice: a server that ignores pageNo answers the same full page for ever, so the same page twice ends it, and so does a ceiling.
+  for (let pageNo = 1; pageNo <= 1000; pageNo++) {
     const answer = await authed(session, "/api/file/list/query", {
       directoryId,
       pageNo,
@@ -111,6 +115,9 @@ export async function listDirectory(
       sequence: "desc",
     });
     const page = (answer.userFileVOList ?? []) as Record<string, unknown>[];
+    const key = page.map((row) => String(row.id)).join(",");
+    if (page.length && key === previous) return out;
+    previous = key;
     for (const row of page) {
       out.push({
         id: String(row.id),
@@ -120,6 +127,7 @@ export async function listDirectory(
     }
     if (page.length < pageSize) return out;
   }
+  return out;
 }
 
 /** The id of `name` under `parentId`, created if it is not there yet. */
@@ -215,6 +223,7 @@ export async function uploadFile(
     method: "POST",
     headers: { Accept: "*/*", "x-access-token": session.token },
     body: form,
+    signal: AbortSignal.timeout(10 * 60_000),
   });
   if (!sent.ok)
     throw new Error(`the upload of ${fileName} answered ${sent.status}`);

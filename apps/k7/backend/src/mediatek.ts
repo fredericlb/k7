@@ -28,7 +28,7 @@ export function zoneExt(ext: string): string {
 
 /** Push a recording; the zone picks the name. `at` is when it was RECORDED, not uploaded. */
 export async function push(
-  bytes: Uint8Array,
+  bytes: Uint8Array | Blob,
   ext: string,
   at?: Date,
 ): Promise<string> {
@@ -42,7 +42,7 @@ export async function push(
 
 /** Push a MOMENT into the same day folder, named as an excerpt; `at` is when it was PLAYED. */
 export async function pushMoment(
-  bytes: Uint8Array,
+  bytes: Uint8Array | Blob,
   ext: string,
   opts: { at?: Date; durationSec: number; label?: string },
 ): Promise<string> {
@@ -58,7 +58,7 @@ export async function pushMoment(
 
 /** Push a PUBLISHED version into the songs, under the `K7` artist — ../../docs/audio.md. */
 export async function pushVersion(
-  bytes: Uint8Array,
+  bytes: Uint8Array | Blob,
   ext: string,
   tags: { album: string; title: string },
 ): Promise<string> {
@@ -83,7 +83,7 @@ const UPLOAD_ALBUM = "k7";
 
 /** File an uploaded songbook track in the library as this song; its master's path is what the song links to. */
 export async function pushSongTrack(
-  bytes: Uint8Array,
+  bytes: Uint8Array | Blob,
   tags: { filename: string; artist: string; title: string },
 ): Promise<string> {
   const { master } = await pushSong(cfg(), {
@@ -102,7 +102,7 @@ export async function pushSongTrack(
 /** Write a file at a chosen path, reserved for what this service created itself. */
 export async function putFile(
   path: string,
-  body: Uint8Array | string,
+  body: Uint8Array | Blob | string,
 ): Promise<void> {
   await remoteWriter(cfg()).put(path, body);
 }
@@ -113,7 +113,7 @@ export async function removeTree(path: string): Promise<void> {
 }
 
 /** Overwrite an EXISTING recording in place: an extended session is still one session. */
-export async function replace(path: string, bytes: Uint8Array): Promise<void> {
+export async function replace(path: string, bytes: Uint8Array | Blob): Promise<void> {
   await remoteWriter(cfg()).put(path, bytes);
 }
 
@@ -139,7 +139,8 @@ export async function downloadStreamable(
   const { base, token } = cfg();
   const res = await fetch(
     `${base.replace(/\/+$/, "")}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
-    { headers: token ? { authorization: `Bearer ${token}` } : {} },
+    // Bounded, body included: a stalled pl8 must fail the request that waits on it, not hold it for ever.
+    { headers: token ? { authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(10 * 60_000) },
   );
   if (!res.ok || !res.body)
     throw new Error(`mediatek stream ${path}: ${res.status} ${res.statusText}`);
@@ -172,7 +173,8 @@ export async function getFileEnvelope(path: string): Promise<RemoteEnvelope> {
   const { base, token } = cfg();
   const res = await fetch(
     `${base.replace(/\/+$/, "")}/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
-    { headers: token ? { authorization: `Bearer ${token}` } : {} },
+    // pl8 may measure the file first, hours of audio: minutes, not for ever.
+    { headers: token ? { authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(5 * 60_000) },
   );
   if (!res.ok)
     throw new Error(

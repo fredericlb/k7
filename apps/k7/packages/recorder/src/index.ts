@@ -6,6 +6,7 @@ import "./styles.css";
 
 export { Waveform } from "@studio/ui-waveform";
 export { type DetectOpts, type DetectResult, detectEvents } from "./detect";
+export { downloadTake } from "./download";
 export { LiveWaveform } from "./LiveWaveform";
 export {
   MIC_ERRORS_EN,
@@ -16,6 +17,12 @@ export {
 export { MomentPlayer } from "./MomentPlayer";
 export { type PendingAnnotation, RecorderView } from "./RecorderView";
 export { TagInput } from "./TagInput";
+export {
+  type BackedUpTake,
+  forgetTake,
+  listBackedUpTakes,
+  readBackedUpTake,
+} from "./takeBackup";
 export type { Metronome, Selection } from "./types";
 export { useMetronome } from "./useMetronome";
 export {

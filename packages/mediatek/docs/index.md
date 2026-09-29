@@ -2,12 +2,17 @@
 
 ## The filesystem is the index
 
-There is no database. That is not an omission to be corrected later; it is the same
-choice the rest of this repo already made, and reversing it would cost more than it buys.
+The catalogue has no database. That is not an omission to be corrected later, and reversing it
+would cost more than it buys.
 
-- **There is no SQL anywhere in studio.** Grist is the only database, and it is hosted —
-  precisely what the mediatek is not.
-- **sqlite would be a native dependency for something a walk already does.** A separator earns a
+- **The folder is the truth, on both sides.** The machine's cache runs this same package over a
+  local folder, because the engine plays from file paths (`sync.md`). A database holding the rows
+  would be a second truth to keep in step with the tree the engine actually reads.
+- **A database is chosen where the data is rows, not where it is bytes.** k7's PocketBase holds
+  rows with one consumer (`apps/k7/docs/pocketbase.md`); pl8's share comments are in SQLite
+  because anonymous visitors write them concurrently (`apps/pl8/docs/comments.md`). Neither
+  reason applies to a volume of audio files and their YAML sidecars.
+- **An index would be a dependency for something a walk already does.** A separator earns a
   166 MB model and a per-platform shared library because there is no other way to do the thing at
   all; an index earns nothing, because a walk plus a change token already produces it (below).
 - Every derived thing here is already a cache behind a change token. `workspace.ts`'s
