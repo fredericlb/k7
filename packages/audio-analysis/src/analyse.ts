@@ -19,17 +19,23 @@ export async function analyseFile(
   return env;
 }
 
+/** The sidecar when it still describes these bytes, or null — no decode, so a caller may ask before queueing one. */
+export function freshSidecar(
+  source: string,
+  sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
+): FileEnvelope | null {
+  const have = readSidecar(source);
+  return have &&
+    have.fingerprint === fileFingerprint(source) &&
+    have.sensitivity === sensitivity
+    ? have
+    : null;
+}
+
 /** The sidecar when it still describes these bytes, else a fresh analysis — the usual entry point. */
 export async function ensureAnalysed(
   source: string,
   sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
 ): Promise<FileEnvelope> {
-  const have = readSidecar(source);
-  if (
-    have &&
-    have.fingerprint === fileFingerprint(source) &&
-    have.sensitivity === sensitivity
-  )
-    return have;
-  return analyseFile(source, sensitivity);
+  return freshSidecar(source, sensitivity) ?? analyseFile(source, sensitivity);
 }

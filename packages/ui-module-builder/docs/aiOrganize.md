@@ -70,6 +70,11 @@ refuses what would break the module:
 - an id used twice anywhere in the panel;
 - a `bind` that is not one of the parameters sent: a panel bound to an invented name loads fine
   and does nothing, which no other check would catch;
+- on a RACK module, a tap that is not one of its sounds. `bindableNames` adds `@rack:<symbol>` for
+  each sound the module's own `rack:` declares, and `@rack+` for the tap that adds one; the prompt
+  lists them. A rack bind is accepted on a `tap` only and a tap must carry one, since either alone
+  draws a card that plays nothing. Without this, the check would refuse every tap, and a kit's
+  panel would come back without its pads;
 - an lcdscreen with no draw function, and a `widgets.js` that does not compile. It is compiled
   with `new Function` and never called, so nothing the model wrote runs on the server.
 

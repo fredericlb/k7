@@ -6,7 +6,6 @@
 import { existsSync, statSync } from "node:fs";
 import { streamFile } from "@frediverse/http";
 import { wrap } from "@frediverse/http/route";
-import { analyseFile, ensureAnalysed } from "@studio/audio-analysis/analyse";
 import { NoFfmpegError } from "@studio/audio-analysis/decode";
 import {
   listFamily,
@@ -48,11 +47,13 @@ import {
   setSongKey,
 } from "@studio/mediatek/write";
 import express, { Router } from "express";
+import { analyseShared, ensureAnalysedShared } from "../analysisGate.ts";
 import { sweepState } from "../analysisSweep.ts";
 import {
   ensureStreamable,
   NoFfmpegError as NoTranscoderError,
 } from "../transcode.ts";
+import { rawToDisk, uploadOf } from "../upload.ts";
 
 export const libraryRouter: Router = Router();
 
@@ -176,15 +177,15 @@ function writeError(e: unknown, res: import("express").Response): boolean {
   return false;
 }
 
-/** Put one file in. Raw body rather than multipart: a 400 MB video is never a field in a parse. */
+/** Put one file in. Raw body rather than multipart, streamed to disk: a 400 MB video is never a field in a parse. */
 libraryRouter.put(
   "/file",
-  express.raw({ type: "*/*", limit: "512mb" }),
+  rawToDisk(),
   wrap((req, res) => {
     const rel = String(req.query.path ?? "");
     if (!rel) return res.status(400).json({ error: "path required" });
     try {
-      putFile(rel, req.body as Buffer);
+      putFile(rel, uploadOf(req));
     } catch (e) {
       if (writeError(e, res)) return;
       throw e;
@@ -196,15 +197,16 @@ libraryRouter.put(
 /** One upload as a filed song: three tags in, the LIBRARY derives the path — mediatek's songs.md. */
 libraryRouter.post(
   "/song",
-  express.raw({ type: "*/*", limit: "512mb" }),
+  rawToDisk(),
   wrap((req, res) => {
     const q = req.query as Record<string, unknown>;
     const s = (k: string): string =>
       typeof q[k] === "string" ? (q[k] as string) : "";
     const filename = s("filename");
     if (!filename) return res.status(400).json({ error: "filename required" });
-    const bytes = req.body as Buffer;
-    if (!bytes?.length) return res.status(400).json({ error: "empty body" });
+    const upload = uploadOf(req);
+    if (!upload.size) return res.status(400).json({ error: "empty body" });
+    const bytes = { file: upload.file };
     try {
       const r = addSong({
         filename,
@@ -234,7 +236,7 @@ libraryRouter.post(
 /** An upload as a VARIANT: the folder is named, the file never — mediatek's docs/variants.md. */
 libraryRouter.post(
   "/variant",
-  express.raw({ type: "*/*", limit: "512mb" }),
+  rawToDisk(),
   wrap((req, res) => {
     const q = req.query as Record<string, unknown>;
     const s = (k: string): string =>
@@ -243,8 +245,9 @@ libraryRouter.post(
     const filename = s("filename");
     if (!path) return res.status(400).json({ error: "path required" });
     if (!filename) return res.status(400).json({ error: "filename required" });
-    const bytes = req.body as Buffer;
-    if (!bytes?.length) return res.status(400).json({ error: "empty body" });
+    const upload = uploadOf(req);
+    if (!upload.size) return res.status(400).json({ error: "empty body" });
+    const bytes = { file: upload.file };
     try {
       res.json({
         ok: true,
@@ -316,9 +319,9 @@ libraryRouter.post(
     if (!existsSync(source))
       return res.status(404).json({ error: `${path} is not here` });
 
-    let env: Awaited<ReturnType<typeof analyseFile>>;
+    let env: Awaited<ReturnType<typeof analyseShared>>;
     try {
-      env = await analyseFile(source);
+      env = await analyseShared(source);
     } catch (e) {
       // A missing decoder is this deployment's to fix, and it is not the caller's request that is wrong.
       if (e instanceof NoFfmpegError)
@@ -366,7 +369,7 @@ libraryRouter.get(
       return res.status(404).json({ error: `${path} is not here` });
 
     try {
-      const env = await ensureAnalysed(source);
+      const env = await ensureAnalysedShared(source);
       res.json({
         sampleRate: env.sampleRate,
         seconds: env.seconds,
@@ -465,15 +468,16 @@ libraryRouter.post(
 /** Push one capture in — the route the machines use; see packages/mediatek/docs/recordings.md. */
 libraryRouter.post(
   "/recording",
-  express.raw({ type: "*/*", limit: "512mb" }),
+  rawToDisk(),
   wrap((req, res) => {
     const q = req.query as Record<string, unknown>;
     const s = (k: string): string =>
       typeof q[k] === "string" ? (q[k] as string) : "";
     const filename = s("filename");
     if (!filename) return res.status(400).json({ error: "filename required" });
-    const bytes = req.body as Buffer;
-    if (!bytes?.length) return res.status(400).json({ error: "empty body" });
+    const upload = uploadOf(req);
+    if (!upload.size) return res.status(400).json({ error: "empty body" });
+    const bytes = { file: upload.file };
     let at: Date | undefined;
     if (s("at")) {
       at = new Date(s("at"));

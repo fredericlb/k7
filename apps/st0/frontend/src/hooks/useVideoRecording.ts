@@ -9,6 +9,7 @@ import { cameraConstraint, matchCamera } from "@studio/ui-eyes/camera";
 import fixWebmDuration from "fix-webm-duration";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fileClip } from "../clipFiles";
+import { downloadBlob } from "../downloadBlob";
 import {
   extForMime,
   fileStamp,
@@ -78,7 +79,11 @@ export function useVideoRecording(opts: {
       try {
         await fileClip(dir, { id, upload }, await bytes.arrayBuffer());
       } catch (e) {
-        say(`take not filed: ${(e as Error).message}`);
+        // A camera take cannot be played again: unfiled, it goes to the disk rather than nowhere (../../docs/audit.md).
+        downloadBlob(bytes, upload);
+        say(
+          `take not filed: ${(e as Error).message} — saved to your downloads as ${upload}, drop it on the lane to file it`,
+        );
         return;
       }
       live.current.bumpReload();

@@ -55,8 +55,11 @@ export function AddSong({
   const [error, setError] = useState<string | null>(null);
   // The folder is taken: the question stays open, because replacing is a decision made here.
   const [occupied, setOccupied] = useState(false);
+  // The upload in flight, so Cancel cuts it rather than waiting on 500 MB it no longer wants.
+  const sending = useRef<AbortController | null>(null);
 
   const close = () => {
+    sending.current?.abort();
     setFile(null);
     setError(null);
     setOccupied(false);
@@ -76,6 +79,8 @@ export function AddSong({
     if (!file) return;
     setBusy(true);
     setError(null);
+    const ctl = new AbortController();
+    sending.current = ctl;
     try {
       const added = await library.addSong(
         file,
@@ -84,7 +89,7 @@ export function AddSong({
           album: tags.album ?? "",
           title: tags.title ?? "",
         },
-        { replace },
+        { replace, signal: ctl.signal },
       );
       close();
       onDone();
@@ -96,9 +101,12 @@ export function AddSong({
           /* the song is filed either way; the cache is a derived thing */
         });
     } catch (e) {
+      // Cancelled from this dialog, which has closed already: nothing to say.
+      if (ctl.signal.aborted) return;
       if (e instanceof SongExists) setOccupied(true);
       else setError((e as Error).message);
     } finally {
+      sending.current = null;
       setBusy(false);
     }
   };
@@ -152,7 +160,7 @@ export function AddSong({
       <Dialog
         open={file !== null}
         onOpenChange={(o) => {
-          if (!o && !busy) close();
+          if (!o) close();
         }}
       >
         <DialogContent className="max-w-lg">
@@ -196,8 +204,8 @@ export function AddSong({
           )}
 
           <DialogFooter>
-            <Button variant="secondary" onClick={close} disabled={busy}>
-              Annuler
+            <Button variant="secondary" onClick={close}>
+              {busy ? "Annuler l'envoi" : "Annuler"}
             </Button>
             <Button
               onClick={() => void send(occupied)}

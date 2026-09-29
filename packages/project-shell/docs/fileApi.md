@@ -45,6 +45,18 @@ surface that fills its decks' clips into the document it was given would be writ
 component's state. Each caller pays the parse it always paid; what it stops paying is the round
 trip and the service's work behind it.
 
+### A read has a budget, a write has none
+
+Joining a GET in flight has one cost: a request that never answers is never answered for ANY of
+the callers waiting on it, and the revision poller, which never stacks a second ask on a slow one,
+stops noticing changes for the rest of the session. Nothing between the browser and the file
+service bounds it either — the images carry no nginx, and a half-open connection after a laptop
+sleeps can hang for minutes. So `fget` gives a read `READ_MS` (two minutes, past `/git/status`'s
+own 30 s fetch and a first waveform decode) and then drops it with a sentence, freeing the key for
+the next caller. `fsend` gets no budget: a write that timed out may still have landed, and a
+command may legitimately run long; saying "failed" about a write that happened is worse than
+waiting on it.
+
 ### A frozen document is refused in ONE place
 
 `FileCfg.frozen` is the whole of read-only mode, and that is deliberate. `fsend` is the only way

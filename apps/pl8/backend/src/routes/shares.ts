@@ -11,7 +11,8 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { wrap } from "@frediverse/http/route";
-import express, { type Request, Router, type Router as RouterT } from "express";
+import { moveFile } from "@studio/mediatek/write";
+import { type Request, Router, type Router as RouterT } from "express";
 import { rememberIdentity, subFor } from "../projects/identities.ts";
 import {
   commentsStamp,
@@ -29,13 +30,25 @@ import {
   mintToken,
   revision,
   revokeShare,
+  sharesDir,
 } from "../shares/store.ts";
+import { rawToDisk, uploadOf } from "../upload.ts";
 
 /** What `scripts/tokens.mjs` prefixes a machine-to-service token's subject with — see projects.ts. */
 const SERVICE_SUB_PREFIX = "service:";
 
 function subOf(req: Request): string {
   return (req as { user?: { sub?: string } }).user?.sub ?? "";
+}
+
+/** The two files the store writes itself, which no upload may name. */
+const RESERVED = new Set(["pending.json", "snapshot.json"]);
+
+/** A name the manifest may list: `audio/<name>` for the media, a bare name for a doc — never a path that climbs. */
+export function shareFileOk(rel: string, audio: boolean): boolean {
+  const name = audio ? rel.replace(/^audio\//, "") : rel;
+  if (audio && name === rel) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) && !RESERVED.has(name);
 }
 
 /** A file the uploader may PUT: one of the names the draft's own manifest listed. */
@@ -126,11 +139,21 @@ export function sharesRouter(): RouterT {
         return res
           .status(400)
           .json({ error: "a share needs a manifest with a mixdown" });
-      const expects = [
+      const media = [
         m.media.mix.file,
         ...(m.media.stems ?? []).map((s) => s.file),
-        ...(m.docs ?? []),
       ];
+      const docs = m.docs ?? [];
+      // Every name is joined onto the share's folder by the PUT and the public reads, so each is checked here.
+      const bad = [
+        ...media.filter((f) => typeof f !== "string" || !shareFileOk(f, true)),
+        ...docs.filter((f) => typeof f !== "string" || !shareFileOk(f, false)),
+      ];
+      if (bad.length)
+        return res
+          .status(400)
+          .json({ error: `not a share file name: ${bad.join(", ")}` });
+      const expects = [...media, ...docs];
       const { token, key } = mintToken();
       mkdirSync(join(blobDir(key), "audio"), { recursive: true });
       writeFileSync(
@@ -147,10 +170,10 @@ export function sharesRouter(): RouterT {
     }),
   );
 
-  /** One file of the draft. Raw, one per request — the library's own upload rule. */
+  /** One file of the draft. Raw, one per request, streamed to disk — the library's own upload rule. */
   router.put(
     "/:key/file",
-    express.raw({ type: "*/*", limit: "512mb" }),
+    rawToDisk(() => join(sharesDir(), "uploads")),
     wrap((req, res) => {
       const key = req.params.key;
       const pending = isKey(key) ? pendingOf(key) : null;
@@ -163,7 +186,7 @@ export function sharesRouter(): RouterT {
         return res
           .status(400)
           .json({ error: `'${path}' is not part of this share` });
-      writeFileSync(join(blobDir(key), path), req.body as Buffer);
+      moveFile(uploadOf(req).file, join(blobDir(key), path));
       res.json({ ok: true });
     }),
   );

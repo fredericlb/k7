@@ -32,9 +32,20 @@ import { publicShareRouter } from "./routes/publicShare.ts";
 import { settingsRouter } from "./routes/settings.ts";
 import { sharesRouter } from "./routes/shares.ts";
 import { stemsRouter } from "./routes/stems.ts";
+import { sharesDir } from "./shares/store.ts";
+import { clearUploads, libraryUploads } from "./upload.ts";
 
 // Dev config layered INTO process.env, never read into a value — ../docs/config.md.
 Object.assign(process.env, loadServiceEnv("pl8-backend"));
+
+// A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
+process.on("unhandledRejection", (reason) =>
+  console.error("unhandled rejection:", reason),
+);
+process.on("uncaughtException", (err) => {
+  console.error("uncaught exception:", err);
+  process.exit(1);
+});
 
 // Before anything listens: without it no project can open anywhere — packages/file-hub/docs/fileHub.md.
 const FILES_ROOT = requireFilesRoot();
@@ -183,6 +194,8 @@ const server = app.listen(PORT, () => {
   try {
     console.log(`📚 pl8 backend on ${url}  (library + origin-wide auth)`);
     console.log(`   library: ${ensureLayout()}`);
+    clearUploads(libraryUploads());
+    clearUploads(join(sharesDir(), "uploads"));
     // A poll costs a map lookup from here on, and the walk that fills it runs off the loop.
     startRevisionRefresh();
     // …and the waveforms nobody has asked for yet, one at a time — apps/pl8/docs/analysis.md.
@@ -195,3 +208,5 @@ const server = app.listen(PORT, () => {
   // Advertised so this machine's file service finds the médiathèque; an engine joins this registry only once the user adds it in the tray.
   engine.serve(server, url, () => void fileHub.stop());
 });
+// Node's default cuts a request at 5 minutes, and a 512 MB upload over a slow link takes longer.
+server.requestTimeout = 30 * 60_000;

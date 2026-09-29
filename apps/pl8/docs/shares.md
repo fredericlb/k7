@@ -72,7 +72,8 @@ and the repositories, and for the same reason: a list its owner alone WRITES nee
 `comments.db` beside it is the one thing on this volume that does not have a single writer, and
 [comments.md](comments.md) is why that changes the answer.
 
-**Index writes throw**, where reads never do. A read that fails means "no shares", a real state. A
+**Index writes throw**, where reads never do, and they are written beside and renamed: a crash
+mid-write must not leave an empty list, since the list is the only way its links are revoked. A read that fails means "no shares", a real state. A
 write that fails in silence means a link its author is about to hand out and that this service
 will **not** know how to revoke: the bytes are public and the only register that knew them just
 failed to write.
@@ -150,7 +151,11 @@ parse* — and the global `express.json` is at 8 MB. Hence:
 1. **draft** — `POST /api/shares`, the manifest as JSON: mints the secret, creates the folder,
    writes `pending.json` with the list of what is expected;
 2. **one raw `PUT` per file**, whose `?path=` is **matched** against that list, never sanitised:
-   the draft said what it would send, and everything else is not part of this snapshot;
+   the draft said what it would send, and everything else is not part of this snapshot. The list
+   itself IS checked, when the draft opens: media are `audio/<name>` and documents a bare
+   `<name>`, one segment of `[A-Za-z0-9._-]` that is neither `pending.json` nor `snapshot.json`.
+   Every name is joined onto the share's folder, by this PUT and by the public reads, so a `../`
+   in a manifest would be a write anywhere on the volume and a read of another person's index;
 3. **`finish`** — writes `snapshot.json`, deletes `pending.json`, and **re-measures the sizes on
    disk** instead of believing the draft. What the link serves is what arrived.
 

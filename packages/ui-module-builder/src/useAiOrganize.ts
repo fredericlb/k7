@@ -10,6 +10,7 @@ import {
   type AiOrganizeRequest,
   type AiOrganizeResult,
   type AiParam,
+  bindableNames,
   checkAiResult,
 } from "./aiOrganize";
 
@@ -80,7 +81,7 @@ export function useAiOrganize({
       );
       const { ui, issues } = checkAiResult(
         res,
-        params.map((p) => p.name),
+        bindableNames({ params, moduleYaml }),
       );
       if (!ui || issues.length) throw new Error(issues.join("; "));
       const screens = /\btype:\s*lcdscreen\b/.test(res.uiYaml);

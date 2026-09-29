@@ -100,9 +100,23 @@ function route(path: string): string {
   return path.split("?")[0].split("/").slice(0, 3).join("/");
 }
 
+/** What a read may take: past this it is dropped, and every caller waiting on it with it — docs/fileApi.md. */
+export const READ_MS = 120_000;
+
 async function getOnce(path: string): Promise<string> {
-  const res = await fetch(cfg().base + path, { headers: fileHeaders() });
-  const text = await res.text();
+  let res: Response;
+  let text: string;
+  try {
+    res = await fetch(cfg().base + path, {
+      headers: fileHeaders(),
+      signal: AbortSignal.timeout(READ_MS),
+    });
+    text = await res.text();
+  } catch (e) {
+    if ((e as Error).name === "TimeoutError")
+      throw new Error(`GET ${path}: no answer after ${READ_MS / 1000} s`);
+    throw e;
+  }
   if (!res.ok) {
     let said: string | undefined;
     try {

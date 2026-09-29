@@ -10,6 +10,18 @@ const MAX_BYTES = 512 * 1024 * 1024;
 /** How deep to look for a file slskd did not file where documented — more would be a crawl. */
 const SEARCH_DEPTH = 3;
 
+/** One file's transfer, once connected: a stalled session would otherwise hold a hunt's slot until a restart. */
+const GET_MS = 20 * 60_000;
+
+/** `p`, or the error `giveUp` builds once `ms` has passed. */
+function within<T>(p: Promise<T>, ms: number, giveUp: () => Error): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(giveUp()), ms);
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
 /** One person's, from ../settings/store.ts — the key is the key ITSELF, never a path. */
 export interface SftpConfig {
   host: string;
@@ -160,7 +172,10 @@ export async function fetchDownload(
         `téléchargé, mais introuvable sur ${cfg.host} sous ${cfg.downloadsDir}`,
       );
     }
-    const got = await sftp.get(path);
+    const got = await within(sftp.get(path), GET_MS, () => {
+      void sftp.end().catch(() => {});
+      return new Error(`${path} : transfert SFTP bloqué, abandonné`);
+    });
     if (!Buffer.isBuffer(got))
       throw new Error(`${path} : réponse SFTP inattendue`);
     if (got.length > MAX_BYTES)

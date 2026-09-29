@@ -21,6 +21,7 @@ import {
 } from "@studio/web-protocol/hunt";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
+import { poll } from "./poll";
 
 /** Fast enough that a peer change shows, slow enough for a screen left open: a hunt lasts minutes. */
 const POLL_MS = 2000;
@@ -160,7 +161,7 @@ export function FindSongs({
   useEffect(() => {
     let stop = false;
     const tick = () =>
-      void hunt
+      hunt
         .list()
         .then((l) => {
           if (stop) return;
@@ -176,11 +177,10 @@ export function FindSongs({
           filed.current = done;
         })
         .catch((e: Error) => !stop && setError(e.message));
-    tick();
-    const t = setInterval(tick, POLL_MS);
+    const end = poll(tick, POLL_MS);
     return () => {
       stop = true;
-      clearInterval(t);
+      end();
     };
   }, [onFiled]);
 

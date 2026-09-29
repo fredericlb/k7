@@ -80,7 +80,7 @@ bookmarks, and answers the back button; a modal does none of the three, and both
 enough content to be worth returning to. `find` in particular grows a history that a dialogue
 would have made scroll inside a scroll — see [hunt.md](hunt.md).
 
-The cost is a subtraction to keep up to date. `Library.tsx` derives `FamilyId` by removing the
+The cost is a subtraction to keep up to date. `useLibraryData.ts` derives `FamilyId` by removing the
 non-family ids from `SECTION_IDS`, so a section added here and forgotten there silently becomes
 a family the poll asks the server to list.
 

@@ -9,6 +9,7 @@ import {
   cachePath,
   readSidecar,
   serialiseSidecar,
+  sidecarPresent,
   storedSensitivity,
   writeSidecar,
 } from "./sidecar.ts";
@@ -69,5 +70,32 @@ describe("the sidecar", () => {
     writeSidecar(src, { ...ENV, sensitivity: 3.5 });
     writeFileSync(src, "different bytes entirely");
     expect(storedSensitivity(src)).toBe(3.5);
+  });
+});
+
+describe("sidecarPresent — the sweep's cheap question", () => {
+  const dir = mkdtempSync(join(tmpdir(), "present-"));
+  const at = (name: string, body?: string): string => {
+    const source = join(dir, name);
+    if (body !== undefined) writeFileSync(cachePath(source), body, "utf8");
+    return source;
+  };
+  const whole = serialiseSidecar(ENV);
+
+  it("agrees with the full read on every case the sweep meets", () => {
+    const cases = [
+      at("none.wav"),
+      at("whole.wav", whole),
+      at("truncated.wav", whole.slice(0, whole.length / 2)),
+      at("old.wav", whole.replace('{"v":4', '{"v":3')),
+      at("empty.wav", ""),
+      at("hand.wav", JSON.stringify(JSON.parse(whole), null, 2)),
+      at("garbage.wav", "not json"),
+    ];
+    for (const source of cases)
+      expect([source, sidecarPresent(source)]).toEqual([
+        source,
+        readSidecar(source) !== null,
+      ]);
   });
 });

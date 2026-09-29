@@ -10,7 +10,9 @@ extension passes straight through to `/file`'s own code, unchanged.
 source's own relative path with the extension swapped — the same "derived, never a source"
 zone the waveform sidecars and the scan's own index live in (`packages/mediatek/docs/index.md`).
 A cached copy newer than the source is reused; ffmpeg only runs once per FLAC, not once per
-request.
+request — and not once per CONCURRENT request either: an `<audio>` element opens several Range
+requests on a file it has not got yet, and they all wait on the one transcode running. A run that
+fails leaves no `.part` behind, and one that runs past ten minutes is killed as stuck.
 
 ## Why the source stays FLAC
 

@@ -6,6 +6,9 @@
 import type { ParamMeta } from "@studio/engine-protocol";
 import {
   type ModuleUI,
+  RACK_ADD_BIND,
+  RACK_BIND,
+  rackBindSymbol,
   UiFileSchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
@@ -57,6 +60,30 @@ export const AI_RESULT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
+/** The sounds module.yaml's own `rack:` declares, by symbol; none when it has no rack or does not parse. */
+export function rackSymbols(moduleYaml: string): string[] {
+  try {
+    const symbols = (parse(moduleYaml) as { rack?: { symbols?: unknown } })
+      ?.rack?.symbols;
+    return symbols && typeof symbols === "object" ? Object.keys(symbols) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Every bind a proposed panel may carry: the params, and on a rack module its taps — docs/aiOrganize.md. */
+export function bindableNames(req: {
+  params: readonly { name: string }[];
+  moduleYaml: string;
+}): string[] {
+  const rack = rackSymbols(req.moduleYaml);
+  return [
+    ...req.params.map((p) => p.name),
+    ...rack.map((sym) => `${RACK_BIND}${sym}`),
+    ...(rack.length ? [RACK_ADD_BIND] : []),
+  ];
+}
+
 /** A param's one line: name, range or settings, and the value, which says where it usually sits. */
 function paramLine(p: AiParam): string {
   const m = p.meta;
@@ -72,6 +99,7 @@ function paramLine(p: AiParam): string {
 /** The per-module half of the prompt — everything that changes between two requests. */
 export function aiUserPrompt(req: AiOrganizeRequest): string {
   const direction = req.direction.trim();
+  const rack = rackSymbols(req.moduleYaml);
   return [
     `Module: ${req.module}`,
     "",
@@ -83,6 +111,13 @@ export function aiUserPrompt(req: AiOrganizeRequest): string {
     `## Parameters (${req.params.length}) — bind names exactly as quoted`,
     ...req.params.map(paramLine),
     "",
+    ...(rack.length
+      ? [
+          `## Rack sounds (${rack.length}) — one \`tap\` each, bound \`${RACK_BIND}<symbol>\`, plus the \`${RACK_ADD_BIND}\` tap`,
+          ...rack.map((sym) => `- ${JSON.stringify(`${RACK_BIND}${sym}`)}`),
+          "",
+        ]
+      : []),
     "## Current ui.yaml",
     "```yaml",
     req.uiYaml.trim() || "# (none yet)",
@@ -168,7 +203,7 @@ function scriptSyntaxError(script: string): string | null {
 /** Why a proposal must not land, as sentences the MODEL can act on; empty means it may. */
 export function checkAiResult(
   res: AiOrganizeResult,
-  paramNames: readonly string[],
+  bindNames: readonly string[],
 ): { ui: ModuleUI | null; issues: string[] } {
   let raw: unknown;
   try {
@@ -189,7 +224,7 @@ export function checkAiResult(
     };
   const ui = parsed.data;
   const issues: string[] = [];
-  const known = new Set(paramNames);
+  const known = new Set(bindNames);
   const top = Object.entries(ui.widgets);
   // Panel-level widgets are drawn on EVERY page, so each page is checked together with them.
   const always = top.filter(([, w]) => w.type !== "tabs");
@@ -209,8 +244,20 @@ export function checkAiResult(
   for (const [id, w] of all) {
     if (seen.has(id)) issues.push(`widget id \`${id}\` is used twice`);
     seen.add(id);
-    if (w.bind && !known.has(w.bind))
-      issues.push(`\`${id}\` binds \`${w.bind}\`, which is not a parameter`);
+    const pad = w.bind === RACK_ADD_BIND || rackBindSymbol(w.bind) !== null;
+    // A pad is a tap's and a tap is a pad: either one alone draws a card that plays nothing.
+    if (w.type === "tap" && !pad)
+      issues.push(
+        `tap \`${id}\` must bind a rack sound or \`${RACK_ADD_BIND}\``,
+      );
+    else if (pad && w.type !== "tap")
+      issues.push(`\`${id}\` binds a rack sound, which only a tap may`);
+    else if (w.bind && !known.has(w.bind))
+      issues.push(
+        pad
+          ? `tap \`${id}\` binds \`${w.bind}\`, which is not a sound of this module's rack`
+          : `\`${id}\` binds \`${w.bind}\`, which is not a parameter`,
+      );
     if (w.type === "lcdscreen" && !drawsFor(res.widgetsJs, id))
       issues.push(`lcdscreen \`${id}\` has no draw function in widgets_js`);
   }

@@ -3,7 +3,13 @@
 // the one way that could lie.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { configureFileApi, fget, fsend, setFileApiTally } from "./fileApi.ts";
+import {
+  configureFileApi,
+  fget,
+  fsend,
+  READ_MS,
+  setFileApiTally,
+} from "./fileApi.ts";
 
 let served: string[] = [];
 let release: (() => void)[] = [];
@@ -131,5 +137,38 @@ describe("what the transport reports to a stall watcher", () => {
     await all;
     expect(served).toEqual(["http://x/hints"]); // one request…
     expect(seen).toHaveLength(3); // …and three parses
+  });
+});
+
+describe("a read that never answers", () => {
+  it("is dropped after READ_MS, for every caller, and the next ask is a fresh request", async () => {
+    vi.useFakeTimers();
+    // Node's own timeout ignores fake timers; this one is the same signal on the faked clock.
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const c = new AbortController();
+      setTimeout(() => c.abort(new DOMException("late", "TimeoutError")), ms);
+      return c.signal;
+    });
+    let asked = 0;
+    vi.stubGlobal("fetch", (_url: string, init?: RequestInit) => {
+      asked++;
+      return new Promise((_ok, fail) =>
+        init?.signal?.addEventListener("abort", () =>
+          fail(init.signal?.reason),
+        ),
+      );
+    });
+    try {
+      const a = fget("/revision");
+      const b = fget("/revision");
+      const both = expect(Promise.all([a, b])).rejects.toThrow("no answer");
+      await vi.advanceTimersByTimeAsync(READ_MS);
+      await both;
+      void fget("/revision").catch(() => {});
+      expect(asked).toBe(2);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
   });
 });

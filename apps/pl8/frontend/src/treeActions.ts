@@ -1,0 +1,166 @@
+// treeActions.ts — the tree's right-click menus: the SONGS family's, and the one every other writable
+// family shares. Built from what the screen hands in, so the menu holds no state of its own.
+// The one thing a reader would get wrong: a SONG is a folder on disk though a leaf in the tree, so it is removed as a tree (../docs/library.md).
+
+import type { TreeAction, TreeNode } from "@frediverse/ui/file-tree";
+import { takesOf } from "@studio/mediatek/takes";
+import type { MediatekEntry } from "@studio/mediatek/types";
+import { library } from "./api";
+import { entryAt, isSongFolder } from "./libraryTree";
+import { folderOf } from "./routes";
+
+type Actions = TreeAction<TreeNode>[];
+
+/** The right-click menu the SONGS family gets, and the only one it gets (../docs/library.md). */
+export function songActions(d: {
+  section: string;
+  entries: MediatekEntry[] | null;
+  file: string | null;
+  openFile: (rel: string | null) => void;
+  pickVariant: (song: string) => void;
+  enqueue: (entries: MediatekEntry[]) => void;
+  refresh: () => void;
+  setError: (message: string) => void;
+}): Actions {
+  const { section, entries, file } = d;
+  return [
+    {
+      key: "add-variant",
+      // The same gesture as the drop onto this row, said in words — a drag is not discoverable.
+      label: "Ajouter une variante…",
+      when: (t) => isSongFolder(entries, t.path),
+      run: (t) => d.pickVariant(t.path),
+    },
+    {
+      key: "queue-song",
+      // The bottom bar's queue, not a playlist — see ../docs/miniPlayer.md.
+      label: "Ajouter à la liste de lecture",
+      // Only what actually has a master: an empty folder would make a row playback skips in silence.
+      when: (t) => {
+        const e = entryAt(entries, t.path);
+        return !!e && takesOf(e).some((k) => k.kind === "master");
+      },
+      run: (t) => {
+        const e = entryAt(entries, t.path);
+        if (e) d.enqueue([e]);
+      },
+    },
+    {
+      key: "delete-song",
+      // Named as a folder: what goes is the master and its sidecar, not just the row. No confirmation.
+      label: (t) => `Supprimer ${t.name}`,
+      when: (t) => isSongFolder(entries, t.path),
+      danger: true,
+      run: (t) =>
+        void library
+          .removeTree(`${section}/${t.path}`)
+          .then(() => {
+            // Close the editor when it shows what just went, or it empties itself on a dead address.
+            if (folderOf(file) === t.path) d.openFile(null);
+            d.refresh();
+          })
+          .catch((e: Error) => d.setError(e.message)),
+    },
+    {
+      key: "delete-folder",
+      // An ARTIST or ALBUM grouping: a real folder, neither the root nor a song's own.
+      label: (t) => `Supprimer ${t.name}…`,
+      when: (t) => t.dir && !t.root && !isSongFolder(entries, t.path),
+      danger: true,
+      // Asked rather than one click: this can take every song underneath — ../docs/library.md.
+      confirm: {
+        message: (t) => `Supprimer « ${t.name} » et tout ce qu'il contient ?`,
+        submit: "Supprimer",
+      },
+      run: (t) =>
+        void library
+          .removeTree(`${section}/${t.path}`)
+          .then(() => {
+            // The open song may sit several levels under an artist or album that just went.
+            const open = folderOf(file);
+            if (open === t.path || open?.startsWith(`${t.path}/`))
+              d.openFile(null);
+            d.refresh();
+          })
+          .catch((e: Error) => d.setError(e.message)),
+    },
+  ];
+}
+
+/** The menu of a writable family: every target needs one action whose `when` passes, or no menu opens (../docs/library.md). */
+export function assetActions(d: {
+  section: string;
+  entries: MediatekEntry[] | null;
+  assetsTarget: (dir: string) => string;
+  pickFolder: (dir: string) => void;
+  refresh: () => void;
+  setError: (message: string) => void;
+}): Actions {
+  const { section, entries } = d;
+  const fail = (e: Error) => d.setError(e.message);
+  return [
+    {
+      key: "upload-folder",
+      label: "Téléverser un dossier…",
+      // Through `assetsTarget`, exactly like the drop: the two must land in the same place.
+      when: (t) => t.dir || t.root,
+      run: (t) => d.pickFolder(t.path),
+    },
+    {
+      key: "new-folder",
+      label: "Nouveau dossier…",
+      // Somewhere to drop into before the first file, and never beside a module's definition.
+      when: (t) => t.dir || t.root,
+      prompt: { placeholder: "nom", submit: "Créer" },
+      run: (t, value) =>
+        void library
+          .newFolder(`${d.assetsTarget(t.path)}/${value}`)
+          .then(d.refresh)
+          .catch(fail),
+    },
+    {
+      key: "new-file",
+      label: "Nouveau fichier…",
+      when: (t) => t.dir || t.root,
+      prompt: { placeholder: "nom.yaml", submit: "Créer" },
+      run: (t, value) =>
+        void library
+          .writeFile(`${section}/${t.path ? `${t.path}/` : ""}${value}`, "")
+          .then(d.refresh)
+          .catch(fail),
+    },
+    {
+      key: "rename",
+      label: "Renommer…",
+      when: (t) => !t.root,
+      prompt: {
+        placeholder: "nouveau nom",
+        initial: (t) => t.name,
+        submit: "Renommer",
+      },
+      run: (t, value) =>
+        void library
+          .move(
+            `${section}/${t.path}`,
+            `${section}/${[...t.path.split("/").slice(0, -1), value].join("/")}`,
+          )
+          .then(d.refresh)
+          .catch(fail),
+    },
+    {
+      key: "delete",
+      label: (t) => `Supprimer ${t.name}`,
+      when: (t) => !t.root,
+      danger: true,
+      // `t.dir` alone would delete a song with the single-file route and leave its folder.
+      run: (t) =>
+        void (
+          t.dir || isSongFolder(entries, t.path)
+            ? library.removeTree(`${section}/${t.path}`)
+            : library.remove(`${section}/${t.path}`)
+        )
+          .then(d.refresh)
+          .catch(fail),
+    },
+  ];
+}

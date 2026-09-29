@@ -31,6 +31,7 @@ export const WIDGET_DOCS: Record<WidgetType, string> = {
   label:
     "static text: a section header or a caption. `text`. Binds nothing. One row tall.",
   tabs: "named pages of widgets: `pages: { <PageName>: { <id>: widget, … } }`. Binds nothing. Only at panel level, never inside a page.",
+  tap: "one sound of the module's rack — a pad with its note and sample under it — bound `@rack:<symbol>` for a sound listed under Rack sounds, or `@rack+` for the tap that adds one. Only on a module that lists rack sounds; keep one tap per sound. Best at 3 columns × 2 rows.",
 };
 
 const widgetList = (): string =>

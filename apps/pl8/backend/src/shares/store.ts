@@ -3,10 +3,11 @@
 // uses and for the same reasons — what visitors WRITE has many authors and is `comments.ts`.
 // See ../../docs/shares.md.
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -64,11 +65,10 @@ export function listShares(sub: string): ShareRecord[] {
 /** Writes THROW: a 200 for an unfiled share is a public link this service cannot revoke. */
 function save(sub: string, shares: ShareRecord[]): void {
   mkdirSync(join(sharesDir(), "index"), { recursive: true });
-  writeFileSync(
-    listPath(sub),
-    `${JSON.stringify({ shares }, null, 2)}\n`,
-    "utf8",
-  );
+  // Beside then renamed: a crash mid-write must never empty the list, which is every link's only revoke.
+  const tmp = `${listPath(sub)}.${randomUUID()}.part`;
+  writeFileSync(tmp, `${JSON.stringify({ shares }, null, 2)}\n`, "utf8");
+  renameSync(tmp, listPath(sub));
   mutations++;
 }
 

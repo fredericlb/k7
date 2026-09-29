@@ -4,7 +4,14 @@
 // whose version is older than MIN_CACHE_VERSION is refused, or it reads as fresh for ever.
 // See docs/analysis.md.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  writeFileSync,
+} from "node:fs";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
 import { DEFAULT_TRANSIENT_SENSITIVITY } from "./envelope.ts";
 
@@ -90,6 +97,35 @@ export function readSidecar(source: string): FileEnvelope | null {
     /* missing / unreadable / malformed — treat as no cache */
   }
   return null;
+}
+
+/** How both writers open a sidecar — this one and engine/st0-engine's Waveform.cpp. */
+const HEAD = /^\{"v":(\d+),"fingerprint":"/;
+
+/** `readSidecar(source) !== null`, without parsing arrays thousands of floats long — docs/analysis.md. */
+export function sidecarPresent(source: string): boolean {
+  let fd: number;
+  try {
+    fd = openSync(cachePath(source), "r");
+  } catch {
+    return false;
+  }
+  try {
+    const size = fstatSync(fd).size;
+    const head = Buffer.alloc(Math.min(64, size));
+    readSync(fd, head, 0, head.length, 0);
+    const m = HEAD.exec(head.toString("latin1"));
+    // Not the writers' own shape — a hand-edited file, say: the full parse decides.
+    if (!m) return readSidecar(source) !== null;
+    const last = Buffer.alloc(1);
+    readSync(fd, last, 0, 1, size - 1);
+    // A truncated write ends mid-array; only a whole one ends on its closing brace.
+    return Number(m[1]) >= MIN_CACHE_VERSION && last[0] === 0x7d;
+  } catch {
+    return false;
+  } finally {
+    closeSync(fd);
+  }
 }
 
 /** The sensitivity a sidecar was last built with, read even when its fingerprint has gone STALE. */

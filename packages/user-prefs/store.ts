@@ -3,8 +3,8 @@
 // and whatever else earns a line later. See docs/store.md for why this is a file and not a
 // database, and for what losing the volume costs.
 
-import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export interface PrefsStore<T> {
@@ -34,11 +34,11 @@ export function prefsStore<T>(dir: string): PrefsStore<T> {
     write(sub, value) {
       try {
         mkdirSync(dir, { recursive: true });
-        writeFileSync(
-          join(dir, fileFor(sub)),
-          `${JSON.stringify(value, null, 2)}\n`,
-          "utf8",
-        );
+        const file = join(dir, fileFor(sub));
+        // Beside then renamed: a crash mid-write would leave a file that reads as "no preferences" (docs/store.md).
+        const tmp = `${file}.${randomUUID()}.part`;
+        writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+        renameSync(tmp, file);
         return true;
       } catch {
         // Never throws — the choice stands for the session either way; the caller decides what to say (docs/store.md).

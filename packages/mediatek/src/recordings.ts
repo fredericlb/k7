@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { RECORDINGS_DIR, recordingsDir } from "./layout.ts";
 import { extOf, isAudio } from "./media.ts";
 import { NotAudioError, segment } from "./song.ts";
-import { putFile } from "./write.ts";
+import { type OnDisk, putFile } from "./write.ts";
 
 /** The zone, mediatek-relative — a path, not a directory, because every write goes through `putFile`. */
 export const recordingsRoot = (): string => RECORDINGS_DIR;
@@ -51,7 +51,7 @@ export interface RecordingDay {
 /** File one capture under the day and second it was made, a taken name gaining `-2` — docs/recordings.md. */
 export function addRecording(opts: {
   filename: string;
-  bytes: Uint8Array;
+  bytes: Uint8Array | OnDisk;
   /** When it was CAPTURED — a batch pushed the morning after would otherwise land under one wrong day. */
   at?: Date;
   /** How long the span is, in seconds; present == a MOMENT cut out of a session, absent == a whole capture. */

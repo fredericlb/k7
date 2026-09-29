@@ -419,7 +419,7 @@ reload and bookmark, a back button that returns to the songs, and the full avail
 The search field is at the top and **does not scroll**: building a library means one title after
 another, and a field you had to go looking for after thirty rows would be a round trip per song.
 
-Two consequences in `Library.tsx`, both easy to miss:
+Two consequences in `useLibraryData.ts`, both easy to miss:
 
 - `find` must be **removed from `FamilyId`**, which is computed by subtraction on `SECTION_IDS`.
   Without that the new section becomes a family, and the poll asks the server for a list of `find`.

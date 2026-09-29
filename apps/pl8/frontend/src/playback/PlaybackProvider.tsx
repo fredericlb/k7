@@ -18,6 +18,7 @@ import {
 import { library, player } from "../api";
 import { localPathOn, songPreviewDoc } from "../engine/enginePlayback";
 import { useSongEngine } from "../engine/useSongEngine";
+import { poll } from "../poll";
 import type { QueueItem } from "./queue";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
 import type { PlayQueue } from "./usePlayQueue";
@@ -134,11 +135,11 @@ export function PlaybackProvider({
         if (!stop) setError((e as Error).message);
       }
     };
-    void tick();
-    const t = setInterval(() => void tick(), 500);
+    // Hidden too: mpv going idle is what advances the queue, and a queue plays on in a background tab.
+    const end = poll(tick, 500, { whileHidden: true });
     return () => {
       stop = true;
-      clearInterval(t);
+      end();
     };
   }, [viaHost, now]);
 

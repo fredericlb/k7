@@ -4,7 +4,7 @@
 // recorder.
 
 import { Button } from "@frediverse/ui/button";
-import { Loader2, Mic } from "@frediverse/ui/icons";
+import { Loader2, Mic, X } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useRef, useState } from "react";
 import { library } from "./api";
@@ -18,17 +18,22 @@ export function AddRecording({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  // The batch in flight: while it runs, the button is what cuts it.
+  const sending = useRef<AbortController | null>(null);
 
   const send = async (files: File[]) => {
+    const ctl = new AbortController();
+    sending.current = ctl;
     setBusy(true);
     try {
-      await library.addRecordings(files);
+      await library.addRecordings(files, ctl.signal);
       onDone();
     } catch (e) {
       // A partial upload is a real result, so the refresh runs despite the error.
       onDone();
-      onError((e as Error).message);
+      if (!ctl.signal.aborted) onError((e as Error).message);
     } finally {
+      sending.current = null;
       setBusy(false);
     }
   };
@@ -38,15 +43,21 @@ export function AddRecording({
       <Button
         size="sm"
         variant="ghost"
-        disabled={busy}
-        onClick={() => input.current?.click()}
+        onClick={() =>
+          busy ? sending.current?.abort() : input.current?.click()
+        }
       >
         {busy ? (
-          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          <>
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            Envoi… <X className="ml-1 h-3.5 w-3.5" /> annuler
+          </>
         ) : (
-          <Mic className="mr-1 h-3.5 w-3.5" />
+          <>
+            <Mic className="mr-1 h-3.5 w-3.5" />
+            Ajouter des enregistrements
+          </>
         )}
-        Ajouter des enregistrements
       </Button>
       <input
         ref={input}

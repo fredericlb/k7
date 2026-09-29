@@ -111,7 +111,7 @@ reach, and CI is where it runs.
 The two assumptions most likely to be wrong ARE checkable here, and are worth re-checking when
 the Dockerfile moves:
 
-1. `npm run build --workspace pl8-frontend` produces `apps/pl8/frontend/dist/index.html` plus a
+1. `npm run build --workspace pl8-frontend` produces `index.html` in the frontend's `dist/`, plus a
    full-sized stylesheet — the path the final stage `COPY`s from.
 2. The backend boots with nothing but `STUDIO_MEDIATEK` and `PORT`, on an empty directory.
 

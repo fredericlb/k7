@@ -14,6 +14,11 @@ import type {
   WebWidget,
 } from "@studio/graph-model";
 import { splitPort, TRACK_OUTPUTS } from "@studio/graph-model";
+import {
+  RACK_ADD_BIND,
+  RACK_BIND,
+  rackBindSymbol,
+} from "@studio/song-schema/yaml/moduleSchema";
 // Type-only the other way (hang.ts takes `Pt` as a type), so this import cannot cycle.
 import { hangPoints } from "./hang";
 
@@ -645,12 +650,8 @@ export const MAIN_OUT_UI: WebModuleUI = {
   },
 };
 
-/** The bind prefix a rack pad carries: `@rack:BD` fires the sound `BD`. See `rackUI`. */
-export const RACK_BIND = "@rack:";
-
-/** The symbol a rack-pad bind names, or null for any other bind. */
-export const rackBindSymbol = (bind: string | undefined): string | null =>
-  bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
+// The rack-pad binds are the file format's vocabulary, re-exported so a renderer imports one place. See `rackUI`.
+export { RACK_ADD_BIND, RACK_BIND, rackBindSymbol };
 
 /** The bind prefix a RECORDER's controls carry: `@rec:record` fires, it does not set. The second
  *  member of the rack pad's family, and named apart from `@record` deliberately — a bare `@field`
@@ -689,8 +690,6 @@ export const TAP_COLS = 3;
 export const TAP_ROWS = 2;
 /** Three taps to a row: a kit reads down, and a fourth would make every card of one wider than a synth's. */
 const TAPS_PER_ROW = 3;
-/** The bind of a rack's LAST tap, which adds a sound rather than playing one. */
-export const RACK_ADD_BIND = "@rack+";
 
 /** The UI a RACK node carries: one `tap` per sound, then the tap that adds one. See docs/racks.md. */
 export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
@@ -711,7 +710,11 @@ export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
       label: s.symbol,
     };
   });
-  widgets["rack+"] = { type: "tap", ...place(rack.length), bind: RACK_ADD_BIND };
+  widgets["rack+"] = {
+    type: "tap",
+    ...place(rack.length),
+    bind: RACK_ADD_BIND,
+  };
   return { cols: per * TAP_COLS, rows: Math.ceil(n / per) * TAP_ROWS, widgets };
 }
 

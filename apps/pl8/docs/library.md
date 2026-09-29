@@ -1,8 +1,11 @@
 # The catalogue screen: the tree, and what a row means
 
 `apps/pl8/frontend/src/Library.tsx` is the médiathèque: the sections as header tabs, the current
-one's files as a tree down the side, its contents in the middle. This page holds the reasoning, so
-the code can point at it in one line.
+one's files as a tree down the side, its contents in the middle. It draws; four modules beside it
+hold the rest, one concern each — what it shows of the volume and the poll that reloads it
+(`useLibraryData.ts`), the rows built from a listing (`libraryTree.ts`, pure and tested alone), the
+right-click menus (`treeActions.ts`) and the middle pane (`LibraryContents.tsx`). This page holds
+the reasoning, so the code can point at it in one line.
 
 The address side of the same screen is [routing.md](routing.md); the narrow-screen side is
 [responsive.md](responsive.md).

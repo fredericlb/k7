@@ -4,6 +4,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -48,6 +49,17 @@ describe("putting a file in", () => {
     const before = familyRevision("samples");
     putFile("samples/a/module.yaml", "b\n"); // same count, same tick, different bytes
     expect(familyRevision("samples")).not.toBe(before);
+  });
+});
+
+describe("putting in a file a server already has on disk", () => {
+  it("moves it into place, so the upload is gone and never copied through memory", () => {
+    const upload = join(root, ".uploads-test");
+    writeFileSync(upload, "bytes");
+    putFile("samples/a.wav", { file: upload });
+    expect(readFileSync(join(root, "samples/a.wav"), "utf8")).toBe("bytes");
+    expect(existsSync(upload)).toBe(false);
+    expect(partFiles(join(root, "samples"))).toEqual([]);
   });
 });
 

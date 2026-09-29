@@ -11,6 +11,7 @@ import {
   type AiOrganizeEvent,
   type AiOrganizeRequest,
   aiUserPrompt,
+  bindableNames,
   checkAiResult,
   readAiAnswer,
 } from "@studio/ui-module-builder/ai-organize";
@@ -73,7 +74,7 @@ async function organize(
   say: (e: AiOrganizeEvent) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const names = req.params.map((p) => p.name);
+  const names = bindableNames(req);
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: aiUserPrompt(req) },
   ];

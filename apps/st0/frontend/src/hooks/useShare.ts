@@ -12,18 +12,7 @@ import type { VideoScene } from "@studio/ui-eyes/scene";
 import { shareUrl } from "@studio/web-protocol/projects";
 import { useCallback, useState } from "react";
 import { api } from "../api";
-
-/** Save a fetched blob to the user's disk under `filename`. */
-function download(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+import { downloadBlob as download } from "../downloadBlob";
 
 // One vocabulary for the formats, shared with the line that names them — ../exportArgs.ts.
 export {

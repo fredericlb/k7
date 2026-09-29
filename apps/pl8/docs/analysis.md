@@ -17,6 +17,12 @@ checks the fingerprint, and the surface that read it asks for a fresh analysis
 (`ensureAnalysed`). Sweeping for staleness would mean fingerprinting the whole library on every
 pass to find the handful of files somebody replaced.
 
+The predicate is asked through `sidecarPresent`, which answers what `readSidecar` would without
+parsing: both writers open the file with the same `{"v":N,"fingerprint":"` head, so the version is
+in its first bytes and a truncated write is the one that does not end on `}`. A file of any other
+shape falls back to the full read. Parsing every sidecar — five arrays of thousands of floats — held
+the event loop 1.6 s per pass on 2 000 songs; the probe takes 30 ms.
+
 Only a song's **master** is swept — `meta.master`, the playable file in the folder. Variants are
 analysed when they are opened, being the versions of a song that mostly are not.
 
@@ -30,6 +36,15 @@ answering HTTP while it works: at worst it is unavailable for one envelope at a 
 Passes repeat every five minutes, which is only for **files that arrive without passing through
 this service** — dropped on the volume by hand, or restored from a backup. An upload is already
 analysed by the surface that made it.
+
+## One gate for every decode
+
+The sweep, `/analyse` and `/envelope` all decode through `backend/src/analysisGate.ts`: one decode
+per file at a time, shared by whoever asks during it, and at most two at once. A decode holds the
+file's whole mono signal — about 1.4 GB for two hours at 48 kHz — and a listener flipping through
+songs asks for one per song, so an ungated route is a memory ceiling the users set. A sidecar that
+still matches its file is answered without queueing: only real decodes wait. `/analysis` reports
+the gate's `active` and `waiting` beside the sweep's own state.
 
 ## Three ways it stops
 

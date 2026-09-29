@@ -17,6 +17,15 @@ import express from "express";
 import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
 
+// A stray rejection is logged and survived; an uncaught exception leaves, and the container restarts it.
+process.on("unhandledRejection", (reason) =>
+  console.error("unhandled rejection:", reason),
+);
+process.on("uncaughtException", (err) => {
+  console.error("uncaught exception:", err);
+  process.exit(1);
+});
+
 const PORT = process.env.PORT || 8789;
 const app = express();
 

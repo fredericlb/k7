@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AiOrganizeResult,
   aiUserPrompt,
+  bindableNames,
   checkAiResult,
   readAiAnswer,
 } from "./aiOrganize";
@@ -142,5 +143,73 @@ widgets:
     const { ui, issues } = checkAiResult(result(bad, GOOD_JS), PARAMS);
     expect(ui).toBeNull();
     expect(issues[0]).toMatch(/^ui_yaml widgets\.res/);
+  });
+});
+
+describe("a rack module's taps", () => {
+  const KIT = `type: rack
+rack:
+  symbols:
+    BD: { note: 36 }
+    SN: { note: 38 }
+`;
+  const names = bindableNames({
+    params: [{ name: "Volume" }],
+    moduleYaml: KIT,
+  });
+  const KIT_UI = `cols: 9
+rows: 4
+widgets:
+  bd: { type: tap, col: 0, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack:BD" }
+  sn: { type: tap, col: 3, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack:SN" }
+  add: { type: tap, col: 6, row: 0, colSpan: 3, rowSpan: 2, bind: "@rack+" }
+  vol: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, bind: Volume, min: 0, max: 1 }
+`;
+
+  it("may be bound to the sounds the module's rack declares, and to the add tap", () => {
+    expect(names).toEqual(["Volume", "@rack:BD", "@rack:SN", "@rack+"]);
+    expect(checkAiResult(result(KIT_UI), names).issues).toEqual([]);
+  });
+
+  it("names a tap on a sound the rack does not have", () => {
+    const bad = KIT_UI.replace('"@rack:SN"', '"@rack:HH"');
+    expect(checkAiResult(result(bad), names).issues).toEqual([
+      "tap `sn` binds `@rack:HH`, which is not a sound of this module's rack",
+    ]);
+  });
+
+  it("keeps pads on taps, and taps on pads", () => {
+    const knobOnPad = KIT_UI.replace("bind: Volume", 'bind: "@rack:BD"');
+    const tapOnParam = KIT_UI.replace('"@rack:SN"', "Volume");
+    expect(checkAiResult(result(knobOnPad), names).issues).toEqual([
+      "`vol` binds a rack sound, which only a tap may",
+    ]);
+    expect(checkAiResult(result(tapOnParam), names).issues).toEqual([
+      "tap `sn` must bind a rack sound or `@rack+`",
+    ]);
+  });
+
+  it("is offered no tap at all on a module with no rack", () => {
+    const plain = bindableNames({
+      params: [{ name: "Volume" }],
+      moduleYaml: "type: fx\n",
+    });
+    expect(plain).toEqual(["Volume"]);
+    expect(checkAiResult(result(KIT_UI), plain).issues[0]).toBe(
+      "tap `bd` binds `@rack:BD`, which is not a sound of this module's rack",
+    );
+  });
+
+  it("lists the rack's sounds in the prompt", () => {
+    const prompt = aiUserPrompt({
+      module: "kit",
+      moduleYaml: KIT,
+      params: [],
+      uiYaml: "",
+      widgetsJs: "",
+      direction: "",
+    });
+    expect(prompt).toContain("## Rack sounds (2)");
+    expect(prompt).toContain('- "@rack:SN"');
   });
 });

@@ -227,6 +227,10 @@ Every write in that file goes in beside its target and is renamed into place, fo
 cache's downloads do: the moteur may be reading this tree, and a half-written `module.yaml` is a
 project that will not compile.
 
+A write takes its body as bytes or as `{ file }` — an upload a server already streamed to disk,
+which `putFile` MOVES into place (copying only across devices) and which is gone afterwards. That
+is how pl8 files a 512 MB upload without ever holding it in memory (`apps/pl8/docs/audit.md`).
+
 ## The cache is never load-bearing
 
 `.cache/` is 100% derived and safe to delete at any moment. Both `warm()` and `persist()`

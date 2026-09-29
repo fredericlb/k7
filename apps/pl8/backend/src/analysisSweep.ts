@@ -5,11 +5,11 @@
 // not a sweep's. See ../../docs/analysis.md.
 
 import { join } from "node:path";
-import { analyseFile } from "@studio/audio-analysis/analyse";
 import { NoFfmpegError } from "@studio/audio-analysis/decode";
-import { readSidecar } from "@studio/audio-analysis/sidecar";
+import { sidecarPresent } from "@studio/audio-analysis/sidecar";
 import { listFamily } from "@studio/mediatek/catalogue";
 import { exists, mediatekDir } from "@studio/mediatek/layout";
+import { analyseShared, gateLoad } from "./analysisGate.ts";
 
 /** Between two files. The decode is a subprocess, but the envelope is ~200 ms of SYNCHRONOUS arithmetic. */
 const GAP_MS = 250;
@@ -44,7 +44,11 @@ const failed = new Set<string>();
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
-export const sweepState = (): SweepState => ({ ...state, failed: [...failed] });
+export const sweepState = (): SweepState & ReturnType<typeof gateLoad> => ({
+  ...state,
+  failed: [...failed],
+  ...gateLoad(),
+});
 
 const wait = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
@@ -66,7 +70,7 @@ function missing(): string[] {
   for (const entry of listFamily("songs").entries) {
     const rel = masterOf(entry);
     if (!rel || failed.has(rel)) continue;
-    if (!readSidecar(join(mediatekDir(), rel))) out.push(rel);
+    if (!sidecarPresent(join(mediatekDir(), rel))) out.push(rel);
   }
   return out;
 }
@@ -80,7 +84,8 @@ async function pass(): Promise<void> {
     for (const rel of todo) {
       state.current = rel;
       try {
-        await analyseFile(join(mediatekDir(), rel));
+        // Behind the routes' own decodes, and shared with one a listener already started on this file.
+        await analyseShared(join(mediatekDir(), rel));
         state.analysed++;
       } catch (e) {
         // No decoder is the deployment's problem and every other file would fail the same way.

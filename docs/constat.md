@@ -128,11 +128,7 @@ which holds them at ~130 ms instead of ~465.
    mounted once and never unmounted (`hidden` takes it off screen), so any state change re-renders
    `TimelineTab`'s 3,513 lines **even hidden**. The only existing profile (`timeline.md`) predates
    lots C and D — re-measuring is the prerequisite, not the fix.
-3. **`EditorTab` can emit one HTTP request per keystroke.** Its effect depends on `file`, recreated
-   at every character, and it calls `api.projectDoc()` in three places. `fget` only dedupes in-flight
-   requests, it is not a cache — and the service is single-process.
-4. **Engine side**: the 20 Hz state frame sent synchronously from the message thread (a stuck client
-   freezes the engine); `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
+3. **Engine side**: `Change`, a fat value type, copying the whole `PluginDoc` *per parameter*
    during a knob drag; `diff()` rebuilding four `std::map`s with concatenated keys per apply; and the
    pattern clock path paying **two deep copies of the `ProjectDoc`** per tick, at 6.7 Hz.
 
@@ -325,16 +321,15 @@ illustrate it reintroduces the NUL into the page.
 
 Each is a design decision, which is why none is taken in passing.
 
-1. The 20 Hz state frame, sent synchronously from the message thread.
-2. `Change`, a fat value type.
-3. `Waveform`'s overlay layer, to take the playhead out of the full redraw.
-4. `App.tsx` — **re-measure before touching**: the only profile predates lots C/D.
-5. `git` out of the service's process, or serialised behind a lock.
-6. The token handed to any socket, and `STUDIO_ENGINE_HOST` at `0.0.0.0` by default.
-7. The exception net on the C++ side.
-8. The missing tests: `engine.ts`, the first inter-process test, the first C++ ↔ TS contract.
-9. `ui-eyes`' WebCodecs block, which has no host.
-10. **The 64-track bench, which no longer measures anything usable** (±14.7 %). Either give it enough
+1. `Change`, a fat value type.
+2. `Waveform`'s overlay layer, to take the playhead out of the full redraw.
+3. `App.tsx` — **re-measure before touching**: the only profile predates lots C/D.
+4. `git` out of the service's process, or serialised behind a lock.
+5. The token handed to any socket, and `STUDIO_ENGINE_HOST` at `0.0.0.0` by default.
+6. The exception net on the C++ side.
+7. The missing tests: `engine.ts`, the first inter-process test, the first C++ ↔ TS contract.
+8. `ui-eyes`' WebCodecs block, which has no host.
+9. **The 64-track bench, which no longer measures anything usable** (±14.7 %). Either give it enough
     samples and an idle machine, or stop publishing its figures.
 
 ---

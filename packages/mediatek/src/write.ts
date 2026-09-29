@@ -4,6 +4,7 @@
 
 import { randomUUID } from "node:crypto";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -41,15 +42,39 @@ export function familyOf(rel: string): Family | null {
   return FAMILIES.includes(top as Family) ? (top as Family) : null;
 }
 
+/** An upload already on disk, MOVED into place — the caller's file is gone once written (docs/index.md). */
+export interface OnDisk {
+  file: string;
+}
+
+/** What a write takes: bytes in memory, or a file a server streamed a request body into. */
+export type FileBody = Uint8Array | string | OnDisk;
+
+/** Whether a body is a file to move rather than bytes to write. */
+export const isOnDisk = (b: FileBody): b is OnDisk =>
+  typeof b === "object" && !(b instanceof Uint8Array);
+
+/** Move a file, copying when it sits on another device — a rename cannot cross one. */
+export function moveFile(from: string, to: string): void {
+  try {
+    renameSync(from, to);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EXDEV") throw e;
+    copyFileSync(from, to);
+    rmSync(from, { force: true });
+  }
+}
+
 /** Write one file, creating its folder — beside then renamed, because the moteur may be reading. */
-export function putFile(rel: string, body: Uint8Array | string): string {
+export function putFile(rel: string, body: FileBody): string {
   ensureLayout();
   const abs = writablePath(rel);
   mkdirSync(dirname(abs), { recursive: true });
   // A random suffix: two writers targeting the same path (separate processes sharing this
   // volume) must never share one temp name.
   const tmp = `${abs}.${randomUUID()}.part`;
-  writeFileSync(tmp, body);
+  if (isOnDisk(body)) moveFile(body.file, tmp);
+  else writeFileSync(tmp, body);
   renameSync(tmp, abs);
   bump(abs);
   return abs;
@@ -106,7 +131,7 @@ function isSongFolder(abs: string): boolean {
 /** File one uploaded audio file as a song: the folder, the master, the sidecar — see docs/songs.md. */
 export function addSong(opts: {
   filename: string;
-  bytes: Uint8Array;
+  bytes: Uint8Array | OnDisk;
   tags: SongTags;
   /** Replace the master already there. Absent, an occupied folder is a refusal, not a clobber. */
   replace?: boolean;
@@ -211,7 +236,7 @@ export function addSongVariant(opts: {
   /** The song's own folder, mediatek-relative — `songs/<artiste>/<album>/<titre>`. */
   folder: string;
   filename: string;
-  bytes: Uint8Array;
+  bytes: Uint8Array | OnDisk;
   /** What the sidecar will call it. Absent, the file's own stem. */
   name?: string;
 }): { path: string; ref: string; name: string; declared: boolean } {

@@ -83,6 +83,16 @@ export const WIDGET_TYPES = [
   "tap",
 ] as const;
 
+/** The bind prefix a rack pad carries: `@rack:BD` fires the sound `BD` (packages/song/docs/racks.md). */
+export const RACK_BIND = "@rack:";
+
+/** The bind of a rack's LAST tap, which adds a sound rather than playing one. */
+export const RACK_ADD_BIND = "@rack+";
+
+/** The symbol a rack-pad bind names, or null for any other bind. */
+export const rackBindSymbol = (bind: string | undefined): string | null =>
+  bind?.startsWith(RACK_BIND) ? bind.slice(RACK_BIND.length) : null;
+
 /** The script beside `ui.yaml` that draws a panel's lcdscreen widgets — packages/ui-chains-react/docs/lcdScreen.md. */
 export const WIDGETS_SCRIPT = "widgets.js";
 

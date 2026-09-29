@@ -88,6 +88,7 @@ matches before changing it:
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
+| `audit.md` | the standing stability and speed audit — what the app holds, and the lots still open |
 
 ### Three data paths (`src/api.ts`)
 

@@ -56,6 +56,10 @@ way `droppedKeys` below describes: the gesture works, the page says it saved, an
 the old value back with nothing anywhere to point at. Same bug, same answer — refuse in words,
 keep the behaviour.
 
+**A write goes in beside the file and is renamed over it.** Since a truncated file reads as no
+preferences, a crash mid-write would otherwise be a silent reset. That costs a person their command
+layout, and in st0 the Claude key the AI settings keep in a store of the same kind.
+
 ## Writes are wholesale
 
 The browser holds the whole object and PUTs it back. A merge would make a field impossible

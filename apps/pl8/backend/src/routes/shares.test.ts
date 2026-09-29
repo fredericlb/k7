@@ -133,6 +133,27 @@ describe("uploading one", () => {
     expect(r.status).toBe(400);
   });
 
+  it("refuses a manifest naming a file outside the share's own folder", async () => {
+    for (const bad of [
+      { docs: ["../index/alice.json"] },
+      { docs: ["pending.json"] },
+      { media: { ...MANIFEST.media, mix: { file: "audio/../../x.wav" } } },
+      { media: { ...MANIFEST.media, mix: { file: "mix.wav" } } },
+    ]) {
+      const r = await fetch(`${base}/api/shares`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ manifest: { ...MANIFEST, ...bad } }),
+      });
+      expect(r.status).toBe(400);
+    }
+  });
+
+  it("leaves no temporary upload behind", async () => {
+    await share();
+    expect(readdirSync(join(root, ".shares", "uploads"))).toEqual([]);
+  });
+
   it("refuses to finish when something never arrived", async () => {
     const draft = await draftOne();
     const r = await fetch(`${base}/api/shares/${draft.key}/finish`, {

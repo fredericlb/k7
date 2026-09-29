@@ -55,6 +55,7 @@ import { api } from "../api";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
+import { useDocPerRevision } from "../hooks/useDocPerRevision";
 import type { LibraryAssemblyRow } from "../libraryTree";
 import { moduleBehind } from "../moduleBehind";
 import { m } from "../paraglide/messages.js";
@@ -379,11 +380,14 @@ export function EditorTab({
     setPreview(null);
   }, [file?.path]);
 
+  // One compile per change token: the effect below re-runs on every keystroke, and the doc does not move with one.
+  const projectDoc = useDocPerRevision();
+
   // Audition from a gutter ▶: play it AND fetch a waveform to dock. Playback happens regardless of the fetch.
   const previewSound = useCallback(
     async (req: PreviewReq) => {
       try {
-        const proj = await api.projectDoc();
+        const proj = await projectDoc();
         const root = (hints.projectRoot || "").replace(/[\\/]+$/, "");
         // ALREADY-absolute stays untouched: prefixing the root onto one built a path nothing could ever stat.
         const abs = (rel: string) =>
@@ -429,7 +433,7 @@ export function EditorTab({
         /* the sound still played; only the waveform preview is unavailable */
       }
     },
-    [hints.projectRoot],
+    [hints.projectRoot, projectDoc],
   );
 
   // A gutter ▶ handler with a STABLE identity: an inline arrow would reconfigure CodeMirror on every keystroke.
@@ -505,8 +509,7 @@ export function EditorTab({
       if (rack && rack.rackType === "slice" && rack.source) {
         const source = rack.source;
         const ranges = rackSliceRanges(rack.symbols);
-        void api
-          .projectDoc()
+        void projectDoc()
           .then((proj) => {
             if (cancelled) return;
             const clip: WebClip = {
@@ -545,8 +548,7 @@ export function EditorTab({
     if (isClipFile(p)) {
       // The clip as the engine sees it. A placed clip keeps its real start/length; an unplaced one previews at bar 1.
       const audio = isAudioClipFile(file.content);
-      void api
-        .projectDoc()
+      void projectDoc()
         .then((proj) => {
           if (cancelled) return;
           const placed = proj.tracks
@@ -608,8 +610,7 @@ export function EditorTab({
       }
       const source = nodeRack.source;
       const ranges = rackSliceRanges(nodeRack.symbols);
-      void api
-        .projectDoc()
+      void projectDoc()
         .then((proj) => {
           if (cancelled) return;
           setAudioClip({
@@ -639,7 +640,7 @@ export function EditorTab({
 
     setAudioClip(null);
     onEditTarget(null);
-  }, [active, file, hints, onEditTarget, popin]);
+  }, [active, file, hints, onEditTarget, popin, projectDoc]);
 
   /** The LIBRARIES — asked when they can have MOVED rather than when anything moved: on mount, and by the two acts that write there. */
   const refreshLibraries = useCallback(async () => {

@@ -29,6 +29,34 @@ export interface AuthUser {
 /** The folder a song would land in already holds one — its own type so the dialogue can offer to replace. */
 export class SongExists extends Error {}
 
+/** What a call may take before it is given up on — ../docs/audit.md. */
+const TIMEOUT_MS = 30_000;
+/** The host's transport answers from memory: past this, it is not coming. */
+const PLAYER_MS = 10_000;
+/** A decode may queue behind two others on the server before it even starts. */
+const ANALYSE_MS = 10 * 60_000;
+
+/** `fetch` within `ms` — null for an upload, which a slow link makes long and only the user may cut. */
+async function request(
+  url: string,
+  init: RequestInit = {},
+  ms: number | null = TIMEOUT_MS,
+): Promise<Response> {
+  const limit = ms === null ? null : AbortSignal.timeout(ms);
+  const signals = [init.signal, limit].filter((s): s is AbortSignal => !!s);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: signals.length > 1 ? AbortSignal.any(signals) : signals[0],
+    });
+  } catch (e) {
+    // The caller's own cancel stays an AbortError; only the budget running out is reworded.
+    if (limit?.aborted && !init.signal?.aborted)
+      throw new Error(`pas de réponse du serveur après ${(ms ?? 0) / 1000} s`);
+    throw e;
+  }
+}
+
 /** The sentence a failed response carries, or a status code when it carries none (../docs/api.md). */
 async function failed(
   res: Response,
@@ -49,7 +77,7 @@ async function json<T>(res: Response, what: string): Promise<T> {
 }
 
 const get = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${BASE}/api/mediatek${path}`), what);
+  json(await request(`${BASE}/api/mediatek${path}`), what);
 
 /** Who is signed in, at module level because this SPA has exactly one gate (../docs/api.md). */
 let signedInAs = "";
@@ -73,7 +101,7 @@ export const auth = {
    * fetch doesn't send cookies at all without this.
    */
   me: async (): Promise<AuthUser | null> => {
-    const res = await fetch(`${authOrigin(window.location.origin)}/auth/me`, {
+    const res = await request(`${authOrigin(window.location.origin)}/auth/me`, {
       credentials: "include",
     });
     if (res.status === 401) return null;
@@ -85,7 +113,7 @@ export const auth = {
 
   /** Ends the session for the WHOLE origin — studio.sid is shared. See apps/st0/AGENTS.md. */
   logout: async (): Promise<void> => {
-    await fetch(`${authOrigin(window.location.origin)}/auth/logout`, {
+    await request(`${authOrigin(window.location.origin)}/auth/logout`, {
       method: "POST",
       credentials: "include",
     });
@@ -109,40 +137,56 @@ export interface MachinePlayerState {
  */
 export const player = {
   state: async (): Promise<MachinePlayerState> =>
-    json(await fetch(`${BASE}/api/player`), "lecteur"),
+    json(await request(`${BASE}/api/player`, {}, PLAYER_MS), "lecteur"),
 
   play: async (path: string, from = 0): Promise<MachinePlayerState> =>
     json(
-      await fetch(`${BASE}/api/player/play`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ path, from }),
-      }),
+      await request(
+        `${BASE}/api/player/play`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ path, from }),
+        },
+        PLAYER_MS,
+      ),
       "lecteur",
     ),
 
   pause: async (paused: boolean): Promise<MachinePlayerState> =>
     json(
-      await fetch(`${BASE}/api/player/pause`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ paused }),
-      }),
+      await request(
+        `${BASE}/api/player/pause`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ paused }),
+        },
+        PLAYER_MS,
+      ),
       "lecteur",
     ),
 
   seek: async (to: number): Promise<MachinePlayerState> =>
     json(
-      await fetch(`${BASE}/api/player/seek`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ to }),
-      }),
+      await request(
+        `${BASE}/api/player/seek`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ to }),
+        },
+        PLAYER_MS,
+      ),
       "lecteur",
     ),
 
   stop: async (): Promise<void> => {
-    await fetch(`${BASE}/api/player/stop`, { method: "POST" }).catch(() => {});
+    await request(
+      `${BASE}/api/player/stop`,
+      { method: "POST" },
+      PLAYER_MS,
+    ).catch(() => {});
   },
 };
 
@@ -153,7 +197,7 @@ export const engines = engineAccess<PublicEngine, Pl8Prefs>(BASE, json);
 
 /** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
 const hget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${BASE}/api/hunt${path}`), what);
+  json(await request(`${BASE}/api/hunt${path}`), what);
 
 /** Finding a song on Soulseek. Starting one ANSWERS AT ONCE with the row — see ../docs/hunt.md. */
 export const hunt = {
@@ -162,7 +206,7 @@ export const hunt = {
   /** A hunt files the song into the médiathèque and stops there; a playlist is out of this service's reach. */
   start: async (query: string): Promise<HuntRecord> =>
     json(
-      await fetch(`${BASE}/api/hunt`, {
+      await request(`${BASE}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query }),
@@ -173,7 +217,7 @@ export const hunt = {
   /** The fallback on a failed row: retry THAT hunt through YouTube, so the tags file it in the same place. */
   youtube: async (id: string): Promise<HuntRecord> =>
     json(
-      await fetch(`${BASE}/api/hunt/${encodeURIComponent(id)}/youtube`, {
+      await request(`${BASE}/api/hunt/${encodeURIComponent(id)}/youtube`, {
         method: "POST",
       }),
       "youtube",
@@ -182,7 +226,7 @@ export const hunt = {
   /** Cancels it if it is still running, and takes the row off the list either way. */
   forget: async (id: string): Promise<void> => {
     await json(
-      await fetch(`${BASE}/api/hunt/${encodeURIComponent(id)}`, {
+      await request(`${BASE}/api/hunt/${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
       "hunt",
@@ -193,11 +237,11 @@ export const hunt = {
 /** The instance's slskd settings — the secrets go in and never come back (../docs/settings.md). */
 export const settings = {
   slskd: async (): Promise<SlskdSettings> =>
-    json(await fetch(`${BASE}/api/settings/slskd`), "settings"),
+    json(await request(`${BASE}/api/settings/slskd`), "settings"),
 
   saveSlskd: async (input: SlskdSettingsInput): Promise<SlskdSettings> =>
     json(
-      await fetch(`${BASE}/api/settings/slskd`, {
+      await request(`${BASE}/api/settings/slskd`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),
@@ -208,7 +252,11 @@ export const settings = {
   /** Tests what is SAVED, not what is typed: the screen saves first. */
   checkSlskd: async (): Promise<SlskdCheck> =>
     json(
-      await fetch(`${BASE}/api/settings/slskd/check`, { method: "POST" }),
+      await request(
+        `${BASE}/api/settings/slskd/check`,
+        { method: "POST" },
+        2 * TIMEOUT_MS,
+      ),
       "settings",
     ),
 };
@@ -233,7 +281,7 @@ export const library = {
   /** Does the library hold this file? One BYTE, not the file, and a refusal reads as absent (../docs/api.md). */
   exists: async (path: string): Promise<boolean> => {
     try {
-      const res = await fetch(library.fileUrl(path), {
+      const res = await request(library.fileUrl(path), {
         headers: { range: "bytes=0-0" },
       });
       return res.ok;
@@ -246,7 +294,7 @@ export const library = {
   readFile: async (
     path: string,
   ): Promise<{ path: string; content: string }> => {
-    const res = await fetch(
+    const res = await request(
       `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
     );
     if (!res.ok) throw await failed(res, "file");
@@ -267,13 +315,14 @@ export const library = {
   ): Promise<void> => {
     for (const { path: rel, file } of files) {
       const path = dir ? `${dir}/${rel}` : rel;
-      const res = await fetch(
+      const res = await request(
         `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
         {
           method: "PUT",
           headers: { "content-type": "application/octet-stream" },
           body: file,
         },
+        null,
       );
       if (!res.ok) throw await failed(res, `upload ${rel}:`);
     }
@@ -288,7 +337,7 @@ export const library = {
 
   /** Create one from the stub. Its text is then read and written with readFile/writeFile. */
   newPlaylist: async (name: string): Promise<PlaylistSummary> => {
-    const res = await fetch(`${BASE}/api/mediatek/playlists`, {
+    const res = await request(`${BASE}/api/mediatek/playlists`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name }),
@@ -298,17 +347,22 @@ export const library = {
   },
 
   /** Push captures in, one request each, so every file carries its OWN mtime (../docs/api.md). */
-  addRecordings: async (files: File[]): Promise<void> => {
+  addRecordings: async (files: File[], signal?: AbortSignal): Promise<void> => {
     for (const file of files) {
       const q = new URLSearchParams({
         filename: file.name,
         at: new Date(file.lastModified).toISOString(),
       });
-      const res = await fetch(`${BASE}/api/mediatek/recording?${q}`, {
-        method: "POST",
-        headers: { "content-type": "application/octet-stream" },
-        body: file,
-      });
+      const res = await request(
+        `${BASE}/api/mediatek/recording?${q}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/octet-stream" },
+          body: file,
+          signal,
+        },
+        null,
+      );
       if (!res.ok) throw await failed(res, `${file.name}:`);
     }
   },
@@ -321,12 +375,16 @@ export const library = {
     path: string,
     signal?: AbortSignal,
   ): Promise<{ bpm: number; bpmSet: boolean; transients: number }> => {
-    const res = await fetch(`${BASE}/api/mediatek/analyse`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path }),
-      signal,
-    });
+    const res = await request(
+      `${BASE}/api/mediatek/analyse`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path }),
+        signal,
+      },
+      ANALYSE_MS,
+    );
     return json(res, "analyse");
   },
 
@@ -334,15 +392,20 @@ export const library = {
   addSong: async (
     file: File,
     tags: { artist: string; album: string; title: string },
-    opts: { replace?: boolean } = {},
+    opts: { replace?: boolean; signal?: AbortSignal } = {},
   ): Promise<{ path: string; master: string; replaced: boolean }> => {
     const q = new URLSearchParams({ filename: file.name, ...tags });
     if (opts.replace) q.set("replace", "1");
-    const res = await fetch(`${BASE}/api/mediatek/song?${q}`, {
-      method: "POST",
-      headers: { "content-type": "application/octet-stream" },
-      body: file,
-    });
+    const res = await request(
+      `${BASE}/api/mediatek/song?${q}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: file,
+        signal: opts.signal,
+      },
+      null,
+    );
     if (!res.ok) {
       const detail = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -366,11 +429,15 @@ export const library = {
     declared: boolean;
   }> => {
     const q = new URLSearchParams({ path: folder, filename: file.name });
-    const res = await fetch(`${BASE}/api/mediatek/variant?${q}`, {
-      method: "POST",
-      headers: { "content-type": "application/octet-stream" },
-      body: file,
-    });
+    const res = await request(
+      `${BASE}/api/mediatek/variant?${q}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: file,
+      },
+      null,
+    );
     if (!res.ok) throw await failed(res, `${file.name}:`);
     return json(res, "variant");
   },
@@ -378,14 +445,14 @@ export const library = {
   /** Un-declare a variant and remove the file it named (../../docs/api.md). */
   removeVariant: async (folder: string, name: string): Promise<void> => {
     const q = new URLSearchParams({ path: folder, name });
-    const res = await fetch(`${BASE}/api/mediatek/variant?${q}`, {
+    const res = await request(`${BASE}/api/mediatek/variant?${q}`, {
       method: "DELETE",
     });
     if (!res.ok) throw await failed(res, "delete");
   },
 
   remove: async (path: string): Promise<void> => {
-    const res = await fetch(
+    const res = await request(
       `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
       { method: "DELETE" },
     );
@@ -394,7 +461,7 @@ export const library = {
 
   /** Move/rename — one server-side syscall, so it works on a folder and can never leave a duplicate. */
   move: async (from: string, to: string): Promise<void> => {
-    const res = await fetch(`${BASE}/api/mediatek/move`, {
+    const res = await request(`${BASE}/api/mediatek/move`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ from, to }),
@@ -403,7 +470,7 @@ export const library = {
   },
 
   newFolder: async (path: string): Promise<void> => {
-    const res = await fetch(`${BASE}/api/mediatek/folder`, {
+    const res = await request(`${BASE}/api/mediatek/folder`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path }),
@@ -413,7 +480,7 @@ export const library = {
 
   /** A whole subtree, on its own route so no caller removes a folder while meaning to remove one entry. */
   removeTree: async (path: string): Promise<void> => {
-    const res = await fetch(
+    const res = await request(
       `${BASE}/api/mediatek/folder?path=${encodeURIComponent(path)}`,
       { method: "DELETE" },
     );
@@ -422,7 +489,7 @@ export const library = {
 
   /** Write one file back. The library replaces — there is no fork, see docs/ingest.md. */
   writeFile: async (path: string, content: string): Promise<void> => {
-    const res = await fetch(
+    const res = await request(
       `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
       {
         method: "PUT",
