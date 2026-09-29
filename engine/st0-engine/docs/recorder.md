@@ -50,14 +50,24 @@ the failure the counting was supposed to make impossible.
 So the margin's frames are lost too, and counted with the rest. The claim is that the count is
 honest, never that it is minimal.
 
-It narrows the window; it does not close it against a writer running at memory speed, and no ring
-arithmetic would. What closes it is the rate: an audio thread delivers 256 frames every ~5 ms, so
-a reader keeping up is thousands of frames from the head. `the_two_threads_do_not_tear` PACES its
-writer for that reason and says so — an unpaced version failed one run in five, which is how the
-margin was found.
+The margin covers the block being written when the reader STARTS. A reader pre-empted mid-copy
+can be lapped while it reads, so `drain` loads the head again after the copy, and every frame that
+has fallen further than `SAFE` behind it is zeroed and counted as lost: it may hold half of a newer
+block. `MARGIN` is 4096, above the largest block any device opens here (Android's 40 ms cap at
+96 kHz is 3840 frames). `the_two_threads_do_not_tear` PACES its writer, because the rate is what
+keeps a real reader thousands of frames from the head — an unpaced version failed one run in five,
+which is how the margin was found.
 
 `tests/RecorderTap_test.cpp` is the fifth fast suite (JUCE-free, links nothing), and the overrun
 case is the one that cannot be checked by looking.
+
+## A node that leaves mid-take has its take FILED
+
+A stop is answered by the NODE, not the plugin, so a recorder whose plugin left the document can
+still be stopped. `attachRecorderTaps` runs after every apply, incremental or full, and a node that
+is gone while still recording is stopped there — its take closed, named and listed — then kept one
+more pass so the state frame reports that take before the node goes. Nothing can feed its ring
+again, so leaving it recording would only have kept the session awake with a file never finished.
 
 ## The ring belongs to the SESSION, not to the plugin
 

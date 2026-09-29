@@ -1,7 +1,7 @@
-// libraryFiles.ts — the SOUND files an account library shares: its `samples/` and `irs/`. A file
-// there is named `@<library>/<path under that folder>`, the way a module is named `@<library>/…`,
-// so a song says which library it took an IR from and moves between machines with the name intact.
-// Listing and resolving only; the folders are found where the libraries are (docs/libraryFiles.md).
+// libraryFiles.ts — the SOUND files a song can name: a library's `samples/` and `irs/`, as
+// `@<library>/<path>`, and the PROJECT's own, as `@project/<path>` — a song carrying a sound only it
+// plays, as a demo does. The name travels between machines where an absolute path would not.
+// Listing and resolving only; the folders are found where they sit (docs/libraryFiles.md).
 
 import { type Dirent, readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
@@ -14,10 +14,17 @@ export type SoundFamily = "samples" | "irs";
 /** A library's folders nest by instrument or by maker; deeper than this is a link loop, not a shelf. */
 const MAX_DEPTH = 6;
 
-/** Every sound file in every library's `family` folder, as `@<library>/<path>`, sorted. */
-export function libraryFiles(family: SoundFamily): string[] {
+/** The level a project's own sounds answer to, as a library's answer to its name. */
+export const PROJECT_SOUNDS = "project";
+
+/** Every sound file in every library's `family` folder — and the project's, given one — as `@<level>/<path>`, sorted. */
+export function libraryFiles(family: SoundFamily, projectDir?: string): string[] {
   const out: string[] = [];
-  for (const lib of libraryFamilyRoots(family)) {
+  const roots = [
+    ...(projectDir ? [{ name: PROJECT_SOUNDS, root: join(projectDir, family) }] : []),
+    ...libraryFamilyRoots(family),
+  ];
+  for (const lib of roots) {
     const walk = (abs: string, depth: number): void => {
       let entries: Dirent[];
       try {
@@ -41,15 +48,21 @@ export function libraryFiles(family: SoundFamily): string[] {
   return out.sort();
 }
 
-/** The file a `@<library>/<path>` ref names in that library's `family` folder, or undefined — never outside it. */
+/** The file a `@<library>/<path>` or `@project/<path>` ref names in that `family` folder, or undefined — never outside it. */
 export function libraryFile(
   family: SoundFamily,
   ref: unknown,
+  projectDir?: string,
 ): string | undefined {
   if (typeof ref !== "string") return undefined;
   const m = /^@([^/]+)\/(.+)$/.exec(ref);
   if (!m) return undefined;
-  const root = libraryFamilyRoot(m[1], family);
+  const root =
+    m[1] === PROJECT_SOUNDS
+      ? projectDir
+        ? join(projectDir, family)
+        : null
+      : libraryFamilyRoot(m[1], family);
   if (!root) return undefined;
   const abs = resolve(root, m[2]);
   // A `..` in the path would reach out of the folder, and a ref is text a file may hold.

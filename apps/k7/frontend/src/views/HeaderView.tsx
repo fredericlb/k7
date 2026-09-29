@@ -14,6 +14,7 @@ import {
   Settings,
   Target,
 } from "@frediverse/ui/icons";
+import { AppSwitch } from "@studio/ui-app-switch";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { NavKey } from "../types";
@@ -94,6 +95,7 @@ export function HeaderView({
       items={items}
       actions={
         <>
+          <AppSwitch self="k7" />
           {/* Drawn as one of AppHeader's tabs (its classes, tint variant) so /settings lights up like an entry. */}
           <Button
             variant="ghost"

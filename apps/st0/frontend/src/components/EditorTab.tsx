@@ -27,6 +27,7 @@ import {
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { showToast } from "@studio/project-shell/toast";
+import { LIBRARIES_DIR } from "@studio/song-schema/moduleTypes";
 import { VIDEO_SOURCE } from "@studio/song-schema/yaml/entitySchemas";
 import {
   listVideoPlacements,
@@ -1027,6 +1028,8 @@ export function EditorTab({
       }
       setUploadState(null);
       await refresh(); // the new files join the tree + completions
+      // A sound dropped into a LIBRARY lists under the Libraries tab, which reads its own route.
+      if (dir.startsWith(`${LIBRARIES_DIR}/`)) void refreshLibraries();
       onChanged(); // a dropped clip/asset may change the project
       const into = dir === "." ? "workspace root" : dir;
       const msg =
@@ -1035,7 +1038,7 @@ export function EditorTab({
       setStatus(msg);
       if (added > 0) showToast({ message: msg, variant: "success" });
     },
-    [refresh, onChanged, setStatus],
+    [refresh, refreshLibraries, onChanged, setStatus],
   );
 
   /** What the gutter draws: the project's load findings for this file, plus what autosave found in the BUFFER — two moments, two sources. */

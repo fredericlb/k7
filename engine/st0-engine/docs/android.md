@@ -8,35 +8,55 @@ WebSocket protocol on port 8765, bound to every interface.
 **Foreground only.** There is no service: both live as long as `MainActivity`, and leaving it
 deregisters the engine, stops it and ends the process.
 
-## The app is also where the studio is used: st0, pl8 and k7 in tabs
+## The app is also where the studio is used: st0, pl8 and k7, full screen
 
-`MainActivity` is a Capacitor `BridgeActivity`. Its WebView shows `engine/st0-android/web`, a small
-React page bundled into the APK: a header whose buttons switch between **st0**, **pl8**, **k7** and
-the **engine** tab, which is the tray this activity used to draw natively (the studio list, "Connect a
-studio", the private CA, Quit). The page reaches the native half only through two plugins that
-`MainActivity` registers itself, typed once in `web/src/native.ts`:
+`MainActivity` is a Capacitor `BridgeActivity`. With a studio connected, **the screen is one of the
+studio apps, edge to edge, and nothing of the app's own**: no header, no tab bar. It opens on
+**st0**, and the apps' own switch (`packages/ui-app-switch`, in st0's home page, pl8's and k7's
+headers) is how you move between them. A phone has no room for a second header above the app's
+own, and the one it had duplicated the switch.
 
-- **`St0Engine`** (`EnginePlugin.kt`): `SupervisorHost`'s snapshots as `state` events and its commands
-  as methods. `SupervisorHost` itself is unchanged.
-- **`AppViews`** (`AppViewsPlugin.kt`): one native WebView per app, laid over the page's WebView below
-  the header's measured height. Each is created the first time its tab opens and is only hidden after
-  that, so an app keeps its state while another is on screen: a k7 session, a playing pl8 track.
+The status bar above the app is painted **the colour of that app's top edge**, so the app's
+header reads as running up under it. That colour is measured, not declared: `assets/top-color.js`
+composites every layer under the page's top pixel on a one-pixel canvas — AppHeader's tint is
+translucent oklch over the page, which no computed style gives back as one colour — and reports
+it again when the route or the theme changes. The status bar's icons follow its luminance.
+
+**This phone's engine is set in st0's settings** (the home page's cog), because on the phone
+there is no tray: the studios the engine is listed at, which one the apps open, the private CA,
+Quit (`apps/st0/frontend/docs/settings.md`). The page bundled in the APK, `engine/st0-android/web`,
+is only seen while there is **no studio to open**, or while the open one **fails to load** — then
+no app is on screen to reach settings in, so it draws the same tray with a Retry.
+
+Two ways from the page to the native half:
+
+- **The shell page** uses two plugins `MainActivity` registers itself, typed once in
+  `web/src/native.ts`: **`St0Engine`** (`EnginePlugin.kt`), `SupervisorHost`'s snapshots and
+  commands; **`AppViews`** (`AppViewsPlugin.kt`), one native WebView per app over the page. Each is
+  created the first time it is shown and only hidden after that, so an app keeps its state while
+  another is on screen: a k7 session, a playing pl8 track.
+- **The studio apps** get `window.st0Android` (`StudioBridge.kt`), an androidx.webkit
+  WebMessageListener. Every app posts its top colour on it; **only st0, checked by origin on
+  every message, may call the engine** (`apps/st0/frontend/src/settings/androidEngine.ts`). The
+  object is offered to every origin because the studio can change under a view that already
+  exists, and a listener's origin rules are fixed when it is added; the check is per message
+  instead.
 
 **The apps load from the studio, not from the APK.** Each app is same-origin with its backend
 (relative `/api` and `/auth`, cookie sessions), so a bundled copy would be an app with no server.
-The page takes the studio from the supervisor's own list and gives each tab
+The page takes the studio from the supervisor's own list and gives each view
 `serviceUrl(origin, "st0" | "pl8" | "k7")`, the mapping `AppSwitch` uses. With several studios
-connected, the engine tab picks which one the tabs open.
+connected, st0's settings pick which one the apps open.
 
 What the app views do that a browser would do on its own:
 
-- **A link to a sibling app switches tab** instead of opening a window: `AppSwitch`'s links,
-  `target=_blank` and cross-app links all go to that tab, at that URL. Only a link the *user* followed
+- **A link to a sibling app switches view** instead of opening a window: `AppSwitch`'s links,
+  `target=_blank` and cross-app links all go to that app's view, at that URL. Only a link the *user* followed
   does this. A redirect stays in its view, since the sign-in flow bounces pl8 and k7 through st0's
   `/auth`. Other hosts in a new window open in the browser.
 - **The microphone** goes to the studio's apps only (k7's remote mic), and only once the app holds
   RECORD_AUDIO, which it asks for at start for the engine.
-- **The private CA** covers the tabs too: a certificate the WebView refuses only for its unknown issuer
+- **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
   is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf
   alone, so a studio whose certificate hangs off an intermediate needs the intermediate imported.
 - **Back** walks the visible app's history. With none left it does what it always did: it finishes
@@ -49,7 +69,7 @@ workspace's `npm run build` and lays `dist/` out as `cap copy` would (`public/`,
 Gradle. The config is `.json` for the reason phare's is: the Capacitor CLI trips over a `.ts` one
 under TypeScript 7.
 
-**Reaching the phone's own engine from st0's tab.** st0 is an https page, and the engine serves plain
+**Reaching the phone's own engine from st0.** st0 is an https page, and the engine serves plain
 `ws://`. The WebView, like any browser, lets an https page open `ws://127.0.0.1` but blocks
 `ws://<LAN IP>` as mixed content. The engine picker probes each address an engine announces and
 keeps one that answers, so a blocked one is simply not chosen. Mixed content stays off.
@@ -59,7 +79,7 @@ keeps one that answers, so a blocked one is simply not chosen. Mixed content sta
 JUCE's Oboe backend asks Android's `AudioManager` for the device's rate and buffer through JNI, and
 JUCE as a whole wants `Java.initialiseJUCE(context)` before anything else. A bare executable has no
 JavaVM to give it. So on Android the `st0-engine` target is a **shared library**, `libst0engine.so`,
-built from `server/Serve.cpp` and `server/DocJson.cpp` plus `server/android/EngineJni.cpp`, and
+built from the same `STUDIO_SERVER_SOURCES` as the desktop binary (`server/CMakeLists.txt`) plus `server/android/EngineJni.cpp`, and
 `server/main.cpp` — the CLI — is not built at all. `serve()` is the whole server on every platform;
 the desktop `main()` calls it once its CLI modes have declined.
 
@@ -201,8 +221,9 @@ also catches the GL driver's chatter, which is noise.
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
 - **No foreground service**, so the screen is kept on and the engine stops with the activity.
-- **The app tabs have not been driven through a real sign-in on a phone yet.** The routing rules
-  above are the design; each needs checking against a live studio.
+- **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
+  the status-bar colour and st0's engine section above are the design; each needs checking against
+  a live studio.
 
 ## What was measured
 

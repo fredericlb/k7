@@ -195,6 +195,10 @@ So a lane cannot be both muted and heard through a bus, and `setMute` is the wro
 the master". Routing the output is the right one: the track is not muted, it simply does not go to
 the device — its signal leaves by the bus and only by the bus.
 
+The plan — which destination is a routing, which bus each send lands on, and which sender wires
+the return — is `SendPlan.h`, shared with the diff: a change to anything it decides except a level
+is a rebuild, and a level alone is set in place (`docs/projectDiff.md`).
+
 #### …and the SECOND destination is an ordinary send
 
 A track has one output, so only the first destination can be a routing. The rest fall through to

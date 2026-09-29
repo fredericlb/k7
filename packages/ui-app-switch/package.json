@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The origin's app switch — one menu row per studio app, minus the one drawing it. st0's home page and pl8's header mount the same one. See docs/appSwitch.md.",
+  "description": "The origin's app switch — one menu row per studio app, minus the one drawing it. st0's home page, pl8's and k7's headers mount the same one. See docs/appSwitch.md.",
   "types": "./src/AppSwitch.tsx",
   "exports": {
     ".": "./src/AppSwitch.tsx"

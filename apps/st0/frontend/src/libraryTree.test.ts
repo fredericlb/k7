@@ -1,6 +1,7 @@
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
+  isSoundFolder,
   isLibraryPath,
   libraryModuleRef,
   libraryOfPath,
@@ -281,7 +282,7 @@ describe("the library repository row", () => {
   ];
   const repo = () => libraryTree(LEVELS, CHAINS, ASSEMBLIES)[0];
 
-  it("is ONE row, the repository, with its three families under it", () => {
+  it("is ONE row, the repository, with its families under it — its sound folders included", () => {
     expect(libraryTree(LEVELS, CHAINS, ASSEMBLIES)).toHaveLength(1);
     expect(repo().name).toBe("@st0");
     expect(repo().path).toBe("_libraries/st0");
@@ -289,6 +290,8 @@ describe("the library repository row", () => {
       ["modules", "_libraries/st0/modules"],
       ["chains", "_libraries/st0/chains"],
       ["assemblies", "_libraries/st0/assemblies"],
+      ["samples", "_libraries/st0/samples"],
+      ["irs", "_libraries/st0/irs"],
     ]);
   });
 
@@ -336,13 +339,22 @@ describe("the library repository row", () => {
     ]);
   });
 
-  it("still draws the three families when a library holds no chain or template yet", () => {
-    // They are the repository's layout, not a list that happens to be empty.
+  it("still draws every family when a library holds no chain, template or sound yet", () => {
+    // They are the repository's layout, not a list that happens to be empty — and a sound folder is where a drop lands.
     expect(libraryTree(LEVELS)[0].children?.map((c) => c.name)).toEqual([
       "modules",
       "chains",
       "assemblies",
+      "samples",
+      "irs",
     ]);
+  });
+
+  it("takes a dropped sound only on a library's samples/ or irs/, or inside one", () => {
+    expect(isSoundFolder("_libraries/st0/samples")).toBe(true);
+    expect(isSoundFolder("_libraries/st0/irs/fender")).toBe(true);
+    expect(isSoundFolder("_libraries/st0/modules")).toBe(false);
+    expect(isSoundFolder("song.st0/samples")).toBe(false);
   });
 
   it("files each chain and template under ITS library's row, named within it", () => {

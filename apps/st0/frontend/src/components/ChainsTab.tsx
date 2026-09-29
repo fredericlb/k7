@@ -32,6 +32,7 @@ import {
   type ChainsCamApi,
   type ChainsIcons,
   DomChains,
+  type TapAction,
 } from "@studio/ui-chains-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
@@ -73,6 +74,7 @@ export function ChainsTab({
   engineWarnings,
   onSetModuleAsset,
   onAssetBrowse,
+  onTapEdit,
   onWatchWaveform,
   pendingInsert,
   seedGraph,
@@ -143,6 +145,8 @@ export function ChainsTab({
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the library browser for a module's asset field, at viewport coords. */
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
+  /** A rack tap's edit — the shell runs its `node tap` command (packages/song/docs/racks.md). */
+  onTapEdit?: (module: string, action: TapAction) => void;
   /** Place/remove the engine's waveform tap while a waveform widget is on screen. */
   onWatchWaveform?: (
     pluginId: string,
@@ -834,6 +838,7 @@ export function ChainsTab({
             engineWarnings={engineWarnings}
             onSetModuleAsset={onSetModuleAsset}
             onAssetBrowse={onAssetBrowse}
+            onTapEdit={onTapEdit}
             onWatchWaveform={onWatchWaveform}
             pluginParamsStore={pluginParamsStore}
             setPluginParam={setPluginParam}

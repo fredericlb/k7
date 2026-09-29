@@ -112,6 +112,9 @@ private:
     std::atomic<bool> bridged_{false};
     // Re-prepared on the MESSAGE thread whenever the host's rate or the model's changes, under `lock_`.
     void prepareBridge();
+    // Whether a model at `model` Hz runs through the bridge at the engine's current rate.
+    bool needsBridge(double model) const;
+    void logBridge(double model) const;
     // One block at the model's rate: what the bridge calls, on the audio thread.
     void renderBlock(const float* const* in, float* const* out) override;
 

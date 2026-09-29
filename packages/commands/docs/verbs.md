@@ -157,6 +157,18 @@ nobody asked for. `<track_out>` is created when new and its `content:` REPLACED 
 after a failed take updates rather than refuses — and every line is written only after whisper has
 answered, so a refused transcription costs no track.
 
+## `node tap` writes the NODE, never the module
+
+A rack's kit is its node's (`packages/song/docs/racks.md`), so the four `node tap` verbs — `note`,
+`sample`, `add`, `remove` — edit `nodes/<name>.yaml` (or the alternative that is on), and a node
+that is not a rack is refused. `sample` takes a library file only, checked against the same list
+the tap's picker offered, and `none` clears it. `add` picks the next free `T<n>` and the note after
+the kit's highest, since a new tap with a clashing note would fire twice. `remove` refuses a tap the
+node only inherits: deleting it would mean writing the module, which is exactly what these do not.
+Each ends in a reload — a rack's sounds are built when its plugin is.
+
+Their arguments may be QUOTED, a sample's path holding spaces; the tap card quotes all three.
+
 ## `node alternative` reads the FILE
 
 The names are read off the module's own file rather than off the compiled doc: an alternative may

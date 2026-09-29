@@ -85,7 +85,8 @@ void EurorackPlugin::initialise(const te::PluginInitialisationInfo& info)
     const double coreRate = shape_.coreRate > 0.0 ? shape_.coreRate : hostRate_;
     prepareCore(coreRate);
     bridge_.prepare(hostRate_, coreRate, shape_.coreBlock, shape_.inChannels, 2, *this);
-    const auto n = (size_t)juce::jmax(info.blockSizeSamples, 1);
+    // Sized for the largest block a device hands over, not the one announced: a block past the buffer is skipped whole, which is silence.
+    const auto n = (size_t)juce::jmax(info.blockSizeSamples, 8192);
     in_.assign((size_t)shape_.inChannels, std::vector<float>(n, 0.0f));
     out_.assign(2, std::vector<float>(n, 0.0f));
 }

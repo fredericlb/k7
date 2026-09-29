@@ -22,6 +22,11 @@ struct RackEntry {
     std::string clip;     // absolute path: a per-symbol file for a "samples" rack, the shared source for a "slice"
     double start = 0.0;   // seconds into the file
     double length = 0.0;  // seconds; 0 == the file's natural length
+
+    bool operator==(const RackEntry& o) const {
+        return symbol == o.symbol && note == o.note && clip == o.clip && start == o.start && length == o.length;
+    }
+    bool operator!=(const RackEntry& o) const { return !(*this == o); }
 };
 
 struct PluginDoc {

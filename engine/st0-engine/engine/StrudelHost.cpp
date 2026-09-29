@@ -3,7 +3,9 @@
 
 #include "StrudelHost.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 
 #include <nlohmann/json.hpp>
 
@@ -42,6 +44,14 @@ std::string takeException(JSContext* ctx) {
     JS_FreeValue(ctx, stack);
     JS_FreeValue(ctx, exc);
     return out;
+}
+
+// A number field, or `fallback` when it is absent, not a number, or a NaN the bundle serialised as null — value() would THROW on those, on the pattern worker.
+double numberOr(const nlohmann::json& e, const char* key, double fallback) {
+    const auto it = e.find(key);
+    if (it == e.end() || !it->is_number()) return fallback;
+    const double v = it->get<double>();
+    return std::isfinite(v) ? v : fallback;
 }
 
 // console.* goes nowhere: the bundle announces itself on load, and the engine's log is not the place for it.
@@ -170,9 +180,15 @@ std::vector<LaneEvent> StrudelHost::laneEvents(double from, double to, const std
                                  error);
     if (!parsed.is_array()) return out;
     out.reserve(parsed.size());
-    for (const auto& e : parsed)
-        out.push_back({e.value("cycle", 0.0), e.value("dur", 0.0), e.value("key", 60), e.value("vel", 0.9f),
-                       e.value("s", std::string{}), e.value("n", 0)});
+    for (const auto& e : parsed) {
+        if (!e.is_object()) continue;
+        const auto s = e.find("s");
+        out.push_back({numberOr(e, "cycle", 0.0), std::max(0.0, numberOr(e, "dur", 0.0)),
+                       (int)std::clamp(numberOr(e, "key", 60.0), 0.0, 127.0),
+                       (float)std::clamp(numberOr(e, "vel", 0.9), 0.0, 1.0),
+                       s != e.end() && s->is_string() ? s->get<std::string>() : std::string{},
+                       (int)std::clamp(numberOr(e, "n", 0.0), -1.0e6, 1.0e6)});
+    }
     return out;
 }
 

@@ -34,7 +34,7 @@ write from two threads.
 
 "The ring outlives every edit" is true of the ring and does not extend to the **lookup that finds
 it**, now that the ring lives inside a map keyed by session. The case is reachable rather than
-theoretical: `Serve.cpp` records a new listener's session under `listenersMx` *before* the posted
+theoretical: the `broadcast` handler (`server/ServeMachine.cpp`) records a new listener's session under `listenersMx` *before* the posted
 `enableBroadcast` runs, so the sender thread can be the first to touch a brand-new id.
 
 `tests/SessionRegistry_test.cpp` pins the invariants. Its concurrency case is a **stress test,
@@ -76,7 +76,7 @@ the supervisor's own client.
 ## Which replies carry a session
 
 `packages/engine-protocol/sessions.ts` holds the two lists, `PER_SESSION_REPLIES` and
-`ENGINE_GLOBAL_REPLIES`, and `sessions.test.ts` pins them. In `Serve.cpp` the choice is a **verb**:
+`ENGINE_GLOBAL_REPLIES`, and `sessions.test.ts` pins them. In the server's handlers (`server/Serve*.cpp`) the choice is a **verb**:
 
 | verb | for |
 |---|---|

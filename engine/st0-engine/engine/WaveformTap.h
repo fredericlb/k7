@@ -51,8 +51,8 @@ public:
         const auto avail = written - lastRead_;
         if (avail == 0) return {};
 
-        // Capped at the buffer size so a writer that laps us is not read as stale, and parenthesised so windows.h's min() macro cannot claim the call.
-        const auto count = (std::min)(avail, static_cast<size_t>(BUFFER_SIZE));
+        // Capped short of the buffer size: a writer that lapped us may be writing the slots nearest its head, and parenthesised against windows.h's min().
+        const auto count = (std::min)(avail, static_cast<size_t>(BUFFER_SIZE - MARGIN));
         const auto start = written - count;
         std::vector<WaveformEnvelope> out(count);
         for (size_t i = 0; i < count; ++i)
@@ -74,6 +74,8 @@ public:
 private:
     static constexpr size_t BUFFER_SIZE = 1024;
     static constexpr size_t MASK = BUFFER_SIZE - 1;
+    // Points a lapped drain leaves behind: more than one block writes (4096 frames at 256 a point is 16).
+    static constexpr size_t MARGIN = 32;
 
     std::array<WaveformEnvelope, BUFFER_SIZE> buffer_{};
     std::atomic<size_t> writeHead_{0};

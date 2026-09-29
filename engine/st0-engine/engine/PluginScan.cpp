@@ -22,6 +22,8 @@
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
 
 #include <algorithm>
+#include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -150,7 +152,16 @@ std::vector<PluginInfo> scanOne(const juce::File& exe, juce::AudioPluginFormat& 
     std::vector<PluginInfo> out;
     const auto name = juce::File(identifier).getFileName();
 
-    juce::ChildProcess child;
+    // Shared with the reader, which may OUTLIVE this call: a process the plugin spawned can hold the pipe open after the child dies, and then EOF never comes.
+    struct Scan {
+        juce::ChildProcess child;
+        juce::String output;
+        std::mutex m;
+        std::condition_variable cv;
+        bool done = false;
+    };
+    const auto scan = std::make_shared<Scan>();
+    auto& child = scan->child;
     // start(StringArray) escapes args with spaces on Windows, so a "C:\Program Files\…" path reaches the child's argv intact.
     const juce::StringArray args{exe.getFullPathName(), "--scan-plugin", format.getName(), identifier};
     if (!child.start(args, juce::ChildProcess::wantStdOut)) {
@@ -158,14 +169,28 @@ std::vector<PluginInfo> scanOne(const juce::File& exe, juce::AudioPluginFormat& 
         return out;
     }
 
-    // Capture stdout on a helper thread (readAllProcessOutput blocks until the child exits) and bound the wait, so a hung plugin is killed.
-    juce::String output;
-    std::thread reader([&child, &output] { output = child.readAllProcessOutput(); });
+    // Capture stdout on a helper thread (readAllProcessOutput blocks until the pipe closes) and bound the wait, so a hung plugin is killed.
+    std::thread([scan] {
+        auto text = scan->child.readAllProcessOutput();
+        std::lock_guard<std::mutex> lk(scan->m);
+        scan->output = std::move(text);
+        scan->done = true;
+        scan->cv.notify_all();
+    }).detach();
     if (!child.waitForProcessToFinish(20000)) {
         child.kill();
         std::cerr << "[scanOne] TIMEOUT: " << name << "\n";
     }
-    reader.join();
+    juce::String output;
+    {
+        std::unique_lock<std::mutex> lk(scan->m);
+        // Bounded: joining here held the scan lock for ever whenever a grandchild kept the pipe (docs/audit-stabilite.md).
+        if (!scan->cv.wait_for(lk, std::chrono::seconds(3), [&] { return scan->done; })) {
+            std::cerr << "[scanOne] output never closed — a process it started still holds it: " << name << "\n";
+            return out;
+        }
+        output = scan->output;
+    }
 
     const int b = output.indexOf(kScanBegin);
     const int e = output.indexOf(kScanEnd);

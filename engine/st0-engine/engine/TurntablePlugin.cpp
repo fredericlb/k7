@@ -1,6 +1,10 @@
 #include "TurntablePlugin.h"
+#include "RecordSource.h"   // a record mapped, never held in private memory
+#include "Warnings.h"   // a decode failing on the loader thread still reaches the client
 
 #include <algorithm>
+#include <cstring>
+#include <iostream>
 
 namespace studio {
 
@@ -68,6 +72,8 @@ TurntablePlugin::TurntablePlugin(te::PluginCreationInfo info) : Plugin(std::move
 
 TurntablePlugin::~TurntablePlugin()
 {
+    // A decode in flight writes into this plugin, so it is waited for; one not started is dropped.
+    loader_.removeAllJobs(true, -1);
     notifyListenersOfDeletion();
     for (auto* p : {rate_p_.get(), seek_p_.get(), gain_p_.get(), key_p_.get(),
                     loopStart_p_.get(), loopEnd_p_.get(), roll_p_.get()})
@@ -85,7 +91,39 @@ void TurntablePlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
         p->updateFromAttachedValue();
 }
 
+bool TurntablePlugin::loadRecordAsync(const juce::File& file, juce::String& error, const std::string& subject)
+{
+    if (!file.existsAsFile()) {
+        error = "no such file: " + file.getFullPathName();
+        return false;
+    }
+    {
+        juce::AudioFormatManager afm;
+        afm.registerBasicFormats();
+        if (std::unique_ptr<juce::AudioFormatReader> header{afm.createReaderFor(file)}; header == nullptr) {
+            error = "cannot decode " + file.getFileName();
+            return false;
+        }
+    }
+    const int gen = ++loadGen_;
+    ++loadsPending_;
+    loader_.addJob([this, file, gen, subject] {
+        // A later request superseded this one before it started: nothing to decode.
+        if (gen == loadGen_.load()) {
+            juce::String err;
+            if (!loadRecord(file, err, gen)) warn(err.toStdString(), subject);
+        }
+        --loadsPending_;
+    });
+    return true;
+}
+
 bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error)
+{
+    return loadRecord(file, error, 0);
+}
+
+bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error, int gen)
 {
     if (!file.existsAsFile()) {
         error = "no such file: " + file.getFullPathName();
@@ -98,13 +136,22 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error)
         error = "cannot decode " + file.getFileName();
         return false;
     }
+    const double loadT0 = juce::Time::getMillisecondCounterHiRes();
     // std::min, not juce::jmin<juce::int64>: juce_dsp's SIMDRegister overload of jmin fails on Linux, where int64_t is not long long.
-    const auto frames = static_cast<int>(std::min<juce::int64>(
+    auto frames = static_cast<int>(std::min<juce::int64>(
         reader->lengthInSamples, std::numeric_limits<int>::max()));
-    std::vector<int16_t> packed(static_cast<size_t>(juce::jmax(1, frames)) * 2);
+    std::vector<int16_t> packed;
     float scale = 1.0f;
 
-    if (!reader->usesFloatingPointData) {
+    // MAPPED, the ordinary case: a WAV read where it lies, anything else decoded once into the record cache (RecordSource.h).
+    juce::String how = "decoded";
+    auto mapped = openRecord(file, how);
+    if (mapped) frames = mapped->frames;
+
+    if (mapped) {
+        // Nothing to pack: the mapping is the record.
+    } else if (!reader->usesFloatingPointData) {
+        packed.resize(static_cast<size_t>(juce::jmax(1, frames)) * 2);
         // The DIRECT path, and the common one — a record off the médiathèque is an integer file.
         // Reading it as int is the reader's own format, so there is no conversion anywhere: no float
         // buffer, no second pass, and no peak scan, an integer file having no headroom to find.
@@ -130,6 +177,7 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error)
     } else {
         // A FLOAT wav — which every stem is — may sit above 1, so the peak has to be known before
         // anything is packed. That costs a float buffer and a second pass, and it dies with this scope.
+        packed.resize(static_cast<size_t>(juce::jmax(1, frames)) * 2);
         juce::AudioBuffer<float> decoded{2, juce::jmax(1, frames)};
         decoded.clear();
         reader->read(&decoded, 0, frames, 0, true, reader->numChannels > 1);
@@ -148,11 +196,24 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error)
         }
     }
 
+    // Which path and how long, since a record that decodes rather than maps costs seconds and memory, and nothing else says so.
+    std::cerr << "[deck] " << file.getFileName() << ": " << how << " in "
+              << (juce::Time::getMillisecondCounterHiRes() - loadT0) << " ms\n";
     const juce::SpinLock::ScopedLockType lock{recordLock_};
-    record_ = std::move(packed);
-    scale_ = scale / 32767.0f;
+    // A decode finishing after a LATER request was made is not what the deck should play.
+    if (gen != 0 && gen != loadGen_.load()) return true;
+    // Swapped, so the OLD record — hundreds of MB, or a mapping — is freed with `packed` and `map` after the lock, not while the audio thread waits on it.
+    record_.swap(packed);
+    std::unique_ptr<juce::MemoryMappedFile> map = mapped ? std::move(mapped->map) : nullptr;
+    mapped_.swap(map);
+    pcm_ = mapped ? mapped->pcm : reinterpret_cast<const unsigned char*>(record_.data());
+    bytesPerSample_ = mapped ? mapped->width : 2;
+    isFloat_ = mapped && mapped->isFloat;
+    channels_ = mapped ? mapped->channels : 2;
+    // Full scale is the stored format's: a float is its own, a 24-bit integer worth 256 times a 16-bit one.
+    scale_ = isFloat_ ? 1.0f : scale / (bytesPerSample_ == 3 ? 8388607.0f : 32767.0f);
     frames_ = frames;
-    recordRate_ = reader->sampleRate;
+    recordRate_ = mapped ? mapped->sampleRate : reader->sampleRate;
     position_ = 0.0;
     rate_ = 0.0;
     return true;
@@ -180,7 +241,13 @@ void TurntablePlugin::deinitialise() {}
 
 void TurntablePlugin::reset()
 {
+    resetPending_ = true;
+}
+
+void TurntablePlugin::clearState()
+{
     rate_ = 0.0;
+    lastGain_ = -1.0f;
     stretchReady_ = stretchRead_ = 0;
     stretching_ = false;
     // Dropped rather than kept: the next block re-aims it from the params, latching the roll afresh.
@@ -189,12 +256,27 @@ void TurntablePlugin::reset()
 
 void TurntablePlugin::frameAt(double pos, float& left, float& right) const
 {
-    const auto* pcm = record_.data();
+    const auto* pcm = pcm_;
+    const auto width = bytesPerSample_;
+    const auto channels = channels_;
     const auto i0 = static_cast<int>(pos);
     const auto t = pos - i0;
-    // Stored 16-bit and interleaved, so one read is a shift and a multiply — see docs/turntable.md.
+    // Interleaved, 16- or 24-bit or float, one or two channels: one read is a load and a shift, the scale riding on the gain — docs/turntable.md.
     const auto at = [&](int k, int ch) {
-        return static_cast<float>(pcm[static_cast<size_t>(juce::jlimit(0, frames_ - 1, k)) * 2 + ch]);
+        const auto frame = static_cast<size_t>(juce::jlimit(0, frames_ - 1, k));
+        const auto* p = pcm + (frame * static_cast<size_t>(channels) + (channels == 2 ? ch : 0)) * width;
+        if (width == 2) {
+            int16_t v;
+            std::memcpy(&v, p, 2);
+            return static_cast<float>(v);
+        }
+        if (width == 4) {
+            float v;
+            std::memcpy(&v, p, 4);
+            return v;
+        }
+        return static_cast<float>(static_cast<int>(p[0]) | (static_cast<int>(p[1]) << 8) |
+                                  (static_cast<int>(static_cast<signed char>(p[2])) << 16));
     };
     left = hermite(at(i0 - 1, 0), at(i0, 0), at(i0 + 1, 0), at(i0 + 2, 0), t);
     right = hermite(at(i0 - 1, 1), at(i0, 1), at(i0 + 1, 1), at(i0 + 2, 1), t);
@@ -275,7 +357,11 @@ void TurntablePlugin::renderStretched(float* outL, float* outR, int start, int n
 
 void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
 {
+    // An offline render has no one to hear a late record: it waits for the decode, which runs on its own thread.
+    if (fc.isRendering)
+        while (loadsPending_.load() > 0) juce::Thread::sleep(5);
     if (fc.destBuffer == nullptr) return;
+    if (resetPending_.exchange(false)) clearState();
     const auto n = fc.bufferNumSamples;
     const auto start = fc.bufferStartSample;
     const auto outs = fc.destBuffer->getNumChannels();
@@ -316,8 +402,14 @@ void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         stretching_ = false;
     }
 
-    // The scale rides on the gain: one multiply for both, rather than one per interpolation point.
-    const auto g = gain_p_->getCurrentValue() * scale_;
+    // The record's own scale per point; the GAIN is ramped over the finished block, the buffer holding this deck alone (cleared above).
+    const auto g = scale_;
+    const float gainNow = gain_p_->getCurrentValue();
+    const auto rampGain = [&] {
+        const float from = lastGain_ < 0.0f ? gainNow : lastGain_;
+        for (int ch = 0; ch < juce::jmin(outs, 2); ++ch) fc.destBuffer->applyGainRamp(ch, start, n, from, gainNow);
+        lastGain_ = gainNow;
+    };
     auto* outL = fc.destBuffer->getWritePointer(0);
     auto* outR = outs > 1 ? fc.destBuffer->getWritePointer(1) : nullptr;
 
@@ -331,6 +423,7 @@ void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
         // The needle says what is HEARD, so the read-ahead comes off: a cue is dropped on this number.
         // Wrapped as well, the read-ahead having crossed an edge the heard position has not yet.
         needle_.store(loop_.wrap(position_ - owed_) / recordRate_, std::memory_order_relaxed);
+        rampGain();
         return;
     }
     stretching_ = false;
@@ -357,6 +450,7 @@ void TurntablePlugin::applyToBuffer(const te::PluginRenderContext& fc)
     }
     // Once a block, not once a sample: the state push runs at 20 Hz and an atomic per sample is waste.
     needle_.store(position_ / recordRate_, std::memory_order_relaxed);
+    rampGain();
 }
 
 }  // namespace studio

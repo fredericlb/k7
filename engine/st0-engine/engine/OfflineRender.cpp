@@ -261,6 +261,15 @@ std::unique_ptr<te::Engine> makeOfflineEngine() {
 }
 
 
+// Every way OUT of a render resets the Edit and drains the queue before the engine unwinds — the AsyncPluginDeleter crash AGENTS.md describes, on ANY return.
+struct EditTeardown {
+    std::unique_ptr<te::Edit>& edit;
+    ~EditTeardown() {
+        edit.reset();
+        drainMessageQueue();
+    }
+};
+
 // Render the doc to <outDir>/mix.wav and, with `stems`, one wav per track, printing a JSON manifest; non-zero when nothing was audible.
 int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
                   const std::string& outDir, bool stems) {
@@ -271,6 +280,7 @@ int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
     auto& engine = *enginePtr;
     trace("engine ready");
     auto edit = buildRenderEdit(engine, doc, baseDir);
+    const EditTeardown teardown{edit};
     trace("edit ready");
 
     std::error_code ec;
@@ -310,8 +320,6 @@ int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
     }
     manifest << "]}";
     std::cout << manifest.str() << std::endl;
-    edit.reset();
-    drainMessageQueue();
     return 0;
 }
 
@@ -322,6 +330,7 @@ int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::st
     auto enginePtr = makeOfflineEngine();
     auto& engine = *enginePtr;
     auto edit = buildRenderEdit(engine, doc, baseDir);
+    const EditTeardown teardown{edit};
 
     // By the doc ID through the same index map the live engine uses; the NAME is only a fallback, and matching on it alone was the bug — docs/cliModes.md.
     te::Track* found = trackById(*edit, trackId, doc);
@@ -348,9 +357,6 @@ int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::st
         return 1;
     }
     std::cout << jsonString(out.getFullPathName().toStdString()) << std::endl;
-    // Before `edit` and `engine` unwind — see drainMessageQueue.
-    edit.reset();
-    drainMessageQueue();
     return 0;
 }
 

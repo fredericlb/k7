@@ -10,6 +10,7 @@
 #include "RecorderPlugin.h"
 #include "Warnings.h"          // a refused record has to reach the client, not just stderr
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -140,11 +141,15 @@ void EngineHost::attachRecorderTaps(const std::string& session) {
         if (rec == nullptr) continue;
         rec->setTap(&recorderNode(session, id).ring);
     }
-    // A node that left the document takes its ring with it, and its open take is closed rather
-    // than leaked — but only when it is not recording: a rebuild mid-take must not lose the file.
+    // A node that left the document goes with its ring; one still RECORDING is filed first and kept one more pass, so its take is reported (docs/recorder.md).
+    std::vector<std::string> orphaned;
+    for (const auto& [id, node] : s->recorders)
+        if (node->recording && s->pluginsById.find(id) == s->pluginsById.end()) orphaned.push_back(id);
+    for (const auto& id : orphaned) setRecorderRecording(session, id, false);
     for (auto it = s->recorders.begin(); it != s->recorders.end();) {
         const bool gone = s->pluginsById.find(it->first) == s->pluginsById.end();
-        if (gone && !it->second->recording) {
+        const bool justFiled = std::find(orphaned.begin(), orphaned.end(), it->first) != orphaned.end();
+        if (gone && !it->second->recording && !justFiled) {
             it->second->closeTake();
             it = s->recorders.erase(it);
         } else {
@@ -158,14 +163,17 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
     auto* s = impl_->find(session);
     if (s == nullptr) return { false, "no session " + session };
     const auto found = s->pluginsById.find(id);
-    if (found == s->pluginsById.end() ||
-        dynamic_cast<RecorderPlugin*>(found->second.get()) == nullptr)
-        return { false, "no recorder node \"" + id + "\" in this project" };
+    const bool present = found != s->pluginsById.end() &&
+                         dynamic_cast<RecorderPlugin*>(found->second.get()) != nullptr;
 
-    auto& node = recorderNode(session, id);
-    if (on == node.recording) return { true, "" };   // idempotent: two clients, one light
-
+    // A STOP needs the node, not the plugin: a node whose plugin left mid-take must still be stoppable.
     if (!on) {
+        const auto held = s->recorders.find(id);
+        if (held == s->recorders.end())
+            return present ? RecorderResult{ true, "" }
+                           : RecorderResult{ false, "no recorder node \"" + id + "\" in this project" };
+        auto& node = *held->second;
+        if (!node.recording) return { true, "" };   // idempotent: two clients, one light
         node.pump();          // whatever is still in the ring belongs to this take
         node.closeTake();
         node.recording = false;
@@ -173,6 +181,10 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
                                node.damaged });
         return { true, "" };
     }
+
+    if (!present) return { false, "no recorder node \"" + id + "\" in this project" };
+    auto& node = recorderNode(session, id);
+    if (node.recording) return { true, "" };
 
     if (s->current.recordDir.empty())
         return { false, "no record directory — this project cannot record" };

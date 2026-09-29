@@ -88,22 +88,33 @@ void NamPlugin::initialise(const tracktion::engine::PluginInitialisationInfo& in
     prepareBridge();
 }
 
+bool NamPlugin::needsBridge(double model) const
+{
+    return model > 0.0 && std::abs(model - sampleRate_) > 1.0;
+}
+
+void NamPlugin::logBridge(double model) const
+{
+    // The delay the lane now carries, which Tracktion compensates — said so it can be read, not guessed.
+    std::cerr << "[nam] " << model << " Hz model on a " << sampleRate_ << " Hz engine: +"
+              << bridge_.latencySamples() << " samples ("
+              << juce::String(1000.0 * bridge_.latencySamples() / sampleRate_, 2) << " ms)\n";
+}
+
 void NamPlugin::prepareBridge()
 {
-    const juce::SpinLock::ScopedLockType sl(lock_);
     const double model = modelRate_.load(std::memory_order_relaxed);
-    const bool bridge = dsp_ != nullptr && model > 0.0 && std::abs(model - sampleRate_) > 1.0;
-    if (bridge) {
-        bridge_.prepare(sampleRate_, model, BRIDGE_BLOCK, 1, 1, *this);
-        // The delay the lane now carries, which Tracktion compensates — said so it can be read, not guessed.
-        std::cerr << "[nam] " << model << " Hz model on a " << sampleRate_ << " Hz engine: +"
-                  << bridge_.latencySamples() << " samples ("
-                  << juce::String(1000.0 * bridge_.latencySamples() / sampleRate_, 2) << " ms)\n";
+    bool bridge = false;
+    {
+        const juce::SpinLock::ScopedLockType sl(lock_);
+        bridge = dsp_ != nullptr && needsBridge(model);
+        if (bridge) bridge_.prepare(sampleRate_, model, BRIDGE_BLOCK, 1, 1, *this);
+        bridged_.store(bridge, std::memory_order_relaxed);
+        // The model is clocked at the rate it RUNS at, and fed one fixed block at a time when bridged; a rate change has to re-prepare the live one.
+        if (dsp_ != nullptr)
+            dsp_->Reset(bridge ? model : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms
     }
-    bridged_.store(bridge, std::memory_order_relaxed);
-    // The model is clocked at the rate it RUNS at, and fed one fixed block at a time when bridged.
-    if (dsp_ != nullptr)
-        dsp_->Reset(bridge ? model : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms
+    if (bridge) logBridge(model);
 }
 
 void NamPlugin::renderBlock(const float* const* in, float* const* out)
@@ -139,8 +150,9 @@ void NamPlugin::deinitialise() {}
 
 void NamPlugin::reset()
 {
-    cab_.reset();
+    // Under the lock the audio thread try-locks around cab_.process(): a Convolution reset mid-process is a torn state.
     const juce::SpinLock::ScopedLockType sl(lock_);
+    cab_.reset();
     const bool bridge = bridged_.load(std::memory_order_relaxed);
     if (bridge) bridge_.reset();
     if (dsp_ != nullptr)
@@ -174,22 +186,29 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         return false;
     }
 
-    const double rate = loaded->GetExpectedSampleRate();
+    // NAM_UNKNOWN_EXPECTED_SAMPLE_RATE (-1) means the model doesn't say — report 0 for "nothing to check".
+    const double rate = juce::jmax(0.0, loaded->GetExpectedSampleRate());
     // Read BEFORE the move, and only behind HasLoudness(): GetLoudness() throws when the model declares none.
     const bool hasLoudness = loaded->HasLoudness();
     const double loudness = hasLoudness ? loaded->GetLoudness() : 0.0;
+
+    // Prewarmed HERE, on a model nothing else can see yet: the prewarm is the costly part, and under the lock it would pass the guitar dry.
+    const bool bridge = needsBridge(rate);
+    loaded->Reset(bridge ? rate : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);
     {
         const juce::SpinLock::ScopedLockType sl(lock_);
-        dsp_ = std::move(loaded);
+        // Swapped rather than assigned, so the OLD model is freed after the lock, not inside it.
+        std::swap(dsp_, loaded);
         path_ = file.getFullPathName();
+        modelRate_.store(rate, std::memory_order_relaxed);
+        if (bridge) bridge_.prepare(sampleRate_, rate, BRIDGE_BLOCK, 1, 1, *this);
+        bridged_.store(bridge, std::memory_order_relaxed);
     }
+    loaded.reset();
+    if (bridge) logBridge(rate);
     // Published after the swap, in this order: a new model normalized by the OLD loudness is the failure to avoid.
     loudnessDb_.store(loudness, std::memory_order_relaxed);
     hasLoudness_.store(hasLoudness, std::memory_order_relaxed);
-    // NAM_UNKNOWN_EXPECTED_SAMPLE_RATE (-1) means the model doesn't say — report 0 for "nothing to check".
-    modelRate_.store(rate > 0.0 ? rate : 0.0, std::memory_order_relaxed);
-    // Prewarmed HERE, never on the first block, at the rate it will run at — which the bridge decides.
-    prepareBridge();
     return true;
 }
 

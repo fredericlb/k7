@@ -1,7 +1,47 @@
-# Racks, and the pads their node draws
+# Racks, their taps, and the kit a node carries
 
 A **rack** is a module that is a note→audio sampler rather than a plugin: `type: rack`, plus a
 `rack:` block mapping short symbols to MIDI notes and material.
+
+## The kit is the NODE's
+
+A rack MODULE is the sampler; which note fires which sound is a **kit**, and a kit belongs to the
+node. The same rack module is the drums of one song and a percussion shelf of another, and nothing
+about that difference is the module's business — putting the sounds in the module would make every
+new kit a new module, a folder copied to change twelve lines.
+
+That needs no new field. A node already has its own file and the loader already reads a `rack:`
+from it, merged over its module's **per symbol** (the rule below), so a node stating the whole kit
+over a module stating none is the ordinary merge. What was missing was the editing: the `node tap`
+verbs write the NODE's file — the selected alternative's when a set other than the first is on, the
+same rule a knob follows (`alternatives.md`), which is what lets two sets be two kits.
+
+## A tap is a note and a library SAMPLE
+
+Each sound is a **tap**: `{ note, sample }`, `sample` naming a file under a library's `samples/` as
+`@<library>/<path>` (`libraryFiles.md`). Every sample lives there, even one only a single kit
+uses, for the reason IRs do: a kit's sounds outlive the kit, and a sound filed inside the module
+that first used it has to be copied to be used anywhere else. The loader resolves `sample` into the
+same absolute `clip` the compile already hands the engine, so nothing downstream learned a new
+word, and the name it was written with rides beside it for the picker.
+
+`clip:` (a file in the module's own folder) and `rack_type: slice` (windows cut from one `source`)
+still load: they are how racks were written, and `scripts/migrateRacks.ts` converts them — a slice
+rack's windows cut into one file each, byte for byte, the kit moved into the nodes that play the
+module, and a module no node plays converted in place so nothing is lost.
+
+## The node draws a TAP per sound
+
+The synthesised panel is a `tap` per sound (`TapWidget` in `@studio/ui-chains-react`): the pad, the
+note under it, the sample's name, and a last tap that ADDS one. The pad is the pad below — it
+auditions and it lights exactly as one did. The note is typed; the sample opens the host's picker,
+the libraries' `samples/` as its choices (`withLibraryChoices`, handed only to a rack's step). The
+widget only ASKS: every edit is a `node tap` command the host runs, so the card holds no state and
+the command bar can do everything it can.
+
+A rack with NO sounds still draws its panel — just the add tap — because a kit node is born empty
+and that tap is how it gets its first sound. The taps are laid out in NOTE order, the order a kit is
+played in, rather than by name.
 
 ```yaml
 # modules/instruments/kit/module.yaml

@@ -78,10 +78,9 @@ void MidiGraphPlugin::initialise(const te::PluginInitialisationInfo& info)
 
 double MidiGraphPlugin::secondsPerBeat()
 {
-    // Read on the audio thread, once a block: the edit carries ONE tempo, and it is a plain number.
+    // Read on the audio thread, once a block, through the sequence Tracktion makes safe there — the TempoSetting objects are the message thread's.
     // Nothing here follows a tempo sequence, because no ProjectDoc expresses one.
-    double bpm = 120.0;
-    if (auto* t = edit.tempoSequence.getTempo(0)) bpm = t->getBpm();
+    const double bpm = edit.tempoSequence.getInternalSequence().getBpmAt(tracktion::TimePosition());
     return 60.0 / juce::jmax(1.0, bpm);
 }
 
@@ -91,7 +90,7 @@ void MidiGraphPlugin::midiPanic()
 {
     // A graph with `mhold` in it is a note SOURCE holding keys of its own, so the panic has to reach
     // HERE and not only the instrument it feeds — DspGraph::reset() drops the held set and the clock.
-    if (graph_) graph_->reset();
+    resetPending_ = true;
 }
 
 void MidiGraphPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
@@ -108,6 +107,7 @@ void MidiGraphPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 void MidiGraphPlugin::applyToBuffer(const te::PluginRenderContext& fc)
 {
     if (graph_ == nullptr || fc.bufferForMidiMessages == nullptr) return;
+    if (resetPending_.exchange(false)) graph_->reset();
 
     // Read once, handed over as plain floats: the graph never touches Tracktion. Same rule as the audio plugin.
     for (size_t i = 0; i < params_.size(); ++i)

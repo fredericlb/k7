@@ -133,13 +133,41 @@ No `busy` and no `applied` come back. This path is incremental by construction, 
 changeset six times a second would drown the one that matters — the full-document path still
 announces its own. `engine/st0-engine/scripts/track-delta.ts` exercises the three answers.
 
+### The numbers are bounded where they arrive
+
+`docFromJson` is a trust boundary, not a formality: under the supervisor the engine binds `0.0.0.0`,
+so a document can come from anything on the LAN. What Tracktion divides by or the builder loops over
+is bounded there, with a `warn()` when a value is replaced:
+
+| field | bound | what an unbounded one does |
+|---|---|---|
+| `timeSigNumerator` / `timeSigDenominator` | 1..64 over a power of two up to 32, else 4/4 | `240 / (bpm * 0)` inside Tracktion |
+| `tempo` | finite and positive, else 120 | Tracktion clamps the rest itself |
+| `sampleRate` | 8 000..768 000, else 48 000 | a rebuild that opens nothing |
+| a note's `key`, a rack entry's `note` | 0..127 | a MIDI number that means nothing |
+| a pad's `repeat` / `skip` | 0..64 | a loop writing that many notes on the message thread |
+
+A repeated id is renamed rather than trusted: the second track, module or clip carrying one becomes
+`id#2`, then `#3`, in document order, with a warning. Every map downstream — the diff, the lanes, the
+modules, the send buses — is keyed by id, and a second entry would be diffed, routed and metered as
+the first. Modules share one namespace per session, the master chain's included; clips are unique
+per track. The renaming is deterministic, so a re-sent document diffs as the same one.
+
+`EditBuilder` bounds the one count that is DERIVED rather than sent: a clip's unrolled passes, at
+4096. `tests/DocJson_test.cpp` pins the table.
+
 ## server → client
+
+Every JSON push to a client goes through `Outbox.h`'s single writer thread, never out of the thread
+that produced it: a server-side send blocks until the peer drains, and the message thread must never
+be the one waiting (`docs/audit-stabilite.md`). The order of one client's messages is kept; a state
+frame is skipped for a socket already behind, a reply never is.
 
 | message | meaning |
 |---|---|
 | `{ type: "applied", changes: ["tempo -> 124 bpm", …] }` | the diff that ran |
 | `{ type: "flushed" }` | flush completed |
-| `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `Serve.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
+| `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `server/ServeMachine.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
 | `{ type: "session-dropped", session }` | a session was forgotten |
 | `{ type: "state", playing, playhead, levels, inputLevels, waveform }` | the ~20 Hz state frame |
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
@@ -219,5 +247,5 @@ socket's own filter drops.
 One message type, and the only binary this socket carries: a frame of master audio, sent
 only to connections that asked with `broadcast`. A 32-byte header then interleaved
 float32 — the format lives in `packages/engine-protocol/stream.ts` and is mirrored in
-`server/Serve.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
+`server/AudioSender.cpp`'s `encodeStreamFrame`. The two must agree byte for byte, and nothing
 checks that they do but a listener. See docs/broadcast.md.

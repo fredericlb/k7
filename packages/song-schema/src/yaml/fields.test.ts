@@ -71,6 +71,7 @@ describe("derived module fields", () => {
     );
     expect(fieldsAt("module", ["rack", "symbols", "BD"])).toEqual([
       "note",
+      "sample",
       "clip",
       "from",
       "to",

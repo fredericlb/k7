@@ -12,7 +12,8 @@ namespace studio::eurorack {
 
 namespace {
 
-short toShort(float x) { return (short)std::clamp((int)std::lround(x * 32767.0f), -32768, 32767); }
+// Clamped as a FLOAT, and a NaN made silence first: lround of a NaN or of a value past `long` is undefined.
+short toShort(float x) { return (short)std::lround(std::clamp(std::isfinite(x) ? x : 0.0f, -1.0f, 1.0f) * 32767.0f); }
 
 }  // namespace
 

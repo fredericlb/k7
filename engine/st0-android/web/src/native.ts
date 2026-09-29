@@ -1,6 +1,6 @@
 // native.ts — the two plugins this app's Kotlin half registers (MainActivity.kt): St0Engine, the
-// supervisor's channel (EnginePlugin.kt), and AppViews, the WebViews the studio apps load in under
-// the header (AppViewsPlugin.kt). Typed here once; nothing else calls registerPlugin.
+// supervisor's channel (EnginePlugin.kt), and AppViews, the full-screen WebViews the studio apps
+// load in over this page (AppViewsPlugin.kt). Typed here once; nothing else calls registerPlugin.
 
 import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
 
@@ -47,31 +47,39 @@ interface St0EnginePlugin {
 
 export const St0Engine = registerPlugin<St0EnginePlugin>("St0Engine");
 
-/** The studio apps with a tab of their own. */
+/** The studio apps with a view of their own. */
 export type AppId = "st0" | "pl8" | "k7";
 export const APP_IDS: AppId[] = ["st0", "pl8", "k7"];
 
 interface AppViewsPlugin {
   /**
-   * Show `id`'s view, `top` CSS px below the top of the screen, creating it on first use. It loads
-   * `url` when given, else `apps[id]` when it has nothing loaded yet or its origin changed.
-   * `apps` is every app's address: a link from one to another switches tab instead (`navigate`).
+   * Show `id`'s view, creating it on first use. It loads `url` when given, else `apps[id]` when it
+   * has nothing loaded yet or its origin changed. `apps` is every app's address: a link from one to
+   * another switches view instead (`navigate`). `studio` is the one st0's settings mark as open.
    */
   show(options: {
     id: AppId;
-    top: number;
     apps: Record<AppId, string>;
+    studio: string;
     url?: string;
   }): Promise<void>;
-  /** Back to this page alone: the engine tab. The views keep running, hidden. */
+  /** Back to this page alone: the tray. The views keep running, hidden. */
   hideAll(): Promise<void>;
-  /** The header's height changed. */
-  setTop(options: { top: number }): Promise<void>;
   reload(options: { id: AppId }): Promise<void>;
-  /** A view followed a link to another app: switch to that tab, at that URL. */
+  /** A view followed a link to another app: show that one, at that URL. */
   addListener(
     event: "navigate",
     listener: (to: { id: AppId; url: string }) => void,
+  ): Promise<PluginListenerHandle>;
+  /** st0's settings picked which connected studio the views open. */
+  addListener(
+    event: "studio",
+    listener: (to: { origin: string }) => void,
+  ): Promise<PluginListenerHandle>;
+  /** A view's page did not load: nothing in it can reach st0's settings, so this page shows. */
+  addListener(
+    event: "loadError",
+    listener: (failed: { id: AppId; message: string }) => void,
   ): Promise<PluginListenerHandle>;
 }
 

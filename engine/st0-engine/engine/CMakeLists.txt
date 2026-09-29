@@ -32,6 +32,7 @@ add_library(studio_engine STATIC
     MixerPlugin.cpp
     QuickMasterPlugin.cpp
     TurntablePlugin.cpp
+    RecordSource.cpp
     MidiGraphPlugin.cpp
     ArpeggiatorPlugin.cpp
     FilePeak.cpp

@@ -209,8 +209,11 @@ ParamQueryEngine& paramQueryEngine() {
     return *held;
 }
 
-/** The orphans being kept alive, keyed by format and identifier. Never emptied — docs/plugins.md. */
-std::unordered_map<std::string, te::Plugin::Ptr> orphanPlugins;
+/** The orphans being kept alive, keyed by format and identifier. Never emptied — docs/plugins.md. LEAKED like the engine they were built in: releasing one at exit, after JUCE, is a crash. */
+auto& orphanPlugins = *new std::unordered_map<std::string, te::Plugin::Ptr>();
+
+// The map's own lock, held for a lookup and nothing else: the message thread takes it, and must never wait behind a plugin load (docs/audit-stabilite.md).
+std::mutex orphanMapMutex;
 
 /** Format and identifier as one map key. A newline, because neither half can contain one. */
 std::string orphanKey(const std::string& formatName, const std::string& identifier) {
@@ -222,8 +225,7 @@ std::string orphanKey(const std::string& formatName, const std::string& identifi
 te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string& identifier) {
     std::lock_guard<std::mutex> lock(paramQueryMutex);
     const auto key = orphanKey(formatName, identifier);
-    if (auto it = orphanPlugins.find(key); it != orphanPlugins.end() && it->second != nullptr)
-        return it->second;
+    if (auto held = orphanPluginIfLoaded(formatName, identifier)) return held;
 
     auto& shared = paramQueryEngine();
     juce::PluginDescription desc;
@@ -243,13 +245,16 @@ te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string
         warn("'" + identifier + "' did not load — a licence or an installation, not the plugin");
         return {};
     }
-    orphanPlugins[key] = plugin;
+    {
+        std::lock_guard<std::mutex> map(orphanMapMutex);
+        orphanPlugins[key] = plugin;
+    }
     return plugin;
 }
 
 te::Plugin::Ptr orphanPluginIfLoaded(const std::string& formatName,
                                      const std::string& identifier) {
-    std::lock_guard<std::mutex> lock(paramQueryMutex);
+    std::lock_guard<std::mutex> lock(orphanMapMutex);
     auto it = orphanPlugins.find(orphanKey(formatName, identifier));
     return it == orphanPlugins.end() ? te::Plugin::Ptr{} : it->second;
 }

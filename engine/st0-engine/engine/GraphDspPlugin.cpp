@@ -258,7 +258,7 @@ void GraphDspPlugin::deinitialise() {}
 
 void GraphDspPlugin::reset()
 {
-    if (graph_) graph_->reset();
+    resetPending_ = true;
 }
 
 void GraphDspPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
@@ -266,6 +266,7 @@ void GraphDspPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     // Flush denormals: a decaying feedback delay is the canonical way to make an engine slow down (docs/dspGraph.md).
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || graph_ == nullptr) return;
+    if (resetPending_.exchange(false)) graph_->reset();
     for (size_t i = 0; i < params_.size(); ++i)
         scratch_[i] = params_[i]->getCurrentValue();
     graph_->process(*ctx.destBuffer, ctx.bufferStartSample, ctx.bufferNumSamples,

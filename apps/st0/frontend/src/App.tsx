@@ -64,12 +64,13 @@ import {
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
-import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
+import { moduleKeyFromPath, TAP_SAMPLE } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import {
   ViewportTab,
   sceneOf as videoSceneOf,
 } from "@studio/st0-plugins/video";
+import type { TapAction } from "@studio/ui-chains-react";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { AssemblyBuilder } from "@studio/ui-module-builder/assembly";
@@ -2173,6 +2174,8 @@ export default function App({
     x: number;
     y: number;
     files: string[];
+    /** The command a pick runs, when it is not `node param` — a rack tap's sample is `node tap sample`. */
+    commit?: (file: string | null) => string;
   } | null>(null);
   /** Find the open project's node of the builder's module and watch its plugin — `watchPluginParams` is what makes the values LIVE. */
   useEffect(() => {
@@ -2231,6 +2234,36 @@ export default function App({
         .catch(() => {});
     },
     [],
+  );
+  /** A rack tap's edit, as the `node tap` command it is — a sample opens the same picker a file param does. */
+  const editTap = useCallback(
+    (module: string, a: TapAction) => {
+      const q = (v: string) => JSON.stringify(v);
+      if (a.kind === "note")
+        void runCommand(`node tap note ${q(module)} ${q(a.symbol)} ${a.note}`);
+      else if (a.kind === "add") void runCommand(`node tap add ${q(module)}`);
+      else if (a.kind === "remove")
+        void runCommand(`node tap remove ${q(module)} ${q(a.symbol)}`);
+      else
+        void api
+          .graph()
+          .then((g) => {
+            const step = Object.values(g.chains ?? {})
+              .flatMap((c) => c.use ?? [])
+              .find((s) => s.module === module);
+            setAssetPicker({
+              module,
+              param: TAP_SAMPLE,
+              x: a.x,
+              y: a.y,
+              files: step?.assetChoices ?? [],
+              commit: (file) =>
+                `node tap sample ${q(module)} ${q(a.symbol)} ${file ? q(file) : "none"}`,
+            });
+          })
+          .catch(() => {});
+    },
+    [runCommand],
   );
   // `info` is the arrow the pick will splice into — NULL when the picker was opened on empty canvas.
   const [modulePicker, setModulePicker] = useState<{
@@ -3374,6 +3407,7 @@ export default function App({
                       onAlternative={runAlternative}
                       engineWarnings={engineWarnings}
                       onAssetBrowse={browseAssets}
+                      onTapEdit={editTap}
                       onWatchWaveform={watchWaveform}
                       onSetModuleAsset={(mod, kind, f) =>
                         void runCommand(`module ${kind} ${mod} ${f}`)
@@ -3545,6 +3579,7 @@ export default function App({
                       }
                       onAlternative={runAlternative}
                       onAssetBrowse={browseAssets}
+                      onTapEdit={editTap}
                       onWatchWaveform={watchWaveform}
                       onTrackToggle={onLaneToggle}
                       onTrackSet={onTrackSet}
@@ -3675,6 +3710,7 @@ export default function App({
                     onProjectField={onProjectField}
                     onAlternative={runAlternative}
                     onAssetBrowse={browseAssets}
+                    onTapEdit={editTap}
                     onWatchWaveform={watchWaveform}
                     engineWarnings={engineWarnings}
                     onContextMenu={openContextMenu}
@@ -4000,8 +4036,9 @@ export default function App({
             param={assetPicker.param}
             files={assetPicker.files}
             onPick={(file) => {
-              const { module, param } = assetPicker;
+              const { module, param, commit } = assetPicker;
               setAssetPicker(null);
+              if (commit) return void runCommand(commit(file));
               // A file-valued param is a param — `node param <node> nam <file>`, all three QUOTED, with `none` left bare (docs/moduleBuilder.md).
               void runCommand(
                 file

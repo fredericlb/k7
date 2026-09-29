@@ -1,14 +1,11 @@
-// App.tsx — the header the phone app always shows, and under it either the engine tray (this page)
-// or one of the studio apps (a native WebView, AppViewsPlugin.kt). The header's buttons switch
-// between them; each app keeps its view, and so its state, while another is on screen.
+// App.tsx — the page under the studio apps. With a studio connected an app covers it, full screen
+// (AppViewsPlugin.kt): st0 first, the others reached through each app's own switch, and this phone's
+// engine settings inside st0's. The page shows itself — the tray — only while there is no studio to
+// open, or while the one that is open does not load: then no app is there to reach settings in.
 
-import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
-import { AudioWaveform } from "@frediverse/ui/icons";
-import { cn } from "@frediverse/ui/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  APP_IDS,
   type AppId,
   AppViews,
   St0Engine,
@@ -17,29 +14,22 @@ import {
 import { appUrls, pickStudio, rememberStudio, studioOrigins } from "./studios";
 import { Tray } from "./Tray";
 
-type Tab = AppId | "engine";
-
-const LAST_TAB = "st0-android.tab";
-
-function lastTab(): Tab {
-  try {
-    const kept = localStorage.getItem(LAST_TAB);
-    if (kept === "engine" || APP_IDS.includes(kept as AppId))
-      return kept as Tab;
-  } catch {
-    // No storage: st0, once a studio is connected.
-  }
-  return "st0";
-}
-
 export function App() {
   const [state, setState] = useState<SupervisorState | null>(null);
   const [engineExit, setEngineExit] = useState<number | null>(null);
-  const [tab, setTab] = useState<Tab>(lastTab);
-  // A link from one app to another: the URL the next `show` of that tab loads.
+  const [shown, setShown] = useState<AppId>("st0");
+  const [failed, setFailed] = useState<{ id: AppId; message: string } | null>(
+    null,
+  );
+  // A link from one app to another: the URL the next `show` of that app loads.
   const pendingUrl = useRef<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
-  const header = useRef<HTMLElement>(null);
+
+  const choose = useCallback((origin: string) => {
+    rememberStudio(origin);
+    setChosen(origin);
+    setFailed(null);
+  }, []);
 
   useEffect(() => {
     const handles = [
@@ -47,8 +37,10 @@ export function App() {
       St0Engine.addListener("engineExit", ({ code }) => setEngineExit(code)),
       AppViews.addListener("navigate", ({ id, url }) => {
         pendingUrl.current = url;
-        setTab(id);
+        setShown(id);
       }),
+      AppViews.addListener("studio", ({ origin }) => choose(origin)),
+      AppViews.addListener("loadError", setFailed),
     ];
     // After the listeners: a frame between the two calls is then drawn twice rather than missed.
     St0Engine.getState().then((known) => {
@@ -58,104 +50,45 @@ export function App() {
     return () => {
       for (const h of handles) h.then((l) => l.remove());
     };
-  }, []);
+  }, [choose]);
 
   const origins = useMemo(() => studioOrigins(state?.instances), [state]);
   const studio =
     chosen && origins.includes(chosen) ? chosen : pickStudio(origins);
   const apps = useMemo(() => (studio ? appUrls(studio) : null), [studio]);
-  // Without a studio there is nothing for the app tabs to load: the tray says how to connect one.
-  const shown: Tab = apps ? tab : "engine";
 
-  const choose = useCallback((origin: string) => {
-    rememberStudio(origin);
-    setChosen(origin);
-  }, []);
-
-  const select = useCallback((next: Tab) => {
-    pendingUrl.current = null;
-    setTab(next);
-    try {
-      localStorage.setItem(LAST_TAB, next);
-    } catch {
-      // Only a convenience.
-    }
-  }, []);
-
-  // The header's bottom edge, in CSS px, is where the app views start.
-  const top = useCallback(
-    () => Math.ceil(header.current?.getBoundingClientRect().bottom ?? 0),
-    [],
-  );
+  // Another studio is another chance: what failed was the one before.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the studio changing IS the signal.
+  useEffect(() => setFailed(null), [studio]);
 
   useEffect(() => {
-    if (shown === "engine" || !apps) {
+    if (!apps || !studio || failed) {
       AppViews.hideAll();
       return;
     }
     const url = pendingUrl.current ?? undefined;
     pendingUrl.current = null;
-    AppViews.show({ id: shown, top: top(), apps, url });
-  }, [shown, apps, top]);
+    AppViews.show({ id: shown, apps, studio, url });
+  }, [shown, apps, studio, failed]);
 
-  useEffect(() => {
-    const el = header.current;
-    if (!el) return;
-    const watch = new ResizeObserver(() => AppViews.setTop({ top: top() }));
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, [top]);
-
-  const engineTone =
-    engineExit != null || state?.status === "error"
-      ? "bg-destructive"
-      : state?.status === "running"
-        ? "bg-emerald-500"
-        : "bg-muted-foreground";
+  const retry = () => {
+    if (failed) AppViews.reload({ id: failed.id });
+    setFailed(null);
+  };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <AppHeader
-        ref={header}
-        title={null}
-        className="pt-[var(--safe-top)]"
-        actions={
-          <Button
-            variant={shown === "engine" ? "default" : "ghost"}
-            size="sm"
-            aria-label="Engine"
-            aria-current={shown === "engine" ? "page" : undefined}
-            onClick={() => select("engine")}
-          >
-            <AudioWaveform />
-            <span className={cn("size-2 rounded-full", engineTone)} />
+    <div className="min-h-dvh bg-background pt-[var(--safe-top)] text-foreground">
+      {failed ? (
+        <section className="mx-auto flex w-full max-w-xl flex-col gap-2 px-4 pt-6">
+          <p className="text-destructive text-sm">
+            {failed.id} did not load: {failed.message}
+          </p>
+          <Button className="self-start" onClick={retry}>
+            Retry
           </Button>
-        }
-      >
-        <nav className="flex flex-1 items-center gap-1">
-          {APP_IDS.map((id) => (
-            <Button
-              key={id}
-              variant={shown === id ? "default" : "ghost"}
-              size="sm"
-              disabled={!apps}
-              aria-current={shown === id ? "page" : undefined}
-              onClick={() => select(id)}
-            >
-              {id}
-            </Button>
-          ))}
-        </nav>
-      </AppHeader>
-      {shown === "engine" ? (
-        <Tray
-          state={state}
-          engineExit={engineExit}
-          studios={origins}
-          studio={studio}
-          onChooseStudio={choose}
-        />
+        </section>
       ) : null}
+      <Tray state={state} engineExit={engineExit} />
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { Settings, X } from "@frediverse/ui/icons";
 import { useEffect } from "react";
 import { m } from "../paraglide/messages.js";
 import { AiSection } from "./AiSection";
+import { AndroidEngineSection } from "./AndroidEngineSection";
+import { onAndroid } from "./androidEngine";
 import { ChainsSection } from "./ChainsSection";
 import { LanguageSection } from "./LanguageSection";
 import { SyncSection } from "./SyncSection";
@@ -40,9 +42,14 @@ export function HomeSettings({ onClose }: { onClose: () => void }) {
       </header>
 
       <div className="flex flex-col gap-4 p-3">
-        <p className="text-muted-foreground text-xs">
-          {m["settings.trayHint"]()}
-        </p>
+        {/* On the phone there is no tray: this panel is where its engine is set. */}
+        {onAndroid ? (
+          <AndroidEngineSection />
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            {m["settings.trayHint"]()}
+          </p>
+        )}
         <LanguageSection />
         <SyncSection />
         <ChainsSection />

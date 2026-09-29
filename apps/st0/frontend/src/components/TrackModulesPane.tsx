@@ -6,7 +6,7 @@
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
-import { DomChains } from "@studio/ui-chains-react";
+import { DomChains, type TapAction } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
@@ -37,6 +37,7 @@ export function TrackModulesPane({
   onBypassModule,
   onAlternative,
   onAssetBrowse,
+  onTapEdit,
   onWatchWaveform,
   onTrackToggle,
   onTrackSet,
@@ -71,6 +72,8 @@ export function TrackModulesPane({
   /** …the alternative badges on a node, and the file-valued param's browser, for the same reason. */
   onAlternative?: (module: string, name: string | null) => void;
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
+  /** A rack tap's edit — the shell runs its `node tap` command (packages/song/docs/racks.md). */
+  onTapEdit?: (module: string, action: TapAction) => void;
   onWatchWaveform?: (
     pluginId: string,
     side: "input" | "output",
@@ -193,6 +196,7 @@ export function TrackModulesPane({
       onThawAutoFreeze={thawAutoFreeze}
       onAlternative={onAlternative}
       onAssetBrowse={onAssetBrowse}
+      onTapEdit={onTapEdit}
       onWatchWaveform={onWatchWaveform}
       onTrackToggle={onTrackToggle}
       onTrackSet={onTrackSet}

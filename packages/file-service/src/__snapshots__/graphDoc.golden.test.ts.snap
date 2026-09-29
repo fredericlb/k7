@@ -23,30 +23,38 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
       ],
       "use": [
         {
+          "assetChoices": [
+            "@project/hat.wav",
+            "@project/kick.wav",
+            "@project/snare.wav",
+          ],
           "category": "instruments",
           "emits": "audio",
           "events": [
             "note-on",
           ],
           "hasNativePluginUI": false,
-          "module": "@workspace/instruments/kit",
+          "module": "kit",
           "params": {},
-          "pluginId": "beat:@workspace/instruments/kit",
+          "pluginId": "beat:kit",
           "rack": [
             {
               "clip": "<abs>",
               "note": 36,
+              "sample": "@project/kick.wav",
               "symbol": "BD",
             },
             {
               "clip": "<abs>",
-              "note": 42,
-              "symbol": "HH",
+              "note": 38,
+              "sample": "@project/snare.wav",
+              "symbol": "SN",
             },
             {
               "clip": "<abs>",
-              "note": 38,
-              "symbol": "SN",
+              "note": 42,
+              "sample": "@project/hat.wav",
+              "symbol": "HH",
             },
           ],
           "stub": false,

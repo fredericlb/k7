@@ -156,6 +156,8 @@ export function readYamlEntities(
 export function resolveRackAudio(
   rack: RawRack | undefined,
   folderAbs: string,
+  // The project a `@project/…` sample is in — every module read for a project is read FOR one.
+  projectDir?: string,
 ): RawRack | undefined {
   if (!rack || typeof rack !== "object") return rack;
   // `sources/` first, then `assets/`, then loose beside module.yaml — a rack files its audio under
@@ -170,7 +172,17 @@ export function resolveRackAudio(
       : f;
   const symbols: NonNullable<RawRack["symbols"]> = {};
   for (const [sym, e] of Object.entries(rack.symbols ?? {}))
-    symbols[sym] = e && typeof e === "object" ? { ...e, clip: at(e.clip) } : e;
+    symbols[sym] =
+      e && typeof e === "object"
+        ? {
+            ...e,
+            // A library SAMPLE is what a tap plays, landing where a clip did; the name it was written with stays beside it.
+            clip:
+              typeof e.sample === "string" && e.sample
+                ? libraryFile("samples", e.sample, projectDir)
+                : at(e.clip),
+          }
+        : e;
   return { ...rack, source: at(rack.source), symbols };
 }
 
@@ -266,6 +278,8 @@ function readModuleTree(
   out: Record<string, LoadedModule>,
   // Where a module file that would not READ is reported, because dropping one silently makes every symptom describe something else.
   issues: Diagnostic[] = [],
+  // The project these are read FOR: a tap's `@project/` sample is its file.
+  project?: string,
 ): void {
   // `relDir` is the folder's PARENT, `leaf` names the preset/IR, `sub` is the ref suffix ("adt" or "delay/adt").
   const readModule = (
@@ -298,9 +312,9 @@ function readModuleTree(
     ): LoadedModule =>
       ({
         ...value,
-        // A rack module's audio lives in this module's own folder.
+        // A rack module's audio lives in this module's own folder; a tap's `@project/` sample in the project read for.
         rack: value.rack
-          ? resolveRackAudio(value.rack as RawRack, folder)
+          ? resolveRackAudio(value.rack as RawRack, folder, project)
           : undefined,
         kind: meta.kind,
         ...portsOf(value, meta),
@@ -449,7 +463,7 @@ function loadNodes(
           ? { kind: "plugin" }
           : {}),
       rack: value.rack
-        ? resolveRackAudio(value.rack as RawRack, folder)
+        ? resolveRackAudio(value.rack as RawRack, folder, dir)
         : undefined,
       ...(preset ? { preset } : {}),
       ...dspSourceFor(value, folder),
@@ -772,6 +786,7 @@ function readModuleRefs(
       (type, name) => `@${ns}/${type}/${name}`,
       out,
       issues,
+      dir,
     );
   }
 

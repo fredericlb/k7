@@ -14,9 +14,11 @@ export const InputSchema = z.union([
   z.tuple([z.number().int().positive(), z.number().int().positive()]),
 ]);
 
-/** One rack sound: the note it answers to, plus either a clip or a [from,to) window. */
+/** One rack sound — a TAP: the note it answers to, plus a library `sample`, or the older clip or [from,to) window. */
 export const RackSoundSchema = z.object({
   note: z.number().int().min(0).max(127),
+  // `@<library>/<path>` under a library's `samples/` — where every sample lives (packages/song/docs/libraryFiles.md).
+  sample: z.string().min(1).optional(),
   clip: z.string().min(1).optional(),
   from: z.number().min(0).optional(),
   to: z.number().positive().optional(),
@@ -27,7 +29,8 @@ const SamplesRack = z.object({
   rack_type: z.literal("samples").default("samples"),
   symbols: z.record(
     z.string(),
-    RackSoundSchema.extend({ clip: z.string().min(1) }),
+    // A tap may be written before its sample is picked: an empty one plays nothing and says so on its card.
+    RackSoundSchema,
   ),
 });
 const SliceRack = z.object({
@@ -76,6 +79,8 @@ export const WIDGET_TYPES = [
   "filepicker",
   // A screen the module's WIDGETS_SCRIPT draws, looked up by the widget's id; it binds nothing.
   "lcdscreen",
+  // One sound of a rack — a pad, its note and its library sample — bound `@rack:<symbol>` (packages/song/docs/racks.md).
+  "tap",
 ] as const;
 
 /** The script beside `ui.yaml` that draws a panel's lcdscreen widgets — packages/ui-chains-react/docs/lcdScreen.md. */

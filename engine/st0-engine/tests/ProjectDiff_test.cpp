@@ -3,6 +3,7 @@
 // Not exhaustive by design; each test pins a property that would silently break playback if it regressed.
 
 #include "ProjectDiff.h"
+#include "SendPlan.h"
 #include "Warnings.h"       // the sink, so a test can read what index() reports
 #include "test_harness.h"
 
@@ -144,8 +145,8 @@ void diff_plugin_param_drift_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
-// A NAM module's model and its IR are loaded at insert, so picking another of either is a REPLACE — else the diff was empty.
-void diff_nam_model_or_ir_pick_is_replace() {
+// A NAM module's model and its IR are FILES it loads: another pick of either reloads the same instance — never an empty diff, never a replace.
+void diff_nam_model_or_ir_pick_is_reload() {
     ProjectDoc a;
     {
         auto t = mkTrack("t1", "gtr");
@@ -156,12 +157,57 @@ void diff_nam_model_or_ir_pick_is_replace() {
     }
     ProjectDoc model = a;
     model.tracks[0].plugins[0].namFile = "/lib/amp-b.nam";
-    CHECK(hasKind(diff(a, model), ChangeKind::PluginRemoved));
-    CHECK(hasKind(diff(a, model), ChangeKind::PluginAdded));
+    CHECK(hasKind(diff(a, model), ChangeKind::PluginReloaded));
+    CHECK(!hasKind(diff(a, model), ChangeKind::PluginRemoved));
     ProjectDoc ir = a;
     ir.tracks[0].plugins[0].irFile = "/lib/irs/cab.wav";
-    CHECK(hasKind(diff(a, ir), ChangeKind::PluginAdded));
+    CHECK(hasKind(diff(a, ir), ChangeKind::PluginReloaded));
     CHECK(!needsFullRebuild(diff(a, ir)));
+    // …but a model DROPPED cannot be unloaded, so that one is a replace.
+    ProjectDoc none = a;
+    none.tracks[0].plugins[0].namFile.clear();
+    CHECK(hasKind(diff(a, none), ChangeKind::PluginRemoved));
+    CHECK(hasKind(diff(a, none), ChangeKind::PluginAdded));
+}
+
+// A preset is loaded into the live instance and re-aiming a second input re-wires it; a preset dropped is a replace.
+void diff_preset_and_sidechain_reload_in_place() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Bass");
+        auto p = mkPlugin("t1:comp", "vst3", "Comp");
+        p.path = "/presets/a.vstpreset";
+        p.sidechainFrom = "kick";
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    a.tracks.push_back(mkTrack("kick", "Kick"));
+    a.tracks.push_back(mkTrack("snare", "Snare"));
+
+    ProjectDoc preset = a;
+    preset.tracks[0].plugins[0].path = "/presets/b.vstpreset";
+    CHECK(hasKind(diff(a, preset), ChangeKind::PluginReloaded));
+    CHECK(!hasKind(diff(a, preset), ChangeKind::PluginRemoved));
+
+    ProjectDoc aimed = a;
+    aimed.tracks[0].plugins[0].sidechainFrom = "snare";
+    CHECK(hasKind(diff(a, aimed), ChangeKind::PluginReloaded));
+    CHECK(!needsFullRebuild(diff(a, aimed)));
+
+    ProjectDoc dropped = a;
+    dropped.tracks[0].plugins[0].path.clear();
+    CHECK(hasKind(diff(a, dropped), ChangeKind::PluginRemoved));
+}
+
+// The master chain is not on the incremental path, so a file moving on it is still the whole chain rebuilt.
+void diff_master_file_move_rebuilds() {
+    ProjectDoc a;
+    auto p = mkPlugin("m:amp", "studio_nam", "amp");
+    p.namFile = "/lib/a.nam";
+    a.masterPlugins.push_back(p);
+    ProjectDoc b = a;
+    b.masterPlugins[0].namFile = "/lib/b.nam";
+    CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
 }
 
 // Swapping the plugin (same id, different name/type) is a REPLACE: remove + add, in that order, and no rebuild — the pair does the job in place.
@@ -246,7 +292,7 @@ void diff_plugin_remove_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
-// …with two exceptions the incremental insert cannot place: a SIDECHAINED plugin, wired once every track exists, and a track added in the same diff, which shifts trackById's index.
+// A SIDECHAINED plugin and a track added in the same diff are both placed in place: every lane of the new document exists before the loop, so its second input can be wired on insert.
 void diff_plugin_add_rebuilds_when_it_must() {
     ProjectDoc base;
     {
@@ -261,14 +307,14 @@ void diff_plugin_add_rebuilds_when_it_must() {
         p.sidechainFrom = "t2";
         sidechained.tracks[0].plugins.push_back(p);
     }
-    CHECK(needsFullRebuild(diff(base, sidechained)));
+    CHECK(!needsFullRebuild(diff(base, sidechained)));
 
     ProjectDoc alsoNewTrack = base;
     alsoNewTrack.tracks[0].plugins.push_back(mkPlugin("t1:b2", "4osc", "4OSC"));
     alsoNewTrack.tracks.push_back(mkTrack("t2", "Bass"));
     const auto d = diff(base, alsoNewTrack);
     CHECK(hasKind(d, ChangeKind::TrackAdded));
-    CHECK(needsFullRebuild(d));
+    CHECK(!needsFullRebuild(d));
 }
 
 // Moving a clip (same id, new start) is a ClipMoved, not remove+add.
@@ -397,6 +443,175 @@ void diff_last_track_removed_forces_rebuild() {
     CHECK(needsFullRebuild(diff(a, b)));
 }
 
+// A track ADDED at the end is in place — its lane is made before the loop — and its clips and plugins arrive with it.
+void diff_track_added_at_end_is_in_place() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    ProjectDoc b = a;
+    {
+        auto t = mkTrack("t2", "Bass");
+        t.clips.push_back(mkClip("c1", 0.0));
+        t.plugins.push_back(mkPlugin("t2:s", "4osc", "Synth"));
+        b.tracks.push_back(t);
+    }
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::TrackAdded));
+    CHECK(hasKind(d, ChangeKind::ClipAdded));
+    CHECK(hasKind(d, ChangeKind::PluginAdded));
+    CHECK(!needsFullRebuild(d));
+}
+
+// …but one INSERTED before a kept track shifts every lane after it, which is a reorder.
+void diff_track_inserted_mid_song_forces_rebuild() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    a.tracks.push_back(mkTrack("t3", "Keys"));
+    ProjectDoc b;
+    b.tracks.push_back(mkTrack("t1", "Drums"));
+    b.tracks.push_back(mkTrack("t2", "Bass"));
+    b.tracks.push_back(mkTrack("t3", "Keys"));
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::TracksReordered));
+    CHECK(needsFullRebuild(d));
+}
+
+// A new track an existing module's SECOND INPUT names re-wires that module in place: the build wired it once, to nothing.
+void diff_track_added_as_sidechain_source_rewires() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Bass");
+        auto p = mkPlugin("t1:comp", "compressor", "Comp");
+        p.sidechainFrom = "kick";
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks.push_back(mkTrack("kick", "Kick"));
+    CHECK(hasKind(diff(a, b), ChangeKind::PluginReloaded));
+    CHECK(!needsFullRebuild(diff(a, b)));
+}
+
+// The same tracks in another order are a change, and a rebuild: nothing else differs, yet every lane lookup is by index.
+void diff_track_reorder_forces_rebuild() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    a.tracks.push_back(mkTrack("t2", "Bass"));
+    ProjectDoc b;
+    b.tracks.push_back(mkTrack("t2", "Bass"));
+    b.tracks.push_back(mkTrack("t1", "Drums"));
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::TracksReordered));
+    CHECK(needsFullRebuild(d));
+    CHECK(diff(a, a).empty());
+}
+
+// A Faust program is part of its plugin's identity, digested in the key: an edit is a replace, the same text is nothing.
+void diff_faust_source_edit_is_replace() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Synth");
+        auto p = mkPlugin("t1:f", "faust", "Faust");
+        p.faustDsp = "process = os.osc(440);";
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks[0].plugins[0].faustDsp = "process = os.osc(441);";
+
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::PluginRemoved));
+    CHECK(hasKind(d, ChangeKind::PluginAdded));
+    CHECK(firstIndexOf(d, ChangeKind::PluginRemoved) < firstIndexOf(d, ChangeKind::PluginAdded));
+    CHECK(diff(a, a).empty());
+}
+
+// Sends: a routing change anywhere is a rebuild, a level alone is in place — and muting a SENDING track re-routes it.
+ProjectDoc sendingSong(double level, bool muted) {
+    ProjectDoc d;
+    auto a = mkTrack("a", "Vox");
+    a.mute = muted;
+    a.sends.push_back(SendDoc{"fx", level, true});
+    d.tracks.push_back(a);
+    d.tracks.push_back(mkTrack("fx", "Reverb"));
+    d.tracks.push_back(mkTrack("b", "Gtr"));
+    return d;
+}
+
+void diff_send_added_forces_rebuild() {
+    ProjectDoc a = sendingSong(0.5, false);
+    ProjectDoc b = a;
+    b.tracks[2].sends.push_back(SendDoc{"fx", 0.3, true});
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::SendsRewired));
+    CHECK(needsFullRebuild(d));
+}
+
+void diff_send_level_is_in_place() {
+    const auto d = diff(sendingSong(0.5, false), sendingSong(0.8, false));
+    CHECK(hasKind(d, ChangeKind::SendLevelChanged));
+    CHECK(!hasKind(d, ChangeKind::SendsRewired));
+    CHECK(!needsFullRebuild(d));
+}
+
+void diff_muting_a_sending_track_rewires() {
+    CHECK(needsFullRebuild(diff(sendingSong(0.5, false), sendingSong(0.5, true))));
+    // …where muting a track that sends nothing stays the ordinary in-place mute.
+    ProjectDoc a = sendingSong(0.5, false);
+    ProjectDoc b = a;
+    b.tracks[2].mute = true;
+    CHECK(!needsFullRebuild(diff(a, b)));
+}
+
+// The plan numbers buses per DESTINATION in document order, and the first sender wires the return.
+void sendplan_buses_and_routing() {
+    ProjectDoc d = sendingSong(0.5, true);
+    d.tracks[0].sends.push_back(SendDoc{"b", 0.2, true});
+    d.tracks[2].sends.push_back(SendDoc{"fx", 0.3, true});
+    const auto plan = planSends(d);
+    CHECK(plan.size() == 3);
+    CHECK(plan[0].routing && plan[0].bus == 0);                  // a muted sender's first destination is its output
+    CHECK(!plan[1].routing && plan[1].bus == 1 && plan[1].firstOnBus);
+    CHECK(!plan[2].routing && plan[2].bus == 2 && plan[2].firstOnBus);
+}
+
+// Two modules added together arrive in CHAIN order, whatever their keys sort as: each is placed after the one before it.
+void diff_plugins_added_in_chain_order() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Gtr"));
+    ProjectDoc b = a;
+    b.tracks[0].plugins.push_back(mkPlugin("t1:s", "4osc", "Synth"));
+    b.tracks[0].plugins.push_back(mkPlugin("t1:amp", "studio_nam", "Amp"));
+    const auto d = diff(a, b);
+    std::vector<std::string> added;
+    for (const auto& c : d)
+        if (c.kind == ChangeKind::PluginAdded && c.plugin) added.push_back(c.plugin->id);
+    CHECK(added.size() == 2);
+    if (added.size() == 2) {
+        CHECK(added[0] == "t1:s");
+        CHECK(added[1] == "t1:amp");
+    }
+}
+
+// A rack's sounds are what a sampler LOADS: remapping a pad reloads the same instance, it does not re-create it.
+void diff_rack_remap_is_reload() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Drums");
+        auto p = mkPlugin("t1:rack", "sampler", "Rack");
+        p.rack.push_back(RackEntry{"BD", 36, "/s/bd.wav", 0.0, 0.0});
+        p.rack.push_back(RackEntry{"SD", 38, "/s/sd.wav", 0.0, 0.0});
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks[0].plugins[0].rack[1].note = 40;
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::PluginReloaded));
+    CHECK(!hasKind(d, ChangeKind::PluginRemoved));
+    CHECK(!needsFullRebuild(d));
+    CHECK(diff(a, a).empty());
+}
+
 // A duplicate id is DIFFED AS ONE and SAID SO: index() keeps the first and drops the rest, so without the warning the second track is built and then invisible to every later diff.
 void diff_duplicate_id_is_reported() {
     std::vector<Warning> seen;
@@ -520,7 +735,9 @@ int main() {
     RUN(diff_track_params_in_place);
     RUN(diff_plugin_param_drift_is_incremental);
     RUN(diff_plugin_swap_is_replace_and_rebuild);
-    RUN(diff_nam_model_or_ir_pick_is_replace);
+    RUN(diff_nam_model_or_ir_pick_is_reload);
+    RUN(diff_preset_and_sidechain_reload_in_place);
+    RUN(diff_master_file_move_rebuilds);
     RUN(diff_plugin_add_is_incremental);
     RUN(diff_plugin_remove_is_incremental);
     RUN(diff_plugin_add_rebuilds_when_it_must);
@@ -532,6 +749,17 @@ int main() {
     RUN(diff_removals_before_adds);
     RUN(diff_track_removed_forces_rebuild);
     RUN(diff_last_track_removed_forces_rebuild);
+    RUN(diff_track_added_at_end_is_in_place);
+    RUN(diff_track_inserted_mid_song_forces_rebuild);
+    RUN(diff_track_added_as_sidechain_source_rewires);
+    RUN(diff_track_reorder_forces_rebuild);
+    RUN(diff_faust_source_edit_is_replace);
+    RUN(diff_send_added_forces_rebuild);
+    RUN(diff_send_level_is_in_place);
+    RUN(diff_muting_a_sending_track_rewires);
+    RUN(sendplan_buses_and_routing);
+    RUN(diff_plugins_added_in_chain_order);
+    RUN(diff_rack_remap_is_reload);
     RUN(diff_duplicate_id_is_reported);
     TEST_MAIN_END();
 }

@@ -153,9 +153,13 @@ cannot, keeping the authored name in `assets`. The two disagreeing IS the report
 warns rather than letting the module load nothing. An amp whose model did not load passes no
 sound at all, and silence with no explanation is the failure mode worth spending a warning on.
 
-## A rack's samples
+## A rack's samples — the OLD layout
 
-A rack keeps its audio in **`sources/`**, its own reserved subfolder (`MODULE_SOURCES_DIR`, in
+A rack's taps now name samples in a library's or the project's `samples/` (`racks.md`,
+`libraryFiles.md`), and nothing writes the layout below any more; it is what a rack written before
+that still loads from, until `scripts/migrateRacks.ts` moves it.
+
+A rack kept its audio in **`sources/`**, its own reserved subfolder (`MODULE_SOURCES_DIR`, in
 song-schema so a browser knows the word too). It is not `assets/` because the two are chosen by
 different hands: an asset is a file a PARAM names and the asset picker offers, a source is a file a
 SYMBOL names and the rack builder writes. Keeping them apart also keeps the picker's list free of

@@ -73,6 +73,7 @@ void EngineHost::teardownProjectState(const std::string& session) {
     impl_->session(session).pluginsById.clear();
     impl_->session(session).presetSaveById.clear();
     impl_->session(session).lastSavedState.clear();
+    impl_->session(session).paramProbes.clear();   // they live in the old edit's plugin cache
     impl_->session(session).detachLevelMeters();   // unregister clients before their measurers die
     impl_->session(session).waveformPlugins.clear();  // release taps before the edit dies
     // The broadcast PLUGIN goes with them; the ring and `broadcastWanted` stay, so buildLevelMeters re-taps the new edit and a listener survives an apply.
@@ -153,21 +154,28 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
 }
 
 // Append a post-fader LevelMeterPlugin to every audio track and attach the VU client; called after a full rebuild, the incremental path leaving meters alone.
+namespace {
+// One lane's output meter, appended LAST so it meters the final output, and its client at the same index as the lane.
+void appendLevelMeter(Session& s, te::AudioTrack& track) {
+    auto meter = s.edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {});
+    auto* lm = dynamic_cast<te::LevelMeterPlugin*>(meter.get());
+    if (lm == nullptr) return;
+    track.pluginList.insertPlugin(meter, -1, nullptr);   // -1 == append
+    auto client = std::make_unique<te::LevelMeasurer::Client>();
+    lm->measurer.addClient(*client);
+    s.levelMeters.push_back(meter);
+    s.levelClients.push_back(std::move(client));
+}
+
+// The hidden preview lane, gone: it sits LAST, and a lane added after it would take a document index it holds (docs/projectDiff.md).
+void removePreviewLane(te::Edit& edit);
+}  // namespace
+
 void EngineHost::buildLevelMeters(const std::string& session) {
     impl_->session(session).detachLevelMeters();
     if (!impl_->session(session).edit) return;
-    auto audioTracks = te::getAudioTracks(*impl_->session(session).edit);
-    for (int i = 0; i < audioTracks.size(); ++i) {
-        auto* track = audioTracks[i];
-        auto meter = impl_->session(session).edit->getPluginCache().createNewPlugin(te::LevelMeterPlugin::xmlTypeName, {});
-        auto* lm = dynamic_cast<te::LevelMeterPlugin*>(meter.get());
-        if (lm == nullptr) continue;
-        track->pluginList.insertPlugin(meter, -1, nullptr);   // -1 == append, so it meters the final output
-        auto client = std::make_unique<te::LevelMeasurer::Client>();
-        lm->measurer.addClient(*client);
-        impl_->session(session).levelMeters.push_back(meter);
-        impl_->session(session).levelClients.push_back(std::move(client));
-    }
+    for (auto* track : te::getAudioTracks(*impl_->session(session).edit))
+        appendLevelMeter(impl_->session(session), *track);
 
     /** The song's OUTPUT LEVEL — the OUT node's `Volume`, FOUND rather than made, since populateEdit put it there; everything below goes on AFTER it. docs/engineHost.md. */
     impl_->session(session).masterGain = studio::masterGainOf(*impl_->session(session).edit);
@@ -239,6 +247,26 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
     auto& edit = *impl_->session(session).edit;
     impl_->session(session).baseDir = baseDir;
 
+    // Tracks ADDED at the end get their lanes first, in DOCUMENT order — the diff lists changes by id, and two lanes made in that order would swap (docs/projectDiff.md).
+    if (std::any_of(d.begin(), d.end(), [](const Change& c) { return c.kind == ChangeKind::TrackAdded; })) {
+        auto& s = impl_->session(session);
+        removePreviewLane(edit);
+        const int had = te::getAudioTracks(edit).size();
+        // Anything but one lane per kept track means this edit is not what the baseline says; the rebuild is the answer that cannot be wrong.
+        if (had != (int)s.current.tracks.size() || had != (int)s.levelMeters.size()) {
+            applyFull(session, target, baseDir);
+            return d;
+        }
+        edit.ensureNumberOfAudioTracks((int)target.tracks.size());
+        auto lanes = te::getAudioTracks(edit);
+        for (int i = had; i < lanes.size() && i < (int)target.tracks.size(); ++i) {
+            lanes[i]->setName(juce::String(target.tracks[(size_t)i].name));
+            applyTrackParams(*lanes[i], target.tracks[(size_t)i]);
+            appendLevelMeter(s, *lanes[i]);
+        }
+    }
+
+    // Every lane is found through TARGET: a removal, a reorder or a mid-song insert has rebuilt already, so the kept tracks sit at the same index in both.
     for (const auto& c : d) {
         switch (c.kind) {
             case ChangeKind::TempoChanged:
@@ -257,23 +285,20 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 }
                 break;
             case ChangeKind::TrackAdded:
-                edit.ensureNumberOfAudioTracks(te::getAudioTracks(edit).size() + 1);
-                if (auto* t = te::getAudioTracks(edit).getLast(); t && c.track)
-                    t->setName(juce::String(c.track->name));
-                break;
+                break;  // its lane was made above, before the loop
             case ChangeKind::TrackRenamed:
-                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.track)
+                if (auto* t = trackById(edit, c.trackId, target); t && c.track)
                     t->setName(juce::String(c.track->name));
                 break;
             case ChangeKind::TrackParamsChanged:
-                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.track)
+                if (auto* t = trackById(edit, c.trackId, target); t && c.track)
                     applyTrackParams(*t, *c.track);
                 break;
             case ChangeKind::TrackInputChanged:
             case ChangeKind::TrackOutputChanged:
                 break;  // deferred to after the loop — see below
             case ChangeKind::ClipAdded:
-                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
+                if (auto* t = trackById(edit, c.trackId, target); t && c.clip) {
                     if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
                     else insertClip(engine, edit, *t, *c.clip, baseDir);
                 }
@@ -281,12 +306,12 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
 
             case ChangeKind::ClipRemoved:
                 // What lets a live-streamed pattern prune played clips instead of accumulating them.
-                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip)
+                if (auto* t = trackById(edit, c.trackId, target); t && c.clip)
                     removeClipFor(*t, *c.clip);
                 break;
             case ChangeKind::ClipMoved:
                 // Re-INSERT, not reposition: everything a clip carries is applied at insert time, so setStart/setLength would drop all but two. docs/engineHost.md.
-                if (auto* t = trackById(edit, c.trackId, impl_->session(session).current); t && c.clip) {
+                if (auto* t = trackById(edit, c.trackId, target); t && c.clip) {
                     removeClipFor(*t, *c.clip);
                     if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
                     else insertClip(engine, edit, *t, *c.clip, baseDir);
@@ -295,7 +320,7 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
             /** The one new plugin into the LIVE track rather than a whole rebuild, positioned off the LIVE plugin list; whatever does not hold falls back. docs/engineHost.md. */
             case ChangeKind::PluginAdded: {
                 const auto rebuild = [&] { applyFull(session, target, baseDir); };
-                auto* t = trackById(edit, c.trackId, impl_->session(session).current);
+                auto* t = trackById(edit, c.trackId, target);
                 const TrackDoc* td = nullptr;
                 for (const auto& x : target.tracks)
                     if (x.id == c.trackId) { td = &x; break; }
@@ -325,6 +350,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 auto pl = addPlugin(edit, *t, *c.plugin, at);
                 // Null means it could not be instantiated — already warned by addPlugin, and a rebuild would fail identically, so leave the rest of the song playing.
                 if (pl == nullptr) break;
+                // Its second input, now: every lane of TARGET exists, those this diff added included (made before the loop).
+                if (!c.plugin->sidechainFrom.empty()) wireSidechain(edit, *pl, c.plugin->sidechainFrom, target);
                 impl_->session(session).pluginsById[c.plugin->id] = pl;
                 if (!c.plugin->presetSave.empty())
                     impl_->session(session).presetSaveById[c.plugin->id] = c.plugin->presetSave;
@@ -332,7 +359,13 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
             }
 
             case ChangeKind::TrackRemoved:
+            case ChangeKind::TracksReordered:
+            case ChangeKind::SendsRewired:
                 break;  // unreachable (handled by needsFullRebuild above), like SampleRateChanged
+            // In place, since the routing signature is unchanged: the fader-drag case, which a rebuild would stop the song for.
+            case ChangeKind::SendLevelChanged:
+                applySendLevels(edit, target, c.trackId);
+                break;
             /** Take the one plugin out of the LIVE chain: a rebuild replaces the Edit and the transport with it, so unlinking a module would stop the song. */
             case ChangeKind::PluginRemoved: {
                 if (!c.plugin) break;
@@ -352,15 +385,31 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 s.pluginsById.erase(it);
                 s.presetSaveById.erase(c.plugin->id);
                 s.lastSavedState.erase(c.plugin->id);
+                s.paramProbes.erase(c.plugin->id);
                 // watchedParams is deliberately NOT cleared: a client's interest in an id outlives the plugin behind it, exactly as across a rebuild.
+                break;
+            }
+            /** The same instance, another preset, model, IR, record or second input — so its tails and its place survive (docs/projectDiff.md). */
+            case ChangeKind::PluginReloaded: {
+                if (!c.plugin) break;
+                auto it = impl_->session(session).pluginsById.find(c.plugin->id);
+                // Never instantiated: a rebuild would fail the same way.
+                if (it == impl_->session(session).pluginsById.end() || it->second == nullptr) break;
+                const PluginDoc* was = nullptr;
+                for (const auto& t : impl_->session(session).current.tracks)
+                    for (const auto& p : t.plugins)
+                        if (p.id == c.plugin->id) was = &p;
+                loadPluginFiles(edit, *it->second, *c.plugin, was);
+                // A preset sets every parameter it holds, so the document's text params go back on top, as at insert.
+                if (was == nullptr || was->path != c.plugin->path) applyPluginParams(*it->second, c.plugin->params);
+                wireSidechain(edit, *it->second, c.plugin->sidechainFrom, target);
                 break;
             }
             case ChangeKind::PluginParamChanged:
                 // One per differing parameter, keyed by the display name applyPluginParams() and namedParams() share; an id absent from the edit failed to instantiate.
-                if (c.plugin)
-                    if (auto it = impl_->session(session).pluginsById.find(c.plugin->id);
-                        it != impl_->session(session).pluginsById.end() && it->second != nullptr)
-                        applyPluginParams(*it->second, {{c.paramName, c.paramValue}});
+                if (auto it = impl_->session(session).pluginsById.find(c.pluginId);
+                    it != impl_->session(session).pluginsById.end() && it->second != nullptr)
+                    applyPluginParams(*it->second, {{c.paramName, c.paramValue}});
                 break;
             case ChangeKind::PluginEnabledChanged:
                 // Bypass on the LIVE plugin, which stays in the chain passing its input through; deliberately not a rebuild, which would restart every other plugin.
@@ -390,6 +439,9 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
 
     // Solo is global, and a per-track diff carries only the changed track — so re-apply mute across all of them.
     applySoloMute(edit, target);
+
+    // A recorder added in place needs its ring as much as a rebuilt one, and one removed mid-take has its take filed (docs/recorder.md).
+    attachRecorderTaps(session);
 
     // The engine now reflects `target` for every implemented change kind, so adopt it as the next diff's baseline.
     impl_->session(session).current = target;
@@ -443,7 +495,12 @@ void EngineHost::play(const std::string& session) {
 }
 // Creating, unlike the readers around it: a client saying "rolling me records" is declaring it drives this project, the same way subscribing to its audio is.
 void EngineHost::setRecordEnabled(const std::string& session, bool on) {
-    impl_->session(session).recordEnabled = on;
+    // Turning it OFF never creates — a session nobody has is already not recording.
+    if (!on) {
+        if (auto* s = impl_->find(session)) s->recordEnabled = false;
+    } else {
+        impl_->session(session).recordEnabled = true;
+    }
     // Named, because two services on one engine are otherwise indistinguishable in the log.
     std::cerr << "[rec] record " << (on ? "enabled" : "disabled") << " for '" << session << "'\n";
 }
@@ -517,6 +574,14 @@ double EngineHost::playheadSeconds(const std::string& session) const {
 namespace {
 constexpr int kPreviewNote = 72;   // the sampler's default keyNote — plays at native pitch
 const juce::String kPreviewTrackName = "__studio_preview__";
+
+void removePreviewLane(te::Edit& edit) {
+    for (auto* t : te::getAudioTracks(edit))
+        if (t != nullptr && t->getName() == kPreviewTrackName) {
+            edit.deleteTrack(t);   // made again on the next audition
+            return;
+        }
+}
 
 // Find, or lazily create, the hidden sampler behind the editor's play buttons: an extra track at the END of the edit, outside the doc, so no doc index shifts.
 te::SamplerPlugin* ensurePreviewSampler(te::Edit& edit) {
@@ -902,7 +967,16 @@ void EngineHost::dropSession(const std::string& session) {
 
 void EngineHost::post(std::function<void()> fn) {
     // callAsync queues onto the JUCE message thread; safe from any thread.
-    juce::MessageManager::callAsync(std::move(fn));
+    juce::MessageManager::callAsync([fn = std::move(fn)] {
+        // The ONE net under every posted job: an exception out of a message callback is std::terminate, and a bad_alloc on a huge record is reachable.
+        try {
+            fn();
+        } catch (const std::exception& e) {
+            warn(std::string("an engine job failed: ") + e.what());
+        } catch (...) {
+            warn("an engine job failed (unknown exception)");
+        }
+    });
 }
 
 void EngineHost::onState(std::function<void(const EngineState&)> cb, int intervalMs) {

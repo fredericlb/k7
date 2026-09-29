@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 
 /** One per PROCESS, like the engine: Android recreates activities on its own, and a second supervisor is refused. */
 object SupervisorHost {
-    /** What the current activity draws: the latest snapshot, and the engine's exit code once it stopped. */
+    /** What a page draws: the latest snapshot, and the engine's exit code once it stopped. */
     interface Listener {
         fun onState(frame: JSONObject)
         fun onEngineExit(code: Int)
@@ -25,7 +25,8 @@ object SupervisorHost {
     private var process: Process? = null
     private var stdin: BufferedWriter? = null
     private var nextId = 1
-    private var listener: Listener? = null
+    // The shell page's plugin and st0's settings panel (StudioBridge) both watch.
+    private val listeners = java.util.concurrent.CopyOnWriteArraySet<Listener>()
     private var lastState: JSONObject? = null
     private var engineExit: Int? = null
     private var restarting = false
@@ -48,15 +49,18 @@ object SupervisorHost {
         Thread({ p.errorStream.bufferedReader().forEachLine { Log.i(TAG, it) } }, "st0-supervisor-err").start()
     }
 
-    /** The activity now on screen, told at once what is already known. */
-    fun listen(l: Listener?) {
+    /** One more watcher, told at once what is already known. */
+    fun listen(l: Listener) {
         val (state, exit) = synchronized(this) {
-            listener = l
+            listeners.add(l)
             lastState to engineExit
         }
-        if (l == null) return
         state?.let(l::onState)
         exit?.let(l::onEngineExit)
+    }
+
+    fun unlisten(l: Listener) {
+        listeners.remove(l)
     }
 
     /** What is already known, for a page that asks before it listens: the latest snapshot and the engine's exit code. */
@@ -101,7 +105,10 @@ object SupervisorHost {
     private fun onFrame(context: Context, from: Process, line: String) {
         val frame = runCatching { JSONObject(line) }.getOrNull() ?: return
         when (frame.optString("t")) {
-            "state" -> synchronized(this) { lastState = frame; listener }?.onState(frame)
+            "state" -> {
+                synchronized(this) { lastState = frame }
+                listeners.forEach { it.onState(frame) }
+            }
             // Only the CURRENT supervisor's: a restarted one's last words — "stop the engine" — may still be in its pipe.
             "engine" -> if (synchronized(this) { from == process && !restarting }) onEngine(context, frame)
             "result" -> if (!frame.optBoolean("ok", true)) Log.w(TAG, "command ${frame.optInt("id")}: ${frame.optString("message")}")
@@ -116,7 +123,10 @@ object SupervisorHost {
                 frame.getString("token"),
                 frame.getInt("port"),
                 frame.optString("host", "0.0.0.0"),
-            ) { code -> synchronized(this) { engineExit = code; listener }?.onEngineExit(code) }
+            ) { code ->
+                synchronized(this) { engineExit = code }
+                listeners.forEach { it.onEngineExit(code) }
+            }
             // Off this reader thread: the join would hold up every frame behind it.
             "stop" -> Thread({ EngineBridge.stop(ENGINE_STOP_MS) }, "st0-engine-stop").start()
         }

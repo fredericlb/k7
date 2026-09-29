@@ -64,22 +64,28 @@ function assetChoicesFor(
 function withLibraryChoices(
   own: string[] | undefined,
   ui: unknown,
+  also: readonly ("irs" | "samples")[] = [],
+  projectDir?: string,
 ): string[] | undefined {
   const widgets = Object.values(
     ((ui ?? {}) as { widgets?: Record<string, { bind?: unknown }> }).widgets ??
       {},
   );
   const families = [
-    ...new Set(
-      widgets.flatMap((w) =>
+    ...new Set([
+      ...also,
+      ...widgets.flatMap((w) =>
         typeof w.bind === "string" && isLibraryFileParam(w.bind)
           ? [LIBRARY_FILE_PARAMS[w.bind]]
           : [],
       ),
-    ),
+    ]),
   ];
   if (!families.length) return own;
-  const shared = families.flatMap((f) => libraryFiles(f));
+  // A project's own `samples/` answers as `@project/…`; its IRs are the libraries' alone.
+  const shared = families.flatMap((f) =>
+    libraryFiles(f, f === "samples" ? projectDir : undefined),
+  );
   return own || shared.length ? [...(own ?? []), ...shared] : undefined;
 }
 
@@ -137,6 +143,7 @@ function rackSounds(
     .map(([symbol, s]) => ({
       symbol,
       note: Number(s?.note ?? 0),
+      ...(s?.sample ? { sample: String(s.sample) } : {}),
       ...(rack.rackType === "slice"
         ? {
             ...(rack.source ? { source: rack.source } : {}),
@@ -145,9 +152,10 @@ function rackSounds(
           }
         : { ...(s?.clip ? { clip: String(s.clip) } : {}) }),
     }))
-    .sort((a, b) => a.symbol.localeCompare(b.symbol));
-  // No pads rather than an empty row, so a rack nobody has filled keeps the size it had.
-  return out.length ? out : undefined;
+    // In NOTE order, the order a kit is played in — kick, snare, hats — then by name for a shared note.
+    .sort((a, b) => a.note - b.note || a.symbol.localeCompare(b.symbol));
+  // EMPTY rather than absent: a rack with no sound yet still draws its "+", the way a kit node starts.
+  return out;
 }
 
 // Beats drawn for a clip whose compiled `length` is 0 — the timeline's number too, docs/graphFlags.md.
@@ -290,6 +298,9 @@ export function buildGraphDoc(
           assetChoices: withLibraryChoices(
             assetChoicesFor(dir, module, moduleRefs, assets),
             module?.ui,
+            // A rack's taps pick their samples from the libraries — docs/racks.md in @studio/song.
+            module?.rack ? ["samples"] : [],
+            dir,
           ),
           // Which base this module is on (the MODULE's own field) and the ones it could be on (the folder's).
           base:

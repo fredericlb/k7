@@ -5,44 +5,48 @@
 The failure mode is always the same shape: **an empty diff**. The file says one thing, the engine
 goes on playing another, and nothing on screen suggests it.
 
-## What goes into a plugin's identity
+## What goes into a plugin's identity — what its CONSTRUCTOR builds
 
-`keyOf(const PluginDoc&)` is not the plugin's `id`. It is `id : type : name : path`, plus three
-things folded in afterwards. Each was added because leaving it out produced a silent no-op.
+`keyOf(const PluginDoc&)` is `id : type : name`, plus what the plugin builds when it is created and
+cannot change afterwards. A different key is a replace: remove, then add. Leaving any of these out
+produces an empty diff — the file says one thing and the engine plays another.
 
-**Type, name and preset.** A module keeps its stable id when its plugin definition changes, so a
-different type *or* a different name — one VST3 swapped for another, both `"vst3"` — has to read
-as a replace rather than "the same plugin whose params drifted".
+**Type and name.** A module keeps its stable id when its plugin definition changes, so a different
+type *or* a different name — one VST3 swapped for another, both `"vst3"` — reads as a replace
+rather than "the same plugin whose params drifted".
 
-**The sidechain source.** The second input is wired when the plugin is inserted, by `EditBuilder`,
-and nowhere else. Left out of the key, re-aiming the cable is an empty diff. `docs/sidechain.md`
-says it again from the routing side.
+**A Faust module's source, and a jsdsp module's GRAPH.** Both are built in the constructor — the
+program compiled, the nodes made and the PARAMS DECLARED from the graph. An edited module that
+reached the engine as "the same plugin" would keep running the old program under the old parameter
+names, and every value sent to a name the new one introduced would land nowhere, with nothing
+reporting a fault. The key carries each as a DIGEST — length and 64-bit FNV-1a — because it is
+rebuilt for every plugin on every apply, and a program can be tens of KB; `mustReplace` compares the
+full text of any pair whose keys match, so a collision is a replace and never an unheard edit.
 
-**A Faust module's source.** A Faust program is compiled in the plugin's *constructor*, so an
-edited program can only take effect by re-creating the plugin — saving `dsp.dsp` would otherwise
-reach the engine and change nothing you could hear. The key carries the source string itself, not
-a hash of it: the string is already in hand, and a hash collision here would be silent in exactly
-the way this guards against.
+**A pattern lane's shape.** How a pattern picks and plays its events is fixed at construction (its
+SOURCE is not: `PatternChanged`, in place).
 
-**A jsdsp module's GRAPH.** The same argument as Faust's, and it was missing for a long time. A
-`jsdsp` plugin builds its nodes and DECLARES ITS PARAMS from the graph JSON in its constructor, so
-an edited module reaches the engine and changes nothing: the old graph keeps running, under the old
-parameter names, and every value sent to a name the new module introduced lands nowhere.
+## What a module LOADS is reloaded into the same instance
 
-It is worse than inert, because the document and the engine then disagree about what the plugin
-*is* while agreeing about everything the diff looks at. Editing `stemcut` from a one-way `Cut` to a
-signed `Level` produced exactly that: the knob moved, the value travelled, the log said
-`~ stemBassA: Level = 0`, and the plugin on the track had no `Level` at all. Nothing anywhere
-reported a fault — the only symptom was a control that did nothing.
+A module's preset, a NAM module's model and cabinet IR, a platter's record, a rack's sounds and a
+module's second input are not identity. A different one is `PluginReloaded`: `loadPluginFiles` loads what moved into
+the LIVE instance — the same helper the build uses, so the two cannot disagree — the document's text
+params go back on top of a new preset as at insert, and `wireSidechain` re-aims the second input.
+The instance survives, and with it its tails, its place in the chain and a platter's needle state.
 
-**A NAM module's model and its IR.** Both are FILES loaded when the plugin is created
-(`EditBuilder`), so a different pick is a different plugin. Left out, choosing another amp in the
-picker wrote the file, recompiled the document, reached the engine — and produced an empty diff:
-the old model kept playing until something else forced a rebuild.
+A rack is reloaded slot by slot (`reloadRack`): a property set to its own value changes nothing, so an
+untouched pad costs nothing, and Tracktion's sampler — patched at fetch time,
+`engine/patches/tracktion.cmake` — decodes only the sounds no old one holds, moving the rest's audio
+across under its lock. Unpatched, any change to one pad decodes every sample of the rack twice, the
+second time holding the lock the audio thread takes. Measured on eight 90-second pads, remapping one
+note: the message thread's longest stall goes from 181 ms to 1 ms, and the longest gap in the audio
+stream from 30 ms to the 12 ms it shows idle; a rendered rack is sample-identical to the unpatched one.
 
-**A rack's sounds.** They are built at insert time rather than carried as params, so remapping a
-note or a clip would read as "same plugin" and the sampler would never rebuild. Compiled order is
-stable, so concatenating them is enough.
+A file going from SET to EMPTY is still a replace (`mustReplace`): nothing unloads a preset, a model
+or a record, and only a new instance is one without it.
+
+A second input whose SOURCE track arrives in the same diff is reloaded too, though the module did not
+change: the build wired it once, to a track that was not there.
 
 ## A duplicate key is warned about, not resolved
 
@@ -70,14 +74,27 @@ velocity, move — reached the engine and did nothing.
 
 `sameMasterChain` compares **in order**, unlike a track's plugin diff, which indexes by key: the
 master list *is* a signal order, and swapping the compressor and the EQ changes the sound while
-leaving both keys present. `keyOf` already carries type, name, preset and sidechain, so the
-comparison adds only what identity leaves out — the bypass and the parameter values.
+leaving both keys present. It compares identity, what each module loads, the bypass and the
+parameter values.
 
 Any difference at all is one `MasterChainChanged` and a **full rebuild**. Two reasons the
 incremental path does not pay here: the master list is not addressed by it (that one walks
 tracks), and editing the mix bus is a mixing decision taken between passes, not a knob turned
 while the song runs — where a track's plugin list is exactly the opposite. The cost is that
 changing the master chain stops playback. The song side is `packages/song/docs/masterChain.md`.
+
+## Sends are planned for the whole song at once
+
+Buses are numbered per DESTINATION in document order, the first sender wires the return, and a
+muted track that sends is a ROUTING — its output goes to its first destination instead of the mix
+(`feedsBusOnly`, `docs/editBuilder.md`). `SendPlan.h` makes those decisions once; the builder wires
+from it, and the diff compares its **routing signature** — everything the plan decides except the
+levels.
+
+A different signature is `SendsRewired` and a full rebuild: a send added, removed, re-aimed or
+enabled re-plans every bus. Muting or unmuting a track that sends is one too, since it turns a lane
+into a routing and back. The same signature with a level moved is `SendLevelChanged`, applied in
+place on the aux send the plan names — the fader-drag case, which a rebuild would stop the song for.
 
 ## What `needsFullRebuild` deliberately leaves out
 
@@ -91,16 +108,26 @@ exactly, they hand back to a rebuild themselves; those cases and the measurement
 **Known gap:** `diff()` walks the NEW params, so a *deleted* one emits nothing and the live plugin
 keeps its value until the next full rebuild.
 
-Three cases do force one:
+The cases that do force one:
 
-- **A track REMOVED.** The same INDEX correspondence, but permanent rather than transient: a lane
-  left standing under a document that got shorter puts every later track's clips, mute, input and
-  meter one lane off, for good. `docs/audit-stabilite.md` works the example through. This is the
-  one case where the incremental path was not merely incomplete but *wrong*, and it is why the
-  change kind is no longer a stub in `EngineHost::apply`.
-- **A plugin added in a diff that also adds a track.** Not about plugins at all: `trackById` maps a
-  doc track to the engine track at the same INDEX, so while the loop is still adding tracks the two
-  are briefly out of step and the plugin would land on the wrong lane. The remove path does not
-  care — it finds its plugin by id, never by track position.
-- **A plugin arriving with a sidechain source**, since that is wired by a pass which runs once
-  every track exists, and no insert here can do that.
+- **A track REMOVED.** A lane is found by its INDEX (`trackById`), so a lane left standing under a
+  document that got shorter puts every later track's clips, mute, input and meter one lane off.
+  `docs/audit-stabilite.md` works the example through.
+- **The same tracks in another ORDER, or a track INSERTED before a kept one.** Nothing else
+  differs, so without a change of its own the diff is empty — and the baseline takes the new order,
+  putting every later mute, input, arm and meter on its neighbour's lane. `TracksReordered` exists
+  only to say so.
+- **The sends REWIRED**, above.
+
+A track ADDED at the end is not one. `EngineHost::apply` makes the new lanes before the loop, in
+DOCUMENT order — the diff lists changes by id, and lanes made in that order would swap — takes the
+hidden preview lane out of their way, meters them, and then resolves every lane through the NEW
+document, which the rules above guarantee agrees with the old one on every kept track. A module
+with a second input is placed in place for the same reason: every lane it can name exists by then.
+
+## Changes arrive in CHAIN order
+
+A track's plugin changes are emitted walking its plugin LIST, not the key index: an add is placed
+after its predecessor, which must already be in, and two modules added together in key order —
+`amp` before `synth` — would have the first find nothing to follow and hand the whole apply to a
+rebuild. `diff_plugins_added_in_chain_order` pins it.

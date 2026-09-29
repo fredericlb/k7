@@ -49,6 +49,8 @@ ArpeggiatorPlugin::ArpeggiatorPlugin(te::PluginCreationInfo info)
     choice("Octaves", 1.0f, (float)Arpeggiator::maxOctaves, 1.0f, {"1", "2", "3", "4"});
     choice("Direction", 0.0f, 3.0f, 0.0f, {"Up", "Down", "Up-down", "Random"});
     events_.resize(maxEventsPerBlock);
+    // Sized HERE, on the message thread: a MidiMessageArray grows on add, and the adds happen on the audio thread.
+    passThrough_.reserve(maxEventsPerBlock);
 }
 
 ArpeggiatorPlugin::~ArpeggiatorPlugin()
@@ -72,13 +74,13 @@ void ArpeggiatorPlugin::midiPanic()
 {
     // The chord is HELD here, not downstream: a panic that only reached the instrument would leave
     // this playing the same notes at it again on the next block. See docs/panic.md.
-    arp_.reset();
+    resetPending_ = true;
 }
 
 void ArpeggiatorPlugin::reset()
 {
     // Nothing is emitted here: a reset has no buffer to put a note-off in, and the host sends all-notes-off.
-    arp_.reset();
+    resetPending_ = true;
 }
 
 void ArpeggiatorPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
@@ -101,14 +103,15 @@ float ArpeggiatorPlugin::paramValue(int index) const
 double ArpeggiatorPlugin::stepSeconds()
 {
     const int i = juce::jlimit(0, (int)rateBeats.size() - 1, juce::roundToInt(paramValue(kRate)));
-    // Read on the audio thread, once a block: the edit carries ONE tempo, and it is a plain number.
-    double bpm = 120.0;
-    if (auto* t = edit.tempoSequence.getTempo(0)) bpm = t->getBpm();
+    // Read on the audio thread, once a block, through the sequence Tracktion makes safe there — the TempoSetting objects are the message thread's.
+    const double bpm = edit.tempoSequence.getInternalSequence().getBpmAt(tracktion::TimePosition());
     return rateBeats[(size_t)i] * 60.0 / juce::jmax(minBpm, bpm);
 }
 
 void ArpeggiatorPlugin::applyToBuffer(const te::PluginRenderContext& fc)
 {
+    // First, before any note of this block is taken in: a stop's reset must not eat the chord that follows it.
+    if (resetPending_.exchange(false)) arp_.reset();
     if (fc.bufferForMidiMessages == nullptr) return;
     auto& midi = *fc.bufferForMidiMessages;
 

@@ -1,9 +1,12 @@
 #include "ProjectDiff.h"
 
+#include "SendPlan.h"   // the routing signature — JUCE-free, like this file
 #include "Warnings.h"   // warn() on a duplicate id — JUCE-free, so the fast test binary can link it
 
 #include <algorithm>
+#include <cstdint>
 #include <map>
+#include <set>
 #include <sstream>
 
 namespace studio {
@@ -20,31 +23,50 @@ std::string keyOf(const ClipDoc& c) {
     return s.str();
 }
 
+// A long text as its length and a 64-bit FNV-1a hash: the key is rebuilt for every plugin on every apply, and a Faust program can be tens of KB.
+std::string digestOf(const std::string& text) {
+    std::uint64_t h = 1469598103934665603ULL;
+    for (const unsigned char c : text) {
+        h ^= c;
+        h *= 1099511628211ULL;
+    }
+    std::ostringstream s;
+    s << text.size() << "." << std::hex << h;
+    return s.str();
+}
+
+// What the digest cannot promise, the pair check does: two programs sharing a key are compared in full, so a collision is a replace and never an unheard edit.
+bool sameSource(const PluginDoc& a, const PluginDoc& b) {
+    return a.faustDsp == b.faustDsp && a.dspGraph == b.dspGraph;
+}
+
+// A pair that shares a key and must STILL be re-created: its program differs, or a file it loaded is gone — nothing unloads one.
+bool mustReplace(const PluginDoc& a, const PluginDoc& b) {
+    const auto dropped = [&](const std::string PluginDoc::*f) { return !(a.*f).empty() && (b.*f).empty(); };
+    return !sameSource(a, b) || dropped(&PluginDoc::path) || dropped(&PluginDoc::namFile) ||
+           dropped(&PluginDoc::irFile) || dropped(&PluginDoc::deckFile);
+}
+
+// …and one whose FILES or second input moved: loaded again into the same instance, so its tails and its place are kept.
+bool filesMoved(const PluginDoc& a, const PluginDoc& b) {
+    return a.path != b.path || a.namFile != b.namFile || a.irFile != b.irFile || a.deckFile != b.deckFile ||
+           a.sidechainFrom != b.sidechainFrom || a.rack != b.rack;
+}
+
 std::string keyOf(const PluginDoc& p) {
-    // Type, name and preset, not just the id: one VST3 swapped for another must read as a replace (docs/projectDiff.md).
+    // Type and name, not just the id: one VST3 swapped for another must read as a replace. What a module LOADS is not identity — filesMoved() (docs/projectDiff.md).
     const std::string base = p.id.empty() ? std::string{} : p.id + ":";
-    std::string k = "plugin:" + base + p.type + ":" + p.name + ":" + p.path;
-    // The sidechain source is IDENTITY: it is wired only at insert, so re-aiming the cable would be an empty diff.
-    if (!p.sidechainFrom.empty()) k += "<-" + p.sidechainFrom;
-    // A Faust program is compiled in the plugin's CONSTRUCTOR, so its source too — verbatim, since a hash could collide.
-    if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
+    std::string k = "plugin:" + base + p.type + ":" + p.name;
+    // A Faust program is compiled in the plugin's CONSTRUCTOR, so its source too — digested, and checked in full by sameSource().
+    if (!p.faustDsp.empty()) k += "#" + digestOf(p.faustDsp);
     // A jsdsp GRAPH is built there too, params and all, so editing a module must read as a replace.
-    if (!p.dspGraph.empty()) k += "~" + p.dspGraph;
+    if (!p.dspGraph.empty()) k += "~" + digestOf(p.dspGraph);
     // How a pattern picks and plays its events is fixed at construction; its SOURCE is not — an edit is PatternChanged, in place.
     if (!p.patternLabel.empty()) {
         k += "%" + p.patternLabel + (p.patternCatchAll ? "*" : "") + "/" + p.patternPlays + (p.patternOnly ? "!" : "");
         for (const auto& c : p.patternClaimed) k += "," + c;
         for (const auto& b : p.patternBanks) k += ";" + b;
     }
-    // A platter's RECORD is loaded at insert, so putting another one on has to read as a replace.
-    if (!p.deckFile.empty()) k += "@" + p.deckFile;
-    // …and so are a NAM module's model and its cabinet IR: another pick is another plugin, or the diff is empty.
-    if (!p.namFile.empty()) k += "|nam=" + p.namFile;
-    if (!p.irFile.empty()) k += "|ir=" + p.irFile;
-    // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".
-    for (const auto& e : p.rack)
-        k += "|" + e.symbol + "=" + std::to_string(e.note) + "@" + e.clip
-             + "[" + std::to_string(e.start) + "," + std::to_string(e.length) + "]";
     return k;
 }
 
@@ -76,7 +98,7 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
 bool sameMasterChain(const std::vector<PluginDoc>& a, const std::vector<PluginDoc>& b) {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i)
-        if (keyOf(a[i]) != keyOf(b[i]) || a[i].enabled != b[i].enabled ||
+        if (keyOf(a[i]) != keyOf(b[i]) || mustReplace(a[i], b[i]) || filesMoved(a[i], b[i]) || a[i].enabled != b[i].enabled ||
             a[i].params != b[i].params)
             return false;
     return true;
@@ -104,13 +126,20 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
     auto fromPlugs = index(from.plugins, [](const PluginDoc& p) { return keyOf(p); });
     auto toPlugs = index(to.plugins, [](const PluginDoc& p) { return keyOf(p); });
 
-    for (auto& [k, p] : fromPlugs)
-        if (!toPlugs.count(k))
+    for (auto& [k, p] : fromPlugs) {
+        const auto there = toPlugs.find(k);
+        if (there == toPlugs.end() || mustReplace(*p, *there->second))
             out.push_back({ChangeKind::PluginRemoved, to.id, {}, {}, *p, {}, {}, 0, 0, 0, 0});
+    }
 
-    for (auto& [k, p] : toPlugs) {
+    // In CHAIN order, not key order: an add is placed after its predecessor, which must already be in (EngineHost::apply).
+    for (const auto& pd : to.plugins) {
+        const auto k = keyOf(pd);
+        // A duplicate key is diffed once, as index() keeps it.
+        if (const auto own = toPlugs.find(k); own == toPlugs.end() || own->second != &pd) continue;
+        const PluginDoc* p = &pd;
         auto it = fromPlugs.find(k);
-        if (it == fromPlugs.end()) {
+        if (it == fromPlugs.end() || mustReplace(*it->second, *p)) {
             out.push_back({ChangeKind::PluginAdded, to.id, {}, {}, *p, {}, {}, 0, 0, 0, 0});
             continue;
         }
@@ -119,6 +148,12 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
             Change ch{ChangeKind::PluginEnabledChanged, to.id};
             ch.plugin = *p;
             ch.enabled = p->enabled;
+            out.push_back(std::move(ch));
+        }
+        // Another preset, model, IR, record or second input, into the SAME instance (docs/projectDiff.md).
+        if (filesMoved(*it->second, *p)) {
+            Change ch{ChangeKind::PluginReloaded, to.id};
+            ch.plugin = *p;
             out.push_back(std::move(ch));
         }
         // A save of the pattern file: the plugin re-evaluates it and plays on, where a replace would restart the lane.
@@ -132,7 +167,7 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
             auto old = it->second->params.find(name);
             if (old == it->second->params.end() || old->second != val) {
                 Change ch{ChangeKind::PluginParamChanged, to.id};
-                ch.plugin = *p;
+                ch.pluginId = p->id;
                 ch.paramName = name;
                 ch.paramValue = val;
                 out.push_back(std::move(ch));
@@ -191,6 +226,41 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
     auto fromTracks = index(from.tracks, [](const TrackDoc& t) { return keyOf(t); });
     auto toTracks = index(to.tracks, [](const TrackDoc& t) { return keyOf(t); });
 
+    // Sends are wired for the whole song in one pass, so a routing that moved anywhere is one change; only a LEVEL can move in place.
+    if (routingSignature(from) != routingSignature(to)) {
+        out.push_back(Change{ChangeKind::SendsRewired, {}});
+    } else {
+        for (const auto& [k, t] : toTracks) {
+            const auto was = fromTracks.find(k);
+            if (was == fromTracks.end()) continue;
+            bool moved = was->second->sends.size() != t->sends.size();
+            for (size_t i = 0; !moved && i < t->sends.size(); ++i)
+                moved = was->second->sends[i].level != t->sends[i].level;
+            if (moved) {
+                Change ch{ChangeKind::SendLevelChanged, t->id};
+                ch.track = *t;
+                out.push_back(std::move(ch));
+            }
+        }
+    }
+
+    // The tracks both documents hold, in each one's order: a lane is found by index, so a reorder is a change even with nothing else moving.
+    // An ADDED track is in place only at the END: one inserted before a kept track shifts every lane after it, which is a reorder too.
+    {
+        std::vector<std::string> kept, now;
+        for (const auto& t : from.tracks) if (toTracks.count(keyOf(t))) kept.push_back(t.id);
+        bool addedSeen = false, keptAfterAdded = false;
+        for (const auto& t : to.tracks) {
+            if (fromTracks.count(keyOf(t))) {
+                now.push_back(t.id);
+                keptAfterAdded = keptAfterAdded || addedSeen;
+            } else {
+                addedSeen = true;
+            }
+        }
+        if (kept != now || keptAfterAdded) out.push_back(Change{ChangeKind::TracksReordered, {}});
+    }
+
     // Removals first, so indices/contents settle before adds.
     for (auto& [k, t] : fromTracks) {
         if (!toTracks.count(k)) {
@@ -246,16 +316,29 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
         }
     }
 
+    // A second input whose SOURCE track just arrived is wired now, though its module did not change: the build wired it once, to nothing.
+    std::set<std::string> fromIds, toIds;
+    for (const auto& t : from.tracks) fromIds.insert(t.id);
+    for (const auto& t : to.tracks) toIds.insert(t.id);
+    for (const auto& t : to.tracks) {
+        const auto was = fromTracks.find(keyOf(t));
+        if (was == fromTracks.end()) continue;
+        for (const auto& p : t.plugins) {
+            if (p.sidechainFrom.empty() || fromIds.count(p.sidechainFrom) == toIds.count(p.sidechainFrom)) continue;
+            for (const auto& q : was->second->plugins)
+                if (keyOf(q) == keyOf(p) && !mustReplace(q, p) && !filesMoved(q, p)) {
+                    Change ch{ChangeKind::PluginReloaded, t.id};
+                    ch.plugin = p;
+                    out.push_back(std::move(ch));
+                }
+        }
+    }
+
     return out;
 }
 
 bool needsFullRebuild(const ProjectDiff& d) {
     // Plugin add/remove/param are deliberately absent: a rebuild costs 4026 ms of a 4169 ms apply on a 32-plugin song (docs/projectDiff.md).
-
-    // A track added in the SAME diff excludes the incremental plugin insert: trackById maps by INDEX, so the lane would be wrong. (A track REMOVED takes the whole diff to a rebuild below.)
-    bool tracksMoved = false;
-    for (const auto& c : d)
-        if (c.kind == ChangeKind::TrackAdded) tracksMoved = true;
 
     for (const auto& c : d)
         switch (c.kind) {
@@ -264,14 +347,15 @@ bool needsFullRebuild(const ProjectDiff& d) {
             // A track GOING is a rebuild: trackById maps a doc INDEX onto a lane, so a lane outliving a shortened document moves every later track's — docs/projectDiff.md.
             case ChangeKind::TrackRemoved:
                 return true;
+            // …and so are the tracks MOVING, a track inserted before a kept one included: a lane is found by its index.
+            case ChangeKind::TracksReordered:
+                return true;
+            // Buses are numbered across the whole song, so a routing change re-plans every send.
+            case ChangeKind::SendsRewired:
+                return true;
             // The master list is not on the incremental path — that one walks TRACKS — so the chain is rebuilt whole.
             case ChangeKind::MasterChainChanged:
                 return true;
-            case ChangeKind::PluginAdded:
-                if (tracksMoved) return true;
-                // A sidechain is wired by a pass that runs once every track exists, which no insert can do here.
-                if (c.plugin && !c.plugin->sidechainFrom.empty()) return true;
-                break;
             default:
                 break;
         }
@@ -288,6 +372,10 @@ std::string describe(const Change& c) {
         case ChangeKind::SampleRateChanged:    s << "sample rate -> " << c.intA << " (full rebuild)"; break;
         case ChangeKind::TrackAdded:           s << "+ track " << c.trackId; break;
         case ChangeKind::TrackRemoved:         s << "- track " << c.trackId << " (full rebuild)"; break;
+        case ChangeKind::TracksReordered:      s << "~ tracks reordered (full rebuild)"; break;
+        case ChangeKind::SendsRewired:         s << "~ sends rewired (full rebuild)"; break;
+        case ChangeKind::PluginReloaded:       s << "~ " << c.trackId << ": " << (c.plugin ? c.plugin->id : std::string{}) << " reloaded"; break;
+        case ChangeKind::SendLevelChanged:     s << "~ " << c.trackId << ": send level"; break;
         case ChangeKind::TrackRenamed:         s << "~ track " << c.trackId << " renamed"; break;
         case ChangeKind::TrackParamsChanged:   s << "~ track " << c.trackId << " mute/solo"; break;
         case ChangeKind::TrackInputChanged: {

@@ -13,6 +13,7 @@
 
 #include "DspGraph.h"
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -52,6 +53,8 @@ public:
 
 private:
     std::unique_ptr<DspGraph> graph_;
+    // Raised on the message thread by a stop or a panic, honoured by the next block: the graph is the audio thread's (docs/panic.md).
+    std::atomic<bool> resetPending_{false};
     std::vector<tracktion::engine::AutomatableParameter::Ptr> params_;
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
     // Read once per block and handed over, so the graph never touches Tracktion's parameter objects.

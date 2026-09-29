@@ -19,6 +19,18 @@ void applyTrackParams(te::AudioTrack& track, const TrackDoc& t);
 // Re-apply mute across the whole mixer to resolve solo (a mixer-wide relationship).
 void applySoloMute(te::Edit& edit, const ProjectDoc& doc);
 
+// The files a module loads, where they differ from `was` (all of them when null); params are the caller's, since a preset overrides them.
+void loadPluginFiles(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p, const PluginDoc* was);
+
+// A sampler's sounds made to match `p.rack`, slot by slot, touching only what differs.
+void reloadRack(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p);
+
+// A module's second input aimed at `from` through `doc`, or unwired when `from` is empty.
+void wireSidechain(te::Edit& edit, te::Plugin& plugin, const std::string& from, const ProjectDoc& doc);
+
+// One track's send LEVELS on the live aux sends, found by the bus the plan gives them — only valid while the routing signature is unchanged.
+void applySendLevels(te::Edit& edit, const ProjectDoc& doc, const std::string& trackId);
+
 // Insert a wave clip (MIDI clips are skipped — see insertMidiClip).
 void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
                 const ClipDoc& c, const std::string& baseDir);

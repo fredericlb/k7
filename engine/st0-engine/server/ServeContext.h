@@ -1,0 +1,104 @@
+// ServeContext.h — what every message handler of the server shares: the host, the two broadcast verbs,
+// who listens to and drives what, and the detached work serve() waits for. JUCE-free, like Serve.cpp.
+// The one thing a reader would get wrong: it lives in serve()'s frame, so anything that outlives serve() must not hold it.
+
+#pragma once
+
+#include <ixwebsocket/IXWebSocket.h>
+#include <nlohmann/json.hpp>
+
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <initializer_list>
+#include <map>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include <EngineHost.h>
+
+namespace studio {
+
+class AudioSender;
+
+// The detached threads a message starts, COUNTED so serve() can wait for them: each captures serve()'s frame by reference (docs/audit-stabilite.md).
+struct DetachedWork {
+    std::mutex m;
+    std::condition_variable idle;
+    int running = 0;
+
+    template <typename F>
+    void spawn(F fn) {
+        {
+            std::lock_guard<std::mutex> lk(m);
+            ++running;
+        }
+        std::thread([this, fn = std::move(fn)]() mutable {
+            fn();
+            std::lock_guard<std::mutex> lk(m);
+            if (--running == 0) idle.notify_all();
+        }).detach();
+    }
+
+    // True when every one has finished inside `limit`.
+    bool waitIdle(std::chrono::milliseconds limit) {
+        std::unique_lock<std::mutex> lk(m);
+        return idle.wait_for(lk, limit, [this] { return running == 0; });
+    }
+};
+
+struct ServeContext {
+    EngineHost& host;
+    DetachedWork& work;
+    std::string engineId;
+    std::string engineToken;
+
+    // Every connected client — for the MACHINE's replies only; a project's go through broadcastTo (docs/protocol.md).
+    std::function<void(const nlohmann::json&)> broadcast;
+    // The same, stamped with the project it is about — two verbs, so a new reply must CHOOSE one in a reviewable word.
+    std::function<void(const std::string&, nlohmann::json)> broadcastTo;
+
+    // Guards the three maps below; IXWebSocket runs each connection's callback on its own thread.
+    std::mutex listenersMx;
+    // Who asked for audio, by POINTER matched against server.getClients(): the stream must never reach a connection that did not ask.
+    std::unordered_map<const ix::WebSocket*, std::string> listeners;
+    // Which sockets DRIVE a session, declared on hello with `{"role":"driver"}`, at most one session each (docs/sessions.md).
+    std::unordered_map<const ix::WebSocket*, std::string> drivers;
+    // WHICH project each socket is about, bound ONCE from its first real message, so a state frame reaches only those (docs/protocol.md).
+    std::unordered_map<const ix::WebSocket*, std::string> subscribers;
+
+    // The audio stream's sender, set once serve() has built it.
+    AudioSender* audio = nullptr;
+};
+
+// One message kind's answer: the socket it came on, the parsed message, its session and its type.
+using Handler = std::function<void(ServeContext&, ix::WebSocket&, const nlohmann::json&,
+                                   const std::string& session, const std::string& type)>;
+
+class HandlerTable {
+public:
+    void add(std::initializer_list<const char*> types, Handler h) {
+        for (const char* t : types) table_[t] = h;
+    }
+    const Handler* find(const std::string& type) const {
+        const auto it = table_.find(type);
+        return it == table_.end() ? nullptr : &it->second;
+    }
+
+private:
+    std::map<std::string, Handler> table_;
+};
+
+// The handlers, by concern — docs/protocol.md is the catalogue.
+void addProjectHandlers(HandlerTable&);
+void addPluginHandlers(HandlerTable&);
+void addMachineHandlers(HandlerTable&);
+
+// One serialized plugin scan for the whole process; a warm cache short-circuits unless `force`.
+std::vector<PluginInfo> ensurePluginsScanned(bool force);
+
+}  // namespace studio

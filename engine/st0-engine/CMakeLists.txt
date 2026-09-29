@@ -136,6 +136,8 @@ FetchContent_Declare(faust
     GIT_TAG        2.85.9
     GIT_SUBMODULES "libraries"
     GIT_SHALLOW    ON
+    # poly-dsp.h prints on the audio thread at every voice steal; explained in the script.
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/faust.cmake"
     SOURCE_SUBDIR  build)
 
 # --- QuickJS (quickjs-ng) : evaluates Strudel patterns, for PatternPlugin --------
@@ -211,6 +213,8 @@ FetchContent_Declare(tracktion_engine
     # Shallow: Tracktion's history is 1.6 GB, cloned in silence, which on a CI agent reads as a hang.
     # The JUCE submodule is still fetched whole, at the very commit v3.2.0 pins.
     GIT_SHALLOW    ON
+    # SamplerPlugin re-decodes every rack sound on any change to one; explained in the script.
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/tracktion.cmake"
     ${STUDIO_TRACKTION_SUBDIR})
 
 # --- Steinberg ASIO SDK : low-latency Windows audio (engine) ------------------

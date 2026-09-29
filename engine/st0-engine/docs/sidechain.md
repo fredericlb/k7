@@ -40,8 +40,8 @@ and reading it is `base = port * 2`. No names cross the gap between the module f
 | `GraphDspPlugin::getChannelNames` | a stereo pair per port past the first |
 | `GraphDspPlugin::canSidechain` | true when the graph declares more than one input |
 | `PluginDoc::sidechainFrom` + `server/DocJson.cpp` | the source TRACK id, on the wire |
-| `EditBuilder` | `setSidechainSourceID` plus `guessSidechainRouting`, in a pass of its own |
-| `ProjectDiff::keyOf` | folds the source into plugin identity, so re-aiming a cable is not an empty diff |
+| `EditBuilder::wireSidechain` | `setSidechainSourceID` plus `guessSidechainRouting` — at build, in a pass of its own, and in place |
+| `ProjectDiff` | a moved source is `PluginReloaded`, so re-aiming a cable is not an empty diff |
 
 Two of those deserve a sentence.
 
@@ -50,10 +50,12 @@ made — so wiring it inline while plugins are being inserted would find nothing
 lane comes later in the doc. It runs after the track loop, beside the aux sends, for the same reason
 they do.
 
-**The diff key.** The sidechain is wired exactly once, when the plugin is inserted, and nowhere
-else. Left out of `keyOf`, moving the cable in the song is an *empty diff*: the file says one thing
-and the engine goes on playing another, with nothing on screen to suggest it. Folding it into
-identity makes a re-wire read as a replace, which rebuilds.
+**The diff.** A moved source would otherwise be an *empty diff*: the file says one thing and the
+engine goes on playing another, with nothing on screen to suggest it. So a different `sidechainFrom`
+is `PluginReloaded`, and `wireSidechain` re-aims the LIVE instance — the module keeps its state. A
+source track that arrives in the same diff is wired too: `EngineHost::apply` makes every new lane
+before the loop, so the source has its `EditItemID` by the time the module is placed
+(`docs/projectDiff.md`).
 
 ## Muting the source still feeds it
 

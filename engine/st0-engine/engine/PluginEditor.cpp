@@ -37,8 +37,8 @@ namespace studio {
 
 namespace {
 
-// Whether a plugin's text params fully reproduce its state — a round-trip through a second, throwaway instance in the LIVE edit.
-bool paramsCompleteForLive(te::Edit& edit, te::Plugin& plugin) {
+// Whether a plugin's text params fully reproduce its state — a round-trip through a second instance in the LIVE edit, built once per plugin and kept in `probe`.
+bool paramsCompleteForLive(te::Edit& edit, te::Plugin& plugin, te::Plugin::Ptr& probe) {
     auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
     if (ext == nullptr)
         return true;
@@ -47,7 +47,10 @@ bool paramsCompleteForLive(te::Edit& edit, te::Plugin& plugin) {
         return false;
     juce::MemoryBlock a;
     inst->getStateInformation(a);
-    auto plugin2 = edit.getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, inst->getPluginDescription());
+    // Loading a big instrument is seconds on the message thread, so the probe is reused: every param is re-applied, and it never receives any other state.
+    if (probe == nullptr)
+        probe = edit.getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, inst->getPluginDescription());
+    auto plugin2 = probe;
     auto* ext2 = dynamic_cast<te::ExternalPlugin*>(plugin2.get());
     if (ext2 == nullptr)
         return false;
@@ -354,7 +357,7 @@ void PluginEditorController::persist(const std::string& id) {
             last = cur;
         }
 
-    if (sess_->edit && paramsCompleteForLive(*sess_->edit, plugin)) {
+    if (sess_->edit && paramsCompleteForLive(*sess_->edit, plugin, sess_->paramProbes[id])) {
         juce::File(juce::String(sp->second)).deleteFile();   // text params supersede it
         if (impl_.pluginParamsCb)
             impl_.pluginParamsCb(session_, id, paramsJson(plugin).toStdString());
@@ -469,8 +472,8 @@ void EngineHost::showNativePluginUI(const std::string& session, const std::strin
 
 namespace {
 
-/** The orphan windows, keyed like their plugins and kept for the process — a file static, docs/pluginEditors.md. */
-std::map<std::string, std::unique_ptr<PluginWindow>> orphanWindows;
+/** The orphan windows, keyed like their plugins and kept for the process — docs/pluginEditors.md. LEAKED like the engine they live in: a window destroyed at exit, after JUCE, is a crash. */
+auto& orphanWindows = *new std::map<std::string, std::unique_ptr<PluginWindow>>();
 
 }  // namespace
 

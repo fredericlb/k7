@@ -202,6 +202,13 @@ int writeWaveformCache(const std::string& audioPath, double transientSensitivity
     const std::int64_t frames = reader->lengthInSamples;
     const double sampleRate = reader->sampleRate > 0 ? reader->sampleRate : 48000.0;
     const int channels = static_cast<int>(reader->numChannels);
+    // A header is not trusted to size the buffers below: no channel is a division by zero, and a length past twelve hours is a corrupt file, not a song.
+    constexpr double kMaxSeconds = 12 * 3600.0;
+    if (channels <= 0 || static_cast<double>(frames) > kMaxSeconds * sampleRate) {
+        std::cerr << "[waveform] implausible header (" << channels << " channel(s), " << frames
+                  << " frames): " << audioPath << "\n";
+        return 2;
+    }
     const int useCh = std::min(channels, 2);  // mono-sum over the first 1–2 channels
 
     const std::int64_t buckets = frames <= 0

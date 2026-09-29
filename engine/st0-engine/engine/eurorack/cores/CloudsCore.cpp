@@ -22,7 +22,8 @@ constexpr size_t SMALL = 65536 - 128;
 // The codec conversion halves the level (SoftConvert limits x * 0.5); the module's output stage makes it back.
 constexpr float MAKEUP = 2.0f;
 
-short toShort(float x) { return (short)std::clamp((int)std::lround(x * 32767.0f), -32768, 32767); }
+// Clamped as a FLOAT, and a NaN made silence first: lround of a NaN or of a value past `long` is undefined.
+short toShort(float x) { return (short)std::lround(std::clamp(std::isfinite(x) ? x : 0.0f, -1.0f, 1.0f) * 32767.0f); }
 
 }  // namespace
 

@@ -217,7 +217,13 @@ int main(int argc, char** argv) {
                 path = line.substr(0, tab);
                 sensitivity = std::atof(line.c_str() + tab + 1);
             }
-            const int rc = studio::writeWaveformCache(path, sensitivity);
+            // One file's failure is one `err` line, whatever it throws: the batch promises to go on.
+            int rc = 1;
+            try {
+                rc = studio::writeWaveformCache(path, sensitivity);
+            } catch (const std::exception& e) {
+                std::cerr << "[waveform] " << path << ": " << e.what() << "\n";
+            }
             std::cout << (rc == 0 ? "ok\t" : "err\t") << path << "\n" << std::flush;
         }
         return 0;

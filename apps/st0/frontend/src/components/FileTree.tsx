@@ -24,7 +24,11 @@ import {
   X,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
+import { showToast } from "@studio/project-shell/toast";
+import {
+  isLibraryAudio,
+  MODULE_SOURCES_DIR,
+} from "@studio/song-schema/moduleTypes";
 import type { ModuleLibrary } from "@studio/web-protocol";
 import {
   type Ref,
@@ -36,6 +40,7 @@ import {
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import {
+  isSoundFolder,
   type LibraryAssemblyRow,
   type LibraryChainRow,
   libraryTree,
@@ -525,6 +530,22 @@ export function FileTree({
             reveal={lib.tree[0]?.path ?? null}
             // A read-only level's rows are greyed: they name a plugin the engine reports, with no file behind them to open.
             isDisabled={(n) => isBinary(n) || frozen.has(n.path)}
+            // A sound dropped on a library's `samples/` or `irs/` is UPLOADED there — the one drop this tab takes.
+            acceptsFileDrop={dragHasFiles}
+            onDropTree={(dir, files) => {
+              if (!isSoundFolder(dir))
+                return void showToast({
+                  message: "drop sounds on a library's samples/ or irs/ folder",
+                  variant: "error",
+                });
+              const sounds = files.filter((f) => isLibraryAudio(f.path));
+              if (sounds.length < files.length)
+                showToast({
+                  message: `${files.length - sounds.length} file(s) left out — a library's sounds are .wav, .aif or .flac`,
+                  variant: "error",
+                });
+              if (sounds.length) onUpload(dir, sounds);
+            }}
             onOpen={(node) => {
               // A CHAIN first: it is a folder holding a `graph.yaml` and a `nodes/`, which the module lookup below cannot tell apart.
               const chain = chainByPath.get(node.path);

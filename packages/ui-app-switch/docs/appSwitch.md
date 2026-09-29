@@ -1,8 +1,8 @@
 # The app switch
 
 One button, in the header of every app that has somewhere to go: a menu with a row per app on
-the origin, minus the one drawing it. **st0's home page and pl8's header mount the same
-component**, which is the whole reason this is a package — the switch is about the ORIGIN and
+the origin, minus the one drawing it. **st0's home page, pl8's header and k7's header mount the
+same component**, which is the whole reason this is a package — the switch is about the ORIGIN and
 its four apps, so an app-local copy would be one table of addresses per app.
 
 ## What is in it

@@ -56,3 +56,24 @@ a note with no note-off in reach, through a stop and then a panic.
 
 That is the rule for anything added later: **a MIDI module with state answers `midiPanic()`**, or
 the button silences everything downstream of it and nothing in it.
+
+## Both calls arrive on the MESSAGE thread, so neither touches audio state
+
+`te::midiPanic` calls `midiPanic()` and `reset()` on whatever thread calls it, and
+`EngineHost::stop` and `EngineHost::panic` run on the message thread while the graph keeps
+processing. So every plugin this engine owns answers both by **raising an atomic flag**, and the
+next `applyToBuffer` clears the state before it takes in anything of its own block. Clearing it in
+place is a data race on every stop: the arpeggiator zeroing its held count while the audio thread
+divides by it is an integer division by zero, which is a crash.
+
+The eurorack modules were the first to do it; `ArpeggiatorPlugin`, `MidiGraphPlugin`,
+`GraphDspPlugin`, `FaustPlugin`, `TurntablePlugin`, `QuickMasterPlugin` and `MixerPlugin` do the
+same, each with a private `clearState()` that only the audio thread calls, and `WaveformTapPlugin`
+for its half-filled bucket. `NamPlugin` is the one
+exception, and for a reason: its reset re-prepares the network, thousands of samples of inference
+that must not land on the audio thread. It stays on the message thread under the lock its
+`applyToBuffer` try-locks, so the audio side passes a block through dry rather than meeting a
+half-reset model or convolver.
+
+Tracktion also calls `reset()` from `initialise()` when the rate or block size changes; the flag
+makes that one land on the first block too, which is where it belongs.

@@ -12,6 +12,9 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "Biquad.h"   // IIRFilter's arithmetic without its lock
+
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -47,12 +50,17 @@ public:
     static constexpr float highHz = 4000.0f;
 
 private:
+    // A stop or a panic on the message thread only raises this; the next block clears the state it owns (docs/panic.md).
+    std::atomic<bool> resetPending_{false};
+    void clearState();
     struct Band {
-        juce::IIRFilter ch[2];
+        studio::Biquad ch[2];
     };
     Band low_, mid_, high_;
     // Set once per block from the parameters, so the per-sample path reads no Tracktion objects.
     float lastLowDb_ = 0.0f, lastMidDb_ = 0.0f, lastHighDb_ = 0.0f;
+    // The gains the last block ENDED on, so a moving fader ramps rather than steps; negative until a first block has run.
+    float lastLeftGain_ = -1.0f, lastRightGain_ = -1.0f;
     bool coeffsValid_ = false;
 
     tracktion::engine::AutomatableParameter::Ptr volume_, pan_, lowGain_, midGain_, highGain_;

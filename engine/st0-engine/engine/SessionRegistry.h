@@ -43,8 +43,15 @@ public:
 
     /** MESSAGE THREAD. Forget a session entirely — its Edit, plugins, meters and taps. */
     void erase(const std::string& id) {
-        std::lock_guard<std::mutex> lock(mx_);
-        map_.erase(id);
+        // Taken out under the lock and destroyed after it: a session's teardown is not what the sender thread should wait on.
+        std::unique_ptr<T> gone;
+        {
+            std::lock_guard<std::mutex> lock(mx_);
+            auto it = map_.find(id);
+            if (it == map_.end()) return;
+            gone = std::move(it->second);
+            map_.erase(it);
+        }
     }
 
     /** Which sessions exist, copied out so the caller can walk them without holding the lock. */

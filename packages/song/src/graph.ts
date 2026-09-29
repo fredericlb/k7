@@ -163,6 +163,7 @@ export interface ModuleUI {
 // One rack sound triggered by a MIDI note: its own `clip` in a "samples" rack, a [from, to) second window in a "slice" one.
 export interface RackSound {
   note: number; // MIDI note 0..127 the sound maps to
+  sample?: string; // a TAP's library sample, `@<library>/<path>` — resolved into `clip` by the loader
   clip?: string; // samples: a clips/<id> id (resolved to an absolute path for the engine)
   from?: number; // slice: window start in the source, seconds
   to?: number; // slice: window end in the source, seconds

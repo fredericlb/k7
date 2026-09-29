@@ -11,6 +11,7 @@
    the extra segment; a @source path that doesn't exist is ignored silently. */
 @source "../../../../commons/packages/ui/src";
 @source "../../../../packages/ui-waveform/src";
+@source "../../../../packages/ui-app-switch/src";
 @source "../../packages/recorder/src";
 
 /* Tailwind's preflight zeroes element margins; the hand-written stylesheet

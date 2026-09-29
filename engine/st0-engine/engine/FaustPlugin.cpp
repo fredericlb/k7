@@ -6,6 +6,7 @@
 #include "faust/gui/UI.h"
 
 #include <algorithm>
+#include <cmath>
 #include <list>
 
 // Faust defines these two statics in no library, so every architecture file carries them; this file is ours.
@@ -211,7 +212,8 @@ void FaustPlugin::initialise(const te::PluginInitialisationInfo& info)
     run_->init(static_cast<int>(info.sampleRate));
 
     // The scratch buffers, allocated HERE and never in the callback; in-place is not something a `.dsp` promises.
-    const auto n = static_cast<size_t>(juce::jmax(info.blockSizeSamples, 1));
+    // Sized for the largest block a device hands over, not the one announced: a block past the buffer is skipped whole, which is silence.
+    const auto n = static_cast<size_t>(juce::jmax(info.blockSizeSamples, 8192));
     in_.assign(static_cast<size_t>(juce::jmax(numIn_, 1)), std::vector<float>(n, 0.0f));
     out_.assign(static_cast<size_t>(juce::jmax(numOut_, 1)), std::vector<float>(n, 0.0f));
     // The per-SEGMENT pointer arrays, sized here so renderWithNotes allocates nothing on the audio thread.
@@ -222,6 +224,11 @@ void FaustPlugin::initialise(const te::PluginInitialisationInfo& info)
 void FaustPlugin::deinitialise() {}
 
 void FaustPlugin::reset()
+{
+    resetPending_ = true;
+}
+
+void FaustPlugin::clearState()
 {
     if (run_ != nullptr) run_->instanceClear();
 }
@@ -278,6 +285,7 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     // A resonant tail is the canonical denormal generator, and the symptom is an engine that slows down.
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || run_ == nullptr) return;
+    if (resetPending_.exchange(false)) clearState();
 
 
     const int n = ctx.bufferNumSamples;
@@ -301,6 +309,15 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     }
 
     renderWithNotes(ctx, n);
+
+    // A user program can divide by zero; its NaN is silenced here, and the instance cleared next block, since one in its state never decays.
+    bool poisoned = false;
+    for (int c = 0; c < numOut_; ++c) {
+        float* v = out_[static_cast<size_t>(c)].data();
+        for (int i = 0; i < n; ++i)
+            if (!std::isfinite(v[i])) { v[i] = 0.0f; poisoned = true; }
+    }
+    if (poisoned) resetPending_ = true;
 
     for (int c = 0; c < chans; ++c) {
         // A mono program feeds both sides; past what it produces a channel is LEFT as it was, not zeroed.

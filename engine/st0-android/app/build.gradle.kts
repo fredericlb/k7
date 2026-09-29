@@ -40,13 +40,15 @@ kotlin {
 }
 
 // The versions Capacitor's own module is built against (its build.gradle's defaults), for what the app
-// uses of them directly: BridgeActivity is an AppCompatActivity, and AppViewsPlugin draws under the insets.
+// uses of them directly: BridgeActivity is an AppCompatActivity, AppViewsPlugin draws under the insets, and
+// StudioBridge talks to the apps' pages through androidx.webkit's WebMessageListener.
 dependencies {
     implementation(project(":capacitor-android"))
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity:1.11.0")
     implementation("androidx.core:core:1.17.0")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
+    implementation("androidx.webkit:webkit:1.14.0")
 }
 
 val engineDir = rootDir.resolve("../st0-engine")
@@ -102,7 +104,7 @@ val stageFaustLibs by tasks.registering {
 
 android.sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("engine-assets"))
 
-// The page (web/: the header, the engine tray), built by its workspace and staged the way `cap copy` would
+// The page (web/: the engine tray, shown while no studio is connected), built by its workspace and staged the way `cap copy` would
 // lay it out: the bundle under public/, beside the config Capacitor reads at start and the list of npm
 // plugins it would load — none, since the app's two plugins are registered by MainActivity itself.
 val webDir = rootDir.resolve("web")

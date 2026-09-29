@@ -21,8 +21,8 @@ public:
     static constexpr size_t CAPACITY = 16384;
     static constexpr size_t MASK = CAPACITY - 1;
 
-    // How far behind the writer the reader resumes after an overrun — 2048 frames, four times the largest block configured here, so it never copies slots being written.
-    static constexpr size_t MARGIN = 2048;
+    // How far behind the writer the reader resumes after an overrun — above the largest block any device opens here (Android's 40 ms at 96 kHz is 3840), so it never copies slots being written.
+    static constexpr size_t MARGIN = 4096;
     static constexpr size_t SAFE = CAPACITY - MARGIN;
 
     BroadcastTap() : buffer_(CAPACITY * CHANNELS, 0.0f) {}
@@ -72,6 +72,14 @@ public:
             const size_t at = ((lastRead_ + i) & MASK) * CHANNELS;
             for (int c = 0; c < CHANNELS; ++c)
                 out[i * CHANNELS + (size_t)c] = buffer_[at + (size_t)c];
+        }
+        // Checked AGAIN after the copy, as RecorderTap does: a sender lapped mid-copy holds torn frames, sent as silence rather than a click.
+        std::atomic_thread_fence(std::memory_order_acquire);
+        const auto after = writeHead_.load(std::memory_order_acquire);
+        if (after - lastRead_ > SAFE) {
+            const size_t torn = (std::min)(n, (size_t)(after - lastRead_ - SAFE));
+            std::fill(out.begin(), out.begin() + (std::ptrdiff_t)(torn * CHANNELS), 0.0f);
+            d.lostFrames += torn;
         }
         lastRead_ += n;
         d.frames = n;

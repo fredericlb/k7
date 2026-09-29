@@ -15,17 +15,20 @@ export const PLUGIN = "deckA:platter";
 
 /** One mono 16-bit wav in a scratch folder, and where it landed. */
 export function writeWav(pcm: Int16Array, rate: number, tag: string): string {
-  const bytes = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  // STEREO, both sides the same: what a record off the médiathèque is, and the format the deck maps rather than decodes.
+  const stereo = new Int16Array(pcm.length * 2);
+  for (let i = 0; i < pcm.length; i++) stereo[2 * i] = stereo[2 * i + 1] = pcm[i];
+  const bytes = Buffer.from(stereo.buffer, stereo.byteOffset, stereo.byteLength);
   const h = Buffer.alloc(44);
   h.write("RIFF", 0);
   h.writeUInt32LE(36 + bytes.length, 4);
   h.write("WAVEfmt ", 8);
   h.writeUInt32LE(16, 16);
   h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(1, 22);
+  h.writeUInt16LE(2, 22);
   h.writeUInt32LE(rate, 24);
-  h.writeUInt32LE(rate * 2, 28);
-  h.writeUInt16LE(2, 32);
+  h.writeUInt32LE(rate * 4, 28);
+  h.writeUInt16LE(4, 32);
   h.writeUInt16LE(16, 34);
   h.write("data", 36);
   h.writeUInt32LE(bytes.length, 40);
@@ -131,6 +134,28 @@ export function platterDoc(source: string, rate: number, params = {}) {
   };
 }
 
+// The stream at the DEVICE's rate brought to the rate the analyses count in, linearly, phase carried across chunks (docs/audit-stabilite.md).
+export function streamResampler(to: number): (mono: Float32Array, from: number) => Float32Array {
+  let pos = 0; // where the next output sample falls, in input samples from the start of the next chunk
+  let carry = 0; // the previous chunk's last sample, for a position between the two chunks
+  return (mono, from) => {
+    if (from === to || mono.length === 0) return mono;
+    const step = from / to;
+    const out: number[] = [];
+    while (pos < mono.length - 1) {
+      const i = Math.floor(pos);
+      const frac = pos - i;
+      const a = i < 0 ? carry : mono[i];
+      const b = mono[i + 1];
+      out.push(a + (b - a) * frac);
+      pos += step;
+    }
+    pos -= mono.length;
+    carry = mono[mono.length - 1];
+    return Float32Array.from(out);
+  };
+}
+
 /** The master stream, one mono chunk per frame — `LSTR`, and anything else is not for us.
  *
  * Returns the least-delayed estimate of when sample 0 was produced, which is how a sample index
@@ -143,6 +168,7 @@ export function onBroadcast(
 ): () => number {
   let seen = 0;
   let origin = Number.POSITIVE_INFINITY;
+  const resample = streamResampler(rate);
   ws.on("message", (data: ArrayBuffer | Buffer, isBinary: boolean) => {
     if (!isBinary) return;
     const buf =
@@ -152,11 +178,14 @@ export function onBroadcast(
     const dv = new DataView(buf);
     if (dv.getUint32(0, true) !== 0x4c535452) return;
     const channels = dv.getUint8(5);
+    const streamRate = dv.getUint32(8, true);
     const frames = dv.getUint32(12, true);
     const all = new Float32Array(buf, 32, frames * channels);
-    const mono = new Float32Array(frames);
-    for (let i = 0; i < frames; i++) mono[i] = all[i * channels];
-    seen += frames;
+    const raw = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) raw[i] = all[i * channels];
+    // At the rate the caller counts in, whatever rate the device runs at.
+    const mono = resample(raw, streamRate);
+    seen += mono.length;
     // This chunk ENDS at `seen`, so it was produced no later than now — keep the tightest guess.
     origin = Math.min(origin, performance.now() - (seen / rate) * 1000);
     take(mono);

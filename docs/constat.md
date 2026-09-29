@@ -247,9 +247,12 @@ dies, **the engine stays alive behind it**, the tray restarts it on its fallback
 supervisor re-adopts the engine by its pidfile. It recovers, so it passes unseen. Same family on the
 file-service side, where `wrap()` can see nothing: it only catches what the handler *returns*.
 
-**Open: the C++.** One `catch` in the whole library (`NamPlugin.cpp`) across **55** files, no `try`
-at `main()` level, no `set_terminate`. `server/Serve.cpp` carries seven, all nested and local —
-`main()` opens at line 331, and the `try`s before it are in a loading utility.
+**The C++ nets its threads, not its `main()`.** Every job posted to the message thread runs inside
+one `try` (`EngineHost::post`), the socket dispatch inside another, the pattern worker inside a
+third, and the detached threads a message starts are counted and waited for at shutdown
+(`engine/st0-engine/docs/audit-stabilite.md`). A throw from a thread nothing wraps — JUCE's own, or a plugin's —
+still ends the process, but no longer without a word: `serve()` installs a `set_terminate` that
+logs what was thrown before it aborts.
 
 ### git blocks the process holding the engine
 
@@ -360,7 +363,7 @@ To check this page's claims one by one:
 git grep -n "unhandledRejection\|uncaughtException\|set_terminate" -- . ':!commons'
 
 # the token goes out on any socket
-git grep -n "engineToken" -- engine/st0-engine/server/Serve.cpp
+git grep -n "engineToken" -- engine/st0-engine/server/
 
 # one catch in the library, and main() is unguarded
 for f in $(git ls-files 'engine/st0-engine/engine/*.cpp' 'engine/st0-engine/engine/*.h'); do

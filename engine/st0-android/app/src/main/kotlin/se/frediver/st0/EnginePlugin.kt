@@ -1,11 +1,10 @@
-// EnginePlugin.kt — the page's way to the supervisor (web/src/native.ts, St0Engine): its snapshots as
-// `state` events, the engine's exit as `engineExit`, and the few commands the tray sends. What
-// MainActivity drew natively before the page existed; SupervisorHost is unchanged under it.
+// EnginePlugin.kt — the shell page's way to the supervisor (web/src/native.ts, St0Engine): its snapshots
+// as `state` events, the engine's exit as `engineExit`, and the few commands the tray sends. st0's
+// settings panel reaches the same through StudioBridge.kt; what both do beyond a command is EngineOps.kt.
 
 package se.frediver.st0
 
 import android.content.Intent
-import android.net.ConnectivityManager
 import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -14,13 +13,12 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONObject
-import java.net.Inet4Address
 
 @CapacitorPlugin(name = "St0Engine")
 class EnginePlugin : Plugin(), SupervisorHost.Listener {
     override fun load() = SupervisorHost.listen(this)
 
-    override fun handleOnDestroy() = SupervisorHost.listen(null)
+    override fun handleOnDestroy() = SupervisorHost.unlisten(this)
 
     // Not retained: a page that was not listening yet asks getState, and a backlog of stale frames would only replay.
     override fun onState(frame: JSONObject) = notifyListeners("state", JSObject(frame.toString()))
@@ -43,14 +41,9 @@ class EnginePlugin : Plugin(), SupervisorHost.Listener {
         call.resolve()
     }
 
-    // The active network's IPv4, which is what a browser on the same LAN dials.
     @PluginMethod
-    fun lanAddress(call: PluginCall) {
-        val cm = context.getSystemService(ConnectivityManager::class.java)
-        val address = cm?.getLinkProperties(cm.activeNetwork)?.linkAddresses
-            ?.map { it.address }?.filterIsInstance<Inet4Address>()?.firstOrNull()?.hostAddress
-        call.resolve(JSObject().apply { address?.let { put("address", it) } })
-    }
+    fun lanAddress(call: PluginCall) =
+        call.resolve(JSObject().apply { EngineOps.lanAddress(context)?.let { put("address", it) } })
 
     @PluginMethod
     fun casInfo(call: PluginCall) = call.resolve(JSObject().put("count", TrustedCas.count(context)))
@@ -67,18 +60,11 @@ class EnginePlugin : Plugin(), SupervisorHost.Listener {
         val uri = result.data?.data
         if (result.resultCode != android.app.Activity.RESULT_OK || uri == null)
             return call.resolve(JSObject().put("said", "").put("count", TrustedCas.count(context)))
-        runCatching { TrustedCas.import(context, uri) }
-            .onSuccess { added ->
-                restartSupervisor(call, if (added.isEmpty()) "already trusted" else "now trusting ${added.joinToString("; ")}")
-            }
-            .onFailure { call.reject("not a certificate: ${it.message}") }
+        EngineOps.importCa(context, uri) { settle(call, it) }
     }
 
     @PluginMethod
-    fun forgetCas(call: PluginCall) {
-        TrustedCas.forget(context)
-        restartSupervisor(call, "trusting Android's CAs only")
-    }
+    fun forgetCas(call: PluginCall) = EngineOps.forgetCas(context) { settle(call, it) }
 
     @PluginMethod
     fun quit(call: PluginCall) {
@@ -86,12 +72,6 @@ class EnginePlugin : Plugin(), SupervisorHost.Listener {
         activity.runOnUiThread { activity.finish() }
     }
 
-    // The supervisor reads its roots once, at start: a new one takes the change and adopts the running engine.
-    private fun restartSupervisor(call: PluginCall, said: String) {
-        val app = context.applicationContext
-        Thread({
-            SupervisorHost.restart(app, MainActivity.SUPERVISOR_STOP_MS)
-            call.resolve(JSObject().put("said", said).put("count", TrustedCas.count(app)))
-        }, "st0-supervisor-restart").start()
-    }
+    private fun settle(call: PluginCall, done: Result<JSONObject>) =
+        done.fold({ call.resolve(JSObject(it.toString())) }, { call.reject(it.message) })
 }

@@ -289,7 +289,8 @@ void RateBridge::runChunk(const float* const* in, float* const* out, int n)
         // A processor with no input this block is fed silence, so its clock never stops.
         if (in == nullptr) {
             for (int c = 0; c < inCh_; ++c) std::fill_n(planarIn_[(size_t)c].data(), block_, 0.0f);
-            static thread_local float zeros[MAX_CHUNK] = {};
+            // Read-only, so plain static: a thread_local's first touch can allocate, on the audio thread.
+            static const float zeros[MAX_CHUNK] = {};
             const float* z[8];
             for (int c = 0; c < inCh_ && c < 8; ++c) z[c] = zeros;
             feed(z, n);
@@ -299,8 +300,12 @@ void RateBridge::runChunk(const float* const* in, float* const* out, int n)
     } else {
         // A generator renders on demand: exactly enough blocks to cover this chunk, never a lag.
         // Bounded, so a converter that stops producing costs one silent chunk rather than a hung audio thread.
-        for (int guard = 0; hostOut_.size() < (size_t)n && guard < 4 * MAX_CHUNK; ++guard)
+        for (int guard = 0; hostOut_.size() < (size_t)n && guard < 4 * MAX_CHUNK; ++guard) {
+            const size_t before = hostOut_.size();
             renderOneBlock(nullptr);
+            // A render that added nothing will add nothing next time either: stop at one, not four thousand.
+            if (hostOut_.size() == before) break;
+        }
     }
 
     const size_t have = std::min(hostOut_.size(), (size_t)n);

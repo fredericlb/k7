@@ -134,6 +134,8 @@ import {
   motionTransform,
   planMotion,
 } from "./nodeMotion";
+import { type TapAction, TapWidget } from "./TapWidget";
+import { ValueEditor } from "./ValueEditor";
 
 /** A play button on the SINK node, opt-in and absent by default — docs/hosting.md. */
 export interface SinkPlay {
@@ -325,6 +327,8 @@ function targetKey(t: WidgetTarget): string {
 /** A module field's current value as a WIDGET number, through the widget's own options — docs/widgets.md. */
 /** Where a host parks the camera between mounts — `Cam` itself lives in camera.ts, docs/hosting.md. */
 export type { Cam };
+/** A rack tap's edit, as the host receives it — packages/song/docs/racks.md. */
+export type { TapAction };
 export type CamStore = React.MutableRefObject<Cam | null>;
 
 interface Channels {
@@ -622,6 +626,7 @@ function TabsWidget({
   onWatchWaveform,
   onContextParam,
   onTypeValue,
+  onTapEdit,
 }: {
   n: GraphNode;
   w: WebWidget;
@@ -636,6 +641,8 @@ function TabsWidget({
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
   onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
+  /** A rack TAP's edit — note, sample, add, remove — asked of the host, which writes the node's file. */
+  onTapEdit?: (n: GraphNode, action: TapAction) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -702,6 +709,7 @@ function TabsWidget({
               onWatchWaveform={onWatchWaveform}
               onContextParam={onContextParam}
               onTypeValue={onTypeValue}
+              onTapEdit={onTapEdit}
               styleOverride={{
                 position: "absolute",
                 left: sr.x - (style.left as number),
@@ -969,6 +977,7 @@ function WidgetInner({
   onWatchWaveform,
   onContextParam,
   onTypeValue,
+  onTapEdit,
   onLandAutomation,
   styleOverride,
 }: {
@@ -993,6 +1002,8 @@ function WidgetInner({
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
   onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
+  /** A rack TAP's edit — note, sample, add, remove — asked of the host, which writes the node's file. */
+  onTapEdit?: (n: GraphNode, action: TapAction) => void;
   /** A curve's cable is in hand and this widget is a LANDING TARGET — passed only while one is out. */
   onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
   styleOverride?: React.CSSProperties;
@@ -1040,6 +1051,28 @@ function WidgetInner({
         onWatchWaveform={onWatchWaveform}
         onContextParam={onContextParam}
         onTypeValue={onTypeValue}
+        onTapEdit={onTapEdit}
+      />
+    );
+  }
+
+  // A rack's TAP: its own pad, note and sample — the sound it names is on the node.
+  if (w.type === "tap") {
+    const symbol = rackBindSymbol(w.bind);
+    return (
+      <TapWidget
+        bind={w.bind}
+        sound={symbol ? n.rack?.find((s) => s.symbol === symbol) : undefined}
+        lit={padLit}
+        style={
+          styleOverride ?? { left: r.x, top: r.y, width: r.w, height: r.h }
+        }
+        onTrigger={
+          ch.rackTriggerable && tgt?.kind === "rack"
+            ? () => onTap(n, w)
+            : undefined
+        }
+        onEdit={onTapEdit && n.module ? (a) => onTapEdit(n, a) : undefined}
       />
     );
   }
@@ -1342,44 +1375,6 @@ function WidgetInner({
   );
 }
 
-/** The text field a double-clicked control becomes: Enter or leaving it commits, Escape does not. */
-function ValueEditor({
-  initial,
-  onDone,
-}: {
-  initial: number | undefined;
-  /** The text typed, or null for "never mind". Called ONCE, whichever way the field is left. */
-  onDone: (text: string | null) => void;
-}) {
-  const done = useRef(false);
-  const finish = (text: string | null) => {
-    if (done.current) return;
-    done.current = true;
-    onDone(text);
-  };
-  return (
-    <input
-      className="dgx-wedit"
-      // Four decimals and no trailing zeros: the value as it is, not as the knob rounds it for display.
-      defaultValue={
-        initial === undefined ? "" : String(Number(initial.toFixed(4)))
-      }
-      // biome-ignore lint/a11y/noAutofocus: the field exists only because a double-click asked for it.
-      autoFocus
-      onFocus={(e) => e.currentTarget.select()}
-      // Kept off the pane and the control under it: a press here is a caret, not a drag.
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") finish(e.currentTarget.value);
-        else if (e.key === "Escape") finish(null);
-      }}
-      onBlur={(e) => finish(e.currentTarget.value)}
-    />
-  );
-}
 /** Does a dropdown's caption fit BESIDE its select? Counted in glyphs, never from the DOM — docs/widgets.md. */
 const CAP_ADV = 6 * 0.62; // uppercase advance at .dgx-wlab's size
 const SEL_ADV = 9 * 0.6; // monospace advance at .dgx-sel's size
@@ -1585,6 +1580,7 @@ function NodeInner({
   onWatchWaveform,
   onContextParam,
   onTypeValue,
+  onTapEdit,
   sinkPlay,
   onTapJack,
   patchWant,
@@ -1632,6 +1628,8 @@ function NodeInner({
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
   onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
+  /** A rack TAP's edit — note, sample, add, remove — asked of the host, which writes the node's file. */
+  onTapEdit?: (n: GraphNode, action: TapAction) => void;
   sinkPlay?: SinkPlay;
   /** A jack was pressed or released — BOTH halves, since `phase` is what tells the two gestures apart. */
   onTapJack?: (
@@ -2244,6 +2242,7 @@ function NodeInner({
             onWatchWaveform={onWatchWaveform}
             onContextParam={onContextParam}
             onTypeValue={onTypeValue}
+            onTapEdit={onTapEdit}
             // A curve's cable is in hand and this widget could take it — see onLandAutomation.
             onLandAutomation={
               patchWant?.kind === "automation" ? onLandAutomation : undefined
@@ -2507,6 +2506,7 @@ export function DomChains({
   row,
   minimap,
   onOrganize,
+  onTapEdit,
   camStore,
   engineWarnings,
   fitKey,
@@ -2591,6 +2591,8 @@ export function DomChains({
   minimap?: boolean;
   /** The minimap's "Organize": the host's auto-layout, which is a command and its reload. */
   onOrganize?: () => void;
+  /** A rack tap's edit on a node: the host writes the node's file — packages/song/docs/racks.md. */
+  onTapEdit?: (module: string, action: TapAction) => void;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
   camStore?: CamStore;
   /** Engine load problems by PluginDoc id — a node badges itself from this. */
@@ -2753,6 +2755,7 @@ export function DomChains({
     onModuleParam,
     onTrackToggle,
     onTrackSet,
+    onTapEdit,
   });
   cb.current = {
     onSelect,
@@ -2781,6 +2784,7 @@ export function DomChains({
     onModuleParam,
     onTrackToggle,
     onTrackSet,
+    onTapEdit,
   };
 
   // --- the compiled geometry: signal cables (with insert eligibility) + automations ---
@@ -3940,6 +3944,11 @@ export function DomChains({
     [setModuleField, rehearsal],
   );
 
+  // A tap only ASKS: which command writes the kit is the host's, and so is the sample picker.
+  const editTap = useCallback((n: GraphNode, action: TapAction) => {
+    if (n.module) cb.current.onTapEdit?.(n.module, action);
+  }, []);
+
   // A TYPED value: one step of what a drag does, committed at once — docs/widgets.md.
   const typeWidget = useCallback(
     (n: GraphNode, w: WebWidget, value: number) => {
@@ -4478,6 +4487,7 @@ export function DomChains({
                 onWatchWaveform={onWatchWaveform}
                 onContextParam={contextParam}
                 onTypeValue={typeWidget}
+                onTapEdit={onTapEdit ? editTap : undefined}
                 sinkPlay={sinkPlay}
                 onTapJack={onConnect ? tapJack : undefined}
                 patchWant={patchWant}

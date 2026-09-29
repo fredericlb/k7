@@ -38,8 +38,9 @@ public:
     // How far behind the writer a LAPPED reader resumes. Not an optimisation: the slots nearest
     // the write head are the ones the audio thread is filling right now, and copying them gives a
     // frame whose two sides came from different moments — a tear, in the file, that nothing
-    // reports. Better to lose 2048 more frames and SAY so. Four times the largest block here.
-    static constexpr size_t MARGIN = 2048;
+    // reports. Better to lose a few thousand more frames and SAY so. Above the largest block any
+    // device opens here — Android's 40 ms cap at 96 kHz is 3840 frames.
+    static constexpr size_t MARGIN = 4096;
     static constexpr size_t SAFE = CAPACITY - MARGIN;
 
     RecorderTap() : buffer_(CAPACITY * CHANNELS, 0.0f) {}
@@ -93,6 +94,15 @@ public:
             const size_t at = ((lastRead_ + i) & MASK) * CHANNELS;
             for (int c = 0; c < CHANNELS; ++c)
                 out[i * CHANNELS + (size_t)c] = buffer_[at + (size_t)c];
+        }
+        // Checked AGAIN after the copy: a reader lapped mid-copy holds torn frames, zeroed and counted here (docs/recorder.md).
+        std::atomic_thread_fence(std::memory_order_acquire);
+        const auto after = writeHead_.load(std::memory_order_acquire);
+        if (after - lastRead_ > SAFE) {
+            const size_t torn = (std::min)(n, (size_t)(after - lastRead_ - SAFE));
+            std::fill(out.begin(), out.begin() + (std::ptrdiff_t)(torn * CHANNELS), 0.0f);
+            d.lostFrames += torn;
+            lost_.fetch_add(torn, std::memory_order_relaxed);
         }
         lastRead_ += n;
         d.frames = n;

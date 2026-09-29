@@ -440,32 +440,28 @@ frozen: renders/amp.wav      # written by `node freeze amp`; delete it and it pl
 
 ## _modules/instruments/<name>/module.yaml — rack (drum kit)
 
-A rack instrument (type: "rack") — a note→audio sampler, not a plugin. Two kinds. samples: each symbol names its OWN clip; a base can ship defaults and a module that extends it merges its symbols OVER them per symbol. slice: one shared source cut into [from, to) windows in seconds. Audio sits in the module's folder.
+A rack instrument (`type: rack`) is a note→audio sampler, not a plugin. The module is the **sampler**; the **kit** — which note plays which sound — belongs to each **node** of it, so one rack module can be a dozen different kits across your songs. Each sound is a **tap**: a note, and the **sample** it fires.
 
-```yaml exempt="shows both rack kinds side by side - not one document"
-# samples base — _modules/instruments/drumrack/module.yaml
+Every sample lives in a **`samples/` folder**: a library's, which every song can pick from, or the project's own, for a sound only this song plays. A tap names it `@<library>/<path>` or `@project/<path>`. To add one, drag audio files onto a library's `samples/` folder in the editor's **Libraries** tab, or onto the project's `samples/` in its file tree: they upload there, and every tap can pick them.
+
+The quickest way to a kit is **`module create rack`**: drop samples on a 4×4 pad grid, name the pads and the kit, choose whether the samples go to this project or a library, and it makes the node with its taps, in the graph.
+
+```yaml schema=Module
+# nodes/kit_a.yaml — one kit: the rack module, and its own taps
+extends: "@workspace/instruments/drums"
 type: rack
 rack:
   symbols:
-    BD: { note: 36, clip: kick.wav }   # the base's default sound
-
-# a module extends + overrides — _modules/instruments/kit/module.yaml (the folder names it)
-extends: "@workspace/instruments/drumrack"
-type: rack
-rack:
-  symbols:
-    SN: { note: 38, clip: snare.wav }
-    HH: { note: 42, clip: hat.wav }
-
-# slice rack — one source, each symbol a window (seconds) into it
-type: rack
-rack:
-  rack_type: slice
-  source: loop.wav
-  symbols:
-    LO: { note: 60, from: 0.0, to: 0.5 }
-    HI: { note: 62, from: 0.5, to: 1.0 }
+    BD: { note: 36, sample: "@st0/kicks/808 deep.wav" }
+    SN: { note: 38, sample: "@st0/snares/tight.wav" }
+    HH: { note: 42, sample: "@st0/hats/closed.wav" }
 ```
+
+On the graph, a rack node draws one **tap** per sound: a pad that plays its sample when you click it and lights when the sequence reaches its note, the note under it — click it to type another — and the sample's name, which opens the picker of every sample your libraries hold. The last tap is a **+** that adds a sound on the note after the highest; hover a tap for its **×**. All of it writes the node's file, never the module's — and on an [alternative](#syntax-instruments) other than the first, that set, so two sets can be two kits.
+
+From the command bar: `node tap add <node> [name]`, `node tap note <node> <tap> <0-127>`, `node tap sample <node> <tap> "@<library>/<path>"` (or `none`), `node tap remove <node> <tap>`.
+
+A tap may still name a `clip:` in its module's own folder, or a `rack_type: slice` rack cut windows out of one `source` — that is how racks were written before, and it still plays. `packages/song/scripts/migrateRacks.ts` moves such a rack into a library and its kit into the nodes that use it, cutting a slice rack into one file per sound.
 
 ## _modules/<type>/<name>/ui.yaml — a module's panel
 

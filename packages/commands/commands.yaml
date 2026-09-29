@@ -1619,6 +1619,61 @@
       { name: node, complete: nodes },
       { name: name, optional: true, complete: moduleAlternatives },
     ]
+# --- a rack node's TAPS: the sounds of THIS kit, written into the node, never the module ---
+# A rack module is the sampler; each node of it is a kit, so a tap — a note and the library sample it
+# fires — belongs to the node. On an alternative other than the first, to that set. The sample is a
+# file in a library's `samples/`, named `@<library>/<path>`. See packages/song/docs/racks.md.
+- command: "node tap note"
+  sid: node.tap.note
+  readable:
+    en: "Set the note a rack tap answers to"
+    fr: "Régler la note d'un pad de rack"
+  help: "set the MIDI note a rack node's tap fires on (e.g. node tap note kit BD 36)"
+  surfaces: [cli]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, T3…" },
+      { name: note, hint: "0–127; 36 is General MIDI's kick" },
+    ]
+- command: "node tap sample"
+  sid: node.tap.sample
+  readable:
+    en: "Set the sample a rack tap plays"
+    fr: "Choisir l'échantillon d'un pad de rack"
+  help: "set the library sample a rack node's tap plays, or none (e.g. node tap sample kit BD \"@st0/kicks/808.wav\")"
+  surfaces: [cli]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, T3…" },
+      { name: sample, hint: "@<library>/<path> under that library's samples/, or none" },
+    ]
+- command: "node tap add"
+  sid: node.tap.add
+  readable:
+    en: "Add a tap to a rack node"
+    fr: "Ajouter un pad à un rack"
+  help: "add a tap to a rack node, on the note after its highest (e.g. node tap add kit, or node tap add kit CR)"
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, optional: true, hint: "optional — its name; T<n> without one" },
+    ]
+- command: "node tap remove"
+  sid: node.tap.remove
+  readable:
+    en: "Remove a tap from a rack node"
+    fr: "Retirer un pad d'un rack"
+  help: "remove one of a rack node's taps (e.g. node tap remove kit CR)"
+  surfaces: [cli]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, T3…" },
+    ]
 # --- freezing (bake everything upstream of a module) ---
 # A TOGGLE, because a freeze has two states and the module's own file says which one it is in:
 # `frozen:` names the render, and the render is what plays until you say this again. What is baked

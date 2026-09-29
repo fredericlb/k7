@@ -116,7 +116,7 @@ async function main() {
 
   const problems: string[] = [];
   const ids = (list: typeof before) => (list ?? []).map((s) => s.id).sort();
-  if (ids(before).join() !== "st0,m9")
+  if (ids(before).join() !== "m9,st0")
     problems.push(`sessions attendues st0+m9, vu ${ids(before)}`);
   // EXACTLY two: a "" session here means the supervisor's requests are creating one.
   if ((before ?? []).some((s) => s.id === ""))

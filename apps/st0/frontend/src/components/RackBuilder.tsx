@@ -1,24 +1,29 @@
-// RackBuilder.tsx — build a SAMPLES rack on a 4×4 pad grid: drop audio files on the pads,
-// click one to hear it, name each pad (the rack's symbols) and the rack itself, then CREATE —
-// which uploads the samples beside a fresh module.yaml and writes the module
-// (modules/instruments/<name>/, the layout every rack in a real song already loads). Notes run
-// 36 upward, bottom-left first — the drum-machine reading rackBuilder.ts pins. Opened by the
-// `module create rack` palette command; samples only, the slice flavour has its own editor.
+// RackBuilder.tsx — build a KIT on a 4×4 pad grid: drop audio files on the pads, click one to hear
+// it, name each pad (its tap) and the kit, choose where the samples go — this project's samples/
+// or a library's — then CREATE: the samples are uploaded there, and the kit becomes a NODE of the
+// plain `rack` sampler, placed in the graph with its taps. Notes run 36 upward, bottom-left first —
+// the drum-machine reading rackBuilder.ts pins. Opened by `module create rack` (packages/song/docs/racks.md).
 
 import { Button } from "@frediverse/ui/button";
 import { Grip, Loader2, Pause, Play, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
-import { MODULE_SOURCES_DIR } from "@studio/song-schema/moduleTypes";
+import { FIXED_NAMESPACES } from "@studio/song-schema/moduleTypes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { m } from "../paraglide/messages.js";
 import {
-  buildRackModuleYaml,
+  buildKitNodeYaml,
   cellsInNoteOrder,
   defaultSymbol,
   GRID,
+  type KitDestination,
+  kitUploadDir,
   padNote,
+  RACK_MODULE,
+  RACK_MODULE_FILE,
+  RACK_MODULE_REF,
+  RACK_MODULE_YAML,
   type RackPad,
   rackIssues,
 } from "../rackBuilder";
@@ -37,7 +42,7 @@ export function RackBuilder({
   /** The active project's folder, '.' for a lone one — the api speaks WORKSPACE-relative, so every write must carry this prefix. */
   activeProject: string | null;
   onClose: () => void;
-  /** The module landed — `instruments/<name>` — so the shell can reload and say so. */
+  /** The kit landed — the NODE's name — so the shell can reload and say so. */
   onCreated: (name: string) => void;
 }) {
   const [name, setName] = useState("");
@@ -53,13 +58,35 @@ export function RackBuilder({
     name: string;
     frac: number;
   } | null>(null);
-  // The base-module refs already taken, so "it exists" is said before any upload runs.
+  // The project's node names, so "it exists" is said before any upload runs — and whether the sampler is there yet.
   const [taken, setTaken] = useState<string[]>([]);
+  const [hasSampler, setHasSampler] = useState(false);
+  // The account's libraries, the other places a kit's samples can go.
+  const [libraries, setLibraries] = useState<string[]>([]);
+  const [dest, setDest] = useState<KitDestination>("project");
   useEffect(() => {
     let cancelled = false;
     void api
       .hints()
-      .then((h) => !cancelled && setTaken(h.baseModules))
+      .then((h) => {
+        if (cancelled) return;
+        setTaken(h.modules);
+        setHasSampler(h.baseModules.includes(RACK_MODULE_REF));
+      })
+      .catch(() => {});
+    void api
+      .moduleLibraries()
+      .then(
+        ({ libraries: l }) =>
+          !cancelled &&
+          setLibraries(
+            l
+              .map((x) => x.ns)
+              .filter(
+                (ns) => !(FIXED_NAMESPACES as readonly string[]).includes(ns),
+              ),
+          ),
+      )
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -151,12 +178,12 @@ export function RackBuilder({
   const create = async () => {
     if (busy || issues.length) return;
     setBusy(true);
-    // WORKSPACE-relative, project prefix included: without it the module lands BESIDE the project, where nothing ever lists it.
+    const kit = name.trim();
+    // WORKSPACE-relative, project prefix included: without it a file lands BESIDE the project, where nothing ever lists it.
     const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
     const prefix = ap && ap !== "." ? `${ap}/` : "";
-    const dir = `${prefix}modules/instruments/${name.trim()}`;
-    // The samples go under `sources/`, where the loader looks first and the tree shows them.
-    const src = `${dir}/${MODULE_SOURCES_DIR}`;
+    // The samples go where every sample lives: a samples/ folder, the project's own or a library's.
+    const src = kitUploadDir(dest, kit, ap);
     let done = 0;
     try {
       // The samples first, then the module that names them: a reload between the two finds files nothing reads, never a module with no clips.
@@ -176,12 +203,20 @@ export function RackBuilder({
         );
         done++;
       }
-      setUp({ done, total: rackPads.length, name: "module.yaml", frac: 0 });
+      setUp({ done, total: rackPads.length, name: `${kit}.yaml`, frac: 0 });
+      // The sampler a kit is a node of, the first time this workspace needs one.
+      if (!hasSampler) await api.write(RACK_MODULE_FILE, RACK_MODULE_YAML);
+      // The node, IN the graph and wired to nothing — the verb that does both, and journals it.
+      const made = await api.command(`node new ${RACK_MODULE} ${kit}`, {
+        want: [],
+      });
+      if (made.refused) throw new Error(made.output.join(" · "));
+      // …then its taps, in one write rather than a reload per pad.
       await api.write(
-        `${dir}/module.yaml`,
-        buildRackModuleYaml(name.trim(), rackPads),
+        `${prefix}nodes/${kit}.yaml`,
+        buildKitNodeYaml(kit, rackPads, dest),
       );
-      onCreated(`instruments/${name.trim()}`);
+      onCreated(kit);
     } catch (e) {
       // Which file, and what the earlier ones left behind — the samples land before the module by design.
       const landed = done
@@ -233,7 +268,29 @@ export function RackBuilder({
             className="w-48 rounded border border-border bg-card px-2 py-1 font-mono text-sm"
           />
           <span className="truncate text-xs text-muted-foreground">
-            → modules/instruments/{name.trim() || "…"}
+            → nodes/{name.trim() || "…"}
+          </span>
+        </label>
+
+        {/* Where the SAMPLES go — this song alone, or a library every song can pick from. */}
+        <label className="flex items-center gap-2 text-sm">
+          {m["rb.samplesTo"]()}
+          <select
+            value={dest === "project" ? "" : dest.library}
+            onChange={(e) =>
+              setDest(e.target.value ? { library: e.target.value } : "project")
+            }
+            className="rounded border border-border bg-card px-2 py-1 text-sm"
+          >
+            <option value="">{m["rb.toProject"]()}</option>
+            {libraries.map((l) => (
+              <option key={l} value={l}>
+                @{l}
+              </option>
+            ))}
+          </select>
+          <span className="truncate font-mono text-xs text-muted-foreground">
+            {kitUploadDir(dest, name.trim() || "…", activeProject ?? "")}
           </span>
         </label>
 

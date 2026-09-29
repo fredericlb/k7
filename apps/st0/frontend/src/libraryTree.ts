@@ -114,9 +114,21 @@ function repositoryRow(
           dir: false,
         })),
       },
+      // The library's shared SOUNDS: what a rack tap and a cabinet pick from, and where a dropped file lands.
+      {
+        name: "samples",
+        path: `${root}/samples`,
+        dir: true,
+        children: l.samples ?? [],
+      },
+      { name: "irs", path: `${root}/irs`, dir: true, children: l.irs ?? [] },
     ],
   };
 }
+
+/** Is this row a library's `samples/` or `irs/`, or inside one — the only places a dropped sound goes? */
+export const isSoundFolder = (path: string): boolean =>
+  new RegExp(`^${LIBRARIES_DIR}/[^/]+/(samples|irs)(/|$)`).test(path);
 
 /** Every path under a READ-ONLY level, plus the level's own row — `@engine` and only it, a scanned plugin having no folder. */
 export function readOnlyPaths(libraries: ModuleLibrary[]): Set<string> {

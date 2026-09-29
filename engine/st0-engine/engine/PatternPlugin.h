@@ -56,8 +56,12 @@ public:
     static constexpr double lookaheadSeconds = 0.25;
     /** Distinct sample files one lane may hold; past it a new sound is skipped and said so. */
     static constexpr int maxSamples = 256;
+    // A one-shot longer than a minute at 192 kHz is not one: its header is refused rather than trusted to size a buffer.
+    static constexpr juce::int64 maxSampleFrames = 60LL * 192000;
     /** One-shots sounding at once; past it the oldest is stolen. */
     static constexpr int maxVoices = 64;
+    // The non-note events one block may carry through without the buffer growing on the audio thread.
+    static constexpr int maxPassThrough = 256;
 
 protected:
     void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override;

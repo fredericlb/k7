@@ -59,8 +59,14 @@ public:
                 plugin_.ensureLoaded();
                 const PatternTempo tempo = plugin_.schedule_.tempo();
                 double from = 0, to = 0;
-                if (cursor.window(plugin_.schedule_, tempo, lookaheadSeconds, from, to))
-                    plugin_.feed(cursor, from, to, tempo, true);
+                // Caught HERE: an exception leaving juce::Thread::run is std::terminate, and a pattern is user content.
+                try {
+                    if (cursor.window(plugin_.schedule_, tempo, lookaheadSeconds, from, to))
+                        plugin_.feed(cursor, from, to, tempo, true);
+                } catch (const std::exception& e) {
+                    plugin_.warnOnce(std::string("threw:") + e.what(),
+                                     "pattern lane '" + plugin_.label_ + "' failed: " + e.what());
+                }
             }
             wait(workerPeriodMs);
         }
@@ -86,6 +92,8 @@ PatternPlugin::PatternPlugin(te::PluginCreationInfo info)
     banks_.setDirs(lines(state.getProperty(kBanks)));
     sourceVersion_ = source_.empty() ? 0 : 1;
     for (auto& s : slots_) s.store(nullptr);
+    // Sized HERE, on the message thread: a MidiMessageArray grows on add, and the adds happen on the audio thread.
+    passThrough_.reserve(maxPassThrough);
     worker_ = std::make_unique<Worker>(*this);
     worker_->startThread(juce::Thread::Priority::normal);
 }
@@ -93,7 +101,10 @@ PatternPlugin::PatternPlugin(te::PluginCreationInfo info)
 PatternPlugin::~PatternPlugin()
 {
     notifyListenersOfDeletion();
-    worker_->stopThread(2000);
+    // Waited for, never killed: a thread killed inside hostLock_ leaves it locked for good, and its work is bounded — a 250 ms JS deadline, capped sample decodes.
+    worker_->signalThreadShouldExit();
+    worker_->notify();
+    worker_->waitForThreadToExit(-1);
 }
 
 void PatternPlugin::initialise(const te::PluginInitialisationInfo& info)
@@ -188,7 +199,11 @@ int PatternPlugin::sampleSlot(const std::string& path)
     if ((int)owned_.size() < maxSamples) {
         juce::AudioFormatManager formats;
         formats.registerBasicFormats();
-        if (std::unique_ptr<juce::AudioFormatReader> r{formats.createReaderFor(juce::File(juce::String(path)))}) {
+        std::unique_ptr<juce::AudioFormatReader> r{formats.createReaderFor(juce::File(juce::String(path)))};
+        // A header claiming no frames or more than a one-shot can be is refused before it sizes a buffer: this is the worker, with no net above it.
+        if (r != nullptr && (r->lengthInSamples <= 0 || r->lengthInSamples > maxSampleFrames)) {
+            warnOnce("size:" + path, "pattern lane '" + label_ + "': sample " + path + " is empty or too long to load");
+        } else if (r != nullptr) {
             auto data = std::make_unique<SampleData>();
             const int ch = (int)std::min<unsigned>(2u, r->numChannels);
             data->audio.setSize(std::max(1, ch), (int)r->lengthInSamples);
@@ -244,14 +259,12 @@ void PatternPlugin::feed(PatternCursor& cursor, double from, double to, const Pa
 
 PatternTempo PatternPlugin::editTempo()
 {
-    // Read on the audio thread, once a block, as the arpeggiator reads it: plain numbers off CachedValues.
+    // Read on the audio thread, once a block, through the sequence Tracktion makes safe there: one snapshot, so the two halves of a signature cannot tear.
     PatternTempo t;
-    if (auto* tempo = edit.tempoSequence.getTempo(0)) t.bpm = tempo->getBpm();
-    if (auto* sig = edit.tempoSequence.getTimeSig(0)) {
-        const int num = sig->numerator.get();
-        const int den = sig->denominator.get();
-        if (num > 0 && den > 0) t.beatsPerCycle = num * 4.0 / den;
-    }
+    const auto& seq = edit.tempoSequence.getInternalSequence();
+    t.bpm = seq.getBpmAt(tracktion::TimePosition());
+    const auto sig = seq.getTimeSignatureAt(tracktion::TimePosition());
+    if (sig.numerator > 0 && sig.denominator > 0) t.beatsPerCycle = sig.numerator * 4.0 / sig.denominator;
     return t;
 }
 

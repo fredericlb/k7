@@ -9,7 +9,10 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "Biquad.h"   // IIRFilter's arithmetic without its lock
+
 #include <array>
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -61,9 +64,12 @@ public:
     static constexpr float bassMonoOffHz = 20.0f;
 
 private:
+    // A stop or a panic on the message thread only raises this; the next block clears the state it owns (docs/panic.md).
+    std::atomic<bool> resetPending_{false};
+    void clearState();
     // One biquad per channel — a stage, since every corner here is Linkwitz-Riley and therefore two of them.
     struct Stage {
-        juce::IIRFilter ch[2];
+        studio::Biquad ch[2];
         void reset() { for (auto& f : ch) f.reset(); }
         void set(const juce::IIRCoefficients& c) { for (auto& f : ch) f.setCoefficients(c); }
     };
@@ -71,7 +77,7 @@ private:
     // LR4 a side, plus the allpass that keeps the low band in step so the three sum FLAT (docs/quickMaster.md).
     Stage lowLp_[2], restHp_[2], midLp_[2], highHp_[2], lowAp_;
     // The bass-mono corner, on the SIDE only — which is mono, so the LR4 pair is filters, not stages.
-    juce::IIRFilter sideHp_[2];
+    studio::Biquad sideHp_[2];
 
     double rate_ = 44100.0;
     int maxBlock_ = 512;

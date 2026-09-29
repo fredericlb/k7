@@ -9,6 +9,10 @@
 
 set(STUDIO_SERVER_SOURCES
     Serve.cpp
+    ServeProject.cpp
+    ServePlugins.cpp
+    ServeMachine.cpp
+    AudioSender.cpp
     DocJson.cpp
     # The NAM core's objects, on the FINAL link line rather than only inside
     # studio_engine.lib. Its architectures register themselves from a file-scope static

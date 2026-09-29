@@ -17,9 +17,19 @@ being a level and not an event.
 
 Three details are load-bearing:
 
-- **The record is decoded WHOLE into memory.** A scratch reads backwards and jumps; a disk reader
-  that seeks per block cannot follow it. The cost is real — a four-minute stereo song at 48 kHz is
-  about 180 MB of float — and it is the price of the gesture.
+- **The whole record is at hand, and nothing is copied to get it there.** A scratch reads
+  backwards and jumps, which no disk reader seeking per block can follow. A WAV of one or two
+  channels, 16- or 24-bit integer or 32-bit float — every record off the médiathèque, and every stem
+  — is MAPPED (`RecordSource.h`): the deck reads its samples where they lie, and the loader touches
+  every page first so a needle dropped anywhere finds it resident. Anything else — an MP3, a FLAC, an
+  AAC, a big-endian AIFF — is decoded ONCE into a WAV in the record cache
+  (`~/Library/Caches/st0-engine/st0-record-cache` on macOS, JUCE's temp folder elsewhere), keyed by
+  path, size and date, capped at 4 GB oldest-first, and mapped from there; a second load is a cache
+  hit under a millisecond. Decoding into memory is left only for a cache that cannot be written. The TIME is not the message thread's either: `loadRecordAsync` checks the header
+  where it is called, so a bad file still answers at once, and decodes on the plugin's own loader
+  thread, publishing the record whole under the lock the audio thread only tries. The latest request
+  wins, so a record picked twice in a row never plays the first. An offline render waits for the
+  decode in its first block, since nobody hears a late record there.
 - **Four-point Hermite interpolation.** Linear aliases audibly as soon as the rate leaves 1, which
   is the entire time during a scratch.
 - **A one-pole glide of 6 ms toward the asked-for rate.** A hand's positions arrive at 60 Hz and the
@@ -247,7 +257,21 @@ Measured end to end — a platter at rate 1, watched for five seconds: 99 frames
 
 ## What a platter COSTS — measured
 
-A record is held **16-bit and interleaved**: `4 min × 48 kHz × 2 ch × 2 bytes ≈ 44 MB`.
+A MAPPED record costs no private memory: its pages are the file's, in the page cache, shared and
+reclaimable, and loading it is the mapping plus a page touch. Measured as the process's physical
+footprint with one 4-minute 16-bit stereo record (46 MB of file), loaded on 1 and on 8 platters:
+
+| platters | decoded | mapped | load |
+|---|---|---|---|
+| 1 | 57 MB | 13 MB | 1.6 ms |
+| 8 | 366 MB | 15 MB | 5.9 ms |
+
+The deck reads identical samples either way — a render of a mapped 16-bit or mono record matches
+the decoded one exactly; a 24-bit, a float, an AIFF, a FLAC or an AAC one differs by at most a 16-bit
+step (4.4e-5), the rounding the in-memory decode applies, and a float record keeps a peak above 1.
+
+The in-memory FALLBACK holds a record **16-bit and interleaved**: `4 min × 48 kHz × 2 ch × 2 bytes ≈
+44 MB`, and the tables below are that path's.
 
 A deck that plays STEMS is **four** records, not five — the four parts play and the deck's own lane
 is emptied, so nothing loads `master.wav`. Two separated decks are therefore eight platters:

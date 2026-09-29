@@ -43,6 +43,14 @@ a few seconds. With `true`, only playing voices are computed and a released voic
 falls below −90 dB (`VOICE_STOP_LEVEL`) — which is also what makes the decay audible rather than
 merely permitted.
 
+**A voice steal prints, and the print is patched out.** Upstream `poly-dsp.h` writes a line to
+stderr on every steal and on a note-off whose voice is gone — unconditionally, not behind a debug
+flag. `keyOn`/`keyOff` run on the audio thread, so each one takes the `FILE` lock and makes a
+`write(2)`, and an adopted engine's stderr is a pipe nobody may be draining: a full pipe blocks the
+audio thread outright. A seventeenth note on a pad with a long release is enough to reach it.
+`engine/patches/faust.cmake` turns those four prints into `if (false)` at fetch time, the way the
+eurorack scripts fix their upstream.
+
 **`group: false`** is the other half, and it is what makes the knobs work. With `true`, the
 envelope builds ONE control shared by name and distributes it over the voices — "assuming
 `GUI::updateAllGuis()` is called", which nobody here calls and nobody should: it is a global static

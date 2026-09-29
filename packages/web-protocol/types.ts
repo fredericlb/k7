@@ -843,6 +843,9 @@ export interface ModuleLibrary {
   /** Nothing here can be created, renamed or written — true for `@engine` alone; see docs/machine.md. */
   readOnly?: boolean;
   nodes: FileNode[];
+  /** A library's shared SOUNDS, beside its modules — what a tap and a cabinet pick, and where a drop lands (@studio/song's libraryFiles.md). */
+  samples?: FileNode[];
+  irs?: FileNode[];
 }
 
 export interface RepoRef {

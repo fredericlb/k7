@@ -17,6 +17,9 @@ float coeffFor(float ms, double sampleRate) {
 // What one block of a strike node may write. Past it a STEP is skipped, and never a note-off.
 constexpr int maxNoteEvents = 256;
 
+// A wire's value, or `fallback` when it is NaN or infinite: jlimit lets a NaN through, and a NaN reaching a filter or an index never leaves.
+inline float finiteOr(float v, float fallback) { return std::isfinite(v) ? v : fallback; }
+
 // The slowest tempo a musical step is read at: at zero, one step would last forever.
 constexpr double minSecondsPerBeat = 60.0 / 300.0;
 constexpr double maxSecondsPerBeat = 60.0 / 20.0;
@@ -332,8 +335,10 @@ void DspGraph::processMidi(tracktion::engine::MidiMessageArray& midi, const floa
                     else
                         notePassThrough_.addMidiMessage(m, m.getTimeStamp(), te::MidiMessageArray::notMPE);
                 }
+                // COPIED back, not swapped: a swap would hand this graph's reserve to Tracktion's buffer and take its capacity in return.
                 midi.clear();
-                midi.mergeFromAndClear(notePassThrough_);  // a swap, the destination being empty
+                for (auto& m : notePassThrough_)
+                    midi.addMidiMessage(m, m.getTimeStamp(), te::MidiMessageArray::notMPE);
                 break;
             }
             case Kind::mstrike: {
@@ -346,7 +351,10 @@ void DspGraph::processMidi(tracktion::engine::MidiMessageArray& midi, const floa
                 // Merged by timestamp rather than appended: a list out of order is a list
                 // something downstream will drop.
                 notePassThrough_.clear();
-                notePassThrough_.mergeFromAndClear(midi);  // …and the same swap, the other way
+                // Copied for the same reason as `mhold`'s, the other way round.
+                for (auto& m : midi)
+                    notePassThrough_.addMidiMessage(m, m.getTimeStamp(), te::MidiMessageArray::notMPE);
+                midi.clear();
                 int keep = 0;
                 const auto passUntil = [&](double at) {
                     while (keep < notePassThrough_.size()
@@ -451,8 +459,8 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
         if (n.phase != Phase::audio) continue;
         if (n.kind == Kind::biquad) {
             // Clamped to a real, stable band: at or past Nyquist the coefficients blow up.
-            const float freq = juce::jlimit(20.0f, (float)(sampleRate_ * 0.45), r(n.in[0]));
-            const float q = juce::jmax(0.5f, r(n.in[1]));
+            const float freq = juce::jlimit(20.0f, (float)(sampleRate_ * 0.45), finiteOr(r(n.in[0]), 1000.0f));
+            const float q = juce::jmax(0.5f, finiteOr(r(n.in[1]), 0.707f));
             // Only when the knob actually moved — see lastFreq_ in the header, and MixerPlugin's same condition.
             if (freq != n.lastFreq_ || q != n.lastQ_) {
                 const auto coeffs = n.mode == 1 ? juce::IIRCoefficients::makeLowPass(sampleRate_, freq, q)
@@ -542,7 +550,7 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
                         // Time from a WIRE if given, else a scalar; the read is interpolated so moving it cannot zipper.
                         for (int ch = 0; ch < numChans; ++ch) {
                             const float msRaw = n.in[1] >= 0 ? awires_[(size_t)n.in[1]][(size_t)ch] : r(n.k[0]);
-                            const float ms = juce::jlimit(0.0f, n.maxMs, msRaw);
+                            const float ms = juce::jlimit(0.0f, n.maxMs, finiteOr(msRaw, 0.0f));
                             const float d = juce::jlimit(1.0f, (float)(len - 2),
                                                          ms * 0.001f * (float)sampleRate_);
                             const int di = (int)d;

@@ -27,7 +27,9 @@ export interface WebWidget {
     // Picks a FILE the module carries for the file-valued param it binds — see filePicker.md.
     | "filepicker"
     // A screen the panel's `widgets.js` draws under this widget's id — ui-chains-react's lcdScreen.md.
-    | "lcdscreen";
+    | "lcdscreen"
+    // One sound of a rack: a pad, its note and its library sample — packages/song/docs/racks.md.
+    | "tap";
   col: number;
   row: number;
   colSpan?: number;
@@ -136,6 +138,7 @@ export interface WebChainStep {
 export interface WebRackSound {
   symbol: string; // the short label — "BD", "SN", "HH"
   note: number; // the MIDI note that fires it, 0..127
+  sample?: string; // a tap's library sample, `@<library>/<path>`, as written — what its picker shows
   clip?: string; // samples: the clip id this symbol plays
   source?: string; // slice: the clip id every symbol of the rack cuts from
   from?: number; // slice: window start in that source, seconds

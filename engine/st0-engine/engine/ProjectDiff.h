@@ -28,6 +28,7 @@ enum class ChangeKind {
     // Structural
     TrackAdded,
     TrackRemoved,
+    TracksReordered,          // the same tracks in another order — forces full rebuild, lanes are found by index
     TrackRenamed,
     TrackParamsChanged,       // volume / pan / mute — applied in place
     TrackInputChanged,        // live input channels / monitor mode — applied in place
@@ -42,7 +43,12 @@ enum class ChangeKind {
     PluginParamChanged,
     PluginEnabledChanged,     // bypass toggled — applied in place, like a param
     PatternChanged,           // a pattern lane's source edited — applied in place, so the lane keeps its time
+    PluginReloaded,           // its preset, model, IR, record or second input moved — reloaded in place, the instance kept
     AutomationChanged,        // coarse for now: whole lane replaced
+
+    // Sends — which bus each lands on is decided for the whole song at once (SendPlan.h)
+    SendsRewired,             // the routing changed: a send added, removed, re-aimed, or a sending track muted — forces full rebuild
+    SendLevelChanged,         // only levels moved on this track — applied in place on its aux sends
 };
 
 struct Change {
@@ -65,6 +71,9 @@ struct Change {
     // Global scalars (tempo / time sig).
     double doubleValue = 0.0;
     int intA = 0, intB = 0;
+
+    // For PluginParamChanged: the plugin by id alone. LAST, since the diff's positional initialisers would shift around a field in the middle.
+    std::string pluginId;
 };
 
 using ProjectDiff = std::vector<Change>;

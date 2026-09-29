@@ -14,6 +14,8 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "Biquad.h"   // IIRFilter's arithmetic without its lock
+
 #include <array>
 #include <memory>
 #include <string>
@@ -90,7 +92,7 @@ private:
         int mode = 0;          // biquad's filter type, alfo's wave shape, or ain's input PORT — see build()
         float s0 = 0.0f;       // per-node state (envelope level, glide's last value)
         bool primed = false;
-        juce::IIRFilter filters[2];
+        studio::Biquad filters[2];
         // biquad: what the coefficients were last computed FROM, so a still knob costs nothing (docs/dspGraph.md).
         float lastFreq_ = -1.0f;
         float lastQ_ = -1.0f;

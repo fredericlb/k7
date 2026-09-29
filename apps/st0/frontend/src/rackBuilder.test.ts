@@ -2,10 +2,13 @@ import { ModuleSchema } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {
-  buildRackModuleYaml,
+  buildKitNodeYaml,
   cellsInNoteOrder,
   defaultSymbol,
+  kitUploadDir,
   padNote,
+  RACK_MODULE_REF,
+  RACK_MODULE_YAML,
   rackIssues,
 } from "./rackBuilder";
 
@@ -55,7 +58,8 @@ describe("rackIssues", () => {
     expect(rackIssues("", [pad("BD")]).length).toBeGreaterThan(0);
     expect(rackIssues("a b", [pad("BD")]).length).toBeGreaterThan(0);
     expect(
-      rackIssues("drums", [pad("BD")], ["instruments/drums"]).join(" "),
+      // The kit is a NODE, so the name it must not clash with is a node's.
+      rackIssues("drums", [pad("BD")], ["drums"]).join(" "),
     ).toContain("exists already");
   });
 
@@ -73,19 +77,47 @@ describe("rackIssues", () => {
   });
 });
 
-describe("buildRackModuleYaml", () => {
+describe("the kit the builder writes", () => {
   const pads = [
     { symbol: "BD", fileName: "kick.wav", note: 36 },
     { symbol: "SN", fileName: "snare 01.wav", note: 37 },
   ];
 
-  it("writes a module the schema accepts, symbols in the order given", () => {
-    const text = buildRackModuleYaml("drums", pads);
+  it("is a node of the sampler, one tap per pad naming its sample in the PROJECT's samples/", () => {
+    const text = buildKitNodeYaml("drums", pads, "project");
     const doc = parse(text, { version: "1.2" });
     expect(ModuleSchema.safeParse(doc).success).toBe(true);
+    expect(doc.extends).toBe(RACK_MODULE_REF);
     expect(Object.keys(doc.rack.symbols)).toEqual(["BD", "SN"]);
-    expect(doc.rack.symbols.BD).toEqual({ note: 36, clip: "kick.wav" });
+    expect(doc.rack.symbols.BD).toEqual({
+      note: 36,
+      sample: "@project/drums/kick.wav",
+    });
     // A file name with a space survives the round trip — the stringifier owns the quoting.
-    expect(doc.rack.symbols.SN.clip).toBe("snare 01.wav");
+    expect(doc.rack.symbols.SN.sample).toBe("@project/drums/snare 01.wav");
+    // …one tap to a line, the way a drum map is read.
+    expect(text).toMatch(/^ {4}BD: \{ note: 36, sample: /m);
+  });
+
+  it("names a LIBRARY's samples when the kit's sounds go there", () => {
+    const doc = parse(buildKitNodeYaml("drums", pads, { library: "st0" }), {
+      version: "1.2",
+    });
+    expect(doc.rack.symbols.BD.sample).toBe("@st0/drums/kick.wav");
+  });
+
+  it("uploads into the samples/ that name points at", () => {
+    expect(kitUploadDir("project", "drums", "songs/first.st0")).toBe(
+      "songs/first.st0/samples/drums",
+    );
+    expect(kitUploadDir("project", "drums", ".")).toBe("samples/drums");
+    expect(kitUploadDir({ library: "st0" }, "drums", "songs/first.st0")).toBe(
+      "_libraries/st0/samples/drums",
+    );
+  });
+
+  it("writes a sampler that is a rack and carries no sound", () => {
+    const doc = parse(RACK_MODULE_YAML, { version: "1.2" });
+    expect(doc).toEqual({ type: "rack" });
   });
 });

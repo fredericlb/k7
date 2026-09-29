@@ -1,4 +1,4 @@
-// studios.ts — which studio the tabs open, and where each of its apps answers. The studios are
+// studios.ts — which studio the app views open, and where each of its apps answers. The studios are
 // the ones the supervisor is connected to (the engine tray's list); each app's address comes from
 // serviceUrl, the one mapping AppSwitch and the apps themselves use (docs/addresses.md).
 

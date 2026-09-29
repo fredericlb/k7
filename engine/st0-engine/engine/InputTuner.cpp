@@ -80,6 +80,8 @@ void InputTuner::watch(const std::vector<int>& channels) {
     for (const int ch : channels) {
         // A channel asked for TWICE must be taken once, or the second take carries across a moved-from Ring — docs/inputTuner.md.
         if (ch <= 0 || next.count(ch) != 0) continue;
+        // Bounded like the meters: the numbers come off the wire, and each one costs a ring.
+        if (ch > kMaxChannels) continue;
         auto it = rings_.find(ch);
         next[ch] = it != rings_.end() ? std::move(it->second) : Ring{};
     }

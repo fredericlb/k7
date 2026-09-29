@@ -19,6 +19,17 @@ target_include_directories(studio_engine_tests PRIVATE
 
 add_test(NAME studio_engine_tests COMMAND studio_engine_tests)
 
+# --- DocJson tests ------------------------------------------------------------
+# The wire's bounds, in their own fast binary: DocJson.cpp is JUCE-free and needs only nlohmann.
+add_executable(studio_docjson_tests
+    DocJson_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../server/DocJson.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/ProjectDoc.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine/Warnings.cpp)
+target_include_directories(studio_docjson_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+target_link_libraries(studio_docjson_tests PRIVATE nlohmann_json::nlohmann_json)
+add_test(NAME studio_docjson_tests COMMAND studio_docjson_tests)
+
 # --- Session registry tests ---------------------------------------------------
 # A THIRD fast binary, kept apart only because each test file owns a main(). SessionRegistry.h is
 # header-only and JUCE-free, so this links nothing and shares the "builds in seconds" property.

@@ -1,6 +1,6 @@
-// Tray.tsx — the engine tab: what MainActivity drew natively before this app had a WebView. It
-// draws the supervisor's snapshot and sends the few commands a phone needs — connect a studio,
-// disconnect one, trust a private CA, quit. See docs/android.md.
+// Tray.tsx — this page's one screen, seen while no studio app covers it: the supervisor's snapshot
+// and the few commands a phone needs — connect a studio, disconnect one, trust a private CA, quit.
+// With a studio open, st0's settings draw the same (apps/st0/frontend/src/settings/AndroidEngineSection.tsx).
 
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
@@ -10,20 +10,9 @@ import { St0Engine, type SupervisorState } from "./native";
 export interface TrayProps {
   state: SupervisorState | null;
   engineExit: number | null;
-  /** st0's origin for each connected studio. */
-  studios: string[];
-  /** The one the app tabs open. */
-  studio: string | null;
-  onChooseStudio: (origin: string) => void;
 }
 
-export function Tray({
-  state,
-  engineExit,
-  studios,
-  studio,
-  onChooseStudio,
-}: TrayProps) {
+export function Tray({ state, engineExit }: TrayProps) {
   const [address, setAddress] = useState("");
   const [lan, setLan] = useState<string | null>(null);
 
@@ -75,22 +64,6 @@ export function Tray({
             ) : null}
           </div>
         ))}
-        {studios.length > 1 ? (
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Tabs open</span>
-            <select
-              className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1"
-              value={studio ?? ""}
-              onChange={(e) => onChooseStudio(e.target.value)}
-            >
-              {studios.map((origin) => (
-                <option key={origin} value={origin}>
-                  {origin}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -197,7 +170,7 @@ function PrivateCa() {
             Android does not let apps use the CAs installed in Settings, so a
             private one is added here instead: pick its certificate file (.pem,
             .crt or .der). It is trusted by the engine's connection to the
-            studio and by the st0, pl8 and k7 tabs alike.
+            studio and by st0, pl8 and k7 alike.
           </p>
           <p className="text-sm">{base}</p>
           {said ? <p className="text-sm">{said}</p> : null}

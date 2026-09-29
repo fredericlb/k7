@@ -684,20 +684,35 @@ export function rackGrid(n: number): { cols: number; rows: number } {
   return { cols, rows: Math.max(RACK_MIN, Math.ceil(Math.max(1, n) / cols)) };
 }
 
-/** The UI a RACK node carries: one `@rack:<symbol>` pad per loaded sound. See docs/graphBuild.md. */
+/** A TAP's footprint in cells: the pad, and under it its note and its sample's name. */
+export const TAP_COLS = 3;
+export const TAP_ROWS = 2;
+/** Three taps to a row: a kit reads down, and a fourth would make every card of one wider than a synth's. */
+const TAPS_PER_ROW = 3;
+/** The bind of a rack's LAST tap, which adds a sound rather than playing one. */
+export const RACK_ADD_BIND = "@rack+";
+
+/** The UI a RACK node carries: one `tap` per sound, then the tap that adds one. See docs/racks.md. */
 export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
-  const { cols, rows } = rackGrid(rack.length);
+  const n = rack.length + 1;
+  const per = Math.min(TAPS_PER_ROW, n);
   const widgets: Record<string, WebWidget> = {};
+  const place = (i: number) => ({
+    col: (i % per) * TAP_COLS,
+    row: Math.floor(i / per) * TAP_ROWS,
+    colSpan: TAP_COLS,
+    rowSpan: TAP_ROWS,
+  });
   rack.forEach((s, i) => {
     widgets[`rack:${s.symbol}`] = {
-      type: "button",
-      col: i % cols,
-      row: Math.floor(i / cols),
+      type: "tap",
+      ...place(i),
       bind: `${RACK_BIND}${s.symbol}`,
       label: s.symbol,
     };
   });
-  return { cols, rows, widgets };
+  widgets["rack+"] = { type: "tap", ...place(rack.length), bind: RACK_ADD_BIND };
+  return { cols: per * TAP_COLS, rows: Math.ceil(n / per) * TAP_ROWS, widgets };
 }
 
 /** The UI a live INPUT node carries: its socket, its width, its monitoring. See docs/graphBuild.md. */
@@ -844,7 +859,8 @@ function stepUI(
       SHADER_BIND,
       s.shaders,
     );
-  if (s.rack?.length) return rackUI(s.rack);
+  // Present, even EMPTY: a kit node is born with no sounds, and its "+" is how it gets one.
+  if (s.rack) return rackUI(s.rack);
   // A LENS is told apart the way a live input is: by the field only its own kind carries.
   if (s.camera !== undefined) return cameraUI(cameras ?? [], s.camera);
   return s.monitor !== undefined

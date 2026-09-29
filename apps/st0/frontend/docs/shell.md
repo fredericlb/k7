@@ -793,13 +793,17 @@ a rack": a module's folder name, a node's stem.
 #### The RACK BUILDER popin
 
 `module create rack` (web-local — the building is the browser's) opens a 4×4 pad grid over the shell.
-Drop audio files on the pads, name each pad (the rack's SYMBOLS) and name the rack; CREATE uploads the
-samples beside a fresh `module.yaml` at `modules/instruments/<name>/`, the beside-the-module layout every
-rack in a real song already loads. Auditioning is a local object-URL, with no server round trip.
+Drop audio files on the pads, name each pad (its TAP) and name the kit, and choose where the samples go:
+this project's `samples/` (the default — `@project/<kit>/…`) or one of the account's libraries'. CREATE
+uploads them there and makes the kit a NODE, `nodes/<kit>.yaml`, of the plain `@workspace/instruments/rack`
+sampler (written the first time a workspace needs it) — through `node new`, so the node lands in the
+graph, journalled, then its taps in one write rather than a reload per pad. A kit is the node's and a
+sample lives in a samples/ folder, never in a module (`packages/song/docs/racks.md`), so the builder no
+longer writes a module at all. Auditioning is a local object-URL, with no server round trip.
 
 The notes are the drum-machine page, pinned in `rackBuilder.ts`: bottom-left is 36, rightward, then the
 row above — so the grid READS the way it plays, and the symbols are written in that order, which every
-other surface then walks. Samples only; the slice flavour has its own editor (the docked slicer).
+other surface then walks.
 
 **Each filled pad carries a ✕ beside its ▶.** A drop REPLACES a sample, so without one a multi-file drop
 landing a cell over could only be undone by starting the rack again. Clearing revokes the pad's object

@@ -101,6 +101,7 @@ import {
   isInSharedModules,
   LIBRARIES_DIR,
   librariesHome,
+  libraryFamilyRoots,
   libraryOf,
   moduleLibraryDirs,
   moduleNamespaceOf,
@@ -300,6 +301,13 @@ interface WalkedFile {
   mtimeMs: number;
   binary: boolean;
   source: boolean;
+}
+
+/** Is `abs` inside one of the account libraries' `samples/` or `irs/` — and nowhere else of theirs? */
+function inLibrarySounds(abs: string): boolean {
+  return (["samples", "irs"] as const).some((family) =>
+    libraryFamilyRoots(family).some((l) => abs.startsWith(l.root + sep)),
+  );
 }
 
 /** What a journalled mutation answers, tokens included — see docs/workspace.md. */
@@ -1282,11 +1290,18 @@ export class Workspace {
         roots.push({ ns: lib.name, abs: join(lib.root, "modules") });
     const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
       const exists = existsSync(abs);
+      // A library REPOSITORY's sound folders too, walked like its modules: the tab draws them and takes drops on them.
+      const lib = accountLibraries().find((l) => l.name === ns);
+      const sounds = (family: "samples" | "irs") => {
+        const at = lib ? join(lib.root, family) : null;
+        return at && existsSync(at) ? this.walk(at) : [];
+      };
       return {
         ns,
         path: this.toRel(abs),
         exists,
         nodes: exists ? this.walk(abs) : [],
+        ...(lib ? { samples: sounds("samples"), irs: sounds("irs") } : {}),
       };
     });
     const engine = engineLibrary();
@@ -1913,7 +1928,8 @@ export class Workspace {
       }
       if (clip && clip.type === "audio") return clip.source;
       const abs = resolve(dir, spec);
-      if (!this.withinRoot(abs))
+      // …or in a library's shared SOUNDS, where a rack tap's sample and a cabinet IR live (@studio/song's libraryFiles.md).
+      if (!this.withinRoot(abs) && !inLibrarySounds(abs))
         throw new Error("audio path is outside the workspace");
       if (!existsSync(abs)) throw new Error(`no audio for '${spec}'`);
       return abs;

@@ -10,6 +10,7 @@
 
 #include "PluginParams.h"    // applyPluginParams (via addPlugin)
 #include "PluginScan.h"      // cachedPluginInfos (via makeExternalPlugin)
+#include "SendPlan.h"        // which bus each send lands on, shared with the diff
 
 #include <algorithm>
 #include <cctype>
@@ -270,11 +271,15 @@ void applyTrackParams(te::AudioTrack& track, const TrackDoc& t) {
 
 // Solo is a mixer-wide relationship, so re-apply mute across ALL tracks after a sync — a per-track diff carries only the changed one.
 /** A lane heard through its buses and nowhere else: ROUTED to the first, aux-sent to the rest — docs/editBuilder.md. */
-bool feedsBusOnly(const TrackDoc& t) {
-    if (!t.mute) return false;
-    for (const auto& s : t.sends)
-        if (s.enabled) return true;
-    return false;
+void applySendLevels(te::Edit& edit, const ProjectDoc& doc, const std::string& trackId) {
+    auto* lane = trackById(edit, trackId, doc);
+    if (lane == nullptr) return;
+    for (const auto& p : planSends(doc)) {
+        if (p.bus == 0 || doc.tracks[p.source].id != trackId) continue;
+        for (auto* plugin : lane->pluginList)
+            if (auto* aux = dynamic_cast<te::AuxSendPlugin*>(plugin); aux && aux->busNumber == p.bus)
+                aux->setGainDb(juce::Decibels::gainToDecibels((float)(p.level > 1.0e-4 ? p.level : 1.0e-4)));
+    }
 }
 
 void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
@@ -326,7 +331,13 @@ void insertMidiClip(te::Edit& edit, te::AudioTrack& track, const ClipDoc& c) {
     }
 
     // How many times the window fits the clip. Rounded rather than truncated, so a last pass a few ulps short is not dropped.
-    const int passes = std::max(1, (int)std::llround(len / win));
+    const long long wanted = std::llround(len / win);
+    // Bounded: a window of a few ulps would otherwise unroll billions of passes on the message thread.
+    constexpr long long kMaxPasses = 4096;
+    if (wanted > kMaxPasses)
+        warn("clip '" + c.id + "' loops its window " + std::to_string(wanted) + " times — only the first " +
+             std::to_string(kMaxPasses) + " are written");
+    const int passes = (int)std::clamp<long long>(wanted, 1, kMaxPasses);
     for (int p = 0; p < passes; ++p)
         for (const auto& n : c.notes) {
             // Every Nth pass falls silent, counting the first as pass 1: `skip: 2` plays one pass in two, `skip: 4` three in four.
@@ -371,6 +382,65 @@ std::string resolveBuiltInType(const std::string& ptype) {
 }
 
 // The whole of plugin creation, onto whichever LIST it is going: a track's, or the edit's master list — docs/editBuilder.md.
+// The FILES a module loads — its preset, its model and cabinet, its record — where they differ from `was`, all of them when null (docs/projectDiff.md).
+void loadPluginFiles(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p, const PluginDoc* was) {
+    const auto moved = [&](const std::string PluginDoc::*field) {
+        return !(p.*field).empty() && (was == nullptr || was->*field != p.*field);
+    };
+    if (moved(&PluginDoc::path))
+        loadVstPreset(plugin, juce::File(juce::String(p.path)));   // module's or its base's .vstpreset
+    // The .nam model, loaded from the FILE the project names rather than the plugin's stored blob — on the message thread, never the audio one.
+    if (moved(&PluginDoc::namFile))
+        if (auto* nam = dynamic_cast<studio::NamPlugin*>(&plugin)) {
+            juce::String err;
+            const juce::File f{juce::String(p.namFile)};
+            if (!nam->loadModel(f, err))
+                warn(err.toStdString(), p.id);
+            else if (const double want = nam->modelSampleRate();
+                     want > 0.0 && std::abs(want - edit.engine.getDeviceManager().getSampleRate()) > 1.0)
+                // Not a warning: it sounds as trained. Said once, so a latency on this lane has a reason in the log.
+                std::cerr << "[nam] " << p.id << ": model at " << nam->modelSampleRate()
+                          << " Hz, resampled from the engine's rate\n";
+        }
+    // …and the cabinet IR it convolves after the model, the same way and on the same thread.
+    if (moved(&PluginDoc::irFile))
+        if (auto* nam = dynamic_cast<studio::NamPlugin*>(&plugin)) {
+            juce::String err;
+            if (!nam->loadImpulseResponse(juce::File{juce::String(p.irFile)}, err))
+                warn(err.toStdString(), p.id);
+        }
+    // A rack's sounds, in place — only when reloading: a new sampler gets them from addPluginTo, after its params.
+    if (was != nullptr && was->rack != p.rack) reloadRack(edit, plugin, p);
+    // The RECORD a platter owns, decoded on its own loader thread — neither the message thread nor the audio one waits on it.
+    if (moved(&PluginDoc::deckFile))
+        if (auto* deck = dynamic_cast<studio::TurntablePlugin*>(&plugin)) {
+            juce::String err;
+            if (!deck->loadRecordAsync(juce::File(juce::String(p.deckFile)), err, p.id))
+                warn(err.toStdString(), p.id);
+        }
+}
+
+// A module's SECOND input, aimed at `from` resolved through `doc` — or unwired when `from` is empty (docs/sidechain.md).
+void wireSidechain(te::Edit& edit, te::Plugin& plugin, const std::string& from, const ProjectDoc& doc) {
+    if (from.empty()) {
+        plugin.setSidechainSourceID({});
+        return;
+    }
+    auto* src = trackById(edit, from, doc);
+    if (src == nullptr) {
+        warn("second input source track not found: " + from);
+        return;
+    }
+    // Its own lane is not a second signal but the one already flowing in, so say so rather than wire a loop.
+    if (plugin.getOwnerTrack() == src) {
+        warn("second input source '" + from + "' is this module's own track - that signal is already its first input");
+        return;
+    }
+    plugin.setSidechainSourceID(src->itemID);
+    if (plugin.getNumWires() == 0)
+        plugin.guessSidechainRouting();
+}
+
 te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index) {
     if (p.type.empty())
         return {};
@@ -417,35 +487,7 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
     list.insertPlugin(plugin, index, nullptr);
     // Bypass: Tracktion's `enabled` keeps the plugin in the chain and passes its input through, and it is set BEFORE the preset and params.
     plugin->setEnabled(p.enabled);
-    if (!p.path.empty())
-        loadVstPreset(*plugin, juce::File(juce::String(p.path)));   // module's or its base's .vstpreset
-    // The .nam model, loaded from the FILE the project names rather than the plugin's stored blob — on the message thread, never the audio one.
-    if (!p.namFile.empty())
-        if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get())) {
-            juce::String err;
-            const juce::File f{juce::String(p.namFile)};
-            if (!nam->loadModel(f, err))
-                warn(err.toStdString(), p.id);
-            else if (const double want = nam->modelSampleRate();
-                     want > 0.0 && std::abs(want - edit.engine.getDeviceManager().getSampleRate()) > 1.0)
-                // Not a warning: it sounds as trained. Said once, so a latency on this lane has a reason in the log.
-                std::cerr << "[nam] " << p.id << ": model at " << nam->modelSampleRate()
-                          << " Hz, resampled from the engine's rate\n";
-        }
-    // …and the cabinet IR it convolves after the model, the same way and on the same thread.
-    if (!p.irFile.empty())
-        if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get())) {
-            juce::String err;
-            if (!nam->loadImpulseResponse(juce::File{juce::String(p.irFile)}, err))
-                warn(err.toStdString(), p.id);
-        }
-    // The RECORD a platter owns, decoded here on the message thread — the audio one never touches a file.
-    if (!p.deckFile.empty())
-        if (auto* deck = dynamic_cast<studio::TurntablePlugin*>(plugin.get())) {
-            juce::String err;
-            if (!deck->loadRecord(juce::File(juce::String(p.deckFile)), err))
-                warn(err.toStdString(), p.id);
-        }
+    loadPluginFiles(edit, *plugin, p, nullptr);
     applyPluginParams(*plugin, p.params);                            // text params override the preset
 
     // Checked AFTER the params, because it depends on one: Normalize with no declared loudness has nothing to level to.
@@ -458,15 +500,7 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
                      p.id);
 
     // A rack instrument carries its sounds in p.rack: each is a window of an audio file, loaded pinned to its note.
-    if (!p.rack.empty()) {
-        if (auto* sampler = dynamic_cast<te::SamplerPlugin*>(plugin.get())) {
-            for (const auto& e : p.rack)
-                addRackSound(edit, *sampler, e.clip, e.symbol, e.note, e.start, e.length,
-                             p.id);
-        } else {
-            warn("carries a rack but is not a sampler (" + p.type + ")", p.id);
-        }
-    }
+    if (!p.rack.empty()) reloadRack(edit, *plugin, p);
     return plugin;
 }
 
@@ -499,9 +533,9 @@ te::Plugin::Ptr masterGainOf(te::Edit& edit) {
 }
 
 // Load one rack sound: the requested window clamped to the file, pinned to its note and open-ended so a short note plays the whole hit.
-bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string& file,
-                  const std::string& name, int note, double start, double length,
-                  const std::string& subject) {
+// The excerpt a rack sound plays, clamped to the file: false, and said, when the file is missing or unreadable.
+static bool rackExcerpt(te::Edit& edit, const std::string& file, const std::string& name, double start,
+                        double length, const std::string& subject, double& s, double& len) {
     const juce::File f{juce::String(file)};
     double natural = 0.0;
     if (f.existsAsFile()) {
@@ -509,12 +543,19 @@ bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string&
         if (af.isValid()) natural = af.getLength();
     }
     if (natural <= 0.0) {
-        warn("rack sound '" + name + "' -> '" + file +
-             "' is missing or unreadable; skipped", subject);
+        warn("rack sound '" + name + "' -> '" + file + "' is missing or unreadable; skipped", subject);
         return false;
     }
-    const double s = juce::jlimit(0.0, natural, start);
-    const double len = length > 0.0 ? juce::jmin(length, natural - s) : natural - s;
+    s = juce::jlimit(0.0, natural, start);
+    len = length > 0.0 ? juce::jmin(length, natural - s) : natural - s;
+    return true;
+}
+
+bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string& file,
+                  const std::string& name, int note, double start, double length,
+                  const std::string& subject) {
+    double s = 0.0, len = 0.0;
+    if (!rackExcerpt(edit, file, name, start, length, subject, s, len)) return false;
     const juce::String err =
         sampler.addSound(juce::String(file), juce::String(name), s, len, 0.0f);
     if (err.isNotEmpty()) {
@@ -525,6 +566,33 @@ bool addRackSound(te::Edit& edit, te::SamplerPlugin& sampler, const std::string&
     sampler.setSoundParams(idx, note, note, note);   // one sound, one note
     sampler.setSoundOpenEnded(idx, true);            // one-shot playback
     return true;
+}
+
+void reloadRack(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p) {
+    auto* sampler = dynamic_cast<te::SamplerPlugin*>(&plugin);
+    if (sampler == nullptr) {
+        if (!p.rack.empty()) warn("carries a rack but is not a sampler (" + p.type + ")", p.id);
+        return;
+    }
+    // Slot by slot, and only what differs: a property set to its own value changes nothing, so an untouched pad costs nothing.
+    int slot = 0;
+    for (const auto& e : p.rack) {
+        double s = 0.0, len = 0.0;
+        if (!rackExcerpt(edit, e.clip, e.symbol, e.start, e.length, p.id, s, len)) continue;
+        if (slot < sampler->getNumSounds()) {
+            sampler->setSoundMedia(slot, juce::String(e.clip));
+            sampler->setSoundExcerpt(slot, s, len);
+            sampler->setSoundName(slot, juce::String(e.symbol));
+        } else if (const auto err = sampler->addSound(juce::String(e.clip), juce::String(e.symbol), s, len, 0.0f);
+                   err.isNotEmpty()) {
+            warn("rack sound '" + e.symbol + "': " + err.toStdString(), p.id);
+            continue;
+        }
+        sampler->setSoundParams(slot, e.note, e.note, e.note);   // one sound, one note
+        sampler->setSoundOpenEnded(slot, true);                  // one-shot playback
+        ++slot;
+    }
+    while (sampler->getNumSounds() > slot) sampler->removeSound(sampler->getNumSounds() - 1);
 }
 
 void applyAutomationLane(te::Edit& edit, te::Plugin& plugin, const AutomationDoc& lane) {
@@ -612,48 +680,25 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     }
 
     // Second inputs, now that every lane has an itemID — one sidechain source per plugin, summed past the stereo pair (docs/sidechain.md).
-    for (auto& [plugin, from] : sidechains) {
-        auto* src = trackById(edit, from, doc);
-        if (src == nullptr) {
-            warn("second input source track not found: " + from);
-            continue;
-        }
-        // Its own lane is not a second signal but the one already flowing in, so say so rather than wire a loop.
-        if (plugin->getOwnerTrack() == src) {
-            warn("second input source '" + from + "' is this module's own track - that signal is already its first input");
-            continue;
-        }
-        plugin->setSidechainSourceID(src->itemID);
-        if (plugin->getNumWires() == 0)
-            plugin->guessSidechainRouting();
-    }
+    for (auto& [plugin, from] : sidechains)
+        wireSidechain(edit, *plugin, from, doc);
 
-    // Auxiliary sends, a second pass once every track exists: one bus and one return per destination, one send per enabled feed.
-    std::map<std::string, int> busForDest;   // dest track id -> bus number
-    std::set<te::AudioTrack*> routed;        // bus-only lanes whose ONE output is already spoken for
-    int nextBus = 1;
-    for (size_t i = 0; i < doc.tracks.size(); ++i) {
-        auto* src = audioTracks[static_cast<int>(i)];
-        for (const auto& s : doc.tracks[i].sends) {
-            if (!s.enabled)
-                continue;
-            auto* dest = trackById(edit, s.to, doc);
-            if (dest == nullptr) {
-                warn("send target track not found: " + s.to);
-                continue;
-            }
-            // The FIRST destination is a ROUTING, which is what removes the dry path; the rest are sends (docs/editBuilder.md).
-            if (feedsBusOnly(doc.tracks[i]) && !routed.count(src)) {
-                routed.insert(src);
-                src->getOutput().setOutputToTrack(dest);
-                continue;
-            }
-            auto found = busForDest.find(s.to);
-            const int bus = found != busForDest.end() ? found->second : (busForDest[s.to] = nextBus++);
-            if (found == busForDest.end())
-                addAuxReturn(edit, *dest, bus);   // first sender wires the return
-            addAuxSend(edit, *src, bus, s.level);
+    // Auxiliary sends, a second pass once every track exists, wired from the plan the diff compares (SendPlan.h, docs/editBuilder.md).
+    for (const auto& p : planSends(doc)) {
+        auto* src = audioTracks[static_cast<int>(p.source)];
+        auto* dest = p.found ? trackById(edit, p.to, doc) : nullptr;
+        if (dest == nullptr) {
+            warn("send target track not found: " + p.to);
+            continue;
         }
+        // A routing is what removes the dry path.
+        if (p.routing) {
+            src->getOutput().setOutputToTrack(dest);
+            continue;
+        }
+        if (p.firstOnBus)
+            addAuxReturn(edit, *dest, p.bus);
+        addAuxSend(edit, *src, p.bus, p.level);
     }
 
     applySoloMute(edit, doc);   // resolve mute across the mixer once every track exists

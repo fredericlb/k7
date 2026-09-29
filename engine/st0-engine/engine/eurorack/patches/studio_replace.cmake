@@ -1,5 +1,5 @@
-# studio_replace.cmake — the one edit the fetch-time patch scripts make, shared by eurorack.cmake and
-# stmlib.cmake. It fails LOUDLY when its text is not found: a bump that moved the code must be looked at.
+# studio_replace.cmake — the one edit the fetch-time patch scripts make, shared by eurorack.cmake, stmlib.cmake
+# and engine/patches/{faust,tracktion}.cmake. It fails LOUDLY when its text is not found: a bump that moved the code must be looked at.
 #
 # And it is a no-op when the edit is already there. The patch step runs AGAIN on a source it has
 # already patched whenever its command changes, and the command names this script by an absolute
@@ -14,7 +14,7 @@ function(studio_replace file from to)
         if(NOT done EQUAL -1)
             return()
         endif()
-        message(FATAL_ERROR "eurorack patch: text not found in ${file} — was the source bumped?")
+        message(FATAL_ERROR "fetch-time patch: text not found in ${file} — was the source bumped?")
     endif()
     string(REPLACE "${from}" "${to}" text "${text}")
     file(WRITE "${file}" "${text}")

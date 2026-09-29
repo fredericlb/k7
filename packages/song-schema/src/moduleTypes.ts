@@ -320,9 +320,12 @@ export const FILE_PARAMS = ["nam", "onnx"] as const;
 /** The extension a file-valued param takes, derived from the param's NAME — `nam` loads `.nam`, see docs/moduleTypes.md. */
 export const assetExtFor = (param: string): string => `.${param.toLowerCase()}`;
 
-/** Those of `files` a param of this name can take — a library param only the `@<library>/…` sound files. */
+/** What a rack TAP's sample picker asks for: a library's `samples/`, the way `ir` asks for its `irs/`. */
+export const TAP_SAMPLE = "sample";
+
+/** Those of `files` a param of this name can take — a library pick only the `@<library>/…` sound files. */
 export function assetsForParam(files: string[], param: string): string[] {
-  if (isLibraryFileParam(param))
+  if (isLibraryFileParam(param) || param === TAP_SAMPLE)
     return files.filter((f) => f.startsWith("@") && isLibraryAudio(f));
   const ext = assetExtFor(param);
   return files.filter((f) => f.toLowerCase().endsWith(ext));

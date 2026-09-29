@@ -15,6 +15,18 @@ So the split is not desktop-versus-web. It is **whose disk answers**. Two sectio
 sit at the two ends of that line: the LANGUAGE, which no disk answers for and which lives in this
 browser alone, and the DEPLOY KEY, which only a machine can have made.
 
+## On the phone, the machine IS this page's
+
+Inside the Android app (`engine/st0-engine/docs/android.md`) the line above moves, and for the
+reason it was drawn: the process on the machine is the app st0 is running in, and the phone has no
+tray to hold its menu. So the panel's first sections are **this phone's engine** —
+`settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
+which one the apps open, the private CA. The tray's hint is not drawn there, since it would point
+at a menu that does not exist.
+
+They are drawn only when `window.st0Android` is there (`settings/androidEngine.ts`), which the app
+answers for st0's origin alone; a browser never sees them.
+
 ## Why a panel and not a page
 
 The deploy key is pasted at a git host, and the list of repositories that need it is the reason

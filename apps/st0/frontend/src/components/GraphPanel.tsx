@@ -10,7 +10,7 @@ import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
-import { type Cam, DomChains } from "@studio/ui-chains-react";
+import { type Cam, DomChains, type TapAction } from "@studio/ui-chains-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
@@ -37,6 +37,7 @@ export function GraphPanel({
   onProjectField,
   onAlternative,
   onAssetBrowse,
+  onTapEdit,
   onWatchWaveform,
   engineWarnings,
   onContextMenu,
@@ -79,6 +80,8 @@ export function GraphPanel({
   onAlternative?: (module: string, name: string | null) => void;
   /** A file-valued param's browser: the same cards are drawn here, so the same button has to open. */
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
+  /** A rack tap's edit — the shell runs its `node tap` command (packages/song/docs/racks.md). */
+  onTapEdit?: (module: string, action: TapAction) => void;
   /** …and the waveform widget's subscription, for the same reason — it draws nothing unwatched. */
   onWatchWaveform?: (
     pluginId: string,
@@ -179,6 +182,7 @@ export function GraphPanel({
         onProjectField={onProjectField}
         onAlternative={onAlternative}
         onAssetBrowse={onAssetBrowse}
+        onTapEdit={onTapEdit}
         onWatchWaveform={onWatchWaveform}
         engineWarnings={engineWarnings}
         pluginParamsStore={pluginParamsStore}

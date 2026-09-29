@@ -17,11 +17,14 @@ import {
   NODE_W,
   nodeSize,
   pushBelowInputs,
+  RACK_ADD_BIND,
   rackBindSymbol,
   rackGrid,
   rackUI,
   spaceModulesEvenly,
   subgraphForTrack,
+  TAP_COLS,
+  TAP_ROWS,
   trackModules,
   UI_PAD,
   widgetDenorm,
@@ -1857,21 +1860,37 @@ describe("a RACK node draws its sounds", () => {
     { symbol: "SN", note: 38, clip: "snare" },
   ];
 
-  it("gives one pad per loaded sound, named by symbol and bound to it", () => {
+  it("gives one TAP per sound, named by symbol and bound to it, and a last tap that adds one", () => {
     const ui = rackUI(kit);
-    expect(Object.keys(ui.widgets)).toEqual(["rack:BD", "rack:HH", "rack:SN"]);
-    // The label is kept though the pad draws bare: a tooltip and a right-click name the sound by it.
+    expect(Object.keys(ui.widgets)).toEqual([
+      "rack:BD",
+      "rack:HH",
+      "rack:SN",
+      "rack+",
+    ]);
     expect(ui.widgets["rack:BD"]).toMatchObject({
-      type: "button",
+      type: "tap",
       label: "BD",
       bind: "@rack:BD",
       col: 0,
       row: 0,
+      colSpan: TAP_COLS,
+      rowSpan: TAP_ROWS,
     });
-    // Three sounds make a 2×2 with one slot free — a rack reads as a GRID, not as a row.
-    expect(ui.cols).toBe(2);
-    expect(ui.rows).toBe(2);
-    expect(ui.widgets["rack:SN"]).toMatchObject({ col: 0, row: 1 });
+    expect(ui.widgets["rack+"]).toMatchObject({
+      type: "tap",
+      bind: RACK_ADD_BIND,
+    });
+    // Three taps to a row: the fourth — the add tap — starts the second.
+    expect(ui.cols).toBe(3 * TAP_COLS);
+    expect(ui.widgets["rack+"]).toMatchObject({ col: 0, row: TAP_ROWS });
+  });
+
+  it("draws only the add tap for a rack with no sound yet — how a kit node starts", () => {
+    const ui = rackUI([]);
+    expect(Object.keys(ui.widgets)).toEqual(["rack+"]);
+    expect(ui.cols).toBe(TAP_COLS);
+    expect(ui.rows).toBe(TAP_ROWS);
   });
 
   it("is never smaller than 2×2, even holding one sound", () => {
@@ -1889,16 +1908,19 @@ describe("a RACK node draws its sounds", () => {
     expect(rackGrid(24)).toEqual({ cols: 4, rows: 6 });
   });
 
-  it("lays the pads out on that grid, in the rack's own order", () => {
+  it("lays the taps out three to a row, in the order it is handed", () => {
     const many = Array.from({ length: 9 }, (_, i) => ({
       symbol: `P${i}`,
       note: 36 + i,
     }));
     const ui = rackUI(many);
-    expect(ui.cols).toBe(3);
-    expect(ui.rows).toBe(3);
-    expect(ui.widgets["rack:P4"]).toMatchObject({ col: 1, row: 1 });
-    expect(ui.widgets["rack:P8"]).toMatchObject({ col: 2, row: 2 });
+    // Nine taps and the add tap: four rows of three.
+    expect(ui.cols).toBe(3 * TAP_COLS);
+    expect(ui.rows).toBe(4 * TAP_ROWS);
+    expect(ui.widgets["rack:P4"]).toMatchObject({
+      col: TAP_COLS,
+      row: TAP_ROWS,
+    });
   });
 
   it("reads a pad bind back to its symbol, and leaves every other bind alone", () => {

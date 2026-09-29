@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "WaveformTap.h"
 // The module header, not a path into a build tree: FetchContent puts the checkout under build/<preset>/_deps, so a relative path pins the file to one preset.
 #include <tracktion_engine/tracktion_engine.h>
@@ -49,11 +51,12 @@ public:
 
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override {}
     void deinitialise() override {}
-    // Only the writer's half: reset() runs beside the audio thread, and the ring's read cursor belongs to the message thread that drains it.
-    void reset() override { tap_.resetBucket(); }
+    // Only the writer's half, and only as a flag: reset() runs on the message thread beside the audio one, which owns the bucket (docs/panic.md).
+    void reset() override { resetPending_ = true; }
 
     void applyToBuffer(const tracktion::engine::PluginRenderContext& ctx) override
     {
+        if (resetPending_.exchange(false)) tap_.resetBucket();
         if (!enabled_.load(std::memory_order_relaxed)) return;
         if (!ctx.destBuffer) return;
 
@@ -78,6 +81,7 @@ public:
     bool isEnabled() const { return enabled_.load(std::memory_order_relaxed); }
 
 private:
+    std::atomic<bool> resetPending_{false};
     WaveformTap tap_{256};  // 256-sample buckets → ~86 points/sec at 44.1 kHz
     std::atomic<bool> enabled_{true};
 

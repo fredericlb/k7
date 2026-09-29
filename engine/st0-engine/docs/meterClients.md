@@ -35,15 +35,17 @@ Edit's measurers are torn down. Otherwise the audio thread touches a freed clien
 lazily on the first poll of a track fed by that device and stay for the engine's life, reading the
 live signal used for monitoring and recording.
 
-## Input clients are keyed by device NAME, never by pointer
+## Input clients are keyed by device NAME and CHANNELS, never by pointer
 
 Any change to the wave-device list — enabling a channel is enough — **destroys every
 `WaveInputDevice` and builds new ones** (`docs/audioDevice.md`). Keyed by pointer, `inputClients`
 would hold keys into freed memory, grow a second client on every rebuild, and have nothing left to
 read the level through.
 
-So the key is the name, and the slot also records `dev`, the object the live client is attached
-to. `inputClientFor` compares it: a rebuilt device is a new object carrying a new measurer, so the
+So the key is the name plus the device's physical channel indices (`inputKey`): both survive a
+rebuild, and the channels tell apart two devices an interface gives the same label — keyed by name
+alone, those two would share one slot, swapped between them on every read. The slot also records
+`dev`, the object the live client is attached to. `inputClientFor` compares it: a rebuilt device is a new object carrying a new measurer, so the
 old client is **dropped rather than removed** — the measurer it belonged to is already gone, and
 removing from it would be a read of freed memory.
 

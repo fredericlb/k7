@@ -63,9 +63,15 @@ void MixerPlugin::deinitialise() {}
 
 void MixerPlugin::reset()
 {
+    resetPending_ = true;
+}
+
+void MixerPlugin::clearState()
+{
     for (auto* b : {&low_, &mid_, &high_})
         for (auto& f : b->ch) f.reset();
     coeffsValid_ = false;
+    lastLeftGain_ = lastRightGain_ = -1.0f;
 }
 
 void MixerPlugin::updateCoefficients(float lowDb, float midDb, float highDb)
@@ -88,6 +94,7 @@ void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
     const juce::ScopedNoDenormals noDenormals;   // see GraphDspPlugin::applyToBuffer
     if (ctx.destBuffer == nullptr) return;
+    if (resetPending_.exchange(false)) clearState();
     auto& buffer = *ctx.destBuffer;
     const int numChans = juce::jmin(buffer.getNumChannels(), 2);
     const int n = ctx.bufferNumSamples;
@@ -114,13 +121,15 @@ void MixerPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
         te::decibelsToVolumeFaderPosition(volume_->getCurrentValue()), pan_->getCurrentValue(),
         te::getDefaultPanLaw(), leftGain, rightGain);
 
-    if (numChans == 1) {
-        // Mono in, mono out: with no second channel to pan into, half a pan is only an unexplained level drop.
-        buffer.applyGain(0, ctx.bufferStartSample, n, (leftGain + rightGain) * 0.5f);
-    } else {
-        buffer.applyGain(0, ctx.bufferStartSample, n, leftGain);
-        buffer.applyGain(1, ctx.bufferStartSample, n, rightGain);
-    }
+    // Mono in, mono out: with no second channel to pan into, half a pan is only an unexplained level drop.
+    if (numChans == 1) leftGain = rightGain = (leftGain + rightGain) * 0.5f;
+    // Ramped across the block from where the last one ended, so a fader drag is a slope and not a staircase.
+    const float fromLeft = lastLeftGain_ < 0.0f ? leftGain : lastLeftGain_;
+    const float fromRight = lastRightGain_ < 0.0f ? rightGain : lastRightGain_;
+    buffer.applyGainRamp(0, ctx.bufferStartSample, n, fromLeft, leftGain);
+    if (numChans > 1) buffer.applyGainRamp(1, ctx.bufferStartSample, n, fromRight, rightGain);
+    lastLeftGain_ = leftGain;
+    lastRightGain_ = rightGain;
 }
 
 }  // namespace studio

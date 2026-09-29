@@ -30,6 +30,9 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   EngineHostImpl.h         PImpl state (all JUCE state in one place)
   EngineTypes.h            small shared value types
   EditBuilder.{h,cpp}     graph build: populateEdit + track/clip/plugin/aux helpers
+  SendPlan.h               which bus every send lands on, decided once for the builder AND the diff — JUCE-free
+  Biquad.h                 juce::IIRFilter's arithmetic without its lock, for the audio thread alone
+  RecordSource.{h,cpp}     a platter's record MAPPED, or decoded once into the record cache and mapped (docs/turntable.md)
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
   AudioInputs.{h,cpp}      live-input device mapping
@@ -86,6 +89,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                               so a firmware header never shares a TU with JUCE. `studio_eurorack`
     patches/eurorack.cmake    the upstream bug fixed at fetch time (Clouds' silent stretch mode)
     patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
+  patches/faust.cmake       Faust's poly-dsp.h prints on the audio thread at every voice steal; silenced at fetch time
+  patches/tracktion.cmake   Tracktion's SamplerPlugin re-decoded every rack sound on any edit, twice, once under the audio lock
     <Name>Plugin.{h,cpp}      named mu-<module>: MacroOscillator2 = mu-plaits, MacroOscillator =
                               mu-braids, Resonator = mu-rings, ModalSynthesizer = mu-elements,
                               TidalModulator = mu-tides (Tides 2), DrumVoices = mu-peaks,
@@ -102,7 +107,13 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
 
 server/
   main.cpp               the executable: the CLI's one-shot modes, else serve()
-  Serve.{h,cpp}          WebSocket server (IXWebSocket) wiring JSON → EngineHost
+  Serve.{h,cpp}          WebSocket server (IXWebSocket): the socket's lifecycle, the state frame, shutdown
+  ServeContext.h         what every handler shares — the host, the two broadcast verbs, who listens and drives
+  ServeProject.cpp       the messages about ONE project: document, transport, auditions, recording
+  ServePlugins.cpp       …about plugins: the catalogue and its scan, instances, windows, presets, watches
+  ServeMachine.cpp       …about the machine: the audio stream, sessions, the interface, identity
+  AudioSender.{h,cpp}    the audio broadcast's own thread and wire frame (docs/broadcast.md)
+  Outbox.h               every JSON push, sent from ONE writer thread so the message thread never waits on a peer
   DocJson.{h,cpp}        the ProjectDoc off the wire, shared by the server and the CLI
   android/EngineJni.cpp  the Android app's entry into serve() (docs/android.md)
 

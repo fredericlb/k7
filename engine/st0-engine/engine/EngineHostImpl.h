@@ -49,6 +49,8 @@ struct Session {
     std::map<std::string, std::unique_ptr<juce::DocumentWindow>> pluginWindows;
     std::map<std::string, std::string> presetSaveById;   // id -> module's .vstpreset save path
     std::map<std::string, juce::MemoryBlock> lastSavedState;   // id -> state at last autosave (skip no-ops)
+    // id -> the throwaway instance an autosave round-trips params through, kept rather than built every five seconds (docs/pluginEditors.md).
+    std::map<std::string, te::Plugin::Ptr> paramProbes;
 
     // Per-track output metering, rebuilt with the edit; the clients detach before the old measurers die (docs/meterClients.md).
     std::vector<te::Plugin::Ptr> levelMeters;
@@ -89,8 +91,9 @@ struct Session {
     double noDriverSinceMs = 0.0;
 
     // Whether this session can be forgotten: it HOLDS nothing and has been quiet a while, so the next message naming it recreates exactly this (docs/sessions.md).
+    // `recordEnabled` alone keeps nothing alive: with no Edit there is nothing to record into, and a client naming a stray id would pin it for ever.
     bool reapable(double nowMs, double ttlMs) const {
-        return !edit && !broadcastWanted && !recordEnabled && watchedParams.empty() &&
+        return !edit && !broadcastWanted && watchedParams.empty() &&
                pendingTakes.empty() && (nowMs - lastTouchedMs) > ttlMs;
     }
 
@@ -167,15 +170,22 @@ struct EngineHost::Impl {
     InputTuner tuner;
     bool tunerAttached = false;
 
-    // Per-INPUT-device metering clients, keyed by device NAME rather than pointer because a wave-device-list rebuild destroys every WaveInputDevice (docs/meterClients.md).
+    // Per-INPUT-device metering clients, keyed by NAME and physical CHANNELS rather than pointer: a list rebuild destroys every device, and two may share a label (docs/meterClients.md).
     struct InputClient {
         te::InputDevice* dev = nullptr;
         std::unique_ptr<te::LevelMeasurer::Client> client;
     };
     std::map<std::string, InputClient> inputClients;
 
+    static std::string inputKey(te::InputDevice& dev) {
+        std::string k = dev.getName().toStdString();
+        if (auto* w = dynamic_cast<te::WaveInputDevice*>(&dev))
+            for (const auto& c : w->getChannels()) k += "@" + std::to_string(c.indexInDevice);
+        return k;
+    }
+
     te::LevelMeasurer::Client& inputClientFor(te::InputDevice& dev) {
-        auto& slot = inputClients[dev.getName().toStdString()];
+        auto& slot = inputClients[inputKey(dev)];
         // A rebuilt device carries a new measurer, so the orphaned client is DROPPED rather than removed — removing would touch freed memory.
         if (!slot.client || slot.dev != &dev) {
             slot.client = std::make_unique<te::LevelMeasurer::Client>();

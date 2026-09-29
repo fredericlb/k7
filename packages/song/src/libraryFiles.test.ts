@@ -93,3 +93,90 @@ describe("a module's `ir` param", () => {
     expect(plugin?.irFile).toBe(join(lib, "irs", "fender deluxe", "big.wav"));
   });
 });
+
+describe("a rack tap's `sample`", () => {
+  it("reaches the engine as the sound's file, the kit written on the NODE", () => {
+    const p = join(root, "kit.st0");
+    mkdirSync(join(p, "nodes"), { recursive: true });
+    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "kit"\n');
+    mkdirSync(join(root, "_modules", "instruments", "drums"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, "_modules", "instruments", "drums", "module.yaml"),
+      "type: rack\n",
+    );
+    writeFileSync(
+      join(p, "nodes", "beat.yaml"),
+      'extends: "@meta/track"\nevents: []\n',
+    );
+    writeFileSync(
+      join(p, "nodes", "kit.yaml"),
+      'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n' +
+        '    BD: { note: 36, sample: "@st0/kicks/808.wav" }\n',
+    );
+    writeFileSync(
+      join(p, "graph.yaml"),
+      "modules:\n  beat: [ kit ]\n  kit: [ OUT ]\n",
+    );
+    const rack = loadProject(p)
+      .tracks.flatMap((t) => t.plugins)
+      .find((pl) => pl.rack?.length)?.rack;
+    expect(rack).toEqual([
+      expect.objectContaining({
+        symbol: "BD",
+        note: 36,
+        clip: join(lib, "samples", "kicks", "808.wav"),
+      }),
+    ]);
+  });
+});
+
+describe("a PROJECT's own samples, as @project/…", () => {
+  it("lists them before the libraries', and resolves them in that project only", () => {
+    const p = join(root, "demo.st0");
+    touch(join(p, "samples", "kick.wav"));
+    expect(libraryFiles("samples", p)).toEqual([
+      "@project/kick.wav",
+      "@st0/kicks/808.wav",
+    ]);
+    expect(libraryFile("samples", "@project/kick.wav", p)).toBe(
+      join(p, "samples", "kick.wav"),
+    );
+    // With no project to be read for, `@project/` names nothing rather than guessing one.
+    expect(libraryFile("samples", "@project/kick.wav")).toBeUndefined();
+  });
+
+  it("reaches the engine from a tap on a node", () => {
+    const p = join(root, "demo.st0");
+    touch(join(p, "samples", "kick.wav"));
+    mkdirSync(join(p, "nodes"), { recursive: true });
+    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "demo"\n');
+    mkdirSync(join(root, "_modules", "instruments", "drums"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, "_modules", "instruments", "drums", "module.yaml"),
+      "type: rack\n",
+    );
+    writeFileSync(
+      join(p, "nodes", "beat.yaml"),
+      'extends: "@meta/track"\nevents: []\n',
+    );
+    writeFileSync(
+      join(p, "nodes", "kit.yaml"),
+      'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@project/kick.wav" }\n',
+    );
+    writeFileSync(
+      join(p, "graph.yaml"),
+      "modules:\n  beat: [ kit ]\n  kit: [ OUT ]\n",
+    );
+    const rack = loadProject(p)
+      .tracks.flatMap((t) => t.plugins)
+      .find((pl) => pl.rack?.length)?.rack;
+    expect(rack?.[0]).toMatchObject({
+      symbol: "BD",
+      clip: join(p, "samples", "kick.wav"),
+    });
+  });
+});

@@ -47,6 +47,16 @@ public:
      *  disk reader follows. Why 16 bits is faster and not only smaller: docs/turntable.md. */
     bool loadRecord(const juce::File& file, juce::String& error);
 
+    /** The same decode OFF the message thread: the header is checked here, so a bad file still answers at once, and
+     *  the record is published whole when ready — the latest request wins. An offline render waits for it (docs/turntable.md). */
+    bool loadRecordAsync(const juce::File& file, juce::String& error, const std::string& subject);
+
+private:
+    // The decode itself; `gen` 0 is a synchronous load, anything else publishes only if still the latest request.
+    bool loadRecord(const juce::File& file, juce::String& error, int gen);
+
+public:
+
     /** How long the loaded record is, in seconds — 0 with nothing on. Read by the host, not the audio thread. */
     double recordSeconds() const;
 
@@ -54,6 +64,13 @@ public:
     double needleSeconds() const { return needle_.load(std::memory_order_relaxed); }
 
 private:
+    // One decode at a time, off the message thread; the generation says which request is the latest.
+    juce::ThreadPool loader_{1};
+    std::atomic<int> loadGen_{0};
+    std::atomic<int> loadsPending_{0};
+    // A stop or a panic on the message thread only raises this; the next block clears the state it owns (docs/panic.md).
+    std::atomic<bool> resetPending_{false};
+    void clearState();
     /** One interpolated frame of the record at `pos`. The caller holds the lock and has checked the bounds. */
     void frameAt(double pos, float& left, float& right) const;
     /** Read up to `n` frames at the record's OWN speed, for the stretcher. Returns what the record still had. */
@@ -65,9 +82,18 @@ private:
     double position_ = 0.0;
     /** Smoothed toward the wanted rate: a hand's positions arrive at 60 Hz and the audio runs at 48 kHz. */
     double rate_ = 0.0;
+    // The gain the last block ENDED on, so a fader move ramps; negative until a first block has run.
+    float lastGain_ = -1.0f;
 
     /** The record, INTERLEAVED and 16-bit — half the bytes of a float buffer, see docs/turntable.md. */
     std::vector<int16_t> record_;
+    // …or the FILE itself, mapped: a 16- or 24-bit stereo WAV is read in place, never decoded (docs/turntable.md).
+    std::unique_ptr<juce::MemoryMappedFile> mapped_;
+    // Whichever of the two the deck reads, and how wide one sample is there — set with them, under recordLock_.
+    const unsigned char* pcm_ = nullptr;
+    int bytesPerSample_ = 2;
+    bool isFloat_ = false;
+    int channels_ = 2;
     /** What one stored sample is worth: a stem is a FLOAT wav and may exceed 1, so it is scaled to fit. */
     float scale_ = 1.0f;
     int frames_ = 0;

@@ -17,6 +17,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
+import { onBroadcast } from "./platterBench";
 
 const url =
   process.argv.find((a) => a.startsWith("ws://")) ?? "ws://127.0.0.1:8765";
@@ -135,7 +136,7 @@ const send = (m: Record<string, unknown>) =>
 const chunks: Float32Array[] = [];
 let total = 0;
 /** The least-delayed estimate of when sample 0 was produced — see the header. */
-let origin = Number.POSITIVE_INFINITY;
+let originOf = () => Number.POSITIVE_INFINITY;
 /** Each step: when it was SENT, and the sample the stream was at when it went. */
 const steps: { sent: number; from: number; up: boolean }[] = [];
 
@@ -145,24 +146,10 @@ ws.on("open", () => {
   send({ type: "broadcast", on: true });
 });
 
-ws.on("message", (data: ArrayBuffer | Buffer, isBinary: boolean) => {
-  if (!isBinary) return;
-  const buf =
-    data instanceof ArrayBuffer
-      ? data
-      : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-  const dv = new DataView(buf);
-  if (dv.getUint32(0, true) !== 0x4c535452) return;
-  const channels = dv.getUint8(5);
-  const frames = dv.getUint32(12, true);
-  const all = new Float32Array(buf, 32, frames * channels);
-  const mono = new Float32Array(frames);
-  for (let i = 0; i < frames; i++) mono[i] = all[i * channels];
-  // This chunk ENDS at `total + frames`, so it was produced no later than now — keep the tightest.
-  const guess = performance.now() - ((total + frames) / RATE) * 1000;
-  if (guess < origin) origin = guess;
+// The shared reader: it keeps the least-delayed origin and resamples a stream at the device's rate to RATE.
+originOf = onBroadcast(ws, RATE, (mono) => {
   chunks.push(mono);
-  total += frames;
+  total += mono.length;
 });
 
 ws.on("error", (e: Error) => {
@@ -213,7 +200,7 @@ function finish() {
       }
     }
     if (hit < 0) continue;
-    const heardAt = origin + (hit / RATE) * 1000;
+    const heardAt = originOf() + (hit / RATE) * 1000;
     const ms = heardAt - s.sent;
     // A negative reading means the origin estimate is off, not that the future arrived — dropped, and counted.
     if (ms >= 0) found.push(ms);

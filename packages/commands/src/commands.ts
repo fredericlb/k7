@@ -103,6 +103,7 @@ import {
   setModuleShader,
   unlinkChainNode,
 } from "@studio/song-edit/projectEdit";
+import { addTap, removeTap, setTap } from "@studio/song-edit/rackTaps";
 import {
   addTrackPlacement,
   addTrackPlacements,
@@ -1503,6 +1504,26 @@ async function setFileParam(
     await h.reload();
   } catch (e) {
     h.refuse([`node param ${param} failed: ${(e as Error).message}`]);
+  }
+}
+
+/** A tap's arguments: whitespace-separated, a "quoted" one kept whole — a sample's path holds spaces. */
+function splitArgs(a: string): string[] {
+  return [...a.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2]);
+}
+
+/** Run one tap write, say what it did, and reload — a rack's sounds are built when its plugin is. */
+async function tapEdit(
+  h: CommandHost,
+  write: () => unknown,
+  said: string,
+): Promise<void> {
+  try {
+    write();
+    h.log([said]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`node tap: ${(e as Error).message}`]);
   }
 }
 
@@ -3105,6 +3126,61 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     } catch (e) {
       h.refuse([`node alternative: ${(e as Error).message}`]);
     }
+  },
+
+  /** A rack node's taps — note, sample, add, remove — each one write to the NODE's file and a reload; docs/verbs.md. */
+  "node.tap.note": async (a, h) => {
+    const [node, symbol, raw] = splitArgs(a);
+    const note = Number(raw);
+    if (!node || !symbol || !Number.isInteger(note) || note < 0 || note > 127)
+      return h.refuse(["usage: node tap note <node> <symbol> <0-127>"]);
+    await tapEdit(
+      h,
+      () => setTap(h.songPath, node, symbol, { note }),
+      `${node}: ${symbol} on note ${note}`,
+    );
+  },
+  "node.tap.sample": async (a, h) => {
+    const [node, symbol, file] = splitArgs(a);
+    if (!node || !symbol || !file)
+      return h.refuse([
+        "usage: node tap sample <node> <symbol> <@library/path | none>",
+      ]);
+    const clearing = file === "none";
+    // The libraries' samples and this project's own, by the name the tap's picker offered.
+    if (!clearing && !libraryFiles("samples", h.songPath).includes(file))
+      return h.refuse([
+        `no '${file}' in the libraries' or the project's samples/ — drop it into one first`,
+      ]);
+    await tapEdit(
+      h,
+      () =>
+        setTap(h.songPath, node, symbol, { sample: clearing ? null : file }),
+      `${node}: ${symbol} ${clearing ? "has no sample" : `plays ${file}`}`,
+    );
+  },
+  "node.tap.add": async (a, h) => {
+    const [node, symbol] = splitArgs(a);
+    if (!node) return h.refuse(["usage: node tap add <node> [symbol]"]);
+    try {
+      const made = addTap(h.songPath, node, symbol);
+      h.log([
+        `${node}: tap ${made.symbol} on note ${made.note} — pick its sample`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`node tap add: ${(e as Error).message}`]);
+    }
+  },
+  "node.tap.remove": async (a, h) => {
+    const [node, symbol] = splitArgs(a);
+    if (!node || !symbol)
+      return h.refuse(["usage: node tap remove <node> <symbol>"]);
+    await tapEdit(
+      h,
+      () => removeTap(h.songPath, node, symbol),
+      `${node}: tap ${symbol} removed`,
+    );
   },
 
   "node.alt.create": (a, h) => moduleAltAdd(a, h, false),

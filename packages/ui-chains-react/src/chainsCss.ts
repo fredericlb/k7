@@ -214,6 +214,29 @@ const CSS = `
   cursor:pointer; }
 .dgx-minimap-bar button svg { width:13px; height:13px; }
 .dgx-minimap-bar button:hover { color:#e7e6ea; border-color:var(--sand); }
+/* A rack TAP: the pad over its note and its sample; the × shows on hover. See packages/song/docs/racks.md. */
+.dgx-tap { padding:3px; gap:3px; justify-content:stretch; }
+.dgx-tap-pad { flex:1; min-height:0; width:100%; border-radius:5px; border:1px solid var(--line);
+  background:#15151a; color:var(--dim); font:600 10px ui-monospace,monospace; cursor:pointer; }
+.dgx-tap-pad:hover:not(:disabled) { border-color:var(--sand); color:#e7e6ea; }
+.dgx-tap-pad.on { background:var(--sand); border-color:var(--sand); color:#0d0d0f; }
+.dgx-tap-pad:disabled { cursor:default; opacity:.7; }
+.dgx-tap-row { display:flex; gap:3px; width:100%; height:15px; }
+.dgx-tap-note, .dgx-tap-sample { height:15px; border-radius:4px; border:1px solid #2c2c33; background:#08080b;
+  font:9px/13px ui-monospace,monospace; color:var(--sand); cursor:pointer; padding:0 3px; }
+.dgx-tap-note { width:26px; flex:none; text-align:center; }
+.dgx-tap-sample { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+.dgx-tap-sample.unknown { color:var(--faint); }
+.dgx-tap-note:disabled, .dgx-tap-sample:disabled { cursor:default; }
+.dgx-tap-x { position:absolute; top:1px; right:1px; width:14px; height:14px; padding:0; display:none;
+  place-items:center; border:none; border-radius:3px; background:transparent; color:var(--faint); cursor:pointer; }
+.dgx-tap:hover .dgx-tap-x { display:grid; }
+.dgx-tap-x:hover { color:#e7e6ea; }
+.dgx-tap-x svg { width:10px; height:10px; }
+.dgx-tap.add { display:grid; place-items:center; border:1px dashed var(--line); border-radius:6px;
+  background:transparent; color:var(--faint); cursor:pointer; }
+.dgx-tap.add:hover:not(:disabled) { color:#e7e6ea; border-color:var(--sand); }
+.dgx-tap.add svg { width:14px; height:14px; }
 /* The field a double-clicked control becomes, over the control it replaces for the moment. */
 .dgx-wedit { position:absolute; left:2px; right:2px; top:50%; transform:translateY(-50%); z-index:3;
   height:16px; min-width:0; box-sizing:border-box; padding:0 3px; text-align:center;

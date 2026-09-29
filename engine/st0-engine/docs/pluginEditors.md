@@ -58,8 +58,11 @@ saves only a real change.
 `persist` prefers text params whenever they fully capture the plugin's state — the brain then
 writes them onto the module and drops the `.vstpreset`. "Fully capture" is the same round-trip
 `--dump-params-ext` makes (`docs/plugins.md`): a built-in's state IS its params, and an external's
-are complete iff a fresh instance carrying only them round-trips to the same blob. That creates a
-second, throwaway instance in the LIVE edit.
+are complete iff an instance carrying only them round-trips to the same blob. That instance lives in
+the LIVE edit, one per plugin in `Session::paramProbes`, built on the first save and reused: loading
+a large instrument is seconds on the message thread, and the autosave runs every five seconds. Reuse
+is sound because every parameter is re-applied before each comparison and the probe never receives
+any other state. It dies with the Edit, and with the plugin it probes.
 
 Otherwise the module's own `.vstpreset` is written — never an extended module's.
 

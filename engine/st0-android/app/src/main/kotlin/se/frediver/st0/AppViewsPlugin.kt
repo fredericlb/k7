@@ -1,8 +1,9 @@
-// AppViewsPlugin.kt — the studio apps, each in a WebView of its own under the page's header (web/src/App.tsx,
-// AppViews). They load from the connected studio itself rather than from this APK: each app is same-origin
-// with its backend (`/api`, `/auth`, cookie sessions), so a bundled copy would be an app with no server.
-// A view is made the first time its tab is opened and then only hidden, so an app keeps its state — a k7
-// session, a playing pl8 track — while another is on screen. See docs/android.md.
+// AppViewsPlugin.kt — the studio apps, each in a full-screen WebView of its own over the shell page (web/src/App.tsx,
+// AppViews), under a status-bar strip painted the colour of the app's own header (StudioBridge.kt). They load from
+// the connected studio rather than from this APK: each app is same-origin with its backend (`/api`, `/auth`, cookie
+// sessions), so a bundled copy would be an app with no server. A view is made the first time it is shown and then
+// only hidden, so an app keeps its state — a k7 session, a playing pl8 track — while another is on screen.
+// See docs/android.md.
 
 package se.frediver.st0
 
@@ -12,6 +13,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Message
@@ -22,6 +24,7 @@ import android.webkit.PermissionRequest
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -29,7 +32,9 @@ import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -40,30 +45,50 @@ import com.getcapacitor.annotation.CapacitorPlugin
 @CapacitorPlugin(name = "AppViews")
 class AppViewsPlugin : Plugin() {
     private lateinit var frame: FrameLayout
+    // Under the status bar, in the visible app's top colour.
+    private lateinit var strip: View
+    private lateinit var appBridge: StudioBridge
+    private val colors = mutableMapOf<String, Int>()
+    private var lightBarsBefore = false
+    private lateinit var topColorJs: String
     private val views = mutableMapOf<String, WebView>()
     // The address each view was last pointed at by `apps`: a changed studio reloads it, a tab switch does not.
     private val loaded = mutableMapOf<String, String>()
     private var apps: Map<String, Uri> = emptyMap()
     private var visible: String? = null
-    private var topCss = 0.0
+    private var topPx = 0
     private var bottomPx = 0
     private lateinit var back: OnBackPressedCallback
     private lateinit var pickFiles: ActivityResultLauncher<Intent>
     private var chooser: ValueCallback<Array<Uri>>? = null
 
     override fun load() {
-        // Over the page's WebView, in the same layout: everything but the header's strip is the app's.
+        // Over the page's WebView, in the same layout, the whole screen: the shell page is only seen with no studio.
         frame = FrameLayout(context).apply { visibility = View.GONE }
         (bridge.webView.parent as ViewGroup).addView(
             frame,
             ViewGroup.MarginLayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
         )
-        // The page draws edge to edge and pads itself; the views stop short of the navigation bar and the keyboard.
+        strip = View(context)
+        frame.addView(strip, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 0))
+        // The views start below the status bar and the cutout, and stop short of the navigation bar and the keyboard.
         ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
+            topPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()).top
             bottomPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()).bottom
             place()
             insets
         }
+        lightBarsBefore = barIcons().isAppearanceLightStatusBars
+        topColorJs = context.assets.open("top-color.js").bufferedReader().use { it.readText() }
+        appBridge = StudioBridge(
+            activity,
+            ::appOf,
+            onColor = { id, color ->
+                colors[id] = color
+                if (id == visible) paint()
+            },
+            onChooseStudio = { notifyListeners("studio", JSObject().put("origin", it)) },
+        )
 
         // Back walks the visible app's history first; with none left, the activity's own back — which quits, as before.
         back = object : OnBackPressedCallback(false) {
@@ -86,6 +111,7 @@ class AppViewsPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        appBridge.destroy()
         pickFiles.unregister()
         views.values.forEach { it.destroy() }
         views.clear()
@@ -95,12 +121,12 @@ class AppViewsPlugin : Plugin() {
     fun show(call: PluginCall) {
         val id = call.getString("id") ?: return call.reject("no id")
         val given = call.getObject("apps") ?: return call.reject("no apps")
-        val top = call.getDouble("top") ?: 0.0
         val url = call.getString("url")
+        val studio = call.getString("studio")
         bridge.executeOnMainThread {
             apps = given.keys().asSequence().associateWith { Uri.parse(given.getString(it)) }
             val home = apps[id]?.toString() ?: return@executeOnMainThread call.reject("no address for $id")
-            topCss = top
+            appBridge.setStudio(studio)
             val view = views.getOrPut(id) { create(id) }
             when {
                 url != null -> view.loadUrl(url)
@@ -110,7 +136,10 @@ class AppViewsPlugin : Plugin() {
             views.forEach { (key, v) -> v.visibility = if (key == id) View.VISIBLE else View.GONE }
             visible = id
             frame.visibility = View.VISIBLE
+            // A frame that was gone may never have been given the insets.
+            ViewCompat.requestApplyInsets(frame)
             place()
+            paint()
             view.requestFocus()
             syncBack()
             call.resolve()
@@ -121,19 +150,10 @@ class AppViewsPlugin : Plugin() {
     fun hideAll(call: PluginCall) = bridge.executeOnMainThread {
         frame.visibility = View.GONE
         visible = null
+        barIcons().isAppearanceLightStatusBars = lightBarsBefore
         bridge.webView.requestFocus()
         syncBack()
         call.resolve()
-    }
-
-    @PluginMethod
-    fun setTop(call: PluginCall) {
-        val top = call.getDouble("top") ?: return call.reject("no top")
-        bridge.executeOnMainThread {
-            topCss = top
-            place()
-            call.resolve()
-        }
     }
 
     @PluginMethod
@@ -145,15 +165,20 @@ class AppViewsPlugin : Plugin() {
         }
     }
 
-    // The header is measured in CSS px, which the page's WebView maps 1:1 to dp.
     private fun place() {
-        val params = frame.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        val top = bridge.webView.top + Math.round(topCss * context.resources.displayMetrics.density).toInt()
-        if (params.topMargin == top && frame.paddingBottom == bottomPx) return
-        params.topMargin = top
-        frame.layoutParams = params
+        strip.layoutParams = strip.layoutParams.apply { height = topPx }
+        views.values.forEach { v -> v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx } }
         frame.setPadding(0, 0, 0, bottomPx)
     }
+
+    // Until the page has said, the shell page's own background shows through.
+    private fun paint() {
+        val color = colors[visible] ?: Color.TRANSPARENT
+        strip.setBackgroundColor(color)
+        if (color != Color.TRANSPARENT) barIcons().isAppearanceLightStatusBars = ColorUtils.calculateLuminance(color) > 0.5
+    }
+
+    private fun barIcons() = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
 
     private fun syncBack() {
         back.isEnabled = views[visible]?.canGoBack() == true
@@ -174,7 +199,11 @@ class AppViewsPlugin : Plugin() {
         webViewClient = AppClient(id)
         webChromeClient = AppChrome()
         setDownloadListener { url, _, _, _, _ -> openOutside(Uri.parse(url)) }
-        frame.addView(this, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        appBridge.attach(this, id)
+        frame.addView(
+            this,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx },
+        )
     }
 
     /** Which app `url` is one of, by origin; null for anywhere else. */
@@ -193,6 +222,10 @@ class AppViewsPlugin : Plugin() {
     /** A link the user followed into another tab's app: the page switches tab, and that view loads it. */
     private fun navigate(id: String, url: Uri) =
         notifyListeners("navigate", JSObject().put("id", id).put("url", url.toString()))
+
+    /** The studio did not answer: the shell page takes over, with the tray and a retry, since no app is there to reach settings in. */
+    private fun loadFailed(id: String, why: String) =
+        notifyListeners("loadError", JSObject().put("id", id).put("message", why))
 
     /** Where a new window was headed: a sibling app's tab, or outside. */
     private fun route(url: Uri) {
@@ -218,11 +251,20 @@ class AppViewsPlugin : Plugin() {
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) = syncBack()
 
+        override fun onPageFinished(view: WebView, url: String?) = view.evaluateJavascript(topColorJs, null)
+
+        override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+            if (request.isForMainFrame) loadFailed(id, error.description.toString())
+        }
+
         // A studio behind the user's own CA: the WebView knows only Android's, so the CAs the tray was
         // given (TrustedCas) are asked here — the same ones the supervisor trusts.
         @SuppressLint("WebViewClientOnReceivedSslError")
         override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
-            if (TrustedCas.vouch(context, error)) handler.proceed() else handler.cancel()
+            if (TrustedCas.vouch(context, error)) return handler.proceed()
+            handler.cancel()
+            // The studio's own certificate, not some embed's: nothing of the app can load.
+            if (appOf(Uri.parse(error.url)) == id) loadFailed(id, "the studio's certificate is not trusted")
         }
     }
 

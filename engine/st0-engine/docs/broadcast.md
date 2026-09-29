@@ -69,7 +69,7 @@ The IXWebSocket v12.0.1 sources say why:
 Meaning: `sendBinary` does not return until the listener's TCP window drains, without any
 bound. On the message thread, one suspended laptop parks the entire engine — no meters, no
 transport, no project applies — and it reads as a hang with no visible cause. So the sender
-is a `std::thread` in `Serve.cpp`, where the worst a stalled listener costs is that the ring
+is a thread of its own, `server/AudioSender.cpp`, where the worst a stalled listener costs is that the ring
 overruns and everyone gets a gap.
 
 It wakes every 5 ms and drains **everything waiting**, not one frame per pass. One 480-frame

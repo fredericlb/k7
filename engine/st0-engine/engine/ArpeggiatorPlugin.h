@@ -12,6 +12,7 @@
 #include <tracktion_engine/tracktion_engine.h>
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -58,6 +59,8 @@ private:
     float paramValue(int index) const;
 
     Arpeggiator arp_;
+    // Raised by midiPanic()/reset() on the message thread, honoured by the next block: arp_ is the audio thread's (docs/panic.md).
+    std::atomic<bool> resetPending_{false};
     double sampleRate_ = 44100.0;
     // Everything that is not a note, kept while the buffer is rebuilt — a member, so no block allocates.
     tracktion::engine::MidiMessageArray passThrough_;

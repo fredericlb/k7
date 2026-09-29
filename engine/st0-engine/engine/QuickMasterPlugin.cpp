@@ -95,6 +95,11 @@ void QuickMasterPlugin::deinitialise() {}
 
 void QuickMasterPlugin::reset()
 {
+    resetPending_ = true;
+}
+
+void QuickMasterPlugin::clearState()
+{
     for (auto* s : {&lowLp_[0], &lowLp_[1], &restHp_[0], &restHp_[1], &midLp_[0], &midLp_[1],
                     &highHp_[0], &highHp_[1], &lowAp_})
         s->reset();
@@ -249,9 +254,17 @@ void QuickMasterPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
     const juce::ScopedNoDenormals noDenormals;  // see GraphDspPlugin::applyToBuffer
     if (ctx.destBuffer == nullptr) return;
+    if (resetPending_.exchange(false)) clearState();
     auto& buffer = *ctx.destBuffer;
     const int numChans = juce::jmin(buffer.getNumChannels(), 2);
     if (numChans <= 0 || ctx.bufferNumSamples <= 0) return;
+
+    // The master's last defence: a NaN from upstream would latch in nine biquads and pass the limiter, whose jmax and jlimit both let it through.
+    for (int ch = 0; ch < numChans; ++ch) {
+        float* x = buffer.getWritePointer(ch, ctx.bufferStartSample);
+        for (int i = 0; i < ctx.bufferNumSamples; ++i)
+            if (!std::isfinite(x[i])) x[i] = 0.0f;
+    }
 
     const float lowHz = lowFreq_->getCurrentValue();
     const float highHz = highFreq_->getCurrentValue();

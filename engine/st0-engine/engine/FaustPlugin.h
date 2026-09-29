@@ -10,6 +10,7 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,6 +56,9 @@ public:
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
 private:
+    // A stop or a panic on the message thread only raises this; the next block clears the state it owns (docs/panic.md).
+    std::atomic<bool> resetPending_{false};
+    void clearState();
     /** Render `n` frames, cut at every note so each starts on its own sample. See the .cpp. */
     void renderWithNotes(const tracktion::engine::PluginRenderContext&, int n);
 

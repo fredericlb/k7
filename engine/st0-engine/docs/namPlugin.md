@@ -69,7 +69,14 @@ amp, and only on a device not at the model's rate. Setting the interface to 48 k
 
 The bridge is prepared on the MESSAGE thread, under the lock the audio thread only ever tries, both
 when a model loads and when the engine initialises the plugin — they arrive in either order, and
-only the second knows both rates. The model is prewarmed there too, at the rate it will run at.
+only the second knows both rates.
+
+A LOADED model is prewarmed before it is swapped in, at the rate it will run at, while nothing but
+the loader can see it: the prewarm is thousands of samples of inference, and under the lock the
+audio thread would pass the guitar through dry for all of it. The lock covers the pointer swap and
+the bridge's buffers, and the old model is freed after it is released. An `initialise` that changes
+the rate has no such luck — it must re-prepare the model that is playing — so that one prewarm
+stays under the lock, as does a panic's (`docs/panic.md`).
 
 ## A cabinet IR after the model
 

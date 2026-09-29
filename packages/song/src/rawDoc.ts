@@ -91,6 +91,7 @@ export interface RawVideoTrack {
 /** One rack symbol as authored ({note, clip} or {note, from, to}). */
 export interface RawRackSound {
   note?: unknown;
+  sample?: unknown; // `@<library>/<path>` under a library's samples/ — docs/libraryFiles.md
   clip?: unknown;
   from?: unknown;
   to?: unknown;
