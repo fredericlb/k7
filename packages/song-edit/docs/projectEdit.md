@@ -14,7 +14,7 @@ This page holds the reasoning behind the functions.
 Two cases, and `moduleFileOf` picks between them:
 
 - a **node** carries its own `home` folder and has no category to rebuild a path from — the
-  only shape `loadModules` returns now, a project keeping no modules of its own any more;
+  only shape `loadModules` returns, a project keeping no modules of its own;
   reached FIRST, since a node needs no lookup elsewhere to answer for itself;
 - a **shared** one, `"@engine/io/IN:in-2"`, whose file lives in the workspace's `_modules` (or
   one of the account's libraries) and not in this project at all.

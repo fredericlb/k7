@@ -21,7 +21,7 @@ only that file.
 That also states the tool's boundary plainly: this is for a **checkout**, where one `env.yaml`
 holds every service's secrets. A musician's laptop syncing the hosted médiathèque has no
 `env.yaml`, so its token still has to arrive over the wire — that is what `POST /api/token` is
-for. (Under `/pl8` — see the URL table below.)
+for, on pl8's own subdomain (see the URL table below).
 
 ## What it does, per link
 
@@ -75,22 +75,19 @@ is the trade the scheme makes, and it is why the secret is per service rather th
 
 ## The URLs are not configuration
 
-`packages/web-protocol/services.ts` holds the one table, under a single origin —
-`https://studio.frediver.se/<service>` in production:
+`packages/web-protocol/services.ts` holds the one table, every address derived from st0's origin
+— `https://st0.app` in production:
 
-| service | path |
+| service | where |
 |---|---|
-| `st0` | `""` — the editor is the front door, so it answers the ORIGIN itself |
-| `pl8` | `/pl8` |
-| `k7` | `/k7` |
+| `st0` | the origin itself — the editor is the front door |
+| `pl8` | its own subdomain, `https://play.st0.app` |
+| `k7` | its own subdomain, `https://k7.st0.app` |
+| `z0` | a path on st0's origin, `/z0` |
 
-st0's empty path is a real entry rather than a special case at each call site — every caller
-already concatenates.
-
-**`/auth/*` belongs to the same service**, and can only: the registered `redirect_uri` has no
-prefix, so the flow is served by the service with no prefix — st0's backend. The dev proxy
-mirrors what the production edge does, so dev and production differ by the origin and nothing
-else.
+**`/auth/*` belongs to st0**, and can only: the registered `redirect_uri` is on st0's origin, so the
+flow is served by st0's backend. Dev and production differ by st0's origin (`priv.st0.app`) and
+nothing else (`packages/web-protocol/docs/addresses.md`).
 
 So nothing asks for a service's URL:
 

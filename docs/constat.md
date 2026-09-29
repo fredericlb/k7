@@ -1,6 +1,6 @@
 # Overall findings — the audio axis
 
-Scope: `apps/st0`, `engine/st0-engine`, `apps/st0-desktop` and the packages they drive. Out of
+Scope: `apps/st0`, `engine/st0-engine`, `engine/st0-supervisor`, `engine/st0-tray` and the packages they drive. Out of
 scope: `apps/{z0,k7,pl8,studio}`.
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means

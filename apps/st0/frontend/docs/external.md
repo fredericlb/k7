@@ -7,7 +7,7 @@ surface has an address of its own:
 ```
 <project>/@external/<surface>
 
-https://st0.priv.frediver.se/lemo_mante/mymix.st0/@external/desk
+https://priv.st0.app/lemo_mante/mymix.st0/@external/desk
 ```
 
 Opened on another device, it gives **that surface and nothing else**, driving the same engine as the
@@ -255,14 +255,12 @@ project: the "one engine per project" rule exempts this case, and without that e
 surface would send the laptop back to *"this project was opened elsewhere"*. See
 `packages/engine-registry/docs/claim.md`.
 
-### `external`, a reserved short name
+### `external`, a plain word
 
-A single segment is a valid project address (`/<dépôt>` opens a single-project clone), so taking
-`external` there means a repository of that exact name is no longer openable **at its root**. It
-joins the list the origin already holds (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`), with the same
-remedy: rename, or address a project inside it — `/external/hiver.st0` still reads as the repository
-`external`. An `@external` sentinel would have avoided the shadow; the bare word is the address that
-was wanted, and a reserved word reads in the address bar.
+Every project address starts with a sentinel (`@local`, `@banc`, `@shares`), so a plain word after
+st0's mount collides with nothing, and `/external` is read before `parseLaunch` (`isExternalIndex`).
+The bare word is the address that was wanted: it reads in the address bar, and a second device's
+home-screen icon points at it.
 
 ### How you get there
 

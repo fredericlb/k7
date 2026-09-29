@@ -1,54 +1,48 @@
 # The address of a project
 
 `projects.ts` states two contracts: which studio app owns a folder, decided by the folder's NAME,
-and the address that names one, `/<repo>/<project>`. Both sit between the side that WRITES an
-address — st0's home page — and the apps that read one back, which is why they are stated once,
-browser-safe, and nowhere else. See `apps/st0/frontend/docs/projects.md` and
+and the address that names one, `/@local/<workspace>/<project>`. Both sit between the side that
+WRITES an address — st0's home page — and the apps that read one back, which is why they are stated
+once, browser-safe, and nowhere else. See `apps/st0/frontend/docs/projects.md` and
 `packages/project-shell/docs/launch.md`.
 
 ## Where each service answers
 
-`services.ts` states one origin and one FIXED path per service, and that is the point:
-`st0.priv.frediver.se/pl8` in dev and `studio.frediver.se/pl8` in production differ by their
-ORIGIN and nothing else. The dev proxy mirrors what the production edge does — strip the prefix
-off the API routes, keep it on the SPA's — so a service that moved to a host of its own would
-break the one session cookie the origin carries. There is nothing there to configure.
+`services.ts` states where every service is, derived from ONE origin, st0's:
 
-`st0` is deliberately `""`: the EDITOR is the studio's front door, so it answers at the ORIGIN
-itself and `serviceUrl(origin, "st0")` *is* the origin. An empty path is a real entry rather than
-a special case at each call site — every caller already concatenates.
+| service | where | dev | production |
+|---|---|---|---|
+| st0 | the origin itself | `priv.st0.app` | `st0.app` |
+| z0 | a path under st0's origin, `SERVICE_PATHS.z0` | `priv.st0.app/z0` | `st0.app/z0` |
+| pl8 | its own subdomain, `play.` in front of st0's host | `play.priv.st0.app` | `play.st0.app` |
+| k7 | its own subdomain, `k7.` in front of st0's host | `k7.priv.st0.app` | `k7.st0.app` |
 
-What you land on is your own WORK: the editor's home page lists the repositories, the projects,
-the libraries and the shares. The catalogue is what a project draws ON, so it answers at `/pl8`
-and is a link in that home page's header. None of the storage follows that split — the
-repositories, the shares and the whole of `/api/mediatek` are pl8's backend's, under `/pl8/api`
-like every other prefixed service.
+`serviceUrl(origin, service)` answers from any studio URL — st0's or a sibling's, whose label it
+strips first — so a page never spells a host, and a deployment on a domain of its own needs nothing
+configured. On a bare loopback host (`localhost`, a dev run) services are told apart by PORT instead.
 
-### `/auth/*` belongs to whoever holds `""`
+**One session across them** is the shared `COOKIE_DOMAIN`: every `setupAuth` sets the cookie on the
+parent domain and trusts the sibling origins (`TRUSTED_ORIGINS`), both from the same environment
+(`docker/docker-compose.yml`).
 
-Which is st0. `redirectUriFor` builds `<origin>/auth/callback` and that is the single
-`redirect_uri` the IdP has registered, so the flow can only be served by the service with no
-prefix. Every other service passes `mountRoutes: []` and verifies the cookie.
+What you land on is your own WORK: the editor's home page, at st0's origin, lists the workspaces,
+the projects, the libraries and the shares. The catalogue is what a project draws ON, so it is
+pl8, a link in that page's header. The shares and `/api/mediatek` are pl8's backend's; the
+workspaces, the libraries and the deploy key are the file service's.
 
-That makes auth follow this table rather than escape it — but the paths still do not look alike,
-so spell auth routes BARE (`/auth/me`) and never under a service's own `BASE`. For st0 the two
-happen to coincide today; for pl8, k7 and z0 they do not, and `${serviceUrl(…, "pl8")}/auth/me`
-would 404 into what reads like a broken login.
+### `/auth/*` belongs to st0
 
-Routing `/auth/*` to a prefixed service by name in nginx works and reads as an exception to
-everything around it, which is why it is not done. Nothing is registered at the IdP per service
-either: the `redirect_uri` is one string, and which process serves it is this table's answer.
-
-The table says WHERE a service answers and nothing about whose session it carries. `z0` is the
-case that makes the distinction worth stating: the game runs its own login on its own
-`/z0/auth/callback` and does not share pl8's cookie — but its path is as fixed as the others', and
-it holds a surface that opens a project, which needs an address pl8 can write.
+`redirectUriFor` builds `<st0 origin>/auth/callback`, and that is the single `redirect_uri` the IdP
+has registered, so the flow can only be served by st0. Every other service passes
+`mountRoutes: []` and verifies the cookie — z0 included. A page on a sibling subdomain sends the
+browser to `authOrigin(origin)`, which is st0's origin: its own `/auth/login` would look the same
+and be wrong. Nothing is registered at the IdP per service.
 
 ### The ports are the other half of the same table
 
 A SERVER calling another studio service uses `SERVICE_PORTS` rather than the public URL, and the
 reason is not performance: in a checkout everything is behind a private CA, whose local CA node
-does not trust, so `https://st0.priv.frediver.se/pl8` fails with `UNABLE_TO_GET_ISSUER_CERT` from
+does not trust, so `https://play.priv.st0.app` fails with `UNABLE_TO_GET_ISSUER_CERT` from
 a backend while working perfectly in the browser beside it.
 
 ## Owning a suffix is not the same as being creatable
@@ -61,9 +55,9 @@ in `@studio/song`). See `packages/song-video/docs/picture.md` and
 
 `HAS_SCAFFOLD` is a different set. Owning a folder kind is a naming rule; creating one needs a
 **scaffold** — a file map the file service can write (`createProjectIn`, and `@studio/song`'s
-three `scaffold*` modules). z0 owns `.z0` and has none, so offering it in pl8's "Nouveau projet"
-menu produced a folder with an st0 song inside it: the suffix said z0, the contents said
-otherwise, and nothing complained until the app that opened it found nothing it could read.
+three `scaffold*` modules). z0 owns `.z0` and has none: offered in a "new project" menu, it would
+produce a folder whose suffix says z0 and whose contents say st0, and nothing would complain until
+the app that opened it found nothing it could read.
 
 It is a `Record<ProjectApp, boolean>` rather than a list, so adding an app to `ProjectApp` fails to
 compile until someone answers the question for it.
@@ -75,11 +69,11 @@ COMPILE, and `@studio/song` asks that question its own way, on the machine's own
 
 ## Where an app is mounted
 
-`PROJECT_MOUNTS` is empty for st0, which IS its service: `st0.priv.frediver.se/<repo>/<project>`.
+`PROJECT_MOUNTS` is empty for st0, which IS its service: `priv.st0.app/@local/<workspace>/<project>`.
 z0 is six SPAs behind one prefix and only one of them opens a project, so its address has to name
-the SPA too — `st0.priv.frediver.se/z0/editor/<repo>/<project.z0>`.
+the SPA too — `priv.st0.app/z0/editor/@local/<workspace>/<project.z0>`.
 
-It belongs here rather than in pl8's link builder for the reason the suffixes do: the address is a
+It belongs here rather than in a link builder for the reason the suffixes do: the address is a
 contract between the side that WRITES it and the side that parses it back, and a mount known to
 only one of them is a 404 nobody can attribute.
 
@@ -89,22 +83,16 @@ name, no overlap. See `apps/z0/docs/editor.md`.
 
 ## Parsing one back
 
-st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is the FIRST path
-segment. pl8 and k7 answer their OWN subdomain now, not a path under st0's, so they no longer
-claim a prefix here at all — a repository CAN be named either. What still does is `/z0`
-(unmoved), `/api`, `/auth`, and in dev `/dev`, `/console`, `/dev-status`: a repository short
-name that can never be opened, since the request never reaches this app. Nothing in
-`parseLaunch` can detect that, and nothing should try; it is the edge's routing table, and
-`apps/z0/docker/nginx.conf` (for `/z0`) is where the one that remains is written down. z0's
-editor keeps a prefix and is unaffected.
+st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the sentinel is the FIRST path segment.
+`/z0` is claimed by z0 on the same origin, and `/api`, `/auth` by st0's backend; none of them can
+be a sentinel, since each starts with `@`, so nothing collides.
 
 **Where the project ends** is decided by the folder's own name, the same rule as `projectApp`: the
 project is everything up to and including the LAST segment claiming THIS app. That is what lets a
 project sit at a depth (`songs/winter.st0`), lets the app's own route follow it
 (`…/winter.st0/timeline`), and lets a nested set be addressed by its own app without st0's suffix
-winning. With no such segment the repository itself is the project (`"."`) and everything after
-the repo is the app's route — a view segment never ends in a project suffix, so the two cannot be
-confused.
+winning. With no such segment the workspace itself is the project (`"."`) and everything after it
+is the app's route — a view segment never ends in a project suffix, so the two cannot be confused.
 
 `base` is where the app is mounted, as vite's `BASE_URL` spells it. An address outside it names
 something else: null.
@@ -112,11 +100,11 @@ something else: null.
 ### `projectBasename` is a SLICE, never a rebuild
 
 `projectBasename` is what keeps the launch out of tab-local storage. React Router only ever
-writes BELOW its basename, so the repo and project cannot be rewritten away by an app's own
-`routes.ts` — which is the single thing such a memory would be for. A reload re-reads the same
-path, a bookmark works, and a wrong project is fixed by editing the address instead of by
-clearing storage nobody can see. It falls back to `base` when the address names no project, which
-leaves the app mounted where it is and lets its gate send you to pl8.
+writes BELOW its basename, so the project cannot be rewritten away by an app's own `routes.ts` —
+which is the single thing such a memory would be for. A reload re-reads the same path, a bookmark
+works, and a wrong project is fixed by editing the address instead of by clearing storage nobody
+can see. It falls back to `base` when the address names no project, which leaves the app mounted
+where it is and lets its gate send you to st0's home page.
 
 React Router compares the string against `window.location.pathname` **verbatim** and renders
 NOTHING when it does not prefix it. So any re-encoding here is a chance to disagree with the
@@ -131,17 +119,31 @@ person is looking at — and the sentinels this file mints are exactly the names
 
 ## The three sentinels
 
-`@` cannot begin a git short name — the last path segment of an SSH URI without `.git` — so a
-repository position starting with it can never collide with a real repository. The gate sees the
-sentinel and takes another road. Three use it.
+`@` cannot begin a folder name git gives a clone, so a first segment starting with it can never
+collide with a workspace. Three sentinels use it, and they are the only addresses a gate opens.
+
+### `@local` — a project in a workspace on this machine
+
+`/@local/<workspace>/<projet>.st0` names a folder the machine already holds: nothing to look up and
+nothing to clone. Every project on st0's home page is linked this way — `Examples`, seeded with the
+demos the first time a person is seen, a workspace made there with no repository, and a clone
+brought in with **Importer** alike.
+
+`parseLaunch` needs nothing added. `/@local/Examples/synth-demo.st0` reads as repo `@local`, project
+`Examples/synth-demo.st0`: the project part ends at the last segment claiming the app, exactly as
+everywhere else. `localTarget` is what splits the workspace off the front of it — a workspace that
+IS a project has nothing after its name and the project is `"."`.
+
+The price, stated where it is paid: this address names a machine's folder, so it is **not
+portable** — a link pasted to somebody names a folder in yours. What it buys is that no service has
+to answer before a project opens (`apps/pl8/docs/projects.md`).
 
 ### `@banc` — the bench
 
-Every other project resolves against the MACHINE — a repository is a folder it holds, and
-`GET /workspaces/by-repo` is what answers; the bench has no repository and wants none. It is
-generated, and deleted and generated again whenever it is opened, so putting it under version
-control would version something with a lifetime of one session. `ProjectGate` does no lookup, no
-clone, one call to the machine that makes the folder.
+The bench has no repository and wants none. It is generated, and deleted and generated again
+whenever it is opened, so putting it under version control would version something with a lifetime
+of one session. `ProjectGate` does no lookup and no clone: one call to the machine, which makes the
+folder.
 
 It answers **one** project, `/@banc/live.st0`, which may be preceded by a library chain's ref —
 `/@banc/vocals/warm/live.st0` seeds the rig with a copy of that chain, what k7 records through
@@ -150,20 +152,19 @@ so the browser that builds the link and the service that reads it cannot drift. 
 `@banc` names nothing and is a 404 whose sentence says where a chain and a module are edited
 instead: from a project you already have open (`apps/st0/frontend/docs/sharedModules.md`).
 
-The project part is still safe to join onto a root, because it never is: the folder is the constant
+The project part is safe to join onto a root, because it never is: the folder is the constant
 `live.st0` whatever the address says, and the chain ref is only ever MATCHED against the chains the
 library holds. A ref is folder names — no empty, dotted or `.st0` segment — so a traversal is not
 even a candidate.
 
 ### `@shares` — a frozen snapshot
 
-`/@shares/<token>.st0` opens a snapshot pl8 holds: no pl8 lookup, no clone, no engine, no account.
+`/@shares/<token>.st0` opens a snapshot pl8 holds: no clone, no engine, no account.
 
 The `.st0` on the end is not decoration. `parseLaunch` ends a project at the last segment claiming
 the app's suffix, so spelling the token this way makes it the PROJECT part of an ordinary address —
-which means `parseLaunch`, `projectBasename` and every route below them need no change at all, the
-token lands inside the router's basename, and a reload or a pasted link simply re-reads it. The
-three other shapes considered all cost a special case somewhere.
+which means `parseLaunch`, `projectBasename` and every route below them need no special case, the
+token lands inside the router's basename, and a reload or a pasted link simply re-reads it.
 
 `shareToken` is checked rather than trusted, and it is the one sentinel that must be: one segment,
 base64url and nothing else — which is what `randomBytes(32).toString("base64url")` produces and
@@ -182,38 +183,11 @@ That refusal is thrown with a sentence rather than left to surface as
 `undefined is not a function`, because it is a real deployment and not a bug: the fix is to serve
 the page over https, and nothing about the share is wrong.
 
-`shareApiBase` goes through `serviceUrl` and not the bare origin: pl8 sits under `/pl8`, and this
-route is its backend's like every other `/api/*` of its. The difference between the two is
-invisible until a share is opened — exactly the kind of route that gets tried last. `public` is
-IN the path on purpose: a comment that survives a refactor, and one
-nobody confuses with `/api/shares`, which is the author's half and is behind the guard.
-
-### `@local` — a project belonging to no repository
-
-`/@local/<workspace>/<projet>.st0` skips the whole road that turns a name into a URI into a clone.
-There is nothing to clone — the folder is already on the machine and came from nowhere else.
-
-Two kinds of workspace need it: `Examples`, seeded with the demos the first time a person is seen,
-which is what a new account has on the day it has nothing else; and a folder somebody made by
-hand. Neither has an origin, so neither has a `<repo>` to put in an address — without this
-sentinel neither has an address at all, and so no row on the home page.
-
-It is also the way OUT of an ambiguity: two clones whose origins end in the same short name make
-`/<name>/…` name two repositories, which pl8 refuses (409) rather than resolving. Their rows link
-through here instead, because a workspace name is unique on a machine by construction — it is a
-folder name.
-
-`parseLaunch` needs nothing added. `/@local/Examples/synth-demo.st0` already reads as repo
-`@local`, project `Examples/synth-demo.st0`: the project part ends at the last segment claiming the
-app, exactly as everywhere else. `localTarget` is what splits the workspace off the front of it,
-and is the only new rule — a workspace that IS a project has nothing after its name and the project
-is `"."`, the same answer `parseLaunch` gives when a repository is the project.
-
-The price, stated where it is paid: this address names a machine's folder, so it is **not
-portable**. A repository's address opens the same song on any machine — that is what
-`projectClaimKey` identifies a project by — while this one means nothing on the next one. A
-workspace that has a repository must therefore keep its `/<repo>/…` address, and this is for the
-ones that cannot have it.
+`shareApiBase` goes through `serviceUrl` and not the bare origin: the share's routes are pl8's
+backend's, on pl8's subdomain, and the difference is invisible until a share is opened — exactly
+the kind of route that gets tried last. `public` is IN the path on purpose: a comment that survives
+a refactor, and one nobody confuses with `/api/shares`, which is the author's half and is behind the
+guard.
 
 ## One builder, one claim key
 
@@ -221,15 +195,14 @@ ones that cannot have it.
 address out beside it: these addresses are read back by `parseLaunch` and `projectBasename`, and a
 second builder is a second place for the encoding to differ. `launchUrl` keeps only the origin of
 what it is handed, so a caller can pass `window.location.href` without stripping anything first.
-`localProjectUrl` takes an `app` for the reason every other row on that page does: a `.z0` folder
-in the same workspace opens in z0's editor, under its own mount.
+`localProjectUrl` takes an `app` for the reason every other row on the home page does: a `.z0`
+folder in the same workspace opens in z0's editor, under its own mount.
 
-`projectClaimKey` is `<repo>/<projet>`, stated here and not in each gate: two surfaces that spell
-one project differently would each believe they had it, and the rule "one engine per project"
-would hold for neither. The repository's short name and the folder path inside it are exactly what
-identifies a project across machines — a workspace path would not, since the same repository is
-cloned somewhere different on each. No app prefix, because which app opens a folder is decided by
-its SUFFIX, so two folders with different suffixes are already two different strings.
+`projectClaimKey` is `<sentinel>/<projet>` — for `@local`, the workspace and the folder inside it —
+stated here and not in each gate: two surfaces that spell one project differently would each
+believe they had it, and the rule "one engine per project" would hold for neither. No app prefix,
+because which app opens a folder is decided by its SUFFIX, so two folders with different suffixes
+are already two different strings.
 
 ## A surface, opened on its own
 
@@ -241,30 +214,23 @@ project open.
 
 `EXTERNAL_SEGMENT` sits BELOW the project, not beside it, and that is what makes it cost nothing:
 `parseLaunch` ends a project at the last segment claiming the app's suffix, so everything after is
-already the app's own route. The repo and the project parse exactly as they always did, the
-router's basename is unchanged, and a reload or a pasted link re-reads the address. The `@` cannot
-be a surface id either (`createSurfaceFile` allows letters, digits, `_` and `-` and nothing else),
-so the sentinel can never collide with the thing it sits next to.
+already the app's own route. The project parses exactly as it always does, the router's basename is
+unchanged, and a reload or a pasted link re-reads the address. The `@` cannot be a surface id
+either (`createSurfaceFile` allows letters, digits, `_` and `-` and nothing else), so the sentinel
+can never collide with the thing it sits next to.
 
 `parseExternal` reads it the same way `parseLaunch` reads the project — off the address and
 nothing else — so the two cannot disagree about what a tab is on. It returns null for a bare
 `@external` with no name: that is not "some surface", it is an address somebody truncated.
 
-`externalOf` exists for the caller that did not CHOOSE the address: a workspace is named by its
-repository when that works and by `@local` when it does not (`projectHref`), and a lister has
-already made that decision by the time it wants the surface's link. One encoder either way, which
-is the point of it being here rather than a template string at the call site.
+`externalOf` exists for the caller that did not CHOOSE the address: a lister has already built the
+project's link (`projectHref`) by the time it wants the surface's. One encoder either way, which is
+the point of it being here rather than a template string at the call site.
 
 ### `/external`, the menu
 
 The page a second device opens first and, installed as a PWA, the one it starts on: every surface
 this account can drive, across every project on the machine. It needs no project in the address,
-which is why it sits at the app's mount rather than under one.
-
-**It is a reserved short name.** A single segment is a legal project address — `/<repo>` is how a
-lone-project clone is opened — so claiming `external` there means a repository of that exact name
-cannot be opened at its root. It joins the list the origin already keeps (`/pl8`, `/k7`,
-`/z0`, `/api`, `/auth`), with the same remedy: rename the repository, or address a project inside
-it, which is unaffected — `/external/song.st0` still parses as the repo `external`. The sentinel
-spelling `@external` would avoid the shadow outright, as `@shares` does; the plain word is the
-address chosen, and one reserved word is a cost that can be read in the URL bar.
+which is why it sits at the app's mount rather than under one. `isExternalIndex` matches it —
+exactly one segment, `external`, after the mount — and `main.tsx` reads it before `parseLaunch`.
+Since every project address starts with a sentinel, the plain word collides with nothing.

@@ -11,6 +11,7 @@ import {
   type MotionNode,
   motionPos,
   motionTransform,
+  ORGANIZE_HALF_LIFE,
   planMotion,
 } from "./nodeMotion";
 
@@ -150,5 +151,55 @@ describe("what the frame writes", () => {
     expect(motionPos(at("a", 100, 10), ms)).toEqual({ x: 40, y: 0 });
     // A node with nothing in flight answers its own position, and allocates the same shape.
     expect(motionPos(at("b", 7, 8), ms)).toEqual({ x: 7, y: 8 });
+  });
+});
+
+describe("an organize is watched", () => {
+  it("slides a card however far it goes, rather than fading it up in place", () => {
+    const plan = planMotion(
+      drawn(at("a", 0, 0)),
+      NONE,
+      [at("a", 5000, 0)],
+      Number.POSITIVE_INFINITY,
+      ORGANIZE_HALF_LIFE,
+    );
+    expect(plan.motions.get("a")).toMatchObject({
+      dx: -5000,
+      a: 1,
+      half: ORGANIZE_HALF_LIFE,
+    });
+  });
+
+  it("travels slower than an edit's move, over the same time", () => {
+    const quick = planMotion(drawn(at("a", 0, 0)), NONE, [
+      at("a", 100, 0),
+    ]).motions;
+    const slow = planMotion(
+      drawn(at("a", 0, 0)),
+      NONE,
+      [at("a", 100, 0)],
+      undefined,
+      ORGANIZE_HALF_LIFE,
+    ).motions;
+    advanceMotion(quick, 100);
+    advanceMotion(slow, 100);
+    expect(Math.abs(slow.get("a")?.dx ?? 0)).toBeGreaterThan(
+      Math.abs(quick.get("a")?.dx ?? 0),
+    );
+  });
+
+  it("keeps its pace when the command's reload lands mid-slide", () => {
+    const first = planMotion(
+      drawn(at("a", 0, 0)),
+      NONE,
+      [at("a", 100, 0)],
+      undefined,
+      ORGANIZE_HALF_LIFE,
+    );
+    advanceMotion(first.motions, 50);
+    const again = planMotion(drawn(at("a", 100, 0)), first.motions, [
+      at("a", 100, 0),
+    ]);
+    expect(again.motions.get("a")?.half).toBe(ORGANIZE_HALF_LIFE);
   });
 });

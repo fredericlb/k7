@@ -122,6 +122,6 @@ reference into a link. `kind ∈ module|sink|track|clip|sequence|chain` (chains 
 own tree does not contain, and this map answers only in project-relative terms.
 
 `"module:"` keys by the chain `use` ref and points at the file that IS that thing — which is
-always a NODE now, `nodes/<name>.yaml`, kept in `home` precisely because a node does not sit under
-the module it uses. There is no `"base:"` any more: an `extends` ref is always namespaced, and a
+always a NODE, `nodes/<name>.yaml`, kept in `home` precisely because a node does not sit under
+the module it uses. There is no `"base:"`: an `extends` ref is always namespaced, and a
 namespaced module is exactly the external case this map already excludes by its own rule above.

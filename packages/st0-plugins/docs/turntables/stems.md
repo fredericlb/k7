@@ -7,7 +7,7 @@ wrote it; hard left it disappears, right it goes up to double.
 What it really does is a **sum**: a separated song is no longer played by its own lane, it is
 played by its four parts and each knob doses one. That is what every commercial stem deck does.
 The reasoning, and the two shapes that preceded this one, are in
-[`packages/song-schema/docs/stems.md`](../../song-schema/docs/stems.md). At rest the output is
+[`packages/song-schema/docs/stems.md`](../../../song-schema/docs/stems.md). At rest the output is
 the record to within **34 dB** — the model's reconstruction residue, measured and stable.
 
 ## The block, and why it is not mirrored
@@ -137,7 +137,7 @@ Three things it does not do, each a decision:
 The desk sends **no chain**: the request is the song and nothing else. Which module separates and
 which `.onnx` this machine holds is a question the browser cannot ask, and one the machine has
 already answered once — hence a separate route, the only one of the three tied to a workspace,
-see [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
+see [stem-separation/docs/stemSplit.md](../../../stem-separation/docs/stemSplit.md).
 
 And the order matters: the route asks about the RECORD before reading the preference and before
 resolving the chain. A machine never told how to separate therefore still plays, knobs live, the
@@ -167,4 +167,4 @@ songs prepared by command.
   decodes everything else into a proxy before playing, which would be paid at the precise moment
   a record is put on — five decodes, the mix and its four stems. The full reasoning and the size
   table are in
-  [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
+  [stem-separation/docs/stemSplit.md](../../../stem-separation/docs/stemSplit.md).

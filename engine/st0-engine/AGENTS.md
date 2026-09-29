@@ -318,7 +318,7 @@ r28+, or let the app build it: `./gradlew assembleDebug` in `engine/st0-android`
 SDK's own NDK — it builds the supervisor's `android-arm64` preset too. The engine's makes
 `libst0engine.so`, a library the app loads, with no `main()`, no VST3/LADSPA and no tests. What differs there and why: [docs/android.md](docs/android.md).
 
-### A half-rebuilt engine now REFUSES to start — it used to crash on the first project
+### A half-rebuilt engine REFUSES to start, rather than crash on the first project
 
 An interrupted Windows build — the dev watcher restarting mid-compile, a PDB collision (the
 `C1041` that `/FS` below exists to prevent) — can leave `studio_engine.dir/RelWithDebInfo` with **some** objects
@@ -328,11 +328,11 @@ a layout, not a symbol, so nothing in the toolchain objects to a mismatch.
 What it does is add a field's worth of offset to everything after it. `tracks` is the LAST member of
 `ProjectDoc`, so *any* field inserted above it moves it, and a stale translation unit reads
 `doc.tracks` off the end of the struct: a garbage `std::vector`, and an access violation the moment
-something walks it — typically `keyOf`, on the first project the engine is handed. The tray then
-sits in a two-second `engine is gone — relaunching` loop and no project can ever be played. Nothing
+something walks it — typically `keyOf`, on the first project the engine is handed. The tray would
+then sit in a two-second `engine is gone — relaunching` loop and no project could ever be played. Nothing
 in the log names the engine as the culprit; `installCrashHandler` (below) is what does.
 
-**`main()` now checks this before anything else.** `modelLayoutHere()` in `ProjectDoc.h` is a
+**`main()` checks this before anything else.** `modelLayoutHere()` in `ProjectDoc.h` is a
 number built out of the model's `sizeof`s; `modelLayoutInDiff()` and `modelLayoutInBuilder()` are
 that same inline function compiled into `ProjectDiff.cpp` and `EditBuilder.cpp`, so a **stale
 object answers with the layout it was built against**. Disagreement means half a rebuild, and the
@@ -348,11 +348,10 @@ stale beside a fresh `EditBuilder.obj` is the same disease and a single stamp wo
 not exhaustive — a TU that reads no document is not asked — but it covers the two that walk
 `doc.tracks`, which is where the corruption lands.
 
-The cost of missing it is what earns the check: a two-second `engine is gone — relaunching` loop
-with a `bad_alloc` stack that names `keyOf`, three wrong diagnoses in a row (a project file, then
-the file service's link, then system memory), and an evening. The build was interrupted by
-triggering a second one while the first held `EditBuilder.cpp` open — an `EPERM` on a write is
-the tell, and it is worth stopping for.
+The cost of missing it is what earns the check: a relaunch loop with a `bad_alloc` stack that names
+`keyOf` reads as a bad project file, a broken file-service link or low memory — anything but the
+build. The usual cause is triggering a second build while the first holds `EditBuilder.cpp` open —
+an `EPERM` on a write is the tell, and it is worth stopping for.
 
 To confirm by hand, compare object mtimes against the header — and note that "it rebuilt when I
 touched the header" only proves the tlogs are healthy *now*:

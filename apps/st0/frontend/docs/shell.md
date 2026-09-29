@@ -11,9 +11,9 @@ EngineGate: resolve the repository this editor was opened on into a folder on th
 machine — cloning it if it has never been there — then mount the editor). Several tabs may open
 one project at once; there is no single-tab lease.
 
-**ProjectGate picks nothing.** st0 knows no workspace list: pl8 owns the repositories and links
-here with an address — `/<repo>/<project>`, st0 answering the origin root — and arriving without a
-project in it draws the home page instead. That address is the router's `basename`, so the app's
+**ProjectGate picks nothing.** The home page links here with an address —
+`/@local/<workspace>/<project>`, st0 answering the origin root — and arriving without a project in
+it draws the home page instead. That address is the router's `basename`, so the app's
 own routes are written below it and cannot rewrite it away. The gate is `@studio/project-shell`'s
 — z0's editor mounts the same one — and `components/ProjectGate.tsx` supplies this app's wording
 alone. Read
@@ -124,22 +124,21 @@ A DEV build multiplies it hard: `jsxDEV`, `runWithFiberInDEV` and `validatePrope
 on the stack mean React's development build, and React DevTools attached adds a `performance.mark`
 per component on top. Measure a production build before reading anything into the app's own code.
 
-Graphics is the other thing none of it can see, and this app has been there twice:
+Graphics is the other thing none of it can see, and two rules of this app exist because of it:
 
-- `packages/ui-chains/docs/wobble.md` — 62 % of the content main thread in paint, because writing
-  `d` on an SVG path put the layer on WebRender's blob-image path and one moving cable
-  re-serialised, re-parsed and re-uploaded the whole group every frame. Fixed by drawing the
-  cables on a canvas.
-- [timeline.md](timeline.md) — 36 % in graphics at ~154 paints/s, from the timeline BODY subscribing to a
-  20 Hz engine frame and re-rendering an arrangement's worth of DOM to move one line. Fixed by the
-  rule that live state is drawn by leaves.
+- `packages/ui-chains/docs/wobble.md` — the cables are drawn on a canvas: writing `d` on an SVG path
+  puts the layer on WebRender's blob-image path, and one moving cable re-serialises, re-parses and
+  re-uploads the whole group every frame (62 % of the content main thread in paint, measured).
+- [timeline.md](timeline.md) — live state is drawn by leaves: a timeline BODY subscribed to the
+  20 Hz engine frame re-renders an arrangement's worth of DOM to move one line (36 % in graphics at
+  ~154 paints/s, measured).
 
 The tool for all of this is the Firefox Profiler, and the rows to read are the ones outside JS.
 `~1 280 MozAfterPaint in 9 s` — 142 paints per second on an idle tab — is the number that says the
 graphics reading applies; a `CCSlice` in the marker table is the number that says this one does.
 
-`EngineClient` tallies every JSON frame by type, with its byte length. Two things that were invisible
-now are not: the `JSON.parse` runs **before** the message type is known, so no span could open around
+`EngineClient` tallies every JSON frame by type, with its byte length, for two things nothing else
+sees: the `JSON.parse` runs **before** the message type is known, so no span could open around
 it and a slow parse was attributed to nothing at all; and a 20 Hz frame is far under every threshold
 here however much it costs in aggregate. `ws state x600 (4.2MB)` is a diagnosis; four blank rings are
 not.
@@ -224,7 +223,7 @@ middle of whatever the project name on one side and the icon row on the other le
 moved every time a name got longer or a surface added a button: a control you reach for without
 looking must not be somewhere else on the next project.
 
-The price is that nothing reserves its width any more. The left group is bounded (`max-w-[10rem]`
+The price is that nothing reserves its width. The left group is bounded (`max-w-[10rem]`
 and `truncate` on the name) and the right one is a fixed count of 24-pixel buttons, so on a desktop
 window they clear it; squeeze the window far enough and the transport draws over them rather than
 pushing them aside.
@@ -1256,7 +1255,7 @@ the one family that acts on the workspace's files rather than on the song.
 transport nor even this shell's view. It **does not navigate** — the whole point of the address is to be
 carried to a second device, and following it here would replace the editor you are standing at with the
 tablet's screen. The line is echoed in the status bar as well as copied, so a browser that refuses the
-clipboard still leaves it readable. The share panel no longer draws those addresses as links at all: its
+clipboard still leaves it readable. The share panel draws no such address as a link: its
 *Sur un autre appareil* section is **QR codes**, the whole project first so a tablet can edit it and not
 only drive a surface, then one per surface ([external.md](external.md)). Scanning is the gesture the
 section exists for, and an address written out is what it replaces; the cost is that a device which
@@ -1419,9 +1418,9 @@ musician's machine, so a cached shell with no machine behind it can only draw th
 already draws.
 
 **The scope is `/`, the whole origin, and it cannot be narrower — this is the part st0 owns alone.** A
-worker's scope is a prefix and st0's own routes ARE the root, `/<dépôt>/<projet>`. So this worker also
+worker's scope is a prefix and st0's own routes ARE the root, `/@local/…`. So this worker also
 controls `/z0`, `/api` and `/auth`, which no other app on this origin has to think about: pl8 and k7
-answer their own subdomain now, not a path here, so they're off this list entirely. The only thing
+answer their own subdomains, not a path here, so they are off this list entirely. The only thing
 keeping st0's honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation
 to `/z0` is answered with st0's `index.html` and the game becomes a white page with the editor's
 router refusing an address it cannot parse. That list is the same table as

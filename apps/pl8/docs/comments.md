@@ -30,11 +30,10 @@ refuses and `revision.ts` already does not walk — the same free invisibility t
 because the reader is the public route and the writer is the author's, and neither may block the
 other.
 
-## The public router now has a write verb
+## The public router has one write verb
 
-`publicShare.ts` used to be readable in one sentence: *there is no write here at all*. That
-sentence is gone, and what replaces it has to be as short, because this is the one unauthenticated
-surface of the service. Three walls, and all three are in `commentGate.ts` or one line from it:
+What bounds it has to be as short to read as *there is no write here at all* would be, because
+this is the one unauthenticated surface of the service. Three walls, and all three are in `commentGate.ts` or one line from it:
 
 | what | bound | why that one |
 |---|---|---|

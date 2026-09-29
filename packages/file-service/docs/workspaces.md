@@ -290,9 +290,9 @@ A repository with a lot of audio in it goes past two minutes easily; git was kil
 cloning and vanished when it "finished"**, with git's last words being whatever it had been saying
 when it died. Nothing in that reads as a timeout.
 
-The client gives up drawing progress after ten minutes (`CLONE_CAP_MS`), and that is now only the
-PAGE giving up: the machine goes on cloning and the workspace appears by itself. The message says
-so, because "le clonage n'en finit pas" read as a failure of something that was working.
+The client gives up drawing progress after ten minutes (`CLONE_CAP_MS`), and that is only the PAGE
+giving up: the machine goes on cloning and the workspace appears by itself. The message says so,
+because "le clonage n'en finit pas" would read as a failure of something that is working.
 
 **`git lfs pull` now follows the same rule**, and needed it more: `FETCH_MS` was a total cap of
 five minutes on `execFile`, and a song repository's media is routinely larger than five minutes of

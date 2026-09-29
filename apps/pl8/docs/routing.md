@@ -5,8 +5,8 @@ of it. Both live in the address rather than in component state: held in state th
 `/mediatek` whatever you were doing — no bookmark, no link to a song, no Back out of the
 editor, and a reload dropping you at Songs.
 
-The address carries both, and reads exactly like the path on disk. pl8 answers under `/pl8`,
-which react-router holds as its basename, so below that mount:
+The address carries both, and reads exactly like the path on disk. pl8 answers at the root of its
+own subdomain, and react-router holds `BASE_URL` as its basename, so below that mount:
 
 ```
 /songs                                    the section
@@ -61,12 +61,11 @@ app knows about its mount. `routes.ts` is written as if the app owned the origin
 react-router strips the basename off everything it hands back — so nothing below it deals in
 prefixes.
 
-**A section id does not have to dodge the origin's other services.** Under `/pl8` nothing on
-the origin can reach these ids at all: the edge sends `/st0`, `/k7`, `/z0` and `/dev`
-elsewhere before this app ever sees them. The collision that does bite is st0's — it
-addresses a project as `/<dépôt>/<projet>`, so a REPOSITORY name can collide with `/pl8`,
-`/k7`, `/z0`, `/api` or `/auth`. `routes.test.ts` asserts the property here anyway: it costs
-nothing and says out loud that the ids are free of the origin's path table.
+**A section id has only this backend's own paths to dodge.** pl8 owns its subdomain, so no other
+service's path can shadow a section; what a section may not be is `api` or `auth`, which the
+server's SPA fallback never serves (`backend/src/server.ts`). `routes.test.ts` also keeps the ids
+clear of the paths the dev proxy claims (`st0`, `k7`, `z0`, `dev`, `console`…): free here, and
+asserted anyway because it costs nothing.
 
 ## Two sections have no tab
 
@@ -147,7 +146,7 @@ door for one's own work is st0's home page, which is a different address entirel
 - **`modules` and `chains`** belong with the AUTHORING: a module is written against a project
   where the plugin it names is actually LOADED, and committed to the account's library
   repository. That is st0's job, not a hosted catalogue's.
-- **The level above a project** — the repositories, the libraries, the deploy key and the
+- **The level above a project** — the workspaces, the libraries, the deploy key and the
   shares — belongs to the editor that opens one, so it is st0's home page.
 
 **Playlists**, on the other hand, ARE here — `playlists/` on the volume, its own section, beside
@@ -155,8 +154,8 @@ the songs a line names ([playlists.md](playlists.md)). A workspace keeps its own
 `_playlists/`, same format and a different job: those are versioned with the project and are what
 a `turntables` surface can name.
 
-The backend for all of it is still this service's. `/api/projects`, `/api/shares` and the whole
-of `/api/mediatek` are served here, and st0 calls them across the origin. An address under any
+The shares and the whole of `/api/mediatek` are served here, and st0 calls them across origins;
+the workspaces, the libraries and the key are the file service's ([projects.md](projects.md)). An address under any
 of those names falls through to the default section like any other unknown path. See
 [apps/st0/frontend/docs/projects.md](../../st0/frontend/docs/projects.md) and
 [apps/st0/frontend/docs/playlists.md](../../st0/frontend/docs/playlists.md).

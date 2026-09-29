@@ -44,11 +44,7 @@ export function settingsPath(): string {
   return join(studioDir(), "engine-host.json");
 }
 
-/**
- * Where to READ them from. One name now: `engine-tray.json` was read here until the tray it was
- * named after stopped existing, and a machine still carrying only that one starts from defaults —
- * see docs/paths.md for what that costs and why it is the whole of the migration.
- */
+/** Where to READ them from: the one name, and no fallback to another — docs/paths.md. */
 export function existingSettingsPath(): string {
   return settingsPath();
 }

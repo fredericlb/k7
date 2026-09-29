@@ -1,15 +1,18 @@
 # Where the media library reads its configuration
 
-## `STUDIO_MEDIATEK` is optional, same as everywhere else
+## `STUDIO_FILES_ROOT` is required, `STUDIO_MEDIATEK` is not
 
-The backend used to refuse to start without it, guarding against `<state>/mediatek` silently
-resolving to an empty, unmounted directory in a container. That guard only ever protected a
-misconfigured PRODUCTION deployment — the Dockerfile always sets `ENV STUDIO_MEDIATEK=/library`
-explicitly there — while in local dev it just added friction: the fallback (`~/.st0/mediatek`,
-`mediatekRoot()` in `packages/song/src/mediatekRoot.ts`) is already the right answer. Dropped in
-favour of matching every other backend: absence just means the default, and `ensureLayout()`'s
-own try/catch at startup (server.ts) still surfaces a library that's genuinely unavailable
-without hard-exiting the process.
+**`STUDIO_FILES_ROOT`** — where the accounts' workspaces live — has no default, and the process
+exits at boot without it (`requireFilesRoot`, `backend/src/fileHub.ts`): this is the only place a
+workspace lives, and a pl8 without it would serve an origin where no project can open
+(`packages/file-hub/docs/fileHub.md`).
+
+**`STUDIO_MEDIATEK`** — the library root — is optional, like everywhere else: absence means
+`~/.st0/mediatek` (`mediatekRoot()` in `packages/song/src/mediatekRoot.ts`). Refusing to start
+without it would only guard a misconfigured production deployment, and the Dockerfile sets
+`ENV STUDIO_MEDIATEK=/library` there; in dev the fallback is already the right answer.
+`ensureLayout()`'s try/catch at startup (`server.ts`) surfaces a library that is genuinely
+unavailable without ending the process.
 
 ## The loader writes into `process.env`
 
@@ -34,17 +37,18 @@ The yaml wins wherever it declares a key (`@frediverse/env`): explicit, per-serv
 configuration, so an ambient variable cannot annex a backend in passing. In production there is
 no `env.yaml` — the images exclude it — and the Dockerfile sets `ENV STUDIO_MEDIATEK=/library`.
 
-## What is optional
+## What else changes behaviour
 
-Nothing stops the service from starting anymore — every variable here just changes behavior:
-
-- `STUDIO_MEDIATEK` — the library root; absence means `~/.st0/mediatek` (or `$STUDIO_HOME`'s
-  equivalent), same default every other backend gets.
 - `MUSICBRAINZ_USER_AGENT` — how "Find songs" names itself to MusicBrainz ([hunt.md](hunt.md)).
   slskd itself is configured on the settings page, not here ([settings.md](settings.md)).
-- `SESSION_SECRET` — besides the session, the key the settings' secrets are sealed under.
-- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR`, `STUDIO_SETTINGS_DIR` — move four
-  dot directories off the volume. For tests; no deployment sets them.
+- `SESSION_SECRET` — besides the session, the key the settings' secrets are sealed under, and the
+  seed of the API token secret when `API_TOKEN_SECRET` is not set ([gate.md](gate.md)).
+- `FFMPEG_BIN`, `YTDLP_BIN` — the two tools, when they are not on the `PATH`.
+- `STUDIO_PREFS_DIR`, `STUDIO_PROJECTS_DIR`, `STUDIO_HUNTS_DIR`, `STUDIO_SETTINGS_DIR`,
+  `STUDIO_SHARES_DIR` — move five dot directories off the volume. For tests; no deployment sets
+  them.
+- `STUDIO_FILES_WATCH=1` — set by `npm run dev` only: the account file services it starts restart
+  on a source change, which this process's own watch cannot see.
 
 ## One side effect
 

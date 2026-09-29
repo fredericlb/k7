@@ -296,7 +296,7 @@ what `assemblyCompile`'s case in `assemblies.test.ts` pins. The plugs and the kn
 template the files name, `@st0/turntable`, which lives in the account's library —
 `packages/dsp/assemblies/turntable/` is the copy this repo ships to copy FROM.
 
-A set written before this gets the same two files from a migration that writes nothing else:
+A set without those two files gets them from a migration that writes nothing else:
 
 ```bash
 npx tsx packages/song/scripts/migrateSetAssemblies.ts <projet>.st0 --write

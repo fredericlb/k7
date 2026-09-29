@@ -61,7 +61,7 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   `st0-supervisor` sidecar beside the tray, else the repo's newest build under
   `engine/st0-supervisor/build`. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
   looks identical to a healthy one.
-- **`tray.rs`** — the icon and menu, which is now one status line and `Settings…`.
+- **`tray.rs`** — the icon and menu: one status line and `Settings…`.
   Quit stops the engine **only if THIS app owns it**; it won't kill an engine another supervisor
   started.
 - **`settingswin.rs`** — the one window, opened from `Settings…`: audio ranking, plugin catalogue,

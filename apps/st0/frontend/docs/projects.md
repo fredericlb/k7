@@ -1,21 +1,21 @@
 # The home page — st0 opens a project, and this is where you choose it
 
-`/` with nothing after it is a screen, not an address to correct: the account's git repositories,
-the projects inside them, the libraries repository and the published shares. It is where you
+`/` with nothing after it is a screen, not an address to correct: the account's workspaces, the
+projects inside them, the libraries and the published shares. It is where you
 start, and where you come back to on leaving a song.
 
 The **deploy key is not here**: it is in the Sync tab of the settings (`/@settings`,
-`../../../st0-desktop/docs/settings.md`). It is pasted into the git host once and never looked
+`settings.md`). It is pasted into the git host once and never looked
 at again, and keeping it at the foot of a screen opened for every song is paying every day for an
 installation gesture. The two sentences here that mention it point there, because the day it is
 missing, this is where you notice.
 
 ## Who draws, who holds
 
-**st0 draws, pl8 holds.** The routes are pl8's: `/api/projects` and `/api/shares` here,
-`/api/projects/ssh-key` from the settings. The volume is its, the key too, and a share's bytes
-too — [apps/pl8/docs/projects.md](../../pl8/docs/projects.md) says why that service is the right
-custodian.
+**st0 draws; the machine and pl8 hold.** The workspaces, the libraries and the deploy key are the
+account's file service's, on the server; the shares are pl8's (`/api/shares`), because a share's
+bytes and its comments live on pl8's volume. pl8 keeps no register of repositories —
+[apps/pl8/docs/projects.md](../../../pl8/docs/projects.md) says why.
 
 **The SOURCE of the list is the file service.** What lists the projects is the account's file
 service on the server, over its workspaces (`packages/file-hub/docs/fileHub.md`). A separate index
@@ -41,7 +41,7 @@ was written for.
 ## The address follows
 
 This screen is **the front door itself**. st0 answers at the origin root
-(`st0.priv.frediver.se`, `studio.frediver.se`), and the médiathèque — **pl8** — is under `/pl8`.
+(`priv.st0.app`, `st0.app`), and the médiathèque — **pl8** — on its own subdomain.
 If the first thing you want at a front door is your own work, then the page listing that work IS
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
@@ -51,25 +51,22 @@ switch every app of the origin carries — `@studio/ui-app-switch`, the one pl8'
 too, rather than a link this app spells its own way — so a row opens a NEW tab and the desktop
 app can hand it to the system browser (`packages/ui-app-switch/docs/appSwitch.md`).
 
-`/auth/*` follows the root: the IdP knows only one `redirect_uri`, with no prefix, so those
-routes can only be served by the service that has no prefix — st0. See
-`packages/web-protocol/services.ts`, where st0's path is `""` on purpose.
+`/auth/*` follows the root: the IdP knows only one `redirect_uri`, on st0's origin, so those
+routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 
 ## What the address says, and what it does not
 
 ```
 /                     the home page — st0 answers the origin's root
 /?ws=<workspace>      …with one workspace's tree unfolded
-/band/leclip.st0      a project, by its repository — the same address on every machine
-/@local/demos/x.st0   a project in a workspace with no repository — see below
+/@local/demos/x.st0   a project, by its workspace and its folder — see below
+/@banc/live.st0       the bench
+/external             the menu of surfaces a second device drives
 ```
 
 **The path belongs to the launch.** `parseLaunch` reads it before anything is mounted, and the
-FIRST segment is a repository's short name: there is no segment that can be added here without
-reading as a repository to open. That is also what makes a repository called `z0`, `api` or
-`auth` unopenable — the origin claims those prefixes ahead of st0 and the request never
-reaches here (`apps/z0/docker/nginx.conf` for `/z0`). `pl8` and `k7` are free to use now: they
-answer their own subdomain, not a path here. The unfolded workspace travels in the **query**,
+FIRST segment is a sentinel — `@local`, `@banc`, `@shares` — so a plain word like `external` is
+free for the app's own pages. The unfolded workspace travels in the **query**,
 which is exactly what a SPA router owns — the argument of
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) taken
 the other way — and it bookmarks, copies, and answers the back button.
@@ -86,25 +83,26 @@ switched off:
 |---|---|
 | `/@shares/<token>.st0` | `SharedGate` — no account, no engine, no working copy |
 | `/` | `AuthGate` → `Home` — the account, and nothing else |
-| `/<dépôt>/<projet>` | `AuthGate` → `EngineGate` → `ProjectGate` → the editor |
+| `/external` | `AuthGate` → `ExternalIndex` — probes for a machine without claiming one |
+| `/@local/…`, `/@banc/…` | `AuthGate` → `EngineGate` → `ProjectGate` → the editor |
 
-The `Profiler` stays on the third only: it bills every commit of the subtree to keep the rare long
+The `Profiler` stays on the editor's stack only: it bills every commit of the subtree to keep the rare long
 ones, and this page has no bursts of commits to measure.
 
 ### The list needs the server's files, and no engine
 
-The list of projects, and adding a repository (which clones it), need the account's file service
+The list of projects, and importing a repository (which clones it), need the account's file service
 on the server and nothing else: the workspaces are there whether or not an engine is running, so
 the page does not wait on an engine probe to draw them (`settings/accountFiles.ts`'s `findAccountFiles`,
 asked with `bindEngine` off). If that service does not answer, the list is replaced by the
 sentence that says so, rather than by an empty screen that would look like a new account. The
 header says whether the files answer, with the address in a tooltip and a button to ask again.
 
-What can be read and set **without the file service** is what saves installation day: the libraries
-repository here, and the deploy key in the settings. A page an engine picker would strike out
-entirely would be a page where nothing can be set until there is an engine. The Sync tab needs
-only pl8, so it draws with no engine; on the hosted studio, where the other three tabs have
-nothing to show, it draws alone.
+What can be read and set **without an engine** is what saves installation day: the libraries here,
+and the deploy key in the settings, both asked of the file service on the server. A page an engine
+picker would strike out entirely would be a page where nothing can be set until there is an
+engine. On the hosted studio, where the settings' other three tabs have nothing to show, the Sync
+tab draws alone.
 
 Shares are behind a button on a project's row, so behind a list that needs the file service (§ Shares).
 That does not touch the installation argument — a new account has published nothing — but it is
@@ -135,7 +133,7 @@ follows is what sets it apart here.
 **Its vocabulary is its own** (`src/projects/homeCommands.ts`), and not `LOCAL_COMMANDS`. This
 screen has no open project, no engine session and no file: the editor's catalogue here would be a
 list of things you cannot do, and the half that comes from the file service would not even answer
-— `/complete` and `/command` want an active project. Nine verbs, and they are the page's buttons:
+— `/complete` and `/command` want an active project. Eight verbs, and they are the page's buttons:
 
 | the line | what it does, and through what |
 |---|---|
@@ -145,8 +143,7 @@ list of things you cannot do, and the half that comes from the file service woul
 | `project delete confirm <name>` | deletes that one, if it is the one that was named |
 | `system workspace new <name>` | an empty workspace here, no repository behind it |
 | `system workspace publish <workspace> <repo_url>` | gives a local workspace its first repository, and pushes |
-| `system repo add <repo_url>` | registers at pl8 **then** clones here — both, in that order |
-| `system repo remove <repo_name>` | takes it out of the register. The files stay |
+| `system repo add <repo_url>` | clones it into a new workspace on the server |
 | `system repo sync <repo_name>` | `project pull`, then `project commit sync` in that workspace |
 
 **Deleting is two verbs, and that is the confirmation.** A palette can fire a destructive line on
@@ -164,10 +161,10 @@ address unfolded (`?ws=`), or failing that the only one there is. Between severa
 is a commit pushed where nobody was looking.
 
 **Buttons and bar go through the same functions** — `createProjectAndCommit`,
-`copyProjectAndCommit`, `deleteProjectAndCommit`, `ensureWorkspace`, pl8's register: one implementation, two doors, as the
+`copyProjectAndCommit`, `deleteProjectAndCommit`, `ensureWorkspace`, the clone: one implementation, two doors, as the
 file tree's menu and the `fs …` verbs already have (`docs/shell.md`). What the bar adds is doing
-it without the mouse, and saying so in a status line above it: refusals in amber, because these
-verbs talk to two services and a silent "that did nothing" is avoided everywhere else. A line this
+it without the mouse, and saying so in a status line above it: refusals in amber, because a silent "that did nothing" is
+avoided everywhere else. A line this
 screen does not know is refused **here**: there is no service behind to pass it to, unlike the
 editor's bar, whose lines end at `/command`.
 
@@ -321,41 +318,23 @@ projects.
 The list shows the account's folders under its `workspace/` on the server. Two consequences, and
 both are needed:
 
-**A repository registered at pl8 that has not been cloned has no row.** Its `/<dépôt>/<projet>`
-address keeps working — `ProjectGate` clones it on opening — and that is how to bring it in.
+**A repository that is not cloned has no row**: the list is what the machine holds, and
+**Importer** is how to bring one in.
 
 **A workspace with NO repository has one too.** `Examples`, seeded with the demos on first
 contact, is a clone of nothing — and it is what a new account has on the day it has nothing else.
-A list drawn from registered repositories would leave it invisible. So it needs an address, and
-that is `@local`.
+Every row is addressed the same way, `@local`, whether its workspace has an `origin` or not.
 
-## With no server, an import IS a local project
-
-The register is pl8's and a machine holds no copy of it. Where
-no server is configured the shim answers the register with **`revision: "offline"`**, and that word
-is the point: it says there is no register, which is not the same as an empty one.
-
-The difference decides a sentence on screen. *"ce dépôt n'est pas dans vos dépôts — collez son URI
-ci-dessus pour l'inscrire"* is right when a register exists and this repository is missing from it.
-With no register it is a dead end twice over: there is nothing to be absent from, and pasting the
-URI cannot inscribe it anywhere — `api.add` answers 503 and the import simply clones again.
-
-So the row is drawn only where `hasRegister` (`@studio/web-protocol/projects`) is true. Offline, an
-imported workspace reads exactly like one made here: a folder with projects in it, addressed
-`@local`, with nothing to apologise for. What it keeps that a local one has not is its `origin`, so
-it still pulls and pushes — the register was only ever about the ADDRESS, never about the git.
-
-## `@local` — a project that belongs to no repository
+## `@local` — every project's address
 
 ```
 /@local/Examples/synth-demo.st0     a project in the Examples workspace
 /@local/hiver.st0                   a workspace that IS the project
 ```
 
-The third sentinel, after `@banc` and `@shares`, and the same trick: `@` cannot start a git short
-name — it is the last segment of an SSH URI without `.git` — so it can never collide with a real
-repository, and the gate sees it and skips the whole route that turns a name into a URI and then
-into a clone. There is nothing to clone: the folder is already there.
+`@` cannot start a folder name git gives a clone, so the sentinel can never collide with a
+workspace, and the gate opens the folder that is already there: nothing to look up, nothing to
+clone.
 
 **`parseLaunch` has nothing special to do.** `/@local/Examples/synth-demo.st0` reads as repository
 `@local`, project `Examples/synth-demo.st0` — the project part stops at the last segment claiming
@@ -363,41 +342,26 @@ the app's suffix, the ordinary rule. `localTarget` detaches the workspace from t
 is the only rule specific to `@local`. A workspace that IS a project has nothing after its name
 and the project is `"."`, so nothing downstream changes.
 
-**It is now the ONLY address.** There was a second — `/<dépôt>/<projet>`, resolved by asking pl8's
-register what URI a short name stood for — and it is gone with the register. `projectHref`,
-`workspaceHref` and `externalHref` no longer take a set of registered names and no longer choose:
-a project is a folder in the account's workspaces, and its folder name is what addresses it.
+**It is the ONLY address.** No register maps a short name to a repository URI, so `projectHref`,
+`workspaceHref` and `externalHref` take no set of registered names and choose nothing: a project
+is a folder in the account's workspaces, and its folder name is what addresses it.
 
 What that gives up is portability between accounts: a link pasted to somebody names a folder in
-yours. What it buys is that there is one answer instead of two, and no service to ask. It also
-makes the second-device case free rather than delicate — `projectClaimKey` is computed from the
-address, and where there is one address both ends compute it alike, which is the failure
+yours. What it buys is one answer instead of two, and no service to ask. It also makes the
+second-device case free rather than delicate — `projectClaimKey` is computed from the address, and
+where there is one address both ends compute it alike, which is the failure
 [external.md](external.md) spends a section warning about.
 
-**It is also the starting point.** A workspace is created HERE — `git init`, no remote — and until
-the day it is published, `@local` is the only address it has. That is not a degraded state: it is
-the state of a song being started, and everything works in it except pushing
-(`packages/file-service/docs/workspaces.md`). Publishing gives it its `origin` AND registers it at
-pl8, and the portable address takes over at the next poll.
+**It is also the starting point.** A workspace is created HERE — `git init`, no remote — and
+everything works in it except pushing until the day it is published
+(`packages/file-service/docs/workspaces.md`). Publishing gives it an `origin`; its address does not
+change.
 
-Three cases fall here, and this page decides because it is the only one talking to both services:
-
-| case | who knows |
-|---|---|
-| the workspace is not a clone at all | the machine: no `origin` |
-| two clones answer to the same short name | the machine: `uniqueName: false` — pl8 answers 409 for such a name rather than choosing |
-| pl8's register does not know this repository | pl8: the short name is not in its list |
-
-The third is the one that gets forgotten: a perfectly named clone the register ignores has an
-impeccable short name and resolves to a 404 at the gate. That is why this page still asks
-`GET /api/projects` — not to draw a list, but to know which of the two addresses to write.
-
-**`@local` does NOT require a libraries repository**, and it is the only place this route disagrees
-with the other two. The `no-libraries` refusal is raised first because an unresolved `@st0/…`
-reference makes a song read as broken rather than as an unfinished account. But a demo on this
-machine needs none, and no library is what a NEW account has: demanding one would
-put the demos behind the one thing they exist to precede. A reference that does not resolve
-already reports itself, on its node.
+**`@local` does NOT require a libraries repository.** The bench raises `no-libraries` first,
+because an unresolved `@st0/…` reference makes a rig read as broken rather than as an unfinished
+account. But a demo on this machine needs none, and no library is what a NEW account has: demanding
+one would put the demos behind the one thing they exist to precede. A reference that does not
+resolve already reports itself, on its node.
 
 ### How the tree opens
 
@@ -427,72 +391,49 @@ two decks, a rig with no surface — and that is a question badly answered from 
 before having seen anything. The row of an empty workspace has one link, "Créer le premier
 projet", which opens the workspace; the editor puts the assistant there (`FirstProject.tsx`). It
 is also the only way in while the workspace is empty, since rows link PROJECTS and there are none:
-`workspaceHref` builds the workspace's own address — `/@local/hiver` or `/hiver` depending on
-whether the short name resolves — and the project there is `.`, which the machine resolves
+`workspaceHref` builds the workspace's own address — `/@local/hiver` — and the project there is
+`.`, which the machine resolves
 (`packages/file-service/docs/workspaces.md`).
 
-**Importer** takes a URI: pl8 generates the deploy key if it does not exist yet and registers the
-repository, then the page follows immediately with `POST /workspaces/clone` and follows the job.
+**Importer** takes a URI and asks the file service for `POST /workspaces/clone`, with the deploy key
+the machine made for itself (`packages/file-service/src/sshKeys.ts`), then follows the job.
 The clone is not an extra: this list shows only what the machine holds, so without it adding would
 be a form that changes nothing on screen.
 
-**A percentage is on screen; git's own words are in the console.** Every line git writes used to
-become the dialog's one status line, which is a log flickering past too fast to read and gone the
-moment it works. So the screen keeps only what is progress — `Receiving objects 45%`, and a plain
+**A percentage is on screen; git's own words are in the console.** Every line git writes, as the
+dialog's one status line, would be a log flickering past too fast to read and gone the moment it
+works. So the screen keeps only what is progress — `Receiving objects 45%`, and a plain
 "clonage…" when git is doing something it cannot measure — and each line goes to `console.debug`
-as `git: …`, where it can be scrolled after the fact. A FAILURE is unchanged: git's last words are
-the error, on screen, because that is the one time they are the answer.
+as `git: …`, where it can be scrolled after the fact. A FAILURE is the exception: git's last words
+are the error, on screen, because that is the one time they are the answer.
 
 The machine keeps the last 50 lines (`cloneJobs.ts`) and counts them all in `emitted`, so the page
 logs each line exactly once and says `…(N lines the machine no longer holds)` when a clone outran
 the 800 ms poll. Matching on the text instead would have skipped whole runs — git repeats its
 counter lines verbatim.
 
-**A FAILED clone is where this mattered most**, and it was the worst of the two. `gitClone` rejects
-with `stderr.join("\n")` — everything git said, up to two hundred lines — and the popin drew all of
-it in one block. The answer is at the END of that: `Permission denied (publickey).` and then the
+**A FAILED clone is where this matters most.** `gitClone` rejects with `stderr.join("\n")` —
+everything git said, up to two hundred lines — and drawn in one block the answer would be buried:
+it is at the END of that, `Permission denied (publickey).` and then the
 `fatal:` that followed from it, and either alone is half the story. `gitReason` keeps the last two
 non-empty lines for the screen and puts the whole of it in the console, saying so when there was
 more.
 
 And the workspace really does go: a clone that failed leaves no workspace, by design — see
-`cloneWorkspace`. What made that read as a bug was not the removal but the wall of log above it,
-with the reason somewhere in the middle.
-
-**And the register is the half that may be missing.** With no server configured the desktop's shim
-answers the register with a 503 — correctly, since the
-register is pl8's and a local copy would be a second source of truth. But importing MEANS the
-clone, and the clone is the machine's: a 503 there is stepped over and the import goes on, landing
-the workspace on this disk where it opens by its `@local` address, which the row then says in
-words. Only that status is stepped over — a pl8 that is reachable and refuses (a bad URI, a name
-already taken) is heard, before anything has been cloned.
-
-That is the same rule **Publier** already followed, and import was the odd one out for a reason
-worth naming: publish does the real work FIRST and registers after, so a failed register is
-visibly the lesser half. Import registered first, so the optional half could abort the essential
-one — which is exactly what it did, with a sentence about Settings on a machine that needed no
-server at all.
+`cloneWorkspace`. Under a wall of log, with the reason somewhere in the middle, that removal would
+read as a bug.
 
 **Publier** lives on the row and not at the top, because it acts on ONE workspace, and it is
 offered only when `origin` is null. It asks for a repository URI — which must exist and be empty —,
-sets it as `origin`, pushes, then registers it at pl8. The two halves are not of the same nature
-and the popin says so: the push is the one that can fail loudly (git speaks for itself,
-"Permission denied (publickey)"), the registration is the one that can be redone later. If only
-that fails, it is said and the popin does not close: what was pushed was pushed.
+sets it as `origin` and pushes (`POST /workspaces/remote`). The push is the half that can fail
+loudly, and git speaks for itself ("Permission denied (publickey)").
 
 Clicking a project goes straight into its application, in a new tab, at
-`/<nom-du-dépôt>/<dossier>` — an ADDRESS, and the repository by its **short name**, not by its
-URI: an address bar is copied and pasted, and an SSH URI drags a machine, a port and a user along
-with it. From there the app asks pl8 for the URI behind that name
-(`GET /api/projects/by-name/:name`, a 409 rather than a silent choice when two repositories
-answer to it), asks the file service `GET /workspaces/by-repo?uri=`, and clones if the answer is
-no, **with git's progress on screen**
-([cloneJobs.md](../../../../packages/file-service/docs/cloneJobs.md)). That whole tail is
-`@studio/project-shell`, mounted identically by st0 and by z0's editor — a divergence there would
-be a double clone or a 404 ([launch.md](../../../../packages/project-shell/docs/launch.md)). z0
-comes back here too on leaving a project: this list holds `.z0` folders as much as `.st0`, and a
-second picker on its side would be the second thing to keep in step that this package exists to
-avoid.
+`/@local/<workspace>/<dossier>` — an ADDRESS, naming the folder on the machine, which the gate
+opens without asking anybody ([launch.md](../../../../packages/project-shell/docs/launch.md)). That
+gate is `@studio/project-shell`, mounted identically by st0 and by z0's editor, and z0 comes back
+here too on leaving a project: this list holds `.z0` folders as much as `.st0`, and a second picker
+on its side would be the second thing to keep in step that this package exists to avoid.
 
 ## Creating, copying and deleting a project — on the machine, not here
 
@@ -648,7 +589,7 @@ therefore render sound, and sends it to pl8 — which holds the only copy and se
 with no account. What the bundle contains is
 [packages/commands/docs/shareBundle.md](../../../../packages/commands/docs/shareBundle.md); what
 pl8 does with it, including why hosting that does not contradict "pl8 never makes a working copy",
-is [apps/pl8/docs/shares.md](../../pl8/docs/shares.md).
+is [apps/pl8/docs/shares.md](../../../pl8/docs/shares.md).
 
 **On the row, and not in a card for the whole account.** A share COMES OUT of a project, and the
 question you ask is "what have I published of that song", never "give me the account's twenty
@@ -725,8 +666,8 @@ are not in the "settable with the engine off" column, where the libraries are.
 
 ## Two polls, because there are two services
 
-The project list is asked of the **machine**, the shares and the register of **pl8**: two services,
-two timers, and they cannot share a token.
+The project list is asked of the **machine**, the shares of **pl8**: two services, two timers, and
+they cannot share a token.
 
 The machine's has no token in front of it — no `/revision` to ask first. The service answers the
 list itself, behind a five-second window on its side (`LISTING_RESCAN_MS`, the same as the one
@@ -772,7 +713,7 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   dragover cannot read a name) and the drop is refused in a sentence saying what it takes;
 - unfold a workspace, reload → the same one unfolded, `?ws=` in the address;
 - create a project → the row appears **with no refresh**, in five seconds at worst. Longer means
-  the list no longer comes from the machine;
+  the list is not coming from the machine;
 - open a project → it opens in a NEW tab and this one stays on the list; the name in the app's
   header comes back here, and shift-click still opens a window;
 - leave a project from the editor, and lose its engine to somebody else → both come back here;

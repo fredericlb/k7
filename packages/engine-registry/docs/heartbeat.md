@@ -44,5 +44,5 @@ bad token" with nothing in either log to say why.
 
 `404 engine gone` when there is no live entry — the engine's machine has not had a heartbeat
 accepted in 15 s, and its `.studio.log` says why. `403 bad token` when there is one and the token
-the browser got from the engine's `whoami` is not the one it registered with. They used to be one
-403, which sent the reader to the token when the cause was the heartbeat.
+the browser got from the engine's `whoami` is not the one it registered with. Two answers and not
+one 403, because a single one sends the reader to the token when the cause is the heartbeat.

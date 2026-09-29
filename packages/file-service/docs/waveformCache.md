@@ -5,7 +5,7 @@ format JUCE reads — wav/aiff/flac/ogg/…), downsamples it to a placement-inde
 envelope, **detects its transient onsets**, and writes all of it next to the source as
 `{source}.cache` (JSON), stamped with a cheap content fingerprint.
 
-This module is the Node side, and it is now only HALF of one: what a sidecar IS — the fingerprint,
+This module is the Node side, and only HALF of one: what a sidecar IS — the fingerprint,
 the fields, reading one back — belongs to `@studio/audio-analysis`, because pl8 writes the same
 file with ffmpeg and no engine at all (`packages/audio-analysis/docs/analysis.md`). What stays
 here is the part that is genuinely this service's: spawning the engine, and the memo in front of

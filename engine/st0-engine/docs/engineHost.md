@@ -339,11 +339,11 @@ second reader can empty a tap the state timer is about to read.
 
 **One envelope point per FRAME, not per sample.** The drain is a single chronological array and
 `WaveformWidget` draws it as one line, so the two channels have to fold into the same bucket —
-`WaveformTap::pushFrame` takes the min and the max across the pair. The plugin used to push the
-whole left block through `pushSample` and then the whole right block, which drew every block
-**twice** at twice the documented rate; and since a 256-sample bucket does not divide an arbitrary
-block, the bucket straddling the L→R seam mixed two channels into one point. A correlated mix hid
-it; anything hard-panned flickered. `pushSample` survives as `pushFrame(s, s)` for the mono case.
+`WaveformTap::pushFrame` takes the min and the max across the pair. Pushing the whole left block
+and then the whole right one would draw every block **twice** at twice the documented rate, and
+since a 256-sample bucket does not divide an arbitrary block, the bucket straddling the L→R seam
+would mix two channels into one point — hidden by a correlated mix, a flicker on anything
+hard-panned. `pushSample` is `pushFrame(s, s)`, for the mono case.
 
 The broadcast section of the header is the one place that is **not** uniformly message-thread.
 `enableBroadcast` and the tap's insertion are; `drainBroadcast` and `skipBroadcastToLive` belong

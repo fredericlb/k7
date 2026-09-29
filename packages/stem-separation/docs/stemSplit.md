@@ -31,10 +31,10 @@ the graph draws a jack per stem. See `@studio/song`'s [ports.md](../../song/docs
 
 ## Why a job, when `/render` refuses one
 
-[render.md](render.md) argues against a job registry, and it is right about a render: one
+[../../file-service/docs/render.md](../../file-service/docs/render.md) argues against a job registry, and it is right about a render: one
 streamable file, seconds, a caller that can simply wait. A separation is the case that turns
 every one of those over, and it scores "job" on every row of
-[cloneJobs.md](cloneJobs.md)'s table: **minutes** rather than seconds, a **person** waiting
+[../../file-service/docs/cloneJobs.md](../../file-service/docs/cloneJobs.md)'s table: **minutes** rather than seconds, a **person** waiting
 rather than a server, **four files** rather than one streamable body, and a subprocess with
 progress worth reporting.
 
@@ -101,29 +101,19 @@ the source's rate is and `writeStem()` resamples on the way out when it differs;
 into the job's `lines` when it is not the model's. A source ffprobe cannot read falls back to the
 model's rate.
 
-That still matters — four parts a few milliseconds apart are a flam on every hit — but it is no
-longer *critical*, and the difference is worth recording because it cost a night.
+That matters — four parts a few milliseconds apart are a flam on every hit — but it is not
+*critical*, because the desk **plays the four parts** and never subtracts them from the record
+([song-schema/docs/stems.md](../../song-schema/docs/stems.md) has the reasons and the numbers): a
+subtraction would cancel only while the two signals stay aligned to the sample, which a
+pitch-preserving stretch breaks as soon as the tempo moves.
 
-**These files used to be SUBTRACTED from the record**, and a subtraction cancels only while two
-signals stay aligned to the sample. Two things broke that. The rate above was one. The other was
-that the master and its stems were read by two different decoders: an mp3 carries an encoder delay
-in its Xing/LAME `Info` tag — 1105 samples on the record measured — and **ffmpeg trims it while
-JUCE does not**. `juce_MP3AudioFormat.cpp` contains no gapless handling at all, and the engine's
-own `--peak` counts 11 526 192 frames in a file ffmpeg decodes to 11 455 983. Off by that delay,
-`master - sum(stems)` measured -12.8 dB against a master at -15.9 dB: the "subtraction" made the
-bus LOUDER than the record.
-
-That was fixed by writing the record's own decode beside the stems. Then a third break turned out
-not to be fixable at all — a pitch-preserving stretch is non-linear, so no amount of shared warp
-markers keeps a subtraction cancelling once the tempo moves
-([song-schema/docs/stems.md](../../song-schema/docs/stems.md) has the numbers). So the desk now **plays the
-four parts** instead, which is what every stem-capable deck does, and nothing downstream needs a
-cancellation any more. `master.wav` went with the subtraction.
-
-Two things survive from it. The mp3 delay is still real: **a song nobody separated starts 25 ms
-late in this engine**, which is inaudible alone and matters only between two lanes — named here
-because the next person to measure an mp3 against a wav will find it. And `stemsComplete()` still
-asks the whole folder rather than its existence: a deck plays the four parts in place of the
+**The mp3 encoder delay is real.** An mp3 carries it in its Xing/LAME `Info` tag — 1105 samples on
+the record measured — and **ffmpeg trims it while JUCE does not**: `juce_MP3AudioFormat.cpp`
+contains no gapless handling at all, and the engine's own `--peak` counts 11 526 192 frames in a
+file ffmpeg decodes to 11 455 983. So **a song nobody separated starts 25 ms late in this engine**,
+which is inaudible alone and matters only between two lanes — named here because the next person
+to measure an mp3 against a wav will find it. And `stemsComplete()` asks the whole folder rather
+than its existence: a deck plays the four parts in place of the
 record, so three of four is a song missing an instrument, not a separation that half-worked.
 
 ## Windows, and how they are folded back — `SeparationAudio.cpp`
@@ -284,9 +274,9 @@ holds the worker until then.
 **The fallback below does not catch it either.** A device removal is what that code is written
 for, and this is not one — nothing throws, so nothing retries and nothing moves to the CPU.
 
-Nothing in the process can rescue this, which is why the fix is not to rescue it: `dml` is no longer
-asked for unless a machine opted in. This rig is now the ordinary case rather than the one that
-needed a variable in every launcher's environment.
+Nothing in the process can rescue this, which is why nothing tries: `dml` is not asked for unless a
+machine opts in, so this rig is the ordinary case and needs no variable in any launcher's
+environment.
 
 What this does *not* establish is whether the fault is DirectML's, this driver's, or this
 architecture's. It was not chased further, because the provider that works is four times faster
@@ -344,7 +334,7 @@ system-wide change and nothing in this repo writes it.
 ## What fails hard, and why that is not a contradiction
 
 ffmpeg decodes the input, and here it is a **hard** dependency — which looks like it
-contradicts the rule stated in [render.md](render.md) and `@studio/take-render/render`, that a
+contradicts the rule stated in [../../file-service/docs/render.md](../../file-service/docs/render.md) and `@studio/take-render/render`, that a
 missing ffmpeg costs the FORMAT and never the render.
 
 It does not. That rule holds because there is always a lesser result to fall back to: the
@@ -377,7 +367,7 @@ section above.
 `coldPass.ts` says which model and whether this machine has it, and `processWithChain` runs the
 pass in place of the bounce — no render, no repoint, four files under `stems/`. The rules that
 follow (a chain separates or treats, never both; the pass runs before the engine check) are in
-`@studio/commands`' [processChain.md](../../commands/docs/processChain.md).
+`@studio/commands`' [processChain.md](../../audio-passes/docs/processChain.md).
 
 The running arrives **as a function**: the seam is `CommandHost.runColdStep`, and the file
 service's implementation is the one place that knows what "run it" means — `startSeparate` + poll,

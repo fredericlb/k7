@@ -16,18 +16,14 @@ type, which is the shape this app actually needs.
 `store.ts` compares a route's `:annId` / `:markerId` / `:momentId` against a row's own id as
 plain strings — no `Number()` cast anywhere. A PocketBase id is a random 15-character string, not
 an auto-incrementing integer: there is no meaningful ordering to lean on, and comparing by value
-is all the code ever needed even when ids used to be numbers.
+is all the code needs.
 
 ## Attachments are their own collection, not a field type
 
-Grist's attachment column doesn't exist here. A song's sheets are rows in `song_sheets` — one per
-file, with a `song` relation (cascade-deleting them when the song goes) and the actual `file`
-field. `Songs.SheetMeta` still carries the ordered `{id, name, mime}` list every reader already
-expects; `id` is now that `song_sheets` row's own id, which is also what `downloadAttachment`
-takes.
-
-`Songs.SheetFiles` — Grist's own attachment-list column, read only by Grist's UI — has no
-PocketBase equivalent and is gone. Nothing in k7 reads it.
+A song's sheets are rows in `song_sheets` — one per file, with a `song` relation
+(cascade-deleting them when the song goes) and the actual `file` field. `Songs.SheetMeta` carries
+the ordered `{id, name, mime}` list every reader expects; `id` is that `song_sheets` row's own id,
+which is also what `downloadAttachment` takes.
 
 ## The schema is reconciled at every boot
 

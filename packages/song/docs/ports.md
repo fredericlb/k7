@@ -90,11 +90,10 @@ Three consequences worth knowing:
 
 - **Out-degree is the NODE's, not the key's.** Those two keys are one destination each, and
   counting per key would call every edge an only child — absorbing both targets into a single
-  run through a module that in fact splits. `absorbed` is unchanged; what it reads is now
-  counted correctly. There is exactly one exception, a LANE — see below.
-- **A wrong source port is reported.** `crossfade#typo` on a destination has always thrown;
-  `stemsplit#vocls` on a source routed silently onto the first jack. `validate()` checks it
-  against the module's `outputs` now.
+  run through a module that in fact splits. There is exactly one exception, a LANE — see below.
+- **A wrong source port is reported**, on a source as on a destination: unchecked,
+  `stemsplit#vocls` would route silently onto the first jack. `validate()` checks it against the
+  module's `outputs`.
 - **Output jacks are occupied per socket.** A separator with three stems wired and one spare
   reads as exactly that, where before any cable leaving marked every output connected.
 

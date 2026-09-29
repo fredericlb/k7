@@ -830,6 +830,7 @@ export function ChainsTab({
             // The corner minimap is this pane's: the graph panel and a lane's row are too small to want one.
             minimap
             onOrganize={onOrganize}
+            organizeKey={organizeKey}
             onRecorder={onRecorder}
             onProjectField={onProjectField}
             onAlternative={onAlternative}

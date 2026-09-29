@@ -125,9 +125,9 @@ It **replaces by id**, and can neither add nor remove a track. Three consequence
   forget the ids it last sent whenever the socket reopens, since a fresh socket can mean a fresh
   engine.
 
-Nothing sends it today: it was the Node pattern clock's channel, and pattern lanes are now played
-by the engine itself (`patternPlugin.md`). It stays because it costs nothing unused and a live
-source of notes from outside the engine would want exactly this.
+Nothing sends it: pattern lanes are played by the engine itself (`patternPlugin.md`). It stays
+because it costs nothing unused and a live source of notes from outside the engine would want
+exactly this.
 
 No `busy` and no `applied` come back. This path is incremental by construction, and announcing a
 changeset six times a second would drown the one that matters — the full-document path still

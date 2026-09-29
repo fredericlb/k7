@@ -1,7 +1,7 @@
 # The desk adapts to its height
 
 The desk is a **pane** (`layout: split`, see
-[packages/song/docs/surfaces.md](../../song/docs/surfaces.md)). Its height is therefore not a
+[packages/song/docs/surfaces.md](../../../song/docs/surfaces.md)). Its height is therefore not a
 constant: half the column beside the graph, the whole window under `full`, a third of a phone in
 landscape. `deskLayout.ts` answers "at this height, what do we draw", and `useContentHeight.ts`
 is what measures it.

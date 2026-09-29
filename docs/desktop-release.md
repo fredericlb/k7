@@ -79,8 +79,7 @@ is a certificate nobody has bought. The ONNX Runtime note in
 **macOS is arm64 only.** An Intel build is one more entry in the matrix (`macos-13`, same
 preset) and no other change; it is absent because nobody has asked for it, not because it is hard.
 
-**Linux is the newest of the three legs and the least walked.** The engine has always built
-there; the tray had no packaged target before this workflow, so the apt list — Tauri's GTK and
+**Linux is the least walked of the three legs.** The apt list — Tauri's GTK and
 appindicator set, and JUCE's ALSA/JACK/X11 set — is the part most likely to need a name added.
 `NO_STRIP=true` is set for the same family of reason: `linuxdeploy` cannot strip inside its own
 AppImage staging tree on the runner image.

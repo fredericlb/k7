@@ -1,22 +1,23 @@
 # The client side of the seams
 
 `apps/pl8/frontend/src/api.ts` talks to two things, and they are not the same kind of thing at all:
-this app's own backend (same origin, under a prefix) and the ORIGIN's auth (no prefix). An engine's
+this app's own backend (same origin) and the studio's auth, which lives on st0's origin. An engine's
 machine is never called from here: what this app needs of one goes through its backend, which
 reaches it through the engine's tunnel. This page holds the reasoning; the file itself keeps one
 line per fact.
 
-## `BASE`, and the one path that must not carry it
+## `BASE`, and the one path that is not this origin's
 
-The app is mounted under a path (`st0.priv.frediver.se/pl8`), so every backend path in the file
-concatenates `BASE` — vite's `base` with its trailing slash trimmed, so the literals keep reading
-as paths. Every literal is written that way, including the ones that would read fine bare: a path
-that concatenates nothing is a path that breaks the day the mount moves.
+The app answers at the root of its own subdomain (`play.priv.st0.app`), so `BASE` — vite's `base`
+with its trailing slash trimmed — is empty. Every backend path still concatenates it, including the
+ones that would read fine bare: a path that concatenates nothing is a path that breaks the day the
+mount moves.
 
-`/auth/*` is spelled BARE on purpose. It is not this backend's at all: the flow belongs to st0,
-the service with no prefix, because the IdP has one prefixless `redirect_uri`. This backend only
-VERIFIES the cookie. `${BASE}/auth/me` would 404 into what reads like a broken login. See
-`packages/web-protocol/services.ts`.
+`/auth/*` is not this backend's at all: the flow belongs to st0, because the IdP has one
+`redirect_uri`, at the root of st0's origin. So auth calls go to `authOrigin(origin)` — st0's
+origin, from `packages/web-protocol/services.ts` — with `credentials: "include"`, since a
+cross-origin fetch sends no cookie without it. This backend only VERIFIES the cookie, which the
+shared `COOKIE_DOMAIN` makes good on every studio subdomain.
 
 `loginUrl` is a GETTER rather than a constant. Evaluated at import it would capture whatever page
 happened to load the module, so every later click would return you there instead of where you
@@ -99,9 +100,9 @@ removing a folder is never something a caller does by accident while meaning to 
 
 ## What this file does NOT ask for
 
-- **`/api/projects` and `/api/shares`.** The routes are this service's — it owns the volume they
-  are stored on and outlives every engine — but nothing here calls them: the screen that draws
-  them is st0's home page, across the origin (`apps/st0/frontend/docs/projects.md`).
+- **`/api/shares`.** The routes are this service's — the shares' bytes and comments are on its
+  volume — but nothing here calls them: the screen that draws them is st0's home page, across
+  origins (`apps/st0/frontend/docs/projects.md`).
 - **A module's vocabulary and a plugin scan.** Both belong to whoever authors a module, and that
   is st0: a module is written against a project where the plugin it names is actually LOADED, and
   only a loaded plugin can say what its parameters are called. Nothing on this screen asks a

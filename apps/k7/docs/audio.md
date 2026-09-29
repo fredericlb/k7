@@ -197,8 +197,8 @@ The panel draws the track's **shape**, and a click on it seeks there and plays �
 starting are one gesture, the same one a tapped lyric line already makes (`lyricsTiming.md`).
 Under it sits a full-width play/pause button, and that is the whole of the transport: no counter,
 no scrubber of its own. The button exists because a click on the shape can say every *where* and
-no *stop* — pausing had no gesture at all. The native `<audio controls>` bar is gone; the element
-itself stays, hidden, because it IS the transport and the timed lyrics follow it.
+no *stop* — without it, pausing would have no gesture at all. The element draws no native `<audio controls>` bar; it
+stays, hidden, because it IS the transport and the timed lyrics follow it.
 
 **The shape is measured once, by pl8, and kept in PocketBase** (`Songs.Envelope`, written by
 `apps/k7/backend/src/songEnvelope.ts`): pl8 already holds the reference track's bytes and already
@@ -231,9 +231,9 @@ second decode for a difference of a few decibels in the mid-band.
 ### The player is a panel of the page's right rail
 
 On a desktop the player and its Original / Instrumental switch sit in the same floating rail as
-the chord diagrams, collapsible by their own toggle. Above the tabs is where it used to be, and it
-cost the page its first screenful: a track you keep for a whole rehearsal pushed the words you are
-actually reading down. In the margin it stays reachable without displacing anything.
+the chord diagrams, collapsible by their own toggle. Above the tabs it would cost the page its
+first screenful: a track you keep for a whole rehearsal would push the words you are actually
+reading down. In the margin it stays reachable without displacing anything.
 
 **The panel PLAYS; it does not change the file.** Replacing the track and removing it are in the
 song's ⋮ menu, beside every other thing the song can be given or lose — a panel you keep open for
@@ -520,13 +520,13 @@ the old one is closed so it stops believing itself online. Signalling payloads (
 **Nothing is configured by hand.** `npm run tokens` writes the two lines; see `docs/tokens.md` at
 the root.
 
-`MEDIATEK_URL` defaults to the service's **fixed** address — pl8 answers under `/pl8`, so it is
-`https://studio.frediver.se/pl8`: one origin, one path per service, so a deployment has nothing
-to choose. A **checkout** is the exception, and the script writes it: the public name would go
+`MEDIATEK_URL` defaults to the service's **fixed** address — `serviceUrl(STUDIO_ORIGIN, "pl8")`,
+which is `https://play.st0.app`: every service's address derives from the studio's origin, so a
+deployment has nothing to choose. A **checkout** is the exception, and the script writes it: the public name would go
 out to the LAN proxy only to come straight back to this machine, and falls over as soon as that
 proxy is unreachable while both services are fine — so this server-to-server call takes the
 loopback port (`http://127.0.0.1:8795`). The other half of the reason is the checkout's private
-CA, which node's store does not know: measured, a `fetch` of `https://st0.priv.frediver.se` from
+CA, which node's store does not know: measured, a `fetch` of `https://priv.st0.app` from
 node fails with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` while the browser next to it succeeds.
 
 `MEDIATEK_TOKEN` has no default, and without it the library answers 401: its routes are behind a
@@ -537,5 +537,5 @@ A machine with no checkout — a laptop syncing the hosted library — has no `e
 its own by the intended route, connected to the médiathèque:
 
 ```bash
-curl -X POST https://studio.frediver.se/pl8/api/token -b "studio.sid=<votre cookie>"
+curl -X POST https://play.st0.app/api/token -b "studio.sid=<votre cookie>"
 ```

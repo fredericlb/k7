@@ -72,6 +72,30 @@ decision — "a fit or a chain selection, not a gesture: there is nothing to cha
 cards moving does not change it. So a mixer toggle reads as the view cutting to the row while
 the cards settle into it.
 
+## An organize is watched
+
+`graph organize` hands every node back to the layout at once, and a graph worth organizing is one
+whose cards are far from where they belong. Drawn like an edit's re-layout it would say nothing:
+most cards past the travel cap fade up in place, the rest cover their ground in a quarter second,
+and the camera stays where it was, so the tidied graph lands off to one side, small or cut off.
+
+So a host passes `organizeKey`, bumped by its organize, and the layout that arrives with a new
+value is **watched**:
+
+- **no travel cap** — every card slides, however far, because following each one to its new place
+  is the point of watching;
+- **slower**, `ORGANIZE_HALF_LIFE` 130 ms rather than 70 (~90 % of the way in 430 ms), for the same
+  reason; a card still flying keeps that pace when the command's reload lands mid-slide, or it
+  would speed up halfway;
+- **the camera flies to frame the result**, at the same pace, from `fitCam` — the whole graph, as a
+  first mount frames it. A programmatic fit lands outright everywhere else; this one is the answer
+  to a gesture, and the cards and the view arriving together is what reads as one movement.
+
+Under `prefers-reduced-motion` the cards land at once and the camera is placed on the same frame,
+so the result is still framed. Measured in a real Chrome on a scrambled eleven-card graph: every
+card slides, none fades, the camera goes from zoom 0.30 to 0.77 on the organized graph, and
+everything settles with no inline style left, in about 1.2 s.
+
 ## The timing
 
 Exponential, like the camera's zoom glide and for the same reason: two 8 ms frames on a 120 Hz

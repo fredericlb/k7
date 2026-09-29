@@ -132,6 +132,7 @@ import {
   type Motion,
   motionPos,
   motionTransform,
+  ORGANIZE_HALF_LIFE,
   planMotion,
 } from "./nodeMotion";
 import { type TapAction, TapWidget } from "./TapWidget";
@@ -326,9 +327,8 @@ function targetKey(t: WidgetTarget): string {
 
 /** A module field's current value as a WIDGET number, through the widget's own options — docs/widgets.md. */
 /** Where a host parks the camera between mounts — `Cam` itself lives in camera.ts, docs/hosting.md. */
-export type { Cam };
 /** A rack tap's edit, as the host receives it — packages/song/docs/racks.md. */
-export type { TapAction };
+export type { Cam, TapAction };
 export type CamStore = React.MutableRefObject<Cam | null>;
 
 interface Channels {
@@ -2510,6 +2510,7 @@ export function DomChains({
   camStore,
   engineWarnings,
   fitKey,
+  organizeKey,
   fitAxis = "both",
   command,
   onBypassModule,
@@ -2599,6 +2600,8 @@ export function DomChains({
   engineWarnings?: Record<string, string>;
   // Identifies WHICH graph is on screen: a change re-frames, a redraw of the same one leaves the camera alone.
   fitKey?: string | number | null;
+  /** Bumped by the host's auto-organize: the next layout is WATCHED — every card slides, and the camera glides to frame it (docs/nodeMotion.md). */
+  organizeKey?: number;
   /** How the first frame is chosen: "both" fits the whole graph, "height" lets the width overflow. */
   fitAxis?: "both" | "height";
   command: (line: string) => void | Promise<void>;
@@ -2677,6 +2680,8 @@ export function DomChains({
   const kick = useRef<() => void>(() => {});
   // A camera being FLOWN to — a double-click's, not a hand's, so any wheel, drag or pinch drops it.
   const flight = useRef<Cam | null>(null);
+  // …and how fast, when not the zoom's own glide: an organize's reframe travels with its cards.
+  const flightHalf = useRef<number | undefined>(undefined);
   // The view before the first zoom onto a node: what a double-click on the bare canvas flies back to.
   const before = useRef<Cam | null>(null);
   // Through a ref: the wheel and the pan are bound once, and would read `row` as it first was.
@@ -2974,6 +2979,9 @@ export function DomChains({
     applyLive.current();
   };
 
+  // The organize this graph last showed: a new one makes the next layout a WATCHED one, docs/nodeMotion.md.
+  const organizeSeen = useRef(organizeKey);
+
   // A new layout, and its first frame now — a LAYOUT effect, which is the FLIP rule, docs/nodeMotion.md.
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the refs above were reassigned with this render's layout, so `graph` IS the trigger and the body reads nothing else.
@@ -2984,21 +2992,43 @@ export function DomChains({
         el.style.transform = "";
       droppedNodes.current.clear();
     }
+    const organizing = organizeSeen.current !== organizeKey;
+    organizeSeen.current = organizeKey;
+    // An organize ends framed on what it made: flown with the cards, or placed outright when nothing moves.
+    const reframe = () => {
+      const to = organizing ? fitCam.current() : null;
+      if (!to) return;
+      userMoved.current = true;
+      if (!animate) return void place(to);
+      goal.current.k = cam.current.k;
+      flightHalf.current = ORGANIZE_HALF_LIFE;
+      flight.current = to;
+      kick.current();
+    };
     if (!animate) {
       // Turned off mid-flight — nothing else would ever take the inline styles back off.
       if (motions.current.size || styled.current.size) settleMotion.current();
       drawn.current = settledDrawn();
+      reframe();
       return;
     }
     // The FIRST layout is not a change, and the cap is a screen and a half in WORLD px — docs/nodeMotion.md.
     const host = hostRef.current;
-    const travel = host
-      ? (Math.hypot(host.clientWidth, host.clientHeight) * 1.5) /
-        Math.max(cam.current.k, 0.01)
-      : Number.POSITIVE_INFINITY;
+    const travel =
+      host && !organizing
+        ? (Math.hypot(host.clientWidth, host.clientHeight) * 1.5) /
+          Math.max(cam.current.k, 0.01)
+        : Number.POSITIVE_INFINITY;
     const plan = drawn.current.size
-      ? planMotion(drawn.current, motions.current, graph.nodes, travel)
+      ? planMotion(
+          drawn.current,
+          motions.current,
+          graph.nodes,
+          travel,
+          organizing ? ORGANIZE_HALF_LIFE : undefined,
+        )
       : null;
+    reframe();
     drawn.current = settledDrawn();
     if (!plan?.moving) {
       // Nothing to do — but something from the layout before this one may still be in flight.
@@ -3016,7 +3046,7 @@ export function DomChains({
     // …and look again next frame: the ghosts are not in the DOM until the state update lands.
     rebind.current = true;
     kick.current();
-  }, [graph, animate]);
+  }, [graph, animate, organizeKey]);
 
   // --- what carries signal: refs, not state, so a crossing re-renders nothing (docs/liveCables.md) ---
   const hostStore = useEngineStoreOrNull();
@@ -3275,6 +3305,16 @@ export function DomChains({
   // --- fit: frame the whole graph to the host; it ANSWERS whether it did (docs/camera.md) ---
   const fit = useRef<() => boolean>(() => false);
   fit.current = () => {
+    const c = fitCam.current();
+    if (!c) return false;
+    // Framed, so from here the camera is worth remembering — `place` persists it.
+    fitted.current = true;
+    place(c);
+    return true;
+  };
+  /** The camera that frames the whole graph, or null while there is no size to frame to. */
+  const fitCam = useRef<() => Cam | null>(() => null);
+  fitCam.current = () => {
     const host = hostRef.current;
     // isFinite, not truthy: an empty dagre layout reported -Infinity and still marked the view framed over nothing.
     if (
@@ -3282,14 +3322,14 @@ export function DomChains({
       !Number.isFinite(graph.width) ||
       !Number.isFinite(graph.height)
     )
-      return false;
+      return null;
     // The BOX, not the extent: a pin may sit above the first track or left of it — docs/hosting.md.
     const gw = graph.width - graph.left;
     const gh = graph.height - graph.top;
-    if (!gw || !gh) return false;
+    if (!gw || !gh) return null;
     const sw = host.clientWidth;
     const sh = host.clientHeight;
-    if (!sw || !sh) return false;
+    if (!sw || !sh) return null;
     const pad = 0.9;
     // "height" frames the HEIGHT and lets the width run off the side, which is pannable — docs/camera.md.
     const k = clampZoom(
@@ -3297,17 +3337,14 @@ export function DomChains({
         ? (sh / gh) * pad
         : Math.min((sw / gw) * pad, (sh / gh) * pad),
     );
-    // Framed, so from here the camera is worth remembering — `place` persists it.
-    fitted.current = true;
-    place({
+    return {
       k,
       // Height-fitted content overflows, so it is pinned LEFT and each offset carries the box's corner.
       x:
         (fitAxis === "height" && gw * k > sw ? 0 : (sw - gw * k) / 2) -
         graph.left * k,
       y: (sh - gh * k) / 2 - graph.top * k,
-    });
-    return true;
+    };
   };
   // Frame once, and again only when `fitKey` says this is a different graph. See docs/chainsGraph.md.
   const lastFitKey = useRef(fitKey);
@@ -3643,7 +3680,7 @@ export function DomChains({
         const next = flyStep(
           c,
           fl,
-          approach(dt),
+          approach(dt, flightHalf.current),
           host.clientWidth,
           host.clientHeight,
         );
@@ -3760,6 +3797,7 @@ export function DomChains({
   const flyTo = useCallback((to: Cam) => {
     userMoved.current = true; // a camera somebody asked for; no resize re-frames it away
     goal.current.k = cam.current.k; // a zoom still gliding gives way, as it does to a press
+    flightHalf.current = undefined;
     flight.current = to;
     kick.current();
   }, []);

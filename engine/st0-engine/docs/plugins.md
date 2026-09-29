@@ -183,12 +183,11 @@ reused only when the file is unchanged **and** it already holds a full `PluginDe
 `findAllTypesForFile`, which would reload the binary just to re-derive it. The map written back
 holds only current files, so uninstalled plugins drop out.
 
-**When the engine scans on its own is `pluginCacheWarm()`'s answer, asked of the FILE.** It used to
-be `!loadPluginCache().empty()`, which is always true since that list starts with the ~224
-built-ins: the startup warm and the "no externals, scanning once" path both short-circuited, no
-scan ever ran, and on a machine where nobody typed `st0-engine scan` there was no `exts.json` at
-all — so the TypeScript, which reads that file for `@engine/…`, showed an empty engine library.
-Warm now means: the file holds `builtin:*` entries equal to this binary's built-ins (a built-in
+**When the engine scans on its own is `pluginCacheWarm()`'s answer, asked of the FILE.** Not
+`!loadPluginCache().empty()`, which is always true since that list starts with the ~224 built-ins:
+the startup warm would never scan, and on a machine where nobody typed `st0-engine scan` there would
+be no `exts.json` at all — so the TypeScript, which reads that file for `@engine/…`, would show an
+empty engine library. Warm means: the file holds `builtin:*` entries equal to this binary's built-ins (a built-in
 added or renamed since the last scan otherwise never reaches the TypeScript), and at least one
 external, unless the build can host none (Android). The scan is incremental, so a warm-up forced
 by a new built-in re-reads no plugin binary.

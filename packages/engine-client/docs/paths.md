@@ -27,44 +27,33 @@ simply empty. A home dotfile is one rule, mirrorable in three languages by inspe
 
 ## `workspace/`, with nobody underneath it
 
-It was `root/<slug>/<workspace>`, the slug being the account's email with every
-non-alphanumeric character replaced by `_`. It is now `workspace/<workspace>`.
+The path is `workspace/<workspace>`, with no per-person level. **One machine holds one person's
+workspaces** — a musician's laptop is never a multi-user file service — and a level named after the
+account would cost more than it buys:
 
-**One machine holds one person's workspaces.** That was always true in practice — the slug
-level existed for a multi-user file service that a musician's laptop never is — and it cost
-more than it bought:
+- **It would have to be renamed when the identity changes**, which pairing a server forces: it turns
+  a local identity into an account email, and every offline project under the old name would stop
+  being listed with no error anywhere to say so.
+- **The owner is told, never read out of a path.** The file service builds the engine session id
+  from `noteOwner`, fed by the header every request carries, and both halves go through
+  `sessionFor` (`packages/engine-protocol/docs/sessions.md`), so they cannot spell it differently.
 
-- **Renaming that directory when the identity changes** is what pairing a server forces: it
-  turns a local identity into an account email, the
-  slug changes with it, and every offline project stops being listed with no error anywhere to
-  say so. There is nothing to rename now, and that whole hazard is gone.
-- The file service read the owner out of the PATH to build the engine session id. It is now
-  told instead — `noteOwner`, from the header every request carries — and
-  `packages/engine-protocol/docs/sessions.md`'s rule is unchanged: both halves go through
-  `sessionFor`, so they cannot spell it differently.
+`slugify` still has two users, neither of them a directory here: the SSH key folder
+(`<state>/ssh/<slug>`) and the engine session.
 
-`slugify` survives, because two things still need that spelling and neither is a directory
-here: the SSH key folder (`<state>/ssh/<slug>`) and the engine session.
-
-## The rule that has not changed
+## Every path through `paths.ts`
 
 **Use the functions in `paths.ts`, never a hand-joined path.** A wrong path does not throw — it
 reads as an empty file — so a second spelling diverges in silence. That is why `studioHome`
 lives in `@studio/song` (a leaf, node builtins only) rather than being re-derived per package,
-and why a test points `$STUDIO_HOME` somewhere rather than faking `HOME`: faking the home
-directory used to work and now misses `%APPDATA%` and `$XDG_CONFIG_HOME` entirely.
+and why a test points `$STUDIO_HOME` somewhere rather than faking `HOME`: a faked home directory
+misses `%APPDATA%` and `$XDG_CONFIG_HOME` entirely.
 
-## The settings file has had two names, and reads only one
+## The settings file has one name
 
-`<state>/engine-host.json`, pairing with `engine-host.pid`. It was `engine-tray.json` while the app
-was a tray, and `existingSettingsPath` read whichever a machine had — the migration in ONE place,
-because a reader that forgot it would answer defaults and lose an audio pick with nothing to say so.
-
-**That fallback is gone.** The tray it was named after no longer exists, and carrying a second name
-for ever costs a branch in every reader plus a test that has to keep asserting it. A machine that
-still holds only `engine-tray.json` therefore starts from defaults: the ports go back to 8765/8770,
-the audio priority empties, and a paired server has to be paired again.
-
-That is the whole of the migration, and it is a deliberate loss rather than an oversight — the
-file is small, hand-editable, and its values are all re-enterable from the settings screen. Anyone
-who wants the old one back renames it by hand, which is the same act the code used to do for them.
+`<state>/engine-host.json`, pairing with `engine-host.pid`, written by the supervisor
+(`engine/st0-supervisor/src/Settings.h`). `existingSettingsPath` reads that name and no other: a
+second name carried for ever costs a branch in every reader plus a test that has to keep asserting
+it. A settings file under any other name is not read, so the machine starts from defaults — ports
+8765/8770, an empty audio priority, no paired server. That is a deliberate trade: the file is small,
+hand-editable, and every value is re-enterable from the settings screen.

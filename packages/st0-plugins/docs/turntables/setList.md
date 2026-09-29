@@ -118,4 +118,4 @@ set's real chains, crossfade included. A `jsdsp` module is a graph baked into th
 compiler, which runs the module's source in a child process: the browser cannot produce one, and
 `deckDoc` is only a stand-in of one track per deck until the compile arrives. See
 [mix.md](mix.md) and
-[packages/song/docs/setProject.md](../../song/docs/setProject.md).
+[packages/song/docs/setProject.md](../../../song/docs/setProject.md).

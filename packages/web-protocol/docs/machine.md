@@ -1,44 +1,28 @@
-# The machine, the register, and the link between them
+# The machine, and what it answers
 
 The second half of `types.ts` is not about a song. It is about *where* a song is: which
-workspaces a machine holds, which repositories a person has registered, what an engine is
-currently serving, and the numbers that decide whether a browser can reach one at all. This page
-holds the reasoning; the type file keeps the names.
+workspaces a machine holds, what an engine is currently serving, and the numbers that decide
+whether a browser can reach one at all. This page holds the reasoning; the type file keeps the
+names.
 
-## Two services answer two different questions
+## The machine answers what it holds
 
-**The machine** answers what is INSIDE a repository — `AccountWorkspace`, from the working clone
-it actually holds. Nothing else does. A hosted mirror answering the same question from the other
-side would be a second copy of what the working clone already has, and a worse one — a fetch
-behind, and blind to a project that is committed but not yet pushed. See
+**The machine** — the account's file service — answers what is INSIDE a workspace:
+`AccountWorkspace`, from the working copy it actually holds. Nothing else does. A hosted mirror
+answering the same question from the other side would be a second copy of what the working copy
+already has, and a worse one — a fetch behind, and blind to a project that is committed but not
+yet pushed. No service keeps a register of repositories either (`apps/pl8/docs/projects.md`). See
 `apps/st0/frontend/docs/projects.md`.
 
-**pl8** answers which repositories EXIST and what URI is behind each short name — `RepoSummary`,
-the register and nothing more. Hence no `projects`, no `branch` and no fetch status on it: all
-three would describe a mirror. What it carries is what only a hosted service can hold, a list
-that belongs to a person rather than to a machine.
-
-### The short name, and what it does not promise
-
-A repository's `name` is its last path segment without `.git`, which is also what the clone is
-called on the engine's machine. It is the half of a project's address a person can read, and what
-goes in the link: `/<name>/<project>`. Derived from `uri` rather than stored, so the two cannot
-drift; the URI itself never reaches the address bar, because it carries a host, a port and a user,
-none of which belong in a bookmark.
-
-`AccountWorkspace.uniqueName: false` says the short name does NOT identify this workspace *on this
-machine*: two clones whose origins end in the same name make `/<name>/…` ambiguous, and pl8
-refuses such an address (409) rather than picking one.
-
-That is only HALF of whether the portable address works, and deliberately the only half this side
-can answer. The other half is whether pl8's register knows the repository at all — a `/<name>/…`
-address is resolved through it, so a clone this machine has and that register does not is
-unaddressable that way however unique its name is. The home page holds both answers because the
-page talks to both services; the machine states what it knows and guesses nothing.
-
 `origin` is `remote.origin.url` as git wrote it, normalized, and null for a workspace that is not
-a clone at all. `repoName` is derived here rather than asked of pl8, because deriving it costs
-nothing the `origin` has not already paid for.
+a clone at all. `repoName` is its last path segment without `.git`, derived here because deriving
+it costs nothing the `origin` has not already paid for; it is what a person reads on the row, and
+never what addresses the workspace — that is its folder name, under `@local`
+(`packages/web-protocol/docs/addresses.md`). The URI itself never reaches the address bar, because
+it carries a host, a port and a user, none of which belong in a bookmark.
+
+`uniqueName: false` says two workspaces on this machine have origins ending in the same short name
+— worth saying on the rows, since the name alone would not tell them apart.
 
 ## `active` is not the same as `served`
 
@@ -84,8 +68,7 @@ that is instantly done would hand the caller an id nobody can poll.
 them. The AUTHOR's view and nobody else's: `origin` names a repository and a folder on the machine
 it came from, and the public routes serve none of this — they serve the snapshot's manifest.
 
-`token` rides along in the clear because it IS the copy-link button, the same posture
-`.projects/ssh/` already takes with everybody's deploy key. It is blanked on revocation, so a
+`token` rides along in the clear because it IS the copy-link button. It is blanked on revocation, so a
 revoked row cannot be copied back out of the screen it is still drawn on, and the row SURVIVES
 dated by `revokedAt`: a share that vanished would leave a doubt.
 
@@ -117,7 +100,7 @@ users.
 **One budget covers both halves of reaching one.** The browser measures addresses in PARALLEL, so
 it spends `ENGINE_REACH_BUDGET_MS` once; the relay dials them in SEQUENCE, so without a shared
 deadline it spends that budget PER address and is called unreachable while the engine answers.
-Both now stop at the same wall clock, and `ENGINE_DIAL_TIMEOUT_MS` caps what one address may eat
+Both stop at the same wall clock, and `ENGINE_DIAL_TIMEOUT_MS` caps what one address may eat
 of it so a first dead address cannot spend the lot. See `packages/engine-registry/docs/proxy.md`
 and `packages/engine-browser/docs/access.md`.
 

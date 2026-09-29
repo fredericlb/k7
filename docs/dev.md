@@ -57,7 +57,7 @@ Two things about names and ports:
   and a dev server answers **403** to any name not on its list, so that file is what makes
   the studio reachable at all.
 - **The Tilt UI is local only**: `http://localhost:10350` on the workstation.
-  `/dev-status` redirects to `st0.priv.frediver.se:10351`, which does not answer until
+  `/dev-status` redirects to `priv.st0.app:10351`, which does not answer until
   the LAN proxy forwards that port.
 
 The session runs under **[Tilt](https://tilt.dev)**: `npm run dev` is `tilt up --port
@@ -282,7 +282,7 @@ its own handler to run, and an orphaned menu-bar icon with no session to explain
 the one leak worth being sure about. If one ever escapes anyway:
 
 ```bash
-npm run tray:stop --workspace st0-desktop
+npm run tray:stop --workspace st0-tray
 ```
 
 ## Where the steps live

@@ -34,8 +34,8 @@ are here rather than in `scaffoldSet` because the desk has to recognise the lane
 `stemLaneOf` is the reverse of `stemLane`, and the desk's way in: it is handed a compiled document
 and has to tell a stem lane from the record's without knowing how the graph was written.
 
-`stemCut` is still exported and nothing writes one. It names a node a set used to carry, and
-removing one is the only way a migration can name it — see below.
+`stemCut` is exported and nothing writes one: it names a node older sets carry, and removing one is
+the only way a migration script can name it — see below.
 
 ## How loud a part plays: the PLATTER's own gain
 
@@ -47,35 +47,22 @@ lane output = Gain · part      Gain = 0 → the instrument is gone
 
 `STEM_PARAM` is `Gain`, on the `studio_turntable` node that reads the part's file. No module.
 
-That is the fourth shape this has had, and the first three are worth recording, because all three
-were defensible and it was measurements that ended two of them.
+Making a part disappear must be a position on the travel and not an asymptote, and unity must be in
+the MIDDLE of it, so that "add more of this instrument" — what every remix wants — exists. A knob
+that only subtracts (0 to 1, with a `sub(0, Cut)` in the graph to force the sign) puts the rest
+position at one end of its travel and costs a node besides.
 
-### Three forms, and what killed each
+### Why the parts are SUMMED and never subtracted from the record
 
-**`Cut`, 0 to 1, which only knew how to subtract.** The graph carried a `sub(0, Cut)` to force the
-sign. It cost a node and, more expensively, it cost the rest position: at rest the knob was at one
-end of its travel, and "add more of this instrument", which every remix wants, did not exist.
-
-**`Level`, −1 to 1, signed.** The deck played the record and this lane SUBTRACTED the part from it:
-`mix + (Level · stem)`. At 0 the lane was silent and the output was the original file, **sample for
-sample**. It was the most attractive of the three, and it held until somebody measured what happens
-when the tempo moves.
-
-**`Level`, 0 to 2, a plain level.** The lane carries the part *itself* and the four sum. This is
-where the module became a `gain(Level)` and nothing else.
-
-**`Gain`, 0 to 2, on the platter** — today. Same arithmetic, one node fewer.
-
-### Why the subtraction was abandoned
-
-A subtraction only cancels if the two signals stay aligned to the sample. Three things break that
-alignment, and the first two are fixable:
+The tempting alternative plays the record and subtracts a part from it — `mix + (Level · stem)`,
+signed −1 to 1 — so that at rest the output is the original file sample for sample. It only works
+while the two signals stay aligned to the sample, and three things break that alignment:
 
 1. **The sample rate.** The model works at 44.1 kHz; a stem written at that rate against a 48 kHz
-   master drifts within a second. Fixed: `stem-separation` writes at the record's rate.
+   master drifts within a second. `stem-separation` writes at the record's rate.
 2. **The decoder.** An mp3 carries an encoder delay — 1105 samples on the record measured — that
-   ffmpeg trims and JUCE does not. Fixed too, by decoding once.
-3. **Time-stretching, which does not get fixed.** A pitch-preserving stretcher is **non-linear**: it
+   ffmpeg trims and JUCE does not. Decoding once removes it.
+3. **Time-stretching, which cannot be fixed.** A pitch-preserving stretcher is **non-linear**: it
    picks its frames and phases from the spectrum it sees, so `stretch(a) − stretch(b) ≠
    stretch(a − b)`. The five clips get the same warp, the same markers and the same `start` — not
    enough, because what the markers do not share is what the algorithm decides between them.
@@ -89,20 +76,20 @@ Measured on one song, the five tracks stretched **identically**, residual of `ma
 | atempo +5 % | −13.1 dB |
 | varispeed +5 % | **−49.5 dB** — intact |
 
-The song itself is at −16 dB: with pitch held, the "subtraction" was removing nothing at all. Only
+The song itself is at −16 dB: with pitch held, a "subtraction" removes nothing at all. Only
 resampling survives, because its schedule does not look at the content — the same linear combination
-of samples for all five files. The general rule is there: *any* content-independent stretch keeps
-the cancellation, *no* stretch that listens to the signal keeps it.
+of samples for all five files. The general rule: *any* content-independent stretch keeps the
+cancellation, *no* stretch that listens to the signal keeps it.
 
-A subtraction therefore only worked at the record's own tempo. A sum asks for nothing: each part
+A subtraction therefore only works at the record's own tempo. A sum asks for nothing: each part
 stretches on its own and the result is what it is. It is also what every commercial stem deck does —
-Traktor since the Stem Decks, Serato, rekordbox, VirtualDJ: they play the parts, none subtracts.
+Traktor's Stem Decks, Serato, rekordbox, VirtualDJ: they play the parts, none subtracts.
 
-### What that cost, in numbers
+### What the sum costs, in numbers
 
-The argument for the signed form was that **the four stems do not sum back to the song**: HT-Demucs
-emits four waveforms each trained to resemble its source, with no conservation constraint. True, and
-the gap was measured rather than assumed — three 20 s windows across one song:
+**The four stems do not sum back to the song**: HT-Demucs emits four waveforms each trained to
+resemble its source, with no conservation constraint. The gap, measured over three 20 s windows
+across one song:
 
 | position | song | residual of `master − Σstems` | gap |
 |---|---|---|---|
@@ -110,18 +97,17 @@ the gap was measured rather than assumed — three 20 s windows across one song:
 | 90 s | −16.2 dB | −49.4 dB | 33.2 dB |
 | 150 s | −16.8 dB | −51.1 dB | 34.3 dB |
 
-So at rest the output is no longer the record sample for sample, but the record to within 34 dB,
-stably from end to end. The error is correlated with the signal — it would be heard as a very slight
-blur, not as hiss. That is the price, and it is written here so nobody rediscovers it by hunting.
+So at rest the output is not the record sample for sample, but the record to within 34 dB, stably
+from end to end. The error is correlated with the signal — it would be heard as a very slight blur,
+not as hiss. That is the price, and it is written here so nobody rediscovers it by hunting.
 
 What remains besides — and cannot be removed — are the artefacts **proportional to what you take
 out**: whatever leaked from one instrument into another stays when you cut the first. Bass and drums
 are the two this model separates best; `other` is the catch-all and the most fragile.
 
-### Why no module any more
+### Why the gain is the platter's, and no module's
 
-There WAS one, `@st0/audio/separation/stemcut`, and its own page argued at length that a fader could
-not do the job. That argument was about `MixerPlugin`:
+A level needs a gain that reaches exact silence, and the mixer's does not:
 
 | | what it accepts |
 |---|---|
@@ -129,15 +115,9 @@ not do the job. That argument was about `MixerPlugin`:
 | a send (`SendDoc.level`) | the same, through `gainToDecibels` |
 | `Kind::gain` in the DSP graph | `buffer.applyGain(start, n, r(n.in[0]))` — **an unbounded float** |
 
-It was right, and it expired when the platter became a node. `TurntablePlugin` declares
-`add("gain", "Gain", 0.0f, 2.0f, 1.0f)` and multiplies by it directly, so 0 is exact silence: the
-same range, the same rest, the same units the module had. The chain was
-`stemPlatter → stemCut → trim`, which is `gain(1) → gain(Level)` — two linear gains in series. The
-module went, and with it eight compiled DSP graphs per set.
-
-Making a part disappear must be a position on the travel and not an asymptote, and unity must be in
-the MIDDLE of it. That is the one thing all four forms have had in common, and the only one there
-was never any doubt about.
+`TurntablePlugin` declares `add("gain", "Gain", 0.0f, 2.0f, 1.0f)` and multiplies by it directly, so 0
+is exact silence, with the range and the rest a level wants. A separate gain module after the platter
+would be two linear gains in series, and eight compiled DSP graphs per set for nothing.
 
 ### Migrating a set that still has the module
 
@@ -145,9 +125,8 @@ was never any doubt about.
 `Level` onto its platter's `Gain`, repoints the binding, and removes the node. Older sets walk the
 whole chain in order: `migrateSetStems` → `migrateSetPlatter` → `migrateStemGain`.
 
-Each of those describes ONE step of this history, so each spells its param out instead of importing
-`STEM_PARAM` — a constant that has now moved three times. A migration that follows a moving constant
-silently skips the steps between.
+Each of those handles ONE shape, so each spells its param out instead of importing `STEM_PARAM`: a
+migration that follows a constant which has since moved silently skips the steps between.
 
 ## What the assembly still requires
 

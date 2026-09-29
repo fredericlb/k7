@@ -2,7 +2,7 @@
 
 The Logs panel has two halves. One is the engine machine's `.studio.log` — the supervisor's and the
 engine's lines — fetched over the tunnel (`machineLog.ts`). The other is THIS process: what the file
-service writes through `console`, which used to reach only the hub's output (and Tilt's pane in
+service writes through `console`, which on its own reaches only the hub's output (and Tilt's pane in
 development), where nobody using st0 would look.
 
 `installServiceLog()`, first thing in `server.ts`, tees `console.log/info/warn/error`: the original

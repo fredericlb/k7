@@ -16,11 +16,10 @@ This page is what the engine does with it.
   edit through `populateEdit` and never runs a diff;
 - `populateEdit` alone means a preference changed mid-session never lands.
 
-## `initialise` used to open TWO output channels
+## `initialise` asks for every output, not two
 
-`dm.initialise(512, 2)` asked for every input the device has and exactly two outputs — so a
-Focusrite with eight was addressed as a stereo pair, and there was no second pair to find. It asks
-for 512 both ways now.
+`dm.initialise(512, 512)`: asking for every input and exactly two outputs addresses a Focusrite
+with eight as one stereo pair, and there is no second pair for a cue to find.
 
 Outputs are grouped the OPPOSITE way from inputs, which is worth knowing before hunting a missing
 device: `isDeviceOutChannelStereo` reads `! outMonoChans[chan / 2]`, and the bits start clear, so

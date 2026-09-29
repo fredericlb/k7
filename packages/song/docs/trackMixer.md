@@ -41,7 +41,7 @@ run — so a strip spliced anywhere else would be a level the reader cannot find
 two of them, the wrong one.
 
 For a lane already wired, that means splicing into the one arrow between its run's last module and
-`MIX`. For an ORPHAN lane — one no chain mentions, which is what `track new` used to leave behind
+`MIX`. For an ORPHAN lane — one no chain mentions, as a hand-edited project can have
 — the lane and its strip arrive together, `lane: [ mix-lane ]` and `mix-lane: [ MIX ]`.
 
 ## What it refuses
@@ -54,8 +54,8 @@ named and left alone rather than guessed at.
 
 `hasTrackMixer` asks both, and needs to. A node extending `SHARED_STRIP` is one by construction —
 readable off the file, with no library and no plugin scan in the picture. Anything RESOLVING to
-the `Mixer` plugin is one too: that is every strip written before this, and every hand-made one
-that names the plugin directly.
+the `Mixer` plugin is one too: every strip that names the plugin directly, by hand or from an
+older project.
 
 Neither question answers alone. The ref misses a project that names the plugin itself; the
 resolved plugin misses a machine whose library is not mounted or whose engine has scanned

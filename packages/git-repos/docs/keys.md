@@ -6,30 +6,23 @@ there, and never sent anywhere. `packages/file-service/src/sshKeys.ts` is the wh
 and `GET`/`POST /ssh-key` answer the public half for the screen that asks you to paste it at your
 git host.
 
-## It used to be pl8's, and the private half used to travel
+## Why one key per machine, and never a travelling one
 
-This page argued the other way for a long time, and the argument is worth keeping because it was
-not a bad one. pl8 owned the studio's git identity: it generated the pair, kept the private half,
-and the file service fetched a copy over the channel the two services already shared. That bought
-**one key to register with a git host** instead of one per machine — real convenience when a
-person has several machines and a git host that wants a key added by hand each time.
+The alternative is one studio-wide key, held by a service and fetched by each machine that needs
+it. That buys **one key to register with a git host** instead of one per machine — real
+convenience with several machines and a git host that wants each key added by hand. What it costs
+is a private key in flight between two services, a bearer-only route to carry it, a `no-store`
+header, a rule never to log it, and a directory mapping a service's token to the person whose key
+it wants: all of it only to make the travel safe.
 
-What it cost was a private key in flight between two services, a bearer-only route to carry it, a
-`no-store` header, a rule never to log it, and an `email → subject` directory so a machine holding
-a SERVICE's token could name the person whose key it wanted. All of that existed to make the
-travel safe.
-
-**The trade was reversed when pl8 stopped knowing about git at all**
-(`apps/st0/frontend/docs/projects.md`). Nothing outlives the machine now, so there is nothing for a
+No service keeps the studio's git identity (`apps/pl8/docs/projects.md`), so there is nothing for a
 shared key to be shared *with*: one machine, one key, made where it is used. The private half is
-served by nobody and has no route to travel on.
+served by nobody and has no route to travel on. The price is that **a second machine needs its own
+key registered at the git host** — a paste per machine.
 
-The price is the one the old page named as the alternative: **a second machine needs its own key
-registered at the git host.** That is a paste per machine, and it is now the honest shape of it.
+## Writing a key file by hand, on Windows
 
-## Installing a received key
-
-`installKey` writes the private half `0600` and, **on Windows, also breaks ACL inheritance**
+`installKey` — which nothing calls, since no key is received (`docs/inventaire.md`) — writes the private half `0600` and, **on Windows, also breaks ACL inheritance**
 (`icacls /inheritance:r /grant:r <user>:F`). This is not belt-and-braces: OpenSSH on Windows
 judges a key by its ACL and ignores the mode entirely, so a key written with `mode: 0o600` alone
 is refused with `UNPROTECTED PRIVATE KEY FILE` and the clone fails with a message about

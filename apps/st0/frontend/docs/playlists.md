@@ -84,22 +84,22 @@ This is st0's screen that talks to **pl8** for something other than the session.
 
 | | for what | where |
 |---|---|---|
-| st0 backend | the session, the engine registry | same origin, **at the root** |
-| file service | the playlist itself — `/playlists`, `/file`, `PUT /file` | engine's machine, cross-origin |
-| **pl8 médiathèque** | the songs the playlist names | same origin, under `/pl8` |
+| st0 backend | the session | same origin, **at the root** |
+| file service | the playlist itself — `/playlists`, `/file`, `PUT /file` | on the server, behind pl8's file hub, cross-origin |
+| **pl8 médiathèque** | the songs the playlist names, and the engine registry | its own subdomain, cross-origin |
 
 That last one is the trap, and worth writing down: **st0** answers the origin root, so its `BASE` is
 the empty string and a bare `/api/mediatek/*` goes to its own backend, which has no such route.
 Calls to the médiathèque go through `serviceUrl(…, "pl8")`, never through `BASE` and never
 hard-coded: written bare they come back 404 and the empty catalogue reads as "you have no songs".
+Asking the table is what cannot be wrong when a service's address changes shape.
 
-A hard-coded prefix would be right until the target service moves and wrong without changing shape
-the day it does: asking the table is what cannot be wrong. `/auth/*` at the top of `api.ts` is the
-case that does not move — it stays bare, because the IdP knows only a `redirect_uri` with no prefix,
-so the prefix-less service is the one that serves it.
+`/auth/*` at the top of `api.ts` stays bare: st0 is the service whose origin holds the IdP's one
+`redirect_uri`.
 
-Authentication is the session cookie, which is also what makes `songUrl` work in an `<audio src>`: a
-media element cannot set a header, and does not have to when the bytes are same-origin.
+Authentication is the session cookie, scoped to the studio's shared `COOKIE_DOMAIN`, which is also
+what makes `songUrl` work in an `<audio src>`: a media element cannot set a header, and does not
+have to when the request is same-site and the cookie covers pl8's subdomain.
 
 ## One new route
 
@@ -260,7 +260,7 @@ late.
 **This button does not dispatch `playlist stems`**, and it is the same exception as adding by search,
 with a reason of its own. The verb exists and does the same work — it is what you use from the
 palette or the CLI. But a command returns its lines **when it has finished**, and finishing, for
-thirty songs, is an hour of blank screen. So the button does one `POST /pl8/api/stems` per line and
+thirty songs, is an hour of blank screen. So the button does one `POST /api/stems` to pl8 per line and
 polls the job in between, which is the only shape that has a bar. On **pl8**: it holds the masters,
 so it leads the split and keeps the stems, borrowing the engine's model (`apps/pl8/docs/stems.md`).
 What the rule demands stays true: the ACT is reachable from the command bar.

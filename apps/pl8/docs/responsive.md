@@ -54,9 +54,9 @@ What leaves first is what is never needed in the moment:
 | the section tabs | `sm` | they move into the shared bar's hamburger |
 | the section name (subtitle) | 420 px | `AppHeader`'s threshold, not ours |
 
-"Trouver des morceaux", "Ajouter un morceau" and the capture zone's own "Ajouter" left the header
-entirely — each sits below its tree now, where there is room for the whole sentence at every
-width, so none collapses to an icon any more. The `aside` is a column and not a single scroller
+"Trouver des morceaux", "Ajouter un morceau" and the capture zone's own "Ajouter" are not in the
+header — each sits below its tree, where there is room for the whole sentence at every width, so
+none collapses to an icon. The `aside` is a column and not a single scroller
 for exactly this: the tree has its OWN scrolling pane, so these buttons never travel with it — a
 long library or a long capture history scrolls the rows, never the buttons under them.
 

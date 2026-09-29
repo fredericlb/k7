@@ -14,12 +14,12 @@ without one to consult could only hardcode `127.0.0.1:8765` (`probeLocalEngine`)
 
 ## Why pl8's, and why the BROWSER asks it
 
-It used to be one registry per service, and an engine had to be pointed at each of them to be
-pickable in each: adding st0 to the tray left pl8's picker empty, and the heartbeat count grew with
-every service. One registry makes "this engine is connected to that studio" one fact.
+With one registry per service, an engine would have to be pointed at each of them to be pickable in
+each — adding st0 in the tray would leave pl8's picker empty — and the heartbeat count would grow
+with every service. One registry makes "this engine is connected to that studio" one fact.
 
-The case against a central registry was that st0-backend would become a request-time dependency
-of pl8-backend. That coupling does not arise here: no BACKEND asks another. st0's page calls pl8's
+The case against a central registry is that one backend would become a request-time dependency of
+another. That coupling does not arise here: no BACKEND asks another. st0's page calls pl8's
 routes across the origin (pl8 answers every origin's credentialed request — `apps/pl8/docs/cors.md`),
 the relay included, exactly as it already calls pl8 for the médiathèque.
 
@@ -31,9 +31,10 @@ supervisor tells a registry from any other website before it sends one the engin
 
 ## What this costs
 
-st0's engine picker is now down whenever pl8 is. A registry that is down is absent from the picker,
-which is right: the engines cannot be listed. The file service keeps working for an engine already
-chosen, since the browser reaches it directly.
+st0's engine picker is down whenever pl8 is. A registry that is down is absent from the picker,
+which is right: the engines cannot be listed. So are the workspaces, since the accounts' file
+services run inside pl8 (`packages/file-hub/docs/fileHub.md`): pl8 down is the studio down, whatever
+st0 says.
 
 The remembered engine stays each APP's: st0 passes `prefsBase` to `engineAccess`, so its preference
 document — the engine id and its command prefs — is still its own backend's, not pl8's.

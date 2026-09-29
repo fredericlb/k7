@@ -330,8 +330,8 @@ own answer: none of them can be read out of that tree.
 
 Its own route rather than a clone, because there is no repository: the folder is generated, and
 deleted and generated again every time it is opened, so putting it under version control would
-version something with a lifetime of one session. `ProjectGate` calls this instead of the
-by-name → by-repo → clone sequence when the address names `@banc`. `isBenchProject` is the one
+version something with a lifetime of one session. `ProjectGate` calls this when the address names
+`@banc`, in place of the `POST /open` a `@local` address gets. `isBenchProject` is the one
 place either end spells which address the bench answers; anything else under `@banc` names nothing
 and is a 404 saying where a chain and a module are edited instead.
 

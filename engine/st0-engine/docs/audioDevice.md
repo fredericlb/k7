@@ -42,7 +42,7 @@ twenty inputs is not being addressed as itself.
 
 ## How it ends up there
 
-`openAudioDevice()` calls `dm.initialise(512, 2)` and takes what JUCE's default device
+`openAudioDevice()` calls `dm.initialise(512, 512)` and takes what JUCE's default device
 type offers, which on Windows is the shared WASAPI endpoint of the default output. That
 is the correct behaviour for a machine nobody has expressed a preference about. It is only
 wrong when a preference exists and is not applied.
@@ -114,9 +114,9 @@ rather than an oversight: per-track monitoring would need one device per track.
 
 `setEnabled(true)` on a `WaveInputDevice` rebuilds the whole wave-device list and reallocates
 every Edit's graph — the same cost `docs/inputTuner.md` records for metering ("asked for
-twenty inputs by a menu polling at 8 Hz, wedged the engine outright"). That lesson reached
-metering before it reached routing, so a twenty-input song used to pay twenty list rebuilds
-and twenty graph reallocations on every full apply. `applyAllTrackInputs` hoists the enabling
+twenty inputs by a menu polling at 8 Hz, wedged the engine outright"). Routing pays it the same
+way: enabled track by track, a twenty-input song pays twenty list rebuilds and twenty graph
+reallocations on every full apply. `applyAllTrackInputs` hoists the enabling
 out: distinct CHANNEL SETS rather than distinct pointers, one `dispatchPendingUpdates()` for
 the batch, and then `applyTrackInput` finds every device already enabled and skips its own.
 

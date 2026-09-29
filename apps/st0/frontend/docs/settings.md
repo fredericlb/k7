@@ -150,9 +150,9 @@ logged in.
 With no key, the builder draws no AI organize button rather than a dead one. That makes this
 section the one place the feature can be found, and its row says so.
 
-## Why the sections that were here are gone
+## Why there are no machine settings here
 
-Audio, Engine, Sessions, Server and Machine each drew a supervisor snapshot and sent commands
-back, over a `/desktop/state` probe that only the desktop app ever answered. Every one of them
-is a row in the tray's menu, and the tray is the thing with a process on the machine to send
-them to. Two screens for one setting is two that disagree the day one is changed.
+Audio, the engine, its sessions, the servers it is listed at and the machine itself are rows in
+the tray's menu (`engine/st0-tray/docs/tray.md`), and the tray is the thing with a process on the
+machine to send them to. A second screen for one setting is two that disagree the day one is
+changed.

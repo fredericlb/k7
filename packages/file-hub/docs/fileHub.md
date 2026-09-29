@@ -87,7 +87,7 @@ Each account's copy on the engine's machine stays in its own folder, `ws-<accoun
 simply there again when that account comes back. Its libraries travel beside it, read-only, as
 `libs-<accountKey>` (`<home>/libraries`, where the account's file service clones them): a module's
 files the engine loads — a Faust source, an amp's model, its samples — live in one, and no
-workspace holds a copy any more (`packages/file-service/docs/libraries.md`).
+workspace holds a copy (`packages/file-service/docs/libraries.md`).
 
 ## What stays on the engine's machine
 

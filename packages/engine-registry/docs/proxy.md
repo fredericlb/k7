@@ -30,11 +30,11 @@ browser, each application holding its own.
 
 ## The way out
 
-The browser composes no LAN address at all. It opens a `wss://` towards **the origin it has
-already loaded**, and the backend composes towards the engine:
+The browser composes no LAN address at all. It opens a `wss://` towards **the registry's own backend** — pl8's, on
+its subdomain — and the backend composes towards the engine:
 
 ```
-browser ──wss://st0.priv.frediver.se/api/engine/<id>/ws──▶ st0 backend ──ws://127.0.0.1:8765──▶ engine
+browser ──wss://play.priv.st0.app/api/engine/<id>/ws──▶ pl8 backend ──tunnel, or ws://<address>:8765──▶ engine
 ```
 
 The backend is not a secure context: it calls whom it likes. It tries loopback then each LAN

@@ -74,7 +74,7 @@ the engine does not have.
 
 `skip` unrolls. When any note in the clip asks for it, `insertMidiClip` writes the notes out for
 each pass, leaves out the pads that are skipped on that one, and **does not apply the loop range**
-— the repetition is now in the sequence, and looping it again would play the whole expansion over.
+— the repetition is in the sequence, and looping it again would play the whole expansion over.
 Note times become `(t − loopStart) + pass × window`, which is what the loop range would have
 produced.
 

@@ -31,7 +31,7 @@ this view's only promise in silence.
   hand, no first-beat offset.
 
 Hence the anchor: **the grid starts on the circular mean of every onset**, not on
-`transients[0]` ([beats.ts](../src/beats.ts)). One early transient — a cough, a lead-in note —
+`transients[0]` ([beats.ts](../../src/turntables/beats.ts)). One early transient — a cough, a lead-in note —
 would otherwise drag the whole grid with it, where an average over every onset is dominated by
 the beats that actually repeat. A Rayleigh test on the same onsets decides whether that phase is
 a measurement or a shrug, and that is what `confident` carries. The day a real offset reaches the

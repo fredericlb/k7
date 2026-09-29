@@ -41,8 +41,7 @@ often lands on the first word rather than before it, and a musician wants the be
 It is kept in the browser rather than on the song, because it is a habit of whoever plays, not a
 property of the recording. The highlight still follows the codes themselves.
 
-Songs timed before this kept their times in a field beside the text (`LyricTimings`). They still
-play: with no `{{MM:SS}}` in the text, the player falls back to it. Timing such a song again writes
+A song may carry its times in a field beside the text (`LyricTimings`) instead. It still plays: with no `{{MM:SS}}` in the text, the player falls back to it. Timing such a song again writes
 the codes into the text and clears the field, so the two can never disagree.
 
 ## Found on LRCLIB

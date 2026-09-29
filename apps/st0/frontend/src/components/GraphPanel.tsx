@@ -173,6 +173,7 @@ export function GraphPanel({
         onContextMenu={onContextMenu}
         // This panel follows the caret's track, so another track IS a different graph and earns a re-frame; a reload isn't.
         fitKey={trackId}
+        organizeKey={organizeKey}
         camStore={camStore}
         command={command}
         onBypassModule={onBypassModule}

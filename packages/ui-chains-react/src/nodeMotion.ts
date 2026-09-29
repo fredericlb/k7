@@ -20,6 +20,8 @@ export interface Motion {
   a: number;
   /** What `a` is heading for: 1 for a node in the layout, 0 for one on its way out. */
   at: number;
+  /** How fast this one travels, when not `MOVE_HALF_LIFE` — an organize is slower, docs/nodeMotion.md. */
+  half?: number;
 }
 
 /** A node the layout no longer has, kept on screen until its presence reaches 0. */
@@ -39,6 +41,8 @@ export interface Plan<N extends MotionNode> {
 
 /** How fast a card covers the ground it has left. 70 ms ⇒ ~90 % of the way in 230 ms. */
 export const MOVE_HALF_LIFE = 70;
+/** An organize moves every card at once, far: slower, so the eye can follow where each one went. 130 ms ⇒ ~90 % in 430 ms. */
+export const ORGANIZE_HALF_LIFE = 130;
 /** Fading in and out is quicker than travelling: a card half there is a card you read as broken. */
 export const FADE_HALF_LIFE = 45;
 /** Under this many world px a "move" is a layout rounding, not a movement worth drawing. */
@@ -53,6 +57,8 @@ export function planMotion<N extends MotionNode>(
   next: readonly N[],
   /** How far a card may travel in world px before it fades up in place instead — docs/nodeMotion.md. */
   maxTravel = Number.POSITIVE_INFINITY,
+  /** A travelling half-life other than `MOVE_HALF_LIFE`, for every card that moves. */
+  half?: number,
 ): Plan<N> {
   const motions = new Map<string, Motion>();
   const ghosts: Ghost<N>[] = [];
@@ -79,7 +85,12 @@ export function planMotion<N extends MotionNode>(
     // A node on its way OUT and back in the layout turns around rather than finishing its exit.
     if (Math.abs(dx) < MOVE_EPSILON && Math.abs(dy) < MOVE_EPSILON && a === 1)
       continue;
-    motions.set(n.id, { dx, dy, a, at: 1 });
+    // A card still flying keeps its pace: an organize's reload landing mid-slide must not speed it up.
+    const pace = half ?? f?.half;
+    motions.set(
+      n.id,
+      pace ? { dx, dy, a, at: 1, half: pace } : { dx, dy, a, at: 1 },
+    );
     moving = true;
   }
 
@@ -109,8 +120,9 @@ export function advanceMotion(
   const fade = approach(dt, FADE_HALF_LIFE);
   let moving = false;
   for (const [id, m] of motions) {
-    m.dx += (0 - m.dx) * move;
-    m.dy += (0 - m.dy) * move;
+    const f = m.half ? approach(dt, m.half) : move;
+    m.dx += (0 - m.dx) * f;
+    m.dy += (0 - m.dy) * f;
     m.a += (m.at - m.a) * fade;
     const still =
       Math.abs(m.dx) >= MOVE_EPSILON ||

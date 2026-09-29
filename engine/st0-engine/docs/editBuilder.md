@@ -7,7 +7,7 @@ afterwards differs — while the smaller helpers (`addPlugin`, `insertClip`, `ap
 
 `EditBuilder.h` is an INTERNAL header: it includes Tracktion and JUCE, unlike `EngineHost.h`.
 
-This page holds the reasoning the code used to carry inline. Each section names the function it
+This page holds the reasoning behind the code. Each section names the function it
 belongs to, and the code carries a one-line pointer back here.
 
 ## Where a clip reads from — `clipPositionFor`
@@ -206,12 +206,12 @@ A track has one output, so only the first destination can be a routing. The rest
 makes "one source, several buses, heard nowhere else" expressible: a pre-fade headphone tap beside
 a crossfade (`packages/song/docs/cue.md`), and any bus that wants two consumers.
 
-It used to require `enabled == 1`, so a second destination fell out of the routed case entirely and
-the track was muted with two dead sends — silent everywhere. Measured, on the shape a cue needs:
+Requiring `enabled == 1` would drop a second destination out of the routed case entirely and mute
+the track with two dead sends — silent everywhere. Measured, on the shape a cue needs:
 
 | shape | peak at the master |
 |---|---|
-| two destinations, muted source, before this | **−100 dBFS** |
+| two destinations, muted source, only one allowed | **−100 dBFS** |
 | two destinations, muted source, first routed | −1.6 dBFS |
 | two destinations, source left unmuted | 0.0 dBFS — the dry path included |
 

@@ -216,7 +216,7 @@ It is the default a DAW writes: a track called after the device on it. So the fo
 An st0 lane has a strip of its own, last in its run — a node on the library's mixer, and the
 gutter fader, the card and the Mixer view are three drawings of it
 (`packages/song/docs/trackMixer.md`). A lane without one plays at unity with nowhere to put a
-level, which is what an imported project used to be.
+level.
 
 So each emitted lane gets `nodes/mix-<lane>.yaml`, a last step naming it, and nothing else: the node
 extends **`@st0/audio/utility/mixer`** — `SHARED_STRIP`, the library module every mixer node in

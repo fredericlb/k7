@@ -101,17 +101,17 @@ not only on the tray's light, which is gone when the tray is:
 - **`[tunnel]`:** why a tunnel failed or closed (the socket's error, or the close code), once per
   distinct reason rather than on every redial; a job the machine refused or that threw.
 
-A heartbeat cannot fail silently any more, which is how the Windows machine came to be listed and
-then unselectable with nothing in its log: the registry refused every heartbeat, and nothing here
-read the answer. Two things were fixed with it. The JSON is dumped with `error_handler_t::replace`,
+A heartbeat cannot fail silently: a registry refusing every heartbeat, unread, is an engine listed
+and then unselectable with nothing in its log. Two things keep a heartbeat from being refused for
+nothing. The JSON is dumped with `error_handler_t::replace`,
 so a byte that is not UTF-8 costs one character rather than throwing the whole heartbeat away; and
 on Windows the hostname is `GetComputerNameExW`'s, converted to UTF-8, since `gethostname` answers
 in the ANSI code page and `PC-FRÉDÉRIC` there is not UTF-8. The registry's half is
 `packages/engine-registry/docs/heartbeat.md`.
 
-## The performance rating moved
+## The performance rating is compiled
 
-The single-core figure of the rating is the same biquad over the same budget, compiled rather than
-JIT-compiled, so it reads several times higher on the same machine and the rating with it. The
+The single-core figure of the rating is a biquad over a fixed budget, compiled rather than
+JIT-compiled, so it reads several times higher than a JIT-measured one on the same machine. The
 reference in `packages/web-protocol/performance.ts` was measured under a JIT; ratings are
-comparable between machines running this supervisor, not with ones from before it.
+comparable between machines running this supervisor, not with a figure measured another way.

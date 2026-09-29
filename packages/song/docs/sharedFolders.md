@@ -19,15 +19,15 @@ modules under its own name.
 An account has a list of named library repositories, set on st0's home page. The file service
 clones each one to `<studioHome>/libraries/<name>` and keeps it at its latest commit
 (`packages/file-service/docs/libraries.md`). **Every workspace of the account sees every library;
-none holds a copy.** They used to be mounted INTO each workspace at `_libraries`, as a git
-submodule pinned by its gitlink, and three things made that the wrong owner:
+none holds a copy.** Mounting a library INTO each workspace — at `_libraries`, as a git submodule
+pinned by its gitlink — makes the workspace the wrong owner, three ways:
 
 - **The same repository, cloned once per workspace**, each copy drifting from the others and from
-  its own gitlink — a `git pull` never moved a submodule, and nothing reconciled them.
-- **A song repository had to carry somebody else's version pointer**, which meant commits made to
-  it on the song author's behalf (the gitlink bumps) and a `.git/info/exclude` guard against `git
-  add -A` sweeping the whole catalogue into the song.
-- **One library per account**, because a fixed folder name was what made `@st0` mean it.
+  its own gitlink — a `git pull` never moves a submodule, and nothing reconciles them.
+- **A song repository carrying somebody else's version pointer**, which means commits made to it
+  on the song author's behalf (the gitlink bumps) and a `.git/info/exclude` guard against `git add
+  -A` sweeping the whole catalogue into the song.
+- **One library per account**, because a fixed folder name is what makes `@st0` mean it.
 
 **What that costs, and it is deliberate: no version is pinned.** A library is at its remote's
 latest commit, and a song opened tomorrow hears the modules as they are tomorrow. A module is the
@@ -67,7 +67,7 @@ VIRTUAL folder `_libraries/<name>/…` — confined to that library's clone, nev
 disk (`packages/file-service/docs/workspace.md`). st0 opens it read-only behind a confirmation, and
 its builder has a **Save button** that commits and pushes that library once the files land
 (`apps/st0/frontend/docs/sharedModules.md`) — a decision somebody takes rather than a mechanism that
-absorbs it. No song repository gets a commit: none records a version any more.
+absorbs it. No song repository gets a commit: none records a version.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
 project beside it, and it forks on write (`docs/moduleFork.md`).
@@ -78,7 +78,7 @@ the module travels whole. See `docs/moduleAssets.md`.
 ### …or you are standing INSIDE one
 
 A chain template lives in a library, and its nodes name `@<name>/…` modules of the same library or
-another. `moduleLibraryDirs(dir)` needs no second arm for that any more: the libraries are the
+another. `moduleLibraryDirs(dir)` needs no second arm for that: the libraries are the
 account's, so a folder inside one sees them exactly as a project does. `libraryOf(dir)` says which
 library a path is in — what the builder's Save publishes, and what the file API maps back to
 `_libraries/<name>/…`.

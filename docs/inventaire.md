@@ -138,7 +138,8 @@ declaring it. From pass 4; the three already described elsewhere on this page
 | symbol | where | note |
 |---|---|---|
 | `FrameClock` | `packages/ui-eyes/src/clock.ts` | the clock the **exporter** advances — and `export.ts` is already dead two lines above. The WebCodecs path is dead whole: the barrel, `exportScene`, and the clock driving it. To be cut in one block. |
-| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates any more. |
+| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates. |
+| `installKey` | `packages/git-repos/src/keys.ts` | writes a received private key; no key is received — the file service makes its own (`packages/git-repos/docs/keys.md`). |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
 | `knownPrefs` | `apps/pl8/frontend/src/prefs.ts` | |
@@ -260,24 +261,19 @@ the UI's language into a protocol package. Two lines are not worth that property
 | `packages/web-protocol` has no `dependencies` block, and that is RIGHT — `types.ts` imports only a `type` from its own `projects.ts`. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
 | Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL` (9 reads), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
 
-## 6. The per-deck effects chain — cut whole
+## 6. A deck has no effects chain
 
 Mix is a desk: two records and a crossfader. A deck's effects chain has no place on it, and the
-desk's only host (st0's `turntables` surface) draws no per-deck graph. The component had no host and
-could not have one, so it and everything held alive only by it are gone. Keeping an option nothing
-can mount cost 70 lines and a published subpath that lied about the package's surface. See
+desk's only host (st0's `turntables` surface) draws no per-deck graph, so there is no component for
+one: an option nothing can mount would cost code and a published subpath that lies about the
+package's surface. See
 [../packages/st0-plugins/docs/turntables/mix.md](../packages/st0-plugins/docs/turntables/mix.md).
 
-What still needs cleaning: `M9_ICONS` carried the name of an application that does not exist, and
-that name still lingers in `env.example.yaml`, `docs/tokens.md` (one row of the prefix table),
-`engine/st0-engine/AGENTS.md`, `apps/pl8/backend/src/server.ts`, `packages/web-protocol/types.ts`,
-`apps/z0/AGENTS.md` and the `SessionRegistry_test.cpp` fixtures.
+One leftover name: `m9`, an application that does not exist, is a session id in the
+`SessionRegistry_test.cpp` fixtures — any string would do there.
 
-> **The trap that cleanup is worth writing down.** A test file named after a module regularly covers
-> another one through a shared helper: under a `describe` titled "the graph and the document agree"
-> sat four tests that checked `deckDoc` — that is, `deck.ts`, very much alive — the module order
-> (audible), the wire form of `plugin:`, the bypass, and the module with no `plugin:` block. Deleting
-> the file "because it tests dead code" would have lost them silently. They live in `deck.test.ts`,
-> under "a deck's modules, in the document".
->
-> The rule: **a test file does not die with its subject, its tests die one by one.**
+> **A test file does not die with its subject; its tests die one by one.** A test file named after
+> a module regularly covers another one through a shared helper: a `describe` about one component
+> can hold tests of `deckDoc` — `deck.ts`, very much alive — the module order (audible), the wire
+> form of `plugin:`, the bypass. Deleting the file "because it tests dead code" would lose them
+> silently. Those live in `deck.test.ts`, under "a deck's modules, in the document".

@@ -103,8 +103,8 @@ it asks for. Sending `fileHeaders()` at pl8 would be the mirror mistake: a 401 c
 token nobody there can check. `fileHeaders` is safe to call from a view because the gate
 configures the transport before anything renders.
 
-The base rather than a derived path, in both cases, because the prefix differs by host: pl8
-answers at `/api` on its own origin and at `/pl8/api` from st0's, and a package that guessed would
+The base rather than a derived path, in both cases, because the address differs by host: pl8 is
+the same origin for its own pages and another subdomain for st0's, and a package that guessed would
 be wrong for one of them.
 
 Both read the SERVER's sentence out of an error body rather than throwing the bare status. Every

@@ -129,11 +129,11 @@ a REPOSITORY holding three families side by side, and the row shows it as it is 
 A chain or a template is filed under ITS library's row, by the `@<name>/` its ref starts with, and
 drawn without that prefix — the row it sits under already says it.
 
-It used to be `modules/` drawn AS `@st0`, with the chains in a row of their own labelled
-`@st0/chains` — two sibling folders that read as a folder and its child, under a label that is not
-even a ref prefix (a chain is `@st0/tools/stems`, never `@st0/chains/tools/stems`). The `modules`
-row keeps the level's own path, so creating a module resolves exactly as before; the repository
-row and its `chains` and `assemblies` rows belong to no level and offer no create.
+Drawing `modules/` AS `@st0`, with the chains in a row labelled `@st0/chains`, would show two
+sibling folders as a folder and its child, under a label that is not even a ref prefix (a chain is
+`@st0/tools/stems`, never `@st0/chains/tools/stems`). The `modules` row keeps the level's own path,
+so creating a module resolves as any `@st0/…` ref does; the repository row and its `chains` and
+`assemblies` rows belong to no level and offer no create.
 
 A module is one row, as it is on the Project tab and by the same code (`foldModules`): the
 folder holds `module.yaml`, so the tree folds it and clicking it opens the builder rather than
@@ -238,8 +238,8 @@ and a file held back because it would not compile reports false — committing a
    project file takes.
 2. `POST /libraries/publish`, naming THAT library — `git add -A`, a commit authored by you, a push.
 
-That is all of it. No song repository is touched: none records which version of a library it uses
-any more — a library is at its latest, for every song (`packages/song/docs/sharedFolders.md`). A
+That is all of it. No song repository is touched: none records which version of a library it uses —
+a library is at its latest, for every song (`packages/song/docs/sharedFolders.md`). A
 refused push reports "committed, not pushed" and keeps the work in the clone; the next Save pushes
 it. Nothing to commit is not a failure either — two saves with no edit between them land there.
 

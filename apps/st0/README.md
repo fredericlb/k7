@@ -60,7 +60,7 @@ packages/                  studio's shared tier (consumed as raw TS source):
 ```
 
 The C++ engine is described in
-[../moteur/docs/design.md](../moteur/docs/design.md) (diff-apply strategy and
+[../../engine/st0-engine/docs/design.md](../../engine/st0-engine/docs/design.md) (diff-apply strategy and
 threading rules). Development conventions for future Claude Code sessions are in
 [CLAUDE.md](CLAUDE.md).
 
@@ -275,5 +275,5 @@ natively for real low-latency audio.
 
 ## License
 
-GPLv3 — see [engine/LICENSE](engine/LICENSE). Tracktion Engine is GPLv3 or
+GPLv3 — see [../../engine/st0-engine/LICENSE](../../engine/st0-engine/LICENSE). Tracktion Engine is GPLv3 or
 commercial.

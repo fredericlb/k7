@@ -19,7 +19,7 @@ ref written before libraries had names uses. See [sharedFolders.md](sharedFolder
 ## `@st0` names a LIBRARY of modules, and the cache folder is called `mediatek`
 
 The level's name follows the folder of modules rather than the path on the origin: the
-médiathèque answers under `/pl8` and is `apps/pl8`, and the level is `@st0` all the same.
+médiathèque is `apps/pl8`, answering on its own subdomain, and the level is `@st0` all the same.
 A level is written into user files, so renaming one means rewriting every chain in every
 repository on every machine at once, and the failure signature is a `?` on a graph node and
 nothing else. That is worth paying to stop a word that appears nowhere; it is not worth paying

@@ -54,7 +54,7 @@ At rest the arc is **empty**, not a stub, and the number shows **only away from 
 knobs each carrying a small mark, or six all reading "0.0", is exactly the noise dropping the
 numbers was meant to avoid; what a glance is looking for is which band somebody touched.
 
-`arcPath` (`../src/views/ChannelStrip.tsx`) draws two paths — the whole travel, pale, then the arc
+`arcPath` (`../../src/turntables/views/ChannelStrip.tsx`) draws two paths — the whole travel, pale, then the arc
 over it, so the arc reads against what it could have been rather than against nothing. Both run
 **outside** the dial face, radius 18 against the circle's 15, so they never fight the needle for
 the same pixels; and the caps are `butt`, not `round`, or a small value becomes a two-pixel blob

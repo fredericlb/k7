@@ -76,8 +76,8 @@ The library's revision poll, the hunt list and the host player's transport all g
 the poll rather than stacking requests behind it on the browser's six connections per host — the
 same connections the audio's Range requests need. The library and the hunt list rest while the tab
 is hidden and tick at once on its return; the player's does not, since mpv going idle is what
-advances the queue. A listing that lands after the user changed section is dropped, where it used to
-be drawn under the new section and marked as current.
+advances the queue. A listing that lands after the user changed section is dropped: drawn, it would sit under the
+new section and be marked as current.
 
 ## Every call from the page has a budget, and an upload has a cancel
 

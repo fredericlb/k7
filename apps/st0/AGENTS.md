@@ -4,7 +4,7 @@ A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web
 is your studio.
 
 **This directory is the web editor, and only that.** The engine (`engine/st0-engine`), the
-tray (`apps/st0-desktop`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
+tray (`engine/st0-tray`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
 rather than inside it, because they serve every audio app in the repo — the repo-root
 `AGENTS.md` holds the map of the whole audio side. Two workspaces live here:
 
@@ -13,7 +13,7 @@ rather than inside it, because they serve every audio app in the repo — the re
 | `frontend` (`st0-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
 | `backend` (`st0-backend`) | Express — **the origin's OIDC flow and st0's preferences**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix. It has no file routes and no engine registry — that is pl8's. It knows *who you are*, never which engines exist or what is on any disk. |
 
-Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://st0.priv.frediver.se`
+Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://priv.st0.app`
 by the LAN reverse proxy.
 
 ## The browser talks to THREE servers
@@ -44,22 +44,20 @@ otherwise a repository — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
-**`/auth/*` is THIS backend's.** Everything is served under one host
-(`st0.priv.frediver.se/<service>`), so there is one session cookie — `studio.sid`, signed with the
-`SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register with the IdP.
-That `redirect_uri` is `<origin>/auth/callback`, with **no prefix**, so it can only be served by
-the service that has no prefix: st0, which answers the origin root. pl8, k7 and z0 pass
-`mountRoutes: []` and merely verify the cookie.
+**`/auth/*` is THIS backend's.** st0 answers the origin root (`priv.st0.app`, `st0.app`), z0 a
+`/z0` path on it, and pl8 and k7 their own subdomains (`packages/web-protocol/docs/addresses.md`).
+There is one session cookie — `studio.sid`, signed with the `SESSION_SECRET` in `env.yaml`'s
+`common` and scoped to the shared `COOKIE_DOMAIN` so every subdomain receives it — and one
+`redirect_uri` to register with the IdP: `<st0 origin>/auth/callback`. So the flow is st0's; pl8,
+k7 and z0 pass `mountRoutes: []` and merely verify the cookie, and a page on a sibling subdomain
+sends the browser to `authOrigin(origin)` to sign in.
 
-`/auth/*` follows the root rather than a service name: nothing at the IdP has to change when the
-process serving the origin does, since the redirect_uri names the origin and not the app. Spell
-auth calls BARE (`/auth/me`), never under `BASE` — for this app the two coincide, for every other
-one they do not.
+Spell this app's auth calls BARE (`/auth/me`), never under `BASE` — here the two coincide, for
+every other app they do not.
 
 Two consequences to know: logging out anywhere logs you out of every studio service, and
 **this backend being down means nobody can log into any studio service** — each will show its
-own 401, which does not say so. API calls stay under each service's prefix; auth sits at the
-root, and so, separately, does this app.
+own 401, which does not say so.
 
 ## Frontend architecture
 
@@ -300,7 +298,7 @@ A workspace is one git repository and holds **several projects**. The editor's t
 workspace, and the ▶ on a project row is what hands that one to the engine — `POST /open`, which
 writes `.studio-active` and switches the session, with no navigation and no remount
 (`packages/file-service/docs/activeProject.md`). The address may still name a project, and that
-is what it opens ON; a bare `/<dépôt>` opens the one last played.
+is what it opens ON; a bare `/@local/<workspace>` opens the one last played.
 
 **A workspace does not need a repository, and starts EMPTY.** `Nouveau` on the home page git-inits
 one here with no remote and no project; opening it draws the first-project wizard, since the
@@ -310,26 +308,23 @@ be looked at. Everything works in it but pushing; `Publier` is the day it gets a
 
 ## the HOME page is where a workspace is chosen
 
-**This app does not own workspaces**, and never will: pl8 stores the repositories
-(`apps/pl8/docs/projects.md`) and the account's file service on the server holds every working copy. What this app
-owns is the SCREEN above a project, at `/` with nothing after it — the repositories, the
-projects inside them, the libraries repository and the published shares. The deploy key is NOT
-here any more — it is the Sync tab of `/@settings`,
-which the hosted origin draws too, since the key is the account's rather than the app's. The
-routes stay pl8's while the screen is here, and `frontend/docs/projects.md` is the page that says
-why.
+**This app does not own workspaces**, and never will: the account's file service on the server
+holds every working copy, and pl8 keeps no register of them (`apps/pl8/docs/projects.md`). What
+this app owns is the SCREEN above a project, at `/` with nothing after it — the workspaces, the
+projects inside them, the libraries and the published shares. The deploy key is not on it but in
+the Sync tab of `/@settings`, which the hosted origin draws too, since the key is the account's
+rather than the app's. `frontend/docs/projects.md` is the page that says why.
 
-A project is named by an ADDRESS — the repository by its short name, then the project folder:
+A project is named by an ADDRESS — the workspace, then the project folder inside it:
 
 ```
-/songs/first.st0
-/band/albums/winter.st0/timeline      …with the app's own route following it
+/@local/songs/first.st0
+/@local/band/albums/winter.st0/timeline      …with the app's own route following it
 ```
 
-`ProjectGate` asks pl8 for the git URI behind that name
-(`GET /api/projects/by-name/:name`), resolves it to one of the account's workspaces on the server —
-`GET /workspaces/by-repo`, cloning it with a visible progress bar if it is not there yet — then
-opens the project. Arriving with no project in the address is the home page rather
+`ProjectGate` opens that folder on the machine: no lookup and no clone — a repository reaches a
+workspace on the home page, through **Importer**, which clones it with a visible progress bar.
+Arriving with no project in the address is the home page rather
 than an error to redirect away from, and `main.tsx` branches on `parseLaunch` before mounting
 anything. There is deliberately no SECOND picker — z0's editor comes back to this one.
 

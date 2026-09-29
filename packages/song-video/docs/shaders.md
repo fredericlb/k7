@@ -138,7 +138,7 @@ modules:
 
 One implementation, allowed anywhere a video cable goes. Both are ordinary chains; only where the
 result is stored differs — `VideoTrackDoc.plugins` on one side, `VideoProjectDoc.framePlugins` on
-the other, the latter being the picture's `masterPlugins` ([videoOutputs.md](videoOutputs.md)).
+the other, the latter being the picture's `masterPlugins` ([../../song/docs/videoOutputs.md](../../song/docs/videoOutputs.md)).
 
 A track's chain runs at **viewport** size and is then drawn into the track's rectangle, rather than
 running at the rectangle's size. That is what makes an effect have the same character on an inset as

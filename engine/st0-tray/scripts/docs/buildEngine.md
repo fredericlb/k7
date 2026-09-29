@@ -77,7 +77,7 @@ used is the caller's business, and `findEngineBinary` already answers the same q
 way. Each preset's `CMakeCache.txt` NAMES the folder (`STUDIO_FAUST_LIBS`) rather than the script
 guessing `_deps/faust-src`: with `$STUDIO_FETCHCONTENT_DIR` set, as CI sets it, the sources live
 outside the build tree altogether. The NEWEST wins, for the same reason it does there — a stale `libraries/` from a preset nobody
-builds any more would ship a different Faust than the engine beside it. Only the `.lib` files are
+builds would ship a different Faust than the engine beside it. Only the `.lib` files are
 copied; the submodule also carries its own docs, tests and CI config, none of which the compiler
 reads.
 

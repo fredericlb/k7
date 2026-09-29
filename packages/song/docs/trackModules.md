@@ -151,11 +151,11 @@ so an import can arrive with a lane `polysynth` and an insert that plays a `poly
 filesystem itself is what keeps them apart, since the insert is filed under a name of its own
 (`polysynth-inst`, or whatever `freeNodeName` proposes) rather than the lane's.
 
-**A module is named by its ref, never by a bare name a lane could take.** A module lives at
-`@workspace` or `@st0` now, and `extends:` always spells the level: an insert node written by the
-importer says `extends: "@workspace/instruments/polysynth"`, whatever the lane beside it is called.
-So there is nothing left to shadow — the old collision, between a lane's bare name and a project's
-own module answering to that same bare name, cannot arise when a module has no bare spelling at
+**A module is named by its ref, never by a bare name a lane could take.** A module lives at a named
+level — `@workspace`, one of the account's libraries, or `@engine` — and `extends:` always spells the
+level: an insert node written by the importer says `extends: "@workspace/instruments/polysynth"`,
+whatever the lane beside it is called. So nothing can shadow: a collision between a lane's bare name
+and a module answering to that same bare name cannot arise when a module has no bare spelling at
 all.
 
 ## Every lane is a node of a built-in

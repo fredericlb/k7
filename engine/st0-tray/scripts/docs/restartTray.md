@@ -80,12 +80,12 @@ replace the image — silently, which is what makes it expensive. Every engine i
 started it, for the same reason every tray is: a survivor wins, and here it wins by making your
 build a no-op.
 
-### The survivor's image name is not its name any more
+### A survivor's image name may not be its name
 
 The scan matches the executable **path** as well as the image name, and that is not belt and
 braces. `--dev` deletes and rewrites `dist/dev/st0-tray.exe`; doing that under a tray that is
 still running leaves that process with a GARBLED image name in the process table — a random
-hex string where `st0-tray.exe` used to be. A name-only query then reports no trays while
+hex string in place of `st0-tray.exe`. A name-only query then reports no trays while
 several are up.
 
 Every consequence of that is silent. `stopAll` stops nothing, so the survivor keeps the

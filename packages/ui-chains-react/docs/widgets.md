@@ -119,7 +119,7 @@ re-lay-out the whole graph per tick, and a knob does not need it: its override s
 the engine's frames confirm it. An intrinsic has neither. Send one down the quiet path and the
 service writes the file, answers `graph=skipped`, nothing reloads, and **the select snaps back** —
 correct on disk, wrong on screen, with no error anywhere. `onBypassModule` already existed for the
-same reason; this is the second member of that family, and the rule is now general: *a control
+same reason; this is the second member of that family, and the rule is general: *a control
 whose only feedback is the file needs the sender that brings the file back.*
 
 Hosts that wire only `command` still work — the fallback is `command` — they just show the old

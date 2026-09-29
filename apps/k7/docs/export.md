@@ -11,7 +11,7 @@ read one song at a time: a single 200-page file is not what you carry to a rehea
 `GET /api/songs` already answers with `lyrics` and `tablature` in full, so the page holds the
 whole songbook before either entry is chosen. A server route would re-read what the client
 has, hold every generated file in memory at once, and put two more dependencies in the hosted
-image for a job that no longer has a server-side half.
+image for a job that needs no server-side half.
 
 Both generators are behind `import()`. They are the two heaviest dependencies this app has —
 pdf-lib ~420 kB, epub-gen-memory ~220 kB — and neither belongs in the chunk that draws a

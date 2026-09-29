@@ -42,9 +42,8 @@ So the handler only SAYS what happened, one line per library by name, and:
   resolves through `@<library>/…` are different now. A library KEPT because it holds unpublished
   work is said, not reloaded for.
 
-No workspace repository gets a commit: none records a library version any more. That used to be a
-path-limited gitlink commit written here and in the file service both, and it is gone with the
-submodule.
+No workspace repository gets a commit: none records a library version, since a library is at its
+latest for every song (`packages/file-service/docs/libraries.md`).
 
 ## An alternative is a branch, with the branch you left remembered
 

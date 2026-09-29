@@ -53,10 +53,9 @@ nothing errors — the song plays in one session while the frontend steers an em
 which reads as "the engine ignores Play".
 
 They reach the same string by different routes: the browser slugs the logged-in email, and the
-file service is TOLD the email — `noteOwner`, from the header every request carries. It used to
-read the slug out of the path, back when a workspace lived under `root/<slug>/`; there is no
-such level any more (`packages/engine-client/docs/paths.md`), and one machine holds one
-person's workspaces. `packages/file-service/src/engineLink.test.ts` is the one test that says
+file service is TOLD the email — `noteOwner`, from the header every request carries — rather than
+reading it out of a path: no level of the workspace path names a person
+(`packages/engine-client/docs/paths.md`), since one machine holds one person's workspaces. `packages/file-service/src/engineLink.test.ts` is the one test that says
 the two halves still agree.
 It is the only thing in the repo that would catch them drifting.
 

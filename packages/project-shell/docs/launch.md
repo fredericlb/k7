@@ -1,48 +1,46 @@
 # An app is opened ON a project — it does not choose one
 
 The level above a project is a screen of its own, and exactly one screen: **st0's home page**,
-the address that names no project. It lists the account's repositories and the projects inside
-them, and it links to one with an **address**:
+the address that names no project. It lists the account's workspaces on the machine and the
+projects inside them, and it links to one with an **address**:
 
 ```
-/songs/first.st0
-/z0/editor/songs/party.z0
-/band/albums/winter.st0             a project at a depth
-/z0/editor/band/winter.st0/live.z0  a .z0 session living inside a .st0 song
+/@local/Examples/synth-demo.st0
+/@local/band/albums/winter.st0             a project at a depth
+/z0/editor/@local/songs/party.z0
+/z0/editor/@local/band/winter.st0/live.z0  a .z0 session living inside a .st0 song
 ```
 
 | | |
 |---|---|
-| the first segment after the app's mount | the repository's **short name** — its last path segment without `.git`, which is also what the clone is called on the engine's machine |
-| the rest | the project folder **inside** the repository, or nothing at all when the repository *is* the project |
+| the first segment after the app's mount | a **sentinel** — `@local`, `@banc` or `@shares` |
+| for `@local`, the next one | the **workspace**: a folder on the machine holding the working copies |
+| the rest | the project folder **inside** that workspace, or nothing at all when the workspace *is* the project |
 
 Which of the two apps gets the link is decided by the folder's **name**: `.st0` or `.z0`
-(`@studio/web-protocol/projects`). The project is a path in the repository and not on any
-machine, because the sender has never seen the machine it will be opened on. Resolving it to a
-folder is this package's job.
+(`@studio/web-protocol/projects`). Resolving the address to a folder is this package's job.
 
-## Why a path, and why a name rather than the URI
+## Why a path, and why a folder rather than a repository
 
 Both halves of that are deliberate.
 
 **A path, not `?repo=&project=`.** A query string is exactly what an SPA's router owns:
 `useViewRoute` mirrors the shell's state into the address on every change, and what it writes
-comes from each app's `routes.ts`, which knows nothing about a repository. A launch carried
+comes from each app's `routes.ts`, which knows nothing about a workspace. A launch carried
 there is therefore gone within a frame of the first render, which leaves reading it at import
 time and keeping it in `sessionStorage` — and *that* is what makes a tab handed a bad project
 unable to recover: the memory replays it on every reload and every retry, invisibly.
 
 As a path it is simply the router's **basename**. React Router only ever writes below its
 basename, so nothing can rewrite the project away, and the address IS the state: a reload
-re-reads it, a bookmark works, a link can be sent to someone else, and a wrong project is fixed
-by editing the URL. There is nothing to clear.
+re-reads it, a bookmark works, and a wrong project is fixed by editing the URL. There is nothing
+to clear.
 
-**A name, not the git URI.** `ssh://git@192.168.87.10:6611/music/lemo_mante.git` carries a
-host, a port and a user, and an address bar is copied, bookmarked and pasted into chat. The
-address carries `lemo_mante`, and the editor asks pl8 what is behind it
-(`GET /api/projects/by-name/:name` → `RepoRef`). pl8 STORES the repositories, so pl8 is the one
-side that can answer, and it refuses an ambiguous name rather than guessing: two hosts can both
-carry a `songs.git`, and opening the wrong one silently is worse than saying so.
+**A folder, not a repository.** No service keeps a register mapping a short name to a git URI, so
+nothing has to answer before a project can open, and a machine with no server is not a degraded
+one: an imported repository and a project made locally are the same thing, a folder with an
+`origin` if it has one. What that gives up is portability between accounts — a link pasted to
+somebody names a folder in yours (`apps/st0/frontend/docs/projects.md`).
 
 ## Where the project ends, and the app's route begins
 
@@ -60,9 +58,9 @@ which the MACHINE settles rather than the address:
   `POST /open` resolves it: the `.studio-active` marker first, then the first project on disk,
   then nothing at all — see `packages/file-service/docs/workspaces.md`.
 
-That last case is what a bare `/band` is, and it is why the address may name a project without
-being the only thing that can choose one. A workspace holds several, the editor draws all of
-them, and the ▶ on a project row moves the engine between them **without touching the address**:
+That last case is what a bare `/@local/band` is, and it is why the address may name a project
+without being the only thing that can choose one. A workspace holds several, the editor draws all
+of them, and the ▶ on a project row moves the engine between them **without touching the address**:
 the gate has already resolved, and `POST /open` is a call rather than a navigation. The address
 is where you ARRIVE, not a running account of where you are.
 
@@ -79,86 +77,73 @@ the way back.
 does not have to report a project, an address or a workspace correctly: it makes one and asks the
 gate to look again, which is the same road every other arrival takes.
 
-## Three addresses take a road of their own, and take it first
+## Three addresses, and nothing else
 
-The repository part of an address may be a **sentinel** instead of a name, and `@` is what makes
-that safe: it cannot begin a git short name — the last segment of an SSH URI without `.git` — so
-none of these can ever collide with a real repository. Each skips the whole name → URI → clone
-sequence below, because in each there is no repository to resolve.
+The first part of an address is a **sentinel**, and `@` is what makes that safe: it cannot begin
+a folder name git would give a clone, so none can collide with a workspace.
 
-| address | what it opens | what it skips |
+| address | what it opens | the road |
 |---|---|---|
-| `/@shares/<token>.st0` | a frozen snapshot pl8 holds | everything: no account, no engine, no working copy |
-| `/@banc/live.st0` | the bench: one live rig, generated — `/@banc/<chain>/live.st0` seeds it with a library chain | the lookup and the clone — the rig is written again on every open |
-| `/@local/<espace>/<projet>` | a project in a workspace with no repository | the lookup, the clone, **and the libraries check** |
+| `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
+| `/@banc/live.st0` | the bench: one live rig, generated — `/@banc/<chain>/live.st0` seeds it with a library chain | the libraries check, then the machine writes the rig again and opens it |
+| `/@shares/<token>.st0` | a frozen snapshot pl8 holds | none of it: no account, no engine, no working copy |
 
-`@local` is the one that disagrees with step 0 below, and deliberately: a workspace on this
-machine is what a NEW account has — `Examples`, seeded with the demos — and a new account has no
-library. Refusing to open it without one would put those demos behind the single piece of setup
-they exist to precede. See `apps/st0/frontend/docs/projects.md`.
+**Anything else is refused** with the "missing" screen, which says a project opens from the home
+page and what its address will be: guessing which folder a repository name meant would open the
+wrong one silently. A repository reaches a workspace on the home page — **Importer** clones it
+there — never through the gate.
 
-The bench is the one the gate matches on the **app** as well as the name. It is a `.st0` project,
-so `/z0/editor/@banc/…` names nothing at all and must fall through to the ordinary road, where pl8
-answers "no such repository" — which is exactly what it is. Its wait is reported as `cloning` because from
-here it is the same thing: a visible wait while a machine brings the libraries up to date, and the
-first one is the slow one. The project part of the address rides along with it, since the machine is the side
-that says which address the bench answers.
+**The libraries, and why `@local` skips them.** The bench asks the file service for
+`GET /account/libraries` first: every `@<library>/…` ref resolves against one of them, so without
+any the rig opens with every shared module missing, which reads as a broken rig rather than as an
+account nobody finished setting up — hence a screen of its own and no Retry, the answer staying the
+answer until somebody sets it on st0's home page (`apps/st0/frontend/docs/projects.md`). A workspace
+on this machine is what a NEW account has — `Examples`, seeded with the demos — and a new account
+has no library: refusing it would put the demos behind the one piece of setup they exist to
+precede, and a song that needs a library says so itself, as an unresolved reference.
 
-**`parseLaunch` knows about none of them.** All three are ordinary addresses whose repository part
+`POST /open` brings the account's libraries to their latest on the way — waiting only for one not
+cloned yet — and takes out whatever `_libraries` submodule the workspace holds
+(`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
+they are the machine's, and it knows them.
+
+The bench is matched on the **app** as well as the name. It is a `.st0` project, so
+`/z0/editor/@banc/…` names nothing and is refused like any other unknown address. Its wait is
+reported as `cloning` because from here it is the same thing: a visible wait while a machine brings
+the libraries up to date, and the first one is the slow one. The project part of the address rides
+along with it, since the machine is the side that says which address the bench answers.
+
+**`parseLaunch` knows about none of them.** All three are ordinary addresses whose first part
 happens to start with `@`: the project part still ends at the last segment claiming the app's
 suffix, which is why `@shares` spells its token `<token>.st0` and why `@local` puts the workspace
 name in front of an ordinary project path. The only rule any of them adds is a reader —
 `shareToken`, `isBenchProject`, `localTarget` — and all three live in
 `packages/web-protocol/projects.ts`, beside the address they read.
 
-## What the gate does with an ordinary one
-
-0. `GET /account/libraries` on the **file service** — the account's libraries, possibly none.
-   Before everything below, including the bench: every `@<library>/…` ref resolves against one
-   of them, so without any a song opens with every shared module missing. That reads as a broken song rather than as an account nobody finished setting up,
-   which is why it gets a screen of its own and gets it *before* a thirty-second clone rather
-   than after. No Retry — the answer was clear, and it stays that answer until somebody goes
-   and sets it, on st0's home page (`apps/st0/frontend/docs/projects.md`).
-1. `GET /api/projects/by-name/<repo>` on **pl8** — the git URI behind the name.
-2. `GET /workspaces/by-repo?uri=` — does this machine already have this repository? The
-   comparison is on a **normalised** URI, because the two ends learned the address by
-   different routes: pl8 has what was pasted, the file service has whatever git wrote into
-   `remote.origin.url`. See `packages/git-repos/src/uri.ts`.
-3. If not, `POST /workspaces/clone` and poll the job, showing git's own progress. This is the
-   visible wait the whole arrangement is designed around —
-   `packages/file-service/docs/cloneJobs.md`.
-4. `configureFileApi` with the workspace it resolved, then `POST /open` on the project. The
-   file service brings the account's libraries to their latest on the way — waiting only for one
-   not cloned yet — and takes out whatever old `_libraries` submodule the workspace still holds
-   (`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
-   they are the machine's, and it knows them.
-5. Render the app, through the `children` callback.
-
 Two failures get a screen of their own rather than a diagnosis, because in both the machine
-answered and nothing is broken: an **unknown or ambiguous repo name** (404/409 from step 1) and
-a **project that is not in the workspace** (400/404 from step 4). Their only useful action is
-to go and pick again, so that is the one button. Running the reachability probe on them
-gives the worst screen in the app — "this page isn't allowed to reach the engine", a CORS
-story, with the real message in a code block underneath — because the probe reaches a service
-that is plainly up and therefore always reports `blocked`.
+answered and nothing is broken: an **address naming no workspace**, and a **project that is not in
+the workspace** (400/404 from `POST /open`, whose sentence IS the explanation). Their only useful
+action is to go and pick again, so that is the one button. Running the reachability probe on them
+gives the worst screen in the app — "this page isn't allowed to reach the engine", a CORS story,
+with the real message in a code block underneath — because the probe reaches a service that is
+plainly up and therefore always reports `blocked`.
 
 Arriving with **no** project in the address is not a failure to redirect away from — for st0 it
 IS the home page, `main.tsx` branching on `parseLaunch` before any gate is mounted (see
 `apps/st0/frontend/docs/projects.md`). For every OTHER app that mounts this gate, it is a
 redirect there, through `projectsUrl`.
 
-There is still deliberately no *second* picker: one list, in one app, is the whole point. z0's
-editor comes back to st0's home rather than growing one of its own, because that list already
-holds `.z0` folders and a second one would be the second thing to keep in step with the first.
+There is deliberately no *second* picker: one list, in one app, is the whole point. z0's editor
+comes back to st0's home rather than growing one of its own, because that list already holds
+`.z0` folders and a second one would be the second thing to keep in step with the first.
 
-> **The screen is st0's, the storage is pl8's**, and that split is the whole arrangement: the
-> catalogue is what a project draws ON, while "which repositories do I have" is the first
-> question of the app that opens one, and the machine that scaffolds a project is st0's side of
-> the wire. So the list lives here and the route it calls — `repoByName` — is pl8's; the
-> libraries are the machine's, and `accountLibraries` asks the file service.
+> **The screen is st0's, and so is the list.** The catalogue (pl8) is what a project draws ON,
+> while "which projects do I have" is the first question of the app that opens one, and the
+> machine that scaffolds a project is st0's side of the wire. The workspaces and the libraries
+> are the machine's, asked of the file service.
 >
-> st0 answers the ORIGIN and the médiathèque is at `/pl8`, so this page is `<origin>/` and not
-> `<origin>/st0/`. `projectsUrl` asks `SERVICE_PATHS` rather than spelling either.
+> st0 answers the ORIGIN, so this page is `<origin>/`, and `projectsUrl` asks `serviceUrl` for
+> st0's origin rather than spelling it — a page on pl8's subdomain lands on the right one.
 
 `projectsUrl` ends in a slash on purpose — that is `BASE_URL`'s own spelling, so a tab lands on the
 app's mount rather than on a redirect to it. And `serviceUrl` is what keeps the prefix a fact read
@@ -208,9 +193,10 @@ which is a fresh open and therefore a fresh takeover.
 ## Why this is a package and not two copies
 
 `docs/inventaire.md` records what copied clients cost here: one auth client in three copies,
-with the fix in only one of them. This is worse than that, because the two ends of it are
-a *decision* — "is this repository already on this machine" — and the failure modes are a
-duplicate clone or a 404, neither of which looks like a drift when you meet it.
+with the fix in only one of them. A gate is worse than that, because what it holds are
+*decisions* — which addresses open what, which skip the libraries check — and two copies that
+disagree open a project in one editor and refuse it in the other, which does not look like a
+drift when you meet it.
 
 The address vocabulary itself lives one level lower still, in
 `@studio/web-protocol/projects`, beside the suffix rule it depends on: st0's home page
@@ -229,14 +215,12 @@ The suites here run in node and mount nothing, so `launch.test.ts` covers the ad
 which is most of it, the launch being the address rather than state. These are the ones a green
 test run says nothing about:
 
-- open a project from st0's home page → the address reads `/<repo>/<project>` and stays that
-  way as you move around the app;
+- open a project from st0's home page → the address reads `/@local/<workspace>/<project>` and
+  stays that way as you move around the app;
 - **reload**, and use back/forward → still the same project, not the home page;
 - copy the URL into another tab → the same project opens there too;
-- open a repository this machine has never seen → a progress bar with git's phases, then the
-  app; do it again → no clone at all, straight in;
-- open a `.z0` folder and a `.st0` folder from the same repository → two apps, one clone;
-- rename the project folder on the machine and reload → the "not in the repository" screen,
-  not the CORS one, and its button lands you back on st0's home;
-- edit the repo name in the address to something nonexistent → the same screen, saying pl8 has
-  no repository by that name.
+- open a `.z0` folder and a `.st0` folder from the same workspace → two apps, one working copy;
+- rename the project folder on the machine and reload → the "not in the workspace" screen, not the
+  CORS one, and its button lands you back on st0's home;
+- replace `@local` in the address with a repository name → the same screen, saying a project opens
+  from the home page and giving its address.

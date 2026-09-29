@@ -117,8 +117,7 @@ this only teaches picture to read it):
 
 **`on` is the default, where audio's is `auto`**, and the difference is not an oversight: `auto`
 exists for sound because monitoring a live input you are not recording bleeds into the room. A lens
-has no feedback path, and every camera node written before this rule existed would otherwise have
-gone dark.
+has no feedback path, and a camera node that says nothing would otherwise go dark.
 
 A lens on **no lane** has nothing to arm, so `auto` on one reads as `on` — a camera you can neither
 arm nor see would be a dead end.

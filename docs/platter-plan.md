@@ -1,4 +1,4 @@
-# The platter stretches for itself, and the hybrid is gone
+# The platter stretches for itself
 
 The decisions of the platter work, in one place. Current behaviour is described by the ordinary
 pages — `../engine/st0-engine/docs/turntable.md`, `../packages/st0-plugins/docs/turntables/scratch.md`.

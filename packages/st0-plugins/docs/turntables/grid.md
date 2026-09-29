@@ -1,6 +1,6 @@
 # Correcting the grid
 
-A track's grid is **inferred**: the engine measures a tempo, and [beats.ts](../src/beats.ts)
+A track's grid is **inferred**: the engine measures a tempo, and [beats.ts](../../src/turntables/beats.ts)
 places the first beat on the circular mean of the transients, with a Rayleigh test saying whether
 that phase is a measurement or a shrug. It often works. When it does not —
 [bpm.md](bpm.md) shows a track (the Bashung) whose detected tempo is plain wrong — there has to be
@@ -20,11 +20,11 @@ key: "C# minor"    # entered, never detected
 **The test is simple: does it change from one mix to the next?** A tempo, no — 87 BPM are 87 BPM
 in every project that plays this record. A key, no either. MARKERS, yes: two bands covering the
 same track drop the needle in different places, which is why those live in `mix.yaml`
-([mixFile.md](../../song-schema/docs/mixFile.md)).
+([mixFile.md](../../../song/docs/mixFile.md)).
 
 And pl8 already holds the ground: `bpm:` there is **detected once then edited**, with a rule
 saying a present value beats a fresh detection — written precisely because "the engine's estimate
-drops an octave on fast material" ([songs.md](../../mediatek/docs/songs.md)). Which is exactly the
+drops an octave on fast material" ([songs.md](../../../mediatek/docs/songs.md)). Which is exactly the
 error `÷2` corrects.
 
 ## `bpm` replaces what the record IS
@@ -63,7 +63,7 @@ then: a badge that is always there says nothing.
 
 `key: "C# minor"` in the same file, **entered and never detected**: the detector was written and
 measured against seventeen labelled tracks, and comes in at 53 % — enough to lie, not enough to
-serve ([key-detection-plan.md](../../../docs/key-detection-plan.md)). An entered key is right 100 %
+serve ([key-detection-plan.md](../../../../docs/key-detection-plan.md)). An entered key is right 100 %
 of the time, and a playlist is twelve to thirty tracks.
 
 The desk shows its **Camelot** code under the fader — `12A` for C sharp minor. Storage keeps the

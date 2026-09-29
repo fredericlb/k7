@@ -8,7 +8,7 @@ is that?** There is no version endpoint and no `/healthz` — phare has none eit
 stamp is visible in exactly two places, the SPA chrome and the image tag, and they are
 the same string.
 
-## FOUR images, not one — st0/pl8/k7 no longer share phare's shape
+## FOUR images, and why st0/pl8/k7 do not share phare's shape
 
 Each of `apps/st0/docker/Dockerfile`, `apps/pl8/docker/Dockerfile` and
 `apps/k7/docker/Dockerfile` builds its OWN image: one process, no nginx — the backend serves
@@ -18,15 +18,14 @@ its own built frontend directly (`express.static` + an SPA fallback, in each app
 alongside the backend. Traefik reaches each one directly by hostname
 (`docker/docker-compose.yml`) — st0 at the root domain, pl8 and k7 each on their own subdomain.
 
-`apps/z0/docker/Dockerfile` is the one exception, still shaped like phare's monolith: it
-serves six SPAs behind one nginx (`apps/z0/docker/nginx.conf`) reverse-proxying its own
-backend, because it hasn't moved off st0's own hostname — Traefik reaches it by a
-`PathPrefix(/z0)` rule layered on st0's domain, its own container. `apps/st0-desktop` and
-`engine/st0-engine` are in none of these four: they run on the musician's own machine, beside
-the audio interface.
+`apps/z0/docker/Dockerfile` is the one exception, shaped like phare's monolith: it serves six
+SPAs behind one nginx (`apps/z0/docker/nginx.conf`) reverse-proxying its own backend, and lives on
+st0's hostname — Traefik reaches it by a `PathPrefix(/z0)` rule layered on st0's domain, its own
+container. `engine/st0-engine`, `engine/st0-supervisor` and `engine/st0-tray` are in none of these
+four: they run on the musician's own machine, beside the audio interface.
 
-What splitting into four costs is now paid per-app instead of once: each image ships and
-restarts on its own, so a crash in one no longer recycles the other three — the opposite of
+What four images cost is paid per-app instead of once: each image ships and
+restarts on its own, so a crash in one does not recycle the other three — the opposite of
 phare's/z0's shared-lifecycle trade, and worth naming since it's the reason z0 alone still pays it.
 
 ## The chain
@@ -46,7 +45,7 @@ OneDev CommandStep (node -e, Europe/Paris)  →  ./build_version   e.g. "26.0803
 
 One stamp covers every SPA that renders one, because the four `BuildImageStep`s all get the
 SAME `@build_version@` from ONE `compute build version` step — they ship from one CI run, so
-even though they're four images now, they're not separately versioned in practice.
+so four images are not separately versioned in practice.
 
 `YY.MMDDHHmm` in Europe/Paris — `26.08031412` is 3 August 2026, 14:12. Sortable,
 readable at a glance, and short enough to sit in a header without crowding it. The
@@ -59,7 +58,7 @@ you deploy, the one you can `git show`, and the one you can read.
 ## Why `ENV` and not phare's `RUN VITE_APP_VERSION=… npm run build`
 
 **This is the one place studio deliberately does not copy phare**, and it still matters for
-`apps/z0/docker/Dockerfile` even though st0/pl8/k7 each build only one SPA now (a command-prefix
+`apps/z0/docker/Dockerfile`, which builds several SPAs (st0/pl8/k7 each build one, and a command-prefix
 `RUN` would be harmless for those three, but there's no reason to write the one image that
 still needs the safer form differently from the other three).
 
@@ -114,9 +113,8 @@ Both layers exist so the stamp can never render `undefined`.
 
 ## Where it shows
 
-Eight of the nine SPAs, across four images now instead of one — still all built from the SAME
-`@build_version@` (see "The chain" above), so the eight stamps still read as one string even
-though they no longer ship together. `VERSION` is read at module scope in each so it
+Eight of the nine SPAs, across four images — all built from the SAME `@build_version@` (see "The
+chain" above), so the eight stamps read as one string though the images ship apart. `VERSION` is read at module scope in each so it
 constant-folds into the bundle.
 
 | image | where it answers | SPA | render site |

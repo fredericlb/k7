@@ -6,7 +6,7 @@ Without one there is a single attempt per transition.
 ## The loop lives in the platter
 
 A deck's tracks carry `clips: []` — since the platter is a node
-([platter-node-plan.md](../../../docs/platter-node-plan.md)) there is no clip to loop. The one
+([platter-node-plan.md](../../../../docs/platter-node-plan.md)) there is no clip to loop. The one
 clip `clickBar` loops is the **metronome**'s ([metronome.md](metronome.md)).
 
 So the loop is **in the platter**, in C++: two parameters `LoopStart` / `LoopEnd`, as a fraction

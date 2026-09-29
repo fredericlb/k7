@@ -128,15 +128,15 @@ writing. It prints nothing, burns about a tenth of a core — all of it the slee
 `mix.wav` created at 0 bytes. A wav bounces in seconds and the same audio as mp3 never returns,
 which reads as a wedged machine rather than as one unsupported format. The real app never meets
 this: `UIBehaviour::runTaskWithProgressBar` runs the task beside a live message loop. The headless
-UIBehaviour is a no-op, which is why this loop is hand-pumped at all — and hand-pumping is what
-dropped the loop.
+UIBehaviour is a no-op, which is why this loop is hand-pumped at all — and a hand-pumped loop that
+stops pumping stalls.
 
 `renderTracks` therefore dispatches one message per block (`runDispatchLoopUntil(0)`, which takes
 whatever is queued and returns) and gives up after `kStallTimeoutSeconds` without progress rather
 than spinning. The cost is not measurable: 20 s of audio bounces in 3.9 s from a wav and 3.9 s from
-a flac, where the flac used to take forever.
+a flac.
 
-The old stack, for recognition — the wait is `juce::Thread::sleep(1)` inlined, not a device and not
+The stack of that stall, for recognition — the wait is `juce::Thread::sleep(1)` inlined, not a device and not
 an RPC:
 
     NtWaitForSingleObject
@@ -177,9 +177,9 @@ inputs" is simply what this track's plugins ARE.
 doc over. Those stay live on a frozen track, so baking them in would apply each of them twice.
 
 `--track` takes a track **id**, and the lane is found with `trackById` — the same doc-index map the
-live engine uses. It used to compare the id against `Track::getName()`, which `populateEdit` sets
-from the track's `name`: the two coincide only when a document omits the name, so freezing anything
-else answered "no track '<id>' in the project". The name is still tried as a fallback.
+live engine uses — never `Track::getName()`, which `populateEdit` sets from the track's `name`: the
+two coincide only when a document omits the name, so matching on it answers "no track '<id>' in
+the project" for anything else. The name is tried as a fallback.
 
 A track that renders silent is refused rather than written: a file of zeroes would then play in
 place of a track the user can still fix.
@@ -188,8 +188,8 @@ place of a track the user can still fix.
 
 Both paths call `drainMessageQueue()` after resetting the Edit. The bounce's own pump stops with the
 render loop, so every `asyncUpdate` an external plugin posts while being torn down is still queued
-when the Edit goes — roughly half of all freezes used to crash that way, *after* the wav was fully written
-and its path printed. A perfect file and a non-zero exit at the caller is the worst shape a bug can
+when the Edit goes, and without the drain about half of all freezes crash that way, *after* the wav
+is fully written and its path printed. A perfect file and a non-zero exit at the caller is the worst shape a bug can
 have, since `execFileSync` raises on the code and throws away an answer it already has. The general
 rule is in AGENTS.md ("A CLI must drain the message queue before it returns").
 

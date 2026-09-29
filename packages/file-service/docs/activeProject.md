@@ -4,25 +4,20 @@ A workspace is **one git repository**, made here or cloned, and it holds **sever
 The editor draws the whole of it; the *active* project is the one folder the engine is playing,
 and choosing it is a gesture on screen. An app is still opened by an address rather than through
 a picker (`packages/project-shell/docs/launch.md`), and that address may name the project — but
-it no longer decides alone, and it is no longer the only thing that can change it.
+it does not decide alone, and it is not the only thing that can change it.
 
 ## The tree is the clone's, not the project's
 
-`tree()` walks the **workspace root**. It used to walk the active project, and the reason it
-stopped is the reason it was worth writing down either way: what the tree shows is what you can
-choose from.
+`tree()` walks the **workspace root**, not the active project, because what the tree shows is what
+you can choose from. A real repository holds far more than the song you opened — other projects, a
+`_modules` library shared between them, mixdowns, an `orig/` full of `.dawproject` and `.als`
+sessions — and showing all of it invites you to open a file belonging to a project that is not the
+one playing. That is the point: a workspace is several songs, and the one the engine takes is
+picked from the tree, on the ▶ that `FileTree.tsx` draws on every project row — filled for the
+active one, hollow for the rest.
 
-The old rule's argument was that a real repository holds far more than the song you opened —
-other projects, a `_modules` library shared between them, mixdowns, an `orig/` full of
-`.dawproject` and `.als` sessions — and that showing all of it "invites you to open a file
-belonging to a project that is not the one playing". Every word of that is still true. What
-changed is that this is now the point: a workspace is several songs, and the one the engine
-takes is picked from the tree, on the ▶ that `FileTree.tsx` draws on every project row — filled
-for the active one, hollow for the rest.
-
-**Paths stay workspace-relative**, and always were; only the root of the walk moved. `/file`,
-`/rename`, `/move` and `/folder` take the same strings they always did, and nothing on either
-side of the wire had to change for this.
+**Paths are workspace-relative**: `/file`, `/rename`, `/move` and `/folder` take strings rooted at
+the workspace, the same root the walk starts from.
 
 What the wider tree costs, and how each is paid:
 
@@ -32,12 +27,12 @@ What the wider tree costs, and how each is paid:
   `inActiveProject()` is the predicate that stops it, and st0's editor gates its minimap item
   and its clip/sequence panel on it. Opening such a file gives you its TEXT, which is right: it
   is a file in this repository and you may read and edit it.
-- **The shared `_modules` library is now visible**, and ordinarily editable — a write there
+- **The shared `_modules` library is visible**, and ordinarily editable — a write there
   changes what every project in the workspace sees, which is the point of it being shared. What
   a project needs of it still arrives through `/module-catalogue`, `/module-ui` and `/hints`.
-- **A `.dawproject` outside a project folder is now on the tree**, and can therefore be clicked
-  to import. That is a gain rather than a cost: importing lands a new project at the workspace
-  root, which is exactly where the tree now looks.
+- **A `.dawproject` outside a project folder is on the tree**, and can therefore be clicked to
+  import. That is a gain rather than a cost: importing lands a new project at the workspace root,
+  which is exactly where the tree looks.
 
 `workspaceTree()` is kept as an alias of `tree()`: `/workspace-tree` asks it of a workspace the
 home page has not opened, which is a different question with the same answer.

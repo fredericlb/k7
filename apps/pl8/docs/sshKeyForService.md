@@ -1,16 +1,15 @@
-# The key a service asked for — a route that no longer exists
+# A service token that names a person
 
-`GET /api/projects/ssh-key/private?user=…` is gone, with the rest of pl8's knowledge of git.
+A SERVICE token has no person behind it: its subject is `service:<name>`, minted by
+`scripts/tokens.mjs` for a machine that calls this service headless. Data here is filed under a
+person's OIDC **subject** — a share, for one — so a service acting for somebody must NAME them, and
+it does so with `?user=<email>`. `routes/shares.ts`'s `owner()` is the one reader: a person's own
+token ignores `?user=`, and only a `service:` subject may use it.
 
-It existed for one delicate reason, worth keeping written down because the shape recurs: a machine
-holds a SERVICE's token, a service has no key, and the key was filed under a person's OIDC subject
-— so the route accepted a service token naming somebody, and pl8 held the `email → subject`
-directory linking the two spellings.
+The email a caller knows and the subject data is filed under are two spellings of one person, and
+`backend/src/projects/identities.ts` is the directory linking them. It is filled whenever a person
+reaches this service with a session (`rememberIdentity`), so a service can only act for somebody
+who has signed in here at least once — the safe direction for that to fail.
 
-**None of it is needed now.** The file service makes its own key
-(`packages/file-service/src/sshKeys.ts`) and it never leaves the machine, so there is no caller, no
-naming problem, and no private half in flight. `packages/git-repos/docs/keys.md` has what that
-changed.
-
-The directory itself survived — `apps/pl8/backend/src/projects/identities.ts` — because the shares
-need it. That is identity, and it never was git.
+The bargain to keep in mind: whoever holds a service token can act for any person this directory
+knows. That is why such a token is minted by hand, for a machine, and never by a route.

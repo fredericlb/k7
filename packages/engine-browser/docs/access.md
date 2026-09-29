@@ -1,18 +1,21 @@
 # `engineAccess` — one object for reaching an engine
 
 The pieces exist separately: `registry.ts` (the routes), `probe.ts` (measuring), `choose.ts`
-(the policy), `lease.ts` (the lease). `access.ts` binds them to the service's prefix, once.
+(the policy), `lease.ts` (the lease). `access.ts` binds them to the registry's address, once.
 
-## The prefix is given once, to the constructor
+## The registry's address is given once, to the constructor
 
-`base` — `""` for st0, `/pl8` — decides both the registry's routes and what the probe composes.
+`base` is where the registry answers — pl8's, the one registry (`packages/engine-registry/docs/shared.md`):
+`""` for pl8's own pages, pl8's origin (`serviceUrl(…, "pl8")`) for st0 and z0's editor, which keep
+their preferences on their own backend through `prefsBase`. It decides both the registry's routes
+and what the probe composes.
 Passed separately to two functions it is two places for one fact, and nothing would force an app
 to keep them in step. The one that drifts most quietly is the probe's, and it is what decides
 whether the **relay** is offered: a service can then list its engines correctly and reach none of
 them remotely, with no type noticing.
 
 ```ts
-export const engines = engineAccess<PublicEngine>(BASE, json);
+export const engines = engineAccess<PublicEngine, St0Prefs>(PL8, json, { prefsBase: BASE, hostedFiles: true });
 ```
 
 ## `find()` is the sequence, not the pieces
@@ -120,5 +123,5 @@ engine a document itself, which the server's files would name in paths the engin
   When nothing could be told (no `@local` project in the address, no engine answered)
   compatibility is left out and the order starts at 2.
 
-  The header's engine menu (st0's `EngineSwitch`) is still an explicit choice, and it still
-  saves the preference; the gate simply no longer reads it first.
+  The header's engine menu (st0's `EngineSwitch`) is an explicit choice, and it saves the
+  preference; the gate does not read that preference first.

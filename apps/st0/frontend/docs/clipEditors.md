@@ -230,8 +230,8 @@ one, beside the keys and the bar, and the only one a finger has; each button dis
 | `create` | draws a note | **lets the press through** to the lane, which draws |
 | `remove` | places the caret | `sequence note remove` |
 
-**`select` being the default reverses what this pane used to do**: a bare drag drew a note, and
-framing needed Shift. The roll now opens ready to READ. Shift still frames in every mode, because
+**`select` is the default**, so a bare drag frames rather than draws a note: the roll opens ready
+to READ. Shift still frames in every mode, because
 Shift is this app's one modifier for "grow the selection" and a hand arriving from the timeline is
 already right.
 
@@ -460,7 +460,7 @@ the field — is in `@studio/song-schema` `docs/noteEdits.md`, beside the writer
 
 ### The roll paints first too
 
-`sequence note` costs the same ~400 ms here as it does in the sequencer, and the roll now holds
+`sequence note` costs the same ~400 ms here as it does in the sequencer, and the roll holds
 its own ghost while the reload is out: `src/rollPending.ts`, keyed by `${key}@${start}` — the
 address every note verb takes — rather than by cell and precision, which is the sequencer's shape
 and not this one's. `settledEdits` is deliberately not generalised over the two.
@@ -682,9 +682,8 @@ pointer disagree about what a click would do.
 | `onsets` | a click adds a transient, a click on a pin removes it, dragging one moves it — `clip onset add` / `remove` / `move` |
 | `warp` | a double-click pins a stretch point, dragging it says where its beat lands, a right-click removes it — `clip warp` / `clip warp remove` |
 
-What was missing was never the modality — it was **a way in that was not the mouse**. The view sat
-in a `<select>` and nowhere else, which broke the shell's own rule that no control on screen is
-unreachable from the command bar (`shell.md`). It is now `ui wave <mode>`, the select DISPATCHES
+The modality has **a way in that is not the mouse**, by the shell's own rule that no control on
+screen is unreachable from the command bar (`shell.md`): it is `ui wave <mode>`, the select DISPATCHES
 that command instead of setting the state beside it, and `o` and `w` reach the two mark views while
 `a` — or Escape — comes back to `standard`.
 

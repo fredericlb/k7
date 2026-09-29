@@ -172,16 +172,16 @@ written.
 ### …and a run that reaches NO lane makes its own track
 
 A rig has nothing arranged: `IN -> fader -> OUT`, no lane anywhere. The engine assigns an input to
-a TRACK and to nothing else, so such a run used to hand its input nowhere and compile to silence,
-with the graph still drawing the cable — the worst version of being wrong.
+a TRACK and to nothing else, so such a run, left alone, would hand its input nowhere and compile to
+silence, with the graph still drawing the cable — the worst version of being wrong.
 
-It now MATERIALISES a track of its own, named after the chain, carrying the run's plugins. That is
+So it MATERIALISES a track of its own, named after the chain, carrying the run's plugins. That is
 the same thing a BUS already gets and for the same reason: the document names a run, and the
 engine's model needs a strip. `inputChains` in `nodeProject.ts` is the whole of it, and it is one
 arm added to `ownerOf` beside `busChains`.
 
-So `validate()` no longer demands a lane. What is left of that check is the part about a lane that
-IS named and is disabled or absent. See packages/song/docs/liveProject.md.
+So `validate()` does not demand a lane. What it checks is a lane that IS named and is disabled or
+absent. See packages/song/docs/liveProject.md.
 
 An input is therefore wired by the RUN it sits in, which is why `validate()` walks the chains
 rather than the modules for this. `channel` anywhere else is silently ignored, which looks like it

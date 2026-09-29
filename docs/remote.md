@@ -8,7 +8,7 @@ survive independently of each other, installed as Windows logon tasks by
 of them and runs under an orchestrator with a web UI, so "see what broke and restart it"
 is a button in a browser, not a terminal you no longer have.
 
-The way in is not one of them. `https://st0.priv.frediver.se` resolves to the
+The way in is not one of them. `https://priv.st0.app` resolves to the
 **LAN server**, which reverse-proxies to these ports; nothing this workstation starts
 terminates TLS, so the door stays open even when everything below has crashed — a local
 edge would be one more logon task able to take the door down with it.
@@ -76,7 +76,7 @@ owns the dev *session*.
 The UI cannot live under a path prefix (its SPA loads `/static/*` absolute and `tilt up`
 has no base-path flag), so it gets a **port** rather than a path, and `/dev-status`
 redirects there as the memorable name. That redirect points at
-`st0.priv.frediver.se:10351`, which answers nothing until the LAN proxy forwards that
+`priv.st0.app:10351`, which answers nothing until the LAN proxy forwards that
 port — locally the UI is `http://localhost:10350`. From a terminal,
 `tilt trigger <resource>` does what the button does.
 
@@ -150,7 +150,7 @@ decision rather than an oversight. To put VS Code's own auth back, drop
 
 ## Reaching it from another machine
 
-Nothing to do: `st0.priv.frediver.se` is a real name with a real certificate, so any
+Nothing to do: `priv.st0.app` is a real name with a real certificate, so any
 machine that can reach the LAN server just opens it. That is the whole reason a public
 name is used here rather than an internal CA behind a `.test` one — a private CA has to
 be installed on every machine, in Firefox's own certificate store as well as Windows',

@@ -57,7 +57,7 @@ end of a file, so the error never closes and the hard seek above would fire on e
 thrashing the decoder toward a frame that does not exist. Export skips a layer with no sample
 there for the same reason, and preview must agree with it.
 
-The fourth case is now **per ELEMENT rather than per lane**, and that is load-bearing rather than
+The fourth case is **per ELEMENT rather than per lane**, and that is load-bearing rather than
 tidy: a `fade_out` on a shot that runs to the end of its material is the commonest fade there is,
 and parking the whole lane for it would drop the lane's entire composite for the length of the
 fade. One element going quiet leaves the other's picture — and the blend says which slots carry

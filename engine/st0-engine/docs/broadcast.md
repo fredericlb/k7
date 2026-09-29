@@ -118,10 +118,10 @@ Deciding inside the lock and posting outside lets two connection threads queue i
 inverted order — a departing listener's `false` landing after an arriving one's `true`,
 silencing someone who is still there, with nothing to re-assert it.
 
-And both count **that session's** listeners, never the engine's total. The explicit
-`{"broadcast": false}` used to read `listeners.size()`, so the last ear on one session leaving
-while another session still had one computed `want = true` and the tap stayed on a project nobody
-was hearing — the exact fault the `Close` handler above was fixed for, reached by the other door.
+And both count **that session's** listeners, never the engine's total. Counting
+`listeners.size()`, the last ear on one session leaving while another session still has one would
+compute `want = true` and keep the tap on a project nobody is hearing — the fault the `Close`
+handler above guards against, reached by the other door.
 The `off` path also retires the socket's **own** subscription whatever session the message names,
 because the two can disagree and only the stored one cannot strand a tap.
 

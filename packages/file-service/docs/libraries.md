@@ -3,8 +3,8 @@
 An account has a LIST of libraries, each a git repository with a NAME: `st0`, `drums`. This service
 clones each one to `<studioHome>/libraries/<name>` and keeps it at its remote's latest commit, and
 `@<name>/<type>/<module>` resolves against that clone from every workspace of the account. No
-workspace holds a copy, and no workspace repository records one — they used to be submodules, and
-that is over (below). The layout and why nothing declares it is in
+workspace holds a copy, and no workspace repository records one (a workspace still carrying a
+`_libraries` folder is cleaned on open — below). The layout and why nothing declares it is in
 `packages/song/docs/sharedFolders.md`; what follows is how the clones are kept.
 
 ## The setting: `<studioHome>/libraries.json`
@@ -73,7 +73,7 @@ one checkout, and a Save must not commit while a fetch is fast-forwarding under 
 ## The routes
 
 `GET /account/libraries` answers the list, each with `cloned`. `PUT` sets the WHOLE list — `{ uri }`
-alone ADDS one, as the single-library card used to send. Answered before `resolveWorkspace`: the
+alone ADDS one. Answered before `resolveWorkspace`: the
 gate asks with no workspace chosen yet.
 
 **A library is validated by CLONING it.** `isSshGitUri` says the paste LOOKS like an SSH URI; only a
@@ -107,12 +107,11 @@ none records a version.
 - A push refused after a successful commit is REPORTED: the work is safe here, but "saved" and
   nothing else would be the lie, since everyone else still has the old module.
 
-## What workspaces held before: `retireWorkspaceLibraries`
+## A workspace carrying `_libraries`: `retireWorkspaceLibraries`
 
-Libraries used to be mounted INTO each workspace at `_libraries` — a git submodule where the
-workspace was a repository, a plain clone where it was not — with the version pinned by the
-gitlink. Nothing reads that folder any more, so `POST /open`, a workspace clone and the bench take
-it out:
+A workspace may hold libraries mounted INTO it at `_libraries` — a git submodule where the workspace
+is a repository, a plain clone where it is not — with the version pinned by the gitlink. Nothing
+reads that folder, so `POST /open`, a workspace clone and the bench take it out:
 
 - **A submodule** is removed with `git rm` (checkout and `.gitmodules` section together), its
   `.git/modules/_libraries` deleted, and ONE commit made, path-limited to `_libraries` and

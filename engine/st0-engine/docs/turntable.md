@@ -286,7 +286,7 @@ is emptied, so nothing loads `master.wav`. Two separated decks are therefore eig
 
 It is not, if you write it the obvious way. Decoding to float and packing down afterwards halves the
 bytes and makes the apply **worse** — 667 ms at eight platters, against 441 as float — because the
-float pass is still paid and a conversion is added on top. That was measured before this was.
+float pass is still paid and a conversion is added on top.
 
 The win comes from removing the float entirely. A record off the médiathèque is an INTEGER file, so
 `AudioFormatReader::read` into int is the reader's own format: no conversion, anywhere. JUCE
@@ -294,7 +294,7 @@ normalises such a read to the top of int32, so the sample is the top 16 bits and
 Read in blocks through a small scratch rather than into two full-length int32 vectors, and both
 columns fall.
 
-A FLOAT wav keeps the old path, and has to: it may sit above 1, so the peak must be known before
+A FLOAT wav is decoded as float, and has to be: it may sit above 1, so the peak must be known before
 anything is packed. It is scaled DOWN only, so a quiet record keeps its level, and the scale rides on
 the gain at playback — one multiply for both.
 
@@ -308,8 +308,8 @@ summing sits at −34 dB (`packages/st0-plugins/docs/turntables/stems.md`), nowh
 
 ### A separated deck is FOUR platters, and what that costs
 
-It used to stay on clips, decided on a number that was read wrong: 441 ms against 267 was an apply
-**cold, on an empty engine** — the page loading, once. The gesture that matters is putting a record
+The number to read is not the cold apply — 441 ms against 267 is an apply **on an empty engine**,
+the page loading, once. The gesture that matters is putting a record
 on a deck that already holds one, and `packages/st0-plugins/scripts/turntables/put-on.ts` measures exactly
 that, by timing the `applied` reply to the document `withDecks` produces:
 
@@ -337,35 +337,30 @@ the clips too, and it is why KEY is off by default.
 
 ## The desk drives it
 
-**Every deck plays through platters, and nothing plays off a clip any more.** A separated record is
+**Every deck plays through platters, and nothing plays off a clip.** A separated record is
 four of them rather than one, and `plattersOf(deck, load)` is what a gesture reaches: `place` seeks
 all four, `scratch` drives all four, and the needle is read off the first, they sharing a position by
-construction. There is one position model left, and one implementation of every gesture.
+construction. There is one position model, and one implementation of every gesture.
 
 The desk owns one rule the engine cannot: **a hand on the record turns `Key` off**, and lets go of it
 on release. `platterKey(tempo, holding)` is that rule, written once and read by the document as much
 as by the gesture — a document being what the deck does when nobody is touching it. It reaches the
 engine as a parameter and not as a re-send, twice per gesture rather than sixty times a second.
 
-### The pitch fader ran BACKWARDS on a platter
+### A rate is the inverse of a stretch
 
-`platterRate` returned `natural / target`, which is the STRETCH — what a clip's warp wants. A rate is
-its inverse. So a song of 120 asked to play at 140 was handed 0.86 and slowed down, on the desk's
-default path, with the fader moving the record the wrong way.
-
-The clip path was right throughout, which is what settled it: its warp laid 60 s of a 120 song asked
-for 60 across 120 s of timeline — half speed — so the rate at that setting is 0.5 and not 2. The test
-that covered this asserted 2, and its own comment said "half the tempo is half the speed".
-
-Both are now pinned, the value AND the direction: asking for more tempo must return more than 1.
+`platterRate` answers `target / natural`. `natural / target` is the STRETCH — what a clip's warp
+wants — and handed to a platter it plays a song of 120 asked for 140 at 0.86, slower, with the fader
+moving the record the wrong way. A song of 120 asked for 60 plays at 0.5: half the tempo is half the
+speed. The tests pin the value AND the direction: asking for more tempo must return more than 1.
 
 Three things follow from a deck carrying its own position, and they are all the same fact:
 
 - **Each deck starts alone.** `Rate` is per deck, so deck B rolls while deck A is stopped — the thing
   a single transport forbade. Only an EMPTY deck has no button: there is nothing to start.
 - **Any record can be scratched**, separated or not. `packages/st0-plugins/docs/turntables/scratch.md`.
-- **The transport is no longer a deck's clock**, and no longer anything's: `needle(deck)` is, and it
-  is the only position reader there is.
+- **The transport is not a deck's clock**, nor anything's: `needle(deck)` is, and it is the only
+  position reader there is.
 
 One wart worth knowing: a parameter is a LEVEL and carries no events, so asking twice for the same
 `Seek` — pressing cue 1 twice — would jump once. The desk alternates the value by a billionth of a
@@ -374,11 +369,9 @@ record, which is under one sample at any length.
 ## Where this stands
 
 The plugin, the wire, the loading, the diff identity, the desk driving it, the per-deck transport,
-the scratch, KEY and the separated record are done: **the clip path is gone**. What is not:
+the scratch, KEY and the separated record are done, and no deck plays off a clip. What is not:
 
-- **The metronome is still a clip on the transport**, which no deck follows any longer. It was
-  already so before any of this, and it is a separate question — `packages/st0-plugins/docs/turntables/metronome.md`.
-  Step 4 of `docs/platter-plan.md` deleted the dead clip code around it and left the click with its
-  SPACING and no phase, which is what it had already, said out loud.
+- **The metronome is a clip on the transport**, which no deck follows. It is a separate question —
+  `packages/st0-plugins/docs/turntables/metronome.md`: the click has its SPACING and no phase.
 - **Nothing has LISTENED.** Everything above says the audio is where and when it was asked for.
   Whether that feels like a record under a hand is a judgement no render makes.

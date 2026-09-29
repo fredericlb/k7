@@ -8,10 +8,9 @@ built-in around it, `studio_arpeggiator`, scanned as a `midiEffect` and therefor
 ## It is not a graph YET, and what is missing is one node
 
 `transformers/` modules are normally a description: `@studio/dsp` emits JSON, `MidiGraphPlugin`
-runs it, and adding a note transform costs no C++. This one is still compiled, and the reason is
-narrower than it once was.
+runs it, and adding a note transform costs no C++. This one is compiled, for one narrow reason.
 
-The MIDI phase now has a memory and a clock — `mhold` takes the held keys, `mstrike` plays them on
+The MIDI phase has a memory and a clock — `mhold` takes the held keys, `mstrike` plays them on
 a step, and `midiGraph.md` is where that vocabulary is argued. The note repeater is three lines of
 `@studio/dsp` on top of it. What an arpeggiator needs beyond that is the **walk**: it strikes ONE
 slot per step, chosen by a direction and a number of octaves, where `mstrike` takes the whole held

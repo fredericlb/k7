@@ -181,16 +181,14 @@ comes with the shape, and `project.yaml` gains the one size a rig has:
   viewport: [1280, 720, 30]
 ```
 
-### `video_tracks/` stopped being the question
+### A picture is not the same question as `video_tracks/`
 
-`isVideoProject(dir)` — does the folder have `video_tracks/` — was the file service's gate on
-compiling a picture at all. A `live-video` project has none, so its viewport would have drawn
-**nothing**, with no error to explain it.
-
-The gate is now `hasPicture(dir)`: *lanes of it, or a lens that needs none*. `isVideoProject` keeps
-its old meaning and its old job — deciding whether a project is an arrangement owing a timeline,
-and whether missing a viewport is worth a warning. Two questions that used to share one answer, and
-the camera is what pulled them apart.
+The file service's gate on compiling a picture is `hasPicture(dir)`: *lanes of it, or a lens that
+needs none*. `isVideoProject(dir)` — does the folder have `video_tracks/` — cannot be that gate: a
+`live-video` project has no lanes, so its viewport would draw **nothing**, with no error to explain
+it. `isVideoProject` answers the other question — whether a project is an arrangement owing a
+timeline, and whether missing a viewport is worth a warning. The camera is what makes the two
+answers differ.
 
 ## Making one
 

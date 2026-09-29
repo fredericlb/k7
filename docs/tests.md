@@ -42,7 +42,7 @@ done
 
 ## The C++ suite: two tiers, and a skip that says so
 
-`engine/st0-engine` now has `"test": "node scripts/run-tests.mjs"`, so
+`engine/st0-engine` has `"test": "node scripts/run-tests.mjs"`, so
 `npm run test --workspaces --if-present` compiles and runs it like any other workspace. Three
 things that script does, each because the obvious version is wrong:
 
@@ -162,8 +162,8 @@ list is load-bearing for packages that never read it.
 
 ## The root config excludes two trees, for one reason
 
-Running `vitest run` from the repository root is the obvious thing to do, and it used to walk
-into other people's code:
+Running `vitest run` from the repository root is the obvious thing to do, and without a guard it
+walks into other people's code:
 
 - `engine/st0-engine/build/**` — CMake vendors Tracktion and JUCE there, and JUCE ships React demo
   apps whose `App.test.js` get collected as ours;
@@ -176,12 +176,12 @@ would be a worse problem than either.
 ## What this page does not claim
 
 That the suite is fast, or that 30 s is the right number forever. If a test file starts *needing*
-thirty seconds, the fix is that test, not this ceiling. The claim is narrower: the suite now runs
+thirty seconds, the fix is that test, not this ceiling. The claim is narrower: the suite runs
 everything it has, and it fails only when something is actually broken.
 
 ## `$STUDIO_HOME` and the pool
 
-`apps/st0-desktop` has a vitest config of its own, setting `pool: "forks"`. The reason is
+`packages/file-service` has a vitest config of its own, setting `pool: "forks"`. The reason is
 worth knowing before you copy the default anywhere else that redirects `<state>`.
 
 The default pool runs test FILES concurrently in one process, and `process.env` is shared
