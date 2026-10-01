@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { trackMixer } from "./project";
+import { SHARED_STRIP } from "./scaffoldLive";
 import { librariesFixture } from "./testSupport";
 import {
   addTrackMixer,
@@ -131,10 +132,10 @@ describe("addTrackMixer", () => {
       "# the graph\nmodules:\n  pad: [ synth-pad ]\n  synth-pad: [ MIX ]\n  MIX: [ OUT ]\n",
     );
     const files = addTrackMixer(dir, "pad", loadGraph(dir));
-    // A NODE on the library's mixer, not a project copy of it (docs/trackMixer.md).
+    // A NODE on st0's own mixer, not a project copy of it (docs/trackMixer.md, docs/metaModules.md).
     expect(files).toEqual(["nodes/mix-pad.yaml", "graph.yaml"]);
     expect(readFileSync(join(dir, "nodes/mix-pad.yaml"), "utf8")).toContain(
-      'extends: "@st0/audio/utility/mixer"',
+      `extends: "${SHARED_STRIP}"`,
     );
     // The splice, not an append: the synth now feeds the strip and the strip feeds the sum.
     expect(graphText()).toContain("synth-pad: [ mix-pad ]");

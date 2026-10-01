@@ -129,9 +129,9 @@ describe("import: every lane ends on a fader", () => {
     // A NODE on the LIBRARY's strip — its own instance per lane, and no project module: a copy of
     // a library module draws a card with no controls (packages/song/docs/liveProject.md).
     expect(read("nodes/mix-vox.yaml")).toContain(
-      'extends: "@st0/audio/utility/mixer"',
+      'extends: "@meta/audio/mixer"',
     );
-    expect(read("nodes/mix-drums.yaml")).toContain("@st0/audio/utility/mixer");
+    expect(read("nodes/mix-drums.yaml")).toContain("@meta/audio/mixer");
     expect(existsWs("audio/mix-vox")).toBe(false);
   });
 

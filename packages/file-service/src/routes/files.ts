@@ -373,6 +373,20 @@ filesRouter.post(
   }),
 );
 
+// Move a LIBRARY module to another folder of its library; its refs follow it (packages/song/docs/moduleMove.md).
+filesRouter.post(
+  "/library/move",
+  validate(moveBody),
+  wrap(async (req, res) => {
+    const { path, toDir } = req.body as z.infer<typeof moveBody>;
+    try {
+      res.json(await req.ws!.moveLibraryModule(path, toDir));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
 // Delete by recycling — reversible, returning the recycled path; 400 on a bad path or a protected entry.
 const deleteEntryBody = z.object({ path: z.string().min(1) });
 filesRouter.post(

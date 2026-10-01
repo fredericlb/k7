@@ -20,7 +20,7 @@ below says why that is the placement worth having.
 
 ```yaml
 # nodes/rec.yaml — one USE of the shared module, as any node is
-extends: "@st0/audio/utility/recorder"
+extends: "@meta/audio/recorder"
 ```
 
 It is an ordinary module with an engine built-in behind it (`plugin: {type: internal, name:
@@ -163,9 +163,9 @@ document, in the graph, drawn on screen, and refuses to record.
 
 ## Getting one
 
-The module lives in the account's library repository and nowhere else — nothing seeds one
-([sharedFolders.md](sharedFolders.md)). Author it under `modules/audio/utility/recorder/`, as the
-turntable assembly is, and a project names it `@st0/audio/utility/recorder`.
+The module ships with st0, in `packages/song/meta/audio/recorder/`, and a project names it
+`@meta/audio/recorder` ([metaModules.md](metaModules.md)): a live rig is built on it, so no
+library is allowed to be the thing that provides it.
 
 Its `ui.yaml` comes with it, and that matters: a module with no face draws a card with nothing on
 it, which is how the mixer's missing `ui.yaml` was found.

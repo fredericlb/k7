@@ -126,6 +126,19 @@ describe("running as an engine", () => {
     expect(m.params).toEqual({ Intensty: 0.8 });
   });
 
+  it("loads the FILE a node sets for its engine, not the engine's default one", () => {
+    const ir = join(lib, "irs", "room.wav");
+    mkdirSync(join(lib, "irs"), { recursive: true });
+    writeFileSync(ir, "", "utf8");
+    writeNode(dir, "vox", {
+      extends: COMP,
+      engines: { tracktion: { params: { ir: "@st0/room.wav" } } },
+    });
+    const m = resolved("vox");
+    expect(m.ir).toBe(ir);
+    expect(m.assets).toMatchObject({ ir: "@st0/room.wav" });
+  });
+
   it("falls back to the default for an engine the module has not got", () => {
     writeNode(dir, "vox", { extends: COMP, engine: "nope" });
     expect(resolved("vox").engine).toBe("tracktion");

@@ -1,6 +1,6 @@
 # The RECORD's platter — the node that reads the file and stretches it. One reader per file, which
 # is why a separated record needs five of them. See docs/platter-node-plan.md.
-extends: "@st0/audio/io/turntable"
+extends: "@meta/audio/turntable"
 params:
   # Signed, and 0 is STOPPED: the desk writes this every frame a hand is on the disc.
   Rate: 0

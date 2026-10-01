@@ -219,8 +219,8 @@ gutter fader, the card and the Mixer view are three drawings of it
 level.
 
 So each emitted lane gets `nodes/mix-<lane>.yaml`, a last step naming it, and nothing else: the node
-extends **`@st0/audio/utility/mixer`** — `SHARED_STRIP`, the library module every mixer node in
-every project is a use of.
+extends **`@meta/audio/mixer`** — `SHARED_STRIP`, st0's own module that every mixer node in every
+project is a use of (`packages/song/docs/metaModules.md`).
 
 **No project module is written for it**, and that is the point rather than a saving. A project-owned
 copy of a library module compiles to the same audio and draws **a card with no controls on it**: a

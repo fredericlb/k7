@@ -179,9 +179,8 @@ describe("the graph it writes", () => {
     // A library repository is attached rather than seeded, and an unresolved `@st0/…` ref does
     // not warn — it refuses the whole project. `neededRefs` reads the ref off the scaffolded
     // text, which is how the new-project screen owes it before anything is written.
-    expect(neededRefs(liveProjectFiles("rig")).sort()).toEqual(
-      [SHARED_STRIP, LIVE_RECORDER_REF].sort(),
-    );
+    // The strip and the recorder are st0's own `@meta` modules, so a rig owes a library nothing (docs/metaModules.md).
+    expect(neededRefs(liveProjectFiles("rig"))).toEqual([]);
   });
 });
 

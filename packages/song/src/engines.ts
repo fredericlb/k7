@@ -12,7 +12,13 @@ import {
   engineNames,
   engineParams,
 } from "@studio/song-schema/engines";
+import {
+  FILE_PARAMS,
+  isLibraryFileParam,
+  LIBRARY_FILE_PARAMS,
+} from "@studio/song-schema/moduleTypes";
 import { parse as parseYaml } from "yaml";
+import { libraryFile, resolveFileParamIn } from "./libraryFiles";
 import type { LoadedModule } from "./rawDoc";
 import { moduleFileFor } from "./yaml/moduleIO";
 
@@ -99,11 +105,42 @@ export function asEngine<T extends LoadedModule>(
   const own: Record<string, unknown> = {};
   const src = m as unknown as Record<string, unknown>;
   for (const k of KEPT) if (src[k] !== undefined) own[k] = src[k];
+  const set = engineParams(m, name) ?? {};
   return {
     ...face,
     ...own,
     engine: name,
     // The engine's defaults, then what this module or node set for THAT engine — never its top-level params.
-    params: { ...(face.params ?? {}), ...(engineParams(m, name) ?? {}) },
+    params: { ...(face.params ?? {}), ...set },
+    // …and a FILE it set there is the file the engine loads, not the engine's default one.
+    ...withFiles(face, engineFiles(set, [face.folderAbs, m.folderAbs])),
   } as T;
+}
+
+/** The resolved files over the engine's, their authored names MERGED into its own rather than replacing them. */
+const withFiles = (
+  face: LoadedModule,
+  files: Partial<LoadedModule>,
+): Partial<LoadedModule> =>
+  files.assets
+    ? { ...files, assets: { ...(face.assets ?? {}), ...files.assets } }
+    : files;
+
+/** The files a set of engine params names, resolved the way the loader resolves a module's own (loader.ts resolveAssets). */
+function engineFiles(
+  set: Record<string, number | string>,
+  folders: (string | undefined)[],
+): Partial<LoadedModule> {
+  const out: Record<string, string | undefined> = {};
+  const assets: Record<string, string> = {};
+  for (const [k, v] of Object.entries(set)) {
+    if (typeof v !== "string" || !v) continue;
+    if ((FILE_PARAMS as readonly string[]).includes(k))
+      out[k] = resolveFileParamIn(k, v, folders);
+    else if (isLibraryFileParam(k))
+      out[k] = libraryFile(LIBRARY_FILE_PARAMS[k], v);
+    else continue;
+    assets[k] = v;
+  }
+  return Object.keys(assets).length ? { ...out, assets } : {};
 }

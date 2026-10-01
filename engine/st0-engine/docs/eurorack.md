@@ -115,6 +115,15 @@ in a queue and leave one per 10.5 ms: a chord is strummed rather than collapsed 
 **Its setters re-initialise every resonator** (`set_polyphony` sets `dirty_` unconditionally), so
 they are called on change only. Called per block, nothing rings for more than 20 ms.
 
+**mu-rings and mu-elements take audio from two places.** They are instruments, played from notes,
+and their library modules declare a MIDI input plus an optional audio one, `in`
+(`packages/song/docs/ports.md`). What is wired into `in` arrives as the sidechain pair, the way a
+carrier reaches mu-warps; the lane's own audio arrives as the main pair, as it always did. Each pair
+is averaged to mono and the two are SUMMED into the module's one exciter input, since a lane holding
+audio and a cable are two things to excite the same strings with, not a choice between them. With
+the exciter set to input only, mu-rings is silent unwired (-200 dB) and rings at -25 dB with noise
+bursts wired in, its source lane muted (`docs/sidechain.md`: a muted source still feeds).
+
 **mu-elements** is monophonic like the module: last note wins, a new note over a held one
 drops the gate for one block so the exciter re-strikes, and releasing it falls back to the
 previous held key without one. The firmware seeds its noise from the chip's unique id; a fixed
@@ -154,9 +163,5 @@ Open:
 
 - **Only the macOS build is verified.** The firmware was written for an embedded GCC. MSVC and the
   Android NDK have not compiled it yet.
-- **mu-rings and mu-elements are filed as instruments**, so st0 gives them a MIDI input and
-  no audio input port. The engine hands them the track's audio either way: that is how the renders
-  above excited them with noise bursts. Whether a chain can wire audio INTO one is st0's port model
-  to decide (`packages/song-schema/src/moduleTypes.ts`).
 - **CPU.** Not measured per module. Voices are skipped when idle for mu-plaits, and when
   their envelope is done for the other polyphonic cores.

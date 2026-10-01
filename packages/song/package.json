@@ -15,6 +15,7 @@
     "./moduleFork": "./src/moduleFork.ts",
     "./engines": "./src/engines.ts",
     "./console": "./src/console.ts",
+    "./moduleMove": "./src/moduleMove.ts",
     "./uiLibrary": "./src/uiLibrary.ts",
     "./uiMigrate": "./src/uiMigrate.ts",
     "./chainsMigrate": "./src/chainsMigrate.ts",

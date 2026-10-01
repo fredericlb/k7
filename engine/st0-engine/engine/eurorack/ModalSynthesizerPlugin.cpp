@@ -8,7 +8,7 @@ namespace studio::eurorack {
 const char* ModalSynthesizerPlugin::xmlTypeName = "studio_modal_synthesizer";
 
 ModalSynthesizerPlugin::ModalSynthesizerPlugin(tracktion::engine::PluginCreationInfo info)
-    : EurorackPlugin(std::move(info), {ElementsCore::RATE, ElementsCore::BLOCK, 2, true})
+    : EurorackPlugin(std::move(info), {ElementsCore::RATE, ElementsCore::BLOCK, 4, true})
 {
     juce::StringArray models;
     for (int m = 0; m < ElementsCore::MODELS; ++m) models.add(ElementsCore::modelName(m));
@@ -62,7 +62,9 @@ void ModalSynthesizerPlugin::handleMidi(const juce::MidiMessage& m)
 
 void ModalSynthesizerPlugin::renderBlock(const float* const* in, float* const* out)
 {
-    for (int i = 0; i < ElementsCore::BLOCK; ++i) mono_[i] = 0.5f * (in[0][i] + in[1][i]);
+    // The lane's own audio plus a cable into `in`, each pair averaged — the same exciter input as mu-rings.
+    for (int i = 0; i < ElementsCore::BLOCK; ++i)
+        mono_[i] = 0.5f * (in[0][i] + in[1][i]) + 0.5f * (in[2][i] + in[3][i]);
     core_.render(mono_, out[0], out[1]);
 }
 

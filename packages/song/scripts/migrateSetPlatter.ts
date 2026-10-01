@@ -9,8 +9,8 @@
 // THIS ONE IS NOT OPTIONAL. The desk no longer invents the plugin; it patches the record onto one
 // the compiler emitted. A set left un-migrated has nothing to patch, and plays silence.
 //
-// It needs `@st0/audio/io/turntable` in the account's library — publish it first, or every node
-// written here resolves to nothing and the project refuses to compile.
+// The nodes it writes name `@meta/audio/turntable`, which ships with st0 (docs/metaModules.md):
+// no library has to hold it first.
 //
 // Idempotent, dry by default, and through the yaml Document API so comments and key order come back
 // byte-identical.
@@ -158,7 +158,5 @@ for (const dir of roots) {
 }
 
 console.log(
-  `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}. ` +
-    "Publish `@st0/audio/io/turntable` into the account's library first, or the project will not " +
-    "compile — see docs/platter-node-plan.md.",
+  `${changed}/${seen} set(s) ${write ? "migrated" : "would change"}.`,
 );

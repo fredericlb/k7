@@ -163,6 +163,15 @@ A rename changes a module's REF: every chain that names the old one stops findin
 every project using the library. Nothing rewrites those chains; the rename is the author's call,
 made knowing that.
 
+## Moving a module — drag it
+
+A **module** row drags onto another folder of its own library and type: the type folder, or one
+category below it. Only module rows drag; a folder, a chain and anything at the `@workspace` or
+`@engine` level do not. Unlike a rename, a move **takes its refs with it**: every `extends:` naming
+the old ref, in the library and in this workspace's projects, is repointed, then the library is
+published. What the move cannot reach is any other workspace. The rules and the reasons are in
+`packages/song/docs/moduleMove.md`.
+
 ## Editable at once — Save is the decision
 
 Every module opens in the builder **editable**, a library's as readily as `@workspace`'s: no lock,

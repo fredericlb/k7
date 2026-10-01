@@ -66,8 +66,8 @@ import {
 import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
 import { docModules } from "./docModule";
-import { engineFoldersOf } from "./engines";
 import { engineModules, engineRef, ioModules } from "./engineCatalogue";
+import { engineFoldersOf } from "./engines";
 import { libraryFile, resolveFileParamIn } from "./libraryFiles";
 import { cachedForModules, withModuleStamp } from "./moduleCache";
 import {
@@ -83,6 +83,7 @@ import type {
   RawVideoTrack,
 } from "./rawDoc";
 import {
+  META_MODULES_ROOT,
   moduleLibraryDirs,
   moduleNamespaceOf,
   SHARED_MODULES_PATH,
@@ -803,7 +804,8 @@ function readModuleRefs(
   };
 
   // The shared roots, found by LOCATION rather than declared, so a missing folder is simply not a root (docs/sharedFolders.md).
-  for (const root of moduleLibraryDirs(dir)) {
+  // …and st0's own `@meta` modules last, which no library can shadow since none may be named `meta`.
+  for (const root of [...moduleLibraryDirs(dir), META_MODULES_ROOT]) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
     const ns = moduleNamespaceOf(root);
     readModuleTree(

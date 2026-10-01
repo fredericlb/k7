@@ -143,6 +143,7 @@ export function FileTree({
   onCreateModule,
   onRenameLibraryEntry,
   onDeleteLibraryEntry,
+  onMoveLibraryModule,
   ref,
 }: {
   tree: FileNode[];
@@ -186,6 +187,8 @@ export function FileTree({
   /** Rename or delete an entry of a LIBRARY — the host publishes that library after, as a Save does. */
   onRenameLibraryEntry?: (path: string, name: string) => void;
   onDeleteLibraryEntry?: (path: string, isDir: boolean) => void;
+  /** A module dragged onto another folder of its library; the host moves it, repoints its refs and publishes. */
+  onMoveLibraryModule?: (path: string, toDir: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
   // Which of the two trees is on screen — client-only and not URL state, being disclosure and nothing else.
@@ -585,7 +588,14 @@ export function FileTree({
             reveal={lib.tree[0]?.path ?? null}
             // A read-only level's rows are greyed: they name a plugin the engine reports, with no file behind them to open.
             isDisabled={(n) => isBinary(n) || frozen.has(n.path)}
-            // A file dropped on a library's `samples/`, `irs/` or `models/` is UPLOADED there — the one drop this tab takes.
+            // A MODULE row drags onto another folder of its library: a move, its refs following it (packages/song/docs/moduleMove.md).
+            onMove={onMoveLibraryModule}
+            canMove={(n) =>
+              lib.modules.has(n.path) &&
+              !!libraryOfPath(n.path) &&
+              !frozen.has(n.path)
+            }
+            // A file dropped on a library's `samples/`, `irs/` or `models/` is UPLOADED there.
             acceptsFileDrop={dragHasFiles}
             onDropTree={(dir, files) => {
               const family = fileFolderOf(dir);

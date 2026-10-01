@@ -35,8 +35,8 @@ there next time.
 
 ## What it needs, and what it draws
 
-The **library** — the fader is a use of `@st0/audio/utility/mixer`, and every module the rig can
-name is in that repository. So st0's home page draws the bench card under the libraries one and
+The **library** — every module the rig can name is in that repository, except the fader: it is a
+use of `@meta/audio/mixer`, which ships with st0 (`packages/song/docs/metaModules.md`). So st0's home page draws the bench card under the libraries one and
 does not draw it at all before there is a library
 ([apps/st0/frontend/docs/projects.md](../../st0/frontend/docs/projects.md)). An empty library gives
 a fader that resolves to nothing, exactly as it would in any other `live` project.

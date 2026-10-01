@@ -82,6 +82,7 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
+import { planModuleMove, repointRefs } from "@studio/song/moduleMove";
 import {
   compileWithAutoFreezes,
   isFrozenClipId,
@@ -1670,6 +1671,39 @@ export class Workspace {
     await renameWithRetry(abs, destAbs);
     this.invalidateProjectDoc();
     return { path: this.toRel(destAbs) };
+  }
+
+  /** Move a LIBRARY module to another folder of its library, repointing every ref to it here — song docs/moduleMove.md. */
+  async moveLibraryModule(
+    rel: string,
+    toDir: string,
+  ): Promise<{ path: string; from: string; to: string; repointed: string[] }> {
+    const abs = this.safePath(rel);
+    const destDir = this.safePath(toDir);
+    const library = libraryOf(abs);
+    if (!library)
+      throw new Error(`${rel} is not in one of the account's libraries`);
+    if (libraryOf(destDir)?.name !== library.name)
+      throw new Error(
+        `a module stays in its library — this one is ${library.name}'s`,
+      );
+    this.guardMutable(abs, "move");
+    const plan = planModuleMove(library, abs, destDir);
+    this.cancelPrewarm();
+    await renameWithRetry(abs, plan.dest);
+    // The library itself first — its chains, assemblies and modules — then every song of this workspace.
+    const repointed = repointRefs(
+      [library.root, this.root],
+      plan.from,
+      plan.to,
+    );
+    this.invalidateProjectDoc();
+    return {
+      path: this.toRel(plan.dest),
+      from: plan.from,
+      to: plan.to,
+      repointed: repointed.map((f) => this.toRel(f)),
+    };
   }
 
   // Delete by moving into the recycle bin — reversible and hidden, like deleteProject.

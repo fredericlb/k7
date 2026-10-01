@@ -2,14 +2,14 @@
 //
 //   npx tsx packages/song/scripts/migrateToEngines.ts <map.json> <dir> [more dirs…] [--write]
 //
-// map.json is `{ "<old ref>": { "ref": "<module ref>", "engine": "<name>" } }`. Each file whose
-// `extends:` is an old ref gets the new ref and `engine:`, and its params — its own and every
-// alternative's — move under `engines.<name>.params`, since a module with engines reads no other
+// map.json is `{ "<old ref>": { "ref": "<module ref>", "engine": "<name>" } }`. A file, or an
+// alternative naming its own module, whose `extends:` is an old ref gets the new ref and `engine:`,
+// and its params move under `engines.<name>.params` — a module with engines reads no other
 // (packages/song/docs/engines.md). Through the yaml Document API, so comments survive. Dry by default.
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { isMap, isSeq, type Document, Pair, parseDocument, Scalar } from "yaml";
+import { type Document, isMap, isSeq, Pair, parseDocument, Scalar } from "yaml";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
@@ -67,45 +67,72 @@ function moveParams(
   return true;
 }
 
+/** Repoint the map at `at` (the file, or one alternative) if its `extends:` is an old ref; what it was, or null. */
+function repoint(doc: Document, at: (string | number)[]): string | null {
+  const node = at.length ? doc.getIn(at) : doc.contents;
+  if (!isMap(node)) return null;
+  const old = node.get("extends");
+  const to = typeof old === "string" ? MAP[old] : undefined;
+  if (!to) return null;
+  node.set("extends", to.ref);
+  // `engine:` right after `extends:`, which is where a reader looks for what the node runs.
+  const items = node.items;
+  const existing = items.findIndex(
+    (p) => (p.key as Scalar)?.value === "engine",
+  );
+  if (existing >= 0) items.splice(existing, 1);
+  const ext = items.findIndex((p) => (p.key as Scalar)?.value === "extends");
+  items.splice(
+    ext + 1,
+    0,
+    new Pair(new Scalar("engine"), new Scalar(to.engine)),
+  );
+  moveParams(doc, at, to.engine);
+  return old as string;
+}
+
+/** Does alternative `i` name its OWN module? Then its params are that module's, not this one's. */
+function swapsModule(doc: Document, i: number): boolean {
+  const alt = doc.getIn(["alternatives", i]);
+  return isMap(alt) && alt.has("extends");
+}
+
 let changed = 0;
 for (const root of roots)
   for (const file of yamlFiles(root)) {
     const text = readFileSync(file, "utf8");
     const doc = parseDocument(text, { version: "1.2" });
-    const old = doc.get("extends");
-    const to = typeof old === "string" ? MAP[old] : undefined;
-    if (!to || !isMap(doc.contents)) continue;
-
-    doc.set("extends", to.ref);
-    // `engine:` right after `extends:`, which is where a reader looks for what the node runs.
-    const items = doc.contents.items;
-    const at = items.findIndex((p) => (p.key as Scalar)?.value === "extends");
-    const existing = items.findIndex(
-      (p) => (p.key as Scalar)?.value === "engine",
-    );
-    if (existing >= 0) items.splice(existing, 1);
-    items.splice(
-      at + 1,
-      0,
-      new Pair(new Scalar("engine"), new Scalar(to.engine)),
-    );
-
-    const moved = [moveParams(doc, [], to.engine)];
+    const done: string[] = [];
+    const own = repoint(doc, []);
+    if (own) {
+      done.push(`${own} → ${MAP[own].ref} [${MAP[own].engine}]`);
+      // A file repointed whole: its alternatives' params belong to the same engine.
+      const alts = doc.get("alternatives");
+      if (isSeq(alts))
+        alts.items.forEach((_, i) => {
+          if (!swapsModule(doc, i))
+            moveParams(doc, ["alternatives", i], MAP[own].engine);
+        });
+    }
+    // …and an alternative naming ANOTHER module is repointed on its own (packages/song/docs/alternatives.md).
     const alts = doc.get("alternatives");
     if (isSeq(alts))
       alts.items.forEach((_, i) => {
-        moved.push(moveParams(doc, ["alternatives", i], to.engine));
+        const was = repoint(doc, ["alternatives", i]);
+        if (was)
+          done.push(
+            `alternative ${i + 2}: ${was} → ${MAP[was].ref} [${MAP[was].engine}]`,
+          );
       });
+    if (!done.length) continue;
 
+    let out = doc.toString({ lineWidth: 0 });
     // The scaffold's header names the module in a comment; it should name the one now used.
-    const out = doc
-      .toString({ lineWidth: 0 })
-      .split(`"${old}"`)
-      .join(`"${to.ref}"`);
+    for (const [old, to] of Object.entries(MAP))
+      out = out.split(`"${old}"`).join(`"${to.ref}"`);
     changed++;
     console.log(
-      `${write ? "wrote" : "would write"} ${file}: ${old} → ${to.ref} [${to.engine}]` +
-        (moved.some(Boolean) ? ", params moved under the engine" : ""),
+      `${write ? "wrote" : "would write"} ${file}: ${done.join("; ")}`,
     );
     if (write) writeFileSync(file, out, "utf8");
   }

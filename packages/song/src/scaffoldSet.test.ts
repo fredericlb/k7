@@ -82,11 +82,7 @@ beforeEach(() => {
     "audio/time/echo",
     "plugin: { type: jsdsp, name: Echo }\nparams:\n  Time: 375\n  Feedback: 0.45\n",
   );
-  // The SOURCE: one platter per lane that plays a file — docs/platter-node-plan.md.
-  library(
-    "audio/io/turntable",
-    "plugin:\n  type: internal\n  name: studio_turntable\nparams:\n  Rate: 0\n  Seek: 0\n  Gain: 1\n  Key: 0\n",
-  );
+  // No platter here: it is st0's own `@meta/audio/turntable`, which every test resolves (docs/metaModules.md).
   library("audio/eq/eq", "label: EQ\nengine: parametric\n");
   library(
     "audio/eq/eq/engines/parametric",
@@ -261,14 +257,12 @@ describe("a scaffolded set", () => {
     expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
   });
 
-  it("asks the médiathèque for exactly those eight modules", () => {
+  it("asks the médiathèque for exactly those seven modules, the platter being st0's own", () => {
     scaffoldSet(dir, "winter");
     // One of each and not one per use: fetching a module once per node would be a bug.
     expect(mediatekRefs(dir)).toEqual([
       "@st0/audio/eq/eq",
       "@st0/audio/filter/multimode",
-      // The SOURCE, under `io/` because it reads a file — docs/platter-node-plan.md.
-      "@st0/audio/io/turntable",
       // Under `time/`, for the same reason the EQ is under `eq/`: a delay is not a utility.
       "@st0/audio/time/echo",
       "@st0/audio/utility/fade",

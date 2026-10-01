@@ -1,0 +1,17 @@
+# recorder — its take, growing, and the three buttons that record, clear and save it
+#
+# The waveform is most of the card, because it is the only thing that tells you the take is
+# actually being made: a record light says the engine THINKS it is recording, and a growing
+# envelope says samples are arriving. `source: take` is the take's own picture — the whole of it,
+# growing — and not the live rolling window `input`/`output` draw.
+#
+# The three controls are intrinsics that FIRE rather than set, the rack pad's family
+# (packages/ui-chains-react/docs/widgets.md). They carry no `bind` to a param because there is no
+# param: a recorder has no knob.
+cols: 4
+rows: 4
+widgets:
+  wave: { type: waveform, col: 0, row: 0, colSpan: 4, rowSpan: 3, source: take }
+  rec: { type: button, col: 0, row: 3, label: ●, bind: "@rec:record" }
+  clear: { type: button, col: 2, row: 3, label: clear, bind: "@rec:clear" }
+  save: { type: button, col: 3, row: 3, label: save, bind: "@rec:save" }

@@ -119,6 +119,13 @@ export const projectApi = {
     fsend<{ path: string }>("POST", "/rename", { path, name }),
   moveFile: (path: string, toDir: string) =>
     fsend<{ path: string }>("POST", "/move", { path, toDir }),
+  /** Move a library module to another folder of its library, its refs repointed — packages/song/docs/moduleMove.md. */
+  moveLibraryModule: (path: string, toDir: string) =>
+    fsend<{ path: string; from: string; to: string; repointed: string[] }>(
+      "POST",
+      "/library/move",
+      { path, toDir },
+    ),
   // Recycled, not erased — reversible, but no longer listed or startable.
   deleteFile: (path: string) =>
     fsend<{ recycled: string }>("POST", "/entry/delete", { path }),

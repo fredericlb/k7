@@ -838,6 +838,33 @@ export function EditorTab({
     [publishLibraryOf, setStatus],
   );
 
+  // A module dragged to another folder of its library: moved, its refs repointed here, and the library published.
+  const moveLibraryModule = useCallback(
+    async (path: string, toDir: string) => {
+      try {
+        const { from, to, repointed } = await api.moveLibraryModule(
+          path,
+          toDir,
+        );
+        await publishLibraryOf(path, `move ${from} to ${to}`);
+        await refresh();
+        onChanged();
+        setStatus(
+          `moved ${from} → ${to}` +
+            (repointed.length
+              ? `, ${repointed.length} file(s) repointed`
+              : ", nothing named it"),
+        );
+      } catch (e) {
+        showToast({
+          message: `move failed: ${(e as Error).message}`,
+          variant: "error",
+        });
+      }
+    },
+    [publishLibraryOf, refresh, onChanged, setStatus],
+  );
+
   // Right-click New file: create an empty project file inside the target folder.
   const createProjectFile = useCallback(
     async (dir: string, name: string) => {
@@ -1397,6 +1424,7 @@ export function EditorTab({
               }}
               onRenameLibraryEntry={renameLibraryEntry}
               onDeleteLibraryEntry={deleteLibraryEntry}
+              onMoveLibraryModule={moveLibraryModule}
               onOpenLibraryModule={(moduleFile) => {
                 onOpenLibraryModule(moduleFile);
                 if (isMobile) setTreeOpen(false);

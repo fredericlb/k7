@@ -83,7 +83,7 @@ tap and a param watch, as any other node does.
 
 ### The fader is the SHARED strip — the same one every project's mixer node is
 
-`nodes/fader.yaml` extends `@st0/audio/utility/mixer`, and two separate things make that the only
+`nodes/fader.yaml` extends `@meta/audio/mixer`, st0's own strip ([metaModules.md](metaModules.md)), and two separate things make that the only
 right answer rather than merely a tidy one.
 
 **The plugin has to be `Mixer`.** `trackMixer` finds the last one in a track's chain, and *a track

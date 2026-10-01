@@ -8,7 +8,7 @@ namespace studio::eurorack {
 const char* ResonatorPlugin::xmlTypeName = "studio_resonator";
 
 ResonatorPlugin::ResonatorPlugin(tracktion::engine::PluginCreationInfo info)
-    : EurorackPlugin(std::move(info), {RingsCore::RATE, RingsCore::BLOCK, 2, true})
+    : EurorackPlugin(std::move(info), {RingsCore::RATE, RingsCore::BLOCK, 4, true})
 {
     juce::StringArray models;
     for (int m = 0; m < RingsCore::MODELS; ++m) models.add(RingsCore::modelName(m));
@@ -42,8 +42,9 @@ void ResonatorPlugin::handleMidi(const juce::MidiMessage& m)
 
 void ResonatorPlugin::renderBlock(const float* const* in, float* const* out)
 {
-    // One exciter input on the module: a stereo track is averaged into it rather than summed hotter.
-    for (int i = 0; i < RingsCore::BLOCK; ++i) mono_[i] = 0.5f * (in[0][i] + in[1][i]);
+    // One exciter input on the module: each stereo pair averaged into it, the lane's own audio plus a cable into `in` (docs/eurorack.md).
+    for (int i = 0; i < RingsCore::BLOCK; ++i)
+        mono_[i] = 0.5f * (in[0][i] + in[1][i]) + 0.5f * (in[2][i] + in[3][i]);
     core_.render(mono_, out[0], out[1]);
 }
 

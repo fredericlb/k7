@@ -346,7 +346,7 @@ function platterNode(letter: string, what: string, stem?: Stem): string {
     `# pupitre le pose sur le champ \`deckFile\` du document, en même temps que la vitesse.\n` +
     `#\n` +
     `# \`Rate: 0\` est donc l'état au repos : un plateau qu'on ouvre est à l'arrêt.\n` +
-    `extends: ${q(`${MEDIATEK_IO}/turntable`)}\n` +
+    `extends: ${q(`${META_AUDIO}/turntable`)}\n` +
     (stem ? stemGain(stem) : "")
   );
 }
@@ -435,8 +435,8 @@ const MEDIATEK_FILTER = "@st0/audio/filter";
 const MEDIATEK_EQ = "@st0/audio/eq";
 /** …and the echo under `time/`, for the same reason: a delay is not a utility. */
 const MEDIATEK_TIME = "@st0/audio/time";
-/** …and the PLATTER under `io/`: it reads a file, which is what that category is for. */
-const MEDIATEK_IO = "@st0/audio/io";
+/** …and the PLATTER, which is st0's own and not a library's: a set cannot play without it (docs/metaModules.md). */
+const META_AUDIO = "@meta/audio";
 /** …and `stemsplit` under `separation/`, which writes the four files. Dosing one needs no module:
  *  the platter reading it has a gain of its own — see packages/song-schema/docs/stems.md. */
 const MEDIATEK_SEPARATION = "@st0/audio/separation";

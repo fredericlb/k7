@@ -21,11 +21,11 @@ export const LIVE_FADER = "fader";
  * scaffold's, and every lane an import writes (`packages/translator/docs/import.md`). Named without
  * `LIVE_` because it is nobody's archetype in particular.
  */
-export const SHARED_STRIP = "@st0/audio/utility/mixer";
+export const SHARED_STRIP = "@meta/audio/mixer";
 
 /** …and the RECORDER on the master run, which is what makes a rig something you KEEP. */
 export const LIVE_RECORDER = "rec";
-export const LIVE_RECORDER_REF = "@st0/audio/utility/recorder";
+export const LIVE_RECORDER_REF = "@meta/audio/recorder";
 
 /** The rig's own `project.yaml`; `picture` adds the frame and SAYS so — see docs/liveProject.md. */
 function liveProjectYaml(name: string, picture: boolean): string {

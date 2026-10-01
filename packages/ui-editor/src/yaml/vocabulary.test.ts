@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { schemaVocabulary } from "./vocabulary";
 
 const HINTS = {
-  baseModules: ["@engine/de-rez", "@st0/audio/utility/mixer"],
+  baseModules: ["@engine/de-rez", "@meta/audio/mixer"],
   modules: ["synth", "synth:lead", "OUT", "@engine/audio/amp/nam"],
   tracks: ["melody", "pad"],
   videoTracks: ["clip1"],
@@ -83,7 +83,7 @@ describe("the chains vocabulary", () => {
     const path = "modules/audio/amp/module.yaml";
     expect(at(path, [], "extends", HINTS)).toEqual([
       "@engine/de-rez",
-      "@st0/audio/utility/mixer",
+      "@meta/audio/mixer",
     ]);
     // Only at the top level and only for that field, since `params:` is a free map.
     expect(at(path, ["rack"], "extends", HINTS)).toEqual([]);
@@ -93,7 +93,7 @@ describe("the chains vocabulary", () => {
   it("offers a scanned `@engine` plugin to a library's module and never to a project's node", () => {
     // A node reaches a plugin through the library module that gives it a face, or it gets no panel.
     expect(at("song.st0/nodes/lead.yaml", [], "extends", HINTS)).toEqual([
-      "@st0/audio/utility/mixer",
+      "@meta/audio/mixer",
     ]);
     expect(
       at("_libraries/st0/modules/audio/verb/module.yaml", [], "extends", HINTS),

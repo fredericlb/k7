@@ -1,0 +1,13 @@
+# turntable — the platter's four numbers. Only `Rate` is a continuous gesture, hence the fader.
+#
+# The ranges are the PLUGIN's own (engine/st0-engine/engine/TurntablePlugin.cpp): a desk binding
+# must not be able to ask for a speed this panel refuses to draw. `Rate` is SIGNED and rests at 0,
+# which is the STOP: a platter has no neutral position, it has a stop, and the record's speed is 1.
+# The record is not here and cannot be: it is the document's `deckFile`, filled at run time.
+cols: 3
+rows: 3
+widgets:
+  rate: { type: fader, col: 0, row: 0, rowSpan: 3, label: Vitesse, bind: Rate, min: -4, max: 4, step: 0.01 }
+  seek: { type: knob, col: 2, row: 0, label: Aiguille, bind: Seek, min: 0, max: 1, step: 0.001 }
+  gain: { type: knob, col: 2, row: 1, label: Niveau, bind: Gain, min: 0, max: 2, step: 0.01 }
+  key: { type: toggle, col: 2, row: 2, label: Key, bind: Key }

@@ -72,7 +72,7 @@ The metronome stays too: a whole track built in code, and another subject.
 
 ## The nodes
 
-The `audio/io/turntable` module in the library — `module.yaml` and `ui.yaml`, no jsdsp: the engine
+The `@meta/audio/turntable` module, shipped with st0 (`packages/song/docs/metaModules.md`) — `module.yaml` and `ui.yaml`, no jsdsp: the engine
 already hosts the platter, and `type: internal` names it the way the EQ's `tracktion` engine names the equaliser. The
 ranges come from `TurntablePlugin.cpp`:
 
@@ -139,9 +139,8 @@ npx tsx packages/song/scripts/migrateSetPlatter.ts <projet.st0> --write
 Dry by default, idempotent, and its test holds a migrated set **byte for byte** against what the
 scaffold writes — the same contract as `migrateSetCue` and `migrateSetStrip`.
 
-**Publish `@st0/audio/io/turntable` into the account library BEFORE running it.** Without the
-module the ten nodes do not resolve and the project refuses to compile; the script's epilogue says
-so.
+The nodes it writes name `@meta/audio/turntable`, which ships with st0, so no library has to be
+prepared first.
 
 ## What is left
 

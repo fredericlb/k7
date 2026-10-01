@@ -5,6 +5,7 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { studioHome } from "./studioHome";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
@@ -116,14 +117,21 @@ export {
 
 import type { ModuleNamespace } from "@studio/song-schema/moduleTypes";
 
-/** The namespace a module root answers to, decided by WHERE it is: a library's name, else `workspace` — docs/sharedFolders.md. */
+/** st0's OWN modules, shipped with its code and read like a library under `@meta` — docs/metaModules.md. */
+export const META_MODULES_ROOT = fileURLToPath(
+  new URL("../meta", import.meta.url),
+);
+
+/** The namespace a module root answers to, decided by WHERE it is: `meta`, a library's name, else `workspace` — docs/sharedFolders.md. */
 export function moduleNamespaceOf(root: string): ModuleNamespace {
+  if (resolve(root) === META_MODULES_ROOT) return "meta";
   return libraryOf(root)?.name ?? "workspace";
 }
 
 /** Every module library this project can see, nearest first — panels included, docs/sharedFolders.md. */
 export function modulePanelRoots(dir: string): string[] {
-  return moduleLibraryDirs(dir);
+  // `@meta` last: read like a library, but never one an author edits, forks into or lists (docs/metaModules.md).
+  return [...moduleLibraryDirs(dir), META_MODULES_ROOT];
 }
 
 // There is no shared ASSET library: a module carries the files it loads (docs/moduleAssets.md).
