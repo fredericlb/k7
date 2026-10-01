@@ -45,6 +45,9 @@ public:
 
     RecorderTap() : buffer_(CAPACITY * CHANNELS, 0.0f) {}
 
+    /** The ring's bytes — fixed at construction, so any thread may ask. */
+    size_t bytes() const noexcept { return buffer_.size() * sizeof(float); }
+
     struct Drained {
         size_t frames = 0;      // frames copied into the caller's buffer
         size_t lostFrames = 0;  // frames the writer overwrote before we reached them

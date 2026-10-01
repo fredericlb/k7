@@ -26,11 +26,32 @@ module written so far.
 A `fader` is a mixer strip's fader: vertical, and it fills the height its `rowSpan` gives it, which
 is the point — a fader you cannot make tall is a slider stood on its end.
 
-A `filepicker` picks a FILE the module carries for a file-valued param (`bind: nam`). Its own type
+A `filepicker` picks a FILE the module carries for a file-valued param (`bind: model`). Its own type
 rather than a flavour of dropdown: it lists a folder tree with a search field, not a set of values
 the panel author wrote down (`packages/song/docs/filePicker.md`). A file picker with nothing to pick
 FOR is a button that cannot say what it would write — the param it binds is where the chosen file
 lands, and there is no default worth guessing — so `bind` is required on one.
+
+A knob may carry `pair`: the DRY param of a crossfade knob, whose `bind` is the wet one — one
+control for a module with dry and wet levels and no mix (`packages/ui-chains-react/docs/widgets.md`).
+Only a knob takes it, and never equal to its own `bind`.
+
+`mix:` (0..1) is an EFFECT's dry/wet, made by the engine around its plugin and absent for all wet
+(`engine/st0-engine/docs/mix.md`); a panel binds it as `@mix`. `input_volume:` and `output_volume:`
+(dB, −60..+12, absent for 0) are the levels into an audio module and out of anything with audio
+out, on the same stage; a panel binds them as `@input-volume` / `@output-volume`, and the plugin's
+own `Input`/`Output`-like params are refused in `params:` just as its own dry/wet is. An effect with one input whose
+`params:` names its plugin's own dry, wet or mix does not compile — the engine holds those at full
+wet, and the file must not claim otherwise.
+
+A `group` is a coloured frame — `color` (`#rgb`, `#rrggbb` or `#rrggbbaa`) and an optional `label`
+— drawn UNDER the widgets that lie wholly inside its box: a DRY/WET pair, an envelope's four
+knobs. It CONTAINS nothing in the file. Membership is geometry, and the controls stay at the
+panel's top level, because every lookup of a widget by its `bind` — MIDI control, the automation
+arrow's target, a folder-backed dropdown's options — reads that level only; nesting them in the
+group would hide them from all of it. A widget sits wholly inside a group or wholly outside it,
+and two groups never overlap: that is the one exception to "widgets never overlap", and the
+builder's checks enforce it (`packages/ui-module-builder/docs/builder.md`).
 
 `WidgetSchema` is a refinement rather than a union, because a union would reject the half-second
 where the editor changed `type` but not yet the fields.
@@ -96,8 +117,8 @@ picture through untouched, which is what a node you have just added should do
 
 ## `params:`, and the few that are files
 
-A param is a NUMBER, except the few the plugin steers with a file it loads: `nam` names a `.nam`
-model in this module's own `assets/`. It sits in `params:` because that is what it is, one of the
+A param is a NUMBER, except the few the plugin steers with a file it loads: `model` names an amp
+model — a `.nam`, or an AIDA-X / Proteus `.json` — in this module's own `assets/`. It sits in `params:` because that is what it is, one of the
 plugin's controls shown in the panel beside Input and Output; a top-level field of its own would be
 a second kind of thing to find, edit and merge. Only the file-valued ones are strings
 (`moduleTypes.FILE_PARAMS`), and `nodeProject` lifts them out before the wire, which stays numeric

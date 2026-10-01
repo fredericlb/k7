@@ -34,7 +34,8 @@ export type LibraryFamily =
   | "chains"
   | "assemblies"
   | "samples"
-  | "irs";
+  | "irs"
+  | "models";
 
 /** Where the file service clones the account's libraries: `<studioHome>/libraries` — docs/sharedFolders.md. */
 export const librariesHome = (): string =>

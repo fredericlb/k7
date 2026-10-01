@@ -202,10 +202,10 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). The MODULE
   BUILDER is the one screen that does have one — see Modules below. `:w` and
   Ctrl+S mean "now", not "at all" — they flush the timer and cannot overrule the rule.
-- **Modules** — `@studio/ui-module-builder`, the same component pl8 runs, as a full-screen
-  overlay over the shell. It is reached by the **Builder** button on a module file's editor
-  toolbar, not by opening the file directly: a click in the file tree opens `module.yaml` as
-  text like any other file, and the button is the door from there into the builder.
+- **Modules** — `@studio/ui-module-builder`, the same component pl8 runs, drawn in the EDITOR's
+  place beside the file tree, the editor fullscreened for it — so the next module is one click
+  away (`frontend/docs/moduleBuilder.md`). A module row in the tree opens it on the panel, and so
+  do the **Builder** button on a module file's toolbar and `ui builder <module>`.
   `src/api.ts`'s `moduleStore` is the seam — see that package's `docs/store.md`, in particular
   why a save can come back saying it landed somewhere else — an `@engine` ref materialising into
   its first folder, the one case that still redirects.
@@ -226,9 +226,8 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   from `GET /module-libraries`, NOT from `/tree`: that one is rooted at the active project and
   excludes the shared folders on purpose — a project keeps no `modules/` of its own to exclude.
   `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
-  others offer **New folder…** and **New module…**. Only a library module
-  opens the same builder **read-only**, with an Edit button
-  behind a confirmation; Save then writes into `_libraries/<name>/…` and commits and pushes
+  others offer **New folder…** and **New module…**. A library module opens the same builder,
+  editable at once; its Save writes into `_libraries/<name>/…` and commits and pushes
   THAT library — nothing forks, because the library is the only copy, and no song repository is
   touched. One store and one path space: the file service clones the account's libraries under
   `<studioHome>/libraries` and answers them at the virtual `_libraries/<name>/…` in every

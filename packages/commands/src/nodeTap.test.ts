@@ -137,3 +137,38 @@ it("takes a sample from the PROJECT's own samples/, as @project/…", async () =
     sample: "@project/clap.wav",
   });
 });
+
+it("inserts a tap on the nearest free note beside another, and never renumbers the kit", async () => {
+  await runCommand("node tap add kit BD", host(), "cli");
+  await runCommand("node tap add kit SN", host(), "cli");
+  await runCommand("node tap insert kit after BD", host(), "cli");
+  await runCommand("node tap insert kit before BD CR", host(), "cli");
+  expect(kit().rack?.symbols).toEqual({
+    BD: { note: 36 },
+    SN: { note: 37 },
+    T3: { note: 38 },
+    CR: { note: 35 },
+  });
+  await runCommand("node tap insert kit beside BD", host(), "cli");
+  expect(logs.join(" ")).toContain("usage: node tap insert");
+});
+
+it("renames a tap in place, its note and sample kept, and refuses a taken name", async () => {
+  await runCommand("node tap add kit BD", host(), "cli");
+  await runCommand("node tap add kit SN", host(), "cli");
+  await runCommand(
+    'node tap sample kit BD "@st0/kicks/808 deep.wav"',
+    host(),
+    "cli",
+  );
+  await runCommand("node tap rename kit BD KICK", host(), "cli");
+  expect(Object.keys(kit().rack?.symbols ?? {})).toEqual(["KICK", "SN"]);
+  expect(kit().rack?.symbols?.KICK).toEqual({
+    note: 36,
+    sample: "@st0/kicks/808 deep.wav",
+  });
+  await runCommand("node tap rename kit KICK SN", host(), "cli");
+  expect(logs.join(" ")).toContain("already has a tap 'SN'");
+  await runCommand('node tap rename kit SN "two words"', host(), "cli");
+  expect(logs.join(" ")).toContain("is not a tap name");
+});

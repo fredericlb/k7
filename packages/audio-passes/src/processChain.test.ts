@@ -146,7 +146,13 @@ describe("resolving a chain of the project", () => {
     ]);
     const c = resolveChain(dir, project, "gtr");
     expect(c.plugins.map((p) => p.name)).toEqual(["amp"]);
-    expect(c.plugins[0].params).toEqual({ Depth: 3 });
+    // The engine's own stage travels beside the plugin's params — engine/st0-engine/docs/mix.md.
+    expect(c.plugins[0].params).toEqual({
+      Depth: 3,
+      "@mix": 1,
+      "@input-volume": 0,
+      "@output-volume": 0,
+    });
     expect(c.ownTrack).toBe("gtr");
     expect(c.slug).toBe("gtr");
   });

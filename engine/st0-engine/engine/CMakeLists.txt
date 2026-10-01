@@ -24,6 +24,8 @@ add_library(studio_engine STATIC
     BroadcastTapPlugin.cpp
     RecorderPlugin.cpp
     NamPlugin.cpp
+    NamModel.cpp
+    RtNeuralModel.cpp
     DspGraph.cpp
     GraphDspPlugin.cpp
     FaustPlugin.cpp
@@ -36,6 +38,8 @@ add_library(studio_engine STATIC
     MidiGraphPlugin.cpp
     ArpeggiatorPlugin.cpp
     FilePeak.cpp
+    ProcessMemory.cpp
+    MixBlend.cpp
     ParamDump.cpp
     AudioInputs.cpp
     InputTuner.cpp
@@ -94,6 +98,15 @@ target_compile_definitions(studio_nam PUBLIC NAM_SAMPLE_FLOAT=1)
 # its own parts as <nlohmann/...>, which needs the directory ABOVE it — what the target's
 # own interface provides. Both are required.
 target_link_libraries(studio_nam PUBLIC nlohmann_json::nlohmann_json)
+
+# --- RTNeural : header templates, compiled into whoever includes them ----------
+# An INTERFACE target, so tests/ runs RtNeuralModel.cpp with exactly the engine's backend and alignment.
+add_library(studio_rtneural INTERFACE)
+target_include_directories(studio_rtneural INTERFACE ${STUDIO_RTNEURAL_DIR} ${STUDIO_EIGEN_DIR})
+target_compile_definitions(studio_rtneural INTERFACE
+    RTNEURAL_USE_EIGEN=1 RTNEURAL_DEFAULT_ALIGNMENT=16 RTNEURAL_NO_DEBUG=1)
+target_link_libraries(studio_rtneural INTERFACE nlohmann_json::nlohmann_json)
+target_link_libraries(studio_engine PRIVATE studio_rtneural)
 
 # The package's public headers live right here; expose this dir to consumers.
 target_include_directories(studio_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

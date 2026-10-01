@@ -30,11 +30,29 @@ export interface AskText extends Common {
   placeholder?: string;
   /** Why this value will not do, or "" when it will — re-asked per keystroke, so the button can refuse in place. */
   validate?: (value: string) => string;
+  /** Other things to do WITH the value, as buttons before the confirm — `askTextAction` only. */
+  actions?: { key: string; label: string }[];
+  /** Set by `askTextAction`: the answer carries which button gave it. */
+  withAction?: boolean;
 }
 
-type Pending = (AskConfirm | AskText) & {
+export interface AskChoice extends Common {
+  kind: "choice";
+  /** The answers, as buttons in this order — the LAST is the default Enter takes. `confirmLabel` is unused. */
+  choices: { key: string; label: string }[];
+}
+
+/** A text answer and the button that gave it — `"confirm"` for the main one and for Enter. */
+export interface TextAnswer {
+  value: string;
+  action: string;
+}
+
+type Answer = boolean | string | TextAnswer | null;
+
+type Pending = (AskConfirm | AskText | AskChoice) & {
   id: number;
-  settle: (v: boolean | string | null) => void;
+  settle: (v: Answer) => void;
 };
 
 let nextId = 0;
@@ -54,6 +72,32 @@ export function askText(q: Omit<AskText, "kind">): Promise<string | null> {
   return new Promise((resolve) => {
     if (!listener) return resolve(null);
     listener({ ...q, kind: "text", id: nextId++, settle: resolve as never });
+  });
+}
+
+/** One field and SEVERAL things to do with it: the value and which button was pressed, null when cancelled. */
+export function askTextAction(
+  q: Omit<AskText, "kind" | "withAction">,
+): Promise<TextAnswer | null> {
+  return new Promise((resolve) => {
+    if (!listener) return resolve(null);
+    listener({
+      ...q,
+      kind: "text",
+      withAction: true,
+      id: nextId++,
+      settle: resolve as never,
+    });
+  });
+}
+
+/** One of several answers, as the chosen key — null when dismissed, never a default nobody picked. */
+export function askChoice(
+  q: Omit<AskChoice, "kind" | "confirmLabel">,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!listener) return resolve(null);
+    listener({ ...q, kind: "choice", id: nextId++, settle: resolve as never });
   });
 }
 
@@ -85,29 +129,47 @@ function AskDialog({
   onDone,
 }: {
   pending: Pending;
-  onDone: (v: boolean | string | null) => void;
+  onDone: (v: Answer) => void;
 }) {
   const text = pending.kind === "text" ? pending : null;
+  const choice = pending.kind === "choice" ? pending : null;
   const [value, setValue] = useState(text?.initial ?? "");
   const field = useRef<HTMLInputElement | null>(null);
+  // With no field to focus, the dialog itself takes focus, or Escape and Enter would reach nothing.
+  const box = useRef<HTMLDivElement | null>(null);
   const invalid = text?.validate ? text.validate(value) : "";
   // A cancel is the same answer however it arrives — Escape, the backdrop, the button.
-  const cancel = () => onDone(text ? null : false);
+  const cancel = () => onDone(text || choice ? null : false);
+  // A text answer, wrapped with the button that gave it when the caller asked which.
+  const answer = (action: string): Answer =>
+    text?.withAction ? { value, action } : value;
+  // What Enter answers: the field, the LAST choice, or yes.
+  const accept = () =>
+    onDone(
+      text
+        ? answer("confirm")
+        : choice
+          ? (choice.choices.at(-1)?.key ?? null)
+          : true,
+    );
 
   useEffect(() => {
-    field.current?.focus();
-    field.current?.select();
+    if (!field.current) return void box.current?.focus();
+    field.current.focus();
+    field.current.select();
   }, []);
 
   return (
     <div
+      ref={box}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={pending.title}
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       onKeyDown={(e) => {
         if (e.key === "Escape") cancel();
-        if (e.key === "Enter" && !invalid) onDone(text ? value : true);
+        if (e.key === "Enter" && !invalid) accept();
       }}
     >
       <button
@@ -147,19 +209,49 @@ function AskDialog({
           >
             {pending.cancelLabel ?? "Annuler"}
           </button>
-          <button
-            type="button"
-            disabled={!!invalid}
-            onClick={() => onDone(text ? value : true)}
-            className={cx(
-              "rounded px-3 py-1.5 text-sm disabled:opacity-50",
-              pending.kind === "confirm" && pending.danger
-                ? "bg-destructive text-white hover:bg-destructive/90"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
-            )}
-          >
-            {pending.confirmLabel ?? "Confirmer"}
-          </button>
+          {text?.actions?.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              disabled={!!invalid}
+              onClick={() => onDone(answer(a.key))}
+              className="rounded border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              {a.label}
+            </button>
+          ))}
+          {choice ? (
+            // Every answer a button; the last one is the primary, as Enter takes it.
+            choice.choices.map((c, i) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => onDone(c.key)}
+                className={cx(
+                  "rounded px-3 py-1.5 text-sm",
+                  i === choice.choices.length - 1
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "border border-border text-foreground hover:bg-muted",
+                )}
+              >
+                {c.label}
+              </button>
+            ))
+          ) : (
+            <button
+              type="button"
+              disabled={!!invalid}
+              onClick={accept}
+              className={cx(
+                "rounded px-3 py-1.5 text-sm disabled:opacity-50",
+                pending.kind === "confirm" && pending.danger
+                  ? "bg-destructive text-white hover:bg-destructive/90"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90",
+              )}
+            >
+              {pending.confirmLabel ?? "Confirmer"}
+            </button>
+          )}
         </div>
       </div>
     </div>

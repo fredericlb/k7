@@ -182,6 +182,7 @@ import {
   ProjectHistory,
 } from "./history.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
+import { moduleRowLabel } from "./moduleRowLabel.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
   type PluginNeed,
@@ -1219,15 +1220,24 @@ export class Workspace {
     return entries.map((e): FileNode => {
       const childAbs = join(abs, e.name);
       const path = this.toRel(childAbs);
-      return e.isDirectory()
+      const children = e.isDirectory() ? this.walk(childAbs) : undefined;
+      // A module folder's readable name, drawn beside its row — packages/song/docs/moduleLabel.md.
+      const label =
+        children &&
+        moduleRowLabel(
+          childAbs,
+          children.map((c) => c.name),
+        );
+      return children
         ? {
             name: e.name,
             path,
             dir: true,
+            ...(label ? { label } : {}),
             project: isProjectDir(childAbs) || undefined,
             // WHICH app opens it, beside the flag that says one does — that row must not guess.
             app: (isProjectDir(childAbs) && projectApp(e.name)) || undefined,
-            children: this.walk(childAbs),
+            children,
           }
         : {
             name: e.name,
@@ -1300,7 +1310,7 @@ export class Workspace {
       const exists = existsSync(abs);
       // A library REPOSITORY's sound folders too, walked like its modules: the tab draws them and takes drops on them.
       const lib = accountLibraries().find((l) => l.name === ns);
-      const sounds = (family: "samples" | "irs") => {
+      const sounds = (family: "samples" | "irs" | "models") => {
         const at = lib ? join(lib.root, family) : null;
         return at && existsSync(at) ? this.walk(at) : [];
       };
@@ -1309,7 +1319,13 @@ export class Workspace {
         path: this.toRel(abs),
         exists,
         nodes: exists ? this.walk(abs) : [],
-        ...(lib ? { samples: sounds("samples"), irs: sounds("irs") } : {}),
+        ...(lib
+          ? {
+              samples: sounds("samples"),
+              irs: sounds("irs"),
+              models: sounds("models"),
+            }
+          : {}),
       };
     });
     const engine = engineLibrary();
@@ -1660,6 +1676,13 @@ export class Workspace {
   async deleteEntry(rel: string): Promise<{ recycled: string }> {
     const abs = this.safePath(rel);
     this.guardMutable(abs, "delete");
+    // A library's recycle bin is its git history, and its clone may sit on another disk than the workspace's bin.
+    if (libraryOf(abs)) {
+      this.cancelPrewarm();
+      rmSync(abs, { recursive: true, force: true });
+      this.invalidateProjectDoc();
+      return { recycled: "" };
+    }
     const bin = join(this.root, RECYCLE_DIR);
     mkdirSync(bin, { recursive: true });
     // Don't clobber an earlier deletion of the same name — suffix a counter.

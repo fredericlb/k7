@@ -14,7 +14,6 @@ import {
   splitPort,
   type WebAutomationLane,
 } from "@studio/graph-model";
-import { showToast } from "@studio/project-shell/toast";
 import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
@@ -45,10 +44,11 @@ import {
   type MidiControlApi,
   useMidiControl,
 } from "../hooks/useMidiControl";
+import { useRackTrigger } from "../hooks/useRackTrigger";
 import { nodeNameFor } from "../nodeInsert";
 import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
-import type { PreviewReq, WebGraph, WebProject } from "../types";
+import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 
 /** The mixer row is framed a fifth SMALLER than a perfect fit — see where it is used. */
@@ -309,34 +309,6 @@ export function ChainsTab({
     [onBypassModule],
   );
 
-  /** A rack pad was clicked: audition that symbol's material through `preview` — the SAMPLE, dry, off the node's effective rack. */
-  const triggerRack = useCallback((module: string, symbol: string) => {
-    const node = laidRef.current?.nodes.find(
-      (n) => n.kind === "module" && n.module === module,
-    );
-    const sound = node?.rack?.find((s) => s.symbol === symbol);
-    if (!sound) return;
-    // `kind: "source"` and not `"clip"`: `resolveRackAudio` has already rewritten it to a path in the module's own folder.
-    const req: PreviewReq | null = sound.clip
-      ? { kind: "source", source: sound.clip }
-      : sound.source
-        ? {
-            kind: "slice",
-            source: sound.source,
-            from: sound.from ?? 0,
-            to: sound.to ?? 0,
-          }
-        : null;
-    // A symbol with no material at all is already reported against the file, so there is nothing to add here.
-    if (!req) return;
-    // …but a symbol whose material does not RESOLVE is worth a word: a pad that lights and stays silent reads as a broken app.
-    void api
-      .preview(req)
-      .catch((e: Error) =>
-        showToast({ message: `${symbol}: ${e.message}`, variant: "error" }),
-      );
-  }, []);
-
   // Which of this project's rack sounds are firing right now — derived from the arrangement and the playhead (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
 
@@ -509,6 +481,8 @@ export function ChainsTab({
   // Read by bypassModule without making it depend on the layout, which would rebind it on every refetch.
   const laidRef = useRef(laid);
   laidRef.current = laid;
+  // A pad clicked auditions its sound, the same way in every pane that draws a kit.
+  const triggerRack = useRackTrigger(laidRef);
 
   const chainNodes = useCallback(
     (chainName: string) => {

@@ -138,7 +138,7 @@ those are evaluated on the spot rather than at call time.
 
 Two binds are excluded, and both because the answer would be a promise nothing can keep:
 
-- a widget on a track node (`@volume`) drives a mixer control, and the MIDI map is a file in a
+- a widget on a track node (`@output-volume`) drives a mixer control, and the MIDI map is a file in a
   MODULE's folder — there is nowhere to record it;
 - an `@` bind is a module FIELD (`monitor`), a word rather than a number, so a control change has
   nothing to sweep.
@@ -188,6 +188,50 @@ Three rules, each of them a bug it prevents:
   out rather than cut into equal slices that clip a long page name next to a short one. `truncate`
   stays as the last resort, for a name wider than the box.
 
+## The group
+
+A `group` is painted FIRST (`groupsFirst`), in its `color` or a faint default, with its label small
+and STACKED down its left edge — one upright letter under the other, from the top, a space left as
+a gap: a caption in the top-left corner would sit on the first control's dial, the edge is the one
+strip of a group no control uses, and upright letters read without turning the head — and it is
+inert: `pointer-events: none`, so a click on its bare part
+falls through to the card as a click on empty grid does. It draws none of the controls it frames.
+They are the panel's own widgets, laid on top of it (`packages/song-schema/docs/moduleFile.md`).
+
+## The MIX knob, `@mix`
+
+A knob bound to `@mix` is the ENGINE's dry/wet around the module, the same on every effect
+(`engine/st0-engine/docs/mix.md`). It is an `@` bind that is set LIVE: `widgetTarget` makes it a
+plugin target, so a drag reaches the engine at once through `set-plugin-param` and the release
+commits `node param <node> "@mix" <v>`, which writes the module's `mix:`. Every other `@` bind is
+a module field, heard only at the next build. It reads as a percentage like the crossfade knob
+below, it reads 100 % when the module states no mix — that is what no mix means — and it is no
+automation target, a curve being a plugin param's.
+
+## The crossfade knob
+
+What a panel used before `@mix`, and what a module the engine offers no `@mix` on still has.
+
+A knob with a `pair` is ONE control for a module that has a dry and a wet level and no mix: `bind`
+is the wet param, `pair` the dry one. Its travel is the equal-power curve, wet = sin(m·π/2) and
+dry = cos(m·π/2): the sum of the two powers stays at 1, so the loudness holds across the sweep
+where a linear crossfade dips by 3 dB in the middle. Equal-power suits the reverbs and delays these
+params belong to, where wet and dry are different sounds; on a nearly identical pair it bumps by
+3 dB instead.
+
+- **The knob's value is the WET level**, and its position is read back from wet alone
+  (`widgetNorm`). Dry follows from wet, √(1 − wet²) (`pairValue`), so the drag, the override and
+  the typed value keep their one-param shape, and every WRITE adds the dry half: the live send,
+  the commit, a picked or typed value, and a MIDI CC.
+- **It reads and types as a mix position in percent**, not as the wet level: 71 % wet is what
+  "half" means on this curve, and nobody would type it.
+- **The two commits run one after the other**, because they write the same module file.
+- **It is not an automation target.** A curve drives one param, and wet alone breaks the pair.
+- **One range for both**: the knob's `min`/`max` span the wet param and are applied to the dry
+  one. The two levels of a built-in share 0..1.
+- A panel that sets dry and wet apart is shown by its wet level only; the first turn puts dry
+  back on the curve.
+
 ## A fader's drag travel is measured, not assumed
 
 Every other control sweeps over a fixed `DRAG_TRAVEL_PX`. A fader does not: it is the one control
@@ -217,26 +261,17 @@ value: a toggle, a pad or a dropdown already set an exact value in one click.
 A drag's release now writes only when the value MOVED. The double-click's two presses each start
 a drag; without that check, each would write the value the control already held.
 
-## A dropdown's caption, beside or above
+## A dropdown's caption, on top of it
 
-`captionFitsBeside` measures from the **glyph counts**, never from the DOM: the real widths only
-exist after a reflow, and this runs for every widget of every node on every frame that touches
-one. The constants are `.dgx-wlab` (6 px, uppercase) and `.dgx-sel` (9 px monospace) — if either
-size moves, they move with it.
+A dropdown's caption sits directly ON TOP of its select, left-aligned with the select's edge,
+whatever the box's width — and so does a file picker's, over its button, since both are drawn as
+a field. Every other caption is underneath its control; these two read like a form's. One place, so a panel's dropdowns line up with each other
+and never rearrange as their option lists change.
 
-The select is priced at its WIDEST option, because that is what it must be able to show: a
-dropdown that fits while reading "Sine" and clips on "Saw down" would rearrange itself as you used
-it.
-
-The two layouts are two different CSS problems. ABOVE, the caption is pinned out of the flow, so
-the select itself is what `.dgx-w`'s `justify-content` centres rather than the pair of them; it
-takes `left`/`right` rather than a width so a long name ellipsises in place, and `text-align:center`
-because a span out of the flow is no longer a child the flex box can centre. BESIDE, the pair stays
-in the flow at full width so the select can spend what the caption does not: the caption is
-`flex:none` (it is a word, and shrinking it only ellipsises a name) and the select takes the rest.
-`min-width:0` on BOTH is what lets that happen at all — a flex item's default `min-width:auto`
-floors it at its content, and a long option list would then push the pair past the box instead of
-the select fitting inside it.
+The two are one column (`.dgx-selcol`) rather than a caption pinned to the top of the box: in a
+box taller than the pair, `.dgx-w` centres the column, and the caption stays against the select
+instead of drifting up to the box's edge. `min-width:0` on the column lets a long name ellipsise
+inside the box rather than push the pair past it.
 
 A caption is 6 px, smaller than anything it labels: it names a control that is already drawn, read
 once and then recognised by position, so the two pixels go back to the panel. A `label` widget's own

@@ -8,6 +8,7 @@
 // step; they diverged anyway. Any app that drives the engine from a browser uses this.
 
 import type {
+  EngineLoad,
   EngineState,
   ParamMeta,
   PluginParams,
@@ -33,8 +34,10 @@ import {
 import { openSocket } from "./rtcSocket.ts";
 
 export type {
+  EngineLoad,
   EngineState,
   ParamMeta,
+  PluginLoad,
   PluginParams,
   PresetInfo,
   RecorderState,
@@ -152,6 +155,7 @@ interface EngineMessage {
   platters?: Record<string, number>; // `state` only: each platter's own needle — docs/turntable.md
   // …and `state` only too: each recorder node's light, takes and envelope — docs/recorder.md.
   recorders?: Record<string, RecorderState>;
+  load?: EngineLoad; // `state` only, one frame in four — engine docs/load.md
   id?: string;
   // Two replies carry `params`, told apart by `type`: `plugin-param-list` (a TYPE's list) is an array, the live feeds are name -> value.
   params?: Record<string, number> | EnginePluginParam[];
@@ -400,6 +404,8 @@ export class EngineClient {
         platters: (m.platters ?? {}) as Record<string, number>,
         // Dropped here, a recorder never lights, never draws and never saves — packages/song/docs/recorderNode.md.
         recorders: (m.recorders ?? {}) as Record<string, RecorderState>,
+        // Left absent when the frame carries none: the store keeps the last one.
+        ...(m.load ? { load: m.load } : {}),
       });
     else if (m.type === "plugin-params" && m.id)
       for (const cb of this.paramsCbs)

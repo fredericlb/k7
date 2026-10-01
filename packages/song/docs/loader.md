@@ -52,7 +52,7 @@ type folder, what lives beside a node, and why the folder is flat.
 ## The files a module loads
 
 A module carries them, in an `assets/` folder of its own, and names one in `params:`
-(`params: {nam: jcm800.nam}`). `resolveAssets` resolves those against that folder and
+(`params: {model: jcm800.nam}`). `resolveAssets` resolves those against that folder and
 nowhere else; `listModuleAssets` walks it for the panel's dropdown.
 
 A path that climbs out of `assets/` is refused rather than resolved, since these come from

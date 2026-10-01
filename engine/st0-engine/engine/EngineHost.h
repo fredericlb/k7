@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -318,6 +319,12 @@ public:
 
     // --- Server support: a frontend in another process or language, with all JUCE threading behind this API ------
 
+    /** One plugin's cost, for the node that holds it — docs/load.md. */
+    struct PluginLoad {
+        double cpu = 0.0;     // its share of an audio block's time, 0..1, smoothed by Tracktion
+        int64_t bytes = -1;   // what it says it holds (HeldMemory); -1 when it cannot say
+    };
+
     // A snapshot the server pushes to clients.
     struct EngineState {
         // WHICH session this frame describes; empty is the default one. On every frame, because with N sessions an unlabelled one is a frame nobody can route.
@@ -341,7 +348,14 @@ public:
         std::map<std::string, double> platterSeconds;
         // Each RECORDER node's state, by plugin id — empty when the project declares none.
         std::map<std::string, RecorderReport> recorders;
+        // Every plugin's cost and the process's memory, on a frame in four: they change slowly, and a frame without them keeps the last (docs/load.md).
+        bool hasLoad = false;
+        std::map<std::string, PluginLoad> pluginLoads;
+        int64_t processBytes = -1;
     };
+
+    /** Every plugin of this session's cost, keyed by plugin id. MESSAGE thread. */
+    std::map<std::string, PluginLoad> pluginLoads(const std::string& session) const;
 
     /** Every PLATTER's needle in this session, keyed by plugin id — empty when the deck plays a clip. */
     std::map<std::string, double> platterPositions(const std::string& session) const;

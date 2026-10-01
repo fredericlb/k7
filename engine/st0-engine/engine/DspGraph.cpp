@@ -186,7 +186,13 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
             node.kind = Kind::biquad;
             node.phase = Phase::audio;
             const auto m = o->getProperty("mode").toString();
-            node.mode = m == "lowpass" ? 1 : m == "highpass" ? 2 : m == "notch" ? 3 : 0;
+            node.mode = m == "lowpass"     ? 1
+                      : m == "highpass"    ? 2
+                      : m == "notch"       ? 3
+                      : m == "peak"        ? 4
+                      : m == "lowshelf"    ? 5
+                      : m == "highshelf"   ? 6
+                                           : 0;
         } else {
             error = "unknown node type: " + type;
             return nullptr;
@@ -242,6 +248,7 @@ void DspGraph::reset()
         // Forget the cached coefficients too: prepare() may have moved the sample rate under them.
         n.lastFreq_ = -1.0f;
         n.lastQ_ = -1.0f;
+        n.lastGainDb_ = -1000.0f;
         for (auto& f : n.filters)
             f.reset();
     }
@@ -460,16 +467,24 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
         if (n.kind == Kind::biquad) {
             // Clamped to a real, stable band: at or past Nyquist the coefficients blow up.
             const float freq = juce::jlimit(20.0f, (float)(sampleRate_ * 0.45), finiteOr(r(n.in[0]), 1000.0f));
-            const float q = juce::jmax(0.5f, finiteOr(r(n.in[1]), 0.707f));
+            // A peak or a shelf may be narrower or gentler than the pass filters: its Q floor is lower.
+            const float q = juce::jmax(n.mode >= 4 ? 0.1f : 0.5f, finiteOr(r(n.in[1]), 0.707f));
+            // Peak and shelves only: the third input, in dB, bounded so the coefficients stay sane.
+            const float gainDb = n.mode >= 4 ? juce::jlimit(-24.0f, 24.0f, finiteOr(r(n.in[2]), 0.0f)) : 0.0f;
             // Only when the knob actually moved — see lastFreq_ in the header, and MixerPlugin's same condition.
-            if (freq != n.lastFreq_ || q != n.lastQ_) {
+            if (freq != n.lastFreq_ || q != n.lastQ_ || gainDb != n.lastGainDb_) {
+                const float g = juce::Decibels::decibelsToGain(gainDb);
                 const auto coeffs = n.mode == 1 ? juce::IIRCoefficients::makeLowPass(sampleRate_, freq, q)
                                   : n.mode == 2 ? juce::IIRCoefficients::makeHighPass(sampleRate_, freq, q)
                                   : n.mode == 3 ? juce::IIRCoefficients::makeNotchFilter(sampleRate_, freq, q)
+                                  : n.mode == 4 ? juce::IIRCoefficients::makePeakFilter(sampleRate_, freq, q, g)
+                                  : n.mode == 5 ? juce::IIRCoefficients::makeLowShelf(sampleRate_, freq, q, g)
+                                  : n.mode == 6 ? juce::IIRCoefficients::makeHighShelf(sampleRate_, freq, q, g)
                                                 : juce::IIRCoefficients::makeBandPass(sampleRate_, freq, q);
                 for (int ch = 0; ch < 2; ++ch) n.filters[ch].setCoefficients(coeffs);
                 n.lastFreq_ = freq;
                 n.lastQ_ = q;
+                n.lastGainDb_ = gainDb;
             }
             for (int ch = 0; ch < numChans; ++ch)
                 n.filters[ch].processSamples(buffer.getWritePointer(ch, startSample), numSamples);

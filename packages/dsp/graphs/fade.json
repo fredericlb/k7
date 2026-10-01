@@ -1,7 +1,7 @@
 {
   "params": [
     {
-      "name": "Mix",
+      "name": "Level",
       "min": 0,
       "max": 1,
       "default": 1
@@ -16,7 +16,7 @@
       "type": "amul",
       "out": "n1",
       "in": ["n0"],
-      "k": ["Mix"]
+      "k": ["Level"]
     },
     {
       "type": "aout",

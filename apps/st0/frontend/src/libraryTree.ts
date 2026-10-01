@@ -8,6 +8,7 @@ import {
   FIXED_NAMESPACES,
   isLibraryName,
   LIBRARIES_DIR,
+  type LibraryFileFamily,
   SHARED_MODULES_DIR,
 } from "@studio/song-schema/moduleTypes";
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
@@ -122,13 +123,24 @@ function repositoryRow(
         children: l.samples ?? [],
       },
       { name: "irs", path: `${root}/irs`, dir: true, children: l.irs ?? [] },
+      // …and its amp MODELS, which an amp's `model` picks as it picks its own assets.
+      {
+        name: "models",
+        path: `${root}/models`,
+        dir: true,
+        children: l.models ?? [],
+      },
     ],
   };
 }
 
-/** Is this row a library's `samples/` or `irs/`, or inside one — the only places a dropped sound goes? */
-export const isSoundFolder = (path: string): boolean =>
-  new RegExp(`^${LIBRARIES_DIR}/[^/]+/(samples|irs)(/|$)`).test(path);
+/** Which of a library's FILE folders this row is or lies in — `samples/`, `irs/`, `models/` — the only places a drop goes. */
+export function fileFolderOf(path: string): LibraryFileFamily | null {
+  const m = new RegExp(
+    `^${LIBRARIES_DIR}/[^/]+/(samples|irs|models)(/|$)`,
+  ).exec(path);
+  return m ? (m[1] as LibraryFileFamily) : null;
+}
 
 /** Every path under a READ-ONLY level, plus the level's own row — `@engine` and only it, a scanned plugin having no folder. */
 export function readOnlyPaths(libraries: ModuleLibrary[]): Set<string> {

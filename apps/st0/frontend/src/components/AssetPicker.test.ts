@@ -24,7 +24,7 @@ const FILES = [
 describe("the asset tree", () => {
   it("nests one level per folder", () => {
     // Folders sort before files: a folder is a place to go and a file is the answer, and interleaving them buries the structure.
-    const t = buildAssetTree(FILES, "nam");
+    const t = buildAssetTree(FILES, "model");
     expect(t.map((n) => n.label)).toEqual(["Marshall", "Two-Rock", "flat"]);
     const marshall = t[0].children ?? [];
     expect(marshall.map((n) => n.label)).toEqual(["JCM800", "plexi"]);
@@ -36,7 +36,7 @@ describe("the asset tree", () => {
 
   it("hands back the full assets-relative path, not the label", () => {
     // What the module stores is the path; the label is only what you read.
-    const t = buildAssetTree(FILES, "nam");
+    const t = buildAssetTree(FILES, "model");
     expect(t[0].children?.[0].children?.[0].entry).toBe(
       "Marshall/JCM800/clean.nam",
     );
@@ -44,7 +44,7 @@ describe("the asset tree", () => {
 
   it("offers only what the bound param can load", () => {
     // `nam` loads `.nam`. The wav and the onnx sit in the same assets/ and are not choices here.
-    const json = JSON.stringify(buildAssetTree(FILES, "nam"));
+    const json = JSON.stringify(buildAssetTree(FILES, "model"));
     expect(json).not.toContain("v30");
     expect(json).not.toContain("big");
     expect(buildAssetTree(FILES, "onnx").map((n) => n.label)).toEqual(["big"]);
@@ -57,7 +57,7 @@ describe("the asset tree", () => {
       "roland jc 120b/Roland JC 120B Jazz Chorus_ Bright On, SM57.nam",
       "two rocks/DELUXE REVERB OXFORD - BIG.wav",
     ];
-    const t = buildAssetTree(guitar, "nam");
+    const t = buildAssetTree(guitar, "model");
     expect(t.map((n) => n.label)).toEqual([
       "fender super reverb",
       "roland jc 120b",
@@ -67,20 +67,20 @@ describe("the asset tree", () => {
 
   it("searches the file name AND its folders", () => {
     // The folder is half of what anyone remembers about a profile.
-    expect(searchAssets(FILES, "nam", "lead")[0]?.entry).toBe(
+    expect(searchAssets(FILES, "model", "lead")[0]?.entry).toBe(
       "Marshall/JCM800/lead.nam",
     );
-    expect(searchAssets(FILES, "nam", "jcm")[0]?.entry).toContain("JCM800");
-    expect(searchAssets(FILES, "nam", "v30")).toEqual([]); // wrong extension
+    expect(searchAssets(FILES, "model", "jcm")[0]?.entry).toContain("JCM800");
+    expect(searchAssets(FILES, "model", "v30")).toEqual([]); // wrong extension
   });
 
   it("hints the folder, so same-named profiles stay apart", () => {
-    expect(searchAssets(FILES, "nam", "clean")[0]?.hint).toBe(
+    expect(searchAssets(FILES, "model", "clean")[0]?.hint).toBe(
       "Marshall/JCM800",
     );
   });
 
   it("has nothing to show for an empty query — the tree is for browsing", () => {
-    expect(searchAssets(FILES, "nam", "   ")).toEqual([]);
+    expect(searchAssets(FILES, "model", "   ")).toEqual([]);
   });
 });

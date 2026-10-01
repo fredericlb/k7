@@ -48,7 +48,7 @@ A folder missing either stage **is not offered**: offering it compiles a program
 stage, and the failure talks about GL rather than about a file someone has not finished writing.
 
 `shaders/` sits beside the `module.yaml` and not in `assets/`, on the model of `base/`: `assets/` is
-a flat list of files that a parameter NAMES, filtered by extension (`assetExtFor`). A shader is a
+a flat list of files that a parameter NAMES, filtered by extension (`assetExtsFor`). A shader is a
 directory — it would be the only entry there that is not a file.
 
 ## The dropdown is filled by the DISK

@@ -61,6 +61,24 @@ its own col/row, keeping `widgetRect` a pure function of the widget. The cost is
 unused strip on a module with no sub line. `CELL` fits a control *and* its caption: a usable knob is
 ~24px across and the caption needs another ~10.
 
+Rows are `ROW_GAP` apart, columns `COL_GAP`, the first row sits flush under the header, and the
+last has `UI_EDGE` of air under it. A row of knobs is a control over its caption, and with no air
+under the caption it read as the label of the knob BELOW rather than the one above. Columns take
+less, a caption being narrower than its cell; what they need it for is GROUPS — two tinted frames
+side by side with no gap between them read as one slab rather than two sections. The
+header already ends in a border, so a pad above the first row would separate nothing; below the
+last, a caption on the card's border reads as cut off, and the edge is wider than a row gap so the
+grid ends as a block rather than a row missing.
+A widget spanning rows or columns covers the gaps between them (`rowsHeight`, `colsWidth`), so a
+fader, a screen or a group is one box, not a stack of cells.
+
+A node with an engine stage adds `FOOTER_H` under all of that for its footer
+(`packages/ui-chains-react/docs/nodeCard.md`), and is widened to `STAGE_SLOT_MIN_W` (40 px) per slider only
+when its grid is narrower than that: a two-column panel would otherwise squeeze three sliders into
+78 px. Anything wider keeps its grid's width — the card is as wide as its `cols` say, and the
+footer fits it rather than the other way round.
+`stageSlot` places them, by the node's own size, so the drawing and the size cannot disagree.
+
 ### The header's name has to be readable at that width
 
 `moduleDisplayName` keeps the LAST segment of a module ref — `@st0/audio/modulation/chorus-ense` →
@@ -99,7 +117,7 @@ since the cable from the track is right there and the name is repeated on the tr
 
 Their five mixer controls are authored with the same widget primitives a module UI uses. The
 `@`-prefixed binds are **track intrinsics**, not plugin params: the renderer routes them to the
-mixer commands and reads their live values from the track-controls channel. `@volume` is in dB so a
+mixer commands and reads their live values from the track-controls channel. `@output-volume` is in dB so a
 linear knob maps straight onto the fader's range, and it stops at **+6, not +12** — the engine's
 track fader clamps there, so a taller knob would promise gain it cannot deliver (see `MAX_GAIN_DB`
 in `@studio/song`).

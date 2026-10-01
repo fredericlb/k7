@@ -94,6 +94,61 @@ describe("a module's `ir` param", () => {
   });
 });
 
+describe("a module's `model` param, from a library's models/", () => {
+  const song = (model: string) => {
+    const p = join(root, "song.st0");
+    mkdirSync(join(p, "nodes"), { recursive: true });
+    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "song"\n');
+    touch(join(root, "_modules", "audio", "amp", "assets", "own.nam"));
+    writeFileSync(
+      join(root, "_modules", "audio", "amp", "module.yaml"),
+      "plugin: { type: internal, name: Neural Amp Modeler }\n",
+    );
+    writeFileSync(
+      join(p, "nodes", "gtr.yaml"),
+      'extends: "@meta/track"\nevents: []\n',
+    );
+    writeFileSync(
+      join(p, "nodes", "amp.yaml"),
+      `extends: "@workspace/audio/amp"\nparams:\n  model: "${model}"\n`,
+    );
+    writeFileSync(
+      join(p, "graph.yaml"),
+      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n",
+    );
+    return p;
+  };
+  const engineFile = (p: string) =>
+    loadProject(p)
+      .tracks.flatMap((t) => t.plugins)
+      .find((pl) => pl.id.endsWith(":amp"))?.namFile;
+
+  beforeEach(() => {
+    touch(join(lib, "models", "proteus", "ts9.json"));
+    touch(join(lib, "models", "proteus", "README.md"));
+    touch(join(lib, "models", "amp.nam"));
+  });
+
+  it("lists a library's models — .nam and .json, nothing else", () => {
+    expect(libraryFiles("models")).toEqual([
+      "@st0/amp.nam",
+      "@st0/proteus/ts9.json",
+    ]);
+  });
+
+  it("reaches the engine as the library's file when the ref says @<library>/", () => {
+    expect(engineFile(song("@st0/proteus/ts9.json"))).toBe(
+      join(lib, "models", "proteus", "ts9.json"),
+    );
+  });
+
+  it("still reaches the module's own assets when it does not", () => {
+    expect(engineFile(song("own.nam"))).toBe(
+      join(root, "_modules", "audio", "amp", "assets", "own.nam"),
+    );
+  });
+});
+
 describe("a rack tap's `sample`", () => {
   it("reaches the engine as the sound's file, the kit written on the NODE", () => {
     const p = join(root, "kit.st0");

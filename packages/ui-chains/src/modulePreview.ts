@@ -57,6 +57,8 @@ export function modulePreviewGraph(
   ui: Parameters<typeof visibleGrid>[0],
   params: Record<string, number>,
   bases?: readonly string[],
+  // The engine's stage its card's footer draws — what the compile would give it, docs/graphBuild.md.
+  stage?: readonly string[],
 ): WebGraph {
   return {
     tracks: [PREVIEW_SOURCE],
@@ -76,6 +78,7 @@ export function modulePreviewGraph(
             params,
             // Absent on a module with none: an empty list must not become an empty array.
             ...(bases?.length ? { bases: [...bases] } : {}),
+            ...(stage?.length ? { stage: [...stage] } : {}),
           },
         ],
         out: [{ to: "OUT", gain: 1 }],

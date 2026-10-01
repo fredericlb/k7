@@ -9,6 +9,7 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "HeldMemory.h"
 #include "TurntableLoop.h"
 
 #include <atomic>
@@ -18,7 +19,7 @@
 
 namespace studio {
 
-class TurntablePlugin : public tracktion::engine::Plugin {
+class TurntablePlugin : public tracktion::engine::Plugin, public HeldMemory {
 public:
     explicit TurntablePlugin(tracktion::engine::PluginCreationInfo info);
     ~TurntablePlugin() override;
@@ -62,6 +63,9 @@ public:
 
     /** Where the needle is, in seconds of the record. Published once a block for the state push. */
     double needleSeconds() const { return needle_.load(std::memory_order_relaxed); }
+
+    /** The record's PCM, owned or mapped (its pages are touched, so resident), and the stretcher's two sides. */
+    int64_t heldBytes() const noexcept override;
 
 private:
     // One decode at a time, off the message thread; the generation says which request is the latest.

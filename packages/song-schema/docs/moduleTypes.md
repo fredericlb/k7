@@ -59,7 +59,7 @@ A shader is kept in a FOLDER rather than one file because a shader is a PAIR: sw
 keep the vertex and you have a different effect on the same geometry. Naming the pair after the
 folder is what lets the panel offer "ripple" instead of two half-choices that can be mismatched.
 That folder sits beside the module file rather than inside `assets/`, following `base/`: `assets/`
-is flat files a param NAMES, and a picker over it filters by extension (`assetExtFor`). A shader is
+is flat files a param NAMES, and a picker over it filters by extension (`assetExtsFor`). A shader is
 a directory, so it would have been the one entry in that folder that is not a file.
 
 `SHADER_CATEGORY` and `SHADERS_DIR` are the same word and a different fact, which is exactly why
@@ -202,10 +202,12 @@ same list: the loader resolves them against the module's `assets/`, `nodeProject
 wire (which stays numeric), and the panel draws them as a dropdown of that folder rather than a
 knob. A param not in this list is a number, and that is still the overwhelming majority.
 
-`assetExtFor` derives the extension from the param's NAME rather than from the widget that picks it,
-because those two facts have never disagreed: the param is named after the format it loads. A widget
-that had to repeat it would be a second place to get it wrong, and its author already wrote
-`bind: nam`. It sits beside `FILE_PARAMS` and free of `node:fs` because the PICKER runs in a
+`assetExtsFor` gives the extensions a param takes from the param itself rather than from the widget
+that picks it: a widget that had to repeat them would be a second place to get them wrong, and its
+author already wrote `bind: model`. Most params are named after the one format they load (`onnx`),
+and the name is the rule. `model` is the exception, and has a table entry: an amp model is a `.nam`
+or an RTNeural `.json` (AIDA-X, Proteus — `engine/st0-engine/docs/namPlugin.md`), one param for
+both, because a module picks an amp and should not have to know which trainer made it. It sits beside `FILE_PARAMS` and free of `node:fs` because the PICKER runs in a
 browser: the panel filters the module's assets down to the ones its param can take.
 `moduleAssetChoices` reads disk and is the node-only half.
 

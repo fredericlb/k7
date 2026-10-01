@@ -8,8 +8,8 @@ import { type GraphJson, graph } from "./index";
 
 export function fade(): GraphJson {
   return graph((g) => {
-    // The gain itself, so a panel showing 0 means silent and 1 means full — no second number to read it through.
-    const mix = g.param("Mix", { min: 0, max: 1, default: 1 });
-    g.output(g.amul(g.input(0), mix));
+    // The gain itself, so a panel showing 0 means silent and 1 means full — `Level`, never `Mix`, which names a dry/wet.
+    const level = g.param("Level", { min: 0, max: 1, default: 1 });
+    g.output(g.amul(g.input(0), level));
   });
 }

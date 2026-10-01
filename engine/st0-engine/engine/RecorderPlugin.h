@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "HeldMemory.h"
 #include "RecorderTap.h"
 // The module header, not a path into a build tree — same reason as WaveformTapPlugin.h.
 #include <tracktion_engine/tracktion_engine.h>
@@ -13,7 +14,7 @@
 
 namespace studio {
 
-class RecorderPlugin : public tracktion::engine::Plugin {
+class RecorderPlugin : public tracktion::engine::Plugin, public HeldMemory {
 public:
     RecorderPlugin(tracktion::engine::PluginCreationInfo info)
         : Plugin(std::move(info))
@@ -84,6 +85,13 @@ public:
     // The ring lives in EngineHost, keyed by this module's id, so a rebuild of the chain around
     // this node does not end the take in progress: the new plugin is pointed at the same ring.
     void setTap(RecorderTap* tap) { tap_.store(tap, std::memory_order_relaxed); }
+
+    /** The ring it writes into — owned by EngineHost, but held for this node alone. */
+    int64_t heldBytes() const noexcept override
+    {
+        const auto* t = tap_.load(std::memory_order_relaxed);
+        return t != nullptr ? (int64_t)t->bytes() : 0;
+    }
 
 private:
     std::atomic<RecorderTap*> tap_{nullptr};

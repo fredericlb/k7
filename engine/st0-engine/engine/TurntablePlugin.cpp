@@ -219,6 +219,16 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error, in
     return true;
 }
 
+int64_t TurntablePlugin::heldBytes() const noexcept
+{
+    const juce::SpinLock::ScopedLockType g(recordLock_);
+    const auto pcm = (int64_t)frames_ * channels_ * bytesPerSample_;
+    const auto stretch = (int64_t)(stretchIn_.getNumChannels() * stretchIn_.getNumSamples() +
+                                   stretchOut_.getNumChannels() * stretchOut_.getNumSamples()) *
+                         (int64_t)sizeof(float);
+    return pcm + stretch;
+}
+
 double TurntablePlugin::recordSeconds() const
 {
     return recordRate_ > 0.0 ? frames_ / recordRate_ : 0.0;

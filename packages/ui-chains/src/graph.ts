@@ -15,6 +15,11 @@ import type {
 } from "@studio/graph-model";
 import { splitPort, TRACK_OUTPUTS } from "@studio/graph-model";
 import {
+  INPUT_VOLUME_PARAM,
+  MIX_PARAM,
+  OUTPUT_VOLUME_PARAM,
+} from "@studio/song-schema/moduleTypes";
+import {
   RACK_ADD_BIND,
   RACK_BIND,
   rackBindSymbol,
@@ -55,6 +60,10 @@ const CARRIED = [
   "shader",
   // The module this node is a USE of — the header draws it as the card's name.
   "uses",
+  // …unless the module has a LABEL, which the header draws first.
+  "moduleLabel",
+  // The engine's stage the card draws in its footer — docs/graphBuild.md.
+  "stage",
   // A model the machine has not got and can download — what the right-click offers to fetch.
   "modelDownload",
 ] as const satisfies readonly (keyof WebChainStep)[];
@@ -454,6 +463,20 @@ export const PORT_PLATE = 13;
 export const CELL = 36;
 export const UI_PAD = 6;
 export const UI_HEADER = 38;
+/** The air between two rows. */
+export const ROW_GAP = 8;
+/** The air below the last row; the first row sits flush under the header. */
+export const UI_EDGE = 12;
+
+/** The height `rows` rows take on a card, the gaps between them included. */
+export const rowsHeight = (rows: number): number =>
+  rows * CELL + Math.max(0, rows - 1) * ROW_GAP;
+/** The air between two columns, so neighbouring groups read as two sections rather than one slab. */
+export const COL_GAP = 6;
+
+/** The width `cols` columns take on a card, the gaps between them included. */
+export const colsWidth = (cols: number): number =>
+  cols * CELL + Math.max(0, cols - 1) * COL_GAP;
 
 /** The font size a node's header name needs to be READ WHOLE, in px — see docs/graphBuild.md. */
 export const HEADER_MAX_PX = 12.5; // .dgx-nm's size today, and the ceiling
@@ -561,14 +584,37 @@ function noteOf(
   return { note: text, ...noteSize(text) };
 }
 
-// How big a node must be to hold `ui`; falls back to the plain size when there is no panel.
-export function nodeSize(ui?: WebModuleUI): { w: number; h: number } {
-  if (!ui?.cols || !ui?.rows) return { w: NODE_W, h: NODE_H };
+/** The card's FOOTER: one row of the engine's stage, under the panel and never part of it — docs/graphBuild.md. */
+export const FOOTER_H = 30;
+/** The narrowest a footer slider may be — caption and bar — which widens only a card too narrow for even that. */
+export const STAGE_SLOT_MIN_W = 40;
+/** The width under which a footer slider drops its reading to a tooltip, so the card keeps its grid's width. */
+export const STAGE_READING_W = 72;
+
+// How big a node must be to hold `ui` and a footer of `stage` sliders; the plain size when there is no panel.
+export function nodeSize(
+  ui?: WebModuleUI,
+  stage = 0,
+): { w: number; h: number } {
+  const footerW = stage ? UI_PAD * 2 + stage * STAGE_SLOT_MIN_W : 0;
+  const footerH = stage ? FOOTER_H : 0;
+  if (!ui?.cols || !ui?.rows)
+    return { w: Math.max(NODE_W, footerW), h: NODE_H + footerH };
   return {
     // The grid's width, NOT max(NODE_W, …) — see docs/graphBuild.md.
-    w: Math.max(NODE_MIN_W, UI_PAD * 2 + ui.cols * CELL),
-    h: Math.max(NODE_H, UI_HEADER + UI_PAD * 2 + ui.rows * CELL),
+    w: Math.max(NODE_MIN_W, UI_PAD * 2 + colsWidth(ui.cols), footerW),
+    h: Math.max(NODE_H, UI_HEADER + rowsHeight(ui.rows) + UI_EDGE) + footerH,
   };
+}
+
+/** Slot `i` of `count` in a card's footer, in node-local coordinates — the card's bottom FOOTER_H. */
+export function stageSlot(
+  n: { w: number; h: number },
+  i: number,
+  count: number,
+): { x: number; y: number; w: number; h: number } {
+  const w = (n.w - UI_PAD * 2) / Math.max(1, count);
+  return { x: UI_PAD + i * w, y: n.h - FOOTER_H, w, h: FOOTER_H };
 }
 
 // The built-in UI every TRACK node carries — five mixer controls on `@` binds. See docs/graphBuild.md.
@@ -585,7 +631,7 @@ export const TRACK_UI: WebModuleUI = {
       type: "knob",
       col: 0,
       row: 1,
-      bind: "@volume",
+      bind: OUTPUT_VOLUME_PARAM,
       label: "vol",
       min: -60,
       max: 6,
@@ -656,7 +702,14 @@ export const MAIN_OUT_UI: WebModuleUI = {
 };
 
 // The rack-pad binds are the file format's vocabulary, re-exported so a renderer imports one place. See `rackUI`.
-export { RACK_ADD_BIND, RACK_BIND, rackBindSymbol };
+export {
+  INPUT_VOLUME_PARAM,
+  MIX_PARAM,
+  OUTPUT_VOLUME_PARAM,
+  RACK_ADD_BIND,
+  RACK_BIND,
+  rackBindSymbol,
+};
 
 /** The bind prefix a RECORDER's controls carry: `@rec:record` fires, it does not set. The second
  *  member of the rack pad's family, and named apart from `@record` deliberately — a bare `@field`
@@ -894,10 +947,10 @@ export function widgetRect(w: WebWidget): {
   h: number;
 } {
   return {
-    x: UI_PAD + w.col * CELL,
-    y: UI_HEADER + UI_PAD + w.row * CELL,
-    w: Math.max(1, w.colSpan ?? 1) * CELL,
-    h: Math.max(1, w.rowSpan ?? 1) * CELL,
+    x: UI_PAD + w.col * (CELL + COL_GAP),
+    y: UI_HEADER + w.row * (CELL + ROW_GAP),
+    w: colsWidth(Math.max(1, w.colSpan ?? 1)),
+    h: rowsHeight(Math.max(1, w.rowSpan ?? 1)),
   };
 }
 
@@ -912,9 +965,16 @@ const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 // value ⇄ 0..1 along the travel. `log` needs a strictly positive range, so a min of 0 falls back to linear.
 const isLog = (w: WebWidget) => w.curve === "log" && (w.min ?? 0) > 0;
 
+// A CROSSFADE knob (`pair`) travels the equal-power curve: position m ⇄ wet = sin(m·π/2), dry = cos(m·π/2).
+const frac = (w: WebWidget, value: number) => {
+  const [min, max] = widgetRange(w);
+  return max === min ? 0 : clamp01((value - min) / (max - min));
+};
+
 export function widgetNorm(w: WebWidget, value: number): number {
   const [min, max] = widgetRange(w);
   if (max === min) return 0;
+  if (w.pair) return clamp01((Math.asin(frac(w, value)) * 2) / Math.PI);
   if (isLog(w)) return clamp01(Math.log(value / min) / Math.log(max / min));
   return clamp01((value - min) / (max - min));
 }
@@ -922,10 +982,22 @@ export function widgetNorm(w: WebWidget, value: number): number {
 export function widgetDenorm(w: WebWidget, t: number): number {
   const [min, max] = widgetRange(w);
   const u = clamp01(t);
+  if (w.pair) return min + (max - min) * Math.sin((u * Math.PI) / 2);
   const v = isLog(w) ? min * (max / min) ** u : min + (max - min) * u;
   // `step` quantises what the user can reach, not what they see.
   if (!w.step) return v;
   return Math.min(max, Math.max(min, Math.round(v / w.step) * w.step));
+}
+
+/** A knob read and typed as a MIX in percent: a crossfade over two params, or the engine's own `@mix`. */
+export const isMixKnob = (w: WebWidget): boolean =>
+  !!w.pair || w.bind === MIX_PARAM;
+
+/** The DRY level a crossfade knob sets beside `wet`: the same position on the cos side, √(1 − wet²). */
+export function pairValue(w: WebWidget, wet: number): number {
+  const [min, max] = widgetRange(w);
+  const f = frac(w, wet);
+  return min + (max - min) * Math.sqrt(1 - f * f);
 }
 
 /** A value TYPED into a control: clamped to its range and quantised to its `step`, null when it is no number. */
@@ -933,6 +1005,8 @@ export function widgetTyped(w: WebWidget, text: string): number | null {
   // A comma is the decimal mark half the world types, and nothing else here can mean one.
   const v = Number(text.trim().replace(",", "."));
   if (!text.trim() || !Number.isFinite(v)) return null;
+  // A crossfade knob is read and typed as its MIX position, in percent — docs/widgets.md.
+  if (isMixKnob(w)) return widgetDenorm(w, v / 100);
   const [min, max] = widgetRange(w);
   const stepped = w.step ? Math.round(v / w.step) * w.step : v;
   return Math.min(max, Math.max(min, stepped));
@@ -1202,7 +1276,7 @@ export function buildGraph(
         ...carryStep(s),
         // The panel the node actually DRAWS, over the raw one `carryStep` brought — docs/graphBuild.md.
         ui,
-        ...nodeSize(ui), // as big as its grid needs
+        ...nodeSize(ui, s.stage?.length ?? 0), // as big as its grid needs, and its footer
         // …and a NOTE is as big as its text, which overrides that: a note has no widget grid.
         ...noteOf(graph, s.module),
       });

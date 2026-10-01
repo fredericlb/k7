@@ -71,17 +71,25 @@ import {
   cablePath,
   type EdgeInsert,
   eventPoint,
+  FOOTER_H,
   type GraphEdge,
   type GraphNode,
   headerFontPx,
+  INPUT_VOLUME_PARAM,
+  isMixKnob,
   type Jack,
   jackPoint,
   type LaidOutGraph,
+  MIX_PARAM,
   moduleDisplayName,
+  OUTPUT_VOLUME_PARAM,
+  pairValue,
   projectBindField,
   type RecVerb,
   rackBindSymbol,
   recBindVerb,
+  STAGE_READING_W,
+  stageSlot,
   type TrackControlValues,
   widgetDenorm,
   widgetNorm,
@@ -129,10 +137,11 @@ import {
   zoomAbout,
 } from "./camera";
 import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
-import { LcdScreenWidget } from "./LcdScreenWidget";
+import { type LcdSet, LcdScreenWidget, LcdSetContext } from "./LcdScreenWidget";
 import { EngineSelect } from "./EngineSelect";
 import { Minimap } from "./Minimap";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
+import { loadBadge } from "./nodeLoad";
 import {
   advanceMotion,
   type Ghost,
@@ -167,6 +176,8 @@ export type GraphMenuCtx =
   | { kind: "sink"; id: string }
   // A BOX right-clicked: the instance, and the template behind it — a host may offer either.
   | { kind: "assembly"; id: string; uses: string }
+  // A rack PAD right-clicked: the node whose kit it is, and the sound — what every `node tap …` verb takes.
+  | { kind: "tap"; id: string; symbol: string }
   // One WIDGET right-clicked: the param it drives, and the CC already mapped to it.
   | {
       kind: "param";
@@ -251,6 +262,51 @@ type WidgetTarget =
   // …and a PROJECT setting: read off the card like a field, WRITTEN by a verb (docs/widgets.md).
   | { kind: "project"; field: string };
 
+/** A footer slider's reading: the blend in percent, a level in dB with its sign. */
+function stageReading(w: WebWidget, value: number, t: number): string {
+  if (isMixKnob(w)) return `${Math.round(t * 100)}%`;
+  const db = Math.abs(value) >= 10 ? value.toFixed(0) : value.toFixed(1);
+  return `${value > 0 ? "+" : ""}${db} dB`;
+}
+
+/** The footer's sliders, one per stage bind, in the order `stage` lists them. */
+const STAGE_WIDGETS: Record<string, WebWidget> = {
+  [INPUT_VOLUME_PARAM]: {
+    type: "slider",
+    col: 0,
+    row: 0,
+    bind: INPUT_VOLUME_PARAM,
+    label: "in",
+    min: -60,
+    max: 12,
+  },
+  [MIX_PARAM]: {
+    type: "slider",
+    col: 0,
+    row: 0,
+    bind: MIX_PARAM,
+    label: "mix",
+    min: 0,
+    max: 1,
+  },
+  [OUTPUT_VOLUME_PARAM]: {
+    type: "slider",
+    col: 0,
+    row: 0,
+    bind: OUTPUT_VOLUME_PARAM,
+    label: "out",
+    min: -60,
+    max: 12,
+  },
+};
+
+/** The three binds the engine's stage answers around ANY plugin: blend, level in, level out. */
+const STAGE_BINDS = new Set([
+  MIX_PARAM,
+  INPUT_VOLUME_PARAM,
+  OUTPUT_VOLUME_PARAM,
+]);
+
 /** What a widget actuates: a pad, an `@` intrinsic, a plugin param, else offline — docs/widgets.md. */
 function widgetTarget(
   n: GraphNode,
@@ -281,6 +337,14 @@ function widgetTarget(
   // sets lives in project.yaml, and `@project:aspect` would become a FIELD called "project:aspect".
   const setting = projectBindField(w.bind);
   if (setting) return { kind: "project", field: setting };
+  // A lane's output volume IS its mixer fader, whose control keeps the mixer's own name.
+  if (n.kind === "track" && w.bind === OUTPUT_VOLUME_PARAM)
+    return { kind: "track", trackId: n.label, control: "volume" };
+  // The engine's stage — blend and levels — is set LIVE on the plugin like one of its params, never at the next build — engine docs/mix.md.
+  if (STAGE_BINDS.has(w.bind))
+    return n.pluginId
+      ? { kind: "plugin", pluginId: n.pluginId, name: w.bind }
+      : null;
   if (w.bind.startsWith("@")) {
     const field = w.bind.slice(1);
     if (n.kind === "track")
@@ -296,6 +360,17 @@ function widgetTarget(
   return offline && n.module
     ? { kind: "offline", module: n.module, name: w.bind }
     : null;
+}
+
+// The DRY half of a crossfade knob, resolved as its own bind would be — plugin or offline, else nothing.
+function pairTarget(
+  n: GraphNode,
+  w: WebWidget,
+  offline: boolean,
+): WidgetTarget | null {
+  if (!w.pair) return null;
+  const t = widgetTarget(n, { ...w, bind: w.pair, pair: undefined }, offline);
+  return t?.kind === "plugin" || t?.kind === "offline" ? t : null;
 }
 
 // Is any optimistic value outstanding on this channel? The guard that keeps a frame free when none is.
@@ -408,6 +483,26 @@ function useRecorderState(
   return useSyncExternalStore(subscribe, read, read);
 }
 
+/** One plugin's cost badge off the store, as a STRING key, so a frame that rounds the same re-renders nothing. */
+function usePluginLoadBadge(
+  store: EngineStore | null,
+  pluginId: string | null,
+): { text: string; title: string } | null {
+  const subscribe = useCallback(
+    (cb: () => void) => (store ? store.subscribe(cb) : () => {}),
+    [store],
+  );
+  const read = useCallback(() => {
+    if (!store || !pluginId) return "";
+    const b = loadBadge(store.getSnapshot().load?.plugins[pluginId]);
+    return b ? `${b.text}\n${b.title}` : "";
+  }, [store, pluginId]);
+  const key = useSyncExternalStore(subscribe, read, read);
+  if (!key) return null;
+  const [text, title] = key.split("\n");
+  return { text, title };
+}
+
 const NO_READOUT: TakeReadout = {};
 
 /** What a recorder card draws over (or instead of) its waveform. Subscribed as its own slice and
@@ -461,7 +556,13 @@ function widgetValue(
             (ch.moduleParams[tgt.module]?.[tgt.name] ?? n.params?.[tgt.name])
           : (live ??
             ch.params.getSnapshot()[tgt.pluginId]?.[tgt.name] ??
-            n.params?.[tgt.name]);
+            n.params?.[tgt.name] ??
+            // A module stating none is all wet at 0 dB, and the knob should say so rather than "–".
+            (tgt.name === MIX_PARAM
+              ? 1
+              : STAGE_BINDS.has(tgt.name)
+                ? 0
+                : undefined));
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
@@ -700,7 +801,7 @@ function TabsWidget({
       </div>
       {/* sub-widgets of the active page */}
       {currentWidgets &&
-        Object.entries(currentWidgets).map(([id, sub]) => {
+        groupsFirst(currentWidgets).map(([id, sub]) => {
           const sr = widgetRect(sub);
           return (
             <Widget
@@ -730,6 +831,12 @@ function TabsWidget({
     </div>
   );
 }
+
+// A group is painted UNDER what it frames, so it comes first; the sort is stable for everything else.
+const groupsFirst = (ws: Record<string, WebWidget>): [string, WebWidget][] =>
+  Object.entries(ws).sort(
+    ([, a], [, b]) => +(b.type === "group") - +(a.type === "group"),
+  );
 
 // Module-level so "no envelope" is one identity: a fresh [] per read would look like a change every frame.
 const NO_ENVELOPE: WaveformEnvelope[] = [];
@@ -987,6 +1094,7 @@ function WidgetInner({
   onTapEdit,
   onLandAutomation,
   styleOverride,
+  inline,
 }: {
   n: GraphNode;
   /** The widget's key in its map — what a panel's `widgets.js` names an lcdscreen by. */
@@ -1014,6 +1122,8 @@ function WidgetInner({
   /** A curve's cable is in hand and this widget is a LANDING TARGET — passed only while one is out. */
   onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
   styleOverride?: React.CSSProperties;
+  /** One ROW — caption, control, value — as the card's footer draws its sliders; `compact` drops the value. docs/nodeCard.md. */
+  inline?: boolean | "compact";
 }) {
   const r = widgetRect(w);
   // Hoisted above the two delegating returns, since the subscription below is a hook.
@@ -1063,6 +1173,26 @@ function WidgetInner({
     );
   }
 
+  // A GROUP frames the widgets inside its box and holds none of them — song-schema's docs/moduleFile.md.
+  if (w.type === "group") {
+    return (
+      <div
+        className="dgx-w dgx-group"
+        style={{
+          ...(styleOverride ?? {
+            left: r.x,
+            top: r.y,
+            width: r.w,
+            height: r.h,
+          }),
+          ...(w.color ? { background: w.color } : {}),
+        }}
+      >
+        {w.label && <span className="dgx-wlab dgx-glab">{w.label}</span>}
+      </div>
+    );
+  }
+
   // A rack's TAP: its own pad, note and sample — the sound it names is on the node.
   if (w.type === "tap") {
     const symbol = rackBindSymbol(w.bind);
@@ -1080,6 +1210,11 @@ function WidgetInner({
             : undefined
         }
         onEdit={onTapEdit && n.module ? (a) => onTapEdit(n, a) : undefined}
+        onMenu={
+          symbol && onContextParam
+            ? (x, y) => onContextParam(n, w, x, y)
+            : undefined
+        }
       />
     );
   }
@@ -1145,13 +1280,8 @@ function WidgetInner({
   };
   const caption =
     w.type === "label" || w.type === "button" ? undefined : w.label;
-
-  // …and where a DROPDOWN's goes — never the library kind, whose body already fills the box.
-  const beside =
-    w.type === "dropdown" &&
-    !w.library &&
-    !!caption &&
-    captionFitsBeside(caption, w.options ?? [], r.w);
+  // The two widgets drawn as a field — a select, or the file picker's button — are captioned like one.
+  const selectLike = w.type === "dropdown" || w.type === "filepicker";
 
   // A control never selects the node; an inert one (label, meter, undrivable knob) lets the click fall through.
   const interact: React.HTMLAttributes<HTMLDivElement> & { className: string } =
@@ -1200,7 +1330,7 @@ function WidgetInner({
         t={t}
         known={known}
         size={Math.max(14, size)}
-        text={fmtValue(value)}
+        text={isMixKnob(w) ? `${Math.round(t * 100)}%` : fmtValue(value)}
       />
     );
   } else if (w.type === "slider") {
@@ -1328,7 +1458,9 @@ function WidgetInner({
   }
 
   // A curve's cable is in hand and this PLUGIN param can take it — docs/widgets.md.
-  const landing = !!onLandAutomation && !!w.bind && !w.bind.startsWith("@");
+  // Not a crossfade knob: a curve drives ONE param, and wet alone would break the equal-power pair.
+  const landing =
+    !!onLandAutomation && !!w.bind && !w.bind.startsWith("@") && !w.pair;
   if (landing)
     return (
       <div
@@ -1353,24 +1485,40 @@ function WidgetInner({
       // An unlabelled pad has to say what it is somewhere, and only a pad needs the tooltip for it.
       title={padSymbol ?? undefined}
     >
-      {/* A dropdown's caption goes beside its select or above it, per captionFitsBeside; every other one is underneath. */}
-      {caption && w.type === "dropdown" && !beside && (
-        <span className="dgx-wlab top">{caption}</span>
-      )}
-      {beside ? (
-        <div className="dgx-selrow">
+      {/* A dropdown's or a file picker's caption sits on top of it, left-aligned; every other one is underneath. */}
+      {inline ? (
+        // The footer's row: what it is, the bar, and what it reads — docs/nodeCard.md.
+        <div
+          className="dgx-srow"
+          // Too narrow for its reading, the slot says it on hover instead.
+          title={
+            inline === "compact" && known
+              ? `${caption} ${stageReading(w, value, t)}`
+              : undefined
+          }
+        >
+          <span className="dgx-wlab">{caption}</span>
+          {body}
+          {inline !== "compact" && (
+            <span className={`dgx-sval${known ? "" : " unknown"}`}>
+              {known ? stageReading(w, value, t) : "–"}
+            </span>
+          )}
+        </div>
+      ) : caption && selectLike ? (
+        <div className="dgx-selcol">
           <span className="dgx-wlab">{caption}</span>
           {body}
         </div>
       ) : (
         body
       )}
-      {caption && w.type !== "dropdown" && (
+      {caption && !selectLike && !inline && (
         <span className="dgx-wlab">{caption}</span>
       )}
       {editing && (
         <ValueEditor
-          initial={value}
+          initial={isMixKnob(w) && known ? Math.round(t * 100) : value}
           onDone={(text) => {
             setEditing(false);
             const typed = text === null ? null : widgetTyped(w, text);
@@ -1380,21 +1528,6 @@ function WidgetInner({
       )}
     </div>
   );
-}
-
-/** Does a dropdown's caption fit BESIDE its select? Counted in glyphs, never from the DOM — docs/widgets.md. */
-const CAP_ADV = 6 * 0.62; // uppercase advance at .dgx-wlab's size
-const SEL_ADV = 9 * 0.6; // monospace advance at .dgx-sel's size
-const SEL_CHROME = 26; // border, padding and the native arrow
-const GAP = 4; // .dgx-selrow's gap
-function captionFitsBeside(
-  caption: string,
-  options: { label: string }[],
-  boxW: number,
-): boolean {
-  const widest = options.reduce((m, o) => Math.max(m, o.label.length), 1);
-  const need = caption.length * CAP_ADV + GAP + widest * SEL_ADV + SEL_CHROME;
-  return need <= boxW - 4; // less .dgx-w's own breathing room
 }
 
 // Memoised: it holds its own param tap, so a frame that did not move THIS number must not redraw it.
@@ -1684,9 +1817,11 @@ function NodeInner({
   // A lane's is spelt WITHOUT its instrument code, which the glyph beside it already says; the TRACK node keeps its id, being addressed by it.
   const headName = trackFace
     ? (trackLabel?.(trackFace) ?? trackFace)
-    : n.uses
-      ? moduleDisplayName(n.uses)
-      : n.label;
+    : n.moduleLabel || (n.uses ? moduleDisplayName(n.uses) : n.label);
+  // The node's own name goes under the header only when the header says something else.
+  const ownNameUnder = !trackFace && headName !== n.label;
+  // What the plugin costs, off the engine's load report — nothing without an engine or a plugin.
+  const load = usePluginLoadBadge(useEngineStoreOrNull(), n.pluginId ?? null);
   // The corner cluster, decided once, since three things read this same list.
   const corners = cornerButtons(n);
   const slot = (b: CornerButton) => corners.indexOf(b);
@@ -1933,7 +2068,9 @@ function NodeInner({
           <span
             className={`dgx-nm${flagCls}`}
             // The whole ref, not just the word drawn: the filing is one hover away rather than gone.
-            title={n.uses ? `${n.uses}\n${n.label}` : n.label}
+            title={[...new Set([n.moduleLabel, n.uses, n.label])]
+              .filter(Boolean)
+              .join("\n")}
             style={{
               fontSize: headerFontPx(headName, headerNameW(n, hasGlyph)),
             }}
@@ -1959,7 +2096,13 @@ function NodeInner({
           )}
         </span>
         {/* The node's own name, UNDER the row and clear of the bubbles — only when there are two names to tell apart. */}
-        {n.uses && <span className="dgx-nodenm">{n.label}</span>}
+        {ownNameUnder && <span className="dgx-nodenm">{n.label}</span>}
+        {/* On the header's bottom border, so it takes no width from the name — docs/nodeCard.md. */}
+        {load && (
+          <span className="dgx-load" title={load.title}>
+            {load.text}
+          </span>
+        )}
       </div>
 
       {/* The native plugin's editor: a corner bubble, not a header item, where it stole width from the longest names. */}
@@ -2263,7 +2406,7 @@ function NodeInner({
           </div>
         </div>
       ) : n.ui && showWidgets ? (
-        Object.entries(n.ui.widgets).map(([k, w]) => (
+        groupsFirst(n.ui.widgets).map(([k, w]) => (
           <Widget
             key={k}
             n={n}
@@ -2291,6 +2434,39 @@ function NodeInner({
       {/* What this lane HOLDS, under its controls, once the widgets are legible; see docs/nodeCard.md. */}
       {n.kind === "track" && n.clips?.length && showWidgets ? (
         <ClipList clips={n.clips} more={n.clipsMore} color={n.color} />
+      ) : null}
+      {/* The FOOTER: the engine's stage around the module, drawn by st0 and never part of the panel — docs/nodeCard.md. */}
+      {n.stage?.length && showWidgets ? (
+        <>
+          <div className="dgx-stage" style={{ height: FOOTER_H }} />
+          {n.stage.map((bind, i, all) => {
+            const w = STAGE_WIDGETS[bind];
+            if (!w) return null;
+            const r = stageSlot(n, i, all.length);
+            return (
+              <Widget
+                key={bind}
+                n={n}
+                wid={`stage:${bind}`}
+                w={w}
+                ch={ch}
+                onDragStart={onDragStart}
+                onTap={onTapWidget}
+                onPick={onPickWidget}
+                onPickAsset={onPickAsset}
+                onContextParam={onContextParam}
+                onTypeValue={onTypeValue}
+                styleOverride={{
+                  left: r.x,
+                  top: r.y,
+                  width: r.w,
+                  height: r.h,
+                }}
+                inline={r.w < STAGE_READING_W ? "compact" : true}
+              />
+            );
+          })}
+        </>
       ) : null}
       {armBar}
     </div>
@@ -2667,7 +2843,7 @@ export function DomChains({
   ) => void;
   /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
   rackLit?: RackLitStore;
-  // Set a file-valued param on a module: `param` is the key ("nam"), `file` assets-relative or "none".
+  // Set a file-valued param on a module: `param` is the key ("model"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
@@ -3474,6 +3650,8 @@ export function DomChains({
     w: WebWidget;
     tgt: WidgetTarget;
     key: string;
+    /** A crossfade knob's DRY param, written beside the wet one on every send — docs/widgets.md. */
+    pair: WidgetTarget | null;
     startT: number;
     startY: number;
     travel: number; // screen px that sweep the whole range for THIS control
@@ -3484,6 +3662,35 @@ export function DomChains({
   } | null>(null);
   const overrideRef = useRef(override);
   overrideRef.current = override;
+
+  // One live value to the engine, or to the surface that realises an offline module — nothing else sends live.
+  const sendLive = useCallback((t: WidgetTarget, value: number) => {
+    if (t.kind === "plugin")
+      cb.current.setPluginParam?.(t.pluginId, t.name, value);
+    else if (t.kind === "offline")
+      cb.current.onModuleParam?.(t.module, t.name, value);
+  }, []);
+
+  // Write a plugin param into the module's file, and a crossfade's dry one AFTER it: two writes to one file must not race.
+  const commitParam = useCallback(
+    (
+      module: string,
+      t: WidgetTarget,
+      value: number,
+      pair: WidgetTarget | null,
+      w: WebWidget,
+    ) => {
+      if (t.kind !== "plugin") return;
+      const line = (name: string, v: number) =>
+        `node param ${module} ${JSON.stringify(name)} ${v}`;
+      const first = cb.current.command(line(t.name, value));
+      if (pair?.kind === "plugin")
+        void Promise.resolve(first).then(() =>
+          cb.current.command(line(pair.name, pairValue(w, value))),
+        );
+    },
+    [],
+  );
   useEffect(() => {
     // A plugin frame landed: drop the overrides it now speaks for, keeping the one under the hand.
     return params.subscribe(() => {
@@ -3570,6 +3777,7 @@ export function DomChains({
         w,
         tgt,
         key: targetKey(tgt),
+        pair: pairTarget(n, w, ch.offlineChannel),
         startT: v === undefined ? 0 : widgetNorm(w, v),
         startY: e.clientY,
         // A fader sweeps over its OWN throw, measured off the rail — docs/widgets.md.
@@ -3587,6 +3795,46 @@ export function DomChains({
       };
     },
     [],
+  );
+
+  // An interactive screen's params: a knob's live send and commit, one per name — docs/lcdScreen.md.
+  const lcdSet = useCallback<LcdSet>(
+    (n, changes, commit) => {
+      const ch = chRef.current;
+      if (n.frozen && n.kind === "module") return;
+      if (n.autoFrozen) cb.current.onThawAutoFreeze?.(n.autoFrozen);
+      const targets: [WidgetTarget, number][] = [];
+      for (const [name, value] of Object.entries(changes)) {
+        const t = widgetTarget(
+          n,
+          { type: "knob", col: 0, row: 0, bind: name },
+          ch.offlineChannel,
+        );
+        if (t?.kind === "plugin" || t?.kind === "offline")
+          targets.push([t, value]);
+      }
+      if (!commit) {
+        setOverride((o) => {
+          const next = { ...o };
+          for (const [t, v] of targets) next[targetKey(t)] = v;
+          return next;
+        });
+        for (const [t, v] of targets) sendLive(t, v);
+        return;
+      }
+      const module = n.module;
+      if (!module || rehearsalRef.current) return;
+      // One after the other: two writes to one module file must not race.
+      let chain: Promise<unknown> = Promise.resolve();
+      for (const [t, v] of targets)
+        if (t.kind === "plugin")
+          chain = chain.then(() =>
+            cb.current.command(
+              `node param ${module} ${JSON.stringify(t.name)} ${v}`,
+            ),
+          );
+    },
+    [sendLive],
   );
 
   // Global pointer handling — pan, widget drag, gesture settle. Bound once; a movement threshold gates selection.
@@ -3607,7 +3855,12 @@ export function DomChains({
         const value = widgetDenorm(d.w, t);
         if (value === d.value) return;
         d.value = value;
-        setOverride((o) => ({ ...o, [d.key]: value }));
+        const dry = d.pair ? pairValue(d.w, value) : null;
+        setOverride((o) => ({
+          ...o,
+          [d.key]: value,
+          ...(d.pair && dry !== null ? { [targetKey(d.pair)]: dry } : {}),
+        }));
         // Coalesce to one live send per frame; only a plugin param feeds live (a track knob persists on release).
         if (!d.sent && (d.tgt.kind === "plugin" || d.tgt.kind === "offline")) {
           d.sent = true;
@@ -3615,19 +3868,8 @@ export function DomChains({
             const cur = drag.current;
             if (!cur) return;
             cur.sent = false;
-            if (cur.tgt.kind === "plugin")
-              cb.current.setPluginParam?.(
-                cur.tgt.pluginId,
-                cur.tgt.name,
-                cur.value,
-              );
-            // An offline module has no socket, so this reaches the surface that REALISES it.
-            else if (cur.tgt.kind === "offline")
-              cb.current.onModuleParam?.(
-                cur.tgt.module,
-                cur.tgt.name,
-                cur.value,
-              );
+            sendLive(cur.tgt, cur.value);
+            if (cur.pair) sendLive(cur.pair, pairValue(cur.w, cur.value));
           });
         }
         return;
@@ -3663,9 +3905,7 @@ export function DomChains({
           !rehearsalRef.current
         ) {
           // Not in a rehearsal: this line WRITES the value into the module's file — docs/hosting.md.
-          cb.current.command(
-            `node param ${d.node.module} ${JSON.stringify(d.tgt.name)} ${d.value}`,
-          );
+          commitParam(d.node.module, d.tgt, d.value, d.pair, d.w);
         }
         // The override stays until the matching frame arrives (see the reconcile effects).
       }
@@ -3908,6 +4148,12 @@ export function DomChains({
   // Right-click on a CONTROL: the menu for the PLUGIN param it drives, and only that — docs/widgets.md.
   const contextParam = useCallback(
     (n: GraphNode, w: WebWidget, x: number, y: number): void => {
+      // A PAD's menu is its kit's — the node and the sound — rather than a param's (packages/song/docs/racks.md).
+      const symbol = rackBindSymbol(w.bind);
+      if (symbol && n.module) {
+        cb.current.onContextMenu?.({ kind: "tap", id: n.module, symbol }, x, y);
+        return;
+      }
       if (!n.module || !w.bind || w.bind.startsWith("@") || !n.pluginId) return;
       cb.current.onContextMenu?.(
         {
@@ -4005,11 +4251,6 @@ export function DomChains({
         setModuleField(w, tgt, value);
         return;
       }
-      if (tgt.kind === "offline") {
-        setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
-        cb.current.onModuleParam?.(tgt.module, tgt.name, value);
-        return;
-      }
       // A PROJECT setting travels as the option's WORD, not its index: `project aspect 16:9` is
       // what a person would type, and the row's position is this card's business alone.
       if (tgt.kind === "project") {
@@ -4017,14 +4258,24 @@ export function DomChains({
         if (opt) cb.current.onProjectField?.(tgt.field, opt.arg ?? opt.label);
         return;
       }
-      setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
-      cb.current.setPluginParam?.(tgt.pluginId, tgt.name, value);
-      if (n.module && !rehearsal)
-        cb.current.command(
-          `node param ${n.module} ${JSON.stringify(tgt.name)} ${value}`,
-        );
+      const pair = pairTarget(n, w, chRef.current.offlineChannel);
+      // A crossfade knob's dry half moves with the wet one, on screen and in the engine alike.
+      const dry = pair ? pairValue(w, value) : 0;
+      setOverride((o) => ({
+        ...o,
+        [targetKey(tgt)]: value,
+        ...(pair ? { [targetKey(pair)]: dry } : {}),
+      }));
+      if (tgt.kind === "offline") {
+        sendLive(tgt, value);
+        if (pair) sendLive(pair, dry);
+        return;
+      }
+      sendLive(tgt, value);
+      if (pair) sendLive(pair, dry);
+      if (n.module && !rehearsal) commitParam(n.module, tgt, value, pair, w);
     },
-    [setModuleField, rehearsal],
+    [setModuleField, rehearsal, sendLive, commitParam],
   );
 
   // A tap only ASKS: which command writes the kit is the host's, and so is the sample picker.
@@ -4479,129 +4730,135 @@ export function DomChains({
   return (
     <EngineStoreProvider value={meterStore}>
       <IconsContext.Provider value={icons}>
-        <div
-          ref={hostRef}
-          className={`dgx${panning ? " panning" : ""}`}
-          onPointerDown={onPointerDown}
-          onDoubleClick={canvasDoubleClick}
-          // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
-          onPointerMove={patch ? movePatch : undefined}
-          onClick={patch ? canvasDrop : undefined}
-          onContextMenu={canvasMenu}
-          style={{ cursor: hovered ? "pointer" : undefined }}
-        >
-          {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
-          <canvas ref={cvRef} className="dgx-cablecv" />
-          {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
-          <div className="dgx-world" ref={worldRef}>
-            <svg
-              className="dgx-cables"
-              ref={cablesSvg}
-              width={graph.width}
-              height={graph.height}
-            >
-              <Cables
-                signal={model.signal}
-                auto={model.auto}
-                showLabels={showLabels}
-                hovered={hovered}
-                setHovered={setHovered}
-                onInsert={onEdgeInsert ? insert : undefined}
-              />
-              {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
-              {patch && (
-                <path
-                  ref={patchEl}
-                  className="dgx-patchcable"
-                  style={{ stroke: cableColorFor(patch.type) }}
-                  d={patchD(patch.fixedAt, patch.fixedAt)}
+        <LcdSetContext.Provider value={lcdSet}>
+          <div
+            ref={hostRef}
+            className={`dgx${panning ? " panning" : ""}`}
+            onPointerDown={onPointerDown}
+            onDoubleClick={canvasDoubleClick}
+            // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
+            onPointerMove={patch ? movePatch : undefined}
+            onClick={patch ? canvasDrop : undefined}
+            onContextMenu={canvasMenu}
+            style={{ cursor: hovered ? "pointer" : undefined }}
+          >
+            {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
+            <canvas ref={cvRef} className="dgx-cablecv" />
+            {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
+            <div className="dgx-world" ref={worldRef}>
+              <svg
+                className="dgx-cables"
+                ref={cablesSvg}
+                width={graph.width}
+                height={graph.height}
+              >
+                <Cables
+                  signal={model.signal}
+                  auto={model.auto}
+                  showLabels={showLabels}
+                  hovered={hovered}
+                  setHovered={setHovered}
+                  onInsert={onEdgeInsert ? insert : undefined}
                 />
-              )}
-            </svg>
-            {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
-            {ghosts.map((g) => (
-              <Node
-                key={`gone:${g.node.id}`}
-                n={{ ...g.node, x: g.x, y: g.y }}
-                selected={null}
-                showWidgets={showWidgets}
-                far={far}
-                ch={ch}
-                trackOrder={EMPTY_ORDER}
-                onTapNode={NOOP}
-                onContext={NOOP}
-                onOpenPlugin={NOOP}
-                onBypass={NOOP}
-                onDragStart={NOOP}
-                onTapWidget={NOOP}
-                onPickWidget={NOOP}
-                onPickAsset={NOOP}
-                onPickTrackInput={NOOP}
-                onContextParam={NOOP}
+                {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
+                {patch && (
+                  <path
+                    ref={patchEl}
+                    className="dgx-patchcable"
+                    style={{ stroke: cableColorFor(patch.type) }}
+                    d={patchD(patch.fixedAt, patch.fixedAt)}
+                  />
+                )}
+              </svg>
+              {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
+              {ghosts.map((g) => (
+                <Node
+                  key={`gone:${g.node.id}`}
+                  n={{ ...g.node, x: g.x, y: g.y }}
+                  selected={null}
+                  showWidgets={showWidgets}
+                  far={far}
+                  ch={ch}
+                  trackOrder={EMPTY_ORDER}
+                  onTapNode={NOOP}
+                  onContext={NOOP}
+                  onOpenPlugin={NOOP}
+                  onBypass={NOOP}
+                  onDragStart={NOOP}
+                  onTapWidget={NOOP}
+                  onPickWidget={NOOP}
+                  onPickAsset={NOOP}
+                  onPickTrackInput={NOOP}
+                  onContextParam={NOOP}
+                />
+              ))}
+              {graph.nodes.map((n) => (
+                <Node
+                  key={n.id}
+                  n={n}
+                  selected={selected}
+                  showWidgets={showWidgets}
+                  far={far}
+                  ch={ch}
+                  trackOrder={trackOrder ?? EMPTY_ORDER}
+                  onTapNode={tapNode}
+                  onContext={contextNode}
+                  onOpenPlugin={openPlugin}
+                  onBypass={bypassModule}
+                  onToggleAssembly={onToggleAssembly}
+                  onAlternative={onAlternative ? pickAlternative : undefined}
+                  onEngine={onEngine ? pickEngine : undefined}
+                  onZoomTo={zoomToNode}
+                  warning={
+                    n.pluginId ? engineWarnings?.[n.pluginId] : undefined
+                  }
+                  onDragStart={beginDrag}
+                  onTapWidget={tapWidget}
+                  onPickWidget={pickWidget}
+                  onPickAsset={pickAsset}
+                  trackInput={
+                    onPickTrackInput && n.kind === "track"
+                      ? (trackInputs?.[n.label] ?? "aucune")
+                      : undefined
+                  }
+                  onPickTrackInput={pickTrackInput}
+                  onWatchWaveform={onWatchWaveform}
+                  onContextParam={contextParam}
+                  onTypeValue={typeWidget}
+                  onTapEdit={onTapEdit ? editTap : undefined}
+                  sinkPlay={sinkPlay}
+                  onTapJack={onConnect ? tapJack : undefined}
+                  patchWant={patchWant}
+                  // The curve cables, all four halves gated on the one callback that commits them.
+                  onStartAutomation={onAutomate ? startAutomation : undefined}
+                  onLandAutomation={onAutomate ? landAutomation : undefined}
+                  onStartEvent={onAutomate ? startEvent : undefined}
+                  onLandEvent={onAutomate ? landEvent : undefined}
+                  // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
+                  // member of an OPEN box — its place is its FRAME's, not the graph's.
+                  onHeaderDrag={
+                    onMoveNode && !row && !n.assembly
+                      ? beginNodeDrag
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+            {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
+            {minimap && !row && (
+              <Minimap
+                nodes={graph.nodes}
+                bounds={graph}
+                cam={cam}
+                view={hostSize}
+                paintRef={minimapPaint}
+                onCenter={centerOn}
+                onFit={zoomFit}
+                onOrganize={onOrganize}
               />
-            ))}
-            {graph.nodes.map((n) => (
-              <Node
-                key={n.id}
-                n={n}
-                selected={selected}
-                showWidgets={showWidgets}
-                far={far}
-                ch={ch}
-                trackOrder={trackOrder ?? EMPTY_ORDER}
-                onTapNode={tapNode}
-                onContext={contextNode}
-                onOpenPlugin={openPlugin}
-                onBypass={bypassModule}
-                onToggleAssembly={onToggleAssembly}
-                onAlternative={onAlternative ? pickAlternative : undefined}
-                onEngine={onEngine ? pickEngine : undefined}
-                onZoomTo={zoomToNode}
-                warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
-                onDragStart={beginDrag}
-                onTapWidget={tapWidget}
-                onPickWidget={pickWidget}
-                onPickAsset={pickAsset}
-                trackInput={
-                  onPickTrackInput && n.kind === "track"
-                    ? (trackInputs?.[n.label] ?? "aucune")
-                    : undefined
-                }
-                onPickTrackInput={pickTrackInput}
-                onWatchWaveform={onWatchWaveform}
-                onContextParam={contextParam}
-                onTypeValue={typeWidget}
-                onTapEdit={onTapEdit ? editTap : undefined}
-                sinkPlay={sinkPlay}
-                onTapJack={onConnect ? tapJack : undefined}
-                patchWant={patchWant}
-                // The curve cables, all four halves gated on the one callback that commits them.
-                onStartAutomation={onAutomate ? startAutomation : undefined}
-                onLandAutomation={onAutomate ? landAutomation : undefined}
-                onStartEvent={onAutomate ? startEvent : undefined}
-                onLandEvent={onAutomate ? landEvent : undefined}
-                // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
-                // member of an OPEN box — its place is its FRAME's, not the graph's.
-                onHeaderDrag={
-                  onMoveNode && !row && !n.assembly ? beginNodeDrag : undefined
-                }
-              />
-            ))}
+            )}
           </div>
-          {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
-          {minimap && !row && (
-            <Minimap
-              nodes={graph.nodes}
-              bounds={graph}
-              cam={cam}
-              view={hostSize}
-              paintRef={minimapPaint}
-              onCenter={centerOn}
-              onFit={zoomFit}
-              onOrganize={onOrganize}
-            />
-          )}
-        </div>
+        </LcdSetContext.Provider>
       </IconsContext.Provider>
     </EngineStoreProvider>
   );

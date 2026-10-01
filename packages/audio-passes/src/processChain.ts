@@ -229,7 +229,7 @@ function mediatekChain(
         type,
         name,
         path: m.preset ? String(m.preset) : "",
-        ...(m.nam ? { namFile: String(m.nam) } : {}),
+        ...(m.model ? { namFile: String(m.model) } : {}),
         ...(dspGraph ? { dspGraph } : {}),
         params: numbers(m.params),
       }),

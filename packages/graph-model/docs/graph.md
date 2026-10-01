@@ -109,7 +109,7 @@ write `1,2`.
 
 `params` are the defaults plus the overrides. A bound param may be ABSENT — the plugin's own
 default is known only to the engine, so a widget with no value falls back to its authored min. A
-STRING is a file-valued param (`nam`), drawn as a dropdown over the module's `assets/` rather than
+STRING is a file-valued param (`model`), drawn as a dropdown over the module's `assets/` rather than
 a knob; the engine never sees it as a param (see `nodeProject`'s `numericParams`).
 
 `cc` comes from the `controller.yaml` in the module's FOLDER, so it is the module's and shared by

@@ -58,8 +58,8 @@ the editor offers it because the completion is DERIVED from the schema.
 
 ## The fields that are NOT offered, because they do not exist
 
-- `ir` and a top-level `nam`: there is no shared asset library, a module carries what it loads in
-  its own `assets/`, and `nam` is a `params:` entry, because a `.nam` model is one of the plugin's
+- `ir` and a top-level `model`: there is no shared asset library, a module carries what it loads in
+  its own `assets/`, and `model` is a `params:` entry, because an amp model is one of the plugin's
   controls (`moduleTypes.FILE_PARAMS`).
 - `jsdsp`: a filename beside a `plugin:` block that says nothing about it is two statements that
   have to agree. The TYPE says it (`plugin: {type: jsdsp}`) and the file is `jsdsp.ts` in the

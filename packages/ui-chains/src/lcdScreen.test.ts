@@ -26,8 +26,19 @@ describe("compileWidgetsScript", () => {
   });
 
   it("is nothing at all for an absent or blank script", () => {
-    expect(compileWidgetsScript(undefined)).toEqual({ draws: {} });
-    expect(compileWidgetsScript("  \n")).toEqual({ draws: {} });
+    expect(compileWidgetsScript(undefined)).toEqual({
+      draws: {},
+      pointers: {},
+    });
+    expect(compileWidgetsScript("  \n")).toEqual({ draws: {}, pointers: {} });
+  });
+
+  it("takes an interactive screen's draw AND its pointer from `{ draw, pointer }`", () => {
+    const s = compileWidgetsScript(
+      "return { eq: { draw() {}, pointer() { return true; } }, still() {} };",
+    );
+    expect(Object.keys(s.draws)).toEqual(["eq", "still"]);
+    expect(Object.keys(s.pointers)).toEqual(["eq"]);
   });
 
   it("compiles one text once", () => {

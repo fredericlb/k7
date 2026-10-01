@@ -12,8 +12,8 @@ import type {
   WebRackSound,
 } from "@studio/graph-model";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
-import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { moduleBaseChoices } from "@studio/song/basePreset";
+import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
@@ -25,6 +25,7 @@ import {
   assetLookup,
   moduleAssetChoices,
 } from "@studio/song/moduleAssetChoices";
+import { stageOf } from "@studio/song/ownMix";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   FAUST_TYPE,
@@ -36,10 +37,15 @@ import {
   CAMERA_IO,
   curveIdFromRef,
   hostsPlugin,
+  INPUT_VOLUME_PARAM,
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
+  type LibraryFileFamily,
   MIX_NODE,
+  MIX_PARAM,
+  OUTPUT_VOLUME_PARAM,
   SHADER_CATEGORY,
+  sharedFamilyOf,
 } from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { moduleShaderChoices } from "@studio/song-video/shaders";
@@ -62,11 +68,11 @@ function assetChoicesFor(
   }
 }
 
-/** …plus the libraries' sound files, for a panel that picks one — every step carrying them would bloat each graph. */
+/** …plus the libraries' shared files, for a panel that picks one — every step carrying them would bloat each graph. */
 function withLibraryChoices(
   own: string[] | undefined,
   ui: unknown,
-  also: readonly ("irs" | "samples")[] = [],
+  also: readonly LibraryFileFamily[] = [],
   projectDir?: string,
 ): string[] | undefined {
   const widgets = Object.values(
@@ -77,9 +83,15 @@ function withLibraryChoices(
     ...new Set([
       ...also,
       ...widgets.flatMap((w) =>
-        typeof w.bind === "string" && isLibraryFileParam(w.bind)
-          ? [LIBRARY_FILE_PARAMS[w.bind]]
-          : [],
+        typeof w.bind !== "string"
+          ? []
+          : isLibraryFileParam(w.bind)
+            ? [LIBRARY_FILE_PARAMS[w.bind]]
+            : (() => {
+                // A param that may name a module's own file OR a library's, like an amp's `model`.
+                const shared = sharedFamilyOf(w.bind);
+                return shared ? [shared] : [];
+              })(),
       ),
     ]),
   ];
@@ -302,6 +314,14 @@ export function buildGraphDoc(
           module: s.module,
           // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.
           ...(module?.extends ? { uses: String(module.extends) } : {}),
+          // …and what a person calls it, the header's first choice — packages/song/docs/moduleLabel.md.
+          ...(module?.label ? { moduleLabel: module.label } : {}),
+          // …and the engine's stage it takes, the one test the compile applies, so the footer shows what the engine does.
+          ...(() => {
+            const stage =
+              module && plugin?.type !== OFFLINE_TYPE ? stageOf(module) : [];
+            return stage.length ? { stage } : {};
+          })(),
           ...(needs?.url
             ? { modelDownload: { file: needs.file, url: needs.url } }
             : {}),
@@ -372,7 +392,17 @@ export function buildGraphDoc(
           // …and the engines it could run as — packages/song/docs/engines.md.
           engines: module?.engines,
           engine: module?.engine,
-          params: module?.params ?? {},
+          params: {
+            ...(module?.params ?? {}),
+            // …and the engine's blend under its intrinsic name, so a MIX knob draws what the file says.
+            ...(module?.mix !== undefined ? { [MIX_PARAM]: module.mix } : {}),
+            ...(module?.input_volume !== undefined
+              ? { [INPUT_VOLUME_PARAM]: module.input_volume }
+              : {}),
+            ...(module?.output_volume !== undefined
+              ? { [OUTPUT_VOLUME_PARAM]: module.output_volume }
+              : {}),
+          },
           // The engine's address, ONLY when the engine will really have one — see docs/graphFlags.md.
           pluginId:
             slot &&

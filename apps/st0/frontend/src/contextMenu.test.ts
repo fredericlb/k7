@@ -838,3 +838,53 @@ describe("what the person has turned off", () => {
     expect(yes).toEqual(on);
   });
 });
+
+describe("a rack pad", () => {
+  const TAP_VERBS: CommandInfo[] = [
+    "node tap note",
+    "node tap sample",
+    "node tap rename",
+    "node tap remove",
+    "node tap insert",
+  ].map((command) => ({
+    command,
+    help: command,
+    args: [a("node", "module", "nodes"), a("symbol", "text")],
+    menu: ["tap"],
+  }));
+
+  it("offers the six edits by name, in the order a kit is edited", () => {
+    const items = contextMenu(
+      { kind: "tap", id: "kit", symbol: "BD" },
+      TAP_VERBS,
+    );
+    expect(items.map((i) => i.label)).toEqual([
+      "Change note…",
+      "Change sample…",
+      "Rename…",
+      "Remove",
+      "Add one before",
+      "Add one after",
+    ]);
+  });
+
+  it("runs what is whole, and hands the bar what still owes a value", () => {
+    const items = contextMenu(
+      { kind: "tap", id: "my kit", symbol: "BD" },
+      TAP_VERBS,
+    );
+    const byLabel = Object.fromEntries(items.map((i) => [i.label, i]));
+    expect(byLabel["Change note…"]).toMatchObject({
+      command: 'node tap note "my kit" BD ',
+      complete: false,
+    });
+    expect(byLabel.Remove).toMatchObject({
+      command: 'node tap remove "my kit" BD',
+      complete: true,
+    });
+    expect(byLabel["Add one after"]).toMatchObject({
+      command: 'node tap insert "my kit" after BD',
+      complete: true,
+    });
+  });
+});

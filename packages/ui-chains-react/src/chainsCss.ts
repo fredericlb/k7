@@ -98,6 +98,13 @@ const CSS = `
 /* The top row, and the ONLY thing the corner bubbles stand over — see its padding-right below. */
 .dgx-hdtop { display:flex; align-items:center; gap:7px; min-width:0; }
 /* GRAB — the header moves the card, where the host allows it (the pin gesture). */
+/* The FOOTER under the panel: the engine's stage, set apart by a rule, inert so the card's drag still works on its bare parts. */
+.dgx-stage { position:absolute; left:0; right:0; bottom:0; border-top:1px solid #2f2f36;
+  border-radius:0 0 11px 11px; background:rgba(255,255,255,.015); pointer-events:none; }
+/* A plugin's cost, sitting ON the header's bottom border at the right: no width is taken from the name. */
+.dgx-load { position:absolute; right:10px; bottom:-5px; z-index:1; padding:0 3px; border-radius:3px;
+  font:6px/9px ui-monospace,monospace; color:var(--dim); background:var(--card); border:1px solid #2f2f36;
+  white-space:nowrap; cursor:default; }
 .dgx-hd.grab { cursor:grab; }
 .dgx-hd.grab:active { cursor:grabbing; }
 /* The content area below the header: "No Options" or why there are none, a sink's OUT mark, or a widget grid. */
@@ -322,29 +329,36 @@ const CSS = `
   align-items:center; justify-content:center; }
 .dgx-w.drag { cursor:ns-resize; }
 .dgx-w.tap { cursor:pointer; }
-/* A caption BESIDE its select, in the flow at full width, both min-width:0; see docs/widgets.md. */
-.dgx-selrow { display:flex; align-items:center; gap:4px; width:100%; min-width:0; }
-.dgx-selrow .dgx-wlab { margin-top:0; flex:none; min-width:0; overflow:hidden;
-  text-overflow:ellipsis; }
-.dgx-selrow .dgx-sel { flex:1; min-width:0; }
+/* A dropdown's caption ON TOP of its select, left-aligned with it: the pair is one block .dgx-w centres. */
+.dgx-selcol { display:flex; flex-direction:column; align-items:stretch; width:100%; min-width:0; }
+.dgx-selcol .dgx-wlab { margin:0 0 1px; text-align:left; overflow:hidden; text-overflow:ellipsis; }
 /* A widget offering to take a curve's cable: the whole box lights, because a hairline on a 21px knob cannot be aimed at. */
 .dgx-land { cursor:copy; border-radius:4px; outline:1.5px solid ${MAUVE};
   background:color-mix(in srgb,${MAUVE} 18%,transparent); }
-.dgx-wlab.top { position:absolute; top:1px; left:2px; right:2px; margin-top:0;
-  overflow:hidden; text-overflow:ellipsis;
-  /* Centred by text-align: out of the flow, this span is not a child .dgx-w can centre. */
-  text-align:center; }
 /* 6px, down from 8: a caption names a control that is already drawn, so it can be the smallest thing here. */
 .dgx-wlab { font-size:6px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
   margin-top:1px; white-space:nowrap; }
 .dgx-wval { font:10px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
 /* A 'label' widget's own text — a heading over a group, not a reading, and 8px since it left .dgx-wval's 10. */
 .dgx-wtext { font:8px ui-monospace,monospace; color:#e7e6ea; }
+/* A group: a tinted frame under the controls inside it, inert so a click falls through to the card. */
+.dgx-group { pointer-events:none; border-radius:5px; background:#ffffff0d;
+  box-shadow:inset 0 0 0 1px #ffffff14; justify-content:flex-start; align-items:flex-start; }
+/* Its name is STACKED down the left edge, letters upright, from the top — clear of the first control's dial. */
+/* A footer slider as one row: its caption, the bar taking what is left, its reading — none of the three may push the others out. */
+.dgx-srow { display:flex; align-items:center; gap:4px; width:100%; min-width:0; padding:0 2px; box-sizing:border-box; }
+.dgx-srow .dgx-wlab { margin-top:0; flex:none; }
+.dgx-srow .dgx-slider { flex:1; min-width:0; }
+.dgx-sval { flex:none; font:7px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
+.dgx-sval.unknown { color:var(--faint); }
+.dgx-glab { position:absolute; left:1px; top:2px; bottom:0; margin:0; writing-mode:vertical-rl;
+  text-orientation:upright; letter-spacing:0; line-height:1; overflow:hidden; }
 /* A RECORDER's waveform box: the canvas fills it, the two labels sit on top — docs/nodeCard.md. */
 .dgx-wave { position:relative; }
 .dgx-lcd { position:relative; padding:3px; border-radius:4px; background:#0f1a10;
   box-shadow: inset 0 0 0 1px #2b3a2c, inset 0 2px 6px rgba(0,0,0,.6); }
 .dgx-lcd canvas { width:100%; height:100%; display:block; }
+.dgx-lcd.live canvas { cursor:crosshair; touch-action:none; }
 .dgx-lcd-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   padding:4px; text-align:center; font:8px ui-monospace,monospace; color:rgba(184,240,160,.6); }
 /* "no record" — CENTRED and alone, the canvas having drawn nothing beside it (takeClock.ts). */

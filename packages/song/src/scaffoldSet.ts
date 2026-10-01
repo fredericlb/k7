@@ -5,6 +5,8 @@
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
 
+// The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
+import { MIX_PARAM } from "@studio/song-schema/moduleTypes";
 import {
   deckPlatter,
   STEM_NEUTRAL,
@@ -19,7 +21,6 @@ import {
   turntableBox,
   turntableMembers,
 } from "@studio/song-schema/stems";
-// The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
 import { formatAssembly } from "@studio/song-schema/yaml/assemblyFile";
 import { ASSEMBLIES_DIR } from "@studio/song-schema/yaml/assemblySchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
@@ -88,7 +89,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# not a mute, not a disconnect, not a routing — all four were measured, see\n` +
       `# engine/st0-engine/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
       `#\n` +
-      `# Each fade's \`Mix\` IS its lane's gain, so its panel reads true on its own: 0 silent, 1\n` +
+      `# Each fade's \`Level\` IS its lane's gain, so its panel reads true on its own: 0 silent, 1\n` +
       `# full. The desk drives the two in MIRROR — one control, deck A inverted — which is said\n` +
       `# in \`surfaces/desk.yaml\` rather than by either module knowing about the other.\n` +
       `#\n` +
@@ -224,7 +225,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# playlist: ete-2026\n` +
       `# stems: true\n` +
       `mapping:\n` +
-      `  crossfade: { module: ${FADE_A}, param: Mix, invert: true, also: { module: ${FADE_B}, param: Mix } }\n` +
+      `  crossfade: { module: ${FADE_A}, param: ${FADE_PARAM}, invert: true, also: { module: ${FADE_B}, param: ${FADE_PARAM} } }\n` +
       `  deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
       `  deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n` +
       `  deckA.eqLow: { module: ${EQ_A}, param: Low-shelf gain }\n` +
@@ -237,16 +238,16 @@ export function setProjectFiles(name: string): Record<string, string> {
       `  deckB.filter: { module: ${FILTER_B}, param: Sweep }\n` +
       // The CUE button is a binding like any other: the send's own gain, 0 or 1. See packages/song/docs/cue.md.
       // Listed with the filter it is tapped off, which is also where migrateSetCue inserts it.
-      `  deckA.cue: { module: ${CUE_A}, param: Mix }\n` +
-      `  deckB.cue: { module: ${CUE_B}, param: Mix }\n` +
+      `  deckA.cue: { module: ${CUE_A}, param: ${FADE_PARAM} }\n` +
+      `  deckB.cue: { module: ${CUE_B}, param: ${FADE_PARAM} }\n` +
       // The gain staging: the input trim in front of the strip, the channel fader at the end of it.
       `  deckA.trim: { module: ${TRIM_A}, param: ${TRIM_PARAM} }\n` +
       `  deckB.trim: { module: ${TRIM_B}, param: ${TRIM_PARAM} }\n` +
       `  deckA.level: { module: ${LEVEL_A}, param: ${GAIN_PARAM} }\n` +
       `  deckB.level: { module: ${LEVEL_B}, param: ${GAIN_PARAM} }\n` +
       // …and the one effect past the filter. OPTIONAL, like the cue and the stems below it.
-      `  deckA.echo: { module: ${ECHO_A}, param: ${ECHO_PARAM} }\n` +
-      `  deckB.echo: { module: ${ECHO_B}, param: ${ECHO_PARAM} }\n` +
+      `  deckA.echo: { module: ${ECHO_A}, param: "${ECHO_BIND}" }\n` +
+      `  deckB.echo: { module: ${ECHO_B}, param: "${ECHO_BIND}" }\n` +
       // One control per stem per deck, beside the EQ's three — 0 leaves the instrument in, 1 takes it out.
       DECKS.map((deck) =>
         STEMS.map(
@@ -464,7 +465,11 @@ const ECHO_B = "echoB";
 /** Each module's own param name, spelled once — a rename here is otherwise four dead controls. */
 const TRIM_PARAM = "Trim";
 const GAIN_PARAM = "Gain";
-const ECHO_PARAM = "Mix";
+/** A Fade's one param, its lane's GAIN — not "Mix", which would name a dry/wet it does not have (engine docs/mix.md). */
+export const FADE_PARAM = "Level";
+
+/** What the desk's echo knob binds: the engine's blend around the delay, not the delay's own. */
+export const ECHO_BIND = MIX_PARAM;
 
 /** One deck's tempo: a node of the médiathèque's cold Tempo module. */
 /** One deck's fade — the same module twice, `Side` deciding which way its gain runs (docs/setProject.md). */
@@ -480,7 +485,7 @@ function fadeNode(letter: string, invert: boolean): string {
     `# engine/st0-engine/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
     `#\n` +
     `#\n` +
-    `# \`Mix\` IS this lane's gain, so the panel reads true on its own: 0 silent, 1 full. The\n` +
+    `# \`Level\` IS this lane's gain, so the panel reads true on its own: 0 silent, 1 full. The\n` +
     `# desk drives the two in MIRROR — this one takes the control ${way}, which\n` +
     `# surfaces/desk.yaml states rather than either module knowing about the other.\n` +
     `#\n` +
@@ -489,7 +494,7 @@ function fadeNode(letter: string, invert: boolean): string {
     `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
     `params:\n` +
     `  # Centred, like the fader that drives it: both decks at half, which is where a set starts.\n` +
-    `  Mix: 0.5\n`
+    `  ${FADE_PARAM}: 0.5\n`
   );
 }
 
@@ -507,7 +512,7 @@ function cueNode(letter: string, from = `filter${letter}`): string {
     `# Deck ${letter}'s CUE send — what the headphones hear of this deck.\n` +
     `#\n` +
     `# The same Fade module as the crossfade, because the question is the same one: how much of\n` +
-    `# this deck goes down this path. \`Mix\` is that amount, and the desk's CUE button is nothing\n` +
+    `# this deck goes down this path. \`Level\` is that amount, and the desk's CUE button is nothing\n` +
     `# more than this param going 0 <-> 1 — no switch anywhere in the engine.\n` +
     `#\n` +
     `# It is fed from \`${from}\`, which is to say AFTER the EQ and the filter and BEFORE the\n` +
@@ -521,7 +526,7 @@ function cueNode(letter: string, from = `filter${letter}`): string {
     `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
     `params:\n` +
     `  # SILENT at rest: a set starts with nothing in the headphones, and the button is what opens it.\n` +
-    `  Mix: 0\n`
+    `  ${FADE_PARAM}: 0\n`
   );
 }
 
@@ -613,8 +618,9 @@ function echoNode(letter: string): string {
     `# channel and letting the repeats ring on, which works because what you cut is the delay's\n` +
     `# INPUT and not its output. Wired before the fader it would be cut along with everything else.\n` +
     `#\n` +
-    `# \`Mix\` is what the desk's knob moves, and it rests at 0 — an effect you drop into a chain\n` +
-    `# must not be heard before somebody asks for it.\n` +
+    `# \`mix\` is what the desk's knob moves — the ENGINE's dry/wet around the delay, whose own is\n` +
+    `# held at full wet (engine/st0-engine/docs/mix.md) — and it rests at 0: an effect you drop\n` +
+    `# into a chain must not be heard before somebody asks for it.\n` +
     `#\n` +
     `# \`Time\` is in MILLISECONDS and follows nothing: the desk knows each deck's BPM, but no\n` +
     `# binding carries it here yet. See packages/st0-plugins/docs/turntables/fx.md.\n` +
@@ -624,8 +630,8 @@ function echoNode(letter: string): string {
     `  Time: 375\n` +
     `  # Three or four audible repeats: enough to hear, little enough not to pile up.\n` +
     `  Feedback: 0.45\n` +
-    `  # DRY at rest. This is the one the desk drives.\n` +
-    `  ${ECHO_PARAM}: 0\n`
+    `# DRY at rest. This is the one the desk drives.\n` +
+    `mix: 0\n`
   );
 }
 

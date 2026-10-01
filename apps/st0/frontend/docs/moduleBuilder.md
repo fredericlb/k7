@@ -95,22 +95,23 @@ song uses it. See [sharedModules.md](sharedModules.md).
 
 `WidgetGridEditor` takes a REASON, not a boolean: `"unparsable"`, `"locked"`, or false.
 
-A boolean makes one note speak for both halves — so **every module in a library announces that
-its panel will not parse**, about files that parse perfectly. A shared module opens
-read-only by design; that is how you arrive at one, not something wrong with it. The third case
-is a path with no panel at all, which the store answers by failing, and that is not a fault
-either.
+A boolean makes one note speak for both halves — so a read-only builder would announce that its
+panel will not parse, about a file that parses perfectly. Read-only is a host's choice, not something
+wrong with the file. The third case is a path with no panel at all, which
+the store answers by failing, and that is not a fault either.
 
 Only `"unparsable"` gets the amber note, because only that one has something to fix and a way to
-fix it. Locked says so in the header, beside the button that unlocks it.
+fix it. Locked says so in the header, beside the button that unlocks it when the host offers one.
 
-## Read-only, and the one host that uses it
+## Read-only is the host's to ask for
 
-The builder takes `readOnly` and `onRequestEdit`. Both exist for shared modules: one shows the
-whole screen without arming a single autosave, the other draws the button that asks to be let
-in. What the button *says* is the host's — a shared package knows this module is not the
-project's, and cannot know whose it is or what writing to it costs. Same argument as
-`renderPreview`. See [sharedModules.md](sharedModules.md).
+The builder takes `readOnly` and `onRequestEdit`: one shows the whole screen without arming a
+single write, the other draws the button that asks to be let in. No host passes them today: st0
+opens every module editable, a library module's Save being its publish and that button the decision
+([sharedModules.md](sharedModules.md)). They stay for a host that has no way to write — the
+assembly template builder keeps its own pair for its library templates. What the button *says* is
+the host's: a shared package cannot know whose a module is or what writing to it costs. Same
+argument as `renderPreview`.
 
 ## A file-valued param is a param, and all three arguments are QUOTED
 
@@ -138,6 +139,22 @@ The sentinel stays BARE: `none` is a word the command understands, not a file.
 - **A metering menu.** `io-levels` exists and the engine only enables the devices it is asked to
   meter; nothing in st0 asks yet.
 
+## Beside the file tree, never over it
+
+The builder is drawn where the editor is, beside the tree — the chains builder's arrangement
+(`chainsBuilder.md`) — and opening it from anywhere fullscreens the editor so the tree is on screen;
+closing it puts the layout back as it was. Editing a module is rarely one module: the next one, the
+library it sits in, the file it names are all rows of that tree, and an overlay over the whole shell
+would make each of them a close-and-reopen.
+
+That makes a new situation: a module can be swapped for another while it holds unsaved edits,
+by a click in the tree. The builder reports its dirty state (`onDirtyChange`), and st0 asks the same
+"Leave without saving?" the builder's own Back asks before it opens the other one. Each module is its
+own mount (`key` on the path), so the next one never starts on the last one's pane, scan or buffers.
+
+A layout with no editor to fullscreen — a frozen share — opens no builder rather than one inside a
+hidden pane.
+
 ## What to check in a browser
 
 The suites here mount nothing, so none of this is covered by a green run:
@@ -151,4 +168,8 @@ The suites here mount nothing, so none of this is covered by a green run:
 - open `_libraries/st0/modules/instruments/4osc/module.yaml` from the Libraries tab, with no project
   using it and no engine → the bind dropdown lists 4OSC's parameters, `Tune 1` offers -36..+36,
   and dragging one onto a knob gives it that range rather than 0..1;
-- close the builder, then watch the engine log → no subscription left behind.
+- close the builder, then watch the engine log → no subscription left behind;
+- open the builder from the timeline layout (`ui builder <module>`) → the editor fullscreens with the
+  tree beside the builder; close it → the timeline layout is back;
+- edit a module without saving, click another module in the tree → "Leave without saving?"; say no
+  → still on the first, edits intact; say yes → the second opens on its own panel.

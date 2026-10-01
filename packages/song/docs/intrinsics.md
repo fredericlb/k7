@@ -50,6 +50,17 @@ widget its panel would be inert.
 - **`@gain`** — the input trim in dB, unclamped. Tracktion does not clamp it either; what is
   *useful* (±24 dB) is a judgement for the surface offering the control, not for the writer
   taking a number someone typed.
+- **`@input-volume`, `@output-volume`** — the level into an audio module and out of any module with
+  audio out, in dB (−60..+12), made by the ENGINE's stage around the plugin like `@mix`, and LIVE like
+  it (`engine/st0-engine/docs/mix.md`). Written as `input_volume:` / `output_volume:`, and 0 dB
+  writes no line. On a LANE, `@output-volume` is the mixer fader instead, the lane's level having
+  always been that fader's; the name says which side of the module it acts on, which `@volume` did
+  not once a module had two levels.
+- **`@mix`** — an EFFECT's dry/wet, 0 all dry to 1 all wet, which the ENGINE makes around the
+  plugin (`engine/st0-engine/docs/mix.md`). The one intrinsic that is also LIVE: the field is what
+  the file keeps, and a knob sends the same name to the running engine as a plugin param, so a
+  drag is heard before it is written. 1 writes no line at all, since no `mix:` already means all
+  wet, and a module never saved with a blend should not grow one by being turned back up.
 
 - **`@base`** — which named `.vstpreset` this module starts from, out of its own `base/` folder or
   an ancestor's, with `none` to clear it. The one intrinsic that is not an input's: it belongs to
@@ -72,26 +83,26 @@ command says so out loud. It is the only thing here that writes outside the proj
 - **`node bypass`** — it writes `graph.yaml`, not the module's file. Where a module sits in
   the signal path is not one of its own fields.
 - **`track mute` / `track solo` / `track gain` / `track pan`** — a track's intrinsics are drawn
-  from `@mute`, `@solo`, `@arm`, `@volume`, `@pan`, but they are not written into the lane's
+  from `@mute`, `@solo`, `@arm`, `@output-volume`, `@pan`, but they are not written into the lane's
   file: mute is the module's bypass in `graph.yaml`, solo is `soloed:` in `project.yaml`, and
   level and pan are params of the mixer module at the end of the chain. Different files, so
   different verbs.
 
 ## …and one thing that is NOT a verb of its own: a FILE-valued param
 
-`nam` and `onnx` land in `params:` like the numbers do, so they are `node param <node> nam
+`model` and `onnx` land in `params:` like the numbers do, so they are `node param <node> model
 <file>`. Two differences the handler carries: the value is checked against the assets the module
 actually holds, and it is **not** patched into the running engine, because a plugin reads its
 file when it is BUILT.
 
-A verb per file param — `module nam`, named after the param so there is one word to learn — is
+A verb per file param — `module model`, named after the param so there is one word to learn — is
 the same shape as `module gain`: a family the UI treats generically, held together by verbs
 written one at a time. The asset picker builds its line from the param's own name, so an `.onnx`
 picked under such a scheme reaches a command nobody wrote.
 
 What it costs: the value has no `assetFiles` completion. A provider is handed the host and not
 the half-typed line — the same limit that makes that list every module's assets rather than this
-one's — so `node param`'s value cannot know that the param before it was `nam`. The picker is
+one's — so `node param`'s value cannot know that the param before it was `model`. The picker is
 unaffected; typing the line by hand does not offer the filenames.
 
 ## Where each piece lives

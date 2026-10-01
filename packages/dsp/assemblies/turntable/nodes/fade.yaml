@@ -4,4 +4,4 @@
 extends: "@st0/audio/utility/fade"
 params:
   # Its one param IS this lane's gain: 0 silent, 1 full. The opposition lives in the mapping.
-  Mix: 0.5
+  Level: 0.5

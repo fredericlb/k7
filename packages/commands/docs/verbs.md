@@ -159,13 +159,22 @@ answered, so a refused transcription costs no track.
 
 ## `node tap` writes the NODE, never the module
 
-A rack's kit is its node's (`packages/song/docs/racks.md`), so the four `node tap` verbs — `note`,
-`sample`, `add`, `remove` — edit `nodes/<name>.yaml` (or the alternative that is on), and a node
-that is not a rack is refused. `sample` takes a library file only, checked against the same list
-the tap's picker offered, and `none` clears it. `add` picks the next free `T<n>` and the note after
-the kit's highest, since a new tap with a clashing note would fire twice. `remove` refuses a tap the
-node only inherits: deleting it would mean writing the module, which is exactly what these do not.
-Each ends in a reload — a rack's sounds are built when its plugin is.
+A rack's kit is its node's (`packages/song/docs/racks.md`), so the six `node tap` verbs — `note`,
+`sample`, `add`, `insert`, `rename`, `remove` — edit `nodes/<name>.yaml` (or the alternative that is
+on), and a node that is not a rack is refused. `sample` takes a library file only, checked against
+the same list its `samples` completion offers, and `none` clears it. `add` picks the next free `T<n>`
+and the note after the kit's highest, since a new tap with a clashing note would fire twice.
+
+`insert … before|after <tap>` is the positioned add a pad's menu offers: the NEAREST free note on
+that side of the tap's. It never renumbers the kit to make room, because a note is what a sequence
+plays — shifting three pads up one would silently change what the song sounds like. So on a kit
+whose notes are contiguous, "before SN" lands below the lowest of them, not between two pads.
+
+`rename` changes the symbol in place, keeping its note, its sample and its line in the file. Nothing
+else names a symbol but the node's own `rack:` and a hand-made panel's `@rack:<symbol>` bind, which
+is the module's and is not rewritten. `rename` and `remove` refuse a tap the node only inherits:
+touching it would mean writing the module, which is exactly what these do not. Each verb ends in a
+reload — a rack's sounds are built when its plugin is.
 
 Their arguments may be QUOTED, a sample's path holding spaces; the tap card quotes all three.
 
@@ -304,7 +313,7 @@ Nothing else here writes past the project on a click.
 
 ## File-valued params
 
-`nam` and `onnx` (`moduleTypes`' `FILE_PARAMS`) are params like any other — they land in `params:`
+`model` and `onnx` (`moduleTypes`' `FILE_PARAMS`) are params like any other — they land in `params:`
 beside the numbers — but their value is a filename, so two things differ. It is checked against the
 assets the module actually carries, and it is NOT patched into the running engine: a plugin loads
 its file when it is BUILT, so the handler writes and reloads. Swapping an amp model is not a knob

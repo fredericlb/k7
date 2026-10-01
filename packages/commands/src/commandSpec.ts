@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { chainNames } from "@studio/audio-passes/processChain";
 import { libraryAssemblies, projectAssemblies } from "@studio/song/assemblies";
 import { loadCurves } from "@studio/song/curves";
+import { libraryFiles } from "@studio/song/libraryFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { alternativesOf } from "@studio/song-schema/alternatives";
 import {
@@ -222,6 +223,14 @@ const PROVIDERS = {
       return [];
     }
   },
+  // The samples a rack tap may play — exactly the list `node tap sample` accepts, `@<library>/<path>` and `@project/<path>`.
+  samples: (h) => {
+    try {
+      return libraryFiles("samples", h.songPath).sort();
+    } catch {
+      return []; // no library cloned yet: nothing to offer, which is not an error
+    }
+  },
   // Audio files in the active project, walked per completion so new ones appear; hidden dirs are skipped.
   audioFiles: (h) => {
     const AUDIO_EXT = new Set([
@@ -388,6 +397,7 @@ export const MENU_ENTITIES = [
   "shot",
   "pad",
   "note",
+  "tap",
 ] as const;
 export type MenuEntity = (typeof MENU_ENTITIES)[number];
 const MENU_NAMES: ReadonlySet<string> = new Set(MENU_ENTITIES);
@@ -413,6 +423,8 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
+  // A sample is a file, in a library's samples/ or the project's.
+  samples: "file",
   // A playlist IS its file: no marker inside a folder, the extension is the whole rule.
   playlists: "file",
   // A lane IS its file too, the same way — video_tracks/<id>.yaml, and the id is the stem.
@@ -457,6 +469,8 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   markerNames: "a marker of this project",
   sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
+  samples:
+    "a sample a library or this project holds under samples/ (@<library>/<path>, @project/<path>)",
   playlists: "a set list of this repository (_playlists/<name>.yaml)",
   pictureLanes: "a picture lane of this song (video_tracks/<id>.yaml)",
   surfaceTypes:

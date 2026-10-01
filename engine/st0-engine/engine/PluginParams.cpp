@@ -2,6 +2,7 @@
 
 #include "PluginParams.h"
 #include "Warnings.h"
+#include "MixBlend.h"   // a module's @mix, set here beside its params
 
 #include <algorithm>
 #include <cmath>
@@ -301,6 +302,8 @@ std::vector<std::pair<std::string, double>> allParams(te::Plugin& plugin) {
     std::vector<std::pair<std::string, double>> out;
     for (const auto& p : pluginParams(plugin))
         out.emplace_back(p.name.toStdString(), p.get());
+    // A module with a stage reports its three values beside its own params, so its knobs follow the engine.
+    for (auto& [name, value] : stageParams(plugin)) out.emplace_back(name, value);
     return out;
 }
 
@@ -311,6 +314,23 @@ void applyPluginParams(te::Plugin& plugin, const std::unordered_map<std::string,
     for (auto& p : pluginParams(plugin))
         byName[p.name.toStdString()] = p.set;
     for (const auto& [name, value] : params) {
+        // The ENGINE's blend around the module, not one of the plugin's params — docs/mix.md.
+        // The engine's own stage around the module, not the plugin's params; each one arriving at all holds what it replaces — docs/mix.md.
+        if (name == kMixParam) {
+            holdOwnMix(plugin);
+            setModuleMix(plugin, value);
+            continue;
+        }
+        if (name == kInputVolumeParam) {
+            holdOwnLevel(plugin, 1);
+            setModuleInputDb(plugin, value);
+            continue;
+        }
+        if (name == kOutputVolumeParam) {
+            holdOwnLevel(plugin, -1);
+            setModuleOutputDb(plugin, value);
+            continue;
+        }
         const auto it = byName.find(name);
         if (it != byName.end())
             it->second(value);

@@ -145,6 +145,51 @@ void diff_plugin_param_drift_is_incremental() {
     CHECK(!needsFullRebuild(d));
 }
 
+// @mix is the engine's blend: taking it out of the file means all wet again, not "stay where it was".
+void diff_mix_removed_returns_to_wet() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Verb");
+        auto p = mkPlugin("t1:v", "reverb", "Reverb");
+        p.params["@mix"] = 0.3;
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks[0].plugins[0].params.erase("@mix");
+
+    const auto d = diff(a, b);
+    CHECK(d.size() == 1);
+    if (!d.empty()) {
+        CHECK(d[0].kind == ChangeKind::PluginParamChanged);
+        CHECK(d[0].paramName == "@mix");
+        CHECK(d[0].paramValue == 1.0);
+    }
+    CHECK(!needsFullRebuild(d));
+}
+
+// …and the two levels on the same stage: taken out of the file, they are 0 dB again.
+void diff_volume_removed_returns_to_unity() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Verb");
+        auto p = mkPlugin("t1:v", "reverb", "Reverb");
+        p.params["@input-volume"] = -6.0;
+        p.params["@output-volume"] = 3.0;
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc b = a;
+    b.tracks[0].plugins[0].params.clear();
+
+    const auto d = diff(a, b);
+    CHECK(d.size() == 2);
+    for (const auto& c : d) {
+        CHECK(c.kind == ChangeKind::PluginParamChanged);
+        CHECK(c.paramValue == 0.0);
+    }
+}
+
 // A NAM module's model and its IR are FILES it loads: another pick of either reloads the same instance — never an empty diff, never a replace.
 void diff_nam_model_or_ir_pick_is_reload() {
     ProjectDoc a;
@@ -734,6 +779,8 @@ int main() {
     RUN(diff_track_rename_is_not_readd);
     RUN(diff_track_params_in_place);
     RUN(diff_plugin_param_drift_is_incremental);
+    RUN(diff_mix_removed_returns_to_wet);
+    RUN(diff_volume_removed_returns_to_unity);
     RUN(diff_plugin_swap_is_replace_and_rebuild);
     RUN(diff_nam_model_or_ir_pick_is_reload);
     RUN(diff_preset_and_sidechain_reload_in_place);

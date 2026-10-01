@@ -7,10 +7,11 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
 import { DomChains, type TapAction } from "@studio/ui-chains-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import { useRackTrigger } from "../hooks/useRackTrigger";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
@@ -130,6 +131,11 @@ export function TrackModulesPane({
     [graph, modules, trackId],
   );
 
+  // A pad on a card in this row PLAYS, by the same hook as the chains pane.
+  const laidRef = useRef(laid);
+  laidRef.current = laid;
+  const triggerRack = useRackTrigger(laidRef);
+
   /** The row's coordinates are its OWN, so a pick gets no `at`: where a new node goes is the graph's to decide. */
   const edgeInsert = useMemo(
     () =>
@@ -201,6 +207,7 @@ export function TrackModulesPane({
       onEngine={onEngine}
       onAssetBrowse={onAssetBrowse}
       onTapEdit={onTapEdit}
+      onTriggerRack={triggerRack}
       onWatchWaveform={onWatchWaveform}
       onTrackToggle={onTrackToggle}
       onTrackSet={onTrackSet}

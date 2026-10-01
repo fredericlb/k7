@@ -96,6 +96,7 @@ private:
         // biquad: what the coefficients were last computed FROM, so a still knob costs nothing (docs/dspGraph.md).
         float lastFreq_ = -1.0f;
         float lastQ_ = -1.0f;
+        float lastGainDb_ = -1000.0f;
     };
 
     std::vector<Node> nodes_;

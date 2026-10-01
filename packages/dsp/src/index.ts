@@ -161,8 +161,21 @@ export class GraphBuilder {
     mode: "bandpass" | "lowpass" | "highpass" | "notch",
     freq: Input,
     q: Input,
-  ): void {
-    this.sink("biquad", [freq, q], mode);
+  ): void;
+  /** A peak or a shelf also takes its gain, in dB (the engine bounds it to ±24). */
+  biquad(
+    mode: "peak" | "lowshelf" | "highshelf",
+    freq: Input,
+    q: Input,
+    gainDb: Input,
+  ): void;
+  biquad(mode: string, freq: Input, q: Input, gainDb?: Input): void {
+    // A pass filter emits two inputs as it always has, so its graph's JSON is byte-identical.
+    this.sink(
+      "biquad",
+      gainDb === undefined ? [freq, q] : [freq, q, gainDb],
+      mode,
+    );
   }
   gain(amount: Input): void {
     this.sink("gain", [amount]);

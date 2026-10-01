@@ -56,7 +56,7 @@ import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { useDocPerRevision } from "../hooks/useDocPerRevision";
-import type { LibraryAssemblyRow } from "../libraryTree";
+import { type LibraryAssemblyRow, libraryOfPath } from "../libraryTree";
 import { moduleBehind } from "../moduleBehind";
 import { m } from "../paraglide/messages.js";
 import {
@@ -253,6 +253,7 @@ export function EditorTab({
   onOpenChain,
   onOpenAssembly,
   chainsBuilder,
+  moduleBuilder,
   diagnostics,
   videoSources,
   inputDevices,
@@ -290,6 +291,8 @@ export function EditorTab({
   onOpenAssembly: (file: string, folder: string) => void;
   /** The chains builder, when one is open — rendered in the editor's own place. */
   chainsBuilder?: React.ReactNode;
+  /** The module builder, drawn in the same place — beside the tree, never over it. */
+  moduleBuilder?: React.ReactNode;
   /** Each picture clip ref → the media file it names, from the COMPILED document: only the compiler has read `clips/<ref>.yaml`. */
   videoSources: Record<string, string>;
   // The interface's inputs, for the channel strip an `io: in` file gets under its text — see ui-module-builder/docs/inputChannels.md.
@@ -782,6 +785,57 @@ export function EditorTab({
       }
     },
     [file?.path, refresh, onChanged, onEditTarget, setStatus],
+  );
+
+  // A library is its repository: a rename or a delete there is published at once, as the builder's Save is.
+  const publishLibraryOf = useCallback(
+    async (path: string, message: string) => {
+      const library = libraryOfPath(path);
+      if (!library) return;
+      try {
+        const { note } = await api.publishLibraries(message, [library]);
+        setStatus(note);
+      } catch (e) {
+        setStatus(`publish failed: ${(e as Error).message}`);
+      }
+      await refreshLibraries();
+    },
+    [refreshLibraries, setStatus],
+  );
+
+  const renameLibraryEntry = useCallback(
+    async (path: string, newName: string) => {
+      try {
+        const { path: newPath } = await api.renameFile(path, newName);
+        await publishLibraryOf(path, `rename ${path} to ${newPath}`);
+      } catch (e) {
+        setStatus(`rename failed: ${(e as Error).message}`);
+      }
+    },
+    [publishLibraryOf, setStatus],
+  );
+
+  const deleteLibraryEntry = useCallback(
+    async (path: string, isDir: boolean) => {
+      const library = libraryOfPath(path) ?? "";
+      const agreed = await askConfirm({
+        title: m["ed.deleteTitle"]({
+          kind: isDir ? m["ed.folderWord"]() : m["ed.fileWord"](),
+          path,
+        }),
+        body: m["ed.libraryDeleteBody"]({ library }),
+        confirmLabel: m["project.delete"](),
+        danger: true,
+      });
+      if (!agreed) return;
+      try {
+        await api.deleteFile(path);
+        await publishLibraryOf(path, `delete ${path}`);
+      } catch (e) {
+        setStatus(`delete failed: ${(e as Error).message}`);
+      }
+    },
+    [publishLibraryOf, setStatus],
   );
 
   // Right-click New file: create an empty project file inside the target folder.
@@ -1341,6 +1395,8 @@ export function EditorTab({
                   setStatus((e as Error).message);
                 }
               }}
+              onRenameLibraryEntry={renameLibraryEntry}
+              onDeleteLibraryEntry={deleteLibraryEntry}
               onOpenLibraryModule={(moduleFile) => {
                 onOpenLibraryModule(moduleFile);
                 if (isMobile) setTreeOpen(false);
@@ -1359,6 +1415,12 @@ export function EditorTab({
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* The chains builder takes the EDITOR's place beside the file tree, absolute inside this main so nothing unmounts (docs/chainsBuilder.md). */}
           {chainsBuilder}
+          {/* …and so does the module builder: the tree stays beside it, to open the next module from (../../docs/moduleBuilder.md). */}
+          {moduleBuilder ? (
+            <div className="absolute inset-0 z-30 bg-background">
+              {moduleBuilder}
+            </div>
+          ) : null}
           <div className="min-h-0 flex-1">
             {/* A grid edit lands in the SAME buffer a keystroke does, so switching tabs mid-edit shows the text you just drew. */}
             {grid && file ? (

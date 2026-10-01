@@ -5,7 +5,7 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/st0-engine/docs/builtinParams.md.
 //
-// 224 plugins, 1064 parameters.
+// 224 plugins, 1067 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
@@ -397,10 +397,10 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
     role: "audioEffect",
     params: [
       { name: "Gain", min: -12, max: 6, def: 0 },
-      { name: "Low Cut", min: 3.486816406, max: 135.0762329, def: 3.486816406 },
+      { name: "Low Cut", min: 3.486820221, max: 135.0762329, def: 3.486820221 },
       {
         name: "High Cut",
-        min: 3.486816406,
+        min: 3.486820221,
         max: 135.0762329,
         def: 135.0762329,
       },
@@ -424,6 +424,9 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
           { label: "on", value: 1 },
         ],
       },
+      { name: "Knob 1", min: 0, max: 1, def: 0.5 },
+      { name: "Knob 2", min: 0, max: 1, def: 0.5 },
+      { name: "Knob 3", min: 0, max: 1, def: 0.5 },
     ],
   },
   studio_dspgraph: {

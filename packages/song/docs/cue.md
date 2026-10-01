@@ -70,9 +70,9 @@ consult it. Without it a delivered mixdown contains the headphone feed. See
 
 ## The CUE button is not a switch
 
-There is **no** switching in the engine. `cueA` is a node of the `fade` module, its `Mix` is how much
+There is **no** switching in the engine. `cueA` is a node of the `fade` module, its `Level` is how much
 of that deck leaves for the headphones, and the desk's button is that link going from 0 to 1 — the
-same mechanics as the crossfader and the stem cuts. One path fewer. At rest `Mix: 0`: a set starts
+same mechanics as the crossfader and the stem cuts. One path fewer. At rest `Level: 0`: a set starts
 with nothing in the ears.
 
 ## The tap point, and why it is there

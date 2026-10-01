@@ -1,7 +1,7 @@
-# NAM: the amp, not the cabinet (`NamPlugin`)
+# The neural amp: the amp, not the cabinet (`NamPlugin`)
 
-A Neural Amp Modeler as a Tracktion built-in. It loads a `.nam` model (JSON: architecture
-plus weights) and runs its inference over the track's audio.
+A neural amp as a Tracktion built-in. It loads a model — a `.nam` (Neural Amp Modeler), or an
+AIDA-X or Proteus `.json` run by RTNeural (below) — and runs its inference over the track's audio.
 
 This is the **non-linear** half of a guitar rig — the preamp and power-amp character, its
 saturation, and its response to how hard you play — which convolution cannot give you at
@@ -12,9 +12,8 @@ never the amp. The two chain up:
 guitar -> nam (the amp) -> impulse-response (the cabinet) -> OUT
 ```
 
-The model file comes from the project's shared asset library (`_library/nam/`), the same
-way an IR does. `EditBuilder` calls `loadModel()` when it builds the plugin, and the loader
-resolves the module's `nam:` field against the library.
+The model file is named by the module's `model:` param: one it carries in its `assets/`, or one
+of a library's shared `models/` as `@<library>/<path>` (`packages/song/docs/libraryFiles.md`). `EditBuilder` calls `loadModel()` when it builds the plugin.
 
 ## Levels: `Normalize`, `Input`, `Output`
 
@@ -105,3 +104,85 @@ loaded when the plugin is created.
 Every NAM model is one-in/one-out, so a stereo track is summed to the amp's input and the
 result copied to both outputs — which is what a real amp does with a stereo source anyway.
 Modelling it as stereo would mean two inferences and twice the CPU for a mono signal path.
+
+## Two kinds of model, one plugin
+
+A `.nam` is one setting of one amp. What it lacks is KNOBS: turning a captured amp's gain means
+another capture. AIDA-X and GuitarML's Proteus train small recurrent nets (one LSTM or GRU layer
+and a dense output) with the knob positions as extra INPUTS beside the sound, so a knob moves the
+amp the way the real one moves. Those nets are run by **RTNeural** (BSD-3).
+
+They are the same plugin, not a second one. Everything around the model — the rate bridge, the
+cabinet, the trims, the swap the audio thread never waits on — is the same job, and a second plugin
+would be a second copy of it to keep in step. `AmpModel.h` is the seam: `NamModel.cpp` holds the
+NAM half, `RtNeuralModel.cpp` the RTNeural half, and `loadAmpModel` picks by the FILE — `.nam` for
+NAM, any other JSON tried as RTNeural, which tells AIDA-X (`in_shape` + `layers`) from Proteus
+(`model_data` + `state_dict`) by their keys. The plugin keeps its type id and the wire keeps
+`namFile`, so no project and no protocol changed for it; a module names either kind with the one
+`model:` param.
+
+### The knobs
+
+`Knob 1`, `Knob 2`, `Knob 3`, 0..1, default 0.5. Generic names, because what a knob does is the
+model's: one is trained with gain, another with gain and tone. A module draws them under the names
+its model gives them (the library's `amps/neural-amp-knobs`, forked per model). They are fixed
+because a Tracktion plugin's parameters are fixed when it is created; a model reads the first
+`inputs − 1` of them, in the order it was trained with, and a `.nam` or a knobless model ignores all
+three. Three is the most AIDA-X's trainer produces plus one.
+
+A knob GLIDES to where it is set, one pole per sample, 10 ms: the net reads it every sample, and a
+step on a recurrent net is a click. The glide is per sample rather than per block so it is the same
+through the bridge's 32-sample blocks as through the host's.
+
+### The formats, as read
+
+Written from the files and their documentation, not from AIDA-X's or Proteus's own code: both
+plugins are GPL-3, and this engine is not.
+
+| | AIDA-X (Keras export) | Proteus (PyTorch `state_dict`) |
+|---|---|---|
+| inputs | last of `in_shape` | `model_data.input_size` |
+| net | RTNeural's own Keras JSON | `rec.` (one LSTM or GRU layer), `lin.` (dense) |
+| skip (output = net + input) | `in_skip`, default off | `model_data.skip`, default ON |
+| gains | `in_gain`, `out_gain` in dB | none |
+| rate | `metadata.samplerate` (a string), else 48 kHz | `sample_rate`, else 44.1 kHz |
+
+With a skip, `out_gain` is NOT applied: AIDA-X applies it only without one, and a model should sound
+here as its author heard it there. Proteus models are refused above one layer; Proteus itself plays
+none.
+
+### Compiled shapes, and the rest
+
+RTNeural runs a net either as a `ModelT` whose shape is a template, unrolled and with fixed-size
+Eigen, or as a generic `Model` built at load. The compiled shapes are the ones AIDA-X's trainer
+offers — LSTM or GRU, hidden 8 to 64, one to four inputs — and anything else runs generic, which
+the log says (`… (generic)`). Measured here (Apple Silicon, one core, 48 kHz): LSTM 12 0.5 %,
+LSTM 40 1.3 % with or without knobs, GRU 20 0.5 %, a generic LSTM 48 1.8 %. Cheaper than a
+standard WaveNet `.nam`.
+
+It is fetched pinned to a commit (there are no tags) and never built: its headers are compiled
+with the engine's Eigen, as NAM's are. It bundles nlohmann/json 3.11.1 behind the same include
+guard as ours; `RtNeuralModel.cpp` includes ours first, so one copy exists.
+
+A fresh net is run on 4096 samples of silence before it is heard, as NAM's `Reset` prewarms: its
+state starts at zero, and the bias alone moves it.
+
+### No loudness
+
+Neither format declares the output loudness a `.nam` records, so `Normalize` has nothing to level
+them to and leaves them at their trained level, and EditBuilder does not warn about it — the
+warning is for a `.nam` missing what it should carry. The trims are how such a model is levelled.
+
+### What proves it
+
+- `tests/AmpModel_test.cpp`, a fast binary: tiny models with random weights, against outputs
+  computed by `tests/data/ampmodel/gen_fixtures.py` from PyTorch's and Keras's cell equations —
+  written apart from RTNeural, so a weight layout read wrong fails. Both formats, a knob, a skip,
+  the gains, a shape that is not compiled in, a refused file.
+- A real AIDA-X model (an LSTM 12) against the input and output batch it carries: an
+  error-to-signal ratio of 9·10⁻⁸.
+- `scripts/amp-knobs.ts`: a knob at 0 and at 1 through the whole plugin, at the model's rate and
+  through the bridge. A render is deterministic, so any difference is the knob; the fixture's one
+  knob moves its harmonics by 0.08 dB, and its absent second knob by exactly 0.
+- `scripts/nam-rate.ts` takes a `.json` as it takes a `.nam`: the same AIDA-X model at 44.1 kHz
+  matches its 48 kHz self to 0.00 dB.

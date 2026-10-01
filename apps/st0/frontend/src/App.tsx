@@ -52,7 +52,7 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
-import { AskHost } from "@studio/project-shell/ask";
+import { AskHost, askConfirm } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
 import {
@@ -102,7 +102,7 @@ import { CommandsSettings } from "./components/CommandsSettings";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
-import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
+import { EngineLoad } from "./components/EngineLoad";
 import { EngineSwitch } from "./components/EngineSwitch";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
@@ -300,8 +300,6 @@ export default function App({
   const [builder, setBuilder] = useState<{
     path: string;
     pane: BuilderPane;
-    /** Whether this shared module has been unlocked for editing; whether it IS shared is read off the path. */
-    unlocked?: boolean;
   } | null>(null);
   /** Whether this ACCOUNT has a Claude key (the settings panel), asked when the builder opens until it says yes: no key, no button. */
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -332,8 +330,6 @@ export default function App({
       live = false;
     };
   }, [assemblyBuilder]);
-  // The shared module the Edit button asks about, held so the dialog closes without touching what is behind it.
-  const [editShared, setEditShared] = useState<string | null>(null);
   /** The LIVE plugin behind the builder's module, matched on the chain step's NAME — see docs/moduleBuilder.md. */
   const [builderPlugin, setBuilderPlugin] = useState<{
     module: string;
@@ -928,6 +924,47 @@ export default function App({
     },
     [focusOn, layout],
   );
+
+  // The layout before the module builder took the editor fullscreen — put back when it closes; undefined = nothing to restore.
+  const beforeBuilder = useRef<Pane | null | undefined>(undefined);
+  // Whether the open module has unsaved edits: the tree beside the builder can swap it for another.
+  const builderDirty = useRef(false);
+  const noteBuilderDirty = useCallback((d: boolean) => {
+    builderDirty.current = d;
+  }, []);
+  /** Open the module builder BESIDE the file tree: the editor fullscreened, where the tree is drawn (docs/moduleBuilder.md). */
+  const openModuleBuilder = useCallback(
+    async (path: string, pane: BuilderPane) => {
+      // Another module while this one holds unsaved edits: the same question the builder's own Back asks.
+      if (builder && builder.path !== path && builderDirty.current) {
+        const agreed = await askConfirm({
+          title: "Leave without saving?",
+          body: "This module's files are changed here, and Save writes them together.",
+          confirmLabel: "Quitter",
+          danger: true,
+        });
+        if (!agreed) return;
+      }
+      // A layout with no editor to fullscreen (a frozen share) would hide the builder inside a hidden pane: open nothing.
+      if (full !== "editor" && !layout.fullscreen.includes("editor")) {
+        setStatus("this view has no editor, so the module builder cannot open");
+        return;
+      }
+      builderDirty.current = false;
+      setBuilder({ path, pane });
+      if (full === "editor") return;
+      if (beforeBuilder.current === undefined) beforeBuilder.current = full;
+      fullscreen("editor");
+    },
+    [builder, full, fullscreen, layout],
+  );
+  const closeModuleBuilder = useCallback(() => {
+    builderDirty.current = false;
+    setBuilder(null);
+    const back = beforeBuilder.current;
+    beforeBuilder.current = undefined;
+    if (back !== undefined) setFull(back);
+  }, []);
 
   const paneProps = (p: Pane) => ({
     onPointerDown: () => focusOn(p),
@@ -1685,7 +1722,7 @@ export default function App({
         const arg = s.slice("builder ".length).trim();
         const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
         if (!path) setStatus(`no module "${arg}" in this project`);
-        else setBuilder({ path, pane: "module" });
+        else void openModuleBuilder(path, "module");
         return true;
       }
       // An assembly TEMPLATE, by its ref. The PATH is the file service's to give — never one built here.
@@ -1950,6 +1987,7 @@ export default function App({
       historyDeps,
       share,
       fixClipping,
+      openModuleBuilder,
     ],
   );
 
@@ -2720,6 +2758,7 @@ export default function App({
       {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
       {!isMobile && !snapshot && (
         <>
+          <EngineLoad className="shrink-0" />
           <MasterMeter
             className="shrink-0"
             ref={masterMeterRef}
@@ -3030,10 +3069,96 @@ export default function App({
                 setStatus={setStatus}
                 onEditTarget={setEditTarget}
                 onOpenItem={setOpenItem}
-                onOpenBuilder={(path, pane) => setBuilder({ path, pane })}
-                // The same builder, over the médiathèque and locked — on the PANEL like a project module.
+                onOpenBuilder={openModuleBuilder}
+                // The same builder for a library module — on the PANEL like a project module.
                 onOpenLibraryModule={(path) =>
-                  setBuilder({ path, pane: "panel" })
+                  void openModuleBuilder(path, "panel")
+                }
+                // The module builder takes the editor's place BESIDE the file tree, as the chains builder does (docs/moduleBuilder.md).
+                moduleBuilder={
+                  builder ? (
+                    <ModuleBuilder
+                      // One mount per module: a module opened from the tree beside it starts clean, not on the last one's state.
+                      key={builder.path}
+                      // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
+                      store={moduleStore}
+                      path={builder.path}
+                      kind="module"
+                      moduleName={
+                        builder.path.split("/").slice(-2)[0] ?? builder.path
+                      }
+                      paramRef={null}
+                      vimMode={vimMode}
+                      initialPane={builder.pane}
+                      // A library module opens EDITABLE, like the project's own: its Save is the publish — docs/sharedModules.md.
+                      onBack={closeModuleBuilder}
+                      onDirtyChange={noteBuilderDirty}
+                      onSaved={() => {
+                        bumpReload();
+                        // A save here PUBLISHES — four files committed and pushed onto the library repository, so the act says so.
+                        editorRef.current?.refreshLibraries();
+                      }}
+                      setStatus={setStatus}
+                      // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
+                      pluginParamNames={
+                        builderPlugin
+                          ? Object.keys(
+                              pluginParamMeta[builderPlugin.pluginId] ?? {},
+                            )
+                          : undefined
+                      }
+                      pluginParamMeta={
+                        builderPlugin
+                          ? pluginParamMeta[builderPlugin.pluginId]
+                          : undefined
+                      }
+                      // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
+                      onScanParams={api.scanPluginParams}
+                      // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
+                      onShowNativeUI={api.showPluginNativeUI}
+                      // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
+                      inputDevices={inputDevices}
+                      // …and the one act that changes that list, offered only with an engine attached, which is what does it.
+                      onRegroupInputs={connected ? regroupInputs : undefined}
+                      presets={
+                        (builderPlugin && presets[builderPlugin.module]) ||
+                        EMPTY_PRESETS
+                      }
+                      onListPresets={() =>
+                        builderPlugin && listPresets(builderPlugin.module)
+                      }
+                      // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
+                      onSetPreset={(module, sel) => setPreset(module, sel)}
+                      // A save into `_modules` forked: follow the copy, or the next save would fork again.
+                      onRelocated={(next) => {
+                        setBuilder({ path: next, pane: "module" });
+                        editorRef.current?.open(next);
+                      }}
+                      // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
+                      // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
+                      onAiOrganize={aiEnabled ? aiOrganize.run : undefined}
+                      renderPreview={({ ui, params, bases, script, stage }) => (
+                        <ModulePreview
+                          icons={STUDIO_ICONS}
+                          command={runCommand}
+                          name={
+                            builder.path.split("/").slice(-2)[0] ?? builder.path
+                          }
+                          path={builder.path}
+                          ui={script ? { ...ui, script } : ui}
+                          params={params}
+                          bases={bases}
+                          stage={stage}
+                          paramsStore={
+                            builderPlugin ? pluginParamsStore : undefined
+                          }
+                          onSetParam={
+                            builderPlugin ? setPluginParam : undefined
+                          }
+                        />
+                      )}
+                    />
+                  ) : null
                 }
                 // A chain row opens the builder ON that chain, both coming out of the one library repository.
                 chainsBuilder={
@@ -4047,7 +4172,7 @@ export default function App({
               const { module, param, commit } = assetPicker;
               setAssetPicker(null);
               if (commit) return void runCommand(commit(file));
-              // A file-valued param is a param — `node param <node> nam <file>`, all three QUOTED, with `none` left bare (docs/moduleBuilder.md).
+              // A file-valued param is a param — `node param <node> model <file>`, all three QUOTED, with `none` left bare (docs/moduleBuilder.md).
               void runCommand(
                 file
                   ? `node param "${module}" "${param}" "${file}"`
@@ -4127,94 +4252,6 @@ export default function App({
             />
           </div>
         )}
-
-        {builder && (
-          <div className="absolute inset-0 z-30 bg-background">
-            <ModuleBuilder
-              // ONE store: the account's libraries answer at `_libraries/<name>/…` in every workspace, so a shared module is an ordinary workspace path.
-              store={moduleStore}
-              path={builder.path}
-              kind="module"
-              moduleName={builder.path.split("/").slice(-2)[0] ?? builder.path}
-              paramRef={null}
-              vimMode={vimMode}
-              initialPane={builder.pane}
-              // A shared module opens LOCKED: everyone's copy is this one, so writing to it is decided in the dialog below.
-              readOnly={isLibraryPath(builder.path) && !builder.unlocked}
-              onRequestEdit={
-                isLibraryPath(builder.path) && !builder.unlocked
-                  ? () => setEditShared(builder.path)
-                  : undefined
-              }
-              onBack={() => setBuilder(null)}
-              onSaved={() => {
-                bumpReload();
-                // A save here PUBLISHES — four files committed and pushed onto the library repository, so the act says so.
-                editorRef.current?.refreshLibraries();
-              }}
-              setStatus={setStatus}
-              // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
-              pluginParamNames={
-                builderPlugin
-                  ? Object.keys(pluginParamMeta[builderPlugin.pluginId] ?? {})
-                  : undefined
-              }
-              pluginParamMeta={
-                builderPlugin
-                  ? pluginParamMeta[builderPlugin.pluginId]
-                  : undefined
-              }
-              // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
-              onScanParams={api.scanPluginParams}
-              // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
-              onShowNativeUI={api.showPluginNativeUI}
-              // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
-              inputDevices={inputDevices}
-              // …and the one act that changes that list, offered only with an engine attached, which is what does it.
-              onRegroupInputs={connected ? regroupInputs : undefined}
-              presets={
-                (builderPlugin && presets[builderPlugin.module]) ||
-                EMPTY_PRESETS
-              }
-              onListPresets={() =>
-                builderPlugin && listPresets(builderPlugin.module)
-              }
-              // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
-              onSetPreset={(module, sel) => setPreset(module, sel)}
-              // A save into `_modules` forked: follow the copy, or the next save would fork again.
-              onRelocated={(next) => {
-                setBuilder({ path: next, pane: "module" });
-                editorRef.current?.open(next);
-              }}
-              // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
-              // Claude draws the panel on THIS app's backend, which holds the key — absent when it holds none.
-              onAiOrganize={aiEnabled ? aiOrganize.run : undefined}
-              renderPreview={({ ui, params, bases, script }) => (
-                <ModulePreview
-                  icons={STUDIO_ICONS}
-                  command={runCommand}
-                  name={builder.path.split("/").slice(-2)[0] ?? builder.path}
-                  path={builder.path}
-                  ui={script ? { ...ui, script } : ui}
-                  params={params}
-                  bases={bases}
-                  paramsStore={builderPlugin ? pluginParamsStore : undefined}
-                  onSetParam={builderPlugin ? setPluginParam : undefined}
-                />
-              )}
-            />
-          </div>
-        )}
-
-        {/* The one gate between reading a shared module and rewriting everyone's copy of it. */}
-        <EditSharedModuleDialog
-          path={editShared}
-          onCancel={() => setEditShared(null)}
-          onConfirm={() => {
-            setEditShared(null);
-            setBuilder((b) => (b ? { ...b, unlocked: true } : b));
-          }}
-        />
 
         {/* Confirm before undoing a process step — it restores a bounced audio file. */}
         <Dialog

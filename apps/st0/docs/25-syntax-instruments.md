@@ -11,7 +11,7 @@ plugin:
   name: 4osc
 # params:
 #   Filter Freq: 69
-#   nam: "jcm800.nam"      # a file the module carries, in its own assets/ folder
+#   model: "jcm800.nam"    # a file the module carries, in its own assets/ folder
 ```
 
 `OUT` is the interface — a built-in name, not a module: list it as a destination and it is
@@ -87,7 +87,9 @@ frame: [40, 40, 320, 180] # …and leave THIS out to fill the frame
 
 ## _modules/<type>/<name>/module.yaml — a NAM amp and its level
 
-A `.nam` profile is trained at whatever level its author played at, and it records that level in the file. Nothing makes two profiles agree, so a model can play back several dB below what went in — which sounds like the amp doing nothing at all. The Neural Amp Modeler module carries three parameters for this. `Normalize` (off/on, **on** by default) levels the profile to a fixed reference using its declared loudness, so swapping one amp for another stops being a volume change; `Input` and `Output` are ±20 dB trims around it. `Input` is a tone control as much as a level one — how hard you hit a modelled amp is half of what it sounds like. A profile that declares no loudness gives `Normalize` nothing to work from, and the module shows a warning saying so.
+A `.nam` profile is trained at whatever level its author played at, and it records that level in the file. Nothing makes two profiles agree, so a model can play back several dB below what went in — which sounds like the amp doing nothing at all. `Normalize` (off/on, **on** by default) levels the profile to a fixed reference using its declared loudness, so swapping one amp for another stops being a volume change. The trims around it are the ones EVERY module has: `input_volume:` and `output_volume:`, in dB from −60 to +12, set by st0 itself before and after the plugin — so they read and turn the same on any module, and the plugin's own `Input` and `Output` stay where the plugin put them (st0 refuses a module that sets them). The input one is a tone control as much as a level one — how hard you hit a modelled amp is half of what it sounds like. An effect also has `mix:`, 0 all dry to 1 all wet, the same way. A profile that declares no loudness gives `Normalize` nothing to work from, and the module shows a warning saying so.
+
+The same module plays two kinds of model, told apart by the file: a `.nam`, and the `.json` models made by AIDA-X or GuitarML's Proteus. A `.nam` is one setting of an amp, captured. An AIDA-X or Proteus model can be trained with the amp's KNOBS as well, gain or tone, so turning them really changes the amp rather than the level going in. The module carries three for that, `Knob 1` to `Knob 3`, 0 to 1, which reach the model in the order it was trained with and do nothing on a model without knobs. What each one is depends on the model, so the library's **Amp (Knobs)** module draws them as Knob 1–3, and a copy of it made for one model is where they get their names. A model can sit in the module's own `assets/` folder, or in a library's `models/` folder, shared by every module that plays it: the second is written with the library's name first, `model: "@st0/guitarml proteus/TS9_DriveKnob.json"`, the way a cabinet IR is. The st0 library's `models/` comes with GuitarML's Proteus tone library and a set of AIDA-X captures (its `SOURCES.md` says where each comes from and under what licence), and you add your own by dropping `.nam` or `.json` files on that folder in the Libraries tab. These models declare no loudness, so `Normalize` leaves them at their trained level and says nothing; set the level with the trims.
 
 A NAM capture is often the amp without its cabinet, which sounds like no speaker ever made. `ir:` names a **cabinet IR** the module plays after the model: a sound file in one of your libraries' `irs/` folders, written `@<library>/<path>`. The **Cabinet** picker on the module's panel lists every IR your libraries hold, and the **Model** picker beside it the module's `.nam` files; leave `ir:` out for no cabinet. The IR is levelled like the model is, so trying another cabinet does not change the volume. A library's `samples/` folder sits beside `irs/`, for sound files a song picks the same way.
 
@@ -97,11 +99,11 @@ plugin:
   type: internal
   name: Neural Amp Modeler
 params:
-  nam: "Two-Rock/overdrive.nam"   # a file in this module's own assets/ folder
+  model: "Two-Rock/overdrive.nam"   # a .nam, or an AIDA-X / Proteus .json, in this module's own assets/
   ir: "@st0/fender deluxe verb/DELUXE REVERB OXFORD - BIG.wav"   # a cabinet, from a library's irs/
   Normalize: 1     # 0 turns it off and leaves the profile at its trained level
-  Input: 3         # hit it 3 dB harder
-  Output: -1.5
+input_volume: 3    # hit it 3 dB harder
+output_volume: -1.5
 ```
 
 ## _modules/<type>/<name>/module.yaml — the eurorack modules
@@ -507,7 +509,7 @@ The control grid a module draws on its graph node, in a file of its own **beside
 
 cols/rows is the layout; each widget sits on a cell and binds a plugin parameter by name. Drag a parameter from the module editor's Parameters pane onto a widget to bind it — the range and the label come with it. knob/slider/fader/number carry min/max; dropdown carries the named settings of a discrete parameter; waveform draws a live tap; label draws fixed text and binds nothing.
 
-`filepicker` is the odd one: it picks a FILE the module carries rather than a number. `bind` names a file-valued parameter (`nam`), and that one word decides everything — the key written, and which files are offered, since a parameter is named after the format it loads. Clicking it opens a searchable tree of the module's `assets/`, its own and those of every module it extends, so a thin module that inherits a shared amp offers that amp's profiles.
+`filepicker` is the odd one: it picks a FILE the module carries rather than a number. `bind` names a file-valued parameter (`model`), and that one word decides everything — the key written, and which files are offered: an amp's `model` takes a `.nam` or an AIDA-X / Proteus `.json`. Clicking it opens a searchable tree of the module's `assets/`, its own and those of every module it extends, so a thin module that inherits a shared amp offers that amp's profiles.
 
 `lcdscreen` is a screen the module draws itself. It binds nothing: a `widgets.js` beside `ui.yaml` returns an object keyed by widget id, and the function under a screen's id paints it on every change, given a 2D canvas, the module's live parameters, and the peak level of the signal going IN and coming OUT of the module over the last few seconds. The module editor shows a `widgets.js` tab as soon as the panel has a screen.
 

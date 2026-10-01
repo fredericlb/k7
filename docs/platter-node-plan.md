@@ -121,8 +121,8 @@ but `builtInPlugins()` does not list it — so it is absent from `--dump-builtin
 is there, its parameters can be neither proposed nor validated by the module builder. One `e(…)`
 line in `PluginScan.cpp`.
 
-**A parameter CAN be a file**, and the mechanism exists: `bind: nam` + `filepicker`, and
-`nodeProject.ts` turns a module's `nam:` into `namFile`. An analogous line would make `deck:` →
+**A parameter CAN be a file**, and the mechanism exists: `bind: model` + `filepicker`, and
+`nodeProject.ts` turns a module's `model:` into `namFile`. An analogous line would make `deck:` →
 `deckFile`. That is not the right route for a deck: its record is chosen live and deliberately must
 not be committed into the project (`deckTrack` says so). Worth noting because the question comes
 back, and the answer is not "impossible" but "it would write the record into the project".

@@ -17,6 +17,7 @@ import {
   isIoSource,
   MIX_NODE,
   type ModuleKind,
+  moduleLabelOf,
   portRef,
   RENDER_NODE,
   SHAPE_CATEGORY,
@@ -128,7 +129,8 @@ export type WidgetType =
   | "tabs"
   | "waveform"
   | "dropdown"
-  | "lcdscreen";
+  | "lcdscreen"
+  | "group";
 
 // One widget on a module's grid — see #Widget in the schema above for the contract.
 export interface Widget {
@@ -151,6 +153,8 @@ export interface Widget {
   options?: { label: string; value: number }[];
   // …or the library folder its choices are listed from ("ir"), where `bind` names a MODULE field (see #Widget).
   library?: string;
+  color?: string; // group only: its background colour
+  pair?: string; // knob only: the dry param of a crossfade knob
 }
 // A module's UI: widgets on a grid, keyed by a stable id (the override key).
 export interface ModuleUI {
@@ -183,6 +187,7 @@ export type InstrumentType = "plugin" | "rack";
 // A module: a plugin (or io, or a rack) plus params, plus an optional `extends` it inherits defaults from.
 export interface Module {
   extends?: string; // the module this inherits from ("type/name" | "@ns/type/name"); "" when none
+  label?: string; // what a person calls it, inherited through `extends` like any field — docs/moduleLabel.md
   kind: ModuleKind; // from the type folder — "plugin", "io", or "doc" (a note; see docModule.ts)
   io?: string; // io modules only: "out" (sink) | "in" (live source)
   plugin?: RawPlugin; // a plugin definition (plugin.type = xmlTypeName / cache id)
@@ -191,6 +196,11 @@ export interface Module {
   params?: Record<string, number | string>;
   // Only usable on an input that is already a FILE — see docs/coldModules.md and isColdModule.
   cold?: boolean;
+  // The engine's blend around the effect, 0..1 — carried to the plugin as its `@mix` param (engine docs/mix.md).
+  mix?: number;
+  // …and the levels on that same stage, in dB — carried as `@input-volume` / `@output-volume`.
+  input_volume?: number;
+  output_volume?: number;
   // Which named BASE this module starts from — the opaque state UNDER `params:`; see docs/userPresets.md.
   base?: string;
   // Which SHADER a shader node runs, absent when nothing is chosen — see packages/song-video/docs/shaders.md.
@@ -216,7 +226,7 @@ export interface Module {
   // What this module EMITS — the signal on the cable leaving it (see moduleEmits); undefined for a sink.
   emits?: "audio" | "midi" | "video";
   // The file a file-valued param names, resolved to an ABSOLUTE path for the engine, or undefined when assets/ lacks it.
-  nam?: string;
+  model?: string;
   // …the same for the neural MODEL an offline module runs, resolved against its assets/ then the machine's cache.
   onnx?: string;
   // …and what the module SAYS, per param: the short assets-relative name; the two disagreeing is how a dangling ref is spotted.
@@ -482,6 +492,7 @@ export function buildGraph(
   // One module normalizer for both maps, handed a RESOLVED module — inheritance is already settled.
   const toModule = (b: ResolvedModule): Module => ({
     extends: b?.extends ? String(b.extends) : undefined,
+    label: moduleLabelOf(b) || undefined,
     // Four kinds, read straight rather than folded to "not io means plugin", which is what made a note compile as one.
     kind:
       b?.kind === "io" || b?.kind === "doc" || b?.kind === "track"
@@ -493,6 +504,11 @@ export function buildGraph(
     params: b?.params ?? {},
     // Inherited like `plugin`, so a use of a cold module is cold and nothing has to restate it.
     cold: b?.cold === true ? true : undefined,
+    mix: typeof b?.mix === "number" ? b.mix : undefined,
+    input_volume:
+      typeof b?.input_volume === "number" ? b.input_volume : undefined,
+    output_volume:
+      typeof b?.output_volume === "number" ? b.output_volume : undefined,
     // WHICH lens an io camera opens, inherited the same way — see docs/camera.md.
     camera: typeof b?.camera === "string" ? b.camera : undefined,
     // …and its rectangle in the viewport, four numbers or nothing at all.
@@ -516,7 +532,7 @@ export function buildGraph(
     folderAbs: typeof b?.folderAbs === "string" ? b.folderAbs : undefined,
     emits: moduleEmits(b?.category, b?.io, normalizeOutputs(b?.outputs)),
     // Both halves of every file-valued param, because validate() needs the pair (docs/graphModel.md).
-    nam: b?.nam,
+    model: b?.model,
     onnx: b?.onnx,
     assets: b?.assets,
     // Inherited like `plugin`, so a node of a module that says where its model lives says so too.

@@ -141,24 +141,42 @@ describe("resolveModule", () => {
     expect(m.params).toEqual({ a: 1, b: 20, c: 30 });
   });
 
+  it("gives a node its module's label, and its own when it has one — what the card's header draws", () => {
+    const byRef = {
+      "@st0/audio/reverb": mod({
+        label: "Grande salle",
+      } as Partial<LoadedModule>),
+    };
+    const plain = resolveModule(mod({ extends: "@st0/audio/reverb" }), byRef);
+    expect((plain as { label?: string }).label).toBe("Grande salle");
+    const own = resolveModule(
+      mod({
+        extends: "@st0/audio/reverb",
+        label: "Salle B",
+      } as Partial<LoadedModule>),
+      byRef,
+    );
+    expect((own as { label?: string }).label).toBe("Salle B");
+  });
+
   it("keeps an inherited asset the loader wrote as undefined on the child", () => {
     // Decoration writes those keys at undefined, so a plain spread lets the child erase its parent's.
     const byRef = {
       "@st0/audio/amp": mod({
-        nam: "/mods/amp/assets/jcm800.nam",
+        model: "/mods/amp/assets/jcm800.nam",
         preset: "/mods/amp/p.vstpreset",
-        assets: { nam: "jcm800.nam" },
+        assets: { model: "jcm800.nam" },
       }),
     };
     const child = mod({
       extends: "@st0/audio/amp",
-      nam: undefined,
+      model: undefined,
       preset: undefined,
     });
     const m = resolveModule(child, byRef);
-    expect(m.nam).toBe("/mods/amp/assets/jcm800.nam");
+    expect(m.model).toBe("/mods/amp/assets/jcm800.nam");
     expect(m.preset).toBe("/mods/amp/p.vstpreset");
-    expect(m.assets).toEqual({ nam: "jcm800.nam" });
+    expect(m.assets).toEqual({ model: "jcm800.nam" });
   });
 
   it("never inherits what says WHERE the module lives", () => {

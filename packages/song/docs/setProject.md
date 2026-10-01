@@ -171,7 +171,7 @@ Each fade has **one** parameter and it IS that lane's gain, so its panel reads t
 `0` silent, `1` full. The opposition is in the mapping, as a mirror:
 
 ```yaml
-crossfade: { module: fadeA, param: Mix, invert: true, also: { module: fadeB, param: Mix } }
+crossfade: { module: fadeA, param: Level, invert: true, also: { module: fadeB, param: Level } }
 ```
 
 `also` is the one exception to "a control drives at most one param". It earns it by being narrow
@@ -180,9 +180,10 @@ its own range**. What the rule was written against is a mapping whose halves can
 things; a mirror cannot.
 
 The arithmetic lives there rather than in the modules because a panel a reader has to convert
-through a second parameter will be misread: one `Mix` sent unchanged to both, with a `Side` on
-each module deciding which way its gain runs, sounds identical and makes `fadeA` read `Mix 100`
-while deck A is silent.
+through a second parameter will be misread: one `Level` sent unchanged to both, with a `Side` on
+each module deciding which way its gain runs, sounds identical and makes `fadeA` read `Level 100`
+while deck A is silent. It is `Level` and not `Mix` because it is a gain: a name holding *mix* would
+be read as a dry/wet and held at full by the engine (`engine/st0-engine/docs/mix.md`).
 
 `@st0/audio/utility/crossfade` is not wrong: on a chain where both its inputs already live on one
 track, it is the right module. It is a desk, where they do not, that it cannot serve.

@@ -87,12 +87,12 @@ ui:
     const { issues } = parseModule(
       M(`
 params:
-  nam: jcm800.nam
+  model: jcm800.nam
 ui:
   cols: 4
   rows: 2
   widgets:
-    w2: { type: dropdown, col: 0, row: 0, bind: nam, library: nam }
+    w2: { type: dropdown, col: 0, row: 0, bind: model, library: model }
 `),
     );
     expect(issues).toEqual([]);
@@ -163,7 +163,7 @@ extends: "@engine/audio/amp/neural-amp-modeler"
 
 params:
   # the amp — see assets/
-  nam: jcm800.nam
+  model: jcm800.nam
   Mix: 1
   Level: 0.8
 
@@ -189,11 +189,11 @@ ui:
 
   it("keeps every comment", () => {
     // A file-valued param is edited exactly like a numeric one, which is why it lives in `params:`.
-    const after = setModuleValue(AUTHORED, ["params", "nam"], "twin.nam");
+    const after = setModuleValue(AUTHORED, ["params", "model"], "twin.nam");
     expect(after).toContain("# amp: the head the whole record goes through.");
     expect(after).toContain("# Swap the model, not the module.");
     expect(after).toContain("# the amp — see assets/");
-    expect(after).toContain("nam: twin.nam");
+    expect(after).toContain("model: twin.nam");
     expect(after).not.toContain("jcm800");
   });
 

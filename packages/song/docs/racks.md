@@ -95,6 +95,17 @@ note of a *loaded* plugin — its whole client vocabulary is transport, params, 
 plugin listing — so playing it in place would mean a new protocol message and its C++ side. The
 audition route exists, end to end, and answers "which sound is this?", which is what a pad is for.
 
+Every st0 pane that draws a kit — the chains pane, the graph panel, a lane's module row — plays it,
+through one hook (`apps/st0/frontend/src/hooks/useRackTrigger.ts`): a pad that sounds in one and is
+silent in another reads as a broken card. What it plays is whatever material the tap has — a library
+sample, resolved onto a file by the loader, a clip, or a slice window — so an older kit's pads play
+too.
+
+**A right-click is the pad's menu**: change note, change sample, rename, remove, add one before, add
+one after, each a `node tap …` command (`packages/commands/docs/verbs.md`). An entry still owing a
+value — a note, a sample, a name — is handed to the command bar with the line written, where a sample
+completes from the libraries' `samples/`.
+
 A host that offers no `onTriggerRack` draws the pads and leaves them inert (`rackTriggerable` in
 `Channels`), the same honesty the three writability flags beside it already carry: drawn and
 read-only, never clickable-and-silent.

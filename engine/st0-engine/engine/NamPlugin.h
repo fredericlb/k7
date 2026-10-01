@@ -1,6 +1,6 @@
-// NamPlugin.h — a Neural Amp Modeler as a Tracktion built-in: it loads a .nam model and runs its inference,
-// giving the NON-LINEAR half of a guitar rig that convolution cannot (an IR is the cabinet, never the amp).
-// MONO, since every NAM model is one-in/one-out. A model runs at the rate it was TRAINED at, resampled
+// NamPlugin.h — a neural amp as a Tracktion built-in: it loads a model (a .nam, or an AIDA-X / Proteus JSON run by
+// RTNeural — AmpModel.h) and runs its inference, the NON-LINEAR half of a guitar rig an IR cannot be.
+// MONO, since every such model is one-in/one-out. A model runs at the rate it was TRAINED at, resampled
 // either side when the engine runs at another (eurorack's RateBridge), and reports that latency. docs/namPlugin.md.
 
 #pragma once
@@ -13,9 +13,7 @@
 #include <optional>
 #include <string>
 
-// NAM_SAMPLE is `float` for us, so the model reads JUCE's buffers with no convert out and back per block.
-#include <NAM/dsp.h>
-
+#include "AmpModel.h"
 #include "eurorack/RateBridge.h"
 
 namespace studio {
@@ -59,6 +57,11 @@ public:
     tracktion::engine::AutomatableParameter::Ptr inputDb, outputDb, normalize;
     juce::CachedValue<float> inputDbValue, outputDbValue, normalizeValue;
 
+    // --- knobs --- the inputs a conditioned model was trained with besides the sound; ignored by the rest
+
+    tracktion::engine::AutomatableParameter::Ptr knob[AmpModel::MAX_KNOBS];
+    juce::CachedValue<float> knobValue[AmpModel::MAX_KNOBS];
+
     // The loudness the model declares, or nothing — and then `Normalize` has nothing to work from (EditBuilder warns).
     std::optional<double> modelLoudness() const;
 
@@ -76,6 +79,12 @@ public:
     /** The model file currently loaded (empty when none). */
     juce::String modelPath() const;
 
+    // Whether the loaded model is a .nam — the only kind that declares a loudness for `Normalize`.
+    bool modelIsNam() const;
+
+    // How many `Knob n` params the loaded model reads.
+    int modelKnobs() const { return modelKnobs_.load(std::memory_order_relaxed); }
+
     // --- cabinet -------------------------------------------------------------
 
     // The IR convolved AFTER the model — the cabinet a model without one needs. MESSAGE thread; JUCE loads it off it.
@@ -84,9 +93,10 @@ public:
 private:
     // The loaded model, swapped under `lock_` — which the audio thread only ever TRIES, since blocking is a dropout.
     juce::SpinLock lock_;
-    std::unique_ptr<nam::DSP> dsp_;
+    std::unique_ptr<AmpModel> dsp_;
     juce::String path_;
     std::atomic<double> modelRate_{0.0};
+    std::atomic<int> modelKnobs_{0};
 
     // Read on the audio thread, written by loadModel — hence atomics, and two of them rather than an optional.
     std::atomic<double> loudnessDb_{0.0};

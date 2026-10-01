@@ -68,7 +68,7 @@ import { loadControllerLibrary } from "./controller";
 import { docModules } from "./docModule";
 import { engineFoldersOf } from "./engines";
 import { engineModules, engineRef, ioModules } from "./engineCatalogue";
-import { libraryFile } from "./libraryFiles";
+import { libraryFile, resolveFileParamIn } from "./libraryFiles";
 import { cachedForModules, withModuleStamp } from "./moduleCache";
 import {
   mergeAuthored,
@@ -210,7 +210,7 @@ function portsOf(
 export { MODULE_ASSETS_DIR, MODULE_SOURCES_DIR };
 
 /** What an asset folder holds — one extension per file-valued param, see FILE_PARAMS. */
-const ASSET_EXT = [".nam", ".onnx"];
+const ASSET_EXT = [".nam", ".json", ".onnx"];
 
 // A module's own `assets/<ref>`, confined to that folder, with the machine's model cache as the ONE fallback (docs/moduleAssets.md).
 export function resolveModuleAsset(
@@ -224,13 +224,13 @@ export function resolveModuleAsset(
 export function resolveAssets(
   m: Record<string, unknown> | null | undefined,
   folderAbs?: string,
-): Pick<LoadedModule, "nam" | "assets"> {
+): Pick<LoadedModule, "model" | "assets"> {
   const params = (m?.params ?? {}) as Record<string, unknown>;
   const out: Record<string, string | undefined> = {};
   const assets: Record<string, string> = {};
   for (const field of FILE_PARAMS) {
     const ref = params[field];
-    out[field] = resolveModuleAsset(ref, folderAbs);
+    out[field] = resolveFileParamIn(field, ref, [folderAbs]);
     if (typeof ref === "string" && ref) assets[field] = ref;
   }
   // …and the ones a LIBRARY shares, named `@<library>/<path>` rather than by the module's own folder.

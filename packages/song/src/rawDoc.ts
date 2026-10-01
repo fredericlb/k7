@@ -124,6 +124,11 @@ export interface LoadedModule {
   rack?: RawRack;
   // Needs the WHOLE input before producing any of it, and is inherited — see docs/coldModules.md.
   cold?: boolean;
+  // The engine's dry/wet around the effect, 0..1, inherited like any field — engine/st0-engine/docs/mix.md.
+  mix?: number;
+  // …and its levels on the same stage, in dB.
+  input_volume?: number;
+  output_volume?: number;
   // Where the model a file-valued param names can be downloaded from — see docs/moduleAssets.md.
   model_url?: string;
   // shaders only — which folder under the module's `shaders/` this node runs (song-video's docs/shaders.md).
@@ -171,7 +176,7 @@ export interface LoadedModule {
   // A lane whose clips are STREAMED: stamped on the strudel built-ins and inherited, never authored.
   generated?: boolean;
   preset?: string; // resolved .vstpreset path, if any
-  nam?: string; // a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
+  model?: string; // the amp model, a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
   onnx?: string; // …the same, for the neural model an offline module runs (see docs/moduleAssets.md)
   ir?: string; // a cabinet IR, resolved against the account libraries' `irs/` (docs/libraryFiles.md)
   jsdsp?: string; // resolved ABSOLUTE path to the module's JS/TS DSP source, when it declares one

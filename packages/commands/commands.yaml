@@ -1658,6 +1658,7 @@
     fr: "Régler la note d'un pad de rack"
   help: "set the MIDI note a rack node's tap fires on (e.g. node tap note kit BD 36)"
   surfaces: [cli]
+  menu: [tap]
   args:
     [
       { name: node, complete: nodes },
@@ -1671,11 +1672,12 @@
     fr: "Choisir l'échantillon d'un pad de rack"
   help: "set the library sample a rack node's tap plays, or none (e.g. node tap sample kit BD \"@st0/kicks/808.wav\")"
   surfaces: [cli]
+  menu: [tap]
   args:
     [
       { name: node, complete: nodes },
       { name: symbol, hint: "the tap — BD, SN, T3…" },
-      { name: sample, hint: "@<library>/<path> under that library's samples/, or none" },
+      { name: sample, complete: samples, hint: "@<library>/<path> under that library's samples/, or none" },
     ]
 - command: "node tap add"
   sid: node.tap.add
@@ -1690,6 +1692,35 @@
       { name: node, complete: nodes },
       { name: symbol, optional: true, hint: "optional — its name; T<n> without one" },
     ]
+- command: "node tap insert"
+  sid: node.tap.insert
+  readable:
+    en: "Add a tap beside another"
+    fr: "Ajouter un pad à côté d'un autre"
+  help: "add a tap on the nearest free note before or after another, never renumbering the kit (e.g. node tap insert kit after SN)"
+  surfaces: [cli]
+  menu: [tap]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: side, hint: "before or after — in note order" },
+      { name: tap, hint: "the tap it goes beside — BD, SN, T3…" },
+      { name: symbol, optional: true, hint: "optional — its name; T<n> without one" },
+    ]
+- command: "node tap rename"
+  sid: node.tap.rename
+  readable:
+    en: "Rename a rack tap"
+    fr: "Renommer un pad de rack"
+  help: "rename one of a rack node's taps, its note and sample unchanged (e.g. node tap rename kit T3 CR)"
+  surfaces: [cli]
+  menu: [tap]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, T3…" },
+      { name: name, hint: "its new name — one word" },
+    ]
 - command: "node tap remove"
   sid: node.tap.remove
   readable:
@@ -1697,6 +1728,7 @@
     fr: "Retirer un pad d'un rack"
   help: "remove one of a rack node's taps (e.g. node tap remove kit CR)"
   surfaces: [cli]
+  menu: [tap]
   args:
     [
       { name: node, complete: nodes },

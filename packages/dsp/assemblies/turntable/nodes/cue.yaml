@@ -2,4 +2,4 @@
 # channel fader, which is what makes it pre-fade: you cue a record the audience cannot hear.
 extends: "@st0/audio/utility/fade"
 params:
-  Mix: 0
+  Level: 0

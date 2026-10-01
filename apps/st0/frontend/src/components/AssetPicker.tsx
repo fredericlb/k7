@@ -108,7 +108,7 @@ export function AssetPicker({
 }: {
   x: number; // viewport coords of the widget that opened it
   y: number;
-  param: string; // "nam" — the file-valued param being set, which also picks the extension
+  param: string; // "model" — the file-valued param being set, which also picks the extension
   files: string[]; // every asset the module can name; filtered here
   /** The assets-relative path, or "" to clear — an asset is a real choice to UNMAKE. */
   onPick: (file: string) => void;

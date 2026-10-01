@@ -73,4 +73,4 @@ export function moduleAssetChoices(
   return out;
 }
 
-// `assetExtFor` / `assetsForParam` live in moduleTypes.ts: the picker that filters by extension runs in a browser.
+// `assetExtsFor` / `assetsForParam` live in moduleTypes.ts: the picker that filters by extension runs in a browser.

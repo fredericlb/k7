@@ -13,6 +13,7 @@ export interface FileNode {
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
   app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.z0` suffix
+  label?: string; // module folders only — its `label:`, drawn grey beside the name
   children?: FileNode[]; // dirs only
 }
 
@@ -526,6 +527,8 @@ export type ArgProvider =
   | "pictureLanes"
   // A set list of the REPOSITORY — the one provider that reads nothing of the open project.
   | "playlists"
+  // A sample a rack tap may play — a library's or this project's `samples/`, packages/song/docs/libraryFiles.md.
+  | "samples"
   | "sequenceFiles"
   // The kinds of SURFACE the editor can draw — a closed set of words, since the file is about to be created.
   | "surfaceTypes"
@@ -560,6 +563,8 @@ export const MENU_ENTITIES = [
   "shot",
   "pad",
   "note",
+  // A rack's PAD on a node's card: one sound of the kit.
+  "tap",
 ] as const;
 export type MenuEntity = (typeof MENU_ENTITIES)[number];
 export interface CommandInfo {
@@ -847,6 +852,8 @@ export interface ModuleLibrary {
   /** A library's shared SOUNDS, beside its modules — what a tap and a cabinet pick, and where a drop lands (@studio/song's libraryFiles.md). */
   samples?: FileNode[];
   irs?: FileNode[];
+  /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
+  models?: FileNode[];
 }
 
 export interface RepoRef {

@@ -29,7 +29,9 @@ export interface WebWidget {
     // A screen the panel's `widgets.js` draws under this widget's id — ui-chains-react's lcdScreen.md.
     | "lcdscreen"
     // One sound of a rack: a pad, its note and its library sample — packages/song/docs/racks.md.
-    | "tap";
+    | "tap"
+    // A coloured frame under the widgets inside its box — packages/song-schema/docs/moduleFile.md.
+    | "group";
   col: number;
   row: number;
   colSpan?: number;
@@ -49,6 +51,8 @@ export interface WebWidget {
   options?: { label: string; value: number; arg?: string }[];
   // dropdown only, HISTORICAL: the older spelling of a filepicker, still read as one — docs/graph.md.
   library?: string;
+  color?: string; // group only: its background, a #rgb / #rrggbb / #rrggbbaa colour
+  pair?: string; // knob only: the DRY param a crossfade knob sets beside its `bind` (wet), equal-power
 }
 export interface WebModuleUI {
   cols: number;
@@ -81,6 +85,10 @@ export interface WebChainStep {
   module: string; // a module node name
   /** The module this node USES — the header's main name, absent when the node IS one; see docs/graph.md. */
   uses?: string;
+  /** What a person CALLS the module — its `label:`, own or inherited; the header prefers it to any ref. */
+  moduleLabel?: string;
+  /** The engine's stage this module takes — `@input-volume`, `@mix`, `@output-volume` — drawn in its card's FOOTER. */
+  stage?: string[];
   category?: WebModuleCategory; // its type folder — picks the node's icon
   // What this module EMITS. Absent for a module that emits nothing (a sink) or whose category is unknown.
   emits?: WebSignal;

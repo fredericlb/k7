@@ -173,6 +173,17 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
                 out.push_back(std::move(ch));
             }
         }
+        // A removed param is left where it was, EXCEPT the engine's own stage, whose absence means neutral (docs/mix.md).
+        for (const auto& [intrinsic, neutral] : {std::pair<const char*, double>{"@mix", 1.0},
+                                                 {"@input-volume", 0.0},
+                                                 {"@output-volume", 0.0}})
+            if (it->second->params.count(intrinsic) && !p->params.count(intrinsic)) {
+                Change ch{ChangeKind::PluginParamChanged, to.id};
+                ch.pluginId = p->id;
+                ch.paramName = intrinsic;
+                ch.paramValue = neutral;
+                out.push_back(std::move(ch));
+            }
     }
 
     // --- automation (coarse: replace a lane whenever its points change; a breakpoint-level diff can replace it) ---

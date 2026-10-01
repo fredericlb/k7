@@ -71,7 +71,7 @@ program is compiled while its knobs steer it. See `userPresets.md` and
 module IS, rather than how it is wired — and a surface drawing a pad per sound should not have to
 re-run the `extends` merge to find out what it loads.
 
-`nam` and `assets` are both halves of every file-valued param: the absolute path the engine
+`model` and `assets` are both halves of every file-valued param: the absolute path the engine
 loads, and the name it was authored with. `validate()` needs the pair — a name with no path is a
 file the module's `assets/` does not hold, and silently loading nothing would sound like an amp
 that isn't there: quiet, and unexplained.
@@ -320,7 +320,7 @@ Only a KNOWN plugin format reaches the engine, and a format this gate does not k
 from the compiled doc SILENTLY — nothing warns, because a step whose module compiles to nothing is
 how a bypass looks. Adding a format means adding it here (`faustModules.md` lists the four doors).
 
-`params` reach the engine as numbers only. A file-valued param (`nam`) is authored in the same map,
+`params` reach the engine as numbers only. A file-valued param (`model`) is authored in the same map,
 because to the person editing the module it IS one of the plugin's controls, but the wire's params
 are `Record<string, number>` mirrored in C++ as a float map and a string there is not a value the
 engine could set. It leaves as `namFile` instead, which is what the engine takes — the authored

@@ -98,12 +98,19 @@ import {
   setModuleExtends,
   setModuleFrozen,
   setModuleInputGain,
+  setModuleMix,
   setModuleMonitor,
   setModuleParam,
   setModuleShader,
+  setModuleVolume,
   unlinkChainNode,
 } from "@studio/song-edit/projectEdit";
-import { addTap, removeTap, setTap } from "@studio/song-edit/rackTaps";
+import {
+  addTap,
+  removeTap,
+  renameTap,
+  setTap,
+} from "@studio/song-edit/rackTaps";
 import {
   addTrackPlacement,
   addTrackPlacements,
@@ -125,6 +132,7 @@ import {
   isBuiltinOutput,
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
+  sharedFamilyOf,
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
@@ -1436,6 +1444,21 @@ const INTRINSICS: Record<
     if (!Number.isFinite(db)) throw new Error(`'${raw}' is not a number of dB`);
     return { path: setModuleInputGain(dir, module, db), said: `gain ${db} dB` };
   },
+  /** The engine's dry/wet around an effect, 0 all dry .. 1 all wet — engine/st0-engine/docs/mix.md. */
+  mix: (dir, module, raw) => {
+    const mix = Number(raw);
+    if (!Number.isFinite(mix) || mix < 0 || mix > 1)
+      throw new Error(`'${raw}' is not a mix between 0 and 1`);
+    return {
+      path: setModuleMix(dir, module, mix),
+      said: `mix ${Math.round(mix * 100)}% wet`,
+    };
+  },
+  /** The engine's level into and out of the module, in dB — engine/st0-engine/docs/mix.md. */
+  "input-volume": (dir, module, raw) =>
+    volumeIntrinsic(dir, module, "input", raw),
+  "output-volume": (dir, module, raw) =>
+    volumeIntrinsic(dir, module, "output", raw),
   /** Which SHADER a shader node runs; `none` clears it, and nothing is checked against the disk — docs/verbs.md. */
   shader: (dir, module, raw) => {
     const name = raw.trim() === "none" ? "" : raw.trim();
@@ -1462,6 +1485,22 @@ const INTRINSICS: Record<
   },
 };
 
+/** One of the two volume intrinsics: dB, -60..+12, and 0 is no line. */
+function volumeIntrinsic(
+  dir: string,
+  module: string,
+  side: "input" | "output",
+  raw: string,
+): { path: string; said: string } {
+  const db = Number(raw);
+  if (!Number.isFinite(db) || db < -60 || db > 12)
+    throw new Error(`'${raw}' is not a volume between -60 and +12 dB`);
+  return {
+    path: setModuleVolume(dir, module, side, db),
+    said: `${side} volume ${db > 0 ? "+" : ""}${db} dB`,
+  };
+}
+
 /** Point a FILE-VALUED param at one of the module's own assets, or clear it with `none` — docs/verbs.md. */
 async function setFileParam(
   h: CommandHost,
@@ -1472,14 +1511,20 @@ async function setFileParam(
   const file = rawFile.replace(/^"(.*)"$/s, "$1").trim();
   const clearing = file === "none";
   // An empty list means the module has no `assets/` — say that, not "no such file".
-  if (!clearing && isLibraryFileParam(param)) {
+  // A library's family when the param names one there: always for `ir`, by an `@` for `model`.
+  const family = isLibraryFileParam(param)
+    ? LIBRARY_FILE_PARAMS[param]
+    : file.startsWith("@")
+      ? sharedFamilyOf(param)
+      : null;
+  if (!clearing && family) {
     // A library's file, by `@<library>/<path>`: the same list the panel's picker offers (packages/song/docs/libraryFiles.md).
-    const shared = libraryFiles(LIBRARY_FILE_PARAMS[param]);
+    const shared = libraryFiles(family);
     if (!shared.includes(file)) {
       h.refuse([
         shared.length
-          ? `no '${file}' in the libraries' ${LIBRARY_FILE_PARAMS[param]}/ — they have: ${shared.slice(0, 8).join(", ")}${shared.length > 8 ? ", …" : ""}`
-          : `no library has a ${LIBRARY_FILE_PARAMS[param]}/ folder with a sound file in it yet`,
+          ? `no '${file}' in the libraries' ${family}/ — they have: ${shared.slice(0, 8).join(", ")}${shared.length > 8 ? ", …" : ""}`
+          : `no library has a ${family}/ folder with a file in it yet`,
       ]);
       return;
     }
@@ -3134,7 +3179,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
   },
 
-  /** A rack node's taps — note, sample, add, remove — each one write to the NODE's file and a reload; docs/verbs.md. */
+  /** A rack node's taps — note, sample, add, insert, rename, remove — each one write to the NODE's file and a reload; docs/verbs.md. */
   "node.tap.note": async (a, h) => {
     const [node, symbol, raw] = splitArgs(a);
     const note = Number(raw);
@@ -3177,6 +3222,32 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     } catch (e) {
       h.refuse([`node tap add: ${(e as Error).message}`]);
     }
+  },
+  "node.tap.insert": async (a, h) => {
+    const [node, side, beside, symbol] = splitArgs(a);
+    if (!node || (side !== "before" && side !== "after") || !beside)
+      return h.refuse([
+        "usage: node tap insert <node> <before|after> <tap> [symbol]",
+      ]);
+    try {
+      const made = addTap(h.songPath, node, symbol, { symbol: beside, side });
+      h.log([
+        `${node}: tap ${made.symbol} on note ${made.note}, ${side} ${beside} — pick its sample`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`node tap insert: ${(e as Error).message}`]);
+    }
+  },
+  "node.tap.rename": async (a, h) => {
+    const [node, symbol, name] = splitArgs(a);
+    if (!node || !symbol || !name)
+      return h.refuse(["usage: node tap rename <node> <symbol> <new name>"]);
+    await tapEdit(
+      h,
+      () => renameTap(h.songPath, node, symbol, name),
+      `${node}: tap ${symbol} is now ${name}`,
+    );
   },
   "node.tap.remove": async (a, h) => {
     const [node, symbol] = splitArgs(a);
@@ -3287,7 +3358,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await setIntrinsic(h, module, param.slice(1), rawValue);
       return;
     }
-    // …and a FILE-valued one (`nam`, `onnx`), whose value is a filename read at BUILD time — setFileParam.
+    // …and a FILE-valued one (`model`, `onnx`), whose value is a filename read at BUILD time — setFileParam.
     if (isFileParam(param) || isLibraryFileParam(param)) {
       await setFileParam(h, module, param, rawValue);
       return;

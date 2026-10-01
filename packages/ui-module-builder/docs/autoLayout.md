@@ -65,9 +65,10 @@ that plugin honestly has to show.
 
 ## The `@` namespace is matched first — and all but one of it is dropped
 
-The intrinsics — `@volume` `@pan` `@mute` `@solo` `@arm` `@gain` `@monitor` `@base` — are matched
-**first**, because `@volume` reads as a level to every word test there is and `Mix` would take
-it. The params list offers them on every module, whatever plugin it holds.
+The intrinsics — `@pan` `@mute` `@solo` `@arm` `@gain` `@monitor` `@base` — are matched
+**first**, because `@pan` reads as a mixer word to every word test there is and `Mix` would take
+it. The engine's stage — `@input-volume`, `@mix`, `@output-volume` — is the exception: it IS the
+module's mix corner, and takes it. The params list offers them on every module, whatever plugin it holds.
 
 They are the module's own controls rather than the plugin's, and that is exactly why they are
 **left out** (`TRACK_PAGE`, a third `drop` family beside `Preset` and `MIDI`). The reason differs
@@ -103,6 +104,11 @@ are named in English like the rest of the table — one language per tab bar, an
 are `Reverb`, `Filter`, `Envelope`…
 
 ## The module's own blend takes the bottom-right corner of `Mix`
+
+Where the engine offers `@mix` — on every effect — `@mix` IS the blend, and the plugin's own dry,
+wet or mix is left out altogether: the engine holds those at full wet
+(`engine/st0-engine/docs/mix.md`), so a knob on one would do nothing. What follows is the rule for a
+module the engine offers no `@mix` on.
 
 A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` lands **bottom right of its own page**.
 

@@ -43,14 +43,21 @@ const paramSchema = z.object({
   value: z.string().optional(),
 });
 
-const requestSchema = z.object({
-  module: z.string().min(1),
-  moduleYaml: z.string(),
-  params: z.array(paramSchema).max(2000),
-  uiYaml: z.string(),
-  widgetsJs: z.string(),
-  direction: z.string().max(2000),
-}) satisfies z.ZodType<AiOrganizeRequest>;
+const requestSchema = z
+  .object({
+    module: z.string().min(1),
+    moduleYaml: z.string(),
+    params: z.array(paramSchema).max(2000),
+    uiYaml: z.string(),
+    widgetsJs: z.string(),
+    mode: z.enum(["update", "reset"]),
+    direction: z.string().max(2000),
+  })
+  // An update with nothing to change would pay a minute of the account's Claude for the panel it has.
+  .refine((r) => r.mode !== "update" || r.direction.trim() !== "", {
+    message: "an update says what should change",
+    path: ["direction"],
+  }) satisfies z.ZodType<AiOrganizeRequest>;
 
 /** The text of a finished turn, or why there is none — a refusal and a cut-off say different things. */
 function answerText(msg: Anthropic.Message): string {
@@ -124,7 +131,7 @@ async function organize(
     if (!answer) {
       issues = ["the answer was not the JSON object asked for"];
     } else {
-      issues = checkAiResult(answer, names).issues;
+      issues = checkAiResult(answer, names, req).issues;
       if (!issues.length) return say({ type: "done", result: answer });
     }
     // The whole turn goes back, thinking included, so the repair reasons from what it did.

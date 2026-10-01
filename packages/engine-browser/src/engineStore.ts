@@ -41,7 +41,10 @@ export class EngineStore {
   };
 
   // Called on every state frame, except one saying exactly what the last one said — which is what an idle engine sends 20 times a second.
-  set = (s: EngineState): void => {
+  set = (s0: EngineState): void => {
+    // Load rides one frame in four, so a frame without it keeps the last — engine docs/load.md.
+    const s =
+      s0.load || !this.state.load ? s0 : { ...s0, load: this.state.load };
     if (sameFrame(this.state, s)) return;
     this.state = s;
     this.takes = foldedTakes(this.takes, s.recorders);
@@ -55,7 +58,8 @@ function sameFrame(a: EngineState, b: EngineState): boolean {
   if (
     a.playing !== b.playing ||
     a.playhead !== b.playhead ||
-    a.recordEnabled !== b.recordEnabled
+    a.recordEnabled !== b.recordEnabled ||
+    a.load !== b.load
   )
     return false;
   // A PLATTER's needle moves while the transport does not, so `playhead` cannot speak for it.

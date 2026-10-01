@@ -5,6 +5,17 @@
 
 import type { ParamMeta } from "@studio/engine-protocol";
 import {
+  INPUT_VOLUME_PARAM,
+  MIX_PARAM,
+  OUTPUT_VOLUME_PARAM,
+  ownLevelSide,
+  ownMixSide,
+} from "@studio/song-schema/moduleTypes";
+
+/** The engine's stage around any plugin: what the mix corner holds. */
+const STAGE = new Set([INPUT_VOLUME_PARAM, MIX_PARAM, OUTPUT_VOLUME_PARAM]);
+
+import {
   KNOB_SPAN,
   type ModuleUI,
   type Widget,
@@ -110,7 +121,8 @@ const BLEND_WORD = /\b(dry|wet|mix)\b/;
 
 /** Whether a parameter is the module's OWN blend — the test is the FAMILY, not the word; docs/autoLayout.md. */
 export const isBlend = (name: string): boolean =>
-  familyOf(name) === MIX_PAGE && BLEND_WORD.test(readable(name));
+  STAGE.has(name) ||
+  (familyOf(name) === MIX_PAGE && BLEND_WORD.test(readable(name)));
 
 /** `MPE_PitchBend_3` and `Pitch Bend` are the same string to a pattern. */
 const readable = (name: string): string =>
@@ -118,6 +130,8 @@ const readable = (name: string): string =>
 
 /** Which family a parameter's NAME suggests. Exported because the guess is the whole feature. */
 export function familyOf(name: string): string {
+  // The ENGINE's stage — blend and levels — is the module's mix corner, never a mixer-strip control like the other `@` binds.
+  if (STAGE.has(name)) return MIX_PAGE;
   const s = readable(name);
   for (const f of FAMILIES) if (f.match.test(s)) return f.page;
   return OTHER_PAGE;
@@ -189,7 +203,16 @@ export const AUTO_COLS = AUTO_PER_ROW * KNOB_SPAN;
 
 /** A whole panel proposed from a parameter list, sized to the BIGGEST page — see docs/autoLayout.md. */
 export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
-  const groups = groupParams(params);
+  // What the engine's stage offers REPLACES the plugin's own: its dry/wet under `@mix`, its levels under the volumes — engine docs/mix.md.
+  const has = (n: string) => params.some((p) => p.name === n);
+  const held = (n: string) =>
+    (has(MIX_PARAM) && !!ownMixSide(n)) ||
+    (has(INPUT_VOLUME_PARAM) && ownLevelSide(n) === "input") ||
+    (has(OUTPUT_VOLUME_PARAM) && ownLevelSide(n) === "output");
+  // …and the stage itself is the card's FOOTER, never a control on the panel.
+  const groups = groupParams(
+    params.filter((p) => !held(p.name) && !STAGE.has(p.name)),
+  );
   if (!groups.length) return { cols: AUTO_COLS, rows: 1, widgets: {} };
 
   // Laid out first, since a page's height is not its parameter count — see docs/autoLayout.md.

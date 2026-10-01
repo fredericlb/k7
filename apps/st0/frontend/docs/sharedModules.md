@@ -140,34 +140,45 @@ folder holds `module.yaml`, so the tree folds it and clicking it opens the build
 a file.
 
 The listing is fetched the first time somebody looks at the tab, not on mount — it is a walk of
-its own over three levels, and most sessions never open it. It is not re-polled: nothing st0 does
-from here adds or removes a module.
+its own over three levels, and most sessions never open it. It is not re-polled: what this tab does
+to it — make, rename, delete — refreshes it itself.
 
-## Read-only, then a decision — the libraries only
+## Renaming and deleting
 
-`@workspace` opens straight into the builder, writable, exactly as st0 writes everywhere else:
-no lock, no Edit button, each file written as soon as it reads as a document. It has no publish
-step — the workspace is one git repository, already yours, and a save is just a save.
+**Rename…** and **Delete** sit on every row INSIDE a library's families — a module, a folder, a
+chain, a template — and never on the repository row nor on `modules`, `chains` and `assemblies`
+themselves, which are the library's shape rather than its content. `@engine` gets neither, for the
+reason it gets no create.
 
-A library module is what this gate is for. It opens in the builder **locked**. Everything works —
-the four files are shown, the params list is populated, the live plugin's knobs move — and
-nothing is written: the code panes refuse keystrokes, the widget grid takes no drags, no autosave
-is armed, and the shelf presets (which are edits) are not offered — a library module cannot hold
-presets at all, in fact, for the same reason: they would be an edit to the one copy every song
-in the account reads (`packages/song/docs/userPresets.md`). The header says `read-only`
-where the save badge normally is.
+Both are PUBLISHED at once: the library is committed and pushed, as the builder's Save does. A
+library is a repository other people read, so a rename left uncommitted would be one only this
+machine sees, and the next Save would push it bundled with an unrelated edit under that edit's
+message.
 
-Beside it, an **Edit** button, and behind that a dialog that says what saving here means: the
-library's copy is the only copy, nothing forks, and every song that names this module will
-sound different next time it is opened. Confirm and the same screen becomes writable — with
-st0's ordinary rule, which is that there is no Save button and each file is written as soon as it
-reads as a document.
+A delete does not go to the workspace's recycle bin. The library's HISTORY is its bin — the commit
+that removes a module is the one to revert — and the library's clone may sit on another disk than
+the workspace, where a move would fail. The confirmation says so rather than promising a bin.
 
-That gate is worth the click rather than ceremony because **there is no Save button to hesitate
-over once it opens.** Autosave writes as soon as the buffer parses, so "start editing and decide
-later" is not a state this screen has. The decision has to happen before the first keystroke,
-which is exactly where the dialog is. `@workspace` needs no such gate: it is already yours, one
-git repository with no publish step, so nothing here waits for a click before it writes.
+A rename changes a module's REF: every chain that names the old one stops finding it, here and in
+every project using the library. Nothing rewrites those chains; the rename is the author's call,
+made knowing that.
+
+## Editable at once — Save is the decision
+
+Every module opens in the builder **editable**, a library's as readily as `@workspace`'s: no lock,
+no Edit button, no dialog. The builder never writes on its own — each pane holds its edits until
+**Save** — and on a library module Save IS the publish: the four files committed and pushed onto
+that library's repository, which every song in the account reads. So the moment of decision is
+the one button already there, pressed on purpose, rather than a gate before the first keystroke
+that edits nothing. A module somebody opened to read costs nothing: closing it unsaved leaves the
+library untouched.
+
+What saving a library module means is still worth knowing: the library's copy is the only copy,
+nothing forks, and every song that names this module will sound different next time it is opened.
+
+A library module still holds no shelf presets — they would be an edit to the one copy every song in
+the account reads (`packages/song/docs/userPresets.md`). The `@engine` level stays read-only, since
+a scanned plugin has no folder to write into.
 
 ## The loaded plugin comes free
 
@@ -273,11 +284,8 @@ The suites here mount nothing, so none of this is covered by a green run:
   offers no menu;
 - right-click a type folder inside `@workspace` → **New folder…** and **New module…**, the second
   taking just a name there and `<type>/<name>` on the level's own row;
-- click an `@st0` module → the builder opens read-only, with `read-only` in the header and an
-  Edit button beside it; typing in the code pane does nothing. Click an `@workspace` one instead
-  → it opens straight into writable, no lock and no Edit button;
-- click **Edit**, confirm → the same screen takes edits, and typing writes NOTHING: the Save
-  button lights up instead;
+- click an `@st0` module → the builder opens editable, with no Edit button and no dialog; typing
+  writes NOTHING: the Save button lights up instead. Close it unsaved → the library is untouched;
 - edit two of the four files, press **Save** once → both land, and one commit appears in THAT
   library's repository, pushed. Not two commits, not one per file, and none in the song's
   repository;

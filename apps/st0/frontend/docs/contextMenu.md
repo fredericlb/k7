@@ -172,7 +172,7 @@ than the command name.
 
 ## What is still written by hand, and why
 
-Five things the catalogue genuinely cannot say. Each is a row the derivation does not produce, and
+Six things the catalogue genuinely cannot say. Each is a row the derivation does not produce, and
 `menu:` is no help with any of them: it can only take rows AWAY. They are worth listing, because each is a
 question about a HANDLER, and the catalogue only describes arguments.
 
@@ -189,6 +189,11 @@ question about a HANDLER, and the catalogue only describes arguments.
 - **A chain.** No command takes a chain as its FIRST argument — `track process` and
   `clip process` take one second, and a line cannot be pre-written with a hole in the middle.
   So the only offer is about the track the chain carries, which is a different entity.
+
+- **A rack pad.** Its six rows — change note, change sample, rename, remove, add one before, add
+  one after — are `node tap …` lines named by hand: derived, they would read `note`, `sample`,
+  `insert` twice, and the two inserts would be indistinguishable. They still pass through `menu:`
+  (the `tap` entity), so a person can hide one.
 
 One more derivation worth knowing is not an exception: an **engine module** gets `module own`
 because its `@engine/…` id genuinely IS a base-module ref.

@@ -20,5 +20,5 @@ params:
   High: { node: eq, param: High-shelf gain }
   Filter: { node: filter, param: Sweep }
   Level: { node: level, param: Gain }
-  Echo: { node: echo, param: Mix }
-  Fade: { node: fade, param: Mix }
+  Echo: { node: echo, param: "@mix" }
+  Fade: { node: fade, param: Level }

@@ -86,7 +86,7 @@ twice, and a parameter called `sr`. Refused while it is still only a description
 `DspGraph_test.cpp` pins both.
 
 A node also carries a `mode`, one integer for three uses depending on its type: a `biquad`'s filter
-kind (0 band-pass, 1 low-pass, 2 high-pass, 3 notch), an `alfo`'s waveform (0 sine, 1 triangle,
+kind (0 band-pass, 1 low-pass, 2 high-pass, 3 notch, 4 peak, 5 low shelf, 6 high shelf), an `alfo`'s waveform (0 sine, 1 triangle,
 2 saw, 3 square), or an `ain`'s port number. `build()` translates the name written in the
 description into that number.
 
@@ -104,7 +104,7 @@ sample-phase node therefore puts its wires in `in` and its scalars in `k`.
   rack's render context, a device buffer that got ahead of a re-init. A `setSize` on the dry
   snapshot would then allocate on the audio thread, so `process()` **splits the block**: the control
   and analysis phases run once per slice, which is finer, not wrong.
-- A biquad's coefficients are recomputed only when the frequency or Q has moved. Redoing them every
+- A biquad's coefficients are recomputed only when the frequency, Q or gain has moved. Redoing them every
   block costs a `sin`, a `cos` and a square root for a filter whose knob has not moved — and
   `setCoefficients` takes `juce::IIRFilter`'s spin lock, twice per channel, which the audio thread
   has no business doing for nothing.
@@ -138,6 +138,9 @@ The dry snapshot is taken **before** any audio node, for the same reason. Whethe
   computes its low bound with a `lerp`, so this is reachable, not theoretical.
 - A biquad's frequency is clamped to a real, stable band: a cutoff at or beyond Nyquist makes the
   coefficients diverge, and it is fed by control nodes whose inputs are automatable.
+- A peak or a shelf reads a THIRD input, its gain in dB, bounded to ±24; a pass filter reads two,
+  so a graph written for those is unchanged. Their Q floor is 0.1 rather than 0.5: a broad bell or
+  a gentle shelf is a normal setting, where a pass filter that low is a droop nobody asked for.
 - `atanh` saturates, and that is what stops a feedback loop running away — and what makes it sound
   like a machine rather than a divergence.
 - A delay read is **fractional and interpolated**: an integer-sample tap zippers as soon as the time

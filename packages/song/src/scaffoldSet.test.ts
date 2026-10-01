@@ -58,7 +58,7 @@ beforeEach(() => {
   );
   library(
     "audio/utility/fade",
-    "plugin: { type: jsdsp, name: Fade }\nparams:\n  Mix: 1\n",
+    "plugin: { type: jsdsp, name: Fade }\nparams:\n  Level: 1\n",
   );
   // The filter and the EQ are modules with ENGINES; the desk names one of each (packages/song/docs/engines.md).
   library("audio/filter/multimode", "label: Filter\nengine: biquad-2\n");
@@ -80,7 +80,7 @@ beforeEach(() => {
   );
   library(
     "audio/time/echo",
-    "plugin: { type: jsdsp, name: Echo }\nparams:\n  Time: 375\n  Feedback: 0.45\n  Mix: 0\n",
+    "plugin: { type: jsdsp, name: Echo }\nparams:\n  Time: 375\n  Feedback: 0.45\n",
   );
   // The SOURCE: one platter per lane that plays a file — docs/platter-node-plan.md.
   library(
@@ -189,9 +189,9 @@ describe("a scaffolded set", () => {
       // ONE control, TWO params: the opposition is each fade's `Side`, not the value sent.
       crossfade: {
         module: "fadeA",
-        param: "Mix",
+        param: "Level",
         invert: true,
-        also: { module: "fadeB", param: "Mix" },
+        also: { module: "fadeB", param: "Level" },
       },
       "deckA.tempo": { module: "tempoA", param: "Target BPM" },
       "deckB.tempo": { module: "tempoB", param: "Target BPM" },
@@ -209,11 +209,11 @@ describe("a scaffolded set", () => {
       "deckA.level": { module: "levelA", param: "Gain" },
       "deckB.level": { module: "levelB", param: "Gain" },
       // …and the one effect past the filter, which is where an echo-out gets something to ring.
-      "deckA.echo": { module: "echoA", param: "Mix" },
-      "deckB.echo": { module: "echoB", param: "Mix" },
+      "deckA.echo": { module: "echoA", param: "@mix" },
+      "deckB.echo": { module: "echoB", param: "@mix" },
       // The headphone send — the same Fade module as the crossfade, on the deck's OTHER destination.
-      "deckA.cue": { module: "cueA", param: "Mix" },
-      "deckB.cue": { module: "cueB", param: "Mix" },
+      "deckA.cue": { module: "cueA", param: "Level" },
+      "deckB.cue": { module: "cueB", param: "Level" },
       // Four more a deck, one per stem — the PLATTER's own gain, since the lane IS the part
       // and a module doing `gain(Level)` after it was a second multiply (song-schema docs/stems.md).
       "deckA.stemDrums": { module: "platterDrumsA", param: "Gain" },
@@ -236,6 +236,8 @@ describe("a scaffolded set", () => {
       expect(b, "the set scaffold wires every control").not.toBeNull();
       if (!b) continue;
       expect(modules[b.module], `module ${b.module}`).toBeDefined();
+      // `@mix` is the ENGINE's, on every effect, and so in no module's `params:` (engine docs/mix.md).
+      if (b.param === "@mix") continue;
       expect(
         Object.keys(modules[b.module].params ?? {}),
         `${b.module}.${b.param}`,
@@ -375,11 +377,11 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     const modules = loadGraph(dir).modules;
     // No second number to read the first one through: a panel showing 0 is silent, 1 is full.
-    expect(Object.keys(modules.fadeA.params ?? {})).toEqual(["Mix"]);
-    expect(Object.keys(modules.fadeB.params ?? {})).toEqual(["Mix"]);
+    expect(Object.keys(modules.fadeA.params ?? {})).toEqual(["Level"]);
+    expect(Object.keys(modules.fadeB.params ?? {})).toEqual(["Level"]);
     // Centred like the fader that drives them, which is where a set starts.
-    expect(modules.fadeA.params?.Mix).toBe(0.5);
-    expect(modules.fadeB.params?.Mix).toBe(0.5);
+    expect(modules.fadeA.params?.Level).toBe(0.5);
+    expect(modules.fadeB.params?.Level).toBe(0.5);
   });
 
   it("puts a COLD module on each deck, one node per deck", () => {
@@ -413,6 +415,34 @@ describe("a scaffolded set", () => {
       type: "meter",
       bind: "Source BPM",
     });
+  });
+
+  it("hands the echo's blend to the ENGINE, and leaves a fade's Level alone", () => {
+    scaffoldSet(dir, "winter");
+    const plugins = compileNodeProject(dir).tracks.flatMap(
+      (t) => t.plugins ?? [],
+    );
+    const echo = plugins.find((p) => p.id.endsWith(":echoA"));
+    // Its `mix: 0`, sent as the engine's `@mix`: dry at rest, and the delay's own Mix nowhere.
+    expect(echo?.params["@mix"]).toBe(0);
+    expect(echo?.params.Mix).toBeUndefined();
+    const fade = plugins.find((p) => p.id.endsWith(":fadeA"));
+    expect(fade?.params.Level).toBe(0.5);
+  });
+
+  it("REFUSES an effect that sets its own dry/wet, naming the node and the way out", () => {
+    scaffoldSet(dir, "winter");
+    const file = join(dir, "nodes", "echoA.yaml");
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "Feedback: 0.45",
+        "Feedback: 0.45\n  Mix: 0.3",
+      ),
+    );
+    expect(() => compileNodeProject(dir)).toThrow(
+      /module 'echoA': params set 'Mix' .* state the blend as `mix:`/,
+    );
   });
 
   it("COMPILES to two buses that reach the master on their own", () => {

@@ -6,5 +6,5 @@ params:
   Time: 375
   # Three or four audible repeats: enough to hear, little enough not to pile up.
   Feedback: 0.45
-  # DRY at rest. This is the one the desk drives.
-  Mix: 0
+# DRY at rest — the ENGINE's dry/wet, the delay's own being held at full wet; the one the desk drives.
+mix: 0

@@ -2,13 +2,23 @@
 // the CHECK is: every way a proposal can break the panel must come back as a sentence the model
 // can fix, and a good proposal must pass untouched.
 
-import { WIDGET_TYPES } from "@studio/song-schema/yaml/moduleSchema";
+import {
+  WIDGET_TYPES,
+  type Widget,
+} from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
 import {
   type AiOrganizeResult,
   aiUserPrompt,
+  atControlIssues,
   bindableNames,
+  blendIssues,
   checkAiResult,
+  crossfadeIssues,
+  eqBandIssues,
+  hasLayout,
+  levelIssues,
+  loneGroupIssues,
   readAiAnswer,
 } from "./aiOrganize";
 import { aiSystemPrompt, WIDGET_DOCS } from "./aiPrompt";
@@ -57,6 +67,7 @@ describe("the prompt", () => {
       ],
       uiYaml: "",
       widgetsJs: "",
+      mode: "reset",
       direction: "  make the screen big ",
     });
     expect(text).toContain('- "Cutoff": range 20..20000, value 440');
@@ -88,6 +99,43 @@ describe("the check", () => {
     const { ui, issues } = checkAiResult(result(GOOD_UI, GOOD_JS), PARAMS);
     expect(issues).toEqual([]);
     expect(Object.keys(ui?.widgets ?? {})).toEqual(["screen", "cutoff", "res"]);
+  });
+
+  it("refuses an interactive screen nobody asked for, and takes one that was asked for", () => {
+    const touch =
+      "export default { screen: { draw(lcd) {}, pointer(lcd, ev) { return true; } } };";
+    const req = (
+      direction: string,
+      mode: "update" | "reset" = "reset",
+      widgetsJs = "",
+    ) => ({
+      direction,
+      widgetsJs,
+      mode,
+    });
+    expect(
+      checkAiResult(result(GOOD_UI, touch), PARAMS, req("tidy it")).issues,
+    ).toEqual([
+      "widgets_js gives a screen a `pointer` handler, and the author did not ask for an interactive screen: make every screen a plain draw function",
+    ]);
+    expect(checkAiResult(result(GOOD_UI, touch), PARAMS).issues).toHaveLength(
+      1,
+    );
+    expect(
+      checkAiResult(
+        result(GOOD_UI, touch),
+        PARAMS,
+        req("let me drag the cutoff on the screen"),
+      ).issues,
+    ).toEqual([]);
+    // An update keeps an interactive screen that already was one.
+    expect(
+      checkAiResult(
+        result(GOOD_UI, touch),
+        PARAMS,
+        req("bigger knobs", "update", touch),
+      ).issues,
+    ).toEqual([]);
   });
 
   it("names a bind that is not a parameter", () => {
@@ -136,6 +184,56 @@ widgets:
     expect(issues).toContain("tabs/Env: `screen` overlaps `attack`");
     expect(issues).toContain("widget id `cutoff` is used twice");
     expect(issues.some((i) => i.startsWith("tabs/Main"))).toBe(false);
+  });
+
+  it("lets a group frame the widgets wholly inside it, and names one that straddles its edge", () => {
+    const grouped = `${GOOD_UI}  filt: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 2, label: FILTER, color: "#3d7dff26" }
+`;
+    expect(checkAiResult(result(grouped, GOOD_JS), PARAMS).issues).toEqual([]);
+    const straddling = grouped.replace(
+      "colSpan: 4, rowSpan: 2, label: FILTER",
+      "colSpan: 3, rowSpan: 2, label: FILTER",
+    );
+    expect(checkAiResult(result(straddling, GOOD_JS), PARAMS).issues).toContain(
+      "panel: `res` and `filt` cross — a widget lies wholly inside a group or wholly outside it, and groups never overlap",
+    );
+  });
+
+  it("takes a crossfade knob on a dry and a wet param, and names a pair that is not a parameter", () => {
+    const xf = (pair: string) =>
+      `${GOOD_UI}  mix: { type: knob, col: 4, row: 2, label: MIX, bind: Attack, pair: ${pair} }
+`;
+    expect(checkAiResult(result(xf("Mode"), GOOD_JS), PARAMS).issues).toEqual(
+      [],
+    );
+    expect(checkAiResult(result(xf("Dry"), GOOD_JS), PARAMS).issues).toEqual([
+      "`mix` pairs `Dry`, which is not a parameter",
+    ]);
+  });
+
+  it("refuses a pair anywhere but on a knob, and one equal to its bind", () => {
+    const onSlider = `${GOOD_UI}  s: { type: slider, col: 4, row: 2, bind: Attack, pair: Mode }
+`;
+    expect(checkAiResult(result(onSlider, GOOD_JS), PARAMS).issues[0]).toMatch(
+      /^ui_yaml widgets\.s\.pair/,
+    );
+    const same = `${GOOD_UI}  k: { type: knob, col: 4, row: 2, bind: Attack, pair: Attack }
+`;
+    expect(checkAiResult(result(same, GOOD_JS), PARAMS).issues[0]).toMatch(
+      /^ui_yaml widgets\.k\.pair/,
+    );
+  });
+
+  it("refuses a colour anywhere but on a group, and a bind on one", () => {
+    const bad = GOOD_UI.replace("label: Res,", 'label: Res, color: "#fff",');
+    expect(checkAiResult(result(bad, GOOD_JS), PARAMS).issues[0]).toMatch(
+      /^ui_yaml widgets\.res\.color/,
+    );
+    const bound = `${GOOD_UI}  g: { type: group, col: 4, row: 2, bind: Cutoff }
+`;
+    expect(checkAiResult(result(bound, GOOD_JS), PARAMS).issues[0]).toMatch(
+      /^ui_yaml widgets\.g\.bind/,
+    );
   });
 
   it("hands the schema's own complaint back, with its path", () => {
@@ -207,9 +305,271 @@ widgets:
       params: [],
       uiYaml: "",
       widgetsJs: "",
+      mode: "reset",
       direction: "",
     });
     expect(prompt).toContain("## Rack sounds (2)");
     expect(prompt).toContain('- "@rack:SN"');
+  });
+});
+
+describe("update or reset", () => {
+  const req = (mode: "update" | "reset", direction: string) => ({
+    module: "filter",
+    moduleYaml: "",
+    params: [{ name: "Cutoff" }],
+    uiYaml: GOOD_UI,
+    widgetsJs: GOOD_JS,
+    mode,
+    direction,
+  });
+
+  it("knows a panel that lays something out from one that does not", () => {
+    expect(hasLayout(GOOD_UI)).toBe(true);
+    expect(hasLayout("cols: 8\nrows: 5\nwidgets: {}\n")).toBe(false);
+    expect(hasLayout("")).toBe(false);
+    expect(hasLayout("widgets: [unclosed")).toBe(false);
+  });
+
+  it("sends the panel there is, and what to change, on an update", () => {
+    const text = aiUserPrompt(req("update", "make the cutoff bigger"));
+    expect(text).toContain("## Current ui.yaml");
+    expect(text).toContain("cutoff: { type: knob");
+    expect(text).toContain("## Current widgets.js");
+    expect(text).toContain("## What to change\nmake the cutoff bigger");
+    expect(text).toContain("keep everything else as it is");
+  });
+
+  it("sends no panel at all on a reset, so none of it can come back", () => {
+    const text = aiUserPrompt(req("reset", ""));
+    expect(text).not.toContain("## Current ui.yaml");
+    expect(text).not.toContain("cutoff: { type: knob");
+    expect(text).not.toContain("widgets.js");
+    expect(text).toContain("## Design a new panel");
+    expect(text).not.toContain("## What the author asks for");
+  });
+});
+
+describe("the crossfade check", () => {
+  const knob = (bind: string, pair?: string): Widget => ({
+    type: "knob",
+    col: 0,
+    row: 0,
+    bind,
+    ...(pair ? { pair } : {}),
+  });
+  const PARAMS_DW = ["@pan", "Delay", "Dry Level", "Wet Level"];
+
+  it("refuses a dry and a wet level set by two widgets", () => {
+    expect(
+      crossfadeIssues(
+        [
+          ["dry", knob("Dry Level")],
+          ["wet", knob("Wet Level")],
+        ],
+        PARAMS_DW,
+      ),
+    ).toEqual([
+      "`dry` and `wet` set `Dry Level` and `Wet Level` apart: blend them with one crossfade knob — `bind: Wet Level, pair: Dry Level`",
+    ]);
+  });
+
+  it("takes one crossfade knob, and names one wired the wrong way round", () => {
+    expect(
+      crossfadeIssues([["mix", knob("Wet Level", "Dry Level")]], PARAMS_DW),
+    ).toEqual([]);
+    expect(
+      crossfadeIssues([["mix", knob("Dry Level", "Wet Level")]], PARAMS_DW),
+    ).toHaveLength(1);
+  });
+
+  it("asks nothing of a module that has a mix of its own", () => {
+    const two: [string, Widget][] = [
+      ["dry", knob("Dry Level")],
+      ["wet", knob("Wet Level")],
+    ];
+    expect(crossfadeIssues(two, [...PARAMS_DW, "Mix"])).toEqual([]);
+    expect(crossfadeIssues(two, [...PARAMS_DW, "Dry/Wet"])).toEqual([]);
+  });
+});
+
+describe("a group around one widget", () => {
+  const knob = (col: number): Widget => ({
+    type: "knob",
+    col,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+  });
+  const group = (colSpan: number): Widget => ({
+    type: "group",
+    col: 0,
+    row: 0,
+    colSpan,
+    rowSpan: 2,
+  });
+
+  it("is refused, and so is one around nothing", () => {
+    expect(
+      loneGroupIssues([
+        ["g", group(2)],
+        ["a", knob(0)],
+      ]),
+    ).toEqual([
+      "group `g` frames a single widget: a group holds two or more — drop it and leave the widget bare",
+    ]);
+    expect(loneGroupIssues([["g", group(2)]])).toEqual([
+      "group `g` frames nothing: a group holds two or more — drop it",
+    ]);
+  });
+
+  it("passes a group around a section", () => {
+    expect(
+      loneGroupIssues([
+        ["g", group(4)],
+        ["a", knob(0)],
+        ["b", knob(2)],
+      ]),
+    ).toEqual([]);
+  });
+
+  it("is checked inside a tabs page as well", () => {
+    const tabs = `cols: 8
+rows: 6
+widgets:
+  tabs:
+    type: tabs
+    col: 0
+    row: 0
+    colSpan: 8
+    pages:
+      Main:
+        g: { type: group, col: 0, row: 1, colSpan: 2, rowSpan: 2 }
+        cutoff: { type: knob, col: 0, row: 1, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
+`;
+    expect(checkAiResult(result(tabs, GOOD_JS), PARAMS).issues).toContain(
+      "group `g` frames a single widget: a group holds two or more — drop it and leave the widget bare",
+    );
+  });
+});
+
+describe("the engine's blend", () => {
+  const knob = (bind: string, pair?: string): Widget => ({
+    type: "knob",
+    col: 0,
+    row: 0,
+    bind,
+    ...(pair ? { pair } : {}),
+  });
+
+  it("leaves @mix itself to the footer rule", () => {
+    expect(blendIssues([["mix", knob("@mix")]])).toEqual([]);
+  });
+
+  it("refuses the plugin's own mix, dry or wet, and a crossfade, asking for @mix instead", () => {
+    const issues = blendIssues([
+      ["m", knob("Mix")],
+      ["d", knob("Dry Level")],
+      ["x", knob("Wet Level", "Dry Level")],
+    ]);
+    expect(issues).toHaveLength(3);
+    expect(issues[0]).toBe(
+      "`m` blends with the plugin's own `Mix`: the blend is the engine's `@mix`, drawn in the card's footer — leave it off the panel",
+    );
+  });
+
+  it("is what the check applies wherever @mix is offered", () => {
+    const ui = `cols: 4
+rows: 2
+widgets:
+  d: { type: knob, col: 0, row: 0, bind: Dry Level }
+  w: { type: knob, col: 1, row: 0, bind: Wet Level }
+`;
+    const issues = checkAiResult(result(ui, ""), [
+      "Dry Level",
+      "Wet Level",
+      "@mix",
+    ]).issues;
+    expect(issues.some((i) => i.includes("the blend is the engine's"))).toBe(
+      true,
+    );
+    expect(issues.some((i) => i.includes("crossfade knob — `bind"))).toBe(
+      false,
+    );
+  });
+});
+
+describe("the engine's levels", () => {
+  const knob = (bind: string): Widget => ({
+    type: "knob",
+    col: 0,
+    row: 0,
+    bind,
+  });
+
+  it("refuse the plugin's own input and output where the engine offers them", () => {
+    const names = [
+      "Input",
+      "Output",
+      "Drive",
+      "@input-volume",
+      "@output-volume",
+    ];
+    expect(
+      levelIssues(
+        [
+          ["i", knob("Input")],
+          ["o", knob("Output")],
+          ["d", knob("Drive")],
+        ],
+        names,
+      ),
+    ).toEqual([
+      "`i` binds the plugin's own `Input`: the level in is the engine's `@input-volume`, drawn in the card's footer — leave it off the panel",
+      "`o` binds the plugin's own `Output`: the level out is the engine's `@output-volume`, drawn in the card's footer — leave it off the panel",
+    ]);
+  });
+
+  it("leave a plugin's own level alone where the engine offers none", () => {
+    expect(levelIssues([["o", knob("Output")]], ["Output"])).toEqual([]);
+  });
+
+  it("are the card's footer, never a control on the panel", () => {
+    expect(atControlIssues([["in", knob("@input-volume")]])).toEqual([
+      "`in` puts a knob on `@input-volume`: st0 draws that in the card's footer — leave `@` params off the panel",
+    ]);
+    // A dropdown on `@base` is not a level: it picks the preset the plugin is built from.
+    expect(
+      atControlIssues([
+        ["b", { type: "dropdown", col: 0, row: 0, bind: "@base" }],
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("an EQ band", () => {
+  const w = (type: "knob" | "fader", bind: string): Widget => ({
+    type,
+    col: 0,
+    row: 0,
+    bind,
+  });
+
+  it("is refused as a knob, whatever the plugin calls it", () => {
+    for (const bind of [
+      "Low",
+      "Mid gain 1",
+      "High-shelf gain",
+      "Presnce",
+      "Bass",
+      "Treble",
+    ])
+      expect(eqBandIssues([["b", w("knob", bind)]]), bind).toHaveLength(1);
+  });
+
+  it("passes as a fader, and leaves every other knob alone", () => {
+    expect(eqBandIssues([["b", w("fader", "Low")]])).toEqual([]);
+    for (const bind of ["Drive", "Low Cut", "High Freq", "Cutoff"])
+      expect(eqBandIssues([["b", w("knob", bind)]]), bind).toEqual([]);
   });
 });

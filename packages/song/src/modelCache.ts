@@ -20,7 +20,7 @@ export interface MissingModel {
 }
 
 /**
- * The model a RESOLVED module names (`onnx:` or `nam:`) that resolved to nothing — neither its own
+ * The model a RESOLVED module names (`onnx:` or `model:`) that resolved to nothing — neither its own
  * `assets/` nor the machine's cache holds it — or null when it names none or has it. The loader has
  * already tried both places, so an authored name with no resolved path is exactly "not here".
  */

@@ -26,7 +26,8 @@ import {
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
 import {
-  isLibraryAudio,
+  isLibraryFileOf,
+  LIBRARY_FILE_FAMILIES,
   MODULE_SOURCES_DIR,
 } from "@studio/song-schema/moduleTypes";
 import type { ModuleLibrary } from "@studio/web-protocol";
@@ -40,9 +41,10 @@ import {
 } from "react";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import {
-  isSoundFolder,
+  fileFolderOf,
   type LibraryAssemblyRow,
   type LibraryChainRow,
+  libraryOfPath,
   libraryTree,
   readOnlyPaths,
   rootOf,
@@ -104,6 +106,14 @@ function foldModules(nodes: FileNode[]): {
 const isShared = (path: string): boolean =>
   path.split("/").some((seg) => seg === "_modules");
 
+/** A module's readable name, grey after its folder name — packages/song/docs/moduleLabel.md. */
+const moduleLabelEnd = (node: FileNode) =>
+  node.label ? (
+    <span className="ml-1.5 truncate text-xs text-muted-foreground/70">
+      {node.label}
+    </span>
+  ) : null;
+
 // A .wav can't open in the editor, but it still wants Rename/Delete.
 const isBinary = (node: FileNode): boolean => node.kind === "binary";
 
@@ -131,6 +141,8 @@ export function FileTree({
   assemblies,
   onOpenAssembly,
   onCreateModule,
+  onRenameLibraryEntry,
+  onDeleteLibraryEntry,
   ref,
 }: {
   tree: FileNode[];
@@ -171,6 +183,9 @@ export function FileTree({
   onOpenAssembly?: (file: string, folder: string) => void;
   /** Make an empty module in a library: `root` is the level's path as GIVEN here, `rel` the module's path under it, never built from a name. */
   onCreateModule?: (root: string, rel: string) => void;
+  /** Rename or delete an entry of a LIBRARY — the host publishes that library after, as a Save does. */
+  onRenameLibraryEntry?: (path: string, name: string) => void;
+  onDeleteLibraryEntry?: (path: string, isDir: boolean) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
   // Which of the two trees is on screen — client-only and not URL state, being disclosure and nothing else.
@@ -287,6 +302,12 @@ export function FileTree({
     // `rootOf` already refuses a read-only level, so belonging to a writable one IS the test.
     const writableDir = (t: TreeTarget<FileNode>) =>
       t.dir && !!rootOf(all, t.path);
+    // Anything INSIDE a library's families: never the repository row nor `modules/`, `chains/`, `assemblies/` themselves.
+    const libraryEntry = (t: TreeTarget<FileNode>) =>
+      !t.root &&
+      !frozen.has(t.path) &&
+      !!libraryOfPath(t.path) &&
+      t.path.split("/").filter(Boolean).length >= 4;
     return [
       {
         key: "new-library-folder",
@@ -321,8 +342,42 @@ export function FileTree({
           );
         },
       },
+      {
+        key: "rename-library-entry",
+        label: "Rename…",
+        when: (t) => !!onRenameLibraryEntry && libraryEntry(t),
+        prompt: {
+          initial: (t) => t.name,
+          submit: "Rename",
+          // A module's name is its REF: say what the rename costs before it is made.
+          hint: (t) =>
+            lib?.modules.has(t.path)
+              ? "Chains naming this module by its old ref will no longer find it"
+              : "Published to the library at once",
+        },
+        run: (t, name) => {
+          if (name !== t.name) onRenameLibraryEntry?.(t.path, name);
+        },
+      },
+      {
+        key: "delete-library-entry",
+        label: "Delete",
+        danger: true,
+        when: (t) => !!onDeleteLibraryEntry && libraryEntry(t),
+        // A module is a folder drawn as a leaf, as in the project tab.
+        run: (t) =>
+          onDeleteLibraryEntry?.(t.path, t.dir || !!lib?.modules.has(t.path)),
+      },
     ];
-  }, [levels, frozen, onCreateFolder, onCreateModule]);
+  }, [
+    levels,
+    frozen,
+    lib,
+    onCreateFolder,
+    onCreateModule,
+    onRenameLibraryEntry,
+    onDeleteLibraryEntry,
+  ]);
 
   const menuEnabled = !!onRename && !!onDelete;
   // A module row is a leaf, EXCEPT a rack, which kept its `sources/`; the folded set answers for both.
@@ -530,21 +585,25 @@ export function FileTree({
             reveal={lib.tree[0]?.path ?? null}
             // A read-only level's rows are greyed: they name a plugin the engine reports, with no file behind them to open.
             isDisabled={(n) => isBinary(n) || frozen.has(n.path)}
-            // A sound dropped on a library's `samples/` or `irs/` is UPLOADED there — the one drop this tab takes.
+            // A file dropped on a library's `samples/`, `irs/` or `models/` is UPLOADED there — the one drop this tab takes.
             acceptsFileDrop={dragHasFiles}
             onDropTree={(dir, files) => {
-              if (!isSoundFolder(dir))
+              const family = fileFolderOf(dir);
+              if (!family)
                 return void showToast({
-                  message: "drop sounds on a library's samples/ or irs/ folder",
+                  message:
+                    "drop files on a library's samples/, irs/ or models/ folder",
                   variant: "error",
                 });
-              const sounds = files.filter((f) => isLibraryAudio(f.path));
-              if (sounds.length < files.length)
+              const taken = files.filter((f) =>
+                isLibraryFileOf(family, f.path),
+              );
+              if (taken.length < files.length)
                 showToast({
-                  message: `${files.length - sounds.length} file(s) left out — a library's sounds are .wav, .aif or .flac`,
+                  message: `${files.length - taken.length} file(s) left out — a library's ${family}/ takes ${LIBRARY_FILE_FAMILIES[family].join(", ")}`,
                   variant: "error",
                 });
-              if (sounds.length) onUpload(dir, sounds);
+              if (taken.length) onUpload(dir, taken);
             }}
             onOpen={(node) => {
               // A CHAIN first: it is a folder holding a `graph.yaml` and a `nodes/`, which the module lookup below cannot tell apart.
@@ -566,6 +625,7 @@ export function FileTree({
             opensOnName={(n) =>
               chainByPath.has(n.path) || lib.modules.has(n.path)
             }
+            nameEnd={moduleLabelEnd}
             icon={(node, open) =>
               // A chain wears the builder's own glyph, so the row and the screen it opens are recognisably one thing.
               chainByPath.get(node.path)?.node === undefined &&
@@ -602,6 +662,7 @@ export function FileTree({
           }}
           // A rack keeps its `sources/`, so its row is a folder: the chevron folds, the name opens the builder.
           opensOnName={(n) => isModule(n.path)}
+          nameEnd={moduleLabelEnd}
           onDropTree={onUpload}
           onMove={onMove}
           icon={(node, open) =>

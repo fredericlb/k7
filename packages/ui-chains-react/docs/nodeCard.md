@@ -10,8 +10,10 @@ A node and its module are two different things — `sy_jun-chorus` is one use of
 `@st0/audio/modulation/chorus-ense`. A header saying only the node's name makes seventeen uses of
 one mixer read as seventeen unrelated cards.
 
-So the header wears the MODULE, or the node's own name when there is no second one, and the node's
-name goes underneath, small, answering WHICH use this is. The far LOD says the module too: at that
+So the header wears the MODULE — its `label:` when it has one (`packages/song/docs/moduleLabel.md`),
+else the last segment of its ref — or the node's own name when there is no second one, and the
+node's name goes underneath, small, answering WHICH use this is, whenever the header says something
+else. The tooltip holds all three: the label, the ref and the node. The far LOD says the module too: at that
 zoom the card IS one word, and the useful one is what the node is rather than which copy of it. Two
 LODs answering differently would be two cards.
 
@@ -117,6 +119,38 @@ Every bubble is the same disc; what differs is the SLOT it takes, counted from t
 are three of them — plugin UI, bypass, an assembly's open — and a variant per combination is where
 a fourth would go wrong. The header's `padding-right` is driven by the same `--corners` count, so the
 name and the cluster cannot disagree about how many there are.
+
+## The footer: the engine's stage, under the panel
+
+A module whose plugin the engine wraps in its own stage (`engine/st0-engine/docs/mix.md`) gets a
+FOOTER row under its panel: one slider per value the stage takes — `in` (`@input-volume`), `mix`
+(`@mix`), `out` (`@output-volume`) — in that order, only those that apply. WHICH apply is the
+compile's own test, carried on the step as `stage` (`packages/song/src/ownMix.ts`), so the footer
+shows exactly what the engine does to the module.
+
+It is not part of `ui.yaml` and nothing edits it: every module has the same three in the same
+place, which is the point — a panel author, a person or AI organize, places the plugin's controls
+and never these. Each slider is ONE row — its caption on the left, the bar, its reading on the right (`+3.0 dB`,
+`70%`) — since a footer has one row of height and a caption underneath would halve the bar's;
+under `STAGE_READING_W` (72 px) a slot drops the reading to a hover tooltip instead of widening
+the card, so a four-column panel stays four columns wide. The sliders are ordinary widgets on the same
+live path as `@mix` everywhere else, so a drag, a typed value and a MIDI map all work on them; a lane has no footer, its level being
+its strip's fader.
+
+## What a plugin costs, on the header's border
+
+A card whose plugin costs something says so in a small badge sitting ON the header's bottom border,
+at the right: `3%`, or `3% · 45 MB` for one of our plugins holding a big buffer. On the border and
+absolute, so it takes no width from the name, which is already sized to the last pixel. The figures
+are the engine's (`engine/st0-engine/docs/load.md`), shaped in `src/nodeLoad.ts`:
+
+- **Silent under 1 % and under 1 MB.** Most nodes cost nearly nothing, and a graph where every card
+  says "0%" teaches the eye to skip the one that says 40.
+- **Whole percents**, so the badge is a string that changes only when the figure does: each card
+  subscribes to its own plugin's entry, and a frame that rounds the same re-renders nothing.
+- **The tooltip says what the figure is**: audio-thread share of each block, and the memory the
+  plugin holds — or that it reports none, since an external plugin cannot, and a missing figure must
+  not read as zero.
 
 ## A flagged node has TWO colours, not one
 

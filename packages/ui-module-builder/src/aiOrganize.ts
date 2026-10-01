@@ -5,6 +5,12 @@
 
 import type { ParamMeta } from "@studio/engine-protocol";
 import {
+  INPUT_VOLUME_PARAM,
+  MIX_PARAM,
+  OUTPUT_VOLUME_PARAM,
+  ownLevelSide,
+} from "@studio/song-schema/moduleTypes";
+import {
   type ModuleUI,
   RACK_ADD_BIND,
   RACK_BIND,
@@ -13,6 +19,7 @@ import {
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
 import { parse } from "yaml";
+import { clash, framedBy } from "./groupGeometry";
 
 /** One param as the model sees it: its exact name, its range and its current value. */
 export interface AiParam {
@@ -28,11 +35,31 @@ export interface AiOrganizeRequest {
   /** The module.yaml text: its plugin, its declared params, its label. */
   moduleYaml: string;
   params: AiParam[];
-  /** The panel and the screens as they are now, so a good existing idea can be kept. */
+  /** The panel and the screens as they are now — sent to the model only on an UPDATE. */
   uiYaml: string;
   widgetsJs: string;
-  /** What the author asked for in their own words; empty for "just do it". */
+  /** `update` changes the panel there is; `reset` designs one from the parameters alone — docs/aiOrganize.md. */
+  mode: AiOrganizeMode;
+  /** What the author asked for in their own words: on an update, what to change; on a reset, may be empty. */
   direction: string;
+}
+
+/** The two things AI organize can be asked to do with a module that already has a panel. */
+export type AiOrganizeMode = "update" | "reset";
+
+/** Whether a panel file lays anything out — the question that decides whether there is a layout to update. */
+export function hasLayout(uiYaml: string): boolean {
+  try {
+    const widgets = (parse(uiYaml) as { widgets?: unknown } | null)?.widgets;
+    return (
+      !!widgets &&
+      typeof widgets === "object" &&
+      Object.keys(widgets).length > 0
+    );
+  } catch {
+    // A panel that does not even parse is nothing to update: a reset is what it needs.
+    return false;
+  }
 }
 
 /** What the host answers: both files as TEXT, already checked. */
@@ -100,6 +127,7 @@ function paramLine(p: AiParam): string {
 export function aiUserPrompt(req: AiOrganizeRequest): string {
   const direction = req.direction.trim();
   const rack = rackSymbols(req.moduleYaml);
+  const update = req.mode === "update";
   return [
     `Module: ${req.module}`,
     "",
@@ -118,19 +146,31 @@ export function aiUserPrompt(req: AiOrganizeRequest): string {
           "",
         ]
       : []),
-    "## Current ui.yaml",
-    "```yaml",
-    req.uiYaml.trim() || "# (none yet)",
-    "```",
-    "",
-    "## Current widgets.js",
-    "```js",
-    req.widgetsJs.trim() || "// (none yet)",
-    "```",
-    "",
-    direction
-      ? `## What the author asks for\n${direction}`
-      : "Design the panel.",
+    // An UPDATE shows the panel there is; a RESET leaves it out, so nothing of it can leak back in.
+    ...(update
+      ? [
+          "## Current ui.yaml",
+          "```yaml",
+          req.uiYaml.trim() || "# (none yet)",
+          "```",
+          "",
+          "## Current widgets.js",
+          "```js",
+          req.widgetsJs.trim() || "// (none yet)",
+          "```",
+          "",
+          "## Update this panel",
+          "Change what the author asks for below and keep everything else as it is — the same widget ids, positions, sizes, binds and screens. Return the whole panel, changed.",
+          "",
+          `## What to change\n${direction}`,
+        ]
+      : [
+          "## Design a new panel",
+          "There is no panel to keep: lay this module out from its parameters alone.",
+          ...(direction
+            ? ["", `## What the author asks for\n${direction}`]
+            : []),
+        ]),
   ].join("\n");
 }
 
@@ -157,11 +197,6 @@ const stripFence = (s: string): string =>
   s.replace(/^\s*```[a-z]*\n/, "").replace(/\n```\s*$/, "\n");
 
 const span = (n?: number) => Math.max(1, n ?? 1);
-const overlaps = (a: Widget, b: Widget) =>
-  a.col < b.col + span(b.colSpan) &&
-  b.col < a.col + span(a.colSpan) &&
-  a.row < b.row + span(b.rowSpan) &&
-  b.row < a.row + span(a.rowSpan);
 
 /** Every way a set of widgets drawn TOGETHER can break the grid: out of bounds, or on top of another. */
 function layoutIssues(
@@ -177,8 +212,131 @@ function layoutIssues(
       );
   for (let i = 0; i < ws.length; i++)
     for (let j = i + 1; j < ws.length; j++)
-      if (overlaps(ws[i][1], ws[j][1]))
-        out.push(`${where}: \`${ws[i][0]}\` overlaps \`${ws[j][0]}\``);
+      if (clash(ws[i][1], ws[j][1]))
+        out.push(
+          ws[i][1].type === "group" || ws[j][1].type === "group"
+            ? `${where}: \`${ws[i][0]}\` and \`${ws[j][0]}\` cross — a widget lies wholly inside a group or wholly outside it, and groups never overlap`
+            : `${where}: \`${ws[i][0]}\` overlaps \`${ws[j][0]}\``,
+        );
+  return out;
+}
+
+const DRY = /\bdry\b/i;
+const WET = /\bwet\b/i;
+const MIX = /\bmix\b/i;
+
+/** A module with a dry and a wet level and no mix of its own blends through ONE crossfade knob — docs/aiOrganize.md. */
+export function crossfadeIssues(
+  widgets: readonly [string, Widget][],
+  bindNames: readonly string[],
+): string[] {
+  const own = bindNames.filter((n) => !n.startsWith("@"));
+  // "Dry/Wet" names both sides at once: that is a mix param, and the module needs no crossfade.
+  const isMix = (n: string) => MIX.test(n) || (DRY.test(n) && WET.test(n));
+  if (own.some(isMix)) return [];
+  const dry = own.find((n) => DRY.test(n));
+  const wet = own.find((n) => WET.test(n));
+  if (!dry || !wet) return [];
+  const out: string[] = [];
+  const fix = `one crossfade knob — \`bind: ${wet}, pair: ${dry}\``;
+  const dryOn = widgets.find(([, w]) => w.bind === dry);
+  const wetOn = widgets.find(([, w]) => w.bind === wet && w.pair !== dry);
+  if (dryOn && wetOn)
+    out.push(
+      `\`${dryOn[0]}\` and \`${wetOn[0]}\` set \`${dry}\` and \`${wet}\` apart: blend them with ${fix}`,
+    );
+  for (const [id, w] of widgets)
+    if (w.bind === dry && w.pair === wet)
+      out.push(`\`${id}\` is a crossfade knob the wrong way round: ${fix}`);
+  return out;
+}
+
+/** Where the engine offers `@mix`, the blend is THAT knob and the plugin's own mix, dry and wet stay off — docs/aiOrganize.md. */
+export function blendIssues(widgets: readonly [string, Widget][]): string[] {
+  const own = (n: string) =>
+    !n.startsWith("@") && (MIX.test(n) || DRY.test(n) || WET.test(n));
+  const out: string[] = [];
+  for (const [id, w] of widgets)
+    if (w.pair || (w.bind && own(w.bind)))
+      out.push(
+        `\`${id}\` blends with the plugin's own ${w.pair ? "dry and wet" : `\`${w.bind}\``}: the blend is the engine's \`${MIX_PARAM}\`, drawn in the card's footer — leave it off the panel`,
+      );
+  return out;
+}
+
+/** Where the engine offers a level, the plugin's own input or output level stays off the panel — docs/aiOrganize.md. */
+export function levelIssues(
+  widgets: readonly [string, Widget][],
+  bindNames: readonly string[],
+): string[] {
+  const out: string[] = [];
+  for (const [id, w] of widgets) {
+    const side =
+      w.bind && !w.bind.startsWith("@") ? ownLevelSide(w.bind) : null;
+    const engine =
+      side === "input"
+        ? INPUT_VOLUME_PARAM
+        : side === "output"
+          ? OUTPUT_VOLUME_PARAM
+          : null;
+    if (engine && bindNames.includes(engine))
+      out.push(
+        `\`${id}\` binds the plugin's own \`${w.bind}\`: the level ${side === "input" ? "in" : "out"} is the engine's \`${engine}\`, drawn in the card's footer — leave it off the panel`,
+      );
+  }
+  return out;
+}
+
+// An EQ or tone BAND by its name: "Low", "Mid gain 1", "High-shelf gain", "Presnce" (a plugin's own spelling).
+const EQ_BAND =
+  /^(low|lo|mid|mids|high|hi|bass|treble|presence|presnce|pres)(\s*-?\s*(shelf|peak|band))?(\s+(gain|level|eq))?(\s*\d+)?$/i;
+
+/** An EQ band is a fader, never a knob: side by side, the faders draw the curve — docs/aiOrganize.md. */
+export function eqBandIssues(widgets: readonly [string, Widget][]): string[] {
+  return widgets
+    .filter(
+      ([, w]) => w.type === "knob" && !!w.bind && EQ_BAND.test(w.bind.trim()),
+    )
+    .map(
+      ([id, w]) =>
+        `\`${id}\` is a knob on \`${w.bind}\`, an EQ band: make it a fader (1 column × 3+ rows) beside the other bands`,
+    );
+}
+
+/** No control on an `@` param: st0 draws the engine's stage in the card's footer, a lane's on its strip — docs/aiOrganize.md. */
+export function atControlIssues(
+  widgets: readonly [string, Widget][],
+): string[] {
+  const CONTROLS = new Set(["knob", "slider", "fader", "number"]);
+  return widgets
+    .filter(
+      ([, w]) =>
+        CONTROLS.has(w.type) &&
+        !!w.bind?.startsWith("@") &&
+        // A rack's sounds have their own rule: a pad is a tap's, said once below.
+        w.bind !== RACK_ADD_BIND &&
+        rackBindSymbol(w.bind) === null,
+    )
+    .map(
+      ([id, w]) =>
+        `\`${id}\` puts a ${w.type} on \`${w.bind}\`: st0 draws that in the card's footer — leave \`@\` params off the panel`,
+    );
+}
+
+/** A group frames a SECTION: one around a single widget is a tint, not a grouping — docs/aiOrganize.md. */
+export function loneGroupIssues(
+  widgets: readonly [string, Widget][],
+): string[] {
+  const map = Object.fromEntries(widgets);
+  const out: string[] = [];
+  for (const [id, w] of widgets) {
+    if (w.type !== "group") continue;
+    const n = framedBy(map, w).length;
+    if (n < 2)
+      out.push(
+        `group \`${id}\` frames ${n === 0 ? "nothing" : "a single widget"}: a group holds two or more — drop it${n ? " and leave the widget bare" : ""}`,
+      );
+  }
   return out;
 }
 
@@ -200,10 +358,35 @@ function scriptSyntaxError(script: string): string | null {
   }
 }
 
+// An interactive screen's handler in widgets.js: `pointer(lcd, ev) {` or `pointer: (lcd, ev) =>`.
+const POINTER = /\bpointer\s*(\(|:)/;
+
+/** Does the author's direction ask for a screen you can touch? Words, in English or French — docs/aiOrganize.md. */
+export function asksForInteraction(direction: string): boolean {
+  return /interacti|\bdrag|\bclick|\btouch|\bpointer|\bmouse|\bgrab|editable|glisse|clique|souris|déplac|éditable/i.test(
+    direction,
+  );
+}
+
+/** A screen takes the pointer only when the author asked, or an update keeps one that already did. */
+export function interactiveIssues(
+  script: string,
+  req: Pick<AiOrganizeRequest, "direction" | "widgetsJs" | "mode">,
+): string[] {
+  if (!POINTER.test(script)) return [];
+  if (asksForInteraction(req.direction)) return [];
+  if (req.mode === "update" && POINTER.test(req.widgetsJs)) return [];
+  return [
+    "widgets_js gives a screen a `pointer` handler, and the author did not ask for an interactive screen: make every screen a plain draw function",
+  ];
+}
+
 /** Why a proposal must not land, as sentences the MODEL can act on; empty means it may. */
 export function checkAiResult(
   res: AiOrganizeResult,
   bindNames: readonly string[],
+  /** The request, when the caller has it: what decides whether a screen may be interactive. */
+  req?: Pick<AiOrganizeRequest, "direction" | "widgetsJs" | "mode">,
 ): { ui: ModuleUI | null; issues: string[] } {
   let raw: unknown;
   try {
@@ -258,12 +441,32 @@ export function checkAiResult(
           ? `tap \`${id}\` binds \`${w.bind}\`, which is not a sound of this module's rack`
           : `\`${id}\` binds \`${w.bind}\`, which is not a parameter`,
       );
+    if (w.pair && !known.has(w.pair))
+      issues.push(`\`${id}\` pairs \`${w.pair}\`, which is not a parameter`);
     if (w.type === "lcdscreen" && !drawsFor(res.widgetsJs, id))
       issues.push(`lcdscreen \`${id}\` has no draw function in widgets_js`);
   }
+  issues.push(
+    ...(bindNames.includes(MIX_PARAM)
+      ? blendIssues(all)
+      : crossfadeIssues(all, bindNames)),
+  );
+  issues.push(...loneGroupIssues(top));
+  issues.push(...atControlIssues(all));
+  issues.push(...eqBandIssues(all));
+  issues.push(...levelIssues(all, bindNames));
+  for (const [, t] of top)
+    for (const ws of Object.values(t.pages ?? {}))
+      issues.push(...loneGroupIssues(Object.entries(ws)));
   if (res.widgetsJs.trim()) {
     const err = scriptSyntaxError(res.widgetsJs);
     if (err) issues.push(`widgets_js does not compile: ${err}`);
   }
+  issues.push(
+    ...interactiveIssues(
+      res.widgetsJs,
+      req ?? { direction: "", widgetsJs: "", mode: "reset" },
+    ),
+  );
   return { ui, issues };
 }

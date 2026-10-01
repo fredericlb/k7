@@ -16,6 +16,7 @@ import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { useDocument } from "../hooks/useDocument";
+import { useRackTrigger } from "../hooks/useRackTrigger";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
 import type { WebProject } from "../types";
@@ -153,6 +154,10 @@ export function GraphPanel({
 
   // The rack pads light here too: this panel draws the same nodes, so it owes them the same answer (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
+  // …and they PLAY here too, by the same hook as the chains pane.
+  const laidRef = useRef(laid);
+  laidRef.current = laid;
+  const triggerRack = useRackTrigger(laidRef);
 
   const body = () => {
     if (error)
@@ -169,6 +174,7 @@ export function GraphPanel({
         videoSpans={videoSpans}
         noteLanes={noteLanes}
         rackLit={rackLit}
+        onTriggerRack={triggerRack}
         onSelect={setSelected}
         onContextMenu={onContextMenu}
         // This panel follows the caret's track, so another track IS a different graph and earns a re-frame; a reload isn't.

@@ -25,10 +25,10 @@ are load-bearing:
 
 ## The button switches nothing
 
-`cue<X>` is a node of the `fade` module, like the two halves of the crossfade. Its `Mix` is how
+`cue<X>` is a node of the `fade` module, like the two halves of the crossfade. Its `Level` is how
 much of that deck goes to the headphones, and the button is that param moving between 0 and 1 —
 the same `set-plugin-param` mechanism as the crossfader, the EQ and the stem cuts. There is
-therefore **no** cue switch in the engine and nothing new on the wire. At rest `Mix: 0`: a set
+therefore **no** cue switch in the engine and nothing new on the wire. At rest `Level: 0`: a set
 starts with nothing in the ears.
 
 A **button** and not a knob, though what it moves is a gain: cueing is yes or no. Headphone
@@ -80,4 +80,4 @@ that case, and they are measured: `packages/song/docs/cue.md`.
 
 A **headphone level** in the app, and a cue/master blend: the interface's amp has its own knob,
 and one deck per button is enough to line a record up. The day a machine without a physical knob
-needs it, it is an intermediate `Mix` on the same node — nothing structural.
+needs it, it is an intermediate `Level` on the same node — nothing structural.

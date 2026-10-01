@@ -88,6 +88,17 @@ FetchContent_Declare(eigen
     GIT_TAG        87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1
     SOURCE_SUBDIR  studio-does-not-build-this)
 
+# --- RTNeural : the recurrent amp models NAM does not read (AIDA-X, Proteus) -----
+# BSD-3, header templates over the Eigen above. Populated, never built: its CMake builds a static
+# library of explicit instantiations we do not need, and would pin its own Eigen and json.
+# No tags upstream, so a commit. Rationale: docs/namPlugin.md.
+FetchContent_Declare(rtneural
+    GIT_REPOSITORY https://github.com/jatinchowdhury18/RTNeural.git
+    GIT_PROGRESS   ON
+    GIT_TAG        95c3c0f987a6fe903e7eec71e797405dbed7caf7
+    GIT_SUBMODULES ""
+    SOURCE_SUBDIR  studio-does-not-build-this)
+
 # --- Faust : compile a module's `dsp.dsp` at runtime (engine) ------------------
 #
 # The INTERPRETER backend, not LLVM. It is already in libfaust's static library by default
@@ -305,7 +316,7 @@ if(WIN32)
     add_compile_definitions(JUCE_ASIO=1)
 endif()
 
-FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust quickjs
+FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen rtneural faust quickjs
                            eurorack stmlib)
 
 # Android populated Tracktion without building its root (see its declaration): add JUCE and the
@@ -326,6 +337,7 @@ set(STUDIO_FAUST_LIBS "${faust_SOURCE_DIR}/libraries" CACHE INTERNAL "Faust stan
 # Where engine/CMakeLists.txt picks the NAM sources and Eigen's headers up from.
 set(STUDIO_NAM_DIR "${nam_core_SOURCE_DIR}" CACHE INTERNAL "NeuralAmpModelerCore source")
 set(STUDIO_EIGEN_DIR "${eigen_SOURCE_DIR}" CACHE INTERNAL "Eigen source")
+set(STUDIO_RTNEURAL_DIR "${rtneural_SOURCE_DIR}" CACHE INTERNAL "RTNeural source")
 # NAM includes its JSON as <json.hpp>, not <nlohmann/json.hpp>, so it needs the directory
 # the header sits IN — the nlohmann_json target's own interface points one level up.
 set(STUDIO_JSON_DIR "${nlohmann_json_SOURCE_DIR}/include/nlohmann" CACHE INTERNAL "nlohmann/json.hpp's own directory")

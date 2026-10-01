@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/DomChains.tsx",
     "./module-icons": "./src/moduleIcons.tsx",
-    "./module-preview": "./src/ModulePreview.tsx"
+    "./module-preview": "./src/ModulePreview.tsx",
+    "./node-load": "./src/nodeLoad.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

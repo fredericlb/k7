@@ -189,3 +189,24 @@ describe("the accumulated take", () => {
     expect(store.takeOf("r")).toBeUndefined();
   });
 });
+
+describe("the cost report", () => {
+  const load = { plugins: { p1: { cpu: 0.05 } }, process: 1e8 };
+
+  it("is kept across the frames that carry none", () => {
+    const store = new EngineStore();
+    store.set({ ...IDLE, load });
+    store.set({ ...IDLE, playhead: 1 });
+    expect(store.getSnapshot().load).toBe(load);
+  });
+
+  it("gets through on an otherwise idle engine, and only when it is new", () => {
+    expect(
+      notifications([
+        { ...IDLE, load },
+        { ...IDLE },
+        { ...IDLE, load: { ...load, process: 2e8 } },
+      ]),
+    ).toBe(2);
+  });
+});

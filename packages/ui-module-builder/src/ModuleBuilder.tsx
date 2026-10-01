@@ -53,7 +53,12 @@ import {
   MODULE_STATUSES,
   type ModuleStatus,
 } from "@studio/song-schema/moduleTypes";
-import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
+import {
+  dropBuffer,
+  loudest,
+  recallBuffer,
+  useAutosave,
+} from "@studio/ui-editor/autosave";
 import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import type {
   Hints,
@@ -170,6 +175,7 @@ export function ModuleScreen({
   readOnly,
   onRequestEdit,
   onBack,
+  onDirtyChange,
   onSaved,
   setStatus,
   presets,
@@ -201,6 +207,8 @@ export function ModuleScreen({
   /** The button that asks to be let in, drawn only when there IS one; the HOST answers by flipping `readOnly`. */
   onRequestEdit?: () => void;
   onBack: () => void;
+  /** Whether any of the four files differs from disk — for a host that can swap this module for another. */
+  onDirtyChange?: (dirty: boolean) => void;
   onSaved: () => void; // bump the shell's reloadKey so the listing refreshes
   setStatus: (s: string) => void;
   // Presets the module's external plugin offers, and the two calls behind the dropdown. Empty for a built-in.
@@ -234,6 +242,8 @@ export function ModuleScreen({
     bases: readonly string[];
     // The `widgets.js` AS EDITED, which draws the grid's lcdscreen widgets.
     script?: string;
+    // The engine's stage the card's footer draws, which the panel never holds — engine docs/mix.md.
+    stage: readonly string[];
   }) => ReactNode;
   /** Ask Claude for the panel; the HOST holds the key and the model, so absent means no button — docs/aiOrganize.md. */
   onAiOrganize?: AiOrganizeCall;
@@ -322,7 +332,11 @@ export function ModuleScreen({
     [moduleName, onSetPreset, setStatus],
   );
 
-  // Load the file and the project's hints once, for this path.
+  // Bumped by Refresh: every file read again from disk, for an edit made OUTSIDE the builder (../docs/builder.md).
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Load the file and the project's hints once, for this path — and again on a Refresh.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `reloadKey` is a TRIGGER, not a value this body reads.
   useEffect(() => {
     let alive = true;
     setContent(null);
@@ -368,9 +382,10 @@ export function ModuleScreen({
     return () => {
       alive = false;
     };
-  }, [path, store]);
+  }, [path, store, reloadKey]);
 
   // The DSP source, its own effect so it lands the moment the type is typed — see docs/builder.md.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `reloadKey` is a TRIGGER, not a value this body reads.
   useEffect(() => {
     if (!dspSourceName || !store.dspSource) return setDspFile(null);
     let alive = true;
@@ -386,9 +401,10 @@ export function ModuleScreen({
     return () => {
       alive = false;
     };
-  }, [dspSourceName, path, store]);
+  }, [dspSourceName, path, store, reloadKey]);
 
   // The lcdscreen script, beside the panel it draws for; absent is a stub, like every sidecar.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `reloadKey` is a TRIGGER, not a value this body reads.
   useEffect(() => {
     if (!store.widgetsScript) return setScriptFile(null);
     let alive = true;
@@ -404,7 +420,7 @@ export function ModuleScreen({
     return () => {
       alive = false;
     };
-  }, [path, store]);
+  }, [path, store, reloadKey]);
 
   // A visual edit rewrites the PANEL file; the code pane is controlled by it, so switching to it shows the change.
   const onUiChange = useCallback((next: ModuleUI) => {
@@ -607,6 +623,8 @@ export function ModuleScreen({
   const anyDirty = dirty || uiDirty || presetsDirty || dspDirty || scriptDirty;
   // This screen is MANUAL, so nothing writes behind you: a reload here loses all four files at once.
   useUnsavedGuard(anyDirty);
+  // …and the host hears it too, to ask before it swaps this module for another.
+  useEffect(() => onDirtyChange?.(anyDirty), [anyDirty, onDirtyChange]);
 
   /** Leaving is the other way those four go, and the only one this screen can ask about. */
   const leave = useCallback(async () => {
@@ -619,6 +637,31 @@ export function ModuleScreen({
     });
     if (agreed) onBack();
   }, [anyDirty, onBack]);
+
+  /** Read every file again from disk — what an edit made OUTSIDE the builder needs; unsaved edits here are asked about first. */
+  const refresh = useCallback(async () => {
+    if (anyDirty) {
+      const agreed = await askConfirm({
+        title: "Reload from disk?",
+        body: "The module's files are changed here. Reloading throws those changes away and shows the files as they are on disk now.",
+        confirmLabel: "Reload",
+        danger: true,
+      });
+      if (!agreed) return;
+    }
+    // A held edit outranks disk on load; a Refresh is the person choosing disk, so every one is dropped.
+    for (const f of [
+      path,
+      uiFile?.path,
+      presetFile?.path,
+      dspFile?.path,
+      scriptFile?.path,
+    ])
+      if (f) dropBuffer(f);
+    setReloadKey((k) => k + 1);
+    setBasesKey((k) => k + 1);
+    setStatus("module files reloaded from disk");
+  }, [anyDirty, path, uiFile, presetFile, dspFile, scriptFile, setStatus]);
 
   /** The store's hints MERGED with the host's live-engine ones, deduped — see docs/builder.md. */
   const completionHints = useMemo(
@@ -754,7 +797,14 @@ export function ModuleScreen({
         .filter(Boolean) as string[],
     );
     // An io module's own settings, offered only on an io module: on a plugin they would name nothing.
-    const ioBinds = io === "in" ? IO_IN_BINDS : [];
+    const ioBinds = [
+      ...(io === "in" ? IO_IN_BINDS : []),
+      // The engine's dry/wet, on an EFFECT only: an instrument or a MIDI module has no dry signal — engine docs/mix.md.
+      ...(io == null && isEffectPath(path)
+        ? [MIX_BIND, INPUT_VOLUME_BIND]
+        : []),
+      OUTPUT_VOLUME_BIND,
+    ];
     /** `@base`, offered only where there ARE bases; the graph fills its entries — see docs/builder.md. */
     const baseBinds: { name: string; meta: ParamMeta }[] = bases.length
       ? [
@@ -843,6 +893,8 @@ export function ModuleScreen({
     uiYaml: uiFile?.content ?? "",
     widgetsJs: scriptFile?.content ?? "",
     canWriteScript: !!scriptFile,
+    uiPath: uiFile?.path ?? null,
+    scriptPath: scriptFile?.path ?? null,
     onPanel: onPanelChange,
     onScript: onScriptChange,
     setStatus,
@@ -977,6 +1029,17 @@ export function ModuleScreen({
               <Pencil className="mr-1 h-4 w-4" /> Edit
             </Button>
           )}
+          {/* Refresh: the files as they are on disk, after an edit made outside the builder — a Claude Code session, a text editor. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refresh()}
+            disabled={publishing || saveState.status === "saving"}
+            title="reload the module's files from disk — after an edit made outside the builder"
+            aria-label="Reload from disk"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           {/* A button and not a timer, because on a shared module a save is a publish — ../docs/builder.md. */}
           {!readOnly && (
             <Button
@@ -1029,7 +1092,7 @@ export function ModuleScreen({
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
-          {/* Left column: what the file SAYS on top, what the module HAS underneath. */}
+          {/* Left column: the files on top, and under them the card they make. */}
           <div className="flex min-h-0 w-1/2 shrink-0 flex-col border-r border-border">
             {/* Three files, one pane, so it says which of them you are typing into. */}
             <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
@@ -1172,8 +1235,20 @@ export function ModuleScreen({
                 onRegroup={onRegroupInputs}
               />
             )}
+            {/* The bottom HALF: the node the panel becomes, beside the text that makes it — docs/builder.md. */}
+            {renderPreview && (
+              <div className="h-1/2 min-h-0 shrink-0 grow-0 border-t border-border">
+                {renderPreview({
+                  ui,
+                  params: paramValues,
+                  bases,
+                  script: scriptFile?.content,
+                  stage: stageFor(path, io),
+                })}
+              </div>
+            )}
           </div>
-          {/* Right column: the panel's geometry above, and below at 30% the node it becomes. */}
+          {/* Right column: the panel's geometry, the whole height. */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1">
               <WidgetGridEditor
@@ -1197,16 +1272,6 @@ export function ModuleScreen({
                 aiBusy={ai.busy}
               />
             </div>
-            {renderPreview && (
-              <div className="h-[30%] min-h-0 shrink-0 grow-0 border-t border-border">
-                {renderPreview({
-                  ui,
-                  params: paramValues,
-                  bases,
-                  script: scriptFile?.content,
-                })}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1215,7 +1280,38 @@ export function ModuleScreen({
 }
 
 // Track intrinsics a widget can bind besides plugin params — on a track node the graph routes these to the mixer.
-const TRACK_BINDS = ["@volume", "@pan", "@mute", "@solo", "@arm"];
+const TRACK_BINDS = ["@pan", "@mute", "@solo", "@arm"];
+
+// The engine's level OUT: a lane's fader, and the stage after any module with audio out — engine docs/mix.md.
+const OUTPUT_VOLUME_BIND: { name: string; meta: ParamMeta } = {
+  name: "@output-volume",
+  meta: { min: -60, max: 12, def: 0 },
+};
+// …and the level IN, on an effect only: an instrument's input is the silence before it.
+const INPUT_VOLUME_BIND: { name: string; meta: ParamMeta } = {
+  name: "@input-volume",
+  meta: { min: -60, max: 12, def: 0 },
+};
+
+/** The footer an effect or an instrument gets, by its folder — the compile's own test, near enough without its inputs. */
+const stageFor = (path: string, io: string | null): string[] =>
+  io != null
+    ? []
+    : isEffectPath(path)
+      ? ["@input-volume", "@mix", "@output-volume"]
+      : /(^|\/)_?modules\/instruments\//.test(path)
+        ? ["@output-volume"]
+        : [];
+
+/** An effect is a module filed under `audio/`, in the workspace or a library — the one family with a dry signal. */
+const isEffectPath = (path: string): boolean =>
+  /(^|\/)_?modules\/audio\//.test(path);
+
+// The engine's blend around the effect: 0 all dry, 1 all wet — see engine/st0-engine/docs/mix.md.
+const MIX_BIND: { name: string; meta: ParamMeta } = {
+  name: "@mix",
+  meta: { min: 0, max: 1, def: 1 },
+};
 
 // What an `io: in` module binds instead, namespaced like the track intrinsics — see docs/builder.md.
 const IO_IN_BINDS: { name: string; meta: ParamMeta }[] = [

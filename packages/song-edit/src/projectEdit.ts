@@ -255,6 +255,25 @@ export function setModuleInputGain(
   return editModuleValue(dir, module, ["gain"], db);
 }
 
+/** Set an effect's `mix`, the engine's dry/wet around it; 1 (all wet) is no line at all — engine/st0-engine/docs/mix.md. */
+export function setModuleMix(dir: string, module: string, mix: number): string {
+  if (!Number.isFinite(mix) || mix < 0 || mix > 1)
+    throw new Error("a mix is a number from 0 (all dry) to 1 (all wet)");
+  return editModuleValue(dir, module, ["mix"], mix >= 1 ? null : mix);
+}
+
+/** Set a module's level into (`input_volume`) or out of it (`output_volume`), in dB; 0 is no line at all — engine docs/mix.md. */
+export function setModuleVolume(
+  dir: string,
+  module: string,
+  side: "input" | "output",
+  db: number,
+): string {
+  if (!Number.isFinite(db) || db < -60 || db > 12)
+    throw new Error("a volume is a number of dB from -60 to +12");
+  return editModuleValue(dir, module, [`${side}_volume`], db === 0 ? null : db);
+}
+
 /** Set a live input's `channel` — one for mono, two for a stereo pair the interface really groups, docs/projectEdit.md. */
 export function setModuleChannel(
   dir: string,
@@ -399,7 +418,10 @@ function refuseSwap(dir: string, module: string): void {
   const node = loadModules(dir)[module];
   if (!node) return;
   // Its OWN module, the sets aside: what it is on set "1" is what decides.
-  const own = resolveModule({ ...node, alternative: undefined }, loadModuleRefs(dir));
+  const own = resolveModule(
+    { ...node, alternative: undefined },
+    loadModuleRefs(dir),
+  );
   if (keepsItsModule(own))
     throw new Error(
       `'${module}' is a ${own.kind === "track" ? "lane" : "lane's fader"} — its alternatives can change its settings, not its module`,

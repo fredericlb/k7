@@ -1,7 +1,7 @@
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
-  isSoundFolder,
+  fileFolderOf,
   isLibraryPath,
   libraryModuleRef,
   libraryOfPath,
@@ -282,7 +282,7 @@ describe("the library repository row", () => {
   ];
   const repo = () => libraryTree(LEVELS, CHAINS, ASSEMBLIES)[0];
 
-  it("is ONE row, the repository, with its families under it — its sound folders included", () => {
+  it("is ONE row, the repository, with its families under it — its file folders included", () => {
     expect(libraryTree(LEVELS, CHAINS, ASSEMBLIES)).toHaveLength(1);
     expect(repo().name).toBe("@st0");
     expect(repo().path).toBe("_libraries/st0");
@@ -292,6 +292,7 @@ describe("the library repository row", () => {
       ["assemblies", "_libraries/st0/assemblies"],
       ["samples", "_libraries/st0/samples"],
       ["irs", "_libraries/st0/irs"],
+      ["models", "_libraries/st0/models"],
     ]);
   });
 
@@ -347,14 +348,18 @@ describe("the library repository row", () => {
       "assemblies",
       "samples",
       "irs",
+      "models",
     ]);
   });
 
-  it("takes a dropped sound only on a library's samples/ or irs/, or inside one", () => {
-    expect(isSoundFolder("_libraries/st0/samples")).toBe(true);
-    expect(isSoundFolder("_libraries/st0/irs/fender")).toBe(true);
-    expect(isSoundFolder("_libraries/st0/modules")).toBe(false);
-    expect(isSoundFolder("song.st0/samples")).toBe(false);
+  it("takes a drop only on a library's samples/, irs/ or models/, or inside one, and says which", () => {
+    expect(fileFolderOf("_libraries/st0/samples")).toBe("samples");
+    expect(fileFolderOf("_libraries/st0/irs/fender")).toBe("irs");
+    expect(fileFolderOf("_libraries/st0/models/guitarml proteus")).toBe(
+      "models",
+    );
+    expect(fileFolderOf("_libraries/st0/modules")).toBeNull();
+    expect(fileFolderOf("song.st0/samples")).toBeNull();
   });
 
   it("files each chain and template under ITS library's row, named within it", () => {

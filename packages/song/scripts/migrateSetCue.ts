@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { CUE_NODE } from "@studio/song-schema/moduleTypes";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { type Pair, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
-import { BUS_ONLY_NOTE, cueNodeFile } from "../src/scaffoldSet.ts";
+import { BUS_ONLY_NOTE, cueNodeFile, FADE_PARAM } from "../src/scaffoldSet.ts";
 
 /** As `yaml/graphFile.ts` pins it: 1.2 keeps `5:1:1` a string, no wrapping keeps `bus_only:` on one line. */
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
@@ -174,7 +174,7 @@ for (const dir of roots) {
     lift.push(deck.eq);
 
     // Held back, so the block lands where the scaffold puts it: after the filters, before the stems.
-    const value = sdoc.createNode({ module: deck.cue, param: "Mix" }) as {
+    const value = sdoc.createNode({ module: deck.cue, param: FADE_PARAM }) as {
       flow?: boolean;
     };
     value.flow = true;

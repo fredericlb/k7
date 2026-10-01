@@ -1,10 +1,6 @@
 #include "NamPlugin.h"
 
-#include <NAM/get_dsp.h>
-
 #include <cmath>
-#include <exception>
-#include <filesystem>
 #include <iostream>
 
 namespace studio {
@@ -22,6 +18,8 @@ constexpr float TRIM_DB = 20.0f;
 
 juce::String dbToText(float v) { return juce::String(v, 1) + " dB"; }
 float textToDb(const juce::String& s) { return s.getFloatValue(); }
+juce::String knobToText(float v) { return juce::String(v, 2); }
+float textToKnob(const juce::String& s) { return s.getFloatValue(); }
 
 }  // namespace
 
@@ -46,6 +44,14 @@ NamPlugin::NamPlugin(tracktion::engine::PluginCreationInfo info)
     inputDb->attachToCurrentValue(inputDbValue);
     outputDb->attachToCurrentValue(outputDbValue);
     normalize->attachToCurrentValue(normalizeValue);
+
+    // Generic names: what a knob does is the model's, and a module's panel labels it (docs/namPlugin.md).
+    for (int k = 0; k < AmpModel::MAX_KNOBS; ++k) {
+        const auto id = "knob" + juce::String(k + 1);
+        knobValue[k].referTo(state, juce::Identifier(id), um, 0.5f);
+        knob[k] = addParam(id, "Knob " + juce::String(k + 1), {0.0f, 1.0f}, knobToText, textToKnob);
+        knob[k]->attachToCurrentValue(knobValue[k]);
+    }
 }
 
 NamPlugin::~NamPlugin()
@@ -54,11 +60,13 @@ NamPlugin::~NamPlugin()
     inputDb->detachFromCurrentValue();
     outputDb->detachFromCurrentValue();
     normalize->detachFromCurrentValue();
+    for (auto& k : knob) k->detachFromCurrentValue();
 }
 
 void NamPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 {
-    tracktion::engine::copyPropertiesToCachedValues(v, inputDbValue, outputDbValue, normalizeValue);
+    tracktion::engine::copyPropertiesToCachedValues(v, inputDbValue, outputDbValue, normalizeValue, knobValue[0],
+                                                    knobValue[1], knobValue[2]);
     for (auto p : getAutomatableParameters())
         p->updateFromAttachedValue();
 }
@@ -112,7 +120,7 @@ void NamPlugin::prepareBridge()
         bridged_.store(bridge, std::memory_order_relaxed);
         // The model is clocked at the rate it RUNS at, and fed one fixed block at a time when bridged; a rate change has to re-prepare the live one.
         if (dsp_ != nullptr)
-            dsp_->Reset(bridge ? model : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms
+            dsp_->reset(bridge ? model : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms
     }
     if (bridge) logBridge(model);
 }
@@ -121,8 +129,7 @@ void NamPlugin::renderBlock(const float* const* in, float* const* out)
 {
     // In place on the output: NAM allows it, and the input pointer is the bridge's own buffer, const.
     juce::FloatVectorOperations::copy(out[0], in[0], BRIDGE_BLOCK);
-    float* io = out[0];
-    dsp_->process(&io, &io, BRIDGE_BLOCK);
+    dsp_->process(out[0], BRIDGE_BLOCK);
 }
 
 double NamPlugin::getLatencySeconds()
@@ -156,7 +163,7 @@ void NamPlugin::reset()
     const bool bridge = bridged_.load(std::memory_order_relaxed);
     if (bridge) bridge_.reset();
     if (dsp_ != nullptr)
-        dsp_->Reset(bridge ? modelRate_.load(std::memory_order_relaxed) : sampleRate_,
+        dsp_->reset(bridge ? modelRate_.load(std::memory_order_relaxed) : sampleRate_,
                     bridge ? BRIDGE_BLOCK : blockSize_);   // prewarms by default
 }
 
@@ -164,6 +171,11 @@ juce::String NamPlugin::modelPath() const
 {
     const juce::SpinLock::ScopedLockType sl(const_cast<juce::SpinLock&>(lock_));
     return path_;
+}
+
+bool NamPlugin::modelIsNam() const
+{
+    return modelPath().endsWithIgnoreCase(".nam");
 }
 
 bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
@@ -174,33 +186,35 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
     }
 
     // Built OUTSIDE the lock, so the audio thread waits for a pointer assignment and never for a model load.
-    std::unique_ptr<nam::DSP> loaded;
-    try {
-        loaded = nam::get_dsp(std::filesystem::path(file.getFullPathName().toStdString()));
-    } catch (const std::exception& e) {
-        error = juce::String("could not load model: ") + e.what();
-        return false;
-    }
+    std::string why;
+    std::unique_ptr<AmpModel> loaded = loadAmpModel(file.getFullPathName().toStdString(), why);
     if (loaded == nullptr) {
-        error = "could not load model (no error given)";
+        error = juce::String(why);
         return false;
     }
 
-    // NAM_UNKNOWN_EXPECTED_SAMPLE_RATE (-1) means the model doesn't say — report 0 for "nothing to check".
-    const double rate = juce::jmax(0.0, loaded->GetExpectedSampleRate());
-    // Read BEFORE the move, and only behind HasLoudness(): GetLoudness() throws when the model declares none.
-    const bool hasLoudness = loaded->HasLoudness();
-    const double loudness = hasLoudness ? loaded->GetLoudness() : 0.0;
+    const double rate = loaded->sampleRate();
+    // Read BEFORE the move: only a .nam declares one.
+    const auto declared = loaded->loudness();
+    const bool hasLoudness = declared.has_value();
+    const double loudness = declared.value_or(0.0);
+    const int knobs = loaded->knobs();
 
     // Prewarmed HERE, on a model nothing else can see yet: the prewarm is the costly part, and under the lock it would pass the guitar dry.
     const bool bridge = needsBridge(rate);
-    loaded->Reset(bridge ? rate : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);
+    float where[AmpModel::MAX_KNOBS];
+    for (int k = 0; k < AmpModel::MAX_KNOBS; ++k) where[k] = knob[k]->getCurrentValue();
+    loaded->setKnobs(where);
+    loaded->reset(bridge ? rate : sampleRate_, bridge ? BRIDGE_BLOCK : blockSize_);
+    std::cerr << "[nam] " << file.getFileName() << ": " << loaded->describe() << ", " << rate << " Hz, "
+              << knobs << " knob(s)\n";
     {
         const juce::SpinLock::ScopedLockType sl(lock_);
         // Swapped rather than assigned, so the OLD model is freed after the lock, not inside it.
         std::swap(dsp_, loaded);
         path_ = file.getFullPathName();
         modelRate_.store(rate, std::memory_order_relaxed);
+        modelKnobs_.store(knobs, std::memory_order_relaxed);
         if (bridge) bridge_.prepare(sampleRate_, rate, BRIDGE_BLOCK, 1, 1, *this);
         bridged_.store(bridge, std::memory_order_relaxed);
     }
@@ -233,6 +247,10 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
     if (normalize->getCurrentValue() >= 0.5f && hasLoudness_.load(std::memory_order_relaxed))
         outDb += (float)(targetLoudnessDb - loudnessDb_.load(std::memory_order_relaxed));
     const float outGain = juce::Decibels::decibelsToGain(outDb);
+    // Where the knobs are heading; the model glides to them per sample, across chunks and the bridge alike.
+    float knobs[AmpModel::MAX_KNOBS];
+    for (int k = 0; k < AmpModel::MAX_KNOBS; ++k) knobs[k] = knob[k]->getCurrentValue();
+    dsp_->setKnobs(knobs);
 
     // A block bigger than we prepared for is CHUNKED, never grown: growing means a Reset, i.e. a prewarm here.
     const int chunk = mono_.getNumSamples();
@@ -264,7 +282,7 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
             const float* ins[1] = {in};
             bridge_.run(ins, &out, n);   // reads all of `in` before it writes `out`, so in place holds
         } else {
-            dsp_->process(&in, &out, n);
+            dsp_->process(out, n);
         }
 
         // The cabinet after the amp, at the engine's rate: JUCE resampled the IR to it when it loaded.

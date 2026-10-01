@@ -33,6 +33,9 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   SendPlan.h               which bus every send lands on, decided once for the builder AND the diff — JUCE-free
   Biquad.h                 juce::IIRFilter's arithmetic without its lock, for the audio thread alone
   RecordSource.{h,cpp}     a platter's record MAPPED, or decoded once into the record cache and mapped (docs/turntable.md)
+  HeldMemory.h             what one of OUR plugins says it holds, in bytes (docs/load.md)
+  ProcessMemory.{h,cpp}    the engine process's memory, one system call per platform (docs/load.md)
+  MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by adjacency (docs/mix.md)
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
   AudioInputs.{h,cpp}      live-input device mapping
@@ -60,7 +63,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
                             is covered by scripts/turntable.ts instead
   QuickMasterPlugin.{h,cpp} a master bus in one module: 3-band compressor, spreader, limiter
                             (docs/quickMaster.md) — what st0's `mastering` surface is a picture of
-  NamPlugin.{h,cpp}         Neural Amp Modeler (docs/namPlugin.md)
+  NamPlugin.{h,cpp}         the neural amp: a .nam, or an AIDA-X / Proteus model, and its cabinet (docs/namPlugin.md)
+  AmpModel.h                …the model behind it, whichever kind; JUCE-free, so tests/ runs the RTNeural half
+  NamModel.cpp              …a .nam through NeuralAmpModelerCore, and the loader that picks the kind by file
+  RtNeuralModel.cpp         …an AIDA-X or Proteus recurrent net through RTNeural, with its knob inputs
   DspGraph.{h,cpp}          the DSP graph model @studio/dsp emits
   GraphDspPlugin.{h,cpp}     that graph as an audio plugin
   MidiGraphPlugin.{h,cpp}    the MIDI-side counterpart
@@ -163,6 +169,8 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          profiles compared — the only coverage the plugin's resampling has (docs/namPlugin.md)
   nam-ir.ts              does a NAM module's cabinet IR reach the SOUND, and is it the IR named? The change
                          at each harmonic against the IR's own response there (docs/namPlugin.md)
+  amp-knobs.ts           does a conditioned amp model's KNOB reach the sound? A knob at 0 and at 1, at the
+                         model's rate and through the bridge (docs/namPlugin.md)
   eurorack-stop.ts       does a Mutable Instruments module let go of a held note on a stop and on a
                          panic? The level a second after each, against the level while it plays —
                          the only coverage `EurorackPlugin::midiPanic` has (docs/panic.md)
@@ -415,7 +423,7 @@ Build gotchas:
 invisible.** The presets pin `"targets": ["st0-engine"]`, so `studio_engine_tests` /
 `studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
 `studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_strudel_tests` /
-`studio_eurorack_tests` are only built when
+`studio_eurorack_tests` / `studio_ampmodel_tests` are only built when
 named — rename a field of the data layer and the suite still referencing it reports nothing until
 someone names it. Build them explicitly after
 touching the data layer — **all of them**, or `ctest` reports the missing one as "Not Run", which
@@ -425,7 +433,7 @@ reads as a failure:
 cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
       studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
-      studio_strudel_tests studio_eurorack_tests
+      studio_strudel_tests studio_eurorack_tests studio_ampmodel_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

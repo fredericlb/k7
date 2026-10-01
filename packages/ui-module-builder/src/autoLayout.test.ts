@@ -109,8 +109,8 @@ describe("the pages", () => {
   });
 
   it("claims the lane's own names early — to drop them, `@base` apart", () => {
-    // `@volume` reads as a level, so `@` asks before `Mix` — and DROPS them, the strip drawing every one.
-    expect(isPlumbing("@volume")).toBe(true);
+    // `@pan` reads as a mixer word, so `@` asks before `Mix` — and DROPS them, the strip drawing every one.
+    expect(isPlumbing("@pan")).toBe(true);
     expect(isPlumbing("@monitor")).toBe(true);
     expect(isPlumbing("@mute")).toBe(true);
     // …and the one exception, which nothing else draws.
@@ -120,7 +120,7 @@ describe("the pages", () => {
     expect(familyOf("@base_mix")).not.toBe(GENERAL_PAGE);
     const groups = groupParams([
       p("Master Volume"),
-      p("@volume"),
+      p("@pan"),
       p("Hammer Hardness"),
     ]);
     expect(groups.map((g) => g.page)).toEqual(["Mix", "Other"]);
@@ -135,7 +135,7 @@ describe("the pages", () => {
     // …and a level is not a blend, though it lives on the same page.
     expect(isBlend("Master Volume")).toBe(false);
     // It decides a POSITION and never a page: the blend stays in `Mix`, where its family put it.
-    const groups = groupParams([p("Mix"), p("Reverb Dry/Wet"), p("@volume")]);
+    const groups = groupParams([p("Mix"), p("Reverb Dry/Wet"), p("@pan")]);
     expect(groups.map((g) => g.page)).toEqual(["Reverb", "Mix"]);
     expect(groups[1].params.map((x) => x.name)).toEqual(["Mix"]);
   });
@@ -231,7 +231,7 @@ describe("the panel it proposes", () => {
 
   it("has no General page at all on a module with no base", () => {
     // A page holds only what got something, so a plain effect opens on its own first family.
-    const ui = autoOrganize([p("Reverb Room Size"), p("@volume"), p("@pan")]);
+    const ui = autoOrganize([p("Reverb Room Size"), p("@solo"), p("@pan")]);
     expect(Object.keys(ui.widgets.tabs.pages ?? {})).toEqual(["Reverb"]);
   });
 
@@ -246,7 +246,7 @@ describe("the panel it proposes", () => {
           { label: "warm", value: 1 },
         ],
       }),
-      p("@volume", { min: -60, max: 6 }),
+      p("@mute"),
       p("@pan", { min: 0, max: 1 }),
     ]);
     const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
@@ -309,7 +309,7 @@ describe("the panel it proposes", () => {
     // …and a panel whose only page is the base is two rows, the lane control beside it being dropped.
     const withBase = autoOrganize([
       p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
-      p("@volume"),
+      p("@pan"),
     ]);
     expect(withBase.rows).toBe(1 + 2 * 2);
   });
@@ -348,5 +348,38 @@ describe("the panel it proposes", () => {
     const none = autoOrganize([]);
     expect(UISchema.safeParse(none).success).toBe(true);
     expect(none.widgets).toEqual({});
+  });
+});
+
+describe("the engine's blend", () => {
+  it("leaves @mix to the card's footer, and the plugin's own dry/wet out", () => {
+    const ui = autoOrganize(
+      ["Room Size", "Wet Level", "Dry Level", "@mix"].map((name) => ({ name })),
+    );
+    const binds = JSON.stringify(ui);
+    expect(binds).not.toContain('"bind":"@mix"');
+    expect(binds).not.toContain("Wet Level");
+    expect(binds).not.toContain("Dry Level");
+  });
+
+  it("keeps the plugin's own blend where the engine offers none", () => {
+    const ui = autoOrganize(["Room Size", "Mix"].map((name) => ({ name })));
+    expect(JSON.stringify(ui)).toContain('"bind":"Mix"');
+  });
+});
+
+describe("the engine's levels", () => {
+  it("are the footer's too, and leave the plugin's own input and output out", () => {
+    const ui = JSON.stringify(
+      autoOrganize(
+        ["Drive", "Input", "Output", "@input-volume", "@output-volume"].map(
+          (name) => ({ name }),
+        ),
+      ),
+    );
+    expect(ui).not.toContain('"bind":"@input-volume"');
+    expect(ui).not.toContain('"bind":"@output-volume"');
+    expect(ui).not.toContain('"bind":"Input"');
+    expect(ui).not.toContain('"bind":"Output"');
   });
 });

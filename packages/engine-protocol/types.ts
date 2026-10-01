@@ -28,6 +28,23 @@ export interface EngineState {
   platters?: Record<string, number>;
   /** Each RECORDER node, by plugin id — absent when the project declares none. */
   recorders?: Record<string, RecorderState>;
+  /** What things COST, on one frame in four — absent on the others, which keep the last. engine docs/load.md. */
+  load?: EngineLoad;
+}
+
+/** Every plugin's cost and the engine's own memory, as one state frame reports them. */
+export interface EngineLoad {
+  plugins: Record<string, PluginLoad>;
+  /** The engine process's memory in bytes, as its OS counts it; absent where the platform will not say. */
+  process?: number;
+}
+
+/** One plugin's cost. */
+export interface PluginLoad {
+  /** Its share of an audio block's time, 0..1 — audio-thread work only, not its own threads'. */
+  cpu: number;
+  /** The bytes it says it holds, from our own plugins only; absent for one that cannot say. */
+  bytes?: number;
 }
 
 /** One take a recorder node finished: where the engine wrote it, and what it cost. */

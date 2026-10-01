@@ -18,6 +18,7 @@
 #include "eurorack/EurorackPlugins.h"  // the modules EurorackList.h names
 #include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
+#include "MixBlend.h"              // a module's @mix pair, registered and never listed
 #include "RecorderPlugin.h"         // …and the recorder NODE, which the document declares
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
 
@@ -298,6 +299,9 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::TurntablePlugin>();
     // Registered but not LISTED, like the platter: the song compile puts it on a pattern lane, no module names it.
     pm.createBuiltInType<studio::PatternPlugin>();
+    // …and a module's @mix pair, which the engine puts around the module itself — docs/mix.md.
+    pm.createBuiltInType<studio::MixSplitPlugin>();
+    pm.createBuiltInType<studio::MixBlendPlugin>();
     // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue above — see MasterGainPlugin.h.
     pm.createBuiltInType<studio::MasterGainPlugin>();
     // Tracktion SHIPS the convolver and the 186 AirWindows effects but registers neither, so both were dead weight in the binary.

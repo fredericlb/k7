@@ -33,7 +33,7 @@ outputs:
   - { name: cue, type: audio, node: cue }
 params:
   Level: { node: level, param: Gain }
-  Fade: { node: fade, param: Mix }
+  Fade: { node: fade, param: Level }
 `;
 
 const INSTANCE = `uses: "@st0/turntable"
@@ -110,7 +110,7 @@ describe("resolving one against its template", () => {
       workspace('uses: "@st0/turntable"\nmembers:\n  fade: fadeA\n'),
     ).turntableA;
     expect(a.outputs.map((o) => o.name)).toEqual(["mix"]);
-    expect(a.params.Fade).toEqual({ node: "fadeA", param: "Mix" });
+    expect(a.params.Fade).toEqual({ node: "fadeA", param: "Level" });
     expect(a.params.Level).toBeUndefined();
   });
 

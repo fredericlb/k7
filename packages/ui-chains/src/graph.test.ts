@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   alignModuleRank,
   buildGraph,
-  CELL,
+  colsWidth,
   HEADER_MAX_PX,
   HEADER_MIN_PX,
   headerFontPx,
@@ -16,6 +16,7 @@ import {
   NODE_MIN_W,
   NODE_W,
   nodeSize,
+  pairValue,
   pushBelowInputs,
   RACK_ADD_BIND,
   rackBindSymbol,
@@ -660,6 +661,41 @@ describe("widgetTyped", () => {
   });
 });
 
+describe("a crossfade knob", () => {
+  const xf: WebWidget = {
+    type: "knob",
+    col: 0,
+    row: 0,
+    bind: "Wet Level",
+    pair: "Dry Level",
+  };
+
+  it("keeps the power constant: wet² + dry² = 1 at every position", () => {
+    for (const t of [0, 0.1, 0.25, 0.5, 0.75, 1]) {
+      const wet = widgetDenorm(xf, t);
+      expect(wet ** 2 + pairValue(xf, wet) ** 2).toBeCloseTo(1, 9);
+    }
+  });
+
+  it("is all dry at the left, all wet at the right, and -3 dB each in the middle", () => {
+    expect(widgetDenorm(xf, 0)).toBeCloseTo(0, 9);
+    expect(pairValue(xf, widgetDenorm(xf, 0))).toBeCloseTo(1, 9);
+    expect(widgetDenorm(xf, 1)).toBeCloseTo(1, 9);
+    expect(widgetDenorm(xf, 0.5)).toBeCloseTo(Math.SQRT1_2, 9);
+    expect(pairValue(xf, widgetDenorm(xf, 0.5))).toBeCloseTo(Math.SQRT1_2, 9);
+  });
+
+  it("reads its position back from the wet level alone", () => {
+    for (const t of [0, 0.3, 0.5, 0.9, 1])
+      expect(widgetNorm(xf, widgetDenorm(xf, t))).toBeCloseTo(t, 9);
+  });
+
+  it("is typed as a mix position in percent", () => {
+    expect(widgetTyped(xf, "50")).toBeCloseTo(Math.SQRT1_2, 9);
+    expect(widgetTyped(xf, "100")).toBeCloseTo(1, 9);
+  });
+});
+
 describe("nodeSize", () => {
   it("is the plain size with no UI, and grows to fit a UI grid", () => {
     expect(nodeSize(undefined)).toEqual({ w: NODE_W, h: NODE_H });
@@ -671,7 +707,7 @@ describe("nodeSize", () => {
   it("is its GRID's width, not the no-panel minimum", () => {
     // NODE_W as a floor would park dead space beside every grid narrower than it.
     expect(nodeSize({ cols: 2, rows: 6, widgets: {} }).w).toBe(
-      UI_PAD * 2 + 2 * CELL,
+      UI_PAD * 2 + colsWidth(2),
     );
     expect(nodeSize({ cols: 2, rows: 6, widgets: {} }).w).toBeLessThan(NODE_W);
   });

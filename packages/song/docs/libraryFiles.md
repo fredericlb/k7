@@ -1,8 +1,10 @@
-# A library's sound files — `samples/` and `irs/`
+# A library's shared files — `samples/`, `irs/` and `models/`
 
 An account library holds more than modules: beside `modules/`, `chains/` and `assemblies/` it may
-carry **`samples/`** and **`irs/`**, folders of sound files any song on the account can use.
-`libraryFiles.ts` lists and resolves them; `LibraryFamily` names all five families.
+carry **`samples/`** and **`irs/`**, folders of sound files any song on the account can use, and
+**`models/`**, amp models (`.nam`, or an AIDA-X / Proteus `.json`). `libraryFiles.ts` lists and
+resolves them; `LibraryFamily` names all six families, and `LIBRARY_FILE_FAMILIES` (in
+`@studio/song-schema/moduleTypes`) what each file folder is walked for.
 
 ## Shared files, where a module's `assets/` are its own
 
@@ -15,6 +17,12 @@ reason, live once per library and are reached from anywhere.
 This is what retired `@st0/audio/amps/guitar`: a module that existed only to carry files — the models
 now sit in the NAM module's own `assets/`, the IRs in the library's `irs/`, and the pickers on the
 NAM module's panel reach both.
+
+A MODEL sits between the two. One captured for a single amp module belongs in that module's
+`assets/`; a set of them — a downloaded tone library, forty pedals and amps — is played by several
+modules (the plain amp, the one with knobs, a fork named for one model) and would otherwise be
+copied into each. So `model` takes either, and the ref says which: a bare path is the module's own
+`assets/`, an `@<library>/<path>` is that library's `models/`.
 
 ## …and a PROJECT's own `samples/`, as `@project/<path>`
 
@@ -36,27 +44,31 @@ of the folder, since a ref is text a hand-edited file holds.
 ## Which params take one
 
 `LIBRARY_FILE_PARAMS` (in `@studio/song-schema/moduleTypes`, so the browser's picker can filter by
-it) maps a param to its family: today `ir` → `irs`. Such a param is set like any file-valued one —
+it) maps a param to its family: today `ir` → `irs`. `SHARED_FILE_PARAMS` maps the params that take a
+library's file OR the module's own, by the `@` — today `model` → `models`; `resolveFileParamIn` is
+that choice, made once for the loader and for an inherited ref alike. Such a param is set like any file-valued one —
 `node param <node> ir "@st0/…"`, what the panel's picker runs — and is checked against
 `libraryFiles`, the list the picker was shown. The loader resolves it to an absolute path on the
-module (`ir`) while keeping the name it was written with (`assets.ir`), exactly as it does a `nam`.
+module (`ir`) while keeping the name it was written with (`assets.ir`), exactly as it does a `model`.
 
-The graph document carries these choices only to a node whose panel binds such a param
-(`withLibraryChoices` in the file service): every step carrying every IR of every library would
+The graph document carries these choices only to a node whose panel binds such a param — and a
+`model` picker gets the library's models AFTER the module's own assets, under an `@<library>` folder
+(`withLibraryChoices` in the file service). Every step carrying every IR of every library would
 make each graph the size of the library.
 
 `samples/` is what a rack's taps play (`racks.md`): a tap's `sample` names one the same way, and a
 rack's step carries the libraries' samples as its picker's choices, whatever its panel binds.
 
-## Adding a sound is a drop
+## Adding a file is a drop
 
-A file dropped on a library's `samples/` or `irs/` in the editor's Libraries tab is uploaded there —
-the service's ordinary upload, whose path maps `_libraries/<name>/…` into the library's clone. The
-tab takes a drop nowhere else, and only sound files: a library is a repository other songs read, and
-a stray file in `modules/` is a module nobody meant to publish. `GET /module-libraries` lists each
-library's two sound folders beside its modules so the tab can draw them.
+A file dropped on a library's `samples/`, `irs/` or `models/` in the editor's Libraries tab is
+uploaded there — the service's ordinary upload, whose path maps `_libraries/<name>/…` into the
+library's clone. The tab takes a drop nowhere else, and only what that folder holds (sound files,
+or `.nam` / `.json` in `models/`): a library is a repository other songs read, and a stray file in
+`modules/` is a module nobody meant to publish. `GET /module-libraries` lists each library's three
+file folders beside its modules so the tab can draw them.
 
 Uploaded or moved, the files are not committed: a library is PUBLISHED, as a module save is.
 
-The preview route plays files in those two folders too — it otherwise refuses anything outside the
+The preview route plays files in the two SOUND folders too — it otherwise refuses anything outside the
 workspace — so a tap auditions its sample like any clip.

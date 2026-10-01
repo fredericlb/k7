@@ -174,3 +174,12 @@ target_include_directories(studio_eurorack_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine/eurorack)
 target_link_libraries(studio_eurorack_tests PRIVATE studio_eurorack)
 add_test(NAME studio_eurorack_tests COMMAND studio_eurorack_tests)
+
+# --- Amp model tests ------------------------------------------------------------
+# The RTNeural half of AmpModel, JUCE-free like the fast binaries above; references from data/ampmodel/gen_fixtures.py.
+add_executable(studio_ampmodel_tests AmpModel_test.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../engine/RtNeuralModel.cpp)
+target_include_directories(studio_ampmodel_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+target_link_libraries(studio_ampmodel_tests PRIVATE studio_rtneural)
+target_compile_definitions(studio_ampmodel_tests PRIVATE
+    STUDIO_AMPMODEL_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/data/ampmodel")
+add_test(NAME studio_ampmodel_tests COMMAND studio_ampmodel_tests)

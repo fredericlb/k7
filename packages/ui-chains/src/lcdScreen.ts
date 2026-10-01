@@ -30,9 +30,34 @@ export interface LcdFrame {
 /** One screen's draw function: `widgets.js` maps a widget id to one of these. */
 export type LcdDraw = (lcd: LcdFrame) => void;
 
-/** A compiled script: the draw functions it returned, or why there are none. */
+/** A pointer on an INTERACTIVE screen, in the same CSS pixels the draw uses. */
+export interface LcdPointerEvent {
+  /** `down`, `move` and `up` bracket one gesture; `wheel` stands alone. */
+  type: "down" | "move" | "up" | "wheel";
+  x: number;
+  y: number;
+  /** `wheel` only: positive when the wheel turns down (the browser's `deltaY` sign). */
+  delta: number;
+  shift: boolean;
+  alt: boolean;
+}
+
+/** What a pointer handler gets: the frame it would draw, plus the one way to change the module. */
+export interface LcdPointerFrame extends Omit<LcdFrame, "ctx"> {
+  /** Set a param by name: heard at once, written into the module's file when the gesture ends. */
+  set(name: string, value: number): void;
+}
+
+/** A pointer handler: returns true when it took the event, so a wheel it ignores still zooms the graph. */
+export type LcdPointer = (
+  lcd: LcdPointerFrame,
+  ev: LcdPointerEvent,
+) => boolean | undefined;
+
+/** A compiled script: the draw functions it returned, the pointer handlers, or why there are none. */
 export interface LcdScript {
   draws: Readonly<Record<string, LcdDraw>>;
+  pointers: Readonly<Record<string, LcdPointer>>;
   error?: string;
 }
 
@@ -50,7 +75,7 @@ export const LCD_COLORS: LcdFrame["color"] = {
 // `export default {…}` is read as `return {…}`, so the file is a module to an editor and a body to this.
 const EXPORT_DEFAULT = /^\s*export\s+default\s+/m;
 
-const NONE: LcdScript = { draws: {} };
+const NONE: LcdScript = { draws: {}, pointers: {} };
 const cache = new Map<string, LcdScript>();
 const CACHE_MAX = 32;
 
@@ -73,17 +98,30 @@ function compile(source: string): LcdScript {
     // The one eval in the app, and on purpose: the draw is the module author's code — docs/lcdScreen.md.
     out = new Function(`"use strict";\n${body}`)();
   } catch (e) {
-    return { draws: {}, error: (e as Error).message || String(e) };
+    return {
+      draws: {},
+      pointers: {},
+      error: (e as Error).message || String(e),
+    };
   }
   if (!out || typeof out !== "object")
     return {
       draws: {},
+      pointers: {},
       error: "widgets.js must return an object: { <widget id>: (lcd) => … }",
     };
   const draws: Record<string, LcdDraw> = {};
-  for (const [id, f] of Object.entries(out as Record<string, unknown>))
+  const pointers: Record<string, LcdPointer> = {};
+  for (const [id, f] of Object.entries(out as Record<string, unknown>)) {
     if (typeof f === "function") draws[id] = f as LcdDraw;
-  return { draws };
+    // An interactive screen is `{ draw, pointer }` — docs/lcdScreen.md.
+    else if (f && typeof f === "object") {
+      const { draw, pointer } = f as { draw?: unknown; pointer?: unknown };
+      if (typeof draw === "function") draws[id] = draw as LcdDraw;
+      if (typeof pointer === "function") pointers[id] = pointer as LcdPointer;
+    }
+  }
+  return { draws, pointers };
 }
 
 /** An envelope point as the one number a meter wants: how far from zero it swung. */

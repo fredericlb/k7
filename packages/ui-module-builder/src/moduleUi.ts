@@ -104,6 +104,7 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
   const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
   const isLcd = w.type === "lcdscreen";
+  const isGroup = w.type === "group";
   const isDropdown = w.type === "dropdown";
   const isRanged =
     w.type === "knob" ||
@@ -133,7 +134,7 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
     label: w.label || undefined,
     text: isLabel ? w.text || undefined : undefined,
     bind:
-      !isLabel && !isTabs && !isWaveform && !isLcd
+      !isLabel && !isTabs && !isWaveform && !isLcd && !isGroup
         ? w.bind || undefined
         : undefined,
     // Range fields belong to the NUMERIC kinds only: a `min` on a toggle fails to load — docs/builder.md.
@@ -147,6 +148,8 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
     options: isDropdown && w.options?.length ? w.options : undefined,
     // …or the library its choices come from. Both are written when both are set: the file says what the author put.
     library: isDropdown ? w.library || undefined : undefined,
+    color: isGroup ? w.color || undefined : undefined,
+    pair: w.type === "knob" ? w.pair || undefined : undefined,
     pages,
   };
 }

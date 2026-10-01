@@ -304,6 +304,49 @@ void a_param_called_sr_is_refused() {
     CHECK(error.contains("sr"));
 }
 
+// The RMS gain in dB a one-node biquad graph gives a sine at `hz`, measured after it has settled.
+float biquadGainDb(const char* mode, float freq, float q, float gainDb, float hz) {
+    const auto json = juce::String(R"({ "params": [ { "name": "F", "min": 20, "max": 20000, "default": 1000 },
+      { "name": "Q", "min": 0.1, "max": 10, "default": 1 }, { "name": "G", "min": -24, "max": 24, "default": 0 } ],
+      "nodes": [ { "type": "biquad", "in": ["F", "Q", "G"], "mode": ")") + mode + "\" } ] }";
+    auto g = buildGraph(json.toRawUTF8());
+    if (!g) return 0.0f;
+    g->prepare(kRate, kBlock);
+    const float params[3] = {freq, q, gainDb};
+    double in = 0.0, out = 0.0;
+    int t = 0;
+    for (int block = 0; block < 40; ++block) {
+        juce::AudioBuffer<float> buf(2, kBlock);
+        for (int i = 0; i < kBlock; ++i, ++t) {
+            const float v = 0.5f * std::sin(juce::MathConstants<float>::twoPi * hz * (float)t / (float)kRate);
+            buf.getWritePointer(0)[i] = buf.getWritePointer(1)[i] = v;
+            if (block >= 20) in += (double)v * v;
+        }
+        g->process(buf, 0, kBlock, params, 3);
+        if (block >= 20)
+            for (int i = 0; i < kBlock; ++i) out += (double)buf.getReadPointer(0)[i] * buf.getReadPointer(0)[i];
+    }
+    return (float)(10.0 * std::log10(out / in));
+}
+
+void a_peak_boosts_its_own_frequency_by_its_gain_and_leaves_the_rest() {
+    CHECK(std::abs(biquadGainDb("peak", 1000.0f, 1.0f, 12.0f, 1000.0f) - 12.0f) < 0.5f);
+    CHECK(std::abs(biquadGainDb("peak", 1000.0f, 1.0f, -9.0f, 1000.0f) + 9.0f) < 0.5f);
+    CHECK(std::abs(biquadGainDb("peak", 1000.0f, 4.0f, 12.0f, 8000.0f)) < 0.5f);
+}
+
+void a_shelf_moves_its_side_and_not_the_other() {
+    CHECK(std::abs(biquadGainDb("lowshelf", 300.0f, 0.707f, -12.0f, 40.0f) + 12.0f) < 0.7f);
+    CHECK(std::abs(biquadGainDb("lowshelf", 300.0f, 0.707f, -12.0f, 8000.0f)) < 0.5f);
+    CHECK(std::abs(biquadGainDb("highshelf", 3000.0f, 0.707f, 6.0f, 15000.0f) - 6.0f) < 0.7f);
+    CHECK(std::abs(biquadGainDb("highshelf", 3000.0f, 0.707f, 6.0f, 100.0f)) < 0.5f);
+}
+
+// At 0 dB a peak is the identity: a band left flat colours nothing.
+void a_peak_at_zero_db_is_transparent() {
+    CHECK(std::abs(biquadGainDb("peak", 1000.0f, 1.0f, 0.0f, 1000.0f)) < 0.05f);
+}
+
 int main() {
     RUN(a_duplicate_param_name_is_refused);
     RUN(a_param_called_sr_is_refused);
@@ -323,5 +366,8 @@ int main() {
     RUN(an_unfed_second_port_is_silence_rather_than_a_read_past_the_end);
     RUN(linmap_with_an_empty_range_is_zero_not_nan);
     RUN(a_block_bigger_than_prepared_is_chunked_not_grown);
+    RUN(a_peak_boosts_its_own_frequency_by_its_gain_and_leaves_the_rest);
+    RUN(a_shelf_moves_its_side_and_not_the_other);
+    RUN(a_peak_at_zero_db_is_transparent);
     TEST_MAIN_END();
 }

@@ -1,5 +1,5 @@
-// `node param <node> ir <file>` — a cabinet IR picked from the libraries' `irs/`, through the same verb a
-// `nam` model is, and checked against the same list the panel's picker offers (packages/song/docs/libraryFiles.md).
+// `node param <node> ir <file>` — a cabinet IR picked from the libraries' `irs/`, through the same verb an
+// amp `model` is, and checked against the same list the panel's picker offers (packages/song/docs/libraryFiles.md).
 
 import {
   mkdirSync,
@@ -34,6 +34,8 @@ beforeEach(() => {
   const lib = librariesFixture(root, "st0");
   mkdirSync(join(lib, "irs", "deluxe"), { recursive: true });
   writeFileSync(join(lib, "irs", "deluxe", "big.wav"), "");
+  mkdirSync(join(lib, "models", "proteus"), { recursive: true });
+  writeFileSync(join(lib, "models", "proteus", "ts9.json"), "{}");
   dir = join(root, "song.st0");
   mkdirSync(join(dir, "nodes"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
@@ -81,4 +83,24 @@ it("clears it with `none`", async () => {
   );
   await runCommand('node param "amp" "ir" none', host(), "cli");
   expect(node()).not.toContain("big.wav");
+});
+
+it("takes an amp `model` from a library's models/ by its @ name, and refuses one no library holds", async () => {
+  await runCommand(
+    'node param "amp" "model" "@st0/proteus/ts9.json"',
+    host(),
+    "cli",
+  );
+  expect(node()).toContain('model: "@st0/proteus/ts9.json"');
+  logs.length = 0;
+  const before = node();
+  await runCommand(
+    'node param "amp" "model" "@st0/proteus/rat.json"',
+    host(),
+    "cli",
+  );
+  expect(logs.join(" ")).toContain(
+    "no '@st0/proteus/rat.json' in the libraries' models/",
+  );
+  expect(node()).toBe(before);
 });

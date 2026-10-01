@@ -1,12 +1,19 @@
 # Asking a question
 
-`src/ask.tsx` — a confirmation or a one-field question, as a promise.
+`src/ask.tsx` — a confirmation, a one-field question or a choice between a few answers, as a promise.
 
 ```ts
 if (await askConfirm({ title: "Retirer ce partage ?", body: …, danger: true })) revoke()
 
 const name = await askText({ title: "Nouveau nœud", validate: … })
 if (name === null) return          // cancelled — never "" for a cancel
+
+const how = await askChoice({ title: "…", choices: [{ key: "update", label: "Update" }, { key: "reset", label: "Reset" }] })
+if (how === null) return           // cancelled — no answer is ever picked for the person
+
+const got = await askTextAction({ title: "…", actions: [{ key: "copy", label: "Copy" }] })
+if (got === null) return           // cancelled
+if (got.action === "copy") …       // `"confirm"` for the main button and for Enter
 ```
 
 Render `<AskHost/>` once at the app root, beside `<Toaster/>`.
@@ -44,6 +51,19 @@ classes are Tailwind's over the design system's variables, which are global — 
 this needs `packages/project-shell/src` in its `@source` list, and st0 already has it.
 
 ## Two rules worth keeping
+
+**A choice is not a confirm with a third button.** Its answers are peers — neither is the "safe"
+one a dismissal could stand for — so Escape and the backdrop answer `null`, and the caller asks
+nothing further. Enter takes the LAST answer, the one drawn as primary, since that is where a
+keyboard expects it.
+
+**One field, several things to do with it, is `askTextAction`** — the same dialog with extra buttons
+before the confirm, answering the value AND which button gave it. `askText` keeps answering a bare
+string: a second return shape on the same function would be a type every existing caller had to
+unwrap. The extra buttons obey `validate` like the confirm does, since they act on the same value.
+
+**A dialog with no field takes focus itself**, or Escape and Enter would land on the page behind it
+and reach nothing — a choice or a confirm would then answer only to the mouse.
 
 **A cancel answers `false` or `null`, never `""`.** A caller cannot tell an empty answer from an
 abandoned one, and `useShare` gets that wrong in a way that matters: cancelling the *title*

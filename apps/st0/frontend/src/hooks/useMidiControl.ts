@@ -3,7 +3,7 @@
 // graph, plays what the graph says, and writes through `module cc` like any other edit.
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";
-import { widgetDenorm, widgetNorm } from "@studio/ui-chains/graph";
+import { pairValue, widgetDenorm, widgetNorm } from "@studio/ui-chains/graph";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type CcRoute,
@@ -141,7 +141,15 @@ export function useMidiControl({
   if (!midi.current)
     midi.current = new MidiControl((k, t) => {
       const m = mappedRef.current.find((x) => ccKey(x.module, x.param) === k);
-      if (m) setParamRef.current(m, widgetDenorm(m.widget, t));
+      if (!m) return;
+      const v = widgetDenorm(m.widget, t);
+      setParamRef.current(m, v);
+      // A crossfade knob's dry half rides the same CC — packages/ui-chains-react/docs/widgets.md.
+      if (m.widget.pair)
+        setParamRef.current(
+          { ...m, param: m.widget.pair },
+          pairValue(m.widget, v),
+        );
     });
 
   useEffect(() => {

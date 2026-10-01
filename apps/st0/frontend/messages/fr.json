@@ -338,6 +338,7 @@
   "menuEntity.shot": "un plan d'une piste image",
   "menuEntity.pad": "un pas du séquenceur",
   "menuEntity.note": "une note du piano roll",
+  "menuEntity.tap": "un son d'un rack, sur sa carte",
   "cmdMenu.everywhere": "partout",
   "cmdMenu.never": "jamais",
   "cmdMenu.types": "{n} types",
@@ -666,5 +667,7 @@
   "engineSwitch.hint": "Joue sur {engine} — cliquer pour passer ce projet sur un autre moteur",
   "engineSwitch.none": "Aucun moteur ne répond",
   "engineSwitch.inUse": "occupé",
-  "engineSwitch.incompatible": "Compatible à {score} % — il manque à ce moteur : {missing}"
+  "engineSwitch.incompatible": "Compatible à {score} % — il manque à ce moteur : {missing}",
+  "engineLoad.hint": "Le moteur occupe {memory} de mémoire ; ses plugins prennent {cpu} % de chaque bloc audio. Chaque nœud affiche sa part.",
+  "ed.libraryDeleteBody": "Il est retiré de la bibliothèque « {library} » et publié aussitôt ; l'historique de la bibliothèque le garde."
 }

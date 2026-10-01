@@ -27,6 +27,7 @@ export function TapWidget({
   style,
   onTrigger,
   onEdit,
+  onMenu,
 }: {
   bind: string | undefined;
   /** The sound the bind names, off the node — undefined for the "+" tap, or a stale bind. */
@@ -37,6 +38,8 @@ export function TapWidget({
   onTrigger?: () => void;
   /** Ask the host to write — absent, the note and the sample are shown and not editable. */
   onEdit?: (action: TapAction) => void;
+  /** Right-click: the host's menu for this sound, at the pointer — absent, the browser's own. */
+  onMenu?: (x: number, y: number) => void;
 }) {
   const [typing, setTyping] = useState(false);
   // Every gesture stops here: a press is not a pan, a click not a selection, a double-click not "back".
@@ -67,13 +70,34 @@ export function TapWidget({
 
   const symbol = rackBindSymbol(bind) ?? "?";
   const sample = sound?.sample;
+  // Anything it can SOUND: a library sample, or the clip or slice an older kit names (packages/song/docs/racks.md).
+  const playable = !!(sample || sound?.clip || sound?.source);
   return (
-    <div className="dgx-w dgx-tap" style={style} {...keep}>
+    <div
+      className="dgx-w dgx-tap"
+      style={style}
+      {...keep}
+      onContextMenu={
+        onMenu
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onMenu(e.clientX, e.clientY);
+            }
+          : undefined
+      }
+    >
       <button
         type="button"
         className={`dgx-tap-pad${lit ? " on" : ""}`}
-        title={sample ? `${symbol} — ${sample}` : `${symbol} — no sample yet`}
-        disabled={!onTrigger || !sample}
+        title={
+          sample
+            ? `${symbol} — ${sample}`
+            : playable
+              ? symbol
+              : `${symbol} — no sample yet`
+        }
+        disabled={!onTrigger || !playable}
         onClick={(e) => {
           e.stopPropagation();
           onTrigger?.();

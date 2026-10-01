@@ -313,7 +313,19 @@ int serve(int port) {
                              // Where those points START in the take: an append, or a resend already drawn (docs/recorder.md).
                              {"from", r.envelopeFrom}};
         }
-        const auto payload = std::make_shared<const std::string>(json{
+        // The cost report, on the frames that carry one: absent otherwise, and the client keeps the last (docs/load.md).
+        json load = nullptr;
+        if (s.hasLoad) {
+            json plugins = json::object();
+            for (const auto& [id, l] : s.pluginLoads) {
+                json p = {{"cpu", l.cpu}};
+                if (l.bytes >= 0) p["bytes"] = l.bytes;
+                plugins[id] = std::move(p);
+            }
+            load = {{"plugins", std::move(plugins)}};
+            if (s.processBytes >= 0) load["process"] = s.processBytes;
+        }
+        json frame = json{
             {"type", "state"},
             // WHICH project this frame describes; empty is the default session, what a client that never asked for one drives.
             {"session", s.session},
@@ -331,7 +343,9 @@ int serve(int port) {
             {"platters", s.platterSeconds},
             // …and each RECORDER node: rolling or not, and its picture SINCE THE LAST FRAME, appended by the client (docs/recorder.md).
             {"recorders", std::move(recs)},
-        }.dump());
+        };
+        if (!load.is_null()) frame["load"] = std::move(load);
+        const auto payload = std::make_shared<const std::string>(frame.dump());
 
         // Droppable: the next frame supersedes it, so a socket already behind skips this one.
         for (auto& client : targets) outbox.post(client, payload, true);

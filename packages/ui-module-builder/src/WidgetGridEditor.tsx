@@ -3,60 +3,29 @@
 // edit produces a fresh ModuleUI and calls onChange. A widget is bound by DRAGGING a row
 // from the Parameters pane (paramDrag.ts), which carries the range with it, so this
 // component needs to know nothing about the engine. It edits ONE widget map at a time —
-// the panel's, or one page of a tabs widget — which is docs/pages.md.
+// the panel's, or one page of a tabs widget — which is docs/pages.md. A group frames what lies
+// inside its box and moves it along (groupGeometry.ts); the inspector is WidgetInspector.tsx.
 
 import { Button } from "@frediverse/ui/button";
 import {
-  Activity,
-  AudioWaveform,
-  Circle,
-  FileSearch,
-  Hash,
-  LayoutGrid,
-  List,
   LoaderCircle,
-  type LucideIcon,
   Minus,
-  Monitor,
   Plus,
-  RectangleHorizontal,
-  SlidersHorizontal,
-  SlidersVertical,
   Sparkles,
-  ToggleLeft,
-  Trash2,
-  Type,
   Wand2,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { useCallback, useRef, useState } from "react";
 import { type AutoParam, autoOrganize } from "./autoLayout";
+import { clash, framedBy } from "./groupGeometry";
 import type { ModuleUI, Widget, WidgetType } from "./moduleUi";
 import { isParamDrag, type ParamDrag, readParamDrag } from "./paramDrag";
+import { WidgetInspector } from "./WidgetInspector";
+import { bindable, GROUP_COLOR, ICON, ranged, TYPES } from "./widgetKinds";
 
 // Row height in px (columns are elastic), in one place so the pointer→cell maths and the CSS grid agree.
 const ROW_PX = 64;
-
-const TYPES: { type: WidgetType; icon: LucideIcon; label: string }[] = [
-  { type: "knob", icon: Circle, label: "Knob" },
-  { type: "slider", icon: SlidersHorizontal, label: "Slider" },
-  { type: "fader", icon: SlidersVertical, label: "Fader" },
-  { type: "toggle", icon: ToggleLeft, label: "Toggle" },
-  { type: "dropdown", icon: List, label: "Dropdown" },
-  { type: "filepicker", icon: FileSearch, label: "File" },
-  { type: "button", icon: RectangleHorizontal, label: "Button" },
-  { type: "number", icon: Hash, label: "Number" },
-  { type: "meter", icon: Activity, label: "Meter" },
-  { type: "waveform", icon: AudioWaveform, label: "Waveform" },
-  { type: "lcdscreen", icon: Monitor, label: "LCD screen" },
-  { type: "label", icon: Type, label: "Label" },
-  { type: "tabs", icon: LayoutGrid, label: "Tabs" },
-];
-
-const ICON: Record<WidgetType, LucideIcon> = Object.fromEntries(
-  TYPES.map((t) => [t.type, t.icon]),
-) as Record<WidgetType, LucideIcon>;
 
 // The track intrinsics that are on/off: only these are KNOWN discrete, so only these become a toggle on drop.
 const TOGGLE_BINDS = new Set(["@mute", "@solo", "@arm"]);
@@ -69,42 +38,8 @@ const BUTTON_PLACEHOLDER_LABEL = "B";
 const hasOwnLabel = (w: Widget) =>
   !!w.label && !(w.type === "button" && w.label === BUTTON_PLACEHOLDER_LABEL);
 
-// Which widget kinds carry a `bind`, and so the only ones a dragged parameter can bounce off.
-export const bindable = (w: Pick<Widget, "type">) =>
-  w.type !== "label" &&
-  w.type !== "tabs" &&
-  w.type !== "waveform" &&
-  w.type !== "lcdscreen";
-
-// …and which carry a RANGE. Not a dropdown: it addresses its param by named setting, and its options are the set.
-const ranged = (w: Widget) =>
-  w.type === "knob" ||
-  w.type === "slider" ||
-  w.type === "fader" ||
-  w.type === "number";
-
 // A parameter with named settings — what a dropdown is for.
 const isDiscrete = (p: ParamDrag) => !!p.meta?.states?.length;
-
-// Changing type must CLEAR the fields the new type lacks: a leftover fails validation and takes the graph down.
-
-// Returns the type plus explicit undefineds; the caller merges, and writeUi drops undefined fields.
-function retype(w: Widget, type: WidgetType): Partial<Widget> {
-  const next: Widget = { ...w, type };
-  return {
-    type,
-    text: type === "label" ? w.text : undefined,
-    bind: bindable(next) ? w.bind : undefined,
-    min: ranged(next) ? w.min : undefined,
-    max: ranged(next) ? w.max : undefined,
-    step: ranged(next) ? w.step : undefined,
-    curve: ranged(next) ? w.curve : undefined,
-    pages: type === "tabs" ? w.pages : undefined,
-    source: type === "waveform" ? w.source : undefined,
-    options: type === "dropdown" ? w.options : undefined,
-    library: type === "dropdown" ? w.library : undefined,
-  };
-}
 
 const span = (n?: number) => Math.max(1, n ?? 1);
 const covers = (w: Widget, c: number, r: number) =>
@@ -113,17 +48,16 @@ const covers = (w: Widget, c: number, r: number) =>
   r >= w.row &&
   r < w.row + span(w.rowSpan);
 
-// The first free cell, row-major; it takes a MAP because a page's widgets are drawn alone.
+// The first cell in `box` no widget covers, row-major; a group frames cells rather than filling them.
 function firstFree(
   widgets: Record<string, Widget>,
-  cols: number,
-  rows: number,
+  box: { col: number; row: number; cols: number; rows: number },
 ): { col: number; row: number } {
-  const ws = Object.values(widgets);
-  for (let r = 0; r < rows; r++)
-    for (let c = 0; c < cols; c++)
+  const ws = Object.values(widgets).filter((w) => w.type !== "group");
+  for (let r = box.row; r < box.row + box.rows; r++)
+    for (let c = box.col; c < box.col + box.cols; c++)
       if (!ws.some((w) => covers(w, c, r))) return { col: c, row: r };
-  return { col: 0, row: 0 }; // full grid — stack on the origin, the user can move it
+  return { col: box.col, row: box.row }; // full — stack on the corner, the user can move it
 }
 
 /** Which widget map the grid edits: the panel itself (`null`), or one page of a tabs widget. */
@@ -151,6 +85,42 @@ export function writeWidgetsAt(
     },
   };
 }
+
+type Cell = { col: number; row: number };
+
+/** A resize handle, named by the corner it sits on. */
+export type Corner = "nw" | "ne" | "sw" | "se";
+const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
+const HANDLE_CLS: Record<Corner, string> = {
+  nw: "left-0 top-0 cursor-nw-resize rounded-br",
+  ne: "right-0 top-0 cursor-ne-resize rounded-bl",
+  sw: "bottom-0 left-0 cursor-sw-resize rounded-tr",
+  se: "bottom-0 right-0 cursor-se-resize rounded-tl",
+};
+
+/** The cell a corner's resize keeps still — the widget's OPPOSITE corner cell. */
+export function cornerAnchor(w: Widget, corner: Corner): Cell {
+  return {
+    col: corner.includes("w") ? w.col + span(w.colSpan) - 1 : w.col,
+    row: corner.includes("n") ? w.row + span(w.rowSpan) - 1 : w.row,
+  };
+}
+
+/** The box spanning two cells, whichever way round they are — so a handle dragged past the anchor flips. */
+export function boxBetween(a: Cell, b: Cell) {
+  return {
+    col: Math.min(a.col, b.col),
+    row: Math.min(a.row, b.row),
+    colSpan: Math.abs(a.col - b.col) + 1,
+    rowSpan: Math.abs(a.row - b.row) + 1,
+  };
+}
+
+// A group is drawn UNDER what it frames, so it comes first; the sort is stable for everything else.
+const groupsFirst = (ws: Record<string, Widget>): [string, Widget][] =>
+  Object.entries(ws).sort(
+    ([, a], [, b]) => +(b.type === "group") - +(a.type === "group"),
+  );
 
 // A stable, unused id. Ids are the base→module override key, so existing widgets must never renumber.
 function nextId(widgets: Record<string, Widget>): string {
@@ -191,11 +161,17 @@ export function WidgetGridEditor({
   const tabsWidgets = Object.entries(ui.widgets).filter(
     ([, w]) => w.type === "tabs",
   );
+  const sel = selected ? (widgets[selected] ?? null) : null;
   // The widget a parameter is currently hovering over, so it can light up as the target.
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   // Which gesture is live, so pointermove knows whether it's moving or resizing.
-  const drag = useRef<{ id: string; mode: "move" | "resize" } | null>(null);
+  const drag = useRef<{
+    id: string;
+    mode: "move" | "resize";
+    /** The cell a resize keeps still: the corner OPPOSITE the handle, fixed at the press. */
+    anchor?: Cell;
+  } | null>(null);
 
   /** Write the edited map back where it came from. Every operation below goes through it. */
   const writeWidgets = useCallback(
@@ -261,37 +237,60 @@ export function WidgetGridEditor({
     // One level of pages deliberately, the button disabled rather than silently doing nothing.
     if (type === "tabs" && at) return;
     const id = nextId(widgets);
-    const { col, row } = firstFree(widgets, ui.cols, ui.rows);
+    // With a group selected, a new control lands INSIDE it — which is how a group is filled.
+    const into =
+      sel?.type === "group" && type !== "group" && type !== "tabs" ? sel : null;
+    const { col, row } = firstFree(
+      widgets,
+      into
+        ? {
+            col: into.col,
+            row: into.row,
+            cols: span(into.colSpan),
+            rows: span(into.rowSpan),
+          }
+        : { col: 0, row: 0, cols: ui.cols, rows: ui.rows },
+    );
     const w: Widget =
-      type === "label"
-        ? { type, col, row, text: "Label" }
-        : type === "button"
-          ? { type, col, row, label: BUTTON_PLACEHOLDER_LABEL } // a button draws its label inside itself
-          : type === "tabs"
-            ? {
-                type,
-                col,
-                row,
-                colSpan: 2,
-                rowSpan: 2,
-                pages: { "Page 1": {} },
-              }
-            : type === "waveform"
-              ? { type, col, row, colSpan: 2, rowSpan: 2, source: "output" }
-              : type === "lcdscreen"
-                ? { type, col, row, colSpan: 3, rowSpan: 2 }
-                : // A fader placed one cell tall would be a worse slider. Three rows is a strip's throw, and the
-                  // author can still drag it shorter — the widget reads whatever height it ends up with.
-                  type === "fader"
-                  ? { type, col, row, rowSpan: 3 }
-                  : {
-                      type,
-                      col,
-                      row,
-                      ...(type !== "toggle" && type !== "meter"
-                        ? { min: 0, max: 1 }
-                        : {}),
-                    };
+      type === "group"
+        ? {
+            type,
+            col,
+            row,
+            colSpan: 4,
+            rowSpan: 2,
+            label: "Group",
+            color: GROUP_COLOR,
+          }
+        : type === "label"
+          ? { type, col, row, text: "Label" }
+          : type === "button"
+            ? { type, col, row, label: BUTTON_PLACEHOLDER_LABEL } // a button draws its label inside itself
+            : type === "tabs"
+              ? {
+                  type,
+                  col,
+                  row,
+                  colSpan: 2,
+                  rowSpan: 2,
+                  pages: { "Page 1": {} },
+                }
+              : type === "waveform"
+                ? { type, col, row, colSpan: 2, rowSpan: 2, source: "output" }
+                : type === "lcdscreen"
+                  ? { type, col, row, colSpan: 3, rowSpan: 2 }
+                  : // A fader placed one cell tall would be a worse slider. Three rows is a strip's throw, and the
+                    // author can still drag it shorter — the widget reads whatever height it ends up with.
+                    type === "fader"
+                    ? { type, col, row, rowSpan: 3 }
+                    : {
+                        type,
+                        col,
+                        row,
+                        ...(type !== "toggle" && type !== "meter"
+                          ? { min: 0, max: 1 }
+                          : {}),
+                      };
     writeWidgets({ ...widgets, [id]: w });
     setSelected(id);
   };
@@ -344,17 +343,32 @@ export function WidgetGridEditor({
     const { col, row } = cellAt(e.clientX, e.clientY);
     if (d.mode === "move") {
       // Keep the widget wholly inside the grid at its current span.
-      const c = Math.min(col, ui.cols - span(w.colSpan));
-      const r = Math.min(row, ui.rows - span(w.rowSpan));
-      if (c !== w.col || r !== w.row)
-        patch(d.id, { col: Math.max(0, c), row: Math.max(0, r) });
-    } else {
-      const colSpan = Math.max(1, col - w.col + 1);
-      const rowSpan = Math.max(1, row - w.row + 1);
-      if (colSpan !== span(w.colSpan) || rowSpan !== span(w.rowSpan))
+      const c = Math.max(0, Math.min(col, ui.cols - span(w.colSpan)));
+      const r = Math.max(0, Math.min(row, ui.rows - span(w.rowSpan)));
+      if (c === w.col && r === w.row) return;
+      if (w.type !== "group") return patch(d.id, { col: c, row: r });
+      // A group carries what it frames, so the section moves as one block.
+      const next = { ...widgets, [d.id]: { ...w, col: c, row: r } };
+      for (const id of framedBy(widgets, w))
+        next[id] = {
+          ...widgets[id],
+          col: widgets[id].col + c - w.col,
+          row: widgets[id].row + r - w.row,
+        };
+      writeWidgets(next);
+    } else if (d.anchor) {
+      const b = boxBetween(d.anchor, { col, row });
+      if (
+        b.col !== w.col ||
+        b.row !== w.row ||
+        b.colSpan !== span(w.colSpan) ||
+        b.rowSpan !== span(w.rowSpan)
+      )
         patch(d.id, {
-          colSpan: colSpan > 1 ? colSpan : undefined,
-          rowSpan: rowSpan > 1 ? rowSpan : undefined,
+          col: b.col,
+          row: b.row,
+          colSpan: b.colSpan > 1 ? b.colSpan : undefined,
+          rowSpan: b.rowSpan > 1 ? b.rowSpan : undefined,
         });
     }
   };
@@ -362,21 +376,23 @@ export function WidgetGridEditor({
   const startDrag = (
     e: React.PointerEvent,
     id: string,
-    mode: "move" | "resize",
+    mode: "move" | Corner,
   ) => {
     if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
     setSelected(id);
-    drag.current = { id, mode };
+    const w = widgets[id];
+    drag.current =
+      mode === "move" || !w
+        ? { id, mode: "move" }
+        : { id, mode: "resize", anchor: cornerAnchor(w, mode) };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const endDrag = (e: React.PointerEvent) => {
     drag.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   };
-
-  const sel = selected ? widgets[selected] : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -573,17 +589,22 @@ export function WidgetGridEditor({
               ))}
 
           {/* placed widgets */}
-          {Object.entries(widgets).map(([id, w]) => {
+          {groupsFirst(widgets).map(([id, w]) => {
             const Icon = ICON[w.type];
             const isSel = id === selected;
+            const isGroup = w.type === "group";
+            // Crossing a group's edge, or another widget's cells, is what the checks refuse: say so here first.
+            const crossed = Object.entries(widgets).some(
+              ([o, ow]) => o !== id && clash(w, ow),
+            );
             return (
               <div
                 key={id}
                 onPointerDown={(e) => startDrag(e, id, "move")}
                 // Dropping a parameter binds it — refused on kinds with no `bind`, rather than writing a field they don't read.
                 onDragOver={(e) => {
-                  if (disabled || !bindable(w) || !isParamDrag(e.dataTransfer))
-                    return;
+                  if (disabled || !isParamDrag(e.dataTransfer)) return;
+                  if (!bindable(w) && !isGroup) return;
                   e.preventDefault(); // "yes, you may drop here"
                   e.dataTransfer.dropEffect = "copy";
                   if (dropTarget !== id) setDropTarget(id);
@@ -591,14 +612,20 @@ export function WidgetGridEditor({
                 onDragLeave={() => setDropTarget((t) => (t === id ? null : t))}
                 onDrop={(e) => {
                   setDropTarget(null);
-                  if (disabled || !bindable(w)) return;
+                  if (disabled || (!bindable(w) && !isGroup)) return;
                   const p = readParamDrag(e.dataTransfer);
                   if (!p) return;
                   e.preventDefault();
-                  bindParam(id, w, p);
+                  // A group covers its cells, so a parameter dropped on it makes its widget in the cell below.
+                  if (!isGroup) return bindParam(id, w, p);
+                  const cell = cellAt(e.clientX, e.clientY);
+                  createBound(cell.col, cell.row, p);
                 }}
                 className={cn(
-                  "group relative m-0.5 flex flex-col items-center justify-center overflow-hidden rounded border bg-background/80 px-1 text-center",
+                  "group relative m-0.5 flex flex-col overflow-hidden rounded border px-1",
+                  isGroup
+                    ? "items-start justify-start pt-0.5 text-left"
+                    : "items-center justify-center bg-background/80 text-center",
                   disabled ? "cursor-default" : "cursor-move",
                   isSel
                     ? "border-primary ring-1 ring-primary"
@@ -606,27 +633,43 @@ export function WidgetGridEditor({
                   dropTarget === id &&
                     "border-primary bg-primary/20 ring-2 ring-primary",
                   w.hidden && "opacity-40",
+                  crossed && !isSel && "border-amber-500",
                 )}
                 style={{
                   gridColumn: `${w.col + 1} / span ${span(w.colSpan)}`,
                   gridRow: `${w.row + 1} / span ${span(w.rowSpan)}`,
+                  ...(isGroup ? { background: w.color ?? GROUP_COLOR } : {}),
                 }}
                 title={w.type === "label" ? w.text : w.bind}
               >
                 {/* The glyph and the caption take no pointer, or they steal the tile's drag — ../docs/builder.md. */}
-                <Icon className="pointer-events-none h-4 w-4 text-muted-foreground" />
-                <span className="pointer-events-none mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
-                  {w.type === "label"
-                    ? w.text || "label"
-                    : w.label || w.bind || w.type}
-                </span>
-                {!disabled && isSel && (
-                  // resize handle (bottom-right)
-                  <span
-                    onPointerDown={(e) => startDrag(e, id, "resize")}
-                    className="absolute bottom-0 right-0 h-3 w-3 cursor-se-resize rounded-tl bg-primary"
-                  />
+                {isGroup ? (
+                  // A group's name is stacked down its left edge, as on the card, over the tiles it frames.
+                  <span className="pointer-events-none absolute bottom-0 left-0.5 top-0.5 z-10 overflow-hidden text-[10px] leading-none text-foreground [text-orientation:upright] [writing-mode:vertical-rl]">
+                    {w.label || "group"}
+                  </span>
+                ) : (
+                  <>
+                    <Icon className="pointer-events-none h-4 w-4 text-muted-foreground" />
+                    <span className="pointer-events-none mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
+                      {w.type === "label"
+                        ? w.text || "label"
+                        : w.label || w.bind || w.type}
+                    </span>
+                  </>
                 )}
+                {!disabled &&
+                  isSel &&
+                  CORNERS.map((c) => (
+                    <span
+                      key={c}
+                      onPointerDown={(e) => startDrag(e, id, c)}
+                      className={cn(
+                        "absolute h-3 w-3 bg-primary",
+                        HANDLE_CLS[c],
+                      )}
+                    />
+                  ))}
               </div>
             );
           })}
@@ -649,7 +692,8 @@ export function WidgetGridEditor({
 
       {/* inspector */}
       {sel && selected && (
-        <Inspector
+        <WidgetInspector
+          key={selected}
           id={selected}
           w={sel}
           assetParams={assetParams}
@@ -695,350 +739,5 @@ function Stepper({
         <Plus className="h-3 w-3" />
       </button>
     </div>
-  );
-}
-
-// The field editor for the selected widget, mirroring #Widget's conditional shape (label vs bound vs numeric).
-function Inspector({
-  id,
-  w,
-  assetParams,
-  disabled,
-  onPatch,
-  onBind,
-  onDelete,
-}: {
-  id: string;
-  w: Widget;
-  assetParams?: string[];
-  disabled?: boolean;
-  onPatch: (w: Partial<Widget>) => void;
-  /** Bind a dropped parameter, the SAME path a drop on the grid takes — range and settings and all. */
-  onBind: (p: ParamDrag) => void;
-  onDelete: () => void;
-}) {
-  const isLabel = w.type === "label";
-  const isTabs = w.type === "tabs";
-  const isWaveform = w.type === "waveform";
-  const isLcd = w.type === "lcdscreen";
-  // A file picker's `bind` is chosen from the File select below, so the bind chip steps aside.
-  const isLibrary =
-    w.type === "filepicker" || (w.type === "dropdown" && !!w.library);
-  const numeric = ranged(w); // same predicate the drop path uses to adopt a range
-  const num = (v: string): number | undefined => {
-    const t = v.trim();
-    if (t === "") return undefined;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : undefined;
-  };
-
-  // Whether a parameter is over the bind field — the ring that says the drop will land.
-  const [over, setOver] = useState(false);
-
-  const pages = w.pages ?? {};
-  const pageNames = Object.keys(pages);
-
-  const addPage = () => {
-    const name = `Page ${pageNames.length + 1}`;
-    onPatch({ pages: { ...pages, [name]: {} } });
-  };
-  const removePage = (name: string) => {
-    const next = { ...pages };
-    delete next[name];
-    onPatch({ pages: Object.keys(next).length ? next : undefined });
-  };
-  const renamePage = (oldName: string, newName: string) => {
-    if (oldName === newName || !newName.trim()) return;
-    const next: Record<string, Record<string, Widget>> = {};
-    for (const [k, v] of Object.entries(pages)) {
-      next[k === oldName ? newName : k] = v;
-    }
-    onPatch({ pages: next });
-  };
-
-  return (
-    <div className="max-h-[38%] shrink-0 space-y-2 overflow-auto border-t border-border bg-card/40 p-3 text-sm">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-xs text-muted-foreground">
-          {id} · {w.type}
-        </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          onClick={onDelete}
-          title="Delete widget"
-        >
-          <Trash2 className="mr-1 h-3.5 w-3.5" />
-          Delete
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Type">
-          <select
-            className={FIELD_CLS}
-            value={w.type}
-            disabled={!!disabled}
-            onChange={(e) => onPatch(retype(w, e.target.value as WidgetType))}
-          >
-            {TYPES.map((t) => (
-              <option key={t.type} value={t.type}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        {isLabel ? (
-          <Field label="Text">
-            <input
-              className={FIELD_CLS}
-              value={w.text ?? ""}
-              disabled={!!disabled}
-              onChange={(e) => onPatch({ text: e.target.value })}
-            />
-          </Field>
-        ) : isLcd ? (
-          // Nothing to bind: the screen is whatever widgets.js draws under this id.
-          <Field label="Drawn by">
-            <span className="block truncate rounded border border-border bg-muted/40 px-2 py-1 font-mono text-xs">
-              widgets.js → {id}
-            </span>
-          </Field>
-        ) : isTabs || isWaveform || isLibrary ? null : (
-          // Not a text field: a binding is DRAGGED, and both halves are the same drop target.
-          <Field label="Bound param">
-            <div
-              onDragOver={(e) => {
-                if (disabled || !isParamDrag(e.dataTransfer)) return;
-                e.preventDefault(); // "yes, you may drop here"
-                e.dataTransfer.dropEffect = "copy";
-                if (!over) setOver(true);
-              }}
-              onDragLeave={() => setOver(false)}
-              onDrop={(e) => {
-                setOver(false);
-                if (disabled) return;
-                const p = readParamDrag(e.dataTransfer);
-                if (!p) return;
-                e.preventDefault();
-                onBind(p);
-              }}
-              // The children take no pointer, so every drag event lands on this div, not the chip.
-              className={cn(
-                "[&_*]:pointer-events-none",
-                over && "rounded ring-2 ring-primary",
-              )}
-            >
-              {w.bind ? (
-                <div className="flex items-center gap-1">
-                  <span
-                    className="min-w-0 flex-1 truncate rounded border border-border bg-muted/40 px-2 py-1 font-mono text-xs"
-                    title={w.bind}
-                  >
-                    {w.bind}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={!!disabled}
-                    onClick={() => onPatch({ bind: undefined })}
-                    // …except this one, which is a control and has to stay clickable.
-                    className="pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title="Unbind"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded border border-dashed border-border px-2 py-1 text-xs text-muted-foreground">
-                  drag a parameter here
-                </div>
-              )}
-            </div>
-          </Field>
-        )}
-
-        <Field label="Label">
-          <input
-            className={FIELD_CLS}
-            value={w.label ?? ""}
-            disabled={!!disabled}
-            placeholder="(optional)"
-            onChange={(e) => onPatch({ label: e.target.value || undefined })}
-          />
-        </Field>
-
-        {w.type === "filepicker" && (
-          // WHICH file-valued param this picker sets — the whole configuration, so nothing can disagree.
-          <Field label="File">
-            <select
-              className={FIELD_CLS}
-              value={w.bind ?? ""}
-              disabled={disabled || !assetParams?.length}
-              onChange={(e) =>
-                onPatch({
-                  bind: e.target.value || undefined,
-                  library: undefined,
-                })
-              }
-            >
-              <option value="">(pick a parameter)</option>
-              {(assetParams ?? []).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </Field>
-        )}
-
-        {w.type === "dropdown" && !!w.library && (
-          // The older spelling of a file picker, kept editable — packages/song/docs/filePicker.md.
-          <Field label="Files (legacy)">
-            <select
-              className={FIELD_CLS}
-              value={w.library ?? ""}
-              disabled={disabled || !assetParams?.length}
-              onChange={(e) => {
-                const param = e.target.value;
-                onPatch(
-                  param
-                    ? { library: param, bind: param, options: undefined }
-                    : { library: undefined, bind: undefined },
-                );
-              }}
-            >
-              <option value="">(the parameter's settings)</option>
-              {(assetParams ?? []).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </Field>
-        )}
-
-        {isWaveform && (
-          <Field label="Source">
-            <select
-              className={FIELD_CLS}
-              value={w.source ?? "output"}
-              disabled={!!disabled}
-              onChange={(e) =>
-                onPatch({ source: e.target.value as "input" | "output" })
-              }
-            >
-              <option value="output">Output</option>
-              <option value="input">Input</option>
-            </select>
-          </Field>
-        )}
-
-        {numeric && (
-          <>
-            <Field label="Min">
-              <input
-                className={FIELD_CLS}
-                inputMode="decimal"
-                value={w.min ?? ""}
-                disabled={!!disabled}
-                onChange={(e) => onPatch({ min: num(e.target.value) })}
-              />
-            </Field>
-            <Field label="Max">
-              <input
-                className={FIELD_CLS}
-                inputMode="decimal"
-                value={w.max ?? ""}
-                disabled={!!disabled}
-                onChange={(e) => onPatch({ max: num(e.target.value) })}
-              />
-            </Field>
-            <Field label="Step">
-              <input
-                className={FIELD_CLS}
-                inputMode="decimal"
-                value={w.step ?? ""}
-                disabled={!!disabled}
-                placeholder="(optional)"
-                onChange={(e) => onPatch({ step: num(e.target.value) })}
-              />
-            </Field>
-            <Field label="Curve">
-              <select
-                className={FIELD_CLS}
-                value={w.curve ?? "lin"}
-                disabled={!!disabled}
-                onChange={(e) =>
-                  onPatch({
-                    curve: e.target.value === "log" ? "log" : undefined,
-                  })
-                }
-              >
-                <option value="lin">lin</option>
-                <option value="log">log</option>
-              </select>
-            </Field>
-          </>
-        )}
-
-        {isTabs && (
-          <div className="col-span-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Pages
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={!!disabled}
-                onClick={addPage}
-              >
-                <Plus className="mr-1 h-3 w-3" /> Add page
-              </Button>
-            </div>
-            {pageNames.map((name) => (
-              <div key={name} className="flex items-center gap-1">
-                <input
-                  className={FIELD_CLS}
-                  value={name}
-                  disabled={!!disabled}
-                  onChange={(e) => renamePage(name, e.target.value)}
-                />
-                <button
-                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-                  disabled={!!disabled}
-                  onClick={() => removePage(name)}
-                  title="Remove page"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const FIELD_CLS =
-  "w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary";
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }

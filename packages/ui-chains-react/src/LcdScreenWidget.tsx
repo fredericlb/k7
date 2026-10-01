@@ -1,7 +1,8 @@
 // LcdScreenWidget.tsx — an lcdscreen widget: a <canvas> behind LCD glass, painted by the function
 // the panel's `widgets.js` keeps under this widget's id. It feeds that function the module's
 // live params and both of its audio taps, and repaints only when one of them moved — the loop
-// rules are the waveform's (docs/waveformWidget.md). The contract: docs/lcdScreen.md.
+// rules are the waveform's (docs/waveformWidget.md). An INTERACTIVE screen also gets the pointer and
+// sets params through the host's LcdSetContext. The contract: docs/lcdScreen.md.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { useEngineStoreOrNull } from "@studio/engine-browser/store";
@@ -12,9 +13,24 @@ import {
   LCD_COLORS,
   type LcdDraw,
   type LcdFrame,
+  type LcdPointer,
+  type LcdPointerEvent,
   TapHistory,
 } from "@studio/ui-chains/lcdScreen";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+
+/** How a screen changes its module: live while `commit` is false, written into the file when it is true. */
+export type LcdSet = (
+  n: GraphNode,
+  changes: Readonly<Record<string, number>>,
+  commit: boolean,
+) => void;
+
+/** The host's setter; absent, every screen only draws. */
+export const LcdSetContext = createContext<LcdSet | null>(null);
+
+// A wheel gesture has no release: it is written once the wheel has been still this long.
+const WHEEL_COMMIT_MS = 400;
 
 const NOOP = (): void => {};
 type Side = "input" | "output";
@@ -41,6 +57,8 @@ export function LcdScreenWidget({
   const pluginId = n.pluginId ?? null;
   const script = compileWidgetsScript(n.ui?.script);
   const draw = script.draws[id];
+  const pointer = script.pointers[id];
+  const lcdSet = useContext(LcdSetContext);
   // A draw that threw is not called again until its script changes: a throw per frame is a frozen tab.
   const [crash, setCrash] = useState<{ source?: string; message: string }>();
   const crashed =
@@ -57,6 +75,13 @@ export function LcdScreenWidget({
 
   const drawRef = useRef<LcdDraw | undefined>(draw);
   drawRef.current = message ? undefined : draw;
+  const pointerRef = useRef<LcdPointer | undefined>(pointer);
+  pointerRef.current = message || !lcdSet ? undefined : pointer;
+  const setRef = useRef(lcdSet);
+  setRef.current = lcdSet;
+  const nodeRef = useRef(n);
+  nodeRef.current = n;
+  const interactive = !!pointerRef.current;
   const sourceRef = useRef(n.ui?.script);
   sourceRef.current = n.ui?.script;
   const dirtyRef = useRef(true);
@@ -70,6 +95,7 @@ export function LcdScreenWidget({
   const overrideRef = useRef(override);
   overrideRef.current = override;
   const paramsRef = useRef<Record<string, number>>({});
+  const heldRef = useRef<Record<string, number>>({});
   const mergeParams = (): void => {
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(authoredRef.current ?? {}))
@@ -80,6 +106,8 @@ export function LcdScreenWidget({
       for (const [k, v] of Object.entries(overrideRef.current))
         if (k.startsWith(prefix)) out[k.slice(prefix.length)] = v;
     }
+    // What the gesture in hand has set outranks all three, until it is written.
+    Object.assign(out, heldRef.current);
     paramsRef.current = out;
   };
   mergeParams();
@@ -216,8 +244,135 @@ export function LcdScreenWidget({
     };
   }, []);
 
+  // The pointer, native so a wheel the script takes never reaches the graph's zoom — docs/lcdScreen.md.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !interactive) return;
+    let gesture: Record<string, number> | null = null;
+    let pending: Record<string, number> = {};
+    let raf = 0;
+    let wheelTimer = 0;
+    let wheelSet: Record<string, number> = {};
+    const flushLive = (): void => {
+      raf = 0;
+      const out = pending;
+      pending = {};
+      if (Object.keys(out).length)
+        setRef.current?.(nodeRef.current, out, false);
+    };
+    const run = (
+      e: PointerEvent | WheelEvent,
+      type: LcdPointerEvent["type"],
+      into: Record<string, number>,
+    ): boolean => {
+      const f = pointerRef.current;
+      if (!f) return false;
+      const box = canvas.getBoundingClientRect();
+      // The card is drawn under the camera's scale, and the script works in the canvas's own pixels.
+      const sx = box.width > 0 ? canvas.clientWidth / box.width : 1;
+      const sy = box.height > 0 ? canvas.clientHeight / box.height : 1;
+      const ev: LcdPointerEvent = {
+        type,
+        x: (e.clientX - box.left) * sx,
+        y: (e.clientY - box.top) * sy,
+        delta: e instanceof WheelEvent ? e.deltaY : 0,
+        shift: e.shiftKey,
+        alt: e.altKey,
+      };
+      let took: boolean | undefined;
+      try {
+        took = f(
+          {
+            width: canvas.clientWidth,
+            height: canvas.clientHeight,
+            params: paramsRef.current,
+            input: tapsRef.current.input.points,
+            output: tapsRef.current.output.points,
+            state: stateRef.current,
+            color: LCD_COLORS,
+            now: performance.now(),
+            set(name, value) {
+              if (typeof value !== "number" || !Number.isFinite(value)) return;
+              into[name] = value;
+              pending[name] = value;
+              heldRef.current = { ...heldRef.current, [name]: value };
+              mergeRef.current();
+              if (!raf) raf = requestAnimationFrame(flushLive);
+            },
+          },
+          ev,
+        );
+      } catch (err) {
+        pointerRef.current = undefined;
+        setCrash({
+          source: sourceRef.current,
+          message: (err as Error).message,
+        });
+        return false;
+      }
+      dirtyRef.current = true;
+      wakeRef.current();
+      return !!took;
+    };
+    const commit = (set: Record<string, number>): void => {
+      if (raf) {
+        cancelAnimationFrame(raf);
+        flushLive();
+      }
+      heldRef.current = {};
+      mergeRef.current();
+      if (Object.keys(set).length) setRef.current?.(nodeRef.current, set, true);
+    };
+    const down = (e: PointerEvent): void => {
+      if (e.button !== 0) return;
+      // Never a pan or a selection: the press is the screen's.
+      e.stopPropagation();
+      gesture = {};
+      canvas.setPointerCapture(e.pointerId);
+      run(e, "down", gesture);
+    };
+    const move = (e: PointerEvent): void => {
+      if (gesture) run(e, "move", gesture);
+    };
+    const up = (e: PointerEvent): void => {
+      if (!gesture) return;
+      const set = gesture;
+      gesture = null;
+      run(e, "up", set);
+      commit(set);
+    };
+    const wheel = (e: WheelEvent): void => {
+      if (!run(e, "wheel", wheelSet)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.clearTimeout(wheelTimer);
+      wheelTimer = window.setTimeout(() => {
+        const set = wheelSet;
+        wheelSet = {};
+        commit(set);
+      }, WHEEL_COMMIT_MS);
+    };
+    canvas.addEventListener("pointerdown", down);
+    canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerup", up);
+    canvas.addEventListener("pointercancel", up);
+    canvas.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      canvas.removeEventListener("pointerdown", down);
+      canvas.removeEventListener("pointermove", move);
+      canvas.removeEventListener("pointerup", up);
+      canvas.removeEventListener("pointercancel", up);
+      canvas.removeEventListener("wheel", wheel);
+      if (raf) cancelAnimationFrame(raf);
+      window.clearTimeout(wheelTimer);
+    };
+  }, [interactive]);
+
   return (
-    <div className="dgx-w dgx-lcd" style={style}>
+    <div
+      className={interactive ? "dgx-w dgx-lcd live" : "dgx-w dgx-lcd"}
+      style={style}
+    >
       <canvas ref={canvasRef} />
       {message && <span className="dgx-lcd-msg">{message}</span>}
     </div>

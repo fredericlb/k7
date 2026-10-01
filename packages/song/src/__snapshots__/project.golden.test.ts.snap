@@ -777,6 +777,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
           "id": "melody:lead",
           "name": "lead",
           "params": {
+            "@output-volume": 0,
             "Filter Freq": 90,
           },
           "path": "",
@@ -832,6 +833,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
           "id": "pad:synth-pad",
           "name": "synth-pad",
           "params": {
+            "@output-volume": 0,
             "Filter Freq": 40,
             "Level": -12,
           },

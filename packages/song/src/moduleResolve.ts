@@ -12,8 +12,8 @@ import {
 } from "@studio/song-schema/yaml/moduleSchema";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { applyAlternative, swappedModule } from "./alternatives";
-import { resolveModuleAssetIn } from "./assetPath";
 import { asEngine } from "./engines";
+import { resolveFileParamIn } from "./libraryFiles";
 import { basePresetIn } from "./basePreset";
 import type {
   InstrumentType,
@@ -191,7 +191,7 @@ function withInheritedFiles(
     for (const param of FILE_PARAMS) {
       const ref = authored[param];
       if (typeof ref === "string" && ref)
-        out[param] = resolveModuleAssetIn(ref, folders);
+        out[param] = resolveFileParamIn(param, ref, folders);
     }
   // The nearest folder that HAS this base wins; a miss leaves the merged answer alone, never blanks it.
   if (wantsBase)

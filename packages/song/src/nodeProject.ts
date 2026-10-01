@@ -10,11 +10,14 @@ import { fileURLToPath } from "node:url";
 import {
   CUE_NODE,
   curveIdFromRef,
+  INPUT_VOLUME_PARAM,
   isBuiltinOutput,
   MASTER_OWNER,
   MIX_NODE,
+  MIX_PARAM,
   moduleEmits,
   OUT_NODE,
+  OUTPUT_VOLUME_PARAM,
 } from "@studio/song-schema/moduleTypes";
 import { materialRefOf, placementId } from "@studio/song-schema/placementId";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
@@ -51,6 +54,12 @@ import {
 } from "./loader";
 import { withModuleStamp } from "./moduleCache";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
+import {
+  heldParams,
+  ownsBlend,
+  takesInputVolume,
+  takesOutputVolume,
+} from "./ownMix";
 import {
   defaultPreferences,
   loadPreferences,
@@ -648,6 +657,12 @@ function compileNodeProjectIn(
         continue;
       }
 
+      // An effect's own dry/wet is the engine's to hold, so a module stating one is refused, not silently overridden — engine docs/mix.md.
+      const held = heldParams(module, module.params);
+      if (held.length)
+        throw new Error(
+          `module '${step.module}': params set ${held.map((n) => `'${n}'`).join(", ")} — the engine's own stage holds these: state the blend as \`mix:\` (0 all dry .. 1 all wet) and the levels as \`input_volume:\` / \`output_volume:\` (dB) instead, here or in the module it extends`,
+        );
       const plugin = module.plugin;
       // Only a KNOWN format reaches the engine; a word this gate does not know is dropped SILENTLY (docs/graphModel.md).
       const rawType = String(plugin?.type ?? "").toLowerCase();
@@ -688,7 +703,7 @@ function compileNodeProjectIn(
         name: pluginName,
         path: String(module.preset ?? ""), // resolved preset to load
         // The .nam model, absolute, leaving as its OWN field because the engine loads it rather than setting it.
-        ...(module.nam ? { namFile: String(module.nam) } : {}),
+        ...(module.model ? { namFile: String(module.model) } : {}),
         // …and the cabinet IR it convolves after the model, from a library's `irs/` (docs/libraryFiles.md).
         ...(module.ir ? { irFile: String(module.ir) } : {}),
         // The DSP graph, inline because the engine parses no files and this declares the plugin's parameters.
@@ -715,7 +730,22 @@ function compileNodeProjectIn(
         presetSave,
         role: "",
         enabled: c.enabled !== false && step.enabled !== false,
-        params: numericParams(module.params), // resolved, so this is exactly what the graph shows
+        params: {
+          ...numericParams(module.params), // resolved, so this is exactly what the graph shows
+          // The blend is the engine's, and ALWAYS sent for an effect that owns it: that is what tells the engine to hold the plugin's own at full wet.
+          ...(ownsBlend(module)
+            ? { [MIX_PARAM]: module.mix ?? 1 }
+            : module.mix !== undefined
+              ? { [MIX_PARAM]: module.mix }
+              : {}),
+          // …and the two levels, always for a module that has them: arriving is what holds the plugin's own.
+          ...(takesInputVolume(module)
+            ? { [INPUT_VOLUME_PARAM]: module.input_volume ?? 0 }
+            : {}),
+          ...(takesOutputVolume(module)
+            ? { [OUTPUT_VOLUME_PARAM]: module.output_volume ?? 0 }
+            : {}),
+        },
       });
     }
     for (const { to, gain } of outTargets(c)) {

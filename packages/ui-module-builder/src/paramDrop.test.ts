@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { isParamDrag, readParamDrag, setParamDrag } from "./paramDrag";
-import { bindable } from "./WidgetGridEditor";
+import { bindable } from "./widgetKinds";
 
 // The three calls a drag makes on a DataTransfer, and nothing else — enough to run the real ones.
 function fakeTransfer(): DataTransfer {

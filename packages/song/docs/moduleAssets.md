@@ -56,20 +56,22 @@ The file a plugin loads is named in `params:`, beside the numbers:
 ```yaml
 plugin: { type: internal, name: Neural Amp Modeler }
 params:
-  nam: jcm800.nam
+  model: jcm800.nam
   Input: -5.06
   Output: 8.26
 ```
 
 Because that is what it is. A .nam model is one of the plugin's controls — it sits in the panel
 next to Input and Output, and swapping it is the same gesture as turning a knob. A top-level field
-of its own (`nam:` beside `params:`) would make it a second kind of thing: a second place to look,
+of its own (`model:` beside `params:`) would make it a second kind of thing: a second place to look,
 a second command to learn, a second merge rule.
 
 `params` merges **per key**, which is the real gain: a node that overrides only the model
 keeps everything else the generic set, and that is the same edit as overriding a gain.
 
-The list of file-valued params is `moduleTypes.FILE_PARAMS` — one entry, `nam`. Every other param
+The list of file-valued params is `moduleTypes.FILE_PARAMS` — `model` (an amp: a `.nam` or an
+RTNeural `.json`) and `onnx`. A `model` may also name a library's shared model as `@<library>/<path>`
+(`libraryFiles.md`): a bare path is this folder's, an `@` one is the library's `models/`. Every other param
 is a number, and that stays overwhelmingly the common case.
 
 ### The wire carries numbers only

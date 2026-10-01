@@ -63,6 +63,8 @@ export type MenuCtx =
       repeat?: number;
       skip?: number;
     }
+  /** A rack's PAD on a node's card: the node whose kit it is, and the sound — what every `node tap …` verb takes. */
+  | { kind: "tap"; id: string; symbol: string }
   /** A NOTE on the roll: key and start as every `sequence note …` verb takes them, `at` the caret a split would cut at, `region` the rectangle the four plural verbs need — a clip's `sel` again. */
   | {
       kind: "note";
@@ -159,6 +161,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   pad: "sequence note",
   // The same head, for the same reason: on the roll the rows read 'remove' and 'split'.
   note: "sequence note",
+  // Every row is named by hand, so there is nothing to drop.
+  tap: "",
 };
 
 /** Which ENTITY each context IS, as `commands.yaml`'s `menu:` names it — `chain` and `sink` open none. */
@@ -179,6 +183,7 @@ const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
   "picture-shot": "shot",
   pad: "pad",
   note: "note",
+  tap: "tap",
 };
 
 const shortName = (name: string, head: string): string =>
@@ -318,6 +323,36 @@ export function contextMenu(
       CTX_ENTITY[ctx.kind],
     );
   switch (ctx.kind) {
+    case "tap": {
+      // NOT derived: the rows are named for the pad, in the order a kit is edited — docs/contextMenu.md.
+      const at = `${quoteArg(ctx.id)} ${quoteArg(ctx.symbol)}`;
+      return offer([
+        {
+          verb: "node tap note",
+          arg: at,
+          needsMore: true,
+          name: "Change note…",
+        },
+        {
+          verb: "node tap sample",
+          arg: at,
+          needsMore: true,
+          name: "Change sample…",
+        },
+        { verb: "node tap rename", arg: at, needsMore: true, name: "Rename…" },
+        { verb: "node tap remove", arg: at, name: "Remove" },
+        {
+          verb: "node tap insert",
+          arg: `${quoteArg(ctx.id)} before ${quoteArg(ctx.symbol)}`,
+          name: "Add one before",
+        },
+        {
+          verb: "node tap insert",
+          arg: `${quoteArg(ctx.id)} after ${quoteArg(ctx.symbol)}`,
+          name: "Add one after",
+        },
+      ]);
+    }
     case "track":
       return offer([
         ...from([{ provider: "tracks", value: ctx.id }]),

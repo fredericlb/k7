@@ -82,6 +82,8 @@ export const WIDGET_TYPES = [
   "lcdscreen",
   // One sound of a rack — a pad, its note and its library sample — bound `@rack:<symbol>` (packages/song/docs/racks.md).
   "tap",
+  // A coloured frame under the widgets that lie wholly inside it; it holds none of them (docs/moduleFile.md).
+  "group",
 ] as const;
 
 /** The bind prefix a rack pad carries: `@rack:BD` fires the sound `BD` (packages/song/docs/racks.md). */
@@ -117,6 +119,14 @@ const WidgetBase = z.object({
     .array(z.object({ label: z.string(), value: z.number() }))
     .optional(), // dropdown
   library: z.string().optional(), // dropdown, from the project's asset library
+  color: z
+    .string()
+    .regex(
+      /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
+      "a #rgb, #rrggbb or #rrggbbaa colour",
+    )
+    .optional(), // group
+  pair: z.string().min(1).optional(), // knob: the DRY param of a crossfade knob, `bind` being the wet one
 });
 
 export type Widget = z.infer<typeof WidgetBase> & {
@@ -145,6 +155,19 @@ export const WidgetSchema: z.ZodType<Widget> = WidgetBase.extend({
     wrong("text", "only a label draws text");
   if (w.type === "lcdscreen" && w.bind !== undefined)
     wrong("bind", "an lcdscreen drives no param — widgets.js draws it");
+  if (w.type === "group" && w.bind !== undefined)
+    wrong("bind", "a group drives no param — it frames the widgets inside it");
+  if (w.type !== "knob" && w.pair !== undefined)
+    wrong("pair", "only a knob crossfades two params");
+  if (w.pair !== undefined && (!w.bind || w.bind === w.pair))
+    ctx.addIssue({
+      code: "custom",
+      path: ["pair"],
+      message:
+        "a crossfade knob binds the wet param and pairs a DIFFERENT, dry one",
+    });
+  if (w.type !== "group" && w.color !== undefined)
+    wrong("color", "only a group paints a background");
   if (w.type !== "waveform" && w.source !== undefined)
     wrong("source", "only a waveform picks an audio tap");
   if (w.type !== "dropdown") {
@@ -159,7 +182,7 @@ export const WidgetSchema: z.ZodType<Widget> = WidgetBase.extend({
       code: "custom",
       path: ["bind"],
       message:
-        "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: nam)",
+        "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: model)",
     });
   if (w.type === "tabs" && w.pages === undefined)
     ctx.addIssue({
@@ -284,6 +307,11 @@ const MODULE_FIELDS = {
   monitor: z.union([z.boolean(), z.enum(["off", "auto", "on"])]).optional(),
   // Input trim in dB, applied at the interface before anything else sees the signal — see docs/moduleFile.md.
   gain: z.number().optional(),
+  // The ENGINE's dry/wet around this effect, 0 all dry .. 1 all wet; absent is all wet (engine/st0-engine/docs/mix.md).
+  mix: z.number().min(0).max(1).optional(),
+  // …and the engine's level into the module (an audio one) and out of it (anything with audio out), in dB.
+  input_volume: z.number().min(-60).max(12).optional(),
+  output_volume: z.number().min(-60).max(12).optional(),
   // Which named BASE this module starts from, with `params:` applied ON TOP of it — see docs/userPresets.md.
   base: z.string().optional(),
   ui: UISchema.optional(),

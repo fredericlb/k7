@@ -6,7 +6,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assetExtFor, assetsForParam } from "@studio/song-schema/moduleTypes";
+import { assetExtsFor, assetsForParam } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs, loadModules } from "./loader";
 import { moduleAssetChoices } from "./moduleAssetChoices";
@@ -153,13 +153,13 @@ describe("a file the module INHERITS", () => {
     );
     mkNode(
       "guitar",
-      'extends: "@st0/audio/amps/guitar"\nparams:\n  nam: roland/bright.nam\n',
+      'extends: "@st0/audio/amps/guitar"\nparams:\n  model: roland/bright.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
     const g = resolved.guitar;
-    expect(g?.assets).toEqual({ nam: "roland/bright.nam" });
-    expect(g?.nam).toContain(join("amps", "guitar", "assets", "roland"));
+    expect(g?.assets).toEqual({ model: "roland/bright.nam" });
+    expect(g?.model).toContain(join("amps", "guitar", "assets", "roland"));
   });
 
   it("prefers the module's OWN file when both carry that name", () => {
@@ -170,13 +170,13 @@ describe("a file the module INHERITS", () => {
     );
     mkNode(
       "local",
-      'extends: "@st0/audio/amps/shared"\nparams:\n  nam: clean.nam\n',
+      'extends: "@st0/audio/amps/shared"\nparams:\n  model: clean.nam\n',
       ["clean.nam"],
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
     const m = resolved.local;
-    expect(m?.nam).toContain(join("nodes", "assets"));
+    expect(m?.model).toContain(join("nodes", "assets"));
   });
 
   it("still refuses a ref that climbs out, rather than trying the next folder up", () => {
@@ -188,24 +188,28 @@ describe("a file the module INHERITS", () => {
     );
     mkNode(
       "sneaky",
-      'extends: "@st0/audio/amps/shared"\nparams:\n  nam: ../../../../secret.nam\n',
+      'extends: "@st0/audio/amps/shared"\nparams:\n  model: ../../../../secret.nam\n',
     );
     const refs = loadModuleRefs(project, {}, []);
     const resolved = resolveModuleMap(loadModules(project), refs);
     const m = resolved.sneaky;
-    expect(m?.nam).toBeUndefined();
+    expect(m?.model).toBeUndefined();
   });
 });
 
 describe("the extension a param takes", () => {
   it("comes from the param's own name", () => {
-    expect(assetExtFor("nam")).toBe(".nam");
-    expect(assetExtFor("onnx")).toBe(".onnx");
+    expect(assetExtsFor("model")).toEqual([".nam", ".json"]);
+    expect(assetExtsFor("onnx")).toEqual([".onnx"]);
   });
 
   it("filters a mixed assets/ down to what the param can load", () => {
-    const files = ["a.nam", "b.NAM", "cab/v30.wav", "big.onnx"];
-    expect(assetsForParam(files, "nam")).toEqual(["a.nam", "b.NAM"]);
+    const files = ["a.nam", "b.NAM", "aida.json", "cab/v30.wav", "big.onnx"];
+    expect(assetsForParam(files, "model")).toEqual([
+      "a.nam",
+      "b.NAM",
+      "aida.json",
+    ]);
     expect(assetsForParam(files, "onnx")).toEqual(["big.onnx"]);
   });
 });

@@ -209,7 +209,7 @@ element — so the overshoot is clamped and SAID in the job's lines rather than 
 material — and the argument inverts past a few hundred megabytes, where the file would be
 committed into a shared module's git repository and cloned whole by every machine that opens
 it. So the module **declares** the model as an ordinary file-valued param (`onnx:`, exactly as
-an amp names `nam:`) and `<state>/models` holds the bytes. `resolveModuleAsset` tries the
+an amp names `model:`) and `<state>/models` holds the bytes. `resolveModuleAsset` tries the
 module's own `assets/` first and falls back to the cache; a ref that climbs out of `assets/`
 is still **refused**, never redirected.
 

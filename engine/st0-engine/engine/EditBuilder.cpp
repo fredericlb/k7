@@ -4,6 +4,7 @@
 
 #include "AudioInputs.h"  // routeTrackOutput — which pair a track leaves by
 #include "Warnings.h"  // warn() — reaches the client, not just stderr
+#include "MixBlend.h"  // indexAfterModule — a module's @mix pair sits around it
 #include "MasterGainPlugin.h" // the OUT node's Volume, behind the master chain
 #include "NamPlugin.h" // a .nam model is loaded onto the plugin as the Edit is built
 #include "TurntablePlugin.h" // …and a platter's record, for the same reason
@@ -493,8 +494,9 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
     // Checked AFTER the params, because it depends on one: Normalize with no declared loudness has nothing to level to.
     if (!p.namFile.empty())
         if (auto* nam = dynamic_cast<studio::NamPlugin*>(plugin.get()))
+            // Only a .nam can declare a loudness: an RTNeural model never does, and is levelled by its trims.
             if (nam->normalize->getCurrentValue() >= 0.5f && !nam->modelLoudness().has_value()
-                && !nam->modelPath().isEmpty())
+                && nam->modelIsNam())
                 warn("model declares no loudness - Normalize has nothing to level it to, so its output stays "
                      "at whatever level it was trained at",
                      p.id);
@@ -514,7 +516,7 @@ void populateMasterChain(te::Edit& edit, const ProjectDoc& doc,
     int index = 0;
     for (const auto& p : doc.masterPlugins)
         if (auto pl = addPluginTo(edit, edit.getMasterPluginList(), p, index)) {
-            ++index;
+            index = indexAfterModule(edit.getMasterPluginList(), pl.get());
             // BY ID as a track's are: everything keyed by id skips a master module otherwise, in silence — docs/recorder.md.
             if (pluginsOut) (*pluginsOut)[p.id] = pl;
         }
@@ -664,7 +666,9 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
         int pluginIndex = 0;
         std::map<std::string, te::Plugin*> pluginsOnTrack;   // by id, for automation below
         for (const auto& p : tdoc.plugins)
-            if (auto pl = addPlugin(edit, *track, p, pluginIndex++)) {
+            if (auto pl = addPlugin(edit, *track, p, pluginIndex)) {
+                // Past the module AND its @mix pair, which addPlugin may have put around it — docs/mix.md.
+                pluginIndex = indexAfterModule(track->pluginList, pl.get());
                 pluginsOnTrack[p.id] = pl.get();
                 if (!p.sidechainFrom.empty()) sidechains.emplace_back(pl, p.sidechainFrom);
                 if (pluginsOut) {

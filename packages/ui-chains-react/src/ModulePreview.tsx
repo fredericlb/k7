@@ -22,6 +22,7 @@ export function ModulePreview({
   ui,
   params,
   bases,
+  stage,
   sourceInput,
   onPickSourceInput,
   sourceArmed,
@@ -42,6 +43,8 @@ export function ModulePreview({
   params: Record<string, number>;
   /** The named bases the module may be set to — the graph fills that dropdown, docs/hosting.md. */
   bases?: readonly string[];
+  /** The engine's stage the card's footer draws: `@input-volume`, `@mix`, `@output-volume`, as they apply. */
+  stage?: readonly string[];
   /** What the source node is fed from, as its chip reads — both props or neither, docs/hosting.md. */
   sourceInput?: string;
   onPickSourceInput?: (x: number, y: number) => void;
@@ -58,10 +61,10 @@ export function ModulePreview({
 
   const laid = useMemo(() => {
     const { nodes, edges } = buildGraph(
-      modulePreviewGraph(name, path, ui, params, bases),
+      modulePreviewGraph(name, path, ui, params, bases, stage),
     );
     return layout(nodes, edges);
-  }, [name, path, ui, params, bases]);
+  }, [name, path, ui, params, bases, stage]);
 
   return (
     <div className="h-full w-full">

@@ -54,6 +54,19 @@ keystroke in the code pane and the answer decides whether a tab is drawn; mid-ed
 routinely does not parse, and a tab that blinked out on a half-typed line would be worse than one
 read a shade loosely.
 
+### Refresh reads them all again, from disk
+
+The files are read once per module, so an edit made OUTSIDE the builder — a Claude Code session
+given AI organize's copied prompt, a text editor, a `git pull` — is not on screen until something
+reads them again. The ↻ button beside Save does: every file of the module, the hints and the bases,
+the effects' own `reloadKey` being the trigger rather than a second loading path that could drift
+from the first.
+
+A held edit outranks disk on load (`recallBuffer`: an edit that could never be written comes back
+rather than being lost), and a Refresh is precisely the person choosing disk — so every held buffer
+of the module is dropped first (`dropBuffer`). With unsaved edits on screen it asks before throwing
+them away; with none it just reloads, since there is nothing to lose.
+
 ## Read-only is the same screen with the writing off
 
 Showing a module without editing it — the state a SHARED module opens in — is not a lesser builder.
@@ -285,7 +298,48 @@ PLACEHOLDER is the module's own name — the fallback a picker uses, shown befor
 so an empty box reads as "called after its ref" rather than as unset. Emptying it DELETES the
 field: a blank label and no label are the same state, and only one of them should be on disk.
 
+## A group frames, it does not hold
+
+A `group` is a tinted box drawn under a section of controls — DRY/WET, an envelope — and in the
+file it CONTAINS nothing: the controls it frames are ordinary widgets of the same map whose boxes lie
+wholly inside its own. Every lookup of a widget by its `bind` — MIDI control, the automation arrow's
+landing point, a folder-backed dropdown's options — reads the panel's top level and nothing deeper,
+so a group holding its controls would hide them from all of it
+(`packages/song-schema/docs/moduleFile.md`).
+
+What the grid does about it, in `src/groupGeometry.ts` (the one rule, shared with AI organize's
+check) and `src/WidgetGridEditor.tsx`:
+
+- **Moving a group carries what it frames**, so a section moves as one block; resizing it moves
+  nothing, and is how a control is taken out of it or brought in.
+- **Adding a control with a group selected lands it inside the group**, in its first free cell —
+  the way a group is filled without aiming at cells.
+- **A parameter dropped on a group makes its widget in the cell under the pointer**: the group
+  covers its cells, so it answers the drop the bare cell would have.
+- Groups are drawn FIRST, under everything, and a widget that straddles a group's edge, or overlaps
+  another, is outlined in amber: that is the panel AI organize's check refuses.
+
+The colour is `#rrggbbaa` so an author can keep a tint faint. The swatch picks the colour and keeps
+the alpha, which only the text beside it sets.
+
 ## Smaller decisions worth not rediscovering
+
+- **The engine's stage is offered by what the module can take** (`engine/st0-engine/docs/mix.md`):
+  `@mix` and `@input-volume` on an EFFECT only — a module filed under `audio/` — since an instrument
+  or a MIDI module has no audio input to blend or trim; `@output-volume` on every module, being a
+  lane's fader as well as the level out of anything with audio out. Both volumes range −60..+12 dB.
+  The preview draws them in the card's FOOTER (`stageFor`, by the module's folder), which the grid
+  does not hold and nothing here edits.
+
+- **The preview is the bottom half of the LEFT column**, under the text pane, and the grid has the
+  right column's whole height. The card is what the text and the grid both produce, so it sits
+  under the text it answers to, and the grid is the pane that needs the rows: a panel of nine rows
+  at 64 px each does not fit two thirds of a laptop screen.
+
+- **Every corner of a selected widget resizes it**, the corner OPPOSITE the handle held still from
+  the press. A panel is built outward from wherever a section already sits, and a bottom-right
+  handle alone made growing a widget up or left a move followed by a resize. A handle dragged past
+  its anchor flips the box rather than collapsing it (`boxBetween`).
 
 - **`BuilderPane` is named for the BUILDER**, not just `Pane`: st0 has panes of its own and a
   shared package must not squat the word.
@@ -348,8 +402,8 @@ field: a blank label and no label are the same state, and only one of them shoul
   covered by that widget, which is later in the DOM and therefore takes the drop; that is what
   keeps the two drop paths from overlapping.
 - **The grid refuses a drag for three reasons that mean the same thing to IT and to nobody else**,
-  so it is told which, and only the FAULT gets a warning. A shared module opens locked, and saying
-  its panel would not parse was false for every module in a library; a missing `uiFile` is the fetch
+  so it is told which, and only the FAULT gets a warning. A read-only host locks the grid, and saying
+  its panel would not parse would be false for every module it shows; a missing `uiFile` is the fetch
   having failed, which is "this path has no panel", not "the panel is broken".
 - **Auto organize proposes a panel from every param there is** — the same rows the Parameters pane
   offers for dragging, deliberately: a proposal built from a shorter list would leave parameters out

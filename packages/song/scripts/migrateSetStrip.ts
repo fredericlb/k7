@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
-import { stripNodeFiles } from "../src/scaffoldSet.ts";
+import { ECHO_BIND, stripNodeFiles } from "../src/scaffoldSet.ts";
 
 /** As `yaml/graphFile.ts` pins it: 1.2 keeps `5:1:1` a string, no wrapping keeps `bus_only:` on one line. */
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
@@ -233,7 +233,7 @@ for (const dir of roots) {
     for (const [control, module, param] of [
       ["trim", deck.trim, "Trim"],
       ["level", deck.level, "Gain"],
-      ["echo", deck.echo, "Mix"],
+      ["echo", deck.echo, ECHO_BIND],
     ] as const) {
       const value = sdoc.createNode({ module, param }) as { flow?: boolean };
       value.flow = true;

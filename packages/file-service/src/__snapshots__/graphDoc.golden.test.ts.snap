@@ -57,6 +57,9 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
               "symbol": "HH",
             },
           ],
+          "stage": [
+            "@output-volume",
+          ],
           "stub": false,
           "uses": "@workspace/instruments/drumrack",
         },
@@ -130,6 +133,9 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
             "Filter Freq": 90,
           },
           "pluginId": "melody:lead",
+          "stage": [
+            "@output-volume",
+          ],
           "stub": false,
           "ui": {
             "cols": 4,
@@ -198,6 +204,9 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
             "Level": -12,
           },
           "pluginId": "pad:synth-pad",
+          "stage": [
+            "@output-volume",
+          ],
           "stub": false,
           "ui": {
             "cols": 4,

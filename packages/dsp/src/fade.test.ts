@@ -20,7 +20,7 @@ describe("the fade graph", () => {
 
   it("has ONE parameter, and it is the gain itself", () => {
     // Not a position a reader has to convert: a panel showing 0 is silent and 1 is full.
-    expect(g.params.map((p) => p.name)).toEqual(["Mix"]);
+    expect(g.params.map((p) => p.name)).toEqual(["Level"]);
     // Full by default, so a module dropped into a chain alone is not a silence to debug.
     expect(g.params[0].default).toBe(1);
   });
@@ -37,7 +37,7 @@ describe("the fade graph", () => {
     expect(g.nodes.some((n) => n.type === "sub")).toBe(false);
     expect(g.nodes.some((n) => n.type === "add")).toBe(false);
     const [amul] = g.nodes.filter((n) => n.type === "amul");
-    expect(amul.k).toEqual(["Mix"]);
+    expect(amul.k).toEqual(["Level"]);
   });
 
   it("is what graphs/fade.json holds — the artifact that actually runs", () => {

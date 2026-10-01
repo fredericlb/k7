@@ -164,6 +164,44 @@ describe("@gain", () => {
   });
 });
 
+describe("@mix", () => {
+  it("writes the engine's blend as the module's `mix:`", async () => {
+    await runCommand(`node param ${IN} @mix 0.4`, host(), "cli");
+    expect(sharedDoc().mix).toBe(0.4);
+  });
+
+  it("writes NO line for all wet, which is what no `mix:` means", async () => {
+    await runCommand(`node param ${IN} @mix 0.4`, host(), "cli");
+    await runCommand(`node param ${IN} @mix 1`, host(), "cli");
+    expect(sharedDoc().mix).toBeUndefined();
+  });
+
+  it("refuses a mix outside 0..1", async () => {
+    const before = shared();
+    await runCommand(`node param ${IN} @mix 1.5`, host(), "cli");
+    expect(logs.join(" ")).toMatch(/not a mix between 0 and 1/);
+    expect(shared()).toBe(before);
+  });
+});
+
+describe("@input-volume and @output-volume", () => {
+  it("write the engine's levels in dB, and no line at 0", async () => {
+    await runCommand(`node param ${IN} @input-volume -6`, host(), "cli");
+    await runCommand(`node param ${IN} @output-volume 3.5`, host(), "cli");
+    expect(sharedDoc().input_volume).toBe(-6);
+    expect(sharedDoc().output_volume).toBe(3.5);
+    await runCommand(`node param ${IN} @input-volume 0`, host(), "cli");
+    expect(sharedDoc().input_volume).toBeUndefined();
+  });
+
+  it("refuse a level outside -60..+12 dB", async () => {
+    const before = shared();
+    await runCommand(`node param ${IN} @output-volume 20`, host(), "cli");
+    expect(logs.join(" ")).toMatch(/not a volume between -60 and \+12 dB/);
+    expect(shared()).toBe(before);
+  });
+});
+
 describe("an intrinsic nobody implemented", () => {
   it("says so, and names the ones there are", async () => {
     const before = shared();

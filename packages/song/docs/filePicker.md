@@ -7,7 +7,7 @@ A panel control that picks a **file the module carries** for one of its file-val
 cols: 4
 rows: 2
 widgets:
-  w1: { type: filepicker, col: 0, row: 0, colSpan: 4, bind: nam }
+  w1: { type: filepicker, col: 0, row: 0, colSpan: 4, bind: model }
 ```
 
 `bind` is the whole configuration, and it names three things at once: the param the choice is
@@ -21,10 +21,11 @@ is always first: a module with no profile loaded is a legitimate state, not some
 
 ## Why the extension is derived, not declared
 
-A widget could carry `ext: .nam`. It does not, because the param is *named after the format it
-loads* — `nam`, `onnx` — and those two facts have never disagreed. A field repeating it would be
-a second place to get it wrong on a panel whose author already wrote `bind: nam`.
-`assetExtFor` is that rule, in `moduleTypes.ts` beside `FILE_PARAMS`.
+A widget could carry `ext: .nam`. It does not, because the param already says what it loads: by its
+name (`onnx`), or by its entry in a small table when one param takes several formats (`model`: a
+`.nam` or an RTNeural `.json`). A field repeating it would be a second place to get it wrong on a
+panel whose author already wrote `bind: model`. `assetExtsFor` is that rule, in `moduleTypes.ts`
+beside `FILE_PARAMS`.
 
 ## Where the choices come from
 

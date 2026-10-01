@@ -12,6 +12,9 @@
 #include "BroadcastTapPlugin.h" // the transparent tap plugin for network broadcast
 #include "WaveformTapPlugin.h" // the transparent tap plugin for waveform display
 #include "TurntablePlugin.h"   // the platter, which carries a clock of its own
+#include "HeldMemory.h"        // what one of our plugins says it holds
+#include "MixBlend.h"          // a module's @mix pair: placed past, removed with
+#include "ProcessMemory.h"     // the process's own memory, for the header
 #include "Warnings.h"          // WarningScope — which project an apply's warnings belong to
 #include "MessagePump.h"       // pumpMessages — the loop run() spins, where one may be spun
 
@@ -342,9 +345,9 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                         rebuild();
                         return d;
                     }
-                    const int prevIdx = t->pluginList.indexOf(prev->second.get());
-                    if (prevIdx < 0) { rebuild(); return d; }
-                    at = prevIdx + 1;
+                    if (t->pluginList.indexOf(prev->second.get()) < 0) { rebuild(); return d; }
+                    // Past the previous module's @mix pair too, or the new one would land inside it.
+                    at = indexAfterModule(t->pluginList, prev->second.get());
                 }
 
                 auto pl = addPlugin(edit, *t, *c.plugin, at);
@@ -381,6 +384,7 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                     disableWaveformTap(session, c.plugin->id, side);
                 // The editor window points at the plugin, so it closes first — the order teardownProjectState observes for exactly this reason.
                 s.pluginWindows.erase(c.plugin->id);
+                removeMixPair(*it->second);
                 it->second->deleteFromParent();
                 s.pluginsById.erase(it);
                 s.presetSaveById.erase(c.plugin->id);
@@ -827,14 +831,9 @@ public:
         // ONE FRAME PER SESSION, each carrying the id it describes, so Serve.cpp sends a session's state only to the connections driving it.
         const auto ids = host_.sessionIds();
         for (const auto& sid : ids) emit(sid);
-        // Forget the idle counters of sessions that went, so the map tracks what exists.
-        if (idleTicks_.size() > ids.size())
-            for (auto it = idleTicks_.begin(); it != idleTicks_.end();) {
-                if (std::find(ids.begin(), ids.end(), it->first) == ids.end())
-                    it = idleTicks_.erase(it);
-                else
-                    ++it;
-            }
+        // Forget the counters of sessions that went, so the maps track what exists.
+        forgetGone(idleTicks_, ids);
+        forgetGone(lastLoadMs_, ids);
         // The audio callback's pulse, once a second: a stalled driver otherwise freezes every transport with no error (docs/audioDevice.md).
         if (++pulseTicks_ >= kTicksPerPulse) {
             pulseTicks_ = 0;
@@ -871,6 +870,20 @@ private:
     int ticks_ = 0;
     int releases_ = 0;
     std::map<std::string, int> idleTicks_;
+    // A quarter second between two load reports of one session — a cost is read, not watched (docs/load.md).
+    static constexpr double kLoadIntervalMs = 250.0;
+    std::map<std::string, double> lastLoadMs_;
+
+    template <typename V>
+    static void forgetGone(std::map<std::string, V>& m, const std::vector<std::string>& ids) {
+        if (m.size() <= ids.size()) return;
+        for (auto it = m.begin(); it != m.end();) {
+            if (std::find(ids.begin(), ids.end(), it->first) == ids.end())
+                it = m.erase(it);
+            else
+                ++it;
+        }
+    }
 
     static bool allSilent(const std::vector<float>& db) {
         for (float v : db)
@@ -918,6 +931,14 @@ private:
         s.recorders = host_.pumpRecorders(session);
         // A platter carries its own clock, so `playheadSeconds` says nothing about it — docs/turntable.md.
         s.platterSeconds = host_.platterPositions(session);
+        // Timed rather than counted, since an idle session emits one tick in five and a count could never land on it.
+        const double now = juce::Time::getMillisecondCounterHiRes();
+        if (auto& last = lastLoadMs_[session]; now - last >= kLoadIntervalMs) {
+            last = now;
+            s.hasLoad = true;
+            s.pluginLoads = host_.pluginLoads(session);
+            s.processBytes = processMemoryBytes();
+        }
         cb_(s);
         // Watched params ride the same tick rather than their own timer, and after cb_, so a slow state consumer delays the params rather than the meters.
         host_.pumpPluginParamWatches(session);
@@ -936,6 +957,20 @@ std::map<std::string, double> EngineHost::platterPositions(const std::string& se
     for (const auto& [id, plugin] : s->pluginsById)
         if (auto* deck = dynamic_cast<TurntablePlugin*>(plugin.get()))
             out[id] = deck->needleSeconds();
+    return out;
+}
+
+std::map<std::string, EngineHost::PluginLoad> EngineHost::pluginLoads(const std::string& session) const {
+    std::map<std::string, PluginLoad> out;
+    const auto* s = impl_->find(session);
+    if (s == nullptr) return out;
+    for (const auto& [id, plugin] : s->pluginsById) {
+        if (plugin == nullptr) continue;
+        PluginLoad l;
+        l.cpu = plugin->getCpuUsage();
+        if (const auto* held = dynamic_cast<const HeldMemory*>(plugin.get())) l.bytes = held->heldBytes();
+        out[id] = l;
+    }
     return out;
 }
 

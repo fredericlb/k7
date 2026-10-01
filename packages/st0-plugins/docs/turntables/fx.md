@@ -27,8 +27,10 @@ chain IS the feature, not a preference.
 The module itself is `@studio/dsp`'s `echo()` function, written in a `jsdsp.ts` next to its
 `module.yaml` — a module is a FOLDER you copy, so it carries its source.
 
-Three parameters, of which **one** is a gesture: `Mix` is what the desk knob moves; `Time` and
-`Feedback` are set once in `nodes/echoA.yaml` and left.
+Two parameters and the blend, of which **one** is a gesture: the desk knob moves the node's
+`mix:`, bound `@mix` — the ENGINE's dry/wet around the delay, whose own `Mix` it holds at full wet
+(`engine/st0-engine/docs/mix.md`). `Time` and `Feedback` are set once in `nodes/echoA.yaml` and
+left.
 
 ### What it does not do: follow the tempo
 
