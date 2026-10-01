@@ -519,6 +519,7 @@ export type ArgProvider =
   | "markerNames"
   | "modules"
   | "moduleAlternatives"
+  | "moduleEngines"
   // One of this project's USES of a module, which is what the `node …` verbs address — packages/song/docs/nodes.md.
   | "nodes"
   // A PICTURE lane of this song — video_tracks/<id>.yaml, read off the folder rather than the compile.

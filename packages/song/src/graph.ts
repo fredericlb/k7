@@ -9,6 +9,7 @@ import {
   alternativesOf,
   currentAlternative,
 } from "@studio/song-schema/alternatives";
+import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
   CAMERA_IO,
   curveIdFromRef,
@@ -238,6 +239,9 @@ export interface Module {
   // The module's other attribute SETS and which one is ON, carried after the merge — see docs/graphModel.md.
   alternatives?: string[];
   alternative?: string;
+  // The modules it can run AS and which one it does, sent only when there is a choice — docs/engines.md.
+  engines?: string[];
+  engine?: string;
   // The render standing in for everything upstream of this module, itself included — see docs/freeze.md.
   frozen?: string;
 }
@@ -536,6 +540,13 @@ export function buildGraph(
         alternatives: all.map((a) => a.name),
         alternative: all[currentAlternative(b)].name,
       };
+    })(),
+    // …and the same for its engines: one is not a choice.
+    ...(() => {
+      const names = engineNames(b);
+      return names.length < 2
+        ? {}
+        : { engines: names, engine: currentEngine(b) };
     })(),
   });
 

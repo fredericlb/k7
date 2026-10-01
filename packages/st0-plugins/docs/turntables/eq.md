@@ -1,13 +1,13 @@
 # A deck's EQ
 
-Three knobs per deck — low, mid, high — driving an `eq3` module placed on that deck in the graph.
+Three knobs per deck — low, mid, high — driving the EQ module's `tracktion` engine, placed on that deck in the graph.
 As with everything else on the desk the link is **declared** in `views/mix.yaml` and not wired in
 code; see [controls.md](controls.md).
 
 ## The module writes no DSP
 
 The engine already hosts Tracktion's 4-band equaliser (`4bandEq`, registered as `Equaliser`), with
-its shelves and bells. `@st0/audio/filter/eq3` is a **name and a set of defaults** on top —
+its shelves and bells. The `tracktion` engine of `@st0/audio/eq/eq` is a **name and a set of defaults** on top —
 exactly what `audio/utility/pitch-shift` is to the Pitch Shifter. Writing an EQ in `jsdsp` would
 produce a second, worse implementation to maintain.
 

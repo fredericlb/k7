@@ -453,6 +453,7 @@ export const moduleStore: ModuleStore = {
   },
   moduleUi: (path) => api.moduleUi(path),
   presets: (path) => api.modulePresets(path),
+  engines: (path) => api.moduleEngines(path),
   /** The module's DSP source, derived HERE rather than on the server: it is always the plain sibling, and absent is not an error. */
   dspSource: (path, file) =>
     siblingSource(path, file, (ref) => dspStub(ref, file)),

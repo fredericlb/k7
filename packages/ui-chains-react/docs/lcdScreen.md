@@ -27,10 +27,45 @@ file is a module to an editor and a function body to the page.
 pixels, the module's params by name, the peak history of both audio taps (`input`, `output`,
 oldest first, ending now), a `state` object kept between draws, the screen's palette, and the time.
 
+## An interactive screen
+
+A screen written as `{ draw, pointer }` rather than a bare function also gets the pointer:
+
+```js
+export default {
+  eq: {
+    draw(lcd) { /* as above */ },
+    pointer(lcd, ev) {
+      // ev: { type: "down" | "move" | "up" | "wheel", x, y, delta, shift, alt }
+      if (ev.type === "move") lcd.set("Mid Freq", 1200);
+      return true;
+    },
+  },
+};
+```
+
+`LcdPointerFrame` and `LcdPointerEvent` in `lcdScreen.ts` are that contract: the frame the draw
+gets, without `ctx` and with `set(name, value)`, and a pointer in the draw's own pixels. The
+Parametric EQ in the st0 library (`modules/audio/eq/eq/engines/parametric`) is the worked example.
+
 ## Choices
 
-**It binds nothing.** A screen shows a module's state, it does not drive a param; the schema
-refuses a `bind` on one, and the builder offers no bind field.
+**It binds nothing, and an interactive one sets params by NAME.** A screen has no `bind`: the
+schema refuses one and the builder offers no field. A screen that edits sets whatever params its
+picture is made of — an EQ point is a band's frequency AND gain — so one bind could not describe it.
+
+**`set` is a knob's path, not a new one.** Live to the engine once per frame, an override so every
+other widget on the card bound to that param moves with it, and one `node param` per param set when
+the gesture ends — in sequence, since they write one file. A wheel has no release, so it is
+written once the wheel has been still for `WHEEL_COMMIT_MS`. The host provides it through
+`LcdSetContext`; a host that provides none gets screens that only draw.
+
+**The pointer is bound natively on the canvas.** A press is stopped there, so it never pans the
+graph or selects the node. A wheel is stopped only when the handler returns true: a screen that
+ignores the wheel off its points leaves the graph's zoom working over it.
+
+**AI organize makes one only when asked** (`packages/ui-module-builder/docs/aiOrganize.md`): a
+screen that takes the pointer takes it from the graph too.
 
 **The script is a sibling file, not YAML.** A picture is code; squeezing it into `ui.yaml` would
 mean a string of JavaScript inside YAML that no editor highlights. It is found like the panel —

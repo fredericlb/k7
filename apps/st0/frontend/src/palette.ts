@@ -70,6 +70,7 @@ export const LOCAL_COMMANDS = [
   "ui settings",
   "ui settings editor",
   "ui settings io",
+  "ui settings project", // the open song's whole-mix settings — its console
   "ui settings account", // who you are, the engine, the workspace, the language
   "ui settings commands", // the one that is still a PAGE — see components/SettingsPanel.tsx
   "ui playlists", // the workspace's set lists — docs/playlists.md
@@ -301,6 +302,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui settings io": {
     en: "Open the audio inputs and outputs",
     fr: "Ouvrir les entrées et sorties audio",
+  },
+  "ui settings project": {
+    en: "Open the project's settings — its mix console",
+    fr: "Ouvrir les réglages du projet — sa console de mix",
   },
   "ui playlists": {
     en: "Open or close this repository's playlists",

@@ -85,26 +85,47 @@ export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
   return { params, inherited };
 }
 
-/** Set one param on the set that is ON — the module's own for the first, else that entry (docs/alternatives.md). */
+/** Set one param on the set that is ON, under `engines.<engine>` when the module runs one (packages/song/docs/engines.md). */
 export function setAlternativeParam(
   text: string,
   name: string,
   value: number | string,
+  engine?: string,
 ): string {
   const doc = parseDocument(text, OPTS);
   const at = currentAlternative(
     (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
   );
-  if (at === 0) doc.setIn(["params", name], value);
+  const inSet = engine ? ["engines", engine, "params"] : ["params"];
+  if (at === 0) doc.setIn([...inSet, name], value);
   else {
     // An empty set is written `- {}`; opened into block style, so its params read one per line.
     const entry = doc.getIn(["alternatives", at - 1]);
     if (isMap(entry)) entry.flow = false;
-    doc.setIn(["alternatives", at - 1, "params", name], value);
-    const params = doc.getIn(["alternatives", at - 1, "params"]);
+    doc.setIn(["alternatives", at - 1, ...inSet, name], value);
+    const params = doc.getIn(["alternatives", at - 1, ...inSet]);
     if (isMap(params)) params.flow = false;
   }
   quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
+/** Set one FIELD on the set that is ON — `engine:` being the one that needs it (packages/song/docs/engines.md). */
+export function setAlternativeField(
+  text: string,
+  field: string,
+  value: string,
+): string {
+  const doc = parseDocument(text, OPTS);
+  const at = currentAlternative(
+    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
+  );
+  if (at === 0) doc.set(field, value);
+  else {
+    const entry = doc.getIn(["alternatives", at - 1]);
+    if (isMap(entry)) entry.flow = false;
+    doc.setIn(["alternatives", at - 1, field], value);
+  }
   return doc.toString(OUT);
 }
 

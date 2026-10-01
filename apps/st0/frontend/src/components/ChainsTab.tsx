@@ -71,6 +71,7 @@ export function ChainsTab({
   onRecorder,
   onProjectField,
   onAlternative,
+  onEngine,
   engineWarnings,
   onSetModuleAsset,
   onAssetBrowse,
@@ -139,6 +140,8 @@ export function ChainsTab({
   ) => void;
   /** A node's alternative badge: switch to a set, or copy the one on (null) — straight through, the command being the SHELL's. */
   onAlternative?: (module: string, name: string | null) => void;
+  /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
+  onEngine?: (module: string, name: string) => void;
   /** Engine load problems by plugin id, badged onto the module they concern. */
   engineWarnings?: Record<string, string>;
   // Load a library file into a module: `kind` is the asset, `file` library-relative or "none" to clear.
@@ -834,6 +837,7 @@ export function ChainsTab({
             onRecorder={onRecorder}
             onProjectField={onProjectField}
             onAlternative={onAlternative}
+            onEngine={onEngine}
             onTriggerRack={triggerRack}
             rackLit={rackLit}
             engineWarnings={engineWarnings}

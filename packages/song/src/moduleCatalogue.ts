@@ -55,7 +55,9 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
 
   const out: CatalogueModule[] = [];
   for (const [ref, m] of Object.entries(refs)) {
-    if (!ref.startsWith("@") || splitModuleKey(ref).node) continue;
+    // An engine is listed by its module, which is where it is picked (docs/engines.md).
+    if (!ref.startsWith("@") || splitModuleKey(ref).node || m.engineOf)
+      continue;
     const [ns, ...rest] = ref.slice(1).split("/");
     const plugin = m.plugin as { name?: unknown } | undefined;
     const root = byNs.get(ns);

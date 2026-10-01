@@ -1125,6 +1125,30 @@ filesRouter.get(
   }),
 );
 
+// The console systems the project may run, for the settings' Project tab — packages/song/docs/console.md.
+filesRouter.get(
+  "/consoles",
+  wrap((req, res) => {
+    try {
+      res.json(req.ws!.consoles());
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// The ENGINES beside a module file, for the builder's strip — packages/song/docs/engines.md.
+filesRouter.get(
+  "/module-engines",
+  wrap((req, res) => {
+    try {
+      res.json(req.ws!.moduleEngines(String(req.query.path ?? "")));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
 // Give an engine module a folder in the project, so it can carry a panel and presets; POST because it writes.
 const materialiseBody = z.object({ ref: z.string().min(1) });
 filesRouter.post(

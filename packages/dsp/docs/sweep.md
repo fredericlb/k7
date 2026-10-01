@@ -1,6 +1,6 @@
 # The DJ filter — one knob, two filters, and a travelling resonance
 
-`modules/audio/filter/sweep/` and `packages/dsp/src/sweep.ts` are the same graph written twice: a
+`modules/audio/filter/multimode/engines/sweep/` (the filter module's `sweep` engine) and `packages/dsp/src/sweep.ts` are the same graph written twice: a
 module is a **folder you copy**, so it carries its own source rather than a pointer at the library,
 and `packages/dsp/src/sweep.test.ts` holds the two to the same shape.
 

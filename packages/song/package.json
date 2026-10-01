@@ -13,6 +13,8 @@
     "./preferences": "./src/preferences.ts",
     "./curves": "./src/curves.ts",
     "./moduleFork": "./src/moduleFork.ts",
+    "./engines": "./src/engines.ts",
+    "./console": "./src/console.ts",
     "./uiLibrary": "./src/uiLibrary.ts",
     "./uiMigrate": "./src/uiMigrate.ts",
     "./chainsMigrate": "./src/chainsMigrate.ts",

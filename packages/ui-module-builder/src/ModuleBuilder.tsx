@@ -159,7 +159,7 @@ const PRESET_GROUPS: {
   { source: "file", label: "Factory presets", Icon: Folder },
 ];
 
-export function ModuleBuilder({
+export function ModuleScreen({
   store,
   path,
   kind,

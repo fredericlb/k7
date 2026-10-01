@@ -23,6 +23,7 @@ import { keepsItsModule, resolveModule } from "@studio/song/moduleResolve";
 import { isTrack } from "@studio/song/trackModule";
 import { entityFileFor, moduleFileFor } from "@studio/song/yaml/moduleIO";
 import { currentAlternative } from "@studio/song-schema/alternatives";
+import { currentEngine } from "@studio/song-schema/engines";
 import { materialRefOf } from "@studio/song-schema/placementId";
 import type { WarpMarker } from "@studio/song-schema/warpPoints";
 import {
@@ -136,9 +137,19 @@ export function setModuleParam(
   name: string,
   value: number,
 ): string {
+  // A module with engines keeps its knobs PER engine, so the one that is on is asked first (docs/engines.md).
+  const engine = engineOn(dir, module);
   return editModuleFile(dir, module, (text) =>
-    setAlternativeParam(text, name, value),
+    setAlternativeParam(text, name, value, engine),
   );
+}
+
+/** The engine a module runs as, resolved like the compile resolves it — undefined for a module with none. */
+export function engineOn(dir: string, module: string): string | undefined {
+  const node = loadModules(dir)[module];
+  return node
+    ? currentEngine(resolveModule(node, loadModuleRefs(dir)))
+    : undefined;
 }
 
 /** What a module's file says its attribute SETS are called, and which is on — read off the FILE, docs/projectEdit.md. */

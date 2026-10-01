@@ -13,6 +13,7 @@ import {
   AudioLines,
   Command,
   DoorOpen,
+  FolderCog,
   LogOut,
   Server,
   Settings,
@@ -27,9 +28,10 @@ import { m } from "../paraglide/messages.js";
 import { EditorSettingsPage } from "./EditorSettingsPage";
 import { IoPanel } from "./IoPanel";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+import { ProjectSettingsTab } from "./ProjectSettingsTab";
 
 /** The tabs, in the order they are drawn — `commands` is a PAGE and `playlists` its own panel: settings are set and left, a set list is worked from. */
-export const SETTINGS_TABS = ["editor", "io", "account"] as const;
+export const SETTINGS_TABS = ["editor", "io", "project", "account"] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
@@ -50,6 +52,12 @@ const TAB_META: Record<
     icon: AudioLines,
     label: m["settings.io"](),
     command: "ui settings io",
+  },
+  // What the open song says about its whole mix — packages/song/docs/console.md.
+  project: {
+    icon: FolderCog,
+    label: m["settings.project"](),
+    command: "ui settings project",
   },
   // Not translated through paraglide like its neighbours: the message catalogue is generated, and a key not in it yet fails the build.
   account: {
@@ -143,6 +151,7 @@ export function SettingsPanel({
           />
         )}
         {tab === "io" && <IoPanel engine={engine} />}
+        {tab === "project" && <ProjectSettingsTab onRun={onRun} />}
         {tab === "account" && <AccountTab onRun={onRun} />}
       </div>
     </aside>

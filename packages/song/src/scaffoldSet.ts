@@ -429,8 +429,9 @@ function mutedLanes(): string {
 }
 
 const MEDIATEK_UTILITY = "@st0/audio/utility";
-/** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
+/** The filter lives under `filter/` and the EQ under `eq/`, not `utility/`: a type folder is what draws its icon. */
 const MEDIATEK_FILTER = "@st0/audio/filter";
+const MEDIATEK_EQ = "@st0/audio/eq";
 /** …and the echo under `time/`, for the same reason: a delay is not a utility. */
 const MEDIATEK_TIME = "@st0/audio/time";
 /** …and the PLATTER under `io/`: it reads a file, which is what that category is for. */
@@ -631,7 +632,7 @@ function echoNode(letter: string): string {
 /** One deck's EQ: a node of the médiathèque's three-band channel EQ. */
 function eqNode(letter: string): string {
   return (
-    `# Deck ${letter}'s EQ — a NODE of the médiathèque's EQ 3 bandes, one per deck, because\n` +
+    `# Deck ${letter}'s EQ — a NODE of the médiathèque's EQ, one per deck, because\n` +
     `# cutting THIS deck's bass is the whole point and a param belongs to a use.\n` +
     `#\n` +
     `# Unlike the tempo beside it, this one is a REAL plugin: the module is a name and a set of\n` +
@@ -642,18 +643,24 @@ function eqNode(letter: string): string {
     `# Flat. Only the three gains are stated: the crossover points come from the module, and\n` +
     `# restating them here would let one deck quietly disagree with the other about what\n` +
     `# "mid" means.\n` +
-    `extends: ${q(`${MEDIATEK_FILTER}/eq3`)}\n` +
-    `params:\n` +
-    `  Low-shelf gain: 0\n` +
-    `  Mid gain 1: 0\n` +
-    `  High-shelf gain: 0\n`
+    `#\n` +
+    `# The EQ module has several engines; the desk's is Tracktion's, named so a change of default\n` +
+    `# moves no deck (packages/song/docs/engines.md).\n` +
+    `extends: ${q(`${MEDIATEK_EQ}/eq`)}\n` +
+    `engine: tracktion\n` +
+    `engines:\n` +
+    `  tracktion:\n` +
+    `    params:\n` +
+    `      Low-shelf gain: 0\n` +
+    `      Mid gain 1: 0\n` +
+    `      High-shelf gain: 0\n`
   );
 }
 
 /** One deck's filter: a node of the médiathèque's one-knob sweep. */
 function filterNode(letter: string): string {
   return (
-    `# Deck ${letter}'s filter — a NODE of the médiathèque's Sweep Filter, one per deck.\n` +
+    `# Deck ${letter}'s filter — a NODE of the médiathèque's filter, on its sweep engine, one per deck.\n` +
     `#\n` +
     `# ONE param, and that is the module's whole shape: a desk control drives at most one, so\n` +
     `# "low-pass or high-pass" cannot be a second setting. Both filters live in its graph at\n` +
@@ -661,9 +668,14 @@ function filterNode(letter: string): string {
     `#\n` +
     `# 0 is the middle of the travel and is INAUDIBLE rather than bypassed: at rest the two\n` +
     `# corners sit outside the material, at 20 kHz and 20 Hz.\n` +
-    `extends: ${q(`${MEDIATEK_FILTER}/sweep`)}\n` +
-    `params:\n` +
-    `  Sweep: 0\n`
+    `#\n` +
+    `# The engine is named for the same reason the EQ's is.\n` +
+    `extends: ${q(`${MEDIATEK_FILTER}/multimode`)}\n` +
+    `engine: sweep\n` +
+    `engines:\n` +
+    `  sweep:\n` +
+    `    params:\n` +
+    `      Sweep: 0\n`
   );
 }
 

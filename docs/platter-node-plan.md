@@ -20,7 +20,7 @@ the desk's `withDecks` invents no plugin. What that buys:
 |---|---|---|
 | `PluginDoc.deckFile` | `packages/engine-protocol/project.ts` | already a first-class field, commented "TURNTABLE modules only — the record the platter OWNS" |
 | loading the record | `engine/st0-engine/engine/EditBuilder.cpp` | `dynamic_cast<studio::TurntablePlugin*>` on whatever the plugin is — generic, like `namFile` and `irFile` just above |
-| naming a built-in | `packages/song/src/nodeProject.ts` | `plugin: { type: internal, name: … }` is already how `eq3` names Tracktion's equaliser |
+| naming a built-in | `packages/song/src/nodeProject.ts` | `plugin: { type: internal, name: … }` is already how the EQ's `tracktion` engine names Tracktion's equaliser |
 
 The engine does not ask where the plugin came from. It builds one from `p.type`, and if it happens
 to be a platter, it puts its record on. A platter compiled from a module takes exactly the same
@@ -73,7 +73,7 @@ The metronome stays too: a whole track built in code, and another subject.
 ## The nodes
 
 The `audio/io/turntable` module in the library — `module.yaml` and `ui.yaml`, no jsdsp: the engine
-already hosts the platter, and `type: internal` names it the way `eq3` names the equaliser. The
+already hosts the platter, and `type: internal` names it the way the EQ's `tracktion` engine names the equaliser. The
 ranges come from `TurntablePlugin.cpp`:
 
 | parameter | range | rest | |

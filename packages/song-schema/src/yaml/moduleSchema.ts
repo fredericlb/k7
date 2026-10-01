@@ -4,6 +4,7 @@
 // TS (graph.ts validate(), nodeProject's ref pass) instead.
 
 import { z } from "zod";
+import { ENGINE_NAME } from "../engines";
 import { MODULE_STATUSES, SHAPE_KINDS } from "../moduleTypes";
 import { PlacementSchema } from "./placementSchema";
 
@@ -307,6 +308,25 @@ const MODULE_FIELDS = {
     .optional(),
   // FROZEN at this module: the render standing in for everything UPSTREAM of it — see docs/freeze.md.
   frozen: z.string().min(1).optional(),
+
+  // Which of the module's `engines/` sub-folders it runs as — packages/song/docs/engines.md.
+  engine: z
+    .string()
+    .regex(ENGINE_NAME, "an engine is a folder name in the module's engines/")
+    .optional(),
+  // …and the values set PER engine, so switching back finds the knobs as they were left.
+  engines: z
+    .record(
+      z.string().regex(ENGINE_NAME),
+      z
+        .object({
+          params: z
+            .record(z.string(), z.union([z.number(), z.string()]))
+            .optional(),
+        })
+        .strict(),
+    )
+    .optional(),
 };
 
 /** One ALTERNATIVE: the same flat struct a module is, minus the alternatives — docs/alternatives.md. */

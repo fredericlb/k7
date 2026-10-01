@@ -42,6 +42,9 @@ const CARRIED = [
   // The module's other attribute sets, and which is on — see packages/song/docs/alternatives.md.
   "alternatives",
   "alternative",
+  // …and its engines, and which runs — see packages/song/docs/engines.md.
+  "engines",
+  "engine",
   // A rack's loaded sounds: `rackUI` draws the pads and the renderer reads the row back.
   "rack",
   // What the module ANNOUNCES — its note-on, drawn as one socket per name.
@@ -174,6 +177,8 @@ export interface GraphNode extends Carried, Flags {
   frozen?: "at" | "inside";
   /** Baked into an AUTOMATIC VST freeze — the VST module whose render holds it; touching a control thaws it (packages/song/docs/autoFreeze.md). */
   autoFrozen?: string;
+  /** The console a half of which FOLLOWS this node, by its label — set by the project, not the graph (packages/song/docs/console.md). */
+  console?: string;
   // A node that does not exist yet: the module being created, drawn where it will land.
   pending?: boolean;
   /** The sockets to DRAW, already decided — see `jacksFor` and docs/graphBuild.md. */
@@ -1558,6 +1563,15 @@ export function buildGraph(
         if (targetRank != null) n.rank = targetRank;
       }
     }
+  }
+
+  // The CONSOLE's halves have no node: the ones they follow wear its name — packages/song/docs/console.md.
+  if (graph.console) {
+    const on = new Set(graph.console.nodes);
+    for (const n of nodes.values())
+      // A sum is a sink keyed `snk:<name>`, so it answers to its label; every other node to its module.
+      if (on.has(n.kind === "sink" ? n.label : (n.module ?? n.id)))
+        n.console = graph.console.label;
   }
 
   return { nodes: [...nodes.values()], edges: [...edges.values()] };

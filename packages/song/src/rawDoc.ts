@@ -150,6 +150,9 @@ export interface LoadedModule {
   alternative?: unknown;
   // FROZEN here: the render standing in for everything upstream, itself included — see docs/freeze.md.
   frozen?: unknown;
+  // Which of its `engines/` it runs, and the values set per engine — see docs/engines.md.
+  engine?: unknown;
+  engines?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
   events?: unknown; // the placements on this lane — where its material goes, and how many times
   color?: unknown; // the lane's colour, and its icon's in the timeline
@@ -176,6 +179,9 @@ export interface LoadedModule {
   assets?: Record<string, string>; // …and the name it was authored with
   // The ABSOLUTE folder this module's files live in — the ancestry fold needs the whole chain's (assetPath.ts).
   folderAbs?: string;
+  // Every engine its folder holds, name → ref; and, on an engine itself, the module it belongs to (docs/engines.md).
+  engineRefs?: Record<string, string>;
+  engineOf?: string;
   // -- local modules only (loadModules) -----------------------------------------
   name?: string; // the chain `use` key ("<name>" or "<name>:<node>")
   category?: string; // the type folder (io|instruments|audio|transformers|…)

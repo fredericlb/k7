@@ -12,6 +12,7 @@ import type {
   WebRackSound,
 } from "@studio/graph-model";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
+import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
@@ -37,6 +38,7 @@ import {
   hostsPlugin,
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
+  MIX_NODE,
   SHADER_CATEGORY,
 } from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
@@ -197,6 +199,34 @@ export function trackMixersOf(doc: {
   return out;
 }
 
+/** Where the compile put the console's halves, as the NODES they follow — packages/song/docs/console.md. */
+export function consoleOf(
+  doc: {
+    tracks: {
+      id: string;
+      plugins: { id: string; type: string; name: string }[];
+    }[];
+    masterPlugins: { id: string }[];
+  },
+  system: ConsoleSystem | undefined,
+): WebGraph["console"] {
+  if (!system || doc.masterPlugins[0]?.id !== `${CONSOLE_ID}master`)
+    return undefined;
+  const nodes: string[] = [];
+  for (const t of doc.tracks) {
+    const at = t.plugins.findIndex((p) => p.id === `${CONSOLE_ID}${t.id}`);
+    if (at < 0) continue;
+    // The strip it follows, named by its plugin as `trackMixersOf` reads it; a lane with no strip wears it itself.
+    const before = t.plugins[at - 1];
+    nodes.push(before?.type === MIXER_PLUGIN ? before.name : t.id);
+  }
+  return {
+    system: system.ref,
+    label: system.label,
+    nodes: [...nodes, MIX_NODE],
+  };
+}
+
 export function buildGraphDoc(
   dir: string,
   extents?: ClipExtents,
@@ -339,6 +369,9 @@ export function buildGraphDoc(
           // The other attribute sets this module could be switched to — packages/song/docs/alternatives.md.
           alternatives: module?.alternatives,
           alternative: module?.alternative,
+          // …and the engines it could run as — packages/song/docs/engines.md.
+          engines: module?.engines,
+          engine: module?.engine,
           params: module?.params ?? {},
           // The engine's address, ONLY when the engine will really have one — see docs/graphFlags.md.
           pluginId:

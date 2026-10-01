@@ -134,6 +134,16 @@ export const projectApi = {
   moduleCatalogue: () => fget<CatalogueModule[]>("/module-catalogue"),
   moduleUi: (path: string) =>
     fget<ModuleUiFile>(`/module-ui?path=${encodeURIComponent(path)}`),
+  /** The console systems this project may run, and the one it does — packages/song/docs/console.md. */
+  consoles: () =>
+    fget<{ systems: { ref: string; label: string }[]; current?: string }>(
+      "/consoles",
+    ),
+  /** The engines beside a module file — packages/song/docs/engines.md. */
+  moduleEngines: (path: string) =>
+    fget<{ engines: string[]; engine?: string }>(
+      `/module-engines?path=${encodeURIComponent(path)}`,
+    ),
   modulePresets: (path: string) =>
     fget<ModulePresetsFile>(`/module-presets?path=${encodeURIComponent(path)}`),
   cloneModule: (path: string, newName: string) =>

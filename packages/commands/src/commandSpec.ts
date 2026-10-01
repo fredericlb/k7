@@ -123,6 +123,21 @@ const PROVIDERS = {
       return []; // an unreadable module folder costs the completion, not the command
     }
   },
+  /** Every engine name the project's modules offer, deduped — packages/song/docs/engines.md. */
+  moduleEngines: (h) => {
+    if (!h.songPath) return [];
+    try {
+      return [
+        ...new Set(
+          Object.values(loadModuleRefs(h.songPath)).flatMap((m) =>
+            Object.keys(m.engineRefs ?? {}),
+          ),
+        ),
+      ].sort();
+    } catch {
+      return []; // an unreadable module folder costs the completion, not the command
+    }
+  },
   // The branches you can switch to — every local one EXCEPT the one you are on.
   alternatives: (h) => {
     const dir = h.repoDir ?? h.songPath;
@@ -383,6 +398,7 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // Not "file": an alternative is a branch, and nothing on disk. See docs/completions.md.
   alternatives: "choice",
   moduleAlternatives: "choice",
+  moduleEngines: "choice",
   // A clip id and an audio path are both material, which the palette colours as a file.
   clipTargets: "file",
   // A chain is neither a module nor anything on disk the `file` class would colour.
@@ -420,6 +436,8 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   alternatives: "an existing alternative — the one you are on is not offered",
   moduleAlternatives:
     "one of this module's alternatives — unnamed ones answer to their number",
+  moduleEngines:
+    "one of this module's engines — the folders under its engines/",
   tracks: "a track of this project",
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",

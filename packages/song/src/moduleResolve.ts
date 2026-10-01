@@ -13,6 +13,7 @@ import {
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { applyAlternative, swappedModule } from "./alternatives";
 import { resolveModuleAssetIn } from "./assetPath";
+import { asEngine } from "./engines";
 import { basePresetIn } from "./basePreset";
 import type {
   InstrumentType,
@@ -68,6 +69,21 @@ export function mergeAuthored(
       [inner]: { ...(p[inner] ?? {}), ...(c[inner] ?? {}) },
     };
   };
+  // Per engine, then per param inside it, so a node setting one knob of one engine keeps the rest.
+  const perEngine = (
+    p: Record<string, Nested> | undefined,
+    c: Record<string, Nested> | undefined,
+  ): Record<string, Nested> | undefined => {
+    if (!p || !c) return c ?? p;
+    const out: Record<string, Nested> = { ...p };
+    for (const [e, v] of Object.entries(c))
+      out[e] = {
+        ...(p[e] ?? {}),
+        ...defined(v),
+        params: { ...(p[e]?.params ?? {}), ...(v?.params ?? {}) },
+      } as Nested;
+    return out;
+  };
   const flat = (key: string): Record<string, unknown> | undefined => {
     const p = parent[key] as Record<string, unknown> | undefined;
     const c = child[key] as Record<string, unknown> | undefined;
@@ -89,11 +105,16 @@ export function mergeAuthored(
       "widgets",
     ),
     assets: flat("assets"),
+    engines: perEngine(
+      parent.engines as Record<string, Nested> | undefined,
+      child.engines as Record<string, Nested> | undefined,
+    ),
   };
   for (const k of OWN_ONLY) if (k in child) out[k] = child[k];
   if (out.rack === undefined) delete out.rack;
   if (out.ui === undefined) delete out.ui;
   if (out.assets === undefined) delete out.assets;
+  if (out.engines === undefined) delete out.engines;
   return out;
 }
 
@@ -106,9 +127,14 @@ export function resolveModule(
   const own = foldExtends(m, byRef, new Set(seen));
   // A set naming another module makes the node that module — except a lane or a fader (packages/song/docs/alternatives.md).
   const swapped = keepsItsModule(own) ? null : swappedModule(m);
-  return swapped
+  const chosen = swapped
     ? foldExtends(swapped, byRef, new Set(seen))
     : applyAlternative(own);
+  // …and a module with ENGINES runs as the one that is on, once the set has said which (docs/engines.md).
+  return (
+    asEngine(chosen, byRef, (e) => foldExtends(e, byRef, new Set(seen))) ??
+    chosen
+  );
 }
 
 /** A LANE and a lane's FADER are what the arrangement and the mixer are built on, so a set may not swap them. */

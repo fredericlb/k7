@@ -5,8 +5,14 @@
 // Shared by the Chains tab and the Graph panel — mount it only where it has a
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
-// The icons this file draws from a set: the freeze badge, the sink's transport, the alternatives' `+`.
-import { Play, Plus, Snowflake, Square } from "@frediverse/ui/icons";
+// The icons this file draws from a set: the freeze badge, the sink's transport, the alternatives' `+`, the console badge.
+import {
+  Play,
+  Plus,
+  SlidersVertical,
+  Snowflake,
+  Square,
+} from "@frediverse/ui/icons";
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import {
   PluginParamsStore,
@@ -124,6 +130,7 @@ import {
 } from "./camera";
 import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
 import { LcdScreenWidget } from "./LcdScreenWidget";
+import { EngineSelect } from "./EngineSelect";
 import { Minimap } from "./Minimap";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
 import {
@@ -1569,6 +1576,7 @@ function NodeInner({
   onBypass,
   onToggleAssembly,
   onAlternative,
+  onEngine,
   onZoomTo,
   warning,
   onDragStart,
@@ -1606,6 +1614,8 @@ function NodeInner({
   onToggleAssembly?: (name: string) => void;
   /** An alternative badge was clicked: a set's name to switch to, or null to copy the one on — the badges exist only when given. */
   onAlternative?: (module: string, name: string | null) => void;
+  /** An engine was picked in the node's dropdown — drawn only when given, and only on a module with several. */
+  onEngine?: (module: string, name: string) => void;
   /** A double-click on the header, or on the whole card when zoomed out: frame this node. */
   onZoomTo?: (n: GraphNode) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
@@ -2015,6 +2025,16 @@ function NodeInner({
         />
       )}
 
+      {/* Which engine the module runs as, when it has a choice; the switch is the HOST's command. */}
+      {onEngine && n.module && n.engines && n.engines.length > 1 && (
+        <EngineSelect
+          module={n.module}
+          names={n.engines}
+          current={n.engine ?? n.engines[0]}
+          onEngine={onEngine}
+        />
+      )}
+
       {/* What the engine said went wrong with THIS plugin, on hover: often the only word on a module doing nothing. */}
       {warning && (
         <span
@@ -2056,6 +2076,21 @@ function NodeInner({
           }
         >
           <Snowflake />
+        </span>
+      )}
+
+      {/* The project's CONSOLE: no node of its own, so the strip and the sum it follows say so — packages/song/docs/console.md. */}
+      {n.console && (
+        <span
+          className="dgx-console"
+          title={
+            n.kind === "sink"
+              ? `${n.console} buss — the console decodes the sum here, first on the master. Change it in Settings › Project.`
+              : `${n.console} channel — the console encodes this lane after its strip. Change it in Settings › Project.`
+          }
+        >
+          <SlidersVertical />
+          {n.console}
         </span>
       )}
 
@@ -2518,6 +2553,7 @@ export function DomChains({
   onModuleField,
   onToggleAssembly,
   onAlternative,
+  onEngine,
   onTriggerRack,
   onRecorder,
   onProjectField,
@@ -2616,6 +2652,8 @@ export function DomChains({
   onToggleAssembly?: (name: string) => void;
   /** An alternative badge: switch a module to a set (`name`), or copy the one on (null) — docs/hosting.md. */
   onAlternative?: (module: string, name: string | null) => void;
+  /** A node's engine dropdown: run a module as another of its engines — packages/song/docs/engines.md. */
+  onEngine?: (module: string, name: string) => void;
   /** A RACK pad was clicked: the graph says WHICH sound was asked for and stops there — docs/hosting.md. */
   onTriggerRack?: (module: string, symbol: string) => void;
   /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
@@ -2749,6 +2787,7 @@ export function DomChains({
     onThawAutoFreeze,
     onModuleField,
     onAlternative,
+    onEngine,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -2778,6 +2817,7 @@ export function DomChains({
     onThawAutoFreeze,
     onModuleField,
     onAlternative,
+    onEngine,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -3822,7 +3862,7 @@ export function DomChains({
   const canvasDoubleClick = (e: React.MouseEvent) => {
     if (
       (e.target as Element).closest(
-        ".dgx-node, .dgx-frame, .dgx-alts, .dgx-port, .dgx-hit, .dgx-ins-btn",
+        ".dgx-node, .dgx-frame, .dgx-alts, .dgx-engine, .dgx-port, .dgx-hit, .dgx-ins-btn",
       )
     )
       return;
@@ -3906,6 +3946,11 @@ export function DomChains({
   const pickAlternative = useCallback(
     (module: string, name: string | null) =>
       cb.current.onAlternative?.(module, name),
+    [],
+  );
+  // …and so does the engine dropdown.
+  const pickEngine = useCallback(
+    (module: string, name: string) => cb.current.onEngine?.(module, name),
     [],
   );
   // The widget only ASKS, and the shell writes what comes back — an asset loads at BUILD time.
@@ -4510,6 +4555,7 @@ export function DomChains({
                 onBypass={bypassModule}
                 onToggleAssembly={onToggleAssembly}
                 onAlternative={onAlternative ? pickAlternative : undefined}
+                onEngine={onEngine ? pickEngine : undefined}
                 onZoomTo={zoomToNode}
                 warning={n.pluginId ? engineWarnings?.[n.pluginId] : undefined}
                 onDragStart={beginDrag}

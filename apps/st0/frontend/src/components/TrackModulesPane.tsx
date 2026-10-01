@@ -36,6 +36,7 @@ export function TrackModulesPane({
   onContextMenu,
   onBypassModule,
   onAlternative,
+  onEngine,
   onAssetBrowse,
   onTapEdit,
   onWatchWaveform,
@@ -71,6 +72,8 @@ export function TrackModulesPane({
   onBypassModule?: (module: string) => void;
   /** …the alternative badges on a node, and the file-valued param's browser, for the same reason. */
   onAlternative?: (module: string, name: string | null) => void;
+  /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
+  onEngine?: (module: string, name: string) => void;
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
   /** A rack tap's edit — the shell runs its `node tap` command (packages/song/docs/racks.md). */
   onTapEdit?: (module: string, action: TapAction) => void;
@@ -195,6 +198,7 @@ export function TrackModulesPane({
       onBypassModule={onBypassModule}
       onThawAutoFreeze={thawAutoFreeze}
       onAlternative={onAlternative}
+      onEngine={onEngine}
       onAssetBrowse={onAssetBrowse}
       onTapEdit={onTapEdit}
       onWatchWaveform={onWatchWaveform}

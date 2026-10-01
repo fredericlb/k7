@@ -5,7 +5,9 @@
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { ENGINES_DIR, engineRefOf } from "@studio/song-schema/engines";
 import { MODULE_TYPES, moduleRefOf } from "@studio/song-schema/moduleTypes";
+import { engineFoldersOf } from "./engines";
 import { moduleNamespaceOf, modulePanelRoots } from "./sharedFolders";
 import { moduleFileFor } from "./yaml/moduleIO";
 
@@ -24,10 +26,20 @@ export function siblingsIn(
   base: string,
 ): SiblingFile[] {
   const out: SiblingFile[] = [];
-  const at = (folder: string, rel: string, ref: string): void => {
+  const one = (folder: string, rel: string, ref: string): void => {
     const file = moduleFileFor(folder, rel, base);
     if (file)
       out.push({ ref, path: file.path, rel: `${rel}/${basename(file.path)}` });
+  };
+  // A module folder, then each of its ENGINES, which carry their own panels (docs/engines.md).
+  const at = (folder: string, rel: string, ref: string): void => {
+    one(folder, rel, ref);
+    for (const e of engineFoldersOf(folder))
+      one(
+        join(folder, ENGINES_DIR, e),
+        `${rel}/${ENGINES_DIR}/${e}`,
+        engineRefOf(ref, e),
+      );
   };
   const dirs = (abs: string): string[] => {
     try {

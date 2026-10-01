@@ -22,6 +22,7 @@ import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes } from "./autoFreeze";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
+import { withConsole } from "./console";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
 import {
   isPatternLane,
@@ -1026,21 +1027,26 @@ function compileNodeProjectIn(
 
   // PICTURE IS NOT HERE: the same folder compiles twice, and this is the pass the C++ engine reads (packages/song-video/docs/picture.md).
 
-  return {
-    name: String(proj.name ?? "untitled"),
-    tempo,
-    sampleRate: Number(proj.sampleRate ?? 48000),
-    timeSigNumerator: num || 4,
-    timeSigDenominator: den || 4,
-    // Unity when the song says nothing, DEFAULTED rather than absent because the engine diffs documents (docs/masterVolume.md).
-    masterVolume: Number(proj.masterVolume ?? 0),
-    // The master chain's steps in chain order, always sent for the reason `masterVolume` is (docs/masterChain.md).
-    masterPlugins: trackPlugins[MASTER_OWNER] ?? [],
-    recordDir: "", // set by loadProject, which is what knows this is a folder project
-    tracks,
-    groups,
-    markers: parseMarkers(root.markers, num || 4, den || 4),
-    // settings.yaml is a flat root file, loaded on its own and validated as it is read (a bad value fails the compile).
-    settings: parseSettings(loadSettings(dir, true)),
-  };
+  // The console's two halves go on LAST, over the finished mix — docs/console.md.
+  return withConsole(
+    {
+      name: String(proj.name ?? "untitled"),
+      tempo,
+      sampleRate: Number(proj.sampleRate ?? 48000),
+      timeSigNumerator: num || 4,
+      timeSigDenominator: den || 4,
+      // Unity when the song says nothing, DEFAULTED rather than absent because the engine diffs documents (docs/masterVolume.md).
+      masterVolume: Number(proj.masterVolume ?? 0),
+      // The master chain's steps in chain order, always sent for the reason `masterVolume` is (docs/masterChain.md).
+      masterPlugins: trackPlugins[MASTER_OWNER] ?? [],
+      recordDir: "", // set by loadProject, which is what knows this is a folder project
+      tracks,
+      groups,
+      markers: parseMarkers(root.markers, num || 4, den || 4),
+      // settings.yaml is a flat root file, loaded on its own and validated as it is read (a bad value fails the compile).
+      settings: parseSettings(loadSettings(dir, true)),
+    },
+    typeof proj.console === "string" ? proj.console : undefined,
+    moduleRefs,
+  );
 }

@@ -412,6 +412,44 @@ alternatives:
     plugin: { type: vst3, name: Twin }   # any field, not just params
 ```
 
+## ENGINES — one module, several ways to do it
+
+A **compressor** is one module, whichever DSP does the compressing. Tracktion's own, a vari-mu, a
+bus compressor: those are its **engines**, and you pick one on the node. Each engine is a folder
+under the module's `engines/`, with its own `module.yaml`, panel (`ui.yaml`), screen
+(`widgets.js`) and presets. An engine is a module in every respect except one: it is never offered
+on its own, only inside the module that holds it.
+
+```
+_modules/audio/compressor/
+  module.yaml              # label: Compressor, engine: tracktion
+  engines/
+    tracktion/  module.yaml ui.yaml widgets.js
+    vari-mu/    module.yaml ui.yaml
+```
+
+The module's own `engine:` is the **default**. Leave it out and the module runs `tracktion` when it
+has one, else the first by name. A node picks another with its own `engine:`, and its knobs are
+kept **per engine** under `engines:`. Switching from `vari-mu` to `tracktion` and back finds the
+vari-mu where you left it, and a Tracktion knob never reaches a plugin that has no such knob.
+
+```yaml schema=Module
+extends: "@st0/audio/dynamics/compressor"
+engine: vari-mu
+engines:
+  tracktion: { params: { Ratio: 0.3 } }
+  vari-mu: { params: { Intensty: 0.6 } }
+```
+
+The node keeps its own name, label, colour, mix and automation whichever engine it runs. What
+changes is the plugin, its params and its panel.
+
+On the graph, a module with more than one engine shows a **dropdown** above the card's top-left
+corner. From the command bar: `node engine <node> <name>`, and a bare `node engine <node>` lists
+them. An alternative may set `engine:` like any field, so two sets can A/B two engines. In the
+module builder, the strip above the editor has one tab per engine, each opening that engine's own
+files, plus `module` for the module's own file, where the default is set.
+
 ## FREEZING — one render standing in for everything upstream
 
 Freeze a module and everything the signal passed through to get there is bounced to one wav and

@@ -221,6 +221,8 @@ import {
   switchAlternative,
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
+import { CONSOLE_VERBS } from "./verbs/console.ts";
+import { ENGINE_VERBS } from "./verbs/engine.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { splitWords } from "./verbs/shared.ts";
@@ -2988,6 +2990,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PICTURE_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
   ...TRACK_VERBS,
+  // …and a module's ENGINES, which a node picks between — packages/song/docs/engines.md.
+  ...ENGINE_VERBS,
+  // …and the project's summing CONSOLE — packages/song/docs/console.md.
+  ...CONSOLE_VERBS,
 
   // The external UI of ONE INSTANCE — the argument names a node, since a module with no instance has no window.
   "node.externalUi": async (a, h) => {

@@ -18,8 +18,10 @@ import {
   JSDSP_FILE,
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
+import { ENGINES_DIR, engineRefOf } from "@studio/song-schema/engines";
 import { instanceName } from "@studio/song-schema/instanceName";
 import {
+  CONSOLE_TYPE,
   categoryForRole,
   FILE_PARAMS,
   IO_MODULES,
@@ -64,6 +66,7 @@ import {
 import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
 import { docModules } from "./docModule";
+import { engineFoldersOf } from "./engines";
 import { engineModules, engineRef, ioModules } from "./engineCatalogue";
 import { libraryFile } from "./libraryFiles";
 import { cachedForModules, withModuleStamp } from "./moduleCache";
@@ -288,6 +291,7 @@ function readModuleTree(
     sub: string,
     type: string,
     meta: (typeof MODULE_TYPES)[keyof typeof MODULE_TYPES],
+    isEngine = false,
   ): void => {
     const folder = join(dir, relDir, leaf);
     const file = moduleFileFor(folder, `${relDir}/${leaf}`, "module");
@@ -332,7 +336,27 @@ function readModuleTree(
         folderAbs: folder,
       }) as LoadedModule;
 
-    out[key(type, sub)] = decorate(m);
+    // Its ENGINES, each a module of its own under `<ref>/engines/<name>` — never an engine's engines (docs/engines.md).
+    const engines = isEngine ? [] : engineFoldersOf(folder);
+    const engineRefs = Object.fromEntries(
+      engines.map((e) => [e, engineRefOf(key(type, sub), e)]),
+    );
+    for (const e of engines) {
+      readModule(
+        `${relDir}/${leaf}/${ENGINES_DIR}`,
+        e,
+        `${sub}/${ENGINES_DIR}/${e}`,
+        type,
+        meta,
+        true,
+      );
+      const loaded = out[engineRefs[e]];
+      if (loaded) loaded.engineOf = key(type, sub);
+    }
+    const withEngines = (lm: LoadedModule): LoadedModule =>
+      engines.length ? { ...lm, engineRefs } : lm;
+
+    out[key(type, sub)] = withEngines(decorate(m));
     // The nodes beside module.yaml, keyed like a local one under the ref; without these an inherited node is unnameable.
     for (const { node, file: ifile } of nodeFiles(
       folder,
@@ -342,7 +366,9 @@ function readModuleTree(
       if (!value || typeof value !== "object") continue;
       const merged = mergeAuthored(m, value);
       merged.ui = value.ui ?? m.ui; // a grid is taken whole, never half-merged (see loadModules)
-      out[moduleKey(key(type, sub), node)] = decorate(merged, node);
+      out[moduleKey(key(type, sub), node)] = withEngines(
+        decorate(merged, node),
+      );
     }
   };
 
@@ -801,12 +827,24 @@ export const projectModules = (dir: string): Record<string, LoadedModule> =>
 
 // The plugin refs a new module can `extends`: not an io module and not a node, since you extend a module and then instantiate.
 export function baseModuleRefs(
-  byRef: Record<string, { kind?: string; node?: string }>,
+  byRef: Record<
+    string,
+    { kind?: string; node?: string; engineOf?: string; category?: string }
+  >,
 ): string[] {
-  return Object.entries(byRef)
-    .filter(([, m]) => m?.kind === "plugin" && !m?.node)
-    .map(([ref]) => ref)
-    .sort();
+  return (
+    Object.entries(byRef)
+      // An engine is picked INSIDE its module (docs/engines.md), and a console half by the project (docs/console.md).
+      .filter(
+        ([, m]) =>
+          m?.kind === "plugin" &&
+          !m?.node &&
+          !m?.engineOf &&
+          m?.category !== CONSOLE_TYPE,
+      )
+      .map(([ref]) => ref)
+      .sort()
+  );
 }
 
 /** …for a project, loading its own modules plus everything it inherits. */

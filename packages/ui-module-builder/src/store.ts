@@ -33,6 +33,9 @@ export interface ModuleStore {
   /** The `widgets.js` beside the module, answered like `presets` — its lcdscreen widgets' drawing; docs/store.md. */
   widgetsScript?(path: string): Promise<ModulePresetsFile>;
 
+  /** The ENGINES beside a module file and the one it runs; absent is a host with none (packages/song/docs/engines.md). */
+  engines?(path: string): Promise<{ engines: string[]; engine?: string }>;
+
   /** What the code pane completes against. A host with nothing to offer returns empty lists. */
   hints(): Promise<Hints>;
 

@@ -253,6 +253,17 @@ const CSS = `
   border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
 .dgx-alt:hover { color:#e7e6ea; border-color:var(--sand); }
 .dgx-alt.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); cursor:default; }
+/* Console — the project's summing console, under the card's left corner on the nodes its halves follow. */
+.dgx-console { position:absolute; top:calc(100% + 5px); left:0; z-index:2; height:15px; max-width:140px;
+  display:flex; align-items:center; gap:3px; padding:0 6px 0 4px; border-radius:8px; pointer-events:auto;
+  font:9px/13px ui-monospace,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  color:var(--sand); background:var(--card); border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
+.dgx-console svg { width:10px; height:10px; flex-shrink:0; }
+/* Engine — which module this one runs as, above the card's LEFT corner, opposite the alternatives. */
+.dgx-engine { position:absolute; bottom:calc(100% + 11px); left:0; z-index:2; height:15px; max-width:110px;
+  padding:0 4px; border-radius:8px; font:9px/13px ui-monospace,monospace; cursor:pointer; color:var(--sand);
+  background:var(--card); border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
+.dgx-engine:hover { border-color:var(--sand); }
 .dgx-alt.add { padding:0; display:grid; place-items:center; }
 .dgx-alt.add svg { width:9px; height:9px; }
 /* The copy is on its way: dimmed and inert until the new badge arrives. */

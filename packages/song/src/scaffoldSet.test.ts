@@ -39,7 +39,7 @@ beforeEach(() => {
   // Every module a set NAMES, written INLINE — this repo ships none to copy, they live in an
   // account's library (packages/dsp/docs/catalogue.md). What is pinned here is that the scaffold
   // names a ref that RESOLVES; whether the module behind it is any good is that library's question.
-  // `eq3` was already inline for a narrower reason: the authored file extends `@engine/equaliser`,
+  // The EQ was already inline for a narrower reason: the authored file extends `@engine/equaliser`,
   // which resolves against a plugin scan this test has not got and would silently stub out.
   const library = (at: string, body: string, panel?: string): void => {
     const to = join(mediatek, "modules", ...at.split("/"));
@@ -60,9 +60,15 @@ beforeEach(() => {
     "audio/utility/fade",
     "plugin: { type: jsdsp, name: Fade }\nparams:\n  Mix: 1\n",
   );
+  // The filter and the EQ are modules with ENGINES; the desk names one of each (packages/song/docs/engines.md).
+  library("audio/filter/multimode", "label: Filter\nengine: biquad-2\n");
   library(
-    "audio/filter/sweep",
+    "audio/filter/multimode/engines/sweep",
     "plugin: { type: jsdsp, name: Sweep Filter }\nparams:\n  Sweep: 0\n",
+  );
+  library(
+    "audio/filter/multimode/engines/biquad-2",
+    "plugin: { type: internal, name: airwindows_biquad2 }\n",
   );
   library(
     "audio/utility/trim",
@@ -81,8 +87,13 @@ beforeEach(() => {
     "audio/io/turntable",
     "plugin:\n  type: internal\n  name: studio_turntable\nparams:\n  Rate: 0\n  Seek: 0\n  Gain: 1\n  Key: 0\n",
   );
+  library("audio/eq/eq", "label: EQ\nengine: parametric\n");
   library(
-    "audio/filter/eq3",
+    "audio/eq/eq/engines/parametric",
+    "plugin: { type: jsdsp, name: Parametric EQ }\n",
+  );
+  library(
+    "audio/eq/eq/engines/tracktion",
     "plugin: { type: internal, name: Equaliser }\n" +
       "params:\n" +
       "  Low-shelf gain: 0\n  Mid gain 1: 0\n  High-shelf gain: 0\n" +
@@ -252,11 +263,11 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     // One of each and not one per use: fetching a module once per node would be a bug.
     expect(mediatekRefs(dir)).toEqual([
-      "@st0/audio/filter/eq3",
-      "@st0/audio/filter/sweep",
+      "@st0/audio/eq/eq",
+      "@st0/audio/filter/multimode",
       // The SOURCE, under `io/` because it reads a file — docs/platter-node-plan.md.
       "@st0/audio/io/turntable",
-      // Under `time/`, for the same reason the EQ is under `filter/`: a delay is not a utility.
+      // Under `time/`, for the same reason the EQ is under `eq/`: a delay is not a utility.
       "@st0/audio/time/echo",
       "@st0/audio/utility/fade",
       // TWO gains and not one: what separates a trim from a fader is its RANGE — docs/setProject.md.

@@ -2160,6 +2160,12 @@ export default function App({
       ),
     [runCommand],
   );
+  /** A node's engine dropdown on the graph: run the module as that engine — packages/song/docs/engines.md. */
+  const runEngine = useCallback(
+    (module: string, name: string) =>
+      void runCommand(`node engine ${module} ${name}`),
+    [runCommand],
+  );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingNode | null>(null);
   // Where the node a CREATING line is about to make should be wired: an arrow or nowhere, plus the world point clicked (see onModulePick).
@@ -3405,6 +3411,7 @@ export default function App({
                       onRecorder={onRecorder}
                       onProjectField={onProjectField}
                       onAlternative={runAlternative}
+                      onEngine={runEngine}
                       engineWarnings={engineWarnings}
                       onAssetBrowse={browseAssets}
                       onTapEdit={editTap}
@@ -3578,6 +3585,7 @@ export default function App({
                         void runCommand(`node bypass ${mod}`)
                       }
                       onAlternative={runAlternative}
+                      onEngine={runEngine}
                       onAssetBrowse={browseAssets}
                       onTapEdit={editTap}
                       onWatchWaveform={watchWaveform}

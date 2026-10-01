@@ -34,6 +34,13 @@ project:
   sampleRate: 48000
   timeSignature: "4/4"
 
+  # A summing CONSOLE over the whole mix, Airwindows-style: its channel goes
+  # after every lane's strip, its buss first on the master, so the two halves
+  # always match. A system is a folder of a library's `console/`. Absent = the
+  # lanes sum as they are. `project console <system>` sets it, `none` removes
+  # it, and the settings panel's Project tab offers the list.
+  console: "@st0/console/console-6"
+
   # Nothing here points at the shared folders. A song inherits modules from
   # where they SIT: `../_modules` beside it in the workspace, and the machine's
   # médiathèque. Nearest first, so what is beside the song beats what is global.

@@ -12,6 +12,7 @@ import {
 } from "@studio/song-schema/builtinParams";
 import {
   CUE_NODE,
+  CONSOLE_TYPE,
   completionOrder,
   isEngineRef,
   MIX_NODE,
@@ -173,7 +174,13 @@ function projectHintsIn(dir: string): Hints {
     .sort();
   // Inherited modules a chain node may name: namespaced only, io in, `@engine` out — see docs/hints.md.
   const sharedRefs = Object.keys(moduleRefs)
-    .filter((k) => k.startsWith("@") && !isEngineRef(k))
+    .filter(
+      (k) =>
+        k.startsWith("@") &&
+        !isEngineRef(k) &&
+        !(moduleRefs[k] as any)?.engineOf &&
+        (moduleRefs[k] as any)?.category !== CONSOLE_TYPE,
+    )
     .sort();
 
   // Per-base params: what the plugin defines, the base's defaults, then its extenders' — see docs/hints.md.

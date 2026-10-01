@@ -49,6 +49,8 @@ describe("derived module fields", () => {
       "strudel",
       // FROZEN at this module: the render standing in for everything upstream of it — see docs/freeze.md.
       "frozen",
+      "engine",
+      "engines",
       // …and the module's other attribute SETS, last because they are ABOUT the fields above (docs/fields.md).
       "alternatives",
       "alternative",

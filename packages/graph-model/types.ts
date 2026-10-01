@@ -120,6 +120,9 @@ export interface WebChainStep {
   /** The module's other attribute SETS, sent only when there is a CHOICE — packages/song/docs/alternatives.md. */
   alternatives?: string[];
   alternative?: string;
+  /** The modules it can run AS, and which it does, sent only when there is a CHOICE — packages/song/docs/engines.md. */
+  engines?: string[];
+  engine?: string;
   // io "in" only: whether the interface signal is audible. A module FIELD, not a param — see docs/graph.md.
   monitor?: "off" | "auto" | "on";
   /** io "in" only: the channels this input listens on, 1-based; only the NUMERIC form travels — docs/graph.md. */
@@ -266,6 +269,8 @@ export interface WebGraph {
     string,
     { alternatives: string[]; alternative: string }
   >;
+  /** The project's summing CONSOLE and the nodes its halves follow — each encoded lane's strip, and `MIX` — packages/song/docs/console.md. */
+  console?: { system: string; label: string; nodes: string[] };
   /** What is BAKED, by node name: `"at"` the point, `"inside"` what it contains — packages/song/docs/freeze.md. */
   frozen?: Record<string, "at" | "inside">;
   /**

@@ -42,7 +42,13 @@ import {
 } from "@studio/song/assemblies";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
+import {
+  CONSOLE_ID,
+  type ConsoleSystem,
+  consoleSystems,
+} from "@studio/song/console";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
+import { enginesBeside } from "@studio/song/engines";
 import { loadGraph } from "@studio/song/graph";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
@@ -158,11 +164,13 @@ import {
   type ProjectApp,
   projectApp,
 } from "@studio/web-protocol/projects";
+import { parse as parseYaml } from "yaml";
 import { guard } from "./background.ts";
 import {
   buildGraphDoc,
   type ClipExtents,
   clipExtentsOf,
+  consoleOf,
   type TrackMixers,
   trackMixersOf,
 } from "./graphDoc.ts";
@@ -1715,6 +1723,34 @@ export class Workspace {
     );
   }
 
+  /** The console systems the libraries hold, and the one this project runs — packages/song/docs/console.md. */
+  consoles(): { systems: ConsoleSystem[]; current?: string } {
+    return this.consolesIn(this.requireActive());
+  }
+  private consolesIn(dir: string): {
+    systems: ConsoleSystem[];
+    current?: string;
+  } {
+    let current: string | undefined;
+    try {
+      const root = parseYaml(
+        readFileSync(join(dir, "project.yaml"), "utf8"),
+      ) as {
+        project?: { console?: unknown };
+      };
+      if (typeof root?.project?.console === "string")
+        current = root.project.console;
+    } catch {
+      current = undefined; // no project.yaml, or one that will not read: the compile says so, not this
+    }
+    return { systems: consoleSystems(loadModuleRefs(dir)), current };
+  }
+
+  /** The engines a module file's folder holds, and the one it runs — packages/song/docs/engines.md. */
+  moduleEngines(rel: string): { engines: string[]; engine?: string } {
+    return enginesBeside(this.safePath(rel));
+  }
+
   /** Give an ENGINE module a folder in this project and repoint the chains — see moduleFork.ts. */
   materialiseModule(ref: string): ForkedModule {
     const dir = this.requireActive();
@@ -2195,6 +2231,22 @@ export class Workspace {
     }
   }
 
+  /** …and where the console's halves went, off the same compile — packages/song/docs/console.md. */
+  private consoleDrawn(dir: string): WebGraph["console"] {
+    try {
+      const doc = this.cachedProjectDoc(dir);
+      const named = doc.masterPlugins[0]?.id === `${CONSOLE_ID}master`;
+      if (!named) return undefined;
+      const { systems, current } = this.consolesIn(dir);
+      return consoleOf(
+        doc,
+        systems.find((s) => s.ref === current),
+      );
+    } catch {
+      return undefined; // a compile that fails draws no console, and says so where it fails
+    }
+  }
+
   // `at` builds the graph of a folder OTHER than the open project — a library chain, for the builder.
   graphDoc(at?: string): WebGraph {
     // TWO scopes for the whole derivation, one level apart — see docs/workspace.md.
@@ -2208,18 +2260,29 @@ export class Workspace {
     const dir = at ?? this.requireActive();
     // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
     if (dir !== this.activeProject)
-      return buildGraphDoc(dir, this.clipExtents(dir), this.trackMixers(dir));
+      return this.withConsoleDrawn(
+        dir,
+        buildGraphDoc(dir, this.clipExtents(dir), this.trackMixers(dir)),
+      );
     const { rev } = this.revision();
     const hit = this.graphCache;
     if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
-    const graph = buildGraphDoc(
+    const graph = this.withConsoleDrawn(
       dir,
-      this.clipExtents(dir),
-      this.trackMixers(dir),
-      this.autoFreezes(),
+      buildGraphDoc(
+        dir,
+        this.clipExtents(dir),
+        this.trackMixers(dir),
+        this.autoFreezes(),
+      ),
     );
     this.graphCache = { dir, rev, graph };
     return graph;
+  }
+
+  private withConsoleDrawn(dir: string, graph: WebGraph): WebGraph {
+    const drawn = this.consoleDrawn(dir);
+    return drawn ? { ...graph, console: drawn } : graph;
   }
 
   projectInfo(): ProjectInfo {

@@ -39,6 +39,9 @@ export const isBuiltinOutput = (id: string): boolean =>
 /** The owner a master chain's plugins are filed under while the document is built — a name, not a flag, see docs/moduleTypes.md. */
 export const MASTER_OWNER = "@master";
 
+/** The type folder a CONSOLE's halves live in — placed by the compile, never offered as a module (packages/song/docs/console.md). */
+export const CONSOLE_TYPE = "console";
+
 /** The type folder a LANE belongs to — one category, and NOT one signal, see docs/moduleTypes.md. */
 export const TRACK_CATEGORY = "tracks";
 
@@ -52,6 +55,7 @@ export const MODULE_EMITS: Record<
   audio: "audio",
   transformers: "midi",
   midi: "midi", // the legacy alias of transformers
+  console: "audio",
   video_effects: "video",
   video_transitions: "video",
   shaders: "video", // a shader takes picture and gives picture; its audio input is a side input
@@ -192,6 +196,12 @@ export const MODULE_TYPES: Record<
     kind: "plugin",
     inputs: [{ name: "midi", type: "midi" }],
     outputs: [{ name: "out", type: "midi" }],
+  },
+  // One HALF of a summing console: placed by the compile from `project.console`, never wired by hand (packages/song/docs/console.md).
+  console: {
+    kind: "plugin",
+    inputs: [{ name: "in", type: "audio" }],
+    outputs: [{ name: "out", type: "audio" }],
   },
   // A LANE: TWO outputs since it is not typed by what it carries, and NO input deliberately (docs/moduleTypes.md).
   tracks: {

@@ -37,6 +37,8 @@ export const UI_EXACT: readonly string[] = [
   // …and the settings panel's tabs.
   "settings editor",
   "settings io",
+  // What the open song says about its whole mix — its console (packages/song/docs/console.md).
+  "settings project",
   // Who you are, the engine, the workspace, the language — one tab of their own.
   "settings account",
   // The command catalogue as this person arranges it — a full PAGE, a catalogue not being orderable in a 24rem column.

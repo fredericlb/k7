@@ -896,6 +896,18 @@
   surfaces: [cli]
   args: [{ name: db, type: number, hint: "dB — 0 is unity, +12 the top of the fader" }]
 
+# The summing CONSOLE over the whole mix: a system of a library's `console/`, whose CHANNEL the compile
+# puts after every lane's strip and whose BUSS it puts first on the master. One setting and not two
+# modules, because the halves only work as a matched pair. See @studio/song's docs/console.md.
+- command: "project console"
+  sid: project.console
+  readable:
+    en: "Choose the mix's console"
+    fr: "Choisir la console du mix"
+  help: "run the whole mix through a summing console (e.g. project console @st0/console/console-6), or none; with no name, list them"
+  surfaces: [cli]
+  args: [{ name: system, optional: true, hint: "@<library>/console/<system>, or none" }]
+
 # --- markers (timeline cue points) ---
 # A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
 # the name is the rest of the line, so it may contain spaces. Stored in project.cue's
@@ -1618,6 +1630,22 @@
     [
       { name: node, complete: nodes },
       { name: name, optional: true, complete: moduleAlternatives },
+    ]
+# A module with ENGINES runs as one of them — a compressor as Tracktion's or as an Airwindows one.
+# Not an alternative: the MODULE declares its engines, and the node picks. The knobs are kept per
+# engine, so switching back finds them as they were. See packages/song/docs/engines.md.
+- command: "node engine"
+  sid: node.engine
+  readable:
+    en: "Switch a node to another engine"
+    fr: "Basculer un nœud sur un autre moteur"
+  help: "run a node as another of its module's engines (e.g. node engine vox-comp vari-mu); with no name, list them"
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: name, optional: true, complete: moduleEngines },
     ]
 # --- a rack node's TAPS: the sounds of THIS kit, written into the node, never the module ---
 # A rack module is the sampler; each node of it is a kit, so a tap — a note and the library sample it

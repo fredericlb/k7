@@ -5,6 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
@@ -50,8 +51,11 @@ export function sharedModuleRef(
   for (const { root, ns } of sharedRoots(dir)) {
     if (!abs.startsWith(root + sep)) continue;
     const segs = toPosix(relative(root, abs)).split("/");
+    // An ENGINE's file is its module's path plus `engines/<name>/` — docs/engines.md.
+    const engine =
+      segs.length >= 5 && segs[segs.length - 3] === ENGINES_DIR ? 2 : 0;
     // [type, ...subs, filename] — at most one category folder between the type and the module.
-    if (segs.length < 3 || segs.length > 4) return null;
+    if (segs.length - engine < 3 || segs.length - engine > 4) return null;
     const [type, ...rest] = segs;
     if (!(type in MODULE_TYPES)) return null;
     const folder = dirname(abs);
