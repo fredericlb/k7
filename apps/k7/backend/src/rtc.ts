@@ -90,7 +90,10 @@ function send(ws: WebSocket | undefined, msg: unknown): void {
 
 // Signaling onto the shared HTTP server, taking upgrades on the /rtc path alone.
 export function attachRtc(server: Server): void {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: MAX_MESSAGE_BYTES,
+  });
 
   // A socket that did not answer the last ping is gone; `close` then runs its cleanup as for any other.
   const alive = new WeakMap<WebSocket, boolean>();

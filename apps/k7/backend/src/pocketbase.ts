@@ -78,7 +78,8 @@ export function createPocketbase({
   let authToken: string | null = null;
   let authExp = 0;
 
-  const signal = () => (timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {});
+  const signal = () =>
+    timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {};
 
   // Superuser auth token, re-fetched well before it would expire — and shared, so a burst of requests signs in once.
   let authing: Promise<string> | null = null;
@@ -169,7 +170,11 @@ export function createPocketbase({
       const out: PbRecord<T>[] = [];
       for (let i = 0; i < values.length; i += IN_CHUNK)
         out.push(
-          ...(await listRecords<T>(table, { ...filter, [key]: values.slice(i, i + IN_CHUNK) }, opts)),
+          ...(await listRecords<T>(
+            table,
+            { ...filter, [key]: values.slice(i, i + IN_CHUNK) },
+            opts,
+          )),
         );
       return out;
     }

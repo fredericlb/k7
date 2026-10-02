@@ -22,25 +22,41 @@ import { libraryFamilyRoot } from "../src/sharedFolders";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
-const library = args[args.indexOf("--library") + 1] && args.includes("--library")
-  ? args[args.indexOf("--library") + 1]
-  : "st0";
-const workspace = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--library");
+const library =
+  args[args.indexOf("--library") + 1] && args.includes("--library")
+    ? args[args.indexOf("--library") + 1]
+    : "st0";
+const workspace = args.find(
+  (a, i) => !a.startsWith("--") && args[i - 1] !== "--library",
+);
 if (!workspace) {
-  console.error("usage: migrateRacks <workspace> [--library st0] [--write]   (dry without --write)");
+  console.error(
+    "usage: migrateRacks <workspace> [--library st0] [--write]   (dry without --write)",
+  );
   process.exit(2);
 }
 const samples = libraryFamilyRoot(library, "samples");
 if (!samples) {
-  console.error(`library '${library}' has no samples/ folder under $STUDIO_HOME — create it first`);
+  console.error(
+    `library '${library}' has no samples/ folder under $STUDIO_HOME — create it first`,
+  );
   process.exit(2);
 }
 
 const OPTS = { version: "1.2" as const };
-type Sym = { note?: number; clip?: string; from?: number; to?: number; sample?: string };
+type Sym = {
+  note?: number;
+  clip?: string;
+  from?: number;
+  to?: number;
+  sample?: string;
+};
 
 /** Every `module.yaml` under `dir`, with the ref a node names it by. */
-function modulesIn(dir: string, prefix: string): { file: string; ref: string }[] {
+function modulesIn(
+  dir: string,
+  prefix: string,
+): { file: string; ref: string }[] {
   const out: { file: string; ref: string }[] = [];
   const walk = (d: string) => {
     if (!existsSync(d)) return;
@@ -49,7 +65,10 @@ function modulesIn(dir: string, prefix: string): { file: string; ref: string }[]
       const p = join(d, e.name);
       if (e.isDirectory()) walk(p);
       else if (e.name === "module.yaml")
-        out.push({ file: p, ref: `${prefix}/${relative(dir, join(p, "..")).split(sep).join("/")}` });
+        out.push({
+          file: p,
+          ref: `${prefix}/${relative(dir, join(p, "..")).split(sep).join("/")}`,
+        });
     }
   };
   walk(dir);
@@ -58,13 +77,22 @@ function modulesIn(dir: string, prefix: string): { file: string; ref: string }[]
 
 /** The projects in the workspace: every folder holding a project.yaml. */
 const projects = readdirSync(workspace, { withFileTypes: true })
-  .filter((e) => e.isDirectory() && !e.name.startsWith("_") && existsSync(join(workspace, e.name, "project.yaml")))
+  .filter(
+    (e) =>
+      e.isDirectory() &&
+      !e.name.startsWith("_") &&
+      existsSync(join(workspace, e.name, "project.yaml")),
+  )
   .map((e) => join(workspace, e.name));
 
 /** Where a rack's `clip`/`source` file is: `sources/`, then `assets/`, then beside module.yaml. */
 function audioOf(folder: string, name: string): string | null {
   if (isAbsolute(name)) return existsSync(name) ? name : null;
-  for (const p of [join(folder, "sources", name), join(folder, "assets", name), join(folder, name)])
+  for (const p of [
+    join(folder, "sources", name),
+    join(folder, "assets", name),
+    join(folder, name),
+  ])
     if (existsSync(p)) return p;
   return null;
 }
@@ -79,7 +107,8 @@ function cutWav(src: string, from: number, to: number, out: string): void {
     const id = b.toString("ascii", at, at + 4);
     const size = b.readUInt32LE(at + 4);
     if (id === "fmt ") fmt = b.subarray(at + 8, at + 8 + size);
-    if (id === "data") data = { start: at + 8, size: Math.min(size, b.length - at - 8) };
+    if (id === "data")
+      data = { start: at + 8, size: Math.min(size, b.length - at - 8) };
     at += 8 + size + (size & 1);
   }
   if (!fmt || !data) throw new Error(`${src}: not a wav this can cut`);
@@ -105,7 +134,12 @@ function cutWav(src: string, from: number, to: number, out: string): void {
 /** A folder under the library's samples/ no other kit has taken. */
 function shelfFor(name: string): string {
   let dir = name;
-  for (let i = 2; existsSync(join(samples as string, dir)) && readdirSync(join(samples as string, dir)).length; i++)
+  for (
+    let i = 2;
+    existsSync(join(samples as string, dir)) &&
+    readdirSync(join(samples as string, dir)).length;
+    i++
+  )
     dir = `${name}-${i}`;
   return dir;
 }
@@ -114,19 +148,31 @@ const report: string[] = [];
 const consumed = new Set<string>();
 
 const candidates = [
-  ...modulesIn(join(workspace, "_modules"), "@workspace").map((m) => ({ ...m, scope: null as string | null })),
-  ...projects.flatMap((p) => modulesIn(join(p, "modules"), "@project").map((m) => ({ ...m, scope: p }))),
+  ...modulesIn(join(workspace, "_modules"), "@workspace").map((m) => ({
+    ...m,
+    scope: null as string | null,
+  })),
+  ...projects.flatMap((p) =>
+    modulesIn(join(p, "modules"), "@project").map((m) => ({ ...m, scope: p })),
+  ),
 ];
 
 for (const mod of candidates) {
   const doc = parseDocument(readFileSync(mod.file, "utf8"), OPTS);
-  const raw = (doc.toJS() ?? {}) as { rack?: { rack_type?: string; source?: string; symbols?: Record<string, Sym> } };
+  const raw = (doc.toJS() ?? {}) as {
+    rack?: {
+      rack_type?: string;
+      source?: string;
+      symbols?: Record<string, Sym>;
+    };
+  };
   const syms = raw.rack?.symbols;
   if (!syms || !Object.keys(syms).length) continue;
   const folder = join(mod.file, "..");
   const shelf = shelfFor(basename(folder));
   const slice = raw.rack?.rack_type === "slice";
-  const source = slice && raw.rack?.source ? audioOf(folder, raw.rack.source) : null;
+  const source =
+    slice && raw.rack?.source ? audioOf(folder, raw.rack.source) : null;
 
   // The kit as taps: each sound's note, and the sample it becomes in the library.
   const kit: Record<string, { note: number; sample?: string }> = {};
@@ -138,7 +184,9 @@ for (const mod of candidates) {
     }
     const from = slice ? source : s.clip ? audioOf(folder, s.clip) : null;
     if (!from) {
-      report.push(`  ! ${mod.ref} ${sym}: no audio found — kept as a tap with no sample`);
+      report.push(
+        `  ! ${mod.ref} ${sym}: no audio found — kept as a tap with no sample`,
+      );
       kit[sym] = { note };
       continue;
     }
@@ -160,22 +208,38 @@ for (const mod of candidates) {
     return readdirSync(nodes)
       .filter((f) => f.endsWith(".yaml"))
       .map((f) => join(nodes, f))
-      .filter((f) => (parseDocument(readFileSync(f, "utf8"), OPTS).toJS() as { extends?: string } | null)?.extends === mod.ref);
+      .filter(
+        (f) =>
+          (
+            parseDocument(readFileSync(f, "utf8"), OPTS).toJS() as {
+              extends?: string;
+            } | null
+          )?.extends === mod.ref,
+      );
   });
 
-  const writeKit = (target: ReturnType<typeof parseDocument>, keepOwn: boolean) => {
-    const own = ((target.toJS() ?? {}) as { rack?: { symbols?: Record<string, Sym> } }).rack?.symbols ?? {};
+  const writeKit = (
+    target: ReturnType<typeof parseDocument>,
+    keepOwn: boolean,
+  ) => {
+    const own =
+      ((target.toJS() ?? {}) as { rack?: { symbols?: Record<string, Sym> } })
+        .rack?.symbols ?? {};
     // A note the NODE already overrode stays the node's: that was somebody's choice for this kit.
     const symbols = Object.fromEntries(
       Object.entries(kit).map(([sym, t]) => [
         sym,
-        { ...t, ...(keepOwn && own[sym]?.note != null ? { note: own[sym].note } : {}) },
+        {
+          ...t,
+          ...(keepOwn && own[sym]?.note != null ? { note: own[sym].note } : {}),
+        },
       ]),
     );
     const rack = target.createNode({ symbols });
     // One tap per line, `BD: { note: 36, sample: … }`: a kit is read down, as a drum map is.
     const map = rack.get("symbols");
-    if (isMap(map)) for (const it of map.items) if (isMap(it.value)) it.value.flow = true;
+    if (isMap(map))
+      for (const it of map.items) if (isMap(it.value)) it.value.flow = true;
     target.setIn(["rack"], rack);
   };
 
@@ -187,10 +251,14 @@ for (const mod of candidates) {
     }
     // The module is the sampler now: it keeps `type: rack`, and the kit is the nodes'.
     doc.deleteIn(["rack"]);
-    report.push(`${mod.ref}: ${Object.keys(kit).length} taps → ${users.map((u) => relative(workspace, u)).join(", ")} · samples in @${library}/${shelf}/`);
+    report.push(
+      `${mod.ref}: ${Object.keys(kit).length} taps → ${users.map((u) => relative(workspace, u)).join(", ")} · samples in @${library}/${shelf}/`,
+    );
   } else {
     writeKit(doc, false);
-    report.push(`${mod.ref}: no node uses it — its ${Object.keys(kit).length} taps kept on the module, samples in @${library}/${shelf}/`);
+    report.push(
+      `${mod.ref}: no node uses it — its ${Object.keys(kit).length} taps kept on the module, samples in @${library}/${shelf}/`,
+    );
   }
   if (write) writeFileSync(mod.file, doc.toString({ lineWidth: 0 }));
 }
@@ -202,6 +270,14 @@ if (write)
     rmSync(`${f}.cache`, { force: true });
   }
 
-console.log(report.length ? report.join("\n") : "no rack with sounds of its own — nothing to do");
-console.log(write ? `\n${consumed.size} audio file(s) moved into the library` : "\n(dry run — nothing written; add --write)");
+console.log(
+  report.length
+    ? report.join("\n")
+    : "no rack with sounds of its own — nothing to do",
+);
+console.log(
+  write
+    ? `\n${consumed.size} audio file(s) moved into the library`
+    : "\n(dry run — nothing written; add --write)",
+);
 if (!statSync(samples).isDirectory()) process.exit(1);

@@ -40,6 +40,7 @@ export function throughPanicRule(
 ): { send: Verb; lastStopAt: number | null } {
   if (verb === "stop")
     return { send: stopOrPanic(now, lastStopAt), lastStopAt: now };
-  if (verb === "play" || verb === "toggle") return { send: verb, lastStopAt: null };
+  if (verb === "play" || verb === "toggle")
+    return { send: verb, lastStopAt: null };
   return { send: verb, lastStopAt };
 }

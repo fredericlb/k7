@@ -16,7 +16,11 @@
   const sample = () => {
     queued = false;
     const layers = [];
-    for (let el = document.elementFromPoint(innerWidth / 2, 0); el; el = el.parentElement)
+    for (
+      let el = document.elementFromPoint(innerWidth / 2, 0);
+      el;
+      el = el.parentElement
+    )
       layers.push(getComputedStyle(el).backgroundColor);
     // A page that paints nothing shows the WebView's white.
     g.fillStyle = "#fff";
@@ -39,9 +43,15 @@
     requestAnimationFrame(sample);
   };
 
-  new MutationObserver(queue).observe(document.documentElement, { childList: true, subtree: true });
-  new MutationObserver(queue).observe(document.documentElement, { attributes: true });
-  if (document.body) new MutationObserver(queue).observe(document.body, { attributes: true });
+  new MutationObserver(queue).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+  new MutationObserver(queue).observe(document.documentElement, {
+    attributes: true,
+  });
+  if (document.body)
+    new MutationObserver(queue).observe(document.body, { attributes: true });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", queue);
   addEventListener("resize", queue);
   queue();

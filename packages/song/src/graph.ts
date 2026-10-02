@@ -12,10 +12,10 @@ import {
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
   CAMERA_IO,
-  MIDI_IN_IO,
   curveIdFromRef,
   isBuiltinOutput,
   isIoSource,
+  MIDI_IN_IO,
   MIX_NODE,
   type ModuleKind,
   portRef,

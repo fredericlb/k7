@@ -90,7 +90,11 @@ describe("listDirectory", () => {
   });
 
   it("stops when a server answers the same full page again", async () => {
-    const full = Array.from({ length: 100 }, (_, i) => ({ id: `${i}`, fileName: `f${i}`, isFolder: "N" }));
+    const full = Array.from({ length: 100 }, (_, i) => ({
+      id: `${i}`,
+      fileName: `f${i}`,
+      isFolder: "N",
+    }));
     stubFetch([
       { success: true, userFileVOList: full },
       { success: true, userFileVOList: full },

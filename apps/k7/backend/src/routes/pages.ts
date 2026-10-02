@@ -63,11 +63,23 @@ pagesRouter.patch(
   wrap(async (req, res) => {
     const { nametag, releaseIds, versionIds } = req.body;
     const taken = Symbol("taken");
-    const page = await serialized(`nametag:${nametag ?? req.params.pid}`, async () => {
-      if (nametag !== undefined && (await store.nametagExists(nametag, req.params.pid))) return taken;
-      return store.updatePage(req.params.pid, { nametag, releaseIds, versionIds });
-    });
-    if (page === taken) return res.status(409).json({ error: "nametag already taken" });
+    const page = await serialized(
+      `nametag:${nametag ?? req.params.pid}`,
+      async () => {
+        if (
+          nametag !== undefined &&
+          (await store.nametagExists(nametag, req.params.pid))
+        )
+          return taken;
+        return store.updatePage(req.params.pid, {
+          nametag,
+          releaseIds,
+          versionIds,
+        });
+      },
+    );
+    if (page === taken)
+      return res.status(409).json({ error: "nametag already taken" });
     if (!page) return res.status(404).json({ error: "not found" });
     res.json(page);
   }),

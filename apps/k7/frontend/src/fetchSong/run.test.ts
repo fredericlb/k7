@@ -204,7 +204,12 @@ describe("a page that goes", () => {
   it("stops the poll at once rather than PATCHing for as long as the hunt runs", async () => {
     const leaving = new AbortController();
     const hunts = vi.fn(async () => [
-      hunt({ id: "h1", status: "searching", artist: "Nina Simone", title: "Sinnerman" }),
+      hunt({
+        id: "h1",
+        status: "searching",
+        artist: "Nina Simone",
+        title: "Sinnerman",
+      }),
     ]);
     const pl8 = fakePl8({ listSongs: async () => [], hunts });
     const run = fetchSong(

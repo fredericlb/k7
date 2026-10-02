@@ -113,7 +113,10 @@ export async function removeTree(path: string): Promise<void> {
 }
 
 /** Overwrite an EXISTING recording in place: an extended session is still one session. */
-export async function replace(path: string, bytes: Uint8Array | Blob): Promise<void> {
+export async function replace(
+  path: string,
+  bytes: Uint8Array | Blob,
+): Promise<void> {
   await remoteWriter(cfg()).put(path, bytes);
 }
 
@@ -140,7 +143,10 @@ export async function downloadStreamable(
   const res = await fetch(
     `${base.replace(/\/+$/, "")}/api/mediatek/stream?path=${encodeURIComponent(path)}`,
     // Bounded, body included: a stalled pl8 must fail the request that waits on it, not hold it for ever.
-    { headers: token ? { authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(10 * 60_000) },
+    {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(10 * 60_000),
+    },
   );
   if (!res.ok || !res.body)
     throw new Error(`mediatek stream ${path}: ${res.status} ${res.statusText}`);
@@ -174,7 +180,10 @@ export async function getFileEnvelope(path: string): Promise<RemoteEnvelope> {
   const res = await fetch(
     `${base.replace(/\/+$/, "")}/api/mediatek/envelope?path=${encodeURIComponent(path)}`,
     // pl8 may measure the file first, hours of audio: minutes, not for ever.
-    { headers: token ? { authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(5 * 60_000) },
+    {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(5 * 60_000),
+    },
   );
   if (!res.ok)
     throw new Error(

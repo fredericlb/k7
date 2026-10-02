@@ -61,7 +61,14 @@ export const PortSchema = z
 export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
 
 /** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */
-export const IO_KINDS = ["out", "in", "video_out", "file", "camera", "midi"] as const;
+export const IO_KINDS = [
+  "out",
+  "in",
+  "video_out",
+  "file",
+  "camera",
+  "midi",
+] as const;
 
 export const WIDGET_TYPES = [
   "label",

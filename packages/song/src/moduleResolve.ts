@@ -5,16 +5,15 @@
 // THROUGH — the brand on ResolvedModule means a consumer cannot take a raw module by
 // accident. See docs/moduleResolve.md.
 
+import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { FILE_PARAMS } from "@studio/song-schema/moduleTypes";
 import {
   type ControllerFile,
   ControllerFileSchema,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { applyAlternative, swappedModule } from "./alternatives";
-import { asEngine } from "./engines";
-import { resolveFileParamIn } from "./libraryFiles";
 import { basePresetIn } from "./basePreset";
+import { asEngine } from "./engines";
 import type {
   InstrumentType,
   ModuleUI,
@@ -22,6 +21,7 @@ import type {
   RackSound,
   Widget,
 } from "./graph";
+import { resolveFileParamIn } from "./libraryFiles";
 import type { LoadedModule } from "./rawDoc";
 
 /** A module with its ancestry folded in; the brand is phantom and free — see docs/moduleResolve.md. */
@@ -247,12 +247,21 @@ export function resolvedUI(
 ): ModuleUI | undefined {
   const ui = m?.ui as ModuleUI | undefined;
   if (!ui) return undefined;
-  const shown = (ws: Record<string, Widget> | undefined): Record<string, Widget> =>
+  const shown = (
+    ws: Record<string, Widget> | undefined,
+  ): Record<string, Widget> =>
     Object.fromEntries(Object.entries(ws ?? {}).filter(([, w]) => !w?.hidden));
-  const out: ModuleUI = { cols: ui.cols ?? 0, rows: ui.rows ?? 0, widgets: shown(ui.widgets) };
+  const out: ModuleUI = {
+    cols: ui.cols ?? 0,
+    rows: ui.rows ?? 0,
+    widgets: shown(ui.widgets),
+  };
   // The tabs keep their order, each with its own hidden widgets dropped the same way.
   if (Array.isArray(ui.tabs) && ui.tabs.length)
-    out.tabs = ui.tabs.map((t) => ({ name: t.name, widgets: shown(t.widgets) }));
+    out.tabs = ui.tabs.map((t) => ({
+      name: t.name,
+      widgets: shown(t.widgets),
+    }));
   if (typeof ui.script === "string" && ui.script) out.script = ui.script;
   return out;
 }

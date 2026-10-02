@@ -29,7 +29,9 @@ const raw = defineEnv(
 
 // RTC tickets, API tokens and the Supernote seal all derive from this secret: a deployment that missed it would sign with a value anyone can read here.
 if (process.env.NODE_ENV === "production" && raw.SESSION_SECRET === DEV_SECRET)
-  throw new Error("SESSION_SECRET is unset — refusing to sign with the development secret in production");
+  throw new Error(
+    "SESSION_SECRET is unset — refusing to sign with the development secret in production",
+  );
 
 export const env = {
   port: raw.PORT,

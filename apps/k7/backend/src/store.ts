@@ -23,8 +23,8 @@ import type {
 import { sheetExt } from "@k7/shared/sheetKind";
 import { segment, sidecarFor } from "@studio/mediatek/song";
 import { cachedFile, once, sweepRowCaches, trimDiskCache } from "./cache.ts";
-import { serialized } from "./lock.ts";
 import { env } from "./env.ts";
+import { serialized } from "./lock.ts";
 import * as mediatek from "./mediatek.ts";
 import * as db from "./pocketbase.ts";
 import { envelopeOf } from "./songEnvelope.ts";
@@ -133,10 +133,22 @@ export async function getOwner(uid) {
 // --- Sessions ---------------------------------------------------------------
 
 // What a session CARD shows — never the envelope, which runs past 100 KB a session.
-const SESSION_LIST_FIELDS = ["Uid", "OwnerId", "CreatedAt", "Duration", "RecordingPath", "RecordingMime", "Gain"];
+const SESSION_LIST_FIELDS = [
+  "Uid",
+  "OwnerId",
+  "CreatedAt",
+  "Duration",
+  "RecordingPath",
+  "RecordingMime",
+  "Gain",
+];
 
 export async function listSessions(ownerId) {
-  const recs = await db.listRecords("Sessions", { OwnerId: [ownerId] }, { fields: SESSION_LIST_FIELDS });
+  const recs = await db.listRecords(
+    "Sessions",
+    { OwnerId: [ownerId] },
+    { fields: SESSION_LIST_FIELDS },
+  );
   const uids = recs.map((r) => r.fields.Uid);
   const comments = uids.length
     ? await db.listRecords("Comments", { SessionUid: uids })
@@ -302,11 +314,27 @@ async function appendRecordingUnlocked(
   if (!rec) return null;
   // Nothing to append TO: the path decides, not the flag beside it.
   if (!rec.fields.RecordingPath)
-    return saveRecordingUnlocked(uid, file, mime, ext, duration, envelope, gain);
+    return saveRecordingUnlocked(
+      uid,
+      file,
+      mime,
+      ext,
+      duration,
+      envelope,
+      gain,
+    );
 
   const existing = await ensureRecordingCached(uid);
   if (!existing)
-    return saveRecordingUnlocked(uid, file, mime, ext, duration, envelope, gain);
+    return saveRecordingUnlocked(
+      uid,
+      file,
+      mime,
+      ext,
+      duration,
+      envelope,
+      gain,
+    );
 
   // WebM/Opus can't be byte-concatenated — re-mux the two takes into one file, on disk from end to end.
   let combined: string;
@@ -333,7 +361,11 @@ async function appendRecordingUnlocked(
 
   let recordingPath: string;
   try {
-    recordingPath = await storeBytes(rec, await fs.openAsBlob(combined), "webm");
+    recordingPath = await storeBytes(
+      rec,
+      await fs.openAsBlob(combined),
+      "webm",
+    );
   } catch (err) {
     safeUnlink(combined);
     throw err;
@@ -366,7 +398,9 @@ export async function ensureRecordingCached(uid) {
   const mime = rec.fields.RecordingMime || "audio/webm";
   const filePath = path.join(CACHE_DIR, `${uid}.${extFor(mime)}`);
   if (!cachedFile(filePath))
-    await once(fetching, filePath, () => mediatek.download(String(rec.fields.RecordingPath), filePath));
+    await once(fetching, filePath, () =>
+      mediatek.download(String(rec.fields.RecordingPath), filePath),
+    );
   return { filePath, mime };
 }
 
@@ -540,7 +574,11 @@ function publicMoment(rec, createdAtByUid) {
 }
 
 async function ownerSessionCreatedAt(ownerId) {
-  const sessions = await db.listRecords("Sessions", { OwnerId: [ownerId] }, { fields: ["Uid", "CreatedAt"] });
+  const sessions = await db.listRecords(
+    "Sessions",
+    { OwnerId: [ownerId] },
+    { fields: ["Uid", "CreatedAt"] },
+  );
   return new Map(sessions.map((s) => [s.fields.Uid, s.fields.CreatedAt || ""]));
 }
 
@@ -607,7 +645,9 @@ export async function ensureMomentClipCached(ownerId, momentId) {
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
   if (cachedFile(filePath)) return { filePath, mime: "audio/webm" };
-  await once(fetching, filePath, () => mediatek.download(String(rec.fields.ClipPath), filePath));
+  await once(fetching, filePath, () =>
+    mediatek.download(String(rec.fields.ClipPath), filePath),
+  );
   return { filePath, mime: "audio/webm" };
 }
 
@@ -744,7 +784,9 @@ export async function ensureClipCached(sessionUid, momentId) {
   if (!rec?.fields.ClipPath) return null;
   const filePath = clipCachePath(rec.id);
   if (cachedFile(filePath)) return { filePath, mime: "audio/webm" };
-  await once(fetching, filePath, () => mediatek.download(String(rec.fields.ClipPath), filePath));
+  await once(fetching, filePath, () =>
+    mediatek.download(String(rec.fields.ClipPath), filePath),
+  );
   return { filePath, mime: "audio/webm" };
 }
 
@@ -1214,7 +1256,9 @@ export async function deleteVersion(releaseUid, versionUid) {
 
 /** A version's shape, measured on first ask and kept: decoding is seconds, drawing must not be — and asked ONCE however many visitors arrive together. */
 export function versionEnvelope(releaseUid, versionUid) {
-  return once(measuring, versionUid, () => measureVersionEnvelope(releaseUid, versionUid));
+  return once(measuring, versionUid, () =>
+    measureVersionEnvelope(releaseUid, versionUid),
+  );
 }
 
 async function measureVersionEnvelope(releaseUid, versionUid) {
@@ -1250,7 +1294,9 @@ export async function ensureVersionAudioCached(releaseUid, versionUid) {
   );
   const filePath = versionCachePath(versionUid);
   if (!cachedFile(filePath))
-    await once(fetching, filePath, () => mediatek.downloadStreamable(remote, filePath));
+    await once(fetching, filePath, () =>
+      mediatek.downloadStreamable(remote, filePath),
+    );
   return { filePath, mime };
 }
 
@@ -1314,7 +1360,9 @@ export async function ensureVersionTrackCached(
   const mime = mediatek.streamedMime(entry.path, entry.mime);
   const filePath = versionTrackCachePath(versionUid, { ...entry, mime });
   if (!cachedFile(filePath))
-    await once(fetching, filePath, () => mediatek.downloadStreamable(entry.path, filePath));
+    await once(fetching, filePath, () =>
+      mediatek.downloadStreamable(entry.path, filePath),
+    );
   return { filePath, mime, name: entry.name };
 }
 
@@ -1951,30 +1999,50 @@ function safeUnlink(p) {
 }
 
 // Keep the caches bounded for the life of the process: rows swept every minute, the disk trimmed every ten (docs/audit.md).
-setInterval(() => sweepRowCaches([sessionCache, releaseCache, versionsCache, songCache]), 60_000).unref();
+setInterval(
+  () => sweepRowCaches([sessionCache, releaseCache, versionsCache, songCache]),
+  60_000,
+).unref();
 setInterval(() => {
   const removed = trimDiskCache(CACHE_DIR, env.cacheMaxBytes);
-  if (removed) console.log(`[cache] trimmed ${removed} file(s) from ${CACHE_DIR}`);
+  if (removed)
+    console.log(`[cache] trimmed ${removed} file(s) from ${CACHE_DIR}`);
 }, 10 * 60_000).unref();
 
 // One at a time per key — a read-modify-write here has no transaction to lean on (lock.ts).
 
-export function saveRecording(...args: Parameters<typeof saveRecordingUnlocked>) {
+export function saveRecording(
+  ...args: Parameters<typeof saveRecordingUnlocked>
+) {
   return serialized(`session:${args[0]}`, () => saveRecordingUnlocked(...args));
 }
 
-export function appendRecording(...args: Parameters<typeof appendRecordingUnlocked>) {
-  return serialized(`session:${args[0]}`, () => appendRecordingUnlocked(...args));
+export function appendRecording(
+  ...args: Parameters<typeof appendRecordingUnlocked>
+) {
+  return serialized(`session:${args[0]}`, () =>
+    appendRecordingUnlocked(...args),
+  );
 }
 
-export function addSheetFiles(...args: Parameters<typeof addSheetFilesUnlocked>) {
+export function addSheetFiles(
+  ...args: Parameters<typeof addSheetFilesUnlocked>
+) {
   return serialized(`sheets:${args[0]}`, () => addSheetFilesUnlocked(...args));
 }
 
-export function deleteSheetFile(...args: Parameters<typeof deleteSheetFileUnlocked>) {
-  return serialized(`sheets:${args[0]}`, () => deleteSheetFileUnlocked(...args));
+export function deleteSheetFile(
+  ...args: Parameters<typeof deleteSheetFileUnlocked>
+) {
+  return serialized(`sheets:${args[0]}`, () =>
+    deleteSheetFileUnlocked(...args),
+  );
 }
 
-export function setSongFavorite(...args: Parameters<typeof setSongFavoriteUnlocked>) {
-  return serialized(`favorite:${args[1]}:${args[0]}`, () => setSongFavoriteUnlocked(...args));
+export function setSongFavorite(
+  ...args: Parameters<typeof setSongFavoriteUnlocked>
+) {
+  return serialized(`favorite:${args[1]}:${args[0]}`, () =>
+    setSongFavoriteUnlocked(...args),
+  );
 }

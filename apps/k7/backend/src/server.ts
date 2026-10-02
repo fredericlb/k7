@@ -66,15 +66,22 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
-    const status = err.status ?? err.statusCode ?? (err.code === "LIMIT_FILE_SIZE" ? 413 : 500);
+    const status =
+      err.status ??
+      err.statusCode ??
+      (err.code === "LIMIT_FILE_SIZE" ? 413 : 500);
     if (status >= 500) console.error(err);
     if (res.headersSent) return res.destroy();
-    res.status(status).json({ error: status >= 500 ? "internal error" : err.message });
+    res
+      .status(status)
+      .json({ error: status >= 500 ? "internal error" : err.message });
   },
 );
 
 // A stray rejection is logged and survives; an uncaught exception leaves the process in an unknown state, so it is logged and the container restarts it.
-process.on("unhandledRejection", (reason) => console.error("unhandled rejection:", reason));
+process.on("unhandledRejection", (reason) =>
+  console.error("unhandled rejection:", reason),
+);
 process.on("uncaughtException", (err) => {
   console.error("uncaught exception:", err);
   process.exit(1);

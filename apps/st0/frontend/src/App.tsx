@@ -1344,9 +1344,7 @@ export default function App({
     setFull(null);
     setMixerView(false);
     setStackView(true);
-    setStatus(
-      "stack view — a column per track, the mix last",
-    );
+    setStatus("stack view — a column per track, the mix last");
   }, [stackView]);
 
   const toggleDocs = useCallback(() => {

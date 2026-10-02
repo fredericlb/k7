@@ -51,7 +51,10 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
     let res: Response;
     try {
       // Bounded, body included — a file comes this way too, so minutes, never for ever.
-      res = await fetch(url(path), { headers, signal: AbortSignal.timeout(10 * 60_000) });
+      res = await fetch(url(path), {
+        headers,
+        signal: AbortSignal.timeout(10 * 60_000),
+      });
     } catch (e) {
       // The ADDRESS, not just the path: it is derived, so which library it tried is half the answer.
       throw new RemoteError(`mediatek GET ${url(path)}: ${why(e)}`);

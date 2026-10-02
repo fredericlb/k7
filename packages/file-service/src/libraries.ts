@@ -170,10 +170,7 @@ const isPopulated = (dir: string): boolean => {
 };
 
 /** What a clone was cloned FROM, or null when there is no clone and no remote — docs/libraries.md. */
-async function clonedFrom(
-  at: string,
-  userEmail = "",
-): Promise<string | null> {
+async function clonedFrom(at: string, userEmail = ""): Promise<string | null> {
   try {
     // The URL as WRITTEN, not `remote get-url`'s: that one applies `insteadOf`, and the setting
     // compared against it is the URI the clone was made with.
