@@ -281,7 +281,7 @@ in a song.
 The suites here mount nothing, so none of this is covered by a green run:
 
 - with **no library** on the account, open any project → st0 refuses with "no libraries" before it
-  clones anything;
+  clones anything, with the libraries card under the refusal — adding one opens the project;
 - add an **empty** repository from st0's home page (the card is above everything else), leaving the
   name blank → it is listed as `@st0`, cloned under `<studioHome>/libraries/st0`, and no workspace
   gains a `_libraries/` folder;

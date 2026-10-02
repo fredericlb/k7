@@ -17,7 +17,7 @@
   "project.missingBody": "The repository is here, but this project isn't: it was most likely renamed or removed since the media library last read the repository. Go back to Projects and open it again.",
   "project.emptyWorkspace": "This workspace holds no project yet. It was created here and nothing has been added to it — go back to Projects and add one.",
   "project.librariesTitle": "No libraries repository",
-  "project.librariesBody": "Shared modules and chains live in a git repository, mounted into every workspace. This account has none yet, so nothing here could resolve a shared module. Add it at the top of the media library's Projects section, then open this again.",
+  "project.librariesBody": "Shared modules and chains live in a git repository, mounted into every workspace. This account has none yet, so nothing here could resolve a shared module. Add one below and the project opens.",
   "project.benchWorkspace": "The bench",
   "project.benchFetching": "Building the rig and mounting the library on this machine…",
   "share.opening": "Opening the shared project…",

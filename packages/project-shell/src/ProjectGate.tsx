@@ -137,6 +137,7 @@ export function ProjectGate({
   strings,
   children,
   renderEmpty,
+  renderNoLibraries,
   onQuit,
   idleTimeoutMs = 0,
   asleep = false,
@@ -166,6 +167,8 @@ export function ProjectGate({
     workspace: string;
     onCreated: () => void;
   }) => ReactNode;
+  /** What to draw when the account has NO library — st0 puts the card that adds one here; `onAdded` re-runs the resolve. */
+  renderNoLibraries?: (ctx: { onAdded: () => void }) => ReactNode;
   /** Called before leaving, for an app that must let go of something first. */
   onQuit?: () => void;
   /** Close the session after this long untouched; `0` — the default — is off. See docs/idle.md. */
@@ -427,6 +430,12 @@ export function ProjectGate({
           <p className="text-sm text-muted-foreground">
             {strings.librariesBody}
           </p>
+          {/* The way to ADD one, right here: a refusal that sends you elsewhere to fix it is a dead end. */}
+          {renderNoLibraries && (
+            <div className="w-full text-left">
+              {renderNoLibraries({ onAdded: resume })}
+            </div>
+          )}
           <button
             type="button"
             className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"

@@ -4,10 +4,15 @@
 
 import { ProjectGate as Shared } from "@studio/project-shell/gate";
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
+import type { AccountLibrary } from "@studio/web-protocol";
+import { useCallback, useEffect, useState } from "react";
 import App from "../App";
 import { engines } from "../api";
 import { m } from "../paraglide/messages.js";
 import { FirstProject } from "../projects/FirstProject";
+import { LibrariesCard } from "../projects/LibrariesCard";
+import type { AccountFiles } from "../projects/workspaceOps";
+import { findAccountFiles } from "../settings/accountFiles";
 import { useInFront } from "../tabs/useInFront";
 import type { RankedEngine } from "../types";
 import { ExternalSurface } from "./ExternalSurface";
@@ -72,6 +77,8 @@ export function ProjectGate({
       renderEmpty={({ workspace, onCreated }) => (
         <FirstProject workspace={workspace} onCreated={onCreated} />
       )}
+      /* No library: the home page's card, right here, and the first one added opens the project. */
+      renderNoLibraries={({ onAdded }) => <AddLibrary onAdded={onAdded} />}
     >
       {({ workspace, project, userEmail, quit }) =>
         external ? (
@@ -101,4 +108,24 @@ export function ProjectGate({
       }
     </Shared>
   );
+}
+
+/** The libraries card on the account's file service, found the way the home page finds it. */
+function AddLibrary({ onAdded }: { onAdded: () => void }) {
+  const [fileService, setFileService] = useState<AccountFiles | null>(null);
+  useEffect(() => {
+    let live = true;
+    void findAccountFiles(false).then((f) => live && setFileService(f));
+    return () => {
+      live = false;
+    };
+  }, []);
+  // Stable, since the card reports from an effect keyed on it.
+  const onLibraries = useCallback(
+    (l: AccountLibrary[]) => {
+      if (l.length) onAdded();
+    },
+    [onAdded],
+  );
+  return <LibrariesCard fileService={fileService} onLibraries={onLibraries} />;
 }
