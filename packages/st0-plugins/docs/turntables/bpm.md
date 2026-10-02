@@ -7,7 +7,7 @@ right fader greys out and moves by itself.
 ## The fader is a MODULE's parameter
 
 Not a control the desk invents: the project says so. `example.st0` puts on each deck a node of the
-médiathèque's `@st0/audio/utility/tempo` module, and the fader is that node's `Target BPM`. One
+médiathèque's `@st0/cold/tempo` module, and the fader is that node's `Target BPM`. One
 node per deck, because each deck plays at its own BPM and a parameter belongs to a **use**, not to
 a module.
 

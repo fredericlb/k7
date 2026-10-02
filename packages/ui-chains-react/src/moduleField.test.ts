@@ -4,7 +4,12 @@
 
 import type { WebWidget } from "@studio/graph-model";
 import type { GraphNode } from "@studio/ui-chains/graph";
-import { cameraUI, inputUI, recBindVerb } from "@studio/ui-chains/graph";
+import {
+  cameraUI,
+  inputUI,
+  midiInUI,
+  recBindVerb,
+} from "@studio/ui-chains/graph";
 import { describe, expect, it } from "vitest";
 import { moduleFieldValue } from "./moduleField";
 
@@ -148,5 +153,24 @@ describe("the recorder's binds", () => {
     } as WebWidget;
     expect(moduleFieldValue(n, w, "rec:record")).toBeUndefined();
     expect(recBindVerb(w.bind)).toBe("record");
+  });
+});
+
+describe("the MIDI device dropdown", () => {
+  const devWidget = (): WebWidget =>
+    midiInUI(["Arturia KeyStep 37", "MiniLab"]).widgets.device as WebWidget;
+
+  it("shows the device the file names", () => {
+    expect(shown(node({ device: "MiniLab" }), devWidget(), "device")).toBe(
+      "MiniLab",
+    );
+  });
+
+  it('shows "any" for the empty string, which records from every device', () => {
+    expect(shown(node({ device: "" }), devWidget(), "device")).toBe("any");
+  });
+
+  it("shows nothing for a node that is not a MIDI device", () => {
+    expect(shown(node({}), devWidget(), "device")).toBe("—");
   });
 });

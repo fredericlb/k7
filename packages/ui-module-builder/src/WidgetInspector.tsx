@@ -3,7 +3,7 @@
 // edit is a patch the grid writes back. The kinds' rules are widgetKinds.ts; docs/builder.md.
 
 import { Button } from "@frediverse/ui/button";
-import { Plus, Trash2 } from "@frediverse/ui/icons";
+import { Trash2 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { useState } from "react";
 import type { Widget, WidgetType } from "./moduleUi";
@@ -31,7 +31,6 @@ export function WidgetInspector({
   onDelete: () => void;
 }) {
   const isLabel = w.type === "label";
-  const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
   const isLcd = w.type === "lcdscreen";
   const isGroup = w.type === "group";
@@ -44,27 +43,6 @@ export function WidgetInspector({
     if (t === "") return undefined;
     const n = Number(t);
     return Number.isFinite(n) ? n : undefined;
-  };
-
-  const pages = w.pages ?? {};
-  const pageNames = Object.keys(pages);
-
-  const addPage = () => {
-    const name = `Page ${pageNames.length + 1}`;
-    onPatch({ pages: { ...pages, [name]: {} } });
-  };
-  const removePage = (name: string) => {
-    const next = { ...pages };
-    delete next[name];
-    onPatch({ pages: Object.keys(next).length ? next : undefined });
-  };
-  const renamePage = (oldName: string, newName: string) => {
-    if (oldName === newName || !newName.trim()) return;
-    const next: Record<string, Record<string, Widget>> = {};
-    for (const [k, v] of Object.entries(pages)) {
-      next[k === oldName ? newName : k] = v;
-    }
-    onPatch({ pages: next });
   };
 
   return (
@@ -118,14 +96,44 @@ export function WidgetInspector({
             </span>
           </Field>
         ) : isGroup ? (
-          <Field label="Color">
-            <ColorField
-              value={w.color ?? GROUP_COLOR}
-              disabled={!!disabled}
-              onChange={(color) => onPatch({ color })}
-            />
-          </Field>
-        ) : isTabs || isWaveform || isLibrary ? null : (
+          <>
+            <Field label="Color">
+              <ColorField
+                value={w.color ?? GROUP_COLOR}
+                disabled={!!disabled}
+                onChange={(color) => onPatch({ color })}
+              />
+            </Field>
+            {/* An on/off param switches the whole section: the card draws its switch and greys the group out. */}
+            <Field label="On/off param">
+              <ParamDropField
+                value={w.bind}
+                disabled={!!disabled}
+                clearTitle="Unbind"
+                onDrop={onBind}
+                onClear={() => onPatch({ bind: undefined, invert: undefined })}
+              />
+            </Field>
+            {/* A Mute or Bypass param is on when the section is OFF: the switch reads it backwards. */}
+            {w.bind && (
+              <Field label="Param is a mute / bypass">
+                <label className="flex items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    checked={!!w.invert}
+                    disabled={!!disabled}
+                    onChange={(e) =>
+                      onPatch({ invert: e.target.checked || undefined })
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    on while the param is off
+                  </span>
+                </label>
+              </Field>
+            )}
+          </>
+        ) : isWaveform || isLibrary ? null : (
           // Not a text field: a binding is DRAGGED, and both halves are the same drop target.
           <Field label="Bound param">
             <ParamDropField
@@ -273,42 +281,6 @@ export function WidgetInspector({
               </select>
             </Field>
           </>
-        )}
-
-        {isTabs && (
-          <div className="col-span-2 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Pages
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={!!disabled}
-                onClick={addPage}
-              >
-                <Plus className="mr-1 h-3 w-3" /> Add page
-              </Button>
-            </div>
-            {pageNames.map((name) => (
-              <div key={name} className="flex items-center gap-1">
-                <input
-                  className={FIELD_CLS}
-                  value={name}
-                  disabled={!!disabled}
-                  onChange={(e) => renamePage(name, e.target.value)}
-                />
-                <button
-                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-                  disabled={!!disabled}
-                  onClick={() => removePage(name)}
-                  title="Remove page"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>

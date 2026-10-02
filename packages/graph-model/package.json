@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The chains routing graph as the browser receives it. Types only, split out of @studio/web-protocol so that drawing a graph doesn't drag in auth, workspaces and the engine registry.",
+  "description": "The chains routing graph as the browser receives it. Types and the one panel walk, split out of @studio/web-protocol so that drawing a graph doesn't drag in auth, workspaces and the engine registry.",
   "types": "./types.ts",
   "exports": {
-    ".": "./types.ts"
+    ".": "./types.ts",
+    "./panel": "./panel.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

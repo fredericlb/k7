@@ -75,6 +75,8 @@ private:
         transpose, velocity, mchannel,
         // …and the two that give the phase a MEMORY and a clock: what a note SOURCE needs (docs/midiGraph.md)
         mhold, mstrike,
+        // …and the four that set which strikes play and how loud — the step rule, NoteSteps.h
+        mpattern, maccent, mchance, mdecay,
     };
 
     static constexpr int MAX_IN = 4;
@@ -113,6 +115,8 @@ private:
     // What the MIDI phase remembers between blocks: the keys down, the copies sounding, the step
     // clock. ONE per graph, like the note stream itself — see docs/midiGraph.md.
     NoteClock notes_;
+    // The rule the strike consults, set by `mpattern`/`maccent`/`mchance`/`mdecay`; its defaults strike every step as played.
+    NoteSteps steps_;
     // …and the events one block of it produces, sized once at build() so no block allocates.
     std::vector<NoteEvent> noteEvents_;
     tracktion::engine::MidiMessageArray notePassThrough_;

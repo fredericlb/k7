@@ -263,6 +263,39 @@ void a_reset_lets_go_of_everything() {
 
 }  // namespace
 
+// The repeater with a rhythm and accents before the strike: x.x. at half density, every other hit at half.
+const char* kPatternGraph = R"({
+  "params": [ { "name": "Step", "min": 0.125, "max": 4, "default": 0.5 } ],
+  "nodes":  [ { "type": "mhold" },
+              { "type": "mpattern", "in": [2, 4, 0.5, 0] },
+              { "type": "maccent", "in": [0.5, 0.5, 0, 0] },
+              { "type": "mchance", "in": [1] },
+              { "type": "mdecay", "in": [0] },
+              { "type": "mstrike", "in": ["Step", 0.5] } ]
+})";
+
+void the_step_rule_nodes_reach_the_strike() {
+    auto g = buildGraph(kPatternGraph);
+    if (!g) return;
+    g->prepare(48000.0, 512);
+    const float step[] = {0.5f};
+    // Eight eighths at 120 BPM (2 s): x.x. twice is four strikes, at 0, 0.5, 1 and 1.5 s.
+    auto midi = keyDown(60);
+    g->processMidi(midi, step, 1, 1.95, 0.5);
+    CHECK(noteOns(midi) == 4);
+    float v[4] = {};
+    double at[4] = {};
+    int k = 0;
+    for (auto& m : midi)
+        if (m.isNoteOn() && k < 4) {
+            v[k] = m.getFloatVelocity();
+            at[k++] = m.getTimeStamp();
+        }
+    CHECK(std::fabs(at[1] - 0.5) < 1e-6);
+    // Half the hits accented: the first as played, the second at half — 7-bit MIDI, so within a step of it.
+    CHECK(v[0] > 0.95f && std::fabs(v[1] - 0.5f) < 0.01f);
+}
+
 int main() {
     RUN(transposes_by_whole_semitones);
     RUN(rounds_a_fractional_parameter);
@@ -276,5 +309,6 @@ int main() {
     RUN(a_control_change_still_passes_through_a_repeater);
     RUN(letting_the_key_go_stops_it_and_pays_the_note_off);
     RUN(a_reset_lets_go_of_everything);
+    RUN(the_step_rule_nodes_reach_the_strike);
     TEST_MAIN_END();
 }

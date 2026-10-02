@@ -21,6 +21,7 @@ export const UI_EXACT: readonly string[] = [
   "help",
   // The footer's own buttons, beside the panel row.
   "mixer",
+  "stack",
   "notes",
   "logs clear",
   // The timeline header's two toggles.

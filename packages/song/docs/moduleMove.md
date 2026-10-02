@@ -35,6 +35,19 @@ to new and can do it in bulk.
 - **Never an engine on its own.** An engine belongs to its module's folder
   ([engines.md](engines.md)); it moves when the module does.
 
+## A rename is a move too
+
+Renaming a module's folder changes its ref the same way, and renaming a FOLDER of modules changes
+the ref of every module inside it: `audio/delay` renamed `audio/time` turns
+`@st0/audio/delay/echo` into `@st0/audio/time/echo`. So a rename inside a library's `modules/`
+repoints too, in its "under" form: the old path matches as a whole ref or as the start of one
+followed by `/`. Without it, renaming a folder and then moving a module out of it strands every
+song using that module: the move repoints refs to the intermediate name, which nothing uses.
+
+**An engine cannot be renamed.** A node picks its engine by the folder's NAME (`engine: one-knob`,
+`engines: { one-knob: … }`), and no ref carries that name, so there is nothing to repoint. The
+rename is refused with that reason; making a new engine and moving the knobs is the way.
+
 ## After the move
 
 The host publishes the library, as it does after a rename or a delete: a library is its repository,

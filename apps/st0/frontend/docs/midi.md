@@ -73,7 +73,9 @@ hand and one moved by a controller are indistinguishable downstream.
 - **A module FIELD** (`@monitor`) — a word rather than a number; a control change has nothing to
   sweep.
 - **Notes.** A CC is what a knob sends. Pads and keys are the recorder's business (`webmidi.ts`),
-  which is a different feature with a different destination.
+  which is a different feature with a different destination: it records from the device a midi-in
+  node names, wired to the armed lane (`packages/song/docs/midiIn.md`), where this listens to every
+  device there is.
 
 A binding whose param has **no widget** in this project is not played: without min/max there is
 no way to turn 0–127 into a value, and inventing a range would make the knob sweep one nobody

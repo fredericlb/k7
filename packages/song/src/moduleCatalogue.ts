@@ -5,7 +5,6 @@
 // The path is the file the builder opens; the substance comes from the ref map, so what is
 // listed is exactly what a chain can name. Rationale: docs/moduleCatalogue.md.
 
-import { moduleLabelOf } from "@studio/song-schema/moduleTypes";
 import { loadModuleRefs, panelOf, splitModuleKey } from "./loader";
 import { sharedRoots } from "./moduleFork";
 import type { LoadedModule } from "./rawDoc";
@@ -16,8 +15,6 @@ export interface CatalogueModule {
   ref: string;
   /** The part worth showing, namespace dropped — "audio/delay/tape-delay". */
   name: string;
-  /** What a person calls it, when the module says — free text, never an identity (packages/song/docs/moduleLabel.md). */
-  label?: string;
   /** The catalogue it came from. */
   namespace: string;
   /** Its type folder (io|instruments|audio|transformers|midi|video_*). */
@@ -70,12 +67,10 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
     } else if (rest.length !== 1) {
       continue; // namespaced, no library root, and not an engine ref — nothing to show
     }
-    const label = moduleLabelOf(m);
     const panel = panelOf(m);
     out.push({
       ref,
       name: rest.join("/"),
-      ...(label ? { label } : {}),
       namespace: ns,
       category: String(m.category ?? rest[0] ?? ""),
       kind: String(m.kind ?? ""),

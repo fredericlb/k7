@@ -44,14 +44,33 @@ own `Input`/`Output`-like params are refused in `params:` just as its own dry/we
 `params:` names its plugin's own dry, wet or mix does not compile — the engine holds those at full
 wet, and the file must not claim otherwise.
 
+A panel may have **tabs**: `tabs:`, an ordered list beside `widgets`, each a `name` (at most
+`TAB_NAME_MAX`, ten characters, and unique) and the widgets drawn while it is open. The top-level
+`widgets` are drawn on every tab. A tab is the PANEL's and not a widget — there is no `tabs` widget
+type — so no row of the grid is given up to it, and a tab's widgets use the grid from row 0. A
+widget id is unique across the panel, every tab included. The bind lookups above read every tab
+(`panelWidgets` in `@studio/graph-model/panel`), since a control on a closed tab is still the
+module's. A one-page panel writes no `tabs:` (`packages/ui-module-builder/docs/pages.md`).
+
 A `group` is a coloured frame — `color` (`#rgb`, `#rrggbb` or `#rrggbbaa`) and an optional `label`
 — drawn UNDER the widgets that lie wholly inside its box: a DRY/WET pair, an envelope's four
 knobs. It CONTAINS nothing in the file. Membership is geometry, and the controls stay at the
-panel's top level, because every lookup of a widget by its `bind` — MIDI control, the automation
-arrow's target, a folder-backed dropdown's options — reads that level only; nesting them in the
-group would hide them from all of it. A widget sits wholly inside a group or wholly outside it,
+panel's widget map, because every lookup of a widget by its `bind` — MIDI control, the automation
+arrow's target, a folder-backed dropdown's options — reads the panel's widget maps and nothing
+nested in a widget; nesting them in the group would hide them from all of it. A widget sits wholly inside a group or wholly outside it,
 and two groups never overlap: that is the one exception to "widgets never overlap", and the
 builder's checks enforce it (`packages/ui-module-builder/docs/builder.md`).
+
+A group MAY `bind` an on/off param — the section's own enable, a chorus's `On`, a filter's
+`Bypass`. The panel then draws the switch at the group's top-left corner and greys the section
+out while it is off, so the section and the switch that silences it read as one thing rather
+than a toggle somewhere among its knobs. The bind is the group's only control: it still holds
+none of the widgets inside it.
+
+Many plugins name that param the other way round — `Mute`, `Bypass`: 1 is the section SILENT.
+`invert: true` says so, and the section then reads as on while the param is 0. The file says it
+rather than the panel guessing from the param's name, because a name is a plugin author's choice
+and `Enable`, `Active` and `Off` all exist. A click flips the param either way.
 
 `WidgetSchema` is a refinement rather than a union, because a union would reject the half-second
 where the editor changed `type` but not yet the fields.
@@ -313,6 +332,5 @@ attribute sets are ways of playing the same block, and "this way of playing it i
 palette" is not a thing anybody means. It is one fact about the module, said once
 (`packages/song/docs/moduleStatus.md`).
 
-`label:` sits beside it for the same reason, and is the same kind of field: free text, the name a
-person reads in a picker, resolving nothing and reaching no engine. An alternative already carries
-`name:` for the one distinction it needs (`packages/song/docs/moduleLabel.md`).
+A module has no display name of its own: what a picker, a card or the file tree shows is its file
+name — the ref's last segment — so there is one name to keep right, the one on disk.

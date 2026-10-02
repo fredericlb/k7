@@ -3,7 +3,7 @@
 //
 // The three answers that make a plugin a MIDI effect are MidiGraphPlugin's, and for its reasons.
 // The one thing a reader would get wrong: none of the arithmetic is here. Arpeggiator.h holds the
-// clock and the walk; this file only turns three parameters into seconds and events into messages.
+// clock and the walk; this file only turns its parameters into seconds, a pattern, and messages.
 
 #pragma once
 
@@ -59,6 +59,10 @@ private:
     float paramValue(int index) const;
 
     Arpeggiator arp_;
+    // The `Step n`, `Velocity n` and `Gate n` values as the walk reads them, refreshed each block.
+    std::array<int, Arpeggiator::maxSteps> pattern_{};
+    std::array<float, Arpeggiator::maxSteps> velocity_{};
+    std::array<float, Arpeggiator::maxSteps> gate_{};
     // Raised by midiPanic()/reset() on the message thread, honoured by the next block: arp_ is the audio thread's (docs/panic.md).
     std::atomic<bool> resetPending_{false};
     double sampleRate_ = 44100.0;

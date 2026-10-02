@@ -91,12 +91,12 @@ where one color means one parameter. A neutral brief gets a neutral panel, and a
 150 identical knobs is the one thing Auto organize already produces.
 
 **No `@` controls.** The engine's stage around the module — `@input-volume`, `@mix`,
-`@output-volume` — is drawn by st0 itself in the card's FOOTER (`packages/ui-chains-react/docs/nodeCard.md`),
+`@output-volume` — is drawn by st0 itself on the second line of the card's header (`packages/ui-chains-react/docs/nodeCard.md`),
 and a lane's controls on its strip, so a panel holds none of them: a knob there would be a second
 control for the same thing, placed wherever the model chose. `atControlIssues` refuses a knob,
 slider, fader or number on any `@` param; a `@base` dropdown is not one of those and stays allowed,
 and a rack pad has its own rule. The plugin's own input/output level, mix, dry and wet stay off too,
-the footer replacing them (`levelIssues`, `blendIssues`) — their spelling changes from plugin to
+the stage's sliders replacing them (`levelIssues`, `blendIssues`) — their spelling changes from plugin to
 plugin, and a small model follows the long brief in parts, so this is refused rather than asked.
 On a module the engine offers no `@mix` (an instrument, or a host that offers none), the older
 rule stands (`crossfadeIssues`): a param named *dry* and one named *wet*, with no *mix*, are one
@@ -153,7 +153,7 @@ refuses what would break the module:
   a SECTION; one around a single knob is a tint that says nothing a bare knob does not, and it costs
   the card a frame;
 - a knob, slider, fader or number on an `@` param (`atControlIssues`), and the plugin's own
-  input/output level where the engine offers the level (`levelIssues`) — the footer's;
+  input/output level where the engine offers the level (`levelIssues`) — the stage's;
 - an lcdscreen with no draw function, and a `widgets.js` that does not compile. It is compiled
   with `new Function` and never called, so nothing the model wrote runs on the server;
 - an interactive screen the author did not ask for (`interactiveIssues`, above).

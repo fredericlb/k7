@@ -14,7 +14,8 @@ Sixteen unloadable plugins would mean sixteen folders under `_modules/`, each ho
 each in the picker, each a thing to delete by hand when the plugin is finally installed — and
 shared workspace-wide, so every song's unrelated import clutters the same list.
 
-The node carries what is actually specific: the plugin's real name as `label:`, and the parameter
+The node carries what is actually specific: the plugin's real name as `plugin.name` (beside the
+`not_supported` marker, since a node's `plugin:` replaces its base's whole), and the parameter
 values the export carried. Nothing is lost, and the project has one file per USE rather than one
 folder per plugin plus one file per use.
 
@@ -49,6 +50,7 @@ and the step contributes no plugin. The signal routes through, which is what a b
 ## The diagnostic
 
 `notSupportedModules(dir)` reports one warning per use, and it reads the **resolved** module rather
-than the authored file — the marker is inherited now, so the node's own YAML says nothing about it.
-It reports at the node's own flat path (`nodes/<name>.yaml`) and names the plugin by its `label:`,
+than the authored file — a node written by hand on `@meta/not-supported` inherits the marker and says
+nothing about it. It reports at the node's own flat path (`nodes/<name>.yaml`) and names the plugin
+by its `plugin.name`,
 which is the only place the real name survives once the node is called `kontakt_7`.

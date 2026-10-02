@@ -172,31 +172,40 @@ actually being drawn, not a guess at its width. A one-row knob is 21 px whatever
 height is what binds: a row less the caption), and `-100` needs 14 px of middle it has not got.
 Better no reading than one over its own pointer.
 
-## The tabs bar
-
-Three rules, each of them a bug it prevents:
-
-- **`justifyContent: flex-start` inline**, against `.dgx-w`'s own `center`. The bar has to sit at
-  the TOP of its box because that is what the sub-widget offset assumes (`+ TAB_H`). Centred, the
-  two disagree by half the leftover height — a page's first row overlapping the bar on a one-row
-  box and hanging 26 px under it on the next, with no row an author could pick that is flush.
-  Inline rather than a class so it beats the stylesheet whatever the order.
-- **`w-full` on the bar**, because `.dgx-w` is a centring flex column: without it the bar is sized
-  to its NAMES and parked in the middle of the widget, which leaves "General" reading
-  "Gene…" with empty box on either side of it.
-- **`flex-auto`, not `flex-1`, on a tab.** The basis is the NAME's width, so spare space is shared
-  out rather than cut into equal slices that clip a long page name next to a short one. `truncate`
-  stays as the last resort, for a name wider than the box.
-
 ## The group
 
 A `group` is painted FIRST (`groupsFirst`), in its `color` or a faint default, with its label small
-and STACKED down its left edge — one upright letter under the other, from the top, a space left as
-a gap: a caption in the top-left corner would sit on the first control's dial, the edge is the one
-strip of a group no control uses, and upright letters read without turning the head — and it is
-inert: `pointer-events: none`, so a click on its bare part
+up its left edge — a line of text turned 90° counter-clockwise, read from the bottom and ending at
+the top, under the switch when there is one, and ellipsised when it is longer than the group is tall: a caption in the top-left corner would sit on the first control's
+dial, and the edge is the one strip of a group no control uses. The name sits on a SPINE: the group's
+own colour at 45 % opacity rather than its usual faint tint, from the group's left edge to 12 px —
+where the edge's widgets start — so a panel's sections read as tabbed at a glance, and the strip the
+name needs is visibly the name's. Turned rather than stacked letter
+by letter, because a word stays a word: stacked capitals spell themselves out one at a time and
+take a letter's full height each. The group is inert: `pointer-events: none`, so a click on its bare part
 falls through to the card as a click on empty grid does. It draws none of the controls it frames.
 They are the panel's own widgets, laid on top of it (`packages/song-schema/docs/moduleFile.md`).
+
+A widget in a named or switched group's FIRST column is drawn 12 px in from its left edge
+(`packages/ui-chains/src/groupEdge.ts`), so the name and the dot have that strip to themselves.
+Its box narrows from the left; its cells do not move. The grid is shared by every section on the
+panel, so the room comes out of the widget's own drawing rather than out of a column, which would
+put one section's columns out of line with the next. A knob barely shrinks — its size is bound
+mostly by its height, so a 2×2 loses 3 px and a 1×1 one. A field (dropdown, file picker, number)
+is drawn in by 16 px: it fills its box's width and its caption is flush left, so it is what meets
+the name first.
+
+A group with a `bind` is switched by that param — read backwards when it carries `invert: true`,
+as a `Mute` or `Bypass` param is on while its section is off. Its switch (`.dgx-gswitch`) is a DOT, not a toggle —
+green on, red off, faint while unknown: a toggle's track would not fit the edge strip the name
+uses, and a light reads at a glance across a panel of sections. It sits at the top-left,
+on the same edge strip and above the name, which starts under it; it is the one part of
+the group that takes a click, and it flips the param through the same `onTap` as a toggle. Off,
+the group lays a veil (`.dgx-gveil`) over its own box. The veil, not a class on each framed widget,
+because membership is geometry: the group does not know its widgets, but its box covers exactly
+them. The veil is above the widgets and lets the pointer through, so a section can be set up while
+it is silent. An UNKNOWN value greys nothing: a section drawn dead before its state has arrived
+would be a lie the next frame corrects.
 
 ## The MIX knob, `@mix`
 
@@ -264,14 +273,20 @@ a drag; without that check, each would write the value the control already held.
 ## A dropdown's caption, on top of it
 
 A dropdown's caption sits directly ON TOP of its select, left-aligned with the select's edge,
-whatever the box's width — and so does a file picker's, over its button, since both are drawn as
-a field. Every other caption is underneath its control; these two read like a form's. One place, so a panel's dropdowns line up with each other
+whatever the box's width — and so does a file picker's, over its button, and a number's, over its
+value, since all three are drawn as a field. A number also takes the select's width, background and
+type (`.dgx-num` mirrors `.dgx-sel`), so a number and a dropdown side by side read as one form. Every other caption is underneath its control; these two read like a form's. One place, so a panel's dropdowns line up with each other
 and never rearrange as their option lists change.
 
 The two are one column (`.dgx-selcol`) rather than a caption pinned to the top of the box: in a
 box taller than the pair, `.dgx-w` centres the column, and the caption stays against the select
 instead of drifting up to the box's edge. `min-width:0` on the column lets a long name ellipsise
 inside the box rather than push the pair past it.
+
+Caption and select share that column, so they keep one edge; a dropdown with no caption is drawn
+in the same column, so it lines up with captioned ones. The column is inset only on a named
+group's left edge (see "The group"): everywhere else it starts at its box's edge, aligned with the
+widgets around it.
 
 A caption is 6 px, smaller than anything it labels: it names a control that is already drawn, read
 once and then recognised by position, so the two pixels go back to the panel. A `label` widget's own

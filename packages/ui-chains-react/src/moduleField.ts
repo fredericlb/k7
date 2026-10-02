@@ -9,6 +9,9 @@ import type { GraphNode } from "@studio/ui-chains/graph";
 /** The lens a card shows when the file names none — the label `cameraUI` puts first. */
 export const CAMERA_DEFAULT = "default";
 
+/** …and the MIDI device, likewise — the label `midiInUI` puts first. */
+export const DEVICE_ANY = "any";
+
 /** The value a dropdown bound to `@<field>` is currently on, or undefined when nothing names it. */
 export function moduleFieldValue(
   n: GraphNode,
@@ -37,7 +40,14 @@ export function moduleFieldValue(
               : n.camera === ""
                 ? CAMERA_DEFAULT
                 : n.camera
-            : undefined;
+            : // A MIDI device the same way: "" is any device, the first option.
+              field === "device"
+              ? n.device === undefined
+                ? undefined
+                : n.device === ""
+                  ? DEVICE_ANY
+                  : n.device
+              : undefined;
   if (current === undefined) return undefined;
   return w.options?.find((o) => o.label === current)?.value;
 }

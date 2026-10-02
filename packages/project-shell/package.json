@@ -14,7 +14,8 @@
     "./idle": "./src/idle.ts",
     "./toast": "./src/toast.tsx",
     "./ask": "./src/ask.tsx",
-    "./undo": "./src/undo.ts"
+    "./undo": "./src/undo.ts",
+    "./devPerf": "./src/devPerf.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

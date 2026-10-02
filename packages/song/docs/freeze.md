@@ -116,7 +116,8 @@ because they mean opposite things about what a click does: the point can be thaw
 inside it can only be reached by thawing that point. `"at"` wins where a node is both — it is what
 the file says can be undone.
 
-A frozen node wears a snowflake and a cold wash, and loses its bypass and its plugin-UI bubbles:
+A frozen node wears a snowflake right of its module's name and a cold wash, and loses its on/off
+block and its plugin-UI bubble:
 there is no live plugin behind a baked module, so there is nothing to bypass and no window to open.
 Its knobs are refused for the same reason — a param set sent to a plugin the engine never built
 moves, changes nothing, and is discarded on the next reload.

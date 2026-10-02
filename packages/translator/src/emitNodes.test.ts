@@ -486,8 +486,8 @@ describe("what comes out is the arrangement that went in", () => {
       expect(existsSync(join(dir, "modules", "audio"))).toBe(false);
       const node = read("nodes/kontakt_7.yaml");
       expect(node).toContain(NOT_SUPPORTED_REF);
-      // The plugin's real name is kept as the label, since the node's own name is a slug.
-      expect(node).toContain("label: Kontakt 7");
+      // The plugin's real name is kept on its `plugin:`, since the node's own name is a slug.
+      expect(node).toContain("name: Kontakt 7");
       expect(node).toContain("Mix: 0.5"); // what the export carried, kept rather than dropped
     });
 

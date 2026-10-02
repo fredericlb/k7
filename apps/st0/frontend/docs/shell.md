@@ -119,10 +119,24 @@ fifteen ~50 ms slices back to back. The self time is all CC graph building (`Ent
 reference cycles spanning XPCOM/DOM C++ and JS; Chrome has no equivalent pass. So "Chrome is fine"
 is evidence *for* this reading, and never evidence that the app allocates reasonably.
 
-What feeds it is churn — objects made and dropped, especially ones with both a C++ and a JS half.
-A DEV build multiplies it hard: `jsxDEV`, `runWithFiberInDEV` and `validatePropertiesInDevelopment`
-on the stack mean React's development build, and React DevTools attached adds a `performance.mark`
-per component on top. Measure a production build before reading anything into the app's own code.
+What feeds it is the size of what is LIVE, and churn on top — objects made and dropped, especially
+ones with both a C++ and a JS half. A DEV build multiplies both hard: `jsxDEV`, `runWithFiberInDEV`
+and `validatePropertiesInDevelopment` on the stack mean React's development build. Measure a
+production build before reading anything into the app's own code.
+
+**React's DEV build is also a LEAK, and the worst of the three.** It records one `performance.measure`
+per component render, with a `detail` object for its DevTools track, and the browser keeps every
+entry until somebody clears it — about 140 a second on the editor. Measured after a long dev session:
+the tab at **3.5 GB**, one CC visiting **8.9 million** live objects and freeing 28 000, slices up to
+131 ms, and the cycle collector at **79 %** of the tab's CPU while the app's own JS was 13 %. So every
+studio app's entry — st0's, pl8's, k7's and z0's six — calls `clearDevPerfEntries`
+(`packages/project-shell/src/devPerf.ts`) at boot, which clears the measures and marks every few
+seconds in DEV and does nothing in production. Nothing of the apps reads them: the profiler records
+them as markers as they happen, so a recording still shows them.
+
+A same-site tab shares the content process, and so the profile: a home page left open beside an
+editor is in it. Its workspace poll stores a list only when the list CHANGED (`Home.tsx`), since a
+fresh array every three seconds re-rendered every project row and its menus for nothing.
 
 Graphics is the other thing none of it can see, and two rules of this app exist because of it:
 
@@ -794,9 +808,12 @@ a rack": a module's folder name, a node's stem.
 `module create rack` (web-local — the building is the browser's) opens a 4×4 pad grid over the shell.
 Drop audio files on the pads, name each pad (its TAP) and name the kit, and choose where the samples go:
 this project's `samples/` (the default — `@project/<kit>/…`) or one of the account's libraries'. CREATE
-uploads them there and makes the kit a NODE, `nodes/<kit>.yaml`, of the plain `@workspace/instruments/rack`
-sampler (written the first time a workspace needs it) — through `node new`, so the node lands in the
-graph, journalled, then its taps in one write rather than a reload per pad. A kit is the node's and a
+uploads them there and makes the kit a NODE, `nodes/<kit>.yaml`, of the LIBRARY's
+`instruments/st0-rack` sampler — `@st0`'s when it has one, else any library's (`rackModuleRef`) —
+through `node new <ref>`, so the node lands in the graph, journalled and extending the library module
+as it stands, then its taps in one write rather than a reload per pad. The builder writes no sampler
+of its own: one per workspace would be one copy of the same `type: rack` per workspace, so a library
+holding none is said on the popin before any upload runs. A kit is the node's and a
 sample lives in a samples/ folder, never in a module (`packages/song/docs/racks.md`), so the builder no
 longer writes a module at all. Auditioning is a local object-URL, with no server round trip.
 
@@ -915,7 +932,8 @@ The gutter is the row's handle: a click selects it, a double-click focuses it �
 `nodes/<name>.yaml`, framing the chains it feeds, and laying **one lane's whole signal path** out side by
 side over the graph. `trackModules` walks the same reach the framing uses (`subgraphForTrack`, so a send
 out of the lane's own chain is in it) and adds the ORDER a node set does not carry, then `moduleRow` lays
-it out at 1.5× the width the grid asks for (`widthScale`): elbow room, not bigger controls. The framing
+it out **as drawn** (`asDrawn`): every card at the size the graph gives it, so the row is a view of the
+same nodes and not a bigger version of them. The framing
 still happens underneath, deliberately: closing the row with its ✕ leaves the graph already framed on the
 track it was about.
 
@@ -928,18 +946,20 @@ because a row is read across and top-and-bottom would send a cable diving under 
 beside it. The socket plates stay undrawn, being CSS-pinned to the top and bottom edges: a plug on the
 wrong edge is worse than no plug.
 
-**Every card is given the same height**, the tallest one's, because the camera fits the row's height to
-the pane — otherwise the tallest card alone is the height of the view, and a ragged bottom reads as cards
-of different importance.
+**Every card takes the row's whole height** — the tallest card's, the lane's clip list included —
+so the row reads as one band and the side cables run straight, and the camera zooms so that height
+is the pane's whole height (`fitAxis="height"`, `fitPad={1}`, over a
+box `moduleRow` draws round the cards and nothing else). The row is a few cards you came to work on,
+so it is drawn as large as the pane allows; the width runs off the right and the wheel walks along
+it.
 
 **The LANE leads its own row** (`moduleRow`'s `track`). The signal starts there and its fader is the
 first thing in the path, so a row that began at the first plugin was a path with its head cut off — and
 the cable out of the lane, the one that says which lane this is, had nothing to leave from. It is the
 same card the graph draws, matched on the node's KIND rather than its name, since `trk:` exists precisely
-so a lane and a module may share one. Its **clip list is dropped**: that is the arrangement rather than
-the path, the timeline above already draws it, and it stands a hundred pixels taller than any plugin
-card — which, on a row that gives every card the tallest one's height and then fits that height to the
-pane, would shrink every module in the lane to make room for it. A lane that reaches no module leads
+so a lane and a module may share one — clip list included, as the graph draws it. It stands taller
+than the plugin cards, and that costs them nothing: no card is stretched to its height, and the zoom
+cap keeps a tall row from shrinking or growing the rest. A lane that reaches no module leads
 nothing: the row stays empty and the pane says so, a single card with no cable not being a signal path.
 
 **A `+` on one of its cables works here too**, and asks the same "which module?" the graph asks. The one
@@ -968,7 +988,10 @@ occupants genuinely differ:
 - **`bar`** — a strip of your own, for a header that carries CONTROLS rather than a label: the clip panel
   counts beats and offers Stop while a take rolls. The ✕ is still the frame's, added last with `ml-auto`.
 - **neither** — no bar, and the ✕ floats over the top-right corner. A clip's contents draw their own
-  header already; a second row above it would say the same thing twice.
+  header already; a second row above it would say the same thing twice. A lane's row of modules wears
+  none either: its first card IS the lane, so a bar naming it would be that card's name again, and
+  the row gets the height back. When there is no row to draw — loading, an error, a lane that reaches
+  no module — the pane says so in its body, where the row would be.
 
 The **Mixer button** is not an occupant — it rearranges the graph rather than replacing it, which is why
 it clears the slot on its way in.
@@ -1306,6 +1329,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | what draws it | the command | where the behaviour lives |
 |---|---|---|
 | the footer's mixer / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` / `toggleDocs` in `App` |
+| the minimap's stack button, left of zoom fit | `ui stack` | `toggleStack` in `App` |
 | the footer's panel row | `ui panel <graph\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a surface's pane button (the desk) | `ui turntables` | `fullscreen` / `setFull` in `App`, like any pane |

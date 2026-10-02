@@ -3,10 +3,23 @@
 A **cold** module only works on audio that is already on disk. It says so itself:
 
 ```yaml
-# modules/audio/normalize/module.yaml
+# modules/cold/normalize/module.yaml
 cold: true
 plugin: { type: jsdsp, name: Normalize }
 ```
+
+## Filed under `cold/`, and never suggested
+
+A cold module lives in its library's **`cold/`** type folder (`@st0/cold/normalize`), with audio in
+and audio out like `audio/`; a separator still names its own outputs. The folder is what keeps it
+out of the module picker and the chain completions (`baseModuleRefs`, `projectHints`). Offered
+there, it would be refused the moment it was wired to a lane, which is where nearly every pick
+lands. What places one is what already knows it has a whole file: a set's scaffold puts the tempo on
+each deck, and a médiathèque chain template puts a separator on a song's master. The Libraries tab
+still lists them, so they can be edited.
+
+The folder files a cold module; `cold: true` is still the fact the placement rule reads, and it is
+inherited, so `instrumental` is cold because it extends `stemsplit`.
 
 ## What "cold" means, and what it does not
 
@@ -78,7 +91,7 @@ Two defaults carry the safety:
 
 A normaliser module is `module.yaml` plus the `jsdsp.ts` that mirrors `@studio/dsp`'s
 `normalize()` graph — the same arrangement the crossfade uses. It is authored into the account's
-library under `modules/audio/utility/`, this repo holding no modules to copy from
+library under `modules/cold/`, this repo holding no modules to copy from
 ([sharedFolders.md](sharedFolders.md)).
 
 ## Cold modules come in two shapes

@@ -106,14 +106,6 @@ function foldModules(nodes: FileNode[]): {
 const isShared = (path: string): boolean =>
   path.split("/").some((seg) => seg === "_modules");
 
-/** A module's readable name, grey after its folder name — packages/song/docs/moduleLabel.md. */
-const moduleLabelEnd = (node: FileNode) =>
-  node.label ? (
-    <span className="ml-1.5 truncate text-xs text-muted-foreground/70">
-      {node.label}
-    </span>
-  ) : null;
-
 // A .wav can't open in the editor, but it still wants Rename/Delete.
 const isBinary = (node: FileNode): boolean => node.kind === "binary";
 
@@ -635,7 +627,6 @@ export function FileTree({
             opensOnName={(n) =>
               chainByPath.has(n.path) || lib.modules.has(n.path)
             }
-            nameEnd={moduleLabelEnd}
             icon={(node, open) =>
               // A chain wears the builder's own glyph, so the row and the screen it opens are recognisably one thing.
               chainByPath.get(node.path)?.node === undefined &&
@@ -672,7 +663,6 @@ export function FileTree({
           }}
           // A rack keeps its `sources/`, so its row is a folder: the chevron folds, the name opens the builder.
           opensOnName={(n) => isModule(n.path)}
-          nameEnd={moduleLabelEnd}
           onDropTree={onUpload}
           onMove={onMove}
           icon={(node, open) =>

@@ -36,8 +36,12 @@ decks. This draws one module's parameters — and a module's NAME is the project
 (`packages/song/docs/nodes.md`), so nothing but the file can say which node this strip is a
 picture of. That is the same reason the desk has a mapping, arrived at from the other end.
 
-It is also why the gate asks for **all ten** — `unmappedControls` filters the whole list, where
-the desk's filters a `REQUIRED_CONTROLS` subset. `@studio/ui-turntables` requires its faders and
+It is also why the gate asks for **all ten** — `unmappedControls` filters the required controls,
+which are the ten sliders every quick-master has always had. Three more are OFFERED rather than
+required, so a surface written before they existed still draws: `comp.lowCut`, `limiter.hfLimit`
+and `limiter.output`, the low cut, HF limit and word length (`engine/st0-engine/docs/quickMaster.md`).
+The word length is a dropdown, being a choice and not a range. The desk's gate
+filters a `REQUIRED_CONTROLS` subset in the same way. `@studio/ui-turntables` requires its faders and
 merely offers its stem cuts, because a desk with no stem cuts is still a complete desk. There is
 no smaller mastering strip: every control names the same node, so a missing
 line is not a reduced strip, it is the same strip with a knob that does nothing. A knob that does

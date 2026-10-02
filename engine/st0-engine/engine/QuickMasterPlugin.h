@@ -1,5 +1,5 @@
-// QuickMasterPlugin.h — a master bus in one module: a three-band compressor, a stereo spreader
-// and a lookahead limiter, in that order and in that order only.
+// QuickMasterPlugin.h — a master bus in one module: a low cut, a three-band compressor, a stereo
+// spreader, an HF limit, a lookahead limiter and an output word length, in that order only.
 //
 // Ten knobs, no routing, and neutral at its defaults — the three amounts sit at zero and the
 // width at 100%. Why the bands split where they do, what the makeup law is and what the ceiling
@@ -9,7 +9,9 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include "AccelerationLimiter.h"
 #include "Biquad.h"   // IIRFilter's arithmetic without its lock
+#include "NaturalizeDither.h"
 
 #include <array>
 #include <atomic>
@@ -62,6 +64,8 @@ public:
 
     /** Below this the bass-mono corner is OFF rather than very low — a high-pass at 0 Hz has no coefficients. */
     static constexpr float bassMonoOffHz = 20.0f;
+    /** …and the low cut's, for the same reason: it is To Vinyl 4's mid high-pass, off by default. */
+    static constexpr float lowCutOffHz = 20.0f;
 
 private:
     // A stop or a panic on the message thread only raises this; the next block clears the state it owns (docs/panic.md).
@@ -78,6 +82,11 @@ private:
     Stage lowLp_[2], restHp_[2], midLp_[2], highHp_[2], lowAp_;
     // The bass-mono corner, on the SIDE only — which is mono, so the LR4 pair is filters, not stages.
     studio::Biquad sideHp_[2];
+    // …and the low cut, on the MID only, the same LR4 pair: the sides' bottom is Bass Mono's (docs/quickMaster.md).
+    studio::Biquad midHp_[2];
+    float lastLowCutHz_ = -1.0f;
+    // The HF limit, one per channel: To Vinyl 4's acceleration limiter, before the lookahead one.
+    AccelerationLimiter hfLimit_[2];
 
     double rate_ = 44100.0;
     int maxBlock_ = 512;
@@ -95,7 +104,9 @@ private:
     int delayWrite_ = 0;
 
     tracktion::engine::AutomatableParameter::Ptr lowFreq_, highFreq_, lowComp_, midComp_,
-        highComp_, width_, bassMono_, drive_, ceiling_, release_;
+        highComp_, width_, bassMono_, drive_, ceiling_, release_, output_, lowCut_, hfLimitAmt_;
+    // The output stage, one per channel: Righteous 4's word length, after the limiter (docs/quickMaster.md).
+    NaturalizeDither dither_[2];
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
 
     void updateCoefficients(float lowHz, float highHz, float bassMonoHz);
@@ -105,6 +116,12 @@ private:
                 bool bassMono);
     void limit(juce::AudioBuffer<float>& dst, int start, int numChans, int n, float driveLin,
                float ceilLin, float relCoeff);
+    // The two stages To Vinyl 4 brings: the mid's low cut first, the HF limit before the limiter.
+    void lowCut(juce::AudioBuffer<float>& dst, int start, int numChans, int n);
+    void limitHighs(juce::AudioBuffer<float>& dst, int start, int numChans, int n, double intensity);
+    // The output word length, after the limiter; kept under the ceiling a step rounded up could cross.
+    void dither(juce::AudioBuffer<float>& dst, int start, int numChans, int n, int bits,
+                float ceilLin);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(QuickMasterPlugin)
 };

@@ -61,8 +61,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   TurntableLoop.h           …and its LOOP: two edges, and the position a roll hands back. JUCE-free and
                             header-only, so tests/ has it in the FAST binary — the plugin around it
                             is covered by scripts/turntable.ts instead
-  QuickMasterPlugin.{h,cpp} a master bus in one module: 3-band compressor, spreader, limiter
-                            (docs/quickMaster.md) — what st0's `mastering` surface is a picture of
+  QuickMasterPlugin.{h,cpp} a master bus in one module: low cut, 3-band compressor, spreader, HF limit,
+                            limiter, output word length (docs/quickMaster.md) — what st0's `mastering` surface is a picture of
+  NaturalizeDither.h        …that word length: Righteous 4's Naturalize stage, JUCE-free, so tests/ has it in the FAST binary
+  AccelerationLimiter.h     …and its HF limit: To Vinyl 4's acceleration limiter, JUCE-free for the same reason
   NamPlugin.{h,cpp}         the neural amp: a .nam, or an AIDA-X / Proteus model, and its cabinet (docs/namPlugin.md)
   AmpModel.h                …the model behind it, whichever kind; JUCE-free, so tests/ runs the RTNeural half
   NamModel.cpp              …a .nam through NeuralAmpModelerCore, and the loader that picks the kind by file
@@ -433,7 +435,8 @@ reads as a failure:
 cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
       studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
-      studio_strudel_tests studio_eurorack_tests studio_ampmodel_tests
+      studio_strudel_tests studio_eurorack_tests studio_ampmodel_tests studio_dither_tests \
+      studio_hflimit_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 

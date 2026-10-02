@@ -163,7 +163,7 @@ describe("a gain as the strip's decibels", () => {
 describe("the deck's tempo is a MODULE, and the platter's rate realises it", () => {
   it("names the médiathèque module the project actually puts on a deck", () => {
     // `example.st0`'s nodes extend exactly this, and the scaffold's own test pins the other end.
-    expect(TEMPO_MODULE).toBe("@st0/audio/utility/tempo");
+    expect(TEMPO_MODULE).toBe("@st0/cold/tempo");
     expect(TEMPO_PARAM).toBe("Target BPM");
     expect(TEMPO_SOURCE_PARAM).toBe("Source BPM");
   });
@@ -171,7 +171,7 @@ describe("the deck's tempo is a MODULE, and the platter's rate realises it", () 
 
 describe("the BPM fader's ends", () => {
   it("is the MODULE's knob, 10 to 300", () => {
-    // Not a range the desk invented: `@st0/audio/utility/tempo`'s ui.yaml declares this knob.
+    // Not a range the desk invented: `@st0/cold/tempo`'s ui.yaml declares this knob.
     expect(BPM_RANGE).toEqual([10, 300]);
   });
 

@@ -11,8 +11,9 @@ import {
   type ParamRange,
 } from "@studio/song-schema/builtinParams";
 import {
-  CUE_NODE,
+  COLD_TYPE,
   CONSOLE_TYPE,
+  CUE_NODE,
   completionOrder,
   isEngineRef,
   MIX_NODE,
@@ -179,7 +180,8 @@ function projectHintsIn(dir: string): Hints {
         k.startsWith("@") &&
         !isEngineRef(k) &&
         !(moduleRefs[k] as any)?.engineOf &&
-        (moduleRefs[k] as any)?.category !== CONSOLE_TYPE,
+        (moduleRefs[k] as any)?.category !== CONSOLE_TYPE &&
+        (moduleRefs[k] as any)?.category !== COLD_TYPE,
     )
     .sort();
 

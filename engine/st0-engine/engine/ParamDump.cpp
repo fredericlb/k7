@@ -18,6 +18,7 @@
 #include "MessagePump.h"    // pumpMessages — the drain before a CLI returns
 
 #include <chrono>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -198,6 +199,16 @@ bool waitForParameterList(te::Plugin& plugin, const std::string& identifier) {
     return true;
 }
 
+/** Runs `fn` on the message thread and waits for its result; inline when already there — docs/plugins.md, "Built on the message thread". */
+template <typename Fn>
+auto onMessageThread(Fn&& fn) -> decltype(fn()) {
+    if (juce::MessageManager::getInstance()->isThisTheMessageThread()) return fn();
+    std::packaged_task<decltype(fn())()> task(std::forward<Fn>(fn));
+    auto result = task.get_future();
+    juce::MessageManager::callAsync([&task] { task(); });
+    return result.get();
+}
+
 ParamQueryEngine& paramQueryEngine() {
     static ParamQueryEngine* held = [] {
         auto* q = new ParamQueryEngine();
@@ -227,21 +238,26 @@ te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string
     const auto key = orphanKey(formatName, identifier);
     if (auto held = orphanPluginIfLoaded(formatName, identifier)) return held;
 
-    auto& shared = paramQueryEngine();
-    juce::PluginDescription desc;
-    if (!describeExternal(*shared.engine, formatName, identifier, desc)) {
+    // Built on the message thread: a plugin made on a worker can run its own main-thread callbacks against a half-built instance.
+    bool found = false;
+    auto plugin = onMessageThread([&]() -> te::Plugin::Ptr {
+        auto& shared = paramQueryEngine();
+        juce::PluginDescription desc;
+        found = describeExternal(*shared.engine, formatName, identifier, desc);
+        if (!found) return {};
+        return shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
+    });
+    if (!found) {
         warn("no " + formatName + " plugin at '" + identifier + "'");
         return {};
     }
-    auto plugin =
-        shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     if (plugin == nullptr) {
         warn("could not create '" + identifier + "'");
         return {};
     }
     // The same wait, and safe on the message thread too: every format this engine hosts builds its instance synchronously (AGENTS.md).
     if (!waitForParameterList(*plugin, identifier)) {
-        plugin->deleteFromParent();
+        onMessageThread([&] { plugin->deleteFromParent(); });
         warn("'" + identifier + "' did not load — a licence or an installation, not the plugin");
         return {};
     }
@@ -266,40 +282,47 @@ bool prepareNativePluginUI(const std::string& formatName, const std::string& ide
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& formatName,
                                                            const std::string& identifier) {
     std::lock_guard<std::mutex> lock(paramQueryMutex);
-    auto& shared = paramQueryEngine();
 
-    juce::PluginDescription desc;
-    if (!describeExternal(*shared.engine, formatName, identifier, desc)) {
+    // Built, read and dropped on the message thread, and only WAITED for here — docs/plugins.md, "Built on the message thread".
+    bool found = false;
+    auto plugin = onMessageThread([&]() -> te::Plugin::Ptr {
+        auto& shared = paramQueryEngine();
+        juce::PluginDescription desc;
+        found = describeExternal(*shared.engine, formatName, identifier, desc);
+        if (!found) return {};
+        return shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
+    });
+    if (!found) {
         std::cerr << "[plugin-params] no " << formatName << " plugin at '" << identifier << "'\n";
         return std::nullopt;
     }
-    auto plugin =
-        shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     if (plugin == nullptr) {
         std::cerr << "[plugin-params] could not create '" << identifier << "'\n";
         return std::nullopt;
     }
     // A plugin this machine cannot LOAD is `nullopt` like one it cannot find — neither is "this plugin has no parameters".
     if (!waitForParameterList(*plugin, identifier)) {
-        plugin->deleteFromParent();
+        onMessageThread([&] { plugin->deleteFromParent(); });
         return std::nullopt;
     }
-    std::vector<PluginParamInfo> out;
-    // `withStates` ON, as the built-in dump has it: this runs once per ASK rather than per state frame.
-    for (const auto& p : pluginParams(*plugin, true)) {
-        PluginParamInfo info;
-        info.name = p.name.toStdString();
-        info.min = p.min;
-        info.max = p.max;
-        info.hasDefault = p.def.has_value();
-        info.def = p.def.value_or(0.0);
-        for (const auto& [label, value] : p.states)
-            info.states.emplace_back(label.toStdString(), value);
-        out.push_back(std::move(info));
-    }
-    // Dropped before the next query: the edit outlives this call, and an instrument left on it holds voices and a binary open.
-    plugin->deleteFromParent();
-    return out;
+    return onMessageThread([&] {
+        std::vector<PluginParamInfo> out;
+        // `withStates` ON, as the built-in dump has it: this runs once per ASK rather than per state frame.
+        for (const auto& p : pluginParams(*plugin, true)) {
+            PluginParamInfo info;
+            info.name = p.name.toStdString();
+            info.min = p.min;
+            info.max = p.max;
+            info.hasDefault = p.def.has_value();
+            info.def = p.def.value_or(0.0);
+            for (const auto& [label, value] : p.states)
+                info.states.emplace_back(label.toStdString(), value);
+            out.push_back(std::move(info));
+        }
+        // Dropped before the next query: the edit outlives this call, and an instrument left on it holds voices and a binary open.
+        plugin->deleteFromParent();
+        return out;
+    });
 }
 
 int dumpPluginParamsExternal(const std::string& formatName, const std::string& identifier,

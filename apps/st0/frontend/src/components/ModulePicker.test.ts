@@ -96,20 +96,13 @@ describe("buildTree", () => {
     expect(buildTree([])).toEqual([]);
   });
 
-  it("draws the name a module calls itself, keeping the ref as the row's hint", () => {
-    const [ns] = buildTree([
-      { ref: "@st0/audio/delay/adt", label: "Doubleur de bande" },
-    ]);
+  it("draws the module's file name, keeping the ref as the row's hint", () => {
+    const [ns] = buildTree(["@st0/audio/delay/adt"]);
     const leaf = ns.children?.[0].children?.[0].children?.[0];
-    expect(leaf?.label).toBe("Doubleur de bande");
-    // The ref still names it: what a pick WRITES is the ref, so the row has to show it somewhere.
+    expect(leaf?.label).toBe("adt");
+    // What a pick WRITES is the ref, so the row has to show it somewhere.
     expect(leaf?.hint).toBe("@st0/audio/delay/adt");
     expect(leaf?.entry?.name).toBe("adt");
-  });
-
-  it("falls back to the ref's own last segment for a module that says nothing", () => {
-    const [ns] = buildTree([{ ref: "@st0/audio/delay/adt", label: "  " }]);
-    expect(ns.children?.[0].children?.[0].children?.[0].label).toBe("adt");
   });
 
   it("offers no `@engine` ref: a built-in is a base to extend, not a node to drop", () => {
@@ -185,18 +178,6 @@ describe("searchModules", () => {
     expect(refs("adt")).not.toContain("@st0/audio/distortion/drive");
     // With nothing matching literally, the subsequence hits are all there is — what makes the search forgive a half-remembered name.
     expect(refs("ado")).toContain("@st0/audio/delay/adt");
-  });
-
-  it("finds a module by the name it calls itself, and shows that name", () => {
-    // The point of a label: you look for the reverb by what you called it, not by its folder.
-    const withLabel = [{ ref: "@st0/audio/delay/adt", label: "Doubleur" }];
-    const [found] = searchModules(withLabel, "doubleur");
-    expect(found?.entry?.ref).toBe("@st0/audio/delay/adt");
-    expect(found?.label).toBe("Doubleur");
-    // …and the ref still finds it, since that is what a chain writes down.
-    expect(searchModules(withLabel, "adt")[0]?.entry?.ref).toBe(
-      "@st0/audio/delay/adt",
-    );
   });
 
   it("reaches no `@engine` ref either — a search past the tree's rule is the same leak", () => {

@@ -234,6 +234,16 @@ export function setModuleCamera(
   return editModuleValue(dir, module, ["camera"], clean || null);
 }
 
+/** Choose which MIDI device a midi-in node records from, by its label; empty clears it — any device (packages/song/docs/midiIn.md). */
+export function setModuleDevice(
+  dir: string,
+  module: string,
+  label: string,
+): string {
+  const clean = label.trim();
+  return editModuleValue(dir, module, ["device"], clean || null);
+}
+
 /** Choose which named BASE this module starts from, per instance — see packages/song/docs/userPresets.md. */
 export function setModuleBase(
   dir: string,

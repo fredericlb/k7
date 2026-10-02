@@ -103,9 +103,16 @@ export function Home() {
   }, []);
 
   /** The project list is the file service's answer, over the account's workspaces on the server. */
+  // What the last poll answered, as text: an unchanged list keeps its identity, so no row re-renders.
+  const lastWorkspaces = useRef("");
   const loadWorkspaces = useCallback(async (m: AccountFiles) => {
     try {
-      setWorkspaces(await accountFiles.workspaces(m));
+      const next = await accountFiles.workspaces(m);
+      const text = JSON.stringify(next);
+      if (text !== lastWorkspaces.current) {
+        lastWorkspaces.current = text;
+        setWorkspaces(next);
+      }
       setError(null);
     } catch (e) {
       // The list IS the screen's subject: say it failed rather than draw an empty one.

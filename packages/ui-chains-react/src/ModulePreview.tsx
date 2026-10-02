@@ -43,7 +43,7 @@ export function ModulePreview({
   params: Record<string, number>;
   /** The named bases the module may be set to — the graph fills that dropdown, docs/hosting.md. */
   bases?: readonly string[];
-  /** The engine's stage the card's footer draws: `@input-volume`, `@mix`, `@output-volume`, as they apply. */
+  /** The engine's stage the card's header draws: `@input-volume`, `@mix`, `@output-volume`, as they apply. */
   stage?: readonly string[];
   /** What the source node is fed from, as its chip reads — both props or neither, docs/hosting.md. */
   sourceInput?: string;

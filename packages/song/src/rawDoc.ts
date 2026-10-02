@@ -141,6 +141,7 @@ export interface LoadedModule {
   cc?: unknown;
   channel?: unknown; // io "in" only
   camera?: unknown; // io "camera" only — the LABEL, see packages/song/docs/camera.md
+  device?: unknown; // io "midi" only — the MIDI device's LABEL, see packages/song/docs/midiIn.md
   frame?: unknown; // …and its rectangle in the viewport, [x, y, w, h]
   // io "file" only — the audio it reads, project-relative; NOT `file`, which the loader owns (moduleSchema).
   source?: unknown;
@@ -204,6 +205,7 @@ export interface AssembledNote {
   vel?: unknown;
   channel?: unknown;
   camera?: unknown;
+  device?: unknown;
   rel?: unknown;
 }
 

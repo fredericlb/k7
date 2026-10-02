@@ -17,11 +17,10 @@ import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
 import { GraphSlotPane } from "./GraphSlotPane";
 
-/** Cards are drawn 1.5× the width their grid asks for — elbow room, not bigger controls: see moduleRow. */
-const CARD_WIDTH_SCALE = 1.5;
-
 export function TrackModulesPane({
   trackId,
+  cameras,
+  midiDevices,
   reloadKey,
   command,
   onModuleField,
@@ -49,6 +48,9 @@ export function TrackModulesPane({
 }: {
   /** The lane whose path this is. */
   trackId: string;
+  /** The cameras and MIDI devices this browser sees — what those nodes' dropdowns offer, as in the full graph. */
+  cameras?: readonly string[];
+  midiDevices?: readonly string[];
   reloadKey: number;
   command: (line: string) => void | Promise<void>;
   /** …and the RELOADING sender for a module's own field: an intrinsic dropdown draws the file. */
@@ -121,14 +123,17 @@ export function TrackModulesPane({
     () =>
       graph
         ? moduleRow(graph, modules, {
-            widthScale: CARD_WIDTH_SCALE,
+            // The cards the graph draws, at the graph's size: this is a view of the same nodes, not a bigger one.
+            asDrawn: true,
+            // …and with the same lists in their dropdowns: a lens, a MIDI device.
+            devices: { cameras, midiDevices },
             // The cables ARE the subject here: one lane's signal path, met on the SIDES because the row is read across.
             links: true,
             // …and the lane leads it: the signal starts on the lane, and its fader is the first thing in the path.
             track: trackId,
           })
         : null,
-    [graph, modules, trackId],
+    [graph, modules, trackId, cameras, midiDevices],
   );
 
   // A pad on a card in this row PLAYS, by the same hook as the chains pane.
@@ -166,24 +171,25 @@ export function TrackModulesPane({
     };
   }, [pluginIds, watchPluginParams]);
 
+  // No bar: the row IS the view, the lane's own card names it, and the ✕ floats top right (GraphSlotPane).
   // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
-  const frame = (note: React.ReactNode, body: React.ReactNode = null) => (
-    <GraphSlotPane title={trackId} note={note} onClose={onClose}>
-      {body}
-    </GraphSlotPane>
+  const frame = (body: React.ReactNode) => (
+    <GraphSlotPane onClose={onClose}>{body}</GraphSlotPane>
   );
+  // What the pane says when there is no row to draw, where the row would be.
+  const say = (text: React.ReactNode) =>
+    frame(
+      <div className="flex h-full items-center justify-center p-4 text-xs text-muted-foreground">
+        {text}
+      </div>,
+    );
 
-  if (error) return frame(<span className="text-red-500">{error}</span>);
-  if (!laid) return frame(m["common.loading"]());
+  if (error) return say(<span className="text-red-500">{error}</span>);
+  if (!laid) return say(m["common.loading"]());
   if (!laid.nodes.length)
-    return frame("this lane reaches no module — nothing to show");
+    return say("this lane reaches no module — nothing to show");
 
   return frame(
-    <>
-      {/* The MODULES are counted, the lane's own card at the head of them not being one. */}
-      {modules.length} module{modules.length > 1 ? "s" : ""}, in signal order ·
-      the modules' own panels
-    </>,
     <DomChains
       icons={STUDIO_ICONS}
       graph={laid}
@@ -194,6 +200,10 @@ export function TrackModulesPane({
       fitKey={modules.join("|")}
       // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
       fitAxis="height"
+      // …all of it: the tallest card is the pane's height, the others centred on its line.
+      fitPad={1}
+      // A lane's few modules are what this pane is FOR: they never collapse to their far, name-only card.
+      alwaysDetailed
       // A row is read across: the wheel walks along it and nothing pans vertically.
       row
       command={command}

@@ -5,7 +5,7 @@ Tracktion compressor, a vari-mu and a bus compressor are its engines, and a node
 
 ```
 @st0/audio/dynamics/compressor/
-  module.yaml               label: Compressor, engine: tracktion
+  module.yaml               engine: tracktion
   engines/<name>/           module.yaml, ui.yaml, widgets.js, presets.yaml — a whole module
 ```
 
@@ -39,7 +39,7 @@ disagree with it.
 
 ## The module keeps who it is; the engine says what it runs
 
-Running as an engine keeps the module's IDENTITY and its place in the graph — name, label, colour,
+Running as an engine keeps the module's IDENTITY and its place in the graph — name, colour,
 mix and levels, automations, alternatives — and takes everything else from the engine: plugin,
 params, panel, preset, ports. The list is `KEPT` in `engines.ts`. A field on that list is a
 question of where the node SITS; a field off it is a question of what the DSP IS.

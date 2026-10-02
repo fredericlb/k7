@@ -3,7 +3,7 @@
 // repainted by the graph's own paint, because the camera is not React state (docs/camera.md).
 // Two buttons ride on top of it: back to the fitted view, and the host's organize. docs/minimap.md.
 
-import { Maximize, Network } from "@frediverse/ui/icons";
+import { Columns3, Maximize, Network } from "@frediverse/ui/icons";
 import type { GraphNode } from "@studio/ui-chains/graph";
 import { useCallback, useEffect, useRef } from "react";
 import type { Cam } from "./camera";
@@ -39,6 +39,8 @@ export function Minimap({
   onCenter,
   onFit,
   onOrganize,
+  onStack,
+  stacked,
 }: {
   nodes: readonly GraphNode[];
   bounds: Box;
@@ -52,6 +54,9 @@ export function Minimap({
   onFit: () => void;
   /** The host's auto-organize; the button exists only when given. */
   onOrganize?: () => void;
+  /** The host's stack view toggle, and whether it is on; the button exists only when given. */
+  onStack?: () => void;
+  stacked?: boolean;
 }) {
   const cvRef = useRef<HTMLCanvasElement>(null);
   // What was last drawn: a cable frame repaints the graph ~30 times a second, and the map need not follow it.
@@ -141,6 +146,18 @@ export function Minimap({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="dgx-minimap-bar">
+        {onStack && (
+          <button
+            type="button"
+            className={stacked ? "on" : undefined}
+            onClick={onStack}
+            title="Stack view — a column per track, the mix last (ui stack)"
+            aria-label="Stack view"
+            aria-pressed={!!stacked}
+          >
+            <Columns3 />
+          </button>
+        )}
         <button
           type="button"
           onClick={onFit}

@@ -16,9 +16,10 @@ import {
   isColdModule,
   loadGraph,
 } from "./graph";
-import { loadModuleRefs, loadModules } from "./loader";
+import { projectHints } from "./hints";
+import { baseModuleRefs, loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
-import { writeNode, writeYaml } from "./testSupport";
+import { writeLibraries, writeNode, writeYaml } from "./testSupport";
 
 let ws: string;
 let dir: string;
@@ -151,5 +152,38 @@ describe("adding one to a chain", () => {
       "nowhere",
     );
     expect(err).toContain("not part of a chain");
+  });
+});
+
+describe("the cold/ folder", () => {
+  let root: string;
+  let song: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "td-coldfolder-"));
+    song = join(root, "song");
+    mkdirSync(song, { recursive: true });
+    writeFileSync(join(song, "project.yaml"), "project:\n  name: s\n", "utf8");
+    writeLibraries(root, {
+      "cold/normalize": {
+        cold: true,
+        plugin: { type: "jsdsp", name: "Normalize" },
+      },
+      "audio/utility/gain": { plugin: { type: "jsdsp", name: "Gain" } },
+    });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it("loads a cold module under @<library>/cold/, audio in and out", () => {
+    const m = loadModuleRefs(song)["@st0/cold/normalize"];
+    expect(m?.category).toBe("cold");
+    expect(m?.inputs.map((p) => p.type)).toEqual(["audio"]);
+  });
+
+  it("never suggests one: not in the picker, not in the chain completions", () => {
+    const offered = baseModuleRefs(loadModuleRefs(song));
+    expect(offered.filter((r) => r.startsWith("@st0/"))).toEqual([
+      "@st0/audio/utility/gain",
+    ]);
+    expect(projectHints(song).modules).not.toContain("@st0/cold/normalize");
   });
 });

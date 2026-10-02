@@ -39,7 +39,7 @@ two lists that hold them (`outputs` and `events`) are separate for exactly that 
 `WebChainStep.uses` is the module this node USES, its `extends` ref as written. A node and the
 module behind it are two different names, and a card drawing only the node's makes seventeen
 nodes of one mixer read as seventeen unrelated things, with what a node IS learnable only by
-opening it. So the header says the MODULE, with the node's own name small underneath — see
+opening it. So the header says the MODULE, with the node's own name on hover — see
 `moduleDisplayName`.
 
 It is absent on a node that IS a module (a `modules/…/module.yaml` names itself) and on a track,
@@ -218,3 +218,13 @@ alone cannot answer it. Absent when the project does not compile — the graph i
 broken project from, so it must draw without this. A compiled `length` of 0 means "the source's
 natural length", which nothing on this side knows either; the file service substitutes the same
 stand-in the timeline draws for it.
+
+## A panel's widgets are on every tab
+
+`WebModuleUI.tabs` is the panel's pages, in order, beside the `widgets` every tab shows. Anything that
+looks a control up by its bind goes through `panelWidgets` (`panel.ts`), which walks the shared map
+and every tab's: a knob on a closed tab is still the module's, and a lookup over `widgets` alone would
+answer "no widget" for it. The walk lives here rather than in a renderer because the file service,
+the chains view and st0's MIDI control all need the same answer, and this is the one package all
+three already import. `hasTabs` is the other half: a single tab is no tab, so the column is drawn
+only for two or more.

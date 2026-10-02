@@ -34,7 +34,7 @@ beforeEach(() => {
     mkdirSync(at, { recursive: true });
     writeFileSync(
       join(at, "module.yaml"),
-      `plugin: { type: internal, name: Console 6 ${half} }\nlabel: Console 6 ${half === "channel" ? "Channel" : "Buss"}\n`,
+      `plugin: { type: internal, name: Console 6 ${half} }\n`,
       "utf8",
     );
   }
@@ -78,6 +78,6 @@ describe("project console", () => {
 
   it("lists the systems when given none", async () => {
     await runCommand("project console", host(), "cli");
-    expect(logs).toEqual([`${SYS}  Console 6`]);
+    expect(logs).toEqual([`${SYS}  console-6`]);
   });
 });

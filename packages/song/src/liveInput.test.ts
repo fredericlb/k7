@@ -123,7 +123,9 @@ describe("a live input, wired by its chain", () => {
       wire({ modules: { [IN]: ["OUT"], lead: ["mic"] } });
       expect(
         loadGraph(dir).warnings.some((x) =>
-          x.includes("only a live input's signal lands on a lane"),
+          x.includes(
+            "only a live input's or a MIDI device's signal lands on a lane",
+          ),
         ),
       ).toBe(true);
     });

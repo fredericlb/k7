@@ -5,12 +5,10 @@ import {
   hasMalformedUi,
   hasParsableUi,
   ioOf,
-  labelOf,
   readParams,
   readPlugin,
   readUi,
   setChannelIn,
-  setLabelIn,
   setStatusIn,
   statusOf,
   writeUi,
@@ -176,21 +174,28 @@ describe("writing", () => {
     expect(second).toBe(first);
   });
 
-  it("keeps a tabs widget readable down the page rather than on one line", () => {
+  it("writes the panel's tabs in order, each widget still on one line", () => {
     const after = writeUi("", {
       cols: 4,
       rows: 2,
-      widgets: {
-        t: {
-          type: "tabs",
-          col: 0,
-          row: 0,
-          pages: { osc: { k: { type: "knob", col: 0, row: 0, bind: "Mix" } } },
+      widgets: {},
+      tabs: [
+        {
+          name: "Osc",
+          widgets: { k: { type: "knob", col: 0, row: 0, bind: "Mix" } },
         },
-      },
+        { name: "Filter", widgets: {} },
+      ],
     });
-    expect(after).toContain("pages:");
-    expect(hasParsableUi(after)).toBe(true);
+    expect(after).toMatch(/name: Osc[\s\S]*name: Filter/);
+    expect(after).toContain("k: { type: knob, col: 0, row: 0, bind: Mix }");
+    expect(readUi(after).tabs?.map((t) => t.name)).toEqual(["Osc", "Filter"]);
+  });
+
+  it("writes no `tabs:` for a panel without them", () => {
+    expect(writeUi("", { cols: 2, rows: 1, widgets: {} })).not.toContain(
+      "tabs",
+    );
   });
 });
 
@@ -275,40 +280,6 @@ describe("an input module's channels", () => {
     expect(after).toContain("# the room mic");
     expect(after).toContain("name: Salle");
     expect(after.split("\n").length).toBe(before.split("\n").length);
-  });
-});
-
-// The `label` box: a name typed there is a YAML field, and clearing it takes the field away.
-describe("a module's label", () => {
-  it("reads what the file says, and empty for a file that says nothing", () => {
-    expect(labelOf('label: "Grande salle"\n')).toBe("Grande salle");
-    expect(labelOf("name: Amp\n")).toBe("");
-    expect(labelOf("")).toBe("");
-  });
-
-  it("writes one, and reads back what it wrote", () => {
-    expect(labelOf(setLabelIn("name: Amp\n", "Ampli lead"))).toBe("Ampli lead");
-  });
-
-  it("CLEARS on an empty box: no label at all, rather than an empty one", () => {
-    const after = setLabelIn('name: Amp\nlabel: "Ampli lead"\n', "  ");
-    expect(after).not.toContain("label");
-    expect(labelOf(after)).toBe("");
-  });
-
-  it("leaves every other line of a hand-written file alone", () => {
-    const before = "# the lead amp\nname: Amp\nplugin: { name: nam }\n";
-    const after = setLabelIn(before, "Ampli lead");
-    expect(after).toContain("# the lead amp");
-    expect(after).toContain("plugin: { name: nam }");
-    expect(labelOf(after)).toBe("Ampli lead");
-  });
-
-  // Typed by a person, so it carries accents and spaces and must survive the writer untouched.
-  it("keeps a name with accents and spaces exactly as typed", () => {
-    expect(labelOf(setLabelIn("", "Réverbe — grande salle"))).toBe(
-      "Réverbe — grande salle",
-    );
   });
 });
 

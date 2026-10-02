@@ -30,6 +30,8 @@ describe("derived module fields", () => {
       "channel",
       // …and WHICH lens an io "camera" opens, plus where in the viewport it draws — docs/camera.md.
       "camera",
+      // …and WHICH MIDI device an io "midi" records from — packages/song/docs/midiIn.md.
+      "device",
       "frame",
       // No `track`: where an input LANDS is the chain's business (docs/fields.md).
       "source", // …and the OTHER kind of source: an io "file" reads audio off disk
@@ -59,8 +61,6 @@ describe("derived module fields", () => {
       "alternative",
       // …and how the COMPLETIONS should treat this module, outside MODULE_FIELDS so an alternative cannot restate it.
       "status",
-      // …and what they CALL it, which is the same kind of fact and sits in the same place (docs/moduleLabel.md).
-      "label",
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));
@@ -68,7 +68,20 @@ describe("derived module fields", () => {
 
   it("answers for a nested struct, which the CUE version could not", () => {
     // A nested struct answers from its own shape, however deep it sits (docs/fields.md).
-    expect(fieldsAt("module", ["ui"])).toEqual(["cols", "rows", "widgets"]);
+    expect(fieldsAt("module", ["ui"])).toEqual([
+      "cols",
+      "rows",
+      "widgets",
+      "tabs",
+    ]);
+    // A tab is a name and its widgets, and a widget in it is a widget like any other.
+    expect(fieldsAt("module", ["ui", "tabs", "0"])).toEqual([
+      "name",
+      "widgets",
+    ]);
+    expect(fieldsAt("module", ["ui", "tabs", "0", "widgets", "w1"])).toContain(
+      "bind",
+    );
     expect(fieldsAt("module", ["ui", "widgets", "w1"])).toContain("library");
     expect(fieldsAt("module", ["ui", "widgets", "w1"])).toContain("bind");
     expect(fieldsAt("module", ["rack"])).toEqual(
@@ -147,6 +160,7 @@ describe("derived values", () => {
       "video_out",
       "file",
       "camera",
+      "midi",
     ]);
     // …and the recorder node's own picture, beside the two live taps — docs/recorder.md.
     expect(valuesAt("module", ["ui", "widgets", "w1"], "source")).toEqual([

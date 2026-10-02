@@ -3,6 +3,7 @@
 // graph, plays what the graph says, and writes through `module cc` like any other edit.
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";
+import { panelWidgets } from "@studio/graph-model/panel";
 import { pairValue, widgetDenorm, widgetNorm } from "@studio/ui-chains/graph";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -42,9 +43,7 @@ export function droppedBindings(graph: WebGraph | null): DroppedBinding[] {
         // No plugin means the whole step is unreachable; no widget means this one param has no range to sweep.
         if (!step.pluginId)
           out.push({ module: step.module, param, why: "no plugin" });
-        else if (
-          !Object.values(step.ui?.widgets ?? {}).some((w) => w.bind === param)
-        )
+        else if (!panelWidgets(step.ui).some(([, w]) => w.bind === param))
           out.push({ module: step.module, param, why: "no widget" });
       }
     }
@@ -74,9 +73,10 @@ export function mappedParams(graph: WebGraph | null): MappedParam[] {
       if (!step.cc || !step.pluginId) continue;
       const pluginId = step.pluginId;
       for (const [param, b] of Object.entries(step.cc)) {
-        const widget = Object.values(step.ui?.widgets ?? {}).find(
-          (w) => w.bind === param,
-        );
+        // On any tab: a knob on a closed page is still the one a controller turns.
+        const widget = panelWidgets(step.ui).find(
+          ([, w]) => w.bind === param,
+        )?.[1];
         if (!widget) continue;
         out.push({
           module: step.module,

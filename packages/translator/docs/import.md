@@ -319,7 +319,7 @@ sole use that stayed in `module.yaml`.
 
 **A plugin the cache does not know gets NO module of its own.** Every use of it is written as a
 node on `@meta/not-supported`, the built-in placeholder, carrying the plugin's real name as
-`label:` and the params the export held. The chain routes through it and the graph draws it amber.
+`plugin.name` and the params the export held. The chain routes through it and the graph draws it amber.
 `packages/song/docs/notSupported.md` argues the shape — chiefly why a stub MODULE per unloadable
 plugin was the wrong answer, and why the ref is `@meta` rather than `@st0`.
 

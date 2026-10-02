@@ -31,10 +31,26 @@ export interface MasterControl {
   unit: string;
   /** The note the scaffold prints beside the empty line — kept next to the control it is about. */
   wants: string;
+  /** Not required by the gate: a surface written before it existed still draws (docs/mastering.md). */
+  optional?: true;
+  /** A CHOICE rather than a range: the param's values 0, 1, 2… named in order, drawn as a dropdown. */
+  choices?: readonly string[];
 }
 
 /** The ten, in signal order — with NO normalisation anywhere on this surface, so a number can be checked against a meter (docs/mastering.md). */
 export const MASTER_CONTROLS: readonly MasterControl[] = [
+  {
+    id: "comp.lowCut",
+    label: () => m["master.lowCut"](),
+    part: "comp",
+    range: [0, 300],
+    home: 0,
+    step: 1,
+    unit: "Hz",
+    wants:
+      "the quick-master module — its low cut on the mid, before it compresses",
+    optional: true,
+  },
   {
     id: "comp.low",
     label: () => m["master.low"](),
@@ -43,7 +59,7 @@ export const MASTER_CONTROLS: readonly MasterControl[] = [
     home: 0,
     step: 1,
     unit: "%",
-    wants: "the quick-master module — how much it compresses the lows",
+    wants: "the SAME module — how much it compresses the lows",
   },
   {
     id: "comp.mid",
@@ -107,6 +123,18 @@ export const MASTER_CONTROLS: readonly MasterControl[] = [
       "the SAME module — the frequency below which the bass is brought to the centre",
   },
   {
+    id: "limiter.hfLimit",
+    label: () => m["master.hfLimit"](),
+    part: "limiter",
+    range: [0, 100],
+    home: 0,
+    step: 1,
+    unit: "%",
+    wants:
+      "the SAME module — its HF limit, what it takes off the fastest highs",
+    optional: true,
+  },
+  {
     id: "limiter.drive",
     label: () => m["master.drive"](),
     part: "limiter",
@@ -136,19 +164,31 @@ export const MASTER_CONTROLS: readonly MasterControl[] = [
     unit: "ms",
     wants: "the SAME module — its release time",
   },
+  {
+    id: "limiter.output",
+    label: () => m["master.output"](),
+    part: "limiter",
+    range: [0, 2],
+    home: 0,
+    step: 1,
+    unit: "",
+    wants: "the SAME module — its output word length, float, 24-bit or 16-bit",
+    optional: true,
+    choices: ["Float", "24-bit", "16-bit"],
+  },
 ];
 
 export const masterControl = (id: string): MasterControl | undefined =>
   MASTER_CONTROLS.find((c) => c.id === id);
 
-/** The controls with no module behind them, absent or `null` — it filters the WHOLE list, a missing line being a knob that does nothing.
- *
- * The WHOLE list, unlike the desk's, which filters its REQUIRED ones: every knob here is a picture
- * of the one node this surface is about, so none of them is optional. */
+/** The REQUIRED controls with no module behind them — a missing line being a knob that does nothing (docs/mastering.md). */
 export function unmappedControls(
   mapping: MixView | undefined,
 ): readonly MasterControl[] {
-  return unmapped(MASTER_CONTROLS, mapping);
+  return unmapped(
+    MASTER_CONTROLS.filter((c) => !c.optional),
+    mapping,
+  );
 }
 
 /** The modules this surface's mapping names, deduplicated — more than one is legal, and worth SAYING rather than refusing. */

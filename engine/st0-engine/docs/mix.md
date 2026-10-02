@@ -55,7 +55,7 @@ because a plugin's neutral is where its author put it: the auto-wah's `Output` r
 `scripts/volume-probe.ts` checks the two levels against a running engine.
 
 On a LANE, `@output-volume` is the mixer fader rather than this stage. On a module's card the three
-are drawn by st0 in a footer under the panel, never on it
+are drawn by st0 on the second line of the card's header, never on the panel
 (`packages/ui-chains-react/docs/nodeCard.md`).
 
 ## A split and a blend, found by adjacency

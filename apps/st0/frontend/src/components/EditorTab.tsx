@@ -806,13 +806,24 @@ export function EditorTab({
   const renameLibraryEntry = useCallback(
     async (path: string, newName: string) => {
       try {
-        const { path: newPath } = await api.renameFile(path, newName);
+        const { path: newPath, repointed } = await api.renameFile(
+          path,
+          newName,
+        );
         await publishLibraryOf(path, `rename ${path} to ${newPath}`);
+        // A module's ref is its path: the songs naming it were repointed too (packages/song/docs/moduleMove.md).
+        if (repointed?.length) {
+          await refresh();
+          onChanged();
+          setStatus(
+            `renamed to ${newPath}, ${repointed.length} file(s) repointed`,
+          );
+        }
       } catch (e) {
         setStatus(`rename failed: ${(e as Error).message}`);
       }
     },
-    [publishLibraryOf, setStatus],
+    [publishLibraryOf, refresh, onChanged, setStatus],
   );
 
   const deleteLibraryEntry = useCallback(

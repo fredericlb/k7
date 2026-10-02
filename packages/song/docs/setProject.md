@@ -255,7 +255,7 @@ parameterised by the decks for that one caller beyond the scaffold.
 
 ### The tempo module is COLD
 
-`@st0/audio/utility/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo change is a
+`@st0/cold/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo change is a
 time stretch, a stretch has to know where the file ends, and there is no engine plugin that
 stretches time (the engine hosts a Pitch Shifter and nothing else of that kind; Tracktion warps a
 CLIP instead). So it is the offline shape: a pass writes the stretched audio before the render.

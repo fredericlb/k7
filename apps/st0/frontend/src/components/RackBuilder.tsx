@@ -1,7 +1,7 @@
 // RackBuilder.tsx — build a KIT on a 4×4 pad grid: drop audio files on the pads, click one to hear
 // it, name each pad (its tap) and the kit, choose where the samples go — this project's samples/
 // or a library's — then CREATE: the samples are uploaded there, and the kit becomes a NODE of the
-// plain `rack` sampler, placed in the graph with its taps. Notes run 36 upward, bottom-left first —
+// library's `st0-rack` sampler, placed in the graph with its taps. Notes run 36 upward, bottom-left first —
 // the drum-machine reading rackBuilder.ts pins. Opened by `module create rack` (packages/song/docs/racks.md).
 
 import { Button } from "@frediverse/ui/button";
@@ -20,12 +20,9 @@ import {
   type KitDestination,
   kitUploadDir,
   padNote,
-  RACK_MODULE,
-  RACK_MODULE_FILE,
-  RACK_MODULE_REF,
-  RACK_MODULE_YAML,
   type RackPad,
   rackIssues,
+  rackModuleRef,
 } from "../rackBuilder";
 
 interface Pad {
@@ -58,9 +55,9 @@ export function RackBuilder({
     name: string;
     frac: number;
   } | null>(null);
-  // The project's node names, so "it exists" is said before any upload runs — and whether the sampler is there yet.
+  // The project's node names, so "it exists" is said before any upload runs — and which library's sampler a kit extends.
   const [taken, setTaken] = useState<string[]>([]);
-  const [hasSampler, setHasSampler] = useState(false);
+  const [rackRef, setRackRef] = useState<string | null>(null);
   // The account's libraries, the other places a kit's samples can go.
   const [libraries, setLibraries] = useState<string[]>([]);
   const [dest, setDest] = useState<KitDestination>("project");
@@ -71,7 +68,7 @@ export function RackBuilder({
       .then((h) => {
         if (cancelled) return;
         setTaken(h.modules);
-        setHasSampler(h.baseModules.includes(RACK_MODULE_REF));
+        setRackRef(rackModuleRef(h.baseModules));
       })
       .catch(() => {});
     void api
@@ -173,10 +170,10 @@ export function RackBuilder({
         })),
     [pads],
   );
-  const issues = rackIssues(name.trim(), rackPads, taken);
+  const issues = rackIssues(name.trim(), rackPads, taken, !!rackRef);
 
   const create = async () => {
-    if (busy || issues.length) return;
+    if (busy || issues.length || !rackRef) return;
     setBusy(true);
     const kit = name.trim();
     // WORKSPACE-relative, project prefix included: without it a file lands BESIDE the project, where nothing ever lists it.
@@ -204,17 +201,15 @@ export function RackBuilder({
         done++;
       }
       setUp({ done, total: rackPads.length, name: `${kit}.yaml`, frac: 0 });
-      // The sampler a kit is a node of, the first time this workspace needs one.
-      if (!hasSampler) await api.write(RACK_MODULE_FILE, RACK_MODULE_YAML);
-      // The node, IN the graph and wired to nothing — the verb that does both, and journals it.
-      const made = await api.command(`node new ${RACK_MODULE} ${kit}`, {
+      // The node, IN the graph and wired to nothing, straight over the library's sampler — the verb that does both, and journals it.
+      const made = await api.command(`node new ${rackRef} ${kit}`, {
         want: [],
       });
       if (made.refused) throw new Error(made.output.join(" · "));
       // …then its taps, in one write rather than a reload per pad.
       await api.write(
         `${prefix}nodes/${kit}.yaml`,
-        buildKitNodeYaml(kit, rackPads, dest),
+        buildKitNodeYaml(kit, rackPads, dest, rackRef),
       );
       onCreated(kit);
     } catch (e) {

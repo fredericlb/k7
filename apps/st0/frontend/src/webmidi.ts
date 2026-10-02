@@ -16,10 +16,27 @@ export interface CapturedNote {
   v: number; // velocity 0..1
 }
 
-// One input the browser exposes, as the transport's device picker offers it.
+// One input the browser exposes, as a midi-in node's dropdown offers it.
 export interface MidiInputInfo {
   id: string; // the Web MIDI port id, stable while the page lives
   name: string; // the device's own name, or the id when it has none
+}
+
+/** Which of `names` a midi-in node's `device` label means: exact, then case-insensitive, then by
+ *  containment either way — the camera's rule (packages/song/docs/midiIn.md). "" is every device. */
+export function matchMidiDevice(
+  label: string,
+  names: readonly string[],
+): string[] {
+  if (!label) return [...names];
+  const exact = names.filter((n) => n === label);
+  if (exact.length) return exact;
+  const l = label.toLowerCase();
+  const ci = names.filter((n) => n.toLowerCase() === l);
+  if (ci.length) return ci;
+  return names.filter(
+    (n) => n.toLowerCase().includes(l) || l.includes(n.toLowerCase()),
+  );
 }
 
 // The shortest note we keep, so an instantaneous off still satisfies `#Note`'s `d > 0`.
@@ -29,8 +46,8 @@ export class MidiRecorder {
   private access?: MIDIAccess;
   private beatNow: () => number;
   private recording = false;
-  // The input being captured, or null for EVERY one — the transport's picker sets it.
-  private selectedId: string | null = null;
+  // The device being captured, by a midi-in node's label: "" any, null NONE — no node feeds the armed lane.
+  private device: string | null = null;
   // Told when the plugged-in list changes, so the picker re-offers what is there.
   private onInputsChanged?: () => void;
   // Open notes keyed by `${channel}:${key}` → their onset beat + velocity.
@@ -70,24 +87,22 @@ export class MidiRecorder {
     return out;
   }
 
-  // The input being captured, or null for all of them.
-  get selectedInput(): string | null {
-    return this.selectedId;
-  }
-
-  // Pick the input to capture, or null for every one. Re-attaches, so switching mid-take is legal.
-  selectInput(id: string | null): void {
-    this.selectedId = id;
+  // Pick the device to capture, by label; "" is any, null none. Re-attaches, so switching mid-take is legal.
+  selectDevice(label: string | null): void {
+    this.device = label;
     this.attach();
   }
 
   private attach(): void {
     if (!this.access) return;
-    for (const input of this.access.inputs.values())
-      input.onmidimessage =
-        this.selectedId === null || input.id === this.selectedId
-          ? (e) => this.onMessage(e)
-          : null;
+    const inputs = [...this.access.inputs.values()];
+    const names = inputs.map((i) => i.name || i.id);
+    const on = new Set(
+      this.device === null ? [] : matchMidiDevice(this.device, names),
+    );
+    inputs.forEach((input, i) => {
+      input.onmidimessage = on.has(names[i]) ? (e) => this.onMessage(e) : null;
+    });
   }
 
   // Begin a take: clear any carry-over and start pairing events.

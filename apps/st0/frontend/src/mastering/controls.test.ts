@@ -50,9 +50,17 @@ describe("the mastering surface's controls", () => {
     }
   });
 
-  it("requires all of them — this surface is ONE node", () => {
+  it("requires the ten — this surface is ONE node — and offers the three optional stages", () => {
     // There is no smaller mastering strip: a missing line is the same strip with a dead knob, asserted through the GATE.
-    expect(unmappedControls({})).toEqual(MASTER_CONTROLS);
+    const required = MASTER_CONTROLS.filter((c) => !c.optional);
+    expect(required).toHaveLength(10);
+    expect(unmappedControls({})).toEqual(required);
+    // …and a surface written before the word length existed still draws: its line is OFFERED, not required.
+    expect(MASTER_CONTROLS.filter((c) => c.optional).map((c) => c.id)).toEqual([
+      "comp.lowCut",
+      "limiter.hfLimit",
+      "limiter.output",
+    ]);
   });
 
   it("counts an absent line and a null one as the same gap", () => {
@@ -66,7 +74,14 @@ describe("the mastering surface's controls", () => {
     ]);
     const { "spread.width": _dropped, ...short } = wired;
     expect(unmappedControls(short).map((c) => c.id)).toEqual(["spread.width"]);
-    expect(unmappedControls(undefined)).toHaveLength(MASTER_CONTROLS.length);
+    expect(unmappedControls(undefined)).toHaveLength(10);
+    const {
+      "comp.lowCut": _cut,
+      "limiter.hfLimit": _hf,
+      "limiter.output": _optional,
+      ...old
+    } = wired;
+    expect(unmappedControls(old)).toHaveLength(0);
   });
 
   it("reads one module out of ten lines naming it", () => {

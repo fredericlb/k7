@@ -82,7 +82,12 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
-import { planModuleMove, repointRefs } from "@studio/song/moduleMove";
+import {
+  assertNotEngine,
+  planModuleMove,
+  refAt,
+  repointRefs,
+} from "@studio/song/moduleMove";
 import {
   compileWithAutoFreezes,
   isFrozenClipId,
@@ -171,7 +176,6 @@ import {
   buildGraphDoc,
   type ClipExtents,
   clipExtentsOf,
-  consoleOf,
   type TrackMixers,
   trackMixersOf,
 } from "./graphDoc.ts";
@@ -183,7 +187,6 @@ import {
   ProjectHistory,
 } from "./history.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
-import { moduleRowLabel } from "./moduleRowLabel.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
   type PluginNeed,
@@ -1222,19 +1225,11 @@ export class Workspace {
       const childAbs = join(abs, e.name);
       const path = this.toRel(childAbs);
       const children = e.isDirectory() ? this.walk(childAbs) : undefined;
-      // A module folder's readable name, drawn beside its row — packages/song/docs/moduleLabel.md.
-      const label =
-        children &&
-        moduleRowLabel(
-          childAbs,
-          children.map((c) => c.name),
-        );
       return children
         ? {
             name: e.name,
             path,
             dir: true,
-            ...(label ? { label } : {}),
             project: isProjectDir(childAbs) || undefined,
             // WHICH app opens it, beside the flag that says one does — that row must not guess.
             app: (isProjectDir(childAbs) && projectApp(e.name)) || undefined,
@@ -1621,9 +1616,16 @@ export class Workspace {
   }
 
   // Rename within the same parent: workspace-sandboxed, no clobber, Windows-handle-retry.
-  async renameEntry(rel: string, newName: string): Promise<{ path: string }> {
+  async renameEntry(
+    rel: string,
+    newName: string,
+  ): Promise<{ path: string; repointed?: string[] }> {
     const abs = this.safePath(rel);
     this.guardMutable(abs, "rename");
+    // A library module's ref IS its path: renaming it, or a folder of them, repoints every ref (song docs/moduleMove.md).
+    const library = libraryOf(abs);
+    const oldRef = library ? refAt(library, abs) : null;
+    if (library && oldRef) assertNotEngine(library, abs);
     // A single path segment — no separators or traversal (the new name stays in place).
     const clean = basename(newName).replace(/[\\/]/g, "").trim();
     if (!clean || clean === "." || clean === "..")
@@ -1640,8 +1642,18 @@ export class Workspace {
     // Release our own handles first; renameWithRetry covers a watcher's that lingers.
     this.cancelPrewarm();
     await renameWithRetry(abs, destAbs);
+    const newRef = library ? refAt(library, destAbs) : null;
+    const repointed =
+      library && oldRef && newRef
+        ? repointRefs([library.root, this.root], oldRef, newRef, true)
+        : [];
     this.invalidateProjectDoc();
-    return { path: this.toRel(destAbs) };
+    return {
+      path: this.toRel(destAbs),
+      ...(repointed.length
+        ? { repointed: repointed.map((f) => this.toRel(f)) }
+        : {}),
+    };
   }
 
   /** Move an entry into another folder — renameEntry's three concerns, plus the self-descent check. */
@@ -2288,22 +2300,6 @@ export class Workspace {
     }
   }
 
-  /** …and where the console's halves went, off the same compile — packages/song/docs/console.md. */
-  private consoleDrawn(dir: string): WebGraph["console"] {
-    try {
-      const doc = this.cachedProjectDoc(dir);
-      const named = doc.masterPlugins[0]?.id === `${CONSOLE_ID}master`;
-      if (!named) return undefined;
-      const { systems, current } = this.consolesIn(dir);
-      return consoleOf(
-        doc,
-        systems.find((s) => s.ref === current),
-      );
-    } catch {
-      return undefined; // a compile that fails draws no console, and says so where it fails
-    }
-  }
-
   // `at` builds the graph of a folder OTHER than the open project — a library chain, for the builder.
   graphDoc(at?: string): WebGraph {
     // TWO scopes for the whole derivation, one level apart — see docs/workspace.md.
@@ -2317,29 +2313,18 @@ export class Workspace {
     const dir = at ?? this.requireActive();
     // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
     if (dir !== this.activeProject)
-      return this.withConsoleDrawn(
-        dir,
-        buildGraphDoc(dir, this.clipExtents(dir), this.trackMixers(dir)),
-      );
+      return buildGraphDoc(dir, this.clipExtents(dir), this.trackMixers(dir));
     const { rev } = this.revision();
     const hit = this.graphCache;
     if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
-    const graph = this.withConsoleDrawn(
+    const graph = buildGraphDoc(
       dir,
-      buildGraphDoc(
-        dir,
-        this.clipExtents(dir),
-        this.trackMixers(dir),
-        this.autoFreezes(),
-      ),
+      this.clipExtents(dir),
+      this.trackMixers(dir),
+      this.autoFreezes(),
     );
     this.graphCache = { dir, rev, graph };
     return graph;
-  }
-
-  private withConsoleDrawn(dir: string, graph: WebGraph): WebGraph {
-    const drawn = this.consoleDrawn(dir);
-    return drawn ? { ...graph, console: drawn } : graph;
   }
 
   projectInfo(): ProjectInfo {

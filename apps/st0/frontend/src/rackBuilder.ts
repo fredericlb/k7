@@ -1,6 +1,6 @@
 // rackBuilder.ts — the rack builder's arithmetic: which pad fires which note, in which order the
 // taps are written, where the samples go, and the KIT node the CREATE button commits — a node of the
-// plain `rack` sampler carrying its own taps (packages/song/docs/racks.md). Pure, because what lands
+// library's `st0-rack` sampler carrying its own taps (packages/song/docs/racks.md). Pure, because what lands
 // in the project is exactly what deserves a test; the popin is a grid drawn around these numbers.
 
 import { Document } from "yaml";
@@ -39,15 +39,16 @@ export interface RackPad {
   note: number;
 }
 
-/** The sampler every kit is a node of: nothing but `type: rack`, the kit being the node's. */
-export const RACK_MODULE = "instruments/rack";
-export const RACK_MODULE_REF = `@workspace/${RACK_MODULE}`;
-/** Where it is written when the workspace has none yet — workspace-relative, as every api path is. */
-export const RACK_MODULE_FILE = `_modules/${RACK_MODULE}/module.yaml`;
-export const RACK_MODULE_YAML =
-  "# rack — the sampler a kit is a node of. It carries no sounds: each node of it states its own\n" +
-  "# taps, a note and the sample it fires (packages/song/docs/racks.md).\n" +
-  "type: rack\n";
+/** The sampler every kit is a node of — a LIBRARY module, nothing but `type: rack`, the kit being the node's. */
+export const RACK_MODULE = "instruments/st0-rack";
+
+/** Which library's sampler a kit extends: `@st0`'s first, else any library's; null when none holds one. */
+export function rackModuleRef(baseModules: readonly string[]): string | null {
+  const found = baseModules.filter((r) =>
+    new RegExp(`^@(?!workspace/|engine/)[^/]+/${RACK_MODULE}$`).test(r),
+  );
+  return found.find((r) => r.startsWith("@st0/")) ?? found[0] ?? null;
+}
 
 /** Where a kit's samples land: the PROJECT's own samples/, or one of the account's libraries'. */
 export type KitDestination = "project" | { library: string };
@@ -78,8 +79,11 @@ export function rackIssues(
   pads: readonly RackPad[],
   /** The project's node names: the kit IS a node, and two cannot share one. */
   taken: readonly string[] = [],
+  /** The sampler the kit extends — false when no library holds one. */
+  hasRack = true,
 ): string[] {
   const out: string[] = [];
+  if (!hasRack) out.push(m["rb.noRack"]({ module: RACK_MODULE }));
   if (!name) out.push(m["rb.noName"]());
   else if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name)) out.push(m["rb.nameShape"]());
   if (taken.includes(name)) out.push(m["rb.exists"]({ name }));
@@ -105,6 +109,8 @@ export function buildKitNodeYaml(
   name: string,
   pads: readonly RackPad[],
   dest: KitDestination,
+  /** The sampler it is a node of, as `rackModuleRef` found it. */
+  rackRef: string,
 ): string {
   const symbols: Record<string, { note: number; sample: string }> = {};
   for (const p of pads)
@@ -113,7 +119,7 @@ export function buildKitNodeYaml(
       sample: kitSampleRef(dest, name, p.fileName),
     };
   const doc = new Document(
-    { extends: RACK_MODULE_REF, rack: { symbols } },
+    { extends: rackRef, rack: { symbols } },
     { version: "1.2" },
   );
   // `BD: { note: 36, sample: … }` — a kit is read down, the way a drum map is.

@@ -53,7 +53,7 @@ export const DOC_TEMPO = 120;
 export const PITCH_RANGE = 0.16;
 
 /** The module a deck's tempo BELONGS to, and the params the faders are — `offline`, so the platter's `Rate` realises it. */
-export const TEMPO_MODULE = "@st0/audio/utility/tempo";
+export const TEMPO_MODULE = "@st0/cold/tempo";
 export const TEMPO_PARAM = "Target BPM";
 export const TEMPO_SOURCE_PARAM = "Source BPM";
 

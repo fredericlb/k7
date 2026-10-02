@@ -315,6 +315,8 @@ export interface AutoTarget {
   to: Pt;
   param: string;
   onWidget: boolean;
+  /** The module automated, which unbinding names — absent on a target that is not a module's card. */
+  module?: string;
 }
 
 export function autoTarget(
@@ -334,5 +336,6 @@ export function autoTarget(
       : { x: tgt.x, y: tgt.y + tgt.h / 2 },
     param: a.param,
     onWidget: !!a.widget,
+    ...(tgt.module ? { module: tgt.module } : {}),
   };
 }

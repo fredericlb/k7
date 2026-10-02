@@ -59,6 +59,7 @@ import {
 } from "@studio/song/loader";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
+import { createNodeOn } from "@studio/song/nodeOnRef";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
 import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
@@ -95,6 +96,7 @@ import {
   setModuleBypass,
   setModuleCamera,
   setModuleChannel,
+  setModuleDevice,
   setModuleExtends,
   setModuleFrozen,
   setModuleInputGain,
@@ -132,10 +134,10 @@ import {
   isBuiltinOutput,
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
-  sharedFamilyOf,
   MIX_NODE,
   OUT_NODE,
   RENDER_NODE,
+  sharedFamilyOf,
   splitPort,
   VIDEO_OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
@@ -1473,6 +1475,14 @@ const INTRINSICS: Record<
     return {
       path: setModuleCamera(dir, module, name),
       said: name ? `camera ${name}` : "the default camera",
+    };
+  },
+  /** Which MIDI DEVICE a midi-in node records from, by its LABEL; `any` clears it — packages/song/docs/midiIn.md. */
+  device: (dir, module, raw) => {
+    const name = raw.trim() === "any" ? "" : raw.trim();
+    return {
+      path: setModuleDevice(dir, module, name),
+      said: name ? `MIDI device ${name}` : "any MIDI device",
     };
   },
   /** Which named BASE this module starts from — the opaque `.vstpreset` under its params; docs/verbs.md. */
@@ -3551,10 +3561,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
-  /** node new <category>/<name> [<node-name>] [<extends-ref>] [x,y] — one USE of a module, AND its place in the graph; docs/verbs.md. */
+  /** node new <category>/<name>|<@ref> [<node-name>] [<extends-ref>] [x,y] — one USE of a module, AND its place in the graph; docs/verbs.md. */
   "node.new": async (a, h) => {
     const usage =
-      "usage: node new <category>/<name> [<node-name>] [<extends-ref>] [x,y]";
+      "usage: node new <category>/<name>|<@module-ref> [<node-name>] [<extends-ref>] [x,y]";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     // Born where the cursor was — the web sends the click, so a new node never asks the layout.
     const at = takeSpawnAt(parts);
@@ -3563,6 +3573,27 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     const [target, ...rest] = parts;
+    // A whole ref: the node extends it as it stands, with no workspace module scaffolded over it.
+    if (target.startsWith("@")) {
+      if (rest.length > 1 || rest.some((p) => p.includes("/"))) {
+        h.refuse([usage]);
+        return;
+      }
+      const leaf = target.split("/").pop() ?? "";
+      const node = rest[0] ?? freeNodeName(h.songPath, leaf);
+      try {
+        const rel = createNodeOn(h.songPath, target, node);
+        placeChainNode(h.songPath, node);
+        setChainNodePosition(h.songPath, node, at ?? ORPHAN_AT);
+        h.log([
+          `created ${rel} on ${target} — in the graph, wired to nothing yet`,
+        ]);
+        await h.reload();
+      } catch (e) {
+        h.refuse([`node new failed: ${(e as Error).message}`]);
+      }
+      return;
+    }
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
       h.refuse([`'${target}' is not <category>/<name>`, usage]);

@@ -7,7 +7,10 @@
 
 #pragma once
 
+#include "NoteSteps.h"
+
 #include <algorithm>
+#include <cstdint>
 
 namespace studio {
 
@@ -42,6 +45,8 @@ public:
         if (heldCount_ == 1) {
             nextIn_ = at > 0.0 ? at : 0.0;
             offIn_ = 0.0;
+            // …and from the pattern's first step: a rhythm restarts with the hand, like the arpeggiator's walk.
+            steps_ = 0;
         }
     }
 
@@ -61,14 +66,16 @@ public:
         soundingCount_ = 0;
         nextIn_ = 0.0;
         offIn_ = 0.0;
+        steps_ = 0;
     }
 
     int held() const noexcept { return heldCount_; }
     /** How many copies are sounding. A whole chord at once, which is why this is a count and not a note. */
     int sounding() const noexcept { return soundingCount_; }
 
-    /** Run `seconds` of block time, writing at most `max` events in time order; returns how many. */
-    int advance(double seconds, double stepSeconds, double gate, NoteEvent* out, int max) noexcept
+    /** Run `seconds` of block time, writing at most `max` events in time order; returns how many. `rule` null strikes every step. */
+    int advance(double seconds, double stepSeconds, double gate, NoteEvent* out, int max,
+                const NoteSteps* rule = nullptr) noexcept
     {
         if (out == nullptr || max <= 0) return 0;
         const double step = std::min(maxStepSeconds, std::max(minStepSeconds, stepSeconds));
@@ -102,12 +109,17 @@ public:
             nextIn_ -= dt;
             releaseAll(t, out, n);
             if (!strike) continue;
+            nextIn_ = step;
+            // The step is TAKEN whether it plays or not, so a rest or a lost roll keeps the pattern on its grid.
+            const int at = rule ? (int)(steps_ % (uint32_t)rule->cycle()) : 0;
+            const int repeat = (int)steps_++;
+            if (rule && (!rule->hit(at) || !roll(rule->chance))) continue;
             for (int i = 0; i < heldCount_; ++i) {
-                out[n++] = {t, held_[i].note, held_[i].channel, held_[i].velocity};
+                const float v = rule ? rule->velocity(at, repeat, held_[i].velocity) : held_[i].velocity;
+                out[n++] = {t, held_[i].note, held_[i].channel, v};
                 sounding_[soundingCount_++] = held_[i];
             }
             offIn_ = step * open;
-            nextIn_ = step;
         }
         const double rest = std::max(0.0, seconds - t);
         offIn_ -= rest;
@@ -138,6 +150,17 @@ private:
         --soundingCount_;
     }
 
+    /** Whether a step with this chance plays — xorshift32, so a test can count on the sequence and nothing allocates. */
+    bool roll(float chance) noexcept
+    {
+        if (chance >= 1.0f) return true;
+        if (!(chance > 0.0f)) return false;
+        seed_ ^= seed_ << 13;
+        seed_ ^= seed_ >> 17;
+        seed_ ^= seed_ << 5;
+        return (float)(seed_ >> 8) / (float)(1u << 24) < chance;
+    }
+
     // Everything sounding released at `t`. A strike landing on it releases first — a gate of 1 does exactly that.
     void releaseAll(double t, NoteEvent* out, int& n) noexcept
     {
@@ -153,6 +176,9 @@ private:
     // Seconds until the sounding copies are released, and until the next strike.
     double offIn_ = 0.0;
     double nextIn_ = 0.0;
+    // Steps taken since the keys went down, played or not — what the rule indexes and the decay counts.
+    uint32_t steps_ = 0;
+    uint32_t seed_ = 0x9e3779b9u;
 };
 
 }  // namespace studio

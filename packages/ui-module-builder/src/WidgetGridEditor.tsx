@@ -3,14 +3,18 @@
 // edit produces a fresh ModuleUI and calls onChange. A widget is bound by DRAGGING a row
 // from the Parameters pane (paramDrag.ts), which carries the range with it, so this
 // component needs to know nothing about the engine. It edits ONE widget map at a time —
-// the panel's, or one page of a tabs widget — which is docs/pages.md. A group frames what lies
+// the one every tab shows, or one tab's (TabsColumn.tsx, docs/pages.md). A group frames what lies
 // inside its box and moves it along (groupGeometry.ts); the inspector is WidgetInspector.tsx.
 
 import { Button } from "@frediverse/ui/button";
 import {
+  ClipboardPaste,
+  Copy,
   LoaderCircle,
   Minus,
   Plus,
+  Power,
+  Scissors,
   Sparkles,
   Wand2,
 } from "@frediverse/ui/icons";
@@ -18,10 +22,26 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { askConfirm } from "@studio/project-shell/ask";
 import { useCallback, useRef, useState } from "react";
 import { type AutoParam, autoOrganize } from "./autoLayout";
-import { clash, framedBy } from "./groupGeometry";
+import { GridMenu } from "./GridMenu";
+import { clash, framedBy, groupOf } from "./groupGeometry";
 import type { ModuleUI, Widget, WidgetType } from "./moduleUi";
+import {
+  type PageRef,
+  pageIn,
+  panelIds,
+  widgetsAt,
+  writeWidgetsAt,
+} from "./panelTabs";
 import { isParamDrag, type ParamDrag, readParamDrag } from "./paramDrag";
+import { TabsColumn } from "./TabsColumn";
 import { WidgetInspector } from "./WidgetInspector";
+import {
+  clipIds,
+  copyWidgets,
+  heldClip,
+  holdClip,
+  pasteWidgets,
+} from "./widgetClipboard";
 import { bindable, GROUP_COLOR, ICON, ranged, TYPES } from "./widgetKinds";
 
 // Row height in px (columns are elastic), in one place so the pointer→cell maths and the CSS grid agree.
@@ -60,32 +80,6 @@ function firstFree(
   return { col: box.col, row: box.row }; // full — stack on the corner, the user can move it
 }
 
-/** Which widget map the grid edits: the panel itself (`null`), or one page of a tabs widget. */
-export type PageRef = { tabs: string; name: string } | null;
-
-/** The map `at` names — the panel's widgets, or the page's (empty if it has none yet). */
-export function widgetsAt(ui: ModuleUI, at: PageRef): Record<string, Widget> {
-  return at ? (ui.widgets[at.tabs]?.pages?.[at.name] ?? {}) : ui.widgets;
-}
-
-/** `ui` with the map at `at` replaced, spread at EVERY level so a tabs widget keeps its other pages. */
-export function writeWidgetsAt(
-  ui: ModuleUI,
-  at: PageRef,
-  next: Record<string, Widget>,
-): ModuleUI {
-  if (!at) return { ...ui, widgets: next };
-  const tabs = ui.widgets[at.tabs];
-  if (!tabs) return ui; // the page's owner has gone: refuse rather than invent one
-  return {
-    ...ui,
-    widgets: {
-      ...ui.widgets,
-      [at.tabs]: { ...tabs, pages: { ...tabs.pages, [at.name]: next } },
-    },
-  };
-}
-
 type Cell = { col: number; row: number };
 
 /** A resize handle, named by the corner it sits on. */
@@ -122,9 +116,9 @@ const groupsFirst = (ws: Record<string, Widget>): [string, Widget][] =>
     ([, a], [, b]) => +(b.type === "group") - +(a.type === "group"),
   );
 
-// A stable, unused id. Ids are the base→module override key, so existing widgets must never renumber.
-function nextId(widgets: Record<string, Widget>): string {
-  for (let i = 1; ; i++) if (!widgets[`w${i}`]) return `w${i}`;
+// A stable, unused id across the WHOLE panel, every tab's included — ids are the override key and never renumber.
+function nextId(taken: Set<string>): string {
+  for (let i = 1; ; i++) if (!taken.has(`w${i}`)) return `w${i}`;
 }
 
 export function WidgetGridEditor({
@@ -150,17 +144,13 @@ export function WidgetGridEditor({
   aiBusy?: string | null;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  /** WHICH widget map the grid edits: the panel (`null`), or one PAGE of a tabs widget — docs/pages.md. */
-  const [page, setPage] = useState<PageRef>(null);
-  // …checked against the document, so a page that has gone takes the grid back to the panel.
-  const at: PageRef =
-    page && ui.widgets[page.tabs]?.pages?.[page.name] ? page : null;
-  /** The map being edited — the panel's widgets, or the page's. */
+  /** WHICH widget map the grid edits: a tab, or `null` for every tab's — undefined until one is chosen. */
+  const [page, setPage] = useState<PageRef | undefined>(undefined);
+  // …checked against the document, so a tab that has gone takes the grid to the first one.
+  const at: PageRef = pageIn(ui, page);
+  /** The map being edited — the widgets every tab shows, or one tab's. */
   const widgets = widgetsAt(ui, at);
-  /** The panel's tabs widgets, whose pages the breadcrumb offers. Top level only, per addWidget. */
-  const tabsWidgets = Object.entries(ui.widgets).filter(
-    ([, w]) => w.type === "tabs",
-  );
+  const tabs = ui.tabs ?? [];
   const sel = selected ? (widgets[selected] ?? null) : null;
   // The widget a parameter is currently hovering over, so it can light up as the target.
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -171,6 +161,13 @@ export function WidgetGridEditor({
     mode: "move" | "resize";
     /** The cell a resize keeps still: the corner OPPOSITE the handle, fixed at the press. */
     anchor?: Cell;
+    /** Where in the box the press landed, so a move keeps that cell under the pointer. */
+    grab?: Cell;
+    /** A widget pressed inside its selected group: selected instead, if the press never moves. */
+    tap?: string;
+    moved?: boolean;
+    /** A group's members AT THE PRESS: what it passes over on the way is not picked up. */
+    members?: string[];
   } | null>(null);
 
   /** Write the edited map back where it came from. Every operation below goes through it. */
@@ -179,8 +176,8 @@ export function WidgetGridEditor({
     [ui, at, onChange],
   );
 
-  /** Enter a page, or come back to the panel. The selection is per map, so it clears. */
-  const enter = (p: PageRef) => {
+  /** Open a tab, or the widgets every tab shows. The selection is per map, so it clears. */
+  const enter = (p: PageRef | undefined) => {
     setPage(p);
     setSelected(null);
   };
@@ -196,6 +193,8 @@ export function WidgetGridEditor({
 
   // Adopt a dropped param's range only on the placeholder 0..1: an edited one is the author's.
   const bindParam = (id: string, w: Widget, p: ParamDrag) => {
+    // A group's bind is its on/off switch: no range, no settings, and its label stays the section's name.
+    if (w.type === "group") return patch(id, { bind: p.name });
     const untouched = ranged(w) && (w.min ?? 0) === 0 && (w.max ?? 1) === 1;
     patch(id, {
       bind: p.name,
@@ -215,7 +214,7 @@ export function WidgetGridEditor({
       : TOGGLE_BINDS.has(p.name)
         ? "toggle"
         : "knob";
-    const id = nextId(widgets);
+    const id = nextId(panelIds(ui));
     const w: Widget = {
       type,
       col,
@@ -234,12 +233,9 @@ export function WidgetGridEditor({
 
   const addWidget = (type: WidgetType) => {
     if (disabled) return;
-    // One level of pages deliberately, the button disabled rather than silently doing nothing.
-    if (type === "tabs" && at) return;
-    const id = nextId(widgets);
+    const id = nextId(panelIds(ui));
     // With a group selected, a new control lands INSIDE it — which is how a group is filled.
-    const into =
-      sel?.type === "group" && type !== "group" && type !== "tabs" ? sel : null;
+    const into = sel?.type === "group" && type !== "group" ? sel : null;
     const { col, row } = firstFree(
       widgets,
       into
@@ -266,31 +262,22 @@ export function WidgetGridEditor({
           ? { type, col, row, text: "Label" }
           : type === "button"
             ? { type, col, row, label: BUTTON_PLACEHOLDER_LABEL } // a button draws its label inside itself
-            : type === "tabs"
-              ? {
-                  type,
-                  col,
-                  row,
-                  colSpan: 2,
-                  rowSpan: 2,
-                  pages: { "Page 1": {} },
-                }
-              : type === "waveform"
-                ? { type, col, row, colSpan: 2, rowSpan: 2, source: "output" }
-                : type === "lcdscreen"
-                  ? { type, col, row, colSpan: 3, rowSpan: 2 }
-                  : // A fader placed one cell tall would be a worse slider. Three rows is a strip's throw, and the
-                    // author can still drag it shorter — the widget reads whatever height it ends up with.
-                    type === "fader"
-                    ? { type, col, row, rowSpan: 3 }
-                    : {
-                        type,
-                        col,
-                        row,
-                        ...(type !== "toggle" && type !== "meter"
-                          ? { min: 0, max: 1 }
-                          : {}),
-                      };
+            : type === "waveform"
+              ? { type, col, row, colSpan: 2, rowSpan: 2, source: "output" }
+              : type === "lcdscreen"
+                ? { type, col, row, colSpan: 3, rowSpan: 2 }
+                : // A fader placed one cell tall would be a worse slider. Three rows is a strip's throw, and the
+                  // author can still drag it shorter — the widget reads whatever height it ends up with.
+                  type === "fader"
+                  ? { type, col, row, rowSpan: 3 }
+                  : {
+                      type,
+                      col,
+                      row,
+                      ...(type !== "toggle" && type !== "meter"
+                        ? { min: 0, max: 1 }
+                        : {}),
+                    };
     writeWidgets({ ...widgets, [id]: w });
     setSelected(id);
   };
@@ -298,7 +285,7 @@ export function WidgetGridEditor({
   /** Replace the whole panel with a proposal, asking first only when there is something to lose — docs/autoLayout.md. */
   const organize = async () => {
     if (disabled || !params?.length) return;
-    if (Object.keys(ui.widgets).length) {
+    if (panelIds(ui).size) {
       const agreed = await askConfirm({
         title: "Rearrange the panel?",
         body: "It is replaced by a layout taken from the parameter list; what is drawn here is lost. Ctrl+Z in the code brings it back.",
@@ -308,7 +295,53 @@ export function WidgetGridEditor({
       if (!agreed) return;
     }
     onChange(autoOrganize(params));
-    enter(null);
+    enter(undefined);
+  };
+
+  // The right-click menu: on a widget (`id`) or on bare grid (`id: null`), and the cell a paste lands on.
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    id: string | null;
+    cell: Cell;
+  } | null>(null);
+  const openMenu = (e: React.MouseEvent, id: string | null) => {
+    if (disabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (id) setSelected(id);
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      id,
+      cell: cellAt(e.clientX, e.clientY),
+    });
+  };
+  // Every id in the panel, every tab's included: a pasted widget must not take a name another tab uses.
+  const takenIds = () => panelIds(ui);
+  const copyWidget = (id: string) => {
+    const clip = copyWidgets(widgets, id);
+    if (clip) holdClip(clip);
+  };
+  const cutWidget = (id: string) => {
+    copyWidget(id);
+    const next = { ...widgets };
+    for (const i of clipIds(widgets, id)) delete next[i];
+    writeWidgets(next);
+    setSelected(null);
+  };
+  const pasteAt = (cell: Cell) => {
+    const clip = heldClip();
+    if (!clip) return;
+    const { widgets: next, first } = pasteWidgets(
+      widgets,
+      clip,
+      cell,
+      { cols: ui.cols, rows: ui.rows },
+      takenIds(),
+    );
+    writeWidgets(next);
+    setSelected(first);
   };
 
   const removeWidget = (id: string) => {
@@ -342,14 +375,17 @@ export function WidgetGridEditor({
     if (!w) return;
     const { col, row } = cellAt(e.clientX, e.clientY);
     if (d.mode === "move") {
-      // Keep the widget wholly inside the grid at its current span.
-      const c = Math.max(0, Math.min(col, ui.cols - span(w.colSpan)));
-      const r = Math.max(0, Math.min(row, ui.rows - span(w.rowSpan)));
+      // Keep the widget wholly inside the grid at its current span, the grabbed cell under the pointer.
+      const gc = col - (d.grab?.col ?? 0);
+      const gr = row - (d.grab?.row ?? 0);
+      const c = Math.max(0, Math.min(gc, ui.cols - span(w.colSpan)));
+      const r = Math.max(0, Math.min(gr, ui.rows - span(w.rowSpan)));
       if (c === w.col && r === w.row) return;
+      d.moved = true;
       if (w.type !== "group") return patch(d.id, { col: c, row: r });
-      // A group carries what it frames, so the section moves as one block.
+      // A group carries what it framed when grabbed, so the section moves as one block.
       const next = { ...widgets, [d.id]: { ...w, col: c, row: r } };
-      for (const id of framedBy(widgets, w))
+      for (const id of d.members ?? framedBy(widgets, w))
         next[id] = {
           ...widgets[id],
           col: widgets[id].col + c - w.col,
@@ -378,18 +414,33 @@ export function WidgetGridEditor({
     id: string,
     mode: "move" | Corner,
   ) => {
-    if (disabled) return;
+    // Only the primary button drags: a right-click opens the menu and must not move what it lands on.
+    if (disabled || e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    // With a group selected, a press on a widget it frames grabs the GROUP, so a section moves as one block.
+    const pressed = id;
+    if (mode === "move" && selected && groupOf(widgets, id) === selected)
+      id = selected;
     setSelected(id);
     const w = widgets[id];
+    const at = cellAt(e.clientX, e.clientY);
     drag.current =
       mode === "move" || !w
-        ? { id, mode: "move" }
+        ? {
+            id,
+            mode: "move",
+            grab: w ? { col: at.col - w.col, row: at.row - w.row } : undefined,
+            tap: pressed !== id ? pressed : undefined,
+            members: w?.type === "group" ? framedBy(widgets, w) : undefined,
+          }
         : { id, mode: "resize", anchor: cornerAnchor(w, mode) };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const endDrag = (e: React.PointerEvent) => {
+    // A click that never moved the group it grabbed was meant for the widget under it.
+    const d = drag.current;
+    if (d?.tap && !d.moved) setSelected(d.tap);
     drag.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   };
@@ -406,13 +457,9 @@ export function WidgetGridEditor({
             key={t.type}
             size="sm"
             variant="secondary"
-            disabled={!!disabled || (t.type === "tabs" && !!at)}
+            disabled={!!disabled}
             onClick={() => addWidget(t.type)}
-            title={
-              t.type === "tabs" && at
-                ? "Tabs inside a page is not editable here — go back to Panel"
-                : `Add ${t.label}`
-            }
+            title={`Add ${t.label}`}
           >
             <t.icon className="mr-1 h-3.5 w-3.5" />
             {t.label}
@@ -472,106 +519,72 @@ export function WidgetGridEditor({
         </div>
       </div>
 
-      {/* Where the grid is writing, drawn only once the panel HAS a tabs widget — ../docs/pages.md. */}
-      {tabsWidgets.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1">
-          <button
-            type="button"
-            onClick={() => enter(null)}
-            className={cn(
-              "rounded px-2 py-0.5 text-xs",
-              at
-                ? "text-muted-foreground hover:text-foreground"
-                : "bg-secondary text-foreground",
-            )}
-          >
-            Panel
-          </button>
-          {tabsWidgets.map(([tid, tw]) => (
-            <span key={tid} className="flex items-center gap-1">
-              <span className="text-muted-foreground/50">/</span>
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {tid}
-              </span>
-              {Object.keys(tw.pages ?? {}).map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => enter({ tabs: tid, name })}
-                  className={cn(
-                    "rounded px-2 py-0.5 text-xs",
-                    at?.tabs === tid && at.name === name
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {name}
-                </button>
-              ))}
-              {!Object.keys(tw.pages ?? {}).length && (
-                <span className="px-1 text-[10px] text-muted-foreground/60">
-                  no pages
-                </span>
-              )}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* the grid canvas */}
-      <div
-        className="min-h-0 flex-1 overflow-auto p-4"
-        onPointerDown={() => setSelected(null)}
-      >
-        <div
-          ref={gridRef}
-          className="relative rounded-md border border-border bg-card/40"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${ui.cols}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${ui.rows}, ${ROW_PX}px)`,
+      {/* The tabs at the grid's LEFT, as the card draws them, then the grid canvas — ../docs/pages.md. */}
+      <div className="flex min-h-0 flex-1">
+        <TabsColumn
+          ui={ui}
+          at={at}
+          disabled={!!disabled}
+          onSelect={enter}
+          onChange={(next, to) => {
+            onChange(next);
+            enter(to);
           }}
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
+        />
+        <div
+          className="min-h-0 flex-1 overflow-auto p-4"
+          onPointerDown={() => setSelected(null)}
         >
-          {/* Empty cell guides, and drop targets: a parameter dropped on bare grid creates its widget. */}
-          {Array.from({ length: ui.cols * ui.rows }).map((_, i) => {
-            const col = i % ui.cols;
-            const row = Math.floor(i / ui.cols);
-            const key = `cell:${col}:${row}`;
-            return (
-              <div
-                key={i}
-                onDragOver={(e) => {
-                  if (disabled || !isParamDrag(e.dataTransfer)) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "copy";
-                  if (dropTarget !== key) setDropTarget(key);
-                }}
-                onDragLeave={() => setDropTarget((t) => (t === key ? null : t))}
-                onDrop={(e) => {
-                  setDropTarget(null);
-                  if (disabled) return;
-                  const p = readParamDrag(e.dataTransfer);
-                  if (!p) return;
-                  e.preventDefault();
-                  createBound(col, row, p);
-                }}
-                className={cn(
-                  "border border-dashed border-border/40",
-                  dropTarget === key &&
-                    "border-solid border-primary bg-primary/20",
-                )}
-                style={{ gridColumn: col + 1, gridRow: row + 1 }}
-              />
-            );
-          })}
+          <div
+            ref={gridRef}
+            className="relative rounded-md border border-border bg-card/40"
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${ui.cols}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${ui.rows}, ${ROW_PX}px)`,
+            }}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+          >
+            {/* Empty cell guides, and drop targets: a parameter dropped on bare grid creates its widget. */}
+            {Array.from({ length: ui.cols * ui.rows }).map((_, i) => {
+              const col = i % ui.cols;
+              const row = Math.floor(i / ui.cols);
+              const key = `cell:${col}:${row}`;
+              return (
+                <div
+                  key={i}
+                  onDragOver={(e) => {
+                    if (disabled || !isParamDrag(e.dataTransfer)) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "copy";
+                    if (dropTarget !== key) setDropTarget(key);
+                  }}
+                  onDragLeave={() =>
+                    setDropTarget((t) => (t === key ? null : t))
+                  }
+                  onContextMenu={(e) => openMenu(e, null)}
+                  onDrop={(e) => {
+                    setDropTarget(null);
+                    if (disabled) return;
+                    const p = readParamDrag(e.dataTransfer);
+                    if (!p) return;
+                    e.preventDefault();
+                    createBound(col, row, p);
+                  }}
+                  className={cn(
+                    "border border-dashed border-border/40",
+                    dropTarget === key &&
+                      "border-solid border-primary bg-primary/20",
+                  )}
+                  style={{ gridColumn: col + 1, gridRow: row + 1 }}
+                />
+              );
+            })}
 
-          {/* The PANEL behind the page, inert and dim, minus the tabs widget — ../docs/pages.md. */}
-          {at &&
-            Object.entries(ui.widgets)
-              .filter(([id]) => id !== at.tabs)
-              .map(([id, w]) => (
+            {/* What every tab shows, behind the open tab, inert and dim — ../docs/pages.md. */}
+            {at !== null &&
+              Object.entries(ui.widgets).map(([id, w]) => (
                 <div
                   key={`under:${id}`}
                   className="pointer-events-none m-0.5 flex flex-col items-center justify-center overflow-hidden rounded border border-dashed border-border/50 bg-background/30 px-1 text-center opacity-40"
@@ -588,106 +601,149 @@ export function WidgetGridEditor({
                 </div>
               ))}
 
-          {/* placed widgets */}
-          {groupsFirst(widgets).map(([id, w]) => {
-            const Icon = ICON[w.type];
-            const isSel = id === selected;
-            const isGroup = w.type === "group";
-            // Crossing a group's edge, or another widget's cells, is what the checks refuse: say so here first.
-            const crossed = Object.entries(widgets).some(
-              ([o, ow]) => o !== id && clash(w, ow),
-            );
-            return (
-              <div
-                key={id}
-                onPointerDown={(e) => startDrag(e, id, "move")}
-                // Dropping a parameter binds it — refused on kinds with no `bind`, rather than writing a field they don't read.
-                onDragOver={(e) => {
-                  if (disabled || !isParamDrag(e.dataTransfer)) return;
-                  if (!bindable(w) && !isGroup) return;
-                  e.preventDefault(); // "yes, you may drop here"
-                  e.dataTransfer.dropEffect = "copy";
-                  if (dropTarget !== id) setDropTarget(id);
-                }}
-                onDragLeave={() => setDropTarget((t) => (t === id ? null : t))}
-                onDrop={(e) => {
-                  setDropTarget(null);
-                  if (disabled || (!bindable(w) && !isGroup)) return;
-                  const p = readParamDrag(e.dataTransfer);
-                  if (!p) return;
-                  e.preventDefault();
-                  // A group covers its cells, so a parameter dropped on it makes its widget in the cell below.
-                  if (!isGroup) return bindParam(id, w, p);
-                  const cell = cellAt(e.clientX, e.clientY);
-                  createBound(cell.col, cell.row, p);
-                }}
-                className={cn(
-                  "group relative m-0.5 flex flex-col overflow-hidden rounded border px-1",
-                  isGroup
-                    ? "items-start justify-start pt-0.5 text-left"
-                    : "items-center justify-center bg-background/80 text-center",
-                  disabled ? "cursor-default" : "cursor-move",
-                  isSel
-                    ? "border-primary ring-1 ring-primary"
-                    : "border-border hover:border-primary/60",
-                  dropTarget === id &&
-                    "border-primary bg-primary/20 ring-2 ring-primary",
-                  w.hidden && "opacity-40",
-                  crossed && !isSel && "border-amber-500",
-                )}
-                style={{
-                  gridColumn: `${w.col + 1} / span ${span(w.colSpan)}`,
-                  gridRow: `${w.row + 1} / span ${span(w.rowSpan)}`,
-                  ...(isGroup ? { background: w.color ?? GROUP_COLOR } : {}),
-                }}
-                title={w.type === "label" ? w.text : w.bind}
-              >
-                {/* The glyph and the caption take no pointer, or they steal the tile's drag — ../docs/builder.md. */}
-                {isGroup ? (
-                  // A group's name is stacked down its left edge, as on the card, over the tiles it frames.
-                  <span className="pointer-events-none absolute bottom-0 left-0.5 top-0.5 z-10 overflow-hidden text-[10px] leading-none text-foreground [text-orientation:upright] [writing-mode:vertical-rl]">
-                    {w.label || "group"}
-                  </span>
-                ) : (
-                  <>
-                    <Icon className="pointer-events-none h-4 w-4 text-muted-foreground" />
-                    <span className="pointer-events-none mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
-                      {w.type === "label"
-                        ? w.text || "label"
-                        : w.label || w.bind || w.type}
+            {/* placed widgets */}
+            {groupsFirst(widgets).map(([id, w]) => {
+              const Icon = ICON[w.type];
+              const isSel = id === selected;
+              const isGroup = w.type === "group";
+              // Crossing a group's edge, or another widget's cells, is what the checks refuse: say so here first.
+              const crossed = Object.entries(widgets).some(
+                ([o, ow]) => o !== id && clash(w, ow),
+              );
+              return (
+                <div
+                  key={id}
+                  onPointerDown={(e) => startDrag(e, id, "move")}
+                  onContextMenu={(e) => openMenu(e, id)}
+                  // A double-click climbs to the group the widget sits in, the one way to grab a group under its widgets.
+                  onDoubleClick={(e) => {
+                    const g = groupOf(widgets, id);
+                    if (!g) return;
+                    e.stopPropagation();
+                    setSelected(g);
+                  }}
+                  // Dropping a parameter binds it — refused on kinds with no `bind`, rather than writing a field they don't read.
+                  onDragOver={(e) => {
+                    if (disabled || !isParamDrag(e.dataTransfer)) return;
+                    if (!bindable(w) && !isGroup) return;
+                    e.preventDefault(); // "yes, you may drop here"
+                    e.dataTransfer.dropEffect = "copy";
+                    if (dropTarget !== id) setDropTarget(id);
+                  }}
+                  onDragLeave={() =>
+                    setDropTarget((t) => (t === id ? null : t))
+                  }
+                  onDrop={(e) => {
+                    setDropTarget(null);
+                    if (disabled || (!bindable(w) && !isGroup)) return;
+                    const p = readParamDrag(e.dataTransfer);
+                    if (!p) return;
+                    e.preventDefault();
+                    // A group covers its cells, so a parameter dropped on it makes its widget in the cell below.
+                    if (!isGroup) return bindParam(id, w, p);
+                    const cell = cellAt(e.clientX, e.clientY);
+                    createBound(cell.col, cell.row, p);
+                  }}
+                  className={cn(
+                    "group relative m-0.5 flex flex-col overflow-hidden rounded border px-1",
+                    isGroup
+                      ? "items-start justify-start pt-0.5 text-left"
+                      : "items-center justify-center bg-background/80 text-center",
+                    disabled ? "cursor-default" : "cursor-move",
+                    isSel
+                      ? "border-primary ring-1 ring-primary"
+                      : "border-border hover:border-primary/60",
+                    dropTarget === id &&
+                      "border-primary bg-primary/20 ring-2 ring-primary",
+                    w.hidden && "opacity-40",
+                    crossed && !isSel && "border-amber-500",
+                  )}
+                  style={{
+                    gridColumn: `${w.col + 1} / span ${span(w.colSpan)}`,
+                    gridRow: `${w.row + 1} / span ${span(w.rowSpan)}`,
+                    ...(isGroup ? { background: w.color ?? GROUP_COLOR } : {}),
+                  }}
+                  title={w.type === "label" ? w.text : w.bind}
+                >
+                  {/* The glyph and the caption take no pointer, or they steal the tile's drag — ../docs/builder.md. */}
+                  {isGroup ? (
+                    // A group's name runs up its left edge, turned 90° counter-clockwise as on the card, under its switch when bound.
+                    <span className="pointer-events-none absolute bottom-0 left-0.5 top-0.5 z-10 flex flex-col items-center gap-0.5 overflow-hidden text-[10px] leading-none text-foreground">
+                      {w.bind && (
+                        <Power className="h-3 w-3 shrink-0 text-primary" />
+                      )}
+                      <span className="rotate-180 whitespace-nowrap [writing-mode:vertical-rl]">
+                        {w.label || "group"}
+                      </span>
                     </span>
-                  </>
-                )}
-                {!disabled &&
-                  isSel &&
-                  CORNERS.map((c) => (
+                  ) : (
+                    <>
+                      <Icon className="pointer-events-none h-4 w-4 text-muted-foreground" />
+                      <span className="pointer-events-none mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
+                        {w.type === "label"
+                          ? w.text || "label"
+                          : w.label || w.bind || w.type}
+                      </span>
+                    </>
+                  )}
+                  {/* A group's handles are drawn in their own layer below: its widgets would cover these. */}
+                  {!disabled &&
+                    isSel &&
+                    !isGroup &&
+                    CORNERS.map((c) => (
+                      <span
+                        key={c}
+                        onPointerDown={(e) => startDrag(e, id, c)}
+                        className={cn(
+                          "absolute h-3 w-3 bg-primary",
+                          HANDLE_CLS[c],
+                        )}
+                      />
+                    ))}
+                </div>
+              );
+            })}
+
+            {/* The selected GROUP's handles, over everything: a widget in its corner must not hide them. */}
+            {!disabled &&
+              sel?.type === "group" &&
+              selected &&
+              widgets[selected] && (
+                <div
+                  className="pointer-events-none relative z-20 m-0.5"
+                  style={{
+                    gridColumn: `${sel.col + 1} / span ${span(sel.colSpan)}`,
+                    gridRow: `${sel.row + 1} / span ${span(sel.rowSpan)}`,
+                  }}
+                >
+                  {CORNERS.map((c) => (
                     <span
                       key={c}
-                      onPointerDown={(e) => startDrag(e, id, c)}
+                      onPointerDown={(e) => startDrag(e, selected, c)}
                       className={cn(
-                        "absolute h-3 w-3 bg-primary",
+                        "pointer-events-auto absolute h-3 w-3 bg-primary",
                         HANDLE_CLS[c],
                       )}
                     />
                   ))}
-              </div>
-            );
-          })}
+                </div>
+              )}
+          </div>
+          {/* Only the FAULT gets a warning: a locked module already says so in the header. */}
+          {disabled === "unparsable" && (
+            <p className="mt-3 text-xs text-amber-500">
+              This panel couldn't be parsed for visual editing — edit it as text
+              on the left. Fixing it re-enables the grid.
+            </p>
+          )}
+          {!disabled && !Object.keys(widgets).length && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {at !== null
+                ? `"${tabs[at]?.name}" is empty — add a widget above and it lands on this tab.`
+                : "Empty grid — add a widget above, then drag to place and resize it."}
+            </p>
+          )}
         </div>
-        {/* Only the FAULT gets a warning: a locked module already says so in the header. */}
-        {disabled === "unparsable" && (
-          <p className="mt-3 text-xs text-amber-500">
-            This panel couldn't be parsed for visual editing — edit it as text
-            on the left. Fixing it re-enables the grid.
-          </p>
-        )}
-        {!disabled && !Object.keys(widgets).length && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            {at
-              ? `"${at.name}" is empty — add a widget above and it lands on this page.`
-              : "Empty grid — add a widget above, then drag to place and resize it."}
-          </p>
-        )}
       </div>
 
       {/* inspector */}
@@ -701,6 +757,35 @@ export function WidgetGridEditor({
           onPatch={(p) => patch(selected, p)}
           onBind={(p) => bindParam(selected, sel, p)}
           onDelete={() => removeWidget(selected)}
+        />
+      )}
+      {menu && (
+        <GridMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            ...(menu.id
+              ? [
+                  {
+                    label: "Cut",
+                    icon: Scissors,
+                    onPick: () => cutWidget(menu.id as string),
+                  },
+                  {
+                    label: "Copy",
+                    icon: Copy,
+                    onPick: () => copyWidget(menu.id as string),
+                  },
+                ]
+              : []),
+            {
+              label: "Paste",
+              icon: ClipboardPaste,
+              disabled: !heldClip(),
+              onPick: () => pasteAt(menu.cell),
+            },
+          ]}
         />
       )}
     </div>

@@ -14,6 +14,7 @@ import type {
   WebWidget,
 } from "@studio/graph-model";
 import { splitPort, TRACK_OUTPUTS } from "@studio/graph-model";
+import { hasTabs, panelWidgets } from "@studio/graph-model/panel";
 import {
   INPUT_VOLUME_PARAM,
   MIX_PARAM,
@@ -43,6 +44,8 @@ const CARRIED = [
   "channel",
   // …and which LENS a camera is on, carried for exactly that reason — see docs/camera.md.
   "camera",
+  // …and which MIDI DEVICE a midi-in node records from, the same way — @studio/song's docs/midiIn.md.
+  "device",
   "tap",
   // The module's other attribute sets, and which is on — see packages/song/docs/alternatives.md.
   "alternatives",
@@ -60,9 +63,7 @@ const CARRIED = [
   "shader",
   // The module this node is a USE of — the header draws it as the card's name.
   "uses",
-  // …unless the module has a LABEL, which the header draws first.
-  "moduleLabel",
-  // The engine's stage the card draws in its footer — docs/graphBuild.md.
+  // The engine's stage the card draws on its header's second line — docs/graphBuild.md.
   "stage",
   // A model the machine has not got and can download — what the right-click offers to fetch.
   "modelDownload",
@@ -186,10 +187,10 @@ export interface GraphNode extends Carried, Flags {
   frozen?: "at" | "inside";
   /** Baked into an AUTOMATIC VST freeze — the VST module whose render holds it; touching a control thaws it (packages/song/docs/autoFreeze.md). */
   autoFrozen?: string;
-  /** The console a half of which FOLLOWS this node, by its label — set by the project, not the graph (packages/song/docs/console.md). */
-  console?: string;
   // A node that does not exist yet: the module being created, drawn where it will land.
   pending?: boolean;
+  /** Drawn as a full-width BAR — the stack view's inputs and outputs (stackLayout.ts). */
+  bar?: boolean;
   /** The sockets to DRAW, already decided — see `jacksFor` and docs/graphBuild.md. */
   jacks?: { in: Jack[]; out: Jack[] };
   /* `events` is CARRIED from the step and drawn apart from `jacks.out` — see docs/graphBuild.md. */
@@ -336,7 +337,33 @@ export interface GraphEdge {
   sourcePort?: string;
   /** Its rank among the BARE cables reaching this target, so each gets a socket of its own — docs/graphBuild.md. */
   targetSlot?: number;
+  /** A cable that SKIPS cards of its stack column: it runs down the column's right side, in lane `side` (stackLayout.ts). */
+  side?: number;
   points: Pt[]; // dagre's routed polyline, absolute graph coords
+}
+
+/** How far outside a column a side cable's first lane runs, and how far apart two lanes are. */
+const SIDE_OFF = 8;
+const SIDE_STEP = 6;
+/** How far in from the card's corner a side cable leaves and arrives, so it reads as the card's. */
+const SIDE_INSET = 10;
+
+/** A side cable: out of the source's right edge, down a lane outside the column, into the target's. */
+function sidePath(src: GraphNode, tgt: GraphNode, lane: number): Pt[] {
+  const x =
+    Math.max(src.x + src.w, tgt.x + tgt.w) + SIDE_OFF + lane * SIDE_STEP;
+  const from = { x: src.x + src.w, y: src.y + src.h - SIDE_INSET };
+  const to = { x: tgt.x + tgt.w, y: tgt.y + SIDE_INSET };
+  const turn = Math.sign(to.y - from.y) * 4;
+  // Points either side of each corner, so the smoothing keeps the run down the lane straight.
+  return [
+    from,
+    { x: x - 2, y: from.y },
+    { x, y: from.y + turn },
+    { x, y: to.y - turn },
+    { x: x - 2, y: to.y },
+    to,
+  ];
 }
 
 /** An EVENT socket's centre — its own function because it spreads down the SIDE edges, not the flow's. */
@@ -378,6 +405,8 @@ export function cablePath(
 ): Pt[] {
   const pts = e.points;
   if (pts.length < 2) return pts;
+  // A cable that skips cards of its stack column goes round them, on the column's right side.
+  if (e.side !== undefined && src && tgt) return sidePath(src, tgt, e.side);
   // An EVENT cable meets the side edges, and its two ends are indexed differently — its own branch.
   if (e.signal === "event" && src && tgt) {
     const i = Math.max(0, src.events?.indexOf(e.sourcePort ?? "") ?? 0);
@@ -463,9 +492,17 @@ export const PORT_PLATE = 13;
 export const CELL = 36;
 export const UI_PAD = 6;
 export const UI_HEADER = 38;
+/** The air between the header's rule and the content under it — the first row, or a card's note. */
+export const UI_TOP_GAP = 4;
+/** Where a card's content starts: the header, then that air. */
+export const UI_CONTENT_TOP = UI_HEADER + UI_TOP_GAP;
+/** A tabbed panel's tab column, at the card's left: wide enough for a ten-character name (docs/graphBuild.md). */
+export const TAB_COL_W = 66;
+/** …and one tab's height in it. */
+export const TAB_H = 20;
 /** The air between two rows. */
 export const ROW_GAP = 8;
-/** The air below the last row; the first row sits flush under the header. */
+/** The air below the last row. */
 export const UI_EDGE = 12;
 
 /** The height `rows` rows take on a card, the gaps between them included. */
@@ -584,37 +621,29 @@ function noteOf(
   return { note: text, ...noteSize(text) };
 }
 
-/** The card's FOOTER: one row of the engine's stage, under the panel and never part of it — docs/graphBuild.md. */
-export const FOOTER_H = 30;
-/** The narrowest a footer slider may be — caption and bar — which widens only a card too narrow for even that. */
-export const STAGE_SLOT_MIN_W = 40;
-/** The width under which a footer slider drops its reading to a tooltip, so the card keeps its grid's width. */
-export const STAGE_READING_W = 72;
+/** One engine-stage slider's slot on the header's second line, and what the header leads with before it (docs/graphBuild.md). */
+export const STAGE_SLOT_W = 40;
+export const STAGE_HEADER_LEAD = 44;
 
-// How big a node must be to hold `ui` and a footer of `stage` sliders; the plain size when there is no panel.
+// How big a node must be to hold `ui`, its tab column, and `stage` sliders on its header's second line.
 export function nodeSize(
   ui?: WebModuleUI,
   stage = 0,
 ): { w: number; h: number } {
-  const footerW = stage ? UI_PAD * 2 + stage * STAGE_SLOT_MIN_W : 0;
-  const footerH = stage ? FOOTER_H : 0;
+  const colW = columnW(ui);
+  // The header's second line holds one slot per stage slider, so a card is at least that wide.
+  const stageW = stage ? STAGE_HEADER_LEAD + stage * STAGE_SLOT_W : 0;
+  const tabsH = hasTabs(ui) ? (ui?.tabs?.length ?? 0) * TAB_H : 0;
   if (!ui?.cols || !ui?.rows)
-    return { w: Math.max(NODE_W, footerW), h: NODE_H + footerH };
+    return { w: Math.max(NODE_W + colW, stageW), h: NODE_H };
   return {
     // The grid's width, NOT max(NODE_W, …) — see docs/graphBuild.md.
-    w: Math.max(NODE_MIN_W, UI_PAD * 2 + colsWidth(ui.cols), footerW),
-    h: Math.max(NODE_H, UI_HEADER + rowsHeight(ui.rows) + UI_EDGE) + footerH,
+    w: Math.max(NODE_MIN_W, colW + UI_PAD * 2 + colsWidth(ui.cols), stageW),
+    h: Math.max(
+      NODE_H,
+      UI_CONTENT_TOP + Math.max(rowsHeight(ui.rows), tabsH) + UI_EDGE,
+    ),
   };
-}
-
-/** Slot `i` of `count` in a card's footer, in node-local coordinates — the card's bottom FOOTER_H. */
-export function stageSlot(
-  n: { w: number; h: number },
-  i: number,
-  count: number,
-): { x: number; y: number; w: number; h: number } {
-  const w = (n.w - UI_PAD * 2) / Math.max(1, count);
-  return { x: UI_PAD + i * w, y: n.h - FOOTER_H, w, h: FOOTER_H };
 }
 
 // The built-in UI every TRACK node carries — five mixer controls on `@` binds. See docs/graphBuild.md.
@@ -835,16 +864,27 @@ function withFolderOptions(
   bind: string,
   names: readonly string[] | undefined,
 ): WebModuleUI {
-  const binds = Object.values(ui.widgets ?? {}).some((w) => w.bind === bind);
+  const binds = panelWidgets(ui).some(([, w]) => w.bind === bind);
   if (!binds) return ui;
   const options = [
     { label: "none", value: 0 },
     ...(names ?? []).map((b, i) => ({ label: b, value: i + 1 })),
   ];
-  const widgets: Record<string, WebWidget> = {};
-  for (const [id, w] of Object.entries(ui.widgets ?? {}))
-    widgets[id] = w.bind === bind ? { ...w, options } : w;
-  return { ...ui, widgets };
+  // On every tab, since a dropdown on a closed one is still the module's.
+  const fill = (ws: Record<string, WebWidget>): Record<string, WebWidget> =>
+    Object.fromEntries(
+      Object.entries(ws).map(([id, w]) => [
+        id,
+        w.bind === bind ? { ...w, options } : w,
+      ]),
+    );
+  return {
+    ...ui,
+    widgets: fill(ui.widgets ?? {}),
+    ...(ui.tabs
+      ? { tabs: ui.tabs.map((t) => ({ ...t, widgets: fill(t.widgets) })) }
+      : {}),
+  };
 }
 
 /** The binds a folder-backed dropdown carries — each intrinsic's name, verbatim, as every bind is. */
@@ -907,11 +947,42 @@ export function cameraUI(
   };
 }
 
+/** The intrinsic a MIDI device's dropdown writes — `node param <node> @device <label>`. */
+export const DEVICE_BIND = "@device";
+
+/** The UI a MIDI-IN node carries: one dropdown, the MIDI inputs this browser sees — @studio/song's docs/midiIn.md.
+ *
+ * Synthesised for `cameraUI`'s reason: `@meta/MIDI` has no folder and so no `ui.yaml`. The list is
+ * the BROWSER's, since it is the browser that records, so it arrives as an argument. */
+export function midiInUI(devices: readonly string[]): WebModuleUI {
+  // "any" first and always, so a chosen device can be un-chosen without editing the file.
+  const options = [
+    { label: "any", value: 0, arg: "any" },
+    ...devices.map((name, i) => ({ label: name, value: i + 1, arg: name })),
+  ];
+  return {
+    cols: 3,
+    rows: 1,
+    widgets: {
+      device: {
+        type: "dropdown",
+        col: 0,
+        row: 0,
+        colSpan: 3,
+        bind: DEVICE_BIND,
+        label: "device",
+        options,
+      },
+    },
+  };
+}
+
 /** The panel a step actually draws — one function, so the node's SIZE and its `ui` cannot disagree. */
 function stepUI(
   s: WebChainStep,
   devices: readonly { name: string; channels: number[] }[] | undefined,
   cameras: readonly string[] | undefined,
+  midiDevices: readonly string[] | undefined,
 ): WebModuleUI | undefined {
   // The folder lists fold into whichever panel is drawn, authored or synthesised, and in one place.
   if (s.ui)
@@ -924,6 +995,8 @@ function stepUI(
   if (s.rack) return rackUI(s.rack);
   // A LENS is told apart the way a live input is: by the field only its own kind carries.
   if (s.camera !== undefined) return cameraUI(cameras ?? [], s.camera);
+  // …and a MIDI device the same way, by `device`, which only a midi-in step carries.
+  if (s.device !== undefined) return midiInUI(midiDevices ?? []);
   return s.monitor !== undefined
     ? inputUI(devices ?? [], s.channel)
     : undefined;
@@ -939,16 +1012,23 @@ export const VIDEO_TRACK_UI: WebModuleUI = {
   },
 };
 
-// A widget's box in node-local coordinates (origin = the node's top-left).
-export function widgetRect(w: WebWidget): {
+/** The tab column's width: TAB_COL_W when the card draws its tabs, else nothing. */
+export const columnW = (ui: WebModuleUI | undefined): number =>
+  hasTabs(ui) ? TAB_COL_W : 0;
+
+// A widget's box in node-local coordinates (origin = the node's top-left), `left` being the tab column's width.
+export function widgetRect(
+  w: WebWidget,
+  left = 0,
+): {
   x: number;
   y: number;
   w: number;
   h: number;
 } {
   return {
-    x: UI_PAD + w.col * (CELL + COL_GAP),
-    y: UI_HEADER + w.row * (CELL + ROW_GAP),
+    x: left + UI_PAD + w.col * (CELL + COL_GAP),
+    y: UI_CONTENT_TOP + w.row * (CELL + ROW_GAP),
     w: colsWidth(Math.max(1, w.colSpan ?? 1)),
     h: rowsHeight(Math.max(1, w.rowSpan ?? 1)),
   };
@@ -1035,9 +1115,9 @@ function widgetCenter(
   ui: WebModuleUI | undefined,
   param: string,
 ): Pt | undefined {
-  for (const w of Object.values(ui?.widgets ?? {})) {
+  for (const [, w] of panelWidgets(ui)) {
     if (w.bind === param) {
-      const r = widgetRect(w);
+      const r = widgetRect(w, columnW(ui));
       return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
     }
   }
@@ -1066,6 +1146,8 @@ export function buildGraph(
     inputDevices?: readonly { name: string; channels: number[] }[];
     /** The CAMERAS this browser can see, by label — the browser's to say, not the document's. */
     cameras?: readonly string[];
+    /** The MIDI inputs this browser sees, by name — what a midi-in node's dropdown offers. */
+    midiDevices?: readonly string[];
   } = {},
 ): {
   nodes: RawNode[];
@@ -1251,7 +1333,7 @@ export function buildGraph(
         ? [...new Set([...existing.chains, name])]
         : [name];
       // Read once: the node's panel and the node's size are the same answer.
-      const ui = stepUI(s, opts.inputDevices, opts.cameras);
+      const ui = stepUI(s, opts.inputDevices, opts.cameras, opts.midiDevices);
       add(mid, {
         label: s.module,
         // Only the SHARED case earns a sub line: editing this module reaches more than one chain. See docs/graphBuild.md.
@@ -1276,7 +1358,7 @@ export function buildGraph(
         ...carryStep(s),
         // The panel the node actually DRAWS, over the raw one `carryStep` brought — docs/graphBuild.md.
         ui,
-        ...nodeSize(ui, s.stage?.length ?? 0), // as big as its grid needs, and its footer
+        ...nodeSize(ui, s.stage?.length ?? 0), // as big as its grid needs, and its header's stage sliders
         // …and a NOTE is as big as its text, which overrides that: a note has no widget grid.
         ...noteOf(graph, s.module),
       });
@@ -1318,7 +1400,10 @@ export function buildGraph(
           id: key,
           source: cid,
           target: moduleId(s.module),
-          automation: { param: a.param, widget: widgetCenter(s.ui, a.param) },
+          automation: {
+            param: a.param,
+            widget: widgetCenter(s.ui, a.param),
+          },
         });
         // …and, for an envelope, the cable that FIRES it — the same `trigger` field the compiler bakes.
         if (curve.type === "adsr") {
@@ -1639,15 +1724,6 @@ export function buildGraph(
     }
   }
 
-  // The CONSOLE's halves have no node: the ones they follow wear its name — packages/song/docs/console.md.
-  if (graph.console) {
-    const on = new Set(graph.console.nodes);
-    for (const n of nodes.values())
-      // A sum is a sink keyed `snk:<name>`, so it answers to its label; every other node to its module.
-      if (on.has(n.kind === "sink" ? n.label : (n.module ?? n.id)))
-        n.console = graph.console.label;
-  }
-
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
 
@@ -1782,10 +1858,24 @@ export function moduleRow(
     links?: boolean;
     /** The LANE this row belongs to: its own card LEADS it, the signal starting there. See docs/graphBuild.md. */
     track?: string;
+    /** Every card at the width the full graph draws it, the lane's clips kept, all of them the tallest's height. */
+    asDrawn?: boolean;
+    /** What the machine has, for the cards whose panel lists it: an input's sockets, the lenses, the MIDI devices. */
+    devices?: Pick<
+      NonNullable<Parameters<typeof buildGraph>[1]>,
+      "inputDevices" | "cameras" | "midiDevices"
+    >;
   } = {},
 ): LaidOutGraph {
-  const { widthScale = 1, links = false, track } = opts;
-  const { nodes, edges } = buildGraph(graph);
+  const {
+    widthScale = 1,
+    links = false,
+    track,
+    asDrawn = false,
+    devices,
+  } = opts;
+  // The same lists the full graph is built with, or its cards' dropdowns would offer nothing here.
+  const { nodes, edges } = buildGraph(graph, devices ?? {});
   const byModule = new Map<string, (typeof nodes)[number]>();
   for (const n of nodes)
     if (n.kind === "module" && n.module && !byModule.has(n.module))
@@ -1802,22 +1892,28 @@ export function moduleRow(
       ? nodes.find((n) => n.kind === "track" && n.module === track)
       : undefined;
 
+  const row = lane ? [lane, ...picked] : picked;
+  // As drawn, every card is as tall as the tallest one, the lane's clip list included — the row is one band.
+  const line = asDrawn ? row.reduce((h, n) => Math.max(h, n.h), 0) : tallest;
   const out: GraphNode[] = [];
   const inRow = new Set<string>();
   let x = ROW_MARGIN;
-  for (const n of lane ? [lane, ...picked] : picked) {
-    const w = Math.round(n.w * widthScale);
+  for (const n of row) {
+    const w = asDrawn ? n.w : Math.round(n.w * widthScale);
+    const h = asDrawn ? line : tallest;
     inRow.add(n.id);
     out.push({
       ...n,
       w,
-      h: tallest,
+      h,
       x,
-      y: ROW_MARGIN,
+      y: ROW_MARGIN + Math.round((line - h) / 2),
       // Sockets are never PLATED here: the plates are CSS-pinned to edges this row does not use.
       jacks: undefined,
       // A lane's mini timeline is the ARRANGEMENT, and it would set the height of every card beside it — docs/graphBuild.md.
-      ...(n === lane ? { clips: undefined, clipsMore: undefined } : {}),
+      ...(n === lane && !asDrawn
+        ? { clips: undefined, clipsMore: undefined }
+        : {}),
       ...(links ? { flow: "across" as const } : {}),
     });
     x += w + STRIP_GAP;
@@ -1845,10 +1941,15 @@ export function moduleRow(
           }))
       : [],
     width: out.length ? x - STRIP_GAP + ROW_MARGIN : 0,
-    height: out.length ? tallest + ROW_MARGIN * 2 : 0,
+    // As drawn, the box is the cards' own height and no more, so a height fit makes the tallest fill the view.
+    height: out.length
+      ? asDrawn
+        ? ROW_MARGIN + line
+        : line + ROW_MARGIN * 2
+      : 0,
     // A row lays itself out from `ROW_MARGIN` and ignores pins entirely: it begins at the origin.
     left: 0,
-    top: 0,
+    top: asDrawn && out.length ? ROW_MARGIN : 0,
   };
 }
 
@@ -1902,11 +2003,12 @@ function snapToRankRows(
     : snapped;
 }
 
-/** The MASTER RUN — the sum and everything downstream of it — goes to the BOTTOM RIGHT, past the rest.
+/** The MASTER RUN — the sum and everything downstream of it — goes RIGHT of the rest, the sum on the track row.
  *
- * Shifted as a BLOCK on both axes, so the run keeps whatever shape it had. Placed rather than RANKED
- * because it is joined to nothing else in the drawing: no cable is drawn into the sum, so ranking it
- * among the lanes only ever put it somewhere its one visible cable had to cross. See docs/graphBuild.md. */
+ * Shifted as a BLOCK on both axes, so the run keeps whatever shape it had and `OUT` stays one rank
+ * under its last module. Placed rather than RANKED because it is joined to nothing else in the
+ * drawing: no cable is drawn into the sum, so ranking it among the lanes only ever put it somewhere
+ * its one visible cable had to cross. Last on the row, level with the lanes: docs/graphBuild.md. */
 export function masterRunAside<
   N extends {
     id: string;
@@ -1940,11 +2042,14 @@ export function masterRunAside<
     Math.max(...others.map((n) => n.x + n.w)) +
     NODE_SEP -
     Math.min(...mine.map((n) => n.x));
-  // …and DOWN past the deepest lane, which is where the cables nobody draws actually arrive.
-  const dy =
-    Math.max(...others.map((n) => n.y + n.h)) +
-    RANK_SEP -
-    Math.min(...mine.map((n) => n.y));
+  // …and UP onto the TRACK row, the sum standing level with the lanes it sums, its run under it.
+  // A graph with no lane has no row to join, so the run goes down past everything instead.
+  const lanes = others.filter((n) => n.kind === "track");
+  const dy = lanes.length
+    ? Math.min(...lanes.map((n) => n.y)) - sum.y
+    : Math.max(...others.map((n) => n.y + n.h)) +
+      RANK_SEP -
+      Math.min(...mine.map((n) => n.y));
   if (dx === 0 && dy === 0) return nodes;
   return nodes.map((n) =>
     run.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n,

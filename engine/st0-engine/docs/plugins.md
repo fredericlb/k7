@@ -158,6 +158,25 @@ of loading.
 `nullopt` from `pluginParamsOf` means "no answer about this plugin" — cannot find, cannot create,
 cannot load — and never "this plugin has no parameters".
 
+## Built on the message thread
+
+Both entry points are called from the socket's detached worker, and neither builds its plugin
+there. `onMessageThread` hands the creation — and the shared engine's own construction, the first
+time — to the message thread and waits for it; the worker only WAITS for the parameter list, and
+the read and the `deleteFromParent` go back to the message thread too.
+
+A VST3 instance is built synchronously on whatever thread asks (see AGENTS.md), and some plugins
+post work to the main run loop while they are being constructed. Built on a worker, that work runs
+on the message thread against an instance still half-built: Arturia's Matrix-12 V2 dies there of a
+null read three times out of three, inside its own code, under `runDispatchLoopUntil`, before any
+parameter is listed — while the same plugin through `--dump-params-ext`, which builds it on the
+main thread, lists 4524 parameters and exits clean. Jup-8 V4, from the same vendor, survives the
+worker build, which is what makes the hazard easy to miss: it is a race that most plugins win.
+
+What it costs: the message thread is busy for as long as the plugin takes to construct — the UI
+socket answers late during that time, the audio thread does not notice. That is the price of a
+query not killing the engine that is making sound.
+
 ## The scan
 
 `scanInstalledPlugins` loads each plugin in a **child process** (`runPluginScanChild`), so a

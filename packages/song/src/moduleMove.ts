@@ -79,10 +79,29 @@ export function planModuleMove(
   };
 }
 
-/** A ref as it is written: quoted or bare, and followed by a node (`:`), a port (`#`) or nothing more. */
-const refPattern = (ref: string): RegExp =>
+/** The ref a path inside a library's `modules/` stands for — a module's, or the prefix of every one below a folder. */
+export function refAt(
+  library: { name: string; root: string },
+  abs: string,
+): string | null {
+  const rel = relative(join(library.root, "modules"), abs);
+  if (!rel || rel.startsWith("..")) return null;
+  return refOf(library.name, rel.split(sep));
+}
+
+/** Refused, with the reason: an engine is picked by its folder's NAME, which no ref carries (docs/moduleMove.md). */
+export function assertNotEngine(library: { root: string }, abs: string): void {
+  const rel = relative(join(library.root, "modules"), abs);
+  if (rel.split(sep).includes(ENGINES_DIR))
+    throw new Error(
+      "an engine is picked by its name (`engine: <name>` in every node using it), which renaming would strand — make a new engine instead",
+    );
+}
+
+/** A ref as it is written: quoted or bare, followed by a node (`:`), a port (`#`), nothing — or, `under`, more path. */
+const refPattern = (ref: string, under: boolean): RegExp =>
   new RegExp(
-    `${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\\s:#,\\]}]|$)`,
+    `${ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\\s:#,\\]}${under ? "/" : ""}]|$)`,
     "gm",
   );
 
@@ -91,8 +110,10 @@ export function repointRefs(
   roots: readonly string[],
   from: string,
   to: string,
+  /** Also every ref BELOW `from`: a renamed folder takes each module in it along. */
+  under = false,
 ): string[] {
-  const pattern = refPattern(from);
+  const pattern = refPattern(from, under);
   const changed: string[] = [];
   const walk = (dir: string): void => {
     let names: string[];

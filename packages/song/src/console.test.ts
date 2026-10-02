@@ -26,7 +26,6 @@ beforeEach(() => {
   writeLibraries(root, {
     "console/console-6/channel": {
       plugin: { type: "internal", name: "Console 6 Channel" },
-      label: "Console 6 Channel",
     },
     "console/console-6/buss": {
       plugin: { type: "internal", name: "Console 6 Buss" },
@@ -55,9 +54,9 @@ const doc = () =>
   });
 
 describe("the systems", () => {
-  it("lists a system only when it has both halves, named by its channel", () => {
+  it("lists a system only when it has both halves, named by its folder", () => {
     expect(consoleSystems(loadModuleRefs(dir))).toEqual([
-      { ref: SYS, label: "Console 6" },
+      { ref: SYS, label: "console-6" },
     ]);
   });
 

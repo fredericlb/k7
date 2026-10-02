@@ -9,7 +9,6 @@ import {
   FileSearch,
   Group,
   Hash,
-  LayoutGrid,
   List,
   type LucideIcon,
   Monitor,
@@ -35,7 +34,6 @@ export const TYPES: { type: WidgetType; icon: LucideIcon; label: string }[] = [
   { type: "lcdscreen", icon: Monitor, label: "LCD screen" },
   { type: "label", icon: Type, label: "Label" },
   { type: "group", icon: Group, label: "Group" },
-  { type: "tabs", icon: LayoutGrid, label: "Tabs" },
 ];
 
 export const ICON: Record<WidgetType, LucideIcon> = Object.fromEntries(
@@ -48,7 +46,6 @@ export const GROUP_COLOR = "#3d7dff26";
 // Which widget kinds carry a `bind`, and so the only ones a dragged parameter can bounce off.
 export const bindable = (w: Pick<Widget, "type">) =>
   w.type !== "label" &&
-  w.type !== "tabs" &&
   w.type !== "waveform" &&
   w.type !== "lcdscreen" &&
   w.type !== "group";
@@ -73,7 +70,6 @@ export function retype(w: Widget, type: WidgetType): Partial<Widget> {
     max: ranged(next) ? w.max : undefined,
     step: ranged(next) ? w.step : undefined,
     curve: ranged(next) ? w.curve : undefined,
-    pages: type === "tabs" ? w.pages : undefined,
     source: type === "waveform" ? w.source : undefined,
     options: type === "dropdown" ? w.options : undefined,
     library: type === "dropdown" ? w.library : undefined,

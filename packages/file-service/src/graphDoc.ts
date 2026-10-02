@@ -11,6 +11,7 @@ import type {
   WebNodeAssembly,
   WebRackSound,
 } from "@studio/graph-model";
+import { type PanelLike, panelWidgets } from "@studio/graph-model/panel";
 import type { AutoFreeze } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
@@ -41,6 +42,7 @@ import {
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
   type LibraryFileFamily,
+  MIDI_IN_IO,
   MIX_NODE,
   MIX_PARAM,
   OUTPUT_VOLUME_PARAM,
@@ -75,10 +77,10 @@ function withLibraryChoices(
   also: readonly LibraryFileFamily[] = [],
   projectDir?: string,
 ): string[] | undefined {
-  const widgets = Object.values(
-    ((ui ?? {}) as { widgets?: Record<string, { bind?: unknown }> }).widgets ??
-      {},
-  );
+  // Every tab's widgets, not only the shared ones: a picker on a closed tab still needs its choices.
+  const widgets = panelWidgets(
+    ui as PanelLike<{ bind?: unknown }> | undefined,
+  ).map(([, w]) => w);
   const families = [
     ...new Set([
       ...also,
@@ -211,34 +213,6 @@ export function trackMixersOf(doc: {
   return out;
 }
 
-/** Where the compile put the console's halves, as the NODES they follow — packages/song/docs/console.md. */
-export function consoleOf(
-  doc: {
-    tracks: {
-      id: string;
-      plugins: { id: string; type: string; name: string }[];
-    }[];
-    masterPlugins: { id: string }[];
-  },
-  system: ConsoleSystem | undefined,
-): WebGraph["console"] {
-  if (!system || doc.masterPlugins[0]?.id !== `${CONSOLE_ID}master`)
-    return undefined;
-  const nodes: string[] = [];
-  for (const t of doc.tracks) {
-    const at = t.plugins.findIndex((p) => p.id === `${CONSOLE_ID}${t.id}`);
-    if (at < 0) continue;
-    // The strip it follows, named by its plugin as `trackMixersOf` reads it; a lane with no strip wears it itself.
-    const before = t.plugins[at - 1];
-    nodes.push(before?.type === MIXER_PLUGIN ? before.name : t.id);
-  }
-  return {
-    system: system.ref,
-    label: system.label,
-    nodes: [...nodes, MIX_NODE],
-  };
-}
-
 export function buildGraphDoc(
   dir: string,
   extents?: ClipExtents,
@@ -314,8 +288,6 @@ export function buildGraphDoc(
           module: s.module,
           // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.
           ...(module?.extends ? { uses: String(module.extends) } : {}),
-          // …and what a person calls it, the header's first choice — packages/song/docs/moduleLabel.md.
-          ...(module?.label ? { moduleLabel: module.label } : {}),
           // …and the engine's stage it takes, the one test the compile applies, so the footer shows what the engine does.
           ...(() => {
             const stage =
@@ -420,6 +392,8 @@ export function buildGraphDoc(
           // A CAMERA's own field, on the same terms — and PRESENT even when empty, since that is
           // what tells the card it is a lens at all: "" is the default one (docs/camera.md).
           camera: module?.io === CAMERA_IO ? (module.camera ?? "") : undefined,
+          // …and a MIDI device's, PRESENT even when empty for the same reason: "" is any device (docs/midiIn.md).
+          device: module?.io === MIDI_IN_IO ? (module.device ?? "") : undefined,
           automations: automations.length ? automations : undefined,
         };
       }),

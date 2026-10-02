@@ -430,16 +430,14 @@ function mutedLanes(): string {
 }
 
 const MEDIATEK_UTILITY = "@st0/audio/utility";
-/** The filter lives under `filter/` and the EQ under `eq/`, not `utility/`: a type folder is what draws its icon. */
+/** The filter lives under `filter/`, not `utility/`: a category is what draws its icon. */
 const MEDIATEK_FILTER = "@st0/audio/filter";
-const MEDIATEK_EQ = "@st0/audio/eq";
-/** …and the echo under `time/`, for the same reason: a delay is not a utility. */
-const MEDIATEK_TIME = "@st0/audio/time";
+/** …and the EQ and the echo sit at the root of `audio/`, each one module with its engines. */
+const MEDIATEK_AUDIO = "@st0/audio";
 /** …and the PLATTER, which is st0's own and not a library's: a set cannot play without it (docs/metaModules.md). */
 const META_AUDIO = "@meta/audio";
-/** …and `stemsplit` under `separation/`, which writes the four files. Dosing one needs no module:
- *  the platter reading it has a gain of its own — see packages/song-schema/docs/stems.md. */
-const MEDIATEK_SEPARATION = "@st0/audio/separation";
+/** …and the TEMPO under `cold/`: it reads a deck's whole file before playback (docs/coldModules.md). */
+const MEDIATEK_COLD = "@st0/cold";
 /** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */
 /** One per deck, facing opposite ways — TWO of them are the crossfade, docs/setProject.md. */
 const FADE_A = "fadeA";
@@ -542,7 +540,7 @@ function tempoNode(letter: string): string {
     `#\n` +
     `# This is what the BPM fader in Mix moves. Both at 0 is a no-op: the record plays at its\n` +
     `# own tempo until the analysis has measured one and somebody has asked for another.\n` +
-    `extends: ${q(`${MEDIATEK_UTILITY}/tempo`)}\n` +
+    `extends: ${q(`${MEDIATEK_COLD}/tempo`)}\n` +
     `params:\n` +
     `  # Measured by the pass that reads the file — the same analysis the waveform uses.\n` +
     `  Source BPM: 0\n` +
@@ -624,7 +622,7 @@ function echoNode(letter: string): string {
     `#\n` +
     `# \`Time\` is in MILLISECONDS and follows nothing: the desk knows each deck's BPM, but no\n` +
     `# binding carries it here yet. See packages/st0-plugins/docs/turntables/fx.md.\n` +
-    `extends: ${q(`${MEDIATEK_TIME}/echo`)}\n` +
+    `extends: ${q(`${MEDIATEK_AUDIO}/echo`)}\n` +
     `params:\n` +
     `  # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.\n` +
     `  Time: 375\n` +
@@ -652,7 +650,7 @@ function eqNode(letter: string): string {
     `#\n` +
     `# The EQ module has several engines; the desk's is Tracktion's, named so a change of default\n` +
     `# moves no deck (packages/song/docs/engines.md).\n` +
-    `extends: ${q(`${MEDIATEK_EQ}/eq`)}\n` +
+    `extends: ${q(`${MEDIATEK_AUDIO}/eq`)}\n` +
     `engine: tracktion\n` +
     `engines:\n` +
     `  tracktion:\n` +

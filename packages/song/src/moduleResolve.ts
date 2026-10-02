@@ -247,10 +247,12 @@ export function resolvedUI(
 ): ModuleUI | undefined {
   const ui = m?.ui as ModuleUI | undefined;
   if (!ui) return undefined;
-  const widgets: Record<string, Widget> = { ...(ui.widgets ?? {}) };
-  for (const [id, w] of Object.entries(widgets))
-    if (w?.hidden) delete widgets[id];
-  const out: ModuleUI = { cols: ui.cols ?? 0, rows: ui.rows ?? 0, widgets };
+  const shown = (ws: Record<string, Widget> | undefined): Record<string, Widget> =>
+    Object.fromEntries(Object.entries(ws ?? {}).filter(([, w]) => !w?.hidden));
+  const out: ModuleUI = { cols: ui.cols ?? 0, rows: ui.rows ?? 0, widgets: shown(ui.widgets) };
+  // The tabs keep their order, each with its own hidden widgets dropped the same way.
+  if (Array.isArray(ui.tabs) && ui.tabs.length)
+    out.tabs = ui.tabs.map((t) => ({ name: t.name, widgets: shown(t.widgets) }));
   if (typeof ui.script === "string" && ui.script) out.script = ui.script;
   return out;
 }

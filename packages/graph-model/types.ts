@@ -21,7 +21,6 @@ export interface WebWidget {
     | "toggle"
     | "button"
     | "meter"
-    | "tabs"
     | "waveform"
     | "dropdown"
     // Picks a FILE the module carries for the file-valued param it binds — see filePicker.md.
@@ -38,12 +37,11 @@ export interface WebWidget {
   rowSpan?: number;
   label?: string;
   text?: string; // label only
-  bind?: string; // everything but label/tabs/waveform: the param it reads/writes
+  bind?: string; // everything but label/waveform: the param it reads/writes
   min?: number; // knob | slider | number
   max?: number;
   step?: number;
   curve?: "lin" | "log";
-  pages?: Record<string, Record<string, WebWidget>>; // tabs only: named pages of sub-widgets
   // waveform only: which audio tap to display, or "take" for a RECORDER node's own picture —
   // the whole take, growing, off the state frame rather than a tap (engine docs/recorder.md).
   source?: "input" | "output" | "take";
@@ -52,12 +50,16 @@ export interface WebWidget {
   // dropdown only, HISTORICAL: the older spelling of a filepicker, still read as one — docs/graph.md.
   library?: string;
   color?: string; // group only: its background, a #rgb / #rrggbb / #rrggbbaa colour
+  invert?: boolean; // group only: its bind is a MUTE or BYPASS — the section is on while the param is off
   pair?: string; // knob only: the DRY param a crossfade knob sets beside its `bind` (wet), equal-power
 }
 export interface WebModuleUI {
   cols: number;
   rows: number;
+  // Drawn on every tab — and the whole panel when there is one tab or none.
   widgets: Record<string, WebWidget>;
+  // The panel's pages in order; two or more are drawn as a column at the card's left (graph-model's panel.ts).
+  tabs?: { name: string; widgets: Record<string, WebWidget> }[];
   // The `widgets.js` source beside the panel, run by the BROWSER to draw its lcdscreen widgets.
   script?: string;
 }
@@ -85,8 +87,6 @@ export interface WebChainStep {
   module: string; // a module node name
   /** The module this node USES — the header's main name, absent when the node IS one; see docs/graph.md. */
   uses?: string;
-  /** What a person CALLS the module — its `label:`, own or inherited; the header prefers it to any ref. */
-  moduleLabel?: string;
   /** The engine's stage this module takes — `@input-volume`, `@mix`, `@output-volume` — drawn in its card's FOOTER. */
   stage?: string[];
   category?: WebModuleCategory; // its type folder — picks the node's icon
@@ -138,6 +138,9 @@ export interface WebChainStep {
   /** io "camera" only: WHICH lens, by the LABEL a person reads — "" being whichever is default.
    *  Present is what says this step IS a camera, the way `monitor` does for a live audio input. */
   camera?: string;
+  /** io "midi" only: WHICH MIDI device it records from, by its label — "" being any device.
+   *  Present is what says this step IS a midi-in node, the way `camera` does for a lens. */
+  device?: string;
   // Where this node's waveform widget listens, an io "in" borrowing one step downstream — see docs/graph.md.
   tap?: { id: string; side: "input" | "output" };
   // Which curve (by id) drives which param. The graph draws each as a curve node arrowing into the module.
@@ -277,8 +280,6 @@ export interface WebGraph {
     string,
     { alternatives: string[]; alternative: string }
   >;
-  /** The project's summing CONSOLE and the nodes its halves follow — each encoded lane's strip, and `MIX` — packages/song/docs/console.md. */
-  console?: { system: string; label: string; nodes: string[] };
   /** What is BAKED, by node name: `"at"` the point, `"inside"` what it contains — packages/song/docs/freeze.md. */
   frozen?: Record<string, "at" | "inside">;
   /**

@@ -10,9 +10,27 @@ import type {
   WebWidget,
 } from "@studio/graph-model";
 import { MODULE_CATEGORIES } from "@studio/graph-model";
+import {
+  MODULE_TYPES as MODULE_PORTS,
+  moduleEmits,
+} from "@studio/song-schema/moduleTypes";
 
 /** The source node the module hangs off — it stands for "whatever will feed this". */
 export const PREVIEW_SOURCE = "in";
+
+/** …and the source of a module that takes NOTES — an instrument, a transformer: a MIDI lane, wired with a MIDI cable. */
+export const PREVIEW_MIDI_SOURCE = "midi-in";
+
+/** What feeds the module in the preview: a MIDI source when its type's first input is MIDI, else audio. */
+export function previewSourceOf(path: string): {
+  name: string;
+  signal: "audio" | "midi";
+} {
+  const input = MODULE_PORTS[moduleCategoryOf(path)]?.inputs[0]?.type;
+  return input === "midi"
+    ? { name: PREVIEW_MIDI_SOURCE, signal: "midi" }
+    : { name: PREVIEW_SOURCE, signal: "audio" };
+}
 
 /** The chain the previewed module sits on. Also half its engine address, `<chain>:<module>`. */
 export const PREVIEW_CHAIN = "preview";
@@ -37,14 +55,26 @@ export function visibleGrid(ui: {
   cols: number;
   rows: number;
   widgets: Record<string, WebWidget & { hidden?: boolean }>;
+  tabs?: {
+    name: string;
+    widgets: Record<string, WebWidget & { hidden?: boolean }>;
+  }[];
   script?: string;
 }): WebModuleUI {
+  const shown = (ws: Record<string, WebWidget & { hidden?: boolean }>) =>
+    Object.fromEntries(Object.entries(ws).filter(([, w]) => !w.hidden));
   return {
     cols: ui.cols,
     rows: ui.rows,
-    widgets: Object.fromEntries(
-      Object.entries(ui.widgets).filter(([, w]) => !w.hidden),
-    ),
+    widgets: shown(ui.widgets),
+    ...(ui.tabs?.length
+      ? {
+          tabs: ui.tabs.map((t) => ({
+            name: t.name,
+            widgets: shown(t.widgets),
+          })),
+        }
+      : {}),
     // The `widgets.js` AS EDITED, so a screen redraws before the script is saved.
     ...(ui.script ? { script: ui.script } : {}),
   };
@@ -60,17 +90,20 @@ export function modulePreviewGraph(
   // The engine's stage its card's footer draws — what the compile would give it, docs/graphBuild.md.
   stage?: readonly string[],
 ): WebGraph {
+  const source = previewSourceOf(path);
+  const category = moduleCategoryOf(path);
   return {
-    tracks: [PREVIEW_SOURCE],
-    trackSignals: { [PREVIEW_SOURCE]: "audio" },
+    tracks: [source.name],
+    trackSignals: { [source.name]: source.signal },
     chains: {
       [PREVIEW_CHAIN]: {
-        from: PREVIEW_SOURCE,
+        from: source.name,
         use: [
           {
             module,
-            category: moduleCategoryOf(path),
-            emits: "audio",
+            category,
+            // What it gives, by the same rule a chain's compile uses: a transformer's notes stay notes.
+            emits: moduleEmits(category) === "midi" ? "midi" : "audio",
             enabled: true,
             // The REAL engine address, the same one the médiathèque loads the plugin at.
             pluginId: previewPluginId(module),

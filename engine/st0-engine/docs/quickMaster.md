@@ -1,17 +1,17 @@
 # `Quick Master` — a master bus in one module
 
 `QuickMasterPlugin` is an engine built-in (`studio_quickmaster`, `[audioEffect]`, category
-`dynamics`). It chains three devices, in this order and this order only:
+`dynamics`). It chains these stages, in this order and this order only:
 
 ```
-        ┌ 3-band compressor ───┐   ┌ widener ────┐   ┌ limiter ─┐
-input → │  split → 3 detectors │ → │  M/S, width │ → │ lookahead│ → output
-        │  → sum               │   │  bass mono  │   │ + ceiling│
-        └──────────────────────┘   └─────────────┘   └──────────┘
+         ┌ low cut ┐   ┌ 3-band compressor ───┐   ┌ widener ────┐   ┌ HF limit ┐   ┌ limiter ─┐   ┌ word length ┐
+input →  │ mid HP  │ → │  split → 3 detectors │ → │  M/S, width │ → │  bends   │ → │ lookahead│ → │ float, 24,  │ → output
+         │         │   │  → sum               │   │  bass mono  │   │          │   │ + ceiling│   │ or 16-bit   │
+         └─────────┘   └──────────────────────┘   └─────────────┘   └──────────┘   └──────────┘   └─────────────┘
 ```
 
-Ten parameters, no routing, **neutral at its defaults**: the three amounts at zero, width at
-100 %, drive at zero. A library's `audio/dynamics/quick-master` is a NAME and
+Thirteen parameters, no routing, **neutral at its defaults**: low cut off, the three amounts at
+zero, width at 100 %, HF limit at zero, drive at zero, output in float. A library's `audio/dynamics/quick-master` is a NAME and
 DEFAULTS on top, exactly as `eq3` is on the 4-band equaliser — it is that module, not this plugin,
 that settles a master.
 
@@ -114,6 +114,50 @@ intention, which is the most common way to make a master 0.2 dB wrong.
 into the ceiling, and that is a level decision a settled module does not take on its own — hence
 its default of 0.
 
+## The low cut and the HF limit — To Vinyl 4's
+
+Two of To Vinyl 4's four stages, the two a master can use whether or not it is cut to vinyl. Its
+side high-pass is Bass Mono already, and its groove wear is an effect, which the library's Vinyl
+module keeps.
+
+- **Low Cut** (0–300 Hz, off below 20 Hz) is a high-pass on the **mid only**, the same LR4 pair
+  Bass Mono puts on the side. It comes FIRST, before the split: a compressor that hears sub-rumble
+  works on energy nobody can hear, and the low band's amount is spent on it.
+- **HF Limit** (0–100 %) is To Vinyl 4's acceleration limiter (`AccelerationLimiter.h`). It never
+  measures level: where the wave bends too fast, it pulls the sample toward the average of the last
+  three. So it acts on loud, sharp highs (sibilance, cymbals) and leaves a quiet top end and every
+  low note alone. The amount is felt as a cube, Airwindows' own law, so the first half of the knob
+  is gentle. It comes just BEFORE the lookahead limiter, so the limiter does not spend its gain
+  reduction on peaks this stage removes more cleanly.
+
+Both are exactly transparent at zero: the low cut is skipped, and the limiter's pull is zero.
+
+## The output word length — Righteous 4's
+
+`Output` picks the word length the master leaves at: **0** float, untouched; **1** 24-bit;
+**2** 16-bit. It is the last thing the signal meets, after the clipper, because a dither is only
+right for the samples that are actually written.
+
+It is Airwindows' **Naturalize** stage, the output section of Righteous 4 (`NaturalizeDither.h`).
+It does not add random noise. It rounds each sample down or up, choosing whichever keeps the
+leading digits of the output closest to Benford's law, and carries the rounding error into the
+next sample: noise shaping. The rest of Righteous 4 is a saturator driven by its loudness target,
+and it is left out on purpose: the limiter above already decides the level, and a second stage
+deciding it again would fight it.
+
+Two choices worth knowing:
+
+- **The renormalisation is fixed.** Airwindows rescales its digit counters with `if (total = 0)`,
+  an assignment where a comparison was meant, which divides them by zero. The port compares, so
+  the counters keep the meaning the algorithm describes.
+- **The ceiling still holds.** A step rounded up can cross it, so the result is clamped to the
+  ceiling, and to one step under full scale, the top a word can hold.
+
+Pick the word length of the file you will export. A writer that scales a float by `2^n − 1`
+rather than `2^n` (JUCE's does) moves every sample above 0.5 down by one step of its own word, so
+the grid survives exactly only in a writer that scales by a power of two. `quick-master.ts` reads
+the engine's 24-bit bounce with that one-step tolerance for the same reason.
+
 ## Verifying
 
 There is no unit test: `QuickMasterPlugin` needs a live `te::Edit` to exist, which the repo's four
@@ -127,6 +171,13 @@ cmake --build --preset windows-msvc
 npm run gen:builtin-params --workspace st0-engine   # INSTANTIATES each built-in and reads its params
 npx tsx engine/st0-engine/scripts/quick-master.ts   # RETURNS sound and measures it
 ```
+
+The two stages lifted from Airwindows have unit tests, being JUCE-free headers: `studio_dither_tests`
+checks the word length's grid, carried error, digital black and pass-through, and
+`studio_hflimit_tests` checks that the HF limit is transparent at zero, spares a low tone, tames a
+high one and grows with its knob. The harness then checks them in a rendered master: the 16-bit
+grid and the ceiling with the word length on, the low cut thinning the mid and sparing the side,
+and the HF limit pulling high notes down while leaving low ones alone.
 
 The second line creates the plugin, reads its ten parameters and writes
 `packages/song-schema/src/builtinParams.generated.ts`. A plugin that fails to instantiate, or

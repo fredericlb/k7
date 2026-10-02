@@ -75,7 +75,6 @@ const KEPT = [
   "file",
   "home",
   "category",
-  "label",
   "status",
   "alternatives",
   "alternative",

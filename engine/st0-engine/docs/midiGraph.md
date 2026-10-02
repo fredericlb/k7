@@ -7,7 +7,7 @@ one. What this page is about is the part that took a second pass: the phase has 
 
 ## The vocabulary
 
-Five nodes, in two groups.
+Nine nodes, in three groups.
 
 **Stateless rewrites**, run once per block over the message list, in place: `transpose`,
 `velocity`, `mchannel`. Their inputs are scalars and they have no `out` — the buffer *is* the
@@ -24,8 +24,40 @@ composition of them with the ordinary control arithmetic.
 
 `mhold` before `mstrike` is the whole circuit. Reversed, the strike runs on a set nothing filled.
 
-That pair is the note repeater, and the module is three lines of `packages/dsp`
-(`packages/dsp/src/noteRepeat.ts`): hold, multiply two parameters into a step, strike.
+That pair is the note repeater's core (`packages/dsp/src/noteRepeat.ts`): hold, multiply two
+parameters into a step, strike.
+
+**The step rule**, four setters that say which strikes play and how loud — `mpattern(mode, length,
+density, rotate)`, `maccent(count, low, opposite, keep)`, `mchance(p)`, `mdecay(d)`. Declared between
+hold and strike; after the strike they would apply a block late.
+
+## The step rule: fields set once a block, read per strike
+
+A rhythm is a decision PER STEP — play this one, at this level — and a node runs once per block. So
+the four setters do not decide anything: each writes fields of one `NoteSteps` on the graph
+(`NoteSteps.h`), beside the `NoteClock`, and `mstrike` hands it to the clock, which asks it at each
+strike. One rule per graph for the reason there is one clock per graph. Four nodes rather than one
+with eleven inputs because they are four ideas a module may want separately — a humaniser is
+`mchance` alone — and rather than a mode flag on `mstrike`, which would make one node do five jobs.
+
+What each answers, and the choices behind it:
+
+- **A rest TAKES its step.** A step the pattern skips, or the chance loses, still moves the clock, so
+  the rhythm stays on the grid the rate describes. The cycle restarts with the hand — a key pressed
+  on silence starts at step 1, as the arpeggiator does.
+- **Euclid is the Bresenham form**, `(i·k) mod n < k`: the pulses spread as evenly as the steps
+  allow, the first on step 1. **Burst** plays the cycle's first `k` steps and rests the rest. Both
+  turn with `rotate`, a share of the cycle rounded to a step.
+- **Accents are spread among the HITS**, by the same Euclid over the hit count, so "half accented"
+  means every other note that plays, whatever the rhythm. `keep` spreads them over the STEPS instead,
+  so moving the density leaves them where they were; `opposite` swaps which ones.
+- **An accent is the velocity as played; the others drop to `low` of it.** A share rather than a
+  level, so the hand's dynamics survive. The defaults — every hit accented, chance 1, no decay — are
+  the repeater as it was.
+- **Decay takes a share per repeat**, counted from the first strike: `(1 − d)^repeat`. Nothing goes
+  under 1/127, because a note-on of velocity 0 is a note-off.
+- **Chance is rolled per step for the whole chord** — a chord is struck together or not at all —
+  with a fixed-seed xorshift, so a test can count on the sequence.
 
 ## Where the state lives: on the GRAPH, not the node
 

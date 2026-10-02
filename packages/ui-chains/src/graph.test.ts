@@ -1821,6 +1821,69 @@ describe("moduleRow led by its lane", () => {
     expect(new Set(row.nodes.map((n) => n.h)).size).toBe(1);
   });
 
+  it("as drawn, keeps every card's own width and the lane's clips, every card the tallest's height", () => {
+    const tall = graph(
+      {
+        vox: {
+          from: "vox",
+          use: [
+            { module: "comp", ui: { cols: 2, rows: 4, widgets: {} } },
+            { module: "eq" },
+          ],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      ["vox"],
+    );
+    const withClips: WebGraph = {
+      ...tall,
+      trackClips: {
+        vox: [{ ref: "riff", start: 0, tc: "1:1:1", len: 4, kind: "audio" }],
+      },
+    };
+    const full = buildGraph(withClips).nodes;
+    const row = moduleRow(withClips, ["comp", "eq"], {
+      links: true,
+      track: "vox",
+      asDrawn: true,
+    });
+    for (const n of row.nodes) {
+      const g = full.find((f) => f.id === n.id);
+      expect(n.w).toBe(g?.w);
+    }
+    expect(row.nodes[0].clips).toBeDefined();
+    // One band: every card the tallest's height, all on one top line, so the row fills the pane's height.
+    const tallest = Math.max(
+      ...full
+        .filter((f) => row.nodes.some((n) => n.id === f.id))
+        .map((f) => f.h),
+    );
+    expect(new Set(row.nodes.map((n) => n.h))).toEqual(new Set([tallest]));
+    expect(new Set(row.nodes.map((n) => n.y)).size).toBe(1);
+    // The box is the cards' height and no more, so a height fit makes the tallest card fill the view.
+    expect(row.height - row.top).toBe(Math.max(...row.nodes.map((n) => n.h)));
+  });
+
+  it("builds its cards with the machine's lists, so a MIDI device's dropdown offers them here too", () => {
+    const keys = graph(
+      {
+        vox: {
+          from: "vox",
+          use: [{ module: "keys", device: "" }, { module: "comp" }],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      ["vox"],
+    );
+    const row = moduleRow(keys, ["keys", "comp"], {
+      asDrawn: true,
+      devices: { midiDevices: ["KeyStep 37"] },
+    });
+    const card = row.nodes.find((n) => n.module === "keys");
+    const options = card?.ui?.widgets.device?.options?.map((o) => o.label);
+    expect(options).toEqual(["any", "KeyStep 37"]);
+  });
+
   it("names the lane by KIND, so a module of the same name is not mistaken for it", () => {
     const clash = graph(
       {
@@ -2197,17 +2260,18 @@ describe("the master run goes to the bottom right", () => {
       expect(n.x, n.label).toBeGreaterThanOrEqual(edge);
   });
 
-  it("sits BELOW every lane, not on the track row it is ranked with", () => {
+  it("stands on the TRACK row, level with the lanes it sums, and right of every one of them", () => {
     const { nodes, edges } = buildGraph(twoTracks);
     const laid = layout(nodes, edges);
     const run = runOf(laid);
     const sum = laid.nodes.find((n) => n.kind === "sink" && n.label === "MIX");
-    // The sum is RANKED where a source is — the master run leaves it downward — and that used to
-    // leave it on the track row with `OUT` at the bottom, one cable spanning the whole page.
-    const deepest = Math.max(
-      ...laid.nodes.filter((n) => !run.has(n.id)).map((n) => n.y + n.h),
+    const lanes = laid.nodes.filter((n) => n.kind === "track");
+    expect(sum?.y).toBe(Math.min(...lanes.map((n) => n.y)));
+    // …and LAST on that row: right of everything that is not its own run.
+    const right = Math.max(
+      ...laid.nodes.filter((n) => !run.has(n.id)).map((n) => n.x + n.w),
     );
-    expect(sum?.y).toBeGreaterThanOrEqual(deepest);
+    expect(sum?.x).toBeGreaterThan(right);
   });
 
   it("makes the MIX -> OUT cable short instead of page-tall", () => {

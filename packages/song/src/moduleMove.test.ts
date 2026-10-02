@@ -13,7 +13,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { planModuleMove, repointRefs } from "./moduleMove";
+import {
+  assertNotEngine,
+  planModuleMove,
+  refAt,
+  repointRefs,
+} from "./moduleMove";
 
 let root: string;
 let lib: { name: string; root: string };
@@ -26,10 +31,10 @@ const write = (file: string, text: string) => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-move-"));
   lib = { name: "st0", root: join(root, "st0") };
-  write(join(mod("audio", "delay", "echo"), "module.yaml"), "label: Echo\n");
+  write(join(mod("audio", "delay", "echo"), "module.yaml"), "# Echo\n");
   write(
     join(mod("audio", "delay", "echo", "engines", "x"), "module.yaml"),
-    "label: X\n",
+    "# X\n",
   );
   mkdirSync(mod("audio", "time"), { recursive: true });
   mkdirSync(mod("instruments"), { recursive: true });
@@ -63,7 +68,7 @@ describe("where a module may go", () => {
     [
       "inside a module",
       () => {
-        write(join(mod("audio", "verb"), "module.yaml"), "label: Verb\n");
+        write(join(mod("audio", "verb"), "module.yaml"), "# Verb\n");
         return mod("audio", "verb");
       },
       /not inside another module/,
@@ -87,7 +92,7 @@ describe("where a module may go", () => {
   });
 
   it("refuses to clobber a module of the same name", () => {
-    write(join(mod("audio", "time", "echo"), "module.yaml"), "label: Other\n");
+    write(join(mod("audio", "time", "echo"), "module.yaml"), "# Other\n");
     expect(() =>
       planModuleMove(lib, mod("audio", "delay", "echo"), mod("audio", "time")),
     ).toThrow(/already a echo/);
@@ -138,5 +143,36 @@ describe("repointing the refs", () => {
     expect(
       repointRefs([root], "@st0/audio/delay/echo", "@st0/audio/time/echo"),
     ).toEqual([]);
+  });
+});
+
+describe("renaming inside a library", () => {
+  it("names the ref a path stands for — a module's, or a folder's prefix", () => {
+    expect(refAt(lib, mod("audio", "delay", "echo"))).toBe(
+      "@st0/audio/delay/echo",
+    );
+    expect(refAt(lib, mod("audio", "delay"))).toBe("@st0/audio/delay");
+    expect(refAt(lib, join(lib.root, "chains"))).toBeNull();
+  });
+
+  it("repoints every ref UNDER a renamed folder, and nothing it only prefixes", () => {
+    const song = join(root, "song", "nodes", "a.yaml");
+    write(
+      song,
+      'extends: "@st0/audio/delay/echo"\n# @st0/audio/delayed/x\nb: @st0/audio/delay\n',
+    );
+    repointRefs([root], "@st0/audio/delay", "@st0/audio/time", true);
+    expect(readFileSync(song, "utf8")).toBe(
+      'extends: "@st0/audio/time/echo"\n# @st0/audio/delayed/x\nb: @st0/audio/time\n',
+    );
+  });
+
+  it("refuses to rename an engine: nodes pick it by name, not by ref", () => {
+    expect(() =>
+      assertNotEngine(lib, mod("audio", "delay", "echo", "engines", "x")),
+    ).toThrow(/picked by its name/);
+    expect(() =>
+      assertNotEngine(lib, mod("audio", "delay", "echo")),
+    ).not.toThrow();
   });
 });

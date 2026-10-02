@@ -10,7 +10,11 @@ describe("the note repeat graph", () => {
   const at = (t: string) => g.nodes.findIndex((n) => n.type === t);
 
   it("takes the rate as a PAIR, and a gate", () => {
-    expect(g.params.map((p) => p.name)).toEqual(["Count", "Division", "Gate"]);
+    expect(g.params.map((p) => p.name).slice(0, 3)).toEqual([
+      "Count",
+      "Division",
+      "Gate",
+    ]);
     // A division is BEATS: an eighth is half of one, and nothing has to look it up in a table.
     expect(g.params.find((p) => p.name === "Division")?.default).toBe(0.5);
   });
@@ -29,6 +33,28 @@ describe("the note repeat graph", () => {
 
   it("passes the gate straight through — it is a fraction of the step, not a time", () => {
     expect(g.nodes.find((n) => n.type === "mstrike")?.in?.[1]).toBe("Gate");
+  });
+
+  it("sets the step rule BETWEEN hold and strike — after the strike it would land a block late", () => {
+    for (const t of ["mpattern", "maccent", "mchance", "mdecay"]) {
+      expect(at(t)).toBeGreaterThan(at("mhold"));
+      expect(at(t)).toBeLessThan(at("mstrike"));
+    }
+    expect(g.nodes.find((n) => n.type === "mpattern")?.in).toEqual([
+      "Pattern",
+      "Length",
+      "Density",
+      "Rotate",
+    ]);
+  });
+
+  it("defaults to what it always did: every step, as played, never lost", () => {
+    const def = (name: string) =>
+      g.params.find((p) => p.name === name)?.default;
+    expect(def("Pattern")).toBe(0);
+    expect(def("Accents")).toBe(1);
+    expect(def("Chance")).toBe(1);
+    expect(def("Decay")).toBe(0);
   });
 
   it("makes no audio node at all, so nothing routes it as an effect", () => {

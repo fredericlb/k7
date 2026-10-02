@@ -6,13 +6,7 @@
 // real size, since fit() frames to the host. See docs/chainsGraph.md.
 
 // The icons this file draws from a set: the freeze badge, the sink's transport, the alternatives' `+`, the console badge.
-import {
-  Play,
-  Plus,
-  SlidersVertical,
-  Snowflake,
-  Square,
-} from "@frediverse/ui/icons";
+import { Play, Plus, Snowflake, Square } from "@frediverse/ui/icons";
 import type { WaveformEnvelope } from "@studio/engine-browser";
 import {
   PluginParamsStore,
@@ -32,6 +26,7 @@ import type {
   WebSignal,
   WebWidget,
 } from "@studio/graph-model";
+import { hasTabs } from "@studio/graph-model/panel";
 import {
   AUTO_ARROW,
   AUTO_DASH,
@@ -69,9 +64,9 @@ import {
 import {
   CLIP_LIST_MAX,
   cablePath,
+  columnW,
   type EdgeInsert,
   eventPoint,
-  FOOTER_H,
   type GraphEdge,
   type GraphNode,
   headerFontPx,
@@ -88,14 +83,16 @@ import {
   type RecVerb,
   rackBindSymbol,
   recBindVerb,
-  STAGE_READING_W,
-  stageSlot,
+  TAB_COL_W,
+  TAB_H,
   type TrackControlValues,
+  UI_HEADER,
   widgetDenorm,
   widgetNorm,
   widgetRect,
   widgetTyped,
 } from "@studio/ui-chains/graph";
+import { groupEdgeInsets } from "@studio/ui-chains/groupEdge";
 import {
   type CableSway,
   exciteSway,
@@ -136,9 +133,18 @@ import {
   wheelPixels,
   zoomAbout,
 } from "./camera";
-import { CTRL, cableColorFor, MAUVE, RING, SAND, useCss } from "./chainsCss";
-import { type LcdSet, LcdScreenWidget, LcdSetContext } from "./LcdScreenWidget";
-import { EngineSelect } from "./EngineSelect";
+import {
+  BYPASS_GAP,
+  BYPASS_W,
+  CTRL,
+  cableColorFor,
+  MAUVE,
+  RING,
+  SAND,
+  useCss,
+} from "./chainsCss";
+import { EngineSelect, engineSelectW } from "./EngineSelect";
+import { LcdScreenWidget, type LcdSet, LcdSetContext } from "./LcdScreenWidget";
 import { Minimap } from "./Minimap";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
 import { loadBadge } from "./nodeLoad";
@@ -262,14 +268,14 @@ type WidgetTarget =
   // …and a PROJECT setting: read off the card like a field, WRITTEN by a verb (docs/widgets.md).
   | { kind: "project"; field: string };
 
-/** A footer slider's reading: the blend in percent, a level in dB with its sign. */
+/** A stage slider's reading: the blend in percent, a level in dB with its sign. */
 function stageReading(w: WebWidget, value: number, t: number): string {
   if (isMixKnob(w)) return `${Math.round(t * 100)}%`;
   const db = Math.abs(value) >= 10 ? value.toFixed(0) : value.toFixed(1);
   return `${value > 0 ? "+" : ""}${db} dB`;
 }
 
-/** The footer's sliders, one per stage bind, in the order `stage` lists them. */
+/** The engine stage's sliders, one per stage bind, in the order `stage` lists them. */
 const STAGE_WIDGETS: Record<string, WebWidget> = {
   [INPUT_VOLUME_PARAM]: {
     type: "slider",
@@ -721,117 +727,6 @@ function Spark({ sub }: { sub: string }) {
   );
 }
 
-// A tabs widget: a tab bar over the active page's sub-widgets. Local state, since Widget itself is stateless.
-function TabsWidget({
-  n,
-  w,
-  ch,
-  style,
-  onDragStart,
-  onTap,
-  onPick,
-  onPickAsset,
-  onWatchWaveform,
-  onContextParam,
-  onTypeValue,
-  onTapEdit,
-}: {
-  n: GraphNode;
-  w: WebWidget;
-  ch: Channels;
-  style: React.CSSProperties;
-  onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
-  onTap: (n: GraphNode, w: WebWidget) => void;
-  onPick: (n: GraphNode, w: WebWidget, value: number) => void;
-  /** Open the library browser for this widget, at the click's viewport coords. */
-  onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
-  /** Right-click a sub-widget — passed straight through to each. */
-  onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
-  /** A value TYPED into a control after a double-click — the host commits it as a drag's release would. */
-  onTypeValue?: (n: GraphNode, w: WebWidget, value: number) => void;
-  /** A rack TAP's edit — note, sample, add, remove — asked of the host, which writes the node's file. */
-  onTapEdit?: (n: GraphNode, action: TapAction) => void;
-  /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
-  onWatchWaveform?: (
-    pluginId: string,
-    side: "input" | "output",
-    on: boolean,
-  ) => void;
-}) {
-  const [activePage, setActivePage] = useState<string | null>(null);
-  const pages = w.pages ?? {};
-  const pageNames = Object.keys(pages);
-  const current = activePage ?? pageNames[0] ?? null;
-  const currentWidgets = current ? pages[current] : null;
-  const TAB_H = 16; // px for the tab bar
-
-  return (
-    // `justifyContent` inline: the bar sits at the TOP, as the `+ TAB_H` offset assumes — docs/widgets.md.
-    <div
-      className="dgx-w"
-      style={{ ...style, justifyContent: "flex-start" }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* tab bar */}
-      <div
-        // `w-full`, because .dgx-w is a centring flex column that would size the bar to its NAMES.
-        className="flex w-full overflow-hidden"
-        style={{ height: TAB_H, borderBottom: "1px solid #2f2f36" }}
-      >
-        {pageNames.map((name) => (
-          <button
-            key={name}
-            onClick={(e) => {
-              e.stopPropagation();
-              setActivePage(name);
-            }}
-            // `flex-auto`, not `flex-1`: basis is the NAME's width, so the spare space is shared out.
-            className="flex-auto truncate px-1 text-center text-[8px] leading-none text-muted-foreground hover:text-foreground"
-            style={{
-              borderBottom:
-                name === current
-                  ? "1.5px solid var(--sand)"
-                  : "1.5px solid transparent",
-              color: name === current ? "#e7e6ea" : undefined,
-            }}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-      {/* sub-widgets of the active page */}
-      {currentWidgets &&
-        groupsFirst(currentWidgets).map(([id, sub]) => {
-          const sr = widgetRect(sub);
-          return (
-            <Widget
-              key={id}
-              n={n}
-              wid={id}
-              w={sub}
-              ch={ch}
-              onDragStart={onDragStart}
-              onTap={onTap}
-              onPick={onPick}
-              onPickAsset={onPickAsset}
-              onWatchWaveform={onWatchWaveform}
-              onContextParam={onContextParam}
-              onTypeValue={onTypeValue}
-              onTapEdit={onTapEdit}
-              styleOverride={{
-                position: "absolute",
-                left: sr.x - (style.left as number),
-                top: sr.y - (style.top as number) + TAB_H,
-                width: sr.w,
-                height: sr.h,
-              }}
-            />
-          );
-        })}
-    </div>
-  );
-}
-
 // A group is painted UNDER what it frames, so it comes first; the sort is stable for everything else.
 const groupsFirst = (ws: Record<string, WebWidget>): [string, WebWidget][] =>
   Object.entries(ws).sort(
@@ -1078,6 +973,29 @@ function WaveformWidget({
   );
 }
 
+// A group's colour as its label's spine: the same hue, made opaque enough to read as the section's tab.
+function spineColor(color: string): string {
+  const hex = color.slice(1);
+  const rgb =
+    hex.length <= 4
+      ? hex.slice(0, 3).replace(/./g, (c) => c + c)
+      : hex.slice(0, 6);
+  return `#${rgb}73`;
+}
+
+// A box drawn `inset` px in from its left edge, its right edge kept: the grid is untouched, only the drawing moves.
+const insetRect = <R extends { x: number; w: number }>(
+  r: R,
+  inset: number,
+): R => (inset ? { ...r, x: r.x + inset, w: r.w - inset } : r);
+const insetStyle = (
+  s: React.CSSProperties,
+  inset: number,
+): React.CSSProperties =>
+  inset && typeof s.left === "number" && typeof s.width === "number"
+    ? { ...s, left: s.left + inset, width: s.width - inset }
+    : s;
+
 // One widget at its widgetRect box: knob/slider/number drag, toggle/button tap, painted off the override.
 function WidgetInner({
   n,
@@ -1095,6 +1013,7 @@ function WidgetInner({
   onLandAutomation,
   styleOverride,
   inline,
+  inset = 0,
 }: {
   n: GraphNode;
   /** The widget's key in its map — what a panel's `widgets.js` names an lcdscreen by. */
@@ -1122,10 +1041,14 @@ function WidgetInner({
   /** A curve's cable is in hand and this widget is a LANDING TARGET — passed only while one is out. */
   onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
   styleOverride?: React.CSSProperties;
-  /** One ROW — caption, control, value — as the card's footer draws its sliders; `compact` drops the value. docs/nodeCard.md. */
+  /** One ROW — caption, control, value — as the stage sliders are drawn; `compact` drops the value. docs/nodeCard.md. */
   inline?: boolean | "compact";
+  /** Pixels its box is drawn in from the left, on a group's named edge — see `groupEdgeInsets`. */
+  inset?: number;
 }) {
-  const r = widgetRect(w);
+  // Right of the tab column when the panel draws one — `tabColumnW`, the same figure the card is widened by.
+  const r = insetRect(widgetRect(w, columnW(n.ui)), inset);
+  styleOverride = styleOverride && insetStyle(styleOverride, inset);
   // Hoisted above the two delegating returns, since the subscription below is a hook.
   const tgt = widgetTarget(n, w, ch.offlineChannel);
   // This control's own live value: a plugin frame re-renders this widget, not the graph.
@@ -1150,48 +1073,6 @@ function WidgetInner({
   const recState = useRecorderState(useEngineStoreOrNull(), recNode);
   // A double-click swaps the control for a text field, so an exact value can be typed — docs/widgets.md.
   const [editing, setEditing] = useState(false);
-
-  // Tabs widget: delegate to TabsWidget
-  if (w.type === "tabs") {
-    return (
-      <TabsWidget
-        n={n}
-        w={w}
-        ch={ch}
-        style={
-          styleOverride ?? { left: r.x, top: r.y, width: r.w, height: r.h }
-        }
-        onDragStart={onDragStart}
-        onTap={onTap}
-        onPick={onPick}
-        onPickAsset={onPickAsset}
-        onWatchWaveform={onWatchWaveform}
-        onContextParam={onContextParam}
-        onTypeValue={onTypeValue}
-        onTapEdit={onTapEdit}
-      />
-    );
-  }
-
-  // A GROUP frames the widgets inside its box and holds none of them — song-schema's docs/moduleFile.md.
-  if (w.type === "group") {
-    return (
-      <div
-        className="dgx-w dgx-group"
-        style={{
-          ...(styleOverride ?? {
-            left: r.x,
-            top: r.y,
-            width: r.w,
-            height: r.h,
-          }),
-          ...(w.color ? { background: w.color } : {}),
-        }}
-      >
-        {w.label && <span className="dgx-wlab dgx-glab">{w.label}</span>}
-      </div>
-    );
-  }
 
   // A rack's TAP: its own pad, note and sample — the sound it names is on the node.
   if (w.type === "tap") {
@@ -1280,8 +1161,61 @@ function WidgetInner({
   };
   const caption =
     w.type === "label" || w.type === "button" ? undefined : w.label;
-  // The two widgets drawn as a field — a select, or the file picker's button — are captioned like one.
-  const selectLike = w.type === "dropdown" || w.type === "filepicker";
+  // The widgets drawn as a field — a select, the file picker's button, a number — are captioned like one.
+  const fieldLike =
+    w.type === "dropdown" || w.type === "filepicker" || w.type === "number";
+
+  // A GROUP frames the widgets inside its box and holds none of them — song-schema's docs/moduleFile.md.
+  if (w.type === "group") {
+    // Bound to an on/off param, it carries that param's switch and greys its section out while off.
+    const switched = !!w.bind;
+    // A MUTE or BYPASS bind is on while the param is OFF; the tap still flips the param, whichever way it reads.
+    const lit = known && (w.invert ? t < 0.5 : t >= 0.5);
+    // An unknown value greys nothing: a section drawn dead because its state has not arrived would lie.
+    const off = switched && known && !lit;
+    return (
+      <div
+        className={`dgx-w dgx-group${off ? " off" : ""}`}
+        style={{ ...style, ...(w.color ? { background: w.color } : {}) }}
+      >
+        {switched && (
+          <button
+            type="button"
+            className={`dgx-gswitch${lit ? " on" : ""}${known ? "" : " unknown"}`}
+            disabled={!actuable}
+            title={w.bind}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTap(n, w);
+            }}
+            onContextMenu={
+              actuable && onContextParam
+                ? (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onContextParam(n, w, e.clientX, e.clientY);
+                  }
+                : undefined
+            }
+          />
+        )}
+        {w.label && (
+          <span
+            className={`dgx-wlab dgx-glab${switched ? " sw" : ""}`}
+            style={
+              w.color
+                ? ({ "--spine": spineColor(w.color) } as React.CSSProperties)
+                : undefined
+            }
+          >
+            {w.label}
+          </span>
+        )}
+        {off && <span className="dgx-gveil" />}
+      </div>
+    );
+  }
 
   // A control never selects the node; an inert one (label, meter, undrivable knob) lets the click fall through.
   const interact: React.HTMLAttributes<HTMLDivElement> & { className: string } =
@@ -1485,9 +1419,9 @@ function WidgetInner({
       // An unlabelled pad has to say what it is somewhere, and only a pad needs the tooltip for it.
       title={padSymbol ?? undefined}
     >
-      {/* A dropdown's or a file picker's caption sits on top of it, left-aligned; every other one is underneath. */}
+      {/* A field's caption — dropdown, file picker, number — sits on top of it, left-aligned; every other one is underneath. */}
       {inline ? (
-        // The footer's row: what it is, the bar, and what it reads — docs/nodeCard.md.
+        // A stage slider's row: what it is, the bar, and what it reads — docs/nodeCard.md.
         <div
           className="dgx-srow"
           // Too narrow for its reading, the slot says it on hover instead.
@@ -1505,15 +1439,15 @@ function WidgetInner({
             </span>
           )}
         </div>
-      ) : caption && selectLike ? (
+      ) : fieldLike ? (
         <div className="dgx-selcol">
-          <span className="dgx-wlab">{caption}</span>
+          {caption && <span className="dgx-wlab">{caption}</span>}
           {body}
         </div>
       ) : (
         body
       )}
-      {caption && !selectLike && !inline && (
+      {caption && !fieldLike && !inline && (
         <span className="dgx-wlab">{caption}</span>
       )}
       {editing && (
@@ -1541,30 +1475,52 @@ function fitFont(label: string, w: number, h: number): number {
 }
 
 /** What the header leaves the NAME, in px — the top row's own numbers, repeated, docs/nodeCard.md. */
-function headerNameW(n: GraphNode, hasGlyph: boolean): number {
+function headerNameW(n: GraphNode, hasGlyph: boolean, rightW = 0): number {
   const HD_PAD = 10;
   const HD_GAP = 7;
   const lead = hasGlyph ? 13 : 8;
-  // The corner bubbles take NOTHING: they hang off the card at `top:-8px`, over its border rather than its text.
-  return Math.max(16, n.w - HD_PAD * 2 - lead - HD_GAP);
+  // The on/off block replaces the left padding with its own width and the gap after it.
+  const left = hasBypass(n) ? BYPASS_W + BYPASS_GAP : HD_PAD;
+  // What stands right of the name — `rightW`, each item's gap included; the corner bubbles take nothing, hanging off at `top:-8px`.
+  return Math.max(16, n.w - left - HD_PAD - lead - HD_GAP - rightW);
+}
+
+/** Whether a node draws the on/off block: a live module, not a baked one, which has nothing to bypass. */
+function hasBypass(n: GraphNode): boolean {
+  return (
+    n.kind === "module" && !!n.module && !(n.frozen && n.kind === "module")
+  );
 }
 
 /** One corner bubble, in the order they sit: the corner first, then leftwards. */
-export type CornerButton = "plugin" | "bypass" | "open";
+export type CornerButton = "plugin" | "open";
 
 /** Which bubbles a node's corner shows — ONE list, read by three things, docs/nodeCard.md. */
 function cornerButtons(n: GraphNode): CornerButton[] {
   const out: CornerButton[] = [];
-  // Neither on a baked module: no live plugin, so no window to open and nothing to bypass.
+  // Not on a baked module: no live plugin, so no window to open.
   const baked = !!n.frozen && n.kind === "module";
   if (n.hasNativePluginUI && n.module && !baked) out.push("plugin");
-  if (n.kind === "module" && n.module && !baked) out.push("bypass");
   // The only way into a box, and the only way back out of one — see packages/song/docs/assemblies.md.
   if (n.assemblyOf && n.module) out.push("open");
   return out;
 }
 
 /** A module's attribute sets as badges above its corner, the last a `+` that copies the one on — docs/nodeCard.md. */
+/** The header's tags right of the name: the warning's and the snowflake's discs, and the console tag sized to its text — set, not measured. */
+const FREEZE_TAG_W = 15;
+// The header row's gap, which every item right of the name pays once — chainsCss.ts's `.dgx-hdtop`.
+const HD_ROW_GAP = 7;
+
+/** One badge's width for its name: set, not measured, so the header can size the name beside the row. */
+const altBadgeW = (name: string): number =>
+  Math.min(ALT_MAX_W, Math.max(ALT_MIN_W, Math.ceil(name.length * 5.5) + 12));
+
+/** The whole row's width — every badge, the `+`, and the gaps between. */
+function altBadgesW(names: readonly string[]): number {
+  return names.reduce((w, name) => w + altBadgeW(name) + ALT_GAP, ALT_MIN_W);
+}
+
 function AltBadges({
   module,
   names,
@@ -1608,6 +1564,7 @@ function AltBadges({
           key={name}
           type="button"
           className={`dgx-alt${name === on ? " on" : ""}`}
+          style={{ width: altBadgeW(name) }}
           title={
             name === on
               ? `Alternative "${name}" — the settings this node is playing now`
@@ -1640,6 +1597,10 @@ function AltBadges({
 
 // How long a badge's guess waits for the graph before giving up — a refused switch never answers.
 const ALT_GUESS_MS = 4000;
+// A badge's narrowest (the `+` is that), its widest, and the gap between two — chainsCss.ts's `.dgx-alt`.
+const ALT_MIN_W = 15;
+const ALT_MAX_W = 80;
+const ALT_GAP = 3;
 
 // The glyph's height on the far card, taken from the NODE: it sits on its own line, so it needs a share of height.
 const farIconPx = (w: number, h: number): number =>
@@ -1663,9 +1624,7 @@ function InputMeterBar({
         right: 0,
         bottom: 0,
         height: 4,
-        overflow: "hidden", // clips the fill to the card's rounded bottom corners
-        borderBottomLeftRadius: 10,
-        borderBottomRightRadius: 10,
+        overflow: "hidden",
         pointerEvents: "none",
         background: "rgba(239,68,68,0.22)", // red-500 @ 22%
       }}
@@ -1817,11 +1776,42 @@ function NodeInner({
   // A lane's is spelt WITHOUT its instrument code, which the glyph beside it already says; the TRACK node keeps its id, being addressed by it.
   const headName = trackFace
     ? (trackLabel?.(trackFace) ?? trackFace)
-    : n.moduleLabel || (n.uses ? moduleDisplayName(n.uses) : n.label);
+    : n.uses
+      ? moduleDisplayName(n.uses)
+      : n.label;
   // The node's own name goes under the header only when the header says something else.
   const ownNameUnder = !trackFace && headName !== n.label;
+  // The engine's stage on the header's second line, always IN / MIX / OUT whatever order it arrives in.
+  const stageBinds = [
+    INPUT_VOLUME_PARAM,
+    MIX_PARAM,
+    OUTPUT_VOLUME_PARAM,
+  ].filter((b) => n.stage?.includes(b));
+  // The engine select's width, or 0 when it is not drawn: only with a choice, and a host to ask.
+  const engineW =
+    onEngine && n.module && n.engines && n.engines.length > 1
+      ? engineSelectW(n.engines)
+      : 0;
+  // …and the alternatives' row, on the top line beside the name — drawn wherever the host can switch them.
+  const altsW =
+    onAlternative && n.module ? altBadgesW(n.alternatives ?? []) : 0;
+  // The tags right of the name — frozen and the console — and with the badges, everything the name gives way to.
+  const frozenTag = !!n.frozen || !!n.autoFrozen;
+  const warnTag = !!warning;
+  const rightW =
+    (warnTag ? FREEZE_TAG_W + HD_ROW_GAP : 0) +
+    (frozenTag ? FREEZE_TAG_W + HD_ROW_GAP : 0) +
+    (altsW ? altsW + HD_ROW_GAP : 0);
   // What the plugin costs, off the engine's load report — nothing without an engine or a plugin.
   const load = usePluginLoadBadge(useEngineStoreOrNull(), n.pluginId ?? null);
+  // The open TAB, the card's own state: which page shows is a view, not a fact about the module (docs/nodeCard.md).
+  const [tabAt, setTabAt] = useState(0);
+  const tabs = n.ui?.tabs ?? [];
+  const openTab = tabs.length ? Math.min(tabAt, tabs.length - 1) : -1;
+  // What the grid draws: the widgets every tab shows, then the open tab's.
+  const shownWidgets = n.ui
+    ? { ...n.ui.widgets, ...(openTab >= 0 ? tabs[openTab].widgets : {}) }
+    : null;
   // The corner cluster, decided once, since three things read this same list.
   const corners = cornerButtons(n);
   const slot = (b: CornerButton) => corners.indexOf(b);
@@ -1848,6 +1838,8 @@ function NodeInner({
     "dgx-node",
     `k-${amber ? "unsupported" : red ? "stub" : n.kind}`,
     edge ? "edge" : "",
+    // The stack view's inputs and outputs: a SOLID bar the width of every column (stackLayout.ts).
+    n.bar ? "bar" : "",
     "tappable",
     sel ? "sel" : "",
     n.frozen || n.autoFrozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
@@ -2016,6 +2008,9 @@ function NodeInner({
     );
   }
 
+  // The widgets on a named group's left edge, drawn clear of its name — a pass over the panel, no state.
+  const groupEdge = shownWidgets ? groupEdgeInsets(shownWidgets) : null;
+
   return (
     <div
       className={cls}
@@ -2041,7 +2036,7 @@ function NodeInner({
       onContextMenu={(e) => onContext(n, e)}
     >
       <div
-        className={`dgx-hd${onHeaderDrag ? " grab" : ""}`}
+        className={`dgx-hd${onHeaderDrag ? " grab" : ""}${hasBypass(n) ? " byp" : ""}`}
         // Drag the header, move the card — the pin gesture, docs/hosting.md.
         onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
         onDoubleClick={(e) => {
@@ -2049,8 +2044,27 @@ function NodeInner({
           onZoomTo?.(n);
         }}
       >
+        {/* On/off, the header's whole height at its left edge: the first thing a hand looks for on a module. */}
+        {hasBypass(n) && n.module && (
+          <span
+            className={`dgx-byp dgx-bbtn${n.bypassed ? " on" : ""}`}
+            title={n.bypassed ? "Bypassed — click to re-enable" : "Bypass"}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (n.module) onBypass(n.module);
+            }}
+          >
+            <i />
+          </span>
+        )}
         {/* The TOP row: the glyph, the module's name, and whatever stands beside them. */}
-        <span className="dgx-hdtop">
+        <span
+          className="dgx-hdtop"
+          // The node's own name, which has no line of its own: the second line holds the engine's stage.
+          title={ownNameUnder ? n.label : undefined}
+        >
           {/* The accent dot marks identity only on a node with no glyph of its own, which leads the row instead. */}
           {!hasGlyph && <span className="dgx-tri" />}
           {trackFace ? (
@@ -2068,11 +2082,12 @@ function NodeInner({
           <span
             className={`dgx-nm${flagCls}`}
             // The whole ref, not just the word drawn: the filing is one hover away rather than gone.
-            title={[...new Set([n.moduleLabel, n.uses, n.label])]
-              .filter(Boolean)
-              .join("\n")}
+            title={[...new Set([n.uses, n.label])].filter(Boolean).join("\n")}
             style={{
-              fontSize: headerFontPx(headName, headerNameW(n, hasGlyph)),
+              fontSize: headerFontPx(
+                headName,
+                headerNameW(n, hasGlyph, rightW),
+              ),
             }}
           >
             {headName}
@@ -2094,9 +2109,99 @@ function NodeInner({
               {trackInput}
             </button>
           )}
+          {/* What the engine said went wrong with THIS plugin, on hover: often the only word on a module doing nothing. */}
+          {warning && (
+            <span
+              className="dgx-wbtn"
+              title={warning}
+              role="img"
+              aria-label={`engine warning: ${warning}`}
+            >
+              !
+            </span>
+          )}
+          {/* FROZEN: its own tag rather than a shade of `dim`, which means the opposite — see packages/song/docs/freeze.md. */}
+          {n.frozen && (
+            <span
+              className="dgx-fbtn"
+              role="img"
+              aria-label="frozen"
+              title={
+                n.frozen === "at"
+                  ? "Frozen here — everything upstream is playing as one render. Unfreeze from the right-click menu."
+                  : "Inside a render — this node is baked and is not running. Unfreeze the point downstream of it."
+              }
+            >
+              <Snowflake />
+            </span>
+          )}
+          {/* AUTOMATICALLY frozen: the same snowflake, saying it gives way to a touch — packages/song/docs/autoFreeze.md. */}
+          {!n.frozen && n.autoFrozen && (
+            <span
+              className="dgx-fbtn auto"
+              role="img"
+              aria-label="frozen automatically"
+              title={
+                n.autoFrozen === n.module
+                  ? "Frozen automatically — this VST and everything upstream play as a render, so an engine without the VST can play it. Touch a control to edit it live."
+                  : `Inside ${n.autoFrozen}'s automatic render. Touch a control to edit it live.`
+              }
+            >
+              <Snowflake />
+            </span>
+          )}
+          {/* The module's attribute sets, at the row's right end; the switch and the copy are the HOST's commands. */}
+          {altsW > 0 && onAlternative && n.module && (
+            <AltBadges
+              module={n.module}
+              names={n.alternatives ?? []}
+              current={n.alternative ?? "1"}
+              onAlternative={onAlternative}
+            />
+          )}
         </span>
-        {/* The node's own name, UNDER the row and clear of the bubbles — only when there are two names to tell apart. */}
-        {ownNameUnder && <span className="dgx-nodenm">{n.label}</span>}
+        {/* The SECOND line: the engine's stage, IN / MIX / OUT, then the engine the module runs as at the right. */}
+        {((stageBinds.length > 0 && showWidgets) || engineW > 0) && (
+          <span className="dgx-hdsub">
+            <span className="dgx-hdstage">
+              {showWidgets &&
+                stageBinds.map((bind) => {
+                  const w = STAGE_WIDGETS[bind];
+                  return w ? (
+                    <Widget
+                      key={bind}
+                      n={n}
+                      wid={`stage:${bind}`}
+                      w={w}
+                      ch={ch}
+                      onDragStart={onDragStart}
+                      onTap={onTapWidget}
+                      onPick={onPickWidget}
+                      onPickAsset={onPickAsset}
+                      onContextParam={onContextParam}
+                      onTypeValue={onTypeValue}
+                      styleOverride={{
+                        position: "relative",
+                        flex: 1,
+                        minWidth: 0,
+                        height: 14,
+                      }}
+                      inline="compact"
+                    />
+                  ) : null;
+                })}
+            </span>
+            {onEngine && engineW > 0 && n.module && n.engines && (
+              <EngineSelect
+                module={n.module}
+                names={n.engines}
+                current={n.engine ?? n.engines[0]}
+                width={engineW}
+                onEngine={onEngine}
+              />
+            )}
+          </span>
+        )}
         {/* On the header's bottom border, so it takes no width from the name — docs/nodeCard.md. */}
         {load && (
           <span className="dgx-load" title={load.title}>
@@ -2123,21 +2228,6 @@ function NodeInner({
       )}
 
       {/* Bypass — a module's, never a lane's, where it would read as the mute the mixer strip already carries. */}
-      {corners.includes("bypass") && (
-        <span
-          className={`dgx-cbtn dgx-bbtn${n.bypassed ? " on" : ""}`}
-          style={{ "--slot": slot("bypass") } as React.CSSProperties}
-          title={n.bypassed ? "Bypassed — click to re-enable" : "Bypass"}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onBypass(n.module!);
-          }}
-        >
-          <i />
-        </span>
-      )}
-
       {/* A box's only gesture: open it to see what is inside, close it to get the appliance back. */}
       {corners.includes("open") && (
         <span
@@ -2155,85 +2245,6 @@ function NodeInner({
           }}
         >
           <i />
-        </span>
-      )}
-
-      {/* The module's attribute sets, above the card's corner; the switch and the copy are the HOST's commands. */}
-      {onAlternative && n.module && (
-        <AltBadges
-          module={n.module}
-          names={n.alternatives ?? []}
-          current={n.alternative ?? "1"}
-          onAlternative={onAlternative}
-        />
-      )}
-
-      {/* Which engine the module runs as, when it has a choice; the switch is the HOST's command. */}
-      {onEngine && n.module && n.engines && n.engines.length > 1 && (
-        <EngineSelect
-          module={n.module}
-          names={n.engines}
-          current={n.engine ?? n.engines[0]}
-          onEngine={onEngine}
-        />
-      )}
-
-      {/* What the engine said went wrong with THIS plugin, on hover: often the only word on a module doing nothing. */}
-      {warning && (
-        <span
-          className="dgx-wbtn"
-          title={warning}
-          role="img"
-          aria-label={`engine warning: ${warning}`}
-        >
-          !
-        </span>
-      )}
-
-      {/* AUTOMATICALLY frozen: the same snowflake, saying it gives way to a touch — packages/song/docs/autoFreeze.md. */}
-      {!n.frozen && n.autoFrozen && (
-        <span
-          className="dgx-fbtn auto"
-          role="img"
-          aria-label="frozen automatically"
-          title={
-            n.autoFrozen === n.module
-              ? "Frozen automatically — this VST and everything upstream play as a render, so an engine without the VST can play it. Touch a control to edit it live."
-              : `Inside ${n.autoFrozen}'s automatic render. Touch a control to edit it live.`
-          }
-        >
-          <Snowflake />
-        </span>
-      )}
-
-      {/* FROZEN: its own badge rather than a shade of `dim`, which means the opposite — see packages/song/docs/freeze.md. */}
-      {n.frozen && (
-        <span
-          className="dgx-fbtn"
-          role="img"
-          aria-label="frozen"
-          title={
-            n.frozen === "at"
-              ? "Frozen here — everything upstream is playing as one render. Unfreeze from the right-click menu."
-              : "Inside a render — this node is baked and is not running. Unfreeze the point downstream of it."
-          }
-        >
-          <Snowflake />
-        </span>
-      )}
-
-      {/* The project's CONSOLE: no node of its own, so the strip and the sum it follows say so — packages/song/docs/console.md. */}
-      {n.console && (
-        <span
-          className="dgx-console"
-          title={
-            n.kind === "sink"
-              ? `${n.console} buss — the console decodes the sum here, first on the master. Change it in Settings › Project.`
-              : `${n.console} channel — the console encodes this lane after its strip. Change it in Settings › Project.`
-          }
-        >
-          <SlidersVertical />
-          {n.console}
         </span>
       )}
 
@@ -2367,7 +2378,7 @@ function NodeInner({
 
       {/* A sink with a declared FACE falls through to the widget branch below, so its controls are
           children of the CARD and land on `widgetRect`'s coordinates. Rendering them inside
-          `.dgx-out` — which is itself absolute at top:38px — added the header's height twice and
+          `.dgx-out` — which is itself absolute at UI_CONTENT_TOP — added the header's height twice and
           pushed them out the bottom. `mainOutCard` has always sized the OUT card to its `ui`, so
           the room was allocated and the face never drawn. */}
       {n.kind === "sink" && !(n.ui && showWidgets) ? (
@@ -2405,14 +2416,15 @@ function NodeInner({
             <b>{n.sub ?? "curve"}</b>
           </div>
         </div>
-      ) : n.ui && showWidgets ? (
-        groupsFirst(n.ui.widgets).map(([k, w]) => (
+      ) : shownWidgets && showWidgets ? (
+        groupsFirst(shownWidgets).map(([k, w]) => (
           <Widget
             key={k}
             n={n}
             wid={k}
             w={w}
             ch={ch}
+            inset={groupEdge?.get(k) ?? 0}
             onDragStart={onDragStart}
             onTap={onTapWidget}
             onPick={onPickWidget}
@@ -2429,44 +2441,37 @@ function NodeInner({
         ))
       ) : (
         // No grid and no content: keep the card's shape and say what is missing. A flagged module says WHY, in red.
-        <div className={`dgx-empty${flagCls}`}>{flagText ?? "No Options"}</div>
+        <div className={`dgx-empty${flagCls}`} style={{ left: columnW(n.ui) }}>
+          {flagText ?? "No Options"}
+        </div>
+      )}
+      {/* The panel's TABS, a column down the card's left under the header — only when there are two to choose from. */}
+      {hasTabs(n.ui) && showWidgets && (
+        <div
+          className="dgx-tabs"
+          style={{ top: UI_HEADER, width: TAB_COL_W, bottom: 0 }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {tabs.map((t, i) => (
+            <button
+              key={t.name}
+              type="button"
+              className={`dgx-tab${i === openTab ? " on" : ""}`}
+              style={{ height: TAB_H }}
+              title={t.name}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTabAt(i);
+              }}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
       )}
       {/* What this lane HOLDS, under its controls, once the widgets are legible; see docs/nodeCard.md. */}
       {n.kind === "track" && n.clips?.length && showWidgets ? (
         <ClipList clips={n.clips} more={n.clipsMore} color={n.color} />
-      ) : null}
-      {/* The FOOTER: the engine's stage around the module, drawn by st0 and never part of the panel — docs/nodeCard.md. */}
-      {n.stage?.length && showWidgets ? (
-        <>
-          <div className="dgx-stage" style={{ height: FOOTER_H }} />
-          {n.stage.map((bind, i, all) => {
-            const w = STAGE_WIDGETS[bind];
-            if (!w) return null;
-            const r = stageSlot(n, i, all.length);
-            return (
-              <Widget
-                key={bind}
-                n={n}
-                wid={`stage:${bind}`}
-                w={w}
-                ch={ch}
-                onDragStart={onDragStart}
-                onTap={onTapWidget}
-                onPick={onPickWidget}
-                onPickAsset={onPickAsset}
-                onContextParam={onContextParam}
-                onTypeValue={onTypeValue}
-                styleOverride={{
-                  left: r.x,
-                  top: r.y,
-                  width: r.w,
-                  height: r.h,
-                }}
-                inline={r.w < STAGE_READING_W ? "compact" : true}
-              />
-            );
-          })}
-        </>
       ) : null}
       {armBar}
     </div>
@@ -2542,9 +2547,12 @@ function CablesInner({
   hovered,
   setHovered,
   onInsert,
+  onUnautomate,
 }: {
   signal: EdgeGeom[];
   auto: AutoTarget[];
+  /** Delete an automation cable: unbind the param from its curve. No host, no `×`. */
+  onUnautomate?: (module: string, param: string) => void;
   showLabels: boolean;
   hovered: string | null;
   setHovered: (id: string | null) => void;
@@ -2601,6 +2609,45 @@ function CablesInner({
             </text>
           );
         })}
+
+      {/* An automation cable's DELETE: a hit path along it, and a `×` at its middle on hover — the curve stays. */}
+      {auto.map((s) => {
+        if (!onUnautomate || !s.module) return null;
+        const pts = hangPoints(s.from, s.to);
+        const d = smoothPath(pts);
+        const mid = pts[Math.floor(pts.length / 2)];
+        const id = `auto:${s.id}`;
+        const unbind = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          if (s.module) onUnautomate(s.module, s.param);
+        };
+        return (
+          <g key={id}>
+            <path
+              className="dgx-hit"
+              d={d}
+              onMouseEnter={() => setHovered(id)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={unbind}
+            />
+            {hovered === id && (
+              <g
+                className="dgx-del-btn"
+                role="button"
+                aria-label={`Remove the automation of ${s.param}`}
+                onMouseEnter={() => setHovered(id)}
+                onClick={unbind}
+              >
+                <title>{`Remove the automation of ${s.param} — the curve stays`}</title>
+                <circle cx={mid.x} cy={mid.y} r={9} />
+                <path
+                  d={`M ${mid.x - 3.5} ${mid.y - 3.5} L ${mid.x + 3.5} ${mid.y + 3.5} M ${mid.x + 3.5} ${mid.y - 3.5} L ${mid.x - 3.5} ${mid.y + 3.5}`}
+                />
+              </g>
+            )}
+          </g>
+        );
+      })}
 
       {/* insert affordance — a transparent hit path per eligible arrow, recoloured with a `+` on hover. */}
       {signal.map((g) => {
@@ -2717,12 +2764,17 @@ export function DomChains({
   row,
   minimap,
   onOrganize,
+  onStack,
+  stacked,
   onTapEdit,
   camStore,
   engineWarnings,
   fitKey,
   organizeKey,
   fitAxis = "both",
+  fitMaxZoom,
+  fitPad = 0.9,
+  alwaysDetailed = false,
   command,
   onBypassModule,
   onThawAutoFreeze,
@@ -2804,6 +2856,9 @@ export function DomChains({
   minimap?: boolean;
   /** The minimap's "Organize": the host's auto-layout, which is a command and its reload. */
   onOrganize?: () => void;
+  /** The stack view's toggle, drawn left of the minimap's zoom fit, and whether it is on. */
+  onStack?: () => void;
+  stacked?: boolean;
   /** A rack tap's edit on a node: the host writes the node's file — packages/song/docs/racks.md. */
   onTapEdit?: (module: string, action: TapAction) => void;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
@@ -2816,6 +2871,12 @@ export function DomChains({
   organizeKey?: number;
   /** How the first frame is chosen: "both" fits the whole graph, "height" lets the width overflow. */
   fitAxis?: "both" | "height";
+  /** The most the first frame may zoom IN — 1 keeps the cards at their own size, however much room the pane has. */
+  fitMaxZoom?: number;
+  /** How much of the pane the first frame fills, 0..1 — 0.9 leaves air round the graph, 1 fills it edge to edge. */
+  fitPad?: number;
+  /** Every card drawn whole at any zoom: no far LOD, for a view whose cards ARE the subject (docs/camera.md). */
+  alwaysDetailed?: boolean;
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
@@ -3546,12 +3607,15 @@ export function DomChains({
     const sw = host.clientWidth;
     const sh = host.clientHeight;
     if (!sw || !sh) return null;
-    const pad = 0.9;
+    const pad = fitPad;
     // "height" frames the HEIGHT and lets the width run off the side, which is pannable — docs/camera.md.
     const k = clampZoom(
-      fitAxis === "height"
-        ? (sh / gh) * pad
-        : Math.min((sw / gw) * pad, (sh / gh) * pad),
+      Math.min(
+        fitMaxZoom ?? Number.POSITIVE_INFINITY,
+        fitAxis === "height"
+          ? (sh / gh) * pad
+          : Math.min((sw / gw) * pad, (sh / gh) * pad),
+      ),
     );
     return {
       k,
@@ -4355,6 +4419,12 @@ export function DomChains({
     },
     [setModuleField, rehearsal],
   );
+  // An automation cable's `×`: the binding goes, through the same verb that makes one — the curve stays.
+  const unautomate = useCallback(
+    (module: string, param: string) =>
+      void cb.current.command(`node automate ${module} ${param} none`),
+    [],
+  );
   const insert = useCallback(
     (info: EdgeInsert, x: number, y: number, at: { x: number; y: number }) => {
       if (suppressClick.current) return;
@@ -4717,8 +4787,8 @@ export function DomChains({
     );
   };
 
-  const showWidgets = lod.widgets;
-  const showLabels = lod.labels;
+  const showWidgets = alwaysDetailed || lod.widgets;
+  const showLabels = alwaysDetailed || lod.labels;
   // Too far for the widgets ⇒ nodes draw as a fitted name instead (see Node's far branch).
   const far = !showWidgets;
 
@@ -4759,6 +4829,7 @@ export function DomChains({
                   hovered={hovered}
                   setHovered={setHovered}
                   onInsert={onEdgeInsert ? insert : undefined}
+                  onUnautomate={unautomate}
                 />
                 {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
                 {patch && (
@@ -4855,6 +4926,8 @@ export function DomChains({
                 onCenter={centerOn}
                 onFit={zoomFit}
                 onOrganize={onOrganize}
+                onStack={onStack}
+                stacked={stacked}
               />
             )}
           </div>

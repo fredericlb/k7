@@ -211,6 +211,29 @@ describe("filing a whole scan at once", () => {
     expect(faces.map((f) => f.base)).toEqual(["@engine/chorus"]);
   });
 
+  it("gives the Sampler no face: only a rack loads sounds into it", () => {
+    expect(() => engineFaceModule("Sampler", "instruments")).toThrow(/rack/);
+    const faces = engineFaces([
+      { name: "Sampler", role: "instrument" },
+      { name: "4OSC", role: "instrument" },
+    ]);
+    expect(faces.map((f) => f.base)).toEqual(["@engine/4osc"]);
+  });
+
+  it("gives no face to a patch bay either: its routing is state a module cannot set", () => {
+    expect(() => engineFaceModule("MIDI Patch Bay", "transformers")).toThrow(
+      /channel map/,
+    );
+    const faces = engineFaces([
+      { name: "MIDI Patch Bay", role: "midiEffect" },
+      { name: "Patch Bay", role: "audioEffect", category: "utility" },
+      { name: "Aux Send", role: "audioEffect", category: "utility" },
+      { name: "Freeze Point", role: "audioEffect", category: "utility" },
+      { name: "VCA", role: "audioEffect", category: "utility" },
+    ]);
+    expect(faces.map((f) => f.base)).toEqual(["@engine/vca"]);
+  });
+
   it("is idempotent — a second pass over the same scan writes nothing", () => {
     const scan = [
       { name: "ADClip 7", role: "audioEffect", category: "dynamics" },

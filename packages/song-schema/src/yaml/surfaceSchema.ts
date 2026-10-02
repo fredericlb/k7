@@ -42,9 +42,14 @@ export const SURFACE_MAPPING_SKELETON: Record<
 > = {
   timeline: [],
   viewport: [],
-  // Ten components naming the SAME module, in the SIGNAL's order rather than the panel's (docs/surfaceFiles.md).
+  // Ten components naming the SAME module, and three more offered,, in the SIGNAL's order rather than the panel's (docs/surfaceFiles.md).
   mastering: [
-    ["comp.low", "the quick-master module — how much it compresses the lows"],
+    // OFFERED, not required, like the two below: To Vinyl 4's stages, off unless set (engine docs/quickMaster.md).
+    [
+      "comp.lowCut",
+      "the quick-master module — its low cut on the mid, before it compresses",
+    ],
+    ["comp.low", "the SAME module — how much it compresses the lows"],
     ["comp.mid", "the SAME module — how much on the mids"],
     ["comp.high", "the SAME module — how much on the highs"],
     ["comp.lowFreq", "the SAME module — the crossover between lows and mids"],
@@ -54,9 +59,18 @@ export const SURFACE_MAPPING_SKELETON: Record<
       "spread.bassMono",
       "the SAME module — the frequency below which the bass is brought to the centre",
     ],
+    [
+      "limiter.hfLimit",
+      "the SAME module — its HF limit, what it takes off the fastest highs",
+    ],
     ["limiter.drive", "the SAME module — the limiter's input gain"],
     ["limiter.ceiling", "the SAME module — its ceiling"],
     ["limiter.release", "the SAME module — its release time"],
+    // OFFERED but not REQUIRED: a master with no word length is a master in float (engine docs/quickMaster.md).
+    [
+      "limiter.output",
+      "the SAME module — its output word length, float, 24-bit or 16-bit",
+    ],
   ],
   turntables: [
     ["crossfade", "a crossfade module — its mix param"],

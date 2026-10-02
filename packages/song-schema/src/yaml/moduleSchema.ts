@@ -61,7 +61,7 @@ export const PortSchema = z
 export const WAVEFORM_SOURCES = ["input", "output", "take"] as const;
 
 /** Every `io:` a module may declare. Named for WAVEFORM_SOURCES' reason: `fields.ts` offers it. */
-export const IO_KINDS = ["out", "in", "video_out", "file", "camera"] as const;
+export const IO_KINDS = ["out", "in", "video_out", "file", "camera", "midi"] as const;
 
 export const WIDGET_TYPES = [
   "label",
@@ -73,7 +73,6 @@ export const WIDGET_TYPES = [
   "toggle",
   "button",
   "meter",
-  "tabs",
   "waveform",
   "dropdown",
   // Picks a FILE the module carries for a file-valued param (`bind: nam`) — see docs/filePicker.md.
@@ -82,7 +81,7 @@ export const WIDGET_TYPES = [
   "lcdscreen",
   // One sound of a rack — a pad, its note and its library sample — bound `@rack:<symbol>` (packages/song/docs/racks.md).
   "tap",
-  // A coloured frame under the widgets that lie wholly inside it; it holds none of them (docs/moduleFile.md).
+  // A coloured frame under the widgets that lie wholly inside it, optionally switched by an on/off `bind` (docs/moduleFile.md).
   "group",
 ] as const;
 
@@ -126,77 +125,99 @@ const WidgetBase = z.object({
       "a #rgb, #rrggbb or #rrggbbaa colour",
     )
     .optional(), // group
+  invert: z.boolean().optional(), // group: its on/off bind is a mute or a bypass, on while the param is off
   pair: z.string().min(1).optional(), // knob: the DRY param of a crossfade knob, `bind` being the wet one
 });
 
-export type Widget = z.infer<typeof WidgetBase> & {
-  pages?: Record<string, Record<string, Widget>>;
-};
+export type Widget = z.infer<typeof WidgetBase>;
 
 const RANGED = new Set(["knob", "slider", "fader", "number"]);
 
-export const WidgetSchema: z.ZodType<Widget> = WidgetBase.extend({
-  // tabs: named pages of sub-widgets. Recursive, hence the getter.
-  get pages() {
-    return z.record(z.string(), z.record(z.string(), WidgetSchema)).optional();
+export const WidgetSchema: z.ZodType<Widget> = WidgetBase.superRefine(
+  (w, ctx) => {
+    const wrong = (field: string, why: string) =>
+      ctx.addIssue({
+        code: "custom",
+        path: [field],
+        message: `\`${field}\` is not a ${w.type} field — ${why}`,
+      });
+    if (!RANGED.has(w.type))
+      for (const f of ["min", "max", "step", "curve"] as const)
+        if (w[f] !== undefined)
+          wrong(f, "only knob, slider, fader and number carry a range");
+    if (w.type !== "label" && w.text !== undefined)
+      wrong("text", "only a label draws text");
+    if (w.type === "lcdscreen" && w.bind !== undefined)
+      wrong("bind", "an lcdscreen drives no param — widgets.js draws it");
+    if (w.type !== "knob" && w.pair !== undefined)
+      wrong("pair", "only a knob crossfades two params");
+    if (w.pair !== undefined && (!w.bind || w.bind === w.pair))
+      ctx.addIssue({
+        code: "custom",
+        path: ["pair"],
+        message:
+          "a crossfade knob binds the wet param and pairs a DIFFERENT, dry one",
+      });
+    if (w.type !== "group" && w.color !== undefined)
+      wrong("color", "only a group paints a background");
+    if (w.type !== "group" && w.invert !== undefined)
+      wrong("invert", "only a group's on/off switch reads its param backwards");
+    if (w.type !== "waveform" && w.source !== undefined)
+      wrong("source", "only a waveform picks an audio tap");
+    if (w.type !== "dropdown") {
+      if (w.options !== undefined)
+        wrong("options", "only a dropdown has settings");
+      if (w.library !== undefined)
+        wrong("library", "only a dropdown lists a library");
+    }
+    // A file picker with nothing to pick FOR cannot say what it would write — see docs/moduleFile.md.
+    if (w.type === "filepicker" && !w.bind)
+      ctx.addIssue({
+        code: "custom",
+        path: ["bind"],
+        message:
+          "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: model)",
+      });
   },
-}).superRefine((w, ctx) => {
-  const wrong = (field: string, why: string) =>
-    ctx.addIssue({
-      code: "custom",
-      path: [field],
-      message: `\`${field}\` is not a ${w.type} field — ${why}`,
-    });
-  if (!RANGED.has(w.type))
-    for (const f of ["min", "max", "step", "curve"] as const)
-      if (w[f] !== undefined)
-        wrong(f, "only knob, slider, fader and number carry a range");
-  if (w.type !== "label" && w.text !== undefined)
-    wrong("text", "only a label draws text");
-  if (w.type === "lcdscreen" && w.bind !== undefined)
-    wrong("bind", "an lcdscreen drives no param — widgets.js draws it");
-  if (w.type === "group" && w.bind !== undefined)
-    wrong("bind", "a group drives no param — it frames the widgets inside it");
-  if (w.type !== "knob" && w.pair !== undefined)
-    wrong("pair", "only a knob crossfades two params");
-  if (w.pair !== undefined && (!w.bind || w.bind === w.pair))
-    ctx.addIssue({
-      code: "custom",
-      path: ["pair"],
-      message:
-        "a crossfade knob binds the wet param and pairs a DIFFERENT, dry one",
-    });
-  if (w.type !== "group" && w.color !== undefined)
-    wrong("color", "only a group paints a background");
-  if (w.type !== "waveform" && w.source !== undefined)
-    wrong("source", "only a waveform picks an audio tap");
-  if (w.type !== "dropdown") {
-    if (w.options !== undefined)
-      wrong("options", "only a dropdown has settings");
-    if (w.library !== undefined)
-      wrong("library", "only a dropdown lists a library");
-  }
-  // A file picker with nothing to pick FOR cannot say what it would write — see docs/moduleFile.md.
-  if (w.type === "filepicker" && !w.bind)
-    ctx.addIssue({
-      code: "custom",
-      path: ["bind"],
-      message:
-        "a filepicker needs `bind` — the file-valued param it writes (e.g. bind: model)",
-    });
-  if (w.type === "tabs" && w.pages === undefined)
-    ctx.addIssue({
-      code: "custom",
-      path: ["pages"],
-      message: "tabs need pages",
-    });
-});
+);
 
-export const UISchema = z.object({
-  cols: z.number().int().positive(),
-  rows: z.number().int().positive(),
-  widgets: z.record(z.string(), WidgetSchema),
-});
+/** The longest a tab's name may be: it is drawn in a fixed column at the card's left (docs/moduleFile.md). */
+export const TAB_NAME_MAX = 10;
+
+/** One tab of a panel: a name and the widgets drawn while it is open. */
+export const TabSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(TAB_NAME_MAX, `a tab name is at most ${TAB_NAME_MAX} characters`),
+    widgets: z.record(z.string(), WidgetSchema),
+  })
+  .strict();
+
+export type Tab = z.infer<typeof TabSchema>;
+
+// `widgets` is drawn on every tab; `tabs`, in order, are the panel's pages — two or more are drawn as a column.
+export const UISchema = z
+  .object({
+    cols: z.number().int().positive(),
+    rows: z.number().int().positive(),
+    widgets: z.record(z.string(), WidgetSchema),
+    tabs: z.array(TabSchema).optional(),
+  })
+  .superRefine((ui, ctx) => {
+    const seen = new Set<string>();
+    ui.tabs?.forEach((t, i) => {
+      if (seen.has(t.name))
+        ctx.addIssue({
+          code: "custom",
+          path: ["tabs", i, "name"],
+          message: `two tabs are called "${t.name}"`,
+        });
+      seen.add(t.name);
+    });
+  });
 
 /** A module's whole widget grid — what the visual editor reads and writes. */
 export type ModuleUI = z.infer<typeof UISchema>;
@@ -297,6 +318,8 @@ const MODULE_FIELDS = {
   // …and an io "camera" module WHICH camera, by the LABEL a person reads: a deviceId is per
   // browser and rotates, so one written here names nothing anywhere else (docs/camera.md).
   camera: z.string().optional(),
+  // …and an io "midi" module WHICH device it records from, by its label; "" or absent is any device (docs/midiIn.md).
+  device: z.string().optional(),
   // …and WHERE in the viewport it draws, [x, y, w, h] in px. Absent is the whole frame. One key
   // rather than four, so it cannot be confused with graph.yaml's `positions:` — which is where a
   // node's CARD sits, a different fact about the same node (docs/camera.md).
@@ -380,8 +403,6 @@ export const ModuleSchema = z
       .optional(),
     // How the COMPLETIONS should treat this module — one fact about it, said once (docs/moduleStatus.md).
     status: z.enum(MODULE_STATUSES).optional(),
-    // …and what they CALL it: free text, the name a person reads in a picker (packages/song/docs/moduleLabel.md).
-    label: z.string().optional(),
   })
   .strict(); // an unknown key is a typo — silently ignoring `paramz:` is worse than saying so
 

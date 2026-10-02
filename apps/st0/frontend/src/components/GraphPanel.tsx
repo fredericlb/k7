@@ -24,6 +24,7 @@ import type { WebProject } from "../types";
 export function GraphPanel({
   reloadKey,
   cameras,
+  midiDevices,
   organizeKey = 0,
   trackId,
   trackOrder,
@@ -52,6 +53,8 @@ export function GraphPanel({
   reloadKey: number;
   /** The lenses this browser can see — a camera card's dropdown, packages/song/docs/camera.md. */
   cameras?: readonly string[];
+  /** The MIDI inputs this browser sees, by name — what a midi-in node's dropdown offers. */
+  midiDevices?: readonly string[];
   // Bumped when `graph organize` ran — empties the held node positions (see ChainsTab's).
   organizeKey?: number;
   trackId: string | null;
@@ -129,6 +132,7 @@ export function GraphPanel({
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
     const { nodes, edges } = buildGraph(sub, {
       cameras,
+      midiDevices,
       ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
     });
     const scope = `${trackId}:${organizeKey}`;
@@ -147,7 +151,7 @@ export function GraphPanel({
       out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
     );
     return out;
-  }, [graph, trackId, organizeKey, cameras, aspectRow]);
+  }, [graph, trackId, organizeKey, cameras, midiDevices, aspectRow]);
 
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);

@@ -3,6 +3,7 @@
 // dispatcher that imports one of us, and this is the heavy branch. See apps/st0-desktop/docs/tabs.md.
 
 import { Loader2 } from "@frediverse/ui/icons";
+import { clearDevPerfEntries } from "@studio/project-shell/devPerf";
 import { setFileApiTally } from "@studio/project-shell/fileApi";
 import {
   isExternalIndex,
@@ -115,6 +116,9 @@ function Booting() {
     </div>
   );
 }
+
+// React's DEV build leaves a `performance.measure` per render that the browser keeps forever — cleared (docs/shell.md).
+clearDevPerfEntries(import.meta.env.DEV);
 
 // The gates before the editor, the router outside them, and NO React.StrictMode — its double-mount freezes Firefox's WebGL context (docs/shell.md).
 ReactDOM.createRoot(document.getElementById("root")!).render(

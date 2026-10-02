@@ -21,6 +21,11 @@ constexpr float bassMonoMaxHz = 300.0f;
 constexpr float driveMaxDb = 12.0f;
 constexpr float ceilingMinDb = -12.0f;
 constexpr float releaseMinMs = 10.0f, releaseMaxMs = 500.0f, releaseDefMs = 120.0f;
+// To Vinyl 4's two: the mid's low cut, 0 being off, and the HF limit's amount in percent.
+constexpr float lowCutMaxHz = 300.0f;
+constexpr float hfLimitMax = 100.0f;
+// The output word length, as a three-way choice: 0 float (untouched), 1 24-bit, 2 16-bit.
+constexpr float outputFloat = 0.0f, outputLast = 2.0f;
 
 // Butterworth: two cascaded is a Linkwitz-Riley corner, the only kind that sums back to a flat magnitude.
 constexpr double butterworthQ = 0.7071;
@@ -48,6 +53,7 @@ QuickMasterPlugin::QuickMasterPlugin(te::PluginCreationInfo info) : Plugin(std::
     };
 
     // Declared in the order the signal meets them, so the parameter list reads as the chain.
+    lowCut_ = add("lowcut", "Low Cut", 0.0f, lowCutMaxHz, 0.0f);
     lowFreq_ = add("lowfreq", "Low Freq", splitLowMinHz, splitLowMaxHz, splitLowDefHz);
     highFreq_ = add("highfreq", "High Freq", splitHighMinHz, splitHighMaxHz, splitHighDefHz);
     lowComp_ = add("lowcomp", "Low Amount", amountMin, amountMax, 0.0f);
@@ -55,9 +61,11 @@ QuickMasterPlugin::QuickMasterPlugin(te::PluginCreationInfo info) : Plugin(std::
     highComp_ = add("highcomp", "High Amount", amountMin, amountMax, 0.0f);
     width_ = add("width", "Width", widthMin, widthMax, widthDef);
     bassMono_ = add("bassmono", "Bass Mono", 0.0f, bassMonoMaxHz, 0.0f);
+    hfLimitAmt_ = add("hflimit", "HF Limit", 0.0f, hfLimitMax, 0.0f);
     drive_ = add("drive", "Drive", 0.0f, driveMaxDb, 0.0f);
     ceiling_ = add("ceiling", "Ceiling", ceilingMinDb, 0.0f, 0.0f);
     release_ = add("release", "Release", releaseMinMs, releaseMaxMs, releaseDefMs);
+    output_ = add("output", "Output", outputFloat, outputLast, outputFloat);
 }
 
 QuickMasterPlugin::~QuickMasterPlugin()
@@ -65,7 +73,7 @@ QuickMasterPlugin::~QuickMasterPlugin()
     notifyListenersOfDeletion();
     for (auto* p : {lowFreq_.get(), highFreq_.get(), lowComp_.get(), midComp_.get(),
                     highComp_.get(), width_.get(), bassMono_.get(), drive_.get(), ceiling_.get(),
-                    release_.get()})
+                    release_.get(), output_.get(), lowCut_.get(), hfLimitAmt_.get()})
         if (p != nullptr) p->detachFromCurrentValue();
 }
 
@@ -104,10 +112,14 @@ void QuickMasterPlugin::clearState()
                     &highHp_[0], &highHp_[1], &lowAp_})
         s->reset();
     for (auto& f : sideHp_) f.reset();
+    for (auto& f : midHp_) f.reset();
+    for (auto& l : hfLimit_) l.reset();
+    lastLowCutHz_ = -1.0f;
     // Forget the cached corners too: initialise() may have moved the sample rate under them.
     lastLowHz_ = lastHighHz_ = lastBassMonoHz_ = -1.0f;
     env_.fill(0.0f);
     limGain_ = 1.0f;
+    for (auto& d : dither_) d.reset();
     delayWrite_ = 0;
     for (auto& d : delay_) std::fill(d.begin(), d.end(), 0.0f);
     for (auto& b : bands_) b.clear();
@@ -137,6 +149,33 @@ void QuickMasterPlugin::updateCoefficients(float lowHz, float highHz, float bass
     lastLowHz_ = lowHz;
     lastHighHz_ = highHz;
     lastBassMonoHz_ = bassMonoHz;
+}
+
+void QuickMasterPlugin::lowCut(juce::AudioBuffer<float>& dst, int start, int numChans, int n)
+{
+    auto* l = dst.getWritePointer(0, start);
+    auto* r = numChans > 1 ? dst.getWritePointer(1, start) : nullptr;
+    for (int i = 0; i < n; ++i) {
+        // On the MID only: a mono signal is all mid, and a stereo one keeps its side for Bass Mono to treat.
+        const float mid = r ? 0.5f * (l[i] + r[i]) : l[i];
+        const float cut = midHp_[1].processSingleSampleRaw(midHp_[0].processSingleSampleRaw(mid));
+        if (!r) {
+            l[i] = cut;
+            continue;
+        }
+        const float side = 0.5f * (l[i] - r[i]);
+        l[i] = cut + side;
+        r[i] = cut - side;
+    }
+}
+
+void QuickMasterPlugin::limitHighs(juce::AudioBuffer<float>& dst, int start, int numChans, int n,
+                                   double intensity)
+{
+    for (int ch = 0; ch < numChans; ++ch) {
+        float* x = dst.getWritePointer(ch, start);
+        for (int i = 0; i < n; ++i) x[i] = (float)hfLimit_[ch].process(x[i], intensity);
+    }
 }
 
 void QuickMasterPlugin::splitBands(const juce::AudioBuffer<float>& src, int start, int numChans,
@@ -250,6 +289,19 @@ void QuickMasterPlugin::limit(juce::AudioBuffer<float>& dst, int start, int numC
     }
 }
 
+void QuickMasterPlugin::dither(juce::AudioBuffer<float>& dst, int start, int numChans, int n,
+                               int bits, float ceilLin)
+{
+    // The top a word can hold is one step under full scale, and the ceiling still caps a step rounded up.
+    const double step = bits == 24 ? 1.0 / 8388608.0 : 1.0 / 32768.0;
+    const double top = juce::jmin((double)ceilLin, 1.0 - step);
+    for (int ch = 0; ch < numChans; ++ch) {
+        float* x = dst.getWritePointer(ch, start);
+        for (int i = 0; i < n; ++i)
+            x[i] = (float)juce::jlimit(-(double)ceilLin, top, dither_[ch].process(x[i], bits));
+    }
+}
+
 void QuickMasterPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
     const juce::ScopedNoDenormals noDenormals;  // see GraphDspPlugin::applyToBuffer
@@ -277,12 +329,24 @@ void QuickMasterPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const float driveLin = juce::Decibels::decibelsToGain(drive_->getCurrentValue());
     const float ceilLin = juce::Decibels::decibelsToGain(ceiling_->getCurrentValue());
     const float relCoeff = coeffFor(release_->getCurrentValue(), rate_);
+    const float lowCutHz = lowCut_->getCurrentValue();
+    // A moved corner only: the two biquads sit still all session, like the bands' nine.
+    if (lowCutHz >= lowCutOffHz && lowCutHz != lastLowCutHz_) {
+        const auto hp = juce::IIRCoefficients::makeHighPass(rate_, juce::jmin(lowCutHz, lowCutMaxHz), butterworthQ);
+        for (auto& f : midHp_) f.setCoefficients(hp);
+        lastLowCutHz_ = lowCutHz;
+    }
+    const double hfIntensity =
+        AccelerationLimiter::intensityFor(hfLimitAmt_->getCurrentValue() / hfLimitMax, rate_);
+    const int choice = juce::roundToInt(output_->getCurrentValue());
+    const int bits = choice == 1 ? 24 : choice == 2 ? 16 : 0;
 
     // A block bigger than initialise() was told about is SPLIT, never resized — same answer DspGraph gives.
     for (int done = 0; done < ctx.bufferNumSamples; done += maxBlock_) {
         const int n = juce::jmin(maxBlock_, ctx.bufferNumSamples - done);
         const int start = ctx.bufferStartSample + done;
 
+        if (lowCutHz >= lowCutOffHz) lowCut(buffer, start, numChans, n);
         splitBands(buffer, start, numChans, n);
         compressBands(numChans, n);
         for (int ch = 0; ch < numChans; ++ch) {
@@ -293,7 +357,9 @@ void QuickMasterPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
         }
 
         spread(buffer, start, numChans, n, widthPct, bassMonoHz >= bassMonoOffHz);
+        if (hfIntensity > 0.0) limitHighs(buffer, start, numChans, n, hfIntensity);
         limit(buffer, start, numChans, n, driveLin, ceilLin, relCoeff);
+        if (bits > 0) dither(buffer, start, numChans, n, bits, ceilLin);
     }
 }
 

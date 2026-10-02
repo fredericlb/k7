@@ -209,4 +209,20 @@ describe("node new", () => {
       ),
     ).toBe('extends: "@workspace/audio/amp"\n');
   });
+
+  it("takes a WHOLE ref as its target, extending it as it stands — the rack builder's kit", async () => {
+    await runCommand("node new @workspace/audio/amp kit 40,20", host(), "cli");
+    expect(readFileSync(join(dir, "nodes", "kit.yaml"), "utf8")).toContain(
+      'extends: "@workspace/audio/amp"',
+    );
+    expect(chains()).toMatch(/kit:\s*\[\s*\]/);
+    // No module is scaffolded in between: the ref already names one.
+    expect(existsSync(join(root, "_modules", "audio", "kit"))).toBe(false);
+  });
+
+  it("refuses a whole ref that resolves to nothing, writing no node", async () => {
+    await runCommand("node new @st0/instruments/st0-rack kit", host(), "cli");
+    expect(logs.join("\n")).toContain("not a module this project can see");
+    expect(existsSync(join(dir, "nodes", "kit.yaml"))).toBe(false);
+  });
 });

@@ -58,6 +58,7 @@ export const LOCAL_COMMANDS = [
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
   "ui mixer", // line the mixer strips up in the graph's pane
+  "ui stack", // the graph as one column per track, the mix last
   "ui notes", // draw the project's doc modules on the graph
   "ui panel", // open one of the bottom panels (graph | logs)
   "ui surface", // a screen this PROJECT declares — surfaces/, layout: view
@@ -238,6 +239,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui mixer": {
     en: "Line up the mixer strips",
     fr: "Aligner les tranches de la console",
+  },
+  "ui stack": {
+    en: "Stack the graph, one column per track",
+    fr: "Empiler le graphe, une colonne par piste",
   },
   "ui notes": {
     en: "Show or hide the notes on the graph",

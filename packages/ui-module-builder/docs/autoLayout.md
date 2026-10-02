@@ -1,8 +1,8 @@
 # Auto organize — a panel proposed from the names
 
 **Auto organize** replaces the panel with one drawn from the parameter list alone: every
-parameter gets a widget, the widgets are sorted into the pages of a single tabs widget, and
-which page a parameter lands on is guessed from **its name and nothing else**.
+parameter gets a widget, the widgets are sorted into the panel's tabs, one per family, and
+which tab a parameter lands on is guessed from **its name and nothing else**.
 
 It exists because of a real shape. Arturia's Piano V3 publishes 151 parameters. There is no
 arrangement of dragging 151 rows onto a grid that is a reasonable afternoon, and there is no
@@ -152,10 +152,10 @@ before any of this runs.
 
 ## What it draws, and where
 
-The proposal is **one tabs widget** on row 0, spanning the panel, with the pages under it from
-row 1 down — six parameters to a row, `AUTO_PER_ROW`. Row 0 is left to the bar because a page's
-`col`/`row` are the **panel's** grid rather than an offset inside the tabs widget's box
-(`pages.md`), so a widget placed on row 0 would be drawn over the bar.
+The proposal is the panel's **tabs**, one per family, each laid out from row 0 — six parameters
+to a row, `AUTO_PER_ROW`. The tabs are a column beside the grid (`pages.md`), so no row is given
+up to them. A proposal with a single family writes no `tabs:` at all: its widgets are the panel's,
+since one tab is no tab.
 
 A parameter gets a **slot** rather than a cell: `KNOB_SPAN` × `KNOB_SPAN`, which is 2×2. So the
 panel is twelve cells wide (`AUTO_COLS` = six slots) and a row of parameters is two cells tall. A

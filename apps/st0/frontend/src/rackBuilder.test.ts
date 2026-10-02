@@ -7,9 +7,8 @@ import {
   defaultSymbol,
   kitUploadDir,
   padNote,
-  RACK_MODULE_REF,
-  RACK_MODULE_YAML,
   rackIssues,
+  rackModuleRef,
 } from "./rackBuilder";
 
 // The rack builder's arithmetic, and hardest the READING of the grid: the notes it assigns are addresses every `sequence note` line will use.
@@ -83,11 +82,13 @@ describe("the kit the builder writes", () => {
     { symbol: "SN", fileName: "snare 01.wav", note: 37 },
   ];
 
+  const RACK = "@st0/instruments/st0-rack";
+
   it("is a node of the sampler, one tap per pad naming its sample in the PROJECT's samples/", () => {
-    const text = buildKitNodeYaml("drums", pads, "project");
+    const text = buildKitNodeYaml("drums", pads, "project", RACK);
     const doc = parse(text, { version: "1.2" });
     expect(ModuleSchema.safeParse(doc).success).toBe(true);
-    expect(doc.extends).toBe(RACK_MODULE_REF);
+    expect(doc.extends).toBe(RACK);
     expect(Object.keys(doc.rack.symbols)).toEqual(["BD", "SN"]);
     expect(doc.rack.symbols.BD).toEqual({
       note: 36,
@@ -100,9 +101,12 @@ describe("the kit the builder writes", () => {
   });
 
   it("names a LIBRARY's samples when the kit's sounds go there", () => {
-    const doc = parse(buildKitNodeYaml("drums", pads, { library: "st0" }), {
-      version: "1.2",
-    });
+    const doc = parse(
+      buildKitNodeYaml("drums", pads, { library: "st0" }, RACK),
+      {
+        version: "1.2",
+      },
+    );
     expect(doc.rack.symbols.BD.sample).toBe("@st0/drums/kick.wav");
   });
 
@@ -115,9 +119,32 @@ describe("the kit the builder writes", () => {
       "_libraries/st0/samples/drums",
     );
   });
+});
 
-  it("writes a sampler that is a rack and carries no sound", () => {
-    const doc = parse(RACK_MODULE_YAML, { version: "1.2" });
-    expect(doc).toEqual({ type: "rack" });
+describe("the sampler a kit extends", () => {
+  it("is a LIBRARY's st0-rack, @st0's first", () => {
+    expect(
+      rackModuleRef([
+        "@drums/instruments/st0-rack",
+        "@st0/instruments/st0-rack",
+      ]),
+    ).toBe("@st0/instruments/st0-rack");
+    expect(rackModuleRef(["@drums/instruments/st0-rack"])).toBe(
+      "@drums/instruments/st0-rack",
+    );
+  });
+
+  it("is never a workspace copy, and is null when no library holds one", () => {
+    expect(rackModuleRef(["@workspace/instruments/st0-rack"])).toBeNull();
+    expect(rackModuleRef(["@st0/instruments/rack"])).toBeNull();
+    // …which is said before any upload runs, rather than failing after sixteen of them.
+    expect(
+      rackIssues(
+        "d",
+        [{ symbol: "BD", fileName: "bd.wav", note: 36 }],
+        [],
+        false,
+      ).join(" "),
+    ).toContain("st0-rack");
   });
 });

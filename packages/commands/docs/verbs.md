@@ -633,6 +633,12 @@ what the graph's `+` sends for a CATALOGUE pick, which has no local folder yet: 
 is one command, one round trip, one compile and one engine push. `module new` keeps the bare form,
 for a line somebody types.
 
+`node new @<library>/<category>/<name> [<node-name>] [x,y]` — a WHOLE ref in the target's place —
+makes the node extend that ref as it stands, with no workspace module in between
+(`packages/song/src/nodeOnRef.ts`). It is for a module that is already right as it is, the
+library's `st0-rack` being the case that needs it: the rack builder's kit is a node of it, and a
+local shim extending it would be a second file standing for the same sampler. The ref must resolve.
+
 **io is the one category where the node IS the module.** `node new io/IN <name> [x,y]` writes
 `modules/io/<name>/module.yaml` — no `nodes/` file, the graph naming the module bare — with the role
 the canonical arg spells: `IN` the interface input, `CAM` the camera, `FILE` the file source. A

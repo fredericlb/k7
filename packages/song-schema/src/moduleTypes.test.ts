@@ -5,8 +5,6 @@ import {
   engineRef,
   isEngineRef,
   type ModuleStatus,
-  moduleDisplayName,
-  moduleLabelOf,
   moduleStatusOf,
 } from "./moduleTypes";
 
@@ -57,24 +55,6 @@ describe("moduleStatusOf", () => {
     expect(moduleStatusOf({ status: "FAVORITE" })).toBe("listed");
     expect(moduleStatusOf({ status: 3 })).toBe("listed");
     expect(moduleStatusOf("not a module")).toBe("listed");
-  });
-});
-
-// `label:` changes no sound either — it is what a picker CALLS the module (docs/moduleLabel.md).
-
-describe("moduleLabelOf and the name a picker shows", () => {
-  it("reads the label, trimmed, and answers empty for everything that has none", () => {
-    expect(moduleLabelOf({ label: "  Grande salle  " })).toBe("Grande salle");
-    expect(moduleLabelOf({})).toBe("");
-    expect(moduleLabelOf(undefined)).toBe("");
-    expect(moduleLabelOf({ label: 3 })).toBe("");
-  });
-
-  it("falls back to the name the ref already carries, never to nothing", () => {
-    // A module with a blank label is a module with no label: the row must still be readable.
-    expect(moduleDisplayName("Grande salle", "reverb")).toBe("Grande salle");
-    expect(moduleDisplayName("", "reverb")).toBe("reverb");
-    expect(moduleDisplayName("   ", "reverb")).toBe("reverb");
   });
 });
 

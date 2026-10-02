@@ -44,7 +44,7 @@ function song(node: string): void {
   writeFileSync(join(dir, "nodes", "comp.yaml"), node, "utf8");
   const mod = join(root, "_modules", "audio", "compressor");
   for (const [at, body] of [
-    ["", "label: Compressor\nengine: tracktion\n"],
+    ["", "engine: tracktion\n"],
     ["engines/tracktion", "plugin: { type: internal, name: compressor }\n"],
     [
       "engines/vari-mu",

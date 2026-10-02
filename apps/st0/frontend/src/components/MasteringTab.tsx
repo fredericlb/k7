@@ -171,7 +171,7 @@ function Part({
       {has ? (
         <div className="flex flex-col gap-2">{children}</div>
       ) : (
-        // Every control is required, so this is only reachable while the graph has not arrived or will not compile.
+        // Every part has a required control, so this is only reachable while the graph has not arrived or will not compile.
         <p className="text-xs text-muted-foreground">
           {m["mst.noneResolve"]()}
         </p>
@@ -199,8 +199,30 @@ function Knob({
   }, [binding, held, live]);
 
   const { min, max, step } = masterRange(binding);
-  const { label, unit, home } = binding.control;
+  const { label, unit, home, choices } = binding.control;
   const value = shownValue(held, live) ?? Math.min(max, Math.max(min, home));
+  // A CHOICE is a dropdown of named values, the slider being for a range (src/mastering/controls.ts).
+  if (choices)
+    return (
+      <label className="flex items-center gap-2 text-xs">
+        <span className="w-28 shrink-0 text-muted-foreground">{label()}</span>
+        <select
+          value={Math.round(value)}
+          className="w-40 rounded border border-border bg-background px-1 py-0.5"
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setHeld(v);
+            onSet(binding.pluginId, binding.param, v);
+          }}
+        >
+          {choices.map((c, i) => (
+            <option key={c} value={i}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
   // A step of 1 or more is a whole number, anything finer keeps one decimal: a ceiling shown as '0 dB' when it is at −0.3 is a lie.
   const shown = step >= 1 ? Math.round(value) : value.toFixed(1);
 

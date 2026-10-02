@@ -3,7 +3,7 @@
 
 import type { Widget } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
-import { clash, framedBy, inside, overlaps } from "./groupGeometry";
+import { clash, framedBy, groupOf, inside, overlaps } from "./groupGeometry";
 
 const group: Widget = { type: "group", col: 2, row: 1, colSpan: 4, rowSpan: 2 };
 const knob = (col: number, row: number): Widget => ({
@@ -39,5 +39,16 @@ describe("a group's box", () => {
       g: group,
     };
     expect(framedBy(widgets, group)).toEqual(["dry", "wet"]);
+  });
+
+  it("names the group a widget sits in — what a double-click selects — and none for one outside", () => {
+    const widgets: Record<string, Widget> = {
+      dry: knob(2, 1),
+      out: knob(6, 1),
+      g: group,
+    };
+    expect(groupOf(widgets, "dry")).toBe("g");
+    expect(groupOf(widgets, "out")).toBeNull();
+    expect(groupOf(widgets, "g")).toBeNull();
   });
 });

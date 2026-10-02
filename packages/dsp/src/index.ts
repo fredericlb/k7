@@ -305,10 +305,51 @@ export class GraphBuilder {
     return m;
   }
 
+  // --- which strikes play, and how loud: set before `strike`, read by it per step (../docs/builder.md) ---
+
+  /** The rhythm over the steps: `mode` 0 every step, 1 a burst, 2 Euclid; density and rotate are shares of `length`. */
+  pattern(
+    m: Midi,
+    mode: Input,
+    length: Input,
+    density: Input,
+    rotate: Input,
+  ): Midi {
+    this.mnode("mpattern", mode, length, density, rotate);
+    return m;
+  }
+
+  /** Accents among the hits: `count` of them as played, the rest at `low`; `opposite` swaps, `keep` pins them to steps. */
+  accent(
+    m: Midi,
+    count: Input,
+    low: Input,
+    opposite: Input,
+    keep: Input,
+  ): Midi {
+    this.mnode("maccent", count, low, opposite, keep);
+    return m;
+  }
+
+  /** The chance, 0..1, that a step the pattern plays is struck at all. */
+  chance(m: Midi, p: Input): Midi {
+    this.mnode("mchance", p);
+    return m;
+  }
+
+  /** The share of velocity each repeat loses after the first, 0..1. Never down to a note-off. */
+  decay(m: Midi, d: Input): Midi {
+    this.mnode("mdecay", d);
+    return m;
+  }
+
   // A MIDI node takes SCALARS and no wires, hence no `out`: it acts on the plugin's buffer, not on a value.
-  private mnode(type: string, k: Input): void {
+  private mnode(type: string, ...ks: Input[]): void {
     // A literal goes through as a NUMBER, not its text — ../docs/builder.md on the engine's ref().
-    this.json.nodes.push({ type, in: [typeof k === "number" ? k : k.name] });
+    this.json.nodes.push({
+      type,
+      in: ks.map((k) => (typeof k === "number" ? k : k.name)),
+    });
   }
 
   build(): GraphJson {

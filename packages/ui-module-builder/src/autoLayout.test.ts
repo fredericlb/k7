@@ -13,6 +13,16 @@ import {
   isBlend,
   isPlumbing,
 } from "./autoLayout";
+import type { ModuleUI, Widget } from "./moduleUi";
+
+/** Every page as name → widgets: the tabs, or the panel itself when one family made no tabs. */
+const pagesOf = (ui: ModuleUI): Record<string, Record<string, Widget>> =>
+  ui.tabs
+    ? Object.fromEntries(ui.tabs.map((t) => [t.name, t.widgets]))
+    : { "": ui.widgets };
+/** One family's widgets: its tab, or the whole panel when it is the only family. */
+const pageOf = (ui: ModuleUI, name: string): Record<string, Widget> =>
+  ui.tabs ? (ui.tabs.find((t) => t.name === name)?.widgets ?? {}) : ui.widgets;
 
 const p = (name: string, meta?: AutoParam["meta"]): AutoParam => ({
   name,
@@ -163,25 +173,24 @@ describe("the panel it proposes", () => {
   ];
   const ui = autoOrganize(params);
 
-  it("is one tabs widget, and every parameter is on a page of it", () => {
-    expect(Object.keys(ui.widgets)).toEqual(["tabs"]);
-    const bound = Object.values(ui.widgets.tabs.pages ?? {}).flatMap((page) =>
+  it("is the panel's tabs, one a family, and every parameter is on one of them", () => {
+    expect(ui.widgets).toEqual({});
+    expect(ui.tabs?.length).toBeGreaterThan(1);
+    const bound = Object.values(pagesOf(ui)).flatMap((page) =>
       Object.values(page).map((w) => w.bind),
     );
     expect(bound.sort()).toEqual(params.map((x) => x.name).sort());
   });
 
-  it("leaves row 0 to the tab bar", () => {
-    // A page's col/row are the PANEL's grid (docs/pages.md), so row 0 would draw over the bar.
-    const rows = Object.values(ui.widgets.tabs.pages ?? {}).flatMap((page) =>
+  it("starts every tab on row 0 — the tabs are a column beside the grid, not a row of it", () => {
+    const rows = Object.values(pagesOf(ui)).flatMap((page) =>
       Object.values(page).map((w) => w.row),
     );
-    expect(Math.min(...rows)).toBe(1);
-    expect(ui.widgets.tabs.row).toBe(0);
+    expect(Math.min(...rows)).toBe(0);
   });
 
   it("carries each parameter's own range, so the panel opens right with no engine", () => {
-    const filter = ui.widgets.tabs.pages?.Filter ?? {};
+    const filter = pageOf(ui, "Filter");
     const cutoff = Object.values(filter).find(
       (w) => w.bind === "Filter Cutoff",
     );
@@ -191,13 +200,13 @@ describe("the panel it proposes", () => {
   it("lays its knobs out 2×2, six to a row — the one gesture that sizes them", () => {
     // A slot is two cells, so the page's second parameter starts at column 2 rather than column 1.
     expect(ui.cols).toBe(12);
-    const filter = ui.widgets.tabs.pages?.Filter ?? {};
+    const filter = pageOf(ui, "Filter");
     const res = Object.values(filter).find(
       (w) => w.bind === "Filter Resonance",
     );
-    expect(res).toMatchObject({ col: 2, row: 1, colSpan: 2, rowSpan: 2 });
+    expect(res).toMatchObject({ col: 2, row: 0, colSpan: 2, rowSpan: 2 });
     // A dropdown takes the slot's width and not its height: it is one row of text.
-    const lid = Object.values(ui.widgets.tabs.pages?.Other ?? {}).find(
+    const lid = Object.values(pageOf(ui, "Other")).find(
       (w) => w.bind === "Lid Position",
     );
     expect(lid).toMatchObject({ colSpan: 2 });
@@ -206,16 +215,14 @@ describe("the panel it proposes", () => {
 
   it("draws a parameter with named settings as a dropdown, like a dropped one", () => {
     // The same answers `createBound` gives a DRAGGED parameter, so both gestures make the same widgets.
-    const other = ui.widgets.tabs.pages?.Other ?? {};
+    const other = pageOf(ui, "Other");
     const lid = Object.values(other).find((w) => w.bind === "Lid Position");
     expect(lid?.type).toBe("dropdown");
     expect(lid?.options).toHaveLength(2);
   });
 
   it("gives every widget on the panel its own id", () => {
-    const ids = Object.values(ui.widgets.tabs.pages ?? {}).flatMap((page) =>
-      Object.keys(page),
-    );
+    const ids = Object.values(pagesOf(ui)).flatMap((page) => Object.keys(page));
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -226,13 +233,17 @@ describe("the panel it proposes", () => {
       p("Filter Cutoff"),
       p("@base"),
     ]);
-    expect(Object.keys(ui.widgets.tabs.pages ?? {})[0]).toBe(GENERAL_PAGE);
+    expect(Object.keys(pagesOf(ui))[0]).toBe(GENERAL_PAGE);
   });
 
   it("has no General page at all on a module with no base", () => {
     // A page holds only what got something, so a plain effect opens on its own first family.
     const ui = autoOrganize([p("Reverb Room Size"), p("@solo"), p("@pan")]);
-    expect(Object.keys(ui.widgets.tabs.pages ?? {})).toEqual(["Reverb"]);
+    // …and one family is the panel itself: a single tab is never written.
+    expect(ui.tabs).toBeUndefined();
+    expect(Object.values(ui.widgets).map((w) => w.bind)).toEqual([
+      "Reverb Room Size",
+    ]);
   });
 
   it("gives `@base` the front page to itself, and drops the other intrinsics", () => {
@@ -249,13 +260,13 @@ describe("the panel it proposes", () => {
       p("@mute"),
       p("@pan", { min: 0, max: 1 }),
     ]);
-    const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
+    const page = Object.values(pageOf(ui, GENERAL_PAGE));
     expect(page).toHaveLength(1);
     expect(page[0]).toMatchObject({
       type: "dropdown",
       bind: "@base",
       col: 0,
-      row: 1,
+      row: 0,
     });
   });
 
@@ -268,12 +279,12 @@ describe("the panel it proposes", () => {
       p("Filter Resonance"),
       p("Filter Drive"),
     ]);
-    const page = Object.values(ui.widgets.tabs.pages?.Mix ?? {});
+    const page = Object.values(pageOf(ui, "Mix"));
     const at = (bind: string) => page.find((w) => w.bind === bind);
     // One row of CONTENT plus the trailing empty one, the blend right-aligned in slots 4 and 5 of six.
-    expect(ui.rows).toBe(1 + 2 * 2);
-    expect(at("Dry")).toMatchObject({ col: 8, row: 1 });
-    expect(at("Wet")).toMatchObject({ col: 10, row: 1 });
+    expect(ui.rows).toBe(2 * 2);
+    expect(at("Dry")).toMatchObject({ col: 8, row: 0 });
+    expect(at("Wet")).toMatchObject({ col: 10, row: 0 });
   });
 
   it("grows a row rather than dropping the blend on a knob", () => {
@@ -282,21 +293,21 @@ describe("the panel it proposes", () => {
       ...Array.from({ length: 6 }, (_, i) => p(`Level ${i}`)),
       p("Mix"),
     ]);
-    const page = Object.values(ui.widgets.tabs.pages?.Mix ?? {});
+    const page = Object.values(pageOf(ui, "Mix"));
     // Two rows of content — the six, then the row grown for the blend — plus the trailing one.
-    expect(ui.rows).toBe(1 + 3 * 2);
+    expect(ui.rows).toBe(3 * 2);
     expect(page.find((w) => w.bind === "Mix")).toMatchObject({
       col: 10,
-      row: 3,
+      row: 2,
     });
     // …and nothing else is on that slot.
-    expect(page.filter((w) => w.row === 3)).toHaveLength(1);
+    expect(page.filter((w) => w.row === 2)).toHaveLength(1);
   });
 
   it("costs nothing on a page with no base", () => {
     const ui = autoOrganize([p("Filter Cutoff"), p("Filter Resonance")]);
-    const page = Object.values(ui.widgets.tabs.pages?.Filter ?? {});
-    expect(page.map((w) => w.row)).toEqual([1, 1]);
+    const page = Object.values(pageOf(ui, "Filter"));
+    expect(page.map((w) => w.row)).toEqual([0, 0]);
   });
 
   it("is tall enough for its biggest page", () => {
@@ -304,21 +315,21 @@ describe("the panel it proposes", () => {
     const many = autoOrganize(
       Array.from({ length: 13 }, (_, i) => p(`Filter ${i}`)),
     );
-    // 13 knobs six to a row is three rows two cells tall, plus the bar's and the trailing empty one.
-    expect(many.rows).toBe(1 + 4 * 2);
+    // 13 knobs six to a row is three rows two cells tall, plus the trailing empty one.
+    expect(many.rows).toBe(4 * 2);
     // …and a panel whose only page is the base is two rows, the lane control beside it being dropped.
     const withBase = autoOrganize([
       p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
       p("@pan"),
     ]);
-    expect(withBase.rows).toBe(1 + 2 * 2);
+    expect(withBase.rows).toBe(2 * 2);
   });
 
   it("always ends on an empty row, whatever the tallest page holds", () => {
     // Somewhere to DROP the next parameter, and a SLOT row, since what must fit there is a control.
     const bottomOf = (u: ReturnType<typeof autoOrganize>) =>
       Math.max(
-        ...Object.values(u.widgets.tabs.pages ?? {}).flatMap((pg) =>
+        ...Object.values(pagesOf(u)).flatMap((pg) =>
           Object.values(pg).map((w) => w.row + (w.rowSpan ?? 1)),
         ),
       );
@@ -343,7 +354,7 @@ describe("the panel it proposes", () => {
   });
 
   it("proposes something the schema accepts, empty list included", () => {
-    // A `tabs` widget with no pages is refused by the schema and takes the graph node with it.
+    // A panel the schema refuses takes the graph node with it.
     expect(UISchema.safeParse(ui).success).toBe(true);
     const none = autoOrganize([]);
     expect(UISchema.safeParse(none).success).toBe(true);
@@ -352,7 +363,7 @@ describe("the panel it proposes", () => {
 });
 
 describe("the engine's blend", () => {
-  it("leaves @mix to the card's footer, and the plugin's own dry/wet out", () => {
+  it("leaves @mix to the card's header, and the plugin's own dry/wet out", () => {
     const ui = autoOrganize(
       ["Room Size", "Wet Level", "Dry Level", "@mix"].map((name) => ({ name })),
     );

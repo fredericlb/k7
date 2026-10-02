@@ -74,7 +74,6 @@ the editor offers it because the completion is DERIVED from the schema.
 ## The order of the module's fields
 
 `alternatives` and `alternative` come last because they are the one pair that is ABOUT the fields
-above rather than one of them. `status` and `label` come after them, outside `MODULE_FIELDS`, so an
-alternative can restate neither — they are the two fields that say nothing about what the module does
-or how it sounds: how the completions treat it, and what they call it
-(`packages/song/docs/moduleStatus.md`, `packages/song/docs/moduleLabel.md`).
+above rather than one of them. `status` comes after them, outside `MODULE_FIELDS`, so an alternative
+cannot restate it — it is the one field that says nothing about what the module does or how it
+sounds, only how the completions treat it (`packages/song/docs/moduleStatus.md`).

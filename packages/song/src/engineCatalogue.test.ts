@@ -141,6 +141,8 @@ describe("the catalogue of modules", () => {
       "@meta/CAM",
       "@meta/CUE",
       "@meta/FILE",
+      // …and a MIDI device, which the BROWSER records from — packages/song/docs/midiIn.md.
+      "@meta/MIDI",
     ]);
     expect(m["@meta/IN"]).toMatchObject({
       io: "in",

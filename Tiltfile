@@ -17,12 +17,3 @@ for t in tasks:
         labels=[t["group"]],
         allow_parallel=True,
     )
-
-# Remote Control: a row of its own, since it belongs to no package — docs/dev.md.
-local_resource(
-    "claude-rc",
-    serve_cmd="claude rc",
-    serve_dir=".",
-    labels=["tools"],
-    allow_parallel=True,
-)

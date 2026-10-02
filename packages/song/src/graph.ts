@@ -12,12 +12,12 @@ import {
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import {
   CAMERA_IO,
+  MIDI_IN_IO,
   curveIdFromRef,
   isBuiltinOutput,
   isIoSource,
   MIX_NODE,
   type ModuleKind,
-  moduleLabelOf,
   portRef,
   RENDER_NODE,
   SHAPE_CATEGORY,
@@ -126,7 +126,6 @@ export type WidgetType =
   | "toggle"
   | "button"
   | "meter"
-  | "tabs"
   | "waveform"
   | "dropdown"
   | "lcdscreen"
@@ -142,12 +141,11 @@ export interface Widget {
   label?: string;
   hidden?: boolean;
   text?: string; // label only
-  bind?: string; // everything but label/tabs/waveform: the param name
+  bind?: string; // everything but label/waveform: the param name
   min?: number; // knob | slider | number
   max?: number;
   step?: number;
   curve?: "lin" | "log";
-  pages?: Record<string, Record<string, Widget>>; // tabs only: named pages of sub-widgets
   source?: "input" | "output"; // waveform only: which audio tap to display
   // dropdown only: a discrete param's named settings…
   options?: { label: string; value: number }[];
@@ -156,11 +154,17 @@ export interface Widget {
   color?: string; // group only: its background colour
   pair?: string; // knob only: the dry param of a crossfade knob
 }
-// A module's UI: widgets on a grid, keyed by a stable id (the override key).
+// One tab of a panel: its name, and the widgets drawn while it is open.
+export interface UiTab {
+  name: string;
+  widgets: Record<string, Widget>;
+}
+// A module's UI: widgets on a grid, keyed by a stable id (the override key); `widgets` show on every tab.
 export interface ModuleUI {
   cols: number;
   rows: number;
   widgets: Record<string, Widget>;
+  tabs?: UiTab[];
   // The source of the `widgets.js` beside the panel, which draws its lcdscreen widgets.
   script?: string;
 }
@@ -187,7 +191,6 @@ export type InstrumentType = "plugin" | "rack";
 // A module: a plugin (or io, or a rack) plus params, plus an optional `extends` it inherits defaults from.
 export interface Module {
   extends?: string; // the module this inherits from ("type/name" | "@ns/type/name"); "" when none
-  label?: string; // what a person calls it, inherited through `extends` like any field — docs/moduleLabel.md
   kind: ModuleKind; // from the type folder — "plugin", "io", or "doc" (a note; see docModule.ts)
   io?: string; // io modules only: "out" (sink) | "in" (live source)
   plugin?: RawPlugin; // a plugin definition (plugin.type = xmlTypeName / cache id)
@@ -239,6 +242,8 @@ export interface Module {
   channel?: string | number[];
   // io: "camera" only — WHICH lens, by the LABEL a person reads; "" or absent is the default one.
   camera?: string;
+  // io: "midi" only — WHICH MIDI device it records from, by its label; "" or absent is any device.
+  device?: string;
   // …and where in the viewport it draws, [x, y, w, h] in px; absent is the whole frame.
   frame?: number[];
   monitor?: "off" | "auto" | "on";
@@ -492,7 +497,6 @@ export function buildGraph(
   // One module normalizer for both maps, handed a RESOLVED module — inheritance is already settled.
   const toModule = (b: ResolvedModule): Module => ({
     extends: b?.extends ? String(b.extends) : undefined,
-    label: moduleLabelOf(b) || undefined,
     // Four kinds, read straight rather than folded to "not io means plugin", which is what made a note compile as one.
     kind:
       b?.kind === "io" || b?.kind === "doc" || b?.kind === "track"
@@ -511,6 +515,8 @@ export function buildGraph(
       typeof b?.output_volume === "number" ? b.output_volume : undefined,
     // WHICH lens an io camera opens, inherited the same way — see docs/camera.md.
     camera: typeof b?.camera === "string" ? b.camera : undefined,
+    // …and WHICH MIDI device an io midi records from — see docs/midiIn.md.
+    device: typeof b?.device === "string" ? b.device : undefined,
     // …and its rectangle in the viewport, four numbers or nothing at all.
     frame:
       Array.isArray(b?.frame) && b.frame.length === 4
@@ -694,6 +700,10 @@ export const isInputModule = (_g: GraphDoc, b: Module): boolean =>
 export const isCameraModule = (b: Module): boolean =>
   b.kind === "io" && b.io === CAMERA_IO;
 
+/** …and a MIDI device (io: "midi"): notes the BROWSER records onto the lane it feeds. See docs/midiIn.md. */
+export const isMidiInModule = (b: Module): boolean =>
+  b.kind === "io" && b.io === MIDI_IN_IO;
+
 /** …and the file source (io: "file"), which reads audio off disk. See docs/fileInput.md. */
 export const isFileInputModule = (b: Module): boolean =>
   b.kind === "io" && b.io === "file";
@@ -741,6 +751,13 @@ export const carriesShape = (g: GraphDoc, c: Chain): boolean =>
   c.use.some((s) => {
     const b = g.modules[s.module];
     return !!b && isShapeModule(b);
+  });
+
+/** Does this chain carry a MIDI device — notes a lane may be fed by, for the browser to record? */
+export const carriesMidiIn = (g: GraphDoc, c: Chain): boolean =>
+  c.use.some((s) => {
+    const b = g.modules[s.module];
+    return !!b && isMidiInModule(b);
   });
 
 /** Does this chain carry a live interface input? */
@@ -856,6 +873,11 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `chain '${name}': out '${o.to}' is a camera — picture comes FROM it, not to it`,
         );
+      // …and a MIDI device, the third: notes come FROM a keyboard, never to one.
+      else if (target && isMidiInModule(target))
+        w.push(
+          `chain '${name}': out '${o.to}' is a MIDI device — notes come FROM it, not to it`,
+        );
       // A PICTURE lane takes two things: a camera and a shape. Everything else aimed at one is
       // discarded silently — see docs/camera.md and song-video/docs/shapes.md.
       else if (g.videoTracks[to]) {
@@ -866,9 +888,10 @@ export function validate(g: GraphDoc): string[] {
       }
       // Only a live input's signal may land on a LANE; anything else aimed at one is silently discarded.
       else if (g.tracks[to] || disabled.has(to)) {
-        if (!carriesInput(g, c))
+        // A MIDI device lands on a lane too: it says what that lane RECORDS from (docs/midiIn.md).
+        if (!carriesInput(g, c) && !carriesMidiIn(g, c))
           w.push(
-            `chain '${name}': out '${o.to}' is a track — only a live input's signal lands on a lane`,
+            `chain '${name}': out '${o.to}' is a track — only a live input's or a MIDI device's signal lands on a lane`,
           );
       }
       // A camera is exempt from the last test: landing on no picture lane is not a fault, since it

@@ -143,6 +143,29 @@ you want is a panel and presets FOR YOU, not a face the whole account reads.
 offers it on the modules section itself. On the machine this is measured against: 252 plugins
 scanned, 242 modules written, 10 skipped.
 
+### Some built-ins get no face
+
+A module sets PARAMETERS and nothing else, so a built-in whose working state is not parameters is a
+module that cannot be told what to do. `NO_FACE` in `engineFace.ts` lists them, each with its
+reason; `engineFaceModule` refuses one and `engineFaces` skips it, the same way it skips a name with
+no slug.
+
+- **Sampler** — its state is its sounds, and only a rack loads sounds into it (`racks.md`). A face
+  would be a silent node, listed in the picker beside the rack that does the job.
+- **MIDI Patch Bay**, **Patch Bay** — their state is the channel map, the wiring. Unset, it is the
+  identity, so the module passes its input through unchanged; and routing is the graph's job anyway.
+- **Text** — a note that touches no sound; a note here is an `@meta/doc` node.
+- **Insert** — a hardware send and return, whose device is state a module cannot set.
+- **Freeze Point** — a marker for Tracktion's freeze, which st0 does not use: any module freezes
+  with `frozen:` (`packages/song/src/autoFreeze.ts`).
+- **Level Meter** — measures what nothing reads; the engine meters every track and the master itself.
+- **Aux Send**, **Aux Return** — these DO carry audio, over a bus number kept as state and so always
+  bus 0: a send and a return anywhere would join two points the graph does not draw. Routing is the
+  graph's, so they are refused for what they would hide rather than for doing nothing.
+
+The list holds what was checked to do nothing, not every built-in the parameter table shows as
+empty: an empty list there means no parameters, which is not the same as no effect.
+
 ### A face COPIES nothing
 
 Worth stating, because the pass looks like the opposite thing. A `module.yaml` per scanned

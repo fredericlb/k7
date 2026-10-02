@@ -32,14 +32,14 @@ describe("neededRefs", () => {
   it("reads a ref quoted or bare, and drops a trailing comment", () => {
     expect(
       neededRefs({
-        a: 'extends: "@st0/audio/utility/tempo"\n',
+        a: 'extends: "@st0/cold/tempo"\n',
         b: "extends: @st0/audio/filter/eq3\n",
         c: "extends: @st0/audio/filter/sweep   # the one on the desk\n",
       }),
     ).toEqual([
       "@st0/audio/filter/eq3",
       "@st0/audio/filter/sweep",
-      "@st0/audio/utility/tempo",
+      "@st0/cold/tempo",
     ]);
   });
 

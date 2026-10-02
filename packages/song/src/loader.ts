@@ -21,6 +21,7 @@ import {
 import { ENGINES_DIR, engineRefOf } from "@studio/song-schema/engines";
 import { instanceName } from "@studio/song-schema/instanceName";
 import {
+  COLD_TYPE,
   CONSOLE_TYPE,
   categoryForRole,
   FILE_PARAMS,
@@ -33,7 +34,6 @@ import {
   metaRef,
   moduleEmits,
   moduleKey,
-  moduleLabelOf,
   moduleRefOf,
   NODE_SEP,
   NOT_SUPPORTED_TYPE,
@@ -636,8 +636,7 @@ export function deadProjectFields(dir: string): Diagnostic[] {
 export function notSupportedModules(dir: string): Diagnostic[] {
   const out: Diagnostic[] = [];
   const authored = loadModules(dir); // authored, no validate
-  // RESOLVED, because the marker is usually INHERITED: an import writes a node on `@meta/not-supported`
-  // and no module of its own, and the authored file then says nothing at all (docs/notSupported.md).
+  // RESOLVED, because the marker may be INHERITED: a node on `@meta/not-supported` need not restate it (docs/notSupported.md).
   const resolved = resolveModuleMap(authored, loadModuleRefs(dir));
   for (const [name, m] of Object.entries(resolved)) {
     const p = m?.plugin;
@@ -653,7 +652,7 @@ export function notSupportedModules(dir: string): Diagnostic[] {
       line: 1,
       col: 1,
       severity: "warning",
-      message: `plugin "${moduleLabelOf(m) || p.name || name}" is not supported — it will be bypassed`,
+      message: `plugin "${p.name || name}" is not supported — it will be bypassed`,
     });
   }
   return out;
@@ -836,13 +835,15 @@ export function baseModuleRefs(
 ): string[] {
   return (
     Object.entries(byRef)
-      // An engine is picked INSIDE its module (docs/engines.md), and a console half by the project (docs/console.md).
+      // An engine is picked INSIDE its module (docs/engines.md), a console half by the project (docs/console.md),
+      // and a cold module is placed by what needs a whole file — a set's scaffold, a chain template (docs/coldModules.md).
       .filter(
         ([, m]) =>
           m?.kind === "plugin" &&
           !m?.node &&
           !m?.engineOf &&
-          m?.category !== CONSOLE_TYPE,
+          m?.category !== CONSOLE_TYPE &&
+          m?.category !== COLD_TYPE,
       )
       .map(([ref]) => ref)
       .sort()
@@ -854,10 +855,9 @@ export function listBaseModules(dir: string): string[] {
   return baseModuleRefs(projectModules(dir));
 }
 
-/** One base module as a PICKER draws it: the ref it is named by, and what it calls itself (docs/moduleLabel.md). */
+/** One base module as a PICKER draws it: the ref it is named by, which is also the name it shows. */
 export interface BaseModuleRef {
   ref: string;
-  label?: string;
   /** Its panel grid, when it draws one — what a picker sizes a card by before the node exists. */
   panel?: { cols: number; rows: number };
 }
@@ -872,13 +872,12 @@ export function panelOf(
   return cols > 0 && rows > 0 ? { cols, rows } : undefined;
 }
 
-/** …the same list with those labels, off ONE walk — what `/base-modules` answers. */
+/** …the same list with their panels, off ONE walk — what `/base-modules` answers. */
 export function listBaseModuleRefs(dir: string): BaseModuleRef[] {
   const modules = projectModules(dir);
   return baseModuleRefs(modules).map((ref) => {
-    const label = moduleLabelOf(modules[ref]);
     const panel = panelOf(modules[ref]);
-    return { ref, ...(label ? { label } : {}), ...(panel ? { panel } : {}) };
+    return { ref, ...(panel ? { panel } : {}) };
   });
 }
 
@@ -1061,7 +1060,7 @@ export function createModuleFile(
 /** What an io module's `module.yaml` SAYS — the role line is what the loader reads; the rest is prose for the reader (docs/moduleTypes.md). */
 function ioModuleBody(
   module: string,
-  role: "in" | "out" | "file" | "camera",
+  role: "in" | "out" | "file" | "camera" | "midi",
 ): string {
   if (role === "in")
     return (
@@ -1086,6 +1085,16 @@ function ioModuleBody(
       `#     camera: "Logitech BRIO"\n` +
       `io: camera\n`
     );
+  if (role === "midi")
+    return (
+      `# ${module}: a MIDI device — the notes a lane records, when this node is wired to it (docs/midiIn.md).\n` +
+      `#\n` +
+      `# Pick the device on the node's card, or write its LABEL here — never an id, which is per\n` +
+      `# browser. Empty records from any device:\n` +
+      `#\n` +
+      `#     device: "Arturia KeyStep 37"\n` +
+      `io: midi\n`
+    );
   if (role === "file")
     return (
       `# ${module}: audio off disk rather than off an interface (docs/fileInput.md).\n` +
@@ -1107,7 +1116,7 @@ function ioModuleBody(
 export function createIoModuleFile(
   dir: string,
   name: string,
-  role: "in" | "out" | "file" | "camera",
+  role: "in" | "out" | "file" | "camera" | "midi",
 ): string {
   if (!/^[A-Za-z0-9_-]+$/.test(name))
     throw new Error(

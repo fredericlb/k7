@@ -55,14 +55,20 @@ and kind glyph leave no room for the name at all. The name ellipses at these wid
 renders a header strip plus a content area, so even a module with no UI needs room for its
 "No Options" label.
 
+A panel with two or more TABS adds a column at the card's left, `TAB_COL_W` wide, and is at least
+`TAB_H` per tab tall so every name is listed (`columnW`). `widgetRect` takes that width as its
+`left`, and it is the one input beyond the widget: a tab's widgets are drawn right of the column,
+exactly where the builder's grid places them. `ui-chains-react/docs/nodeCard.md` draws the column.
+
 `UI_HEADER` clears the node's name **and** its `sub` line at their existing positions, so the header
 is sized for the worst case rather than per node. That is what lets a widget's box depend only on
 its own col/row, keeping `widgetRect` a pure function of the widget. The cost is about 12px of
 unused strip on a module with no sub line. `CELL` fits a control *and* its caption: a usable knob is
 ~24px across and the caption needs another ~10.
 
-Rows are `ROW_GAP` apart, columns `COL_GAP`, the first row sits flush under the header, and the
-last has `UI_EDGE` of air under it. A row of knobs is a control over its caption, and with no air
+Rows are `ROW_GAP` apart, columns `COL_GAP`, the first row sits `UI_TOP_GAP` (4 px) under the
+header's rule — `UI_CONTENT_TOP` is the two summed, and the CSS places a card's note and OUT mark
+there too, so nothing touches the rule — and the last has `UI_EDGE` of air under it. A row of knobs is a control over its caption, and with no air
 under the caption it read as the label of the knob BELOW rather than the one above. Columns take
 less, a caption being narrower than its cell; what they need it for is GROUPS — two tinted frames
 side by side with no gap between them read as one slab rather than two sections. The
@@ -72,12 +78,9 @@ grid ends as a block rather than a row missing.
 A widget spanning rows or columns covers the gaps between them (`rowsHeight`, `colsWidth`), so a
 fader, a screen or a group is one box, not a stack of cells.
 
-A node with an engine stage adds `FOOTER_H` under all of that for its footer
-(`packages/ui-chains-react/docs/nodeCard.md`), and is widened to `STAGE_SLOT_MIN_W` (40 px) per slider only
-when its grid is narrower than that: a two-column panel would otherwise squeeze three sliders into
-78 px. Anything wider keeps its grid's width — the card is as wide as its `cols` say, and the
-footer fits it rather than the other way round.
-`stageSlot` places them, by the node's own size, so the drawing and the size cannot disagree.
+A node with an engine stage draws its sliders on the header's second line, so they cost no height;
+`nodeSize` only widens a card too narrow for them — `STAGE_HEADER_LEAD` plus a `STAGE_SLOT_W` slot each
+(`packages/ui-chains-react/docs/nodeCard.md`).
 
 ### The header's name has to be readable at that width
 
@@ -870,7 +873,7 @@ reorganizes the picture. Pins outrank the session because the file outranks it �
 have written one. `graph organize` empties both and lets dagre speak. The name resolution is
 `cables.ts`'s `jackRef`, inlined here because `cables.ts` imports this file.
 
-### The master run goes to the bottom right, and is ranked AFTER every lane
+### The master run is the last column, its sum on the track row
 
 `MIX -> OUT` is the run out to the interface. Three deliberate decisions collide on it: the sum
 stands where a source stands, `OUT` is an ordinary sink one past the deepest module, and no cable is
@@ -884,11 +887,12 @@ set it needs — the modules of any chain sourced from a sum. Ranking a master m
 *inside* that run is the same disease: a limiter is step 0, so it would land on the first module
 row, up among the tracks.
 
-`masterRunAside` then puts the block in the **bottom-right corner** — one `nodesep` past the
-rightmost thing not on it, one `ranksep` below the deepest. Both are POSITIONS and not minimums, so
-a run dagre left miles out is pulled back IN; a column alone across an empty screen is not organised
-either. It shifts as a **block**, keeping whatever shape the ranks gave it. Bottom rather than top
-because that is where the cables nobody draws actually arrive. On that same set the wire is **96px**.
+`masterRunAside` then moves the block to the RIGHT of everything — one `nodesep` past the rightmost
+thing not on it, so the sum is always the last column — and UP so the sum stands on the TRACK row,
+level with the lanes it sums. Both are POSITIONS and not minimums, so a run dagre left miles out is
+pulled back in. It shifts as a **block**, keeping the shape the ranks gave it, which is what keeps
+`MIX -> OUT` short: the ranking put `OUT` one rank under the run's last module, and the shift moves
+the two together. A graph with no lane has no track row to join, and its run goes below everything.
 
 It runs **before** the pins, and that is the difference from the rule below: where the master column
 sits is a *preference*, and a pin outranks a preference. A cable that climbs is *wrong*, and nothing
@@ -945,6 +949,34 @@ are not all the same width and it is the space between them the eye reads as reg
 is upstream: the chains feeding the row are not straight columns, and they are not meant to be.
 Their cables need nothing done about them, since `cablePath` reads both ends off the nodes.
 
+### The stack view, a column per lane
+
+`stackLayout` is the graph's other whole arrangement, the stack button left of the minimap's zoom fit
+(`ui stack`): one COLUMN per lane, in the song's track order — the inputs that feed it (a live input,
+a lens, a MIDI device), the lane's own card, then every module on its path (`trackModules`, so a send
+out of its chain is in it), edge to edge with no air between them and every card as wide as the
+column's widest. An input is as wide as its lane's column, not the stack: it belongs to that lane, and
+the lane cards keep one line across columns however many inputs stand over each. What no lane
+reaches — a bus, a curve, `CUE` — takes a column per chain after the lanes, and an input feeding no
+lane one alone. The `MIX` heads the LAST column, always: the master run under it, then `OUT` like any
+other module, as wide as its column. The sum is where every column ends up, so it closes the row
+rather than standing among the lanes.
+
+It is read top to bottom, so dagre is not used: the order is the song's, and a layout engine would
+be free to choose another. Like the mixer row it is an arrangement and not a place — nothing in it is
+pinned, remembered, or written to `positions:`. Cards keep their height; a socket plate is dropped,
+since it hangs off a card's edge onto the one stacked against it, and a cable meets the middle of the
+edge instead.
+
+**A fork has to read, and a straight column hides one.** A module feeding two chains stacks both
+branches under it, so the cable to the second runs down the column BEHIND the first branch's cards —
+and leaves from the same point as the first. Two things undo that. A cable between two cards of one
+column that are not stacked against each other gets a `side` lane: `cablePath` takes it out of the
+source's right edge, down the outside of the column and into the target's right edge, each such cable
+of a column one lane further out (`sidePath`). And a card with more than one cable leaving it keeps
+its OUTPUT sockets — the one exception to the dropped plates — so its cables visibly leave from
+sockets rather than from one point. A cable between columns needs neither: it is already in the open. An input is drawn as a solid bar (`.dgx-node.bar`), the edge's tint made opaque.
+
 `moduleRow` is the standalone surface: the named modules side by side, dagre deliberately not used —
 there are no cables between channel strips to route, and the ORDER is the caller's (the song's track
 order), which a layout engine should not be allowed to choose. The cards come from `buildGraph`, so
@@ -955,7 +987,10 @@ rules:
   from the compiled project and the graph is refetched separately, so the two can be one reload
   apart and a hole in the row would be the only sign;
 - **one height for the whole row**, the tallest card's — a ragged bottom reads as cards of different
-  importance, and the camera fits the row's height to the view;
+  importance, and the camera fits the row's height to the view. `asDrawn` is the exception: every
+  card at the width the full graph draws it, the lane's clips kept, every card as tall as the
+  tallest, and a box exactly that tall, so a height fit makes that card fill the view — for a row
+  that is a VIEW of the graph's nodes (one lane's path) rather than a rank of strips;
 - the cards come **without their sockets**: the plates are CSS-pinned to the top and bottom edges
   while this row meets its cables on the sides, and a plug on the wrong edge is worse than none;
 - its `links` option decides whether the graph's own cables come along. Off for a rank of channel
@@ -966,9 +1001,9 @@ rules:
   is the truth about a lane whose chains do not touch.
 - its `track` option puts that LANE's own card at the **head** of the row, which one lane's signal
   path wants and a rank of channel strips has no use for. The lane is found by KIND and not by name
-  — `trk:` is prefixed precisely so a lane and a module may share one — and it arrives without its
-  clip LIST, which is the arrangement rather than the path and stands taller than any card beside
-  it. It leads nothing when the row has no module in it: one card and no cable is not a path, and
+  — `trk:` is prefixed precisely so a lane and a module may share one — and, unless `asDrawn`, it
+  arrives without its clip LIST, which is the arrangement rather than the path and stands taller
+  than any card beside it. It leads nothing when the row has no module in it: one card and no cable is not a path, and
   the caller has a better thing to say about a lane that reaches nothing.
 
 ### The -Infinity extent
@@ -1002,6 +1037,14 @@ returning where you began. A zero or negative spread is not a gesture and answer
 chain — a source, a chain, the module, a sink — from the panel being edited rather than from a
 project. `PREVIEW_SOURCE` stands for "whatever will feed this", because a module editor has no
 tracks and a chain's `from` has to resolve to something.
+
+What feeds it depends on what the module TAKES: `previewSourceOf` reads the first input of its type
+folder's default ports (song-schema's `MODULE_TYPES`), and an instrument or a transformer hangs off
+`PREVIEW_MIDI_SOURCE`, a MIDI lane, rather than the audio `in`. The cable is coloured by its
+source's signal, so an audio source would draw an audio cable into a synth — a wire that cannot
+exist in a chain. The module's own `emits` is its type folder's too (`moduleEmits`), so a
+transformer's cable to `OUT` stays MIDI. The MIDI source exists for this preview only: no project
+has a lane by that name.
 
 `previewPluginId` is THE one place the engine address `<chain>:<module>` is spelled. Two things
 build it — the `ProjectDoc` the engine loads (the médiathèque's `engine/preview.ts`) and the graph

@@ -223,7 +223,7 @@ modules:
   "@in": [ stemsplit ]
   stemsplit: [ "@out" ]
 # <library>/chains/stems/nodes/stemsplit.yaml
-extends: "@st0/audio/separation/stemsplit"
+extends: "@st0/cold/stemsplit"
 ```
 
 …and then `clip process riff @st0/stems`.

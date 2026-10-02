@@ -56,17 +56,12 @@ Groups need nothing: they are drawing only and the engine sums every lane into t
 The halves' plugin ids start with `@console:`, which no chain step can produce, since `@` begins a
 ref and never a node name.
 
-## Implicit, and drawn
+## Implicit
 
 Choosing a console never touches `graph.yaml`: the halves are not nodes, and the graph you drew
-stays the graph you drew. A setting that changes the sound while the graph shows nothing would be
-a second, invisible place where the sound is decided — the thing the strip became a module to
-avoid ([trackMixer.md](trackMixer.md)). So the graph DRAWS it without holding it: every node a half
-follows wears a badge with the system's name, each lane's strip and the `MIX` sum.
-
-The badges are read off the COMPILED project (`consoleOf`), the document the engine plays, not
-off the setting. A lane the console skips therefore wears no badge, and the drawing cannot
-claim a channel the sound does not have.
+stays the graph you drew. The graph does not draw it either: which console a project runs is a
+setting of the project (Settings › Project), and that is where it is read and changed. A tag on
+every strip and on the `MIX` sum would repeat one fact across the whole graph.
 
 ## A system that is not there
 

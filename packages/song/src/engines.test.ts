@@ -5,7 +5,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { moduleLabelOf } from "@studio/song-schema/moduleTypes";
+import { moduleStatusOf } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { enginesBeside } from "./engines";
 import { loadGraph } from "./graph";
@@ -41,7 +41,7 @@ beforeEach(() => {
     "utf8",
   );
   lib = writeLibraries(root, {
-    "audio/dynamics/compressor": { label: "Compressor", engine: "tracktion" },
+    "audio/dynamics/compressor": { status: "favorite", engine: "tracktion" },
     "audio/dynamics/compressor/engines/tracktion": {
       plugin: { type: "internal", name: "compressor" },
       params: { Ratio: 0.5 },
@@ -104,7 +104,7 @@ describe("running as an engine", () => {
     writeNode(dir, "vox", { extends: COMP });
     const m = resolved("vox");
     expect(m.plugin).toEqual({ type: "internal", name: "compressor" });
-    expect(moduleLabelOf(m)).toBe("Compressor");
+    expect(moduleStatusOf(m)).toBe("favorite");
     expect(m.engine).toBe("tracktion");
     expect(
       (m.ui as { widgets: Record<string, { bind: string }> }).widgets.k.bind,

@@ -23,8 +23,30 @@ constexpr int maxEventsPerBlock = 256;
 // The one tempo a ProjectDoc carries, and the floor under it — a tempo of zero would be a step of forever.
 constexpr double minBpm = 20.0;
 
-// The order the three parameters are CREATED in below, which is the order they are read back in.
-enum ParamIndex { kRate = 0, kOctaves = 1, kDirection = 2 };
+// The order the parameters are CREATED in below, which is the order they are read back in: `Step 1` is kFirstStep.
+enum ParamIndex {
+    kRate = 0,
+    kOctaves = 1,
+    kDirection = 2,
+    kSteps = 3,
+    kFirstStep = 4,
+    kFirstVelocity = kFirstStep + Arpeggiator::maxSteps,
+    kFirstGate = kFirstVelocity + Arpeggiator::maxSteps,
+};
+
+// A drawn step's settings: a rest, then the slot it plays, 1 the lowest held note.
+juce::StringArray stepLabels()
+{
+    juce::StringArray labels{"-"};
+    for (int i = 1; i <= Arpeggiator::maxSteps; ++i) labels.add(juce::String(i));
+    return labels;
+}
+
+// What a fresh pattern holds: `up` over eight slots, so Custom chosen before anything is drawn still plays.
+float stepDefault(int step)
+{
+    return (float)(((step - 1) % 8) + 1);
+}
 
 }  // namespace
 
@@ -36,7 +58,8 @@ ArpeggiatorPlugin::ArpeggiatorPlugin(te::PluginCreationInfo info)
     const auto choice = [&](const juce::String& name, float min, float max, float def,
                             const juce::StringArray& labels) {
         auto value = std::make_unique<juce::CachedValue<float>>();
-        value->referTo(state, juce::Identifier("p_" + name), um, def);
+        // Spaces dropped from the state id only: an Identifier may not hold one, and `Step 1` is the name a panel binds.
+        value->referTo(state, juce::Identifier("p_" + name.removeCharacters(" ")), um, def);
         te::AutomatableParameter::Ptr param = new te::DiscreteLabelledParameter(
             name.toLowerCase(), name, *this, {min, max}, labels.size(), labels);
         addAutomatableParameter(param);
@@ -47,7 +70,26 @@ ArpeggiatorPlugin::ArpeggiatorPlugin(te::PluginCreationInfo info)
     // All three are CHOICES rather than knobs: an eighth and a half of a quarter are the same setting.
     choice("Rate", 0.0f, (float)rateBeats.size() - 1.0f, (float)rateDefault, rateLabels());
     choice("Octaves", 1.0f, (float)Arpeggiator::maxOctaves, 1.0f, {"1", "2", "3", "4"});
-    choice("Direction", 0.0f, 3.0f, 0.0f, {"Up", "Down", "Up-down", "Random"});
+    choice("Direction", 0.0f, 4.0f, 0.0f, {"Up", "Down", "Up-down", "Random", "Custom"});
+    // The drawn pattern Custom plays — a length and one choice per step, set by the panel's screen (docs/arpeggiator.md).
+    juce::StringArray lengths;
+    for (int i = 1; i <= Arpeggiator::maxSteps; ++i) lengths.add(juce::String(i));
+    choice("Steps", 1.0f, (float)Arpeggiator::maxSteps, 8.0f, lengths);
+    for (int i = 1; i <= Arpeggiator::maxSteps; ++i)
+        choice("Step " + juce::String(i), 0.0f, (float)Arpeggiator::maxSteps, stepDefault(i), stepLabels());
+    // Per step, how loud and how long — continuous, so these are plain parameters rather than choices.
+    const auto level = [&](const juce::String& name, float min, float max, float def) {
+        auto value = std::make_unique<juce::CachedValue<float>>();
+        value->referTo(state, juce::Identifier("p_" + name.removeCharacters(" ")), um, def);
+        auto param = addParam(name.toLowerCase().removeCharacters(" "), name, {min, max});
+        param->attachToCurrentValue(*value);
+        params_.push_back(param);
+        values_.push_back(std::move(value));
+    };
+    for (int i = 1; i <= Arpeggiator::maxSteps; ++i) level("Velocity " + juce::String(i), 0.0f, 1.0f, 1.0f);
+    for (int i = 1; i <= Arpeggiator::maxSteps; ++i)
+        level("Gate " + juce::String(i), (float)Arpeggiator::minGate, (float)Arpeggiator::maxGate,
+              (float)Arpeggiator::gate);
     events_.resize(maxEventsPerBlock);
     // Sized HERE, on the message thread: a MidiMessageArray grows on add, and the adds happen on the audio thread.
     passThrough_.reserve(maxEventsPerBlock);
@@ -127,8 +169,18 @@ void ArpeggiatorPlugin::applyToBuffer(const te::PluginRenderContext& fc)
     }
 
     const double seconds = sampleRate_ > 0.0 ? fc.bufferNumSamples / sampleRate_ : 0.0;
+    // The drawn pattern, read into a member each block: no allocation, and a step edited live is heard on the next one.
+    for (int i = 0; i < Arpeggiator::maxSteps; ++i) {
+        pattern_[(size_t)i] = juce::roundToInt(paramValue(kFirstStep + i));
+        velocity_[(size_t)i] = paramValue(kFirstVelocity + i);
+        gate_[(size_t)i] = paramValue(kFirstGate + i);
+    }
+    const ArpPattern pattern{pattern_.data(),
+                             juce::jlimit(1, Arpeggiator::maxSteps, juce::roundToInt(paramValue(kSteps))),
+                             velocity_.data(), gate_.data()};
     const int n = arp_.advance(seconds, stepSeconds(), juce::roundToInt(paramValue(kOctaves)),
-                               arpDirection(paramValue(kDirection)), events_.data(), (int)events_.size());
+                               arpDirection(paramValue(kDirection)), events_.data(), (int)events_.size(),
+                               pattern);
 
     midi.clear();
     // Merged by timestamp rather than appended: a list out of order is a list something downstream will drop.

@@ -4,10 +4,7 @@
 // it. Only BASE modules and never `@engine`, and nothing is run — it pre-writes. See
 // docs/commandBar.md.
 
-import {
-  isEngineRef,
-  moduleDisplayName,
-} from "@studio/song-schema/moduleTypes";
+import { isEngineRef } from "@studio/song-schema/moduleTypes";
 import { fuzzyScore } from "../fuzzy";
 import type { PanelSize } from "../pendingNode";
 import { type TreeNode, TreePicker } from "./TreePicker";
@@ -17,8 +14,6 @@ export interface PickerModule {
   ref: string;
   /** Its type folder — the level the tree groups by. */
   category?: string;
-  /** What the module CALLS itself, when it says: shown instead of the ref's last segment (packages/song/docs/moduleLabel.md). */
-  label?: string;
   /** Its panel grid, when it draws one — what the card is sized by before the node exists. */
   panel?: PanelSize;
 }
@@ -101,6 +96,12 @@ const INPUT_BRANCH: TreeNode<ModulePick> = {
       hint: "io: file — audio off disk; the node carries which file",
       entry: { ref: "io/FILE", namespace: null, type: "io", name: "FILE" },
     },
+    {
+      key: "inputs/midi",
+      label: "MIDI input",
+      hint: "io: midi — a MIDI device; wired to a lane, it is what that lane records",
+      entry: { ref: "io/MIDI", namespace: null, type: "io", name: "MIDI" },
+    },
   ],
 };
 
@@ -132,11 +133,8 @@ export function buildTree(
     if (!type) continue;
     const leaf: TreeNode<ModulePick> = {
       key: `b:${ref}`,
-      // The label is a DISPLAY name; `hint` keeps the ref, so what a row picks is still readable.
-      label: moduleDisplayName(
-        typeof m === "string" ? "" : (m.label ?? ""),
-        name,
-      ),
+      // The module's file name; `hint` keeps the whole ref, so what a row picks is still readable.
+      label: name,
       hint: ref,
       entry: {
         ref,
@@ -231,22 +229,17 @@ export function searchModules(
       const { namespace, name } = parsed;
       const type =
         parsed.type ?? (typeof m === "string" ? undefined : m.category);
-      const label = typeof m === "string" ? "" : (m.label ?? "");
       const byName = fuzzyScore(q, name);
       const byRef = fuzzyScore(q, ref);
       const byPath = pathScore(q, ref);
-      // A label is what somebody CALLS it, so it is searched like the name and never instead of it.
-      const byLabel = label ? fuzzyScore(q, label) : -1;
       const score = Math.max(
         byRef < 0 ? -1 : byRef + contains(ref),
         byName < 0 ? -1 : byName + NAME_BONUS + contains(name),
-        byLabel < 0 ? -1 : byLabel + NAME_BONUS + contains(label),
         byPath < 0 ? -1 : byPath + PATH_BONUS,
       );
       // Did the query appear as written, or only as a scattered subsequence? See below.
-      const literal =
-        byPath >= 0 || !!contains(ref) || !!contains(name) || !!contains(label);
-      return { ref, namespace, type, name, label, score, literal };
+      const literal = byPath >= 0 || !!contains(ref) || !!contains(name);
+      return { ref, namespace, type, name, score, literal };
     })
     // A ref shape the parser doesn't recognise has no type to instantiate under, the same reason buildTree drops it.
     .filter((m) => m.score >= 0 && m.type);
@@ -259,7 +252,7 @@ export function searchModules(
     .slice(0, SEARCH_LIMIT)
     .map((m) => ({
       key: `s:${m.ref}`,
-      label: moduleDisplayName(m.label, m.name),
+      label: m.name,
       hint: m.ref,
       entry: {
         ref: m.ref,

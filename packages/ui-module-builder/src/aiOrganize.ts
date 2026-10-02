@@ -409,20 +409,14 @@ export function checkAiResult(
   const issues: string[] = [];
   const known = new Set(bindNames);
   const top = Object.entries(ui.widgets);
-  // Panel-level widgets are drawn on EVERY page, so each page is checked together with them.
-  const always = top.filter(([, w]) => w.type !== "tabs");
+  // The panel's own widgets are drawn on EVERY tab, so each tab is checked together with them.
   const all: [string, Widget][] = [...top];
   issues.push(...layoutIssues(ui, "panel", top));
-  for (const [tid, t] of top)
-    for (const [page, ws] of Object.entries(t.pages ?? {})) {
-      const inPage = Object.entries(ws);
-      all.push(...inPage);
-      issues.push(
-        ...layoutIssues(ui, `${tid}/${page}`, [...always, ...inPage]),
-      );
-      for (const [id, w] of inPage)
-        if (w.type === "tabs") issues.push(`\`${id}\`: tabs inside a page`);
-    }
+  for (const t of ui.tabs ?? []) {
+    const inTab = Object.entries(t.widgets);
+    all.push(...inTab);
+    issues.push(...layoutIssues(ui, `tab ${t.name}`, [...top, ...inTab]));
+  }
   const seen = new Set<string>();
   for (const [id, w] of all) {
     if (seen.has(id)) issues.push(`widget id \`${id}\` is used twice`);
@@ -455,9 +449,8 @@ export function checkAiResult(
   issues.push(...atControlIssues(all));
   issues.push(...eqBandIssues(all));
   issues.push(...levelIssues(all, bindNames));
-  for (const [, t] of top)
-    for (const ws of Object.values(t.pages ?? {}))
-      issues.push(...loneGroupIssues(Object.entries(ws)));
+  for (const t of ui.tabs ?? [])
+    issues.push(...loneGroupIssues(Object.entries(t.widgets)));
   if (res.widgetsJs.trim()) {
     const err = scriptSyntaxError(res.widgetsJs);
     if (err) issues.push(`widgets_js does not compile: ${err}`);

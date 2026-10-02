@@ -8,7 +8,7 @@
 // (which knows about plugins and nothing about folders) can reach them without a cycle.
 
 /** The io roles the signal comes FROM; everything else under `io/` is a sink by ELIMINATION — see docs/moduleTypes.md. */
-export const IO_SOURCES = ["in", "file", "camera"] as const;
+export const IO_SOURCES = ["in", "file", "camera", "midi"] as const;
 export type IoSource = (typeof IO_SOURCES)[number];
 export const isIoSource = (io: unknown): io is IoSource =>
   (IO_SOURCES as readonly unknown[]).includes(io);
@@ -39,6 +39,9 @@ export const isBuiltinOutput = (id: string): boolean =>
 /** The owner a master chain's plugins are filed under while the document is built — a name, not a flag, see docs/moduleTypes.md. */
 export const MASTER_OWNER = "@master";
 
+/** The type folder COLD modules are filed in — never offered by the picker, packages/song/docs/coldModules.md. */
+export const COLD_TYPE = "cold";
+
 /** The type folder a CONSOLE's halves live in — placed by the compile, never offered as a module (packages/song/docs/console.md). */
 export const CONSOLE_TYPE = "console";
 
@@ -56,6 +59,7 @@ export const MODULE_EMITS: Record<
   transformers: "midi",
   midi: "midi", // the legacy alias of transformers
   console: "audio",
+  cold: "audio", // a whole-file pass, audio in and audio out; a separator names its own outputs
   video_effects: "video",
   video_transitions: "video",
   shaders: "video", // a shader takes picture and gives picture; its audio input is a side input
@@ -114,7 +118,13 @@ export function moduleEmits(
 ): "audio" | "midi" | "video" | undefined {
   // A CAMERA is the one io source that is not audio — it is a live picture, docs/camera.md.
   if (category === "io")
-    return io === CAMERA_IO ? "video" : isIoSource(io) ? "audio" : undefined;
+    return io === CAMERA_IO
+      ? "video"
+      : io === MIDI_IN_IO
+        ? "midi"
+        : isIoSource(io)
+          ? "audio"
+          : undefined;
   // A lane's signal is its OWN, so the PORTS are read and two of them means undefined — see docs/moduleTypes.md.
   if (category === TRACK_CATEGORY) {
     const types = new Set((outputs ?? []).map((o) => o.type));
@@ -197,6 +207,12 @@ export const MODULE_TYPES: Record<
     inputs: [{ name: "midi", type: "midi" }],
     outputs: [{ name: "out", type: "midi" }],
   },
+  // A COLD module: audio in, audio out, run over a whole file before playback (packages/song/docs/coldModules.md).
+  cold: {
+    kind: "plugin",
+    inputs: [{ name: "in", type: "audio" }],
+    outputs: [{ name: "out", type: "audio" }],
+  },
   // One HALF of a summing console: placed by the compile from `project.console`, never wired by hand (packages/song/docs/console.md).
   console: {
     kind: "plugin",
@@ -266,7 +282,6 @@ export function completionOrder<T>(
   return [...favorite, ...listed];
 }
 
-/** The human name a module gives itself, or "" — never an identity, and never a second ref (docs/moduleLabel.md). */
 /** The intrinsic a module's engine-side dry/wet is bound and sent by — engine/st0-engine/docs/mix.md. */
 export const MIX_PARAM = "@mix";
 
@@ -294,25 +309,22 @@ export function ownMixSide(name: string): "wet" | "dry" | null {
   return null;
 }
 
-export const moduleLabelOf = (m: unknown): string => {
-  const l = (m as { label?: unknown } | null | undefined)?.label;
-  return typeof l === "string" ? l.trim() : "";
-};
-
-/** …and what to SHOW, which is the label when there is one and the name the ref already carries when there is not. */
-export const moduleDisplayName = (label: string, name: string): string =>
-  label.trim() || name;
-
 /** The io kind a live PICTURE source is — spelled once, since three tiers test for it. */
 export const CAMERA_IO = "camera";
 
 /** The node a camera is: `@meta/CAM`, the picture's answer to `IN`. See docs/camera.md. */
 export const CAMERA_NODE = "CAM";
 
+/** The io kind a MIDI device is: notes FROM a keyboard, which the browser records — docs/midiIn.md in @studio/song. */
+export const MIDI_IN_IO = "midi";
+
+/** The node a MIDI device is: `@meta/MIDI`, the notes' answer to `IN`. */
+export const MIDI_IN_NODE = "MIDI";
+
 /** The io roles the app itself provides — one IN and one OUT for the whole app, and a node carries the wiring: docs/moduleTypes.md. */
 export const IO_MODULES: Record<
   string,
-  { io: "in" | "out" | "file" | "camera" }
+  { io: "in" | "out" | "file" | "camera" | "midi" }
 > = {
   IN: { io: "in" },
   OUT: { io: "out" },
@@ -322,6 +334,8 @@ export const IO_MODULES: Record<
   [CUE_NODE]: { io: "out" },
   // The file source: audio off disk rather than off an interface, and a node carries WHICH file (docs/fileInput.md).
   FILE: { io: "file" },
+  // A MIDI keyboard: the notes a lane records, from the device its node names (docs/midiIn.md).
+  [MIDI_IN_NODE]: { io: MIDI_IN_IO },
 };
 
 // --- curve refs (see packages/song/docs/curves.md) -------------------------------

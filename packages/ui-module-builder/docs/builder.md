@@ -232,11 +232,11 @@ A missing or unreadable `params:` is an empty map, never an error.
 stays as terse as a hand-written one, and `undefined` entries are pruned recursively because they
 mean "not written" rather than "written null". Each widget goes on ONE flow line
 (`w1: { type: knob, col: 0, row: 0 }`) — the shape these files already have by hand, and what keeps
-moving a knob to a one-line diff. A `tabs` is the exception: its pages are a nested structure worth
-reading down the page.
+moving a knob to a one-line diff — on every tab too, a tab's `name` staying on its own line above its
+widgets (`pages.md`).
 
 **Range fields belong to the NUMERIC kinds only.** A `min` on a toggle fails to load and takes the
-graph node with it, so the test names the numeric kinds: a "not label/tabs/waveform" test holds
+graph node with it, so the test names the numeric kinds: a "not label/waveform" test holds
 only until a knob is retyped into one of those. A dropdown's `options` are written out in full,
 because the module must draw the same
 with no engine to re-fetch them, and its `library` is written alongside when both are set: the file
@@ -292,12 +292,6 @@ inline and a document-wide setting would reflow every other list in the file.
 that says nothing (the rule `type:` follows), and a `status: listed` on every module in a library is
 a line of noise per file a reader has to learn to skip.
 
-`labelOf` / `setLabelIn` are the same pair for the name a picker draws
-(`packages/song/docs/moduleLabel.md`). The box sits beside the status dropdown, and its
-PLACEHOLDER is the module's own name — the fallback a picker uses, shown before anything is typed,
-so an empty box reads as "called after its ref" rather than as unset. Emptying it DELETES the
-field: a blank label and no label are the same state, and only one of them should be on disk.
-
 ## A group frames, it does not hold
 
 A `group` is a tinted box drawn under a section of controls — DRY/WET, an envelope — and in the
@@ -310,12 +304,30 @@ so a group holding its controls would hide them from all of it
 What the grid does about it, in `src/groupGeometry.ts` (the one rule, shared with AI organize's
 check) and `src/WidgetGridEditor.tsx`:
 
-- **Moving a group carries what it frames**, so a section moves as one block; resizing it moves
-  nothing, and is how a control is taken out of it or brought in.
+- **Moving a group carries what it framed when the drag started**, so a section moves as one
+  block, and only that block: a widget it passes over on the way is not picked up, its membership
+  being fixed at the press. Resizing it moves nothing, and is how a control is taken out of it or
+  brought in — as is dragging the control itself across its edge.
 - **Adding a control with a group selected lands it inside the group**, in its first free cell —
   the way a group is filled without aiming at cells.
 - **A parameter dropped on a group makes its widget in the cell under the pointer**: the group
   covers its cells, so it answers the drop the bare cell would have.
+- **A selected group's resize handles are drawn in a layer of their own, over its widgets**: a
+  group is drawn under what it frames, so handles on the group itself would be hidden by any
+  widget sitting in its corner.
+- **Right-click cuts, copies and pastes** (`src/widgetClipboard.ts`). A group is copied WITH what
+  it frames, so a section is duplicated in one gesture; the block is held relative to its
+  top-left and lands at the cell right-clicked, pulled back inside the grid if it would overrun.
+  The clip is held for the session rather than per editor, so a section copied on one page or in
+  one module pastes into another. A pasted widget keeps its id when that is free anywhere in the
+  panel, and becomes `<id>_2` otherwise: an id stays readable, and a screen's `widgets.js` entry
+  is found by it. Only the primary button drags, so a right-click never moves what it lands on.
+- **Double-clicking a widget selects the group it sits in** (`groupOf`). A group full of widgets
+  has little bare surface to click, so this is the dependable way to reach it.
+- **With a group selected, dragging any widget inside it moves the group** and all it frames, and
+  the group stays selected; a plain click on that widget, with no move, selects the widget. A move
+  keeps the cell you grabbed under the pointer, so a group taken by a widget in its middle does not
+  jump to put its corner there.
 - Groups are drawn FIRST, under everything, and a widget that straddles a group's edge, or overlaps
   another, is outlined in amber: that is the panel AI organize's check refuses.
 
@@ -328,7 +340,7 @@ the alpha, which only the text beside it sets.
   `@mix` and `@input-volume` on an EFFECT only — a module filed under `audio/` — since an instrument
   or a MIDI module has no audio input to blend or trim; `@output-volume` on every module, being a
   lane's fader as well as the level out of anything with audio out. Both volumes range −60..+12 dB.
-  The preview draws them in the card's FOOTER (`stageFor`, by the module's folder), which the grid
+  The preview draws them on the second line of the card's header (`stageFor`, by the module's folder), which the grid
   does not hold and nothing here edits.
 
 - **The preview is the bottom half of the LEFT column**, under the text pane, and the grid has the

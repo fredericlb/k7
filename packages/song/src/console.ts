@@ -5,7 +5,7 @@
 
 import { enginePlugin, MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import type { PluginDoc, ProjectDoc } from "@studio/engine-protocol/project";
-import { CONSOLE_TYPE, moduleLabelOf } from "@studio/song-schema/moduleTypes";
+import { CONSOLE_TYPE } from "@studio/song-schema/moduleTypes";
 import { resolveModuleRef } from "./moduleResolve";
 import type { LoadedModule } from "./rawDoc";
 
@@ -33,12 +33,8 @@ export function consoleSystems(
   for (const ref of Object.keys(byRef)) {
     const system = at.exec(ref)?.[1];
     if (!system || !byRef[halfRef(system, "buss")]) continue;
-    // The channel's own label, its "Channel" dropped: the half is the module, the system is the choice.
-    const label = moduleLabelOf(byRef[ref])?.replace(/\s*Channel$/i, "");
-    out.push({
-      ref: system,
-      label: label || system.split("/").pop() || system,
-    });
+    // The system's folder name: the half is the module, the system is the choice.
+    out.push({ ref: system, label: system.split("/").pop() || system });
   }
   return out.sort((a, b) => a.label.localeCompare(b.label));
 }

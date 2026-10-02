@@ -4,6 +4,7 @@ import {
   moduleCategoryOf,
   modulePreviewGraph,
   PREVIEW_CHAIN,
+  PREVIEW_MIDI_SOURCE,
   PREVIEW_SOURCE,
   visibleGrid,
 } from "./modulePreview";
@@ -23,6 +24,26 @@ describe("one module as a graph", () => {
     expect(g.tracks).toEqual([PREVIEW_SOURCE]);
     expect(g.chains[PREVIEW_CHAIN].from).toBe(PREVIEW_SOURCE);
     expect(g.chains[PREVIEW_CHAIN].out).toEqual([{ to: "OUT", gain: 1 }]);
+  });
+
+  it("feeds a module that takes notes from a MIDI source, with a MIDI cable", () => {
+    const synth = modulePreviewGraph(
+      "jun",
+      "modules/instruments/synth/jun",
+      ui(),
+      {},
+    );
+    expect(synth.tracks).toEqual([PREVIEW_MIDI_SOURCE]);
+    expect(synth.trackSignals).toEqual({ [PREVIEW_MIDI_SOURCE]: "midi" });
+    expect(synth.chains[PREVIEW_CHAIN].use[0].emits).toBe("audio");
+    const arp = modulePreviewGraph("arp", "modules/transformers/arp", ui(), {});
+    expect(arp.chains[PREVIEW_CHAIN].from).toBe(PREVIEW_MIDI_SOURCE);
+    expect(arp.chains[PREVIEW_CHAIN].use[0].emits).toBe("midi");
+    const signals = buildGraph(synth).edges.map((e) => [e.source, e.signal]);
+    expect(signals).toEqual([
+      [`trk:${PREVIEW_MIDI_SOURCE}`, "midi"],
+      ["mod:jun", "audio"],
+    ]);
   });
 
   it("gives the node an engine address rather than leaving it decorative", () => {

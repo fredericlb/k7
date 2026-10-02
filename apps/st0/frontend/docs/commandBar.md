@@ -335,11 +335,9 @@ Only BASE modules appear, never nodes — `loadModuleRefs` keys by module folder
 node is never a ref of its own. That is the right set here, because picking one leads
 to instantiating it.
 
-**A row is named by the module's `label:` when it has one**, and by the ref's last segment when it
-has not (`packages/song/docs/moduleLabel.md`). The ref stays on the row as its hint either way,
-because the ref is what a pick WRITES: a row showing only a human name would hide what lands in the
-file. The search reads both, so the reverb you called *Grande salle* answers to "grande" and to
-"reverb".
+**A row is named by the module's file name** — the ref's last segment. The whole ref stays on the
+row as its hint, because the ref is what a pick WRITES and the file name alone does not say which
+library or folder it comes from.
 
 The nesting is a good way to BROWSE and a bad way to find one module you can already name
 — a 250-plugin catalogue is four hovers deep. So the root level also carries a search

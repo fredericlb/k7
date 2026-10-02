@@ -159,9 +159,10 @@ A delete does not go to the workspace's recycle bin. The library's HISTORY is it
 that removes a module is the one to revert — and the library's clone may sit on another disk than
 the workspace, where a move would fail. The confirmation says so rather than promising a bin.
 
-A rename changes a module's REF: every chain that names the old one stops finding it, here and in
-every project using the library. Nothing rewrites those chains; the rename is the author's call,
-made knowing that.
+A rename changes a module's REF, and a folder's rename changes the ref of every module inside it.
+So it repoints them as a move does, in the library and in this workspace's projects; other
+workspaces keep the old ref (`packages/song/docs/moduleMove.md`). An engine's folder cannot be
+renamed: nodes pick an engine by that name.
 
 ## Moving a module — drag it
 

@@ -10,6 +10,7 @@
 // property of a surface, and pushing it in here would make one of them wrong.
 
 import type { WebGraph, WebWidget } from "@studio/graph-model";
+import { panelWidgets } from "@studio/graph-model/panel";
 
 /** One step of a chain, as the graph model spells it. */
 type Step = WebGraph["chains"][string]["use"][number];
@@ -79,7 +80,8 @@ export function stepsByModule(graph: WebGraph | null): Map<string, FoundStep> {
 
 /** The widget that draws `param` on this step, when its module declares a panel at all. */
 export function widgetFor(step: Step, param: string): WebWidget | undefined {
-  return Object.values(step.ui?.widgets ?? {}).find((w) => w.bind === param);
+  // On any tab: a control is the module's whichever page shows it.
+  return panelWidgets(step.ui).find(([, w]) => w.bind === param)?.[1];
 }
 
 /** Resolve ONE target, or the sentence saying why it did not — the caller decides what to do with it. */

@@ -14,17 +14,27 @@
 namespace studio {
 
 /** The orders the held notes are walked in; the VALUE is what the `Direction` parameter carries. */
-enum class ArpDirection { up = 0, down = 1, upDown = 2, random = 3 };
+enum class ArpDirection { up = 0, down = 1, upDown = 2, random = 3, custom = 4 };
 
-/** …read off a parameter, which is a float and may be anything: outside the four, `up`. */
+/** …read off a parameter, which is a float and may be anything: outside the five, `up`. */
 inline ArpDirection arpDirection(float value) noexcept
 {
     const int i = (int)(value + 0.5f);
     return i == 1   ? ArpDirection::down
            : i == 2 ? ArpDirection::upDown
            : i == 3 ? ArpDirection::random
+           : i == 4 ? ArpDirection::custom
                     : ArpDirection::up;
 }
+
+/** A drawn pattern: per step, 0 for a rest or the 1-based slot it plays — slot 1 the lowest held note. */
+struct ArpPattern {
+    const int* steps = nullptr;
+    int length = 0;
+    // Per step, a share of the played velocity (1 = as played) and of the step the note lasts; null reads as the defaults.
+    const float* velocity = nullptr;
+    const float* gate = nullptr;
+};
 
 /** One note the arpeggiator asks for, `at` seconds into the block it was produced in. */
 struct ArpEvent {
@@ -44,10 +54,15 @@ public:
     static constexpr int maxOctaves = 4;
     /** Under this a step is a hang and not a rate: the loop below would fire until the block ran out. */
     static constexpr double minStepSeconds = 0.005;
-    /** How much of its step a note lasts. Not a control, and the reason is in docs/arpeggiator.md. */
+    /** How much of its step a note lasts when no drawn step says otherwise — docs/arpeggiator.md. */
     static constexpr double gate = 0.5;
+    /** The span a drawn gate is held to: a full gate puts a note-off and a note-on on one timestamp. */
+    static constexpr double minGate = 0.05;
+    static constexpr double maxGate = 0.95;
     /** The lowest tempo-derived step this trusts, so a nonsense rate cannot make one note last a minute. */
     static constexpr double maxStepSeconds = 8.0;
+    /** The longest drawn pattern, and so the number of `Step n` parameters the plugin carries. */
+    static constexpr int maxSteps = 16;
 
     /** A key goes down, `at` seconds into the block — that offset is where the first note of a chord lands. */
     void noteOn(int note, float velocity, int channel, double at = 0.0) noexcept
@@ -95,8 +110,11 @@ public:
 
     /** Run `seconds` of block time, writing at most `max` events in time order; returns how many. */
     int advance(double seconds, double stepSeconds, int octaves, ArpDirection dir, ArpEvent* out,
-                int max) noexcept
+                int max, ArpPattern pattern = {}) noexcept
     {
+        // Custom with nothing drawn is `up`: a pattern of no steps would be silence nobody chose.
+        if (dir == ArpDirection::custom && (pattern.steps == nullptr || pattern.length <= 0))
+            dir = ArpDirection::up;
         int n = 0;
         if (out == nullptr || max < 2) return 0;
         const double step = std::min(maxStepSeconds, std::max(minStepSeconds, stepSeconds));
@@ -134,11 +152,22 @@ public:
                 out[n++] = {t, sounding_, channel_, 0.0f};
                 sounding_ = -1;
             }
-            const int note = noteFor(step_, oct, dir);
-            out[n++] = {t, note, channel_, velocity_};
-            sounding_ = note;
-            offIn_ = step * gate;
+            const bool drawn = dir == ArpDirection::custom;
+            const int at = drawn ? (int)(step_ % (uint32_t)std::min(pattern.length, maxSteps)) : 0;
+            const int slot = drawn ? pattern.steps[at] : 1;
+            const float level = drawn && pattern.velocity ? pattern.velocity[at] : 1.0f;
             nextIn_ = step;
+            // A drawn REST — or a step drawn silent — takes the step and plays nothing: the pattern stays on its grid.
+            const float velocity = std::min(1.0f, velocity_ * level);
+            if (slot <= 0 || !(velocity > 0.0f)) {
+                ++step_;
+                continue;
+            }
+            const int note = noteFor(step_, oct, dir, slot);
+            out[n++] = {t, note, channel_, velocity};
+            sounding_ = note;
+            const double g = drawn && pattern.gate ? (double)pattern.gate[at] : gate;
+            offIn_ = step * std::min(maxGate, std::max(minGate, g));
             ++step_;
         }
         const double rest = std::max(0.0, seconds - t);
@@ -152,11 +181,15 @@ private:
     static constexpr double never = 1.0e9;
 
     /** The note the nth step plays: the walk picks a SLOT, and the slot is a note plus its octave. */
-    int noteFor(uint32_t step, int octaves, ArpDirection dir) noexcept
+    int noteFor(uint32_t step, int octaves, ArpDirection dir, int drawn) noexcept
     {
         const int count = heldCount_ * octaves;
         int k = 0;
         switch (dir) {
+            case ArpDirection::custom:
+                // A slot past the chord wraps round it, so a pattern drawn for four notes still plays on three.
+                k = (drawn - 1) % count;
+                break;
             case ArpDirection::down:
                 k = count - 1 - (int)(step % (uint32_t)count);
                 break;

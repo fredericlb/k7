@@ -41,3 +41,16 @@ export function framedBy(
     .filter(([, w]) => w.type !== "group" && inside(w, group))
     .map(([id]) => id);
 }
+
+/** The id of the group that frames widget `id`, or null — at most one, since groups never overlap. */
+export function groupOf(
+  widgets: Record<string, Widget>,
+  id: string,
+): string | null {
+  const w = widgets[id];
+  if (!w || w.type === "group") return null;
+  const hit = Object.entries(widgets).find(
+    ([, g]) => g.type === "group" && inside(w, g),
+  );
+  return hit ? hit[0] : null;
+}

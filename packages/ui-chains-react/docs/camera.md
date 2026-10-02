@@ -90,6 +90,18 @@ of ratios accumulates rounding — pinch out and back in, and you would not land
 whole pinch absolute. It is written straight onto `cam` with no glide: the fingers are the
 animation.
 
+## A host may keep every card whole
+
+`alwaysDetailed` turns the far LOD off: `widgets` and `labels` read as on at any zoom, and only the
+cable `boost` still follows the camera. It is for a view whose cards ARE the subject — st0's
+per-track row, a handful of one lane's modules — where a card collapsing to its name is a card you
+came to look at and can no longer use. The full graph keeps the LOD, because at the zoom that
+frames forty nodes the panels are unreadable and are the costliest thing to render.
+
+The cost is the one the LOD exists to avoid: a whole panel drawn at a scale where nobody can read
+it. On a row it is bounded by the lane's length, which is why it is a host's choice and not a
+default.
+
 ## A ROW is navigated differently
 
 When the graph is arranged as a row (st0's mixer view), the wheel walks ALONG it and nothing moves

@@ -13,6 +13,7 @@ import { materialWindow } from "@studio/song-edit/materialWindow";
 import {
   MIX_NODE,
   NOT_SUPPORTED_REF,
+  NOT_SUPPORTED_TYPE,
   OUT_NODE,
 } from "@studio/song-schema/moduleTypes";
 import { beatsToDuration, beatsToPosition } from "@studio/song-schema/timecode";
@@ -665,7 +666,8 @@ export function emitFolder(
           yamlText(
             {
               extends: NOT_SUPPORTED_REF,
-              label: b.pluginName,
+              // The plugin's real name, restated with the marker since a node's `plugin:` replaces its base's whole.
+              plugin: { type: NOT_SUPPORTED_TYPE, name: b.pluginName },
               ...(params ? { params } : {}),
             },
             [],

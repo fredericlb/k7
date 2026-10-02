@@ -157,6 +157,13 @@ describe("node automate", () => {
     expect(existsSync(join(dir, "curves", "sweep.yaml"))).toBe(true);
   });
 
+  it("`none` unbinds a param whose name has a space — what the graph's `×` on an automation cable sends", async () => {
+    await runCommand("node automate osc Filter Freq sweep", host(), "cli");
+    await runCommand("node automate osc Filter Freq none", host(), "cli");
+    expect(moduleText()).not.toContain("Filter Freq");
+    expect(existsSync(join(dir, "curves", "sweep.yaml"))).toBe(true);
+  });
+
   it("refuses a line with too few words, rather than writing something", async () => {
     await runCommand("node automate osc", host(), "cli");
     expect(logs.join(" ")).toContain("usage: node automate");

@@ -94,18 +94,6 @@ The **file service** is not a row: pl8's file hub starts one per account on firs
 and the hub then watches the file service and every `@studio/*` package it runs: an edit stops
 the account processes and the next request starts them on the new code.
 
-## `claude-rc` — Claude Code's Remote Control, inside the session
-
-`claude rc` (`claude remote-control`) is a `local_resource` in the `tools` label, run at the
-repo root: it serves the sessions that claude.ai/code and the phone app drive, in THIS tree.
-It is not derived from `tilt-tasks.mjs` — it belongs to no workspace package — so the
-`Tiltfile` spells it out beside the loop.
-
-Inside the session rather than a logon task, unlike the editor and the shell: what it drives
-is a working tree being edited, so it is worth no more than the session that edits it, and a
-row with a restart button is what a re-auth or a dropped socket needs. Losing it costs a door
-that was never the way in — `console.priv.frediver.se` still answers.
-
 ## The browser editor — outside the session, on purpose
 
 VS Code in the browser at **https://code.priv.frediver.se** (its own origin, opening on

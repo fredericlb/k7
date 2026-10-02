@@ -65,6 +65,20 @@ target_include_directories(studio_arp_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_arp_tests COMMAND studio_arp_tests)
 
+# --- Naturalize dither tests -------------------------------------------------
+# A fast binary like the ones above: NaturalizeDither.h is header-only and JUCE-free, so Quick
+# Master's output stage is tested without linking Tracktion. See ../docs/quickMaster.md.
+add_executable(studio_dither_tests NaturalizeDither_test.cpp)
+target_include_directories(studio_dither_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_dither_tests COMMAND studio_dither_tests)
+
+# …and its HF limit, To Vinyl 4's acceleration limiter: header-only and JUCE-free for the same reason.
+add_executable(studio_hflimit_tests AccelerationLimiter_test.cpp)
+target_include_directories(studio_hflimit_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_hflimit_tests COMMAND studio_hflimit_tests)
+
 # --- Note clock tests ---------------------------------------------------------
 # A SEVENTH fast binary, for the reason the arpeggiator's gives: NoteClock.h is header-only and
 # JUCE-free, so the held set, the clock and the gate are tested without linking Tracktion. The

@@ -270,7 +270,7 @@ settings (*Separation chains*) once that chain is chosen. Either one fetches the
 is only ever read off the module: nothing a page sends can make the machine download anything else.
 
 ```yaml schema=Module
-# _modules/audio/separation/stemsplit/module.yaml — one mix in, four stems out
+# _modules/cold/stemsplit/module.yaml — one mix in, four stems out
 cold: true
 plugin: { type: offline, name: Stem Split }
 params:
@@ -537,6 +537,23 @@ widgets:
   w3: { type: waveform, col: 2, row: 0, colSpan: 2, rowSpan: 2, source: output }
   w4: { type: fader, col: 3, row: 0, rowSpan: 6, bind: Volume, min: -60, max: 6, label: Vol }
   w5: { type: lcdscreen, col: 0, row: 1, colSpan: 2 }
+```
+
+**Tabs.** A panel with more than fits on one page splits into **tabs**: a `tabs:` list beside `widgets`, in order, each a `name` (ten characters at most, unique) and the widgets drawn while it is open. The card draws them as a column down its left, under the header; the widgets in the top-level `widgets` are drawn on every tab — a screen, an output section. A tab's widgets use the whole grid from row 0. One tab is no tab: a panel with a single page writes no `tabs:` at all, and the column only appears with the second. Tabs are added, renamed, reordered and removed in the module editor, from the column at the grid's left.
+
+```yaml schema=UiFile
+# _modules/instruments/poly/ui.yaml
+cols: 4
+rows: 2
+widgets:
+  out: { type: knob, col: 3, row: 0, rowSpan: 2, bind: Volume, label: Vol }
+tabs:
+  - name: Osc
+    widgets:
+      wave: { type: dropdown, col: 0, row: 0, bind: Wave }
+  - name: Filter
+    widgets:
+      cut: { type: knob, col: 0, row: 0, bind: Cutoff, min: 0, max: 1 }
 ```
 
 A panel is a file of its own rather than a `ui:` block inside `module.yaml`, so that a rebuilt `_modules/` never takes hand-drawn work with it and a plugin every song reaches for is drawn once: a panel is saved where its module is, shared library included, and that is the one edit a shared module accepts without being forked. A plugin the engine merely reports has no folder anywhere, so it has no panel until somebody makes it a module. An inline `ui:` block is still read, and a ui.yaml replaces it whole; `ui migrate` moves the inline ones out into their file.

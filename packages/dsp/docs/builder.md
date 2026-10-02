@@ -127,6 +127,14 @@ the point: a note SOURCE needs a memory of what is held and a clock to strike on
 two nodes every rhythmic MIDI module is a compiled plugin. `engine/st0-engine/docs/midiGraph.md` is
 where that is argued, including why the state sits on the graph rather than on a node.
 
+### `pattern`, `accent`, `chance`, `decay` — which strikes play
+
+Four setters for `strike`, declared between `hold` and it: `pattern(m, mode, length, density,
+rotate)` picks the steps of a cycle (0 every step, 1 a burst, 2 Euclid), `accent(m, count, low,
+opposite, keep)` drops the unaccented hits to `low` of their velocity, `chance(m, p)` rolls each
+step, `decay(m, d)` takes a share of velocity per repeat. They set fields the strike reads per step
+— `engine/st0-engine/docs/midiGraph.md` says why, and what each choice is.
+
 `strike`'s step is in **beats**, so a graph follows the tempo without reading one: the plugin hands
 the block length and the length of a beat to `processMidi`, being the only side that can know
 either. A division is a parameter in beats — `0.5` is an eighth — because the graph has no array to

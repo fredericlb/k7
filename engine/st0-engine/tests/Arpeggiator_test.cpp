@@ -15,6 +15,7 @@
 using studio::ArpDirection;
 using studio::Arpeggiator;
 using studio::ArpEvent;
+using studio::ArpPattern;
 
 namespace {
 
@@ -24,6 +25,15 @@ std::vector<ArpEvent> run(Arpeggiator& a, double seconds, double step, int octav
 {
     ArpEvent buf[64];
     const int n = a.advance(seconds, step, octaves, dir, buf, 64);
+    return std::vector<ArpEvent>(buf, buf + n);
+}
+
+/** …and the same with a drawn pattern, which only `custom` reads. */
+std::vector<ArpEvent> runDrawn(Arpeggiator& a, double seconds, double step, ArpPattern pattern,
+                               int octaves = 1)
+{
+    ArpEvent buf[64];
+    const int n = a.advance(seconds, step, octaves, ArpDirection::custom, buf, 64, pattern);
     return std::vector<ArpEvent>(buf, buf + n);
 }
 
@@ -190,6 +200,87 @@ void a_note_held_down_twice_is_held_once()
 
 }  // namespace
 
+void a_drawn_pattern_plays_its_slots_in_order()
+{
+    auto a = holding({60, 64, 67});
+    const int steps[] = {1, 3, 2, 3};
+    // Six steps over a four-step pattern: it loops, from its own first step.
+    CHECK(notes(runDrawn(a, 0.55, 0.1, {steps, 4})) == std::vector<int>({60, 67, 64, 67, 60, 67}));
+}
+
+void a_rest_keeps_the_grid_and_plays_nothing()
+{
+    auto a = holding({60, 64, 67});
+    const int steps[] = {1, 0, 2, 0};
+    const auto evs = runDrawn(a, 0.35, 0.1, {steps, 4});
+    CHECK(notes(evs) == std::vector<int>({60, 64}));
+    // The second note lands two steps in, not one: the rest took its step.
+    double second = -1;
+    for (const auto& e : evs)
+        if (e.velocity > 0.0f && e.note == 64) second = e.at;
+    CHECK(std::fabs(second - 0.2) < 1e-9);
+}
+
+void a_slot_past_the_chord_wraps_round_it()
+{
+    // Slot 4 of a three-note chord at one octave is slot 1 again; at two octaves it is the octave above.
+    auto a = holding({60, 64, 67});
+    const int steps[] = {4};
+    CHECK(notes(runDrawn(a, 0.05, 0.1, {steps, 1})) == std::vector<int>({60}));
+    auto b = holding({60, 64, 67});
+    CHECK(notes(runDrawn(b, 0.05, 0.1, {steps, 1}, 2)) == std::vector<int>({72}));
+}
+
+void custom_with_nothing_drawn_plays_up()
+{
+    auto a = holding({60, 64, 67});
+    CHECK(notes(runDrawn(a, 0.25, 0.1, {})) == std::vector<int>({60, 64, 67}));
+}
+
+void each_drawn_step_scales_the_velocity_it_was_played_with()
+{
+    // Held at 0.8: a step at half plays 0.4, and a step drawn at zero is a rest that keeps its place.
+    auto a = holding({60, 64, 67});
+    const int steps[] = {1, 2, 3};
+    const float velocity[] = {1.0f, 0.5f, 0.0f};
+    const auto evs = runDrawn(a, 0.25, 0.1, {steps, 3, velocity, nullptr});
+    std::vector<float> ons;
+    for (const auto& e : evs)
+        if (e.velocity > 0.0f) ons.push_back(e.velocity);
+    CHECK(ons.size() == 2);
+    CHECK(std::fabs(ons[0] - 0.8f) < 1e-6f);
+    CHECK(std::fabs(ons[1] - 0.4f) < 1e-6f);
+}
+
+void each_drawn_step_holds_its_note_for_its_own_gate()
+{
+    auto a = holding({60});
+    const int steps[] = {1, 1};
+    // A quarter of the step, then past the ceiling: a gate of 1 is held under it, so the off precedes the next on.
+    const float gate[] = {0.25f, 1.0f};
+    const auto evs = runDrawn(a, 0.25, 0.1, {steps, 2, nullptr, gate});
+    std::vector<double> offs;
+    for (const auto& e : evs)
+        if (e.velocity == 0.0f) offs.push_back(e.at);
+    CHECK(offs.size() >= 2);
+    CHECK(std::fabs(offs[0] - 0.025) < 1e-9);
+    CHECK(std::fabs(offs[1] - (0.1 + 0.1 * Arpeggiator::maxGate)) < 1e-9);
+}
+
+void a_preset_ignores_the_drawn_levels()
+{
+    // Velocity and gate belong to the drawing, like the slots: a preset plays as the hand did, at the default gate.
+    auto a = holding({60});
+    const int steps[] = {1};
+    const float velocity[] = {0.1f};
+    const float gate[] = {0.9f};
+    ArpEvent buf[16];
+    const int n = a.advance(0.15, 0.1, 1, ArpDirection::up, buf, 16, {steps, 1, velocity, gate});
+    CHECK(n >= 2);
+    CHECK(std::fabs(buf[0].velocity - 0.8f) < 1e-6f);
+    CHECK(std::fabs(buf[1].at - 0.05) < 1e-9);
+}
+
 int main()
 {
     RUN(plays_the_held_chord_one_note_at_a_time);
@@ -205,5 +296,12 @@ int main()
     RUN(an_impossible_rate_does_not_spin);
     RUN(a_chord_wider_than_the_array_is_dropped_rather_than_written_past_it);
     RUN(a_note_held_down_twice_is_held_once);
+    RUN(a_drawn_pattern_plays_its_slots_in_order);
+    RUN(a_rest_keeps_the_grid_and_plays_nothing);
+    RUN(a_slot_past_the_chord_wraps_round_it);
+    RUN(custom_with_nothing_drawn_plays_up);
+    RUN(each_drawn_step_scales_the_velocity_it_was_played_with);
+    RUN(each_drawn_step_holds_its_note_for_its_own_gate);
+    RUN(a_preset_ignores_the_drawn_levels);
     TEST_MAIN_END();
 }

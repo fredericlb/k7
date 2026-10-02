@@ -38,7 +38,7 @@ describe("which widget takes a dropped parameter", () => {
     expect(bindable({ type })).toBe(true);
   });
 
-  it.each(["label", "tabs", "waveform"] as const)(
+  it.each(["label", "waveform", "lcdscreen"] as const)(
     "refuses it on a %s",
     (type) => {
       // These carry no `bind`, and it is the ONLY reason the grid ever bounces a parameter.

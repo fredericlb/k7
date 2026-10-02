@@ -1,5 +1,5 @@
 // autoLayout.ts — a panel PROPOSED from a parameter list alone: read each name, guess which
-// family it belongs to, and lay the families out as the pages of one tabs widget. Pure, so the
+// family it belongs to, and lay the families out as the panel's tabs, one each. Pure, so the
 // guess is testable without a grid; what it returns is an ordinary ModuleUI the editor can then
 // take apart by hand. Nothing here is authoritative — see docs/autoLayout.md.
 
@@ -249,7 +249,7 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
     );
   // One SLOT row of air under the tallest page, always, and counted last — see docs/autoLayout.md.
   const rowsDrawn = rowsNeeded + 1;
-  const pages: Record<string, Record<string, Widget>> = {};
+  const pages: { name: string; widgets: Record<string, Widget> }[] = [];
   // Numbered across the WHOLE panel, so `w40` names one widget without also naming its page.
   let n = 0;
   for (const g of placed) {
@@ -258,9 +258,8 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
       const type = widgetTypeFor(p);
       widgets[`w${++n}`] = {
         type,
-        // Row 0 is the tab bar's, a page's col/row being the PANEL's grid rather than an offset in it.
         col: sc * KNOB_SPAN,
-        row: 1 + sr * KNOB_SPAN,
+        row: sr * KNOB_SPAN,
         bind: p.name,
         label: labelOf(p.name),
         // One slot each so both kinds line up; only the knob fills the slot's height.
@@ -274,14 +273,10 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
           : { options: p.meta?.states ?? [] }),
       };
     }
-    pages[g.page] = widgets;
+    pages.push({ name: g.page, widgets });
   }
-  return {
-    cols: AUTO_COLS,
-    rows: 1 + rowsDrawn * KNOB_SPAN,
-    widgets: {
-      // The bar spans the panel, so a module with a dozen families can still show them all.
-      tabs: { type: "tabs", col: 0, row: 0, colSpan: AUTO_COLS, pages },
-    },
-  };
+  const grid = { cols: AUTO_COLS, rows: rowsDrawn * KNOB_SPAN };
+  // One family is a panel, not a tab: the second is what makes the list (docs/autoLayout.md).
+  if (pages.length <= 1) return { ...grid, widgets: pages[0]?.widgets ?? {} };
+  return { ...grid, widgets: {}, tabs: pages };
 }

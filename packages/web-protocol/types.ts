@@ -13,7 +13,6 @@ export interface FileNode {
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
   app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.z0` suffix
-  label?: string; // module folders only — its `label:`, drawn grey beside the name
   children?: FileNode[]; // dirs only
 }
 
@@ -173,7 +172,6 @@ export interface IoPort {
 export interface CatalogueModule {
   ref: string; // how a chain names it ("@engine/audio/delay/tape-delay")
   name: string; // the part worth showing, namespace dropped
-  label?: string; // …and what it CALLS itself, when it says (packages/song/docs/moduleLabel.md)
   namespace: string;
   category: string; // its type folder (audio, io, instruments…)
   kind: string; // what it IS, as the type folder decides

@@ -11,10 +11,13 @@
 #include "test_harness.h"
 
 #include <cmath>
+#include <string>
 #include <vector>
 
 using studio::NoteClock;
 using studio::NoteEvent;
+using studio::NoteSteps;
+using studio::StepMode;
 
 namespace {
 
@@ -179,7 +182,130 @@ void a_full_buffer_stops_between_steps_rather_than_inside_one()
     CHECK(sounding == 3);  // a whole chord left sounding, never a partial one
 }
 
+/** The steps of one cycle that play, as a string of x and . — how a rhythm is read on paper. */
+std::string picture(const NoteSteps& s)
+{
+    std::string out;
+    for (int i = 0; i < s.cycle(); ++i) out += s.hit(i) ? 'x' : '.';
+    return out;
+}
+
+/** …and a run with a rule, the velocities of what was struck. */
+std::vector<float> levels(NoteClock& r, double seconds, const NoteSteps& rule)
+{
+    NoteEvent buf[128];
+    const int n = r.advance(seconds, 0.1, 0.5, buf, 128, &rule);
+    std::vector<float> out;
+    for (int i = 0; i < n; ++i)
+        if (buf[i].velocity > 0.0f) out.push_back(buf[i].velocity);
+    return out;
+}
+
 }  // namespace
+
+void a_euclid_spreads_its_pulses_and_rotate_turns_them()
+{
+    NoteSteps s;
+    s.mode = StepMode::euclid;
+    s.length = 8;
+    s.density = 3.0f / 8.0f;
+    CHECK(picture(s) == "x..x..x.");
+    // A turn of one step moves every pulse one later, wrapping round the cycle.
+    s.rotate = 1.0f / 8.0f;
+    CHECK(picture(s) == ".x..x..x");
+}
+
+void a_burst_plays_the_first_pulses_and_rests_the_rest()
+{
+    NoteSteps s;
+    s.mode = StepMode::burst;
+    s.length = 6;
+    s.density = 0.5f;
+    CHECK(picture(s) == "xxx...");
+    // No pattern is every step, whatever the density says.
+    s.mode = StepMode::all;
+    CHECK(picture(s) == "xxxxxx");
+}
+
+void a_rest_takes_its_step_on_the_clock()
+{
+    // x.x. at 100 ms: strikes at 0 and 200 ms, nothing at 100 — the clock moved anyway.
+    auto r = holding({60});
+    NoteSteps s;
+    s.mode = StepMode::euclid;
+    s.length = 4;
+    s.density = 0.5f;
+    NoteEvent buf[32];
+    const int n = r.advance(0.35, 0.1, 0.5, buf, 32, &s);
+    std::vector<double> ons;
+    for (int i = 0; i < n; ++i)
+        if (buf[i].velocity > 0.0f) ons.push_back(buf[i].at);
+    CHECK(ons.size() == 2);
+    CHECK(std::fabs(ons[1] - 0.2) < 1e-9);
+}
+
+void accents_play_as_played_and_the_rest_drop_to_low()
+{
+    // Every step, half accented: as played (0.8), then 0.8 × 0.5, alternating.
+    auto r = holding({60});
+    NoteSteps s;
+    s.length = 4;
+    s.accents = 0.5f;
+    s.low = 0.5f;
+    const auto v = levels(r, 0.35, s);
+    CHECK(v.size() == 4);
+    CHECK(std::fabs(v[0] - 0.8f) < 1e-6f && std::fabs(v[1] - 0.4f) < 1e-6f);
+    CHECK(std::fabs(v[2] - 0.8f) < 1e-6f && std::fabs(v[3] - 0.4f) < 1e-6f);
+    // Opposite swaps which ones.
+    auto o = holding({60});
+    s.opposite = true;
+    const auto w = levels(o, 0.15, s);
+    CHECK(std::fabs(w[0] - 0.4f) < 1e-6f && std::fabs(w[1] - 0.8f) < 1e-6f);
+}
+
+void kept_accents_stay_on_their_steps_when_the_density_moves()
+{
+    NoteSteps s;
+    s.mode = StepMode::euclid;
+    s.length = 8;
+    s.accents = 0.25f;
+    s.keep = true;
+    s.density = 1.0f;
+    const bool a0 = s.accented(0), a4 = s.accented(4);
+    s.density = 0.5f;
+    CHECK(s.accented(0) == a0 && s.accented(4) == a4);
+    CHECK(a0 && a4 && !s.accented(2));
+}
+
+void the_decay_takes_a_share_of_each_repeat()
+{
+    auto r = holding({60});
+    NoteSteps s;
+    s.decay = 0.5f;
+    const auto v = levels(r, 0.25, s);
+    CHECK(v.size() == 3);
+    CHECK(std::fabs(v[1] - 0.4f) < 1e-6f && std::fabs(v[2] - 0.2f) < 1e-6f);
+    // …and never reaches zero, which MIDI would read as a note-off.
+    auto deep = holding({60});
+    s.decay = 1.0f;
+    for (const auto x : levels(deep, 0.55, s)) CHECK(x >= NoteSteps::minVelocity);
+}
+
+void chance_plays_some_steps_and_none_at_zero()
+{
+    auto r = holding({60});
+    NoteSteps s;
+    s.chance = 0.5f;
+    NoteEvent buf[128];
+    const int n = r.advance(9.95, 0.1, 0.5, buf, 128, &s);
+    int ons = 0;
+    for (int i = 0; i < n; ++i) ons += buf[i].velocity > 0.0f ? 1 : 0;
+    // A hundred steps at a half: well inside 30..70 for this generator's fixed seed.
+    CHECK(ons > 30 && ons < 70);
+    auto none = holding({60});
+    s.chance = 0.0f;
+    CHECK(levels(none, 0.55, s).empty());
+}
 
 int main()
 {
@@ -196,5 +322,12 @@ int main()
     RUN(more_keys_than_the_array_are_dropped_rather_than_written_past_it);
     RUN(a_key_held_down_twice_is_held_once);
     RUN(a_full_buffer_stops_between_steps_rather_than_inside_one);
+    RUN(a_euclid_spreads_its_pulses_and_rotate_turns_them);
+    RUN(a_burst_plays_the_first_pulses_and_rests_the_rest);
+    RUN(a_rest_takes_its_step_on_the_clock);
+    RUN(accents_play_as_played_and_the_rest_drop_to_low);
+    RUN(kept_accents_stay_on_their_steps_when_the_density_moves);
+    RUN(the_decay_takes_a_share_of_each_repeat);
+    RUN(chance_plays_some_steps_and_none_at_zero);
     TEST_MAIN_END();
 }

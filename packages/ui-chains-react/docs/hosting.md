@@ -226,6 +226,12 @@ cables lifts the first — the other end of any of them is one more click away. 
 offered only when both callbacks are given, so a drop always has somewhere to go; automation
 plugs lift nothing, their bindings being the module's to edit.
 
+**An automation cable is deleted from its middle instead**: hovered, it shows a mauve `×`, and a
+click unbinds that param from its curve through the same verb that bound it,
+`node automate <module> <param> none`, over the host's `command`. Not by lifting an end: the end it
+lands on is a knob, not a socket, so there is no jack to lift it from. The curve itself stays —
+unbinding is not deleting it, and another param can take it.
+
 Mechanically: the temporary cable is one dashed path in the world-space SVG, its far end
 moved by direct DOM writes on pointermove (no re-render per frame), its near end pinned at
 `jackPoint`'s own coordinates so it cannot miss the socket it left. Landing it is the one

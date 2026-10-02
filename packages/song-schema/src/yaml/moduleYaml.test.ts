@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseModule, setModuleValue } from "./moduleFile";
+import { UISchema } from "./moduleSchema";
 
 // Three questions: does it validate TIGHTLY, does this app's vocabulary survive it, and does an EDIT keep the file.
 
@@ -43,18 +44,12 @@ ui:
     expect(value?.type).toBeUndefined();
   });
 
-  it("takes a label — free text, and the module's own rather than an alternative's", () => {
+  it("refuses a `label:` — a module is shown by its file name, and there is no second one", () => {
     const { value, issues } = parseModule(
       'label: "Grande salle"\nplugin: { type: internal, name: Reverb }\n',
     );
-    expect(issues).toEqual([]);
-    expect(value?.label).toBe("Grande salle");
-    // On the module and not in MODULE_FIELDS: an attribute set is a way of PLAYING it, not a second name.
-    const alt = parseModule(
-      'plugin: { name: Reverb }\nalternatives:\n  - label: "Petite salle"\n',
-    );
-    expect(alt.value).toBeNull();
-    expect(alt.issues[0].message).toMatch(/label/);
+    expect(value).toBeNull();
+    expect(issues[0].message).toMatch(/label/);
   });
 
   it("catches the typo a closed struct is for, and says where", () => {
@@ -215,5 +210,40 @@ ui:
   it("re-reads what it wrote", () => {
     const after = setModuleValue(AUTHORED, ["params", "Mix"], 0.25);
     expect(parseModule(after).value?.params?.Mix).toBe(0.25);
+  });
+});
+
+// Tabs are the PANEL's, not a widget: an ordered list of named pages beside the widgets every tab shows.
+describe("a panel's tabs", () => {
+  const panel = (tabs: unknown) => ({
+    cols: 4,
+    rows: 2,
+    widgets: {},
+    tabs,
+  });
+  const page = (name: string) => ({ name, widgets: {} });
+
+  it("takes an ordered list of named pages", () => {
+    expect(
+      UISchema.safeParse(panel([page("Osc"), page("Filter")])).success,
+    ).toBe(true);
+  });
+
+  it("refuses a name past ten characters, and two tabs of one name", () => {
+    expect(UISchema.safeParse(panel([page("Oscillators")])).success).toBe(
+      false,
+    );
+    expect(UISchema.safeParse(panel([page("Osc"), page("Osc")])).success).toBe(
+      false,
+    );
+  });
+
+  it("has no `tabs` WIDGET any more — a page is not something placed on the grid", () => {
+    const old = {
+      cols: 4,
+      rows: 2,
+      widgets: { t: { type: "tabs", col: 0, row: 0 } },
+    };
+    expect(UISchema.safeParse(old).success).toBe(false);
   });
 });

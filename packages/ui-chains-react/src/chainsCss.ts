@@ -9,7 +9,17 @@
 // is what guarantees that when two graphs are mounted — the desk and the Chaînes tab are.
 
 import type { WebSignal } from "@studio/graph-model";
-import { FRAME_HEAD, PORT_PLATE } from "@studio/ui-chains/graph";
+import {
+  FRAME_HEAD,
+  PORT_PLATE,
+  UI_CONTENT_TOP,
+  UI_HEADER,
+} from "@studio/ui-chains/graph";
+
+/** The header's on/off block: its width, and the air between it and the glyph — headerNameW counts both. */
+export const BYPASS_W = 26;
+export const BYPASS_GAP = 8;
+
 import { useEffect } from "react";
 
 // Signal-typed accents. Sand is the neutral, automation mauve; a track control keeps its own M/S/A identity colour.
@@ -59,13 +69,17 @@ const CSS = `
 .dgx-ins-btn { cursor:pointer; pointer-events:auto; }
 .dgx-ins-btn circle { fill:#0d0d0f; stroke:#3b82f6; stroke-width:2; }
 .dgx-ins-btn path { stroke:#3b82f6; stroke-width:2; }
+/* An automation cable's delete, on hover — the mauve of the cable it removes. */
+.dgx-del-btn { cursor:pointer; pointer-events:auto; }
+.dgx-del-btn circle { fill:#0d0d0f; stroke:${MAUVE}; stroke-width:2; }
+.dgx-del-btn path { stroke:${MAUVE}; stroke-width:2; stroke-linecap:round; }
 .dgx-clab { fill:#8a8780; font:10px ui-monospace,monospace; pointer-events:none; }
 .dgx-alab { fill:var(--mauve); font:10px ui-monospace,monospace; pointer-events:none; }
 /* Stale while the cards move, so it steps aside for the ~200 ms and comes back; see docs/nodeMotion.md. */
 .dgx-cables { transition:opacity .1s linear; }
 .dgx-cables.moving { opacity:0; }
 
-.dgx-node { position:absolute; box-sizing:border-box; border-radius:11px;
+.dgx-node { position:absolute; box-sizing:border-box;
   background:linear-gradient(180deg,#1d1c22,var(--card)); border:1px solid var(--line);
   box-shadow:0 12px 30px -10px rgba(0,0,0,.66); transition:box-shadow .16s, border-color .16s; }
 .dgx-node.k-track,.dgx-node.k-module,.dgx-node.k-sink,.dgx-node.k-assembly { --accent:var(--sand); }
@@ -77,6 +91,8 @@ const CSS = `
   color-mix(in srgb, ${EDGE} 16%, #1d1c22),
   color-mix(in srgb, ${EDGE} 10%, var(--card))); }
 .dgx-node { border-color:color-mix(in srgb, var(--accent) 42%, var(--line)); }
+/* A stack-view BAR — the inputs above every column, the outputs below: the edge's ground made solid. */
+.dgx-node.bar { background:color-mix(in srgb, ${EDGE} 30%, var(--card)); border-color:color-mix(in srgb, ${EDGE} 70%, var(--line)); }
 .dgx-node.sel { box-shadow:0 0 0 2px ${RING}, 0 12px 30px -10px rgba(0,0,0,.66); }
 .dgx-node.tappable { cursor:pointer; }
 /* Far LOD: too zoomed out for the widgets, so the card is just its name, sized to fill the node (fitFont). */
@@ -91,16 +107,13 @@ const CSS = `
 /* GRAB — no header at this zoom, so the whole card is the handle; three classes to outrank .tappable. */
 .dgx-node.far.grab { cursor:grab; }
 .dgx-node.far.grab:active { cursor:grabbing; }
-/* A COLUMN: the glyph and the module name share one row, the node's own name runs under it. */
-.dgx-hd { position:absolute; top:0; left:0; right:0; display:flex; flex-direction:column; justify-content:center;
-  padding:7px 10px; box-sizing:border-box; border-bottom:1px solid #2f2f36; border-radius:11px 11px 0 0;
+/* A COLUMN — glyph and module name on one row, the node's own name under it — FIXED at the two-line height (docs/nodeCard.md). */
+.dgx-hd { position:absolute; top:0; left:0; right:0; height:${UI_HEADER}px; display:flex; flex-direction:column;
+  justify-content:center; padding:0 10px; box-sizing:border-box; border-bottom:1px solid #2f2f36;
   background:linear-gradient(180deg,rgba(255,255,255,.015),transparent); }
 /* The top row, and the ONLY thing the corner bubbles stand over — see its padding-right below. */
 .dgx-hdtop { display:flex; align-items:center; gap:7px; min-width:0; }
 /* GRAB — the header moves the card, where the host allows it (the pin gesture). */
-/* The FOOTER under the panel: the engine's stage, set apart by a rule, inert so the card's drag still works on its bare parts. */
-.dgx-stage { position:absolute; left:0; right:0; bottom:0; border-top:1px solid #2f2f36;
-  border-radius:0 0 11px 11px; background:rgba(255,255,255,.015); pointer-events:none; }
 /* A plugin's cost, sitting ON the header's bottom border at the right: no width is taken from the name. */
 .dgx-load { position:absolute; right:10px; bottom:-5px; z-index:1; padding:0 3px; border-radius:3px;
   font:6px/9px ui-monospace,monospace; color:var(--dim); background:var(--card); border:1px solid #2f2f36;
@@ -108,7 +121,7 @@ const CSS = `
 .dgx-hd.grab { cursor:grab; }
 .dgx-hd.grab:active { cursor:grabbing; }
 /* The content area below the header: "No Options" or why there are none, a sink's OUT mark, or a widget grid. */
-.dgx-empty { position:absolute; top:38px; left:0; right:0; bottom:0;
+.dgx-empty { position:absolute; top:${UI_CONTENT_TOP}px; left:0; right:0; bottom:0;
   display:flex; justify-content:center; padding:6px 8px 0;
   font:8px ui-monospace,monospace; color:var(--dim); letter-spacing:.04em;
   text-align:center; }
@@ -122,8 +135,18 @@ const CSS = `
 /* TWO names stacked inside UI_HEADER's 38px, both line-heights stated rather than inherited; see docs/nodeCard.md. */
 .dgx-hd .dgx-nm { flex:1; min-width:0; line-height:14px; }
 /* The node's own name, on its own line and so cut only by the CARD's width — the bubbles are a row above it. */
-.dgx-nodenm { font:9.5px ui-monospace,monospace; line-height:10px; color:var(--faint);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* A tabbed panel's TABS: a column down the card's left under the header, one name a row, the open one lit. */
+.dgx-tabs { position:absolute; left:0; display:flex; flex-direction:column; box-sizing:border-box;
+  border-right:1px solid #2f2f36; background:rgba(0,0,0,.12); overflow:hidden; }
+.dgx-tab { flex:none; display:block; width:100%; padding:0 6px; box-sizing:border-box; text-align:left;
+  font:9px/20px ui-monospace,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  color:var(--dim); background:transparent; border:0; border-left:2px solid transparent; cursor:pointer; }
+.dgx-tab:hover { color:#e7e6ea; background:rgba(255,255,255,.04); }
+.dgx-tab.on { color:#e7e6ea; border-left-color:var(--sand); background:rgba(255,255,255,.06); }
+/* The header's second line: the node's own name, and the engine select pushed to its right end. */
+.dgx-hdsub { display:flex; align-items:center; gap:7px; min-width:0; margin-top:2px; }
+/* The engine's stage on the second line: three compact sliders sharing what the engine select leaves. */
+.dgx-hdstage { flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
 /* A track's instrument glyph, white rather than the track's colour, which the border and tint already carry. */
 .dgx-ticon { flex:none; color:#fff; }
 /* In the header the glyph leads the name on one line, saying the node's kind before its label. */
@@ -146,16 +169,13 @@ const CSS = `
   box-shadow:0 1px 4px rgba(0,0,0,.45); }
 .dgx-cbtn:hover { color:#e7e6ea; border-color:var(--sand); }
 /* Bypass is lit amber when ON: the node dims, but dim also means "the whole chain is off". */
-/* A load problem the ENGINE reported for this plugin, on the free corner, with the message as its tooltip. */
-.dgx-wbtn { position:absolute; top:-8px; left:-8px; z-index:2;
-  width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
-  cursor:help; color:#0d0d0f; background:#f59e0b; border:1px solid #f59e0b;
-  box-shadow:0 1px 4px rgba(0,0,0,.45); font:bold 11px/1 ui-sans-serif,system-ui; }
-/* FROZEN — baked into a render, cold blue, on the bottom-left corner since the warning badge holds the top-left. */
-.dgx-fbtn { position:absolute; bottom:-8px; left:-8px; z-index:2;
-  width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
-  cursor:help; color:#0d0d0f; background:#7dd3fc; border:1px solid #7dd3fc;
-  box-shadow:0 1px 4px rgba(0,0,0,.45); }
+/* A load problem the ENGINE reported for this plugin, a disc right of the module's name, the message as its tooltip. */
+.dgx-wbtn { flex:none; width:15px; height:15px; box-sizing:border-box; border-radius:50%;
+  display:grid; place-items:center; cursor:help; color:#0d0d0f; background:#f59e0b; border:1px solid #f59e0b;
+  font:bold 10px/1 ui-sans-serif,system-ui; }
+/* FROZEN — baked into a render, cold blue, a disc right of the module's name (FREEZE_TAG_W in DomChains.tsx). */
+.dgx-fbtn { flex:none; width:15px; height:15px; box-sizing:border-box; border-radius:50%;
+  display:grid; place-items:center; cursor:help; color:#0d0d0f; background:#7dd3fc; border:1px solid #7dd3fc; }
 .dgx-fbtn svg { width:11px; height:11px; }
 
 /* A track's CLIPS, one row each under its controls; CLIP_LIST_MAX in @studio/ui-chains caps the list. */
@@ -202,6 +222,11 @@ const CSS = `
   border:2px solid var(--line); border-top-color:var(--sand); animation:dgx-rot .8s linear infinite; }
 @keyframes dgx-rot { to { transform:rotate(360deg); } }
 .dgx-bbtn.on { color:#0d0d0f; background:#f59e0b; border-color:#f59e0b; }
+/* On/off: a block the header's full height at its left edge, before the glyph (BYPASS_W, BYPASS_GAP above). */
+.dgx-hd.byp { padding-left:${BYPASS_W + BYPASS_GAP}px; }
+.dgx-byp { position:absolute; left:0; top:0; bottom:0; width:${BYPASS_W}px; display:grid; place-items:center;
+  cursor:pointer; color:var(--dim); border-right:1px solid #2f2f36; background:rgba(255,255,255,.02); }
+.dgx-byp:hover { color:#e7e6ea; background:rgba(255,255,255,.06); }
 /* The universal bypass mark: a circle broken at the top by a vertical stroke. */
 .dgx-bbtn i { width:7px; height:7px; border:1.4px solid currentColor; border-radius:50%;
   position:relative; }
@@ -221,6 +246,7 @@ const CSS = `
   cursor:pointer; }
 .dgx-minimap-bar button svg { width:13px; height:13px; }
 .dgx-minimap-bar button:hover { color:#e7e6ea; border-color:var(--sand); }
+.dgx-minimap-bar button.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); }
 /* A rack TAP: the pad over its note and its sample; the × shows on hover. See packages/song/docs/racks.md. */
 .dgx-tap { padding:3px; gap:3px; justify-content:stretch; }
 .dgx-tap-pad { flex:1; min-height:0; width:100%; border-radius:5px; border:1px solid var(--line);
@@ -249,27 +275,21 @@ const CSS = `
   height:16px; min-width:0; box-sizing:border-box; padding:0 3px; text-align:center;
   font:10px ui-monospace,monospace; color:#e7e6ea; background:#08080b;
   border:1px solid var(--sand); border-radius:4px; outline:none; user-select:text; }
-/* Alternatives — one badge per attribute set, OUTSIDE the card above its right corner, clear of the bubbles. */
-.dgx-alts { position:absolute; bottom:calc(100% + 11px); right:0; z-index:2; display:flex; gap:3px; }
+/* Alternatives — one badge per attribute set, at the right end of the header's top row; JS sets each width. */
+.dgx-alts { flex:none; display:flex; gap:3px; }
 /* A module with no second set shows its lone plus only while the card is hovered or selected. */
 .dgx-alts.lone { opacity:0; transition:opacity .12s; }
 .dgx-node:hover .dgx-alts.lone, .dgx-node.sel .dgx-alts.lone { opacity:1; }
-.dgx-alt { height:15px; min-width:15px; max-width:80px; padding:0 5px; border-radius:8px;
+.dgx-alt { height:15px; min-width:15px; max-width:80px; padding:0 5px; border-radius:8px; box-sizing:border-box;
   display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center;
   font:9px/13px ui-monospace,monospace; cursor:pointer; color:var(--dim); background:var(--card);
-  border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
+  border:1px solid var(--line); }
 .dgx-alt:hover { color:#e7e6ea; border-color:var(--sand); }
 .dgx-alt.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); cursor:default; }
-/* Console — the project's summing console, under the card's left corner on the nodes its halves follow. */
-.dgx-console { position:absolute; top:calc(100% + 5px); left:0; z-index:2; height:15px; max-width:140px;
-  display:flex; align-items:center; gap:3px; padding:0 6px 0 4px; border-radius:8px; pointer-events:auto;
-  font:9px/13px ui-monospace,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  color:var(--sand); background:var(--card); border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
-.dgx-console svg { width:10px; height:10px; flex-shrink:0; }
-/* Engine — which module this one runs as, above the card's LEFT corner, opposite the alternatives. */
-.dgx-engine { position:absolute; bottom:calc(100% + 11px); left:0; z-index:2; height:15px; max-width:110px;
-  padding:0 4px; border-radius:8px; font:9px/13px ui-monospace,monospace; cursor:pointer; color:var(--sand);
-  background:var(--card); border:1px solid var(--line); box-shadow:0 1px 4px rgba(0,0,0,.45); }
+/* Engine — which module this one runs as, at the right end of the header's second line; JS sets its width (EngineSelect.tsx). */
+.dgx-engine { flex:none; height:15px; padding:0 4px; border-radius:8px; font:9px/13px ui-monospace,monospace;
+  cursor:pointer; color:var(--sand); background:var(--card); border:1px solid var(--line);
+  text-overflow:ellipsis; overflow:hidden; white-space:nowrap; }
 .dgx-engine:hover { border-color:var(--sand); }
 .dgx-alt.add { padding:0; display:grid; place-items:center; }
 .dgx-alt.add svg { width:9px; height:9px; }
@@ -284,7 +304,7 @@ const CSS = `
 
 /* An OPEN box: a frame BEHIND its members, drawn as the appliance's own case around them. */
 .dgx-frame { position:absolute; box-sizing:border-box; border:1px dashed var(--line);
-  border-radius:12px; background:rgba(255,255,255,.025); }
+  background:rgba(255,255,255,.025); }
 .dgx-frame.grab .dgx-frame-hd { cursor:grab; }
 .dgx-frame-hd { position:absolute; left:0; right:0; top:0; height:${FRAME_HEAD}px;
   display:flex; align-items:center; gap:6px; padding:0 10px; box-sizing:border-box; }
@@ -344,18 +364,33 @@ const CSS = `
 /* A group: a tinted frame under the controls inside it, inert so a click falls through to the card. */
 .dgx-group { pointer-events:none; border-radius:5px; background:#ffffff0d;
   box-shadow:inset 0 0 0 1px #ffffff14; justify-content:flex-start; align-items:flex-start; }
-/* Its name is STACKED down the left edge, letters upright, from the top — clear of the first control's dial. */
-/* A footer slider as one row: its caption, the bar taking what is left, its reading — none of the three may push the others out. */
+/* A stage slider as one row: its caption, the bar taking what is left, its reading — none of the three may push the others out. */
 .dgx-srow { display:flex; align-items:center; gap:4px; width:100%; min-width:0; padding:0 2px; box-sizing:border-box; }
-.dgx-srow .dgx-wlab { margin-top:0; flex:none; }
+/* The caption is a fixed width, anchored left, so the three bars start on one line. */
+.dgx-srow .dgx-wlab { margin-top:0; flex:none; width:18px; text-align:left; }
 .dgx-srow .dgx-slider { flex:1; min-width:0; }
 .dgx-sval { flex:none; font:7px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
 .dgx-sval.unknown { color:var(--faint); }
-.dgx-glab { position:absolute; left:1px; top:2px; bottom:0; margin:0; writing-mode:vertical-rl;
-  text-orientation:upright; letter-spacing:0; line-height:1; overflow:hidden; }
+/* A group's name runs up the left edge, a line of text turned 90° counter-clockwise, ending at the top — clear of the first control's dial. */
+/* It sits on a SPINE, the group's colour made vivid, from the left edge to 12px — where the edge's widgets start. */
+/* vertical-rl turned 180° reads bottom-up; padding and corners turn with it, so they are written on the opposite sides. */
+.dgx-glab { position:absolute; left:0; top:0; bottom:0; margin:0; padding:0 5px 2px 1px; writing-mode:vertical-rl; transform:rotate(180deg); text-align:end;
+  line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-radius:0 5px 5px 0;
+  background:var(--spine,#ffffff26); color:#e7e6ea; }
+/* …and the name starts under the group's on/off switch when it has one, the spine running on behind the switch. */
+.dgx-glab.sw { padding-bottom:15px; }
+/* A group's on/off switch: a dot at its top-left, green when on, red when off — the group is inert, the dot is not. */
+.dgx-gswitch { position:absolute; left:4px; top:4px; z-index:3; pointer-events:auto; width:8px; height:8px;
+  padding:0; border:0; border-radius:50%; background:#ef4444; box-shadow:0 0 4px -1px #ef4444; cursor:pointer; }
+.dgx-gswitch.on { background:#10b981; box-shadow:0 0 5px -1px #10b981; }
+.dgx-gswitch.unknown { background:var(--faint); box-shadow:none; }
+.dgx-gswitch:disabled { cursor:default; }
+/* An OFF group greys its section: a veil over the widgets it frames, which stay usable underneath it. */
+.dgx-gveil { position:absolute; inset:0; z-index:2; pointer-events:none; border-radius:inherit;
+  background:#0d0d0f8c; backdrop-filter:grayscale(1); -webkit-backdrop-filter:grayscale(1); }
 /* A RECORDER's waveform box: the canvas fills it, the two labels sit on top — docs/nodeCard.md. */
-.dgx-wave { position:relative; }
-.dgx-lcd { position:relative; padding:3px; border-radius:4px; background:#0f1a10;
+/* No position on .dgx-wave or .dgx-lcd: .dgx-w's absolute must win, or a 2nd box flows under the 1st. */
+.dgx-lcd { padding:3px; border-radius:4px; background:#0f1a10;
   box-shadow: inset 0 0 0 1px #2b3a2c, inset 0 2px 6px rgba(0,0,0,.6); }
 .dgx-lcd canvas { width:100%; height:100%; display:block; }
 .dgx-lcd.live canvas { cursor:crosshair; touch-action:none; }
@@ -408,8 +443,10 @@ const CSS = `
   display:grid; place-items:center; border:1px solid; color:var(--c);
   border-color:color-mix(in srgb,var(--c) 52%,transparent); background:color-mix(in srgb,var(--c) 15%,transparent); }
 .dgx-btn.on { color:#0d0d0f; background:var(--c); border-color:var(--c); box-shadow:0 0 9px -2px var(--c); }
-.dgx-num { min-width:26px; padding:2px 4px; border-radius:3px; border:1px solid var(--line);
-  font:10px ui-monospace,monospace; color:#e7e6ea; }
+/* A number is a field like .dgx-sel: the same width, box and type, so the two line up in a panel. */
+.dgx-num { box-sizing:border-box; width:100%; max-width:100%; padding:1px 2px; border-radius:4px;
+  background:#08080b; border:1px solid #2c2c33; font:9px ui-monospace,monospace; color:#e7e6ea;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dgx-num.unknown { color:var(--dim); }
 /* Fills the box its colSpan gave it: content-sized, a panel of dropdowns drew a ragged column. */
 .dgx-sel { width:100%; max-width:100%; font:9px ui-monospace,monospace; color:#e7e6ea;
@@ -422,7 +459,7 @@ const CSS = `
   white-space:nowrap; }
 .dgx-meter { width:80%; height:5px; border-radius:3px; background:#08080b; border:1px solid #212129; }
 
-.dgx-out { position:absolute; top:38px; left:0; right:0; bottom:0; display:grid; place-items:center; }
+.dgx-out { position:absolute; top:${UI_CONTENT_TOP}px; left:0; right:0; bottom:0; display:grid; place-items:center; }
 .dgx-out b { font:600 20px ui-monospace,monospace; letter-spacing:.04em; color:var(--sand); line-height:1; }
 .dgx-out span { font-size:8.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); }
 /* The audition button lives here, not in a host's CSS: this sheet is INJECTED (see useCss). */

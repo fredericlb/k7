@@ -52,7 +52,6 @@ const WIDGET_FIELDS = [
   "source",
   "options",
   "library",
-  "pages",
 ];
 
 /** The kind of file being edited — what the path is relative to. */
@@ -161,8 +160,12 @@ function moduleFields(path: string[]): string[] {
     return rest.length ? keys(AlternativeSchema) : [];
   if (head === "ui") {
     if (rest.length === 0) return keys(UISchema);
-    // widgets/<id> — and inside a tabs widget, pages/<name>/<id> is a widget too.
+    // widgets/<id>, and a tab's: tabs/<i> is a name and widgets, tabs/<i>/widgets/<id> a widget.
     if (rest[0] === "widgets") return rest.length === 1 ? [] : WIDGET_FIELDS;
+    if (rest[0] === "tabs") {
+      if (rest.length === 2) return ["name", "widgets"];
+      if (rest[2] === "widgets") return rest.length === 3 ? [] : WIDGET_FIELDS;
+    }
     return [];
   }
   if (head === "rack") {

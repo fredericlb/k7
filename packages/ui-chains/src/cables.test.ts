@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  autoTarget,
   buildCableGeom,
   computeFlow,
   cubicAt,
@@ -425,5 +426,45 @@ describe("how hard each cable ripples", () => {
       ]),
     );
     expect(flow.get("out")).toBe(0.9);
+  });
+});
+
+// An automation cable can be DELETED from the graph, and deleting one is unbinding a param ON A MODULE.
+describe("an automation cable", () => {
+  const curve = {
+    id: "crv:sweep",
+    kind: "curve",
+    label: "sweep",
+    x: 0,
+    y: 0,
+    w: 60,
+    h: 40,
+    dim: false,
+  } as GraphNode;
+  const synth = {
+    id: "mod:synth",
+    kind: "module",
+    label: "synth",
+    module: "synth",
+    x: 0,
+    y: 200,
+    w: 100,
+    h: 80,
+    dim: false,
+  } as GraphNode;
+  const byId = new Map([curve, synth].map((n) => [n.id, n]));
+  const edge = {
+    id: "a",
+    source: curve.id,
+    target: synth.id,
+    points: [],
+    automation: { param: "Filter Freq" },
+  };
+
+  it("knows the module and the param it automates, which is what unbinding it names", () => {
+    expect(autoTarget(edge as never, byId)).toMatchObject({
+      module: "synth",
+      param: "Filter Freq",
+    });
   });
 });

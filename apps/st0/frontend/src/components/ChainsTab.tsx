@@ -26,6 +26,7 @@ import {
   subgraphForTrack,
 } from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
+import { stackLayout } from "@studio/ui-chains/stackLayout";
 import {
   type Cam,
   type ChainsCamApi,
@@ -101,8 +102,11 @@ export function ChainsTab({
   focus,
   onFocused,
   alignModules,
+  stack,
+  onStack,
   inputDevices,
   cameras,
+  midiDevices,
   masterVolume,
   viewport,
   midiRef,
@@ -223,10 +227,16 @@ export function ChainsTab({
   onFocused?: (chains: number) => void;
   /** Modules to pull onto ONE rank and frame the camera on — the mixer view; a list, since the shell knows which are strips (mixerStrips.ts). */
   alignModules?: readonly string[];
+  /** The STACK view: a column per lane, the MIX's last — @studio/ui-chains's stackLayout.ts. */
+  stack?: boolean;
+  /** …and its toggle, drawn on the minimap beside zoom fit. */
+  onStack?: () => void;
   // How the machine's interface groups its inputs, for a live input's socket dropdown — empty with no engine, which is the honest picture.
   inputDevices?: readonly { name: string; channels: number[] }[];
   /** The lenses this BROWSER can see, by label — see packages/song/docs/camera.md. */
   cameras?: readonly string[];
+  /** The MIDI inputs this browser sees, by name — what a midi-in node's dropdown offers. */
+  midiDevices?: readonly string[];
   // The song's output level, for the fader on the OUT card: a project setting, so the shell hands it over.
   masterVolume?: number;
   /** The FRAME's pixel size, so the RENDER card can tick the shape it is — absent for a project
@@ -387,11 +397,14 @@ export function ChainsTab({
       drawMainOut: true,
       inputDevices,
       cameras,
+      midiDevices,
       mainOutVolume: masterVolume,
       aspect: aspectRow,
     });
     // …then the assemblies are folded in: a box instead of its members, unless it is open — packages/song/docs/assemblies.md.
     const { nodes, edges } = foldAssemblies(drawn, built, openAssemblies);
+    // The STACK view is an arrangement too, but a whole one: no pins, no held positions, no dagre.
+    if (stack) return stackLayout(nodes, edges, drawn, trackOrder);
     // The mixer view is an ARRANGEMENT of this same graph: one rank, then an even re-spacing for a console's rhythm.
     const row = alignModules ?? [];
     // `graph organize` ran: forget the session's positions AND ignore the old pins this once, since the reload may not have landed.
@@ -423,10 +436,13 @@ export function ChainsTab({
     alignModules,
     inputDevices,
     cameras,
+    midiDevices,
     masterVolume,
     aspectRow,
     organizeKey,
     openAssemblies,
+    stack,
+    trackOrder,
   ]);
 
   /** The graph writes down where it drew itself — once, and then the FILE is the layout; not the mixer row, not a curve, not twice (docs/chainsGraph.md). */
@@ -434,7 +450,8 @@ export function ChainsTab({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `command` is a stable callback and re-running on its identity would re-send the batch.
   useEffect(() => {
     // `onMoveNode` absent means this graph cannot be pinned by hand — a frozen snapshot — so it must not pin itself either.
-    if (!laid || !onMoveNode || (alignModules?.length ?? 0) > 0) return;
+    if (!laid || !onMoveNode || stack || (alignModules?.length ?? 0) > 0)
+      return;
     const have = drawn?.positions ?? {};
     const at: Record<string, { x: number; y: number }> = {};
     for (const n of laid.nodes) {
@@ -454,7 +471,7 @@ export function ChainsTab({
     if (!names.length) return;
     for (const name of names) pinned.current.add(name);
     void command(`graph pin ${JSON.stringify(at)}`);
-  }, [laid, drawn?.positions, onMoveNode, alignModules]);
+  }, [laid, drawn?.positions, onMoveNode, alignModules, stack]);
 
   // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
   const laidShown = useMemo(() => {
@@ -588,6 +605,25 @@ export function ChainsTab({
     if (chains.length) setExpanded((prev) => new Set([...prev, ...chains]));
     onFocused?.(chains.length);
   }, [focus, graph, laid, active, chainNodes, onFocused]);
+
+  /** Frame the whole stack when the stack view opens, and give the camera back when it closes — as the mixer row does. */
+  const camBeforeStack = useRef<Cam | null>(null);
+  const stackFramed = useRef(false);
+  useEffect(() => {
+    if (!laid || !active || stackFramed.current === !!stack) return;
+    if (!stack) {
+      stackFramed.current = false;
+      const back = camBeforeStack.current;
+      camBeforeStack.current = null;
+      if (back) camApi.current?.set(back);
+      return;
+    }
+    const was = camApi.current?.get();
+    if (camApi.current?.fitTo(laid.nodes)) {
+      stackFramed.current = true;
+      camBeforeStack.current = was ?? null;
+    }
+  }, [stack, laid, active]);
 
   /** Frame the aligned row when the mixer view opens — and only then; keyed on the LIST, so turning it off leaves the camera alone. */
   const rowKey = (alignModules ?? []).join("|");
@@ -797,7 +833,8 @@ export function ChainsTab({
             onAutomate={onAutomate}
             onDisconnect={onDisconnect}
             onReplug={onReplug}
-            onMoveNode={onMoveNode}
+            // A stack is an arrangement, not a place: dragging a card there must not pin it in the file.
+            onMoveNode={stack ? undefined : onMoveNode}
             onCamReady={handleCamReady}
             camStore={camStore}
             command={command}
@@ -807,6 +844,8 @@ export function ChainsTab({
             // The corner minimap is this pane's: the graph panel and a lane's row are too small to want one.
             minimap
             onOrganize={onOrganize}
+            onStack={onStack}
+            stacked={!!stack}
             organizeKey={organizeKey}
             onRecorder={onRecorder}
             onProjectField={onProjectField}

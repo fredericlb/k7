@@ -4,12 +4,12 @@
 // editor's buffer) and shares the loader's Zod schema, so the grid can't offer a widget
 // the file would be refused for. Writing the block REPLACES it: comments inside don't survive.
 
+import { panelWidgets } from "@studio/graph-model/panel";
 import {
   DEFAULT_MODULE_STATUS,
   IO_MODULES,
   META_NS,
   type ModuleStatus,
-  moduleLabelOf,
   moduleStatusOf,
 } from "@studio/song-schema/moduleTypes";
 import {
@@ -29,13 +29,9 @@ export { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 
-/** Does the panel draw a screen anywhere, a tabs page included? That is what earns widgets.js a tab. */
+/** Does the panel draw a screen anywhere, on any tab? That is what earns widgets.js a tab. */
 export function hasLcd(ui: ModuleUI | null): boolean {
-  const any = (ws: Record<string, Widget>): boolean =>
-    Object.values(ws).some(
-      (w) => w.type === "lcdscreen" || Object.values(w.pages ?? {}).some(any),
-    );
-  return !!ui && any(ui.widgets);
+  return panelWidgets(ui).some(([, w]) => w.type === "lcdscreen");
 }
 
 /** A fresh, empty UI for a file that has none yet — small enough to see the whole grid. */
@@ -101,7 +97,6 @@ export function readParams(fileText: string): Record<string, string> {
 // A widget as MINIMAL source: drop defaults and empty optionals, so the block stays as terse as a hand-written one.
 function widgetToPlain(w: Widget): Record<string, unknown> {
   const isLabel = w.type === "label";
-  const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
   const isLcd = w.type === "lcdscreen";
   const isGroup = w.type === "group";
@@ -111,20 +106,6 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
     w.type === "slider" ||
     w.type === "fader" ||
     w.type === "number";
-  const pages: Record<string, unknown> | undefined =
-    isTabs && w.pages
-      ? Object.fromEntries(
-          Object.entries(w.pages).map(([name, widgets]) => [
-            name,
-            Object.fromEntries(
-              Object.entries(widgets).map(([id, sub]) => [
-                id,
-                widgetToPlain(sub),
-              ]),
-            ),
-          ]),
-        )
-      : undefined;
   return {
     type: w.type,
     col: w.col,
@@ -133,10 +114,7 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
     rowSpan: w.rowSpan && w.rowSpan > 1 ? w.rowSpan : undefined,
     label: w.label || undefined,
     text: isLabel ? w.text || undefined : undefined,
-    bind:
-      !isLabel && !isTabs && !isWaveform && !isLcd && !isGroup
-        ? w.bind || undefined
-        : undefined,
+    bind: !isLabel && !isWaveform && !isLcd ? w.bind || undefined : undefined,
     // Range fields belong to the NUMERIC kinds only: a `min` on a toggle fails to load — docs/builder.md.
     min: isRanged ? w.min : undefined,
     max: isRanged ? w.max : undefined,
@@ -149,8 +127,9 @@ function widgetToPlain(w: Widget): Record<string, unknown> {
     // …or the library its choices come from. Both are written when both are set: the file says what the author put.
     library: isDropdown ? w.library || undefined : undefined,
     color: isGroup ? w.color || undefined : undefined,
+    // Written only on a group that binds: without a switch there is nothing to read backwards.
+    invert: isGroup && w.bind && w.invert ? true : undefined,
     pair: w.type === "knob" ? w.pair || undefined : undefined,
-    pages,
   };
 }
 
@@ -166,21 +145,28 @@ function prune(value: unknown): unknown {
   return value;
 }
 
+const plainWidgets = (ws: Record<string, Widget>): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(ws).map(([id, w]) => [id, widgetToPlain(w)]),
+  );
+
 function uiToPlain(ui: ModuleUI): Record<string, unknown> {
-  const widgets: Record<string, unknown> = {};
-  for (const [id, w] of Object.entries(ui.widgets))
-    widgets[id] = widgetToPlain(w);
-  return prune({ cols: ui.cols, rows: ui.rows, widgets }) as Record<
-    string,
-    unknown
-  >;
+  return prune({
+    cols: ui.cols,
+    rows: ui.rows,
+    widgets: plainWidgets(ui.widgets),
+    // Written only when there ARE tabs: a one-page panel has no list, the second tab is what makes one.
+    tabs: ui.tabs?.length
+      ? ui.tabs.map((t) => ({ name: t.name, widgets: plainWidgets(t.widgets) }))
+      : undefined,
+  }) as Record<string, unknown>;
 }
 
 /** Rewrite the file's `ui:` block from the model, leaving every other line untouched. */
 export function writeUi(fileText: string, ui: ModuleUI): string {
   const doc = parseDocument(fileText, OPTS);
   const node = doc.createNode(uiToPlain(ui));
-  flowWidgets(node.getIn?.(["widgets"]));
+  flowPanel(node);
   doc.setIn(["ui"], node);
   return doc.toString({ lineWidth: 0 });
 }
@@ -190,14 +176,17 @@ function flowWidgets(widgets: unknown): void {
   if (!isMap(widgets)) return;
   for (const item of widgets.items) {
     const w = item.value as { flow?: boolean };
-    // …except a `tabs`, whose pages are a nested structure worth reading down the page.
-    if (
-      w &&
-      typeof w === "object" &&
-      !(w as { has?(k: string): boolean }).has?.("pages")
-    )
-      w.flow = true;
+    if (w && typeof w === "object") w.flow = true;
   }
+}
+
+/** …on the panel's own widgets and on every tab's, a tab's name staying on its own line above them. */
+function flowPanel(panel: unknown): void {
+  const p = panel as { getIn?(path: unknown[]): unknown } | null;
+  flowWidgets(p?.getIn?.(["widgets"]));
+  const tabs = p?.getIn?.(["tabs"]) as { items?: unknown[] } | undefined;
+  for (let i = 0; i < (tabs?.items?.length ?? 0); i++)
+    flowWidgets(p?.getIn?.(["tabs", i, "widgets"]));
 }
 
 // --- `ui.yaml` panel files -----------------------------------------------------
@@ -214,6 +203,7 @@ function parseUiFileText(text: string): ModuleUI | null {
     cols: raw.cols,
     rows: raw.rows,
     widgets: raw.widgets,
+    ...(raw.tabs !== undefined ? { tabs: raw.tabs } : {}),
   });
   return r.success ? r.data : null;
 }
@@ -241,6 +231,11 @@ export function writeUiFile(text: string, ui: ModuleUI): string {
   doc.setIn(["cols"], plain.cols);
   doc.setIn(["rows"], plain.rows);
   doc.setIn(["widgets"], widgets);
+  if (plain.tabs) {
+    const tabs = doc.createNode(plain.tabs);
+    doc.setIn(["tabs"], tabs);
+    flowPanel(doc);
+  } else doc.delete("tabs");
   return doc.toString({ lineWidth: 0 });
 }
 
@@ -305,20 +300,6 @@ export function setStatusIn(fileText: string, status: ModuleStatus): string {
   const doc = parseDocument(fileText, OPTS);
   if (status === DEFAULT_MODULE_STATUS) doc.delete("status");
   else doc.setIn(["status"], status);
-  return doc.toString({ lineWidth: 0 });
-}
-
-/** The name this module CALLS itself, read off the TEXT so an unsaved edit shows — packages/song/docs/moduleLabel.md. */
-export function labelOf(fileText: string): string {
-  return moduleLabelOf(docOf(fileText)?.toJS?.());
-}
-
-/** Set it, or CLEAR it: an empty box means the module has no label, not that it has an empty one. */
-export function setLabelIn(fileText: string, label: string): string {
-  const doc = parseDocument(fileText, OPTS);
-  const trimmed = label.trim();
-  if (!trimmed) doc.delete("label");
-  else doc.setIn(["label"], trimmed);
   return doc.toString({ lineWidth: 0 });
 }
 

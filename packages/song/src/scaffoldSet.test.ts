@@ -50,7 +50,7 @@ beforeEach(() => {
     if (panel) writeFileSync(join(to, "ui.yaml"), panel, "utf8");
   };
   library(
-    "audio/utility/tempo",
+    "cold/tempo",
     "cold: true\nplugin: { type: offline, name: Tempo }\nparams:\n  Source BPM: 0\n  Target BPM: 0\n",
     "cols: 2\nrows: 2\nwidgets:\n" +
       '  target: { type: knob, col: 0, row: 0, rowSpan: 2, label: BPM, bind: "Target BPM", min: 10, max: 300, step: 0.1 }\n' +
@@ -61,7 +61,7 @@ beforeEach(() => {
     "plugin: { type: jsdsp, name: Fade }\nparams:\n  Level: 1\n",
   );
   // The filter and the EQ are modules with ENGINES; the desk names one of each (packages/song/docs/engines.md).
-  library("audio/filter/multimode", "label: Filter\nengine: biquad-2\n");
+  library("audio/filter/multimode", "engine: biquad-2\n");
   library(
     "audio/filter/multimode/engines/sweep",
     "plugin: { type: jsdsp, name: Sweep Filter }\nparams:\n  Sweep: 0\n",
@@ -79,17 +79,17 @@ beforeEach(() => {
     "plugin: { type: jsdsp, name: Gain }\nparams:\n  Gain: 0\n",
   );
   library(
-    "audio/time/echo",
+    "audio/echo",
     "plugin: { type: jsdsp, name: Echo }\nparams:\n  Time: 375\n  Feedback: 0.45\n",
   );
   // No platter here: it is st0's own `@meta/audio/turntable`, which every test resolves (docs/metaModules.md).
-  library("audio/eq/eq", "label: EQ\nengine: parametric\n");
+  library("audio/eq", "engine: parametric\n");
   library(
-    "audio/eq/eq/engines/parametric",
+    "audio/eq/engines/parametric",
     "plugin: { type: jsdsp, name: Parametric EQ }\n",
   );
   library(
-    "audio/eq/eq/engines/tracktion",
+    "audio/eq/engines/tracktion",
     "plugin: { type: internal, name: Equaliser }\n" +
       "params:\n" +
       "  Low-shelf gain: 0\n  Mid gain 1: 0\n  High-shelf gain: 0\n" +
@@ -253,23 +253,23 @@ describe("a scaffolded set", () => {
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
     expect(ext("nodes/fadeA.yaml")).toBe("@st0/audio/utility/fade");
     expect(ext("nodes/fadeB.yaml")).toBe("@st0/audio/utility/fade");
-    expect(ext("nodes/tempoA.yaml")).toBe("@st0/audio/utility/tempo");
-    expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
+    expect(ext("nodes/tempoA.yaml")).toBe("@st0/cold/tempo");
+    expect(ext("nodes/tempoB.yaml")).toBe("@st0/cold/tempo");
   });
 
   it("asks the médiathèque for exactly those seven modules, the platter being st0's own", () => {
     scaffoldSet(dir, "winter");
     // One of each and not one per use: fetching a module once per node would be a bug.
     expect(mediatekRefs(dir)).toEqual([
-      "@st0/audio/eq/eq",
+      "@st0/audio/echo",
+      "@st0/audio/eq",
       "@st0/audio/filter/multimode",
-      // Under `time/`, for the same reason the EQ is under `eq/`: a delay is not a utility.
-      "@st0/audio/time/echo",
       "@st0/audio/utility/fade",
       // TWO gains and not one: what separates a trim from a fader is its RANGE — docs/setProject.md.
       "@st0/audio/utility/gain",
-      "@st0/audio/utility/tempo",
       "@st0/audio/utility/trim",
+      // Under `cold/`: it reads the deck's whole file before playback — docs/coldModules.md.
+      "@st0/cold/tempo",
     ]);
   });
 

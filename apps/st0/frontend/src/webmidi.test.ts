@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { type MidiInputInfo, MidiRecorder } from "./webmidi";
+import { type MidiInputInfo, MidiRecorder, matchMidiDevice } from "./webmidi";
 
-// The recorder's INPUT SELECTION — the transport's device picker decides which keyboard feeds a
-// take, and the default (every input) is what a one-keyboard rig relies on. No real MIDI here:
+// The recorder's DEVICE SELECTION — the midi-in node wired to the armed lane names which keyboard
+// feeds a take, by label; "" is every device, and no node (null) is none at all. No real MIDI here:
 // the fake access is injected straight into the instance, `init()`'s navigator round trip
 // being exactly what a browser has and a test does not.
 
@@ -62,13 +62,12 @@ describe("MidiRecorder's input selection", () => {
     ]);
   });
 
-  it("captures every input until one is picked", () => {
+  it("captures every device for a node that names none", () => {
     const r = recorderWithAccess([
       ["in-1", "MiniLab"],
       ["in-2", "Pads"],
     ]);
-    r.rec.selectInput(null); // the picker's default, so attach runs
-    expect(r.rec.selectedInput).toBeNull();
+    r.rec.selectDevice("");
     r.rec.start();
     r.beat.now = 1;
     r.send("in-1", NOTE_ON(60, 100));
@@ -82,13 +81,12 @@ describe("MidiRecorder's input selection", () => {
     ]);
   });
 
-  it("captures only the picked input, and the picker's check reads back", () => {
+  it("captures only the device the node names, by its label", () => {
     const r = recorderWithAccess([
       ["in-1", "MiniLab"],
       ["in-2", "Pads"],
     ]);
-    r.rec.selectInput("in-2");
-    expect(r.rec.selectedInput).toBe("in-2");
+    r.rec.selectDevice("Pads");
     r.rec.start();
     r.beat.now = 1;
     r.send("in-1", NOTE_ON(60, 100));
@@ -99,9 +97,20 @@ describe("MidiRecorder's input selection", () => {
     expect(r.rec.stop()).toEqual([{ t: 1, d: 2, k: 62, v: 64 / 127 }]);
   });
 
-  it("closes a key still held at the stop beat, on the picked input", () => {
+  it("captures nothing when no node feeds the lane", () => {
     const r = recorderWithAccess([["in-1", "MiniLab"]]);
-    r.rec.selectInput("in-1");
+    r.rec.selectDevice(null);
+    r.rec.start();
+    r.beat.now = 1;
+    r.send("in-1", NOTE_ON(60, 100));
+    r.beat.now = 2;
+    r.send("in-1", NOTE_OFF(60));
+    expect(r.rec.stop()).toEqual([]);
+  });
+
+  it("closes a key still held at the stop beat, on the named device", () => {
+    const r = recorderWithAccess([["in-1", "MiniLab"]]);
+    r.rec.selectDevice("MiniLab");
     r.rec.start();
     r.beat.now = 2;
     r.send("in-1", NOTE_ON(48, 127));
@@ -116,20 +125,14 @@ describe("MidiRecorder's input selection", () => {
     await expect(r.rec.init()).resolves.toBe(true);
   });
 
-  it("switching selection back to null listens to every input again", () => {
-    const r = recorderWithAccess([
-      ["in-1", "MiniLab"],
-      ["in-2", "Pads"],
+  it("matches a label loosely, the way a camera's is: case, then containment", () => {
+    expect(matchMidiDevice("minilab", ["MiniLab", "Pads"])).toEqual([
+      "MiniLab",
     ]);
-    r.rec.selectInput("in-1");
-    r.rec.selectInput(null);
-    r.rec.start();
-    r.beat.now = 1;
-    r.send("in-1", NOTE_ON(60, 100));
-    r.send("in-2", NOTE_ON(62, 64));
-    r.beat.now = 3;
-    r.send("in-1", NOTE_OFF(60));
-    r.send("in-2", NOTE_OFF(62));
-    expect(r.rec.stop()).toHaveLength(2);
+    expect(matchMidiDevice("KeyStep", ["Arturia KeyStep 37"])).toEqual([
+      "Arturia KeyStep 37",
+    ]);
+    expect(matchMidiDevice("", ["A", "B"])).toEqual(["A", "B"]);
+    expect(matchMidiDevice("Gone", ["A"])).toEqual([]);
   });
 });

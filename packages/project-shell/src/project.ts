@@ -115,8 +115,12 @@ export const projectApi = {
   fmt: (path: string) => fsend<FileContent>("POST", "/fmt", { path }),
   createFolder: (dir: string, name: string) =>
     fsend<{ path: string }>("POST", "/folder", { dir, name }),
+  // A library module's refs follow a rename, and `repointed` lists the files that changed — song docs/moduleMove.md.
   renameFile: (path: string, name: string) =>
-    fsend<{ path: string }>("POST", "/rename", { path, name }),
+    fsend<{ path: string; repointed?: string[] }>("POST", "/rename", {
+      path,
+      name,
+    }),
   moveFile: (path: string, toDir: string) =>
     fsend<{ path: string }>("POST", "/move", { path, toDir }),
   /** Move a library module to another folder of its library, its refs repointed — packages/song/docs/moduleMove.md. */
@@ -132,11 +136,11 @@ export const projectApi = {
 
   // --- Modules, as a project sees them ------------------------------------------
   hints: () => fget<Hints>("/hints"),
-  /** The refs a node may be an instance of, each with the name it CALLS itself — packages/song/docs/moduleLabel.md. */
+  /** The refs a node may be an instance of, each with its panel size when it draws one. */
   baseModules: () =>
-    fget<
-      { ref: string; label?: string; panel?: { cols: number; rows: number } }[]
-    >("/base-modules"),
+    fget<{ ref: string; panel?: { cols: number; rows: number } }[]>(
+      "/base-modules",
+    ),
   ioPorts: () => fget<IoPort[]>("/io-ports"),
   moduleCatalogue: () => fget<CatalogueModule[]>("/module-catalogue"),
   moduleUi: (path: string) =>

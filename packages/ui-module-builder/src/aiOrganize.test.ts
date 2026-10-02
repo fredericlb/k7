@@ -163,27 +163,24 @@ describe("the check", () => {
     expect(issues).toContain("panel: `cutoff` overlaps `res`");
   });
 
-  it("checks each page together with the panel-level widgets drawn over it", () => {
+  it("checks each tab together with the panel-level widgets drawn over it", () => {
     const tabs = `cols: 8
 rows: 6
 widgets:
   screen: { type: lcdscreen, col: 0, row: 4, colSpan: 8, rowSpan: 2 }
-  tabs:
-    type: tabs
-    col: 0
-    row: 0
-    colSpan: 8
-    pages:
-      Main:
-        cutoff: { type: knob, col: 0, row: 1, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
-      Env:
-        attack: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, bind: Attack, min: 0, max: 1 }
-        cutoff: { type: knob, col: 2, row: 1, bind: Cutoff, min: 0, max: 1 }
+tabs:
+  - name: Main
+    widgets:
+      cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
+  - name: Env
+    widgets:
+      attack: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, bind: Attack, min: 0, max: 1 }
+      cutoff: { type: knob, col: 2, row: 0, bind: Cutoff, min: 0, max: 1 }
 `;
     const issues = checkAiResult(result(tabs, GOOD_JS), PARAMS).issues;
-    expect(issues).toContain("tabs/Env: `screen` overlaps `attack`");
+    expect(issues).toContain("tab Env: `screen` overlaps `attack`");
     expect(issues).toContain("widget id `cutoff` is used twice");
-    expect(issues.some((i) => i.startsWith("tabs/Main"))).toBe(false);
+    expect(issues.some((i) => i.startsWith("tab Main"))).toBe(false);
   });
 
   it("lets a group frame the widgets wholly inside it, and names one that straddles its edge", () => {
@@ -224,16 +221,18 @@ widgets:
     );
   });
 
-  it("refuses a colour anywhere but on a group, and a bind on one", () => {
+  it("refuses a colour anywhere but on a group, and takes a group's on/off bind", () => {
     const bad = GOOD_UI.replace("label: Res,", 'label: Res, color: "#fff",');
     expect(checkAiResult(result(bad, GOOD_JS), PARAMS).issues[0]).toMatch(
       /^ui_yaml widgets\.res\.color/,
     );
     const bound = `${GOOD_UI}  g: { type: group, col: 4, row: 2, bind: Cutoff }
 `;
-    expect(checkAiResult(result(bound, GOOD_JS), PARAMS).issues[0]).toMatch(
-      /^ui_yaml widgets\.g\.bind/,
-    );
+    expect(
+      checkAiResult(result(bound, GOOD_JS), PARAMS).issues.filter((i) =>
+        i.startsWith("ui_yaml widgets.g.bind"),
+      ),
+    ).toEqual([]);
   });
 
   it("hands the schema's own complaint back, with its path", () => {
@@ -433,19 +432,17 @@ describe("a group around one widget", () => {
     ).toEqual([]);
   });
 
-  it("is checked inside a tabs page as well", () => {
+  it("is checked inside a tab as well", () => {
     const tabs = `cols: 8
 rows: 6
-widgets:
-  tabs:
-    type: tabs
-    col: 0
-    row: 0
-    colSpan: 8
-    pages:
-      Main:
-        g: { type: group, col: 0, row: 1, colSpan: 2, rowSpan: 2 }
-        cutoff: { type: knob, col: 0, row: 1, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
+widgets: {}
+tabs:
+  - name: Main
+    widgets:
+      g: { type: group, col: 0, row: 0, colSpan: 2, rowSpan: 2 }
+      cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, bind: Cutoff, min: 0, max: 1 }
+  - name: Env
+    widgets: {}
 `;
     expect(checkAiResult(result(tabs, GOOD_JS), PARAMS).issues).toContain(
       "group `g` frames a single widget: a group holds two or more — drop it and leave the widget bare",

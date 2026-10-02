@@ -137,11 +137,16 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
                                        g->hasMix_ = true; }   // process() needs the dry snapshot
         // MIDI: block-rate rewrites of the message list, with scalar inputs and no `out` — the buffer IS the output.
         else if (type == "transpose" || type == "velocity" || type == "mchannel"
-                 || type == "mhold" || type == "mstrike") {
+                 || type == "mhold" || type == "mstrike" || type == "mpattern"
+                 || type == "maccent" || type == "mchance" || type == "mdecay") {
             node.kind = type == "transpose" ? Kind::transpose
                       : type == "velocity"  ? Kind::velocity
                       : type == "mchannel"  ? Kind::mchannel
                       : type == "mhold"     ? Kind::mhold
+                      : type == "mpattern"  ? Kind::mpattern
+                      : type == "maccent"   ? Kind::maccent
+                      : type == "mchance"   ? Kind::mchance
+                      : type == "mdecay"    ? Kind::mdecay
                                             : Kind::mstrike;
             node.phase = Phase::midi;
             g->hasMidiPhase_ = true;
@@ -348,12 +353,33 @@ void DspGraph::processMidi(tracktion::engine::MidiMessageArray& midi, const floa
                     midi.addMidiMessage(m, m.getTimeStamp(), te::MidiMessageArray::notMPE);
                 break;
             }
+            // The step rule's four setters: fields written once a block, read per strike by the clock (NoteSteps.h).
+            case Kind::mpattern: {
+                const int mode = juce::roundToInt(a);
+                steps_.mode = mode == 1 ? StepMode::burst : mode == 2 ? StepMode::euclid : StepMode::all;
+                steps_.length = juce::roundToInt(r(n.in[1]));
+                steps_.density = r(n.in[2]);
+                steps_.rotate = r(n.in[3]);
+                break;
+            }
+            case Kind::maccent:
+                steps_.accents = a;
+                steps_.low = r(n.in[1]);
+                steps_.opposite = r(n.in[2]) >= 0.5f;
+                steps_.keep = r(n.in[3]) >= 0.5f;
+                break;
+            case Kind::mchance:
+                steps_.chance = a;
+                break;
+            case Kind::mdecay:
+                steps_.decay = a;
+                break;
             case Kind::mstrike: {
                 // `a` is the step in beats and `r(n.in[1])` the gate; both go through the clock's
                 // own clamps, which is where a nonsense value is answered (NoteClock.h).
                 const int count = notes_.advance(blockSeconds, (double)a * perBeat,
                                                  (double)r(n.in[1]), noteEvents_.data(),
-                                                 (int)noteEvents_.size());
+                                                 (int)noteEvents_.size(), &steps_);
                 if (count <= 0) break;
                 // Merged by timestamp rather than appended: a list out of order is a list
                 // something downstream will drop.

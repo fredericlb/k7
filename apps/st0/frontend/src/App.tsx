@@ -15,17 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@frediverse/ui/dropdown-menu";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import {
-  Check,
-  ChevronDown,
   Circle,
   Headphones,
   ListMusic,
@@ -186,6 +177,7 @@ import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
 import { BARE_TRANSPORT, isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
+import { midiInDeviceFor } from "./midiIn";
 import { describeDownload, followDownload } from "./modelDownload";
 import {
   chainRefFromCreate,
@@ -532,6 +524,8 @@ export default function App({
   >(null);
   /** The mixer view: the SAME graph, with every strip pulled onto one rank (`alignModuleRank`). */
   const [mixerView, setMixerView] = useState(false);
+  // The STACK view: a column per lane, the MIX's last — exclusive with the mixer row.
+  const [stackView, setStackView] = useState(false);
 
   /** Whether the graph draws the project's NOTES — off by default and not remembered; `docCount` is reported up by the pane holding the graph. */
   const [showDocs, setShowDocs] = useState(false);
@@ -1187,16 +1181,48 @@ export default function App({
 
   // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track; it also holds
   // the device picker's data, which the transport's dropdown beside the MIDI record reads.
-  const { midiInputs, midiInputId, selectMidiInput, openMidiInputs } =
-    useMidiRecording({
-      store,
-      tempo: recInfo.tempo,
-      midiRecordEnabled: midiRecord,
-      playing,
-      midiArmed,
-      midiSeqRef,
-      quietCommand,
-    });
+  // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
+  const [midiIn, setMidiIn] = useState<{ any: boolean; device: string | null }>(
+    {
+      any: false,
+      device: null,
+    },
+  );
+  useEffect(() => {
+    let live = true;
+    void api
+      .graph()
+      .then((g) => {
+        if (!live) return;
+        const steps = Object.values(g.chains).flatMap((c) => c.use);
+        const device = midiArmed ? midiInDeviceFor(g, midiArmed) : null;
+        setMidiIn({ any: steps.some((st) => st.device !== undefined), device });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [reloadKey, midiArmed]);
+  const { midiInputs, openMidiInputs } = useMidiRecording({
+    store,
+    tempo: recInfo.tempo,
+    midiRecordEnabled: midiRecord,
+    playing,
+    midiArmed,
+    midiSeqRef,
+    quietCommand,
+    midiDevice: midiIn.device,
+    onNoMidiIn: (track) =>
+      showToast({ message: m["midi.noMidiIn"]({ track }), variant: "error" }),
+  });
+  // A project with a midi-in node asks for MIDI access at once, so its dropdown lists the devices.
+  useEffect(() => {
+    if (midiIn.any) void openMidiInputs();
+  }, [midiIn.any, openMidiInputs]);
+  const midiDevices = useMemo(
+    () => midiInputs.map((d) => d.name),
+    [midiInputs],
+  );
 
   // Background polls: the git badge, the project errors, the waveform prewarm.
   const { gitStatus, refreshGitStatus } = useGitStatus();
@@ -1299,9 +1325,10 @@ export default function App({
       return setStatus(
         "no strip in this song — a strip is a Mixer module at the end of a track",
       );
-    // Turning it ON also clears whatever had taken the graph's place.
+    // Turning it ON also clears whatever had taken the graph's place, and the stack: two arrangements cannot share it.
     setGraphSlot(null);
     setFull(null);
+    setStackView(false);
     setMixerView(true);
     setStatus(
       mixerStrips.length === 1
@@ -1309,6 +1336,18 @@ export default function App({
         : `mixer view — ${mixerStrips.length} strips lined up`,
     );
   }, [mixerView, mixerStrips.length]);
+
+  /** …and the stack view, which takes the graph's whole pane like the mixer row does. */
+  const toggleStack = useCallback(() => {
+    if (stackView) return setStackView(false);
+    setGraphSlot(null);
+    setFull(null);
+    setMixerView(false);
+    setStackView(true);
+    setStatus(
+      "stack view — a column per track, the mix last",
+    );
+  }, [stackView]);
 
   const toggleDocs = useCallback(() => {
     if (docCount === 0)
@@ -1662,6 +1701,10 @@ export default function App({
         toggleMixer();
         return true;
       }
+      if (line === "stack") {
+        toggleStack();
+        return true;
+      }
       if (line === "notes") {
         toggleDocs();
         return true;
@@ -1976,6 +2019,7 @@ export default function App({
       frozen,
       setFull,
       toggleMixer,
+      toggleStack,
       toggleDocs,
       clearLogs,
       togglePanel,
@@ -2339,7 +2383,6 @@ export default function App({
           ...cat.map((m) => ({
             ref: m.ref,
             category: m.category,
-            label: m.label,
             panel: m.panel,
           })),
           ...refs.filter((r) => !known.has(r.ref)),
@@ -2704,57 +2747,6 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
-      {/* The MIDI-input picker, LEFT of the meter and there whatever the pane: it chooses what the
-          MIDI record captures (hooks/useMidiRecording.ts) — one device, or every one the browser exposes. */}
-      {!isMobile && !snapshot && !noArrangement && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void openMidiInputs()}
-              title={m["transport.midiDevice"]()}
-              aria-label={m["transport.midiDevice"]()}
-              className="gap-1 px-2 font-normal"
-            >
-              {/* The control is named in the open, like the panes' tooltips — the arrow beside it, not instead of it. */}
-              <span className="text-muted-foreground">
-                {m["transport.midiDeviceLabel"]()}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-w-64">
-            <DropdownMenuLabel>{m["transport.midiDevice"]()}</DropdownMenuLabel>
-            {midiInputs.length === 0 ? (
-              <DropdownMenuLabel className="font-normal">
-                {m["transport.midiNone"]()}
-              </DropdownMenuLabel>
-            ) : (
-              <>
-                <DropdownMenuItem onSelect={() => selectMidiInput(null)}>
-                  <Check
-                    className={`h-4 w-4 ${midiInputId === null ? "" : "opacity-0"}`}
-                  />
-                  {m["transport.midiAll"]()}
-                </DropdownMenuItem>
-                {midiInputs.map((d) => (
-                  <DropdownMenuItem
-                    key={d.id}
-                    onSelect={() => selectMidiInput(d.id)}
-                    title={d.name}
-                  >
-                    <Check
-                      className={`h-4 w-4 ${midiInputId === d.id ? "" : "opacity-0"}`}
-                    />
-                    <span className="truncate">{d.name}</span>
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
       {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
       {!isMobile && !snapshot && (
         <>
@@ -2971,8 +2963,8 @@ export default function App({
                       />
                     </Button>
                     {/* The SECOND record, the BROWSER's: notes land in the armed track's sequence
-                        (hooks/useMidiRecording.ts). The note marks it MIDI; WHICH input it captures
-                        is picked by the header control standing left of the output meter. */}
+                        (hooks/useMidiRecording.ts). WHICH device it captures is the midi-in node
+                        wired to that lane, picked on the node's card. */}
                     <Button
                       size={toolSize}
                       variant={midiRecord ? "default" : "secondary"}
@@ -2981,7 +2973,7 @@ export default function App({
                         if (!midiRecord)
                           void openMidiInputs().then((ok) => {
                             // The press is the gesture the request rides; failing it is said here.
-                            if (!ok) setStatus(m["transport.midiNone"]());
+                            if (!ok) setStatus(m["midi.unavailable"]());
                           });
                         setMidiRecord(!midiRecord);
                         blurOnClick(e);
@@ -3515,6 +3507,7 @@ export default function App({
                   >
                     <ChainsTab
                       cameras={cameras}
+                      midiDevices={midiDevices}
                       reloadKey={reloadKey}
                       organizeKey={organizeKey}
                       active={!chainsOffScreen && !graphSlot}
@@ -3608,6 +3601,8 @@ export default function App({
                       onFocused={reportFramed}
                       // The mixer view, which is a rank change on this same graph — see mixerView.
                       alignModules={mixerView ? mixerStrips : undefined}
+                      stack={stackView}
+                      onStack={() => void runCommand("ui stack")}
                       // The sockets a live input can be on — the same list the editor's strip uses.
                       inputDevices={inputDevices}
                       // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
@@ -3692,6 +3687,8 @@ export default function App({
                   {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
                   {graphSlot?.kind === "trackModules" && (
                     <TrackModulesPane
+                      cameras={cameras}
+                      midiDevices={midiDevices}
                       trackId={graphSlot.trackId}
                       reloadKey={reloadKey}
                       command={quietCommand}
@@ -3826,6 +3823,7 @@ export default function App({
                 {panel === "graph" && (
                   <GraphPanel
                     cameras={cameras}
+                    midiDevices={midiDevices}
                     reloadKey={reloadKey}
                     organizeKey={organizeKey}
                     trackId={caret?.trackId ?? null}

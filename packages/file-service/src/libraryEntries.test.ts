@@ -1,11 +1,12 @@
 // Renaming and deleting inside a LIBRARY from the Libraries tab: both act on the library's clone, a
 // delete removes in place (the library's history is its bin, and the workspace's bin may be on
-// another disk), and the library itself stays out of reach.
+// another disk), the library itself stays out of reach, and a module's refs follow a rename.
 
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -58,4 +59,51 @@ it("refuses to rename or delete the library itself", async () => {
   await expect(ws.renameEntry("_libraries/st0", "x")).rejects.toThrow(
     /settings/,
   );
+});
+
+it("renaming a FOLDER repoints every module inside it, in the songs and in the library", async () => {
+  // Two modules in a category, a song using one, a library chain using the other — and a lookalike.
+  for (const m of ["echo", "slap"]) {
+    const at = join(lib, "modules", "audio", "time", m);
+    mkdirSync(at, { recursive: true });
+    writeFileSync(join(at, "module.yaml"), 'extends: "@engine/delay"\n');
+  }
+  const node = join(root, "song.st0", "nodes", "e.yaml");
+  mkdirSync(join(root, "song.st0", "nodes"), { recursive: true });
+  writeFileSync(
+    node,
+    'extends: "@st0/audio/time/echo"\nengine: x\n# @st0/audio/timer/y\n',
+  );
+  const chain = join(lib, "chains", "v", "nodes", "s.yaml");
+  mkdirSync(join(lib, "chains", "v", "nodes"), { recursive: true });
+  writeFileSync(chain, "extends: @st0/audio/time/slap\n");
+
+  const { path, repointed } = await ws.renameEntry(
+    "_libraries/st0/modules/audio/time",
+    "delays",
+  );
+  expect(path).toBe("_libraries/st0/modules/audio/delays");
+  expect(readFileSync(node, "utf8")).toBe(
+    'extends: "@st0/audio/delays/echo"\nengine: x\n# @st0/audio/timer/y\n',
+  );
+  expect(readFileSync(chain, "utf8")).toBe("extends: @st0/audio/delays/slap\n");
+  expect(repointed?.length).toBeGreaterThanOrEqual(2);
+});
+
+it("renaming a MODULE repoints its own uses", async () => {
+  const node = join(root, "song.st0", "nodes", "v.yaml");
+  mkdirSync(join(root, "song.st0", "nodes"), { recursive: true });
+  writeFileSync(node, 'extends: "@st0/audio/verb"\n');
+  await ws.renameEntry("_libraries/st0/modules/audio/verb", "hall");
+  expect(readFileSync(node, "utf8")).toBe('extends: "@st0/audio/hall"\n');
+});
+
+it("refuses to rename an engine, which nodes pick by name", async () => {
+  const eng = join(lib, "modules", "audio", "verb", "engines", "plate");
+  mkdirSync(eng, { recursive: true });
+  writeFileSync(join(eng, "module.yaml"), 'extends: "@engine/reverb"\n');
+  await expect(
+    ws.renameEntry("_libraries/st0/modules/audio/verb/engines/plate", "room"),
+  ).rejects.toThrow(/picked by its name/);
+  expect(existsSync(eng)).toBe(true);
 });

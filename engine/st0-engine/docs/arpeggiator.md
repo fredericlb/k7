@@ -17,8 +17,8 @@ slot per step, chosen by a direction and a number of octaves, where `mstrike` ta
 set. That is a third node — `mwalk(direction, octaves)`, between hold and strike, narrowing what
 strike sees — and not a mode flag on `mstrike`, which would make one node do two jobs.
 
-Until it exists, the walk lives here: `Arpeggiator::noteFor` picks the slot, and the four
-directions below are its whole content. Porting it means moving that function into `DspGraph` and
+Until it exists, the walk lives here: `Arpeggiator::noteFor` picks the slot, and the directions
+below are its whole content. Porting it means moving that function into `DspGraph` and
 proving the two sound identical, which nothing has done yet.
 
 ## The rate is a division, and the tempo is the edit's
@@ -34,14 +34,14 @@ The floor of 20 BPM is what keeps a tempo of zero from making a step last foreve
 clamps again on its own side, between 5 ms and 8 s, because it is handed a number and cannot know
 where it came from — under the floor the step loop would fill a block with notes.
 
-## The note lasts half its step
+## The note lasts half its step, unless a drawn step says otherwise
 
-The gate is fixed at `Arpeggiator::gate`, and it is not a control: three choices were asked for, and
-a fourth knob for something most players never move is a worse panel. Half is the value because the
-alternative — a full gate, releasing the old note exactly where the new one starts — breaks on the
-one case an arpeggiator hits constantly: a **single** held note, where the note-off and the note-on
-carry the same number at the same timestamp, and what a synth does with that pair is its own
-business. Half a step always leaves the gap.
+A preset holds every note for `Arpeggiator::gate`, half its step; a Custom pattern sets it per step
+(below). A drawn gate is held between 5 % and 95 % (`minGate`, `maxGate`) because a full gate —
+releasing the old note exactly where the new one starts — breaks on the one case an arpeggiator hits
+constantly: a **single** held note, where the note-off and the note-on carry the same number at the
+same timestamp, and what a synth does with that pair is its own business. The ceiling always leaves
+a gap.
 
 ## The chord is eaten, and everything else keeps its place
 
@@ -58,8 +58,43 @@ price is that starting mid-bar leaves the pattern offset from the grid until the
 Letting go releases the sounding note immediately: at the end of a step nobody is holding, that
 note-off would be owed for as long as the silence lasts.
 
-Nothing latches. There is no hold, no swing, no velocity pattern and no rest — each is a control
-that would have to be authored, and this module answers the three the panel names.
+Nothing latches. There is no hold and no swing — each is a control that would have to be authored,
+and this module answers the ones the panel names.
+
+## Custom: a drawn pattern, kept as parameters
+
+`Direction` 4 plays a DRAWN pattern rather than a walk: `Steps` (1–16) long, each `Step n` either a
+rest (0) or the slot it plays, 1 being the lowest held note and the slots stacking up through the
+octaves exactly as the presets' do. The pattern is parameters rather than a file or a blob, for one
+reason: the panel's screen sets params by NAME and nothing else, so a drawing is heard live,
+written to the node like a knob, and automatable step by step — the same path every other control
+takes.
+
+- **A slot is relative to the chord, not a pitch.** A pattern drawn as 1-3-2-3 plays any chord in
+  that shape, which is what makes it an arpeggio pattern rather than a melody. A slot past the
+  chord wraps round it (`(slot - 1) % count`), so a pattern drawn for four notes still plays on
+  three instead of falling silent where the fourth would be.
+- **A rest takes its step.** The clock moves and nothing sounds, so the pattern stays on the grid
+  the rate describes.
+- **Custom with no steps is `up`**, in `advance`: silence nobody chose is not a pattern.
+- **Each step has a velocity and a gate**, `Velocity n` and `Gate n`. Velocity is a SHARE of how
+  hard the chord was played (1, the default, plays it as played): an accent pattern that keeps the
+  hand's dynamics, rather than a fixed level that throws them away. A step drawn at zero velocity is
+  a rest — a note-on of velocity 0 is a note-off in MIDI. Gate is the share of the step the note
+  lasts, 0.5 by default, the preset's value. Both are continuous parameters, so a bar is written and
+  automated like a knob.
+- **The drawn levels are the pattern's.** A preset plays as the hand did, at the default gate,
+  whatever the bars say — a preset's steps are not the drawing's, so the drawing's levels have no
+  step to belong to.
+- **The steps survive leaving Custom.** Choosing a preset only changes `Direction`; going back to
+  Custom finds the drawing where it was.
+
+The screen (the library module's `widgets.js`) pictures a preset on the same grid, as it would play
+a four-note chord — a preset depends on the chord held, which the panel cannot know. Under each
+step sit its velocity bar and its gate bar. Drawing on a preset — a cell or a bar — copies what was
+shown into the steps, the levels included, and switches `Direction` to Custom in the same
+gesture, so the dropdown says Custom and the first stroke edits the pattern that was on screen
+rather than a blank one. The fresh steps an untouched plugin holds are `up` over eight slots.
 
 ## The numbers a reader would get wrong
 
@@ -81,6 +116,6 @@ covered with no audio device. The plugin around it is not — it needs a live `t
 `turntable.md` describes.
 
 The offline parameter table (`packages/song-schema/src/builtinParams.generated.ts`) is read out of a
-**running** engine, and carries this plugin's three parameters with their named settings — so the
+**running** engine, and carries this plugin's parameters with their named settings — so the
 builder can draw a panel for `@engine/arpeggiator` on a machine where no engine is up. Re-running
 `npm run gen:builtin-params --workspace st0-engine` is what any change to the parameters costs.

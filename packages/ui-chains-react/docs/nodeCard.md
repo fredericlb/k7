@@ -4,28 +4,44 @@
 takes are all decisions someone made once. This page holds the reasons; the file holds one line
 each.
 
-## Two names, stacked
+## Two names: one drawn, one on hover
 
 A node and its module are two different things — `sy_jun-chorus` is one use of
 `@st0/audio/modulation/chorus-ense`. A header saying only the node's name makes seventeen uses of
 one mixer read as seventeen unrelated cards.
 
-So the header wears the MODULE — its `label:` when it has one (`packages/song/docs/moduleLabel.md`),
-else the last segment of its ref — or the node's own name when there is no second one, and the
-node's name goes underneath, small, answering WHICH use this is, whenever the header says something
-else. The tooltip holds all three: the label, the ref and the node. The far LOD says the module too: at that
+So the header wears the MODULE — the last segment of its ref, which is its file name — or the
+node's own name when there is no second one. When the two differ, the node's name is the first line's
+TOOLTIP: hovering the module's line answers WHICH use this is. It has no line of its own, because the
+second line holds the engine's stage, which is a control and is used far more often than a name that
+is read once. The name's own tooltip holds both, the ref and the node. The far LOD says the module too: at that
 zoom the card IS one word, and the useful one is what the node is rather than which copy of it. Two
 LODs answering differently would be two cards.
 
-The stack lives inside `UI_HEADER` (38 px), which the layout and the hit areas share, so both
-line-heights are stated rather than inherited: a header that grew would put every widget grid under
-its own card's chrome. `min-width:0` on the row is what makes an ellipsis inside a flex row work at
+The stack lives inside `UI_HEADER` (38 px), which the layout and the hit areas share, and the header
+is that height ALWAYS — `height:UI_HEADER` in the CSS, not its content's height. A card with one name
+then has the same header as a card with two: a row of cards reads as one band of headers rather than
+a skyline, and the widget grid, placed at `UI_CONTENT_TOP` by the layout, starts the same 4 px under
+the header's rule on every card. Both line-heights are stated rather than inherited for the same reason: a header that
+grew would put every widget grid under its own card's chrome.
+
+The card is SQUARE-cornered, and so are its header and an open box's frame: a card is a
+panel in a rack, and the cables meeting its edges read as plugged into a face, not into a pebble.
+
+### On/off leads the header
+
+A live module's bypass is a block at the header's LEFT edge, its full height, before the glyph —
+`.dgx-byp`, `BYPASS_W` wide, a rule between it and the name. It is the first control a hand reaches
+for on a module, so it sits where the eye starts reading the card, and as a block the height of the
+header it is a target rather than a 17 px disc on a corner. Lit amber when the module is bypassed.
+`headerNameW` counts it: the block and the gap after it (`BYPASS_GAP`) replace the header's left
+padding. A baked module, a track and a sink draw none — there is nothing behind them to bypass. `min-width:0` on the row is what makes an ellipsis inside a flex row work at
 all — the same reason it appears on the track's input label.
 
 ### The header is a COLUMN, and only its top row makes way for the bubbles
 
 `.dgx-hd` stacks two things: `.dgx-hdtop`, a row carrying the glyph, the module's name and whatever
-stands beside them, and `.dgx-nodenm` under it. Two consequences, both of them the point:
+stands beside them, and `.dgx-hdsub` under it — the engine's stage and the engine select. Two consequences, both of them the point:
 
 - **the glyph leads the module's name and nothing else.** Centred against the whole two-line block
   it belongs to neither line, and reads as an ornament of the card rather than of the name;
@@ -68,10 +84,45 @@ and at a fixed 12.5 px seventeen identically-shaped mixers all read `vo_j…`. T
 anyway: the fit is floored, so a long enough name is still cut.
 
 `headerNameW` is the top row's own numbers written out again: 10 px of padding each side, a 7 px
-gap, a 13 px glyph or an 8 px dot leading the name, and the padding-right a corner button adds. It
+gap, a 13 px glyph or an 8 px dot leading the name, and the engine select when there is one. It
 sizes the MODULE's line alone — the node's name below it is ellipsed, having a whole card's width to
 run in. The layout is flex, so the real figure only exists after a reflow, which is exactly what a
 per-card measurement would cost. If the CSS moves, this moves with it.
+
+## The header's two lines: alternatives on the first, the engine on the second
+
+The top line is the MODULE — its name, then its TAGS (the engine's `!` when the plugin failed to
+load, first because a fault outranks a state; the snowflake when it is frozen), then at the right end the alternatives' badges, which are ways of playing that
+module. The tags are states of the module, so they read beside its name; on a corner of the card a
+tag would hang outside it and collide with whatever dagre puts next to it. Each has a set width
+(`FREEZE_TAG_W` for both discs), counted with the badges in the width `headerNameW` leaves the name. The second line is what the ENGINE does with the node — its stage, IN / MIX /
+OUT, and at the right end the engine select (`packages/song/docs/engines.md`), which says what it runs
+as. Each control sits on the line whose subject it qualifies, and the header, being a fixed two lines,
+has room for both without growing.
+
+Both are SET-width, never left to the browser: `altBadgeW` per badge (5.5 px a character plus
+padding, 15 to 80 px) and `engineSelectW` for the select (capped at 84 px). The badges share the
+top line with the name, so `headerNameW` subtracts their row — badges, gaps and the `+` — and the
+name's fitted size is computed against the width they actually take; a row sized by its content
+would only know that width after a reflow. The select shares the second line with the stage sliders,
+which share out what it leaves, and need no figure of their own.
+
+## A tabbed panel's column
+
+A panel with two or more tabs (`packages/ui-module-builder/docs/pages.md`) draws them as a column
+down the card's LEFT, under the header — `TAB_COL_W` wide, one `TAB_H` row per name, the open one lit
+by a sand rule on its left edge. The card is widened by the column rather than the grid narrowed,
+and `widgetRect` takes the column's width as its left offset, so a tab's widgets sit exactly where
+the builder's grid shows them. A card is at least tall enough to list every tab: a twelve-tab panel
+on a short grid grows rather than cutting its last names.
+
+The open tab is the card's own STATE, not a field of the document: which page shows is a view, and
+two cards of the same module may show different ones. What the grid draws is the shared `widgets`
+and then the open tab's. Every lookup BY BIND — MIDI control, the automation arrow, a picker's
+library choices — walks every tab through `panelWidgets` (`@studio/graph-model/panel`), since a knob
+on a closed tab is still the module's.
+
+A single tab draws no column: one tab is no tab, and the builder never writes one.
 
 ## One corner list
 
@@ -79,14 +130,14 @@ per-card measurement would cost. If the CSS moves, this moves with it.
 all it says: the discs hang off the corner rather than standing in the text, so there is no width to
 give up. One list, read by the buttons themselves, which cannot disagree with anything.
 
-A BAKED module gets neither `plugin` nor `bypass`, there being no live plugin behind it for the
-engine to open a window on or to bypass. Its freeze is undone from the right-click menu, where
+A BAKED module gets no `plugin` bubble, there being no live plugin behind it for the engine to open
+a window on — and, for the same reason, no on/off block in its header. Its freeze is undone from the right-click menu, where
 `node freeze` sits like every other node verb.
 
 ## The alternatives are badges, not a bubble
 
-A module's attribute sets (`packages/song/docs/alternatives.md`) are drawn as a row of badges
-OUTSIDE the card, above its right corner: one per set, the one playing lit, and a `+` last. They
+A module's attribute sets (`packages/song/docs/alternatives.md`) are drawn as a row of badges at
+the right end of the header's top line: one per set, the one playing lit, and a `+` last. They
 are not in `cornerButtons`, because they are not one control each module might have — they are a
 list whose length is the module's. A menu hid the one fact worth seeing at a glance, that this node
 has variants and which one is on; a badge per set says it without a click, and switching is one
@@ -103,9 +154,8 @@ the reason to add a set is to try a change against what you are hearing, and a c
 
 A module with only its own settings still gets the `+`, since a second set has to start somewhere
 and that somewhere is the node — but only while the card is hovered or selected, or every card in
-the graph would wear one. The row sits 11 px above the card so the corner bubbles, which overhang
-it by 8, stay clear; dagre's 100 px between ranks leaves room for it. A note draws none: it returns
-before the card that carries them.
+the graph would wear one. Its slot is kept while it is hidden, so hovering a card does not shift its
+name. A note draws none: it returns before the card that carries them.
 
 ### Where a bubble sits
 
@@ -116,26 +166,28 @@ apart (`nodesep`) and ranks 100 px, and nothing between the card and `.dgx` (the
 
 Every bubble is the same disc; what differs is the SLOT it takes, counted from the corner leftwards
 (`--slot`, 17 px wide plus 3 px of air). One rule rather than a `.paired` variant per pair: there
-are three of them — plugin UI, bypass, an assembly's open — and a variant per combination is where
-a fourth would go wrong. The header's `padding-right` is driven by the same `--corners` count, so the
-name and the cluster cannot disagree about how many there are.
+are two of them — plugin UI and an assembly's open — and a variant per combination is where a third
+would go wrong.
 
-## The footer: the engine's stage, under the panel
+## The engine's stage, on the header's second line
 
-A module whose plugin the engine wraps in its own stage (`engine/st0-engine/docs/mix.md`) gets a
-FOOTER row under its panel: one slider per value the stage takes — `in` (`@input-volume`), `mix`
-(`@mix`), `out` (`@output-volume`) — in that order, only those that apply. WHICH apply is the
-compile's own test, carried on the step as `stage` (`packages/song/src/ownMix.ts`), so the footer
-shows exactly what the engine does to the module.
+A module whose plugin the engine wraps in its own stage (`engine/st0-engine/docs/mix.md`) gets one
+slider per value the stage takes — `in` (`@input-volume`), `mix` (`@mix`), `out` (`@output-volume`) —
+always in that order, only those that apply. WHICH apply is the compile's own test, carried on the
+step as `stage` (`packages/song/src/ownMix.ts`), so the card shows exactly what the engine does to the
+module.
 
-It is not part of `ui.yaml` and nothing edits it: every module has the same three in the same
-place, which is the point — a panel author, a person or AI organize, places the plugin's controls
-and never these. Each slider is ONE row — its caption on the left, the bar, its reading on the right (`+3.0 dB`,
-`70%`) — since a footer has one row of height and a caption underneath would halve the bar's;
-under `STAGE_READING_W` (72 px) a slot drops the reading to a hover tooltip instead of widening
-the card, so a four-column panel stays four columns wide. The sliders are ordinary widgets on the same
-live path as `@mix` everywhere else, so a drag, a typed value and a MIDI map all work on them; a lane has no footer, its level being
-its strip's fader.
+They sit on the header's SECOND line, side by side, sharing what the engine select leaves. The header
+is a fixed two lines whatever it holds, so they cost the card no height; the panel keeps the whole of
+its grid, and the tab column is the tabs' alone. A card with a stage is at least wide enough for a
+`STAGE_SLOT_W` slot per slider after the header's lead (`nodeSize`), so three of them never crush to
+nothing on a narrow panel.
+
+It is not part of `ui.yaml` and nothing edits it: every module has the same three in the same place,
+which is the point — a panel author, a person or AI organize, places the plugin's controls and never
+these. Each is drawn compact: its caption a fixed width anchored left, the bar, the reading a hover
+tooltip. The sliders are ordinary widgets on the same live path as `@mix` everywhere else, so a drag,
+a typed value and a MIDI map all work on them; a lane has none, its level being its strip's fader.
 
 ## What a plugin costs, on the header's border
 
@@ -190,7 +242,7 @@ render matters more than recognising it as an edge.
 
 **An automatically frozen node is frosted too, and gives way.** `n.autoFrozen` (a VST's automatic
 render, `packages/song/docs/autoFreeze.md`) takes the same wash and snowflake, but where `frozen`
-refuses a drag and hides the plugin and bypass bubbles, `autoFrozen` keeps them: a drag or the
+refuses a drag and hides the plugin bubble and the on/off block, `autoFrozen` keeps them: a drag or the
 plugin bubble first calls the host's `onThawAutoFreeze` with the VST the render was taken at, so the
 edit reaches a live plugin.
 

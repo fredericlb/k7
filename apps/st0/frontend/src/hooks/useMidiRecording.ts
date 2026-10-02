@@ -1,9 +1,9 @@
 // useMidiRecording.ts — Web MIDI capture (browser-side; the engine records audio only).
 // Timing comes from a beatNow() that reads the live playhead and interpolates between the
 // 20 Hz frames with performance.now(), so onsets aren't quantised to the frame rate. On
-// stop the notes land in the armed track's sequence, offset to clip-local beats. The
-// transport picks WHICH input — its MIDI record button carries the device picker — so the
-// access, the list and the selection are asked for here and handed back to that dropdown.
+// stop the notes land in the armed track's sequence, offset to clip-local beats. WHICH device is
+// the MIDI-IN node wired to the armed lane — its card's dropdown — and no node means no MIDI is
+// recorded there (packages/song/docs/midiIn.md). The access and the list are asked for here.
 
 import type { EngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,10 +21,12 @@ export function useMidiRecording(opts: {
   midiArmed: string | null;
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
   quietCommand: (line: string) => Promise<void>;
+  /** The armed lane's MIDI device, by its midi-in node's label: "" any, null no node wired to it. */
+  midiDevice: string | null;
+  /** Said once a take starts on a lane no midi-in node feeds, since that take records nothing. */
+  onNoMidiIn?: (track: string) => void;
 }): {
   midiInputs: MidiInputInfo[];
-  midiInputId: string | null;
-  selectMidiInput: (id: string | null) => void;
   openMidiInputs: () => Promise<boolean>;
   midiAccess: MidiAccess;
 } {
@@ -36,6 +38,8 @@ export function useMidiRecording(opts: {
     midiArmed,
     midiSeqRef,
     quietCommand,
+    midiDevice,
+    onNoMidiIn,
   } = opts;
 
   const midiRecRef = useRef<MidiRecorder | null>(null);
@@ -49,9 +53,8 @@ export function useMidiRecording(opts: {
   const tempoRef = useRef(tempo);
   tempoRef.current = tempo;
 
-  // The device picker's data, kept here because the ACCESS it picks for lives in the recorder.
+  // What the midi-in nodes' dropdowns offer, kept here because the ACCESS behind it lives in the recorder.
   const [midiInputs, setMidiInputs] = useState<MidiInputInfo[]>([]);
-  const [midiInputId, setMidiInputId] = useState<string | null>(null);
   const [midiAccess, setMidiAccess] = useState<MidiAccess>("unasked");
 
   const refreshInputs = useCallback(() => {
@@ -104,10 +107,12 @@ export function useMidiRecording(opts: {
     void openMidiInputs();
   }, [midiArmed, openMidiInputs]);
 
-  const selectMidiInput = useCallback((id: string | null) => {
-    setMidiInputId(id);
-    midiRecRef.current?.selectInput(id);
-  }, []);
+  // The armed lane's node decides which device is listened to; a change mid-take re-attaches.
+  useEffect(() => {
+    midiRecRef.current?.selectDevice(midiDevice);
+  }, [midiDevice]);
+  const onNoMidiInRef = useRef(onNoMidiIn);
+  onNoMidiInRef.current = onNoMidiIn;
 
   // Start on midi-record+play with a MIDI-armed track; on stop, commit the captured notes.
   const midiRecording = midiRecordEnabled && playing && !!midiArmed;
@@ -119,6 +124,7 @@ export function useMidiRecording(opts: {
       midiTargetRef.current = midiArmed
         ? (midiSeqRef.current[midiArmed] ?? null)
         : null;
+      if (midiArmed && midiDevice === null) onNoMidiInRef.current?.(midiArmed);
       rec.start();
     } else if (!midiRecording && midiActiveRef.current) {
       midiActiveRef.current = false;
@@ -140,12 +146,10 @@ export function useMidiRecording(opts: {
           );
       }
     }
-  }, [midiRecording, midiArmed, quietCommand, midiSeqRef]);
+  }, [midiRecording, midiArmed, quietCommand, midiSeqRef, midiDevice]);
 
   return {
     midiInputs,
-    midiInputId,
-    selectMidiInput,
     openMidiInputs,
     midiAccess,
   };

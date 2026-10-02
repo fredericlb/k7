@@ -82,14 +82,12 @@ import {
   hasMalformedPresets,
   hasMalformedUiFile,
   ioOf,
-  labelOf,
   type ModuleUI,
   readParams,
   readPlugin,
   readPresetsFile,
   readUiFile,
   setChannelIn,
-  setLabelIn,
   setStatusIn,
   statusOf,
   WIDGETS_SCRIPT,
@@ -251,8 +249,6 @@ export function ModuleScreen({
   const [content, setContent] = useState<string | null>(null);
   /** The module's `status:` off the BUFFER, so the dropdown shows the edit you just made — docs/builder.md. */
   const moduleStatus = useMemo(() => statusOf(content ?? ""), [content]);
-  /** …and its `label:`, off the same buffer and for the same reason (packages/song/docs/moduleLabel.md). */
-  const moduleLabel = useMemo(() => labelOf(content ?? ""), [content]);
   const [ui, setUi] = useState<ModuleUI | null>(null);
   const [parsable, setParsable] = useState(true);
   const [hints, setHints] = useState<Hints | null>(null);
@@ -969,24 +965,6 @@ export function ModuleScreen({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* What a person calls it, beside how the completions treat it: both are one fact about the module. */}
-          {readOnly
-            ? moduleLabel && (
-                <span className="truncate text-xs text-muted-foreground">
-                  {moduleLabel}
-                </span>
-              )
-            : !!content && (
-                <input
-                  className="w-44 rounded-md border border-border bg-secondary px-2 py-1 text-xs outline-none focus:border-primary"
-                  value={moduleLabel}
-                  placeholder={moduleName}
-                  title="the name a picker shows for this module — the ref is what names it"
-                  onChange={(e) =>
-                    setContent((c) => setLabelIn(c ?? "", e.target.value))
-                  }
-                />
-              )}
           {/* How the COMPLETIONS treat this module, in the header beside its name — ../docs/builder.md. */}
           {readOnly ? (
             moduleStatus !== "listed" && (
