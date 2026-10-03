@@ -11,7 +11,7 @@ import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import { type Cam, DomChains, type TapAction } from "@studio/ui-chains-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
@@ -69,7 +69,7 @@ export function GraphPanel({
   /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
   project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
-  // Bypass must RELOAD, unlike `command`'s quiet path, or the canvas keeps drawing the pre-bypass state.
+  // Asks only: the shell's bypass reloads nothing here, so `pendingBypass` is what moves the card.
   onBypassModule?: (module: string) => void;
   /** …and so must an intrinsic, which has no optimistic value at all — see DomChains' prop. */
   onModuleField?: (line: string) => void | Promise<void>;
@@ -163,16 +163,49 @@ export function GraphPanel({
   laidRef.current = laid;
   const triggerRack = useRackTrigger(laidRef);
 
+  // Bypasses clicked but not yet in `graph`: a bypass bumps no reloadKey, which is all this panel refetches on.
+  const [pendingBypass, setPendingBypass] = useState<Record<string, boolean>>(
+    {},
+  );
+  useEffect(() => setPendingBypass({}), [graph]);
+
+  const bypassModule = useCallback(
+    (module: string) => {
+      setPendingBypass((prev) => {
+        const node = laidRef.current?.nodes.find(
+          (n) => n.kind === "module" && n.module === module,
+        );
+        const now = prev[module] ?? !!node?.bypassed;
+        return { ...prev, [module]: !now };
+      });
+      onBypassModule?.(module);
+    },
+    [onBypassModule],
+  );
+
+  // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
+  const laidShown = useMemo(() => {
+    if (!laid || !Object.keys(pendingBypass).length) return laid;
+    return {
+      ...laid,
+      nodes: laid.nodes.map((n) => {
+        if (n.kind !== "module" || !n.module) return n;
+        const b = pendingBypass[n.module];
+        return b === undefined ? n : { ...n, bypassed: b, dim: b };
+      }),
+    };
+  }, [laid, pendingBypass]);
+
   const body = () => {
     if (error)
       return <Note className="text-red-400">graph unavailable — {error}</Note>;
     if (!graph) return <Note>loading…</Note>;
     if (!trackId) return <Note>{m["graph.selectTrack"]()}</Note>;
-    if (!laid) return <Note>No chain takes {trackId} as its source.</Note>;
+    if (!laidShown) return <Note>No chain takes {trackId} as its source.</Note>;
     return (
       <DomChains
         icons={STUDIO_ICONS}
-        graph={laid}
+        graph={laidShown}
         selected={selected}
         trackOrder={trackOrder}
         videoSpans={videoSpans}
@@ -186,7 +219,7 @@ export function GraphPanel({
         organizeKey={organizeKey}
         camStore={camStore}
         command={command}
-        onBypassModule={onBypassModule}
+        onBypassModule={bypassModule}
         onThawAutoFreeze={thawAutoFreeze}
         onModuleField={onModuleField}
         onRecorder={onRecorder}

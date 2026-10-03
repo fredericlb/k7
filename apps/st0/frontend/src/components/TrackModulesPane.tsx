@@ -7,7 +7,7 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
 import { DomChains, type TapAction } from "@studio/ui-chains-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
@@ -71,7 +71,7 @@ export function TrackModulesPane({
   moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  /** A card's own bypass button — the row draws the graph's cards, so it owes them the graph's answers. */
+  /** A card's own bypass button — asks only; `pendingBypass` is what moves the card, nothing reloads. */
   onBypassModule?: (module: string) => void;
   /** …the alternative badges on a node, and the file-valued param's browser, for the same reason. */
   onAlternative?: (module: string, name: string | null) => void;
@@ -141,6 +141,39 @@ export function TrackModulesPane({
   laidRef.current = laid;
   const triggerRack = useRackTrigger(laidRef);
 
+  // Bypasses clicked but not yet in `graph`: a bypass bumps no reloadKey, which is all this row refetches on (docs/shell.md).
+  const [pendingBypass, setPendingBypass] = useState<Record<string, boolean>>(
+    {},
+  );
+  useEffect(() => setPendingBypass({}), [graph]);
+
+  const bypassModule = useCallback(
+    (module: string) => {
+      setPendingBypass((prev) => {
+        const node = laidRef.current?.nodes.find(
+          (n) => n.kind === "module" && n.module === module,
+        );
+        const now = prev[module] ?? !!node?.bypassed;
+        return { ...prev, [module]: !now };
+      });
+      onBypassModule?.(module);
+    },
+    [onBypassModule],
+  );
+
+  // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
+  const laidShown = useMemo(() => {
+    if (!laid || !Object.keys(pendingBypass).length) return laid;
+    return {
+      ...laid,
+      nodes: laid.nodes.map((n) => {
+        if (n.kind !== "module" || !n.module) return n;
+        const b = pendingBypass[n.module];
+        return b === undefined ? n : { ...n, bypassed: b, dim: b };
+      }),
+    };
+  }, [laid, pendingBypass]);
+
   /** The row's coordinates are its OWN, so a pick gets no `at`: where a new node goes is the graph's to decide. */
   const edgeInsert = useMemo(
     () =>
@@ -185,14 +218,14 @@ export function TrackModulesPane({
     );
 
   if (error) return say(<span className="text-red-500">{error}</span>);
-  if (!laid) return say(m["common.loading"]());
-  if (!laid.nodes.length)
+  if (!laidShown) return say(m["common.loading"]());
+  if (!laidShown.nodes.length)
     return say("this lane reaches no module — nothing to show");
 
   return frame(
     <DomChains
       icons={STUDIO_ICONS}
-      graph={laid}
+      graph={laidShown}
       selected={selected}
       onSelect={setSelected}
       trackOrder={trackOrder}
@@ -211,7 +244,7 @@ export function TrackModulesPane({
       onRecorder={onRecorder}
       onProjectField={onProjectField}
       onContextMenu={onContextMenu}
-      onBypassModule={onBypassModule}
+      onBypassModule={bypassModule}
       onThawAutoFreeze={thawAutoFreeze}
       onAlternative={onAlternative}
       onEngine={onEngine}
