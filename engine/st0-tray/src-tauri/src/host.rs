@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -259,7 +260,21 @@ fn run_forever(app: AppHandle) {
     }
 }
 
-/// Run one supervisor to completion, blocking on its stdout until the pipe closes; returns its exit code.
+/// How long a quiet link goes before the supervisor's own process is asked whether it is still there.
+const SUPERVISOR_POLL: Duration = Duration::from_secs(1);
+
+/// Has the supervisor exited? Asked of the PROCESS, never of its pipe, which a surviving grandchild can
+/// hold open for good. Already reaped — `None` — counts as gone, since only a teardown takes it.
+fn supervisor_gone(app: &AppHandle) -> bool {
+    let link = app.state::<Arc<HostLink>>();
+    let mut child = link.child.lock().unwrap();
+    match child.as_mut() {
+        Some(c) => matches!(c.try_wait(), Ok(Some(_))),
+        None => true,
+    }
+}
+
+/// Run one supervisor to completion, returning its exit code once the link is done or the process is gone.
 fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32>> {
     let mut command = Command::new(&cmd.program);
     command
@@ -294,15 +309,37 @@ fn launch(app: &AppHandle, cmd: &hostcmd::HostCmd) -> std::io::Result<Option<i32
     }
     logbus::line("host", &format!("supervisor up (pid {pid})"));
 
-    // Read frames until the pipe closes. This is the thread's whole job from here.
-    let mut reader = BufReader::new(stdout);
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) | Err(_) => break, // EOF or broken pipe — it's gone
-            Ok(_) => {}
+    // Frames come over a channel so that a silent link can be checked against the process itself:
+    // EOF is not proof of death, and its absence is not proof of life (docs/tray.md).
+    let (tx, rx) = mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match reader.read_line(&mut line) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+            if tx.send(std::mem::take(&mut line)).is_err() {
+                break; // nobody is listening any more: this launch is over
+            }
         }
+    });
+
+    loop {
+        let line = match rx.recv_timeout(SUPERVISOR_POLL) {
+            Ok(line) => line,
+            Err(RecvTimeoutError::Disconnected) => break, // the pipe closed: the ordinary way we learn
+            Err(RecvTimeoutError::Timeout) => {
+                if supervisor_gone(app) {
+                    // The reader thread stays parked on a pipe only the orphan can close; say so and move on.
+                    logbus::line("host", "supervisor is gone, its stdout still held open by a survivor");
+                    break;
+                }
+                continue;
+            }
+        };
         let text = line.trim();
         if text.is_empty() {
             continue;

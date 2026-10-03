@@ -264,6 +264,22 @@ comes to own) die with the tray on Windows however the tray ends; on Unix the pi
 same. A supervisor that crashes is relaunched with 1s→30s backoff, and the engine survives
 that because the pidfile lets the fresh supervisor re-adopt it.
 
+### A closed pipe is not how we learn it died
+
+Reading until EOF is the obvious way to watch a child, and it is not sufficient here: the
+supervisor's stdout is a pipe whose write end any surviving descendant can hold, and the engine
+is built to outlive the supervisor. One inherited copy inside it means EOF never arrives, the
+read blocks for good, and nothing relaunches — a machine whose engine plays on while no studio
+lists it, because the half that heartbeats is gone and unnoticed. The supervisor keeps its stdio
+out of its children for this reason (`engine/st0-supervisor/docs/supervisor.md`), but the tray
+does not take that on trust.
+
+So frames are read on a thread of their own and handed over a channel, and a second of silence
+is answered by asking the PROCESS — `try_wait` — rather than the pipe. A closed channel still
+means death, the ordinary way; an exited process means death even with the pipe wedged open, and
+that case says so in the log. The reader thread is then left parked on a pipe only the orphan can
+close, which costs one thread and is the whole price of never waiting forever.
+
 ## The merged log (`logbus.rs`)
 
 `~/.st0/.studio.log` is written by the supervisor, which owns the engine and pumps its
