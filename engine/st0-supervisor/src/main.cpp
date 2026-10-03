@@ -25,6 +25,7 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
 #endif
 
 namespace {
@@ -94,6 +95,9 @@ int main(int argc, char** argv)
     // Binary stdio, so a frame's `\n` is not turned into `\r\n` and a UTF-8 byte is never translated.
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stdin), _O_BINARY);
+    // Never into a spawned child: a copy of the tray's pipe outliving us costs the tray our EOF (docs/supervisor.md).
+    for (const DWORD id : {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE})
+        SetHandleInformation(GetStdHandle(id), HANDLE_FLAG_INHERIT, 0);
 #endif
     st0::Loop loop;
     int code = 0;

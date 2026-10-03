@@ -17,6 +17,22 @@ audio and nothing else, and everything that can fail slowly or loudly lives here
 It is its own CMake project, not a target of st0-engine's: building it must never mean building
 Tracktion, JUCE and Faust.
 
+## The tray learns we died from our stdout, so no child may hold it
+
+The tray watches one thing to know we are gone: our stdout closing. That EOF is what it reaps on,
+logs, and relaunches us from — there is no second signal. A supervisor whose death goes unnoticed
+leaves a machine whose engine still runs and whose studios no longer list it, since nothing is left
+to heartbeat and a registry entry outlives its last heartbeat by `REGISTRY_TTL_MS`.
+
+`process::spawn` passes `bInheritHandles = TRUE`, which gives a child every inheritable handle we
+hold rather than only the pipes meant for it, and our own stdio — the tray's pipe — arrives
+inheritable. The engine outlives us by design, so a copy of that pipe inside it blocks the tray's
+read forever, through a crash and through a rebuild alike. On Windows the three std handles have
+`HANDLE_FLAG_INHERIT` cleared before anything is spawned; a child is given its pipes through
+`STARTUPINFO` and needs nothing of ours. The pipes `spawn` creates are themselves inheritable while
+it runs, so two overlapping spawns can still cross handles — a bounded cost, since of our children
+only the engine outlives us.
+
 ## One wire, two implementations, one set of tests
 
 The server's half of the tunnel is TypeScript (`packages/engine-tunnel/hub.ts`), and this program
