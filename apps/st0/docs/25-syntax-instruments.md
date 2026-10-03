@@ -463,7 +463,7 @@ _presets/st0/audio/dynamics/compressor/glue.yaml     # kept in this workspace
 <library>/presets/st0/audio/dynamics/compressor/bus.yaml   # kept in a library, shared with every workspace
 ```
 
-```yaml
+```yaml schema=PresetFile
 # preset for @st0/audio/dynamics/compressor
 engine: vari-mu      # only for a module with several engines
 params:
@@ -475,6 +475,13 @@ A **rack** keeps its kit in a preset too, under `rack:` — one line per pad, it
 sample. Only library samples (`@<library>/…`) can be kept: a pad playing `@project/…` is refused,
 since no other project has that file — move the sample into a library first. Loading a kit
 replaces the node's own pads rather than adding to them.
+
+```yaml schema=PresetFile
+# preset for @workspace/instruments/drums
+rack:
+  BD: { note: 36, sample: "@st0/kicks/808 deep.wav" }
+  SD: { note: 38, sample: "@st0/snares/tight.wav" }
+```
 
 Every node that extends the module offers the same presets, wherever they are kept. On the graph,
 the **preset** dropdown sits right of the engine dropdown: pick one to load its values onto the

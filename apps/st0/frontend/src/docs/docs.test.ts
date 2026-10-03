@@ -15,6 +15,7 @@ import {
   ModuleSchema,
   UiFileSchema,
 } from "@studio/song-schema/yaml/moduleSchema";
+import { PresetFileSchema } from "@studio/song-schema/presets";
 import {
   ProjectFileSchema,
   SettingsSchema,
@@ -39,6 +40,7 @@ const SCHEMAS: Record<string, z.ZodType> = {
   Module: ModuleSchema,
   UiFile: UiFileSchema,
   ModuleConfig: ModuleConfigSchema,
+  PresetFile: PresetFileSchema,
 };
 
 describe("the documented file formats", () => {
