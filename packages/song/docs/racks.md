@@ -16,6 +16,9 @@ over a module stating none is the ordinary merge. What was missing was the editi
 verbs write the NODE's file — the selected alternative's when a set other than the first is on, the
 same rule a knob follows (`alternatives.md`), which is what lets two sets be two kits.
 
+A kit can be kept and reloaded as a PRESET of its rack module — the `rack:` of a preset file,
+which loads in place of the node's own taps and refuses a `@project/` sample (`userPresets.md`).
+
 ## A tap is a note and a library SAMPLE
 
 Each sound is a **tap**: `{ note, sample }`, `sample` naming a file under a library's `samples/` as

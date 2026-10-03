@@ -13,7 +13,11 @@ import {
 } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { loadModuleRefs, loadModules } from "@studio/song/loader";
-import { resolveModule } from "@studio/song/moduleResolve";
+import {
+  resolvedRack,
+  resolvedType,
+  resolveModule,
+} from "@studio/song/moduleResolve";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
@@ -21,6 +25,7 @@ import {
   LIBRARY_PRESETS_DIR,
   type NodePresets,
   PRESET_NAME,
+  PROJECT_SAMPLE_PREFIX,
   type PresetEntry,
   type PresetFile,
   PresetFileSchema,
@@ -34,6 +39,7 @@ import { setAlternativeParam } from "@studio/song-schema/yaml/alternativeFile";
 import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
 import { editModuleFile } from "./projectEdit";
+import { setKit } from "./rackTaps";
 
 /** The module ref a node's presets are keyed by — what it `extends` — or null for a node with none. */
 export function presetRefOf(dir: string, node: string): string | null {
@@ -124,7 +130,33 @@ export function readPreset(
   return r.data;
 }
 
-/** What a node plays as right now: its resolved numeric params, and the engine they belong to. */
+type Kit = NonNullable<PresetFile["rack"]>;
+
+/** A rack node's kit as a preset keeps it — refused when a pad plays a sound only this project has. */
+function kitSnapshot(node: string, rack: ReturnType<typeof resolvedRack>): Kit {
+  if (rack.rackType === "slice")
+    throw new Error(
+      `'${node}' slices one source — only a kit of library samples can be kept as a preset`,
+    );
+  const kit: Kit = {};
+  for (const [sym, tap] of Object.entries(rack.symbols)) {
+    const sample = typeof tap.sample === "string" ? tap.sample : undefined;
+    if (sample?.startsWith(PROJECT_SAMPLE_PREFIX))
+      throw new Error(
+        `pad '${sym}' plays ${sample}, a sample only this project has — move it into a library first`,
+      );
+    if (!sample && tap.clip)
+      throw new Error(
+        `pad '${sym}' plays a file of the module's own folder — give it a library sample first`,
+      );
+    kit[sym] = sample
+      ? { note: Number(tap.note), sample }
+      : { note: Number(tap.note) };
+  }
+  return kit;
+}
+
+/** What a node plays as right now: its resolved numeric params, the engine they belong to, and a rack's kit. */
 export function nodeSnapshot(dir: string, node: string): PresetFile {
   const m = loadModules(dir)[node];
   if (!m) throw new Error(`no node named '${node}'`);
@@ -137,7 +169,15 @@ export function nodeSnapshot(dir: string, node: string): PresetFile {
   );
   const engine =
     engineNames(resolved).length > 1 ? currentEngine(resolved) : undefined;
-  return engine ? { engine, params } : { params };
+  const rack =
+    resolvedType(resolved) === "rack"
+      ? kitSnapshot(node, resolvedRack(resolved))
+      : undefined;
+  return {
+    ...(engine ? { engine } : {}),
+    ...(Object.keys(params).length ? { params } : {}),
+    ...(rack && Object.keys(rack).length ? { rack } : {}),
+  };
 }
 
 /** Write a node's state as a preset — `update` requires it to exist, a new one refuses a taken name. */
@@ -160,14 +200,14 @@ export function writeNodePreset(
   if (mode === "update" && !exists)
     throw new Error(`no preset '${name}' in ${scope} to update`);
   const preset = nodeSnapshot(dir, node);
-  if (!Object.keys(preset.params).length)
-    throw new Error(`'${node}' has no params to keep — set some first`);
+  if (!preset.params && !preset.rack)
+    throw new Error(`'${node}' has no params or pads to keep — set some first`);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, presetFileText(ref, preset), "utf8");
   return { path, ref, preset };
 }
 
-/** Load a preset onto a node: its engine first when it names one the node has, then its values in ONE write. */
+/** Load a preset onto a node: its engine first, then its values in ONE write, then its kit in place of the node's. */
 export function applyPresetToNode(
   dir: string,
   node: string,
@@ -176,16 +216,21 @@ export function applyPresetToNode(
 ): {
   params: Record<string, number>;
   switched: boolean;
+  kit: boolean;
   missingEngine?: string;
 } {
   const ref = presetRefOf(dir, node);
   if (!ref)
     throw new Error(`'${node}' extends no module, so it has no presets`);
   const preset = readPreset(dir, scope, ref, name);
+  const params = preset.params ?? {};
   const resolved = () =>
     resolveModule(loadModules(dir)[node], loadModuleRefs(dir));
   let switched = false;
   let missingEngine: string | undefined;
+  // Checked before anything is written, so a kit the node cannot take leaves it untouched.
+  if (preset.rack && resolvedType(resolved()) !== "rack")
+    throw new Error(`preset '${name}' holds a kit and '${node}' is not a rack`);
   if (preset.engine) {
     const r = resolved();
     if (!engineNames(r).includes(preset.engine)) missingEngine = preset.engine;
@@ -196,15 +241,18 @@ export function applyPresetToNode(
   }
   // The engine that is on AFTER the switch, since a module with engines keeps its knobs per engine.
   const engine = currentEngine(resolved());
-  editModuleFile(dir, node, (text) =>
-    Object.entries(preset.params).reduce(
-      (t, [k, v]) => setAlternativeParam(t, k, v, engine),
-      text,
-    ),
-  );
+  if (Object.keys(params).length)
+    editModuleFile(dir, node, (text) =>
+      Object.entries(params).reduce(
+        (t, [k, v]) => setAlternativeParam(t, k, v, engine),
+        text,
+      ),
+    );
+  if (preset.rack) setKit(dir, node, preset.rack);
   return {
-    params: preset.params,
+    params,
     switched,
+    kit: !!preset.rack,
     ...(missingEngine ? { missingEngine } : {}),
   };
 }

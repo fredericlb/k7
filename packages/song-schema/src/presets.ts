@@ -29,6 +29,9 @@ export interface NodePresets {
   scopes: PresetScope[];
 }
 
+/** The level a project's own samples answer to — a sample a preset may not keep, being one project's. */
+export const PROJECT_SAMPLE_PREFIX = "@project/";
+
 /** A preset's name is its file's name, so it is held to what every filesystem agrees on. */
 export const PRESET_NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$/;
 
@@ -44,11 +47,20 @@ export function presetModulePath(ref: string): string | null {
     : null;
 }
 
-/** One preset file: the values it sets, and the engine they were taken on when the module has several. */
+/** One pad of a rack's kit, as a preset keeps it: a note and a LIBRARY sample, never a project's. */
+export const PresetTapSchema = z
+  .object({
+    note: z.number().int().min(0).max(127),
+    sample: z.string().min(1).optional(),
+  })
+  .strict();
+
+/** One preset file: the values it sets, the engine they were taken on, and a rack's kit. */
 export const PresetFileSchema = z
   .object({
     engine: z.string().min(1).optional(),
-    params: z.record(z.string().min(1), z.number()),
+    params: z.record(z.string().min(1), z.number()).optional(),
+    rack: z.record(z.string().min(1), PresetTapSchema).optional(),
   })
   .strict();
 
@@ -67,11 +79,19 @@ export function presetFileText(ref: string, preset: PresetFile): string {
   PresetFileSchema.parse(preset);
   const lines = [`# preset for ${ref}`];
   if (preset.engine) lines.push(`engine: ${key(preset.engine)}`);
-  const params = Object.entries(preset.params);
-  if (!params.length) lines.push("params: {}");
-  else {
+  const params = Object.entries(preset.params ?? {});
+  if (params.length) {
     lines.push("params:");
     for (const [k, v] of params) lines.push(`  ${key(k)}: ${v}`);
+  }
+  // A kit one pad per line, the way a node's file writes its taps.
+  const taps = Object.entries(preset.rack ?? {});
+  if (taps.length) {
+    lines.push("rack:");
+    for (const [sym, t] of taps)
+      lines.push(
+        `  ${key(sym)}: { note: ${t.note}${t.sample ? `, sample: ${JSON.stringify(t.sample)}` : ""} }`,
+      );
   }
   return `${lines.join("\n")}\n`;
 }

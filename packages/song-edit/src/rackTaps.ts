@@ -19,7 +19,7 @@ const OPTS = { version: "1.2" as const };
 const FIRST_NOTE = 36;
 
 /** The node's effective rack, refused when the node is not a rack at all. */
-function kitOf(dir: string, node: string) {
+export function kitOf(dir: string, node: string) {
   const m = loadModules(dir)[node];
   if (!m) throw new Error(`no node '${node}'`);
   const resolved = resolveModule(m, loadModuleRefs(dir));
@@ -189,4 +189,20 @@ export function removeTap(dir: string, node: string, symbol: string): string {
       `'${symbol}' comes from ${node}'s module, not from the node — remove it there, or give the node its own kit`,
     );
   return path;
+}
+
+/** Replace the kit the node itself states with `taps` — a module's own taps still merge in under it. */
+export function setKit(
+  dir: string,
+  node: string,
+  taps: Record<string, { note: number; sample?: string }>,
+): string {
+  kitOf(dir, node);
+  return editTaps(dir, node, (doc, base) => {
+    doc.deleteIn(base);
+    for (const [symbol, tap] of Object.entries(taps)) {
+      doc.setIn([...base, symbol, "note"], tap.note);
+      if (tap.sample) doc.setIn([...base, symbol, "sample"], tap.sample);
+    }
+  });
 }

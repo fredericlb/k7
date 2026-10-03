@@ -40,10 +40,11 @@ export const PRESET_VERBS: Record<string, SidHandler> = {
       h.log([
         `${node}: preset '${name}' (${scope})${done.missingEngine ? ` — its engine '${done.missingEngine}' is not here, applied onto the current one` : ""}`,
       ]);
-      // Another engine is another plugin; otherwise the values reach the engine as a diff.
-      const np = done.switched
-        ? null
-        : withModuleParams(h.project(), node, done.params, false);
+      // Another engine is another plugin, and a kit is built with its sampler; otherwise the values reach the engine as a diff.
+      const np =
+        done.switched || done.kit
+          ? null
+          : withModuleParams(h.project(), node, done.params, false);
       if (np) await h.applyProject(np);
       else await h.reload();
     } catch (e) {

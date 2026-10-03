@@ -43,8 +43,31 @@ One param per line, hand-written rather than through `stringify`, so changing on
 one-line diff. A key is quoted only when YAML needs it: plugin param names carry spaces, and
 quoting every one would be noise.
 
-**Numbers only.** A node's `params:` may hold a filename, but that is an asset, not a setting a
-preset should silently move.
+**Numbers only** in `params:`. A node's `params:` may hold a filename, but that is an asset, not
+a setting a preset should silently move.
+
+## A rack's kit
+
+A rack node has no knobs worth naming; its sound is its KIT, the `rack: symbols:` of the node
+(`racks.md`). So a preset also keeps `rack:`, one pad per line, a note and a sample:
+
+```yaml
+# preset for @st0/instruments/drums
+rack:
+  BD: { note: 36, sample: "@st0/kicks/808.wav" }
+  SN: { note: 38 }
+```
+
+**Only library samples.** A pad playing `@project/…` is refused at save, and so is a legacy pad
+playing a file of the module's own folder, and a slice rack: each names a sound one project or one
+module holds, so the preset would play silence everywhere else — kept in a library, everywhere
+else is exactly where it goes. The refusal says to move the sample into a library first.
+
+Loading one REPLACES the kit the node states, on the attribute set that is on, rather than merging
+pad by pad: a kit is a set, and a merge would leave the old kit's stray pads sounding under the new
+one. Taps the rack MODULE itself ships still merge in under it, which a node file cannot undo. A kit
+is built with the sampler, so loading one reloads instead of pushing values. A preset holding a kit
+is refused on a node that is no rack, before anything is written.
 
 `engine:` is written only for a module with several engines, because a module with engines keeps
 its knobs PER engine (`engines.md`): values taken on `vari-mu` mean nothing to `tracktion`.
@@ -69,8 +92,8 @@ the service builds the path and refuses one that would leave the module's folder
   touch. A taken name is refused: overwriting is a decision.
 - **Update** is that decision: it overwrites an existing preset with the node's current values.
 - **Apply** writes the preset's values into the node's own file, on the attribute set that is on,
-  in ONE write, and reaches the engine as a values-only diff unless it switched engines. Values the
-  preset does not name stay as they are.
+  in ONE write, and reaches the engine as a values-only diff unless it switched engines or loaded a
+  kit. Values the preset does not name stay as they are.
 
 The dropdown shows which preset was last loaded on each node. That is the shell's SESSION state:
 a node file says what its values are, not where they came from, and after a knob moves the two

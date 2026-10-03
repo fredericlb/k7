@@ -471,6 +471,11 @@ params:
   Output Level: 0.8
 ```
 
+A **rack** keeps its kit in a preset too, under `rack:` — one line per pad, its note and its
+sample. Only library samples (`@<library>/…`) can be kept: a pad playing `@project/…` is refused,
+since no other project has that file — move the sample into a library first. Loading a kit
+replaces the node's own pads rather than adding to them.
+
 Every node that extends the module offers the same presets, wherever they are kept. On the graph,
 the **preset** dropdown sits right of the engine dropdown: pick one to load its values onto the
 node, or type a name in its header to save the node's current values as a new preset, in the
