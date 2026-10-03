@@ -765,6 +765,16 @@ export interface AccountWorkspaceList {
   workspaces: AccountWorkspace[];
 }
 
+/** Reply to POST /workspaces/compact — packages/file-service/docs/workspaces.md § Compacting. */
+export interface CompactWorkspaceReply {
+  /** Bytes the recycle bin and `.git` gave back. */
+  freed: number;
+  /** Whether the new history reached `origin`; false when there is none. */
+  pushed: boolean;
+  /** git's words when the force-push was refused; the local repository is compacted anyway. */
+  pushError?: string;
+}
+
 /** One surface a project declares, named and typed — enough to build its address and to gate a device. */
 export interface SurfaceRef {
   id: string;

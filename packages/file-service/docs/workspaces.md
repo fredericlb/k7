@@ -345,6 +345,40 @@ person hits removing the folder by hand, where Explorer reports it as a request 
 and elevating does not help. `deleteProject` has carried that rule since it was written
 (*"Release every handle inside the folder before renaming"*); this route follows it.
 
+## Compacting
+
+`compactWorkspace.ts` (`POST /workspaces/compact`) brings a repository back to what its working
+tree uses today. A song repository grows with every take and stem ever committed, and git keeps
+each one forever, including after it is deleted, so after a while the history weighs far more
+than the song. Compacting:
+
+- **empties `_recycle_bin`**, for good;
+- **replaces the history with ONE commit**: the working tree as `.gitignore` sees it today,
+  uncommitted edits included. A file that was tracked before a rule ignored it drops out of the
+  repository and stays on disk. The commit is built on an orphan branch, which then takes the
+  current branch's name;
+- **deletes every other ref**: branches (alternatives included), tags, the stash and the
+  remote-tracking refs. While any one of them is left, the old objects are still reachable and
+  nothing is freed;
+- **expires the reflog, runs `gc --prune=now` and `git lfs prune`**, which is where the bytes
+  actually come back;
+- **force-pushes** when there is an `origin`.
+
+**It refuses before deleting anything** when the current branch is ambiguous: a detached HEAD, a
+merge or rebase in progress, or an alternative checked out. Rebuilding an alternative as the
+branch would silently replace its parent.
+
+**It never touches the working tree**, the bin aside. That is why it does not unload the engine,
+unlike a removal. If building the commit fails, HEAD is pointed back at the old branch and the
+index is reset to it.
+
+**A refused force-push does not undo anything.** The local repository is compacted either way. The
+reply carries git's words in `pushError`, and the page says the repository is compacted here but
+was not pushed. The usual cause is a protected branch, and pushing again once the host allows it
+finishes the job. What compacting does NOT do is purge the host: the remote's other branches stay,
+and so do the LFS objects already uploaded, which only the host's own tools can delete. Every other
+clone of the repository diverges and has to be cloned again. The confirmation names both costs.
+
 ## An import brings the LIBRARIES up to date too
 
 The libraries are the account's, not the workspace's: no workspace holds a copy

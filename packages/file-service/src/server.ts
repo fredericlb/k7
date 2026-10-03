@@ -36,6 +36,7 @@ import { benchDir, ensureBench } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
 import { boundJobsUrl } from "./boundMachine.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
+import { compactWorkspace } from "./compactWorkspace.ts";
 import { resolveUser, resolveWorkspace } from "./context.ts";
 import { copyProjectBetween } from "./copyProject.ts";
 import { syncExamples } from "./demos.ts";
@@ -220,6 +221,22 @@ app.post(
       res.json({ ok: true });
     } catch (e) {
       // A bad name and an absent workspace are both the caller's to fix.
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/** Compact a workspace's repository to its working tree — docs/workspaces.md § Compacting. */
+const compactWorkspaceBody = z.object({ name: z.string().min(1) });
+app.post(
+  "/workspaces/compact",
+  validate(compactWorkspaceBody),
+  wrap(async (req, res) => {
+    const { name } = req.body as z.infer<typeof compactWorkspaceBody>;
+    try {
+      res.json(await compactWorkspace(req.userEmail!, name));
+    } catch (e) {
+      // A refused git state (detached, mid-merge, on an alternative) is the caller's to fix.
       res.status(400).json({ error: (e as Error).message });
     }
   }),

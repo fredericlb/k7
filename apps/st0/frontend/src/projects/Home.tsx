@@ -13,6 +13,7 @@ import {
   Tablet,
 } from "@frediverse/ui/icons";
 import { AskHost } from "@studio/project-shell/ask";
+import { Toaster } from "@studio/project-shell/toast";
 import { AppSwitch } from "@studio/ui-app-switch";
 import type { AccountWorkspace, ShareSummary } from "@studio/web-protocol";
 import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
@@ -239,6 +240,8 @@ export function Home() {
       {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
           button on this page silently does nothing — see @studio/project-shell/ask. */}
       <AskHost />
+      {/* Where a workspace's compaction says what it gave back. */}
+      <Toaster />
       <AppHeader
         title="st0"
         subtitle={m["home.projects"]()}
