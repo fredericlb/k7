@@ -181,7 +181,10 @@ std::string PathMap::outbound(const std::string& text, bool fetch)
         std::vector<std::string> ask;
         for (const auto& p : named)
             if (recheck || !ledger_.get(*toLocal(p))) ask.push_back(p);
-        if (!ask.empty()) bringDown(files_.stat(ask));
+        if (!ask.empty()) {
+            log_("checking " + std::to_string(ask.size()) + " file(s) before a '" + type + "' frame");
+            bringDown(files_.stat(ask));
+        }
     }
     return mapStrings(msg, [this](const std::string& s) { return toLocal(s); }).dump();
 }
