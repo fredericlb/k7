@@ -39,6 +39,7 @@ export function startClone(
   const job: CloneJob & { at: number } = {
     id,
     workspace,
+    step: "clone",
     done: false,
     failed: false,
     error: null,
@@ -51,6 +52,7 @@ export function startClone(
   jobs.set(id, job);
 
   void cloneWorkspace(userEmail, workspace, uri, (p) => {
+    job.step = p.step;
     job.phase = p.phase;
     job.percent = p.percent;
     job.lines.push(p.line);

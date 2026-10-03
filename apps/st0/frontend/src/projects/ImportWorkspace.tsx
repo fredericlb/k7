@@ -17,15 +17,19 @@ import { Input } from "@frediverse/ui/input";
 import { isSshGitUri } from "@studio/git-repos/uri";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { ImportBar } from "./ImportBar";
+import type { ImportProgress } from "./workspaceOps";
 
 export function ImportWorkspace({
   blocked,
   /** Git's own progress while it clones — a silent thirty-second wait reads as a frozen screen. */
   step,
+  progress,
   onImport,
 }: {
   blocked: string;
   step: string | null;
+  progress: ImportProgress | null;
   onImport: (uri: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -79,12 +83,15 @@ export function ImportWorkspace({
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
             {bad && <p className="text-destructive text-xs">{bad}</p>}
-            {busy && (
-              <p className="text-xs text-muted-foreground">
-                <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
-                {step || m["ws.cloning"]()}
-              </p>
-            )}
+            {busy &&
+              (progress ? (
+                <ImportBar progress={progress} />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+                  {step || m["ws.cloning"]()}
+                </p>
+              ))}
             {error && (
               <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-red-400 text-xs">
                 {error}

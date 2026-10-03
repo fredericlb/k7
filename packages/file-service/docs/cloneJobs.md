@@ -54,6 +54,11 @@ a job that has been swept gets **404**, not a synthetic "done": a job this servi
 forgotten cannot be waited on, and saying so lets the caller re-ask the question it actually
 cares about — `GET /workspaces/by-repo`, which reads the disk.
 
+**It says which step.** A job is the clone, then the account's libraries, then the media through
+LFS, and `phase`/`percent` are each step's own: git's `Receiving objects 80%`, then nothing
+measurable, then git-lfs's meter from zero again. `step` is what tells a reader that 0% after 100%
+is the next step starting rather than the clone going backwards.
+
 ## Why `--progress`
 
 git writes counters only when it believes it is talking to a terminal. Under `spawn` it is

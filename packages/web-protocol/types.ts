@@ -797,10 +797,15 @@ export interface WorkspaceForRepo {
   workspace: string | null;
 }
 
+/** The steps of an import, in order: the clone, the account's libraries, the media through LFS. */
+export const CLONE_STEPS = ["clone", "libraries", "media"] as const;
+export type CloneStep = (typeof CLONE_STEPS)[number];
+
 /** A `git clone` in flight: started, then polled, because the wait is worth showing — packages/file-service/docs/cloneJobs.md. */
 export interface CloneJob {
   id: string;
   workspace: string; // the folder it is cloning into, chosen from the repository's name
+  step: CloneStep; // which of the import's steps `phase` and `percent` belong to
   done: boolean;
   failed: boolean;
   error: string | null;

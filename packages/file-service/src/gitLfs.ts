@@ -23,6 +23,8 @@ const run = promisify(execFile);
  *  song repository is the ordinary case rather than the exception. See docs/workspaces.md. */
 const FETCH_IDLE_MS = 120_000;
 const QUICK_MS = 10_000;
+/** A `GIT_TRACE` line: `12:34:56.789012 trace git-lfs: …`, or git's own `… git.c:…`. */
+const TRACE_LINE = /^\d{2}:\d{2}:\d{2}\.\d+ /;
 
 const ATTR = "filter=lfs diff=lfs merge=lfs -text";
 
@@ -215,40 +217,60 @@ function lfsPull(
     // fetch would look stuck to the timer below.
     const child = spawn("git", ["lfs", "pull"], {
       cwd: root,
-      env: { ...env, GIT_LFS_FORCE_PROGRESS: "1" },
+      // GIT_TRACE: what it was doing when it went quiet — the ssh handshake, the batch request — is the only diagnosis a silent kill leaves.
+      env: { ...env, GIT_LFS_FORCE_PROGRESS: "1", GIT_TRACE: "1" },
+      // No stdin: nothing here can answer a prompt, so a prompt must fail rather than wait for the timer.
+      stdio: ["ignore", "pipe", "pipe"],
     });
-    let tail = "";
     const said: string[] = [];
-    let timer = setTimeout(() => child.kill(), FETCH_IDLE_MS);
+    const traced: string[] = [];
+    let silenced = false;
+    const stop = () => {
+      silenced = true;
+      child.kill();
+    };
+    let timer = setTimeout(stop, FETCH_IDLE_MS);
     const alive = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => child.kill(), FETCH_IDLE_MS);
+      timer = setTimeout(stop, FETCH_IDLE_MS);
     };
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      alive();
-      // \r as well as \n: the meter is rewritten in place rather than emitted line by line.
-      const parts = (tail + chunk).split(/\r\n|[\r\n]/);
-      tail = parts.pop() ?? "";
-      for (const line of parts) {
-        const text = line.trim();
-        if (!text) continue;
-        said.push(text);
-        if (said.length > 200) said.shift();
-        onLine?.(text);
-      }
-    });
+    const listen = (stream: NodeJS.ReadableStream) => {
+      let tail = "";
+      stream.setEncoding("utf8");
+      stream.on("data", (chunk: string) => {
+        // \r as well as \n: the meter is rewritten in place rather than emitted line by line.
+        const parts = (tail + chunk).split(/\r\n|[\r\n]/);
+        tail = parts.pop() ?? "";
+        for (const line of parts) {
+          const text = line.trim();
+          if (!text) continue;
+          // A trace line is kept for a silent stop only: it is not progress, and must not hold the timer off.
+          const into = TRACE_LINE.test(text) ? traced : said;
+          into.push(text);
+          if (into.length > 200) into.shift();
+          if (into === traced) continue;
+          alive();
+          onLine?.(text);
+        }
+      });
+    };
+    // stdout drained as well: a full pipe blocks git-lfs, which then looks exactly like a stall.
+    listen(child.stdout);
+    listen(child.stderr);
     child.on("error", (e) => {
       clearTimeout(timer);
       reject(e);
     });
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       clearTimeout(timer);
       if (code === 0) return resolve();
+      // Quiet, the trace is the only account of where it stopped; otherwise git-lfs's own words say it.
+      const last = (silenced ? traced.slice(-12) : said).join("\n").trim();
+      const why = silenced
+        ? `git lfs pull said nothing for ${FETCH_IDLE_MS / 1000} s and was stopped`
+        : `git lfs pull failed (${code ?? signal})`;
       // git-lfs's own words: "batch response: Repository or object not found" is the answer.
-      reject(
-        new Error(said.join("\n").trim() || `git lfs pull failed (${code})`),
-      );
+      reject(new Error(last ? `${why}:\n${last}` : why));
     });
   });
 }

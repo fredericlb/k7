@@ -3,6 +3,7 @@
 // dispatcher that imports one of us, and this is the heavy branch. See apps/st0-desktop/docs/tabs.md.
 
 import { Loader2 } from "@frediverse/ui/icons";
+import { registerWorker } from "@frediverse/vite-config/register";
 import { clearDevPerfEntries } from "@studio/project-shell/devPerf";
 import { setFileApiTally } from "@studio/project-shell/fileApi";
 import {
@@ -94,11 +95,8 @@ if (at && !isShare(at.repo))
  *  loopback origin being both the secure context and the proof of whose machine this is. */
 if (canServeLenses()) serveLenses();
 
-/** …and the worker that makes either an installable app — what it buys is a SECOND opening, not offline; its scope is `/`, and it never prompts. */
-if ("serviceWorker" in navigator)
-  void import("virtual:pwa-register").then(({ registerSW }) =>
-    registerSW({ immediate: true }),
-  );
+/** …and the worker that makes either an installable app — a SECOND opening, not offline; its scope is `/`, and each deploy replaces it (@frediverse/vite-config/register). */
+if ("serviceWorker" in navigator) registerWorker();
 
 /** …and the fourth thing an address can be: ONE SURFACE on another device — not a fourth GATE, it rides the same stack (components/ExternalSurface.tsx). */
 const external = parseExternal(

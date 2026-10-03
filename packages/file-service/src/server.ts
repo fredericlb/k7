@@ -38,7 +38,7 @@ import { boundJobsUrl } from "./boundMachine.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import { resolveUser, resolveWorkspace } from "./context.ts";
 import { copyProjectBetween } from "./copyProject.ts";
-import { syncAllRepos } from "./demos.ts";
+import { syncExamples } from "./demos.ts";
 import {
   pluginParams,
   pruneIdleLinks,
@@ -643,8 +643,8 @@ app.listen(FILE_PORT, HOST, () => {
   }
   console.log(`📁 st0 file service on http://${HOST}:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
-  // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
-  syncAllRepos();
+  // Examples stocked with this build's demos: a new account's first sight of st0, an old one's fixes.
+  syncExamples();
   // The songs the open projects name, onto the bound engine's machine ahead of the gig.
   startPrefetch(boundJobsUrl);
   // Reap engine sockets nobody has used in minutes — an abandoned link re-dials forever, see pruneIdleLinks.

@@ -75,23 +75,14 @@ export function mirrorDemos(examplesDir: string): string[] {
   return synced;
 }
 
-/** Mirror the bundled demos into EVERY known user's Examples workspace, once at startup; never throws. */
-export function syncAllRepos(): void {
-  let slugs: string[];
+/** Mirror the bundled demos into this account's Examples, once at startup — which is also its FIRST use, the hub starting a service on demand; never throws. */
+export function syncExamples(): void {
   try {
-    slugs = readdirSync(rootDir(), { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
-      .map((e) => e.name);
+    const synced = mirrorDemos(join(rootDir(), EXAMPLES_WORKSPACE));
+    console.log(
+      `   ${EXAMPLES_WORKSPACE}: ${synced.join(", ") || "no demos found"}`,
+    );
   } catch {
-    return; // no root yet (no user has ever connected) — nothing to sync
-  }
-  for (const slug of slugs) {
-    try {
-      const synced = mirrorDemos(join(rootDir(), EXAMPLES_WORKSPACE));
-      if (synced.length)
-        console.log(`   demos synced for ${slug}: ${synced.join(", ")}`);
-    } catch {
-      // One bad repo shouldn't stop the rest.
-    }
+    // The demos are a courtesy; a service that cannot copy them still serves.
   }
 }

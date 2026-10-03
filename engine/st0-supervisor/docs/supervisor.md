@@ -39,9 +39,21 @@ jobs on. It runs in production nowhere.
 | libdatachannel | the WebRTC path to a browser | what node-datachannel wraps, so the browser meets the same peer |
 | ONNX Runtime | stem separation | the runtime the model was exported for; prebuilt, hash-pinned |
 
-All are fetched and pinned by `CMakeLists.txt`; none is found on the system. mbedTLS carries one
-user config line, `MBEDTLS_SSL_DTLS_SRTP`, because libdatachannel configures DTLS-SRTP profiles
-even with media off.
+All are fetched and pinned by `CMakeLists.txt`; none is found on the system. mbedTLS carries a
+user config: `MBEDTLS_SSL_DTLS_SRTP`, because libdatachannel configures DTLS-SRTP profiles
+even with media off, and threading, for the next section.
+
+## TLS from several threads
+
+mbedTLS's PSA layer keeps ONE random generator for the whole process, and every IXWebSocket TLS
+socket calls `psa_crypto_init()` as it is made. Sockets are made on several threads at once — a
+heartbeat to each studio, in parallel, and the tunnels — so two of them could seed that generator
+together, and the supervisor died inside `mbedtls_entropy_func`. Two guards, for two halves:
+
+- `main.cpp` calls `psa_crypto_init()` first, while there is one thread; later calls find it done.
+- the user config turns on `MBEDTLS_THREADING_PTHREAD`, so drawing from the generator during
+  concurrent handshakes is locked too. Windows has no built-in backend for it; there the seeding
+  at startup is the only guard.
 
 ## Trust comes from the OS
 

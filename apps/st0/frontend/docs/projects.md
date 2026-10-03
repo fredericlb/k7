@@ -400,11 +400,18 @@ the machine made for itself (`packages/file-service/src/sshKeys.ts`), then follo
 The clone is not an extra: this list shows only what the machine holds, so without it adding would
 be a form that changes nothing on screen.
 
+**The dialog says which STEP the import is on.** An import is three waits, not one — the clone,
+the account's libraries brought up to date, the media fetched through LFS — and the last can take
+far longer than the first. A single bar that reached 100% at the end of the clone and then sat
+there for ten minutes reads as a hang. So `ImportBar` draws one segment per step (`CLONE_STEPS`,
+reported by the job as `step`), "Step 3 of 3 · Fetching the media", the current segment filled by
+its percentage, pulsing when the step cannot be measured.
+
 **A percentage is on screen; git's own words are in the console.** Every line git writes, as the
 dialog's one status line, would be a log flickering past too fast to read and gone the moment it
-works. So the screen keeps only what is progress — `Receiving objects 45%`, and a plain
-"clonage…" when git is doing something it cannot measure — and each line goes to `console.debug`
-as `git: …`, where it can be scrolled after the fact. A FAILURE is the exception: git's last words
+works. So the screen keeps only what is progress — the step, git's phase (`Receiving objects`) and
+its percentage — and each line goes to `console.debug` as `git: …`, where it can be scrolled after
+the fact. A FAILURE is the exception: git's last words
 are the error, on screen, because that is the one time they are the answer.
 
 The machine keeps the last 50 lines (`cloneJobs.ts`) and counts them all in `emitted`, so the page

@@ -16,8 +16,8 @@ with an exclusive create, and **any other account is refused with a 403**. The h
 accounts apart; the record is what makes a mistake there — a key two accounts share — fail closed
 rather than hand one account's workspaces to another. The email is compared exactly.
 
-It sits **beside** the root and never in it: an absent root is what seeds a new account's
-Examples, and a record written inside it would make every account look old.
+It sits **beside** the root and never in it: the root holds the account's workspaces and nothing
+else.
 
 The engine session a root's projects play in is named after its owner, set from the record at
 boot and by the gate — never by whoever made the last request.

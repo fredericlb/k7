@@ -2102,6 +2102,35 @@ export default function App({
   );
   runCommandRef.current = runCommand;
 
+  /** A module's bypass: the GRAPH redrawn from the command's answer, nothing else re-read — a lane's card is its mute, which the mixer draws, so that one reloads (docs/shell.md). */
+  const bypassModule = useCallback(
+    async (module: string) => {
+      const line = `node bypass ${module}`;
+      if (projectDoc?.tracks.some((t) => t.id === module))
+        return runCommand(line);
+      pushLog("cmd", `› ${line}`);
+      try {
+        const { output, refused, graph, rev } = await api.command(line, {
+          want: ["graph"],
+        });
+        const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
+        if (refused) setRefusal(said);
+        else setStatus(said);
+        for (const o of output) pushLog(refused ? "refused" : "info", o);
+        if (graph) {
+          seedId.current += 1;
+          setSeedGraph({ id: seedId.current, graph });
+        }
+        // Adopted, so the `/revision` tick this write causes does not turn into the full reload skipped here.
+        if (rev) noteRevision(rev);
+      } catch (e) {
+        setStatus(`command error: ${(e as Error).message}`);
+        pushLog("error", (e as Error).message);
+      }
+    },
+    [projectDoc, runCommand, pushLog],
+  );
+
   /** The graph's lane buttons: a PICTURE lane's two words are the `picture` verbs, not the `track` ones. */
   const onLaneToggle = useCallback(
     (id: string, control: "mute" | "solo" | "arm") => {
@@ -3519,9 +3548,7 @@ export default function App({
                       viewport={videoDoc?.viewport}
                       project={projectDoc}
                       command={quietCommand}
-                      onBypassModule={(mod) =>
-                        void runCommand(`node bypass ${mod}`)
-                      }
+                      onBypassModule={(mod) => void bypassModule(mod)}
                       onModuleField={runCommand}
                       onOrganize={() => void runCommand("graph organize")}
                       onRecorder={onRecorder}
@@ -3701,9 +3728,7 @@ export default function App({
                       moduleParams={offlineParams}
                       trackControls={trackControls}
                       onContextMenu={openContextMenu}
-                      onBypassModule={(mod) =>
-                        void runCommand(`node bypass ${mod}`)
-                      }
+                      onBypassModule={(mod) => void bypassModule(mod)}
                       onAlternative={runAlternative}
                       onEngine={runEngine}
                       onAssetBrowse={browseAssets}
@@ -3831,9 +3856,7 @@ export default function App({
                     viewport={videoDoc?.viewport}
                     project={projectDoc}
                     command={quietCommand}
-                    onBypassModule={(mod) =>
-                      void runCommand(`node bypass ${mod}`)
-                    }
+                    onBypassModule={(mod) => void bypassModule(mod)}
                     onModuleField={runCommand}
                     onRecorder={onRecorder}
                     onProjectField={onProjectField}

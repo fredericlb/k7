@@ -3,12 +3,20 @@
 // `ensureWorkspace` is what clones, and also serves ADDING one. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
+import type { CloneStep } from "@studio/web-protocol";
 // `m` is the file service in every function here, so the catalogue comes in under its own name.
 import { m as msg } from "../paraglide/messages.js";
 import { type AccountFiles, accountFiles } from "./api";
 import { commitOutcome } from "./commitOutcome";
 
 export type { AccountFiles };
+
+/** Where an import is, for a bar: which step, git's words for what it is doing, and how far when that can be measured. */
+export interface ImportProgress {
+  step: CloneStep;
+  detail: string;
+  percent: number | null;
+}
 
 /** Often enough that git's progress moves on screen, rarely enough not to hammer the server. */
 const CLONE_POLL_MS = 800;
@@ -39,11 +47,13 @@ export async function ensureWorkspace(
   m: AccountFiles,
   uri: string,
   onStep: (s: string) => void,
+  onProgress?: (p: ImportProgress) => void,
 ): Promise<string> {
   const already = await accountFiles.workspaceForRepo(m, uri);
   if (already) return already;
 
   onStep(msg["ops.cloning"]());
+  onProgress?.({ step: "clone", detail: "", percent: null });
   let job = await accountFiles.startClone(m, uri);
   const until = Date.now() + CLONE_CAP_MS;
   // Git's own words go to the CONSOLE and not to the screen: they are a log, and a log flickering
@@ -70,7 +80,17 @@ export async function ensureWorkspace(
       console.debug("git:", line);
     logged = job.emitted;
     // A PERCENTAGE is progress; anything else is that log, and the screen says only that work goes on.
-    onStep(job.percent === null ? "clonage…" : `${job.phase} ${job.percent}%`);
+    onStep(
+      job.percent === null
+        ? msg["ws.cloning"]()
+        : `${job.phase} ${job.percent}%`,
+    );
+    // An older server sends no step; its job is a clone and nothing else.
+    onProgress?.({
+      step: job.step ?? "clone",
+      detail: job.phase,
+      percent: job.percent,
+    });
   }
   if (job.failed) {
     const said =

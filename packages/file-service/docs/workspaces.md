@@ -8,10 +8,15 @@ across requests, plus the listings st0's home page and `/external` draw.
 `getWorkspace` does not mkdir on first touch: that would make any request which merely NAMED a
 workspace conjure one, and a browser tab still retrying with a remembered name would silently
 recreate a workspace you had just deleted, empty. Creation happens only in `createWorkspace`
-(from `POST /workspaces`), `cloneWorkspace` (from `POST /workspaces/clone`) and the one-off
-Examples bootstrap, so what is on disk changes because someone asked for it. Those first two are
+(from `POST /workspaces`), `cloneWorkspace` (from `POST /workspaces/clone`) and `Examples`,
+so what is on disk changes because someone asked for it. Those first two are
 the two ways one appears on st0's home page, and they are the same pair of buttons: **Nouveau**
 and **Importer**.
+
+`Examples` is stocked when the service STARTS (`syncExamples` in `demos.ts`), not by a listing.
+The hub starts an account's service on that account's first request, so startup is the first use,
+and the demos are on the home page the first time it draws. The root's absence cannot be the cue:
+the service creates the root as it boots, so a check made later never sees a new account.
 
 The existence check runs before the memo, on every call: a folder deleted from Finder would
 otherwise be served from cache and 500 deep in `fs`. `UnknownWorkspaceError` is carried as a type
@@ -84,6 +89,16 @@ That fetch is ours to run even when git-lfs IS there: `git clone` smudges nothin
 filter lives in a config the clone does not have yet. `pullLfs` installs it into the fresh
 checkout and pulls, reporting an `LFS` phase so the wait in `cloneJobs.md`'s progress bar has a
 name.
+
+The pull is bounded by SILENCE, two minutes without a line, never by its length. What it is
+spawned with serves that rule and the error it leaves:
+
+- **no stdin**, so a credential or host-key question fails at once with git-lfs's words, instead
+  of waiting for an answer nobody can give until the timer kills it with nothing to say;
+- **stdout drained**, since a full pipe blocks git-lfs and looks exactly like a stall;
+- **`GIT_TRACE` on**, kept out of the progress and out of the timer: when it IS stopped for
+  silence, its last lines — the `ssh … git-lfs-authenticate`, the batch request — are the only
+  account of where it stopped, and the error carries them.
 
 ## The fetch is not believed, it is CHECKED
 

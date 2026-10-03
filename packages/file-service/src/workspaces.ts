@@ -21,11 +21,11 @@ import {
 import { projectSurfaces } from "@studio/song/surfaces";
 import type {
   AccountWorkspace,
+  CloneStep,
   SurfacedProject,
   WorkspaceSummary,
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
-import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
 import {
   librarySettings,
@@ -192,6 +192,7 @@ function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
 
 /** What a clone reports as it runs — enough to draw a bar and to say what went wrong. */
 export interface CloneProgress {
+  step: CloneStep;
   phase: string;
   percent: number | null;
   line: string;
@@ -231,6 +232,7 @@ export async function cloneWorkspace(
   if (librarySettings().length)
     try {
       onProgress?.({
+        step: "libraries",
         phase: "libraries",
         percent: null,
         line: "LIBRARIES: updating",
@@ -239,12 +241,14 @@ export async function cloneWorkspace(
       const retired = await retireWorkspaceLibraries(userEmail, root);
       if (retired)
         onProgress?.({
+          step: "libraries",
           phase: "libraries",
           percent: null,
           line: `LIBRARIES: ${retired.note}`,
         });
     } catch (e) {
       onProgress?.({
+        step: "libraries",
         phase: "libraries",
         percent: null,
         line: `LIBRARIES: ${(e as Error).message}`,
@@ -255,7 +259,7 @@ export async function cloneWorkspace(
   // Its meter carries a percentage, and a fetch now allowed to take an hour needs to show one:
   // `parse` already reads `(\d+)%` out of a line, and the phase is ours rather than git-lfs's.
   await pullLfs(root, uri, env, (line) =>
-    onProgress?.({ ...parse(line), phase: "LFS" }),
+    onProgress?.({ ...parse(line, "media"), phase: "LFS" }),
   );
 }
 
@@ -272,6 +276,8 @@ function gitClone(
   return new Promise((resolve, reject) => {
     const child = spawn("git", ["clone", "--progress", "--", uri, root], {
       env,
+      // No stdin, so a prompt fails rather than waits; stdout ignored, so it can never fill and block.
+      stdio: ["ignore", "ignore", "pipe"],
     });
     let tail = "";
     const stderr: string[] = [];
@@ -320,10 +326,11 @@ function gitClone(
   });
 }
 
-function parse(line: string): CloneProgress {
+function parse(line: string, step: CloneStep = "clone"): CloneProgress {
   const pct = /(\d+)%/.exec(line);
   const colon = line.indexOf(":");
   return {
+    step,
     phase: colon > 0 ? line.slice(0, colon).trim() : line,
     percent: pct ? Number(pct[1]) : null,
     line,
@@ -412,18 +419,9 @@ export function workspaceNameFor(uri: string): string {
   throw new Error(`no free workspace name for ${base}`);
 }
 
-// Every workspace folder under the user's root; a first-seen user gets Examples, the one never asked for.
-export function listWorkspaces(userEmail: string): WorkspaceSummary[] {
+// Every workspace folder under the user's root; Examples is already there, put by the service's startup (demos.ts).
+export function listWorkspaces(_userEmail: string): WorkspaceSummary[] {
   const dir = rootDir();
-  if (!existsSync(dir)) {
-    // Keyed on the USER ROOT being absent, so it is a once-per-user bootstrap and not the open path conjuring folders.
-    mkdirSync(dir, { recursive: true });
-    const examples = join(dir, EXAMPLES_WORKSPACE);
-    const seeded = mirrorDemos(examples);
-    console.log(
-      `   new user ${slugify(userEmail)}: ${EXAMPLES_WORKSPACE} with ${seeded.join(", ") || "no demos found"}`,
-    );
-  }
   const out: WorkspaceSummary[] = [];
   for (const name of workspaceNames(dir)) {
     const abs = join(dir, name);

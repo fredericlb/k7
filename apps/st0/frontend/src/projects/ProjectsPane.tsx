@@ -26,6 +26,7 @@ import {
   createProjectAndCommit,
   deleteProjectAndCommit,
   ensureWorkspace,
+  type ImportProgress,
   publishWorkspace,
   renameProjectAndCommit,
 } from "./workspaceOps";
@@ -58,6 +59,7 @@ export function ProjectsPane({
   const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<FileNode[] | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
 
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
@@ -85,10 +87,11 @@ export function ProjectsPane({
       try {
         // Importing IS the clone: the workspace lands on this disk and opens by its
         // `@local` address, which the row then says in words — ../../docs/projects.md.
-        await ensureWorkspace(chosen(), uri, (s) => setAdding(s));
+        await ensureWorkspace(chosen(), uri, setAdding, setProgress);
       } finally {
         // The dialog reports its own failure and stays open; this only stops the row's narration.
         setAdding(null);
+        setProgress(null);
         onChanged();
       }
     },
@@ -312,6 +315,7 @@ export function ProjectsPane({
           busy={busy}
           error={error}
           adding={adding}
+          progress={progress}
           hasFileService={fileService !== null}
           onImport={importRepo}
           onCreateWorkspace={createWorkspace}

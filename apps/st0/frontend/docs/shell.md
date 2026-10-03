@@ -1034,11 +1034,16 @@ overlap:
 | `/project-errors` | 18 ms | yes |
 | `/library-chains` | 12 ms | no |
 
-Three answers to one question follow from that:
+Four answers to one question follow from that:
 
 - **`quietCommand`** — the gesture says *I will reload nothing*. A mixer knob, a mute, a warp point. It
   passes `want: []` so no graph is built either, and whoever must move re-reads its own picture. The
   `/revision` tick catches the rest within 2 s.
+- **`bypassModule`** — the gesture changes the GRAPH and nothing else. A module's on/off is the
+  canvas's to redraw: it asks `want: ["graph"]`, draws the answer, and bumps no reload. The full
+  reload was every route above re-asked over the tunnel — the compiled project recompiled — for one
+  node turning grey. A lane's own card is the exception and takes `runCommand`: its bypass IS the
+  lane's mute, which the mixer and the timeline draw out of `/project-doc`.
 - **`refreshLibraries`** — the pane says *ask me when it can have MOVED, not when anything moved*. The two
   library routes are fetched on mount and by the two acts that write there.
 - **`Reload`** — the command says **which files it wrote**, and each consumer decides.
@@ -1304,7 +1309,7 @@ a bug report, a doc page and a key binding can all name the same thing.
 
 The Logs panel is a **transcript of what ran**, not of what was typed. Every command reaches it as a `cmd`
 line, whichever way it was triggered — the bar, a key, a button, a right-click, a cable dropped on a knob
-— because `runCommand` and `quietCommand` are the only two doors and both log before they dispatch. The
+— because `runCommand`, `quietCommand` and `bypassModule` are the only doors and all log before they dispatch. The
 buffer is the shell's and fills whether the panel is open or not; only the tray's merged process log is
 polled on demand (`useLogs`).
 
@@ -1456,6 +1461,13 @@ flagged "includes resources that are not secure", and that alone makes it uninst
 can be perfect and the manifest complete. The engine probe is where it comes from here, when it lists LAN
 addresses as `ws://` candidates and lets the browser refuse them. See `@studio/engine-browser`'s
 `docs/access.md`.
+
+## A new build replaces the old one
+
+Every deploy reaches every open tab, by the shared preset's `register` entry (`docs/pwa.md` in
+`@frediverse/vite-config`): an editor tab stays open for days, and one running a bundle from before
+a protocol change talks to a server that no longer answers it — `http://127.0.0.1:undefined` was
+one. What makes the hidden reload affordable here is that the editor autosaves.
 
 ## The PWA manifest uses RELATIVE urls, deliberately
 

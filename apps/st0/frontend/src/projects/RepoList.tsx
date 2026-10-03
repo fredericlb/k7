@@ -31,6 +31,7 @@ import { ProjectShares } from "./ProjectShares";
 import { PublishWorkspace } from "./PublishWorkspace";
 import { RemoveWorkspace } from "./RemoveWorkspace";
 import { sharesOf } from "./sharesForProject";
+import type { ImportProgress } from "./workspaceOps";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
@@ -69,6 +70,7 @@ export function RepoList({
   busy,
   error,
   adding,
+  progress,
   hasFileService,
   onImport,
   onCreateWorkspace,
@@ -95,6 +97,8 @@ export function RepoList({
   error: string | null;
   /** Where the running clone is, in git's own words, or null. */
   adding: string | null;
+  /** …and which of the import's steps it is on, for the dialog's bar. */
+  progress: ImportProgress | null;
   hasFileService: boolean;
   /** Clone a repository onto the server — the Import button's act. */
   onImport: (uri: string) => Promise<void>;
@@ -165,6 +169,7 @@ export function RepoList({
         <ImportWorkspace
           blocked={blockedWorkspace}
           step={adding}
+          progress={progress}
           onImport={onImport}
         />
       </div>

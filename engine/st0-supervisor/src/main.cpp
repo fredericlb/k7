@@ -13,6 +13,7 @@
 #include "Url.h"
 
 #include <ixwebsocket/IXNetSystem.h>
+#include <psa/crypto.h>
 
 #include <csignal>
 #include <cstdio>
@@ -47,6 +48,8 @@ int main(int argc, char** argv)
     // and isServing() never sees the engine, so one is never adopted. A no-op elsewhere; no teardown, since
     // we leave by _Exit.
     ix::initNetSystem();
+    // mbedtls's global random generator, seeded HERE while there is one thread: every TLS socket calls this, and the registry opens one per studio at once (docs/supervisor.md).
+    psa_crypto_init();
 
     if (argc == 3 && std::string(argv[1]) == "--probe") {
         const auto origin = st0::url::normaliseUserOrigin(argv[2]);
