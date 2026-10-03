@@ -13,6 +13,7 @@ import {
   type CloneJob,
   type ColdChainsReply,
   type CommentState,
+  type CompactWorkspaceReply,
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type ModelDownloadJob,
@@ -477,6 +478,20 @@ export const accountFiles = {
       "delete",
     );
   },
+
+  /** Shrink a workspace's repository to its working tree — the bin emptied, the history one commit. */
+  compactWorkspace: async (
+    m: AccountFiles,
+    workspace: string,
+  ): Promise<CompactWorkspaceReply> =>
+    json(
+      await fetch(`${m.fileBase}/workspaces/compact`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name: workspace }),
+      }),
+      "compact",
+    ),
 
   deleteProject: async (
     m: AccountFiles,

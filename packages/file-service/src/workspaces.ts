@@ -179,7 +179,7 @@ function gitSaid(e: unknown): string {
 // Re-exported: the rule moved to @studio/git-repos when pl8 needed it too, and callers here need not know.
 export { assertSshGitUri };
 
-function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
+export function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
   return {
     ...process.env,
     GIT_SSH_COMMAND: sshCommand(userEmail),

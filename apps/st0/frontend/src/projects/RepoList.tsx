@@ -28,9 +28,8 @@ import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
-import { PublishWorkspace } from "./PublishWorkspace";
-import { RemoveWorkspace } from "./RemoveWorkspace";
 import { sharesOf } from "./sharesForProject";
+import { WorkspaceMenu } from "./WorkspaceMenu";
 import type { ImportProgress } from "./workspaceOps";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
@@ -82,6 +81,7 @@ export function RepoList({
   onCreate,
   onDelete,
   onRemoveWorkspace,
+  onCompactWorkspace,
   onCopy,
   onRename,
   projectHref,
@@ -154,6 +154,8 @@ export function RepoList({
   workspaceHref: (ws: AccountWorkspace) => string;
   /** Delete a whole workspace — the folder and everything in it. */
   onRemoveWorkspace: (ws: AccountWorkspace) => Promise<void>;
+  /** Shrink its repository to the working tree: bin emptied, history reset to one commit. */
+  onCompactWorkspace: (ws: AccountWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
@@ -287,19 +289,13 @@ export function RepoList({
                       onCreate(w, folder, onStep, shape)
                     }
                   />
-                  {/* A workspace with no repository has one gesture the others do not: getting one. */}
-                  {!w.origin && (
-                    <PublishWorkspace
-                      workspace={w.name}
-                      blocked={blocked}
-                      onPublish={(uri, onStep) => onPublish(w, uri, onStep)}
-                    />
-                  )}
-                  {/* Last, and discreet: the one act on this row that cannot be undone. */}
-                  <RemoveWorkspace
+                  {/* The rare acts on the whole workspace, behind one ⋮ as on a project's row. */}
+                  <WorkspaceMenu
                     workspace={w.name}
                     origin={w.origin ?? null}
                     blocked={blocked}
+                    onPublish={(uri, onStep) => onPublish(w, uri, onStep)}
+                    onCompact={() => onCompactWorkspace(w)}
                     onRemove={() => onRemoveWorkspace(w)}
                   />
                 </div>

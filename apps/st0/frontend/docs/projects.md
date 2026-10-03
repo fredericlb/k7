@@ -430,7 +430,17 @@ And the workspace really does go: a clone that failed leaves no workspace, by de
 `cloneWorkspace`. Under a wall of log, with the reason somewhere in the middle, that removal would
 read as a bug.
 
-**Publier** lives on the row and not at the top, because it acts on ONE workspace, and it is
+**A workspace's row carries a ⋮** (`WorkspaceMenu.tsx`) holding the three acts on the whole
+workspace: **Publish**, **Compact** and **Delete**. They sit behind one button for the reason a
+project's do: they are rare, and three buttons beside the row's own link would compete with it.
+Delete comes last, in red, after a separator. Compact and Delete each go through `askConfirm`, and
+each confirmation says what is lost. For Compact, that is the bin, every past version, every
+other branch and alternative, and, when there is an `origin`, the history at the host too, through
+a force-push (`packages/file-service/docs/workspaces.md` § Compacting). Compacting rewrites history
+and touches no file in use, so its result is a toast with the bytes freed, which also says when
+the force-push was refused.
+
+**Publier** is in that menu and not at the top, because it acts on ONE workspace, and it is
 offered only when `origin` is null. It asks for a repository URI — which must exist and be empty —,
 sets it as `origin` and pushes (`POST /workspaces/remote`). The push is the half that can fail
 loudly, and git speaks for itself ("Permission denied (publickey)").

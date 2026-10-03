@@ -2,6 +2,7 @@
 // is unfolded. It holds the async for the two presentational views beside it. Which one is open
 // comes from the address (Home.tsx), not from local state. See ../../docs/projects.md.
 
+import { showToast } from "@studio/project-shell/toast";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   AccountLibrary,
@@ -12,6 +13,7 @@ import type {
 } from "@studio/web-protocol";
 import { isDroppableProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
+import { formatBytes } from "../components/UploadProgress";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref, workspaceHref } from "./api";
 import { BenchCard } from "./BenchCard";
@@ -104,6 +106,31 @@ export function ProjectsPane({
       setError(null);
       try {
         await accountFiles.removeWorkspace(chosen(), w.name);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        onChanged();
+      }
+    },
+    [chosen, onChanged],
+  );
+
+  /** Compact a workspace's repository, and say what it gave back — or that origin refused the force-push. */
+  const compactWorkspace = useCallback(
+    async (w: AccountWorkspace) => {
+      setError(null);
+      try {
+        const r = await accountFiles.compactWorkspace(chosen(), w.name);
+        const freed = formatBytes(r.freed);
+        showToast(
+          r.pushError
+            ? {
+                message: m["ws.compactedNoPush"]({ freed, error: r.pushError }),
+                variant: "error",
+                duration: 15_000,
+              }
+            : { message: m["ws.compacted"]({ workspace: w.name, freed }) },
+        );
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -327,6 +354,7 @@ export function ProjectsPane({
           onCreate={create}
           onDelete={removeProject}
           onRemoveWorkspace={removeWorkspace}
+          onCompactWorkspace={compactWorkspace}
           onCopy={copyProject}
           onRename={renameProject}
           // Same departure as from the tree: the app's address, not a view local to here.
