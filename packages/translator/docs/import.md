@@ -92,6 +92,11 @@ placed at 0 — and an in-point read from the child alone plays every such clip 
 take, shifted by exactly the container's `playStart`. Children of a nested container are placed
 against its unclamped start for the same reason.
 
+**An unwarped audio leaf counts its in-point in seconds.** With no `<Warps>`, Bitwig writes the
+leaf as `contentTimeUnit="seconds"`: `time` and `duration` stay in beats, `playStart`/`playStop` are
+seconds into the file. The in-point is converted at the project tempo; read as beats, a take cut
+into segments plays each one from the wrong place in it, the further into the take the further off.
+
 **`enable="false"` is carried as the placement's `disabled`**, on the clip and on everything under a
 disabled container: the clip stays visible on the lane and silent, as it was in the source.
 

@@ -125,6 +125,7 @@ export function parseDawproject(
         },
         warn: (msg) => warnings.push(msg),
         byId,
+        tempo,
       };
       collectClips(asArray<any>(laneGroup.Clips?.Clip), 0, 0, null, out, ctx);
       for (const c of out) {
@@ -265,6 +266,8 @@ interface CollectCtx {
   warn: (msg: string) => void;
   /** What the document defines under each id — see `indexById`. */
   byId: Map<string, Referenced>;
+  /** The project tempo, which turns a seconds in-point into beats. */
+  tempo: number;
 }
 
 // Flatten a clip list into absolute-positioned leaves, clamped to their container — see docs/import.md.
@@ -294,8 +297,13 @@ function collectClips(
     // does not play it. Emitting it anyway put a pile of zero-length clips on the lane, reading as
     // overlaps the source project never had — 48 of 124 on one real export. See docs/import.md.
     if (length <= 0) continue;
+    // An unwarped leaf counts its in-point in SECONDS; this model counts beats — see docs/import.md.
+    const playStart =
+      clip["@_contentTimeUnit"] === "seconds"
+        ? (num(clip["@_playStart"]) * ctx.tempo) / 60
+        : num(clip["@_playStart"]);
     // The head the container's window cuts off is material this placement skips — see docs/import.md.
-    const offset = numOrUndef(num(clip["@_playStart"]) + (start - rawStart));
+    const offset = numOrUndef(playStart + (start - rawStart));
     // A disabled container silences everything under it, as the source DAW does.
     const disabled = parentDisabled || clip["@_enable"] === "false";
 
