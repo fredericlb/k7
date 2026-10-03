@@ -5,7 +5,10 @@
 
 #include "Paths.h"
 #include "Rtc.h"
+#include "Tls.h"
 #include "TunnelAgent.h"
+
+#include <ixwebsocket/IXNetSystem.h>
 
 #include <cctype>
 #include <cstdio>
@@ -23,6 +26,9 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "usage: tunnel_harness <registryUrl> <id> <token> <enginePort> <cacheDir>\n");
         return 2;
     }
+    // As main.cpp does, and for the same reason: without Winsock every socket on Windows fails, silently.
+    ix::initNetSystem();
+    st0::tls::init();
     AgentOptions o;
     o.registryUrl = argv[1];
     o.id = argv[2];

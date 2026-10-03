@@ -309,6 +309,8 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
             tell({{"t", "opened"}, {"ch", ch}});
             return;
         }
+        // Which of the two copy rules this channel follows is the first thing a lag report needs.
+        opts.log("ch" + std::to_string(ch) + " to the engine: " + (synced ? "synced, never fetches" : "fetches before each frame"));
         auto engine = std::make_shared<ix::WebSocket>();
         engine->setUrl("ws://127.0.0.1:" + std::to_string(opts.enginePort));
         engine->disableAutomaticReconnection();
@@ -449,10 +451,20 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         auto log = opts.log;
         std::thread([c, locals, emit, log] {
             try {
+                bool told = false;
                 const auto report = [&](const SyncProgress& p) {
+                    if (!told && log)
+                        log("sync: " + std::to_string(p.files) + " of " + std::to_string(locals.size()) + " file(s) to copy, " +
+                            std::to_string(p.bytes / (1024 * 1024)) + " MB");
+                    told = true;
                     emit({{"type", "syncing"}, {"files", p.files}, {"filesDone", p.filesDone}, {"bytes", p.bytes}, {"bytesDone", p.bytesDone}});
                 };
+                const auto started = std::chrono::steady_clock::now();
                 const std::uint64_t failed = c->map ? c->map->sync(locals, report) : 0;
+                if (log)
+                    log("sync: done in " +
+                        std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - started).count()) +
+                        " s, " + std::to_string(failed) + " failed");
                 emit({{"type", "synced"}, {"failed", failed}});
             } catch (const std::exception& e) {
                 if (log) log(std::string("job 'sync' failed: ") + e.what());
