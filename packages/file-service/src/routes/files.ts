@@ -24,6 +24,7 @@ import { guard } from "../background.ts";
 import {
   applyClientProject,
   enginePreview,
+  engineSyncOf,
   prewarmEngineForActive,
   reloadActiveProject,
   runWebCommand,
@@ -61,6 +62,7 @@ filesRouter.get(
     res.json({
       ...req.ws!.workspaceInfo(),
       lastTake: takeJustRecorded(req.ws!),
+      engineSync: engineSyncOf(req.ws!),
     });
   }),
 );

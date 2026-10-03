@@ -36,13 +36,16 @@ import {
   type ChangedFile,
   type CommandInfo,
   ENGINE_RECONNECT_MIN_MS,
+  type EngineSyncState,
 } from "@studio/web-protocol";
 import chokidar from "chokidar";
 import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
+import { engineSyncState, isSyncing, sendWhenSynced } from "./engineSync.ts";
 import { syncLibraries } from "./libraries.ts";
+import { namedSongFiles } from "./mediatekPrefetch.ts";
 import {
   closeModuleWatch,
   moduleFoldersMoved,
@@ -311,9 +314,16 @@ function dropClientProject(ws: Workspace): void {
   clientDocs.delete(sessionOf(ws));
 }
 
-/** Send a document in `ws`' session — the engine diffs it against what that session holds. */
+/** Send a document in `ws`' session once its files are on the engine's machine — docs/engineSync.md. */
 function sendDoc(ws: Workspace, doc: ProjectDoc): void {
-  ensureEngine(ws)?.sendProject(doc);
+  sendWhenSynced(sessionOf(ws), doc, namedSongFiles, (d) =>
+    ensureEngine(ws)?.sendProject(d),
+  );
+}
+
+/** The copy holding `ws`' document back, or the last one that failed, for the /workspace poll. */
+export function engineSyncOf(ws: Workspace | null): EngineSyncState | null {
+  return engineSyncState(sessionOf(ws));
 }
 
 /** Play a document a browser built, through the service's own link — see docs/activeProject.md. */
@@ -631,6 +641,8 @@ async function reconcileEngine(
 ): Promise<void> {
   // Throttled PER SESSION, so one person's poll cannot eat another's turn.
   if (s.reconciling || now - s.lastReconcile < RECONCILE_EVERY_MS) return;
+  // A document held back by a copy is not on the engine yet, and that is no fault of the engine's.
+  if (isSyncing(sessionOf(ws))) return;
   const serving = s.project;
   s.lastReconcile = now;
   s.reconciling = true;

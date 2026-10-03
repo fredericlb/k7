@@ -34,6 +34,8 @@ constexpr int kPingSeconds = 20;
 struct Channel {
     int ch = 0;
     bool jobs = false;
+    /** The server copies every file before naming it (`sync`), so frames to the engine are only rewritten. */
+    bool synced = false;
     std::unique_ptr<PathMap> map;
     std::shared_ptr<ix::WebSocket> engine;
     std::shared_ptr<SerialQueue> toEngine = SerialQueue::create();
@@ -231,7 +233,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         if (!m.is_object()) return;
         const std::string t = m.value("t", "");
         if (t == "open") {
-            openChannel(m.value("ch", 0), m.value("roots", json::array()), m.value("kind", "engine"));
+            openChannel(m.value("ch", 0), m.value("roots", json::array()), m.value("kind", "engine"), m.value("synced", false));
         } else if (t == "close") {
             std::shared_ptr<Channel> c;
             {
@@ -282,7 +284,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
 
     // --- channels ------------------------------------------------------------------------------------
 
-    void openChannel(int ch, const json& roots, const std::string& kind)
+    void openChannel(int ch, const json& roots, const std::string& kind, bool synced)
     {
         static const std::regex safeName("^[A-Za-z0-9][A-Za-z0-9._-]*$");
         std::vector<MappedRoot> mapped;
@@ -297,6 +299,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         auto c = std::make_shared<Channel>();
         c->ch = ch;
         c->jobs = kind == "jobs";
+        c->synced = synced;
         if (!mapped.empty()) c->map = std::make_unique<PathMap>(mapped, files.forChannel(ch), ledger, opts.log);
         {
             std::lock_guard lock(mutex);
@@ -365,7 +368,7 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         c->toEngine->push([self, c, data, binary] {
             try {
                 if (!c->jobs && !c->waitOpen()) return;
-                const std::string out = !binary && c->map ? c->map->outbound(data) : data;
+                const std::string out = !binary && c->map ? c->map->outbound(data, c->jobs || !c->synced) : data;
                 if (c->jobs) {
                     // Started once its files are here, and NOT awaited: a job takes minutes.
                     if (!binary) self->runJob(c, out);
@@ -412,6 +415,10 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
             self->toHub(c, out.dump(), false);
         };
         const std::string type = req.value("type", "");
+        if (type == "sync") {
+            runSync(c, req, emit);
+            return;
+        }
         auto it = opts.jobs.find(type);
         if (it == opts.jobs.end()) {
             // Said here too: the server shows it to one person, the log keeps it for whoever looks at this machine.
@@ -428,6 +435,27 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
                 handler(req, emit, ctx);
             } catch (const std::exception& e) {
                 if (log) log("job '" + type + "' failed: " + e.what());
+                emit({{"type", "error"}, {"error", e.what()}});
+            }
+        }).detach();
+    }
+
+    /** Copy the listed files, one `syncing` reply per file copied, then `synced` — docs/tunnel.md. */
+    void runSync(const std::shared_ptr<Channel>& c, const json& req, const Emit& emit)
+    {
+        std::vector<std::string> locals;
+        for (const auto& f : req.value("files", json::array()))
+            if (f.is_string()) locals.push_back(f.get<std::string>());
+        auto log = opts.log;
+        std::thread([c, locals, emit, log] {
+            try {
+                const auto report = [&](const SyncProgress& p) {
+                    emit({{"type", "syncing"}, {"files", p.files}, {"filesDone", p.filesDone}, {"bytes", p.bytes}, {"bytesDone", p.bytesDone}});
+                };
+                const std::uint64_t failed = c->map ? c->map->sync(locals, report) : 0;
+                emit({{"type", "synced"}, {"failed", failed}});
+            } catch (const std::exception& e) {
+                if (log) log(std::string("job 'sync' failed: ") + e.what());
                 emit({{"type", "error"}, {"error", e.what()}});
             }
         }).detach();

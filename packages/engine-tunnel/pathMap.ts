@@ -1,8 +1,8 @@
 // pathMap.ts — the engine names files by LOCAL path and the server by its own; this rewrites
 // every string under a shared root as a frame crosses, and moves the file first: downloaded
 // before a frame naming it reaches the engine, uploaded before a frame naming a file the engine
-// wrote reaches the server. Only whole JSON strings are rewritten, never substrings.
-// See docs/tunnel.md.
+// wrote reaches the server. Only whole JSON strings are rewritten, never substrings. A channel
+// the server syncs itself (`sync`) is only rewritten. See docs/tunnel.md.
 
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
@@ -34,6 +34,17 @@ export class SyncLedger {
   readonly synced = new Map<string, Synced>();
   readonly downloads = new Map<string, Promise<void>>();
 }
+
+/** How far a `sync` has got: only the files it had to copy count, not those already here. */
+export interface SyncProgress {
+  files: number;
+  filesDone: number;
+  bytes: number;
+  bytesDone: number;
+}
+
+/** Downloads a `sync` keeps in flight at once, as many as the C++ agent's. */
+const SYNC_PARALLEL = 8;
 
 /** Frames arriving at meter rate carry no path, and are passed through untouched. */
 const UNMAPPED_TYPES = new Set(["state", "io-levels", "levels"]);
@@ -113,8 +124,8 @@ export class PathMap {
     return true;
   }
 
-  /** A server→engine frame, rewritten, with every file it names present locally first. */
-  async outbound(text: string): Promise<string> {
+  /** A server→engine frame, rewritten; with `fetch`, every file it names present locally first. */
+  async outbound(text: string, fetch = true): Promise<string> {
     if (!this.remoteNeedles.some((n) => text.includes(n))) return text;
     let msg: unknown;
     try {
@@ -124,15 +135,62 @@ export class PathMap {
     }
     const type = (msg as { type?: unknown })?.type;
     if (typeof type === "string" && UNMAPPED_TYPES.has(type)) return text;
-    const named = new Set<string>();
-    collect(msg, (s) => this.toLocal(s) !== null, named);
-    // A whole document is checked against the server; a delta trusts what an earlier one settled.
-    const recheck = type === "project";
-    const ask = [...named].filter(
-      (p) => recheck || !this.ledger.synced.has(this.toLocal(p) as string),
-    );
-    if (ask.length) await this.bringDown(await this.files.stat(ask));
+    // A `sync` request names the files it is about to copy itself, reporting as it goes.
+    if (fetch && type !== "sync") {
+      const named = new Set<string>();
+      collect(msg, (s) => this.toLocal(s) !== null, named);
+      // A whole document is checked against the server; a delta trusts what an earlier one settled.
+      const recheck = type === "project";
+      const ask = [...named].filter(
+        (p) => recheck || !this.ledger.synced.has(this.toLocal(p) as string),
+      );
+      if (ask.length) await this.bringDown(await this.files.stat(ask));
+    }
     return JSON.stringify(mapStrings(msg, (s) => this.toLocal(s)));
+  }
+
+  /** Bring every listed LOCAL path up to date, reporting after each copy; resolves how many failed. */
+  async sync(
+    locals: string[],
+    progress: (p: SyncProgress) => void,
+  ): Promise<number> {
+    const ask = locals.flatMap((l) => this.toRemote(l)?.remote ?? []);
+    const p: SyncProgress = { files: 0, filesDone: 0, bytes: 0, bytesDone: 0 };
+    const todo: { e: RemoteStat; local: string }[] = [];
+    for (const e of ask.length ? await this.files.stat(ask) : []) {
+      const local = this.toLocal(e.path);
+      if (!local) continue;
+      if (e.kind !== "file")
+        await mkdir(e.kind === "dir" ? local : dirname(local), {
+          recursive: true,
+        }).catch(() => {});
+      else if (!(await this.upToDate(e, local))) {
+        todo.push({ e, local });
+        p.bytes += e.size ?? 0;
+      }
+    }
+    p.files = todo.length;
+    progress({ ...p });
+    let failed = 0;
+    let next = 0;
+    const worker = async (): Promise<void> => {
+      for (let i = next++; i < todo.length; i = next++) {
+        const { e, local } = todo[i];
+        try {
+          await this.ensureFile(e, local);
+        } catch (err) {
+          this.log(`could not bring down ${e.path}: ${(err as Error).message}`);
+          failed++;
+        }
+        p.filesDone++;
+        p.bytesDone += e.size ?? 0;
+        progress({ ...p });
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(SYNC_PARALLEL, todo.length) }, worker),
+    );
+    return failed;
   }
 
   /** An engine→server frame, rewritten, with every file the engine changed uploaded first. */
@@ -175,27 +233,31 @@ export class PathMap {
     );
   }
 
-  private async ensureFile(e: RemoteStat, local: string): Promise<void> {
+  private async upToDate(e: RemoteStat, local: string): Promise<boolean> {
     const size = e.size ?? 0;
     const remoteMtimeMs = e.mtimeMs ?? 0;
     const have = await stat(local).catch(() => null);
     const known = this.ledger.synced.get(local);
-    const upToDate = known
+    const same = known
       ? known.size === size &&
         sameMtime(known.remoteMtimeMs, remoteMtimeMs) &&
         !!have &&
         have.size === size &&
         sameMtime(have.mtimeMs, known.localMtimeMs)
       : !!have && have.size === size && sameMtime(have.mtimeMs, remoteMtimeMs);
-    if (upToDate) {
-      if (!known && have)
-        this.ledger.synced.set(local, {
-          size,
-          localMtimeMs: have.mtimeMs,
-          remoteMtimeMs,
-        });
-      return;
-    }
+    if (same && !known && have)
+      this.ledger.synced.set(local, {
+        size,
+        localMtimeMs: have.mtimeMs,
+        remoteMtimeMs,
+      });
+    return same;
+  }
+
+  private async ensureFile(e: RemoteStat, local: string): Promise<void> {
+    const size = e.size ?? 0;
+    const remoteMtimeMs = e.mtimeMs ?? 0;
+    if (await this.upToDate(e, local)) return;
     let pending = this.ledger.downloads.get(local);
     if (!pending) {
       this.log(`fetching ${e.path} (${size} bytes)`);

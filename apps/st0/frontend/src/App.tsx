@@ -95,6 +95,10 @@ import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLoad } from "./components/EngineLoad";
 import { EngineSwitch } from "./components/EngineSwitch";
+import {
+  EngineSyncProgress,
+  syncRunning,
+} from "./components/EngineSyncProgress";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
@@ -226,6 +230,7 @@ import { modeCondition, type TimelineMode } from "./timelineMode";
 import { isTool, TOOLS, type Tool } from "./timelineTools";
 import type {
   CommandInfo,
+  EngineSyncState,
   ProjectInfo,
   RankedEngine,
   WebAutomationLane,
@@ -379,6 +384,7 @@ export default function App({
   );
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [ws, setWs] = useState<WorkspaceInfo | null>(null);
+  const [engineSync, setEngineSync] = useState<EngineSyncState | null>(null);
 
   // The song's own name in the tab, over the folder `appMain` named it from (docs/tabs.md).
   const tabName = snapshot?.manifest.name || project?.name;
@@ -1272,6 +1278,7 @@ export default function App({
       setWs(w);
       bumpReload();
     },
+    onSync: setEngineSync,
     onSwitch: (w) => {
       setWs(w);
       void api
@@ -2626,6 +2633,8 @@ export default function App({
 
   // …and never on a snapshot: there is no engine coming, and what plays here is the browser, ready at once.
   const waitingForEngine = !frozen && !!ws?.activeProject && !engineReady;
+  // The project is sent only once its files are on the engine's machine, so Play waits for the copy too.
+  const copyingToEngine = !frozen && syncRunning(engineSync);
 
   // The take's start, taken on the edge `rolling` goes true; the snapshot is READ, never subscribed to.
   useEffect(() => {
@@ -2643,7 +2652,7 @@ export default function App({
       : null);
 
   // Everything that makes the transport unable to answer, as one flag: to whoever is reaching for Play the two causes are one fact.
-  const transportWaiting = engineBusy || waitingForEngine;
+  const transportWaiting = engineBusy || waitingForEngine || copyingToEngine;
 
   // The step-by-step palette's catalogue and per-argument completion — `locale` is a dependency, each description being resolved as the list is built.
   const paletteCommands = useMemo(
@@ -3962,7 +3971,9 @@ export default function App({
               {menuHint || status || project?.root}
             </span>
             {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
-            {waitingForEngine ? (
+            {engineSync && !frozen ? (
+              <EngineSyncProgress sync={engineSync} />
+            ) : waitingForEngine ? (
               <span
                 className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-amber-500"
                 title={m["status.engineStarting"]()}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type {
   Diagnostic,
+  EngineSyncState,
   GitStatus,
   WaveformStatus,
   WorkspaceInfo,
@@ -110,6 +111,8 @@ export function useActiveProjectFollow(opts: {
   onSwitch: (w: WorkspaceInfo) => void;
   /** A take was recorded: the workspace now names a clip this tab has never seen. */
   onTake?: (w: WorkspaceInfo) => void;
+  /** Every answer's copy to the engine's machine, null when none is running or failed — docs engineSync.md. */
+  onSync?: (s: EngineSyncState | null) => void;
 }): void {
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -127,6 +130,7 @@ export function useActiveProjectFollow(opts: {
         const landed = isNewTake(seen, clip);
         seen = clip;
         if (landed) optsRef.current.onTake?.(w);
+        optsRef.current.onSync?.(w.engineSync ?? null);
       } catch {
         /* backend momentarily unavailable */
       }

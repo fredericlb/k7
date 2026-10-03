@@ -119,7 +119,8 @@ export function bindEngine(
     if (inst.engineId === id || !holdsClaim(deps.registry, id, inst.user))
       return;
     const roots = rootsFor(inst, deps.mediatekRoot);
-    const path = deps.tunnels.bindLocal(id, roots);
+    // Synced: the file service copies a document's files before sending it, so the engine's channel never fetches.
+    const path = deps.tunnels.bindLocal(id, roots, "engine", { synced: true });
     // Beside it, the machine's own jobs: every separation this account asks for runs there.
     const jobsPath = deps.tunnels.bindLocal(id, roots, "jobs");
     const at = `ws://127.0.0.1:${deps.selfPort()}`;

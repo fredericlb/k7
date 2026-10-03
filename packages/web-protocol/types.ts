@@ -48,6 +48,18 @@ export interface WorkspaceInfo {
   projects: string[]; // workspace-relative project dirs
   // The clip the recorder wrote most recently: only the file service learns the id, and it stays set until the next take.
   lastTake?: { clip: string; track: string } | null;
+  // The project's files being copied to the engine's machine before it plays — packages/file-service/docs/engineSync.md.
+  engineSync?: EngineSyncState | null;
+}
+
+// A copy to the engine's machine: only the files it had to copy count; `error`/`failed` once it went wrong.
+export interface EngineSyncState {
+  files: number;
+  filesDone: number;
+  bytes: number;
+  bytesDone: number;
+  failed?: number;
+  error?: string;
 }
 
 // Where the workspace's repo stands vs upstream, for the share badge (mirrors @studio/commands/git).

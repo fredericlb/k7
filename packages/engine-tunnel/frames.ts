@@ -31,7 +31,14 @@ export type ChannelKind = "engine" | "jobs";
 
 /** Hub → agent. */
 export type HubMessage =
-  | { t: "open"; ch: number; roots: TunnelRoot[]; kind?: ChannelKind }
+  | {
+      t: "open";
+      ch: number;
+      roots: TunnelRoot[];
+      kind?: ChannelKind;
+      /** The server copied every file before naming it (`sync`): frames to the engine are only rewritten. */
+      synced?: boolean;
+    }
   | { t: "close"; ch: number }
   | { t: "data"; ch: number; text: string }
   | { t: "stat-reply"; req: number; entries: RemoteStat[] }

@@ -32,6 +32,10 @@ request, and a file a reply names, written under a writable root, is uploaded be
 sees the reply. So a handler works on local paths only, and a caller on server paths only — a
 separation's source and model arrive on the machine, and its stems land where the server asked.
 
+`sync` is the one request the AGENT answers rather than the machine's list, since copying is the
+tunnel's own business: its files are NOT brought down before it starts, it copies them itself and
+reports each one (`tunnel.md`, `packages/file-service/docs/engineSync.md`).
+
 Two exceptions, both explicit. A request that names too many files to fetch before it starts — a
 set list of thirty songs — brings each down when it gets to it (`JobContext.fetch`), so it can
 report as it goes. And a reply's **`raw`** field crosses unmapped: the one caller that needs the

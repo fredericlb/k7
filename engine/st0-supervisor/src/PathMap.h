@@ -1,7 +1,8 @@
 // PathMap.h — the engine names files by LOCAL path and the server by its own; this rewrites every
 // JSON string under a shared root as a frame crosses, and moves the file FIRST: downloaded before a
 // frame naming it reaches the engine, uploaded before a frame naming a file the engine wrote reaches
-// the server. Whole strings only, never substrings. The twin of engine-tunnel/pathMap.ts.
+// the server. Whole strings only, never substrings. A channel the server syncs itself (`sync`) only
+// rewrites. The twin of engine-tunnel/pathMap.ts.
 
 #pragma once
 
@@ -49,6 +50,14 @@ private:
     std::map<std::string, std::shared_future<void>> downloads_;
 };
 
+/** How far a `sync` has got: only the files it had to copy count, not those already here. */
+struct SyncProgress {
+    std::uint64_t files = 0;
+    std::uint64_t filesDone = 0;
+    std::uint64_t bytes = 0;
+    std::uint64_t bytesDone = 0;
+};
+
 class PathMap {
 public:
     PathMap(std::vector<MappedRoot> roots, RemoteFiles files, SyncLedger& ledger, std::function<void(const std::string&)> log);
@@ -62,14 +71,18 @@ public:
     /** Bring ONE file down by its local path; false when the server has no such file. */
     bool ensureLocal(const std::string& local);
 
-    /** A server→engine frame, rewritten, every file it names present locally first. Blocks. */
-    std::string outbound(const std::string& text);
+    /** A server→engine frame, rewritten; with `fetch`, every file it names present locally first, which blocks. */
+    std::string outbound(const std::string& text, bool fetch = true);
+
+    /** Bring every listed LOCAL path up to date, reporting after each copy; returns how many failed. Blocks. */
+    std::uint64_t sync(const std::vector<std::string>& locals, const std::function<void(const SyncProgress&)>& progress);
 
     /** An engine→server frame, rewritten, every file the engine changed uploaded first. Blocks. */
     std::string inbound(const std::string& text);
 
 private:
     void bringDown(const std::vector<RemoteStat>& entries);
+    bool upToDate(const RemoteStat& e, const std::string& local);
     void ensureFile(const RemoteStat& e, const std::string& local);
     void sendUp(const std::string& local);
 
