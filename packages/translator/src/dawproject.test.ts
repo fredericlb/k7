@@ -92,6 +92,20 @@ describe("a container plays a window of its children", () => {
     expect(only.offset).toBe(6);
   });
 
+  it("reads an unwarped leaf's in-point in seconds, as Bitwig writes it", () => {
+    // 2 s at the archive's 120 bpm is 4 beats, plus the 2 beats the container cuts off the head.
+    const r = parse(
+      `<Clip time="0.0" duration="8.0" playStart="2.0"><Clips>
+         <Clip time="0.0" duration="8.0" contentTimeUnit="seconds" playStart="2.0">
+           <Lanes><Audio algorithm="raw" sampleRate="48000"><File path="audio/a.wav"/></Audio></Lanes>
+         </Clip>
+       </Clips></Clip>`,
+    );
+    const [only] = r.song.tracks[0]?.clips ?? [];
+    expect(only.type).toBe("audio");
+    expect(only.offset).toBe(6);
+  });
+
   it("carries a disabled clip as disabled, a disabled container's children included", () => {
     const r = parse(
       `<Clip time="0.0" duration="4.0" enable="false">${note}</Clip>
