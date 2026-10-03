@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -36,6 +37,12 @@ struct HubLink {
     virtual bool sendBinary(const std::string& bytes) = 0;
     virtual size_t buffered() = 0;
     virtual bool isOpen() = 0;
+};
+
+/** A download that arrived whole but whose target something holds open (the engine, on Windows); `part` is left for the caller to place. */
+struct TargetInUse : std::runtime_error {
+    std::filesystem::path part;
+    TargetInUse(const std::string& what, std::filesystem::path p) : std::runtime_error(what), part(std::move(p)) {}
 };
 
 /** What the path map asks of one channel's files. */

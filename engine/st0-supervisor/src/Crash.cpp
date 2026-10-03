@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <exception>
 #include <string>
+#include <thread>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -47,7 +48,9 @@ void writeDump(EXCEPTION_POINTERS* info)
     if (h == INVALID_HANDLE_VALUE) return;
     MINIDUMP_EXCEPTION_INFORMATION mei{GetCurrentThreadId(), info, FALSE};
     const auto kind = static_cast<MINIDUMP_TYPE>(MiniDumpWithThreadInfo | MiniDumpWithIndirectlyReferencedMemory);
-    const BOOL ok = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), h, kind, info ? &mei : nullptr, nullptr, nullptr);
+    BOOL ok = FALSE;
+    // From another thread: the caller's own stack — the throw site — is not captured reliably otherwise.
+    std::thread([&] { ok = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), h, kind, info ? &mei : nullptr, nullptr, nullptr); }).join();
     CloseHandle(h);
     if (ok) log::host("crash dump: " + paths::utf8(file));
 }

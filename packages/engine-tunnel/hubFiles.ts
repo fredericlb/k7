@@ -10,8 +10,12 @@ import { CHUNK_BYTES, type RemoteStat, type TunnelRoot } from "./frames.ts";
 /** At most this many paths per stat request — a document names dozens, never thousands. */
 export const MAX_STAT_PATHS = 2000;
 
+// `realpath` answers in backslashes on Windows; elsewhere a backslash is a name character and must not pass.
+const SEPS = process.platform === "win32" ? ["/", "\\"] : ["/"];
+
 const within = (root: string, p: string): boolean =>
-  p === root || p.startsWith(root.endsWith("/") ? root : `${root}/`);
+  p === root ||
+  SEPS.some((s) => p.startsWith(root.endsWith(s) ? root : `${root}${s}`));
 
 /** The root `p` lies in, lexically, or null; a relative or non-normal path is refused outright. */
 export function rootOf(roots: TunnelRoot[], p: string): TunnelRoot | null {

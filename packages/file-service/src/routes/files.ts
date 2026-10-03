@@ -23,6 +23,7 @@ import {
   engineSyncOf,
   prewarmEngineForActive,
   reloadActiveProject,
+  retryEngineSync,
   runWebCommand,
   snapshotPluginBase,
   startEngineForActive,
@@ -127,6 +128,15 @@ filesRouter.post(
   wrap((req, res) => {
     const { module, on } = req.body as z.infer<typeof thawBody>;
     thawAutoFreeze(req.ws!, module, on);
+    res.json({ ok: true });
+  }),
+);
+
+/** After a failed copy held the project back, the one way to try again — see docs/engineSync.md. */
+filesRouter.post(
+  "/engine/sync/retry",
+  wrap((req, res) => {
+    retryEngineSync(req.ws!);
     res.json({ ok: true });
   }),
 );

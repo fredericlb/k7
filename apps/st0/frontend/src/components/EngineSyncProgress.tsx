@@ -10,17 +10,8 @@ export const syncRunning = (s: EngineSyncState | null | undefined): boolean =>
   !!s && s.error === undefined && s.failed === undefined;
 
 export function EngineSyncProgress({ sync }: { sync: EngineSyncState }) {
-  if (!syncRunning(sync))
-    return (
-      <span
-        className="shrink-0 truncate whitespace-nowrap text-amber-500"
-        title={sync.error ?? "some files are missing on the engine's machine"}
-      >
-        {sync.error
-          ? "could not copy the project to the engine"
-          : `${sync.failed} file${sync.failed === 1 ? "" : "s"} not copied to the engine`}
-      </span>
-    );
+  // A failed copy is EngineSyncFailedDialog's, not a line in the footer.
+  if (!syncRunning(sync)) return null;
   const pct =
     sync.bytes > 0
       ? Math.min(100, Math.round((sync.bytesDone / sync.bytes) * 100))

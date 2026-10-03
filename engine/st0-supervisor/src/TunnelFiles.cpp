@@ -83,8 +83,11 @@ void FileRequests::download(int ch, const RemoteStat& remote, const fs::path& lo
     fs::rename(tmp, local, ec);
     if (ec) {
         // Windows will not rename over an open or read-only file; replace it in two steps instead.
-        fs::remove(local, ec);
-        fs::rename(tmp, local);
+        std::error_code removed;
+        fs::remove(local, removed);
+        fs::rename(tmp, local, ec);
+        // Still refused: the target is held open, so the complete file goes back to the caller to place.
+        if (ec) throw TargetInUse(paths::utf8(local) + " is in use: " + ec.message(), tmp);
     }
     filetime::setMtimeMs(local, remote.mtimeMs.value_or(0));
 }

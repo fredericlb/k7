@@ -106,6 +106,48 @@ void SyncLedger::downloadOnce(const std::string& local, const std::function<void
     pending.get();
 }
 
+std::optional<std::string> SyncLedger::redirect(const std::string& canonical)
+{
+    std::lock_guard lock(mutex_);
+    auto it = redirects_.find(canonical);
+    if (it == redirects_.end()) return std::nullopt;
+    return it->second;
+}
+
+std::optional<std::string> SyncLedger::canonicalOf(const std::string& actual)
+{
+    std::lock_guard lock(mutex_);
+    for (const auto& [canonical, at] : redirects_)
+        if (at == actual) return canonical;
+    return std::nullopt;
+}
+
+std::optional<std::string> SyncLedger::place(const std::string& canonical, const std::string& actual)
+{
+    std::lock_guard lock(mutex_);
+    std::optional<std::string> before;
+    if (auto it = redirects_.find(canonical); it != redirects_.end()) before = it->second;
+    if (actual == canonical)
+        redirects_.erase(canonical);
+    else
+        redirects_[canonical] = actual;
+    return before;
+}
+
+namespace {
+
+/** `clip.wav` → `clip~<server mtime>.wav`: one name per version, so a version placed once is found again after a restart. */
+std::string beside(const std::string& local, double remoteMtime)
+{
+    const fs::path p = paths::fromUtf8(local);
+    fs::path name = p.stem();
+    name += paths::fromUtf8("~" + std::to_string(static_cast<long long>(remoteMtime)));
+    name += p.extension();
+    return paths::utf8(p.parent_path() / name);
+}
+
+}  // namespace
+
 PathMap::PathMap(std::vector<MappedRoot> roots, RemoteFiles files, SyncLedger& ledger,
                  std::function<void(const std::string&)> log)
     : roots_(std::move(roots)), files_(std::move(files)), ledger_(ledger), log_(std::move(log))
@@ -117,6 +159,26 @@ PathMap::PathMap(std::vector<MappedRoot> roots, RemoteFiles files, SyncLedger& l
 }
 
 std::optional<std::string> PathMap::toLocal(const std::string& remote) const
+{
+    auto c = canonical(remote);
+    if (c)
+        if (auto r = ledger_.redirect(*c)) return r;
+    return c;
+}
+
+std::string PathMap::actual(const std::string& canonical) const { return ledger_.redirect(canonical).value_or(canonical); }
+
+void PathMap::place(const std::string& canonical, const std::string& actual)
+{
+    const auto before = ledger_.place(canonical, actual);
+    // The copy it replaces is removed when nothing holds it any more; one still held stays until a later try.
+    if (before && *before != actual) {
+        std::error_code ec;
+        fs::remove(paths::fromUtf8(*before), ec);
+    }
+}
+
+std::optional<std::string> PathMap::canonical(const std::string& remote) const
 {
     for (const auto& r : roots_) {
         if (remote == r.remote) return r.local;
@@ -138,8 +200,10 @@ std::optional<std::string> PathMap::toLocal(const std::string& remote) const
     return std::nullopt;
 }
 
-std::optional<std::pair<std::string, const MappedRoot*>> PathMap::toRemote(const std::string& local) const
+std::optional<std::pair<std::string, const MappedRoot*>> PathMap::toRemote(const std::string& named) const
 {
+    // A version placed beside a held file stands for the canonical path, which is what the server knows.
+    const std::string local = ledger_.canonicalOf(named).value_or(named);
     for (const auto& r : roots_) {
         if (local == r.local) return std::make_pair(r.remote, &r);
         const std::string prefix = r.local + kSep;
@@ -159,7 +223,7 @@ bool PathMap::ensureLocal(const std::string& local)
     if (!mapped) return false;
     const auto entries = files_.stat({mapped->first});
     if (entries.empty() || entries.front().kind != "file") return false;
-    ensureFile(entries.front(), local);
+    ensureFile(entries.front(), ledger_.canonicalOf(local).value_or(local));
     return true;
 }
 
@@ -175,12 +239,12 @@ std::string PathMap::outbound(const std::string& text, bool fetch)
     // A `sync` request names the files it is about to copy itself, reporting as it goes.
     if (fetch && type != "sync") {
         std::set<std::string> named;
-        collect(msg, [this](const std::string& s) { return toLocal(s).has_value(); }, named);
+        collect(msg, [this](const std::string& s) { return canonical(s).has_value(); }, named);
         // A whole document is checked against the server; a delta trusts what an earlier one settled.
         const bool recheck = type == "project";
         std::vector<std::string> ask;
         for (const auto& p : named)
-            if (recheck || !ledger_.get(*toLocal(p))) ask.push_back(p);
+            if (recheck || !ledger_.get(*canonical(p))) ask.push_back(p);
         if (!ask.empty()) {
             log_("checking " + std::to_string(ask.size()) + " file(s) before a '" + type + "' frame");
             bringDown(files_.stat(ask));
@@ -189,7 +253,7 @@ std::string PathMap::outbound(const std::string& text, bool fetch)
     return mapStrings(msg, [this](const std::string& s) { return toLocal(s); }).dump();
 }
 
-std::uint64_t PathMap::sync(const std::vector<std::string>& locals, const std::function<void(const SyncProgress&)>& progress)
+SyncProgress PathMap::sync(const std::vector<std::string>& locals, const std::function<void(const SyncProgress&)>& progress)
 {
     std::vector<std::string> ask;
     for (const auto& l : locals)
@@ -198,7 +262,7 @@ std::uint64_t PathMap::sync(const std::vector<std::string>& locals, const std::f
     std::vector<RemoteStat> todo;
     if (!ask.empty())
         for (const auto& e : files_.stat(ask)) {
-            const auto local = toLocal(e.path);
+            const auto local = canonical(e.path);
             if (!local) continue;
             std::error_code ec;
             if (e.kind == "dir")
@@ -213,30 +277,29 @@ std::uint64_t PathMap::sync(const std::vector<std::string>& locals, const std::f
     p.files = todo.size();
     progress(p);
     std::mutex m;
-    std::uint64_t failed = 0;
     constexpr size_t kParallel = 8;
     std::atomic<size_t> next{0};
     auto worker = [&] {
         for (size_t i = next++; i < todo.size(); i = next++) {
             const auto& e = todo[i];
-            bool ok = true;
+            std::string failure;
             try {
-                ensureFile(e, *toLocal(e.path));
+                ensureFile(e, *canonical(e.path));
             } catch (const std::exception& err) {
                 log_("could not bring down " + e.path + ": " + err.what());
-                ok = false;
+                failure = e.path.substr(e.path.find_last_of('/') + 1) + " — " + err.what();
             }
             std::lock_guard lock(m);
             ++p.filesDone;
             p.bytesDone += e.size.value_or(0);
-            if (!ok) ++failed;
+            if (!failure.empty()) p.failures.push_back(failure);
             progress(p);
         }
     };
     std::vector<std::thread> pool;
     for (size_t i = 0; i < std::min(kParallel, todo.size()); ++i) pool.emplace_back(worker);
     for (auto& t : pool) t.join();
-    return failed;
+    return p;
 }
 
 std::string PathMap::inbound(const std::string& text)
@@ -271,7 +334,7 @@ void PathMap::bringDown(const std::vector<RemoteStat>& entries)
     auto worker = [&] {
         for (size_t i = next++; i < entries.size(); i = next++) {
             const auto& e = entries[i];
-            const auto local = toLocal(e.path);
+            const auto local = canonical(e.path);
             if (!local) continue;
             try {
                 std::error_code ec;
@@ -295,7 +358,7 @@ bool PathMap::upToDate(const RemoteStat& e, const std::string& local)
 {
     const auto size = e.size.value_or(0);
     const double remoteMtime = e.mtimeMs.value_or(0);
-    const auto have = filetime::stat(paths::fromUtf8(local));
+    const auto have = filetime::stat(paths::fromUtf8(actual(local)));
     const auto known = ledger_.get(local);
     const bool same =
         known ? known->size == size && filetime::same(known->remoteMtimeMs, remoteMtime) && have && have->size == size &&
@@ -311,24 +374,47 @@ void PathMap::ensureFile(const RemoteStat& e, const std::string& local)
     const double remoteMtime = e.mtimeMs.value_or(0);
     const fs::path p = paths::fromUtf8(local);
     if (upToDate(e, local)) return;
+    const std::string aside = beside(local, remoteMtime);
+    // A version already placed beside a held file — before a restart, say — is adopted rather than fetched again.
+    if (const auto there = filetime::stat(paths::fromUtf8(aside)); there && there->size == size && filetime::same(there->mtimeMs, remoteMtime)) {
+        place(local, aside);
+        ledger_.set(local, {size, there->mtimeMs, remoteMtime});
+        return;
+    }
     ledger_.downloadOnce(local, [&] {
         log_("fetching " + e.path + " (" + std::to_string(size) + " bytes)");
-        files_.download(e, p);
+        try {
+            files_.download(e, p);
+            place(local, local);
+        } catch (const TargetInUse& held) {
+            // The engine holds the old version open: the new one goes beside it, and frames name that.
+            std::error_code ec;
+            fs::rename(held.part, paths::fromUtf8(aside), ec);
+            if (ec) {
+                fs::remove(held.part, ec);
+                throw std::runtime_error(std::string(held.what()) + ", and the new version could not be put beside it");
+            }
+            filetime::setMtimeMs(paths::fromUtf8(aside), remoteMtime);
+            log_(local + " is held open; its new version is " + aside);
+            place(local, aside);
+        }
     });
-    if (const auto now = filetime::stat(p)) ledger_.set(local, {now->size, now->mtimeMs, remoteMtime});
+    if (const auto now = filetime::stat(paths::fromUtf8(actual(local)))) ledger_.set(local, {now->size, now->mtimeMs, remoteMtime});
 }
 
-void PathMap::sendUp(const std::string& local)
+void PathMap::sendUp(const std::string& named)
 {
-    const auto mapped = toRemote(local);
+    const auto mapped = toRemote(named);
     if (!mapped || !mapped->second->writable) return;
-    const auto have = filetime::stat(paths::fromUtf8(local));
+    const auto have = filetime::stat(paths::fromUtf8(named));
     if (!have || !have->isFile) return;
+    // The ledger is keyed by the canonical path, which a version placed beside a held file stands for.
+    const std::string local = ledger_.canonicalOf(named).value_or(named);
     const auto known = ledger_.get(local);
     if (known && known->size == have->size && filetime::same(known->localMtimeMs, have->mtimeMs)) return;
     try {
         log_("sending " + mapped->first + " (" + std::to_string(have->size) + " bytes)");
-        const auto back = files_.upload(paths::fromUtf8(local), mapped->first);
+        const auto back = files_.upload(paths::fromUtf8(named), mapped->first);
         ledger_.set(local, {have->size, have->mtimeMs, back.mtimeMs.value_or(0)});
     } catch (const std::exception& err) {
         log_("could not send " + local + ": " + err.what());

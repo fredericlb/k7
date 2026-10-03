@@ -304,10 +304,13 @@ export class TunnelAgent {
       // Copied one by one, one `syncing` reply per file, then `synced` — docs/tunnel.md.
       Promise.resolve()
         .then(async () => {
-          const failed = map
-            ? await map.sync(files, (p) => emit({ type: "syncing", ...p }))
-            : 0;
-          emit({ type: "synced", failed });
+          const last = map
+            ? await map.sync(files, ({ failures, ...p }) =>
+                emit({ type: "syncing", ...p }),
+              )
+            : null;
+          const failures = last?.failures ?? [];
+          emit({ type: "synced", failed: failures.length, failures });
         })
         .catch((e: Error) => emit({ type: "error", error: e.message }));
       return;

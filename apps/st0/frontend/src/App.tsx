@@ -95,6 +95,7 @@ import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EngineLoad } from "./components/EngineLoad";
 import { EngineSwitch } from "./components/EngineSwitch";
+import { EngineSyncFailedDialog } from "./components/EngineSyncFailedDialog";
 import {
   EngineSyncProgress,
   syncRunning,
@@ -3982,7 +3983,7 @@ export default function App({
               {menuHint || status || project?.root}
             </span>
             {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
-            {engineSync && !frozen ? (
+            {copyingToEngine && engineSync ? (
               <EngineSyncProgress sync={engineSync} />
             ) : waitingForEngine ? (
               <span
@@ -4244,6 +4245,18 @@ export default function App({
         )}
 
         {/* The SCREEN surfaces were mounted here; they are panes in the column above now — packages/song/docs/surfaces.md. */}
+
+        {/* The project's files did not all reach the engine's machine: fatal until reloaded (engineSync.md). */}
+        <EngineSyncFailedDialog
+          sync={
+            !frozen && engineSync && !syncRunning(engineSync)
+              ? engineSync
+              : null
+          }
+          onReload={async () => {
+            await api.retryEngineSync();
+          }}
+        />
 
         {/* "import this .dawproject?" — clicking one in the tree lands here */}
         <ImportDialog

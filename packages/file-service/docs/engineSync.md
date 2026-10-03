@@ -33,10 +33,18 @@ check still skips a file its cache already holds (`packages/engine-tunnel/docs/t
 
 ## When it goes wrong
 
-- **A file did not arrive**: the document is sent anyway — the engine plays the rest and that clip
-  is silent — and the footer says how many are missing. Those files stay unsettled, so the next
-  document asks for them again.
-- **The copy failed outright** (the tunnel dropped): the same, with the error in the footer.
+A failed copy is **fatal**. A project missing a file would play with that clip silent, and a set
+going wrong in front of people is worse than one that does not start, so:
+
+- **A file did not arrive**, or **the copy failed outright** (the tunnel dropped): nothing is sent.
+  Every later document of that session is dropped too, and the engine-health reconcile leaves the
+  session alone, so nothing retries behind the person's back. st0 shows a dialog that cannot be
+  dismissed (`apps/st0/frontend/src/components/EngineSyncFailedDialog.tsx`) naming each file and
+  why; its one button, **Reload project**, is `POST /engine/sync/retry`, which forgets the failure
+  and recompiles, so the copy starts over with the files that did not arrive.
+- **A file the engine holds open** is not a failure. Windows refuses to replace a file another
+  process has open, and the engine keeps the clips of what it played; the new version is put
+  beside the old one and named in its place (`packages/engine-tunnel/docs/tunnel.md`).
 - **A machine that does not know `sync`** answers so by name. It still downloads on the engine
   channel itself, as it ignores the `synced` flag the binding opens that channel with
   (`packages/file-hub/binding.ts`), so the document is sent at once and the machine is not asked
