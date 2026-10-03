@@ -4,8 +4,11 @@
 
 #define MBEDTLS_SSL_DTLS_SRTP
 
-// The PSA random generator is one global that TLS sockets on several threads share; Windows has no backend here (docs/supervisor.md).
-#if !defined(_WIN32)
+// The PSA random generator is one global that TLS sockets on several threads share (docs/supervisor.md).
 #define MBEDTLS_THREADING_C
+#if defined(_WIN32)
+// No pthreads to borrow here, so src/Tls.cpp supplies the four mutex callbacks instead.
+#define MBEDTLS_THREADING_ALT
+#else
 #define MBEDTLS_THREADING_PTHREAD
 #endif

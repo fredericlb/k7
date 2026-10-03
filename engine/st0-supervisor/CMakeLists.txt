@@ -53,6 +53,12 @@ set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
 set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
 set(MBEDTLS_USER_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/mbedtls_user_config.h CACHE FILEPATH "" FORCE)
 FetchContent_MakeAvailable(nlohmann_json mbedtls)
+# `threading.h` includes "threading_alt.h" by name, so our copy must be on every mbedTLS target's path.
+if(WIN32)
+    foreach(lib mbedtls mbedx509 mbedcrypto)
+        target_include_directories(${lib} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+    endforeach()
+endif()
 # The one name libdatachannel asks for, over the three libraries mbedTLS builds.
 add_library(st0_mbedtls INTERFACE)
 target_link_libraries(st0_mbedtls INTERFACE mbedtls mbedx509 mbedcrypto)
@@ -152,6 +158,7 @@ add_library(st0_supervisor_core STATIC
     src/EngineProcess.cpp
     src/EngineQueries.cpp
     src/TrustRoots.cpp
+    src/Tls.cpp
     src/Http.cpp
     src/Registry.cpp
     src/Addresses.cpp

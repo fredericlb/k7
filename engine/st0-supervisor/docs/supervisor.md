@@ -61,15 +61,24 @@ even with media off, and threading, for the next section.
 
 ## TLS from several threads
 
-mbedTLS's PSA layer keeps ONE random generator for the whole process, and every IXWebSocket TLS
-socket calls `psa_crypto_init()` as it is made. Sockets are made on several threads at once — a
-heartbeat to each studio, in parallel, and the tunnels — so two of them could seed that generator
-together, and the supervisor died inside `mbedtls_entropy_func`. Two guards, for two halves:
+mbedTLS's PSA layer keeps ONE random generator for the whole process, and every TLS handshake draws
+from it. Handshakes run on several threads at once — a heartbeat to each studio in parallel, a
+tunnel per studio redialling, the WebRTC path — so the seeding and the draws BOTH have to be
+guarded. Unguarded, the generator is corrupted under exactly the load a studio being down
+produces: handshakes begin failing for a reason the far end cannot explain
+(`SSL - The handshake negotiation failed`, `SSL - Internal error`), and the process faults inside
+the DRBG. `src/Tls.cpp` owns the setup and `main.cpp` runs it once, before any socket:
 
-- `main.cpp` calls `psa_crypto_init()` first, while there is one thread; later calls find it done.
-- the user config turns on `MBEDTLS_THREADING_PTHREAD`, so drawing from the generator during
-  concurrent handshakes is locked too. Windows has no built-in backend for it; there the seeding
-  at startup is the only guard.
+- `psa_crypto_init()` while there is still one thread, so no two sockets seed together.
+- `MBEDTLS_THREADING_C`, which is what makes `mbedtls_mutex_lock` a lock instead of an empty macro.
+  This is not a tuning knob: with the macro empty, concurrent draws segfault.
+- the mutexes behind it — `MBEDTLS_THREADING_PTHREAD` where pthreads exist, and on Windows
+  `MBEDTLS_THREADING_ALT` with the four callbacks in `Tls.cpp`, since mbedTLS ships no Windows
+  backend of its own. `cmake/threading_alt.h` supplies the type as a pointer, so no mbedTLS
+  translation unit has to include windows.h and collide with the winsock headers.
+
+There is no `mbedtls_threading_free_alt` counterpart, for the reason `main.cpp` gives: we leave by
+`_Exit`.
 
 ## Trust comes from the OS
 
