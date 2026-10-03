@@ -18,6 +18,7 @@ import type {
   AccountWorkspace,
   RepoProject,
   ShareSummary,
+  WorkspaceSync,
 } from "@studio/web-protocol";
 import { projectLabel } from "@studio/web-protocol/projects";
 import { type DragEvent, useState } from "react";
@@ -30,6 +31,7 @@ import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 import { WorkspaceMenu } from "./WorkspaceMenu";
+import { WorkspaceSyncLine } from "./WorkspaceSyncLine";
 import type { ImportProgress } from "./workspaceOps";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
@@ -82,6 +84,7 @@ export function RepoList({
   onDelete,
   onRemoveWorkspace,
   onCompactWorkspace,
+  sync,
   onCopy,
   onRename,
   projectHref,
@@ -154,6 +157,8 @@ export function RepoList({
   workspaceHref: (ws: AccountWorkspace) => string;
   /** Delete a whole workspace — the folder and everything in it. */
   onRemoveWorkspace: (ws: AccountWorkspace) => Promise<void>;
+  /** Each workspace's standing against its repository, by name — absent until the first answer. */
+  sync: Record<string, WorkspaceSync>;
   /** Shrink its repository to the working tree: bin emptied, history reset to one commit. */
   onCompactWorkspace: (ws: AccountWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
@@ -279,6 +284,10 @@ export function RepoList({
                     <span className="block truncate text-xs text-muted-foreground">
                       {w.origin ?? m["repos.hereOnly"]()}
                     </span>
+                    <WorkspaceSyncLine
+                      sync={sync[w.name]}
+                      command={w.repoName || w.name}
+                    />
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">

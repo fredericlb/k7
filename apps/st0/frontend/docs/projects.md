@@ -440,6 +440,19 @@ a force-push (`packages/file-service/docs/workspaces.md` § Compacting). Compact
 and touches no file in use, so its result is a toast with the bytes freed, which also says when
 the force-push was refused.
 
+**A row says when its workspace and its repository differ** (`WorkspaceSyncLine.tsx`), under the
+origin and in two colours:
+
+- **amber, cloud-up**, *Needs syncing*: work here that the host does not have, i.e. uncommitted
+  files and commits not pushed;
+- **blue, cloud-down**, *Can be updated*: commits on the host that this copy lacks.
+
+Both lines can show at once, on a diverged workspace, and a level workspace shows neither. Silence
+is the normal state, so a line is something to act on rather than noise read past every day. The
+tooltip names the bar's `system repo sync`, the one gesture that settles both. The counts come from
+their own route and timer (`useWorkspaceSync.ts`), since answering "behind" costs a fetch, and the
+reason is in `packages/file-service/docs/workspaces.md` § Sync state.
+
 **Publier** is in that menu and not at the top, because it acts on ONE workspace, and it is
 offered only when `origin` is null. It asks for a repository URI — which must exist and be empty —,
 sets it as `origin` and pushes (`POST /workspaces/remote`). The push is the half that can fail

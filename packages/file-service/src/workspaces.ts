@@ -436,7 +436,7 @@ export function listWorkspaces(_userEmail: string): WorkspaceSummary[] {
 }
 
 /** The workspace folders under a user root, sorted — the one place the hidden ones are dropped. */
-function workspaceNames(dir: string): string[] {
+export function workspaceNames(dir: string): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))

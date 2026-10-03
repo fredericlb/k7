@@ -21,6 +21,7 @@ import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesCard } from "./LibrariesCard";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
+import { useWorkspaceSync } from "./useWorkspaceSync";
 import {
   type AccountFiles,
   copyProjectAndCommit,
@@ -63,6 +64,10 @@ export function ProjectsPane({
   const [adding, setAdding] = useState<string | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
+  const { sync, refresh: refreshSync } = useWorkspaceSync(fileService);
+  // A list that moved is a repository that moved: a project created, copied or deleted commits.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `workspaces` is the trigger, not an input.
+  useEffect(() => refreshSync(), [workspaces]);
 
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
   const blocked = fileService ? "" : m["projects.noFilesBlocked"]();
@@ -135,9 +140,10 @@ export function ProjectsPane({
         setError((e as Error).message);
       } finally {
         onChanged();
+        refreshSync();
       }
     },
-    [chosen, onChanged],
+    [chosen, onChanged, refreshSync],
   );
 
   /** A workspace made HERE: git, no repository, and EMPTY — the editor asks for the first project. */
@@ -154,9 +160,11 @@ export function ProjectsPane({
   const publish = useCallback(
     (w: AccountWorkspace, uri: string, onStep: (s: string) => void) => {
       setError(null);
-      return publishWorkspace(chosen(), w.name, uri, onStep);
+      return publishWorkspace(chosen(), w.name, uri, onStep).finally(
+        refreshSync,
+      );
     },
-    [chosen],
+    [chosen, refreshSync],
   );
 
   const create = useCallback(
@@ -355,6 +363,7 @@ export function ProjectsPane({
           onDelete={removeProject}
           onRemoveWorkspace={removeWorkspace}
           onCompactWorkspace={compactWorkspace}
+          sync={sync}
           onCopy={copyProject}
           onRename={renameProject}
           // Same departure as from the tree: the app's address, not a view local to here.

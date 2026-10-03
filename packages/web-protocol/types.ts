@@ -775,6 +775,24 @@ export interface CompactWorkspaceReply {
   pushError?: string;
 }
 
+/** Where one workspace stands against its repository — packages/file-service/docs/workspaces.md § Sync state. */
+export interface WorkspaceSync {
+  name: string;
+  /** Paths `git status` lists: changed, added or deleted and not committed, ignored files aside. */
+  dirty: number;
+  /** Local commits the upstream lacks, or null when the branch has no upstream. */
+  ahead: number | null;
+  /** Upstream commits not pulled yet, as of the last fetch, or null when there is no upstream. */
+  behind: number | null;
+  /** git's words when the last fetch failed: `behind` is then as old as the fetch before it. */
+  fetchError?: string;
+}
+
+/** Reply to GET /workspaces/sync on the file service. */
+export interface WorkspaceSyncList {
+  workspaces: WorkspaceSync[];
+}
+
 /** One surface a project declares, named and typed — enough to build its address and to gate a device. */
 export interface SurfaceRef {
   id: string;
