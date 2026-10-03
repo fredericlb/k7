@@ -1,147 +1,258 @@
-// presets.ts — a module's named settings, in the `presets.yaml` beside its `module.yaml`. A preset IS its
-// values: `<name>: { <param>: <number> }`, and the folder says which module. The other half of the engine's
-// FACTORY discovery, which is the plugin's own and arrives over the wire. See docs/userPresets.md.
+// presets.ts — a NODE's presets on disk: listed from every preset tree it can see, applied onto
+// the node's own file, saved and updated from what the node resolves to. Keyed by the module the
+// node `extends`, so every use of `@st0/instruments/synth` offers the same shelf, wherever kept.
+// One thing a reader gets wrong: the scope is WHERE a preset lives, the path is WHICH module it
+// is for — a workspace may keep presets for a library module. See packages/song/docs/userPresets.md.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
-import { moduleFolderForRef } from "@studio/song/controller";
-import { loadModuleRefs } from "@studio/song/loader";
-import { moduleFileFor, PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import {
-  type PresetsFile,
-  PresetsFileSchema,
-} from "@studio/song-schema/yaml/moduleSchema";
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
+import { loadModuleRefs, loadModules } from "@studio/song/loader";
+import {
+  resolvedRack,
+  resolvedType,
+  resolveModule,
+} from "@studio/song/moduleResolve";
+import { accountLibraries } from "@studio/song/sharedFolders";
+import { currentEngine, engineNames } from "@studio/song-schema/engines";
+import { isLibraryName } from "@studio/song-schema/moduleTypes";
+import {
+  LIBRARY_PRESETS_DIR,
+  type NodePresets,
+  PRESET_NAME,
+  PROJECT_SAMPLE_PREFIX,
+  type PresetEntry,
+  type PresetFile,
+  PresetFileSchema,
+  type PresetScope,
+  presetFileText,
+  presetModulePath,
+  SHARED_PRESETS_DIR,
+  WORKSPACE_SCOPE,
+} from "@studio/song-schema/presets";
+import { setAlternativeParam } from "@studio/song-schema/yaml/alternativeFile";
 import { parse as parseYaml } from "yaml";
-import { setModuleParam } from "./projectEdit";
+import { selectModuleEngine } from "./engineSwitch";
+import { editModuleFile } from "./projectEdit";
+import { setKit } from "./rackTaps";
 
-// One preset, shaped to fold into the engine's list; index -1, since only program presets pick by index.
-export interface UserPreset {
-  name: string;
-  source: "user";
-  index: number;
-  /** The preset's own name again — what `applyPresetToModule` takes. A preset has no path of its own. */
-  path: string;
+/** The module ref a node's presets are keyed by — what it `extends` — or null for a node with none. */
+export function presetRefOf(dir: string, node: string): string | null {
+  const m = loadModules(dir)[node] as { extends?: unknown } | undefined;
+  if (!m) throw new Error(`no node named '${node}'`);
+  const ref = typeof m.extends === "string" ? m.extends : "";
+  return presetModulePath(ref) ? ref : null;
 }
 
-const VALID_NAME = /^[A-Za-z0-9 _-]+$/;
+/** Every scope this project can keep a preset in: its workspace, then each library by name. */
+export function presetScopes(): PresetScope[] {
+  return [WORKSPACE_SCOPE, ...accountLibraries().map((l) => l.name)];
+}
 
-/** The `presets.yaml` for a module ref, or null — only a WORKSPACE plugin module has a folder to hold one. */
-export function modulePresetsFile(
+// The preset tree a scope keeps — `_presets/` beside the project, or a library's `presets/`.
+function scopeRoot(dir: string, scope: PresetScope): string {
+  if (scope === WORKSPACE_SCOPE) return resolve(dir, "..", SHARED_PRESETS_DIR);
+  const lib = isLibraryName(scope)
+    ? accountLibraries().find((l) => l.name === scope)
+    : undefined;
+  if (!lib) throw new Error(`no library '${scope}' to keep presets in`);
+  return join(lib.root, LIBRARY_PRESETS_DIR);
+}
+
+// The folder one module's presets sit in, inside a scope.
+function presetFolder(dir: string, scope: PresetScope, ref: string): string {
+  const rel = presetModulePath(ref);
+  if (!rel)
+    throw new Error(`'${ref}' is not a module ref presets can be kept for`);
+  return join(scopeRoot(dir, scope), ...rel.split("/"));
+}
+
+/** The file a preset is, refused when the name would leave its module's folder. */
+export function presetFile(
   dir: string,
-  moduleRef: string,
-): string | null {
-  if (!moduleRef.startsWith("@workspace/")) return null;
-  const refs = loadModuleRefs(dir) as Record<string, { kind?: string }>;
-  if (refs[moduleRef]?.kind !== "plugin") return null;
-  const folder = moduleFolderForRef(dir, moduleRef);
-  return folder ? join(folder, `${PRESETS_BASE}.yaml`) : null;
-}
-
-/** Every preset the file declares; a file the schema refuses reads as EMPTY rather than throwing. */
-function readPresets(path: string | null): PresetsFile {
-  if (!path) return {};
-  const found = moduleFileFor(dirname(path), "", PRESETS_BASE);
-  if (!found) return {};
-  try {
-    const raw = parseYaml(readFileSync(found.path, "utf8"), { version: "1.2" });
-    const r = PresetsFileSchema.safeParse(raw ?? {});
-    return r.success ? r.data : {};
-  } catch {
-    return {};
-  }
-}
-
-/** The presets a module offers, in file order. */
-export function listModulePresets(
-  dir: string,
-  moduleRef: string,
-): UserPreset[] {
-  return Object.keys(readPresets(modulePresetsFile(dir, moduleRef))).map(
-    (name) => ({ name, source: "user", index: -1, path: name }),
-  );
-}
-
-/** Snapshot a module's authored params as a new named preset; a taken name throws, since overwriting is a decision. */
-export function saveModuleAsPreset(
-  dir: string,
-  moduleRef: string,
-  presetName: string,
+  scope: PresetScope,
+  ref: string,
+  name: string,
 ): string {
-  const name = presetName.trim();
-  if (!VALID_NAME.test(name))
+  if (!PRESET_NAME.test(name))
     throw new Error(
-      `invalid preset name '${presetName}' — letters, digits, space, '_' and '-' only`,
+      `invalid preset name '${name}' — letters, digits, space, '_' and '-' only`,
     );
-  // Keyed by the module's OWN ref — every node that extends it shares one shelf, a file in its folder.
-  const refs = loadModuleRefs(dir) as Record<
-    string,
-    { params?: Record<string, unknown> }
-  >;
-  const m = refs[moduleRef];
-  if (!m) throw new Error(`no module "${moduleRef}" in this workspace`);
-  const path = modulePresetsFile(dir, moduleRef);
-  if (!path)
-    throw new Error(
-      `module '${moduleRef}' can't hold presets — only a workspace plugin module can`,
-    );
-
-  const params = (m.params ?? {}) as Record<string, unknown>;
-  const values = Object.fromEntries(
-    Object.entries(params).filter(([, v]) => typeof v === "number"),
-  ) as Record<string, number>;
-  if (!Object.keys(values).length)
-    throw new Error(
-      `module '${moduleRef}' has no params to snapshot — set some params first`,
-    );
-
-  const existing = readPresets(path);
-  if (existing[name])
-    throw new Error(`preset '${name}' already exists — refusing to overwrite`);
-
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(
-    path,
-    presetsFileText(moduleRef, { ...existing, [name]: values }),
-  );
-  return relative(dir, path);
+  const folder = presetFolder(dir, scope, ref);
+  const path = resolve(folder, `${name}.yaml`);
+  if (!path.startsWith(folder + sep))
+    throw new Error(`invalid preset name '${name}'`);
+  return path;
 }
 
-/** Apply a preset BY NAME, stamping its values onto the module. The caller reloads. */
-export function applyPresetToModule(
-  dir: string,
-  moduleRef: string,
-  presetName: string,
-): void {
-  const values = readPresets(modulePresetsFile(dir, moduleRef))[presetName];
-  if (!values)
-    throw new Error(`module '${moduleRef}' has no preset '${presetName}'`);
-  // Through setModuleParam — one writer, one dispatch — straight onto the workspace module's own file.
-  for (const [k, v] of Object.entries(values))
-    setModuleParam(dir, moduleRef, k, v);
-}
-
-// A key as YAML, quoted only when it has to be — the same rule the panel writer applies, for the same reason.
-const key = (k: string): string =>
-  /^[A-Za-z0-9_][A-Za-z0-9 _.\-+]*$/.test(k) &&
-  !/^(y|n|yes|no|on|off|true|false|null)$/i.test(k)
-    ? k
-    : JSON.stringify(k);
-
-/** Serialise the shelf: one FLOW mapping per preset, so a preset reads as a row and adding one is a one-line diff. */
-function presetsFileText(ref: string, presets: PresetsFile): string {
-  PresetsFileSchema.parse(presets);
-  const lines = [`# presets for ${ref}`];
-  for (const [name, values] of Object.entries(presets)) {
-    const body = Object.entries(values)
-      .map(([k, v]) => `${key(k)}: ${v}`)
-      .join(", ");
-    lines.push(`${key(name)}: { ${body} }`);
+/** What a node offers: its presets from every scope, workspace first, each scope by name. */
+export function listNodePresets(dir: string, node: string): NodePresets {
+  const scopes = presetScopes();
+  const ref = presetRefOf(dir, node);
+  if (!ref) return { ref: null, presets: [], scopes };
+  const presets: PresetEntry[] = [];
+  for (const scope of scopes) {
+    const folder = presetFolder(dir, scope, ref);
+    if (!existsSync(folder)) continue;
+    const names = readdirSync(folder, { withFileTypes: true })
+      .filter((e) => e.isFile() && /\.ya?ml$/.test(e.name))
+      .map((e) => e.name.replace(/\.ya?ml$/, ""))
+      .filter((n) => PRESET_NAME.test(n))
+      .sort((a, b) => a.localeCompare(b));
+    for (const name of names) presets.push({ scope, name });
   }
-  return `${lines.join("\n")}\n`;
+  return { ref, presets, scopes };
 }
 
-/** Has this module a shelf at all — what a listing shows before opening it. */
-export function hasPresets(dir: string, moduleRef: string): boolean {
-  const path = modulePresetsFile(dir, moduleRef);
-  return !!path && !!moduleFileFor(dirname(path), "", PRESETS_BASE);
+/** One preset's content; a file the schema refuses throws with the reason, since applying half of one would be worse. */
+export function readPreset(
+  dir: string,
+  scope: PresetScope,
+  ref: string,
+  name: string,
+): PresetFile {
+  const path = presetFile(dir, scope, ref, name);
+  const found = existsSync(path) ? path : path.replace(/\.yaml$/, ".yml");
+  if (!existsSync(found))
+    throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
+  const r = PresetFileSchema.safeParse(
+    parseYaml(readFileSync(found, "utf8"), { version: "1.2" }) ?? {},
+  );
+  if (!r.success)
+    throw new Error(
+      `preset '${name}' is malformed: ${r.error.issues[0]?.message ?? "invalid"}`,
+    );
+  return r.data;
+}
+
+type Kit = NonNullable<PresetFile["rack"]>;
+
+/** A rack node's kit as a preset keeps it — refused when a pad plays a sound only this project has. */
+function kitSnapshot(node: string, rack: ReturnType<typeof resolvedRack>): Kit {
+  if (rack.rackType === "slice")
+    throw new Error(
+      `'${node}' slices one source — only a kit of library samples can be kept as a preset`,
+    );
+  const kit: Kit = {};
+  for (const [sym, tap] of Object.entries(rack.symbols)) {
+    const sample = typeof tap.sample === "string" ? tap.sample : undefined;
+    if (sample?.startsWith(PROJECT_SAMPLE_PREFIX))
+      throw new Error(
+        `pad '${sym}' plays ${sample}, a sample only this project has — move it into a library first`,
+      );
+    if (!sample && tap.clip)
+      throw new Error(
+        `pad '${sym}' plays a file of the module's own folder — give it a library sample first`,
+      );
+    kit[sym] = sample
+      ? { note: Number(tap.note), sample }
+      : { note: Number(tap.note) };
+  }
+  return kit;
+}
+
+/** What a node plays as right now: its resolved numeric params, the engine they belong to, and a rack's kit. */
+export function nodeSnapshot(dir: string, node: string): PresetFile {
+  const m = loadModules(dir)[node];
+  if (!m) throw new Error(`no node named '${node}'`);
+  const resolved = resolveModule(m, loadModuleRefs(dir));
+  const params = Object.fromEntries(
+    Object.entries(resolved.params ?? {}).filter(
+      (e): e is [string, number] =>
+        typeof e[1] === "number" && Number.isFinite(e[1]),
+    ),
+  );
+  const engine =
+    engineNames(resolved).length > 1 ? currentEngine(resolved) : undefined;
+  const rack =
+    resolvedType(resolved) === "rack"
+      ? kitSnapshot(node, resolvedRack(resolved))
+      : undefined;
+  return {
+    ...(engine ? { engine } : {}),
+    ...(Object.keys(params).length ? { params } : {}),
+    ...(rack && Object.keys(rack).length ? { rack } : {}),
+  };
+}
+
+/** Write a node's state as a preset — `update` requires it to exist, a new one refuses a taken name. */
+export function writeNodePreset(
+  dir: string,
+  node: string,
+  scope: PresetScope,
+  name: string,
+  mode: "new" | "update",
+): { path: string; ref: string; preset: PresetFile } {
+  const ref = presetRefOf(dir, node);
+  if (!ref)
+    throw new Error(`'${node}' extends no module, so it has no presets`);
+  const path = presetFile(dir, scope, ref, name.trim());
+  const exists = existsSync(path);
+  if (mode === "new" && exists)
+    throw new Error(
+      `preset '${name}' already exists in ${scope} — update it instead`,
+    );
+  if (mode === "update" && !exists)
+    throw new Error(`no preset '${name}' in ${scope} to update`);
+  const preset = nodeSnapshot(dir, node);
+  if (!preset.params && !preset.rack)
+    throw new Error(`'${node}' has no params or pads to keep — set some first`);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, presetFileText(ref, preset), "utf8");
+  return { path, ref, preset };
+}
+
+/** Load a preset onto a node: its engine first, then its values in ONE write, then its kit in place of the node's. */
+export function applyPresetToNode(
+  dir: string,
+  node: string,
+  scope: PresetScope,
+  name: string,
+): {
+  params: Record<string, number>;
+  switched: boolean;
+  kit: boolean;
+  missingEngine?: string;
+} {
+  const ref = presetRefOf(dir, node);
+  if (!ref)
+    throw new Error(`'${node}' extends no module, so it has no presets`);
+  const preset = readPreset(dir, scope, ref, name);
+  const params = preset.params ?? {};
+  const resolved = () =>
+    resolveModule(loadModules(dir)[node], loadModuleRefs(dir));
+  let switched = false;
+  let missingEngine: string | undefined;
+  // Checked before anything is written, so a kit the node cannot take leaves it untouched.
+  if (preset.rack && resolvedType(resolved()) !== "rack")
+    throw new Error(`preset '${name}' holds a kit and '${node}' is not a rack`);
+  if (preset.engine) {
+    const r = resolved();
+    if (!engineNames(r).includes(preset.engine)) missingEngine = preset.engine;
+    else if (currentEngine(r) !== preset.engine) {
+      selectModuleEngine(dir, node, preset.engine);
+      switched = true;
+    }
+  }
+  // The engine that is on AFTER the switch, since a module with engines keeps its knobs per engine.
+  const engine = currentEngine(resolved());
+  if (Object.keys(params).length)
+    editModuleFile(dir, node, (text) =>
+      Object.entries(params).reduce(
+        (t, [k, v]) => setAlternativeParam(t, k, v, engine),
+        text,
+      ),
+    );
+  if (preset.rack) setKit(dir, node, preset.rack);
+  return {
+    params,
+    switched,
+    kit: !!preset.rack,
+    ...(missingEngine ? { missingEngine } : {}),
+  };
 }

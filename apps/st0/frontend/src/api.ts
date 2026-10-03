@@ -14,6 +14,7 @@ import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
+import type { NodePresets } from "@studio/song-schema/presets";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
 import { WIDGETS_SCRIPT } from "@studio/song-schema/yaml/moduleSchema";
 import type {
@@ -32,7 +33,6 @@ import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef, libraryOfPath } from "./libraryTree";
 import type {
   PlaylistInfo,
-  PresetInfo,
   PreviewReq,
   PublicEngine,
   WaveformStatus,
@@ -307,17 +307,9 @@ export const api = {
       ref,
     }),
 
-  // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
-
-  // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.
-  listUserPresets: (ref: string) =>
-    fget<{ presets: PresetInfo[] }>(`/presets?ref=${encodeURIComponent(ref)}`),
-  // Snapshot a module's current params as a new named preset on its shelf.
-  savePreset: (module: string, name: string) =>
-    fsend<{ path: string }>("POST", "/presets/save", { module, name }),
-  // Apply one BY NAME; the brain writes its values and reloads the project so the engine hears it.
-  applyPreset: (module: string, name: string) =>
-    fsend<{ ok: true }>("POST", "/presets/apply", { module, name }),
+  // A node's presets, files under a presets tree; applying and saving are `node preset` verbs — @studio/song/docs/userPresets.md.
+  nodePresets: (node: string) =>
+    fget<NodePresets>(`/presets?node=${encodeURIComponent(node)}`),
 
   /** Commit and push the account's LIBRARIES — those named, or every one with changes — what a Save in the module builder does; the workspace's own repository is untouched. */
   publishLibraries: (message: string, libraries?: string[]) =>
@@ -452,7 +444,6 @@ export const moduleStore: ModuleStore = {
     }
   },
   moduleUi: (path) => api.moduleUi(path),
-  presets: (path) => api.modulePresets(path),
   engines: (path) => api.moduleEngines(path),
   /** The module's DSP source, derived HERE rather than on the server: it is always the plain sibling, and absent is not an error. */
   dspSource: (path, file) =>

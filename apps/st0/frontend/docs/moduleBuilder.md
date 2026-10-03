@@ -45,7 +45,7 @@ knobs that move the real thing (the params store and the setter go in **together
 that moves without changing anything is worse than one that does not move). The subscription is
 paired with the overlay, so closing it stops the feed.
 
-Not found: the text, the grid, the module's own preset shelf — and, through the built-in table
+Not found: the text and the grid — and, through the built-in table
 below, **still a parameter list for a built-in**. That is an ordinary state and not an error.
 
 ## …except for a built-in, which is knowable without any of that

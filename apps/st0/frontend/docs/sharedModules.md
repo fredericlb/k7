@@ -78,8 +78,8 @@ Two things about it are synthesised, and it is worth knowing which:
 - **The level's own row.** It has no folder, so its label stands in for a path.
 
 Giving a scanned plugin a folder is a different act, and a deliberate one: `module own <ref>`
-(`packages/song/docs/moduleFork.md`). A plugin has no panel and no presets until it has
-somewhere to keep them, and this tab does not pretend otherwise.
+(`packages/song/docs/moduleFork.md`). A plugin has no panel until it has somewhere to
+keep one, and this tab does not pretend otherwise.
 
 An `@engine` with nothing in it is not drawn: a machine that has never scanned has no
 vocabulary to offer, and an empty heading would say something untrue.
@@ -186,9 +186,10 @@ library untouched.
 What saving a library module means is still worth knowing: the library's copy is the only copy,
 nothing forks, and every song that names this module will sound different next time it is opened.
 
-A library module still holds no shelf presets — they would be an edit to the one copy every song in
-the account reads (`packages/song/docs/userPresets.md`). The `@engine` level stays read-only, since
-a scanned plugin has no folder to write into.
+A module's presets are not in its folder at all: they are files of a presets tree, saved from a
+graph node into the workspace or into a library, so keeping one never edits the module every song
+reads (`packages/song/docs/userPresets.md`). The `@engine` level stays read-only, since a scanned
+plugin has no folder to write into.
 
 ## The loaded plugin comes free
 
@@ -235,8 +236,8 @@ between them must never be re-derived from a path.
 Every text pane in st0 writes as you type. This one does not, and the reason is what a save
 *means* here:
 
-- **A module is four files describing one thing.** `module.yaml`, `ui.yaml`, `presets.yaml` and
-  a `jsdsp.ts` are edited together and are only coherent together. Autosave writes each of them
+- **A module is four files describing one thing.** `module.yaml`, `ui.yaml`, its DSP source and
+  its `widgets.js` are edited together and are only coherent together. Autosave writes each of them
   whenever *its own* typing pauses, which for a shared module means publishing a panel for a
   plugin nobody else has yet.
 - **On a shared module a save is a publish.** It commits and pushes a repository other people

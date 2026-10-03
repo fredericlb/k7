@@ -32,9 +32,9 @@ export interface ModuleUiFile {
   exists: boolean;
 }
 
-// A module's `presets.yaml` — its named settings, and like the panel above it may not exist yet.
-export interface ModulePresetsFile {
-  ref: string; // the module the presets belong to
+// A text file beside a module — its DSP source, its widgets' script — and like the panel above it may not exist yet.
+export interface ModuleSidecarFile {
+  ref: string; // the module the file belongs to
   path: string; // workspace-relative
   content: string;
   exists: boolean;
@@ -353,7 +353,7 @@ export type PreviewReq =
   | { kind: "clip"; clip: string }
   | { kind: "slice"; source: string; from: number; to: number };
 
-// A module preset, shaped by the ENGINE that discovers it; re-exported because /presets hands the same objects on.
+// A plugin's FACTORY preset, shaped by the engine that discovers it.
 export type { PresetInfo } from "@studio/engine-protocol";
 
 // Progress of the background waveform prewarm (for the status-line spinner).

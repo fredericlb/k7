@@ -148,6 +148,7 @@ import { useInputDevices } from "./hooks/useInputDevices";
 import { useLogs } from "./hooks/useLogs";
 import type { MidiControlApi } from "./hooks/useMidiControl";
 import { useMidiRecording } from "./hooks/useMidiRecording";
+import { useNodePresets } from "./hooks/useNodePresets";
 import {
   useActiveProjectFollow,
   useGitStatus,
@@ -2101,6 +2102,12 @@ export default function App({
     [pushLog, runLocalCommand, onRepoChanged],
   );
   runCommandRef.current = runCommand;
+  // A node's preset dropdown: the list, the save and the update, each a `node preset` verb — packages/song/docs/userPresets.md.
+  const {
+    presetNames,
+    openPresets,
+    picker: presetPicker,
+  } = useNodePresets(runCommand);
 
   /** A module's bypass: the GRAPH redrawn from the command's answer, nothing else re-read — a lane's card is its mute, which the mixer draws, so that one reloads (docs/shell.md). */
   const bypassModule = useCallback(
@@ -3555,6 +3562,8 @@ export default function App({
                       onProjectField={onProjectField}
                       onAlternative={runAlternative}
                       onEngine={runEngine}
+                      onPresets={openPresets}
+                      presetNames={presetNames}
                       engineWarnings={engineWarnings}
                       onAssetBrowse={browseAssets}
                       onTapEdit={editTap}
@@ -3731,6 +3740,8 @@ export default function App({
                       onBypassModule={(mod) => void bypassModule(mod)}
                       onAlternative={runAlternative}
                       onEngine={runEngine}
+                      onPresets={openPresets}
+                      presetNames={presetNames}
                       onAssetBrowse={browseAssets}
                       onTapEdit={editTap}
                       onWatchWaveform={watchWaveform}
@@ -4181,6 +4192,7 @@ export default function App({
         )}
 
         {/* "which file?" — a module widget's library browser, the same popup as the `+`: both are a nested catalogue. */}
+        {presetPicker}
         {assetPicker && (
           <AssetPicker
             x={assetPicker.x}

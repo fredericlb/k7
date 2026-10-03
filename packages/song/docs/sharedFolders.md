@@ -6,11 +6,18 @@ A project finds the modules it can extend **by where they are**:
 ws/_modules/                         the workspace's own  → @workspace/<type>/<name>
 <studioHome>/libraries/st0/modules/  a library, `st0`     → @st0/<type>/<name>
 <studioHome>/libraries/st0/chains/   …its chains          → @st0/<path>
+<studioHome>/libraries/st0/presets/  …its presets         → <ns>/<module path>/<name>.yaml
+ws/_presets/                         the workspace's presets, the same shape
 <studioHome>/libraries/drums/…       another, `drums`     → @drums/…
 ws/song/                             a project
 ```
 
-`moduleLibraryDirs()` answers that: what sits beside the project, then every library, in name
+A preset tree is keyed by the MODULE a preset is for, namespace included, and kept wherever the
+person chose: a workspace may hold presets for an `@st0` module, and a library for an `@engine` one.
+So `presets/` is a library family like `chains/`, and `_presets/` sits beside `_modules/` for the
+`@workspace` level (`userPresets.md`).
+
+`moduleLibraryDirs()` answers where the modules are: what sits beside the project, then every library, in name
 order. Order is PRECEDENCE — nearest first — and two libraries never compete, since each keys its
 modules under its own name.
 
@@ -140,7 +147,7 @@ being synced — so it arrives on the desk as a song the cache has not got, whic
 unambiguous path form is what a click writes and what the desk's own listing offers.
 
 `mediatekPathPrefix` answers a folder PREFIX rather than a file list, because a module IS its
-folder: the jsdsp source, the presets and the panel are as much part of it as `module.yaml`, and a
+folder: the jsdsp source and the panel are as much part of it as `module.yaml`, and a
 sync that fetched only the file named would land a module that loads nothing.
 
 ## Where a panel lives — and why there is no list for it

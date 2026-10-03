@@ -14,7 +14,6 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import {
   type ModuleUI,
-  PresetsFileSchema,
   UISchema,
   type Widget,
 } from "@studio/song-schema/yaml/moduleSchema";
@@ -307,42 +306,4 @@ export function setStatusIn(fileText: string, status: ModuleStatus): string {
 export function extendsRefOf(fileText: string): string | null {
   const ref = docOf(fileText)?.get("extends");
   return typeof ref === "string" && ref ? ref : null;
-}
-
-// --- `presets.yaml` — the module's named settings ---------------------------------
-
-// `<name>: { <param>: <number> }` at the top level, read as a FILE like the other two — docs/builder.md.
-
-/** The shelf a `presets.yaml` declares; one the schema refuses reads as EMPTY, never as an error. */
-export function readPresetsFile(
-  text: string,
-): Record<string, Record<string, number>> {
-  const doc = docOf(text);
-  const raw = doc?.toJS() as Record<string, unknown> | null;
-  if (!raw || typeof raw !== "object") return {};
-  const r = PresetsFileSchema.safeParse(raw);
-  return r.success ? r.data : {};
-}
-
-/** True only when the file HAS content this can't read — an empty shelf is not malformed. */
-export function hasMalformedPresets(text: string): boolean {
-  const doc = docOf(text);
-  if (!doc) return false; // doesn't parse at all; that's the code editor's news
-  const raw = doc.toJS() as Record<string, unknown> | null;
-  return (
-    !!raw &&
-    Object.keys(raw).length > 0 &&
-    !PresetsFileSchema.safeParse(raw).success
-  );
-}
-
-/** Stamp a preset's values onto `params:` — an EDIT and nothing more; see docs/builder.md. */
-export function applyPresetToText(
-  fileText: string,
-  values: Record<string, number>,
-): string {
-  const doc = parseDocument(fileText, OPTS);
-  for (const [name, value] of Object.entries(values))
-    doc.setIn(["params", name], value);
-  return doc.toString({ lineWidth: 0 });
 }

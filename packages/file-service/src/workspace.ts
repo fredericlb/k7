@@ -125,7 +125,6 @@ import {
 } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
-import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import {
   ENGINE_NS,
   type ModuleNamespace,
@@ -215,9 +214,6 @@ import {
 } from "./waveformOps.ts";
 
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
-
-/** The module's third file, spelled as it is written. */
-const PRESETS_FILE = `${PRESETS_BASE}.yaml`;
 
 // Turn a compiler error into editor diagnostics; a line with no "<file>: " prefix yields none but still counts.
 function parseCompileError(msg: string): Diagnostic[] {
@@ -1826,20 +1822,6 @@ export class Workspace {
     const out = materialiseEngineModule(dir, ref);
     this.invalidateProjectDoc();
     return { ...out, path: this.toRel(join(dir, out.path)) };
-  }
-
-  /** The `presets.yaml` for a module file — the third file, answered exactly like its panel. */
-  modulePresets(rel: string): {
-    ref: string;
-    path: string;
-    content: string;
-    exists: boolean;
-  } {
-    const abs = this.safePath(rel);
-    const dir = this.requireActive();
-    const ref = sharedModuleRef(dir, abs)?.ref ?? this.localModuleRef(dir, abs);
-    if (!ref) throw new Error(`${this.toRel(abs)} is not a module file`);
-    return this.sidecar(abs, ref, PRESETS_FILE, () => `# presets for ${ref}\n`);
   }
 
   // One of the module's own files beside `abs`, or the path it would take plus `scaffold()`.

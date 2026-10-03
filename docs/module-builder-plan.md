@@ -1,6 +1,6 @@
 # The shared module builder, and `ui.yaml` beside the module
 
-A module is **its folder**, what describes it fits in three files inside it, and the two apps draw
+A module is **its folder**, what describes it fits in the files inside it, and the two apps draw
 the same builder over it. This page holds the rules that make that true; what is left to do is the
 last section but one.
 
@@ -9,8 +9,10 @@ last section but one.
 ```
 modules/<type>/<name>/module.yaml    what it does
 modules/<type>/<name>/ui.yaml        what it looks like
-modules/<type>/<name>/presets.yaml   its named settings
 ```
+
+Its named settings are NOT here: a preset is a file of the presets tree, keyed by the module's ref
+and kept in the workspace or a library (`packages/song/docs/userPresets.md`).
 
 In the media library, clicking any of them opens the same builder as st0.
 
@@ -35,12 +37,13 @@ The `io/` case is the remaining exception: a bare io ref (`desk`) has no type se
 `uiPathFor` puts the `io/` back or the file lands at the root of the library. The test states it
 explicitly.
 
-## The trap: the three files are not nodes
+## The trap: the module's own files are not nodes
 
 It appears at every storey, always the same way: counting as a **node** every `.yaml` in the folder
-that is not `module.yaml`. Unguarded, a panel comes back as a `reverb:ui` node and a preset shelf
-as another. `nodeFiles` (`packages/song/src/yaml/moduleIO.ts`) and `scanModules` therefore skip
-both, named in the same place — `UI_BASE` and `PRESETS_BASE`. On the media library side, a module's
+that is not `module.yaml`. Unguarded, a panel comes back as a `reverb:ui` node.
+`nodeFiles` (`packages/song/src/yaml/moduleIO.ts`) and `scanModules` therefore skip the module's own
+basenames, named in one place — `MODULE_OWN_BASES`, where `presets` stays reserved so a stale shelf
+file is never read as a node. On the media library side, a module's
 entry carries `files`: what the folder really contains.
 
 ## A module always has a folder
@@ -49,8 +52,8 @@ A scanned plugin has a file nowhere: `engineCatalogue` synthesises `@engine/<slu
 cache, and a chain can name it with nothing on disk. That is a good arrangement — copying 273
 wrapper folders into every workspace serves nobody.
 
-It stops holding as soon as one wants to **own** something of the module: a face and a preset shelf
-are *files in a module's folder*. Hence the rule, and the mechanism that makes it true:
+It stops holding as soon as one wants to **own** something of the module: a face is a *file in a
+module's folder*. Hence the rule, and the mechanism that makes it true:
 `materialiseEngineModule` (moduleFork.ts) builds the folder, writes a `module.yaml` recording
 **which** plugin to load — the scan is a discovery aid, not the project's memory — and repoints the
 chains, exactly like a fork.
@@ -59,26 +62,17 @@ Reached by the **`module own <ref>`** command; in the chains graph, a right clic
 block offers it in place of `ui file`, which has no file to open. `writeUiFile` refuses an
 `@engine/`, and the message says what to do.
 
-## Presets are a file in the folder
+## Presets are not the builder's
 
-Third sibling of `module.yaml` and `ui.yaml`: `presets.yaml`, a name and the values it sets.
-
-No `.vstpreset` blob: a preset is a name and a list of parameter values, full stop — one shape, one
-code path to apply it, and a shelf readable and editable by hand like everything else. A plugin
-whose state is not addressable parameters cannot memorise several states; it keeps the default
-`.vstpreset` of its folder.
-
-In the builder: a third tab, and a "This module" group in the Preset menu. Applying a preset
-**stamps the values into the module's buffer** — an edit, nothing more, so visible before being
-committed and undone by not saving. That is what makes trying four in a row bearable.
-`POST /presets/apply` takes a **name** and not a path, which drops the route's traversal guard.
+A preset is chosen, saved and updated on a NODE of the graph, which is where its values are heard;
+the builder's Preset menu holds the plugin's factory banks only (`packages/song/docs/userPresets.md`).
 
 ## The shared package, and the seam
 
 `@studio/ui-module-builder`: `ModuleBuilder.tsx`, `WidgetGridEditor.tsx`, `YamlPane.tsx`,
 `moduleUi.ts` and `paramDrag.ts`, plus `store.ts` — the seam. Both apps draw it.
 
-**The seam is `ModuleStore`: five calls** (`read`, `moduleUi`, `presets`, `hints`, `write`), and
+**The seam is `ModuleStore`** (`read`, `moduleUi`, `hints`, `write` and the optional ones), and
 the builder never builds a path — it only hands back the ones it was given. The two path spaces
 resemble each other too closely for it to construct one. Full rationale in
 `packages/ui-module-builder/docs/store.md`, including the one asymmetry: `write` may answer "it
@@ -102,7 +96,7 @@ no engine link.
 
 **In the media library**, the tree descends to file level: a `modules` entry has its two children,
 and clicking either opens the builder on the right tab (`initialPane`). The tree shows **exactly
-the files that exist**: a row for an absent file lies about the disk. The panel and the shelf are
+the files that exist**: a row for an absent file lies about the disk. The panel is
 created in the builder, which offers them anyway — it is the entrance, not the tree.
 
 ## What is left
@@ -110,11 +104,6 @@ created in the builder, which offers them anyway — it is the entrance, not the
 - **Nothing is exercised in a browser.** Both apps typecheck, build, and the dev server serves the
   modules through the workspace alias; the frontend shell has no tests (see `apps/st0/AGENTS.md`).
   The st0 overlay and the media library tree want a real click.
-- **Save the current params as a preset from the builder.** `saveModuleAsPreset` and
-  `POST /presets/save` exist and have no button: it needs a "name" field, and a shelf is as easily
-  written by hand in the third tab. Deliberately left aside.
-- **`api.listUserPresets` on the st0 side** serves nobody: the builder reads the shelf through its
-  *store*, not through that route, which works identically in both apps.
 
 ## The media library chrome
 

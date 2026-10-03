@@ -6,9 +6,10 @@ component can carry one line per decision.
 
 ## Four files, four autosaves
 
-A module is **four documents on disk with four schemas** — `module.yaml` (what it is), `ui.yaml`
-(how it is drawn), `presets.yaml` (its named settings) and, for a `plugin: {type: jsdsp}` module
-only, its own DSP source.
+A module is **four documents on disk** — `module.yaml` (what it is), `ui.yaml` (how it is drawn),
+and, when it has them, its own DSP source (a `jsdsp` or `faust` module) and the `widgets.js` that
+draws its screens. Its PRESETS are not among them: a preset is a file of the presets tree, kept
+apart from the module and chosen on a graph node (`packages/song/docs/userPresets.md`).
 
 They get four autosaves rather than one save that walks them in order, and the whole point of the
 rule is that a file is written when IT is readable: a half-typed widget in the panel must not stop
@@ -43,7 +44,7 @@ file's save may land elsewhere; the host is told and reopens. Following the new 
 would leave the engine link and the title pointing at the module that was *not* edited. A sidecar
 saves in place wherever it is, shared library included — nothing redirects it.
 
-The panel and the shelf are both fetched separately and both allowed to fail: a file that is not a
+The panel is fetched separately and allowed to fail: a file that is not a
 module (a base being edited by path, say) still opens for its text, and the grid is simply
 disabled. The DSP source is its own effect rather than a fourth call in the same one, because the
 language is read off the BUFFER — so the tab lands the moment someone types the type, and an
@@ -79,13 +80,9 @@ gets a plainly read-only screen. The host answers by flipping `readOnly`, and wh
 say first (a warning, a confirmation) is its own — a shared package knows this module is not the
 project's, and cannot know whose it is or what writing to it costs.
 
-The **shelf** is empty while the screen is read-only, since every one of its entries is an edit;
-the plugin's own banks stay, because those load into the plugin. Applying a shelf preset stamps
-values into the module BUFFER and is an edit and nothing more — no state to push, no engine to ask
-— so trying four presets in a row writes four times, Ctrl+Z takes each one back and st0's journal
-has them all. With no Save button to withhold, there is nothing else to undo them with. Stamping
-values into a buffer nothing will write is how you lose an afternoon, which is why the read-only
-guard is on the shelf and not on the factory presets.
+The **Preset** menu holds the plugin's FACTORY banks only, read-only or not: those load into the
+plugin and write nothing. A module's own named settings are not this screen's — they are files of
+the presets tree, applied to one node from the graph (`packages/song/docs/userPresets.md`).
 
 ## What is a prop, and why
 
@@ -144,9 +141,9 @@ yet", and only the side that asked the engine knows that is what happened.
 
 **Snapshotting a base** writes what is in that window as a named base, on the same `nativeUiBase`
 because it is the same instance: the one the window opened, and the only one whose state anybody
-dialled. A base is the blob for plugins whose sound is NOT in their parameters, which is why the
-shelf (`presets.yaml`, named numbers) cannot stand in for it — on those plugins a saved shelf entry
-is the factory default with a name on it. The path is the host's to work out; this passes back the
+dialled. A base is the blob for plugins whose sound is NOT in their parameters, which is why a preset
+(named numbers) cannot stand in for it — on those plugins a saved preset is the factory default
+with a name on it. The path is the host's to work out; this passes back the
 one it was given and the ref it read out of the module's own text. The list of bases is re-asked
 after a snapshot, since that is the one thing on this screen that adds to it: a base you have just
 made and cannot then bind would read as a save that did not happen. A snapshot is a WRITE into the
@@ -221,8 +218,7 @@ is reported malformed.
 
 **"Malformed" means present and unreadable.** Absence is not malformed — the grid can create a
 block from scratch — and a file that does not parse AT ALL is the code editor's news, not this
-one's. Same rule for `ui.yaml` and for `presets.yaml`: a shelf the schema refuses reads as EMPTY,
-so one bad shelf costs its presets and never the module.
+one's. Same rule for `ui.yaml`.
 
 **`params:` is read as TEXT, not numbers.** The params pane only displays them, and a value the
 schema would refuse should still be readable — showing what is actually in the file is the point.
@@ -372,14 +368,14 @@ the alpha, which only the text beside it sets.
   where the compiler already reads them — a lookup, not a second spelling.
 - **The PANEL opens first** in the code pane: it is what the grid beside it edits, and what people
   come to this screen for. A host that knows which of the files was clicked says so, and the click
-  lands where it pointed. Which of the three sidecars the pane is on is computed as ONE expression,
+  lands where it pointed. Which sidecar the pane is on is computed as ONE expression,
   because three places downstream ask the same question and answering it three times is how they
   drift.
 - **The header says nothing when everything is clean.** Four files on disk is the ordinary state of
   this screen and does not need announcing; "pending" says nothing either, because the button being
   live already says it, in a place you can act on.
-- **A missing file is a buffer, not an error** (`ModuleStore.read`) — the panel and the shelf may
-  not exist yet, and the store answers with the path the file WOULD take and blank content, so the
+- **A missing file is a buffer, not an error** (`ModuleStore.read`) — the panel may not exist
+  yet, and the store answers with the path the file WOULD take and blank content, so the
   first save creates it through the ordinary write route. But an edit that could never be written
   and outlived this screen is given back rather than written to disk.
 - **Hints are merged, not substituted**: a project's own base modules are real vocabulary too, and
@@ -402,10 +398,8 @@ the alpha, which only the text beside it sets.
   list empty however complete the table is.
 - **The DSP tab is drawn only for a module that HAS source.** A tab always there and usually dead
   would say every module could have DSP source, which is the opposite of what the type means.
-- **A shelf the schema refuses is SAID so**, not silently listed as empty: the dropdown above it
-  would then be missing presets plainly in the file. It is the one state that shows on the tab
-  rather than only in its tooltip. Everything the tab's name does not say — absent, unread — lives
-  in the tooltip rather than the label, so the tab reads as the file it opens.
+- **Everything a tab's name does not say** — absent, unread — lives in the tooltip rather than the
+  label, so the tab reads as the file it opens.
 - **A tile's glyph and caption are `pointer-events-none`**, so every drag event over a tile targets
   the TILE. They are what a tile is made of and they fill it, so a parameter dragged onto a widget
   is nearly always over one of them — and without it each crossing fires `dragleave` on the tile,
@@ -433,8 +427,7 @@ the alpha, which only the text beside it sets.
 
 `AssemblyBuilder.tsx` edits an assembly TEMPLATE (`packages/song/docs/assemblies.md`). Its own
 component rather than a pane on the one above, because it edits a different thing: a template is a
-graph of members, and a module is one plugin's face. Nothing about the widget grid, the presets, the
-DSP source or the plugin scan applies to it.
+graph of members, and a module is one plugin's face. Nothing about the widget grid, the DSP source or the plugin scan applies to it.
 
 **Its whole job is the promotion**, which is the one thing a template says that a chain does not:
 which of its members' params are knobs on the box. Everything else — the plugs, the label — is text,

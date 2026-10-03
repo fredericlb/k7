@@ -6,7 +6,7 @@ Tracktion compressor, a vari-mu and a bus compressor are its engines, and a node
 ```
 @st0/audio/dynamics/compressor/
   module.yaml               engine: tracktion
-  engines/<name>/           module.yaml, ui.yaml, widgets.js, presets.yaml — a whole module
+  engines/<name>/           module.yaml, ui.yaml, widgets.js — a whole module
 ```
 
 ## Why engines exist
@@ -19,8 +19,8 @@ the node.
 ## An engine is a module folder, inside its module
 
 Each engine is an ordinary module folder: its own `module.yaml` (usually an `extends:` of an
-`@engine/…` plugin), its own panel and screen, its own presets. Engines have the same shape as
-modules for two reasons:
+`@engine/…` plugin), its own panel and screen. Engines have the same shape as modules for two
+reasons:
 
 - **every tool already works on it.** The builder edits an engine by opening its `module.yaml`,
   the panel walk finds its `ui.yaml`, and its jsdsp source resolves against its own folder. None of
@@ -41,7 +41,7 @@ disagree with it.
 
 Running as an engine keeps the module's IDENTITY and its place in the graph — name, colour,
 mix and levels, automations, alternatives — and takes everything else from the engine: plugin,
-params, panel, preset, ports. The list is `KEPT` in `engines.ts`. A field on that list is a
+params, panel, ports. The list is `KEPT` in `engines.ts`. A field on that list is a
 question of where the node SITS; a field off it is a question of what the DSP IS.
 
 ## Knobs are kept per engine

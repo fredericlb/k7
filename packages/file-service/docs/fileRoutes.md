@@ -227,8 +227,8 @@ method: two questions, and only one of them is the editor's.
 
 ## `POST /module-base/snapshot` — keeping a plugin's opaque state
 
-The counterpart to `/presets/save`, for the plugins that one cannot serve. A preset is a list
-of named numbers (`presets.yaml`), which is everything a module's `params:` can hold — and for
+The counterpart to `node preset save`, for the plugins that one cannot serve. A preset is a list
+of named numbers, which is everything a module's `params:` can hold — and for
 a big commercial instrument it is not the sound. An Arturia patch lives in opaque chunk state:
 loaded from a `.vstpreset`, Wurli V2 reports the same 50 parameter values as an untouched one,
 Mini V3 the same 77. Written as numbers, that patch is the factory default with a name on it. A
@@ -302,11 +302,15 @@ transients at that threshold and REMEMBERS it, because it is written into the si
 the source keeps whichever it was last built with. Bounded, because 0 makes every bucket an
 onset and a large value makes none, so neither end is a useful thing to ask for.
 
-## Presets are project-local
+## `GET /presets?node=` — the one preset route, and it only lists
 
-They live in the SONG, which the engine never sees, so they are handled brain-side.
-`/presets/apply` takes a NAME, not a path: the shelf is a file in the module's folder, so
-there is nothing for a crafted path to escape.
+A node's presets live in a presets tree — the workspace's `_presets/` or a library's `presets/` —
+keyed by the module the node extends, which the engine never sees, so they are handled here. The
+route answers `NodePresets`: that ref, every preset from every scope, and the scopes a new one may
+go to. Applying, saving and updating are `node preset` verbs through `/command`, so the graph's
+dropdown and the command bar run one code path. Every call names a NODE, a scope and a preset NAME,
+never a path: the path is built server-side and refused if the name would leave its folder
+(`packages/song/docs/userPresets.md`).
 
 ## `GET /logs` — the Logs panel's two halves
 

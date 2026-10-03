@@ -11,11 +11,7 @@ import {
   pull,
 } from "@studio/commands/git";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-import {
-  applyPresetToModule,
-  listModulePresets,
-  saveModuleAsPreset,
-} from "@studio/song-edit/presets";
+import { listNodePresets } from "@studio/song-edit/presets";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import { NEEDS_META } from "@studio/take-render/render";
 import express, { Router } from "express";
@@ -821,47 +817,22 @@ filesRouter.get(
 
 // --- user presets ----------------------------------------------------------
 
-// Project-local presets live in the SONG, which the engine never sees, so they are handled brain-side.
-
-// `?ref=` is the module's own ref; an empty list (never an error) when nothing can hold presets.
+// A NODE's presets, keyed by the module it extends — applying, saving and updating are `node preset` verbs.
 filesRouter.get(
   "/presets",
   wrap((req, res) => {
-    const ref = String(req.query.ref ?? "");
-    if (!ref) {
-      res.status(400).json({ error: "ref required" });
+    const node = String(req.query.node ?? "");
+    if (!node) {
+      res.status(400).json({ error: "node required" });
       return;
     }
-    const dir = req.ws!.activeProjectPath();
-    if (!dir) {
-      res.json({ presets: [] });
-      return;
-    }
-    try {
-      res.json({ presets: listModulePresets(dir, ref) });
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-// Save a module's current persisted state as a new preset in its own preset library.
-const savePresetBody = z.object({
-  module: z.string().min(1),
-  name: z.string().min(1),
-});
-filesRouter.post(
-  "/presets/save",
-  validate(savePresetBody),
-  wrap((req, res) => {
     const dir = req.ws!.activeProjectPath();
     if (!dir) {
       res.status(400).json({ error: "no active project" });
       return;
     }
-    const { module, name } = req.body as z.infer<typeof savePresetBody>;
     try {
-      res.json({ path: saveModuleAsPreset(dir, module, name) });
+      res.json(listNodePresets(dir, node));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
@@ -925,31 +896,6 @@ filesRouter.post(
       return;
     }
     res.json({ path: where.path });
-  }),
-);
-
-// Apply one of a module's own presets BY NAME, then reload — there is no path for a crafted one to escape.
-const applyPresetBody = z.object({
-  module: z.string().min(1),
-  name: z.string().min(1),
-});
-filesRouter.post(
-  "/presets/apply",
-  validate(applyPresetBody),
-  wrap((req, res) => {
-    const dir = req.ws!.activeProjectPath();
-    if (!dir) {
-      res.status(400).json({ error: "no active project" });
-      return;
-    }
-    const { module, name } = req.body as z.infer<typeof applyPresetBody>;
-    try {
-      applyPresetToModule(dir, module, name);
-      reloadActiveProject(req.ws!);
-      res.json({ ok: true });
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
   }),
 );
 
@@ -1163,7 +1109,7 @@ filesRouter.get(
   }),
 );
 
-// Give an engine module a folder in the project, so it can carry a panel and presets; POST because it writes.
+// Give an engine module a folder in the project, so it can carry a panel; POST because it writes.
 const materialiseBody = z.object({ ref: z.string().min(1) });
 filesRouter.post(
   "/module-materialise",
@@ -1172,18 +1118,6 @@ filesRouter.post(
     const { ref } = req.body as z.infer<typeof materialiseBody>;
     try {
       res.json(req.ws!.materialiseModule(ref));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-// The `presets.yaml` beside a module file — the module's third file, answered like its panel.
-filesRouter.get(
-  "/module-presets",
-  wrap((req, res) => {
-    try {
-      res.json(req.ws!.modulePresets(String(req.query.path ?? "")));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

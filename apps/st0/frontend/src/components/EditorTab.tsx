@@ -282,7 +282,7 @@ export function EditorTab({
   onEditTarget: (t: EditTarget | null) => void; // the open sequence, for the Editor panel
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
   // Open the shared module builder on the MODULE file of the trio, plus which of the three was clicked.
-  onOpenBuilder: (path: string, pane: "module" | "panel" | "presets") => void;
+  onOpenBuilder: (path: string, pane: "module" | "panel") => void;
   // …and the same builder over a SHARED module, from the Libraries tab — its own callback, the path being in another space (../library.ts).
   onOpenLibraryModule: (moduleFile: string) => void;
   /** A chain row of the Libraries tab was opened — its ref, for the chains builder. */
@@ -1273,15 +1273,11 @@ export function EditorTab({
           <Button
             size="sm"
             variant="secondary"
-            title="open this module in the builder — its panel, its presets"
+            title="open this module in the builder — its panel, its params"
             onClick={() =>
               onOpenBuilder(
                 moduleFileOf(file.path),
-                /ui\.ya?ml$/i.test(file.path)
-                  ? "panel"
-                  : /presets\.ya?ml$/i.test(file.path)
-                    ? "presets"
-                    : "module",
+                /ui\.ya?ml$/i.test(file.path) ? "panel" : "module",
               )
             }
           >

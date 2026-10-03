@@ -22,12 +22,11 @@ prop and one `ModuleUiFile` from `moduleUi`, and it never concatenates a third. 
 never decides which space a path is in by *looking at it*: it knows, because it knows where the
 click came from.
 
-## Five calls
+## The calls
 
 ```ts
 read(path)          // the file's text, or null when there is none
 moduleUi(path)      // the ui.yaml beside it — existing, or where it would go plus a blank grid
-presets(path)       // the presets.yaml beside it, answered the same way
 jsdsp?(path)        // …and the DSP source, for a module that declares one. The one optional call
 hints()             // what the code pane completes against
 write(path, text)   // save; may answer with where the content actually landed
@@ -48,17 +47,17 @@ host answers for the space it is in, and the builder never has to know which one
 All of a module's files may be absent — a folder somebody just made is a module with nothing in it
 yet, and the médiathèque lists one on purpose so it can be dropped into. So `read` answers `null`
 rather than throwing: the builder opens on an empty buffer and the first save creates the file,
-exactly as it does for the panel and the shelf. Throwing turns that into
+exactly as it does for the panel. Throwing turns that into
 "couldn't open … — not found" over a folder that is plainly there.
 
-The two sidecars and the DSP source answer the same way — the existing file, or the path it WOULD
+The panel, the DSP source and the widgets script answer the same way — the existing file, or the path it WOULD
 take plus blank content.
 
 ## The sidecars are ASKED FOR, never derived
 
 The builder never builds a path except by passing back one it was given. That is what lets the same
 component sit over a workspace and over a hosted library without knowing which it is, and it is why
-`moduleUi`, `presets` and `dspSource` are calls rather than a sibling derivation: such a rule would
+`moduleUi`, `dspSource` and `widgetsScript` are calls rather than a sibling derivation: such a rule would
 be right in both path spaces today and is exactly the kind of rule that rots.
 
 `widgetsScript` answers the same way for the `widgets.js` that draws a panel's lcdscreen
@@ -79,7 +78,7 @@ the file or has no engine.
 
 `snapshotBase` keeps the plugin's CURRENT state as a named base in the module's own `base/` folder.
 A base is an opaque `.vstpreset` blob, for the plugins whose sound is not in their automatable
-parameters — which `presets.yaml` cannot hold, being named numbers. Snapshotting reads the instance
+parameters — which a preset cannot hold, being named numbers (`packages/song/docs/userPresets.md`). Snapshotting reads the instance
 behind the Native UI window, so what is kept is what somebody dialled in by hand.
 
 It is on this interface rather than an `on…` prop, even though half of it is an engine call,
@@ -100,8 +99,8 @@ what "modules that have bases" means here.
 
 `readOnly` shows the whole screen with the writing turned off: the code panes refuse keystrokes,
 the grid takes no drags, no autosave is armed (`enabled: false` on all four, so each still
-reports about the file it is showing), and the shelf presets are not offered — those are edits,
-unlike the plugin's factory banks, which load into the plugin.
+reports about the file it is showing). The plugin's factory banks stay offered: they load into the
+plugin and write nothing.
 
 `onRequestEdit` draws the button that asks to be let in, and does nothing else: the host answers
 by flipping `readOnly`. Whatever it wants to say first is its own, because a shared package

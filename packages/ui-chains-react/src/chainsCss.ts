@@ -291,6 +291,11 @@ const CSS = `
   cursor:pointer; color:var(--sand); background:var(--card); border:1px solid var(--line);
   text-overflow:ellipsis; overflow:hidden; white-space:nowrap; }
 .dgx-engine:hover { border-color:var(--sand); }
+/* The preset dropdown wears the engine select's pill; muted until a preset is loaded. */
+.dgx-preset { display:flex; align-items:center; gap:2px; color:var(--faint); }
+.dgx-preset.on { color:var(--sand); }
+.dgx-preset span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+.dgx-preset svg { flex:none; width:9px; height:9px; }
 .dgx-alt.add { padding:0; display:grid; place-items:center; }
 .dgx-alt.add svg { width:9px; height:9px; }
 /* The copy is on its way: dimmed and inert until the new badge arrives. */

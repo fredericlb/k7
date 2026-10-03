@@ -29,6 +29,7 @@ const EXTS = [".yaml", ".yml"];
 
 /** The module folder's OWN basenames — anything else there is a node, so add a new sibling here. */
 export const UI_BASE = "ui";
+// A stale `presets.yaml` in a module folder stays RESERVED, never a node, and is read by nothing (docs/userPresets.md).
 export const PRESETS_BASE = "presets";
 export const CONTROLLER_BASE = "controller";
 

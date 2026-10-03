@@ -23,7 +23,6 @@ import type {
   HistoryState,
   IoPort,
   ModuleLibrary,
-  ModulePresetsFile,
   ModuleUiFile,
   ProjectErrors,
   ProjectInfo,
@@ -155,8 +154,6 @@ export const projectApi = {
     fget<{ engines: string[]; engine?: string }>(
       `/module-engines?path=${encodeURIComponent(path)}`,
     ),
-  modulePresets: (path: string) =>
-    fget<ModulePresetsFile>(`/module-presets?path=${encodeURIComponent(path)}`),
   cloneModule: (path: string, newName: string) =>
     fsend<{ path: string }>("POST", "/module/clone", { path, newName }),
   // `node` is optional: without one the service names it `<module>_<n>` (see `freeNodeName`).

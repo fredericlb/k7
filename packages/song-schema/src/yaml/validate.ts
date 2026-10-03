@@ -4,6 +4,12 @@
 
 import { LineCounter, parseDocument } from "yaml";
 import type { ZodType } from "zod";
+import { LIBRARIES_DIR, LIBRARIES_HOME_DIR } from "../moduleTypes";
+import {
+  LIBRARY_PRESETS_DIR,
+  PresetFileSchema,
+  SHARED_PRESETS_DIR,
+} from "../presets";
 import {
   ClipSchema,
   CurveSchema,
@@ -14,11 +20,7 @@ import { parseGraph } from "./graphFile";
 import { MIX_BASE, parseMix } from "./mixFile";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./mixViewFile";
 import { locate, type ModuleIssue, parseModule } from "./moduleFile";
-import {
-  ControllerFileSchema,
-  ModuleConfigSchema,
-  PresetsFileSchema,
-} from "./moduleSchema";
+import { ControllerFileSchema, ModuleConfigSchema } from "./moduleSchema";
 import { ProjectFileSchema } from "./projectSchema";
 import { parseUiFile } from "./uiFile";
 
@@ -72,6 +74,11 @@ const against =
     };
   };
 
+// `presets` as a library's family: two segments below `_libraries/` (virtual) or `libraries/` (on disk).
+const isLibraryPresets = (d: string, i: number, all: string[]): boolean =>
+  d === LIBRARY_PRESETS_DIR &&
+  (all[i - 2] === LIBRARIES_DIR || all[i - 2] === LIBRARIES_HOME_DIR);
+
 /** The parser for a path, or null — by FOLDER and BASENAME, the way `fileKindFor` reads one. */
 export function parserFor(path: string): Parse | null {
   const parts = segments(path);
@@ -79,10 +86,14 @@ export function parserFor(path: string): Parse | null {
   const dirs = parts.slice(0, -1);
   const inFolder = (name: string) => dirs.includes(name);
 
+  // A preset, under the workspace's `_presets/` or a library's `presets/` — before `modules`, whatever its path holds.
+  if (inFolder(SHARED_PRESETS_DIR) || dirs.some(isLibraryPresets))
+    return against(PresetFileSchema);
   // `_modules` too: a shared library holds the same files, and editing one is what forks it.
   if (inFolder("modules") || inFolder("_modules")) {
     if (base === "ui") return parseUiFile;
-    if (base === "presets") return against(PresetsFileSchema);
+    // A `presets.yaml` in a module folder is read by nothing: presets live in a presets tree.
+    if (base === "presets") return null;
     if (base === "controller") return against(ControllerFileSchema);
     if (base === "config") return against(ModuleConfigSchema);
     return parseModule; // module.yaml, and every <node>.yaml beside it

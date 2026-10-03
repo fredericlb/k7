@@ -22,9 +22,8 @@ import {
 /** The file that makes a folder a module — the same name a project's `modules/` uses. */
 export const MODULE_FILE = "module.yaml";
 
-/** Its two siblings: the module's PANEL and its named settings — see `@studio/song`'s docs/uiLibrary.md. */
+/** Its sibling: the module's PANEL — see `@studio/song`'s docs/uiLibrary.md. */
 export const UI_FILE = "ui.yaml";
-export const PRESETS_FILE = "presets.yaml";
 
 /** Where a module keeps what it LOADS rather than what it IS — `@studio/song`'s MODULE_ASSETS_DIR. */
 export const ASSETS_DIR = "assets";
