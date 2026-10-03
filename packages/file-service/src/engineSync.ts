@@ -1,7 +1,7 @@
 // engineSync.ts — every file a document names is on the bound engine's MACHINE before that document
 // is sent: copied by one `sync` job, whose progress the /workspace poll reports, so the engine's own
-// channel never waits on a download while it plays. A file copied once is not asked again until it
-// changes here. A machine too old to know `sync` fetches on its own channel, as it always did.
+// channel never waits on a download while it plays. A failed copy is FATAL: nothing is sent until
+// the person retries. A machine too old to know `sync` fetches on its own channel, as it always did.
 // See docs/engineSync.md.
 
 import { statSync } from "node:fs";
@@ -33,9 +33,14 @@ export function engineSyncState(session: string): EngineSyncState | null {
   return runs.get(session)?.state ?? failures.get(session) ?? null;
 }
 
-/** Whether a copy is holding `session`'s document back — the engine not holding it yet is no fault. */
-export function isSyncing(session: string): boolean {
-  return runs.has(session);
+/** Whether a copy, running or failed, is holding `session`'s document back — the engine not holding it is no fault of its own. */
+export function isHeldBack(session: string): boolean {
+  return runs.has(session) || failures.has(session);
+}
+
+/** Let the next document try again — what the browser's "Reload project" asks for. */
+export function forgetSyncFailure(session: string): void {
+  failures.delete(session);
 }
 
 function collect(v: unknown, into: Set<string>): void {
@@ -79,6 +84,8 @@ export function sendWhenSynced<D>(
     settled.clear();
     settledFor = url;
   }
+  // Fatal until the person asks again: a project missing files would play with silent clips.
+  if (failures.has(session)) return;
   const run = runs.get(session) as Run<D> | undefined;
   if (run) {
     run.doc = doc;
@@ -124,9 +131,14 @@ async function copy<D>(
       },
     );
     const failed = Number(last.failed) || 0;
-    // A file that did not arrive stays unsettled, so the next document asks for it again.
-    if (failed) failures.set(session, { ...state, failed });
-    else {
+    const why = Array.isArray(last.failures) ? last.failures.map(String) : [];
+    // A file that did not arrive stays unsettled, so the retry asks for it again.
+    if (failed) {
+      console.error(
+        `   ✗ ${failed} file(s) did not reach the engine's machine: ${why.join("; ")}`,
+      );
+      failures.set(session, { ...state, failed, failures: why });
+    } else {
       for (const t of todo) settled.set(t.path, t.key);
       failures.delete(session);
     }
@@ -143,7 +155,6 @@ async function copy<D>(
     sock.close();
     runs.delete(session);
   }
-  // What was asked for while copying may name files this copy did not carry; the latest document goes through the gate again.
-  if (failures.has(session)) run.send(run.doc);
-  else sendWhenSynced(session, run.doc, extra, run.send);
+  // A failed copy sends nothing; otherwise the latest document goes through the gate again, as it may name more files.
+  if (!failures.has(session)) sendWhenSynced(session, run.doc, extra, run.send);
 }

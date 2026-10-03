@@ -8,7 +8,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 import { setBoundJobsUrl } from "./boundMachine.ts";
-import { engineSyncState, sendWhenSynced } from "./engineSync.ts";
+import {
+  engineSyncState,
+  forgetSyncFailure,
+  isHeldBack,
+  sendWhenSynced,
+} from "./engineSync.ts";
 
 type Answer = (
   req: { id: string; files: string[] },
@@ -98,6 +103,50 @@ describe("sendWhenSynced", () => {
     );
     expect(sent.at(-1)).toEqual({ clip: kick, v: 3 });
     expect(asked).toEqual([[kick]]);
+  });
+
+  it("holds everything back after a failed copy, until the person retries", async () => {
+    let fail = true;
+    await machine((_req, send) =>
+      send(
+        fail
+          ? { type: "synced", failed: 1, failures: ["kick.wav — in use"] }
+          : { type: "synced", failed: 0, failures: [] },
+      ),
+    );
+    const kick = aSong();
+    const sent: unknown[] = [];
+    sendWhenSynced(
+      "s3",
+      { clip: kick },
+      () => [],
+      (d) => sent.push(d),
+    );
+    await until(() => engineSyncState("s3")?.failed === 1);
+    expect(engineSyncState("s3")).toMatchObject({
+      failures: ["kick.wav — in use"],
+    });
+    expect(isHeldBack("s3")).toBe(true);
+    sendWhenSynced(
+      "s3",
+      { clip: kick, v: 2 },
+      () => [],
+      (d) => sent.push(d),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent).toEqual([]);
+    expect(asked).toHaveLength(1);
+    fail = false;
+    forgetSyncFailure("s3");
+    sendWhenSynced(
+      "s3",
+      { clip: kick, v: 3 },
+      () => [],
+      (d) => sent.push(d),
+    );
+    await until(() => sent.length > 0);
+    expect(sent).toEqual([{ clip: kick, v: 3 }]);
+    expect(engineSyncState("s3")).toBeNull();
   });
 
   it("does not wait on a machine that does not know `sync`", async () => {

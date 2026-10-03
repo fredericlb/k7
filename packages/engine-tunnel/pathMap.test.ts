@@ -1,10 +1,17 @@
 // pathMap.test.ts — what a synced channel and a `sync` request owe the engine: a frame is only
 // rewritten, never held for a download, and the copy happens once, up front, reporting as it goes.
 
-import { mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { TargetInUse } from "./agentFiles.ts";
 import type { RemoteStat } from "./frames.ts";
 import {
   PathMap,
@@ -97,7 +104,7 @@ describe("PathMap on a synced channel", () => {
       join(cache, "song", "clips", "take.wav"),
     ];
     const seen: SyncProgress[] = [];
-    expect(await map.sync(locals, (p) => seen.push(p))).toBe(0);
+    expect((await map.sync(locals, (p) => seen.push(p))).failures).toEqual([]);
     expect(s.downloads.sort()).toEqual([
       `${REMOTE}/song/kick.wav`,
       `${REMOTE}/song/snare.wav`,
@@ -107,18 +114,56 @@ describe("PathMap on a synced channel", () => {
       filesDone: 0,
       bytes: 20,
       bytesDone: 0,
+      failures: [],
     });
     expect(seen.at(-1)).toEqual({
       files: 2,
       filesDone: 2,
       bytes: 20,
       bytesDone: 20,
+      failures: [],
     });
     expect(readFileSync(locals[1], "utf8")).toBe("RIFF-snare!");
 
     const again: SyncProgress[] = [];
     await map.sync(locals, (p) => again.push(p));
     expect(s.downloads).toHaveLength(2);
-    expect(again).toEqual([{ files: 0, filesDone: 0, bytes: 0, bytesDone: 0 }]);
+    expect(again).toEqual([
+      { files: 0, filesDone: 0, bytes: 0, bytesDone: 0, failures: [] },
+    ]);
+  });
+
+  it("puts a new version beside a file the engine holds, and names that one from then on", async () => {
+    const s = fakeServer();
+    const { map, cache } = mapFor(s.files);
+    const kick = join(cache, "song", "kick.wav");
+    mkdirSync(join(cache, "song"));
+    expect((await map.sync([kick], () => {})).failures).toEqual([]);
+    // The server's copy changes while the engine holds the old one: the replace is refused.
+    server[`${REMOTE}/song/kick.wav`] = "RIFF-kick-v2";
+    const held = s.files.download;
+    s.files.download = async (e, local) => {
+      const part = `${local}.part-held`;
+      writeFileSync(part, server[e.path]);
+      throw new TargetInUse(`${local} is in use`, part);
+    };
+    const stat0 = s.files.stat;
+    s.files.stat = async (paths) =>
+      (await stat0(paths)).map((x) => ({ ...x, mtimeMs: 1_700_000_100_000 }));
+    const last = await map.sync([kick], () => {});
+    expect(last.failures).toEqual([]);
+    const aside = join(cache, "song", "kick~1700000100000.wav");
+    expect(readFileSync(aside, "utf8")).toBe("RIFF-kick-v2");
+    expect(readFileSync(kick, "utf8")).toBe("RIFF-kick");
+    const out = JSON.parse(
+      await map.outbound(
+        JSON.stringify({ type: "project", clip: `${REMOTE}/song/kick.wav` }),
+        false,
+      ),
+    );
+    expect(out.clip).toBe(aside);
+    expect(map.toRemote(aside)?.remote).toBe(`${REMOTE}/song/kick.wav`);
+    s.files.download = held;
+    server[`${REMOTE}/song/kick.wav`] = "RIFF-kick";
   });
 });

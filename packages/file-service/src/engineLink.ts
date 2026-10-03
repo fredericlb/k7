@@ -43,7 +43,12 @@ import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
-import { engineSyncState, isSyncing, sendWhenSynced } from "./engineSync.ts";
+import {
+  engineSyncState,
+  forgetSyncFailure,
+  isHeldBack,
+  sendWhenSynced,
+} from "./engineSync.ts";
 import { syncLibraries } from "./libraries.ts";
 import { namedSongFiles } from "./mediatekPrefetch.ts";
 import {
@@ -324,6 +329,12 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
 /** The copy holding `ws`' document back, or the last one that failed, for the /workspace poll. */
 export function engineSyncOf(ws: Workspace | null): EngineSyncState | null {
   return engineSyncState(sessionOf(ws));
+}
+
+/** Forget a failed copy and recompile and send the project, which copies again — the dialog's Reload. */
+export function retryEngineSync(ws: Workspace): void {
+  forgetSyncFailure(sessionOf(ws));
+  reloadActiveProject(ws);
 }
 
 /** Play a document a browser built, through the service's own link — see docs/activeProject.md. */
@@ -641,8 +652,8 @@ async function reconcileEngine(
 ): Promise<void> {
   // Throttled PER SESSION, so one person's poll cannot eat another's turn.
   if (s.reconciling || now - s.lastReconcile < RECONCILE_EVERY_MS) return;
-  // A document held back by a copy is not on the engine yet, and that is no fault of the engine's.
-  if (isSyncing(sessionOf(ws))) return;
+  // A document held back by a copy, running or failed, is not on the engine, and that is no fault of the engine's.
+  if (isHeldBack(sessionOf(ws))) return;
   const serving = s.project;
   s.lastReconcile = now;
   s.reconciling = true;

@@ -460,12 +460,12 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
                     emit({{"type", "syncing"}, {"files", p.files}, {"filesDone", p.filesDone}, {"bytes", p.bytes}, {"bytesDone", p.bytesDone}});
                 };
                 const auto started = std::chrono::steady_clock::now();
-                const std::uint64_t failed = c->map ? c->map->sync(locals, report) : 0;
+                const SyncProgress last = c->map ? c->map->sync(locals, report) : SyncProgress{};
                 if (log)
                     log("sync: done in " +
                         std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - started).count()) +
-                        " s, " + std::to_string(failed) + " failed");
-                emit({{"type", "synced"}, {"failed", failed}});
+                        " s, " + std::to_string(last.failures.size()) + " failed");
+                emit({{"type", "synced"}, {"failed", last.failures.size()}, {"failures", last.failures}});
             } catch (const std::exception& e) {
                 if (log) log(std::string("job 'sync' failed: ") + e.what());
                 emit({{"type", "error"}, {"error", e.what()}});

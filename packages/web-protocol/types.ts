@@ -59,6 +59,8 @@ export interface EngineSyncState {
   bytes: number;
   bytesDone: number;
   failed?: number;
+  // One line per file that did not arrive: its name, then why.
+  failures?: string[];
   error?: string;
 }
 

@@ -10,6 +10,16 @@ import { drained } from "./drain.ts";
 import { CHUNK_BYTES, encodeBinary, type RemoteStat } from "./frames.ts";
 import type { RemoteFiles } from "./pathMap.ts";
 
+/** A download that arrived whole but whose target something holds open; `part` is left for the caller to place. */
+export class TargetInUse extends Error {
+  constructor(
+    message: string,
+    readonly part: string,
+  ) {
+    super(message);
+  }
+}
+
 interface Download {
   out: WriteStream;
   tmp: string;
@@ -91,7 +101,12 @@ export class FileRequests {
       await rm(tmp, { force: true });
       throw e;
     }
-    await rename(tmp, local);
+    try {
+      await rename(tmp, local);
+    } catch (e) {
+      // Held open (the engine, on Windows): the complete file goes back to the caller to place.
+      throw new TargetInUse(`${local} is in use: ${(e as Error).message}`, tmp);
+    }
     const when = new Date(remote.mtimeMs ?? Date.now());
     await utimes(local, when, when);
   }

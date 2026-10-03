@@ -4,8 +4,9 @@
 // wrote reaches the server. Only whole JSON strings are rewritten, never substrings. A channel
 // the server syncs itself (`sync`) is only rewritten. See docs/tunnel.md.
 
-import { mkdir, stat } from "node:fs/promises";
-import { dirname, join, relative, sep } from "node:path";
+import { mkdir, rename, rm, stat, utimes } from "node:fs/promises";
+import { dirname, extname, join, relative, sep } from "node:path";
+import { TargetInUse } from "./agentFiles.ts";
 import type { RemoteStat } from "./frames.ts";
 
 export interface MappedRoot {
@@ -33,6 +34,14 @@ interface Synced {
 export class SyncLedger {
   readonly synced = new Map<string, Synced>();
   readonly downloads = new Map<string, Promise<void>>();
+  /** canonical → the copy beside it holding the current version, when the canonical one is held open. */
+  readonly redirects = new Map<string, string>();
+
+  canonicalOf(actual: string): string | null {
+    for (const [canonical, at] of this.redirects)
+      if (at === actual) return canonical;
+    return null;
+  }
 }
 
 /** How far a `sync` has got: only the files it had to copy count, not those already here. */
@@ -41,6 +50,14 @@ export interface SyncProgress {
   filesDone: number;
   bytes: number;
   bytesDone: number;
+  /** One line per file that did not arrive: its name, then why — never a path, which the map would upload. */
+  failures: string[];
+}
+
+/** `clip.wav` → `clip~<server mtime>.wav`: one name per version, so a version placed once is found again after a restart. */
+function beside(local: string, remoteMtimeMs: number): string {
+  const ext = extname(local);
+  return `${local.slice(0, local.length - ext.length)}~${Math.trunc(remoteMtimeMs)}${ext}`;
 }
 
 /** Downloads a `sync` keeps in flight at once, as many as the C++ agent's. */
@@ -90,8 +107,14 @@ export class PathMap {
     this.localNeedles = roots.map((r) => jsonEscaped(r.local));
   }
 
-  /** The local spelling of a server path under a shared root, or null. */
+  /** The local spelling of a server path under a shared root — the copy the engine should open — or null. */
   toLocal(remote: string): string | null {
+    const c = this.canonical(remote);
+    return c === null ? null : this.actual(c);
+  }
+
+  /** The fixed local spelling, which keys the ledger whatever copy is current. */
+  private canonical(remote: string): string | null {
     for (const r of this.roots) {
       if (remote === r.remote) return r.local;
       if (!remote.startsWith(`${r.remote}/`)) continue;
@@ -102,8 +125,23 @@ export class PathMap {
     return null;
   }
 
+  private actual(canonical: string): string {
+    return this.ledger.redirects.get(canonical) ?? canonical;
+  }
+
+  /** Point `canonical` at `actual` (itself to clear), removing the copy it replaces once nothing holds it. */
+  private async place(canonical: string, actual: string): Promise<void> {
+    const before = this.ledger.redirects.get(canonical);
+    if (actual === canonical) this.ledger.redirects.delete(canonical);
+    else this.ledger.redirects.set(canonical, actual);
+    if (before && before !== actual)
+      await rm(before, { force: true }).catch(() => {});
+  }
+
   /** The server spelling of a local path under a shared root, or null. */
-  toRemote(local: string): { remote: string; root: MappedRoot } | null {
+  toRemote(named: string): { remote: string; root: MappedRoot } | null {
+    // A version placed beside a held file stands for the canonical path, which is what the server knows.
+    const local = this.ledger.canonicalOf(named) ?? named;
     for (const r of this.roots) {
       if (local === r.local) return { remote: r.remote, root: r };
       if (!local.startsWith(r.local + sep)) continue;
@@ -120,7 +158,7 @@ export class PathMap {
     if (!mapped) return false;
     const [entry] = await this.files.stat([mapped.remote]);
     if (entry?.kind !== "file") return false;
-    await this.ensureFile(entry, local);
+    await this.ensureFile(entry, this.ledger.canonicalOf(local) ?? local);
     return true;
   }
 
@@ -138,27 +176,33 @@ export class PathMap {
     // A `sync` request names the files it is about to copy itself, reporting as it goes.
     if (fetch && type !== "sync") {
       const named = new Set<string>();
-      collect(msg, (s) => this.toLocal(s) !== null, named);
+      collect(msg, (s) => this.canonical(s) !== null, named);
       // A whole document is checked against the server; a delta trusts what an earlier one settled.
       const recheck = type === "project";
       const ask = [...named].filter(
-        (p) => recheck || !this.ledger.synced.has(this.toLocal(p) as string),
+        (p) => recheck || !this.ledger.synced.has(this.canonical(p) as string),
       );
       if (ask.length) await this.bringDown(await this.files.stat(ask));
     }
     return JSON.stringify(mapStrings(msg, (s) => this.toLocal(s)));
   }
 
-  /** Bring every listed LOCAL path up to date, reporting after each copy; resolves how many failed. */
+  /** Bring every listed LOCAL path up to date, reporting after each copy; resolves the last report. */
   async sync(
     locals: string[],
     progress: (p: SyncProgress) => void,
-  ): Promise<number> {
+  ): Promise<SyncProgress> {
     const ask = locals.flatMap((l) => this.toRemote(l)?.remote ?? []);
-    const p: SyncProgress = { files: 0, filesDone: 0, bytes: 0, bytesDone: 0 };
+    const p: SyncProgress = {
+      files: 0,
+      filesDone: 0,
+      bytes: 0,
+      bytesDone: 0,
+      failures: [],
+    };
     const todo: { e: RemoteStat; local: string }[] = [];
     for (const e of ask.length ? await this.files.stat(ask) : []) {
-      const local = this.toLocal(e.path);
+      const local = this.canonical(e.path);
       if (!local) continue;
       if (e.kind !== "file")
         await mkdir(e.kind === "dir" ? local : dirname(local), {
@@ -170,8 +214,7 @@ export class PathMap {
       }
     }
     p.files = todo.length;
-    progress({ ...p });
-    let failed = 0;
+    progress({ ...p, failures: [...p.failures] });
     let next = 0;
     const worker = async (): Promise<void> => {
       for (let i = next++; i < todo.length; i = next++) {
@@ -179,18 +222,21 @@ export class PathMap {
         try {
           await this.ensureFile(e, local);
         } catch (err) {
-          this.log(`could not bring down ${e.path}: ${(err as Error).message}`);
-          failed++;
+          const why = (err as Error).message;
+          this.log(`could not bring down ${e.path}: ${why}`);
+          p.failures.push(
+            `${e.path.slice(e.path.lastIndexOf("/") + 1)} — ${why}`,
+          );
         }
         p.filesDone++;
         p.bytesDone += e.size ?? 0;
-        progress({ ...p });
+        progress({ ...p, failures: [...p.failures] });
       }
     };
     await Promise.all(
       Array.from({ length: Math.min(SYNC_PARALLEL, todo.length) }, worker),
     );
-    return failed;
+    return p;
   }
 
   /** An engine→server frame, rewritten, with every file the engine changed uploaded first. */
@@ -219,7 +265,7 @@ export class PathMap {
   private async bringDown(entries: RemoteStat[]): Promise<void> {
     await Promise.all(
       entries.map(async (e) => {
-        const local = this.toLocal(e.path);
+        const local = this.canonical(e.path);
         if (!local) return;
         try {
           if (e.kind === "dir") await mkdir(local, { recursive: true });
@@ -236,7 +282,7 @@ export class PathMap {
   private async upToDate(e: RemoteStat, local: string): Promise<boolean> {
     const size = e.size ?? 0;
     const remoteMtimeMs = e.mtimeMs ?? 0;
-    const have = await stat(local).catch(() => null);
+    const have = await stat(this.actual(local)).catch(() => null);
     const known = this.ledger.synced.get(local);
     const same = known
       ? known.size === size &&
@@ -258,16 +304,32 @@ export class PathMap {
     const size = e.size ?? 0;
     const remoteMtimeMs = e.mtimeMs ?? 0;
     if (await this.upToDate(e, local)) return;
+    const aside = beside(local, remoteMtimeMs);
+    // A version already placed beside a held file — before a restart, say — is adopted rather than fetched again.
+    const there = await stat(aside).catch(() => null);
+    if (
+      there &&
+      there.size === size &&
+      sameMtime(there.mtimeMs, remoteMtimeMs)
+    ) {
+      await this.place(local, aside);
+      this.ledger.synced.set(local, {
+        size,
+        localMtimeMs: there.mtimeMs,
+        remoteMtimeMs,
+      });
+      return;
+    }
     let pending = this.ledger.downloads.get(local);
     if (!pending) {
       this.log(`fetching ${e.path} (${size} bytes)`);
-      pending = this.files
-        .download(e, local)
-        .finally(() => this.ledger.downloads.delete(local));
+      pending = this.fetchInto(e, local, aside).finally(() =>
+        this.ledger.downloads.delete(local),
+      );
       this.ledger.downloads.set(local, pending);
     }
     await pending;
-    const now = await stat(local);
+    const now = await stat(this.actual(local));
     this.ledger.synced.set(local, {
       size: now.size,
       localMtimeMs: now.mtimeMs,
@@ -275,11 +337,39 @@ export class PathMap {
     });
   }
 
-  private async sendUp(local: string): Promise<void> {
-    const mapped = this.toRemote(local);
+  /** Download over `local`, or beside it at `aside` when the engine holds the old version open. */
+  private async fetchInto(
+    e: RemoteStat,
+    local: string,
+    aside: string,
+  ): Promise<void> {
+    try {
+      await this.files.download(e, local);
+      await this.place(local, local);
+    } catch (err) {
+      if (!(err instanceof TargetInUse)) throw err;
+      try {
+        await rename(err.part, aside);
+      } catch {
+        await rm(err.part, { force: true });
+        throw new Error(
+          `${err.message}, and the new version could not be put beside it`,
+        );
+      }
+      const when = new Date(e.mtimeMs ?? Date.now());
+      await utimes(aside, when, when);
+      this.log(`${local} is held open; its new version is ${aside}`);
+      await this.place(local, aside);
+    }
+  }
+
+  private async sendUp(named: string): Promise<void> {
+    const mapped = this.toRemote(named);
     if (!mapped?.root.writable) return;
-    const have = await stat(local).catch(() => null);
+    const have = await stat(named).catch(() => null);
     if (!have?.isFile()) return;
+    // The ledger is keyed by the canonical path, which a version placed beside a held file stands for.
+    const local = this.ledger.canonicalOf(named) ?? named;
     const known = this.ledger.synced.get(local);
     if (
       known &&
@@ -289,7 +379,7 @@ export class PathMap {
       return;
     try {
       this.log(`sending ${mapped.remote} (${have.size} bytes)`);
-      const back = await this.files.upload(local, mapped.remote);
+      const back = await this.files.upload(named, mapped.remote);
       this.ledger.synced.set(local, {
         size: have.size,
         localMtimeMs: have.mtimeMs,

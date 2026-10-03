@@ -139,6 +139,8 @@ export const api = {
     fget<{ plugins: PluginNeed[] }>(
       `/project-plugins?project=${encodeURIComponent(project)}`,
     ),
+  // Copy the project to the engine's machine again after a copy failed — packages/file-service/docs/engineSync.md.
+  retryEngineSync: () => fsend<{ ok: true }>("POST", "/engine/sync/retry", {}),
   // Leave an automatically frozen VST live while it is edited — packages/song/docs/autoFreeze.md.
   thawAutoFreeze: (module: string, on = true) =>
     fsend<{ ok: true }>("POST", "/auto-freeze/thaw", { module, on }),

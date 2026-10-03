@@ -50,6 +50,13 @@ server.
 Only **whole strings** are rewritten, never substrings, and only under a shared root. A plugin
 path, a device name, anything of the engine's machine is left alone because no root covers it.
 
+**A file the engine holds open is never waited for.** On Windows a rename over a file another
+process has open is refused, and the engine keeps open the clips of what it played. The new version
+is then placed BESIDE it, `clip~<server mtime>.wav`, and the map names that copy from then on:
+`toLocal` follows the redirect, `toRemote` reads it back as the canonical path, so nothing mistakes
+it for a file to upload. The ledger stays keyed by the canonical path; a version placed that way is
+found again by its name after a restart, and the copy it replaces is removed once nothing holds it.
+
 A download lands beside its target and is renamed over it, stamped with the server's mtime: a
 file whose size and mtime match is already here, including across a supervisor restart, when the
 in-memory ledger is gone. Reads of a file the engine is still writing are not guarded against;
