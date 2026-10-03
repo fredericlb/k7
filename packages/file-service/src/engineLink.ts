@@ -760,11 +760,18 @@ function onRecorded(session: string, take: RecordedTake): void {
   }
 }
 
-// Pin git to this user's deploy key, and fail rather than hang; the global config stays for user.name.
+// Pin git to this user's deploy key, fail rather than hang, and author as the person editing (docs/workspaces.md).
 export function webGitEnv(userEmail?: string): GitEnv {
-  return userEmail
-    ? { GIT_SSH_COMMAND: sshCommand(userEmail), GIT_TERMINAL_PROMPT: "0" }
-    : undefined;
+  if (!userEmail) return undefined;
+  const name = userEmail.split("@")[0] || "studio";
+  return {
+    GIT_SSH_COMMAND: sshCommand(userEmail),
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_AUTHOR_NAME: name,
+    GIT_AUTHOR_EMAIL: userEmail,
+    GIT_COMMITTER_NAME: name,
+    GIT_COMMITTER_EMAIL: userEmail,
+  };
 }
 
 /** How long the engine gets to answer an arm. A local socket answers in single-digit ms. */
