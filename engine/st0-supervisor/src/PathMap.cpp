@@ -163,7 +163,7 @@ bool PathMap::ensureLocal(const std::string& local)
     return true;
 }
 
-std::string PathMap::outbound(const std::string& text)
+std::string PathMap::outbound(const std::string& text, bool fetch)
 {
     bool hit = false;
     for (const auto& n : remoteNeedles_) hit = hit || text.find(n) != std::string::npos;
@@ -172,15 +172,68 @@ std::string PathMap::outbound(const std::string& text)
     if (msg.is_discarded()) return text;
     const std::string type = msg.is_object() && msg.contains("type") && msg["type"].is_string() ? msg["type"].get<std::string>() : "";
     if (kUnmappedTypes.count(type)) return text;
-    std::set<std::string> named;
-    collect(msg, [this](const std::string& s) { return toLocal(s).has_value(); }, named);
-    // A whole document is checked against the server; a delta trusts what an earlier one settled.
-    const bool recheck = type == "project";
-    std::vector<std::string> ask;
-    for (const auto& p : named)
-        if (recheck || !ledger_.get(*toLocal(p))) ask.push_back(p);
-    if (!ask.empty()) bringDown(files_.stat(ask));
+    // A `sync` request names the files it is about to copy itself, reporting as it goes.
+    if (fetch && type != "sync") {
+        std::set<std::string> named;
+        collect(msg, [this](const std::string& s) { return toLocal(s).has_value(); }, named);
+        // A whole document is checked against the server; a delta trusts what an earlier one settled.
+        const bool recheck = type == "project";
+        std::vector<std::string> ask;
+        for (const auto& p : named)
+            if (recheck || !ledger_.get(*toLocal(p))) ask.push_back(p);
+        if (!ask.empty()) bringDown(files_.stat(ask));
+    }
     return mapStrings(msg, [this](const std::string& s) { return toLocal(s); }).dump();
+}
+
+std::uint64_t PathMap::sync(const std::vector<std::string>& locals, const std::function<void(const SyncProgress&)>& progress)
+{
+    std::vector<std::string> ask;
+    for (const auto& l : locals)
+        if (auto m = toRemote(l)) ask.push_back(m->first);
+    SyncProgress p;
+    std::vector<RemoteStat> todo;
+    if (!ask.empty())
+        for (const auto& e : files_.stat(ask)) {
+            const auto local = toLocal(e.path);
+            if (!local) continue;
+            std::error_code ec;
+            if (e.kind == "dir")
+                fs::create_directories(paths::fromUtf8(*local), ec);
+            else if (e.kind == "missing")
+                fs::create_directories(paths::fromUtf8(*local).parent_path(), ec);
+            else if (!upToDate(e, *local)) {
+                todo.push_back(e);
+                p.bytes += e.size.value_or(0);
+            }
+        }
+    p.files = todo.size();
+    progress(p);
+    std::mutex m;
+    std::uint64_t failed = 0;
+    constexpr size_t kParallel = 8;
+    std::atomic<size_t> next{0};
+    auto worker = [&] {
+        for (size_t i = next++; i < todo.size(); i = next++) {
+            const auto& e = todo[i];
+            bool ok = true;
+            try {
+                ensureFile(e, *toLocal(e.path));
+            } catch (const std::exception& err) {
+                log_("could not bring down " + e.path + ": " + err.what());
+                ok = false;
+            }
+            std::lock_guard lock(m);
+            ++p.filesDone;
+            p.bytesDone += e.size.value_or(0);
+            if (!ok) ++failed;
+            progress(p);
+        }
+    };
+    std::vector<std::thread> pool;
+    for (size_t i = 0; i < std::min(kParallel, todo.size()); ++i) pool.emplace_back(worker);
+    for (auto& t : pool) t.join();
+    return failed;
 }
 
 std::string PathMap::inbound(const std::string& text)
@@ -235,21 +288,26 @@ void PathMap::bringDown(const std::vector<RemoteStat>& entries)
     for (auto& t : pool) t.join();
 }
 
+bool PathMap::upToDate(const RemoteStat& e, const std::string& local)
+{
+    const auto size = e.size.value_or(0);
+    const double remoteMtime = e.mtimeMs.value_or(0);
+    const auto have = filetime::stat(paths::fromUtf8(local));
+    const auto known = ledger_.get(local);
+    const bool same =
+        known ? known->size == size && filetime::same(known->remoteMtimeMs, remoteMtime) && have && have->size == size &&
+                    filetime::same(have->mtimeMs, known->localMtimeMs)
+              : have && have->size == size && filetime::same(have->mtimeMs, remoteMtime);
+    if (same && !known && have) ledger_.set(local, {size, have->mtimeMs, remoteMtime});
+    return same;
+}
+
 void PathMap::ensureFile(const RemoteStat& e, const std::string& local)
 {
     const auto size = e.size.value_or(0);
     const double remoteMtime = e.mtimeMs.value_or(0);
     const fs::path p = paths::fromUtf8(local);
-    const auto have = filetime::stat(p);
-    const auto known = ledger_.get(local);
-    const bool upToDate =
-        known ? known->size == size && filetime::same(known->remoteMtimeMs, remoteMtime) && have && have->size == size &&
-                    filetime::same(have->mtimeMs, known->localMtimeMs)
-              : have && have->size == size && filetime::same(have->mtimeMs, remoteMtime);
-    if (upToDate) {
-        if (!known && have) ledger_.set(local, {size, have->mtimeMs, remoteMtime});
-        return;
-    }
+    if (upToDate(e, local)) return;
     ledger_.downloadOnce(local, [&] {
         log_("fetching " + e.path + " (" + std::to_string(size) + " bytes)");
         files_.download(e, p);

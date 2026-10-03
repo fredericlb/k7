@@ -29,6 +29,7 @@ interface LocalBinding {
   engineId: string;
   roots: TunnelRoot[];
   kind: ChannelKind;
+  synced: boolean;
 }
 
 const LOCAL_ROUTE = new RegExp(`^${TUNNEL_PATH}/local/([A-Za-z0-9_-]+)$`);
@@ -63,8 +64,9 @@ export class TunnelHub {
     id: string,
     roots: TunnelRoot[] = [],
     kind: ChannelKind = "engine",
+    synced = false,
   ): TunnelChannel | null {
-    return this.tunnels.get(id)?.open(roots, kind) ?? null;
+    return this.tunnels.get(id)?.open(roots, kind, synced) ?? null;
   }
 
   /** …the same, resolved once the engine answered, or null after `timeoutMs`. */
@@ -104,9 +106,10 @@ export class TunnelHub {
     engineId: string,
     roots: TunnelRoot[],
     kind: ChannelKind = "engine",
+    { synced = false }: { synced?: boolean } = {},
   ): string {
     const key = randomBytes(24).toString("base64url");
-    this.locals.set(key, { engineId, roots, kind });
+    this.locals.set(key, { engineId, roots, kind, synced });
     return `${TUNNEL_PATH}/local/${key}`;
   }
 
@@ -193,7 +196,7 @@ export class TunnelHub {
       ? this.locals.get(key)
       : undefined;
     const channel = binding
-      ? this.open(binding.engineId, binding.roots, binding.kind)
+      ? this.open(binding.engineId, binding.roots, binding.kind, binding.synced)
       : null;
     if (!channel) {
       deny(socket, binding ? "503 Service Unavailable" : "403 Forbidden");

@@ -71,6 +71,8 @@ interface AgentChannel {
   /** The local engine's socket; null on a jobs channel, which this agent answers itself. */
   engine: WebSocket | null;
   map: PathMap | null;
+  /** The server copies every file before naming it (`sync`), so frames to the engine are only rewritten. */
+  synced: boolean;
   toEngine: Promise<void>;
   toHub: Promise<void>;
 }
@@ -157,7 +159,7 @@ export class TunnelAgent {
     }
     switch (m.t) {
       case "open":
-        this.openChannel(m.ch, m.roots, m.kind ?? "engine");
+        this.openChannel(m.ch, m.roots, m.kind ?? "engine", m.synced ?? false);
         break;
       case "close":
         this.channels.get(m.ch)?.engine?.close();
@@ -204,6 +206,7 @@ export class TunnelAgent {
     ch: number,
     roots: TunnelRoot[],
     kind: ChannelKind,
+    synced: boolean,
   ): void {
     if (roots.some((r) => !SAFE_NAME.test(r.name))) {
       this.tell({ t: "close", ch, reason: "refused a root name" });
@@ -226,6 +229,7 @@ export class TunnelAgent {
       this.channels.set(ch, {
         engine: null,
         map,
+        synced: false,
         toEngine: settled,
         toHub: settled,
       });
@@ -237,6 +241,7 @@ export class TunnelAgent {
     const c: AgentChannel = {
       engine,
       map,
+      synced,
       toEngine: opened,
       toHub: Promise.resolve(),
     };
@@ -258,7 +263,9 @@ export class TunnelAgent {
     if (!c) return;
     c.toEngine = c.toEngine.then(async () => {
       const out =
-        !binary && c.map ? await c.map.outbound(data as string) : data;
+        !binary && c.map
+          ? await c.map.outbound(data as string, !c.synced)
+          : data;
       if (!c.engine) {
         // A request is started once its files are here, and NOT awaited: a job takes minutes.
         if (!binary) this.runJob(ch, out as string);
@@ -290,6 +297,21 @@ export class TunnelAgent {
     const ctx: JobContext = {
       fetch: (local) => (map ? map.ensureLocal(local) : Promise.resolve(false)),
     };
+    if (req.type === "sync") {
+      const files = Array.isArray(req.files)
+        ? req.files.filter((f): f is string => typeof f === "string")
+        : [];
+      // Copied one by one, one `syncing` reply per file, then `synced` — docs/tunnel.md.
+      Promise.resolve()
+        .then(async () => {
+          const failed = map
+            ? await map.sync(files, (p) => emit({ type: "syncing", ...p }))
+            : 0;
+          emit({ type: "synced", failed });
+        })
+        .catch((e: Error) => emit({ type: "error", error: e.message }));
+      return;
+    }
     const handler = this.opts.jobs?.[req.type];
     if (!handler) {
       emit({ type: "error", error: `this machine does not do '${req.type}'` });

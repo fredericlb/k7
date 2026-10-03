@@ -20,6 +20,9 @@ work the clip's id out for itself — the engine sends a file path and this serv
 name — and the poll is happening anyway. See `takeJustRecorded` in
 `packages/file-service/src/engineLink.ts`.
 
+So does `engineSync`, the copy of the project's files to the engine's machine that holds its
+document back, for the same reason — the bar it draws needs no route either (`engineSync.md`).
+
 `prewarmEngineForActive` is called on the same poll: idempotent while the engine is idle, so
 plugin instantiation overlaps the browser's remaining startup.
 

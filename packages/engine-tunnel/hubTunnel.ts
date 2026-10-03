@@ -66,11 +66,15 @@ export class HubTunnel implements ChannelSink {
   }
 
   /** A new channel sharing `roots`: to the engine, or to the agent's own jobs; it emits `open` once answered. */
-  open(roots: TunnelRoot[], kind: ChannelKind = "engine"): TunnelChannel {
+  open(
+    roots: TunnelRoot[],
+    kind: ChannelKind = "engine",
+    synced = false,
+  ): TunnelChannel {
     const ch = this.nextCh++;
     const channel = new TunnelChannel(ch, this);
     this.channels.set(ch, { channel, roots });
-    this.tell({ t: "open", ch, roots, kind });
+    this.tell({ t: "open", ch, roots, kind, ...(synced ? { synced } : {}) });
     return channel;
   }
 

@@ -38,6 +38,15 @@ opens it; the agent rewrites every JSON string under a root as frames cross:
 One queue per direction per channel: a frame waiting on a download is never overtaken by the one
 after it, which is what keeps a `transport play` behind the document it plays.
 
+That same queue is why a hosted file service opens its engine channel **`synced`**: frames to the
+engine are then only rewritten, never held for a download, because every file a document names was
+copied before the document was sent, by a **`sync`** request on the jobs channel. The agent answers
+that one itself: it stats the files, copies the ones that differ (eight at a time), answers
+`syncing` after each one with the counts of what it had to copy, and `synced` with how many failed.
+The decision and its failure modes are `packages/file-service/docs/engineSync.md`. An agent that does
+not know the flag downloads as above, which is what keeps an old machine working against a new
+server.
+
 Only **whole strings** are rewritten, never substrings, and only under a shared root. A plugin
 path, a device name, anything of the engine's machine is left alone because no root covers it.
 
