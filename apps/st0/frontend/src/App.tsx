@@ -17,6 +17,7 @@ import {
 } from "@frediverse/ui/dialog";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import {
+  ArrowLeft,
   Circle,
   Headphones,
   ListMusic,
@@ -2897,13 +2898,24 @@ export default function App({
                 {snapshot.manifest.name || "…"}
               </span>
             ) : (
-              <a
-                href={projectsUrl(window.location.href)}
-                title={m["project.backToProjects"]()}
-                className="max-w-[10rem] truncate text-muted-foreground text-sm hover:text-foreground hover:underline"
-              >
-                {project?.name || "…"}
-              </a>
+              <span className="flex min-w-0 items-center gap-1">
+                {/* The back arrow, first in the bar: the home page is where every project is opened from. */}
+                <a
+                  href={projectsUrl(window.location.href)}
+                  title={m["project.backToProjects"]()}
+                  aria-label={m["project.backToProjects"]()}
+                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </a>
+                <a
+                  href={projectsUrl(window.location.href)}
+                  title={m["project.backToProjects"]()}
+                  className="max-w-[10rem] truncate text-muted-foreground text-sm hover:text-foreground hover:underline"
+                >
+                  {project?.name || "…"}
+                </a>
+              </span>
             )}
             {/* Which engine plays this project, and the way to another (components/EngineSwitch.tsx). */}
             {!frozen && engine && onSwitchEngine && (

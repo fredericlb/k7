@@ -184,8 +184,10 @@ being the widest thing in the row, leaving it on the left made the transport's `
 over what was left rather than over the pane. It stays ahead of the icon row because it is read
 while playing, not clicked, and the divider after it is what says so.
 
-The **way back to the home page** is the project's own name, the only name left in the bar. It is a
-whole-page navigation, and plain text on a frozen share (`docs/shared.md`).
+The **way back to the home page** is a back arrow just left of the project's name, and the name
+links there too. Projects open in the home page's tab rather than a new one, so the arrow is the
+gesture that ends a session. It is a whole-page navigation, and on a frozen share there is no arrow
+and the name is plain text (`docs/shared.md`).
 
 **The engine is named right after it** (`components/EngineSwitch.tsx`), because which machine plays
 the song is the first thing to check when it sounds wrong or not at all. Its menu lists the engines

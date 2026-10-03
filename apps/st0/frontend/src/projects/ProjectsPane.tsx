@@ -240,11 +240,11 @@ export function ProjectsPane({
     [dropped, chosen, onChanged],
   );
 
-  /** …and open what it wrote, in a new tab like every other project link on this page. */
+  /** …and open what it wrote, in this tab like every other project link on this page. */
   const openImported = useCallback(() => {
     const ws = workspaces.find((w) => w.name === dropped?.workspace);
     if (ws && imported)
-      window.open(projectHref(ws, { path: imported, app: "st0" }), "_blank");
+      window.location.assign(projectHref(ws, { path: imported, app: "st0" }));
     setDropped(null);
     setImported(null);
   }, [workspaces, dropped, imported]);

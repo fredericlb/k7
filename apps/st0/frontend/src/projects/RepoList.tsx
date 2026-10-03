@@ -317,8 +317,6 @@ export function RepoList({
                 <a
                   className="mt-2 ml-2 flex w-fit items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent/50"
                   href={workspaceHref(w)}
-                  target="_blank"
-                  rel="noopener"
                   title={m["repos.openAndCreate"]({ name: w.name })}
                 >
                   <FolderPlus className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -327,7 +325,7 @@ export function RepoList({
               )}
 
               {/* The projects, indented under their workspace: a click goes straight into the app
-                  that opens one, in a NEW TAB — this screen is a list you come back to
+                  that opens one, in THIS tab — the editor's back arrow returns here
                   (../../docs/projects.md). */}
               {w.projects.length > 0 && (
                 <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
@@ -341,8 +339,6 @@ export function RepoList({
                           app: p.app,
                         })}
                         href={projectHref(w, p)}
-                        target="_blank"
-                        rel="noopener"
                       >
                         <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="truncate">
