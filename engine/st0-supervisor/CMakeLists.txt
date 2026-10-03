@@ -69,7 +69,9 @@ FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
     GIT_PROGRESS   ON
     GIT_TAG        v12.0.1
-    GIT_SHALLOW    ON)
+    GIT_SHALLOW    ON
+    # A TLS write left pending is retried at its own length, or a big upload corrupts the tunnel (docs/supervisor.md).
+    PATCH_COMMAND  ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch_ixwebsocket.cmake)
 set(USE_TLS ON CACHE BOOL "" FORCE)
 set(USE_MBED_TLS ON CACHE BOOL "" FORCE)
 set(USE_ZLIB OFF CACHE BOOL "" FORCE)
@@ -146,6 +148,7 @@ endif()
 # Everything but main.cpp is a library, so the tests link exactly what ships.
 add_library(st0_supervisor_core STATIC
     src/Loop.cpp
+    src/Crash.cpp
     src/Paths.cpp
     src/Log.cpp
     src/Processes.cpp
@@ -179,7 +182,7 @@ add_library(st0_supervisor_core STATIC
 target_include_directories(st0_supervisor_core PUBLIC src)
 target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket datachannel mbedtls mbedx509 mbedcrypto)
 if(WIN32)
-    target_link_libraries(st0_supervisor_core PUBLIC ws2_32 iphlpapi crypt32)
+    target_link_libraries(st0_supervisor_core PUBLIC ws2_32 iphlpapi crypt32 dbghelp)
     target_compile_definitions(st0_supervisor_core PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 if(APPLE)

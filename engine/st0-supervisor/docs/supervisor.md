@@ -80,6 +80,19 @@ the DRBG. `src/Tls.cpp` owns the setup and `main.cpp` runs it once, before any s
 There is no `mbedtls_threading_free_alt` counterpart, for the reason `main.cpp` gives: we leave by
 `_Exit`.
 
+## A TLS write left pending is retried at its own length
+
+IXWebSocket is built with a patch (`cmake/patch_ixwebsocket.cmake`, run by FetchContent). When the
+socket is full, `mbedtls_ssl_write` encrypts one record, keeps it pending and answers `WANT_WRITE`;
+the next call only flushes that record, and reports as written the length it is asked THEN, up to
+one record. IXWebSocket retries with its whole send buffer, which other threads have grown
+meanwhile, so it erases bytes that never left: the stream loses a slice silently and the hub reads
+garbage as frames. That is a slow uplink under a large upload — a freeze's render going up — and it
+shows here as the tunnel closed `1002` or `1011 Internal error` in the same second the upload starts,
+the hub answering a corrupt frame by cutting the socket. On loopback the socket never fills, which
+is why the tunnel suite does not see it. The patch asks again at the length the record began with;
+it refuses to apply, loudly, to an IXWebSocket that no longer reads as it expects.
+
 ## Trust comes from the OS
 
 mbedTLS knows no certificates, so `TrustRoots.cpp` hands it the OS's: the Keychain's anchors and
@@ -113,6 +126,16 @@ and macOS 1.30 needs macOS 14. A platform ONNX Runtime ships no binary for build
 separation. CoreML is offered and cannot compile HT-Demucs; the job falls back to the CPU and says
 why (stem-separation's [stemSplit.md](../../../packages/stem-separation/docs/stemSplit.md) is the
 page on providers and on the model).
+
+## A crash says why
+
+The tray restarts a supervisor that died, so what a crash leaves is all there is to read. `Crash.cpp`
+logs `fatal: … — uncaught exception: <what>` in `.studio.log` and, on Windows, writes
+`crash-supervisor-<pid>.dmp` beside it. An exception nobody caught on one of the tunnel's or the
+jobs' threads ends in `abort()`, whose exit code on Windows is `0xC0000409` and nothing else; the
+dump is taken from SIGABRT because MSVC's `abort()` fails fast past any exception filter, and
+`set_terminate` is per thread there, so only the signal covers every thread. Open the dump in Visual
+Studio or WinDbg beside the build's `.pdb` to read the stack.
 
 ## Two diagnostics
 

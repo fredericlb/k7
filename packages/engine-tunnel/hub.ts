@@ -182,7 +182,11 @@ export class TunnelHub {
           this.log(`${id} down`);
         }
       });
-      ws.on("error", () => ws.terminate());
+      // Said before cutting: a frame the socket refused is otherwise only an "Internal error" on the machine.
+      ws.on("error", (e) => {
+        this.log(`${id} socket error: ${e.message}`);
+        ws.terminate();
+      });
     });
   }
 

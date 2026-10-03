@@ -4,6 +4,7 @@
 // arguments and touch nothing else: `--probe <address>` asks a studio's registry, and
 // `--separate <mix> <model> <outDir> [providers]` runs one stem separation here, printing progress.
 
+#include "Crash.h"
 #include "HostProtocol.h"
 #include "Log.h"
 #include "Loop.h"
@@ -49,6 +50,8 @@ int main(int argc, char** argv)
     // and isServing() never sees the engine, so one is never adopted. A no-op elsewhere; no teardown, since
     // we leave by _Exit.
     ix::initNetSystem();
+    // Before any thread starts: a crash must say why in the log and leave a dump (Crash.h).
+    st0::crash::install();
     // mbedtls's mutexes and its global generator, set up HERE while there is one thread: every TLS socket draws from it, and the registry opens one per studio at once (docs/supervisor.md).
     st0::tls::init();
 
