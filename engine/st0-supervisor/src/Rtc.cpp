@@ -114,6 +114,8 @@ struct Pipe : std::enable_shared_from_this<Pipe> {
 
     void end()
     {
+        // The callbacks cleared below hold the last references; without this the pipe dies mid-call.
+        const auto keep = shared_from_this();
         {
             std::lock_guard lock(mutex);
             if (ended) return;
