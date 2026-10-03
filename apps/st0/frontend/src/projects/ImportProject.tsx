@@ -44,18 +44,22 @@ export function ImportProject({
   const [error, setError] = useState("");
   const [log, setLog] = useState<string[] | null>(null);
 
+  // A new drop starts blank however the last one closed; reset on arrival so the closing fade keeps its content.
+  const [shown, setShown] = useState(dropped);
+  if (dropped !== shown) {
+    setShown(dropped);
+    if (dropped) {
+      setName("");
+      setError("");
+      setLog(null);
+    }
+  }
+
   // Typed or not, the folder follows `project new`'s rules — one suffix, and the same refusals.
   const { folder, error: badName } = projectFolderName(
     name || droppedStem(dropped?.file.name ?? ""),
     "st0",
   );
-
-  const close = () => {
-    setName("");
-    setError("");
-    setLog(null);
-    onClose();
-  };
 
   const submit = () => {
     if (!folder || busy) return;
@@ -73,7 +77,7 @@ export function ImportProject({
       open={!!dropped}
       // Not dismissable mid-import: the request is running and its result is a folder on disk.
       onOpenChange={(o) => {
-        if (!o && !busy) close();
+        if (!o && !busy) onClose();
       }}
     >
       <DialogContent className="max-w-lg">
@@ -137,7 +141,7 @@ export function ImportProject({
         )}
 
         <DialogFooter>
-          <Button variant="secondary" disabled={busy} onClick={close}>
+          <Button variant="secondary" disabled={busy} onClick={onClose}>
             {done ? m["common.close"]() : m["common.cancel"]()}
           </Button>
           {done ? (
