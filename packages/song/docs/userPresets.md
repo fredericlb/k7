@@ -1,39 +1,80 @@
-# Presets live in the module's folder
+# Presets live in a presets tree, not in the module
 
 The engine already discovers a plugin's **factory** presets: its program list and the
-`.vstpreset` files in the OS's VST3 folders. `presets.ts` is the other half — the presets a
-person saves or hand-authors, stored with the module so they travel with it.
+`.vstpreset` files in the OS's VST3 folders. `@studio/song-edit/presets` is the other half — the
+presets a person saves or hand-authors.
 
-They are one file, the third of the module's own three:
+## Where one is kept
+
+One FILE per preset, in a presets tree beside the modules rather than in a module's folder:
 
 ```
-modules/<type>/<name>/module.yaml    what it does
-modules/<type>/<name>/ui.yaml        how it's drawn
-modules/<type>/<name>/presets.yaml   its named settings
+<workspace>/_presets/<ns>/<module path>/<name>.yaml      kept in the workspace
+<library>/presets/<ns>/<module path>/<name>.yaml         kept in a library
 ```
+
+Two coordinates, and they answer different questions. The **tree** is where the preset is KEPT —
+its scope, `workspace` or a library's name — and so who sees it and which repository a save
+commits to. The **path** is which module it is FOR: the ref the node extends, without its `@`
+(`@st0/audio/reverb` → `st0/audio/reverb`). A workspace may keep presets for a library module, and
+a library may keep presets for another library's module; neither has to own the module.
+
+Why not in the module's folder: a library module is shared, and a preset is often one person's or
+one band's. Writing it into the module would mean committing to the library for every sound
+somebody keeps, and a workspace could not keep its own presets for a module it does not own. The
+module folder holds what the module IS; a preset is a use of it.
+
+`_presets/` sits beside `_modules/`, so it is the same `@workspace` level and travels with the
+workspace's repository. `presets/` is a family of a library repository like `modules/` and
+`chains/`. A `presets.yaml` left in a module folder is read by nothing; the name stays reserved so
+it never loads as a node.
 
 ## The file
 
-A name, and the values it sets. Nothing else, because there is nothing else to record — the
-folder says which module they belong to, exactly as it does for the panel.
-
 ```yaml
-# presets for audio/reverb
-hall: { Mix: 0.8, Size: 0.9, Damp: 0.3 }
-plate: { Mix: 0.4, Size: 0.2, Damp: 0.7 }
+# preset for @st0/audio/dynamics/compressor
+engine: vari-mu
+params:
+  Intensty: 0.6
+  Output Level: 0.8
 ```
 
-One flow mapping per line, hand-written rather than through `stringify`, for the same reason
-the panel writer does it: a preset is read as a *row*, and adding one should be a one-line
-diff. A param name with a space needs no quotes as a YAML key, and quoting it anyway would
-put noise in every line of every shelf — the names plugins use are almost all like that.
+One param per line, hand-written rather than through `stringify`, so changing one value is a
+one-line diff. A key is quoted only when YAML needs it: plugin param names carry spaces, and
+quoting every one would be noise.
 
-**Numbers only.** That is what a module's `params:` holds, so a preset that could not be
-written there would be one that cannot be applied.
+**Numbers only.** A node's `params:` may hold a filename, but that is an asset, not a setting a
+preset should silently move.
 
-`presets.yaml`, like `ui.yaml`, is the module ITSELF and not one use of it — `nodeFiles`
-skips both by name. Without that guard a module with a shelf comes back carrying a phantom
-node called `presets`.
+`engine:` is written only for a module with several engines, because a module with engines keeps
+its knobs PER engine (`engines.md`): values taken on `vari-mu` mean nothing to `tracktion`.
+Applying such a preset switches the node to that engine first; an engine the module no longer has
+is reported and the values land on the current one.
+
+## Keyed by the node's module
+
+A preset belongs to the module a node `extends`, so every node of `@st0/instruments/synth` offers
+the same list. A node that extends nothing, or `@meta`'s built-ins, has none: there is no module
+for a preset to be for.
+
+## Saving and loading — on the NODE
+
+Every action is a `node preset` verb (`apply`, `save`, `update`), so the graph's dropdown and the
+command bar are one behaviour. `GET /presets?node=` is the one route, a LISTING; it answers with
+`{ref, presets: [{scope, name}], scopes}`. A preset is addressed by scope and name, never by path:
+the service builds the path and refuses one that would leave the module's folder.
+
+- **Save** snapshots what the node RESOLVES to — its own values over everything it inherits, on the
+  engine that is on — so a preset reproduces the sound, not just the knobs this node happened to
+  touch. A taken name is refused: overwriting is a decision.
+- **Update** is that decision: it overwrites an existing preset with the node's current values.
+- **Apply** writes the preset's values into the node's own file, on the attribute set that is on,
+  in ONE write, and reaches the engine as a values-only diff unless it switched engines. Values the
+  preset does not name stay as they are.
+
+The dropdown shows which preset was last loaded on each node. That is the shell's SESSION state:
+a node file says what its values are, not where they came from, and after a knob moves the two
+would disagree anyway. It is what lets the header offer **Update**.
 
 ## Why there is no opaque blob among them
 
@@ -54,26 +95,26 @@ That cost — "a plugin whose state is not addressable parameters cannot have se
 states" — covers most of the plugins anybody reaches for. It is measurable: loaded from a
 `.vstpreset`, an Arturia Wurli V2 reports
 the same 50 parameter values as an untouched one, and a Mini V3 the same 77. Their patch is
-opaque chunk state. Written into `presets.yaml` as numbers, an Arturia sound is the factory
-default with a name on it — a shelf entry that looks saved and is not.
+opaque chunk state. Written into a preset as numbers, an Arturia sound is the factory default
+with a name on it — a preset that looks saved and is not.
 
 So the blob has a place of its own, deliberately **not** among the presets:
 
 ```
 modules/<type>/<name>/module.yaml    what it does
 modules/<type>/<name>/ui.yaml        how it's drawn
-modules/<type>/<name>/presets.yaml   its named settings — numbers
 modules/<type>/<name>/<name>.vstpreset   its default state, read by the loader
 modules/<type>/<name>/base/          named blobs: whole states, kept
+_presets/<ns>/<type>/<name>/*.yaml    named settings — numbers, outside the module
 ```
 
 The two do not compete, and the difference is worth holding on to:
 
-| | `presets.yaml` | `base/` |
+| | a preset | `base/` |
 |---|---|---|
 | what it holds | named numbers | an opaque Steinberg container |
 | readable, diffable, hand-editable | yes | no |
-| applying one | stamps values into the module text, undone by not saving | `base: <name>` on the module or node |
+| applying one | stamps values into the node's file | `base: <name>` on the module or node |
 | what it is for | a plugin whose state IS its parameters | one whose state is not |
 
 `base/` is its own folder rather than more files loose beside the module, because the loader
@@ -143,7 +184,7 @@ ORPHAN instance behind its "Native UI" button — the plugin loaded on the engin
 in no project. Three consequences, all wanted:
 
 - It works with **no project open**, and on a plugin the open project never loads. A module is
-  authored against a plugin by name, which is exactly the case `presets.yaml` cannot help with.
+  authored against a plugin by name, which is exactly the case a preset cannot help with.
 - What is kept is what somebody **dialled in by hand** in the plugin's own UI, and nothing else.
 - Opening that window still saves nothing. Snapshotting is the one act that takes something out
   of it, which is why it is a separate button and never implied by opening one.
@@ -152,27 +193,3 @@ A snapshot with no window opened is **refused**, not silently filled with defaul
 answers `ok:false`, the route says 409, and the builder tells you to open the plugin first. A
 base that is quietly the factory sound is the one failure here nobody would catch — it is a real
 file, with the name you chose, holding a sound you never made.
-
-## Applying one
-
-Two ways in, and they do the same thing to the same file:
-
-- The **builder** stamps the values into the module buffer it is already editing
-  (`applyPresetToText`). An edit and nothing more: no state to push, no engine to ask. It
-  lands unsaved, so it is visible before it is committed and undone by not saving — which
-  is what makes trying four presets in a row bearable.
-- `POST /presets/apply` writes them through `setModuleParam` and reloads the project. **By
-  name**, not by path: the shelf is a file in the module's folder, so there is no path in
-  the body and nothing for a crafted one to escape.
-
-Saving one (`saveModuleAsPreset`) snapshots the module's authored params under a new name,
-refusing a name already taken — overwriting is a decision, not a side effect of saving.
-
-## Which modules can hold them
-
-The ones with a **folder**: a local plugin module. An io module has no parameters to name;
-an inherited `@ns/…` one is read where it lives, and its shelf belongs to the library that
-owns it, not to whoever plays it.
-
-A module the engine merely reports has no folder at all — see `moduleFork.md`'s
-`materialiseEngineModule`, which is how it gets one.

@@ -1,4 +1,4 @@
-// EngineSelect.tsx — which ENGINE a node runs as, at the right end of the header's second line.
+// EngineSelect.tsx — which ENGINE a node runs as, on the header's second line, left of the presets.
 // A dropdown and not a row of badges: a compressor has eight engines, and eight badges would be
 // wider than the card. Its width is SET, so the line's layout is known without a reflow.
 // The switch is the HOST's command; this only asks. See packages/song/docs/engines.md.

@@ -157,6 +157,7 @@ import {
   ORGANIZE_HALF_LIFE,
   planMotion,
 } from "./nodeMotion";
+import { PRESET_BUTTON_W, PresetButton } from "./PresetButton";
 import { type TapAction, TapWidget } from "./TapWidget";
 import { ValueEditor } from "./ValueEditor";
 
@@ -1669,6 +1670,8 @@ function NodeInner({
   onToggleAssembly,
   onAlternative,
   onEngine,
+  onPresets,
+  presetName,
   onZoomTo,
   warning,
   onDragStart,
@@ -1708,6 +1711,10 @@ function NodeInner({
   onAlternative?: (module: string, name: string | null) => void;
   /** An engine was picked in the node's dropdown — drawn only when given, and only on a module with several. */
   onEngine?: (module: string, name: string) => void;
+  /** The node's preset dropdown was pressed: the host lists this node's presets at that point. */
+  onPresets?: (module: string, x: number, y: number) => void;
+  /** The preset last loaded on this node, shown on the dropdown. */
+  presetName?: string;
   /** A double-click on the header, or on the whole card when zoomed out: frame this node. */
   onZoomTo?: (n: GraphNode) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
@@ -1791,6 +1798,16 @@ function NodeInner({
   const engineW =
     onEngine && n.module && n.engines && n.engines.length > 1
       ? engineSelectW(n.engines)
+      : 0;
+  // The preset dropdown's, beside it: a module USED by reference has presets, a self-contained one or `@meta`'s has none.
+  const presetW =
+    onPresets &&
+    n.kind === "module" &&
+    n.module &&
+    !n.missing &&
+    n.uses?.startsWith("@") &&
+    !n.uses.startsWith("@meta/")
+      ? PRESET_BUTTON_W
       : 0;
   // …and the alternatives' row, on the top line beside the name — drawn wherever the host can switch them.
   const altsW =
@@ -2160,8 +2177,10 @@ function NodeInner({
             />
           )}
         </span>
-        {/* The SECOND line: the engine's stage, IN / MIX / OUT, then the engine the module runs as at the right. */}
-        {((stageBinds.length > 0 && showWidgets) || engineW > 0) && (
+        {/* The SECOND line: the engine's stage, IN / MIX / OUT, then the engine the module runs as, then its presets. */}
+        {((stageBinds.length > 0 && showWidgets) ||
+          engineW > 0 ||
+          presetW > 0) && (
           <span className="dgx-hdsub">
             <span className="dgx-hdstage">
               {showWidgets &&
@@ -2198,6 +2217,13 @@ function NodeInner({
                 current={n.engine ?? n.engines[0]}
                 width={engineW}
                 onEngine={onEngine}
+              />
+            )}
+            {onPresets && presetW > 0 && n.module && (
+              <PresetButton
+                module={n.module}
+                current={presetName}
+                onPresets={onPresets}
               />
             )}
           </span>
@@ -2782,6 +2808,8 @@ export function DomChains({
   onToggleAssembly,
   onAlternative,
   onEngine,
+  onPresets,
+  presetNames,
   onTriggerRack,
   onRecorder,
   onProjectField,
@@ -2891,6 +2919,10 @@ export function DomChains({
   onAlternative?: (module: string, name: string | null) => void;
   /** A node's engine dropdown: run a module as another of its engines — packages/song/docs/engines.md. */
   onEngine?: (module: string, name: string) => void;
+  /** A node's preset dropdown: the host lists that node's presets at the point given — packages/song/docs/userPresets.md. */
+  onPresets?: (module: string, x: number, y: number) => void;
+  /** The preset each node last loaded, by node — the HOST's session state, drawn on the dropdown. */
+  presetNames?: Record<string, string>;
   /** A RACK pad was clicked: the graph says WHICH sound was asked for and stops there — docs/hosting.md. */
   onTriggerRack?: (module: string, symbol: string) => void;
   /** A RECORDER's button was pressed. `pluginId` is what the ENGINE keys a node by; `module` is
@@ -3025,6 +3057,7 @@ export function DomChains({
     onModuleField,
     onAlternative,
     onEngine,
+    onPresets,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -3055,6 +3088,7 @@ export function DomChains({
     onModuleField,
     onAlternative,
     onEngine,
+    onPresets,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -4263,6 +4297,12 @@ export function DomChains({
     (module: string, name: string) => cb.current.onEngine?.(module, name),
     [],
   );
+  // …and so does the preset dropdown, which the host draws.
+  const pickPresets = useCallback(
+    (module: string, x: number, y: number) =>
+      cb.current.onPresets?.(module, x, y),
+    [],
+  );
   // The widget only ASKS, and the shell writes what comes back — an asset loads at BUILD time.
   const pickAsset = useCallback(
     (n: GraphNode, param: string, x: number, y: number) => {
@@ -4879,6 +4919,8 @@ export function DomChains({
                   onToggleAssembly={onToggleAssembly}
                   onAlternative={onAlternative ? pickAlternative : undefined}
                   onEngine={onEngine ? pickEngine : undefined}
+                  onPresets={onPresets ? pickPresets : undefined}
+                  presetName={n.module ? presetNames?.[n.module] : undefined}
                   onZoomTo={zoomToNode}
                   warning={
                     n.pluginId ? engineWarnings?.[n.pluginId] : undefined

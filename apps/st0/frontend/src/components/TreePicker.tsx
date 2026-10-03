@@ -1,11 +1,10 @@
 // TreePicker.tsx — the browsing popup: levels that open sideways on hover, a search field
 // at the root, keyboard navigation, and the same dismissal contract as ContextMenu.
 //
-// Generic over what a leaf CARRIES, because two things browse this way and behaving
-// differently would be a coin toss for the user: the `+` on a graph arrow picking a module
-// (ModulePicker), and a module widget picking a file from the asset library
-// (AssetPicker). Both are "a nested catalogue, searchable" — the only difference is what
-// the tree is built from and what a pick hands back.
+// Generic over what a leaf CARRIES, because several things browse this way and behaving
+// differently would be a coin toss for the user: a module (ModulePicker), a file from the
+// asset library (AssetPicker), a node's preset (PresetPicker). All are "a nested catalogue,
+// searchable"; a caller with actions of its own puts them in `header`, above the search.
 
 import { ChevronRight } from "@frediverse/ui/icons";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -127,6 +126,7 @@ export function TreePicker<T>({
   emptyLabel,
   onPick,
   onClose,
+  header,
 }: {
   x: number; // viewport coords of whatever opened it
   y: number;
@@ -140,6 +140,8 @@ export function TreePicker<T>({
   emptyLabel: string;
   onPick: (pick: T) => void;
   onClose: () => void;
+  /** The caller's own row above the search — with one, an empty tree still opens, saying `emptyLabel`. */
+  header?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
@@ -201,7 +203,7 @@ export function TreePicker<T>({
   }, []);
 
   // Nothing to offer: an empty popup would just be a grey box you have to dismiss.
-  if (!tree.length) return null;
+  if (!tree.length && !header) return null;
 
   const pick = (e: T) => {
     onPick(e);
@@ -210,6 +212,7 @@ export function TreePicker<T>({
 
   const search = (
     <div className="border-b border-border px-2 pb-1">
+      {header}
       <input
         ref={searchRef}
         value={query}
@@ -263,7 +266,11 @@ export function TreePicker<T>({
           }}
         />
       ) : (
-        <Level nodes={tree} onPick={pick} header={search} />
+        <Level
+          nodes={tree.length ? tree : [{ key: "none", label: emptyLabel }]}
+          onPick={pick}
+          header={search}
+        />
       )}
     </div>
   );

@@ -73,6 +73,8 @@ export function ChainsTab({
   onProjectField,
   onAlternative,
   onEngine,
+  onPresets,
+  presetNames,
   engineWarnings,
   onSetModuleAsset,
   onAssetBrowse,
@@ -146,6 +148,10 @@ export function ChainsTab({
   onAlternative?: (module: string, name: string | null) => void;
   /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
   onEngine?: (module: string, name: string) => void;
+  /** A node's preset dropdown — the shell draws the list (packages/song/docs/userPresets.md). */
+  onPresets?: (module: string, x: number, y: number) => void;
+  /** The preset each node last loaded, by node. */
+  presetNames?: Record<string, string>;
   /** Engine load problems by plugin id, badged onto the module they concern. */
   engineWarnings?: Record<string, string>;
   // Load a library file into a module: `kind` is the asset, `file` library-relative or "none" to clear.
@@ -851,6 +857,8 @@ export function ChainsTab({
             onProjectField={onProjectField}
             onAlternative={onAlternative}
             onEngine={onEngine}
+            onPresets={onPresets}
+            presetNames={presetNames}
             onTriggerRack={triggerRack}
             rackLit={rackLit}
             engineWarnings={engineWarnings}

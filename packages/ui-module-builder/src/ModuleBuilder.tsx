@@ -62,7 +62,7 @@ import {
 import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import type {
   Hints,
-  ModulePresetsFile,
+  ModuleSidecarFile,
   ModuleUiFile,
   PresetInfo,
 } from "@studio/web-protocol";
@@ -75,17 +75,14 @@ import {
 } from "react";
 import { InputChannelBar } from "./InputChannelBar";
 import {
-  applyPresetToText,
   channelOf,
   extendsRefOf,
   hasLcd,
-  hasMalformedPresets,
   hasMalformedUiFile,
   ioOf,
   type ModuleUI,
   readParams,
   readPlugin,
-  readPresetsFile,
   readUiFile,
   setChannelIn,
   setStatusIn,
@@ -111,13 +108,7 @@ const STATUS_LABEL: Record<ModuleStatus, string> = {
   hidden: "hidden",
 };
 
-export type BuilderPane =
-  | "module"
-  | "panel"
-  | "presets"
-  | "dsp"
-  | "widgets"
-  | "params";
+export type BuilderPane = "module" | "panel" | "dsp" | "widgets" | "params";
 
 /** The DSP source a plugin type implies — ONE table, since the tab, the fetch and the stub must agree. */
 const DSP_SOURCE: Record<string, string> = {
@@ -139,9 +130,8 @@ export function pluginTypeOf(text: string): string {
 const baseName = (p: string | undefined): string | undefined =>
   p?.split(/[\\/]/).pop() || undefined;
 
-// What the two sidecars are called before one has been read, so a tab is never blank.
+// What the panel is called before it has been read, so a tab is never blank.
 const UI_BASENAME = "ui.yaml";
-const PRESETS_BASENAME = "presets.yaml";
 
 // What the header says BESIDE the Save button; "clean" and "pending" say nothing — see docs/builder.md.
 const SAVE_LABEL: Record<string, string> = {
@@ -255,21 +245,17 @@ export function ModuleScreen({
   // What is on disk, one string per file: every "dirty" is DERIVED from it, never a flag — docs/builder.md.
   const [savedModule, setSavedModule] = useState("");
   const [savedUi, setSavedUi] = useState("");
-  const [savedPresets, setSavedPresets] = useState("");
   const [savedDsp, setSavedDsp] = useState("");
   const [savedScript, setSavedScript] = useState("");
   const dirty = content != null && content !== savedModule;
   // The `ui.yaml` beside the module file, which is what the grid edits; it may not exist yet — docs/builder.md.
   const [uiFile, setUiFile] = useState<ModuleUiFile | null>(null);
   const uiDirty = !!uiFile && uiFile.content !== savedUi;
-  // …and the third file, the named settings — read as a FILE because you type into it as readily as you click.
-  const [presetFile, setPresetFile] = useState<ModulePresetsFile | null>(null);
-  const presetsDirty = !!presetFile && presetFile.content !== savedPresets;
-  // …and the fourth, which only a jsdsp module has: its own DSP source, fetched only when it claims one.
-  const [dspFile, setDspFile] = useState<ModulePresetsFile | null>(null);
+  // …and the third, which only a jsdsp module has: its own DSP source, fetched only when it claims one.
+  const [dspFile, setDspFile] = useState<ModuleSidecarFile | null>(null);
   const dspDirty = !!dspFile && dspFile.content !== savedDsp;
-  // …and the fifth, the script that draws the lcdscreen widgets — fetched whenever the host serves it.
-  const [scriptFile, setScriptFile] = useState<ModulePresetsFile | null>(null);
+  // …and the fourth, the script that draws the lcdscreen widgets — fetched whenever the host serves it.
+  const [scriptFile, setScriptFile] = useState<ModuleSidecarFile | null>(null);
   const scriptDirty = !!scriptFile && scriptFile.content !== savedScript;
   // Which file the CODE pane shows; the PANEL opens first, being what the grid beside it edits.
   const [pane, setPane] = useState<BuilderPane>(initialPane ?? "panel");
@@ -283,13 +269,11 @@ export function ModuleScreen({
   const sidecar =
     pane === "panel"
       ? uiFile
-      : pane === "presets"
-        ? presetFile
-        : pane === "dsp"
-          ? dspFile
-          : pane === "widgets"
-            ? scriptFile
-            : null;
+      : pane === "dsp"
+        ? dspFile
+        : pane === "widgets"
+          ? scriptFile
+          : null;
 
   // Whether the DSP is the module's own source and in which language, read off the BUFFER so the tab lands at once.
   const dspSourceName = useMemo(
@@ -297,27 +281,6 @@ export function ModuleScreen({
       content == null ? null : (DSP_SOURCE[pluginTypeOf(content)] ?? null),
     [content],
   );
-
-  // The module's OWN presets, off its shelf. A name and the values it sets — nothing else is recorded.
-  const shelf = useMemo(
-    () => (presetFile ? readPresetsFile(presetFile.content) : {}),
-    [presetFile],
-  );
-
-  /** Apply a shelf preset by stamping its values into the module BUFFER — an EDIT; see docs/builder.md. */
-  const applyShelfPreset = useCallback(
-    (name: string) => {
-      const values = shelf[name];
-      // Read-only: stamping values into a buffer nothing will write is how you lose an afternoon.
-      if (readOnly || !values || content == null) return;
-      setContent(applyPresetToText(content, values));
-      setStatus(`preset: ${name}`);
-    },
-    [readOnly, shelf, content, setStatus],
-  );
-
-  // Empty while read-only, every entry being an edit; the plugin's own banks stay, since those load into it.
-  const shelfNames = readOnly ? [] : Object.keys(shelf);
 
   /** Apply a FACTORY preset — the plugin's own, which only a live plugin can load. */
   const applyPreset = useCallback(
@@ -337,7 +300,6 @@ export function ModuleScreen({
     let alive = true;
     setContent(null);
     setUiFile(null);
-    setPresetFile(null);
     setError(null);
     store
       .read(path)
@@ -361,16 +323,6 @@ export function ModuleScreen({
         setParsable(!hasMalformedUiFile(kept ?? f.content));
       })
       .catch(() => alive && setParsable(false));
-    // The shelf, allowed to fail for the same reason: a file that isn't a module still opens for its text.
-    store
-      .presets(path)
-      .then((f) => {
-        if (!alive) return;
-        const kept = recallBuffer(f.path);
-        setPresetFile(kept == null ? f : { ...f, content: kept });
-        setSavedPresets(f.content);
-      })
-      .catch(() => alive && setPresetFile(null));
     store
       .hints()
       .then((h) => alive && setHints(h))
@@ -438,13 +390,6 @@ export function ModuleScreen({
     });
   }, []);
 
-  // A code edit in the SHELF: no grid to sync, only the dropdown, which reads it fresh each render.
-  const onPresetsChange = useCallback((text: string) => {
-    setPresetFile((f) =>
-      !f || f.content === text ? f : { ...f, content: text },
-    );
-  }, []);
-
   // A code edit in the DSP source: no grid, no dropdown — it is compiled by the loader, not read here.
   const onDspChange = useCallback((text: string) => {
     setDspFile((f) => {
@@ -468,9 +413,9 @@ export function ModuleScreen({
   /** Four files, four autosaves, each written when IT is readable — see docs/builder.md. */
   const writeSidecar = useCallback(
     async (
-      file: ModulePresetsFile | null,
+      file: ModuleSidecarFile | null,
       set: (
-        f: (p: ModulePresetsFile | null) => ModulePresetsFile | null,
+        f: (p: ModuleSidecarFile | null) => ModuleSidecarFile | null,
       ) => void,
       text: string,
     ) => {
@@ -527,20 +472,6 @@ export function ModuleScreen({
       [scriptFile, writeSidecar],
     ),
   });
-  const presetsSave = useAutosave({
-    path: presetFile?.path ?? null,
-    enabled: !readOnly,
-    manual: true,
-    text: presetFile?.content ?? "",
-    saved: savedPresets,
-    write: useCallback(
-      async (text: string) => {
-        await writeSidecar(presetFile, setPresetFile, text);
-        setSavedPresets(text);
-      },
-      [presetFile, writeSidecar],
-    ),
-  });
   const moduleSave = useAutosave({
     path: content == null ? null : path,
     enabled: !readOnly,
@@ -565,13 +496,7 @@ export function ModuleScreen({
   });
 
   // One badge for four files: the loudest thing any has to say, its tab already naming which.
-  const saveState = loudest([
-    moduleSave,
-    panelSave,
-    dspSave,
-    scriptSave,
-    presetsSave,
-  ]);
+  const saveState = loudest([moduleSave, panelSave, dspSave, scriptSave]);
 
   /** Save: write every dirty file, then publish them as ONE act — all four; see docs/builder.md. */
   const [publishing, setPublishing] = useState(false);
@@ -581,7 +506,6 @@ export function ModuleScreen({
       panelSave.flush(),
       dspSave.flush(),
       scriptSave.flush(),
-      presetsSave.flush(),
     ]);
     if (!landed.every(Boolean) || !store.publish) return;
     setPublishing(true);
@@ -593,16 +517,7 @@ export function ModuleScreen({
     } finally {
       setPublishing(false);
     }
-  }, [
-    moduleSave,
-    panelSave,
-    dspSave,
-    scriptSave,
-    presetsSave,
-    store,
-    path,
-    setStatus,
-  ]);
+  }, [moduleSave, panelSave, dspSave, scriptSave, store, path, setStatus]);
   /** Ctrl+S on the parameters pane, the one pane with no CodeMirror to wire it — see docs/builder.md. */
   useEffect(() => {
     if (pane !== "params") return;
@@ -616,7 +531,7 @@ export function ModuleScreen({
   }, [pane, saveAll]);
 
   // What Save has to offer: any of the four differing from disk, derived and never a flag.
-  const anyDirty = dirty || uiDirty || presetsDirty || dspDirty || scriptDirty;
+  const anyDirty = dirty || uiDirty || dspDirty || scriptDirty;
   // This screen is MANUAL, so nothing writes behind you: a reload here loses all four files at once.
   useUnsavedGuard(anyDirty);
   // …and the host hears it too, to ask before it swaps this module for another.
@@ -646,18 +561,12 @@ export function ModuleScreen({
       if (!agreed) return;
     }
     // A held edit outranks disk on load; a Refresh is the person choosing disk, so every one is dropped.
-    for (const f of [
-      path,
-      uiFile?.path,
-      presetFile?.path,
-      dspFile?.path,
-      scriptFile?.path,
-    ])
+    for (const f of [path, uiFile?.path, dspFile?.path, scriptFile?.path])
       if (f) dropBuffer(f);
     setReloadKey((k) => k + 1);
     setBasesKey((k) => k + 1);
     setStatus("module files reloaded from disk");
-  }, [anyDirty, path, uiFile, presetFile, dspFile, scriptFile, setStatus]);
+  }, [anyDirty, path, uiFile, dspFile, scriptFile, setStatus]);
 
   /** The store's hints MERGED with the host's live-engine ones, deduped — see docs/builder.md. */
   const completionHints = useMemo(
@@ -912,8 +821,8 @@ export function ModuleScreen({
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {/* The plugin's factory presets, with no "save as preset": a module's parameters ARE its file. */}
-          {(presets.length > 0 || shelfNames.length > 0) && (
+          {/* The plugin's FACTORY presets; a node's own are the graph's dropdown — packages/song/docs/userPresets.md. */}
+          {presets.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -929,21 +838,6 @@ export function ModuleScreen({
                 align="end"
                 className="max-h-[70vh] w-56 overflow-y-auto"
               >
-                {/* The module's OWN shelf first: it is the one that works with no engine attached. */}
-                {shelfNames.length > 0 && (
-                  <div>
-                    <DropdownMenuLabel>This module</DropdownMenuLabel>
-                    {shelfNames.map((name) => (
-                      <DropdownMenuItem
-                        key={`shelf-${name}`}
-                        onSelect={() => applyShelfPreset(name)}
-                      >
-                        <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                        <span className="truncate">{name}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
-                )}
                 {PRESET_GROUPS.map(({ source, label, Icon }) => {
                   const items = presets.filter((p) => p.source === source);
                   if (!items.length) return null;
@@ -1117,18 +1011,6 @@ export function ModuleScreen({
                     : []),
                   // Not a file, and last for that reason — see BuilderPane.
                   ["params", "parameters", false, true, null],
-                  [
-                    "presets",
-                    baseName(presetFile?.path) ?? PRESETS_BASENAME,
-                    presetsDirty,
-                    !!presetFile,
-                    // A shelf the schema refuses is SAID so, on the tab itself — see docs/builder.md.
-                    presetFile && hasMalformedPresets(presetFile.content)
-                      ? "malformed"
-                      : presetFile?.exists
-                        ? null
-                        : "doesn't exist yet — saving creates it",
-                  ],
                 ] as const
               ).map(([id, label, isDirty, ready, note]) => (
                 <button
@@ -1148,9 +1030,6 @@ export function ModuleScreen({
                 >
                   {label}
                   {isDirty ? " *" : ""}
-                  {note === "malformed" ? (
-                    <span className="ml-1 text-amber-400">!</span>
-                  ) : null}
                 </button>
               ))}
               {sidecar && pane !== "module" && (
@@ -1189,13 +1068,11 @@ export function ModuleScreen({
                   onChange={
                     pane === "panel"
                       ? onPanelChange
-                      : pane === "presets"
-                        ? onPresetsChange
-                        : pane === "dsp"
-                          ? onDspChange
-                          : pane === "widgets"
-                            ? onScriptChange
-                            : onCodeChange
+                      : pane === "dsp"
+                        ? onDspChange
+                        : pane === "widgets"
+                          ? onScriptChange
+                          : onCodeChange
                   }
                   // Ctrl+S and vim's `:w` mean Save — the same button, not just this pane.
                   onSave={() => void saveAll()}

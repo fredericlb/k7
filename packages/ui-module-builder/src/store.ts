@@ -4,7 +4,7 @@
 
 import type {
   Hints,
-  ModulePresetsFile,
+  ModuleSidecarFile,
   ModuleUiFile,
 } from "@studio/web-protocol";
 
@@ -24,14 +24,11 @@ export interface ModuleStore {
   /** The `ui.yaml` beside a module file, or the path it WOULD take plus a blank grid. */
   moduleUi(path: string): Promise<ModuleUiFile>;
 
-  /** The `presets.yaml` beside a module file, answered like the panel above. */
-  presets(path: string): Promise<ModulePresetsFile>;
-
   /** The DSP source, `file` being its NAME so the host writes the right stub — see docs/store.md. */
-  dspSource?(path: string, file: string): Promise<ModulePresetsFile>;
+  dspSource?(path: string, file: string): Promise<ModuleSidecarFile>;
 
-  /** The `widgets.js` beside the module, answered like `presets` — its lcdscreen widgets' drawing; docs/store.md. */
-  widgetsScript?(path: string): Promise<ModulePresetsFile>;
+  /** The `widgets.js` beside the module, answered like the panel — its lcdscreen widgets' drawing; docs/store.md. */
+  widgetsScript?(path: string): Promise<ModuleSidecarFile>;
 
   /** The ENGINES beside a module file and the one it runs; absent is a host with none (packages/song/docs/engines.md). */
   engines?(path: string): Promise<{ engines: string[]; engine?: string }>;

@@ -1,8 +1,8 @@
 # The module file
 
 The rationale behind `packages/song-schema/src/yaml/moduleSchema.ts` and
-`packages/song-schema/src/yaml/moduleFile.ts` — a `module.yaml`'s shape, the panel, the shelf and
-the controller beside it, and the reader/writer pair over the lot.
+`packages/song-schema/src/yaml/moduleFile.ts` — a `module.yaml`'s shape, the panel and the
+controller beside it, and the reader/writer pair over the lot.
 
 ## What the schema does not check
 
@@ -81,10 +81,9 @@ where the editor changed `type` but not yet the fields.
 module without touching hand-drawn work. It says nothing about WHICH module it draws: the folder it
 sits in does (`uiLibrary.ts`).
 
-`presets.yaml` is the module's named settings. A preset IS its values — the key names it, the folder
-says which module it belongs to, and there is nothing else to record. Numbers only, because that is
-what a module's `params:` holds and a preset that could not be written there would be one that
-cannot be applied (`presets.ts`).
+A module's named settings are NOT in its folder: a preset is a file of its own, under a presets
+tree keyed by the module's ref (`../src/presets.ts`, `packages/song/docs/userPresets.md`). A
+`presets.yaml` left in a module folder is a reserved name that nothing reads.
 
 `controller.yaml` says which MIDI control moves which of the module's params. The key is the param —
 one control per param, because two controls fighting over one value is a bug rather than a feature

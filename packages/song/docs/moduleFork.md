@@ -1,7 +1,7 @@
 # moduleFork — giving an engine module a folder
 
-A `@workspace` or `@st0` module already has a folder: `module.yaml`, and whichever of `ui.yaml`,
-`presets.yaml` and a `jsdsp.ts` it carries. Editing one is writing that folder directly — no
+A `@workspace` or `@st0` module already has a folder: `module.yaml`, and whichever of `ui.yaml`
+and a `jsdsp.ts` it carries. Editing one is writing that folder directly — no
 special handling here, no redirect. `@workspace` takes the write immediately, like any other file
 st0 saves; `@st0` goes through the Edit-then-publish gate instead, since a save there commits and
 pushes a repository other songs read (`apps/st0/frontend/docs/sharedModules.md`). Neither needs
@@ -14,9 +14,10 @@ scan, and a chain can name one with nothing on disk. That is a good arrangement 
 substance is the plugin, and copying 273 folders of wrappers into every workspace buys nothing but
 the multiplication.
 
-It stops working the moment you want to *own* something about the module. A panel and a shelf of
-presets are FILES in a module's folder (`uiLibrary.md`, `userPresets.md`),
-so a module without one has nowhere to put them. **There is no module without a folder**, put
+It stops working the moment you want to *own* something about the module. A panel is a FILE in a
+module's folder (`uiLibrary.md`), so a module without one has nowhere to put it. Presets are not:
+they live in a presets tree keyed by the ref, so an `@engine` module has them without a folder
+(`userPresets.md`). **There is no module without a folder**, put
 another way: an engine ref is a name for a plugin, and a module is a folder.
 
 So `materialiseEngineModule` is the act that makes it one:
@@ -41,8 +42,8 @@ its own folder, nothing left to materialise.
 Two details behind those four steps:
 
 - **`sharedRoots` reads through `moduleLibraryDirs`**, so the médiathèque is among the roots
-  `sharedModuleRef` can match a file against. It is the same lookup `packages/song-edit`'s panel
-  and preset routes use to turn a CLICKED file back into its ref, not only the one this function
+  `sharedModuleRef` can match a file against. It is the same lookup the file service's panel
+  route uses to turn a CLICKED file back into its ref, not only the one this function
   walks on its way to naming a fresh folder's own.
 - **`chainsUsing` counts `out` as well as `use`.** A module several things feed is a chain of its
   own, and a chain that only ever names itself tells nobody anything — which is why its own chain
@@ -64,8 +65,8 @@ rule it out as the general answer:
   can copy or share. A lone node file has no folder of its own to resolve against.
 
 A folder gets both, and it is the same reason a shared module is a folder in the first place
-rather than a flat file: presets and a panel are per-PLUGIN, not per-use, and every node that later
-extends this one shares them.
+rather than a flat file: a panel is per-PLUGIN, not per-use, and every node that later extends this
+one shares it.
 
 ## Reached as `module own <ref>`
 

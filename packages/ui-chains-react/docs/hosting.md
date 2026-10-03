@@ -111,6 +111,18 @@ one is made audible is the host's — st0 auditions the sample through the file 
 médiathèque could preview it from its own catalogue — and a host that offers nothing leaves the
 pads drawn but silent, which is the right degradation for a surface with no engine behind it.
 
+### `onPresets` and `presetNames` — a dropdown whose list the host draws
+
+The preset dropdown on a node's second header line, right of the engine select, is only a BUTTON:
+pressing it reports the node and a viewport point, and the host draws the list there. The list is
+the host's because what a preset is, where it is kept and how saving one is written are all
+file-service matters (`packages/song/docs/userPresets.md`), and because its header — save the node
+as a new preset, update the one loaded — is the host's commands. Same split as `onAssetBrowse`.
+
+`presetNames` is what the button wears: the preset each node last loaded, by node, which only the
+host knows since nothing about it is written to the project. The button is drawn only where
+`onPresets` is given, and only on a node that extends a module by ref.
+
 ### `row` — a graph read across
 
 st0's mixer view. It changes what the navigation MEANS rather than what it looks like: the wheel

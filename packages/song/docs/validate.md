@@ -9,8 +9,8 @@ It adds no schema of its own. Every file kind here already had a parser — `par
 `parseUiFile`, `parseTrack`, `parseChains`, `parseMix`, `parseMixView` — all with the same
 shape, `{ value, issues }`, all returning located findings, all browser-safe. This is a
 **router** over them, plus a plain Zod check for the kinds that have no parser of their own
-(clips, sequences, curves, video tracks, `project.yaml`, and a module folder's shelf and MIDI
-map).
+(clips, sequences, curves, video tracks, `project.yaml`, a module folder's MIDI map, and a
+preset).
 
 Because it is the loader's own parsers, an editor and a compile cannot disagree about whether a
 file is readable. That is the whole reason it is not a second, simpler check written next to the
@@ -23,7 +23,8 @@ By folder and basename, the way `fileKindFor` reads one:
 | path | read as |
 |---|---|
 | `modules/**/ui.yaml` | the panel (`UiFileSchema`) |
-| `modules/**/presets.yaml` | the shelf |
+| `_presets/**/*.yaml`, `<library>/presets/**/*.yaml` | a preset (`PresetFileSchema`) — checked before `modules`, whatever the module path holds ([userPresets.md](userPresets.md)) |
+| `modules/**/presets.yaml` | nothing: a reserved name no code reads |
 | `modules/**/controller.yaml` | the MIDI map |
 | `_modules/config.yaml` | a library's namespace |
 | `modules/**/*.yaml` — anything else | a module, generic or node (`ModuleSchema`) |

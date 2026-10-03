@@ -1647,6 +1647,51 @@
       { name: node, complete: nodes },
       { name: name, optional: true, complete: moduleEngines },
     ]
+# A node's PRESETS: one file each under a `presets/` tree — the workspace's `_presets/` or a
+# library's `presets/` — keyed by the module the node extends. The scope says where it is KEPT.
+# See packages/song/docs/userPresets.md.
+- command: "node preset apply"
+  sid: node.preset.apply
+  readable:
+    en: "Load a preset onto a node"
+    fr: "Charger un preset sur un nœud"
+  help: 'load a preset''s values onto a node (e.g. node preset apply lead workspace "warm pad"); with no preset, list them'
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: scope, optional: true, hint: "where the preset is kept: workspace, or a library's name" },
+      { name: name, optional: true, hint: "the preset's name, quoted when it holds spaces" },
+    ]
+- command: "node preset save"
+  sid: node.preset.save
+  readable:
+    en: "Save a node's settings as a new preset"
+    fr: "Enregistrer les réglages d'un nœud comme preset"
+  help: 'keep a node''s current values as a new preset of its module (e.g. node preset save lead "warm pad" st0); the scope defaults to workspace'
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: name, hint: "the new preset's name: letters, digits, space, _ and -" },
+      { name: scope, optional: true, hint: "where to keep it: workspace (the default), or a library's name" },
+    ]
+- command: "node preset update"
+  sid: node.preset.update
+  readable:
+    en: "Overwrite a preset with a node's settings"
+    fr: "Remplacer un preset par les réglages d'un nœud"
+  help: 'overwrite an existing preset with a node''s current values (e.g. node preset update lead workspace "warm pad")'
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: scope, hint: "where the preset is kept: workspace, or a library's name" },
+      { name: name, hint: "the preset's name, quoted when it holds spaces" },
+    ]
 # --- a rack node's TAPS: the sounds of THIS kit, written into the node, never the module ---
 # A rack module is the sampler; each node of it is a kit, so a tap — a note and the library sample it
 # fires — belongs to the node. On an alternative other than the first, to that set. The sample is a

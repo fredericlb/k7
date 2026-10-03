@@ -40,11 +40,9 @@ export const rackKeyOf = (path: string): string | null => {
   return m ? m[2] : null;
 };
 
-/** A module file the BUILDER opens — all three, in both trees, since the builder edits all three and its routes take any. */
+/** A module file the BUILDER opens — both, in both trees, since the builder edits both and its routes take either. */
 export const isModuleFile = (path: string): boolean =>
-  /(^|\/)_?modules\/[^/]+\/([^/]+\/)?(module|ui|presets)\.ya?ml$/i.test(
-    norm(path),
-  );
+  /(^|\/)_?modules\/[^/]+\/([^/]+\/)?(module|ui)\.ya?ml$/i.test(norm(path));
 
 /** The file in `files` that IS `<folder>/<id>`, or null — a lookup and not a search, since `tracks/kick` and `clips/kick` both exist. */
 export function entityFile(

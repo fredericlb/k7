@@ -13,6 +13,7 @@
     "./moduleTypes": "./src/moduleTypes.ts",
     "./placementId": "./src/placementId.ts",
     "./playlist": "./src/playlist.ts",
+    "./presets": "./src/presets.ts",
     "./reference": "./src/reference.ts",
     "./seqWindow": "./src/seqWindow.ts",
     "./songRef": "./src/songRef.ts",

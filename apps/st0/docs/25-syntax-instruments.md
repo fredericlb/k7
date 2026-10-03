@@ -397,8 +397,8 @@ clips while a set is on changes **that set** — the first edit copies in whatev
 the set you came from keeps what it had. A lane's colour and its `disabled` flag stay the lane's,
 shared by every set.
 
-This is not a **preset**. A preset (`presets.yaml`) is a starting point you stamp into the
-module's params — numeric, shared by every use, and gone as a thing once applied. An alternative
+This is not a **preset**. A preset (see PRESETS below) is a starting point you stamp into a
+node's params — numeric, shared by every use of the module, and gone as a thing once applied. An alternative
 is a state you switch between: both survive, one is on, and it belongs to the one module that
 holds it.
 
@@ -419,7 +419,7 @@ alternatives:
 A **compressor** is one module, whichever DSP does the compressing. Tracktion's own, a vari-mu, a
 bus compressor: those are its **engines**, and you pick one on the node. Each engine is a folder
 under the module's `engines/`, with its own `module.yaml`, panel (`ui.yaml`), screen
-(`widgets.js`) and presets. An engine is a module in every respect except one: it is never offered
+(`widgets.js`). An engine is a module in every respect except one: it is never offered
 on its own, only inside the module that holds it.
 
 ```
@@ -451,6 +451,35 @@ corner. From the command bar: `node engine <node> <name>`, and a bare `node engi
 them. An alternative may set `engine:` like any field, so two sets can A/B two engines. In the
 module builder, the strip above the editor has one tab per engine, each opening that engine's own
 files, plus `module` for the module's own file, where the default is set.
+
+## PRESETS — named settings for a module, kept beside the modules
+
+A preset is a name and the values it sets. It is a file of its own, kept in a **presets tree**:
+the workspace's `_presets/`, or a library's `presets/`. Inside either, the path says which module
+it is for — the module's ref without its `@`:
+
+```
+_presets/st0/audio/dynamics/compressor/glue.yaml     # kept in this workspace
+<library>/presets/st0/audio/dynamics/compressor/bus.yaml   # kept in a library, shared with every workspace
+```
+
+```yaml
+# preset for @st0/audio/dynamics/compressor
+engine: vari-mu      # only for a module with several engines
+params:
+  Intensty: 0.6
+  Output Level: 0.8
+```
+
+Every node that extends the module offers the same presets, wherever they are kept. On the graph,
+the **preset** dropdown sits right of the engine dropdown: pick one to load its values onto the
+node, or type a name in its header to save the node's current values as a new preset, in the
+workspace or in a library. Once one is loaded, the header offers to **update** it with what you
+changed since. Loading a preset taken on another engine switches the node to that engine first.
+
+From the command bar: `node preset apply <node> <scope> "<name>"` (a bare
+`node preset apply <node>` lists them), `node preset save <node> "<name>" [scope]` and
+`node preset update <node> <scope> "<name>"`, the scope being `workspace` or a library's name.
 
 ## FREEZING — one render standing in for everything upstream
 

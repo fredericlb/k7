@@ -1,10 +1,10 @@
-// `/module-ui` and `/module-presets` answer for a module FILED under a category folder.
+// `/module-ui` answers for a module FILED under a category folder.
 //
-// Both routes turn a path into a module ref and 400 when they cannot. A `localModuleRef` that
+// The route turns a path into a module ref and 400s when it cannot. A `localModuleRef` that
 // matches exactly four path segments reads `modules/audio/amps/neural-amp-modeler/module.yaml`
-// as "not a module file" — a 400 for a file sitting plainly in the tree, and with it no panel
-// and no preset shelf. It stays invisible wherever a project's own modules are flat; a bench
-// whose `modules/` mirrors a catalogue's filing is where they are not.
+// as "not a module file" — a 400 for a file sitting plainly in the tree, and with it no panel.
+// It stays invisible wherever a project's own modules are flat; a bench whose `modules/` mirrors
+// a catalogue's filing is where they are not.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -43,10 +43,6 @@ describe("a module filed one level deep", () => {
     expect(ui.ref).toBe("audio/amps/neural-amp-modeler");
     // The sidecar sits BESIDE module.yaml, wherever that is.
     expect(ui.path).toContain("amps/neural-amp-modeler");
-  });
-
-  it("has a preset shelf too", () => {
-    expect(ws.modulePresets(FILED).ref).toBe("audio/amps/neural-amp-modeler");
   });
 
   it("still answers for a flat module, and still refuses a non-module", () => {

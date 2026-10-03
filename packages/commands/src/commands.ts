@@ -235,6 +235,7 @@ import { CONSOLE_VERBS } from "./verbs/console.ts";
 import { ENGINE_VERBS } from "./verbs/engine.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
+import { PRESET_VERBS } from "./verbs/preset.ts";
 import { splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
 import { TRACK_VERBS } from "./verbs/track.ts";
@@ -3047,6 +3048,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...TRACK_VERBS,
   // …and a module's ENGINES, which a node picks between — packages/song/docs/engines.md.
   ...ENGINE_VERBS,
+  ...PRESET_VERBS,
   // …and the project's summing CONSOLE — packages/song/docs/console.md.
   ...CONSOLE_VERBS,
 

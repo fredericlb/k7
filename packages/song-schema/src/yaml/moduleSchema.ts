@@ -234,14 +234,6 @@ export const UiFileSchema = UISchema.strict();
 
 export type UiFile = z.infer<typeof UiFileSchema>;
 
-// One `presets.yaml`: the module's named settings, and a preset IS its values — numbers only (docs/moduleFile.md).
-export const PresetsFileSchema = z.record(
-  z.string().min(1),
-  z.record(z.string().min(1), z.number()),
-);
-
-export type PresetsFile = z.infer<typeof PresetsFileSchema>;
-
 // One `controller.yaml`: which MIDI control moves which param, one control per param — see docs/controller.md.
 export const CcBindingSchema = z
   .object({
