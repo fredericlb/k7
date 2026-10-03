@@ -6,6 +6,7 @@
 import { execFile, spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { promisify } from "node:util";
+import { analyseFile } from "@studio/audio-analysis/analyse";
 import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
 import {
@@ -65,17 +66,21 @@ export async function ensureFileEnvelope(
     return cached;
   }
 
-  if (!engineBin)
-    throw new Error(
-      "engine binary not found — cannot compute the waveform cache",
-    );
-
   // Joined rather than started again — the sidecar this leaves is the same one either way.
   const key = `${source}\u0000${wanted ?? ""}`;
   const running = inFlight.get(key);
   if (running) return running;
 
   const decode = (async (): Promise<FileEnvelope> => {
+    // No engine here — the hosted service: ffmpeg writes the same sidecar, as pl8 does (docs/waveformCache.md).
+    if (!engineBin) {
+      const env = await analyseFile(
+        source,
+        wanted ?? DEFAULT_TRANSIENT_SENSITIVITY,
+      );
+      memo.set(source, { mtimeMs, env });
+      return env;
+    }
     // The engine writes `{source}.cache` itself; we just read it back.
     await execFileAsync(
       engineBin,

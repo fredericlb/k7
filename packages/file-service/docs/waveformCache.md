@@ -148,9 +148,13 @@ So `ensureFileEnvelope` keeps an in-flight map keyed by source AND sensitivity: 
 file are one decode, and both callers get its answer. A failed one is dropped rather than joined —
 the next ask should reach for the engine again, not inherit the first one's error.
 
-`ensureFileEnvelope` throws when the engine binary is unavailable: this is engine-only, there is no
-JS decoder fallback. `runWaveformBatch` computes every stale sidecar in ONE engine process
-(`--waveform-batch`), paying JUCE's startup cost once instead of per file.
+Where there is no engine binary — the hosted file service, whose engine is on the musician's machine
+— `ensureFileEnvelope` writes the sidecar with `@studio/audio-analysis` instead, through ffmpeg, as
+pl8 does: the same file, accepted by the engine's reader. Without it, every clip whose sidecar is
+missing or stale on the server — a freeze render just uploaded, a new take — draws no waveform at
+all. `runWaveformBatch` computes every stale sidecar in ONE engine process (`--waveform-batch`),
+paying JUCE's startup cost once instead of per file; with no engine, the prewarm analyses them one
+by one.
 
 ## The three bands
 
