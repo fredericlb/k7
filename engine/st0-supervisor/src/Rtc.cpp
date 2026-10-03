@@ -54,17 +54,27 @@ struct Pipe : std::enable_shared_from_this<Pipe> {
         engine->disableAutomaticReconnection();
         std::weak_ptr<Pipe> weak = self;
         engine->setOnMessageCallback([weak](const ix::WebSocketMessagePtr& m) {
-            if (auto p = weak.lock()) p->onEngine(m);
+            auto p = weak.lock();
+            if (!p) return;
+            try {
+                p->onEngine(m);
+            } catch (const std::exception& e) {
+                p->fail(e.what());
+            }
         });
         dc->onMessage([weak](::rtc::message_variant msg) {
             auto p = weak.lock();
             if (!p) return;
-            std::string bytes;
-            if (auto* b = std::get_if<::rtc::binary>(&msg))
-                bytes.assign(reinterpret_cast<const char*>(b->data()), b->size());
-            else
-                bytes = std::get<std::string>(msg);
-            if (auto frame = p->joiner.push(bytes)) p->toEngine(std::move(*frame));
+            try {
+                std::string bytes;
+                if (auto* b = std::get_if<::rtc::binary>(&msg))
+                    bytes.assign(reinterpret_cast<const char*>(b->data()), b->size());
+                else
+                    bytes = std::get<std::string>(msg);
+                if (auto frame = p->joiner.push(bytes)) p->toEngine(std::move(*frame));
+            } catch (const std::exception& e) {
+                p->fail(e.what());
+            }
         });
         // The pipe owns itself through these two callbacks until either end closes.
         dc->onClosed([self] { self->end(); });
@@ -110,6 +120,13 @@ struct Pipe : std::enable_shared_from_this<Pipe> {
         } else if (m->type == ix::WebSocketMessageType::Close || m->type == ix::WebSocketMessageType::Error) {
             std::thread([self = shared_from_this()] { self->end(); }).detach();
         }
+    }
+
+    /** A data channel closing under a send throws (bad_weak_ptr); uncaught, that aborted the whole supervisor. */
+    void fail(const std::string& what)
+    {
+        if (log) log("rtc pipe: " + what);
+        std::thread([self = shared_from_this()] { self->end(); }).detach();
     }
 
     void end()

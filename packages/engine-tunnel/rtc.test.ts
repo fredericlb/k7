@@ -118,6 +118,30 @@ describe.skipIf(!available).each(agentKinds)(
       pc.close();
     });
 
+    it("outlives a browser closing its path while the engine is talking", async () => {
+      const { RTCPeerConnection } = (await import(
+        "node-datachannel/polyfill"
+      )) as unknown as { RTCPeerConnection: new (cfg: object) => BrowserPeer };
+      // The engine echoes every frame, so it is sending while the second browser hangs up.
+      for (let round = 0; round < 3; round++) {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        const dc = pc.createDataChannel("engine");
+        await pc.setLocalDescription(await pc.createOffer());
+        await until(() => pc.iceGatheringState === "complete", 3000).catch(
+          () => {},
+        );
+        const answer = await hub.signal("e1", pc.localDescription?.sdp ?? "");
+        await pc.setRemoteDescription({ type: "answer", sdp: answer });
+        await until(() => dc.readyState === "open");
+        for (const f of toFragments(JSON.stringify({ type: "ping" })))
+          dc.send(f);
+        await new Promise((r) => setTimeout(r, 200));
+        pc.close();
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      expect(hub.has("e1")).toBe(true);
+    });
+
     it("refuses an offer for an engine with no tunnel", async () => {
       await expect(hub.signal("nobody", "v=0")).rejects.toThrow(/no tunnel/);
     });
