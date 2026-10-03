@@ -248,7 +248,7 @@ the project it produced would put every sample in the repository twice.
 What comes back is the **import log** — what was read, and every warning the mapper raised — shown
 in the popin before anything opens, because a translation is lossy and finding that out inside the
 song is finding it out too late (`packages/translator/docs/import.md`). Then a button opens the
-project, in a new tab like every other project link here.
+project, in this tab like every other project link here.
 
 Only `.dawproject` is taken, and the file service refuses anything else on its own side. A `.als`
 resolves its samples against its own folder, so one dropped alone would import a silent project;
@@ -275,25 +275,26 @@ Neither a MODULE nor a CHAIN is edited on it: both are authored from a project t
 open, against an engine already playing a song that very probably names them
 (`sharedModules.md`), and every other address under `@banc` answers a 404 that says so.
 
-## A project opens in a NEW tab
+## A project opens in THIS tab, and a back arrow returns
 
-Both departures — the indented row under the workspace and the tree's button — are ordinary
-**anchors**, carrying `target="_blank"` (and `rel="noopener"`, since the opened tab has no business
-with the opener). This screen is a LIST, and a list is something you come back to: opening a
-second project means going back and clicking again, and the page it went back to had re-polled every
-machine on the way. The workspace link on an empty repository is the same anchor and behaves the
-same way — what it opens is the first-project wizard, which is a project surface like any other.
+Every departure — the indented row under the workspace, the tree's button, the empty workspace's
+link, the import's **Open** — opens in the same tab. Opening a project is the main reason to be on
+this page, and a new tab for each one stacks tabs nobody closes, each one an editor holding a
+session. The way back is the **back arrow** at the left of the editor's header, ahead of the
+project's name, which links here too (`projectsUrl`, the same address both gates use when they send
+you back). The browser's own Back works as well, since this was an ordinary navigation. On a
+**share** there is neither: the visitor has no account, so no home page to go to (`shared.md`).
+Leaving with an edit the autosave is still holding back is caught by the editor's `beforeunload`
+prompt (`packages/ui-editor/src/unsaved.ts`), and the arrow goes through that prompt like any other
+departure.
 
 It is a whole-page navigation and not a `<Link>`: the project is the router's `basename`, so
-nothing under it can route outside (`packages/project-shell/docs/launch.md`). The way back is still
-there for anyone who wants it — the app's name in the editor's header links to this page
-(`projectsUrl`, the same one both gates use when they send you back here). On a **share** there is
-no link at all: the visitor has no account, so no home page to go to (`shared.md`).
+nothing under it can route outside (`packages/project-shell/docs/launch.md`).
 
 `RepoList` and `RepoTree` receive a `projectHref`, not an `onOpenProject`. **An address and not an
 action** — the page computes where the row leads, the view makes it a link. That is what keeps
-shift-click (a window), ctrl-click and "copy link address" working: the choice of WHERE stays with
-the browser, `target` only saying what a plain click defaults to. A `window.open` in an `onClick`
+ctrl-click (a new tab, for whoever wants one), shift-click and "copy link address" working: the
+browser decides where a click lands, and a plain click lands here. A navigation in an `onClick`
 would answer the same thing to all of them.
 
 ## The tree is not the normal path
@@ -458,7 +459,7 @@ offered only when `origin` is null. It asks for a repository URI — which must 
 sets it as `origin` and pushes (`POST /workspaces/remote`). The push is the half that can fail
 loudly, and git speaks for itself ("Permission denied (publickey)").
 
-Clicking a project goes straight into its application, in a new tab, at
+Clicking a project goes straight into its application, in this tab, at
 `/@local/<workspace>/<dossier>` — an ADDRESS, naming the folder on the machine, which the gate
 opens without asking anybody ([launch.md](../../../../packages/project-shell/docs/launch.md)). That
 gate is `@studio/project-shell`, mounted identically by st0 and by z0's editor, and z0 comes back
@@ -737,15 +738,15 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   you can play. Wire something into it, reopen it → the rig is the scaffold again;
 - **drag a `.dawproject` onto a workspace row**: that row alone lights up, the popin opens on the
   file's name, and the folder under the field follows what you type. Import → the log, with its
-  warnings in amber, then **L'ouvrir** opens the project in a new tab and the row's project count
-  has already gone up. Drop the same file twice under the same name → refused by name, and the
+  warnings in amber, then **L'ouvrir** opens the project in this tab, and Back shows the row's
+  project count already gone up. Drop the same file twice under the same name → refused by name, and the
   first import is untouched. Drag a `.wav` onto a row → it lights up like any file drag (a
   dragover cannot read a name) and the drop is refused in a sentence saying what it takes;
 - unfold a workspace, reload → the same one unfolded, `?ws=` in the address;
 - create a project → the row appears **with no refresh**, in five seconds at worst. Longer means
   the list is not coming from the machine;
-- open a project → it opens in a NEW tab and this one stays on the list; the name in the app's
-  header comes back here, and shift-click still opens a window;
+- open a project → it opens in THIS tab; the back arrow at the left of the header (and the
+  project's name beside it) comes back here, and ctrl-click still opens a new tab;
 - leave a project from the editor, and lose its engine to somebody else → both come back here;
 - create a project in an **empty** repository this machine has never seen → the clone with git's
   progress, then the folder, then the commit;

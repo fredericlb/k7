@@ -5,9 +5,9 @@
 import { Button } from "@frediverse/ui/button";
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
-  ExternalLink,
   File,
   Folder,
   FolderGit2,
@@ -67,16 +67,12 @@ function Row({
           </span>
         </button>
         {/* The one way off this screen: a project opens in ITS app, named by the folder's suffix,
-            in a NEW TAB, this screen being a list you come back to (../../docs/projects.md).
-            An ANCHOR and not a router link, which is what makes the new tab a real navigation. */}
+            in this tab (../../docs/projects.md). An ANCHOR and not a router link: the project
+            is the router's basename, so leaving for it is a whole-page navigation. */}
         {node.app && (
           <Button size="sm" variant="secondary" asChild>
-            <a
-              href={projectHref(node.path, node.app)}
-              target="_blank"
-              rel="noopener"
-            >
-              <ExternalLink className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
+            <a href={projectHref(node.path, node.app)}>
+              <ArrowRight className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
             </a>
           </Button>
         )}
