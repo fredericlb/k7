@@ -281,9 +281,7 @@ export class WaveformOps {
 
     const engineBin = findEngineBinary();
     // Phase 1: rebuild every stale sidecar in ONE engine process, so a song of fresh clips pays JUCE startup once.
-    const stale = engineBin
-      ? staleWaveformSources(clips.map((c) => c.source))
-      : [];
+    const stale = staleWaveformSources(clips.map((c) => c.source));
     this.warmState = {
       warming: stale.length > 0,
       done: 0,
@@ -307,6 +305,14 @@ export class WaveformOps {
         );
       } catch {
         /* engine unavailable mid-batch — the on-demand path surfaces it */
+      }
+    } else if (stale.length) {
+      // No engine here: ffmpeg, one file at a time, each decode its own process anyway.
+      let done = 0;
+      for (const s of stale) {
+        if (run !== this.warmRun || ac.signal.aborted) break;
+        await ensureFileEnvelope(s, null).catch(() => {});
+        this.warmState = { warming: true, done: ++done, total: stale.length };
       }
     }
     if (run !== this.warmRun) return;
