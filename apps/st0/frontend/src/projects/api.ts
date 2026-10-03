@@ -27,6 +27,8 @@ import {
   type SurfacedProjectList,
   USER_HEADER,
   WORKSPACE_HEADER,
+  type WorkspaceSync,
+  type WorkspaceSyncList,
 } from "@studio/web-protocol";
 import {
   BENCH_PROJECT,
@@ -478,6 +480,17 @@ export const accountFiles = {
       "delete",
     );
   },
+
+  /** Where every workspace stands against its repository — slow-polled, since it fetches. */
+  workspaceSync: async (m: AccountFiles): Promise<WorkspaceSync[]> =>
+    (
+      await json<WorkspaceSyncList>(
+        await fetch(`${m.fileBase}/workspaces/sync`, {
+          headers: filesHeaders(m),
+        }),
+        "sync",
+      )
+    ).workspaces,
 
   /** Shrink a workspace's repository to its working tree — the bin emptied, the history one commit. */
   compactWorkspace: async (

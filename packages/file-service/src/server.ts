@@ -27,6 +27,7 @@ import {
   type ServedProjectReply,
   type SurfacedProjectList,
   type WorkspaceList,
+  type WorkspaceSyncList,
 } from "@studio/web-protocol";
 import { benchChainOf, isBenchProject } from "@studio/web-protocol/projects";
 import express, { type Response } from "express";
@@ -70,6 +71,7 @@ import { renderRouter } from "./routes/render.ts";
 import { installServiceLog } from "./serviceLog.ts";
 import { rootDir } from "./slug.ts";
 import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
+import { workspaceSync } from "./workspaceSync.ts";
 import {
   assertSshGitUri,
   createWorkspace,
@@ -272,6 +274,17 @@ app.get(
   wrap(async (req, res) => {
     const reply: AccountWorkspaceList = {
       workspaces: await listMachineWorkspaces(req.userEmail!),
+    };
+    res.json(reply);
+  }),
+);
+
+/** …and where each one stands against its repository, apart: it fetches, the list must not wait on a host. */
+app.get(
+  "/workspaces/sync",
+  wrap(async (req, res) => {
+    const reply: WorkspaceSyncList = {
+      workspaces: await workspaceSync(req.userEmail!),
     };
     res.json(reply);
   }),

@@ -379,6 +379,24 @@ finishes the job. What compacting does NOT do is purge the host: the remote's ot
 and so do the LFS objects already uploaded, which only the host's own tools can delete. Every other
 clone of the repository diverges and has to be cloned again. The confirmation names both costs.
 
+## Sync state
+
+`workspaceSync.ts` (`GET /workspaces/sync`) tells the home page, for each workspace, how many paths
+`git status` lists, how many commits the upstream lacks, and how many it has that this copy lacks.
+
+**It is a route of its own and not a field of the listing.** "Not pulled" is only true after a
+`git fetch`, and a fetch is a network call that can take seconds or hang on a host that is down.
+The listing is polled every three seconds and must answer at once. So the page polls sync on a
+slower timer of its own, and the service fetches each workspace **at most once a minute**,
+bounded at 20 s. A poll that finds a fetch running joins it instead of starting another. Each call
+recounts the local figures, so a commit made in the editor shows on the next poll.
+
+**`ahead` and `behind` are null with no upstream.** A workspace with no repository has no "not
+pushed": its commits have nowhere to go, and its row says only what is uncommitted.
+
+**A failed fetch is reported in `fetchError` and not as a failure.** `behind` is then as old as the
+last fetch that worked: still the best answer there is, and a wrong zero would not be.
+
 ## An import brings the LIBRARIES up to date too
 
 The libraries are the account's, not the workspace's: no workspace holds a copy
