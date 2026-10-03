@@ -13,6 +13,7 @@ import type {
 } from "@studio/web-protocol";
 import { isDroppableProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
+import { type GitReport, runGit } from "../components/GitBusy";
 import { formatBytes } from "../components/UploadProgress";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref, workspaceHref } from "./api";
@@ -33,6 +34,14 @@ import {
   publishWorkspace,
   renameProjectAndCommit,
 } from "./workspaceOps";
+
+/** A step callback that also feeds the git overlay's detail line. */
+const narrate =
+  (onStep: (s: string) => void, report: GitReport) =>
+  (s: string): void => {
+    onStep(s);
+    report({ detail: s });
+  };
 
 export function ProjectsPane({
   workspaces,
@@ -94,7 +103,12 @@ export function ProjectsPane({
       try {
         // Importing IS the clone: the workspace lands on this disk and opens by its
         // `@local` address, which the row then says in words — ../../docs/projects.md.
-        await ensureWorkspace(chosen(), uri, setAdding, setProgress);
+        await runGit(m["git.cloning"](), (report) =>
+          ensureWorkspace(chosen(), uri, setAdding, (p) => {
+            setProgress(p);
+            report({ detail: p.detail, percent: p.percent });
+          }),
+        );
       } finally {
         // The dialog reports its own failure and stays open; this only stops the row's narration.
         setAdding(null);
@@ -125,7 +139,9 @@ export function ProjectsPane({
     async (w: AccountWorkspace) => {
       setError(null);
       try {
-        const r = await accountFiles.compactWorkspace(chosen(), w.name);
+        const r = await runGit(m["git.compacting"]({ workspace: w.name }), () =>
+          accountFiles.compactWorkspace(chosen(), w.name),
+        );
         const freed = formatBytes(r.freed);
         showToast(
           r.pushError
@@ -160,9 +176,9 @@ export function ProjectsPane({
   const publish = useCallback(
     (w: AccountWorkspace, uri: string, onStep: (s: string) => void) => {
       setError(null);
-      return publishWorkspace(chosen(), w.name, uri, onStep).finally(
-        refreshSync,
-      );
+      return runGit(m["git.publishing"]({ workspace: w.name }), (report) =>
+        publishWorkspace(chosen(), w.name, uri, narrate(onStep, report)),
+      ).finally(refreshSync);
     },
     [chosen, refreshSync],
   );
@@ -174,13 +190,17 @@ export function ProjectsPane({
       onStep: (s: string) => void,
       shape: ProjectShape,
     ) => {
-      const { gripe } = await createProjectAndCommit(
-        chosen(),
-        w.name,
-        folder,
-        onStep,
-        shape,
-        !w.origin,
+      const { gripe } = await runGit(
+        m["git.creatingProject"]({ name: folder }),
+        (report) =>
+          createProjectAndCommit(
+            chosen(),
+            w.name,
+            folder,
+            narrate(onStep, report),
+            shape,
+            !w.origin,
+          ),
       );
       onChanged();
       // The project EXISTS; only the push failed. Throwing would invite a retry.
@@ -195,12 +215,16 @@ export function ProjectsPane({
       p: RepoProject,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await deleteProjectAndCommit(
-        chosen(),
-        w.name,
-        p.path,
-        onStep,
-        !w.origin,
+      const { gripe } = await runGit(
+        m["git.deletingProject"]({ path: p.path }),
+        (report) =>
+          deleteProjectAndCommit(
+            chosen(),
+            w.name,
+            p.path,
+            narrate(onStep, report),
+            !w.origin,
+          ),
       );
       onChanged();
       if (gripe) setError(m["projects.deletedBut"]({ path: p.path, gripe }));
@@ -258,14 +282,18 @@ export function ProjectsPane({
       folder: string,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await copyProjectAndCommit(
-        chosen(),
-        w.name,
-        p.path,
-        to.name,
-        folder,
-        onStep,
-        !to.origin,
+      const { gripe } = await runGit(
+        m["git.copyingProject"]({ path: p.path, to: to.name }),
+        (report) =>
+          copyProjectAndCommit(
+            chosen(),
+            w.name,
+            p.path,
+            to.name,
+            folder,
+            narrate(onStep, report),
+            !to.origin,
+          ),
       );
       onChanged();
       // The copy IS there; only its push failed. Throwing would invite a retry that clobbers.
@@ -283,13 +311,17 @@ export function ProjectsPane({
       folder: string,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await renameProjectAndCommit(
-        chosen(),
-        w.name,
-        p.path,
-        folder,
-        onStep,
-        !w.origin,
+      const { gripe } = await runGit(
+        m["git.renamingProject"]({ path: p.path, name: folder }),
+        (report) =>
+          renameProjectAndCommit(
+            chosen(),
+            w.name,
+            p.path,
+            folder,
+            narrate(onStep, report),
+            !w.origin,
+          ),
       );
       onChanged();
       // Renamed, unpushed: the same rule the other three follow — say it, do not throw.

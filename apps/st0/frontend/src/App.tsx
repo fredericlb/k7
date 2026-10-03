@@ -101,6 +101,7 @@ import {
   EngineSyncProgress,
   syncRunning,
 } from "./components/EngineSyncProgress";
+import { GitBusyOverlay, runGit } from "./components/GitBusy";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
@@ -2072,9 +2073,19 @@ export default function App({
       const madeRef = wire ? chainRefFromCreate(s) : null;
       try {
         // This one DOES want the graph, unconditionally: ChainsTab stays mounted when hidden and would refetch it anyway.
-        const { output, refused, graph, rev, changed } = await api.command(s, {
-          want: ["graph"],
-        });
+        const send = () => api.command(s, { want: ["graph"] });
+        const gitVerb = /^project (commit|pull|alternative)\b/.exec(s)?.[1];
+        // A repo verb locks the page until git is done — docs/projects.md § Git is blocking.
+        const { output, refused, graph, rev, changed } = gitVerb
+          ? await runGit(
+              gitVerb === "commit"
+                ? m["git.commit"]()
+                : gitVerb === "pull"
+                  ? m["git.pull"]()
+                  : m["git.alternative"](),
+              send,
+            )
+          : await send();
         // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
         const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
         if (refused) setRefusal(said);
@@ -4365,6 +4376,7 @@ export default function App({
 
         {/* Global toast notifications — positioned bottom-right, above everything */}
         <Toaster />
+        <GitBusyOverlay />
         {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
         <AskHost />
       </div>

@@ -692,5 +692,17 @@
   "engineSwitch.inUse": "occupé",
   "engineSwitch.incompatible": "Compatible à {score} % — il manque à ce moteur : {missing}",
   "engineLoad.hint": "Le moteur occupe {memory} de mémoire ; ses plugins prennent {cpu} % de chaque bloc audio. Chaque nœud affiche sa part.",
-  "ed.libraryDeleteBody": "Il est retiré de la bibliothèque « {library} » et publié aussitôt ; l'historique de la bibliothèque le garde."
+  "ed.libraryDeleteBody": "Il est retiré de la bibliothèque « {library} » et publié aussitôt ; l'historique de la bibliothèque le garde.",
+  "git.wait": "git travaille sur le dépôt — la page est verrouillée jusqu'à la fin",
+  "git.compacting": "Compactage de {workspace} : historique réécrit en un seul commit, nettoyage, puis push forcé",
+  "git.cloning": "Clonage du dépôt sur le serveur",
+  "git.publishing": "Publication de {workspace} : dépôt défini et envoi",
+  "git.creatingProject": "Création de {name} et commit",
+  "git.copyingProject": "Copie de {path} vers {to} et commit",
+  "git.renamingProject": "Renommage de {path} en {name} et commit",
+  "git.deletingProject": "Suppression de {path} et commit",
+  "git.commit": "Commit et envoi de l'espace de travail",
+  "git.pull": "Récupération de l'espace de travail depuis son dépôt",
+  "git.alternative": "Changement d'alternative git de l'espace de travail",
+  "git.libraries": "Mise à jour des bibliothèques depuis leurs dépôts"
 }

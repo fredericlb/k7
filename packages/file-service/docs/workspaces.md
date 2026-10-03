@@ -46,10 +46,12 @@ Four things are written at init, and each answers a failure:
   `GIT_CONFIG_GLOBAL` to `/dev/null` (see below), so a machine WITH a git identity has none
   here, and the very first commit would fail with *"Please tell me who you are"* — on a musician's
   machine, in a screen that has no business explaining git config. A CLONED workspace has no
-  such config, and the hosted container has no global identity either, so the commits the web
-  makes (`webGitEnv` in `src/engineLink.ts` — a project delete, `project commit`) carry the
-  editing account as `GIT_AUTHOR_*` / `GIT_COMMITTER_*`: the author is the person editing,
-  whatever the repository or the machine says.
+  such config, and the hosted container has no global identity either, so EVERY git call this
+  service makes carries the editing account as `GIT_AUTHOR_*` / `GIT_COMMITTER_*` — the
+  commits the web makes (`webGitEnv` in `src/engineLink.ts` — a project delete,
+  `project commit`) and the workspace-level ones (`gitEnvFor` in `src/workspaces.ts` — a
+  compaction's root commit): the author is the person editing, whatever the repository or the
+  machine says.
 - **A `.gitattributes` routing media through LFS**, and the repo-local filter behind it — see
   [Media through LFS](#media-through-lfs).
 

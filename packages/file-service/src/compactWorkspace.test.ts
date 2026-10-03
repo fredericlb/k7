@@ -59,6 +59,15 @@ afterEach(() => {
 });
 
 describe("compactWorkspace", () => {
+  it("commits as the account when the repository has no identity of its own", async () => {
+    const { root } = workspace("cloned");
+    // A clone carries no user.email, and the global config is blanked by gitEnvFor.
+    git(root, "config", "--unset", "user.email");
+    git(root, "config", "--unset", "user.name");
+    await compactWorkspace(USER, "cloned");
+    expect(git(root, "log", "-1", "--format=%ae %ce")).toBe(`${USER} ${USER}`);
+  });
+
   it("leaves one commit holding the working tree, here and on origin", async () => {
     const { root, bare } = workspace("songs");
     const oldBlob = git(root, "rev-parse", "HEAD~1:old.wav");

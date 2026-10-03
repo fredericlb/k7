@@ -5,9 +5,9 @@
   "type": "module",
   "description": "The hosted media library: a folder on a volume, served over HTTP. The filesystem is the index, exactly as it is on the machine that caches it \u2014 the one exception being the comments left on a frozen share, which are concurrent writes and live in SQLite (docs/comments.md).",
   "scripts": {
-    "dev": "STUDIO_FILES_WATCH=1 NODE_OPTIONS=--experimental-sqlite tsx watch src/server.ts",
+    "dev": "node scripts/with-env.mjs STUDIO_FILES_WATCH=1 NODE_OPTIONS=--experimental-sqlite tsx watch src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "NODE_OPTIONS=--experimental-sqlite vitest run"
+    "test": "node scripts/with-env.mjs NODE_OPTIONS=--experimental-sqlite vitest run"
   },
   "dependencies": {
     "@frediverse/env": "*",

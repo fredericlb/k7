@@ -695,6 +695,24 @@ and therefore invisible most of the time.
 A second, quieter price: **this popin is behind the project list, which needs a machine.** Shares
 are not in the "settable with the engine off" column, where the libraries are.
 
+## Git is blocking
+
+Every git operation this app STARTS locks the page until it is done: one overlay in the centre of
+the screen, saying in words what git is doing, over a bar that is measured when git reports a
+percentage (a clone) and slides otherwise. Keys are swallowed while it is up. That covers the home
+page's clone, publish, compact, and the project create / copy / rename / delete that commit, the
+libraries card's add / remove / update, and the editor's `project commit`, `project pull` and
+`project alternative` — all through `runGit` in `src/components/GitBusy.tsx`, and
+`<GitBusyOverlay/>` mounted once in `Home.tsx` and once in `App.tsx`.
+
+What forced it: a write that rewrites a repository (a compaction force-pushes, a pull moves the
+working tree, an alternative switches branch) races any edit made under it, and a second git
+command on the same repository fails on git's index lock with a message nobody can act on.
+Locking the page is cheaper than explaining either.
+
+What is NOT behind it: the background polls (`useWorkspaceSync`, the share badge's status). They
+read and fetch on a timer, and a lock every twenty seconds would make the page unusable.
+
 ## Two polls, because there are two services
 
 The project list is asked of the **machine**, the shares of **pl8**: two services, two timers, and

@@ -692,5 +692,17 @@
   "engineSwitch.inUse": "in use",
   "engineSwitch.incompatible": "{score}% compatible — this engine is missing: {missing}",
   "engineLoad.hint": "The engine uses {memory} of memory; its plugins take {cpu}% of each audio block. Each node shows its own share.",
-  "ed.libraryDeleteBody": "It is removed from the “{library}” library and published at once; the library's history still holds it."
+  "ed.libraryDeleteBody": "It is removed from the “{library}” library and published at once; the library's history still holds it.",
+  "git.wait": "git is working on the repository — the page is locked until it is done",
+  "git.compacting": "Compacting {workspace}: rewriting its history as one commit, pruning, then force-pushing",
+  "git.cloning": "Cloning the repository onto the server",
+  "git.publishing": "Publishing {workspace}: setting its repository and pushing it",
+  "git.creatingProject": "Creating {name} and committing it",
+  "git.copyingProject": "Copying {path} into {to} and committing it",
+  "git.renamingProject": "Renaming {path} to {name} and committing it",
+  "git.deletingProject": "Deleting {path} and committing it",
+  "git.commit": "Committing and pushing the workspace",
+  "git.pull": "Pulling the workspace from its repository",
+  "git.alternative": "Switching the workspace's git alternative",
+  "git.libraries": "Updating the libraries from their repositories"
 }

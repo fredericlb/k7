@@ -20,6 +20,7 @@ import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
+import { GitBusyOverlay } from "../components/GitBusy";
 import { RightPanel } from "../components/RightPanel";
 import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
@@ -242,6 +243,7 @@ export function Home() {
       <AskHost />
       {/* Where a workspace's compaction says what it gave back. */}
       <Toaster />
+      <GitBusyOverlay />
       <AppHeader
         title="st0"
         subtitle={m["home.projects"]()}

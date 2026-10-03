@@ -19,6 +19,7 @@ import type {
   AccountLibrary,
 } from "@studio/web-protocol";
 import { useEffect, useState } from "react";
+import { runGit } from "../components/GitBusy";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
 import { accountFiles } from "./api";
@@ -70,7 +71,8 @@ export function LibrariesCard({
     setBusy(what);
     setError(null);
     setNotes([]);
-    void call()
+    // Adding, removing and updating a library all clone or pull: the page waits for git.
+    void runGit(m["git.libraries"](), call)
       .then((r) => {
         setLibraries(r.libraries);
         setNotes(worthSaying(r));

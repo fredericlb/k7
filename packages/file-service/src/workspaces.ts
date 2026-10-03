@@ -180,8 +180,14 @@ function gitSaid(e: unknown): string {
 export { assertSshGitUri };
 
 export function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
+  const name = userEmail.split("@")[0] || "studio";
   return {
     ...process.env,
+    // A clone and the hosted container carry no identity, and the global one is blanked below.
+    GIT_AUTHOR_NAME: name,
+    GIT_AUTHOR_EMAIL: userEmail,
+    GIT_COMMITTER_NAME: name,
+    GIT_COMMITTER_EMAIL: userEmail,
     GIT_SSH_COMMAND: sshCommand(userEmail),
     GIT_TERMINAL_PROMPT: "0", // fail rather than prompt (no terminal to answer)
     // Load-bearing, not hygiene: a personal `insteadOf` rewrite turns the SSH URI back to https.
