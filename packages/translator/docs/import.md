@@ -85,6 +85,16 @@ on the lane at the same beats, which reads as overlapping takes the source proje
 one real export, 48 of 124 clips were that, and the arrangement looked doubled. There is nothing to
 warn about — a container not playing a child is the ordinary case, not a fault.
 
+**A child cut at its head plays from where the cut lands IN it.** The beats the window clips off
+the front are material this placement skips, so they are added to the child's own `playStart`.
+Bitwig writes every audio clip this way — a container whose `playStart` selects a slice of one take
+placed at 0 — and an in-point read from the child alone plays every such clip from the top of the
+take, shifted by exactly the container's `playStart`. Children of a nested container are placed
+against its unclamped start for the same reason.
+
+**`enable="false"` is carried as the placement's `disabled`**, on the clip and on everything under a
+disabled container: the clip stays visible on the lane and silent, as it was in the source.
+
 ### Content written once and placed several times
 
 A `<Clip>` may carry no content at all and name a `reference` instead: DAWproject writes one

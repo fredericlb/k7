@@ -275,12 +275,14 @@ function collectClips(
   bounds: { start: number; end: number } | null,
   out: ClipOut[],
   ctx: CollectCtx,
+  parentDisabled = false,
 ): void {
   for (const raw of clips) {
     // Content written elsewhere and pointed at is read in here, so the branches below see one shape.
     const clip = withReferenced(raw, ctx);
     const time = num(clip["@_time"]);
-    let start = baseStart + (time - basePlayStart);
+    const rawStart = baseStart + (time - basePlayStart);
+    let start = rawStart;
     const duration = num(clip["@_duration"]);
     let end = start + duration;
     if (bounds) {
@@ -292,6 +294,10 @@ function collectClips(
     // does not play it. Emitting it anyway put a pile of zero-length clips on the lane, reading as
     // overlaps the source project never had — 48 of 124 on one real export. See docs/import.md.
     if (length <= 0) continue;
+    // The head the container's window cuts off is material this placement skips — see docs/import.md.
+    const offset = numOrUndef(num(clip["@_playStart"]) + (start - rawStart));
+    // A disabled container silences everything under it, as the source DAW does.
+    const disabled = parentDisabled || clip["@_enable"] === "false";
 
     const notesArr = asArray<any>(clip.Notes?.Note);
     const audio = findAudio(clip);
@@ -304,7 +310,8 @@ function collectClips(
         name: str(clip["@_name"]),
         start: round(start),
         length,
-        offset: numOrUndef(clip["@_playStart"]),
+        offset,
+        ...(disabled ? { disabled } : {}),
         loopStart: numOrUndef(clip["@_loopStart"]),
         loopEnd: numOrUndef(clip["@_loopEnd"]),
         notes: notesArr.map(
@@ -326,20 +333,22 @@ function collectClips(
         source: str(audio.File?.["@_path"]),
         start: round(start),
         length,
-        offset: numOrUndef(clip["@_playStart"]),
+        offset,
+        ...(disabled ? { disabled } : {}),
         fadeIn: fadeOrUndef(clip["@_fadeInTime"]),
         fadeOut: fadeOrUndef(clip["@_fadeOutTime"]),
         warp: warpOf(findWarps(clip), audio),
       });
     } else if (nested.length) {
-      // Container: recurse into its child timeline.
+      // Container: recurse into its child timeline, anchored at its UNCLAMPED start.
       collectClips(
         nested,
-        start,
+        rawStart,
         num(clip["@_playStart"]),
         { start, end },
         out,
         ctx,
+        disabled,
       );
     } else {
       // Nothing we recognise: report it with its child tags, so an unhandled clip shape surfaces rather than vanishes.
