@@ -23,6 +23,7 @@ export interface ClipOut {
   fadeOut?: number; // beats
   loopStart?: number; // midi
   loopEnd?: number; // midi
+  disabled?: boolean; // placed but silenced in the source DAW
   notes?: NoteOut[]; // midi only
   warp?: WarpOut; // audio only: time-stretch / warp settings
 }

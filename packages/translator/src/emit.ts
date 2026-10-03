@@ -203,6 +203,7 @@ function placementOf(
     loops: number;
     fadeIn?: number;
     fadeOut?: number;
+    disabled?: boolean;
   },
   num: number,
   den: number,
@@ -213,6 +214,7 @@ function placementOf(
   };
   // The clip's extent is NOT written here: it belongs to the material — see docs/import.md.
   if (p.loops > 1) out.loop = p.loops;
+  if (p.disabled) out.disabled = true;
   const opt = (k: string, v?: number) => {
     if (v) out[k] = beatsToDuration(v, num, den);
   }; // drop zeros
@@ -454,7 +456,12 @@ export function emitFolder(
         );
         placements.push(
           placementOf(
-            { ref: cid, start: c.start, loops: w.loops },
+            {
+              ref: cid,
+              start: c.start,
+              loops: w.loops,
+              disabled: c.disabled,
+            },
             tsNum(song),
             tsDen(song),
           ),
@@ -499,6 +506,7 @@ export function emitFolder(
               loops: w.loops,
               fadeIn: c.fadeIn,
               fadeOut: c.fadeOut,
+              disabled: c.disabled,
             },
             tsNum(song),
             tsDen(song),

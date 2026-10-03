@@ -67,6 +67,42 @@ describe("a container plays a window of its children", () => {
     expect(only.length).toBe(2);
   });
 
+  it("starts a cut child where the window starts IN it, not at its own top", () => {
+    // Bitwig's audio shape: a container at 20 playing from 20 of a take placed at 0 — the take must play from 20.
+    const r = parse(
+      `<Clip time="20.0" duration="36.0" playStart="20.0"><Clips>
+         <Clip time="0.0" duration="256.0" playStart="0.0">${note}</Clip>
+       </Clips></Clip>`,
+    );
+    const [only] = r.song.tracks[0]?.clips ?? [];
+    expect(only.start).toBe(20);
+    expect(only.length).toBe(36);
+    expect(only.offset).toBe(20);
+  });
+
+  it("adds the cut to the child's own in-point", () => {
+    // Container plays from 8 of a child placed at 3 that itself starts 1 beat in: 1 + (8 - 3).
+    const r = parse(
+      `<Clip time="8.0" duration="8.0" playStart="8.0"><Clips>
+         <Clip time="3.0" duration="30.0" playStart="1.0">${note}</Clip>
+       </Clips></Clip>`,
+    );
+    const [only] = r.song.tracks[0]?.clips ?? [];
+    expect(only.start).toBe(8);
+    expect(only.offset).toBe(6);
+  });
+
+  it("carries a disabled clip as disabled, a disabled container's children included", () => {
+    const r = parse(
+      `<Clip time="0.0" duration="4.0" enable="false">${note}</Clip>
+       <Clip time="4.0" duration="4.0" playStart="0.0" enable="false"><Clips>
+         <Clip time="0.0" duration="4.0">${note}</Clip>
+       </Clips></Clip>
+       <Clip time="8.0" duration="4.0">${note}</Clip>`,
+    );
+    expect(midi(r).map((c) => c.disabled)).toEqual([true, true, undefined]);
+  });
+
   it("drops a clip the source gave no duration at all", () => {
     // Nothing to play, container or not — and nothing to warn about either.
     const r = parse(`<Clip time="4.0" duration="0.0">${note}</Clip>`);
