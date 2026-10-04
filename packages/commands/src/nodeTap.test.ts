@@ -103,6 +103,18 @@ it("removes a tap, and refuses one the node does not have", async () => {
   expect(logs.join(" ")).toContain("has no tap 'BD'");
 });
 
+it("refuses to remove an inherited tap, leaving a node with no rack of its own untouched", async () => {
+  writeFileSync(
+    moduleFile(),
+    "type: rack\nrack:\n  symbols:\n    BD: { note: 36 }\n",
+  );
+  await runCommand("node tap remove kit BD", host(), "cli");
+  expect(logs.join(" ")).toContain("comes from kit's module");
+  expect(readFileSync(join(dir, "nodes", "kit.yaml"), "utf8")).toBe(
+    'extends: "@workspace/instruments/drums"\ntype: rack\n',
+  );
+});
+
 it("writes into the ALTERNATIVE that is on, as a knob does", async () => {
   writeFileSync(
     join(dir, "nodes", "kit.yaml"),

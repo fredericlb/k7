@@ -16,6 +16,10 @@ over a module stating none is the ordinary merge. What was missing was the editi
 verbs write the NODE's file — the selected alternative's when a set other than the first is on, the
 same rule a knob follows (`alternatives.md`), which is what lets two sets be two kits.
 
+An empty `rack:` — no value, `{}`, or a `symbols:` with nothing under it — reads as a kit stating
+no pads of its own, the same as no `rack:` at all. It is what a hand-edit leaves after deleting the
+last pad, and refusing it would make the node vanish from the graph over a blank line.
+
 A kit can be kept and reloaded as a PRESET of its rack module — the `rack:` of a preset file,
 which loads in place of the node's own taps and refuses a `@project/` sample (`userPresets.md`).
 

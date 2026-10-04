@@ -55,8 +55,12 @@ function editTaps(
     const base = tapBase(text);
     // A node with no `rack:` of its own has nothing yaml's deleteIn/setIn can descend through.
     const parent = base.slice(0, -1);
-    if (doc.getIn(parent) == null) doc.setIn(parent, doc.createNode({}));
+    const made = doc.getIn(parent) == null;
+    if (made) doc.setIn(parent, doc.createNode({}));
     change(doc, base);
+    // A refused edit leaves the node's file as it found it, not with an empty `rack:` added.
+    const kept = doc.getIn(parent);
+    if (made && isMap(kept) && !kept.items.length) return text;
     const symbols = doc.getIn(base);
     if (isMap(symbols))
       for (const item of symbols.items)

@@ -303,7 +303,15 @@ const MODULE_FIELDS = {
   font: z.string().optional(),
   // A param is a NUMBER, except the few the plugin steers with a file it loads — see docs/moduleAssets.md.
   params: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
-  rack: RackSchema.optional(),
+  // An empty `rack:` or `symbols:` is a kit stating no pads of its own — packages/song/docs/racks.md.
+  rack: z
+    .preprocess((v) => {
+      const r = (v ?? {}) as Record<string, unknown>;
+      return typeof r === "object" && r.symbols == null
+        ? { ...r, symbols: {} }
+        : r;
+    }, RackSchema)
+    .optional(),
   // A COLD module needs the whole of its input before it can produce any of it — see docs/coldModules.md.
   cold: z.boolean().optional(),
   // Where the MODEL a file-valued param names (`onnx:`, `nam:`) can be downloaded from, when this machine has not got

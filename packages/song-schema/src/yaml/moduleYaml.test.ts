@@ -117,6 +117,15 @@ rack:
     );
     expect(bad.value).toBeNull();
   });
+
+  it.each(["rack:\n", "rack: {}\n", "rack:\n  symbols:\n"])(
+    "reads an empty rack as a kit with no pads of its own: %j",
+    (rack) => {
+      const { value, issues } = parseModule(`type: rack\n${rack}`);
+      expect(issues).toEqual([]);
+      expect(value?.rack).toEqual({ rack_type: "samples", symbols: {} });
+    },
+  );
 });
 
 describe("this app's vocabulary survives YAML", () => {
