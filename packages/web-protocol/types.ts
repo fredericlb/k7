@@ -50,7 +50,12 @@ export interface WorkspaceInfo {
   lastTake?: { clip: string; track: string } | null;
   // The project's files being copied to the engine's machine before it plays — packages/file-service/docs/engineSync.md.
   engineSync?: EngineSyncState | null;
+  // Where the opened project stands on its way to playable; null once it is — packages/file-service/docs/engineLoad.md.
+  engineLoad?: EngineLoadPhase | null;
 }
+
+// Copied to the engine's machine, applied by the engine, then played half a second in silence.
+export type EngineLoadPhase = "copying" | "applying" | "warming";
 
 // A copy to the engine's machine: only the files it had to copy count; `error`/`failed` once it went wrong.
 export interface EngineSyncState {

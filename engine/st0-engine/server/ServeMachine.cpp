@@ -224,6 +224,7 @@ void addMachineHandlers(HandlerTable& t) {
         ws.send(json{{"type", "whoami"},
                      {"id", engineId},
                      {"token", engineToken},
+                     {"boot", ctx.bootId},
                      {"bufferSize", timing.bufferFrames},
                      {"sampleRate", timing.sampleRate}}
                     .dump());

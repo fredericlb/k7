@@ -19,6 +19,7 @@ import { z } from "zod";
 import { guard } from "../background.ts";
 import {
   applyClientProject,
+  engineLoadOf,
   enginePreview,
   engineSyncOf,
   prewarmEngineForActive,
@@ -60,6 +61,7 @@ filesRouter.get(
       ...req.ws!.workspaceInfo(),
       lastTake: takeJustRecorded(req.ws!),
       engineSync: engineSyncOf(req.ws!),
+      engineLoad: engineLoadOf(req.ws!),
     });
   }),
 );

@@ -72,6 +72,14 @@ export function ProjectGate({
           minutes: Math.round(IDLE_TIMEOUT_MS / 60000),
         }),
         resume: m["project.resume"](),
+        loading: {
+          copyingTitle: m["engineLoad.copyingTitle"](),
+          copyingBody: m["engineLoad.copyingBody"](),
+          applyingTitle: m["engineLoad.applyingTitle"](),
+          applyingBody: m["engineLoad.applyingBody"](),
+          warmingTitle: m["engineLoad.warmingTitle"](),
+          warmingBody: m["engineLoad.warmingBody"](),
+        },
       }}
       /* A workspace with nothing in it asks for its first project rather than refusing to open. */
       renderEmpty={({ workspace, onCreated }) => (

@@ -6,10 +6,12 @@ import { EngineClient, type EngineUrl } from "@studio/engine-browser";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
+import { showToast } from "@studio/project-shell/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogLine } from "../components/LogsPanel";
 import { engineSession } from "../engineSession";
 import { beginActivity, tally } from "../freezeWatchdog";
+import { m } from "../paraglide/messages.js";
 import { throughPanicRule } from "../transportPanic";
 
 export interface EngineLink {
@@ -107,6 +109,15 @@ export function useEngineLink(
       pushLog("error", `engine: ${text}`);
       onStatus(`engine: ${text}`);
     });
+    // A crash is not a blip: the engine lost the project, and that is said where it cannot be missed.
+    const offRestart = engine.onEngineRestart(() => {
+      pushLog("error", "engine: it crashed and was restarted");
+      showToast({
+        message: m["engine.crashed"](),
+        variant: "error",
+        placement: "top-right",
+      });
+    });
     const offConn = engine.onConnected((c) => {
       setConnected(c);
       // …and re-open the latch above, or a reconnected engine would never read ready again.
@@ -133,6 +144,7 @@ export function useEngineLink(
       offLiveParams();
       offPresets();
       offWarning();
+      offRestart();
       offBusy();
       engine.dispose();
     };

@@ -185,6 +185,11 @@ The identity probe goes back to the **asking socket alone**, so a browser measur
 engines does not spam every client. The token proves this is the real engine for that id; the
 registry verifies it server-side on select.
 
+It also carries `boot`, the start time of this PROCESS. `id` names the machine's engine and stays
+the same when the supervisor relaunches a crashed one; `boot` does not. A browser that reconnects
+and meets another `boot` knows the engine died under it, and st0 says so in a toast — a dropped
+network and a crash otherwise look identical from the browser, and only the second lost the song.
+
 It carries the audio timing in the same reply because the browser is timing *this* round trip to
 get the network half and needs the interface half from the same breath — a second query would
 measure a second, warmer trip.
