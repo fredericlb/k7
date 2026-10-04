@@ -18,7 +18,7 @@ import {
   resolvedType,
   resolveModule,
 } from "@studio/song/moduleResolve";
-import { accountLibraries } from "@studio/song/sharedFolders";
+import { accountLibraries, libraryOverlay } from "@studio/song/sharedFolders";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
 import {
@@ -191,6 +191,10 @@ export function writeNodePreset(
   const ref = presetRefOf(dir, node);
   if (!ref)
     throw new Error(`'${node}' extends no module, so it has no presets`);
+  if (scope !== WORKSPACE_SCOPE && libraryOverlay()?.name !== scope)
+    throw new Error(
+      `a preset is kept in '${scope}' from its bench only — an admin opens it from the Libraries panel`,
+    );
   const path = presetFile(dir, scope, ref, name.trim());
   const exists = existsSync(path);
   if (mode === "new" && exists)

@@ -108,7 +108,7 @@ waveforms, video; z0's editor uses it as it stands.
   (`apps/pl8/docs/banc.md`). It is handed the project part of the address verbatim, because the
   MACHINE is what builds the bench and therefore what decides which address it answers; the
   libraries are the machine's already.
-- **`open`** takes the project and nothing else: the machine keeps the account's libraries and
+- **`open`** takes the project and nothing else: the server keeps the origin's libraries and
   brings them up to date on the way (`packages/file-service/docs/libraries.md`).
 - **`moduleLibraries` and `libraryChains`** sit beside `/tree` because that one is the SONG and
   these are outside it. A chain's `path` comes from the service rather than being built by the

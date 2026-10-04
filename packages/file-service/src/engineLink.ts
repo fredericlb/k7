@@ -59,7 +59,7 @@ import {
   isHeldBack,
   sendWhenSynced,
 } from "./engineSync.ts";
-import { syncLibraries } from "./libraries.ts";
+import { askHubSync } from "./libraries.ts";
 import { namedSongFiles } from "./mediatekPrefetch.ts";
 import {
   closeModuleWatch,
@@ -1091,8 +1091,8 @@ function makeHost(
     gitEnv: webGitEnv(userEmail),
     // Whole-repo git runs at the workspace root — a workspace is one cloned repo — so it works with no project open.
     repoDir: ws.root,
-    // The account's libraries are this service's to keep, not the workspace's — docs/libraries.md.
-    updateLibraries: () => syncLibraries(userEmail ?? "", { force: true }),
+    // The libraries are the hub's to keep, not the workspace's — docs/libraries.md.
+    updateLibraries: () => askHubSync({ force: true }),
     // A process backs up each render here before overwriting it, feeding the recordChange journal.
     snapshot,
   };

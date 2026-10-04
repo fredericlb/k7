@@ -1,13 +1,19 @@
 // bench.ts — the BENCH: one live rig, in a workspace of its own, thrown away and scaffolded again
-// on every open. Nothing it holds is saved anywhere — what survives a session is what you wrote
-// into a library, never the graph you wired to hear it. Rationale: apps/pl8/docs/banc.md.
+// on every open. Two kinds: an admin's bench ON a library (`@banc/@<lib>/live.st0`), the only place
+// that library can be edited, in a clone of its own (libraryBench.ts); and a bench seeded with a
+// library CHAIN, which anyone plays and nobody edits through. Rationale: apps/pl8/docs/banc.md.
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { scaffoldLive } from "@studio/song/scaffoldLive";
-import { BENCH_PROJECT } from "@studio/web-protocol/projects";
+import {
+  BENCH_PROJECT,
+  benchChainOf,
+  benchLibraryOf,
+} from "@studio/web-protocol/projects";
 import { spliceChain } from "./benchChain.ts";
-import { retireWorkspaceLibraries, syncLibraries } from "./libraries.ts";
+import { refreshLibraries, retireWorkspaceLibraries } from "./libraries.ts";
+import { closeLibraryBench, openLibraryBench } from "./libraryBench.ts";
 import { workspaceRoot } from "./slug.ts";
 
 /** The workspace the bench lives in — reserved by convention, capitalised as `Examples` is. */
@@ -16,23 +22,27 @@ export const BENCH_WORKSPACE = "Banc";
 /**
  * The bench's project folder, whether or not it exists: the directory the ACCOUNT's own views
  * (its chains, a cut's model) resolve modules through when no workspace is open. Any project
- * sees the same libraries, since they are the account's; this one is simply always the same.
+ * sees the same libraries; this one is simply always the same.
  */
 export const benchDir = (): string =>
   join(workspaceRoot(BENCH_WORKSPACE), BENCH_PROJECT);
 
-/** The bench, made fresh: the folder is REMOVED and written again, which is the whole of `jetable`; `chain` seeds it with a copy of that library chain. */
+/** The bench `project` names, made fresh: the folder is REMOVED and written again; a library bench opens its clone first. */
 export async function ensureBench(
   userEmail: string,
-  chain?: string,
+  project: string,
 ): Promise<{ workspace: string; project: string }> {
+  const library = benchLibraryOf(project);
+  const chain = library ? null : benchChainOf(project);
+  if (!library && !chain)
+    throw new Error("a bench opens on a library, or on one of their chains");
   const root = workspaceRoot(BENCH_WORKSPACE);
   mkdirSync(root, { recursive: true });
-  // The libraries at their latest, so a chain just published is the one the rig gets — docs/libraries.md.
-  for (const r of await syncLibraries(userEmail))
-    if (r.state === "failed" || r.state === "kept")
-      console.warn(`[libraries] ${r.name}: ${r.note}`);
-  // The bench held the account's clone once; the account holds it now.
+  // The hub's clones at their latest, so a chain just published is the one the rig gets — docs/libraries.md.
+  await refreshLibraries();
+  if (library) await openLibraryBench(userEmail, library);
+  else closeLibraryBench();
+  // The bench held the account's clone once; the hub holds it now.
   const retired = await retireWorkspaceLibraries(userEmail, root).catch(
     (e: Error) => ({ retired: false, note: e.message }),
   );

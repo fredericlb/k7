@@ -4,19 +4,27 @@ A module cannot be judged from its file. What it does has to be heard, and a loa
 only place its parameter names, their bounds and its factory presets exist — lives inside a project
 and nowhere else.
 
-The bench is that project, and it opens by **address**: `/@banc/live.st0`. One address, naming
-nothing: no repository, no chain, no project of the account's. What answers is a `live` rig — an
-input, a fader, the master run out — with the account's library mounted beside it, which is where
-every module it can name comes from.
+The bench is that project, and it opens by **address**. What answers is a `live` rig — an input, a
+fader, the master run out — with the origin's libraries beside it, which is where every module it
+can name comes from. There are two, and a bench always names what it is ON:
 
-`/@banc/<chain ref>/live.st0` is the same rig with a **copy** of that library chain between the
-input and the fader. It is how a chain is HEARD on a live input — k7 records through it
-([apps/k7/docs/chainSource.md](../../k7/docs/chainSource.md)) — and the copy is thrown away with
-the rest of the bench.
+- **`/@banc/@<library>/live.st0`** — an admin's bench ON a library: the rig, with that library
+  read from a clone of the admin's own instead of the server's. It is the only place a library is
+  written ([apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md)), and
+  it is opened from the library's row in st0's Libraries panel. Anyone else gets a 403: a library
+  is every account's, and only the origin's admins change it.
+- **`/@banc/<chain ref>/live.st0`** — the rig with a **copy** of that library chain between the
+  input and the fader. It is how a chain is HEARD on a live input — k7 records through it
+  ([apps/k7/docs/chainSource.md](../../k7/docs/chainSource.md)) — anyone may open it, and it edits
+  no library: opening it ends any library overlay.
 
-> **Nothing on the bench is saved.** The folder is deleted and written again on every open, and no
-> write in it reaches anything shared. What a session keeps is what was written into the LIBRARY:
-> a module edited there is written in place and published by a commit, like any other library edit.
+The bare `/@banc/live.st0` is refused. A rig on nothing would edit nothing and play nothing in
+particular, and the place to hear a module is the bench of its library.
+
+> **Nothing in the RIG is saved.** The folder is deleted and written again on every open. What a
+> library bench keeps is what was written into the LIBRARY: those edits stay in the bench's clone
+> until they are pushed or discarded from the editor's bottom row, and reopening the bench resumes
+> them ([packages/file-service/docs/libraries.md](../../../packages/file-service/docs/libraries.md)).
 
 ## Disposable is the decision
 
@@ -33,44 +41,36 @@ The graph it opens on is what you make of it. Name a module between the input an
 is an effects chain; add nodes and try two settings of the same module side by side. None of it is
 there next time.
 
-## What it needs, and what it draws
+## What it needs
 
-The **library** — every module the rig can name is in that repository, except the fader: it is a
-use of `@meta/audio/mixer`, which ships with st0 (`packages/song/docs/metaModules.md`). So st0's home page draws the bench card under the libraries one and
-does not draw it at all before there is a library
-([apps/st0/frontend/docs/projects.md](../../st0/frontend/docs/projects.md)). An empty library gives
-a fader that resolves to nothing, exactly as it would in any other `live` project.
+The **library** — every module the rig can name is in one, except the fader: it is a use of
+`@meta/audio/mixer`, which ships with st0 (`packages/song/docs/metaModules.md`). So the file service
+refuses a bench before the origin lists a library. An empty library gives a fader that resolves to
+nothing, exactly as it would in any other `live` project.
 
-The clone the bench mounts is the one made when the library's URI was ADDED — validating the URI
-and preparing the bench are the same work, so the first bench costs no clone of its own
-([packages/file-service/docs/libraries.md](../../../packages/file-service/docs/libraries.md)). The
-workspace it sits in is the bench's own, `Banc`, reserved by convention the way `Examples` is.
+A library bench's clone is made from the library's remote with the ADMIN's key, because the push is
+theirs; the server's own key only reads. It is kept until a push leaves it clean, so unpublished
+work is never thrown away by a reopen. The workspace the rig sits in is the bench's own, `Banc`,
+reserved by convention the way `Examples` is.
 
-## A CHAIN is not edited here
+## A CHAIN is not edited on a chain's bench
 
-A chain of the library is authored from a project you already have open: the chains builder writes
-it and the Libraries tab holds it, against the engine already playing the song — and that song very
-probably already names the modules the chain is made of
-([apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md)).
-
-That is the same reason a MODULE is not edited here either. The two things editing needs, an
-editable catalogue and a loaded plugin, are both there without fabricating anything.
-
-`/@banc/` therefore answers exactly one project, bare or seeded with a chain. Seeding is not
-editing: what is turned on the copy reaches nothing shared, so an edit meant to last is still made
-from the chains builder. Anything else under it — `chains/<path>.st0`, `modules.st0` — is a 404
-whose sentence says where the editing happens.
+Seeding is not editing: what is turned on the copy reaches nothing shared. A chain meant to last is
+edited in its library — from the chains builder, in a project the admin has open while that
+library's bench is open, or on the bench itself — and pushed from there. Anything else under `@banc`
+— `chains/<path>.st0`, `modules.st0` — is a 404 whose sentence says where the editing happens.
 
 A chain with a **cold** step is refused on the seeded address, since it cannot run on a live input
 (`packages/file-service/src/benchChain.ts`).
 
 ## What it is not
 
-- **Not a git repository.** It has no URI, it is not cloned, it is not pushed. Version-controlling
-  it would mean version-controlling something deleted on the next open. That is why the address
-  carries a **reserved** repository name, `@banc`: `@` cannot start a git short name, so collision
-  is impossible, and `@studio/project-shell`'s gate takes another route on seeing it — no name
-  resolution at pl8, no clone, one call to the machine.
+- **Not a git repository.** The rig has no URI, it is not cloned, it is not pushed.
+  Version-controlling it would mean version-controlling something deleted on the next open. That is
+  why the address carries a **reserved** repository name, `@banc`: `@` cannot start a git short
+  name, so collision is impossible, and `@studio/project-shell`'s gate takes another route on seeing
+  it — no name resolution at pl8, no clone, one call to the machine. The library a bench edits is a
+  repository, held beside the rig, never in it.
 - **Not in the song's way.** It plays in a session of its own, `banc:<you>`, so it opens beside the
   song you have open rather than taking its place — on the same engine, since your files drive one
   engine at a time ([packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md)).
@@ -86,13 +86,14 @@ A chain with a **cold** step is refused on the seeded address, since it cannot r
 None of this is covered by a green suite past `packages/file-service/src/bench.test.ts`, which
 proves the folder is rebuilt and that nothing leaves it.
 
-- open the bench from the home page → the graph shows the input, the fader and the master run,
-  with no library chain named anywhere;
+- as an admin, open `@st0`'s **Bench** from the Libraries panel → the graph shows the input, the
+  fader and the master run, with no library chain named anywhere;
 - name a library module in the graph, save, listen → it is in the run;
 - reopen the bench → the graph is the scaffold again, and what you wired is gone;
-- edit a library module from the tree, reopen the bench → the edit is there, because it is in the
-  library and not in the bench;
-- open `/@banc/<chain ref>/live.st0` → the chain sits between `IN` and `fader`; reopen `/@banc/live.st0`
-  → it is gone, and the library's own copy was never written;
-- open `/@banc/chains/x.st0` or `/@banc/modules.st0` → a refusal saying where a chain and a module
-  are edited.
+- edit a library module on the bench, reopen it → the edit is there, unpushed, and the bottom row
+  still offers to commit or discard it;
+- open `/@banc/@st0/live.st0` as a non-admin → refused;
+- open `/@banc/<chain ref>/live.st0` → the chain sits between `IN` and `fader`; the library's own
+  copy was never written;
+- open `/@banc/live.st0`, `/@banc/chains/x.st0` or `/@banc/modules.st0` → a refusal saying where a
+  chain and a module are edited.

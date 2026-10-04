@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setLibraryOverlay } from "@studio/song/sharedFolders";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -121,8 +122,18 @@ describe("node preset", () => {
     });
   });
 
-  it("keeps a preset in a library, and lists every scope, workspace first", async () => {
+  it("keeps a preset in a library only from that library's bench", async () => {
     await runCommand("node preset save comp b-lib st0", host(), "cli");
+    expect(
+      existsSync(join(home, "libraries", "st0", "presets", "workspace")),
+    ).toBe(false);
+  });
+
+  it("keeps a preset in a library, and lists every scope, workspace first", async () => {
+    // An admin's bench open on `st0`, the one place its presets are written.
+    setLibraryOverlay({ name: "st0", root: join(home, "libraries", "st0") });
+    await runCommand("node preset save comp b-lib st0", host(), "cli");
+    setLibraryOverlay(null);
     await runCommand("node preset save comp a-ws", host(), "cli");
     expect(
       existsSync(

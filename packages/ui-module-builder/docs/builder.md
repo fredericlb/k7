@@ -18,7 +18,7 @@ Each holds its own text back and says so on its own tab.
 
 **Save writes all four**, not the pane on screen. A module
 is four files describing one thing, and saving the one you happen to be looking at leaves the other
-three behind, which on a shared module means publishing a panel for a plugin nobody else has yet.
+three behind, which on a shared module means committing a panel for a plugin nobody else has yet.
 They are edited together, so they land together. `publish` runs only if every one landed: `flush`
 answers that, and a file held back because it would not compile reports false, so committing a
 module whose `module.yaml` is still yesterday's cannot put a half-edit in front of everybody.
@@ -442,7 +442,7 @@ service already answered.
 **A newly promoted param takes its own name**, and the next free `<name> 2` when the box already
 wears one by that word: the key IS the knob, so two of them would be one knob written twice.
 
-**The Save button, for the reason the module builder has one**: a template is in the account's
-library, so a save is a publish. `useAutosave`'s `manual` mode keeps the validation and the
+**The Save button, for the reason the module builder has one**: a template is in a library, so a
+save writes files somebody will publish together. `useAutosave`'s `manual` mode keeps the validation and the
 held-back buffer and turns the timer off. It opens read-only behind the same confirmation a shared
 module opens behind (`apps/st0/frontend/docs/sharedModules.md`).

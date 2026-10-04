@@ -16,9 +16,9 @@ because a playlist lives at the top of the repository, not inside the project
 The projects in question are the ones **open**: `liveWorkspaces()`, each one's active project. No
 registry of them to keep, and nothing walks the account's folder looking for projects.
 
-Songs only. Modules and chains are in the account's libraries, which the file service clones
+Songs only. Modules and chains are in the origin's libraries, which the file hub clones
 (`packages/song/docs/sharedFolders.md`), and reach the machine through the tunnel's read-only
-`libs-<account>` root, when the engine opens them.
+`libs` root, when the engine opens them.
 
 ## The machine does the copying, the tunnel decides what moves
 

@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setLibraryOverlay } from "@studio/song/sharedFolders";
 import { librariesFixture } from "@studio/song/testSupport";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
@@ -31,10 +32,24 @@ beforeEach(() => {
   writeFileSync(join(proj, "project.yaml"), 'project:\n  name: "song"\n');
   ws = new Workspace(root);
   ws.setActiveProject("song.st0");
+  // An admin's bench open on `st0`: the one state in which a library entry may change.
+  setLibraryOverlay({ name: "st0", root: lib });
 });
 afterEach(() => {
+  setLibraryOverlay(null);
   rmSync(root, { recursive: true, force: true });
   delete process.env.STUDIO_HOME;
+});
+
+it("refuses to rename or delete a library entry with no bench open on that library", async () => {
+  setLibraryOverlay(null);
+  await expect(
+    ws.renameEntry("_libraries/st0/modules/audio/verb", "hall"),
+  ).rejects.toThrow(/bench/);
+  await expect(
+    ws.deleteEntry("_libraries/st0/modules/audio/verb"),
+  ).rejects.toThrow(/bench/);
+  expect(existsSync(join(lib, "modules", "audio", "verb"))).toBe(true);
 });
 
 it("renames a module inside the library's clone", async () => {
@@ -55,9 +70,11 @@ it("deletes a module in place, putting nothing in the workspace's recycle bin", 
 });
 
 it("refuses to rename or delete the library itself", async () => {
-  await expect(ws.deleteEntry("_libraries/st0")).rejects.toThrow(/settings/);
+  await expect(ws.deleteEntry("_libraries/st0")).rejects.toThrow(
+    /listed by the admins/,
+  );
   await expect(ws.renameEntry("_libraries/st0", "x")).rejects.toThrow(
-    /settings/,
+    /listed by the admins/,
   );
 });
 

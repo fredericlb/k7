@@ -1,12 +1,13 @@
-// LibrariesCard.tsx — the account's libraries: the named repositories of modules and chains EVERY
-// project on the account inherits, which this machine clones and keeps at their latest. At the
-// head of the section because nothing below it works first: no project opens without one, and no
-// workspace is made or imported either. Adding one CLONES it, which is what says the URI is a
-// repository — so the button waits.
+// LibrariesCard.tsx — the origin's libraries: the named repositories of modules and chains EVERY
+// project inherits, one list for all accounts, cloned ONCE by the server with its own key. Only an
+// admin sees the add, remove and update controls, the server's key, and each row's Bench — the
+// one place that library is edited; the hub refuses anyone else's write anyway, so hiding them is
+// courtesy, not the gate. Adding one CLONES it, which is what says the URI is a repository.
 // See packages/song/docs/sharedFolders.md and packages/file-service/docs/libraries.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
+  Hammer,
   LibraryBig,
   Loader2,
   RefreshCw,
@@ -22,7 +23,7 @@ import { useEffect, useState } from "react";
 import { runGit } from "../components/GitBusy";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
-import { accountFiles } from "./api";
+import { accountFiles, libraryBenchHref } from "./api";
 import type { AccountFiles } from "./workspaceOps";
 
 /** What a call did to a library, when it is worth reading: kept work, a failure — never "up to date". */
@@ -48,6 +49,16 @@ export function LibrariesCard({
   const [busy, setBusy] = useState<"add" | "update" | string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
+  const [serverKey, setServerKey] = useState<string | null>(null);
+
+  // The key each library repository must accept, read-only: an admin cannot add one without it.
+  useEffect(() => {
+    if (!fileService?.admin) return;
+    void accountFiles
+      .librariesKey(fileService)
+      .then((r) => setServerKey(r.publicKey))
+      .catch(() => setServerKey(null));
+  }, [fileService]);
 
   useEffect(() => {
     // The file service holds them, so there is nothing to read until it answers.
@@ -123,6 +134,7 @@ export function LibrariesCard({
     );
 
   const missing = !libraries.length;
+  const canEdit = fileService?.admin === true;
 
   return (
     <div
@@ -139,7 +151,7 @@ export function LibrariesCard({
           <LibraryBig className="h-4 w-4" />
         )}
         {m["libs.title"]()}
-        {!missing && (
+        {!missing && canEdit && (
           <Button
             variant="ghost"
             size="sm"
@@ -158,63 +170,105 @@ export function LibrariesCard({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {missing
-          ? parts((h) => m["libs.missingBody"](h), {
-              need: <b>{m["libs.needOne"]()}</b>,
-              ref: <code>@st0/…</code>,
-              empty: <b>{m["libs.emptyWord"]()}</b>,
-            })
-          : m["libs.haveBody"]()}
+        {missing && !canEdit
+          ? m["libs.missingAskAdmin"]()
+          : missing
+            ? parts((h) => m["libs.missingBody"](h), {
+                need: <b>{m["libs.needOne"]()}</b>,
+                ref: <code>@st0/…</code>,
+                empty: <b>{m["libs.emptyWord"]()}</b>,
+              })
+            : m["libs.haveBody"]()}
       </p>
+      {!canEdit && (
+        <p className="text-xs text-muted-foreground">{m["libs.adminOnly"]()}</p>
+      )}
 
       {libraries.map((l) => (
-        <div key={l.name} className="flex items-center gap-2 text-xs">
-          <code className="shrink-0 font-semibold">@{l.name}</code>
-          <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1">
-            {l.uri}
-          </code>
-          {!l.cloned && (
-            <span className="shrink-0 text-amber-500">
-              {m["libs.notCloned"]()}
-            </span>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            title={m["libs.remove"]()}
-            onClick={() => remove(l.name)}
-            disabled={busy !== null}
-          >
-            {busy === l.name ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <X className="h-3.5 w-3.5" />
+        <div key={l.name} className="flex flex-col gap-1 text-xs">
+          <div className="flex items-center gap-2">
+            <code className="shrink-0 font-semibold">@{l.name}</code>
+            <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1">
+              {l.uri}
+            </code>
+            {!l.cloned && (
+              <span className="shrink-0 text-amber-500">
+                {l.error ? m["libs.failed"]() : m["libs.notCloned"]()}
+              </span>
             )}
-          </Button>
+            {/* The bench is where a library is EDITED, in a clone of its own — an <a>, since it opens a project. */}
+            {canEdit && l.cloned && (
+              <Button variant="ghost" size="sm" asChild>
+                <a
+                  href={libraryBenchHref(l.name)}
+                  title={m["libs.benchHint"]()}
+                >
+                  <Hammer className="h-3.5 w-3.5" /> {m["libs.bench"]()}
+                </a>
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title={m["libs.remove"]()}
+                onClick={() => remove(l.name)}
+                disabled={busy !== null}
+              >
+                {busy === l.name ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            )}
+          </div>
+          {l.error && (
+            <code className="overflow-x-auto rounded bg-muted px-2 py-1 text-red-400">
+              {l.error}
+            </code>
+          )}
         </div>
       ))}
 
-      <div className="flex items-center gap-2">
-        <input
-          className="w-32 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
-          placeholder={m["libs.namePlaceholder"]()}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-        />
-        <input
-          className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
-          placeholder={m["libs.placeholder"]()}
-          value={uri}
-          onChange={(e) => setUri(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-        />
-        <Button size="sm" onClick={add} disabled={busy !== null || !uri.trim()}>
-          {busy === "add" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-          {/* The wait is a CLONE, so the button says so rather than looking stuck on 'Add'. */}
-          {busy === "add" ? m["libs.cloning"]() : m["libs.add"]()}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-2">
+          <input
+            className="w-32 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
+            placeholder={m["libs.namePlaceholder"]()}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+          />
+          <input
+            className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
+            placeholder={m["libs.placeholder"]()}
+            value={uri}
+            onChange={(e) => setUri(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+          />
+          <Button
+            size="sm"
+            onClick={add}
+            disabled={busy !== null || !uri.trim()}
+          >
+            {busy === "add" && (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            )}
+            {/* The wait is a CLONE, so the button says so rather than looking stuck on 'Add'. */}
+            {busy === "add" ? m["libs.cloning"]() : m["libs.add"]()}
+          </Button>
+        </div>
+      )}
+
+      {canEdit && serverKey && (
+        <div className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">{m["libs.serverKey"]()}</span>
+          <code className="select-all break-all rounded bg-muted px-2 py-1">
+            {serverKey}
+          </code>
+        </div>
+      )}
 
       {notes.map((n) => (
         <p key={n} className="text-xs text-amber-500">

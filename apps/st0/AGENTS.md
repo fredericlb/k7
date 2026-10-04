@@ -211,9 +211,8 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   its first folder, the one case that still redirects.
 
   **The builder is one of the two screens here with a Save button**, and the exception is
-  deliberate: a module is four files describing one thing, and on a shared one a save is a
-  *publish* — a commit and a push onto a repository other people read. Ctrl+S and `:w` mean that
-  button, and they save all four files, not the pane you are looking at. `useAutosave`'s `manual`
+  deliberate: a module is four files describing one thing, and they are only coherent together.
+  Ctrl+S and `:w` mean that button, and they save all four files, not the pane you are looking at. `useAutosave`'s `manual`
   mode is what turns the timer off while keeping its validation and its held-back buffers.
 
   The other is the **Commands settings page**, and for a different reason: what it edits is one
@@ -221,24 +220,27 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   re-render of the whole shell per keystroke (`frontend/docs/shell.md`).
 
   The file tree has a **second tab, Libraries**, listing every level a module can live at —
-  `@workspace`, each of the account's libraries (`@st0`, `@drums`…), `@engine` — nearest first,
+  `@workspace`, each of the origin's libraries (`@st0`, `@drums`…), `@engine` — nearest first,
   which is precedence. They come
   from `GET /module-libraries`, NOT from `/tree`: that one is rooted at the active project and
   excludes the shared folders on purpose — a project keeps no `modules/` of its own to exclude.
   `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
   others offer **New folder…** and **New module…**. A library module opens the same builder,
-  editable at once; its Save writes into `_libraries/<name>/…` and commits and pushes
-  THAT library — nothing forks, because the library is the only copy, and no song repository is
-  touched. One store and one path space: the file service clones the account's libraries under
-  `<studioHome>/libraries` and answers them at the virtual `_libraries/<name>/…` in every
-  workspace (`packages/song/docs/sharedFolders.md`), so it already serves them.
-  `frontend/docs/sharedModules.md` is the page to read; `@banc` opens one live RIG,
-  kept nowhere, and nothing else.
+  but **a library is written only on its BENCH** — `/@banc/@<name>/live.st0`, an admin's, opened
+  from the library's row in the Libraries panel; anywhere else the file service refuses the write.
+  There, Save writes into `_libraries/<name>/…`, which is the admin's own clone of THAT library,
+  and nothing is published until the editor's bottom row (`frontend/src/components/BenchLibraryRow.tsx`) commits and
+  pushes it — or discards it. Nothing forks, because the library is the only copy, and no song
+  repository is touched. One store and one path space: pl8's file hub clones each library ONCE
+  for the whole origin, with the server's own read-only key, and the file service answers it at
+  the virtual `_libraries/<name>/…` in every workspace (`packages/song/docs/sharedFolders.md`,
+  `packages/file-hub/docs/fileHub.md`). `frontend/docs/sharedModules.md` is the page to read; a
+  chain's bench, `/@banc/<chain>/live.st0`, is a live RIG kept nowhere that edits no library.
 
-  **st0 will not open a project without a library.** The account declares its libraries on
-  this app's own home page — the card above everything else — and `ProjectGate` refuses before it
-  clones anything. See `frontend/docs/projects.md` and
-  `packages/project-shell/docs/launch.md`.
+  **st0 will not open a project without a library.** The origin has ONE list, which the admins
+  (pl8's `AUTH_ADMIN_GROUPS`) edit in the home page's header panel, **Libraries** — the same panel
+  that shows them the server's key and each library's **Bench**. `ProjectGate` refuses before it
+  clones anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
   `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer
   between them for the labels, the automation arrows and the hit paths. **Never hand-roll

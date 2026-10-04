@@ -220,6 +220,8 @@ export interface AccountLibrary {
   name: string;
   uri: string;
   cloned: boolean;
+  /** Why this account's last clone or pull of it failed, when it did. */
+  error?: string;
 }
 
 /** What a sync or a prune did to one library, said as the file service would say it. */
@@ -227,6 +229,20 @@ export interface LibraryNote {
   name: string;
   state: "cloned" | "updated" | "current" | "kept" | "failed";
   note: string;
+}
+
+/** `GET /account/libraries/key` — the server's key, which each library repository must accept READ-ONLY. */
+export interface LibrariesKeyReply {
+  publicKey: string;
+}
+
+/** `GET /bench/library` — the library the bench edits, and what its clone holds that its remote does not. */
+export interface BenchLibraryStatus {
+  library: string;
+  /** Files changed and not committed. */
+  changed: number;
+  /** Commits not pushed. */
+  ahead: number;
 }
 
 /** `GET`/`PUT /account/libraries` and `POST /account/libraries/update` — the list, and what the call did to each. */
@@ -681,6 +697,8 @@ export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
 export const ENGINE_ID_HEADER = "x-studio-engine-id";
 /** The file hub's secret, the ONLY gate of a server-hosted file service — packages/file-hub/docs/fileHub.md. */
 export const HUB_SECRET_HEADER = "x-studio-hub-secret";
+/** "1" when the file hub found the caller in the origin's admin groups; a client's own is dropped. */
+export const ADMIN_HEADER = "x-studio-admin";
 /** Where a server that HOSTS workspaces says so; a 404 means it does not. */
 export const FILE_HUB_HELLO = "/api/files-hub";
 
@@ -688,6 +706,8 @@ export const FILE_HUB_HELLO = "/api/files-hub";
 export interface FileHubHello {
   path: string;
   ticket: string;
+  /** Whether the caller may edit what the origin's admins own — the libraries list. */
+  admin: boolean;
 }
 
 // ── The engine assignment ────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import {
   repoName,
   repoNameOfKey,
 } from "@studio/git-repos/uri";
+import { accountLibraries } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
 import type {
   AccountWorkspace,
@@ -27,11 +28,7 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
-import {
-  librarySettings,
-  refreshLibraries,
-  retireWorkspaceLibraries,
-} from "./libraries.ts";
+import { refreshLibraries, retireWorkspaceLibraries } from "./libraries.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
@@ -231,11 +228,11 @@ export async function cloneWorkspace(
   forgetRemotes(slug);
   forgetListing(slug);
 
-  // The LIBRARIES, here rather than at the first open: the account's clones brought up to date,
+  // The LIBRARIES, here rather than at the first open: the hub's clones brought up to date,
   // and a workspace committed when libraries were a submodule taken out of that arrangement.
   // Non-fatal for the same reason the media fetch is — the workspace is cloned, and this says so
   // instead of undoing it.
-  if (librarySettings().length)
+  if (accountLibraries().length)
     try {
       onProgress?.({
         step: "libraries",
@@ -243,7 +240,7 @@ export async function cloneWorkspace(
         percent: null,
         line: "LIBRARIES: updating",
       });
-      await refreshLibraries(userEmail);
+      await refreshLibraries();
       const retired = await retireWorkspaceLibraries(userEmail, root);
       if (retired)
         onProgress?.({

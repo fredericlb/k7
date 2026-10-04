@@ -111,10 +111,13 @@ import {
 import {
   accountLibraries,
   isInSharedModules,
+  isLibraryName,
   LIBRARIES_DIR,
   librariesHome,
   libraryFamilyRoots,
   libraryOf,
+  libraryOverlay,
+  libraryRoot,
   moduleLibraryDirs,
   moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
@@ -692,6 +695,16 @@ export class Workspace {
   private safePath(rel: string): string {
     const segs = rel.split(/[\\/]+/).filter((s) => s && s !== ".");
     if (segs[0] === LIBRARIES_DIR) {
+      // Each library is confined to its OWN root, which is the bench's clone for the one being edited.
+      if (segs[1] && isLibraryName(segs[1])) {
+        const root = libraryRoot(segs[1]);
+        return confined(
+          resolve(root, ...segs.slice(2)),
+          root,
+          rel,
+          "libraries",
+        );
+      }
       const home = librariesHome();
       return confined(resolve(home, ...segs.slice(1)), home, rel, "libraries");
     }
@@ -705,8 +718,10 @@ export class Workspace {
   }
   private toRel(abs: string): string {
     // A library file answers to the virtual folder it is reached through, never to where it is cloned.
-    if (libraryOf(abs))
-      return [LIBRARIES_DIR, relative(librariesHome(), abs)]
+    const lib = libraryOf(abs);
+    if (lib)
+      return [LIBRARIES_DIR, lib.name, relative(lib.root, abs)]
+        .filter(Boolean)
         .join(sep)
         .split(sep)
         .join("/");
@@ -1442,6 +1457,7 @@ export class Workspace {
         throw new Error(`'${seg}' is not something a folder can be called`);
     // Through safePath, so a `..` in either part cannot leave the workspace.
     const dir = this.safePath(`${root}/${segs.join("/")}`);
+    this.assertLibraryWritable(dir, "create a module in");
     const file = join(dir, "module.yaml");
     if (existsSync(file)) throw new Error(`${this.toRel(file)} already exists`);
     mkdirSync(dir, { recursive: true });
@@ -1482,6 +1498,7 @@ export class Workspace {
     const leaf = clean.endsWith(".vstpreset") ? clean : `${clean}.vstpreset`;
     const dir = this.safePath(this.toRel(join(dirname(moduleAbs), "base")));
     const abs = this.safePath(this.toRel(join(dir, leaf)));
+    this.assertLibraryWritable(abs, "snapshot a base into");
     mkdirSync(dir, { recursive: true });
     return { abs, path: this.toRel(abs) };
   }
@@ -1528,6 +1545,7 @@ export class Workspace {
     content: string,
   ): { forked?: ForkedModule; pushed?: boolean } {
     const abs = this.safePath(rel);
+    this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content, "utf8");
@@ -1582,7 +1600,18 @@ export class Workspace {
   }
 
   /** `_modules`'s own STRUCTURE is fixed to every route — its files are edited in place, never renamed, moved or deleted this way — see docs/workspace.md. */
+  /** A library is written only on its bench, by the admin who opened it: every other copy is the hub's, read-only. */
+  assertLibraryWritable(abs: string, verb = "change"): void {
+    const lib = libraryOf(abs);
+    const benched = libraryOverlay();
+    if (lib && lib.name !== benched?.name)
+      throw new Error(
+        `can't ${verb} '${this.toRel(abs)}': a library is edited on its bench, which an admin opens from the Libraries panel`,
+      );
+  }
+
   private guardShared(abs: string, verb: string): void {
+    this.assertLibraryWritable(abs, verb);
     if (isInSharedModules(this.toRel(abs)))
       throw new Error(
         `can't ${verb} '${this.toRel(abs)}': a shared module is edited in place — ` +
@@ -1593,11 +1622,11 @@ export class Workspace {
   // Never the root, the recycle bin, or the active project's own folder — but anything INSIDE it is fair game.
   private guardMutable(abs: string, verb: string): void {
     if (abs === this.root) throw new Error(`can't ${verb} the workspace root`);
-    // A library is added and removed from the account's settings, never from a workspace's tree.
+    // A library is added and removed from the origin's list, never from a workspace's tree.
     const lib = abs === librariesHome() ? null : libraryOf(abs);
     if (abs === librariesHome() || lib?.root === abs)
       throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': the account's libraries are set in its settings, not moved from a workspace`,
+        `can't ${verb} '${this.toRel(abs)}': the libraries are listed by the admins, not moved from a workspace`,
       );
     this.guardShared(abs, verb);
     if (this.isRecycled(abs))
@@ -1691,6 +1720,7 @@ export class Workspace {
     const library = libraryOf(abs);
     if (!library)
       throw new Error(`${rel} is not in one of the account's libraries`);
+    this.assertLibraryWritable(abs, "move");
     if (libraryOf(destDir)?.name !== library.name)
       throw new Error(
         `a module stays in its library — this one is ${library.name}'s`,

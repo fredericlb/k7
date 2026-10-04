@@ -12,8 +12,9 @@ missing, this is where you notice.
 
 ## Who draws, who holds
 
-**st0 draws; the machine and pl8 hold.** The workspaces, the libraries and the deploy key are the
-account's file service's, on the server; the shares are pl8's (`/api/shares`), because a share's
+**st0 draws; the machine and pl8 hold.** The workspaces and the deploy key are the account's file
+service's, on the server; the libraries are pl8's file hub's, one list and one clone each for the
+whole origin; the shares are pl8's (`/api/shares`), because a share's
 bytes and its comments live on pl8's volume. pl8 keeps no register of repositories —
 [apps/pl8/docs/projects.md](../../../pl8/docs/projects.md) says why.
 
@@ -60,7 +61,7 @@ routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 /                     the home page — st0 answers the origin's root
 /?ws=<workspace>      …with one workspace's tree unfolded
 /@local/demos/x.st0   a project, by its workspace and its folder — see below
-/@banc/live.st0       the bench
+/@banc/@st0/live.st0  an admin's bench on a library
 /external             the menu of surfaces a second device drives
 ```
 
@@ -99,7 +100,7 @@ sentence that says so, rather than by an empty screen that would look like a new
 header says whether the files answer, with the address in a tooltip and a button to ask again.
 
 What can be read and set **without an engine** is what saves installation day: the libraries here,
-and the deploy key in the settings, both asked of the file service on the server. A page an engine
+and the deploy key in the settings, both asked of the server. A page an engine
 picker would strike out entirely would be a page where nothing can be set until there is an
 engine. On the hosted studio, where the settings' other three tabs have nothing to show, the Sync
 tab draws alone.
@@ -168,27 +169,42 @@ avoided everywhere else. A line this
 screen does not know is refused **here**: there is no service behind to pass it to, unlike the
 editor's bar, whose lines end at `/command`.
 
-## The LIBRARIES, before everything else
+## The LIBRARIES, behind the header and the admins'
 
-An account declares its libraries at the top of the page, before the list of repositories and
-before the tree: named repositories of the modules and chains all its projects inherit. Without
-one, st0 refuses to open anything — not on principle, but because no `@st0/…` reference would
-resolve, and a song opened
-with all its shared modules missing reads as a broken song rather than as an account somebody has
-not finished setting up. That is also why the card is **at the top and tinted when empty**: it is
-the only thing to do on this screen until it is done, and the refusal `ProjectGate` will meet a
-click later is the same fact, said too late.
+The libraries are named repositories of the modules and chains every project inherits, and there
+is **one list for the whole origin**, not one per account. It is drawn in a panel the header's
+**Libraries** entry opens (`LibrariesCard.tsx`), not on the page: the list changes rarely, and only
+an admin may change it. Without a library st0 refuses to open anything — not on principle, but
+because no `@st0/…` reference would resolve, and a song opened with all its shared modules missing
+reads as a broken song rather than as a server somebody has not finished setting up.
+
+**Only an admin edits it.** An admin is a member of one of pl8's `AUTH_ADMIN_GROUPS` (the OIDC
+`groups` claim), and the file hub says so in its hello, in the ticket and on every request it
+forwards. The hub answers the libraries routes itself and refuses a change without that
+([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
+sees the same panel read-only: no add, no remove, no **Update**, no key and no bench. Hiding them is
+courtesy; the 403 is the gate.
+
+**The page itself says something only when something is wrong** (`LibrariesNotice.tsx`): no library
+yet, or one the server could not clone. In that case it shows one amber line at the top, with a
+button that opens the panel. A healthy list costs the page nothing.
 
 **A list, each one named.** The name is the level its refs use — `@drums/audio/kick` — and it is
-optional on the card: the first library is called `st0`, which is what every `@st0/…` written before
-libraries had names means, and any other takes its repository's name. The file service clones each
-one under `<studioHome>/libraries/<name>` and keeps it at its latest; no workspace holds a copy
-([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). A row's ✕
-removes one — its clone goes too, unless it holds work nobody published — and **Update** fetches
-them all now rather than at the next open.
+optional in the form: the first library is called `st0`, which is what every `@st0/…` written before
+libraries had names means, and any other takes its repository's name. **The server clones each one
+once**, with a key of its own, and every account reads that clone
+([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). So the
+panel shows admins the SERVER's public key, which each library repository must accept as a
+read-only deploy key: no account's key is involved in reading a library. A clone that fails later
+is shown on its row with git's words. A row's ✕ removes a library and its clone.
 
-**An empty repository gets one empty commit, once**, when it is added (`initIfEmpty`): a
-repository just created in a web interface has no branch for the next machine to fetch.
+**A library is edited on its bench, and nowhere else.** Each row has a **Bench** button for admins,
+which opens `/@banc/@<name>/live.st0` (§ The BENCH). The server's clone is everyone's and is reset to
+its remote at every sync, so nothing is written into it; an edit lives in the admin's own clone
+until it is pushed ([sharedModules.md](sharedModules.md)).
+
+**An empty repository gets one empty commit, once**, when its bench is first opened
+(`initIfEmpty`): a repository just created in a web interface has no branch for the server to fetch.
 
 > **Nothing SEEDS modules into it, deliberately.** `initIfEmpty` lays the commit and nothing else:
 > the libraries repository is the reference, so a new library is **empty** and a scaffolded set's
@@ -215,22 +231,21 @@ scaffold has just written and the workspace does not resolve
 - **The sentence promises no catalogue.** It names the modules owed and says you write them
   yourself, so as not to suggest something is going to fetch them.
 
-**Changing the list changes every workspace at once**, since none holds a copy: that is the
-point. A library pointed at another repository is re-cloned — unless its clone holds work nobody
-published, in which case it is kept and the card says what is there.
+**Changing the list changes every workspace of every account at once**, since none holds a copy:
+that is the point. A library pointed at another repository is re-cloned.
 
 ### Adding one CLONES it, and nothing is made before it is there
 
 The card's button waits, and says *Cloning…* while it does: a paste that looks like an SSH URI is
-not yet a repository this machine's key can read, and a clone is the only thing that answers that
+not yet a repository the server's key can read, and a clone is the only thing that answers that
 question. A refusal names what git said and stores nothing. Where the clone lands and how it is
 kept current is
-[packages/file-service/docs/libraries.md](../../../../packages/file-service/docs/libraries.md).
+[packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md).
 
-**Nouveau** and **Importer** are greyed until the card holds a library, saying so on the button rather
+**Nouveau** and **Importer** are greyed until the origin lists a library, saying so on the button rather
 than on the click, and the file service refuses the same two calls on its own side. A workspace
 made before the library exists is a folder whose every `@st0/…` resolves to nothing — the same
-half-set-up account the card exists to prevent, one level down and harder to read, since by then
+half-set-up account the libraries notice exists to prevent, one level down and harder to read, since by then
 there is a workspace and a project in it to blame instead.
 
 ## Dropping a foreign project on a workspace
@@ -259,21 +274,18 @@ type and never its name — and a `.dawproject` has no MIME type. So the judgeme
 DROP, where the name is finally readable, and a file this cannot take is refused in a sentence
 rather than by a highlight that never appeared.
 
-## The BENCH, under the card whose repository it needs
+## The BENCH, opened from the library it edits
 
 A module is something you HEAR: what it does cannot be read in its file, and its parameters only
-exist inside a project with the plugin loaded. The bench is that project — `/@banc/live.st0`, a
-live rig written again on every open and saved nowhere
-([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
+exist inside a project with the plugin loaded. The bench is that project — a live rig written again
+on every open and saved nowhere ([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
 
-Its card is one button, because the bench names nothing: no chain, no project, no machine in the
-address. It sits here, under the libraries card, because the library is what it needs — every
-module the rig can reach is in the account's clone. With no library declared the card draws nothing
-at all — a second empty box beside the one that says what to do would only dilute it.
-
-Neither a MODULE nor a CHAIN is edited on it: both are authored from a project that is already
-open, against an engine already playing a song that very probably names them
-(`sharedModules.md`), and every other address under `@banc` answers a 404 that says so.
+**This page has no bench card.** A bench is always ON something: `/@banc/@<library>/live.st0` is an
+admin's bench on a library, opened from that library's row in the Libraries panel, and
+`/@banc/<chain>/live.st0` is a chain's, which k7 opens to record through. A bench that names
+nothing would edit nothing and play nothing in particular, so the bare `/@banc/live.st0` is refused.
+The panel is where the library is, so it is where its bench opens: an admin who wants to change a
+module is already looking at the list it is in.
 
 ## A project opens in THIS tab, and a back arrow returns
 
@@ -701,7 +713,7 @@ Every git operation this app STARTS locks the page until it is done: one overlay
 the screen, saying in words what git is doing, over a bar that is measured when git reports a
 percentage (a clone) and slides otherwise. Keys are swallowed while it is up. That covers the home
 page's clone, publish, compact, and the project create / copy / rename / delete that commit, the
-libraries card's add / remove / update, and the editor's `project commit`, `project pull` and
+libraries panel's add / remove / update, and the editor's `project commit`, `project pull` and
 `project alternative` — all through `runGit` in `src/components/GitBusy.tsx`, and
 `<GitBusyOverlay/>` mounted once in `Home.tsx` and once in `App.tsx`.
 
@@ -746,14 +758,17 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   that sentence leads to the key, which also generates with no engine;
 - **with a machine and NO libraries repository**: `Examples` is there, and one of its demos opens
   at `/@local/Examples/<démo>.st0` — the installation-day check. **Nouveau** and **Importer** are
-  greyed, and hovering one says to add the repository first; the bench card is not drawn at all;
-- **add a libraries repository**: the button says *Clonage…* and waits — a clone, not a spelling
-  check. Give it a URI whose host is wrong → the refusal carries git's own words, the card still
-  reads as empty, and the two workspace buttons are still greyed. Give it a real one → the card
-  lists `@st0`, both buttons come back, and `<state>/libraries/st0` is on disk;
+  greyed, and hovering one says to add the repository first;
+- **add a libraries repository** (as an admin, the server's key added to it as a read-only deploy
+  key): the button says *Clonage…* and waits — a clone, not a spelling check. Give it a URI whose
+  host is wrong → the refusal carries git's own words, the panel still reads as empty, and the two
+  workspace buttons are still greyed. Give it a real one → the panel lists `@st0`, both buttons come
+  back, and `<dataRoot>/libraries/st0` is on disk;
 - **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ removes it and its clone;
-- **the bench card**, once there is a library: one button, which opens `/@banc/live.st0` on a rig
-  you can play. Wire something into it, reopen it → the rig is the scaffold again;
+- **as a non-admin**: the panel lists the libraries with no add, ✕, Update, key or Bench;
+- **a row's Bench**, as an admin: opens `/@banc/@st0/live.st0` on a rig you can play. Edit a module
+  of `@st0` → the bottom row says what changed; **Discard** puts it back, **Commit & push** publishes
+  it and the row goes away. Wire something into the rig, reopen it → the rig is the scaffold again;
 - **drag a `.dawproject` onto a workspace row**: that row alone lights up, the popin opens on the
   file's name, and the folder under the field follows what you type. Import → the log, with its
   warnings in amber, then **L'ouvrir** opens the project in this tab, and Back shows the row's

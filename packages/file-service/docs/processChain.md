@@ -9,9 +9,9 @@ the outputs it writes, and the hub asks it on pl8's behalf (`POST /hub/cold-chai
 ## Four decisions
 
 **The chain is resolved against the LIBRARIES, not a project.** `resolveChain` wants a project
-directory, but pl8 has no project and no workspace. The libraries are the account's — cloned under
-`<studioHome>/libraries`, the same for every project — so any directory answers identically, and
-the bench's is used because it is always the same one (`benchDir`). A machine that has cloned no
+directory, but pl8 has no project and no workspace. The libraries are the origin's — the file hub's
+one clone of each, the same for every project — so any directory answers identically, and
+the bench's is used because it is always the same one (`benchDir`). A server that has cloned no
 library yet is refused by name.
 
 **The chain is optional, and its default is the account's.** Which module separates and which

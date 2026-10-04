@@ -6,6 +6,7 @@
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import {
+  LibraryBig,
   RefreshCw,
   Server,
   ServerOff,
@@ -15,7 +16,11 @@ import {
 import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
 import { AppSwitch } from "@studio/ui-app-switch";
-import type { AccountWorkspace, ShareSummary } from "@studio/web-protocol";
+import type {
+  AccountLibrary,
+  AccountWorkspace,
+  ShareSummary,
+} from "@studio/web-protocol";
 import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -36,6 +41,7 @@ import {
   homeArgValues,
   runHomeCommand,
 } from "./homeCommands";
+import { LibrariesCard } from "./LibrariesCard";
 import { ProjectsPane } from "./ProjectsPane";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -52,7 +58,10 @@ export function Home() {
   // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
   // SERVER comes back with it, because the app switch needs it — the other apps are ITS.
   const [isDesktop, setIsDesktop] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // ONE right column, so one panel at a time: the settings, or the libraries.
+  const [panel, setPanel] = useState<"settings" | "libraries" | null>(null);
+  const toggle = (p: "settings" | "libraries") =>
+    setPanel((v) => (v === p ? null : p));
   const [server, setServer] = useState<string | null>(null);
   useEffect(() => {
     void desktop.state().then((d) => {
@@ -85,6 +94,19 @@ export function Home() {
   useEffect(() => {
     void probe();
   }, [probe]);
+
+  // The libraries, read here for the notice and the workspace buttons; the panel's card reports its edits back.
+  const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (fileService === undefined) return;
+    if (fileService === null) return setLibraries([]);
+    void accountFiles
+      .libraries(fileService)
+      .then((r) => setLibraries(r.libraries))
+      .catch(() => setLibraries([]));
+  }, [fileService]);
 
   // What was loaded last pass, per service. A token says "current", not "in hand" — hence it is set only after the list is.
   const seen = useRef<{ shares: string }>({ shares: "" });
@@ -287,10 +309,20 @@ export function Home() {
               variant="ghost"
               size="sm"
               title={m["home.settingsHint"]()}
-              aria-expanded={settingsOpen}
-              onClick={() => setSettingsOpen((v) => !v)}
+              aria-expanded={panel === "settings"}
+              onClick={() => toggle("settings")}
             >
               <SlidersHorizontal className="h-4 w-4" /> {m["home.settings"]()}
+            </Button>
+            {/* Libraries — the origin's list, every account's; an admin edits it there, anyone else reads it (./LibrariesCard.tsx). */}
+            <Button
+              variant="ghost"
+              size="sm"
+              title={m["home.librariesHint"]()}
+              aria-expanded={panel === "libraries"}
+              onClick={() => toggle("libraries")}
+            >
+              <LibraryBig className="h-4 w-4" /> {m["home.libraries"]()}
             </Button>
             {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
             <Button variant="ghost" size="sm" asChild>
@@ -334,11 +366,20 @@ export function Home() {
             fileService={fileService ?? null}
             onOpen={open}
             onChanged={changed}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={() => setPanel("settings")}
+            libraries={libraries}
+            onOpenLibraries={() => setPanel("libraries")}
           />
         </div>
-        <RightPanel open={settingsOpen} width="w-[24rem]">
-          <HomeSettings onClose={() => setSettingsOpen(false)} />
+        <RightPanel open={panel !== null} width="w-[24rem]">
+          {panel === "libraries" ? (
+            <LibrariesCard
+              fileService={fileService ?? null}
+              onLibraries={setLibraries}
+            />
+          ) : (
+            <HomeSettings onClose={() => setPanel(null)} />
+          )}
         </RightPanel>
       </div>
 

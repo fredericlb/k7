@@ -35,9 +35,9 @@ A library carries a third family ([sharedFolders.md](sharedFolders.md)), and a t
 by its library like everything else in it:
 
 ```
-<studioHome>/libraries/st0/modules/       @st0/audio/utility/trim
-<studioHome>/libraries/st0/chains/        @st0/process/normalize
-<studioHome>/libraries/st0/assemblies/    @st0/turntable
+<libraries>/st0/modules/       @st0/audio/utility/trim
+<libraries>/st0/chains/        @st0/process/normalize
+<libraries>/st0/assemblies/    @st0/turntable
 ```
 
 A template is laid out **exactly as a chain template is** — `graph.yaml` and `nodes/` — plus one
@@ -162,9 +162,9 @@ The param list comes from the template's own **graph**: an assembly folder is a 
 `GET /graph?at=<path>` resolves every member through its `extends` and hands back what it runs with.
 No new route, and the same road the chains builder takes.
 
-A promotion lives on the **template**, so two turntables cannot drift apart. A save is a publish, so
-it is a button and never a timer — the rule a shared module already follows
-(`apps/st0/frontend/docs/sharedModules.md`).
+A promotion lives on the **template**, so two turntables cannot drift apart. A save writes into a
+library, which only its bench may do and only its push publishes, so it is a button and never a
+timer — the rule a shared module already follows (`apps/st0/frontend/docs/sharedModules.md`).
 
 ## Not covered
 

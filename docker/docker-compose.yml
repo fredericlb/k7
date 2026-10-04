@@ -58,6 +58,8 @@ services:
       STUDIO_MEDIATEK: /library
       # The accounts' workspaces, and the only place they live — engines hold copies, never workspaces.
       STUDIO_FILES_ROOT: /workspaces
+      # Who edits the libraries every account shares — the same groups as z0's admins.
+      AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
     volumes:
       # pl8 IS this volume — apps/pl8/docker/Dockerfile.
       - library:/library

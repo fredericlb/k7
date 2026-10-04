@@ -24,13 +24,13 @@ import type {
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
+  BenchLibraryStatus,
   ModelDownloadJob,
   SeparateJob,
   StemsReply,
 } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
-import { libraryModuleRef, libraryOfPath } from "./libraryTree";
 import type {
   PlaylistInfo,
   PreviewReq,
@@ -313,12 +313,23 @@ export const api = {
   nodePresets: (node: string) =>
     fget<NodePresets>(`/presets?node=${encodeURIComponent(node)}`),
 
-  /** Commit and push the account's LIBRARIES — those named, or every one with changes — what a Save in the module builder does; the workspace's own repository is untouched. */
-  publishLibraries: (message: string, libraries?: string[]) =>
-    fsend<{ committed: boolean; pushed: boolean; note: string }>(
+  /** The library the bench edits and what its clone holds unpublished, or null — packages/file-service/docs/libraries.md. */
+  benchLibrary: () => fget<BenchLibraryStatus | null>("/account/bench-library"),
+
+  /** Commit what the bench changed and push it; the server's clone follows. */
+  commitBenchLibrary: (message: string) =>
+    fsend<{ pushed: boolean; note: string }>(
       "POST",
-      "/libraries/publish",
-      { message, ...(libraries ? { libraries } : {}) },
+      "/account/bench-library/commit",
+      { message },
+    ),
+
+  /** Throw away what the bench changed. */
+  discardBenchLibrary: () =>
+    fsend<BenchLibraryStatus | null>(
+      "POST",
+      "/account/bench-library/discard",
+      {},
     ),
 };
 
@@ -453,13 +464,6 @@ export const moduleStore: ModuleStore = {
   /** …and the lcdscreen script, the same plain sibling of the same folder. */
   widgetsScript: (path) => siblingSource(path, WIDGETS_SCRIPT, widgetsStub),
   hints: () => api.hints(),
-  /** Publish a SHARED module: commit ITS library and push it — only for one in `_libraries/<name>`, which the PATH says (libraryTree.ts). */
-  publish: async (path) => {
-    const ref = libraryModuleRef(path);
-    const library = libraryOfPath(path);
-    if (!ref || !library) return {}; // the project's own — saved, and there is nowhere else for it to go
-    return api.publishLibraries(`${ref}`, [library]);
-  },
   /** Keep the plugin's current state as a named base — straight through to the route, the only side that knows where `base/` is. */
   snapshotBase: (path, name, ref) => api.snapshotModuleBase(path, name, ref),
   /** …and what it may be set TO: the ancestry is the server's to walk, a thin local module having none of its own. */

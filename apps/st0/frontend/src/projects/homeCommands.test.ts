@@ -21,6 +21,7 @@ const FILES: AccountFiles = {
   fileBase: "https://m",
   token: "t",
   userEmail: "a@b",
+  admin: false,
 };
 
 const ws = (

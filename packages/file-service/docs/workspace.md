@@ -333,36 +333,41 @@ deleted and generated again every time it is opened, so putting it under version
 version something with a lifetime of one session. `ProjectGate` calls this when the address names
 `@banc`, in place of the `POST /open` a `@local` address gets. `isBenchProject` is the one
 place either end spells which address the bench answers; anything else under `@banc` names nothing
-and is a 404 saying where a chain and a module are edited instead.
+and is a 404 saying where a chain and a module are edited instead. A bench names what it is ON —
+a library (`@banc/@<name>/live.st0`, admins only, 403 otherwise) or a library chain — and the bare
+`@banc/live.st0` is refused.
 
-The account's library repository is required and comes from the browser, the side that holds the
-session pl8 answers to. The bench's workspace mounts it like any other, and every module the rig
-can name is in it; without one there is nothing to try. A library that will not mount is the USER's
-problem to read, so it is a 409 and not a fault.
+At least one library is required: every module the rig can name is in one, and without one there
+is nothing to try. A library bench whose clone cannot be made is the USER's problem to read, so it
+is a 409 and not a fault.
 
 ### The bench keeps nothing, and writes nothing back
 
 The rig is scaffolded fresh on every open, so a write into the project folder survives exactly as
-long as the session: no translation, no promotion, no path out of it. What a bench session keeps is
-what was written into a LIBRARY — `_libraries/<name>/…`, which is an ordinary path here as it is
-in every other workspace (`apps/pl8/docs/banc.md`).
+long as the session: no translation, no promotion, no path out of it. What a library bench keeps is
+what was written into that LIBRARY — `_libraries/<name>/…`, which is an ordinary path here as it is
+in every other workspace, and lands in the bench's clone until it is pushed or discarded
+(`apps/pl8/docs/banc.md`, `libraries.md`).
 
 That workspace holds the rig and nothing else: a `chains/` folder in it is swept on open, because a
 project folder that saves nowhere is worse than no folder at all.
 
 ### `_libraries/<name>/…` is a VIRTUAL folder
 
-No workspace holds the libraries: the file service clones them under `<studioHome>/libraries`
-(`libraries.md`). `safePath` maps a path whose first segment is `_libraries` there, and confines it
+No workspace holds the libraries: the file hub clones them once for the origin, and the one a
+bench has open is read from the bench's clone (`libraries.md`). `safePath` maps a path whose first
+segment is `_libraries` to that library's root (`libraryRoot`), and confines it
 THERE by the same two gates the workspace has — lexical, then on the real path — so
 `_libraries/../..` escapes nothing, and neither does a symlink a library carries. `toRel` maps back,
 so every path this API hands out for a library file is a `_libraries/<name>/…` one. A library's own
 folder, and `_libraries` itself, cannot be renamed, moved or deleted from a workspace: which
-libraries the account has is its settings' business.
+libraries the origin has is its admins' business.
 
-A library write is a plain write into the account's clone, and nothing is pushed anywhere by the
-write itself. What publishes it is the builder's Save (`POST /libraries/publish`), which is
-somebody's decision rather than a side effect of typing. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
+A library write is refused unless it lands in the library the bench has open
+(`assertLibraryWritable`): the hub's clone is every account's and is reset to its remote at every
+sync. On the bench it is a plain write into the bench's clone, and nothing is pushed anywhere by
+the write itself. What publishes it is the bench's commit (`POST /account/bench-library/commit`),
+which is somebody's decision rather than a side effect of typing. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
 one copy backing every project beside it, and nothing has given it a way back. The one exception
 either way is a module's `ui.yaml` — a panel is drawn for the plugin, not for the song, so it is
 written where the module is, and forking a whole module to move a knob is precisely the copy nobody

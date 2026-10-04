@@ -114,9 +114,11 @@ This screen has a **Save button** (`useAutosave({ manual: true })`), unlike ever
 st0, and `publish` is why the distinction earns one: on a SHARED module a save is not a write,
 it is a publish onto a repository other people read.
 
-It is optional and one host implements it. st0 commits and pushes the library repository the
-module lives in; a host with no such repository, or a module that is the project's own, passes
-nothing and the save ends at the disk.
+It is optional, and no host implements it: the save ends at the disk. st0 does not publish from
+the builder, because a library is edited on its bench and published from there in one gesture for
+everything the bench changed — the editor's bottom row, which commits and pushes
+(`apps/st0/frontend/docs/sharedModules.md`). The hook stays for a host whose save must leave the
+machine with the module itself.
 
 Called **once, after every dirty file has landed**, and never per file. The four files of a
 module are one edit, and four commits for one edit is a history nobody can read. It runs only

@@ -97,30 +97,25 @@ built: the same rule the module builder's store follows, and what keeps a librar
 `_libraries/<name>/modules` and a project's own `modules/` from being told apart by string surgery
 here.
 
-## `POST /libraries/publish`
+## `/account/bench-library` — publishing what the bench changed
 
-What the module builder's Save calls once every file has landed: commit what changed in the
-libraries it names — the builder names the one the module is in — or in every one with something to
-publish, and push it. It touches the LIBRARY repositories only; no song records a library version.
-See `docs/libraries.md`.
+`GET` answers the open library bench and what its clone holds unpublished, or null; `POST …/commit`
+commits it with the admin's message and pushes it, `POST …/discard` resets it to what is pushed —
+both for admins only. Nothing else in this service publishes a library: a Save, a rename and a
+verb all end at the disk. See `docs/libraries.md`.
 
-A refusal is answered rather than thrown: "committed but not pushed" is a real outcome with
-work safely on disk behind it, and the builder says so in its status line.
+A refused push is answered rather than thrown: "committed but not pushed" is a real outcome with
+work safely on disk behind it, and the editor's row says so.
 
-## `POST /open` mounts the account's libraries first
+## `POST /open` asks for the libraries first
 
-`libraries` is the URI pl8 holds for this account; the browser has just read it (it refuses to
-get this far without one — `@studio/project-shell`'s `docs/launch.md`) and hands it over
-rather than making this service ask pl8 for it. The one that knows WHO is asking is the
-browser: this service holds a machine token, not a person's session.
+The libraries are the file hub's, so the open asks the hub to bring them to their latest
+(`docs/libraries.md`) and waits only when one is not cloned yet. Nothing about them rides on the
+request: the hub holds the list.
 
-Mounted here and not only on clone, because the setting can be added after a workspace already
-exists — which is the case for every workspace that predates it. Idempotent and nearly free
-once the mount is populated.
-
-A mount that refuses is not a project that refuses: the song opens, and every `@st0/…` ref in
-it reports itself missing, which is what the graph already draws a `?` for. Saying so — with
-the reason — beats opening onto a silent half-song, so the failure is warned and swallowed.
+A sync that fails is not a project that refuses: the song opens, and every `@st0/…` ref in it that
+does not resolve reports itself missing, which is what the graph already draws a `?` for. The
+failure is logged and swallowed, and the Libraries panel shows it on the library's row.
 
 ## `POST /project/create` takes an ARCHETYPE, not a mode
 
