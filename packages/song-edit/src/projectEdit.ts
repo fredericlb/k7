@@ -67,7 +67,10 @@ export function editModuleFile(
 }
 
 // Rewrite one file through `transform`, writing only when it changed.
-function rewriteFile(path: string, transform: (text: string) => string): string {
+function rewriteFile(
+  path: string,
+  transform: (text: string) => string,
+): string {
   const before = readFileSync(path, "utf8");
   const after = transform(before);
   // No format pass afterwards: the YAML writers emit canonical output.
