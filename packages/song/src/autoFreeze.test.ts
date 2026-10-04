@@ -125,7 +125,8 @@ describe("where an automatic render is kept", () => {
     utimesSync(r, old, old);
     compileWithAutoFreezes(p);
     const st = statSync(r);
-    expect(st.mtimeMs).toBe(old.getTime());
+    // Within a millisecond: a filesystem keeping nanoseconds hands the same instant back as …358.999.
+    expect(Math.abs(st.mtimeMs - old.getTime())).toBeLessThan(1);
     expect(Date.now() - st.atimeMs).toBeLessThan(60_000);
   });
 });
