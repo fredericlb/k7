@@ -1,5 +1,5 @@
 // LibrariesNotice.tsx — what the home page says about the libraries, which it no longer edits: one
-// line when there is none or one failed to clone for this account, and nothing when all is well.
+// line when there is none or the server failed to clone one, and nothing when all is well.
 // The list itself is the header's Libraries panel (LibrariesCard.tsx), the admins' to change.
 
 import { Button } from "@frediverse/ui/button";

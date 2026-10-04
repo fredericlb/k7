@@ -1,7 +1,7 @@
-// The account's libraries over REAL git: the list and its legacy form, cloning one to
-// `<studioHome>/libraries/<name>`, keeping it at its latest without ever losing work, publishing
-// an edit back, and taking a workspace's OLD `_libraries` (submodule or clone) out of it. A mocked
-// git would prove the opposite of what is claimed. See docs/libraries.md.
+// The libraries as an account's service holds them, over REAL git: the clone an admin's bench
+// edits — made from the server's remote, read in place of the server's own, committed and pushed
+// from, thrown away — and taking a workspace's OLD `_libraries` (submodule or clone) out of it.
+// A mocked git would prove the opposite of what is claimed. See docs/libraries.md.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -15,26 +15,26 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sshDir } from "@studio/engine-client/paths";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  commitLibrary,
-  defaultLibraryName,
-  libraryDir,
-  libraryFailure,
-  librarySettings,
-  pruneLibraries,
-  retireWorkspaceLibraries,
-  setLibrarySettings,
-  settingsProblem,
-  syncLibrary,
-} from "./libraries.ts";
+  libraryOverlay,
+  libraryRoot,
+  setLibraryOverlay,
+} from "@studio/song/sharedFolders";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { retireWorkspaceLibraries } from "./libraries.ts";
+import {
+  commitLibraryBench,
+  discardLibraryBench,
+  libraryBenchStatus,
+  openLibraryBench,
+} from "./libraryBench.ts";
 import { slugify } from "./slug.ts";
 
 // Every fixture drives REAL git — a dozen subprocesses per test, well past vitest's 5 s default.
 vi.setConfig({ testTimeout: 30_000 });
 
 const EMAIL = "someone@example.test";
-/** What the setting says: an SSH URI, which is all the service accepts… */
+/** What the list says: an SSH URI, which is all the service accepts… */
 const URI = "git@example.test:studio/st0.git";
 /** …rewritten by git, through the environment, to a bare repository on disk. */
 let origin: string;
@@ -43,7 +43,8 @@ let tmp: string;
 const saved: Record<string, string | undefined> = {};
 const ENV_KEYS = [
   "STUDIO_HOME",
-  "STUDIO_LIBRARIES_FILE",
+  "STUDIO_LIBRARIES_HOME",
+  "STUDIO_HUB_URL",
   "GIT_CONFIG_COUNT",
   "GIT_CONFIG_KEY_0",
   "GIT_CONFIG_VALUE_0",
@@ -79,11 +80,20 @@ function publishElsewhere(file: string, body: string): void {
   git(other, "push", "-q", "origin", "HEAD");
 }
 
+/** The server's clone of `name`, as the hub would have made it — from the URI, so it records it. */
+const serverClone = (name: string): string => {
+  const at = join(tmp, "shared", name);
+  git(tmp, "clone", "-q", URI, at);
+  return at;
+};
+
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "fs-libs-"));
   for (const k of ENV_KEYS) saved[k] = process.env[k];
   process.env.STUDIO_HOME = join(tmp, "home");
-  delete process.env.STUDIO_LIBRARIES_FILE;
+  process.env.STUDIO_LIBRARIES_HOME = join(tmp, "shared");
+  // No hub: a push asks nobody to pull, and that is not what these tests are about.
+  delete process.env.STUDIO_HUB_URL;
   // A key already "there", so `ensureKey` makes none: CI's image has git and no ssh-keygen, and
   // the SSH URI below is rewritten to a path on disk, so no key is ever used.
   const keyDir = sshDir(slugify(EMAIL));
@@ -101,179 +111,80 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setLibraryOverlay(null);
   for (const k of ENV_KEYS)
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe("the origin's list", () => {
-  const ownFile = () =>
-    join(process.env.STUDIO_HOME as string, "libraries.json");
-  beforeEach(() => {
-    process.env.STUDIO_LIBRARIES_FILE = join(tmp, "data", "libraries.json");
-  });
+describe("the bench's clone of a library", () => {
+  const benchClone = (name: string) =>
+    join(tmp, "home", "bench-libraries", name);
 
-  it("reads the account's own file until an admin first saves the origin's", () => {
-    mkdirSync(process.env.STUDIO_HOME as string, { recursive: true });
-    writeFileSync(ownFile(), JSON.stringify({ uri: URI }));
-    expect(librarySettings()).toEqual([{ name: "st0", uri: URI }]);
-    const list = [{ name: "drums", uri: "git@example.test:studio/drums.git" }];
-    setLibrarySettings(list);
-    expect(librarySettings()).toEqual(list);
+  it("is cloned from the server's remote, and read in place of the server's clone", async () => {
+    const shared = serverClone("st0");
+    expect(libraryRoot("st0")).toBe(shared);
+    await openLibraryBench(EMAIL, "st0");
+    expect(libraryOverlay()?.name).toBe("st0");
+    expect(libraryRoot("st0")).toBe(benchClone("st0"));
     expect(
-      JSON.parse(
-        readFileSync(process.env.STUDIO_LIBRARIES_FILE as string, "utf8"),
-      ),
-    ).toEqual({ libraries: list });
-    // The account's file is left as it was: nothing reads it once the origin's exists.
-    expect(JSON.parse(readFileSync(ownFile(), "utf8"))).toEqual({ uri: URI });
-  });
-
-  it("remembers why a clone failed, until one succeeds", async () => {
-    const bad = { name: "gone", uri: "git@example.test:studio/gone.git" };
-    const r = await syncLibrary(EMAIL, bad);
-    expect(r.state).toBe("failed");
-    expect(libraryFailure("gone")).toBe(r.note);
-    expect((await syncLibrary(EMAIL, { name: "gone", uri: URI })).state).toBe(
-      "cloned",
-    );
-    expect(libraryFailure("gone")).toBeUndefined();
-  });
-});
-
-describe("the setting", () => {
-  it("reads the old single `{ uri }` as a library called st0", () => {
-    mkdirSync(process.env.STUDIO_HOME as string, { recursive: true });
-    writeFileSync(
-      join(process.env.STUDIO_HOME as string, "libraries.json"),
-      JSON.stringify({ uri: URI }),
-    );
-    expect(librarySettings()).toEqual([{ name: "st0", uri: URI }]);
-  });
-
-  it("writes and reads back a list, in order", () => {
-    const list = [
-      { name: "st0", uri: URI },
-      { name: "drums", uri: "git@example.test:studio/drums.git" },
-    ];
-    setLibrarySettings(list);
-    expect(librarySettings()).toEqual(list);
-  });
-
-  it("refuses a list it could not honour, saying which line", () => {
-    const other = "git@example.test:studio/other.git";
-    expect(settingsProblem([{ name: "engine", uri: URI }])).toMatch(/engine/);
-    expect(settingsProblem([{ name: "Big Drums", uri: URI }])).toMatch(
-      /cannot name/,
-    );
-    expect(
-      settingsProblem([
-        { name: "a", uri: URI },
-        { name: "a", uri: other },
-      ]),
-    ).toMatch(/two libraries/);
-    expect(
-      settingsProblem([
-        { name: "a", uri: URI },
-        { name: "b", uri: URI },
-      ]),
-    ).toMatch(/twice/);
-    expect(settingsProblem([{ name: "a", uri: "/tmp/repo" }])).toMatch(/SSH/);
-    expect(() => setLibrarySettings([{ name: "engine", uri: URI }])).toThrow();
-  });
-
-  it("names the first library st0 and any other after its repository", () => {
-    expect(defaultLibraryName(URI, [])).toBe("st0");
-    expect(
-      defaultLibraryName("git@example.test:studio/Drum_Kits.git", [
-        { name: "st0", uri: URI },
-      ]),
-    ).toBe("drum-kits");
-  });
-});
-
-describe("syncLibrary", () => {
-  const lib = { name: "st0", uri: URI };
-
-  it("clones a library this machine has none of, where resolution looks for it", async () => {
-    expect((await syncLibrary(EMAIL, lib)).state).toBe("cloned");
-    expect(
-      readFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "utf8"),
+      readFileSync(join(benchClone("st0"), "modules/amp.yaml"), "utf8"),
     ).toBe("gain: 1\n");
   });
 
-  it("brings a clone to the latest commit, and says when there was nothing new", async () => {
-    await syncLibrary(EMAIL, lib);
-    expect((await syncLibrary(EMAIL, lib)).state).toBe("current");
-    publishElsewhere("modules/amp.yaml", "gain: 2\n");
-    expect((await syncLibrary(EMAIL, lib)).state).toBe("updated");
-    expect(
-      readFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "utf8"),
-    ).toBe("gain: 2\n");
-  });
-
-  it("never updates over work not yet published, and says what it kept", async () => {
-    await syncLibrary(EMAIL, lib);
-    writeFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "gain: 9\n");
-    publishElsewhere("modules/cab.yaml", "size: 2\n");
-    const r = await syncLibrary(EMAIL, lib);
-    expect(r.state).toBe("kept");
-    expect(r.note).toMatch(/not published/);
-    expect(
-      readFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "utf8"),
-    ).toBe("gain: 9\n");
-  });
-
-  it("reports a remote nobody can clone as a failure, and leaves nothing behind", async () => {
-    const r = await syncLibrary(EMAIL, {
-      name: "gone",
-      uri: "git@example.test:studio/gone.git",
+  it("counts what it holds, and a commit pushes it where everybody fetches", async () => {
+    serverClone("st0");
+    await openLibraryBench(EMAIL, "st0");
+    writeFileSync(join(benchClone("st0"), "modules/amp.yaml"), "gain: 3\n");
+    expect(await libraryBenchStatus(EMAIL)).toEqual({
+      library: "st0",
+      changed: 1,
+      ahead: 0,
     });
-    expect(r.state).toBe("failed");
-    expect(existsSync(libraryDir("gone"))).toBe(false);
-  });
-});
-
-describe("commitLibrary — the builder's Save", () => {
-  it("commits what changed and pushes it where everybody else fetches", async () => {
-    await syncLibrary(EMAIL, { name: "st0", uri: URI });
-    writeFileSync(join(libraryDir("st0"), "modules/amp.yaml"), "gain: 3\n");
-    const r = await commitLibrary(EMAIL, "st0", "louder amp");
-    expect(r).toMatchObject({ committed: true, pushed: true });
+    const r = await commitLibraryBench(EMAIL, "louder amp");
+    expect(r.pushed).toBe(true);
     expect(git(origin, "show", "main:modules/amp.yaml")).toBe("gain: 3");
     expect(git(origin, "log", "-1", "--format=%ae %s")).toBe(
       `${EMAIL} louder amp`,
     );
+    expect(await libraryBenchStatus(EMAIL)).toMatchObject({
+      changed: 0,
+      ahead: 0,
+    });
   });
 
-  it("says so when there is nothing to publish", async () => {
-    await syncLibrary(EMAIL, { name: "st0", uri: URI });
-    const r = await commitLibrary(EMAIL, "st0", "nothing");
-    expect(r).toMatchObject({ committed: false, pushed: false });
+  it("is made what is pushed again by a discard", async () => {
+    serverClone("st0");
+    await openLibraryBench(EMAIL, "st0");
+    writeFileSync(join(benchClone("st0"), "modules/amp.yaml"), "gain: 9\n");
+    writeFileSync(join(benchClone("st0"), "modules/new.yaml"), "x: 1\n");
+    await discardLibraryBench(EMAIL);
+    expect(
+      readFileSync(join(benchClone("st0"), "modules/amp.yaml"), "utf8"),
+    ).toBe("gain: 1\n");
+    expect(existsSync(join(benchClone("st0"), "modules/new.yaml"))).toBe(false);
   });
 
-  it("refuses a library the account does not have", async () => {
-    await expect(commitLibrary(EMAIL, "nope", "x")).rejects.toThrow(
-      /no library/,
-    );
+  it("keeps work not pushed across benches, and removes a clean clone it left", async () => {
+    serverClone("st0");
+    serverClone("drums");
+    await openLibraryBench(EMAIL, "st0");
+    writeFileSync(join(benchClone("st0"), "modules/amp.yaml"), "gain: 4\n");
+    await openLibraryBench(EMAIL, "drums");
+    expect(libraryOverlay()?.name).toBe("drums");
+    expect(existsSync(benchClone("st0"))).toBe(true);
+    // Back on st0, its work is still there; drums, clean, is gone.
+    await openLibraryBench(EMAIL, "st0");
+    expect(
+      readFileSync(join(benchClone("st0"), "modules/amp.yaml"), "utf8"),
+    ).toBe("gain: 4\n");
+    expect(existsSync(benchClone("drums"))).toBe(false);
   });
-});
 
-describe("pruneLibraries", () => {
-  it("removes the clone of a library the list dropped, but never one holding work", async () => {
-    await syncLibrary(EMAIL, { name: "st0", uri: URI });
-    await syncLibrary(EMAIL, { name: "old", uri: URI });
-    writeFileSync(join(libraryDir("old"), "modules/amp.yaml"), "gain: 7\n");
-    await syncLibrary(EMAIL, { name: "gone", uri: URI });
-    setLibrarySettings([{ name: "st0", uri: URI }]);
-
-    const notes = await pruneLibraries(EMAIL);
-    expect(existsSync(libraryDir("gone"))).toBe(false);
-    expect(existsSync(libraryDir("old"))).toBe(true);
-    expect(notes).toEqual([
-      expect.objectContaining({ name: "old", state: "kept" }),
-    ]);
+  it("refuses a library the server holds no clone of", async () => {
+    await expect(openLibraryBench(EMAIL, "nope")).rejects.toThrow(/no clone/);
+    expect(libraryOverlay()).toBeNull();
   });
 });
 

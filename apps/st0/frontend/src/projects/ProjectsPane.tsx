@@ -17,7 +17,6 @@ import { type GitReport, runGit } from "../components/GitBusy";
 import { formatBytes } from "../components/UploadProgress";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref, workspaceHref } from "./api";
-import { BenchCard } from "./BenchCard";
 import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
@@ -367,7 +366,6 @@ export function ProjectsPane({
       />
       {/* FIRST when it says anything: nothing else here works until a library is cloned. */}
       <LibrariesNotice libraries={libraries} onOpen={onOpenLibraries} />
-      <BenchCard libraries={libraries} />
       {ws ? (
         <RepoTree
           workspace={ws}

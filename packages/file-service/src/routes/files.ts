@@ -36,11 +36,7 @@ import {
   webCompletions,
   webGitEnv,
 } from "../engineLink.ts";
-import {
-  commitLibraries,
-  refreshLibraries,
-  retireWorkspaceLibraries,
-} from "../libraries.ts";
+import { refreshLibraries, retireWorkspaceLibraries } from "../libraries.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -228,24 +224,6 @@ filesRouter.post(
   }),
 );
 
-/** Commit what changed in the account's libraries — all of them, or those named — and push it; a refusal is answered, not thrown — see docs/fileRoutes.md. */
-const publishBody = z.object({
-  message: z.string().min(1).max(500),
-  libraries: z.array(z.string().min(1)).optional(),
-});
-filesRouter.post(
-  "/libraries/publish",
-  validate(publishBody),
-  wrap(async (req, res) => {
-    const { message, libraries } = req.body as z.infer<typeof publishBody>;
-    try {
-      res.json(await commitLibraries(req.userEmail!, message, libraries));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
 /** Open a project — the account's LIBRARIES brought up to date first — see docs/fileRoutes.md. */
 const openBody = z.object({
   path: z.string().min(1),
@@ -257,9 +235,9 @@ filesRouter.post(
   validate(openBody),
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
-    // The account's libraries at their latest — at most once a minute, however many opens. A
+    // The hub's clones at their latest — at most once a minute, however many opens. A
     // library that will not sync is not a project that refuses: its refs resolve to what is here.
-    await refreshLibraries(req.userEmail!);
+    await refreshLibraries();
     // …and what this workspace held of them before, taken out now that nothing reads it.
     try {
       const retired = await retireWorkspaceLibraries(
@@ -551,6 +529,8 @@ filesRouter.post(
     // Absent is the default — build it. An empty list is a caller that means no.
     const wantsGraph = !want || want.includes("graph");
     const target = at ? req.ws!.mediaPath(at) : undefined;
+    // A verb aimed at a library's chain writes it, so it runs only on that library's bench.
+    if (target) req.ws!.assertLibraryWritable(target, "run a command on");
     const t0 = performance.now();
     // The two tokens come OUT of the run, so this route takes no walk of its own — see docs/fileRoutes.md.
     const {

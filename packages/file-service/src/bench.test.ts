@@ -1,7 +1,9 @@
-// The bench, opened with nothing named: no chain, no repository, no project of the account's. What
-// is proved here is that it opens AT ALL and that it keeps nothing — a graph wired on the bench
-// must not reach the library, which is the one shared thing this workspace can touch.
+// The bench ON a library — an admin's, the one place that library is written — and what every
+// other place may not do. What is proved: it opens, it keeps nothing of the rig, a library module
+// written there lands in the bench's own clone and never in the server's, and a write into a
+// library from anywhere else is refused.
 
+import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -12,10 +14,16 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { rootDir } from "@studio/engine-client/paths";
-import { BENCH_PROJECT } from "@studio/web-protocol/projects";
+import { rootDir, sshDir } from "@studio/engine-client/paths";
+import { setLibraryOverlay } from "@studio/song/sharedFolders";
+import {
+  BENCH_PROJECT,
+  libraryBenchProject,
+} from "@studio/web-protocol/projects";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
+import { closeLibraryBench } from "./libraryBench.ts";
+import { slugify } from "./slug.ts";
 import { Workspace } from "./workspace.ts";
 
 const EMAIL = "someone@example.test";
@@ -24,113 +32,128 @@ const EMAIL = "someone@example.test";
 const PINNED_HOME = process.env.STUDIO_HOME;
 let home: string;
 
-/** The bench's workspace — which holds no library: the account's are cloned under `$STUDIO_HOME`. */
 const benchRoot = (): string => join(rootDir(), BENCH_WORKSPACE);
 const benchDir = (): string => join(benchRoot(), BENCH_PROJECT);
+/** The server's clone, read-only — under `$STUDIO_HOME/libraries` when no hub names another. */
 const libraryDir = (): string => join(home, "libraries", "st0");
 const libraryChain = (): string => join(libraryDir(), "chains/live/vocals");
+/** The bench's own clone of `st0`, already there — so opening it runs no clone. */
+const benchClone = (): string => join(home, "bench-libraries", "st0");
+
+const git = (cwd: string, ...args: string[]) =>
+  execFileSync("git", args, {
+    cwd,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_AUTHOR_NAME: "t",
+      GIT_AUTHOR_EMAIL: "t@t.test",
+      GIT_COMMITTER_NAME: "t",
+      GIT_COMMITTER_EMAIL: "t@t.test",
+    },
+  });
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-bench-home-"));
-  // Off the real machine: this test writes a library checkout, and the user's own is not a fixture.
+  // Off the real machine: this test writes library checkouts, and the user's own are not fixtures.
   process.env.STUDIO_HOME = home;
 
-  // The `st0` library, laid out by hand where the file service would have cloned it.
+  // The `st0` library, laid out by hand where the hub would have cloned it.
   mkdirSync(libraryChain(), { recursive: true });
   writeFileSync(
     join(libraryChain(), "graph.yaml"),
     '# Voix live.\nmodules:\n  "@in": [ comp ]\n  comp: [ "@out" ]\n',
     "utf8",
   );
+  // …and the bench's clone of it, a checkout of its own with nothing unpublished.
+  mkdirSync(join(benchClone(), "modules"), { recursive: true });
+  writeFileSync(join(benchClone(), "modules", "amp.yaml"), "gain: 1\n");
+  git(benchClone(), "init", "-q", "--initial-branch=main");
+  git(benchClone(), "add", "-A");
+  git(benchClone(), "commit", "-q", "-m", "first");
+  // A key already "there", so `ensureKey` makes none: CI's image has no ssh-keygen.
+  const keyDir = sshDir(slugify(EMAIL));
+  mkdirSync(keyDir, { recursive: true });
+  writeFileSync(join(keyDir, "id_ed25519"), "placeholder\n");
 });
 
 afterEach(() => {
+  setLibraryOverlay(null);
   process.env.STUDIO_HOME = PINNED_HOME;
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("the bench", () => {
-  it("opens on a live rig, naming no chain of the library", async () => {
-    const { workspace, project } = await ensureBench(EMAIL);
+const openLibraryBench = () => ensureBench(EMAIL, libraryBenchProject("st0"));
+
+describe("the bench on a library", () => {
+  it("opens on a live rig", async () => {
+    const { workspace, project } = await openLibraryBench();
     expect(workspace).toBe(BENCH_WORKSPACE);
     expect(project).toBe(BENCH_PROJECT);
-
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).toContain("IN: [ fader ]");
-    // No arrangement and no surface: what it opens on is the graph, and there is nothing else.
     expect(existsSync(join(benchDir(), "surfaces"))).toBe(false);
   });
 
   it("throws away what was wired on it, at the next open", async () => {
-    await ensureBench(EMAIL);
+    await openLibraryBench();
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
     ws.write(
       `${BENCH_PROJECT}/graph.yaml`,
       "modules:\n  IN: [ reverb ]\n  reverb: [ MIX ]\n",
     );
-
-    await ensureBench(EMAIL);
+    await openLibraryBench();
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).not.toContain("reverb");
-    expect(graph).toContain("IN: [ fader ]");
   });
 
-  it("sends nothing back to the library, graph or node", async () => {
-    await ensureBench(EMAIL);
+  it("writes a library module into the BENCH's clone, never the server's", async () => {
+    await openLibraryBench();
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
-
-    const before = readFileSync(join(libraryChain(), "graph.yaml"), "utf8");
-    ws.write(
-      `${BENCH_PROJECT}/graph.yaml`,
-      "modules:\n  IN: [ comp ]\n  comp: [ MIX ]\n",
-    );
-    ws.write(
-      `${BENCH_PROJECT}/nodes/comp.yaml`,
-      'extends: "@st0/audio/comp"\n',
-    );
-
-    expect(readFileSync(join(libraryChain(), "graph.yaml"), "utf8")).toBe(
-      before,
-    );
-    expect(existsSync(join(libraryChain(), "nodes", "comp.yaml"))).toBe(false);
-  });
-
-  it("writes a shared module in place, with no fork and no push", async () => {
-    // The one thing a bench session keeps: a library module is an ORDINARY path here.
-    await ensureBench(EMAIL);
-    const ws = new Workspace(benchRoot());
-    ws.setActiveProject(BENCH_PROJECT);
-
-    // Reached through the workspace's VIRTUAL `_libraries/<name>/`, landing in the account's clone.
     const rel = "_libraries/st0/modules/audio/comp/module.yaml";
     expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
     expect(
       readFileSync(
-        join(libraryDir(), "modules/audio/comp/module.yaml"),
+        join(benchClone(), "modules/audio/comp/module.yaml"),
         "utf8",
       ),
     ).toContain("internal");
+    expect(existsSync(join(libraryDir(), "modules/audio/comp"))).toBe(false);
     expect(existsSync(join(benchRoot(), "_libraries"))).toBe(false);
   });
 
-  it("refuses a path that climbs out of the libraries through the virtual folder", async () => {
-    await ensureBench(EMAIL);
+  it("refuses a write into a library anywhere but on its bench", async () => {
+    await openLibraryBench();
+    closeLibraryBench();
     const ws = new Workspace(benchRoot());
-    expect(() => ws.write("_libraries/../../escape.yaml", "x: 1\n")).toThrow(
-      /escapes/,
-    );
+    expect(() =>
+      ws.write("_libraries/st0/modules/amp.yaml", "gain: 2\n"),
+    ).toThrow(/bench/);
+    expect(existsSync(join(libraryDir(), "modules/amp.yaml"))).toBe(false);
+  });
+
+  it("refuses a path that climbs out of the library through the virtual folder", async () => {
+    await openLibraryBench();
+    const ws = new Workspace(benchRoot());
+    expect(() =>
+      ws.write("_libraries/st0/../../escape.yaml", "x: 1\n"),
+    ).toThrow(/escapes/);
+  });
+
+  it("is refused for an address naming neither a library nor a chain", async () => {
+    await expect(ensureBench(EMAIL, BENCH_PROJECT)).rejects.toThrow(/library/);
   });
 
   it("clears the per-chain benches an older address left behind", async () => {
     const stale = join(benchRoot(), "chains", "live", "vocals.st0");
     mkdirSync(stale, { recursive: true });
     writeFileSync(join(stale, "project.yaml"), "project:\n  name: x\n", "utf8");
-
-    await ensureBench(EMAIL);
+    await openLibraryBench();
     expect(existsSync(join(benchRoot(), "chains"))).toBe(false);
-    // …and the library it was a view of is untouched by the sweep.
     expect(existsSync(join(libraryChain(), "graph.yaml"))).toBe(true);
   });
 });

@@ -27,12 +27,12 @@ clock along with the request. When the bound is hit, git is killed and the call 
 
 ## `project libraries update` — handed in, because its subject is the ACCOUNT
 
-The account's libraries are repositories of their own, which the FILE SERVICE clones under
-`<studioHome>/libraries/<name>` and keeps at their latest
-([file-service/docs/libraries.md](../../file-service/docs/libraries.md)). Publishing a module you
-edited is the builder's Save; this verb is the other direction — fetch every library now rather than
-at the next open — and it is the file service's own sync, reached through
-`CommandHost.updateLibraries`: the dependency runs file-service → commands, never back.
+The libraries are repositories of their own, which the FILE HUB clones once for the origin and
+keeps at their latest ([file-service/docs/libraries.md](../../file-service/docs/libraries.md)).
+Publishing a module you edited is the bench's commit; this verb is the other direction — fetch
+every library now rather than at the next open — and it is the file service asking the hub for a
+forced sync, reached through `CommandHost.updateLibraries`: the dependency runs file-service →
+commands, never back.
 
 So the handler only SAYS what happened, one line per library by name, and:
 

@@ -16,6 +16,7 @@ import {
   type CompactWorkspaceReply,
   ENGINE_TOKEN_HEADER,
   type FileNode,
+  type LibrariesKeyReply,
   type ModelDownloadJob,
   type RepoProject,
   type ServedProject,
@@ -31,10 +32,10 @@ import {
   type WorkspaceSyncList,
 } from "@studio/web-protocol";
 import {
-  BENCH_PROJECT,
   BENCH_REPO,
   externalOf,
   launchUrl,
+  libraryBenchProject,
   localProjectUrl,
   shareUrl,
 } from "@studio/web-protocol/projects";
@@ -88,9 +89,14 @@ export function workspaceHref(ws: Addressable): string {
   return localProjectUrl(window.location.origin, ws.name, ".", "st0");
 }
 
-/** Where the BENCH opens: `/@banc/live.st0`, the one address it answers — see apps/pl8/docs/banc.md. */
-export function benchHref(): string {
-  return launchUrl(window.location.origin, BENCH_REPO, BENCH_PROJECT, "st0");
+/** Where the bench that EDITS `library` opens: `/@banc/@<library>/live.st0`, an admin's — see apps/pl8/docs/banc.md. */
+export function libraryBenchHref(library: string): string {
+  return launchUrl(
+    window.location.origin,
+    BENCH_REPO,
+    libraryBenchProject(library),
+    "st0",
+  );
 }
 
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
@@ -189,6 +195,15 @@ export const accountFiles = {
         body: JSON.stringify({ libraries }),
       }),
       "libraries",
+    ),
+
+  /** The server's public key, which every library repository must accept READ-ONLY — admins only. */
+  librariesKey: async (m: AccountFiles): Promise<LibrariesKeyReply> =>
+    json<LibrariesKeyReply>(
+      await fetch(`${m.fileBase}/account/libraries/key`, {
+        headers: filesHeaders(m),
+      }),
+      "libraries key",
     ),
 
   /** Bring every library to its latest commit now, rather than at the next open. */

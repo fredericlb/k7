@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setLibraryOverlay } from "@studio/song/sharedFolders";
 import { librariesFixture } from "@studio/song/testSupport";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
@@ -28,8 +29,11 @@ beforeEach(() => {
   writeFileSync(join(proj, "project.yaml"), 'project:\n  name: "song"\n');
   ws = new Workspace(root);
   ws.setActiveProject("song.st0");
+  // An admin's bench open on `st0`: the one state in which a file may land in a library.
+  setLibraryOverlay({ name: "st0", root: lib });
 });
 afterEach(() => {
+  setLibraryOverlay(null);
   rmSync(root, { recursive: true, force: true });
   delete process.env.STUDIO_HOME;
 });

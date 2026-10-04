@@ -81,6 +81,7 @@ import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
+import { BenchLibraryRow } from "./components/BenchLibraryRow";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
 import { ClipView, type EditTarget } from "./components/ClipView";
@@ -4140,6 +4141,9 @@ export default function App({
             </nav>
           </div>
         </footer>
+
+        {/* What the bench changed in its library and has not published — the one place a library is committed. */}
+        <BenchLibraryRow rev={rev} />
 
         {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
         {docked && (

@@ -5,6 +5,7 @@
 
 import { randomBytes } from "node:crypto";
 import { request as httpRequest } from "node:http";
+import { resolve } from "node:path";
 import { replayBody } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import {
@@ -29,6 +30,12 @@ import {
   Instances,
   type InstancesOptions,
 } from "./instances.ts";
+import { LibraryStore } from "./libraries.ts";
+import {
+  isLibrariesPath,
+  jsonBody,
+  librariesRoute,
+} from "./librariesRoutes.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -38,6 +45,8 @@ export { accountKey } from "./instances.ts";
 
 /** Where a service mounts the hub; the browser composes its file base from it. */
 export const FILE_HUB_PATH = "/api/files";
+/** Where a service mounts `internalHandler`, which only its own file services call, over loopback. */
+export const FILE_HUB_INTERNAL = `${FILE_HUB_HELLO}/internal`;
 export { FILE_HUB_HELLO, type FileHubHello };
 
 export interface FileHubOptions
@@ -72,15 +81,23 @@ export class FileHub {
   private readonly deps: BindingDeps;
   private readonly reaper: NodeJS.Timeout;
   private readonly key: Buffer;
+  /** The origin's libraries: the list, the server's key and the one clone of each. */
+  readonly libraries: LibraryStore;
 
   constructor(private readonly opts: FileHubOptions) {
     this.key = opts.ticketKey ? Buffer.from(opts.ticketKey) : randomBytes(32);
     const log = opts.log ?? ((m: string) => console.log(`files | ${m}`));
     this.deps = { ...opts, log };
+    this.libraries = new LibraryStore(resolve(opts.dataRoot));
     this.instances = new Instances({
       ...opts,
       log,
       onExit: (inst) => unbindAll(opts, inst),
+      env: () => ({
+        ...opts.env?.(),
+        STUDIO_LIBRARIES_HOME: this.libraries.home,
+        STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
+      }),
     });
     const idle = opts.idleMs ?? 30 * 60_000;
     this.reaper = setInterval(
@@ -130,6 +147,14 @@ export class FileHub {
         return;
       }
       const admin = ticket ? ticket.admin : (this.opts.isAdmin?.(req) ?? false);
+      if (isLibrariesPath(req.path)) {
+        void librariesRoute(this.libraries, req, res, admin).catch(
+          (e: Error) => {
+            if (!res.headersSent) res.status(500).json({ error: e.message });
+          },
+        );
+        return;
+      }
       const engineId = req.get(ENGINE_ID_HEADER) ?? ticket?.engineId ?? null;
       void this.forward(user, admin, engineId, req, res).catch((e: Error) => {
         if (res.headersSent) res.end();
@@ -137,6 +162,38 @@ export class FileHub {
           res
             .status(503)
             .json({ error: `file service unavailable: ${e.message}` });
+      });
+    };
+  }
+
+  /** The route the INSTANCES call back, at FILE_HUB_INTERNAL: their own secret is their gate, and a bench's push asks for a pull here. */
+  internalHandler(): RequestHandler {
+    return (req, res) => {
+      void (async () => {
+        const inst = await this.instances.bySecret(
+          req.get(HUB_SECRET_HEADER) ?? "",
+        );
+        if (!inst) {
+          res
+            .status(401)
+            .json({ error: "not one of this hub's file services" });
+          return;
+        }
+        if (req.method !== "POST" || req.path !== "/libraries/sync") {
+          res.status(404).json({ error: `no ${req.method} ${req.path}` });
+          return;
+        }
+        const body = (await jsonBody(req)) as {
+          name?: unknown;
+          force?: unknown;
+        };
+        const notes = await this.libraries.sync({
+          name: typeof body.name === "string" ? body.name : undefined,
+          force: body.force === true,
+        });
+        res.json({ notes });
+      })().catch((e: Error) => {
+        if (!res.headersSent) res.status(500).json({ error: e.message });
       });
     };
   }

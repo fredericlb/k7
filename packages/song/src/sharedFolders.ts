@@ -1,7 +1,7 @@
 // sharedFolders.ts — the shared module folders a project sees, found by WHERE they are and
 // nothing else: the workspace's own `_modules/` beside the project, then every library the file
-// service cloned under `<studioHome>/libraries/`. No project field declares them. Full
-// rationale: docs/sharedFolders.md.
+// hub cloned. One library may be OVERLAID by an admin's bench clone, and is then read there.
+// No project field declares them. Full rationale: docs/sharedFolders.md.
 
 import { existsSync, readdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
@@ -38,9 +38,31 @@ export type LibraryFamily =
   | "irs"
   | "models";
 
-/** Where the file service clones the account's libraries: `<studioHome>/libraries` — docs/sharedFolders.md. */
-export const librariesHome = (): string =>
-  join(studioHome(), LIBRARIES_HOME_DIR);
+/** Where the libraries are read from: the file hub's ONE clone of each (`$STUDIO_LIBRARIES_HOME`), else `<studioHome>/libraries` — docs/sharedFolders.md. */
+export function librariesHome(): string {
+  // biome-ignore lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
+  const shared = process.env.STUDIO_LIBRARIES_HOME;
+  return shared ? resolve(shared) : join(studioHome(), LIBRARIES_HOME_DIR);
+}
+
+/** The ONE library read from elsewhere — an admin's bench clone of it, which they edit — or null. */
+let overlay: { name: string; root: string } | null = null;
+
+/** Read library `name` from `root` instead of the shared clone, or stop (`null`): the bench's edit copy — docs/sharedFolders.md. */
+export function setLibraryOverlay(
+  next: { name: string; root: string } | null,
+): void {
+  overlay = next && { name: next.name, root: resolve(next.root) };
+}
+
+/** The library the bench edits, or null: the only one any write may reach. */
+export const libraryOverlay = (): { name: string; root: string } | null =>
+  overlay;
+
+/** Where library `name` is read from: its bench clone while one is open on it, else the shared clone. */
+export function libraryRoot(name: string): string {
+  return overlay?.name === name ? overlay.root : join(librariesHome(), name);
+}
 
 /** One of the account's libraries: its name, which is its ref's namespace, and its checkout. */
 export interface AccountLibrary {
@@ -50,16 +72,16 @@ export interface AccountLibrary {
 
 /** Every library cloned on this machine, by NAME order — found by where they are, never declared (docs/sharedFolders.md). */
 export function accountLibraries(): AccountLibrary[] {
-  const home = librariesHome();
   let names: string[];
   try {
-    names = readdirSync(home, { withFileTypes: true })
+    names = readdirSync(librariesHome(), { withFileTypes: true })
       .filter((e) => e.isDirectory() && isLibraryName(e.name))
       .map((e) => e.name);
   } catch {
-    return []; // no libraries yet — the ordinary state of a new machine
+    names = []; // no libraries yet — the ordinary state of a new machine
   }
-  return names.sort().map((name) => ({ name, root: join(home, name) }));
+  if (overlay && !names.includes(overlay.name)) names.push(overlay.name);
+  return names.sort().map((name) => ({ name, root: libraryRoot(name) }));
 }
 
 /** One family of every library, those that have it: each library's `chains/`, say. */
@@ -71,12 +93,17 @@ export function libraryFamilyRoots(kind: LibraryFamily): AccountLibrary[] {
 
 /** The library `path` lies in, or null — a template being edited stands INSIDE one. */
 export function libraryOf(path: string): AccountLibrary | null {
-  const rel = relative(librariesHome(), resolve(path));
+  const abs = resolve(path);
+  if (overlay) {
+    const inBench = relative(overlay.root, abs);
+    if (!inBench.startsWith("..") && !isAbsolute(inBench)) return overlay;
+  }
+  const rel = relative(librariesHome(), abs);
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
   const name = rel.split(/[\\/]+/)[0];
-  return isLibraryName(name)
-    ? { name, root: join(librariesHome(), name) }
-    : null;
+  // The shared clone of the library the bench overlays is not where that library is read from.
+  if (!isLibraryName(name) || overlay?.name === name) return null;
+  return { name, root: join(librariesHome(), name) };
 }
 
 /** One library's family folder, or null when that library is not here or carries none of it. */
@@ -85,7 +112,7 @@ export function libraryFamilyRoot(
   kind: LibraryFamily,
 ): string | null {
   if (!isLibraryName(library)) return null;
-  const root = join(librariesHome(), library, kind);
+  const root = join(libraryRoot(library), kind);
   return existsSync(root) ? root : null;
 }
 

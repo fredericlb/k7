@@ -47,6 +47,8 @@ export interface InstancesOptions {
   command?: () => { cmd: string; args: string[]; cwd: string };
   readyTimeoutMs?: number;
   log?: (msg: string) => void;
+  /** What the hub adds to every instance's environment: where the libraries are, and how to call it back. */
+  env?: () => Record<string, string>;
   /** Told when an instance is gone, for the binding it held. */
   onExit?: (inst: Instance) => void;
 }
@@ -128,11 +130,7 @@ export class Instances {
       STUDIO_HOME: home,
       STUDIO_FILE_PORT: String(port),
       STUDIO_HUB_SECRET: secret,
-      // ONE list for every account, beside their folders: the admins edit it (docs/fileHub.md).
-      STUDIO_LIBRARIES_FILE: join(
-        resolve(this.opts.dataRoot),
-        "libraries.json",
-      ),
+      ...this.opts.env?.(),
     };
     delete env.STUDIO_ENGINE_TOKEN;
     if (this.opts.mediatekRoot) env.STUDIO_MEDIATEK = this.opts.mediatekRoot;
@@ -179,6 +177,15 @@ export class Instances {
     await waitHealthy(port, child, this.opts.readyTimeoutMs ?? 60_000);
     this.log(`[${slug}] up on ${port}`);
     return inst;
+  }
+
+  /** The running instance that holds `secret`, or null: how an instance calling the hub back is told from a stranger. */
+  async bySecret(secret: string): Promise<Instance | null> {
+    for (const p of [...this.byUser.values()]) {
+      const inst = await p.catch(() => null);
+      if (inst && secret && inst.secret === secret) return inst;
+    }
+    return null;
   }
 
   /** Stop what nobody asked for in `idleMs`; the next request starts it again. */

@@ -76,7 +76,7 @@ the way back.
 An account with **no library** is the same case one level up, and goes the same way:
 **`renderNoLibraries`** draws the app's form for adding one under the refusal, and its `onAdded`
 re-runs the resolve. A refusal that sends you to another page to fix it is a dead end; st0 puts its
-libraries card there, which an admin can add to and anyone else reads, being told to ask one.
+Libraries panel there, which an admin can add to and anyone else reads, being told to ask one.
 
 `onCreated` re-runs the whole resolve rather than being told what was made. The wizard therefore
 does not have to report a project, an address or a workspace correctly: it makes one and asks the
@@ -90,7 +90,7 @@ a folder name git would give a clone, so none can collide with a workspace.
 | address | what it opens | the road |
 |---|---|---|
 | `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
-| `/@banc/live.st0` | the bench: one live rig, generated — `/@banc/<chain>/live.st0` seeds it with a library chain | the libraries check, then the machine writes the rig again and opens it |
+| `/@banc/@<library>/live.st0` | an admin's bench ON a library: one live rig, generated, with that library read from the admin's own clone — 403 for anyone else. `/@banc/<chain>/live.st0` seeds the rig with a library chain instead, for anyone; the bare `/@banc/live.st0` is refused | the libraries check, then the machine writes the rig again and opens it |
 | `/@shares/<token>.st0` | a frozen snapshot pl8 holds | none of it: no account, no engine, no working copy |
 
 **Anything else is refused** with the "missing" screen, which says a project opens from the home
@@ -98,24 +98,25 @@ page and what its address will be: guessing which folder a repository name meant
 wrong one silently. A repository reaches a workspace on the home page — **Importer** clones it
 there — never through the gate.
 
-**The libraries, and why `@local` skips them.** The bench asks the file service for
-`GET /account/libraries` first: every `@<library>/…` ref resolves against one of them, so without
+**The libraries, and why `@local` skips them.** The bench asks for `GET /account/libraries` first
+(the file hub answers it): every `@<library>/…` ref resolves against one of them, so without
 any the rig opens with every shared module missing, which reads as a broken rig rather than as an
 account nobody finished setting up — hence a screen of its own and no Retry, the answer staying the
-answer until somebody sets it on st0's home page (`apps/st0/frontend/docs/projects.md`). A workspace
+answer until an admin sets it in st0's Libraries panel (`apps/st0/frontend/docs/projects.md`). A workspace
 on this machine is what a NEW account has — `Examples`, seeded with the demos — and a new account
 has no library: refusing it would put the demos behind the one piece of setup they exist to
 precede, and a song that needs a library says so itself, as an unresolved reference.
 
-`POST /open` brings the account's libraries to their latest on the way — waiting only for one not
-cloned yet — and takes out whatever `_libraries` submodule the workspace holds
+`POST /open` asks the file hub to bring the origin's libraries to their latest on the way — waiting
+only for one not cloned yet — and takes out whatever `_libraries` submodule the workspace holds
 (`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
-they are the machine's, and it knows them.
+they are the server's, and it knows them.
 
 The bench is matched on the **app** as well as the name. It is a `.st0` project, so
 `/z0/editor/@banc/…` names nothing and is refused like any other unknown address. Its wait is
-reported as `cloning` because from here it is the same thing: a visible wait while a machine brings
-the libraries up to date, and the first one is the slow one. The project part of the address rides
+reported as `cloning` because from here it is the same thing: a visible wait while the server
+brings the libraries up to date — and, for a library bench, clones that library for the admin —
+and the first one is the slow one. The project part of the address rides
 along with it, since the machine is the side that says which address the bench answers.
 
 **`parseLaunch` knows about none of them.** All three are ordinary addresses whose first part

@@ -16,6 +16,7 @@ import {
   setInstrumentalChain,
   setStemsChain,
 } from "@studio/song/preferences";
+import { accountLibraries } from "@studio/song/sharedFolders";
 // st0's plugin contributions — commands and surface types — before anything reads a catalogue
 // or compiles a song. The LIST is the plugins package's; this process only calls the install.
 import { installBuiltinPlugins } from "@studio/st0-plugins/server";
@@ -30,7 +31,7 @@ import {
   type WorkspaceList,
   type WorkspaceSyncList,
 } from "@studio/web-protocol";
-import { benchChainOf, isBenchProject } from "@studio/web-protocol/projects";
+import { benchLibraryOf, isBenchProject } from "@studio/web-protocol/projects";
 import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
@@ -51,17 +52,11 @@ import {
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import {
-  defaultLibraryName,
-  type LibrarySetting,
-  libraryDir,
-  libraryFailure,
-  librarySettings,
-  pruneLibraries,
-  setLibrarySettings,
-  settingsProblem,
-  syncLibraries,
-  syncLibrary,
-} from "./libraries.ts";
+  commitLibraryBench,
+  discardLibraryBench,
+  libraryBenchStatus,
+  restoreLibraryBench,
+} from "./libraryBench.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -165,9 +160,9 @@ app.get(
  * that resolve to nothing — see docs/libraries.md. A URI is validated by CLONING when it is added.
  */
 const NO_LIBRARIES =
-  "no libraries — add one on st0's home page, in the card above the list";
+  "no libraries — an admin adds them in st0's Libraries panel, and the server clones them";
 const hasLibraries = (res: Response): boolean => {
-  if (librarySettings().length) return true;
+  if (accountLibraries().length) return true;
   res.status(400).json({ error: NO_LIBRARIES });
   return false;
 };
@@ -339,10 +334,15 @@ app.post(
           "@banc opens one live rig, and nothing else. A shared MODULE or a CHAIN is edited from a project you already have open — its Libraries tab.",
       });
     if (!hasLibraries(res)) return;
-    // A library chain the address puts on the rig — what k7 records through, apps/k7/docs/chainSource.md.
-    const chain = benchChainOf(String(req.body.project)) ?? undefined;
+    const project = String(req.body.project);
+    // A bench ON a library edits it, which only the hub's word that the caller is an admin allows.
+    if (benchLibraryOf(project) && req.get(ADMIN_HEADER) !== "1")
+      return res
+        .status(403)
+        .json({ error: "only the origin's admins edit a library" });
     try {
-      res.json(await ensureBench(req.userEmail!, chain));
+      // A chain's bench is what k7 records through, apps/k7/docs/chainSource.md.
+      res.json(await ensureBench(req.userEmail!, project));
     } catch (e) {
       // A library that will not mount is the USER's problem to read, so it is a 409 and not a fault.
       res.status(409).json({ error: (e as Error).message });
@@ -461,100 +461,51 @@ app.get(
  * cloned nothing, and the screen has a button for it rather than an error.
  */
 /**
- * The LIBRARIES — the origin's list, which the admins edit, and this account's clone of each.
- * Answered BEFORE `resolveWorkspace`, like the key: the gate asks with no workspace chosen yet,
- * and an empty list is the ordinary state of a new origin, which the gate has a screen for.
+ * The LIBRARIES' list and the hub's clones are the hub's own routes (`/account/libraries*`, never
+ * forwarded here). What THIS service holds is the clone an admin's bench edits: what it holds
+ * that its remote does not, its commit and push, and throwing it away — docs/libraries.md.
  */
-const librariesView = (notes?: AccountLibrariesReply["notes"]) => {
-  const reply: AccountLibrariesReply = {
-    libraries: librarySettings().map((l) => {
-      const error = libraryFailure(l.name);
-      return {
-        ...l,
-        cloned: existsSync(libraryDir(l.name)),
-        ...(error ? { error } : {}),
-      };
-    }),
-  };
-  if (notes?.length) reply.notes = notes;
-  return reply;
-};
-
 app.get(
-  "/account/libraries",
-  wrap((req, res) => {
-    // A library an admin added is cloned for THIS account behind the answer, at most once a minute.
-    void syncLibraries(req.userEmail!).catch(() => {});
-    res.json(librariesView());
+  "/account/bench-library",
+  wrap(async (req, res) => {
+    res.json(await libraryBenchStatus(req.userEmail!));
   }),
 );
 
-/**
- * SET the whole list. `{ uri }` alone ADDS one, as the single-library card used to send. A library
- * new to the list, or pointing somewhere new, is CLONED before the list is written down: a URI
- * nobody can clone is not a library. Clones the list dropped are removed, unless they hold
- * unpublished work — docs/libraries.md.
- */
-const libraryEntry = z.object({
-  name: z.string().trim().optional(),
-  uri: z.string().trim(),
+const benchCommitBody = z.object({
+  message: z.string().trim().min(1).max(500),
 });
-const librariesBody = z.union([
-  z.object({ libraries: z.array(libraryEntry) }),
-  libraryEntry,
-]);
-app.put(
-  "/account/libraries",
-  validate(librariesBody),
+app.post(
+  "/account/bench-library/commit",
+  validate(benchCommitBody),
   wrap(async (req, res) => {
-    // The list is every account's, so only the hub's word that the caller is an admin may change it.
+    // A push reaches every account through the hub's clone, so it is the admins' alone.
     if (req.get(ADMIN_HEADER) !== "1")
       return res
         .status(403)
-        .json({ error: "only the origin's admins may edit the libraries" });
-    const body = req.body as z.infer<typeof librariesBody>;
-    const before = librarySettings();
-    const asked =
-      "libraries" in body
-        ? body.libraries
-        : before.some((l) => l.uri === body.uri)
-          ? before
-          : [...before, body];
-    const list: LibrarySetting[] = [];
-    for (const l of asked)
-      list.push({
-        name: l.name || defaultLibraryName(l.uri, list),
-        uri: l.uri,
-      });
-    const problem = settingsProblem(list);
-    if (problem) return res.status(400).json({ error: problem });
-
-    const fresh = list.filter(
-      (l) => !before.some((b) => b.name === l.name && b.uri === l.uri),
-    );
-    const notes = await Promise.all(
-      fresh.map((l) => syncLibrary(req.userEmail!, l)),
-    );
-    const failed = notes.filter((n) => n.state === "failed");
-    if (failed.length)
-      return res.status(400).json({
-        error: failed
-          .map((n) => `could not clone '${n.name}' — ${n.note}`)
-          .join("; "),
-      });
-    setLibrarySettings(list);
-    notes.push(...(await pruneLibraries(req.userEmail!)));
-    res.json(librariesView(notes));
+        .json({ error: "only the origin's admins publish a library" });
+    const { message } = req.body as z.infer<typeof benchCommitBody>;
+    try {
+      res.json(await commitLibraryBench(req.userEmail!, message));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
   }),
 );
 
-/** Bring every library to its latest commit now — the explicit form of what an open does at most once a minute. */
 app.post(
-  "/account/libraries/update",
+  "/account/bench-library/discard",
   wrap(async (req, res) => {
-    res.json(
-      librariesView(await syncLibraries(req.userEmail!, { force: true })),
-    );
+    if (req.get(ADMIN_HEADER) !== "1")
+      return res
+        .status(403)
+        .json({ error: "only the origin's admins edit a library" });
+    try {
+      await discardLibraryBench(req.userEmail!);
+      res.json(await libraryBenchStatus(req.userEmail!));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
   }),
 );
 
@@ -676,6 +627,8 @@ app.listen(FILE_PORT, HOST, () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
   // The engine session is the recorded owner's from the first frame, not from the first request.
   adoptRecordedOwner();
+  // The library a bench was editing is read from its clone again, as it was before the restart.
+  restoreLibraryBench();
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
   // Same for the media library, tolerated rather than required: its root may be an unmounted drive.

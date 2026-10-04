@@ -231,6 +231,20 @@ export interface LibraryNote {
   note: string;
 }
 
+/** `GET /account/libraries/key` — the server's key, which each library repository must accept READ-ONLY. */
+export interface LibrariesKeyReply {
+  publicKey: string;
+}
+
+/** `GET /bench/library` — the library the bench edits, and what its clone holds that its remote does not. */
+export interface BenchLibraryStatus {
+  library: string;
+  /** Files changed and not committed. */
+  changed: number;
+  /** Commits not pushed. */
+  ahead: number;
+}
+
 /** `GET`/`PUT /account/libraries` and `POST /account/libraries/update` — the list, and what the call did to each. */
 export interface AccountLibrariesReply {
   libraries: AccountLibrary[];

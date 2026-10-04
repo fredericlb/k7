@@ -5,7 +5,12 @@
 
 import { isAdmin, type SessionUser } from "@frediverse/oidc";
 import type { EngineMount } from "@studio/engine-registry";
-import { FILE_HUB_HELLO, FILE_HUB_PATH, FileHub } from "@studio/file-hub";
+import {
+  FILE_HUB_HELLO,
+  FILE_HUB_INTERNAL,
+  FILE_HUB_PATH,
+  FileHub,
+} from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
 import type { Express, RequestHandler } from "express";
 
@@ -58,6 +63,8 @@ export function mountFileHub(
       : undefined,
   });
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
+  // Called only by this hub's own file services, over loopback: their secret is the gate, not a session.
+  app.use(FILE_HUB_INTERNAL, hub.internalHandler());
   // No session guard: a page on another origin carries a ticket, not a cookie — the hub checks it.
   app.use(FILE_HUB_PATH, hub.handler());
   console.log(`   workspaces: hosted under ${dataRoot}`);

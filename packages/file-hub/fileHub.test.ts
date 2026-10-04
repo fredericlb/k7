@@ -6,7 +6,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FileHub } from "./index.ts";
@@ -25,7 +25,8 @@ createServer((req, res) => {
     res.end(JSON.stringify({ url: req.url, headers: req.headers, body, engine,
       home: process.env.STUDIO_HOME,
       secret: process.env.STUDIO_HUB_SECRET,
-      libraries: process.env.STUDIO_LIBRARIES_FILE,
+      libraries: process.env.STUDIO_LIBRARIES_HOME,
+      hubUrl: process.env.STUDIO_HUB_URL,
       mediatek: [process.env.MEDIATEK_URL, process.env.MEDIATEK_TOKEN] }));
   });
 }).listen(Number(process.env.STUDIO_FILE_PORT), "127.0.0.1");
@@ -39,6 +40,7 @@ interface Echo {
   home: string;
   secret: string;
   libraries: string;
+  hubUrl: string;
   mediatek: [string, string];
 }
 
@@ -94,6 +96,7 @@ describe("the file hub", () => {
       log: () => {},
     });
     app.get("/api/files-hub", hub.helloHandler());
+    app.use("/api/files-hub/internal", hub.internalHandler());
     app.use("/api/files", hub.handler());
     server = createServer(app);
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
@@ -194,15 +197,17 @@ describe("the file hub", () => {
     expect(
       roots[0].remote.endsWith(join(roots[0].name.slice(3), "workspace")),
     ).toBe(true);
-    // The account's libraries, READ-ONLY: a module's files the engine loads live in one.
-    expect(roots[1].name).toBe(`libs-${roots[0].name.slice(3)}`);
-    expect(roots[1].writable).toBe(false);
-    expect(
-      roots[1].remote.endsWith(join(roots[0].name.slice(3), "libraries")),
-    ).toBe(true);
-    expect(roots[2].name).toBe(`models-${roots[0].name.slice(3)}`);
+    // The hub's ONE clone of the libraries, READ-ONLY and every account's alike…
+    expect(roots[1]).toMatchObject({ name: "libs", writable: false });
+    expect(roots[1].remote).toBe(
+      join(dirname(roots[0].remote), "..", "libraries"),
+    );
+    // …and the account's bench clones beside it, read-only to the engine too.
+    expect(roots[2].name).toBe(`bench-${roots[0].name.slice(3)}`);
     expect(roots[2].writable).toBe(false);
-    expect(roots[3]).toEqual({
+    expect(roots[3].name).toBe(`models-${roots[0].name.slice(3)}`);
+    expect(roots[3].writable).toBe(false);
+    expect(roots[4]).toEqual({
       remote: "/library",
       name: "mediatek",
       writable: false,
@@ -243,11 +248,55 @@ describe("the file hub", () => {
     };
   };
 
-  it("names ONE libraries list for every account, beside their homes", async () => {
+  it("hands every account the ONE clone of the libraries, and the way back to itself", async () => {
     const a = (await call("/x", { session: "a@example.com" })).echo;
     const b = (await call("/x", { session: "b@example.com" })).echo;
     expect(a.libraries).toBe(b.libraries);
-    expect(a.libraries).toBe(join(a.home, "..", "libraries.json"));
+    expect(a.libraries).toBe(join(a.home, "..", "libraries"));
+    expect(a.hubUrl).toBe("http://127.0.0.1:4242/api/files-hub/internal");
+  });
+
+  it("answers the libraries itself, and only an admin may change them", async () => {
+    const r = await fetch(`${base}/account/libraries`, {
+      headers: { "x-test-session": "fred@example.com" },
+    });
+    // Answered by the hub: the fake service would have echoed its url instead.
+    expect(await r.json()).toEqual({ libraries: [] });
+    const put = (admin: boolean) =>
+      fetch(`${base}/account/libraries`, {
+        method: "PUT",
+        headers: {
+          "x-test-session": "fred@example.com",
+          "content-type": "application/json",
+          ...(admin ? { "x-test-admin": "1" } : {}),
+        },
+        body: JSON.stringify({ libraries: [{ name: "Bad Name", uri: "x" }] }),
+      });
+    expect((await put(false)).status).toBe(403);
+    // An admin gets as far as the list's own validation.
+    const refused = await put(true);
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { error: string }).error).toMatch(
+      /cannot name/,
+    );
+  });
+
+  it("takes a sync only from one of its own file services", async () => {
+    const internal = base.replace("/api/files", "/api/files-hub/internal");
+    const ask = (secret: string) =>
+      fetch(`${internal}/libraries/sync`, {
+        method: "POST",
+        headers: {
+          "x-studio-hub-secret": secret,
+          "content-type": "application/json",
+        },
+        body: "{}",
+      });
+    expect((await ask("forged")).status).toBe(401);
+    const { echo } = await call("/x", { session: "a@example.com" });
+    const ok = await ask(echo.secret);
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ notes: [] });
   });
 
   it("says who is an admin, carries it in the ticket and stamps it", async () => {

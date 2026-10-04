@@ -787,21 +787,10 @@ export function EditorTab({
     [file?.path, refresh, onChanged, onEditTarget, setStatus],
   );
 
-  // A library is its repository: a rename or a delete there is published at once, as the builder's Save is.
-  const publishLibraryOf = useCallback(
-    async (path: string, message: string) => {
-      const library = libraryOfPath(path);
-      if (!library) return;
-      try {
-        const { note } = await api.publishLibraries(message, [library]);
-        setStatus(note);
-      } catch (e) {
-        setStatus(`publish failed: ${(e as Error).message}`);
-      }
-      await refreshLibraries();
-    },
-    [refreshLibraries, setStatus],
-  );
+  // A library change is published from the bench's commit row (BenchLibraryRow.tsx), not here: this only redraws the tab.
+  const afterLibraryChange = useCallback(async () => {
+    await refreshLibraries();
+  }, [refreshLibraries]);
 
   const renameLibraryEntry = useCallback(
     async (path: string, newName: string) => {
@@ -810,7 +799,7 @@ export function EditorTab({
           path,
           newName,
         );
-        await publishLibraryOf(path, `rename ${path} to ${newPath}`);
+        await afterLibraryChange();
         // A module's ref is its path: the songs naming it were repointed too (packages/song/docs/moduleMove.md).
         if (repointed?.length) {
           await refresh();
@@ -823,7 +812,7 @@ export function EditorTab({
         setStatus(`rename failed: ${(e as Error).message}`);
       }
     },
-    [publishLibraryOf, refresh, onChanged, setStatus],
+    [afterLibraryChange, refresh, onChanged, setStatus],
   );
 
   const deleteLibraryEntry = useCallback(
@@ -841,15 +830,15 @@ export function EditorTab({
       if (!agreed) return;
       try {
         await api.deleteFile(path);
-        await publishLibraryOf(path, `delete ${path}`);
+        await afterLibraryChange();
       } catch (e) {
         setStatus(`delete failed: ${(e as Error).message}`);
       }
     },
-    [publishLibraryOf, setStatus],
+    [afterLibraryChange, setStatus],
   );
 
-  // A module dragged to another folder of its library: moved, its refs repointed here, and the library published.
+  // A module dragged to another folder of its library: moved, and its refs repointed here.
   const moveLibraryModule = useCallback(
     async (path: string, toDir: string) => {
       try {
@@ -857,7 +846,7 @@ export function EditorTab({
           path,
           toDir,
         );
-        await publishLibraryOf(path, `move ${from} to ${to}`);
+        await afterLibraryChange();
         await refresh();
         onChanged();
         setStatus(
@@ -873,7 +862,7 @@ export function EditorTab({
         });
       }
     },
-    [publishLibraryOf, refresh, onChanged, setStatus],
+    [afterLibraryChange, refresh, onChanged, setStatus],
   );
 
   // Right-click New file: create an empty project file inside the target folder.

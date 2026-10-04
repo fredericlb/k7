@@ -3,14 +3,17 @@
 A project finds the modules it can extend **by where they are**:
 
 ```
-ws/_modules/                         the workspace's own  → @workspace/<type>/<name>
-<studioHome>/libraries/st0/modules/  a library, `st0`     → @st0/<type>/<name>
-<studioHome>/libraries/st0/chains/   …its chains          → @st0/<path>
-<studioHome>/libraries/st0/presets/  …its presets         → <ns>/<module path>/<name>.yaml
-ws/_presets/                         the workspace's presets, the same shape
-<studioHome>/libraries/drums/…       another, `drums`     → @drums/…
-ws/song/                             a project
+ws/_modules/                  the workspace's own  → @workspace/<type>/<name>
+<libraries>/st0/modules/      a library, `st0`     → @st0/<type>/<name>
+<libraries>/st0/chains/       …its chains          → @st0/<path>
+<libraries>/st0/presets/      …its presets         → <ns>/<module path>/<name>.yaml
+ws/_presets/                  the workspace's presets, the same shape
+<libraries>/drums/…           another, `drums`     → @drums/…
+ws/song/                      a project
 ```
+
+`<libraries>` is `librariesHome()`: `$STUDIO_LIBRARIES_HOME` where the file hub runs the service
+— its ONE clone of each library, shared by every account — else `<studioHome>/libraries`.
 
 A preset tree is keyed by the MODULE a preset is for, namespace included, and kept wherever the
 person chose: a workspace may hold presets for an `@st0` module, and a library for an `@engine` one.
@@ -21,11 +24,11 @@ So `presets/` is a library family like `chains/`, and `_presets/` sits beside `_
 order. Order is PRECEDENCE — nearest first — and two libraries never compete, since each keys its
 modules under its own name.
 
-## Libraries are the ACCOUNT's, and the file service keeps them
+## Libraries are the ORIGIN's, and the file hub keeps them
 
-An account has a list of named library repositories, set on st0's home page. The file service
-clones each one to `<studioHome>/libraries/<name>` and keeps it at its latest commit
-(`packages/file-service/docs/libraries.md`). **Every workspace of the account sees every library;
+The origin has one list of named library repositories, edited by its admins from st0's Libraries
+panel. The file hub clones each one once and keeps it at its latest commit
+(`packages/file-hub/docs/fileHub.md`). **Every workspace of every account sees every library;
 none holds a copy.** Mounting a library INTO each workspace — at `_libraries`, as a git submodule
 pinned by its gitlink — makes the workspace the wrong owner, three ways:
 
@@ -42,8 +45,8 @@ library's to change, the way a plugin update is the vendor's; a song that must n
 what it needs (`packages/audio-passes/docs/processChain.md`).
 
 **Still found by location, never declared.** `accountLibraries()` is the folders under
-`<studioHome>/libraries` whose name a library could have (`isLibraryName`); the SETTING that says
-which ones to clone is the file service's, and resolution never reads it. A folder there is a root,
+`librariesHome()` whose name a library could have (`isLibraryName`); the SETTING that says
+which ones to clone is the hub's, and resolution never reads it. A folder there is a root,
 a folder not there is not one, and nothing can fail — the same bargain `_modules` has always had.
 A clone still filling is `.cloning-…`, a dot-name no library can take, so it is never read half-way.
 
@@ -52,7 +55,7 @@ A clone still filling is `.cloning-…`, a dot-name no library can take, so it i
 so no library collides with the synthesised catalogue or the fixed levels; the name is lowercase
 letters, digits and dashes, because it is a ref segment and a folder name at once.
 
-**The account's first library is named `st0`.** That is what every `@st0/…` written before
+**The origin's first library is named `st0`.** That is what every `@st0/…` written before
 libraries had names meant — songs, chains, the four refs a scaffolded set writes for its decks — so
 none of them needs a line changed. `DEFAULT_LIBRARY` is that name, and a BARE chain ref (`bass/di`,
 as a bench address or a machine setting written earlier may hold one) is read as `@st0/bass/di`.
@@ -69,12 +72,15 @@ one: a mirror of the médiathèque deletes whatever the owner's manifest does no
 git checkout that would delete files somebody committed. So `mediatekPrefetch` carries `songs` and
 nothing else.
 
-**A shared module is editable in place.** In a workspace's file API a library answers at the
-VIRTUAL folder `_libraries/<name>/…` — confined to that library's clone, never on the workspace's
-disk (`packages/file-service/docs/workspace.md`). st0 opens it read-only behind a confirmation, and
-its builder has a **Save button** that commits and pushes that library once the files land
-(`apps/st0/frontend/docs/sharedModules.md`) — a decision somebody takes rather than a mechanism that
-absorbs it. No song repository gets a commit: none records a version.
+**A shared module is edited on its library's BENCH, and nowhere else.** In a workspace's file API
+a library answers at the VIRTUAL folder `_libraries/<name>/…` — confined to that library's root,
+never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's clone is
+every account's and is reset to its remote at every sync, so nothing may write into it. ONE
+library may be OVERLAID instead (`setLibraryOverlay`): an admin's bench clone of it, read in place
+of the hub's by everything that asks `libraryRoot(name)` — the compile, the file tree, the
+engine's paths. Writes are refused anywhere but there, and a push from it is what publishes
+(`packages/file-service/docs/libraries.md`, `apps/st0/frontend/docs/sharedModules.md`). No song
+repository gets a commit: none records a version.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
 project beside it, and it forks on write (`docs/moduleFork.md`).
@@ -86,8 +92,9 @@ the module travels whole. See `docs/moduleAssets.md`.
 
 A chain template lives in a library, and its nodes name `@<name>/…` modules of the same library or
 another. `moduleLibraryDirs(dir)` needs no second arm for that: the libraries are the
-account's, so a folder inside one sees them exactly as a project does. `libraryOf(dir)` says which
-library a path is in — what the builder's Save publishes, and what the file API maps back to
+origin's, so a folder inside one sees them exactly as a project does. `libraryOf(dir)` says which
+library a path is in — the overlay's clone counting as its library, the hub's clone of an
+overlaid library as none — which is what the write guard asks and what the file API maps back to
 `_libraries/<name>/…`.
 
 ## Why nothing declares them
@@ -177,7 +184,7 @@ turns on that — and it asks the PATH, never a declaration. See docs/moduleName
 The level is STRUCTURAL and never declared by the root. A per-root declaration would make it a free
 string an author chose inside the library: a workspace library could call itself `engine` and
 collide head-on with the synthesised catalogue, and nothing would tie the name to where the folder
-sits. A library's name is the one the ACCOUNT gave it, which is its folder's, which is its refs'.
+sits. A library's name is the one the ORIGIN's list gave it, which is its folder's, which is its refs'.
 
 **Why the default library is spelled `@st0`.** It names neither of the things its spelling
 suggests: the médiathèque is **pl8** and `apps/st0` is the editor. It stays on purpose — a level is

@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { rootDir } from "@studio/engine-client/paths";
 import { chainSteps } from "@studio/song/chainsGraph";
-import { BENCH_PROJECT } from "@studio/web-protocol/projects";
+import { BENCH_PROJECT, benchProject } from "@studio/web-protocol/projects";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
@@ -80,7 +80,7 @@ describe("the bench, on a library chain", () => {
   });
 
   it("puts the chain between the input and the fader, the rest of the rig untouched", async () => {
-    await ensureBench(EMAIL, "vocals/warm");
+    await ensureBench(EMAIL, benchProject("vocals/warm"));
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).toContain("IN: [ comp ]");
     expect(graph).toContain("eq: [ fader ]");
@@ -95,22 +95,21 @@ describe("the bench, on a library chain", () => {
   });
 
   it("refuses a chain that cannot run live, and one the library does not hold", async () => {
-    await expect(ensureBench(EMAIL, "master/norm")).rejects.toThrow(
-      /cannot run live/,
+    await expect(
+      ensureBench(EMAIL, benchProject("master/norm")),
+    ).rejects.toThrow(/cannot run live/);
+    await expect(ensureBench(EMAIL, benchProject("nope"))).rejects.toThrow(
+      /no chain/,
     );
-    await expect(ensureBench(EMAIL, "nope")).rejects.toThrow(/no chain/);
   });
 
-  it("is gone at the next open with no chain, and the library was never written", async () => {
+  it("copies the chain and never writes the library, which no chain's bench may edit", async () => {
     const before = readFileSync(
       library("chains/vocals/warm/graph.yaml"),
       "utf8",
     );
-    await ensureBench(EMAIL, "vocals/warm");
-    await ensureBench(EMAIL);
-    expect(readFileSync(join(benchDir(), "graph.yaml"), "utf8")).toContain(
-      "IN: [ fader ]",
-    );
+    await ensureBench(EMAIL, benchProject("vocals/warm"));
+    await ensureBench(EMAIL, benchProject("vocals/warm"));
     expect(readFileSync(library("chains/vocals/warm/graph.yaml"), "utf8")).toBe(
       before,
     );

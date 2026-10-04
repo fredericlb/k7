@@ -5,15 +5,16 @@ A module ref carries its level as an `@` prefix:
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@st0/audio/delay/tape-delay` | the account's library called `st0`, cloned at `<studioHome>/libraries/st0/modules` — every library is a level of its own name (`@drums/…`) | st0's Libraries tab |
+| `@st0/audio/delay/tape-delay` | the origin's library called `st0`, at `st0/modules` under `librariesHome()` — every library is a level of its own name (`@drums/…`) | st0's Libraries tab, on that library's bench |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
 
-## A library is a level, named by the account
+## A library is a level, named by the origin's list
 
-Each of the account's libraries is cloned by the file service at `<studioHome>/libraries/<name>`,
-and its `modules/` is the level `@<name>`. `moduleNamespaceOf`'s test is structural: the library a
-root sits in, by path, else `workspace`. `engine`, `workspace` and `meta` cannot name a library, so
-no library collides with a fixed level, and the account's first library is `st0` — the level every
+Each of the origin's libraries is read at `libraryRoot(<name>)` — the file hub's one clone of it,
+or an admin's bench clone while that bench is open — and its `modules/` is the level `@<name>`.
+`moduleNamespaceOf`'s test is structural: the library a root sits in, by path, else `workspace`.
+`engine`, `workspace` and `meta` cannot name a library, so no library collides with a fixed level,
+and the origin's first library is `st0` — the level every
 ref written before libraries had names uses. See [sharedFolders.md](sharedFolders.md).
 
 ## `@st0` names a LIBRARY of modules, and the cache folder is called `mediatek`
@@ -75,7 +76,7 @@ Every root is at a fixed place, so nothing in `project.yaml` names one:
 | level | where |
 |---|---|
 | `@engine` | nowhere — synthesised from the machine's plugin scan |
-| `@<library>` | `<studioHome>/libraries/<library>/modules`, one level per library the account cloned |
+| `@<library>` | `libraryRoot(<library>)/modules`, one level per library the server cloned |
 | `@workspace` | `../_modules`, beside the project |
 
 `moduleLibraryDirs()` states that once (sharedFolders.ts) and everything reads it: the modules,
