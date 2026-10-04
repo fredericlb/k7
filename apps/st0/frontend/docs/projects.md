@@ -406,6 +406,24 @@ has not opened. It is `FileNode`, the same type as everywhere else, with the sam
 `project?: boolean` flag on folders and `app` saying which application opens it. The drawing knows
 only that type, never the service that answered.
 
+### A workspace's files
+
+A file in the tree opens **read-only** beside it (`src/projects/FileViewer.tsx`). This screen
+writes nothing: what changes a project is the editor, where autosave and the compiler's checks
+hold, and a second place to type into would be a second set of rules.
+
+**What git has not committed is blue**, and so is every folder above it, so a change three
+levels down still shows on a folded tree. Such a file opens on its **diff against HEAD** rather
+than on its content, since "what is about to be pushed" is the question this screen is asked.
+An untracked file has no HEAD version and is drawn as all added; a deleted one is not on disk, so
+the walk misses it, and the tree adds it back, struck through, from the list of changes.
+
+The list comes from `GET /git/changes` and the diff from `GET /git/diff`. Both are local reads
+with no fetch, so the changes are re-read every five seconds while the tree is shown: an edit
+saved in another tab turns its file blue without a reload. The diff is git's own unified text,
+parsed in `src/projects/unifiedDiff.ts`. It is not recomputed in the browser, so there is no diff
+library to add and no second opinion on what changed.
+
 ## Getting a workspace: three gestures, and only one talks to a server
 
 **Nouveau** talks to nobody: `POST /workspaces` creates the folder and initialises it with git,

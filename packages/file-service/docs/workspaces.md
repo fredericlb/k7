@@ -396,6 +396,13 @@ recounts the local figures, so a commit made in the editor shows on the next pol
 **`ahead` and `behind` are null with no upstream.** A workspace with no repository has no "not
 pushed": its commits have nowhere to go, and its row says only what is uncommitted.
 
+**The paths behind that count are a route of their own**, `GET /git/changes`, with one path's
+diff at `GET /git/diff` (`src/workspaceChanges.ts`). They are asked per workspace, by the home
+page's tree when it is unfolded, and not by every row on every poll. Untracked files are listed
+one by one (`--untracked-files=all`) so the tree can colour each file rather than only its folder.
+A diff is taken with `--literal-pathspecs`, and a path that leaves the workspace is refused before
+git sees it.
+
 **A failed fetch is reported in `fetchError` and not as a failure.** `behind` is then as old as the
 last fetch that worked: still the best answer there is, and a wrong zero would not be.
 
