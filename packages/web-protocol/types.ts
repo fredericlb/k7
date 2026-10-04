@@ -222,12 +222,14 @@ export interface AccountLibrary {
   cloned: boolean;
   /** Why this account's last clone or pull of it failed, when it did. */
   error?: string;
+  /** Commits its remote has that the server's clone does not, as of the last fetch — an admin's pull brings them. */
+  behind?: number;
 }
 
 /** What a sync or a prune did to one library, said as the file service would say it. */
 export interface LibraryNote {
   name: string;
-  state: "cloned" | "updated" | "current" | "kept" | "failed";
+  state: "cloned" | "updated" | "behind" | "current" | "kept" | "failed";
   note: string;
 }
 
@@ -245,7 +247,7 @@ export interface BenchLibraryStatus {
   ahead: number;
 }
 
-/** `GET`/`PUT /account/libraries` and `POST /account/libraries/update` — the list, and what the call did to each. */
+/** `GET`/`PUT /account/libraries`, `POST /account/libraries/check` and `/pull` — the list, and what the call did to each. */
 export interface AccountLibrariesReply {
   libraries: AccountLibrary[];
   notes?: LibraryNote[];

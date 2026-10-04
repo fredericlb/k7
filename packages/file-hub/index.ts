@@ -18,6 +18,7 @@ import {
   USER_HEADER,
 } from "@studio/web-protocol";
 import type { Request, RequestHandler, Response } from "express";
+import { dropBenches } from "./benchDrop.ts";
 import {
   type BindingDeps,
   bindEngine,
@@ -163,7 +164,14 @@ export class FileHub {
       }
       const admin = ticket ? ticket.admin : (this.opts.isAdmin?.(req) ?? false);
       if (isLibrariesPath(req.path)) {
-        void librariesRoute(this.libraries, req, res, admin).catch(
+        const drop = async (name: string) =>
+          dropBenches(
+            resolve(this.opts.dataRoot),
+            await this.instances.running(),
+            name,
+            this.deps.log,
+          );
+        void librariesRoute(this.libraries, req, res, admin, drop).catch(
           (e: Error) => {
             if (!res.headersSent) res.status(500).json({ error: e.message });
           },
@@ -201,10 +209,12 @@ export class FileHub {
         const body = (await jsonBody(req)) as {
           name?: unknown;
           force?: unknown;
+          pull?: unknown;
         };
         const notes = await this.libraries.sync({
           name: typeof body.name === "string" ? body.name : undefined,
           force: body.force === true,
+          pull: body.pull === true,
         });
         res.json({ notes });
       })().catch((e: Error) => {

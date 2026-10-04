@@ -1,12 +1,13 @@
 // LibrariesCard.tsx — the origin's libraries: the named repositories of modules and chains EVERY
 // project inherits, one list for all accounts, cloned ONCE by the server with its own key. Only an
-// admin sees the add, remove and update controls, the server's key, and each row's Bench — the
+// admin sees the add, remove and pull controls, the server's key, and each row's Bench — the
 // one place that library is edited; the hub refuses anyone else's write anyway, so hiding them is
 // courtesy, not the gate. Adding one CLONES it, which is what says the URI is a repository.
 // See packages/song/docs/sharedFolders.md and packages/file-service/docs/libraries.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
+  ArrowDownToLine,
   Hammer,
   LibraryBig,
   Loader2,
@@ -16,6 +17,7 @@ import {
   X,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
+import { askConfirm } from "@studio/project-shell/ask";
 import type {
   AccountLibrariesReply,
   AccountLibrary,
@@ -47,7 +49,7 @@ export function LibrariesCard({
   );
   const [uri, setUri] = useState("");
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState<"add" | "update" | string | null>(null);
+  const [busy, setBusy] = useState<"add" | "check" | string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
   const [serverKey, setServerKey] = useState<string | null>(null);
@@ -64,13 +66,26 @@ export function LibrariesCard({
   useEffect(() => {
     // The file service holds them, so there is nothing to read until it answers.
     if (!fileService) return setLibraries([]);
+    let live = true;
     void accountFiles
       .libraries(fileService)
-      .then((r) => setLibraries(r.libraries))
+      .then((r) => {
+        if (!live) return;
+        setLibraries(r.libraries);
+        // The list draws at once; what is to pull follows a fetch, quietly, with no overlay.
+        if (r.libraries.length)
+          void accountFiles
+            .checkLibraries(fileService)
+            .then((c) => live && setLibraries(c.libraries))
+            .catch(() => undefined);
+      })
       .catch((e: Error) => {
         setError(e.message);
         setLibraries([]);
       });
+    return () => {
+      live = false;
+    };
   }, [fileService]);
 
   // Announced UP from the state and not from each setter: what this card holds is the one answer.
@@ -122,9 +137,22 @@ export function LibrariesCard({
     );
   };
 
-  const update = () => {
+  const check = () => {
     if (!fileService) return setError(m["libs.noFiles"]());
-    run("update", () => accountFiles.updateLibraries(fileService));
+    run("check", () => accountFiles.checkLibraries(fileService));
+  };
+
+  const pull = async (name: string) => {
+    if (!fileService) return setError(m["libs.noFiles"]());
+    // The sentence says what goes: every account's bench of it, unpushed work included.
+    const agreed = await askConfirm({
+      title: m["libs.pullTitle"]({ name }),
+      body: m["libs.pullBody"](),
+      confirmLabel: m["libs.pull"](),
+      danger: true,
+    });
+    if (agreed)
+      run(`pull:${name}`, () => accountFiles.pullLibrary(fileService, name));
   };
 
   const retry = (name: string) => {
@@ -157,20 +185,20 @@ export function LibrariesCard({
           <LibraryBig className="h-4 w-4" />
         )}
         {m["libs.title"]()}
-        {!missing && canEdit && (
+        {!missing && (
           <Button
             variant="ghost"
             size="sm"
             className="ml-auto"
-            onClick={update}
+            onClick={check}
             disabled={busy !== null}
           >
-            {busy === "update" ? (
+            {busy === "check" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}{" "}
-            {busy === "update" ? m["libs.updating"]() : m["libs.update"]()}
+            {busy === "check" ? m["libs.checking"]() : m["libs.check"]()}
           </Button>
         )}
       </div>
@@ -250,6 +278,31 @@ export function LibrariesCard({
             <code className="overflow-x-auto rounded bg-muted px-2 py-1 text-red-400">
               {l.error}
             </code>
+          )}
+          {/* Nothing pulls on its own: the server's copy moves when an admin says so, here. */}
+          {l.cloned && !!l.behind && (
+            <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/5 px-2 py-1">
+              <ArrowDownToLine className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <span className="flex-1 text-amber-500">
+                {m["libs.behind"]({ count: l.behind })}
+              </span>
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title={m["libs.pullHint"]()}
+                  onClick={() => void pull(l.name)}
+                  disabled={busy !== null}
+                >
+                  {busy === `pull:${l.name}` ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ArrowDownToLine className="h-3.5 w-3.5" />
+                  )}{" "}
+                  {m["libs.pull"]()}
+                </Button>
+              )}
+            </div>
           )}
         </div>
       ))}

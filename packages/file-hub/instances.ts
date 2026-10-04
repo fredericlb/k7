@@ -188,6 +188,14 @@ export class Instances {
     return null;
   }
 
+  /** The instances started and answering now. */
+  async running(): Promise<Instance[]> {
+    const all = await Promise.all(
+      [...this.byUser.values()].map((p) => p.catch(() => null)),
+    );
+    return all.filter((i): i is Instance => i !== null);
+  }
+
   /** Stop what nobody asked for in `idleMs`; the next request starts it again. */
   async reap(idleMs: number, now = Date.now()): Promise<void> {
     for (const p of [...this.byUser.values()]) {

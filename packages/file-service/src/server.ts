@@ -54,6 +54,7 @@ import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import {
   commitLibraryBench,
   discardLibraryBench,
+  dropLibraryBench,
   libraryBenchStatus,
   restoreLibraryBench,
 } from "./libraryBench.ts";
@@ -487,6 +488,23 @@ app.post(
     const { message } = req.body as z.infer<typeof benchCommitBody>;
     try {
       res.json(await commitLibraryBench(req.userEmail!, message));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+// The hub calls this after a pull of that library: no bench outlives what it was cloned before.
+app.post(
+  "/account/bench-library/drop",
+  wrap(async (req, res) => {
+    if (req.get(ADMIN_HEADER) !== "1")
+      return res
+        .status(403)
+        .json({ error: "only the origin's admins edit a library" });
+    try {
+      await dropLibraryBench(String(req.body?.name ?? ""));
+      res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

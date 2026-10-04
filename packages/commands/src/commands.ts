@@ -285,11 +285,11 @@ export interface CommandHost {
   gitEnv?: GitEnv;
   // Where the whole-repo git commands run — the workspace ROOT on the web, since a workspace is one cloned repo.
   repoDir?: string;
-  /** Bring the account's libraries to their latest — the FILE SERVICE keeps them, so it is handed in; docs/verbs.md. */
+  /** Fetch the account's libraries and say what is to pull — the FILE SERVICE keeps them, so it is handed in; docs/verbs.md. */
   updateLibraries?(): Promise<
     {
       name: string;
-      state: "cloned" | "updated" | "current" | "kept" | "failed";
+      state: "cloned" | "updated" | "behind" | "current" | "kept" | "failed";
       note: string;
     }[]
   >;

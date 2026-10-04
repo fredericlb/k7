@@ -1,7 +1,7 @@
 // The hub's LibraryStore over REAL git: the list validated and written, each library cloned ONCE
-// with the server's key, made exactly its remote again after a push from elsewhere, dropped
-// clones pruned, failures remembered, and the accounts' former lists merged when the origin has
-// none yet. See docs/fileHub.md.
+// with the server's key, a push from elsewhere counted on a sync and taken only on a pull, dropped
+// clones pruned, failures remembered, the accounts' former lists merged when the origin has none
+// yet, and a pull's bench drop. See docs/fileHub.md.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -15,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { dropBenches } from "./benchDrop.ts";
 import { LibraryStore, settingsProblem } from "./libraries.ts";
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -120,14 +121,27 @@ describe("the hub's libraries", () => {
     });
   });
 
-  it("follows a push: a forced sync makes the clone exactly its remote", async () => {
+  it("sees a push without taking it: a forced sync fetches and counts what is to pull", async () => {
+    const store = new LibraryStore(data);
+    await store.set([{ uri: URI }]);
+    publish(origin, "amp.yaml", "gain: 2\n");
+    const notes = await store.sync({ name: "st0", force: true });
+    expect(notes[0]).toMatchObject({ name: "st0", state: "behind" });
+    expect(store.view().libraries[0]).toMatchObject({ name: "st0", behind: 1 });
+    expect(
+      readFileSync(join(data, "libraries", "st0", "amp.yaml"), "utf8"),
+    ).toBe("gain: 1\n");
+  });
+
+  it("follows a push on a pull: the clone is made exactly its remote", async () => {
     const store = new LibraryStore(data);
     await store.set([{ uri: URI }]);
     publish(origin, "amp.yaml", "gain: 2\n");
     // A stray write in the clone is nobody's work, and goes.
     writeFileSync(join(data, "libraries", "st0", "stray.yaml"), "x\n");
-    const notes = await store.sync({ name: "st0", force: true });
+    const notes = await store.sync({ name: "st0", pull: true });
     expect(notes[0]).toMatchObject({ name: "st0", state: "updated" });
+    expect(store.view().libraries[0].behind).toBeUndefined();
     expect(
       readFileSync(join(data, "libraries", "st0", "amp.yaml"), "utf8"),
     ).toBe("gain: 2\n");
@@ -182,5 +196,32 @@ describe("the hub's libraries", () => {
       ]),
     ).toMatch(/twice/);
     expect(settingsProblem([{ name: "a", uri: "/tmp/repo" }])).toMatch(/SSH/);
+  });
+});
+
+describe("a pull's bench drop", () => {
+  it("removes every idle account's bench clone of that library, and its mark as open", async () => {
+    const bench = (account: string, lib: string) =>
+      join(data, account, "bench-libraries", lib);
+    for (const [a, lib] of [
+      ["alice", "st0"],
+      ["bob", "st0"],
+      ["bob", "drums"],
+    ]) {
+      mkdirSync(bench(a, lib), { recursive: true });
+      writeFileSync(join(bench(a, lib), "amp.yaml"), "unpushed\n");
+    }
+    writeFileSync(join(data, "alice", "bench-libraries", ".active"), "st0\n");
+    writeFileSync(join(data, "bob", "bench-libraries", ".active"), "drums\n");
+    await dropBenches(data, [], "st0", () => undefined);
+    expect(existsSync(bench("alice", "st0"))).toBe(false);
+    expect(existsSync(bench("bob", "st0"))).toBe(false);
+    expect(existsSync(bench("bob", "drums"))).toBe(true);
+    expect(existsSync(join(data, "alice", "bench-libraries", ".active"))).toBe(
+      false,
+    );
+    expect(existsSync(join(data, "bob", "bench-libraries", ".active"))).toBe(
+      true,
+    );
   });
 });

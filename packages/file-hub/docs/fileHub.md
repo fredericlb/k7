@@ -78,9 +78,16 @@ work — an edit happens on an admin's bench, in a clone of their own, and reach
   its public half in the Libraries page and add it to each library repository as a READ-ONLY
   deploy key. Not each account's key: every account would then need access to every library, and
   a library one account could not read would compile differently for it.
-- **A sync makes a clone EXACTLY its remote** — fetch, `reset --hard @{u}`, `clean -fd`. There is
-  nothing to keep, so nothing to merge. A clone is made in a dot-named sibling and renamed into
-  place, so no reader sees half a library.
+- **A sync only FETCHES; a PULL makes a clone EXACTLY its remote** — `reset --hard @{u}`,
+  `clean -fd`. There is nothing to keep, so nothing to merge. What the clone lacks is counted and
+  answered on the row as `behind`. A pull is an admin's gesture on the Libraries page or a bench's
+  push, never a side effect of a read or an open: it changes what every account's songs compile
+  against. A clone is made in a dot-named sibling and renamed into place, so no reader sees half a
+  library.
+- **An admin's pull destroys every bench of that library** (`../benchDrop.ts`), on every account
+  and unpushed work included: a running file service is told, so it closes the overlay reading the
+  clone; an idle account's clone is removed on disk, where its next start would read it again. A
+  bench's own push pulls without it, since that bench's clone IS the remote.
 - **A library is validated by CLONING it.** A `PUT` clones what is new or moved before writing the
   list, and a clone that fails answers git's words and stores nothing: a setting kept after a
   refused clone reads as done and breaks at the next thing that needs it. A later failure is
@@ -94,15 +101,16 @@ work — an edit happens on an admin's bench, in a clone of their own, and reach
   decks.
 
 `/account/libraries*` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET`
-the list, for anyone, starting a sync behind the answer at most once a minute; `POST /retry`
-(`{ name? }`, a forced clone of what failed), for anyone too, since it changes nothing anybody
-wrote; `PUT` the list, `POST /update` (a forced sync) and `GET /key`, for admins, 403 otherwise.
+the list, for anyone, starting a fetch behind the answer at most once a minute; `POST /retry`
+(`{ name? }`, a forced clone of what failed) and `POST /check` (a forced fetch), for anyone too,
+since they change nothing anybody wrote; `PUT` the list, `POST /pull` (`{ name? }`) and `GET /key`,
+for admins, 403 otherwise.
 
 The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves one
 route, `POST /libraries/sync`. Its gate is the hub secret of one of the hub's own instances —
 the secret that already proves the other direction — so nothing outside the hub's children can
-make it fetch. On an ordinary call the hub syncs at most once a minute and waits only for a clone
-that is missing; `force` (an update, a bench push) runs now and waits.
+make it fetch. On an ordinary call the hub fetches at most once a minute and waits only for a clone
+that is missing; `force` (the verb) fetches now and waits, and `pull` (a bench push) moves the clone.
 
 ## An engine is bound by a CLAIM
 
