@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { compileWidgetsScript, peakOf, TapHistory } from "./lcdScreen";
+import {
+  compileWidgetsScript,
+  hiddenWidgets,
+  peakOf,
+  TapHistory,
+} from "./lcdScreen";
 
 describe("compileWidgetsScript", () => {
   it("takes the draw functions a script RETURNS, by widget id", () => {
@@ -63,5 +68,46 @@ describe("TapHistory", () => {
 
   it("peakOf is the larger swing either side of zero", () => {
     expect(peakOf({ min: -0.8, max: 0.1 })).toBe(0.8);
+  });
+});
+
+describe("a panel's visible rule", () => {
+  const AMP = `export default {
+  visible: ({ ampModel }) => {
+    if (!ampModel) return {};
+    const n = ampModel.knobs;
+    return { k1: n >= 1, k2: n >= 2, k3: n >= 3 };
+  },
+};`;
+  const panel = (knobs?: number) => ({
+    params: {},
+    assets: {},
+    ...(knobs === undefined
+      ? {}
+      : { ampModel: { kind: "aida-x" as const, knobs } }),
+  });
+
+  it("is a reserved key, never a screen", () => {
+    const s = compileWidgetsScript(AMP);
+    expect(s.draws).toEqual({});
+    expect(typeof s.visible).toBe("function");
+  });
+
+  it("hides what it answers false for, and only that", () => {
+    const s = compileWidgetsScript(AMP);
+    expect([...hiddenWidgets(s, panel(1))].sort()).toEqual(["k2", "k3"]);
+    expect([...hiddenWidgets(s, panel(3))]).toEqual([]);
+    expect([...hiddenWidgets(s, panel(0))].sort()).toEqual(["k1", "k2", "k3"]);
+    // No model read — the builder's preview — and every knob stays, to be laid out.
+    expect([...hiddenWidgets(s, panel())]).toEqual([]);
+  });
+
+  it("hides nothing when it throws or has no rule", () => {
+    const boom = compileWidgetsScript(
+      "return { visible: () => { throw 1; } };",
+    );
+    expect([...hiddenWidgets(boom, panel(0))]).toEqual([]);
+    const none = compileWidgetsScript("return { screen() {} };");
+    expect([...hiddenWidgets(none, panel(0))]).toEqual([]);
   });
 });

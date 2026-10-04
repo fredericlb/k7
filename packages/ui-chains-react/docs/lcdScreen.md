@@ -48,6 +48,36 @@ export default {
 gets, without `ctx` and with `set(name, value)`, and a pointer in the draw's own pixels. The
 Parametric EQ in the st0 library (`modules/audio/eq/eq/engines/parametric`) is the worked example.
 
+## Hiding widgets: `visible`
+
+The same file may answer which of the panel's widgets show, under the reserved key `visible`:
+
+```js
+// modules/audio/amps/neural-amp-modeler/widgets.js — one module for every model
+export default {
+  visible: ({ ampModel }) => {
+    if (!ampModel) return {}; // no model read (none loaded, the builder's preview): show them all
+    const n = ampModel.knobs;
+    return { knob1: n >= 1, knob2: n >= 2, knob3: n >= 3 };
+  },
+};
+```
+
+`PanelFrame` and `PanelVisible` in `lcdScreen.ts` are the contract: the module's params and
+assets, and `ampModel` — `{ kind, knobs }` — when it loads an amp model the file service could read
+(`packages/song/src/ampModel.ts`). Each widget id answered `false` is not drawn; an id left out
+stays. A screen cannot be called `visible`.
+
+**It is code, not a YAML condition.** What decides a widget's presence is as open as what a screen
+draws — here a file's contents, elsewhere a param's value — and a rule language in `ui.yaml` would
+grow until it was a worse JavaScript.
+
+**A rule that throws hides nothing.** A bug in the script must leave a card with too many controls,
+never with none.
+
+**Hiding is a view, not the schema's `hidden:`.** That flag drops a widget at compile, for every
+use of the module; this one reads the node it is drawn for.
+
 ## Choices
 
 **It binds nothing, and an interactive one sets params by NAME.** A screen has no `bind`: the

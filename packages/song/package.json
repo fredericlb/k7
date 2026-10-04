@@ -50,6 +50,7 @@
     "./mediatekRoot": "./src/mediatekRoot.ts",
     "./studioHome": "./src/studioHome.ts",
     "./modelCache": "./src/modelCache.ts",
+    "./ampModel": "./src/ampModel.ts",
     "./mediatekRefs": "./src/mediatekRefs.ts",
     "./surfaces": "./src/surfaces.ts",
     "./assemblies": "./src/assemblies.ts",

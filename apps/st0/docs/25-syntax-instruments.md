@@ -89,7 +89,7 @@ frame: [40, 40, 320, 180] # …and leave THIS out to fill the frame
 
 A `.nam` profile is trained at whatever level its author played at, and it records that level in the file. Nothing makes two profiles agree, so a model can play back several dB below what went in — which sounds like the amp doing nothing at all. `Normalize` (off/on, **on** by default) levels the profile to a fixed reference using its declared loudness, so swapping one amp for another stops being a volume change. The trims around it are the ones EVERY module has: `input_volume:` and `output_volume:`, in dB from −60 to +12, set by st0 itself before and after the plugin — so they read and turn the same on any module, and the plugin's own `Input` and `Output` stay where the plugin put them (st0 refuses a module that sets them). The input one is a tone control as much as a level one — how hard you hit a modelled amp is half of what it sounds like. An effect also has `mix:`, 0 all dry to 1 all wet, the same way. A profile that declares no loudness gives `Normalize` nothing to work from, and the module shows a warning saying so.
 
-The same module plays two kinds of model, told apart by the file: a `.nam`, and the `.json` models made by AIDA-X or GuitarML's Proteus. A `.nam` is one setting of an amp, captured. An AIDA-X or Proteus model can be trained with the amp's KNOBS as well, gain or tone, so turning them really changes the amp rather than the level going in. The module carries three for that, `Knob 1` to `Knob 3`, 0 to 1, which reach the model in the order it was trained with and do nothing on a model without knobs. What each one is depends on the model, so the library's **Amp (Knobs)** module draws them as Knob 1–3, and a copy of it made for one model is where they get their names. A model can sit in the module's own `assets/` folder, or in a library's `models/` folder, shared by every module that plays it: the second is written with the library's name first, `model: "@st0/guitarml proteus/TS9_DriveKnob.json"`, the way a cabinet IR is. The st0 library's `models/` comes with GuitarML's Proteus tone library and a set of AIDA-X captures (its `SOURCES.md` says where each comes from and under what licence), and you add your own by dropping `.nam` or `.json` files on that folder in the Libraries tab. These models declare no loudness, so `Normalize` leaves them at their trained level and says nothing; set the level with the trims.
+The same module plays two kinds of model, told apart by the file: a `.nam`, and the `.json` models made by AIDA-X or GuitarML's Proteus. A `.nam` is one setting of an amp, captured. An AIDA-X or Proteus model can be trained with the amp's KNOBS as well, gain or tone, so turning them really changes the amp rather than the level going in. The module carries three for that, `Knob 1` to `Knob 3`, 0 to 1, which reach the model in the order it was trained with and do nothing on a model without knobs. The panel shows only the knobs the loaded model has: none for a `.nam`, as many as an AIDA-X or Proteus model was trained with — its `widgets.js` decides, from what st0 reads in the file (see the lcdscreen section below). What each one is depends on the model, so they are drawn as Knob 1–3, and a copy of the module made for one model is where they get their names. In the **Model** picker each file is tagged **NAM** or **AIDA**, the latter for any `.json`. A model can sit in the module's own `assets/` folder, or in a library's `models/` folder, shared by every module that plays it: the second is written with the library's name first, `model: "@st0/guitarml proteus/TS9_DriveKnob.json"`, the way a cabinet IR is. The st0 library's `models/` comes with GuitarML's Proteus tone library and a set of AIDA-X captures (its `SOURCES.md` says where each comes from and under what licence), and you add your own by dropping `.nam` or `.json` files on that folder in the Libraries tab. These models declare no loudness, so `Normalize` leaves them at their trained level and says nothing; set the level with the trims.
 
 A NAM capture is often the amp without its cabinet, which sounds like no speaker ever made. `ir:` names a **cabinet IR** the module plays after the model: a sound file in one of your libraries' `irs/` folders, written `@<library>/<path>`. The **Cabinet** picker on the module's panel lists every IR your libraries hold, and the **Model** picker beside it the module's `.nam` files; leave `ir:` out for no cabinet. The IR is levelled like the model is, so trying another cabinet does not change the volume. A library's `samples/` folder sits beside `irs/`, for sound files a song picks the same way.
 
@@ -561,6 +561,19 @@ export default {
     const { ctx, width, height, params, input, output, color } = lcd;
     ctx.fillStyle = color.ink;
     ctx.fillText(`ratio ${params.Ratio}`, 4, 12);
+  },
+};
+```
+
+The same file can also decide which widgets SHOW, under the reserved name `visible` — so a screen cannot be called that. It gets the module's `params`, its `assets`, and, on an amp, `ampModel`: `{ kind, knobs }`, what st0 read in the model file. It answers with widget ids; `false` hides one, and an id it leaves out stays. A `widgets.js` with only `visible` in it is fine on a panel with no screen. If it throws, every widget shows.
+
+```js
+// _modules/audio/amps/my-amp/widgets.js — only the knobs the model has
+export default {
+  visible: ({ ampModel }) => {
+    if (!ampModel) return {}; // no model read yet: show them all
+    const n = ampModel.knobs;
+    return { k1: n >= 1, k2: n >= 2, k3: n >= 3 };
   },
 };
 ```
