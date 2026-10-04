@@ -284,9 +284,12 @@ move around. What it drops is the clock and record. A set declares no tempo and 
 so the clock would count bars nothing is written against, and record would arm a lane with nowhere
 to put a take.
 
-The status bar's **Q badge** sits beside it for a related reason: Q1/Q2/Q3 off the measured latency
-is a property of the SESSION rather than of a screen — it decides what you can do here
-(`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows.
+The **engine's health** sits in the header, right of the engine switch (`components/EngineLink.tsx`):
+the connection light, the Q badge and the engine process's memory. They describe the engine that
+switch names, so they stand beside its name rather than at the far end of the status bar. Q1/Q2/Q3
+off the measured latency is a property of the SESSION rather than of a screen — it decides what you
+can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. A phone
+keeps the light alone.
 
 ### On a phone, one menu holds everywhere there is to go
 
@@ -1004,11 +1007,10 @@ inside its clips, and that height is precisely what the pane below is holding �
 through `onView`, beside `selecting` / `zoomed` / `loop`: one channel for "what state is the timeline in",
 rather than a second prop that could disagree with it.
 
-**A lane's modules split it back.** Double-clicking a lane header asks for that lane's modules in the
-graph's slot, and a request the user can't see is a miss — so while the `trackModules` slot is open,
-expanded lanes give up the column and the layout is the ordinary split, the lanes still tall. Closing
-the slot hands the column back. Only that slot does it: a clip or a grid is opened by a single click
-on the lanes themselves, and would otherwise halve them on every pick.
+**An occupied slot splits it back.** A lane's modules, a clip's waveform or piano roll, a grid, a take
+review — each is asked for, and a request the user can't see is a miss. So while the graph's slot
+holds anything, expanded lanes give up the column and the layout is the ordinary split, the lanes
+still tall. Closing the slot hands the column back.
 
 ## The command bar
 

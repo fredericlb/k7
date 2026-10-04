@@ -1,4 +1,4 @@
-// EngineLoad — the engine's own memory in the header, beside the master meter, with the plugins'
+// EngineLoad — the engine's own memory in the header, inside EngineLink, with the plugins'
 // summed share of the audio block in its tooltip. The per-node figures cannot add up to it, since
 // plugins share one heap (engine/st0-engine/docs/load.md).
 // The one thing a reader would get wrong: it is the engine PROCESS's figure, not this project's.

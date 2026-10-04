@@ -191,11 +191,11 @@ The master **chain** is upstream of all of it (`@studio/song`'s
 [`docs/masterChain.md`](../../../../packages/song/docs/masterChain.md)), so a limiter there is
 something the clip light cannot see past.
 
-## The engine's memory, beside it
+## The engine's memory, beside its name
 
-Left of the meter, `EngineLoad.tsx` shows the engine PROCESS's memory, and its tooltip adds the
-plugins' summed share of each audio block. It sits here because the meter is the header's one
-reading of the engine itself, and the figure is the engine's, not this project's: every session on
-that engine counts in it. Why memory is the process's and not a node's is
+`EngineLoad.tsx` shows the engine PROCESS's memory, and its tooltip adds the plugins' summed share
+of each audio block. It sits right of the header's engine switch, with the connection light and the
+latency (`EngineLink.tsx`), and not beside this meter: the figure is the engine's, not this
+project's — every session on that engine counts in it. Why memory is the process's and not a node's is
 `engine/st0-engine/docs/load.md`; the node's own CPU is on its card. Rounded to whole megabytes
 and percents in the selectors, so a report that moves neither re-renders nothing.
