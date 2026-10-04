@@ -1,5 +1,5 @@
-// The render cache's purge. Silent once wrong either way: a render deleted while still played costs
-// a re-render on every reload, one never deleted fills the volume. packages/song/docs/autoFreeze.md.
+// The accounts' cache purge. Silent once wrong either way: a render or a journal deleted while in
+// use costs a re-render or an undo, one never deleted fills the volume. packages/song/docs/autoFreeze.md.
 
 import {
   existsSync,
@@ -12,7 +12,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { purgeStaleRenders, RENDER_TTL_MS } from "./renderCache.ts";
+import {
+  CACHE_TTL_MS,
+  purgeStaleHistory,
+  purgeStaleRenders,
+} from "./staleCaches.ts";
+
+const RENDER_TTL_MS = CACHE_TTL_MS;
 
 let root = "";
 beforeEach(() => {
@@ -56,5 +62,39 @@ describe("purgeStaleRenders", () => {
     writeFileSync(join(root, "libraries.json"), "{}");
     expect(purgeStaleRenders(root, NOW)).toBe(0);
     expect(existsSync(work)).toBe(true);
+  });
+});
+
+/** A project journal in `account`'s undo cache, with its blobs, all last touched at `at`. */
+function journal(account: string, at: number, blobs: string[] = []) {
+  const dir = join(root, account, ".history", "song-0123456789ab");
+  mkdirSync(join(dir, "blobs"), { recursive: true });
+  const files = [
+    join(dir, "journal.json"),
+    ...blobs.map((b) => join(dir, "blobs", b)),
+  ];
+  for (const f of files) {
+    writeFileSync(f, "x");
+    utimesSync(f, new Date(at), new Date(at));
+  }
+  return dir;
+}
+
+describe("purgeStaleHistory", () => {
+  it("deletes a journal nobody used for a month, whole, and keeps a live one", () => {
+    const dead = journal("a", NOW - CACHE_TTL_MS - 1, ["1-b0"]);
+    const live = journal("b", NOW - 1000);
+    expect(purgeStaleHistory(root, NOW)).toBe(1);
+    expect(existsSync(dead)).toBe(false);
+    expect(existsSync(live)).toBe(true);
+  });
+
+  // An engine purges its copy of a blob after the same month: the one here goes alike.
+  it("deletes a live journal's blob older than a month", () => {
+    const dir = journal("a", NOW - CACHE_TTL_MS - 1, ["1-b0"]);
+    utimesSync(join(dir, "journal.json"), new Date(NOW), new Date(NOW));
+    expect(purgeStaleHistory(root, NOW)).toBe(1);
+    expect(existsSync(join(dir, "journal.json"))).toBe(true);
+    expect(existsSync(join(dir, "blobs", "1-b0"))).toBe(false);
   });
 });

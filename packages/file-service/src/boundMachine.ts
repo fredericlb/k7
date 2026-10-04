@@ -7,15 +7,25 @@ import { requestJob } from "@studio/engine-tunnel/jobs-client";
 import { WebSocket } from "ws";
 
 let jobsUrl: string | null = null;
+let engine: { id: string; name: string } | null = null;
 
 /** The bound machine's jobs path, or null while no engine is bound. */
 export function boundJobsUrl(): string | null {
   return jobsUrl;
 }
 
+/** Which engine is bound — its registry id and a name to show — or null; what an undo's audio is kept by. */
+export function boundEngine(): { id: string; name: string } | null {
+  return jobsUrl ? engine : null;
+}
+
 /** Set by the hub's binding route, and only there. */
-export function setBoundJobsUrl(url: string | null): void {
+export function setBoundJobsUrl(
+  url: string | null,
+  which: { id: string; name: string } | null = null,
+): void {
   jobsUrl = url;
+  engine = url ? which : null;
 }
 
 /** One request to the bound machine, answered by the reply of type `last`; null with no machine bound. */

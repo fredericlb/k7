@@ -111,9 +111,11 @@ when that account **holds a claim** on it in the registry. The registry lists ev
 everyone, and a header is not permission; the claim is (`packages/engine-registry/docs/claim.md`).
 A binding that fails leaves the files reachable and says why in the log.
 
-A bound engine sees exactly four roots of the account: its `workspace/` folder, writable, so a take
+A bound engine sees exactly five roots of the account: its `workspace/` folder, writable, so a take
 comes back; its render cache `.renders/`, writable, so an automatic VST render comes back
-(`packages/song/docs/autoFreeze.md`); its `models/`, read-only; and the médiathèque, read-only.
+(`packages/song/docs/autoFreeze.md`); its undo cache `.history/`, writable, since the machine KEEPS
+an undo's audio and sends it back up for an undo (`packages/file-service/docs/history.md`); its
+`models/`, read-only; and the médiathèque, read-only.
 **Never the rest of `$STUDIO_HOME`**, which holds the
 account's SSH deploy key: an engine's machine may be a shared studio box, and the key is what
 pushes to the account's repositories.

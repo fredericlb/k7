@@ -24,6 +24,11 @@ its own `st0-engine --render` — its own plugins, which is the reason it runs t
 `{ type: "rendered", file: out }`, which is what uploads the wav. The doc's clip paths are strings
 under a shared root like any other, so they are downloaded before the handler runs.
 
+`prefetch` and `send-up` are how the machine KEEPS an undo's audio (`packages/file-service/docs/history.md`):
+`prefetch` names files the channel brings down before it answers, with how many are there; `send-up`
+names one the server no longer has, and the machine answers `{ type: "sent", file }` naming its own
+copy, freshly stamped — the stamp is what makes the channel upload a file it last brought down.
+
 ## The files travel as they do for the engine
 
 A jobs channel is opened with the same **roots** an engine channel is, and its frames cross the

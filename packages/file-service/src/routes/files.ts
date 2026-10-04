@@ -578,7 +578,7 @@ for (const dir of ["undo", "redo"] as const) {
   filesRouter.post(
     `/${dir}`,
     validate(undoBody),
-    wrap((req, res) => {
+    wrap(async (req, res) => {
       const { confirm } = req.body as z.infer<typeof undoBody>;
       const next = dir === "undo" ? req.ws!.peekUndo() : req.ws!.peekRedo();
       if (!next) {
@@ -589,8 +589,11 @@ for (const dir of ["undo", "redo"] as const) {
         res.json({ needsConfirm: true, ...next });
         return;
       }
+      // Throws, having written nothing, when the step's audio is kept by another engine — docs/history.md.
       const done =
-        dir === "undo" ? req.ws!.undoHistory() : req.ws!.redoHistory();
+        dir === "undo"
+          ? await req.ws!.undoHistory()
+          : await req.ws!.redoHistory();
       res.json(done ? { applied: true, ...done } : { applied: false });
     }),
   );

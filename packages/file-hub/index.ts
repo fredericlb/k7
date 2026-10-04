@@ -36,8 +36,12 @@ import {
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
-import { purgeStaleRenders, RENDER_SWEEP_EVERY_MS } from "./renderCache.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
+import {
+  CACHE_SWEEP_EVERY_MS,
+  purgeStaleHistory,
+  purgeStaleRenders,
+} from "./staleCaches.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
@@ -107,13 +111,14 @@ export class FileHub {
       Math.min(idle, 5 * 60_000),
     );
     this.reaper.unref();
-    // The accounts' automatic renders: one nobody played for a month goes (renderCache.ts).
+    // The accounts' automatic renders and undo journals: what nobody used for a month goes (staleCaches.ts).
     const sweep = () => {
-      const n = purgeStaleRenders(resolve(opts.dataRoot));
-      if (n) log(`purged ${n} unused render(s)`);
+      const root = resolve(opts.dataRoot);
+      const n = purgeStaleRenders(root) + purgeStaleHistory(root);
+      if (n) log(`purged ${n} unused cache entr(ies)`);
     };
     sweep();
-    this.renderSweep = setInterval(sweep, RENDER_SWEEP_EVERY_MS);
+    this.renderSweep = setInterval(sweep, CACHE_SWEEP_EVERY_MS);
     this.renderSweep.unref();
     if (opts.watchSources) {
       const dirs = fileServiceSourceDirs();

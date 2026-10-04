@@ -185,9 +185,11 @@ import {
   type FileChange,
   type HistoryPeek,
   type HistoryState,
+  historyStoreFor,
   isHistoryDir,
   ProjectHistory,
 } from "./history.ts";
+import { engineKeeper } from "./historyKeeper.ts";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { closeModuleWatchesUnder, moduleFoldersMoved } from "./moduleWatch.ts";
 import {
@@ -1099,7 +1101,10 @@ export class Workspace {
   // One ProjectHistory per active project, cached so the on-disk journal is read once.
   private history(dir: string): ProjectHistory {
     if (this.historyCache?.dir !== dir)
-      this.historyCache = { dir, h: new ProjectHistory(dir, this.root) };
+      this.historyCache = {
+        dir,
+        h: new ProjectHistory(historyStoreFor(dir), this.root, engineKeeper),
+      };
     return this.historyCache.h;
   }
 
@@ -1198,18 +1203,18 @@ export class Workspace {
   }
 
   /** Undo the most recent journalled change on the active project. */
-  undoHistory(): HistoryPeek | null {
+  async undoHistory(): Promise<HistoryPeek | null> {
     const dir = this.activeProject;
     if (!dir) return null;
-    const r = this.history(dir).undo();
+    const r = await this.history(dir).undo();
     if (r) this.invalidateProjectDoc();
     return r;
   }
   /** Redo the change undo just reverted. */
-  redoHistory(): HistoryPeek | null {
+  async redoHistory(): Promise<HistoryPeek | null> {
     const dir = this.activeProject;
     if (!dir) return null;
-    const r = this.history(dir).redo();
+    const r = await this.history(dir).redo();
     if (r) this.invalidateProjectDoc();
     return r;
   }

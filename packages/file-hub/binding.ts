@@ -9,6 +9,7 @@ import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
 import {
   AUTO_RENDERS_HOME_DIR,
+  HISTORY_HOME_DIR,
   LIBRARIES_HOME_DIR,
 } from "@studio/song-schema/moduleTypes";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
@@ -43,7 +44,7 @@ const librariesRoots = (inst: Instance): TunnelRoot[] => [
 /** Where an account's file service keeps the clones an admin's bench edits — libraryBench.ts there. */
 export const BENCH_LIBRARIES_DIR = "bench-libraries";
 
-/** What an engine's machine may see of an account: its workspaces, its render cache, its libraries, its models and the médiathèque read-only — never its keys. */
+/** What an engine's machine may see of an account: its workspaces, its render and undo caches, its libraries, its models and the médiathèque read-only — never its keys. */
 export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
   const roots: TunnelRoot[] = [
     {
@@ -62,6 +63,12 @@ export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
     {
       remote: join(inst.home, AUTO_RENDERS_HOME_DIR),
       name: `renders-${inst.slug}`,
+      writable: true,
+    },
+    // Writable: the machine KEEPS the undo journal's audio, and sends a file back up for an undo (packages/file-service/docs/history.md).
+    {
+      remote: join(inst.home, HISTORY_HOME_DIR),
+      name: `history-${inst.slug}`,
       writable: true,
     },
   ];
@@ -115,6 +122,7 @@ async function tell(
   inst: Instance,
   url: string | null,
   jobsUrl: string | null = null,
+  engine: { id: string; name: string } | null = null,
 ): Promise<void> {
   const r = await fetch(`http://127.0.0.1:${inst.port}/hub/engine`, {
     method: "POST",
@@ -122,7 +130,12 @@ async function tell(
       "content-type": "application/json",
       [HUB_SECRET_HEADER]: inst.secret,
     },
-    body: JSON.stringify({ url, jobsUrl }),
+    body: JSON.stringify({
+      url,
+      jobsUrl,
+      engineId: engine?.id ?? null,
+      engineName: engine?.name ?? null,
+    }),
   });
   if (!r.ok)
     throw new Error(`the file service refused the binding (${r.status})`);
@@ -144,7 +157,9 @@ export function bindEngine(
     const jobsPath = deps.tunnels.bindLocal(id, roots, "jobs");
     const at = `ws://127.0.0.1:${deps.selfPort()}`;
     try {
-      await tell(inst, `${at}${path}`, `${at}${jobsPath}`);
+      // Its identity too: an undo's audio is kept by ONE engine, and an error names it.
+      const name = deps.registry.get(id)?.hostname || id;
+      await tell(inst, `${at}${path}`, `${at}${jobsPath}`, { id, name });
     } catch (e) {
       deps.tunnels.unbindLocal(path);
       deps.tunnels.unbindLocal(jobsPath);

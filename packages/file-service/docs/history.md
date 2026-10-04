@@ -49,13 +49,53 @@ before/after content inline; binary changes reference backup blobs. `kind` is `"
 iff the entry carries blobs — the client confirms before undoing one, because it restores
 an audio file.
 
-## On disk
+## Not in the project: the account's cache
 
-Everything lives under `<project>/_history/` — `journal.json` plus `blobs/` — hidden by
-`Workspace.skip()` exactly like `_recycle_bin`, so it never shows in the tree, moves the
-revision token, or is itself diffed. Recorded paths are workspace-root-relative (what the
-editor and the file API speak), so `ProjectHistory` stores under the project but resolves
-paths against the root.
+The journal is the session's, not the song's. Kept in the project, it is a ring of up to a thousand
+entries, audio included, that a clone without the right `.gitignore` commits and pushes with the
+song. So it lives in the account's state, never in a workspace:
+
+- **The journal** — `journal.json`, with every text change inline — is in
+  `<studioHome>/.history/<project>-<hash>/` (`historyStoreFor`; `HISTORY_HOME_DIR`). On the server
+  that is `$STUDIO_FILES_ROOT/<account>/.history`, on pl8's volume beside `workspace/`. The name
+  is the project folder's, for a reader; the hash is of its path, so two projects of one name do
+  not share one. A project moved or renamed starts an empty journal.
+- **Forgotten after a month unused.** The hub sweeps every account's `.history` hourly
+  (`packages/file-hub/staleCaches.ts`) and deletes a journal no edit, undo or redo has rewritten in
+  30 days — and, in a live one, any blob older than that. An undo past a purged blob fails like
+  one whose engine is gone (below).
+
+Recorded paths stay workspace-root-relative (what the editor and the file API speak), and resolve
+against the root. A `_history/` folder inside a project is still hidden by `Workspace.skip()`;
+nothing writes one.
+
+## The audio is kept by the ENGINE
+
+A blob is the audio a process step overwrote or created — the big part of the journal, and the
+part only the engine's machine produced. It is **kept by the engine that was bound** when the step
+was recorded, not by the server:
+
+- **Kept.** `push` writes the blob in the journal's `blobs/`, records the engine
+  (`keptOn: { id, name }`, from the binding — `boundEngine()`), and asks that machine to take it:
+  a `prefetch` job naming the file, which the tunnel downloads before the machine answers
+  (`historyKeeper.ts`). Once the machine holds every blob of the step, the copy here is deleted.
+  Until then — or if it never takes them — the copy here is what an undo uses.
+- **Fetched back.** An undo or redo that needs a blob no longer here asks the SAME engine for it:
+  a `send-up` job naming it, which the machine answers by naming its copy, so the tunnel uploads
+  it. The copy fetched is deleted again once written over the project; the engine keeps its own.
+- **Another engine: an error, and nothing written.** When the engine bound now is not the one that
+  keeps the step's audio, the undo FAILS with a message naming that engine, before any file is
+  written — text and audio of a step go back together or not at all. Text steps above it still
+  undo; it is the step needing the audio where Ctrl+Z stops, until that engine is bound again.
+  The same holds when the engine no longer has the file.
+- **A month on the machine too.** The supervisor deletes a kept file a month after it was last
+  kept or sent back (`purgeKeptHistory`, `engine/st0-supervisor/src/MachineJobs.cpp`): sending it
+  back stamps it, so a step still undone and redone stays.
+- **No engine bound** — an import with no machine, a test — keeps the blob here, under the same
+  month.
+
+Undo and redo run one at a time per project, since each may wait on the machine and both move the
+cursor.
 
 ## The wire
 

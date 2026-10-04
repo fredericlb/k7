@@ -39,11 +39,21 @@ export const requireHubSecret: RequestHandler = (req, res, next) => {
 export function hubRouter(): Router {
   const r = express.Router();
   r.post("/hub/engine", (req, res) => {
-    const body = req.body as { url?: unknown; jobsUrl?: unknown };
+    const body = req.body as {
+      url?: unknown;
+      jobsUrl?: unknown;
+      engineId?: unknown;
+      engineName?: unknown;
+    };
     const url = String(body?.url ?? "");
     if (url) setSelectedEngine(url);
     else clearSelectedEngine();
-    setBoundJobsUrl(url ? String(body?.jobsUrl ?? "") || null : null);
+    const id = String(body?.engineId ?? "");
+    // The engine's identity names where an undo's audio is kept (docs/history.md).
+    setBoundJobsUrl(
+      url ? String(body?.jobsUrl ?? "") || null : null,
+      id ? { id, name: String(body?.engineName ?? "") || id } : null,
+    );
     res.json({ ok: true });
   });
   // What a cut of this account's runs — for pl8, which drives the cut and holds the song.

@@ -46,6 +46,33 @@ std::string readAll(const fs::path& p)
 
 }  // namespace
 
+std::size_t purgeKeptHistory(const fs::path& remoteRoot, std::chrono::hours ttl)
+{
+    // Listed first, removed after: an iterator over a folder being emptied is not one to trust.
+    std::vector<fs::path> stale;
+    const auto now = fs::file_time_type::clock::now();
+    std::error_code serverEc;
+    for (fs::directory_iterator server(remoteRoot, serverEc), end; !serverEc && server != end; server.increment(serverEc)) {
+        std::error_code rootEc;
+        for (fs::directory_iterator root(server->path(), rootEc), rend; !rootEc && root != rend; root.increment(rootEc)) {
+            if (paths::utf8(root->path().filename()).rfind("history-", 0) != 0) continue;
+            std::error_code fileEc;
+            for (fs::recursive_directory_iterator f(root->path(), fileEc), fend; !fileEc && f != fend; f.increment(fileEc)) {
+                std::error_code ec;
+                if (!f->is_regular_file(ec)) continue;
+                const auto at = fs::last_write_time(f->path(), ec);
+                if (!ec && now - at >= ttl) stale.push_back(f->path());
+            }
+        }
+    }
+    std::size_t removed = 0;
+    for (const auto& p : stale) {
+        std::error_code ec;
+        if (fs::remove(p, ec)) ++removed;
+    }
+    return removed;
+}
+
 json readLog(std::optional<std::uint64_t> offset, std::optional<int> tail)
 {
     // Merged first, then the engine-only log a run without the supervisor writes.
@@ -91,6 +118,17 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
         for (const auto& f : req.value("files", json::array()))
             if (f.is_string() && fs::exists(paths::fromUtf8(f.get<std::string>()), ec)) ++count;
         emit({{"type", "prefetched"}, {"count", count}});
+    };
+
+    // Send this machine's copy of a file BACK up: an undo's audio, which only this machine keeps (packages/file-service/docs/history.md).
+    jobs["send-up"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
+        const std::string file = req.value("file", "");
+        std::error_code ec;
+        const fs::path p = paths::fromUtf8(file);
+        if (file.empty() || !fs::is_regular_file(p, ec)) throw std::runtime_error("not kept on this machine");
+        // A fresh mtime is what makes the channel upload a file it last brought DOWN, and it counts as a use.
+        fs::last_write_time(p, fs::file_time_type::clock::now(), ec);
+        emit({{"type", "sent"}, {"file", file}});
     };
 
     jobs["log"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {
