@@ -24,7 +24,7 @@ for free.
 
 ## Nothing in the YAML: the render is named by its inputs
 
-A render lives at `renders/auto/<module>-<fingerprint>.wav`. The fingerprint is a hash of exactly
+A render is `<module>-<fingerprint>.wav` in the render cache (below). The fingerprint is a hash of exactly
 what the render is made from: `freezeCut`, the compiled doc cut down to the plan — the lanes' clips,
 the plugins, their params, their automations — plus the tempo, the sample rate and the metre.
 
@@ -41,11 +41,37 @@ Three details make it hold:
   counts `.vstpreset` for the same reason (`packages/file-service/src/workspace.ts`,
   `REVISION_FILE`).
 - **Portable names.** A file inside the project enters by its path there; one outside (a
-  médiathèque song, a library) by its name. The same song on two machines gives the same
-  fingerprint — which is the point: the machine WITHOUT the VST must find the render the other one
-  made.
+  médiathèque song, a library) by its name. The same song in two places gives the same
+  fingerprint, so a copied project finds the renders its original already has.
 - **The master is not in the cut.** `freezeCut` sends a neutral master: the render plays back
   through the master live, and baking it in would apply it twice. The manual freeze shares the cut.
+
+## Kept in a cache, never in the repository
+
+A render is DERIVED: the fingerprint says exactly how to make it again. So it is not the song's to
+carry. A wav per VST track per edit, committed, is a history that only grows — and every clone,
+every engine copy and every LFS quota pays for renders nobody will play again.
+
+- **Where.** `<studioHome>/.renders/` (`autoRendersHome`, `AUTO_RENDERS_HOME_DIR`). On the server
+  that is the ACCOUNT's folder on pl8's volume, `$STUDIO_FILES_ROOT/<account>/.renders`, beside its
+  `workspace/` and never inside it, so no project tree lists it and no commit can pick it up. Per
+  account rather than one for the origin: a fingerprint names large files by name and size, and two
+  accounts' songs must not be able to hand each other their audio.
+- **Shared by the account's projects.** The name is the inputs, so two projects that produce the
+  same render play the same file. That is also why a new render deletes nothing: a module's name is
+  no longer unique to one project, and an older fingerprint may be another project's current one.
+- **Reached by the engine as a root of its own.** The bound engine sees the cache as
+  `renders-<account>`, WRITABLE: the render job writes its wav there and the tunnel uploads it, and a
+  doc that plays it gets it copied down like any clip (`packages/file-hub/binding.ts`).
+- **Purged after 48 hours unused** (`packages/file-hub/renderCache.ts`). The HUB sweeps every
+  account's cache hourly, not the file service: an account's service is stopped when idle, which is
+  exactly when its renders go stale. A purged render is only a missing one — the next compile plays
+  the track live and the freezer makes it again.
+- **"Used" is the atime.** A compile that plays a render marks it — at most once an hour — on its
+  ATIME alone, and the sweep reads the later of atime and mtime. Not the mtime: the engine sync
+  compares size and mtime to decide what to copy, and a bump there would send the wav to the
+  machine again (`packages/file-service/docs/engineSync.md`). Set explicitly, an atime holds on a
+  volume mounted `noatime`.
 
 ## The compile, in two passes
 
@@ -69,9 +95,7 @@ The render is made on the engine's MACHINE, which is the one with the VSTs:
   its clips down and the render back up (`packages/engine-tunnel/docs/jobs.md`);
 - when the file service runs beside the engine, by the local engine binary, without blocking.
 
-Then the module's older renders are removed, `renders/auto` alone is committed — never an edit
-somebody has not committed — and pushed, best-effort; `*.wav` goes through Git LFS in every
-workspace this service makes (`gitLfs.ts`). Finally the project is reloaded so the render plays. A
+Nothing is committed: the render lands in the cache, and the project is reloaded so it plays. A
 render that finishes after the transport started waits for the next stop: a freeze never swaps a
 track's contents under the playhead.
 

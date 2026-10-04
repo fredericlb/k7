@@ -2,23 +2,14 @@
 // (packages/song/docs/autoFreeze.md), in the background, while nobody is listening. A render is
 // made on the ENGINE'S machine — the one that has the VSTs: over the bound machine's jobs path when
 // the server hosts the files, by the local engine binary when this service runs beside the engine.
-// It is committed under `renders/auto` alone (Git LFS carries the wav), so another machine, even
-// one without the VST, gets it with the project. See docs/autoFreeze.md.
+// It lands in the account's render cache, never in the project: nothing is committed, and the hub
+// purges a render nobody used for 48 h. See docs/autoFreeze.md.
 
-import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import { promisify } from "node:util";
-import type { GitEnv } from "@studio/commands/git";
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPlugins } from "@studio/engine-client/pluginCache";
-import {
-  AUTO_FREEZE_DIR,
-  type AutoFreeze,
-  isAutoRenderOf,
-  setThawed,
-  thawedIn,
-} from "@studio/song/autoFreeze";
+import { type AutoFreeze, setThawed, thawedIn } from "@studio/song/autoFreeze";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
 import { renderCutAsync } from "@studio/take-render/render";
 import {
@@ -26,8 +17,6 @@ import {
   compatibility,
 } from "@studio/web-protocol/compat";
 import { askBoundMachine, boundJobsUrl } from "./boundMachine.ts";
-
-const run = promisify(execFile);
 
 /** How long the engine must sit stopped with no edit before a THAWED module is frozen again. */
 export const THAW_IDLE_MS = 20_000;
@@ -38,7 +27,6 @@ export interface AutoFreezeDeps {
   /** The catalogue of the engine that would RENDER: the bound one's, or this machine's own. */
   catalogue(): CataloguePlugin[];
   render(f: AutoFreeze, outAbs: string): Promise<void>;
-  commit(dir: string, message: string, gitEnv: GitEnv): Promise<void>;
   now(): number;
   log(line: string): void;
 }
@@ -51,7 +39,6 @@ export interface FreezeTarget {
   playing(): boolean;
   /** Recompile and re-send, so a render just made is what plays. */
   reload(): void;
-  gitEnv: GitEnv;
 }
 
 interface DirState {
@@ -150,7 +137,7 @@ export class AutoFreezer {
     s.checkedRev = rev;
     const done: string[] = [];
     for (const f of renderable) {
-      const out = resolve(t.dir, f.render);
+      const out = f.render;
       mkdirSync(dirname(out), { recursive: true });
       try {
         await this.deps.render(f, out);
@@ -159,16 +146,10 @@ export class AutoFreezer {
         continue;
       }
       if (!existsSync(out)) continue;
-      removeStaleRenders(t.dir, f.module, basename(out));
       done.push(f.module);
     }
     if (!done.length) return [];
     this.deps.log(`   ❄ auto-froze ${done.join(", ")}`);
-    await this.deps
-      .commit(t.dir, `auto-freeze: ${done.join(", ")}`, t.gitEnv)
-      .catch((e: Error) =>
-        this.deps.log(`   ✗ auto-freeze commit: ${e.message}`),
-      );
     // The render changes what the engine should play: now if stopped, at the stop otherwise.
     if (t.playing()) s.pendingReload = true;
     else {
@@ -177,20 +158,6 @@ export class AutoFreezer {
     }
     return done;
   }
-}
-
-/** Remove `module`'s older renders, keeping `keep`: one render per module, the one its inputs name. */
-function removeStaleRenders(dir: string, module: string, keep: string): void {
-  const folder = join(dir, AUTO_FREEZE_DIR);
-  let names: string[];
-  try {
-    names = readdirSync(folder);
-  } catch {
-    return;
-  }
-  for (const n of names)
-    if (n !== keep && isAutoRenderOf(module, n))
-      rmSync(join(folder, n), { force: true });
 }
 
 /** Render on the machine that has the VSTs: the bound one's jobs path, else this machine's engine. */
@@ -212,36 +179,11 @@ async function renderOnEngineMachine(
   await renderCutAsync(bin, f.cut, outAbs);
 }
 
-/** Commit `renders/auto` ALONE — never the edits somebody has not committed — then push, best-effort. */
-async function commitRenders(
-  dir: string,
-  message: string,
-  gitEnv: GitEnv,
-): Promise<void> {
-  const opts = { cwd: dir, env: { ...process.env, ...gitEnv } };
-  try {
-    await run("git", ["rev-parse", "--is-inside-work-tree"], opts);
-  } catch {
-    return; // not a repository: the renders still play here, there is just nowhere to send them
-  }
-  await run("git", ["add", "-A", "--", AUTO_FREEZE_DIR], opts);
-  const { stdout } = await run(
-    "git",
-    ["diff", "--cached", "--name-only", "--", AUTO_FREEZE_DIR],
-    opts,
-  );
-  if (!stdout.trim()) return;
-  await run("git", ["commit", "-m", message, "--", AUTO_FREEZE_DIR], opts);
-  // Offline or with no upstream, the commit stands and the next push carries it.
-  await run("git", ["push"], { ...opts, timeout: 60_000 }).catch(() => {});
-}
-
-/** The freezer the service runs: the real compile, catalogue, render and commit. */
+/** The freezer the service runs: the real compile, catalogue and render. */
 export const autoFreezer = new AutoFreezer({
   compile: compileWithAutoFreezes,
   catalogue: scannedPlugins,
   render: renderOnEngineMachine,
-  commit: commitRenders,
   now: Date.now,
   log: (line) => console.log(line),
 });

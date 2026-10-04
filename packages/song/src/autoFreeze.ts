@@ -3,14 +3,18 @@
 // through one is rendered once, on a machine that has it, and the render plays everywhere until
 // what it was made from changes. Nothing is written to the project's YAML: the render's NAME is a
 // fingerprint of its inputs, so a stale render is simply one whose name nobody asks for.
-// Full rationale: docs/autoFreeze.md.
+// Renders live in a cache OUTSIDE the project (`<studioHome>/.renders`), never in git: an unused
+// one is purged after 48 h, and "used" is its ATIME. Full rationale: docs/autoFreeze.md.
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync, statSync, utimesSync } from "node:fs";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { EXTERNAL_PLUGIN_FORMATS } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-import { hostsPlugin } from "@studio/song-schema/moduleTypes";
+import {
+  AUTO_RENDERS_HOME_DIR,
+  hostsPlugin,
+} from "@studio/song-schema/moduleTypes";
 import {
   activeFreezePlans,
   type FreezePlan,
@@ -21,15 +25,18 @@ import {
   upstreamOf,
 } from "./freeze";
 import type { GraphDoc, Module } from "./graph";
+import { studioHome } from "./studioHome";
 
-/** Where automatic renders live, inside the project — committed through Git LFS (docs/autoFreeze.md). */
-export const AUTO_FREEZE_DIR = "renders/auto";
+/** Where automatic renders live: the machine's cache, shared by its projects and kept out of every repository (docs/autoFreeze.md). */
+export function autoRendersHome(): string {
+  return join(studioHome(), AUTO_RENDERS_HOME_DIR);
+}
 
 /** One automatic freeze: where it is taken, what it bakes, and the render it would play. */
 export interface AutoFreeze {
   /** The VST module the render is taken at. */
   module: string;
-  /** Project-relative, named by the fingerprint: `renders/auto/<module>-<hash>.wav`. */
+  /** Absolute, in the cache and named by the fingerprint: `<studioHome>/.renders/<module>-<hash>.wav`. */
   render: string;
   plan: FreezePlan;
   /** What the render is made from — the doc the engine's machine is asked to render. */
@@ -167,13 +174,22 @@ const fileSafe = (module: string): string => module.replace(/[:/\\]/g, "-");
 
 /** The render file an automatic freeze of `module` with `fingerprint` plays. */
 export function autoRenderPath(module: string, fingerprint: string): string {
-  return `${AUTO_FREEZE_DIR}/${fileSafe(module)}-${fingerprint}.wav`;
+  return join(autoRendersHome(), `${fileSafe(module)}-${fingerprint}.wav`);
 }
 
-/** Is `fileName` (a bare name in AUTO_FREEZE_DIR) one of `module`'s renders, of any fingerprint? Exact, so `amp` never claims `amp-2`'s. */
-export function isAutoRenderOf(module: string, fileName: string): boolean {
-  const safe = fileSafe(module).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${safe}-[0-9a-f]{16}\\.wav$`).test(fileName);
+/** How stale a render's last use may get before it is marked again: an hour, so a compile is not a write. */
+const TOUCH_EVERY_MS = 60 * 60 * 1000;
+
+/** Mark `abs` as used now, on its ATIME alone: the mtime is what the engine sync compares, and a bump would copy it again. */
+function markUsed(abs: string): void {
+  try {
+    const st = statSync(abs);
+    const now = Date.now();
+    if (now - Math.max(st.atimeMs, st.mtimeMs) < TOUCH_EVERY_MS) return;
+    utimesSync(abs, new Date(now), st.mtime);
+  } catch {
+    // A render the purge just took is simply not ready: the next tick makes it again.
+  }
 }
 
 /** Every automatic freeze of a project, against its LIVE compiled doc (no automatic freeze applied). */
@@ -203,13 +219,15 @@ export function autoFreezes(
         format: String(m?.plugin?.type ?? "").toLowerCase(),
         name: String(m?.plugin?.name ?? ""),
       }));
+    const ready = existsSync(render);
+    if (ready) markUsed(render);
     out.push({
       module,
       render,
       plan: { ...plan, render },
       cut,
       plugins,
-      ready: existsSync(resolve(dir, render)),
+      ready,
     });
   }
   return out;

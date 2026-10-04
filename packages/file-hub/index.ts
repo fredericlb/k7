@@ -36,6 +36,7 @@ import {
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
+import { purgeStaleRenders, RENDER_SWEEP_EVERY_MS } from "./renderCache.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -80,6 +81,7 @@ export class FileHub {
   private readonly instances: Instances;
   private readonly deps: BindingDeps;
   private readonly reaper: NodeJS.Timeout;
+  private readonly renderSweep: NodeJS.Timeout;
   private readonly key: Buffer;
   /** The origin's libraries: the list, the server's key and the one clone of each. */
   readonly libraries: LibraryStore;
@@ -105,6 +107,14 @@ export class FileHub {
       Math.min(idle, 5 * 60_000),
     );
     this.reaper.unref();
+    // The accounts' automatic renders: one nobody played for 48 h goes (renderCache.ts).
+    const sweep = () => {
+      const n = purgeStaleRenders(resolve(opts.dataRoot));
+      if (n) log(`purged ${n} unused render(s)`);
+    };
+    sweep();
+    this.renderSweep = setInterval(sweep, RENDER_SWEEP_EVERY_MS);
+    this.renderSweep.unref();
     if (opts.watchSources) {
       const dirs = fileServiceSourceDirs();
       watchSources(dirs, (file) => {
@@ -258,6 +268,7 @@ export class FileHub {
 
   async stop(): Promise<void> {
     clearInterval(this.reaper);
+    clearInterval(this.renderSweep);
     await this.instances.stopAll();
   }
 }

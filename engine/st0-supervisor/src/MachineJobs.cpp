@@ -125,7 +125,7 @@ tunnel::Jobs machineJobs(const MachineAccess& access)
     };
 
     // Bounce a ProjectDoc through THIS machine's engine binary — the machine whose plugins the doc
-    // names — to `out`, a server path under the writable workspace the tunnel uploads on the reply.
+    // names — to `out`, a server path in the writable render cache the tunnel uploads on the reply.
     // What a VST freeze is rendered with, since the server has no plugins (packages/song/docs/autoFreeze.md).
     // The doc's clip paths arrive already local: the channel brought them down before this ran.
     jobs["render"] = [](const json& req, const tunnel::Emit& emit, tunnel::JobContext&) {

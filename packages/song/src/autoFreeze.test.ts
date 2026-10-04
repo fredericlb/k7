@@ -2,11 +2,18 @@
 // its VST's params changed sounds like the old song, and a fingerprint that differs between two
 // machines means the machine WITHOUT the VST never finds the render it was given. docs/autoFreeze.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { autoFreezePoints, setThawed } from "./autoFreeze";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { autoFreezePoints, autoRendersHome, setThawed } from "./autoFreeze";
 import { loadGraph } from "./graph";
 import { compileWithAutoFreezes } from "./nodeProject";
 import type { ProjectDoc, TrackDoc } from "./project";
@@ -56,8 +63,8 @@ const pluginModules = (t: TrackDoc | undefined) =>
 function render(p: string, module: string): string {
   const f = compileWithAutoFreezes(p).freezes.find((x) => x.module === module);
   if (!f) throw new Error(`no automatic freeze at ${module}`);
-  mkdirSync(dirname(join(p, f.render)), { recursive: true });
-  writeFileSync(join(p, f.render), "");
+  mkdirSync(dirname(f.render), { recursive: true });
+  writeFileSync(f.render, "");
   return f.render;
 }
 
@@ -65,6 +72,29 @@ beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "autofreeze-"));
 });
 afterAll(() => rmSync(root, { recursive: true, force: true }));
+// The cache is the machine's, shared by every project: identical test songs would find each other's renders.
+beforeEach(() => rmSync(autoRendersHome(), { recursive: true, force: true }));
+
+describe("where an automatic render is kept", () => {
+  it("in the machine's cache, never inside the project", () => {
+    const p = project("cache");
+    const r = render(p, "amp");
+    expect(r.startsWith(autoRendersHome())).toBe(true);
+    expect(r.startsWith(p)).toBe(false);
+  });
+
+  // The purge reads the atime; the engine sync reads the mtime, and a bump there would copy the wav again.
+  it("marks a render used on its atime, leaving its mtime alone", () => {
+    const p = project("used");
+    const r = render(p, "amp");
+    const old = new Date(Date.now() - 3 * 24 * 3600 * 1000);
+    utimesSync(r, old, old);
+    compileWithAutoFreezes(p);
+    const st = statSync(r);
+    expect(st.mtimeMs).toBe(old.getTime());
+    expect(Date.now() - st.atimeMs).toBeLessThan(60_000);
+  });
+});
 
 describe("where an automatic freeze is taken", () => {
   it("at each VST, when nothing downstream of it is one", () => {

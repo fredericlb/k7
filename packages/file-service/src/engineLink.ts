@@ -296,7 +296,6 @@ function startAutoFreeze(): void {
           rev: () => s.ws.revision().rev,
           playing: () => link.playing,
           reload: () => reloadActiveProject(s.ws),
-          gitEnv: webGitEnv(owner || undefined),
         }),
       );
     }

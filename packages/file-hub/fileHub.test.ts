@@ -207,7 +207,13 @@ describe("the file hub", () => {
     expect(roots[2].writable).toBe(false);
     expect(roots[3].name).toBe(`models-${roots[0].name.slice(3)}`);
     expect(roots[3].writable).toBe(false);
-    expect(roots[4]).toEqual({
+    // The automatic VST renders, writable: the machine makes them and the tunnel brings them up.
+    expect(roots[4]).toMatchObject({
+      name: `renders-${roots[0].name.slice(3)}`,
+      writable: true,
+    });
+    expect(roots[4].remote).toBe(join(dirname(roots[0].remote), ".renders"));
+    expect(roots[5]).toEqual({
       remote: "/library",
       name: "mediatek",
       writable: false,

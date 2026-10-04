@@ -19,7 +19,7 @@ What a machine does is registered by type; the supervisor's list is
 agent the server's tests run on). A type it does not know is refused by name.
 
 `render` is the one the automatic VST freeze sends (`packages/song/docs/autoFreeze.md`): `{ doc,
-out }`, a whole ProjectDoc inline and a server path under the workspace. The machine bounces it with
+out }`, a whole ProjectDoc inline and a server path in the account's render cache. The machine bounces it with
 its own `st0-engine --render` — its own plugins, which is the reason it runs there — and answers
 `{ type: "rendered", file: out }`, which is what uploads the wav. The doc's clip paths are strings
 under a shared root like any other, so they are downloaded before the handler runs.

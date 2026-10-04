@@ -7,7 +7,10 @@ import { dirname, join } from "node:path";
 import type { EngineRegistry } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import type { TunnelHub } from "@studio/engine-tunnel/hub";
-import { LIBRARIES_HOME_DIR } from "@studio/song-schema/moduleTypes";
+import {
+  AUTO_RENDERS_HOME_DIR,
+  LIBRARIES_HOME_DIR,
+} from "@studio/song-schema/moduleTypes";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import type { Instance } from "./instances.ts";
 
@@ -40,7 +43,7 @@ const librariesRoots = (inst: Instance): TunnelRoot[] => [
 /** Where an account's file service keeps the clones an admin's bench edits — libraryBench.ts there. */
 export const BENCH_LIBRARIES_DIR = "bench-libraries";
 
-/** What an engine's machine may see of an account: its workspaces, its libraries, its models and the médiathèque read-only — never its keys. */
+/** What an engine's machine may see of an account: its workspaces, its render cache, its libraries, its models and the médiathèque read-only — never its keys. */
 export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
   const roots: TunnelRoot[] = [
     {
@@ -54,6 +57,12 @@ export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
       remote: join(inst.home, "models"),
       name: `models-${inst.slug}`,
       writable: false,
+    },
+    // Writable: an automatic VST render is made there and uploaded back (packages/song/docs/autoFreeze.md).
+    {
+      remote: join(inst.home, AUTO_RENDERS_HOME_DIR),
+      name: `renders-${inst.slug}`,
+      writable: true,
     },
   ];
   if (mediatekRoot)

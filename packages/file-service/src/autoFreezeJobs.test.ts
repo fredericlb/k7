@@ -1,4 +1,4 @@
-// The automatic-freeze scheduler, with the compile, the engine and git faked. What it must never do
+// The automatic-freeze scheduler, with the compile and the engine faked. What it must never do
 // is the silent part: render WITHOUT the VST (a stub then plays everywhere as the song), or swap a
 // track's contents under a rolling transport. packages/song/docs/autoFreeze.md.
 
@@ -6,7 +6,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -35,14 +34,14 @@ const HASH = "0123456789abcdef";
 
 /** One freeze at `module`, needing `vst`, ready when its render is on disk. */
 function freeze(module: string, vst = "Serum", hash = HASH): AutoFreeze {
-  const render = `renders/auto/${module}-${hash}.wav`;
+  const render = join(dir, "cache", `${module}-${hash}.wav`);
   return {
     module,
     render,
     plan: { at: module, render, lanes: new Set(), modules: new Set([module]) },
     cut: {} as AutoFreeze["cut"],
     plugins: [{ format: "vst3", name: vst }],
-    ready: existsSync(join(dir, render)),
+    ready: existsSync(render),
   };
 }
 
@@ -50,7 +49,6 @@ interface Rig {
   freezer: AutoFreezer;
   target: FreezeTarget;
   rendered: string[];
-  commits: string[];
   reloads: number;
   state: { playing: boolean; rev: string; now: number };
 }
@@ -63,7 +61,6 @@ function rig(opts: {
 }): Rig {
   const r = {
     rendered: [] as string[],
-    commits: [] as string[],
     reloads: 0,
     state: { playing: false, rev: "r1", now: 1_000 },
   } as Rig;
@@ -76,9 +73,6 @@ function rig(opts: {
       writeFileSync(out, "wav");
       r.rendered.push(f.module);
     },
-    commit: async (_d, message) => {
-      r.commits.push(message);
-    },
     now: () => r.state.now,
     log: () => {},
   };
@@ -90,17 +84,15 @@ function rig(opts: {
     reload: () => {
       r.reloads++;
     },
-    gitEnv: undefined,
   };
   return r;
 }
 
 describe("AutoFreezer", () => {
-  it("renders what is missing while stopped, commits it, and reloads so it plays", async () => {
+  it("renders what is missing while stopped, where the freeze names it, and reloads so it plays", async () => {
     const r = rig({ freezes: () => [freeze("amp")] });
     expect(await r.freezer.tick(r.target)).toEqual(["amp"]);
-    expect(existsSync(join(dir, "renders/auto", `amp-${HASH}.wav`))).toBe(true);
-    expect(r.commits).toEqual(["auto-freeze: amp"]);
+    expect(existsSync(join(dir, "cache", `amp-${HASH}.wav`))).toBe(true);
     expect(r.reloads).toBe(1);
   });
 
@@ -154,21 +146,6 @@ describe("AutoFreezer", () => {
     r.state.rev = "r2";
     await r.freezer.tick(r.target);
     expect(calls).toBe(2);
-  });
-
-  it("keeps one render per module: the older fingerprint goes", async () => {
-    mkdirSync(join(dir, "renders/auto"), { recursive: true });
-    writeFileSync(join(dir, "renders/auto/amp-ffffffffffffffff.wav"), "old");
-    writeFileSync(
-      join(dir, "renders/auto/amp-2-ffffffffffffffff.wav"),
-      "other",
-    );
-    const r = rig({ freezes: () => [freeze("amp")] });
-    await r.freezer.tick(r.target);
-    expect(readdirSync(join(dir, "renders/auto")).sort()).toEqual([
-      "amp-0123456789abcdef.wav",
-      "amp-2-ffffffffffffffff.wav",
-    ]);
   });
 
   it("lets a thawed module freeze again once nobody has touched it for a while", async () => {

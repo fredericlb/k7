@@ -540,6 +540,9 @@ export const LIBRARIES_DIR = "_libraries";
 /** Where the file service clones them, under the machine's state (`<studioHome>/libraries/<name>`). */
 export const LIBRARIES_HOME_DIR = "libraries";
 
+/** Where automatic VST renders are cached, under the machine's state (`<studioHome>/.renders`) — never in a workspace (packages/song/docs/autoFreeze.md). */
+export const AUTO_RENDERS_HOME_DIR = ".renders";
+
 /** The folder a WORKSPACE's own shared library sits in, at the workspace root — the `@workspace` level. */
 export const SHARED_MODULES_DIR = "_modules";
 
