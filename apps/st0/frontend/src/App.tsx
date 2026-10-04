@@ -869,8 +869,8 @@ export default function App({
     [full, ringPanes],
   );
 
-  // Expanded lanes take the column — unless a lane's modules were asked for, which split it with the graph as unexpanded lanes do.
-  const lanesTakeColumn = tlView.expanded && graphSlot?.kind !== "trackModules";
+  // Expanded lanes take the column — unless the graph's slot holds something asked for, which splits it as unexpanded lanes do.
+  const lanesTakeColumn = tlView.expanded && !graphSlot;
 
   /** Is the chains pane off screen? ONE answer, read by the class that hides it and by the `active` it is handed. */
   const chainsOffScreen =

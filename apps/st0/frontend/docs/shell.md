@@ -1004,11 +1004,10 @@ inside its clips, and that height is precisely what the pane below is holding �
 through `onView`, beside `selecting` / `zoomed` / `loop`: one channel for "what state is the timeline in",
 rather than a second prop that could disagree with it.
 
-**A lane's modules split it back.** Double-clicking a lane header asks for that lane's modules in the
-graph's slot, and a request the user can't see is a miss — so while the `trackModules` slot is open,
-expanded lanes give up the column and the layout is the ordinary split, the lanes still tall. Closing
-the slot hands the column back. Only that slot does it: a clip or a grid is opened by a single click
-on the lanes themselves, and would otherwise halve them on every pick.
+**An occupied slot splits it back.** A lane's modules, a clip's waveform or piano roll, a grid, a take
+review — each is asked for, and a request the user can't see is a miss. So while the graph's slot
+holds anything, expanded lanes give up the column and the layout is the ordinary split, the lanes
+still tall. Closing the slot hands the column back.
 
 ## The command bar
 
