@@ -17,6 +17,7 @@ import {
   loadModules,
   projectModules,
   splitModuleKey,
+  withModuleStamp,
 } from "@studio/song/loader";
 import { chainsUsing, sharedRoots } from "@studio/song/moduleFork";
 import { keepsItsModule, resolveModule } from "@studio/song/moduleResolve";
@@ -62,7 +63,11 @@ export function editModuleFile(
   module: string,
   transform: (text: string) => string,
 ): string {
-  const { path } = moduleFileOf(dir, module);
+  return rewriteFile(moduleFileOf(dir, module).path, transform);
+}
+
+// Rewrite one file through `transform`, writing only when it changed.
+function rewriteFile(path: string, transform: (text: string) => string): string {
   const before = readFileSync(path, "utf8");
   const after = transform(before);
   // No format pass afterwards: the YAML writers emit canonical output.
@@ -138,8 +143,12 @@ export function setModuleParam(
   value: number,
 ): string {
   // A module with engines keeps its knobs PER engine, so the one that is on is asked first (docs/engines.md).
-  const engine = engineOn(dir, module);
-  return editModuleFile(dir, module, (text) =>
+  // The reads before the write share one stamp walk; the scope closes BEFORE the write (packages/song/docs/moduleCache.md).
+  const { engine, path } = withModuleStamp(dir, () => ({
+    engine: engineOn(dir, module),
+    path: moduleFileOf(dir, module).path,
+  }));
+  return rewriteFile(path, (text) =>
     setAlternativeParam(text, name, value, engine),
   );
 }
@@ -174,11 +183,16 @@ export function newModuleAlternative(
   opts: { copy?: boolean } = {},
 ): { path: string; name: string } {
   // RESOLVED and not as loaded, because `kind: "track"` lives on the built-in it extends.
-  const node = loadModules(dir)[module];
-  const blankEvents =
-    !!node && isTrack(resolveModule(node, loadModuleRefs(dir)));
+  // One stamp walk for the reads, closed before the write, as in setModuleParam.
+  const { blankEvents, file } = withModuleStamp(dir, () => {
+    const node = loadModules(dir)[module];
+    return {
+      blankEvents: !!node && isTrack(resolveModule(node, loadModuleRefs(dir))),
+      file: moduleFileOf(dir, module).path,
+    };
+  });
   let chosen = name ?? "";
-  const path = editModuleFile(dir, module, (text) => {
+  const path = rewriteFile(file, (text) => {
     const made = addAlternative(text, name, { ...opts, blankEvents });
     chosen = made.name;
     return made.text;
