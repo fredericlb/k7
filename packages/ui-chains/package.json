@@ -5,6 +5,7 @@
   "type": "module",
   "description": "st0's routing-graph engine — compiles a project graph to a dagre layout the web app draws as HTML nodes + SVG cables. Framework-agnostic; consumed as source.",
   "exports": {
+    "./anchorRight": "./src/anchorRight.ts",
     "./assembly": "./src/assembly.ts",
     "./bindings": "./src/bindings.ts",
     "./cableCanvas": "./src/cableCanvas.ts",

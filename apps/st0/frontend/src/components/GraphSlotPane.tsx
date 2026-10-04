@@ -31,6 +31,7 @@ export function GraphSlotPane({
   note,
   bar,
   onClose,
+  aside,
   children,
 }: {
   title?: React.ReactNode;
@@ -38,6 +39,8 @@ export function GraphSlotPane({
   /** Replaces title/note entirely — the ✕ is still the frame's. */
   bar?: React.ReactNode;
   onClose: () => void;
+  /** A column pinned at the body's right, sized by itself — the floating ✕ stays over the body, never over it. */
+  aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const hasBar = bar !== undefined || title !== undefined;
@@ -54,15 +57,18 @@ export function GraphSlotPane({
           <CloseSlot onClose={onClose} className="ml-auto" />
         </div>
       )}
-      {/* `relative` for the floating ✕ of the bar-less case, and harmless otherwise. */}
-      <div className="relative min-h-0 min-w-0 flex-1">
-        {children}
-        {!hasBar && (
-          <CloseSlot
-            onClose={onClose}
-            className="absolute right-2 top-2 z-10 bg-background/80"
-          />
-        )}
+      <div className="flex min-h-0 min-w-0 flex-1">
+        {/* `relative` for the floating ✕ of the bar-less case, and harmless otherwise. */}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          {children}
+          {!hasBar && (
+            <CloseSlot
+              onClose={onClose}
+              className="absolute right-2 top-2 z-10 bg-background/80"
+            />
+          )}
+        </div>
+        {aside}
       </div>
     </div>
   );

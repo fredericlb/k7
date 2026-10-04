@@ -95,6 +95,9 @@ const CSS = `
 .dgx-node.bar { background:color-mix(in srgb, ${EDGE} 30%, var(--card)); border-color:color-mix(in srgb, ${EDGE} 70%, var(--line)); }
 .dgx-node.sel { box-shadow:0 0 0 2px ${RING}, 0 12px 30px -10px rgba(0,0,0,.66); }
 .dgx-node.tappable { cursor:pointer; }
+/* A BARE card draws no header, so everything it holds moves up into that space: widgetRect's offsets stay one figure. */
+.dgx-node.bare > .dgx-hd { display:none; }
+.dgx-node.bare > * { translate:0 -${UI_HEADER}px; }
 /* Far LOD: too zoomed out for the widgets, so the card is just its name, sized to fill the node (fitFont). */
 .dgx-node.far { display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:2px; padding:5px; overflow:hidden; }
