@@ -124,6 +124,7 @@ const EXPAND_EXTRA = 40;
 // The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4; // beats drawn for a length-0 clip
+const DBLCLICK_MS = 500; // the longest gap the OS default lets a double-click have
 // The lane something is about to land on — a clip drag's target lane, and an OS file drag's alike.
 const DROP_LANE = "bg-primary/10 outline outline-1 outline-primary/60";
 // The row a dragged header would take the place of — the same outline the lane targets wear, one vocabulary.
@@ -1433,6 +1434,9 @@ export function TimelineTab({
     [clampCell, clampCaret],
   );
 
+  // When a click last opened a clip: the split it causes can shift the lanes, so a double-click's second press may land on bare lane.
+  const clipOpenedAt = useRef(0);
+
   const endClipDrag = useCallback(() => {
     const d = dragRef.current;
     if (!d) return;
@@ -1455,7 +1459,10 @@ export function TimelineTab({
         .find((t) => t.id === d.trackId)
         ?.clips.find((c) => c.id === d.clipId);
       setMove(null);
-      if (p && clip) onOpenClip?.({ kind: "clip", project: p, clip });
+      if (p && clip) {
+        clipOpenedAt.current = performance.now();
+        onOpenClip?.({ kind: "clip", project: p, clip });
+      }
       return;
     }
     commitMoveRef.current();
@@ -2097,7 +2104,8 @@ export function TimelineTab({
           // The tool's own icon AS the cursor, forced past the clip's `cursor-grab` so the hand says what a press will do.
           style={toolCursor ? { cursor: toolCursor } : undefined}
           className={cn(
-            "isolate min-h-0 flex-1 overflow-auto",
+            // A stable gutter: the pane shrinking under a split must not refit the lanes and slide the clip from under the pointer.
+            "isolate min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]",
             toolCursor && "[&_*]:!cursor-[inherit]",
           )}
           /** OS files: preventDefault is what ACCEPTS the drop — without it the browser silently refuses and then opens the file (fileDrop.ts). */
@@ -2953,7 +2961,12 @@ export function TimelineTab({
                       setCaret(
                         clampCaret({ row: `track:${t.id}` as RowKey, beat }),
                       );
-                      onEmptyClick?.();
+                      // The second press of the double-click that opened a clip is not a click on nothing.
+                      if (
+                        performance.now() - clipOpenedAt.current >
+                        DBLCLICK_MS
+                      )
+                        onEmptyClick?.();
                     }}
                     className={cn(
                       "relative overflow-hidden",

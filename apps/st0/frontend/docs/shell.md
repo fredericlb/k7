@@ -1010,7 +1010,10 @@ rather than a second prop that could disagree with it.
 **An occupied slot splits it back.** A lane's modules, a clip's waveform or piano roll, a grid, a take
 review — each is asked for, and a request the user can't see is a miss. So while the graph's slot
 holds anything, expanded lanes give up the column and the layout is the ordinary split, the lanes
-still tall. Closing the slot hands the column back.
+still tall. Closing the slot hands the column back. The split must not undo the click that caused it:
+the timeline keeps a stable scrollbar gutter, so a pane gaining a scrollbar does not refit the lanes
+and slide the clip from under the pointer, and a press on bare lane within a double-click of a clip
+opening does not close it.
 
 ## The command bar
 
