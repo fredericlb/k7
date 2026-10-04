@@ -25,11 +25,12 @@ export function splitTrailingMixer(
       ),
       width: before.x + before.w + margin,
     },
+    // No margin either side: the card is flush with the pane's right edge, and the row keeps its own gap.
     mixer: {
       ...row,
-      nodes: [{ ...last, x: row.left + margin, bare: true }],
+      nodes: [{ ...last, x: row.left, bare: true }],
       edges: [],
-      width: row.left + margin * 2 + last.w,
+      width: row.left + last.w,
     },
   };
 }
