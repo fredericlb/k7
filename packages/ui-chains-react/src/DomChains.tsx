@@ -1345,7 +1345,10 @@ function WidgetInner({
     body = <div className="dgx-meter" />;
   } else if (w.type === "filepicker" || (w.type === "dropdown" && w.library)) {
     // Picks a FILE the module carries, through a button rather than a <select> — docs/widgets.md.
-    const param = String(w.type === "filepicker" ? (w.bind ?? "") : w.library);
+    // The param is the BIND, in both spellings: an older panel's `library:` names a folder (`nam`), not a param.
+    const param = String(
+      w.type === "filepicker" ? (w.bind ?? "") : (w.bind ?? w.library),
+    );
     const current = n.assets?.[param] ?? "";
     const shown = current
       ? current.slice(current.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "")
