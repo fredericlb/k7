@@ -4,6 +4,7 @@
 // See docs/shell.md.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
+import { splitTrailingMixer } from "@studio/ui-chains/anchorRight";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
 import { DomChains, type TapAction } from "@studio/ui-chains-react";
@@ -210,10 +211,18 @@ export function TrackModulesPane({
     };
   }, [pluginIds, watchPluginParams]);
 
+  // A row ending on the lane's mixer pins that mixer to the right, headerless — @studio/ui-chains's anchorRight.ts.
+  const split = useMemo(
+    () => (laidShown ? splitTrailingMixer(laidShown) : null),
+    [laidShown],
+  );
+
   // No bar: the row IS the view, the lane's own card names it, and the ✕ floats top right (GraphSlotPane).
   // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
-  const frame = (body: React.ReactNode) => (
-    <GraphSlotPane onClose={onClose}>{body}</GraphSlotPane>
+  const frame = (body: React.ReactNode, aside?: React.ReactNode) => (
+    <GraphSlotPane onClose={onClose} aside={aside}>
+      {body}
+    </GraphSlotPane>
   );
   // What the pane says when there is no row to draw, where the row would be.
   const say = (text: React.ReactNode) =>
@@ -228,46 +237,65 @@ export function TrackModulesPane({
   if (!laidShown.nodes.length)
     return say("this lane reaches no module — nothing to show");
 
+  // What both halves share: the same callbacks and stores, so the pinned mixer is a card like any other.
+  const shared = {
+    icons: STUDIO_ICONS,
+    selected,
+    onSelect: setSelected,
+    trackOrder,
+    // Re-frame when the ROW changes, not on every refetch: a param landing must not take the camera back.
+    fitKey: modules.join("|"),
+    // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
+    fitAxis: "height" as const,
+    // …all of it: the tallest card is the pane's height, the others centred on its line.
+    fitPad: 1,
+    // A lane's few modules are what this pane is FOR: they never collapse to their far, name-only card.
+    alwaysDetailed: true,
+    // A row is read across: the wheel walks along it and nothing pans vertically.
+    row: true,
+    command,
+    onModuleField,
+    onRecorder,
+    onProjectField,
+    onContextMenu,
+    onBypassModule: bypassModule,
+    onThawAutoFreeze: thawAutoFreeze,
+    onAlternative,
+    onEngine,
+    onPresets,
+    presetNames,
+    onAssetBrowse,
+    onTapEdit,
+    onTriggerRack: triggerRack,
+    onWatchWaveform,
+    onTrackToggle,
+    onTrackSet,
+    engineWarnings,
+    pluginParamsStore,
+    setPluginParam,
+    moduleParams,
+    trackControls,
+  };
+
+  // The pinned column is exactly as wide as the mixer at the row's scale: one height, one aspect ratio.
+  const mixer = split?.mixer;
+  const aside = mixer && (
+    <div
+      className="h-full flex-none"
+      style={{
+        aspectRatio: `${mixer.width - mixer.left} / ${mixer.height - mixer.top}`,
+      }}
+    >
+      <DomChains {...shared} graph={mixer} fixed />
+    </div>
+  );
+
   return frame(
     <DomChains
-      icons={STUDIO_ICONS}
-      graph={laidShown}
-      selected={selected}
-      onSelect={setSelected}
-      trackOrder={trackOrder}
-      // Re-frame when the ROW changes, not on every refetch: a param landing must not take the camera back.
-      fitKey={modules.join("|")}
-      // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
-      fitAxis="height"
-      // …all of it: the tallest card is the pane's height, the others centred on its line.
-      fitPad={1}
-      // A lane's few modules are what this pane is FOR: they never collapse to their far, name-only card.
-      alwaysDetailed
-      // A row is read across: the wheel walks along it and nothing pans vertically.
-      row
-      command={command}
-      onModuleField={onModuleField}
-      onRecorder={onRecorder}
-      onProjectField={onProjectField}
-      onContextMenu={onContextMenu}
-      onBypassModule={bypassModule}
-      onThawAutoFreeze={thawAutoFreeze}
-      onAlternative={onAlternative}
-      onEngine={onEngine}
-      onPresets={onPresets}
-      presetNames={presetNames}
-      onAssetBrowse={onAssetBrowse}
-      onTapEdit={onTapEdit}
-      onTriggerRack={triggerRack}
-      onWatchWaveform={onWatchWaveform}
-      onTrackToggle={onTrackToggle}
-      onTrackSet={onTrackSet}
+      {...shared}
+      graph={split?.row ?? laidShown}
       onEdgeInsert={edgeInsert || undefined}
-      engineWarnings={engineWarnings}
-      pluginParamsStore={pluginParamsStore}
-      setPluginParam={setPluginParam}
-      moduleParams={moduleParams}
-      trackControls={trackControls}
     />,
+    aside,
   );
 }

@@ -40,6 +40,25 @@ then step by step inside each, which is the order the song is written in. De-dup
 module shared between two of the track's chains is one module and drawing it twice would offer two
 sets of controls for one thing.
 
+### The lane's mixer is pinned right, with no header
+
+When a row ends on the lane's mixer — the node wearing its `trackFace` — `splitTrailingMixer`
+(`anchorRight.ts`) takes it out of the row and hands the host a second graph holding that card
+alone, `bare`. The host draws it in a column at the pane's right edge, so the lane's level stays
+under the hand however far along the row the view has walked. The card has no header because the
+lane's own card already leads the row with that name and glyph, and the header's height goes to the
+fader instead.
+
+The mixer graph keeps the row's `height` and `top`, so fitting both to the same pane height gives
+them the same scale. Its column then only needs the mixer's aspect ratio to be exactly its width.
+
+The cable into the mixer is dropped rather than drawn. A card pinned to the screen has no fixed
+place in the row's world, so a cable to it would have to be rebuilt on every camera frame, for an
+arrow the order of the row already says. A bare card therefore carries no socket that a cable
+meets: its content is lifted by the header's height in CSS, which `widgetRect` does not know about.
+
+A row that is only the mixer, or that ends on anything else, is left whole.
+
 ## Node geometry
 
 A node with no UI is a fixed size; one with a widget grid is sized BY that grid (`nodeSize`), and

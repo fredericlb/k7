@@ -191,6 +191,8 @@ export interface GraphNode extends Carried, Flags {
   pending?: boolean;
   /** Drawn as a full-width BAR — the stack view's inputs and outputs (stackLayout.ts). */
   bar?: boolean;
+  /** Drawn with NO header, its panel lifted into that space — a pinned card no cable meets (anchorRight.ts). */
+  bare?: boolean;
   /** The sockets to DRAW, already decided — see `jacksFor` and docs/graphBuild.md. */
   jacks?: { in: Jack[]; out: Jack[] };
   /* `events` is CARRIED from the step and drawn apart from `jacks.out` — see docs/graphBuild.md. */

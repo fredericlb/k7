@@ -1860,6 +1860,7 @@ function NodeInner({
     edge ? "edge" : "",
     // The stack view's inputs and outputs: a SOLID bar the width of every column (stackLayout.ts).
     n.bar ? "bar" : "",
+    n.bare ? "bare" : "", // no header, its panel lifted into that space (chainsCss.ts)
     "tappable",
     sel ? "sel" : "",
     n.frozen || n.autoFrozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
@@ -2791,6 +2792,7 @@ export function DomChains({
   onMoveNode,
   onCamReady,
   row,
+  fixed = false,
   minimap,
   onOrganize,
   onStack,
@@ -2883,6 +2885,8 @@ export function DomChains({
   onCamReady?: (cam: ChainsCamApi) => void;
   /** This graph is arranged as a ROW to be read across — it changes what the navigation MEANS, docs/hosting.md. */
   row?: boolean;
+  /** The camera is the FIT's alone: no wheel, drag or pinch moves it, and every resize re-frames (docs/camera.md). */
+  fixed?: boolean;
   /** Draw the corner minimap, with its "Zoom fit" button — docs/minimap.md. Never on a ROW. */
   minimap?: boolean;
   /** The minimap's "Organize": the host's auto-layout, which is a command and its reload. */
@@ -2997,6 +3001,8 @@ export function DomChains({
   // Through a ref: the wheel and the pan are bound once, and would read `row` as it first was.
   const rowRef = useRef(row);
   rowRef.current = row;
+  const fixedRef = useRef(fixed);
+  fixedRef.current = fixed;
   // Redraws the cable canvas, which sits OUTSIDE `.dgx-world` and so is moved by no transform.
   const paintRef = useRef<() => void>(() => {});
   // The minimap's own paint, called from the graph's — the one place every camera move passes through.
@@ -4025,6 +4031,7 @@ export function DomChains({
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    if (fixedRef.current) return;
     flight.current = null;
     // Grabbing the canvas ends any zoom still in flight: you are steering now — docs/camera.md.
     goal.current.k = cam.current.k;
@@ -4102,6 +4109,7 @@ export function DomChains({
     // Non-passive: it must preventDefault, and a React onWheel would allocate an event per notch.
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
+      if (fixedRef.current) return;
       flight.current = null;
       userMoved.current = true; // either way, the camera is theirs now — stop auto-framing
       if (rowRef.current) {
@@ -4135,7 +4143,7 @@ export function DomChains({
     // Two fingers where there is no wheel at all — TOUCH events, and absolute, docs/camera.md.
     let pinch: { dist: number; k: number; x: number; y: number } | null = null;
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
+      if (e.touches.length !== 2 || fixedRef.current) return;
       flight.current = null;
       pan.current = null; // a pinch is not a pan, whatever the first finger had started
       setPanning(false);
@@ -4186,7 +4194,7 @@ export function DomChains({
     (n: GraphNode) => {
       const host = hostRef.current;
       // A ROW is walked along rather than zoomed into — docs/camera.md.
-      if (!host || rowRef.current) return;
+      if (!host || rowRef.current || fixedRef.current) return;
       // The view before the FIRST node visited, however many are visited after it.
       before.current ??= { ...cam.current };
       flyTo(

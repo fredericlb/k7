@@ -111,6 +111,14 @@ only one useful direction out of two is worse than one with a single honest dire
 takes whichever axis the device reports, because a mouse has no `deltaX` to offer and its notch
 has to drive x here.
 
+## A FIXED camera belongs to the fit
+
+`fixed` turns every gesture off: no wheel, drag, pinch or double-click moves the camera. Because
+no gesture ever takes the camera, the fit is never given up, and the ResizeObserver re-frames on
+every resize. It is for a graph sized to be framed exactly: st0's pinned mixer column, whose
+width is the card's aspect ratio at the pane's height (`@studio/ui-chains`'s docs/graphBuild.md).
+A camera you could scroll there would only move the card out of its own column.
+
 ## `deltaMode` is not optional
 
 A wheel is measured in pixels almost everywhere, in **lines** by Firefox, and in pages in the
