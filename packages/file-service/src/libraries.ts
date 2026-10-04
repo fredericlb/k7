@@ -123,9 +123,9 @@ export async function initIfEmpty(
 
 // ── the hub, which holds the clones ──────────────────────────────────────────
 
-/** Ask the hub to bring the clones to their remote — all, or `name`; it answers once any missing clone is there. */
+/** Ask the hub to fetch the clones — all, or `name` — and to move them only on `pull`; it answers once any missing clone is there. */
 export async function askHubSync(
-  opts: { name?: string; force?: boolean } = {},
+  opts: { name?: string; force?: boolean; pull?: boolean } = {},
 ): Promise<LibraryNote[]> {
   // biome-ignore lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
   const url = process.env.STUDIO_HUB_URL;
@@ -145,7 +145,7 @@ export async function askHubSync(
   return ((await r.json()) as { notes?: LibraryNote[] }).notes ?? [];
 }
 
-/** What an OPEN does: the libraries at their latest, waited for only when one is not cloned yet — the hub decides. */
+/** What an OPEN does: the libraries fetched, never pulled, and waited for only when one is not cloned yet — the hub decides. */
 export async function refreshLibraries(): Promise<void> {
   await askHubSync().catch((e: Error) =>
     console.warn(`[libraries] ${e.message}`),

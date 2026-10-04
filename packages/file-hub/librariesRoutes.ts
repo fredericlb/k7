@@ -1,7 +1,7 @@
 // librariesRoutes.ts — `/account/libraries*`, answered by the HUB and never forwarded: the list and
-// the clones are the origin's, not an account's, so no account's file service holds them. Reading
-// and retrying a clone are everyone's; changing the list, forcing a pull and the server's key are the admins'.
-// See docs/fileHub.md.
+// the clones are the origin's, not an account's, so no account's file service holds them. Reading,
+// checking and retrying a clone are everyone's; changing the list, a pull and the server's key are
+// the admins'. A pull also DESTROYS every bench clone of that library. See docs/fileHub.md.
 
 import type { Request, Response } from "express";
 import type { LibraryStore } from "./libraries.ts";
@@ -32,6 +32,7 @@ export async function librariesRoute(
   req: Request,
   res: Response,
   admin: boolean,
+  dropBenches: (name: string) => Promise<void>,
 ): Promise<void> {
   const sub = req.path.slice("/account/libraries".length) || "/";
   if (req.method === "GET" && sub === "/") {
@@ -47,6 +48,11 @@ export async function librariesRoute(
     res.json(store.view(await store.sync({ name, force: true })));
     return;
   }
+  // Fetch now rather than within the minute: what is to pull, never pulled.
+  if (req.method === "POST" && sub === "/check") {
+    res.json(store.view(await store.sync({ force: true })));
+    return;
+  }
   if (!admin) {
     refuse(res);
     return;
@@ -55,8 +61,13 @@ export async function librariesRoute(
     res.json({ publicKey: await store.key() });
     return;
   }
-  if (req.method === "POST" && sub === "/update") {
-    res.json(store.view(await store.sync({ force: true })));
+  if (req.method === "POST" && sub === "/pull") {
+    const body = (await jsonBody(req)) as { name?: unknown };
+    const name = typeof body.name === "string" ? body.name : undefined;
+    const notes = await store.sync({ name, pull: true });
+    // Every bench of that library starts again from what was pulled, unpushed work included.
+    for (const n of notes) if (n.state !== "failed") await dropBenches(n.name);
+    res.json(store.view(notes));
     return;
   }
   if (req.method === "PUT" && sub === "/") {

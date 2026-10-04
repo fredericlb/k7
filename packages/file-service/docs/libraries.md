@@ -1,8 +1,8 @@
 # libraries.ts — the origin's libraries, as one account's service sees them
 
 The origin has ONE list of libraries, each a git repository with a NAME: `st0`, `drums`. The file
-hub holds it, clones each library ONCE with the server's own key and keeps that clone at its
-remote's latest commit — the list, the key and the clones are the hub's, and their choices are in
+hub holds it, clones each library ONCE with the server's own key and fetches it, moving it only
+when an admin pulls or a bench pushes — the list, the key and the clones are the hub's, and their choices are in
 `packages/file-hub/docs/fileHub.md`. This service READS those clones (`$STUDIO_LIBRARIES_HOME`),
 and `@<name>/<type>/<module>` resolves against them from every workspace of the account. No
 workspace holds a copy, and no workspace repository records one (a workspace still carrying a
@@ -18,14 +18,17 @@ The clones are the hub's, so this service never runs git in them. It calls
 `POST $STUDIO_HUB_URL/libraries/sync` with its own hub secret — the same one the hub stamps on what
 it forwards, which is how the hub knows the caller is one of its instances:
 
-- **`POST /open`** (`refreshLibraries`): the hub syncs at most once a minute however many projects
-  open, and the call is WAITED FOR only when a clone is missing. An update of a clone already there
-  runs behind the open, because an unreachable git host must not hold a song back for two minutes,
-  and the module caches notice the files when they land (`moduleWatch.md`).
-- **The verb `project libraries update`** forces it. The verb reaches this service through
-  `CommandHost.updateLibraries`: its subject is the account, and the dependency runs
-  file-service → commands, never back ([commands/docs/git.md](../../commands/docs/git.md)).
-- **A bench push** forces it for that one library, so every account reads what was just pushed.
+- **`POST /open`** (`refreshLibraries`): the hub fetches at most once a minute however many projects
+  open, and the call is WAITED FOR only when a clone is missing. A fetch of a clone already there
+  runs behind the open, because an unreachable git host must not hold a song back for two minutes.
+  An open never PULLS: what a song resolves `@<name>/…` against changes when an admin says so.
+- **The verb `project libraries update`** forces the fetch and says what is to pull. The verb
+  reaches this service through `CommandHost.updateLibraries`: its subject is the account, and the
+  dependency runs file-service → commands, never back ([commands/docs/git.md](../../commands/docs/git.md)).
+- **A bench push** PULLS that one library (`pull: true`), so every account reads what was just
+  pushed. It drops no bench: the pushing bench's clone is the remote, and the others are an admin's
+  Pull away from going — that one destroys every bench of the library, through
+  `POST /account/bench-library/drop`, which only the hub calls.
 
 With no `$STUDIO_HUB_URL` — which only tests run — the libraries are whatever the folder holds.
 

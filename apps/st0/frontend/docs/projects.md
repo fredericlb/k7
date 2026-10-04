@@ -186,8 +186,19 @@ reads as a broken song rather than as a server somebody has not finished setting
 `groups` claim), and the file hub says so in its hello, in the ticket and on every request it
 forwards. The hub answers the libraries routes itself and refuses a change without that
 ([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
-sees the same page read-only: no add, no remove, no **Update**, no key and no bench. Hiding them is
+sees the same page read-only: no add, no remove, no **Pull**, no key and no bench. Hiding them is
 courtesy; the 403 is the gate.
+
+**Nothing pulls on its own; a row says when there is something to pull.** The server fetches each
+library and counts the commits its copy lacks (`behind`); a row with any shows them in amber, with
+a **Pull** for an admin. **Check for updates** fetches now rather than within the minute, and is
+anyone's, since it moves nothing. A pull moves every account's library at once, so it is a gesture
+somebody makes on purpose rather than a side effect of a page or a song being opened.
+
+**A pull destroys every bench of that library**, on every account, unpushed work included, and the
+confirmation says so. A bench is a clone of the library edited ahead of the server's copy; once
+that copy moves, the bench is cloned again from it at its next open rather than left to publish
+over what was just pulled.
 
 **Retry is anyone's.** A row the server could not clone — or could not pull — carries a **Retry**
 that asks the hub to clone it again (`POST /account/libraries/retry`). The usual cause is a deploy
@@ -804,7 +815,10 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   workspace buttons are still greyed. Give it a real one → the page lists `@st0`, both buttons come
   back, and `<dataRoot>/libraries/st0` is on disk;
 - **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ removes it and its clone;
-- **as a non-admin**: the page lists the libraries with no add, ✕, Update, key or Bench;
+- **as a non-admin**: the page lists the libraries with no add, ✕, Pull, key or Bench;
+- **push a commit to a library from elsewhere**, then **Check for updates** → its row reads *1 new
+  commit(s) to pull*; as an admin, open its Bench first, then **Pull** and confirm → the row is
+  clean, `<dataRoot>/<account>/bench-libraries/<name>` is gone, and the Bench opens a fresh clone;
 - **a library the server cannot clone** (its key not yet a deploy key there): the row says *clone
   failed* with git's words and a **Retry**; add the key at the host, Retry → the row is cloned;
 - **open a library's bench, then go home** → `Banc` is not in the list of workspaces;

@@ -1,8 +1,8 @@
 // libraries.ts — the origin's LIBRARIES, held by the hub: the one list (`<dataRoot>/libraries.json`),
 // the SERVER's key, and ONE clone of each library under `<dataRoot>/libraries/<name>`, which every
-// account's file service reads and nobody writes. The hub is a single process, so its in-memory
-// serialisation is the only lock these clones need. An admin edits a library on the bench, in a
-// clone of their own, and the push is what brings this one forward. See docs/fileHub.md.
+// account's file service reads and nobody writes. A sync only FETCHES a clone already here; it moves
+// on a `pull` — an admin's from the Libraries page, or a bench's push. The hub is one process, so
+// its in-memory serialisation is the only lock these clones need. See docs/fileHub.md.
 
 import { execFile } from "node:child_process";
 import {
@@ -115,6 +115,8 @@ export class LibraryStore {
   private readonly locks = new Map<string, Promise<unknown>>();
   private readonly lastSync = new Map<string, number>();
   private readonly failures = new Map<string, string>();
+  /** Commits each clone's remote has that the clone does not, as of the last fetch. */
+  private readonly behind = new Map<string, number>();
 
   constructor(private readonly dataRoot: string) {
     this.home = join(dataRoot, "libraries");
@@ -166,10 +168,12 @@ export class LibraryStore {
     const reply: AccountLibrariesReply = {
       libraries: this.settings().map((l) => {
         const error = this.failures.get(l.name);
+        const behind = this.behind.get(l.name) ?? 0;
         return {
           ...l,
           cloned: isPopulated(join(this.home, l.name)),
           ...(error ? { error } : {}),
+          ...(behind ? { behind } : {}),
         };
       }),
     };
@@ -209,10 +213,11 @@ export class LibraryStore {
     return { ok: true, reply: this.view(notes) };
   }
 
-  /** Bring the clones to their remote: all, or only `name`; WAITED FOR only where a clone is missing, unless `force`. */
+  /** Fetch the clones, all or only `name`, cloning a missing one; `pull` also MOVES them. Waited for only where one is missing, unless `force` or `pull`. */
   async sync(
-    opts: { name?: string; force?: boolean } = {},
+    opts: { name?: string; force?: boolean; pull?: boolean } = {},
   ): Promise<LibraryNote[]> {
+    if (opts.pull) opts = { ...opts, force: true };
     const now = Date.now();
     const due = this.settings().filter(
       (l) =>
@@ -222,15 +227,21 @@ export class LibraryStore {
           now - (this.lastSync.get(l.name) ?? 0) >= SYNC_EVERY_MS),
     );
     const missing = due.filter((l) => !isPopulated(join(this.home, l.name)));
-    const all = Promise.all(due.map((l) => this.syncOne(l, opts.force)));
+    const all = Promise.all(
+      due.map((l) => this.syncOne(l, opts.force, opts.pull)),
+    );
     if (opts.force || missing.length) return all;
     // Clones already here update behind the answer: an unreachable host must not hold a song back.
     void all.catch(() => undefined);
     return [];
   }
 
-  /** One library, cloned when absent, else made EXACTLY its remote: nothing here is anyone's work. */
-  private syncOne(lib: LibrarySetting, force = false): Promise<LibraryNote> {
+  /** One library, cloned when absent, else fetched — and made EXACTLY its remote on a `pull`: nothing here is anyone's work. */
+  private syncOne(
+    lib: LibrarySetting,
+    force = false,
+    pull = false,
+  ): Promise<LibraryNote> {
     return this.serial(lib.name, async (): Promise<LibraryNote> => {
       const at = join(this.home, lib.name);
       if (
@@ -253,20 +264,30 @@ export class LibraryStore {
           await this.git(at, ["fetch", "--prune", "origin"], env);
           const before = await this.head(at, env);
           // An empty repository has no upstream yet: there is nothing to be at.
-          if (await this.hasUpstream(at, env)) {
+          const upstream = await this.hasUpstream(at, env);
+          if (pull && upstream) {
             await this.git(at, ["reset", "--hard", "-q", "@{u}"], env);
             await this.git(at, ["clean", "-fdq"], env);
           }
           const after = await this.head(at, env);
+          const behind = upstream ? await this.countBehind(at, env) : 0;
+          this.behind.set(lib.name, behind);
           note =
-            before === after
-              ? { name: lib.name, state: "current", note: "up to date" }
-              : {
+            before !== after
+              ? {
                   name: lib.name,
                   state: "updated",
                   note: `updated to ${after.slice(0, 7)}`,
-                };
+                }
+              : behind
+                ? {
+                    name: lib.name,
+                    state: "behind",
+                    note: `${behind} commit(s) to pull`,
+                  }
+                : { name: lib.name, state: "current", note: "up to date" };
         }
+        if (note.state === "cloned") this.behind.delete(lib.name);
         this.failures.delete(lib.name);
         this.lastSync.set(lib.name, Date.now());
         return note;
@@ -292,6 +313,7 @@ export class LibraryStore {
         rmSync(join(this.home, n), { recursive: true, force: true });
         this.lastSync.delete(n);
         this.failures.delete(n);
+        this.behind.delete(n);
       }
   }
 
@@ -339,6 +361,19 @@ export class LibraryStore {
     } catch {
       return ""; // unborn
     }
+  }
+
+  /** How many commits `@{u}` has that HEAD does not. */
+  private async countBehind(
+    at: string,
+    env: NodeJS.ProcessEnv,
+  ): Promise<number> {
+    const { stdout } = await this.git(
+      at,
+      ["rev-list", "--count", "HEAD..@{u}"],
+      env,
+    );
+    return Number.parseInt(stdout.trim(), 10) || 0;
   }
 
   private async hasUpstream(

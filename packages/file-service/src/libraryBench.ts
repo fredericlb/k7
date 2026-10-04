@@ -182,7 +182,7 @@ export function commitLibraryBench(
         note: `committed to '${open.name}', but the push failed — ${(e as Error).message}`,
       };
     }
-    await askHubSync({ name: open.name, force: true }).catch((e: Error) =>
+    await askHubSync({ name: open.name, pull: true }).catch((e: Error) =>
       console.warn(
         `[libraries] pushed '${open.name}' but the hub did not pull: ${e.message}`,
       ),
@@ -191,6 +191,16 @@ export function commitLibraryBench(
       pushed: true,
       note: `published ${files} file(s) to '${open.name}'`,
     };
+  });
+}
+
+/** The hub pulled `name`: its bench clone goes, open or not, unpushed work included. */
+export function dropLibraryBench(name: string): Promise<void> {
+  return serial(async () => {
+    if (!isLibraryName(name))
+      throw new Error(`'${name}' cannot name a library`);
+    if (libraryOverlay()?.name === name) closeLibraryBench();
+    rmSync(join(benchHome(), name), { recursive: true, force: true });
   });
 }
 

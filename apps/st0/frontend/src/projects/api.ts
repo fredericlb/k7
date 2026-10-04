@@ -226,12 +226,26 @@ export const accountFiles = {
       "libraries",
     ),
 
-  /** Bring every library to its latest commit now, rather than at the next open. */
-  updateLibraries: async (m: AccountFiles): Promise<AccountLibrariesReply> =>
+  /** Fetch every library now, rather than within the minute: what is to pull, never pulled. */
+  checkLibraries: async (m: AccountFiles): Promise<AccountLibrariesReply> =>
     json<AccountLibrariesReply>(
-      await fetch(`${m.fileBase}/account/libraries/update`, {
+      await fetch(`${m.fileBase}/account/libraries/check`, {
         method: "POST",
         headers: filesHeaders(m),
+      }),
+      "libraries",
+    ),
+
+  /** Bring `name` to its remote's latest — admins only; every bench of it is DESTROYED. */
+  pullLibrary: async (
+    m: AccountFiles,
+    name: string,
+  ): Promise<AccountLibrariesReply> =>
+    json<AccountLibrariesReply>(
+      await fetch(`${m.fileBase}/account/libraries/pull`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name }),
       }),
       "libraries",
     ),
