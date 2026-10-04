@@ -397,6 +397,7 @@ export function ProjectsPane({
       {ws ? (
         <RepoTree
           workspace={ws}
+          files={fileService}
           nodes={nodes}
           onBack={() => onOpen(null)}
           projectHref={(path, app) => projectHref(ws, { path, app })}

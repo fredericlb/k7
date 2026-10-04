@@ -64,7 +64,7 @@ async function failed(res: Response, what: string): Promise<Error> {
   return e;
 }
 
-async function json<T>(res: Response, what: string): Promise<T> {
+export async function json<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) throw await failed(res, what);
   return (await res.json()) as T;
 }
@@ -584,7 +584,7 @@ export const accountFiles = {
   },
 };
 
-const filesHeaders = (m: AccountFiles): Record<string, string> => ({
+export const filesHeaders = (m: AccountFiles): Record<string, string> => ({
   [USER_HEADER]: m.userEmail,
   [ENGINE_TOKEN_HEADER]: m.token,
 });

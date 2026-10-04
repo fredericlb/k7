@@ -42,6 +42,7 @@ import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
+import { workspaceChanges, workspaceDiff } from "../workspaceChanges.ts";
 
 export const filesRouter = Router();
 
@@ -600,6 +601,27 @@ filesRouter.get(
   "/git/status",
   wrap((req, res) => {
     res.json(gitStatus(req.ws!.root, webGitEnv(req.userEmail)));
+  }),
+);
+
+// Every uncommitted path, for the home page's read-only tree; local only, no fetch.
+filesRouter.get(
+  "/git/changes",
+  wrap(async (req, res) => {
+    res.json({ changes: await workspaceChanges(req.ws!.root) });
+  }),
+);
+
+// One path's diff against HEAD, for the same tree's viewer.
+filesRouter.get(
+  "/git/diff",
+  wrap(async (req, res) => {
+    const path = String(req.query.path ?? "");
+    try {
+      res.json({ path, diff: await workspaceDiff(req.ws!.root, path) });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
   }),
 );
 

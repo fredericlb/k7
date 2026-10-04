@@ -227,7 +227,8 @@ the editor walking the tree and reading each file itself: the parse and its diag
 surface valid". Always 200 — a project with no surfaces has none, which is not an error.
 
 `/workspace-tree` is separate from `/tree` for the reason `Workspace.workspaceTree` is its own
-method: two questions, and only one of them is the editor's.
+method: two questions, and only one of them is the editor's. The same tree's git colours come
+from `/git/changes` and `/git/diff` (`docs/workspaces.md` § Sync state).
 
 ## `POST /module-base/snapshot` — keeping a plugin's opaque state
 

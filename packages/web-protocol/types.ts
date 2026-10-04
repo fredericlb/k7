@@ -822,6 +822,25 @@ export interface WorkspaceSyncList {
   workspaces: WorkspaceSync[];
 }
 
+/** One uncommitted path, as `git status --porcelain` names it. */
+export interface GitChange {
+  /** Relative to the workspace root, `/`-separated. */
+  path: string;
+  /** git's two status letters: index then working tree, `??` for untracked. */
+  code: string;
+  /** A rename's or copy's original path. */
+  from?: string;
+}
+
+export interface GitChangeList {
+  changes: GitChange[];
+}
+
+export interface GitDiffReply {
+  path: string;
+  diff: string;
+}
+
 /** One surface a project declares, named and typed — enough to build its address and to gate a device. */
 export interface SurfaceRef {
   id: string;
