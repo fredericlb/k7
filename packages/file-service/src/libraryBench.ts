@@ -194,6 +194,18 @@ export function commitLibraryBench(
   });
 }
 
+/** A project other than the bench opens: an overlay with nothing unpushed is lifted, since the hub's clone is at least as new. */
+export function releaseCleanLibraryBench(userEmail: string): Promise<void> {
+  return serial(async () => {
+    const open = libraryOverlay();
+    if (!open) return;
+    const left = await unpublishedCounts(open.root, envFor(userEmail)).catch(
+      () => null,
+    );
+    if (left && !left.changed && !left.ahead) closeLibraryBench();
+  });
+}
+
 /** The hub pulled `name`: its bench clone goes, open or not, unpushed work included. */
 export function dropLibraryBench(name: string): Promise<void> {
   return serial(async () => {

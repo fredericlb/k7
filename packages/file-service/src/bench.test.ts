@@ -15,14 +15,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rootDir, sshDir } from "@studio/engine-client/paths";
-import { setLibraryOverlay } from "@studio/song/sharedFolders";
+import { libraryOverlay, setLibraryOverlay } from "@studio/song/sharedFolders";
 import {
   BENCH_PROJECT,
   libraryBenchProject,
 } from "@studio/web-protocol/projects";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
-import { closeLibraryBench } from "./libraryBench.ts";
+import { closeLibraryBench, releaseCleanLibraryBench } from "./libraryBench.ts";
 import { slugify } from "./slug.ts";
 import { Workspace } from "./workspace.ts";
 import { listWorkspaces } from "./workspaces.ts";
@@ -116,6 +116,19 @@ describe("the bench on a library", () => {
     await openLibraryBench();
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).not.toContain("reverb");
+  });
+
+  it("stops overlaying the library once its clone holds nothing unpushed, outside the bench", async () => {
+    await openLibraryBench();
+    // The fixture's one commit was never pushed: that work keeps the overlay.
+    await releaseCleanLibraryBench(EMAIL);
+    expect(libraryOverlay()?.name).toBe("st0");
+    const bare = join(home, "st0.git");
+    git(home, "init", "-q", "--bare", bare);
+    git(benchClone(), "remote", "add", "origin", bare);
+    git(benchClone(), "push", "-q", "origin", "main");
+    await releaseCleanLibraryBench(EMAIL);
+    expect(libraryOverlay()).toBeNull();
   });
 
   it("writes a library module into the BENCH's clone, never the server's", async () => {

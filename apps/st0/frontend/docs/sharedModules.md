@@ -62,7 +62,8 @@ then lost. The bench edits a clone of the admin's own, and a push is what reache
 
 The overlay belongs to the account, not to the bench's tab: while a library bench is open, every
 project of that admin's account reads the library from the bench's clone. That is what lets a song
-that names a module be the place to hear an edit before it is pushed.
+that names a module be the place to hear an edit before it is pushed. Once the clone holds nothing
+unpushed, opening another project goes back to the server's clone, which is at least as new.
 
 ## `@engine`, which is not a folder
 

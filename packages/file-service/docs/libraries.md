@@ -66,7 +66,10 @@ compile, the file tree and the engine's paths read the bench's clone instead of 
   and a service restarted by the idle stop must read the same library from the same place.
 - **The overlay is per account process**, not per project: an admin's account reads its bench
   clone in ordinary projects too, which is what lets a song using the module hear the edit before
-  it is pushed.
+  it is pushed. **Only while there IS such an edit**: opening any project outside the bench lifts
+  an overlay whose clone has nothing uncommitted or unpushed (`releaseCleanLibraryBench`). A clean
+  clone is the remote at best and behind it at worst — a library pushed from elsewhere would
+  otherwise stay invisible to that admin's every project until the bench was reopened.
 - A brand-new repository — unborn HEAD — gets one empty commit, pushed (`initIfEmpty`), so it has a
   branch for the hub to fetch. **It fills nothing.** The library is the reference: a build shipping
   its own copy of somebody's modules would be a second source of truth. A new library is therefore

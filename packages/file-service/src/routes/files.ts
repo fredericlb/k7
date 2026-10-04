@@ -17,6 +17,7 @@ import { NEEDS_META } from "@studio/take-render/render";
 import express, { Router } from "express";
 import { z } from "zod";
 import { guard } from "../background.ts";
+import { BENCH_WORKSPACE } from "../bench.ts";
 import {
   applyClientProject,
   engineLoadOf,
@@ -37,10 +38,12 @@ import {
   webGitEnv,
 } from "../engineLink.ts";
 import { refreshLibraries, retireWorkspaceLibraries } from "../libraries.ts";
+import { releaseCleanLibraryBench } from "../libraryBench.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
+import { workspaceRoot } from "../slug.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
 import { workspaceChanges, workspaceDiff } from "../workspaceChanges.ts";
 
@@ -239,6 +242,9 @@ filesRouter.post(
     // The hub's clones at their latest — at most once a minute, however many opens. A
     // library that will not sync is not a project that refuses: its refs resolve to what is here.
     await refreshLibraries();
+    // Outside the bench, a bench clone with nothing unpushed would only hide what was pulled since.
+    if (resolve(req.ws!.root) !== resolve(workspaceRoot(BENCH_WORKSPACE)))
+      await releaseCleanLibraryBench(req.userEmail!);
     // …and what this workspace held of them before, taken out now that nothing reads it.
     try {
       const retired = await retireWorkspaceLibraries(
