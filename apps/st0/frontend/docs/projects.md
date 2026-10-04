@@ -469,13 +469,21 @@ the force-push was refused.
 **A row says when its workspace and its repository differ** (`WorkspaceSyncLine.tsx`), under the
 origin and in two colours:
 
-- **amber, cloud-up**, *Needs syncing*: work here that the host does not have, i.e. uncommitted
+- **amber, cloud-up**, *Has changes*: work here that the host does not have, i.e. uncommitted
   files and commits not pushed;
-- **blue, cloud-down**, *Can be updated*: commits on the host that this copy lacks.
+- **blue, cloud-down**, *Missing changes*: commits on the host that this copy lacks.
 
 Both lines can show at once, on a diverged workspace, and a level workspace shows neither. Silence
-is the normal state, so a line is something to act on rather than noise read past every day. The
-tooltip names the bar's `system repo sync`, the one gesture that settles both. The counts come from
+is the normal state, so a line is something to act on rather than noise read past every day.
+
+**Each line has its button, left of New project** (`WorkspaceSyncButtons`). **Push** commits
+everything (`project commit sync`) and pushes; on a clean tree that is only ahead it runs
+`project push`, since `project commit` refuses a clean tree. On a workspace with no `origin` it is
+labelled **Commit**, which is all it can do. **Pull changes** is `project pull`, and it is greyed
+out while the amber line shows: the pull is `--ff-only`, and fast-forwarding over work of this
+copy's own is what it refuses. When both lines show, Push commits and then has its push refused,
+the host having moved; the tooltip names the bar's `system repo sync`, which pulls BEFORE it
+commits and so settles the case where only uncommitted files stood in the way. The counts come from
 their own route and timer (`useWorkspaceSync.ts`), since answering "behind" costs a fetch, and the
 reason is in `packages/file-service/docs/workspaces.md` § Sync state.
 

@@ -228,6 +228,7 @@ import {
   type GitEnv,
   newAlternative,
   pull,
+  push,
   switchAlternative,
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
@@ -4243,6 +4244,21 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       if (!r.upToDate && h.songPath) await h.reload();
     } catch (e) {
       h.refuse([`pull failed: ${(e as Error).message}`]);
+    }
+  },
+
+  // push — what `project commit` cannot reach: commits already made, on a clean tree.
+  "project.push": async (_a, h) => {
+    const dir = h.repoDir ?? h.songPath;
+    if (!dir) {
+      h.refuse(["no repository"]);
+      return;
+    }
+    try {
+      push(dir, h.gitEnv);
+      h.log(["pushed"]);
+    } catch (e) {
+      h.refuse([`push failed: ${(e as Error).message}`]);
     }
   },
 

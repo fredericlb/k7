@@ -1100,7 +1100,7 @@ function makeHost(
 
 /** Verbs that need no active project — a copy of `commands.yaml` names, see docs/activeProject.md. */
 const GLOBAL_COMMAND =
-  /^(system channel|playlist|project (commit|pull|libraries))\b/;
+  /^(system channel|playlist|project (commit|pull|push|libraries))\b/;
 
 /** The lines a command produced, plus whether it REFUSED — see docs/activeProject.md. */
 export type CommandOutput = string[] & { refused?: boolean };

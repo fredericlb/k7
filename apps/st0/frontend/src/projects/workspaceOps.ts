@@ -7,7 +7,12 @@ import type { CloneStep } from "@studio/web-protocol";
 // `m` is the file service in every function here, so the catalogue comes in under its own name.
 import { m as msg } from "../paraglide/messages.js";
 import { type AccountFiles, accountFiles } from "./api";
-import { commitOutcome } from "./commitOutcome";
+import {
+  commitOutcome,
+  gitVerbOutcome,
+  PULL_OK,
+  PUSH_OK,
+} from "./commitOutcome";
 
 export type { AccountFiles };
 
@@ -120,6 +125,36 @@ export async function commitAndPush(
     `project commit ${message.replace(/[\r\n]+/g, " ")}`,
   );
   return commitOutcome(out, { noRemote });
+}
+
+/**
+ * The home page's Push: commit every change, then push. A clean tree may still be ahead of its
+ * host, and `project commit` refuses a clean tree, so that case goes to `project push`.
+ */
+export async function pushWorkspace(
+  m: AccountFiles,
+  workspace: string,
+  noRemote: boolean,
+): Promise<string | null> {
+  const out = await accountFiles.command(m, workspace, "project commit sync");
+  if (!out.some((l) => l.startsWith("nothing to commit")))
+    return commitOutcome(out, { noRemote });
+  if (noRemote) return null;
+  return gitVerbOutcome(
+    await accountFiles.command(m, workspace, "project push"),
+    PUSH_OK,
+  );
+}
+
+/** The home page's Pull: fast-forward only, so it is offered only on a workspace with nothing of its own. */
+export async function pullWorkspace(
+  m: AccountFiles,
+  workspace: string,
+): Promise<string | null> {
+  return gitVerbOutcome(
+    await accountFiles.command(m, workspace, "project pull"),
+    PULL_OK,
+  );
 }
 
 /**

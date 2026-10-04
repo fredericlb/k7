@@ -31,7 +31,7 @@ import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 import { WorkspaceMenu } from "./WorkspaceMenu";
-import { WorkspaceSyncLine } from "./WorkspaceSyncLine";
+import { WorkspaceSyncButtons, WorkspaceSyncLine } from "./WorkspaceSyncLine";
 import type { ImportProgress } from "./workspaceOps";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
@@ -85,6 +85,8 @@ export function RepoList({
   onRemoveWorkspace,
   onCompactWorkspace,
   sync,
+  onPush,
+  onPull,
   onCopy,
   onRename,
   projectHref,
@@ -159,6 +161,10 @@ export function RepoList({
   onRemoveWorkspace: (ws: AccountWorkspace) => Promise<void>;
   /** Each workspace's standing against its repository, by name — absent until the first answer. */
   sync: Record<string, WorkspaceSync>;
+  /** Commit every change and push it — the act on an amber sync line. */
+  onPush: (ws: AccountWorkspace) => Promise<void>;
+  /** Fast-forward from the host — the act on a blue one. */
+  onPull: (ws: AccountWorkspace) => Promise<void>;
   /** Shrink its repository to the working tree: bin emptied, history reset to one commit. */
   onCompactWorkspace: (ws: AccountWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
@@ -291,6 +297,13 @@ export function RepoList({
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
+                  <WorkspaceSyncButtons
+                    sync={sync[w.name]}
+                    published={Boolean(w.origin)}
+                    blocked={blocked}
+                    onPush={() => onPush(w)}
+                    onPull={() => onPull(w)}
+                  />
                   {/* Inside the workspace's block, beside its contents: creating a project acts ON it, not on the list. */}
                   <NewProject
                     blocked={blocked}
