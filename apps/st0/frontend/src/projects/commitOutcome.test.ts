@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { commitOutcome } from "./commitOutcome";
+import {
+  commitOutcome,
+  gitVerbOutcome,
+  PULL_OK,
+  PUSH_OK,
+} from "./commitOutcome";
 
 describe("commitOutcome", () => {
   it("rend null quand le commit est passé et poussé", () => {
@@ -61,5 +66,30 @@ describe("commitOutcome", () => {
     expect(commitOutcome(["nothing to commit — the project is clean"])).toMatch(
       /ignored/,
     );
+  });
+});
+
+describe("gitVerbOutcome", () => {
+  it("takes a pull that moved or had nothing to move as a success", () => {
+    expect(gitVerbOutcome(["pulled — 2 files changed"], PULL_OK)).toBeNull();
+    expect(gitVerbOutcome(["already up to date"], PULL_OK)).toBeNull();
+  });
+
+  it("hands back git's words for anything else", () => {
+    expect(
+      gitVerbOutcome(["pull failed: Not possible to fast-forward"], PULL_OK),
+    ).toMatch(/fast-forward/);
+    expect(gitVerbOutcome(["push failed: rejected"], PUSH_OK)).toMatch(
+      /rejected/,
+    );
+    // An unknown verb is not a success, whatever it says.
+    expect(gitVerbOutcome(["unknown command: project push"], PUSH_OK)).toBe(
+      "unknown command: project push",
+    );
+    expect(gitVerbOutcome([], PUSH_OK)).toBeTruthy();
+  });
+
+  it("takes a push only on its own line", () => {
+    expect(gitVerbOutcome(["pushed"], PUSH_OK)).toBeNull();
   });
 });

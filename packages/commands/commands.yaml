@@ -262,6 +262,15 @@
   readable:
     en: "Pull the latest changes"
     fr: "Récupérer les dernières modifications"
+# Push the commits the remote lacks. `project commit` pushes too, but refuses a clean tree, which
+# leaves commits made earlier (a failed push, an offline commit) with no way out.
+- command: "project push"
+  sid: project.push
+  help: "push the commits the remote does not have yet"
+  surfaces: [cli]
+  readable:
+    en: "Push the local commits"
+    fr: "Pousser les commits locaux"
 # The account's libraries are repositories of their own, which the file service clones and keeps
 # at their latest: this fetches every one of them now, instead of at the next open. The other
 # direction — publishing a module you edited — is the builder's Save. See

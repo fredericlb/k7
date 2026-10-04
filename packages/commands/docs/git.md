@@ -15,7 +15,8 @@ clock along with the request. When the bound is hit, git is killed and the call 
 - `commitAndPush` **pushes last**, and a push failure does not pretend the landed commit did not
   happen — it comes back as `pushError` beside the sha.
 - An empty `status --porcelain` listing is a clean tree, which is not an error: just nothing to
-  commit.
+  commit. Nothing is pushed then either, which is why `push` exists on its own: commits made
+  earlier — a push that failed, a workspace offline — have no other way to the remote.
 - `pull` is **`--ff-only` on purpose**. There is no terminal to resolve a merge and nowhere in the
   web UI to fix conflict markers, so a diverged branch — or a dirty file in the way — fails cleanly
   with git's own message. Git prints a multi-line report and the last non-empty line is its

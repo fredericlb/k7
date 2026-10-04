@@ -31,6 +31,8 @@ import {
   ensureWorkspace,
   type ImportProgress,
   publishWorkspace,
+  pullWorkspace,
+  pushWorkspace,
   renameProjectAndCommit,
 } from "./workspaceOps";
 
@@ -157,6 +159,35 @@ export function ProjectsPane({
       }
     },
     [chosen, onChanged, refreshSync],
+  );
+
+  /** The sync line's two buttons: what git said goes to the page's error line, the counts are asked again either way. */
+  const pushOrPull = useCallback(
+    async (message: string, act: () => Promise<string | null>) => {
+      setError(null);
+      try {
+        const gripe = await runGit(message, act);
+        if (gripe) setError(gripe);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        onChanged();
+        refreshSync();
+      }
+    },
+    [onChanged, refreshSync],
+  );
+  const push = useCallback(
+    (w: AccountWorkspace) =>
+      pushOrPull(m["git.commit"](), () =>
+        pushWorkspace(chosen(), w.name, !w.origin),
+      ),
+    [pushOrPull, chosen],
+  );
+  const pull = useCallback(
+    (w: AccountWorkspace) =>
+      pushOrPull(m["git.pull"](), () => pullWorkspace(chosen(), w.name)),
+    [pushOrPull, chosen],
   );
 
   /** A workspace made HERE: git, no repository, and EMPTY — the editor asks for the first project. */
@@ -391,6 +422,8 @@ export function ProjectsPane({
           onRemoveWorkspace={removeWorkspace}
           onCompactWorkspace={compactWorkspace}
           sync={sync}
+          onPush={push}
+          onPull={pull}
           onCopy={copyProject}
           onRename={renameProject}
           // Same departure as from the tree: the app's address, not a view local to here.

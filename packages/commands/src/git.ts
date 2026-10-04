@@ -73,6 +73,11 @@ export function commitAndPush(
   }
 }
 
+// Push what is committed and not yet on the remote — a clean tree can still be ahead of it.
+export function push(dir: string, gitEnv?: GitEnv): void {
+  git(dir, ["push"], gitEnv, 60_000);
+}
+
 export interface PullOutcome {
   upToDate: boolean; // the local branch already had every remote commit
   summary: string; // git's own one-line summary of what moved (for the log)

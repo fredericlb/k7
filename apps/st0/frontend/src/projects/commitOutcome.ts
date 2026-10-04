@@ -23,3 +23,12 @@ export function commitOutcome(
   // Everything else is a failure, unrecognised output included: the raw output beats silence, and it will name the next drift.
   return out.join(" · ").trim() || m["commit.silent"]();
 }
+
+/** `project pull` or `project push`, read the same way: null on a line that proves it worked, else what was said. */
+export function gitVerbOutcome(out: string[], ok: RegExp): string | null {
+  if (out.some((l) => ok.test(l))) return null;
+  return out.join(" · ").trim() || m["commit.silent"]();
+}
+
+export const PULL_OK = /^(pulled|already up to date)/;
+export const PUSH_OK = /^pushed$/;
