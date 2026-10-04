@@ -16,6 +16,7 @@ import {
   Music,
   Plus,
   Repeat,
+  Spline,
   StretchVertical,
   Timer,
   TimerOff,
@@ -482,9 +483,10 @@ export interface TimelineHandle {
   /** `selection paste` — the `events add` line putting the clipboard down at the caret. */
   pasteLine: (clip: Clipboard) => PasteResult;
   startMove: () => void;
-  // The two header toggles, so `ui ruler` and `ui lanes` reach what the buttons reach.
+  // The header toggles, so `ui ruler`, `ui lanes` and `ui automation` reach what the buttons reach.
   toggleRuler: () => void;
   toggleLanes: () => void;
+  toggleAutomation: () => void;
   /** `ui tool <name>` — which tool this surface is holding. Its own, since a cut means nothing on a graph. */
   setTool: (t: Tool) => void;
 }
@@ -664,6 +666,8 @@ export function TimelineTab({
   const [sel, setSel] = useState<Selection | null>(null);
   // Expanded: taller lanes showing each clip's content. A per-session view toggle, not a saved preference.
   const [expanded, setExpanded] = useState(false);
+  // Whether each lane's automation rows are drawn under it — a view toggle like Expand, writing nothing.
+  const [showAutomation, setShowAutomation] = useState(true);
   // Which unit the RULER counts in: a song carrying picture is read in bars while you write it and in seconds while you cut it.
   const [rulerMode, setRulerMode] = useState<RulerMode>("bars");
   // The name of the marker the cursor is over, shown in the header while hovering.
@@ -709,9 +713,14 @@ export function TimelineTab({
   const rows = useMemo(
     () =>
       proj
-        ? projectRows(proj, allTracks, videoTracks, laneNodes?.automation)
+        ? projectRows(
+            proj,
+            allTracks,
+            videoTracks,
+            showAutomation ? laneNodes?.automation : undefined,
+          )
         : [],
-    [proj, allTracks, videoTracks, laneNodes?.automation],
+    [proj, allTracks, videoTracks, laneNodes?.automation, showAutomation],
   );
   const clipEnd = (c: { start: number; length: number }) =>
     c.start + (c.length > 0 ? c.length : NATURAL);
@@ -1716,6 +1725,7 @@ export function TimelineTab({
         setRulerMode((m) => (m === "bars" ? "seconds" : "bars")),
       // The height button: tall lanes draw each clip's waveform or notes.
       toggleLanes: () => setExpanded((v) => !v),
+      toggleAutomation: () => setShowAutomation((v) => !v),
       // Picking up a tool drops the rectangle: the two are different questions, and a press is about to mean something else.
       setTool: (t) => {
         setTool(t);
@@ -2061,6 +2071,23 @@ export function TimelineTab({
               >
                 <StretchVertical className="h-4 w-4" />
               </button>
+              {/* Automation lanes shown or hidden: only drawn when a lane HAS automation, so the button is never a dead toggle. */}
+              {laneNodes?.automation &&
+                Object.keys(laneNodes.automation).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAutomation((v) => !v)}
+                    aria-pressed={showAutomation}
+                    title={
+                      showAutomation
+                        ? "hide automation lanes"
+                        : "show automation lanes"
+                    }
+                    className={stripButton(showAutomation)}
+                  >
+                    <Spline className="h-4 w-4" />
+                  </button>
+                )}
             </>
           }
         />

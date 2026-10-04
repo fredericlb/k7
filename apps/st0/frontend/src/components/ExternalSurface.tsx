@@ -155,6 +155,7 @@ export function ExternalSurface({
         "ui zoom reset": (h) => h.zoomReset(),
         "ui ruler": (h) => h.toggleRuler(),
         "ui lanes": (h) => h.toggleLanes(),
+        "ui automation": (h) => h.toggleAutomation(),
       };
       const act = onTimeline[line];
       if (act) {

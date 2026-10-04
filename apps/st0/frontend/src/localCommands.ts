@@ -24,9 +24,10 @@ export const UI_EXACT: readonly string[] = [
   "stack",
   "notes",
   "logs clear",
-  // The timeline header's two toggles.
+  // The timeline header's toggles.
   "ruler",
   "lanes",
+  "automation",
   // The RIGHT-HAND panels: each bare line TOGGLES its own, and one column means opening any closes the others.
   "settings",
   // The workspace's set lists — its own panel, since what it opens belongs to the REPOSITORY (docs/playlists.md).

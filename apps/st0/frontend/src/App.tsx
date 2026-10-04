@@ -869,6 +869,9 @@ export default function App({
     [full, ringPanes],
   );
 
+  // Expanded lanes take the column — unless a lane's modules were asked for, which split it with the graph as unexpanded lanes do.
+  const lanesTakeColumn = tlView.expanded && graphSlot?.kind !== "trackModules";
+
   /** Is the chains pane off screen? ONE answer, read by the class that hides it and by the `active` it is handed. */
   const chainsOffScreen =
     full === "timeline" ||
@@ -876,7 +879,7 @@ export default function App({
     full === "turntables" ||
     (full === null && !ringPanes.includes("chains")) ||
     // Expanded lanes give the timeline the whole column — only possible in a layout that HAS a timeline.
-    (full === null && ringPanes.includes("timeline") && tlView.expanded);
+    (full === null && ringPanes.includes("timeline") && lanesTakeColumn);
 
   /** Is the graph the ONLY pane in the column? What decides `flex-1` and whether ChainsTab draws its sidebar. */
   const chainsAlone = ringPanes.length === 1;
@@ -1728,6 +1731,10 @@ export default function App({
       }
       if (line === "lanes") {
         timelineRef.current?.toggleLanes();
+        return true;
+      }
+      if (line === "automation") {
+        timelineRef.current?.toggleAutomation();
         return true;
       }
       // `ui panel <graph|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
@@ -3267,14 +3274,14 @@ export default function App({
                         ? "hidden"
                         : // Expanded lanes have asked for the room; the frame stands down for
                           // them as the graph does, rather than squeezing three panes into one.
-                          tlView.expanded
+                          lanesTakeColumn
                           ? "hidden"
                           : "w-1/3 shrink-0",
                     ringFor("viewport"),
                   )}
                   // Once dragged the width is the drag's; until then it is the fraction above.
                   style={
-                    full === null && !tlView.expanded && paneSize.viewport
+                    full === null && !lanesTakeColumn && paneSize.viewport
                       ? { width: paneSize.viewport }
                       : undefined
                   }
@@ -3299,7 +3306,7 @@ export default function App({
                   />
                 </div>
               )}
-              {hasViewport && full === null && !tlView.expanded && (
+              {hasViewport && full === null && !lanesTakeColumn && (
                 <PaneSplitter
                   pane={viewportPaneRef}
                   axis="x"
@@ -3317,7 +3324,7 @@ export default function App({
                     className={cn(
                       "flex min-h-0 min-w-0",
                       // Expanded lanes take the whole height, exactly as `full timeline` does: the pane below has stood down for them.
-                      full === "timeline" || (full === null && tlView.expanded)
+                      full === "timeline" || (full === null && lanesTakeColumn)
                         ? "flex-1"
                         : full === "chains"
                           ? "hidden"
@@ -3326,7 +3333,7 @@ export default function App({
                     )}
                     // Once dragged the height is the drag's; until then it is the fraction above.
                     style={
-                      full === null && !tlView.expanded && paneSize.timeline
+                      full === null && !lanesTakeColumn && paneSize.timeline
                         ? { height: paneSize.timeline }
                         : undefined
                     }
@@ -3453,7 +3460,7 @@ export default function App({
                     />
                   </div>
                 )}
-                {hasTimeline && full === null && !tlView.expanded && (
+                {hasTimeline && full === null && !lanesTakeColumn && (
                   <PaneSplitter
                     pane={timelinePaneRef}
                     axis="y"
@@ -3474,14 +3481,14 @@ export default function App({
                           ? "hidden"
                           : // Expanded lanes have asked for the height; the desk stands down for
                             // them as the frame and the graph do.
-                            tlView.expanded
+                            lanesTakeColumn
                             ? "hidden"
                             : "h-1/2 shrink-0",
                       ringFor("turntables"),
                     )}
                     // Once dragged the height is the drag's; until then it is the fraction above.
                     style={
-                      full === null && !tlView.expanded && paneSize.turntables
+                      full === null && !lanesTakeColumn && paneSize.turntables
                         ? { height: paneSize.turntables }
                         : undefined
                     }
@@ -3500,7 +3507,7 @@ export default function App({
                     />
                   </div>
                 )}
-                {turntablesSurface && full === null && !tlView.expanded && (
+                {turntablesSurface && full === null && !lanesTakeColumn && (
                   <PaneSplitter
                     pane={deskPaneRef}
                     axis="y"
@@ -3521,14 +3528,14 @@ export default function App({
                           ? "hidden"
                           : // Expanded lanes have asked for the height; the strip stands down for
                             // them as the desk, the frame and the graph do.
-                            tlView.expanded
+                            lanesTakeColumn
                             ? "hidden"
                             : "h-1/3 shrink-0",
                       ringFor("mastering"),
                     )}
                     // Once dragged the height is the drag's; until then it is the fraction above.
                     style={
-                      full === null && !tlView.expanded && paneSize.mastering
+                      full === null && !lanesTakeColumn && paneSize.mastering
                         ? { height: paneSize.mastering }
                         : undefined
                     }
@@ -3541,7 +3548,7 @@ export default function App({
                     />
                   </div>
                 )}
-                {masteringSurface && full === null && !tlView.expanded && (
+                {masteringSurface && full === null && !lanesTakeColumn && (
                   <PaneSplitter
                     pane={masteringPaneRef}
                     axis="y"
