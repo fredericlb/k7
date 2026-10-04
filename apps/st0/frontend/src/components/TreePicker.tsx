@@ -17,6 +17,8 @@ export interface TreeNode<T> {
   entry?: T;
   /** Shown muted on the right of a leaf — the full ref/path, so you see what you pick. */
   hint?: string;
+  /** A short tag drawn as a pill BEFORE the label — what kind of thing the leaf is (`NAM`, `AIDA`). */
+  badge?: string;
 }
 
 const MENU_BASE =
@@ -84,10 +86,17 @@ function Level<T>({
                   n.key === selected ? "bg-accent text-accent-foreground" : ""
                 }`}
               >
-                <span
-                  className={`truncate font-mono ${n.entry || n.children ? "" : "text-muted-foreground"}`}
-                >
-                  {n.label}
+                <span className="flex min-w-0 items-center gap-2">
+                  {n.badge ? (
+                    <span className="w-10 shrink-0 rounded bg-muted px-1 text-center font-mono text-[10px] uppercase text-muted-foreground">
+                      {n.badge}
+                    </span>
+                  ) : null}
+                  <span
+                    className={`truncate font-mono ${n.entry || n.children ? "" : "text-muted-foreground"}`}
+                  >
+                    {n.label}
+                  </span>
                 </span>
                 {isLeaf ? (
                   n.hint ? (

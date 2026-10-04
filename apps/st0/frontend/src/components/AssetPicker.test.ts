@@ -9,7 +9,7 @@
 // prefix (`nam/…`), so filtering on one matches nothing at all — see the guitar case below.
 
 import { describe, expect, it } from "vitest";
-import { buildAssetTree, searchAssets } from "./AssetPicker";
+import { buildAssetTree, modelBadge, searchAssets } from "./AssetPicker";
 
 const FILES = [
   "Marshall/JCM800/lead.nam",
@@ -82,5 +82,30 @@ describe("the asset tree", () => {
 
   it("has nothing to show for an empty query — the tree is for browsing", () => {
     expect(searchAssets(FILES, "model", "   ")).toEqual([]);
+  });
+});
+
+describe("the model badge", () => {
+  it("names the runtime a model file runs on, by its extension", () => {
+    expect(modelBadge("Two-Rock/overdrive.nam")).toBe("NAM");
+    expect(modelBadge("@st0/aida/Plexi.JSON")).toBe("AIDA");
+    expect(modelBadge("cab/v30.wav")).toBeUndefined();
+  });
+
+  it("is on every model leaf, in the tree and in the search", () => {
+    const files = ["amps/plexi.nam", "amps/plexi.json"];
+    const leaves = buildAssetTree(files, "model")[0].children ?? [];
+    const badges = (nodes: { badge?: string }[]) =>
+      nodes.map((n) => n.badge).sort();
+    expect(badges(leaves)).toEqual(["AIDA", "NAM"]);
+    expect(badges(searchAssets(files, "model", "plexi"))).toEqual([
+      "AIDA",
+      "NAM",
+    ]);
+  });
+
+  it("stays off a param that is not a model", () => {
+    // The tag says which amp runtime plays a file; any other file-valued param has none.
+    expect(buildAssetTree(FILES, "onnx")[0].badge).toBeUndefined();
   });
 });
