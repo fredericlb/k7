@@ -53,15 +53,15 @@ describe("splitTrailingMixer", () => {
     expect(split?.mixer.nodes[0].h).toBe(whole.nodes[2].h);
   });
 
-  it("frames each half with the row's own margin", () => {
+  it("keeps the row's margin, and gives the mixer none so it sits flush right", () => {
     const whole = row(["amp", "strip"]);
     const split = splitTrailingMixer(whole);
     const margin = whole.nodes[0].x;
     const amp = whole.nodes[1];
     const mixer = whole.nodes[2];
     expect(split?.row.width).toBe(amp.x + amp.w + margin);
-    expect(split?.mixer.width).toBe(mixer.w + margin * 2);
-    expect(split?.mixer.nodes[0].x).toBe(margin);
+    expect(split?.mixer.width).toBe(mixer.w);
+    expect(split?.mixer.nodes[0].x).toBe(0);
   });
 
   it("leaves a row alone when its last card is not the mixer", () => {
