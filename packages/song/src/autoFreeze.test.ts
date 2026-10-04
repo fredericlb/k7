@@ -75,6 +75,40 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 // The cache is the machine's, shared by every project: identical test songs would find each other's renders.
 beforeEach(() => rmSync(autoRendersHome(), { recursive: true, force: true }));
 
+describe("which engine plays the render", () => {
+  // A home of its own: the scan file is the machine's, and the other test files read theirs in parallel.
+  const shared = process.env.STUDIO_HOME;
+  beforeAll(() => {
+    process.env.STUDIO_HOME = mkdtempSync(join(tmpdir(), "autofreeze-home-"));
+  });
+  afterAll(() => {
+    rmSync(String(process.env.STUDIO_HOME), { recursive: true, force: true });
+    process.env.STUDIO_HOME = shared;
+  });
+  const exts = () => join(dirname(autoRendersHome()), "exts.json");
+  const scan = (plugins: { format: string; name: string }[]) =>
+    writeFileSync(exts(), JSON.stringify({ entries: [{ plugins }] }));
+
+  // The render exists for the engines LACKING the VST; one that has it plays it live.
+  it("an engine hosting every VST of the run ignores the render", () => {
+    const p = project("hosted");
+    render(p, "amp");
+    scan([{ format: "VST3", name: "Amp" }]);
+    const { doc, freezes } = compileWithAutoFreezes(p);
+    expect(freezes.find((f) => f.module === "amp")?.hosted).toBe(true);
+    expect(pluginModules(trackOf(doc, "gtr"))).toContain("amp");
+  });
+
+  it("an engine missing one plays the render instead", () => {
+    const p = project("lacking");
+    render(p, "amp");
+    scan([{ format: "vst3", name: "Verb" }]);
+    const { doc, freezes } = compileWithAutoFreezes(p);
+    expect(freezes.find((f) => f.module === "amp")?.hosted).toBe(false);
+    expect(pluginModules(trackOf(doc, "gtr"))).not.toContain("amp");
+  });
+});
+
 describe("where an automatic render is kept", () => {
   it("in the machine's cache, never inside the project", () => {
     const p = project("cache");

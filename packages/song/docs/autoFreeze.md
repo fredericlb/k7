@@ -6,9 +6,22 @@ nowhere else — which is what an engine's compatibility score counts
 (`packages/engine-browser/docs/access.md`).
 
 So a track through a VST is **frozen automatically**: rendered once, while nobody is listening, on
-a machine that has the VST, and the render plays instead — on that machine and on every other —
-until what it was made from changes. It is the manual freeze ([freeze.md](freeze.md)), with the
-module chosen for you and the render named for its inputs.
+a machine that has the VST, and the render plays instead **on an engine that lacks it** — until
+what it was made from changes. It is the manual freeze ([freeze.md](freeze.md)), with the module
+chosen for you and the render named for its inputs.
+
+## Only for an engine that cannot host the VST
+
+An engine whose catalogue names every VST of a freeze **ignores the render** and plays the plugins
+live. The render is a fallback, not a replacement: it is a snapshot, and the live plugin is the
+song — editable, and exact. So a freeze stands in for its modules only when its render is on disk
+AND the bound engine lacks one of its VSTs (`playsRender`: `ready && !hosted`).
+
+`hosted` is read from the bound engine's scan (`scanHostsAll`, the `exts.json` the hub writes at
+binding) with the same match the compatibility score uses: format and name, case aside. An EMPTY
+scan cannot say, so it counts as lacking: the render is sound that is certain to play, and a VST
+the engine may not have is not. The one engine a render is MADE on is a hosting one, so the engine
+that renders is never the one that plays it.
 
 ## Where
 
@@ -77,9 +90,14 @@ every engine copy and every LFS quota pays for renders nobody will play again.
 
 `compileWithAutoFreezes` (`nodeProject.ts`) compiles LIVE first — the fingerprint is of what the
 render would replace — then, if any automatic freeze's render is on disk, again with those modules
-frozen exactly as a `frozen:` field would freeze them. A song with no VST, or none rendered, costs
-one compile as before. `compileNodeProject` is the doc of that answer, so every reader — the engine,
-`/project-doc`, a share — plays the same thing.
+frozen exactly as a `frozen:` field would freeze them — those, among the renders on disk, whose
+VSTs the bound engine lacks. A song with no VST, none rendered, or an engine that hosts them all,
+costs one compile as before. `compileNodeProject` is the doc of that answer, so every reader — the
+engine, `/project-doc`, a share — plays the same thing for the engine the account drives.
+
+The scan's mtime is in the file service's revision token, so binding another engine recompiles;
+the freezer compares the renders the new compile plays with the last, and reloads the project when
+they differ — at the next stop if the transport runs.
 
 ## Making the renders
 
@@ -95,13 +113,14 @@ The render is made on the engine's MACHINE, which is the one with the VSTs:
   its clips down and the render back up (`packages/engine-tunnel/docs/jobs.md`);
 - when the file service runs beside the engine, by the local engine binary, without blocking.
 
-Nothing is committed: the render lands in the cache, and the project is reloaded so it plays. A
-render that finishes after the transport started waits for the next stop: a freeze never swaps a
-track's contents under the playhead.
+Nothing is committed and nothing reloads: the render lands in the cache for the engines that will
+need it, and the engine that made it goes on playing the VST live. When a render does start
+standing in — an engine without the VST bound — the swap waits for a stop: a freeze never changes
+a track's contents under the playhead.
 
 ## Editing a frozen VST: thaw on touch
 
-A baked VST has no plugin in the engine, so a knob drag or its window would reach nothing. The node
+This only arises on an engine without the VST. A baked VST has no plugin in the engine, so a knob drag or its window would reach nothing. The node
 card therefore wears the snowflake but does not refuse: touching a control on an automatically
 frozen node, or its plugin bubble, **thaws** the freeze point (`POST /auto-freeze/thaw`) — the
 module is left live for the session (`setThawed`, in memory, never in the song) and the project
@@ -113,7 +132,8 @@ from its existing render if nothing changed, by a new one otherwise.
 
 ## On screen
 
-`WebGraph.autoFrozen` maps every node an automatic render bakes to the VST it was taken at. It is
+`WebGraph.autoFrozen` maps every node an automatic render bakes — one that plays, on this engine —
+to the VST it was taken at. It is
 kept apart from `frozen` because it acts the other way: `frozen` refuses controls, `autoFrozen`
 gives way to them. Both wear the frost; only a manual freeze hides the plugin and bypass bubbles.
 

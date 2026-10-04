@@ -32,16 +32,17 @@ afterEach(() => {
 
 const HASH = "0123456789abcdef";
 
-/** One freeze at `module`, needing `vst`, ready when its render is on disk. */
-function freeze(module: string, vst = "Serum", hash = HASH): AutoFreeze {
+/** One freeze at `module`, ready when its render is on disk; `hosted` when the engine has its VST. */
+function freeze(module: string, hosted = true, hash = HASH): AutoFreeze {
   const render = join(dir, "cache", `${module}-${hash}.wav`);
   return {
     module,
     render,
     plan: { at: module, render, lanes: new Set(), modules: new Set([module]) },
     cut: {} as AutoFreeze["cut"],
-    plugins: [{ format: "vst3", name: vst }],
+    plugins: [{ format: "vst3", name: "Serum" }],
     ready: existsSync(render),
+    hosted,
   };
 }
 
@@ -55,7 +56,6 @@ interface Rig {
 
 function rig(opts: {
   freezes: () => AutoFreeze[];
-  catalogue?: { format: string; name: string }[];
   /** Called during the render, to change the world while it runs. */
   duringRender?: (s: Rig["state"]) => void;
 }): Rig {
@@ -66,7 +66,6 @@ function rig(opts: {
   } as Rig;
   const deps: AutoFreezeDeps = {
     compile: () => ({ freezes: opts.freezes() }),
-    catalogue: () => opts.catalogue ?? [{ format: "VST3", name: "Serum" }],
     render: async (f, out) => {
       opts.duringRender?.(r.state);
       mkdirSync(dirname(out), { recursive: true });
@@ -89,11 +88,12 @@ function rig(opts: {
 }
 
 describe("AutoFreezer", () => {
-  it("renders what is missing while stopped, where the freeze names it, and reloads so it plays", async () => {
+  // Made by the engine that hosts the VST, which plays it live: the render is for the others.
+  it("renders what is missing while stopped, where the freeze names it, without reloading", async () => {
     const r = rig({ freezes: () => [freeze("amp")] });
     expect(await r.freezer.tick(r.target)).toEqual(["amp"]);
     expect(existsSync(join(dir, "cache", `amp-${HASH}.wav`))).toBe(true);
-    expect(r.reloads).toBe(1);
+    expect(r.reloads).toBe(0);
   });
 
   it("starts nothing while the transport runs", async () => {
@@ -104,27 +104,43 @@ describe("AutoFreezer", () => {
   });
 
   // A render made without the VST bakes its stub — and then plays everywhere as the song.
-  it("never renders on an engine missing a VST of the plan", async () => {
-    const r = rig({
-      freezes: () => [freeze("amp", "Diva")],
-      catalogue: [{ format: "vst3", name: "Serum" }],
-    });
+  it("never renders on an engine that does not host every VST of the plan", async () => {
+    const r = rig({ freezes: () => [freeze("amp", false)] });
     expect(await r.freezer.tick(r.target)).toEqual([]);
     expect(r.rendered).toEqual([]);
   });
 
-  it("never renders against an empty catalogue, which cannot say", async () => {
-    const r = rig({ freezes: () => [freeze("amp")], catalogue: [] });
-    expect(await r.freezer.tick(r.target)).toEqual([]);
+  it("reloads when another engine binds and the render starts or stops standing in", async () => {
+    let hosted = true;
+    const r = rig({ freezes: () => [freeze("amp", hosted)] });
+    mkdirSync(join(dir, "cache"), { recursive: true });
+    writeFileSync(join(dir, "cache", `amp-${HASH}.wav`), "wav");
+    await r.freezer.tick(r.target);
+    expect(r.reloads).toBe(0);
+    hosted = false;
+    r.state.rev = "r2";
+    await r.freezer.tick(r.target);
+    expect(r.reloads).toBe(1);
+    hosted = true;
+    r.state.rev = "r3";
+    await r.freezer.tick(r.target);
+    expect(r.reloads).toBe(2);
   });
 
-  it("swaps a render finished during playback in at the stop, not under the playhead", async () => {
+  it("swaps a render in at the stop, not under the playhead", async () => {
+    let hosted = true;
     const r = rig({
-      freezes: () => [freeze("amp")],
-      duringRender: (s) => {
-        s.playing = true;
+      freezes: () => {
+        // The transport starts while the compile runs.
+        if (!hosted) r.state.playing = true;
+        return [freeze("amp", hosted)];
       },
     });
+    mkdirSync(join(dir, "cache"), { recursive: true });
+    writeFileSync(join(dir, "cache", `amp-${HASH}.wav`), "wav");
+    await r.freezer.tick(r.target);
+    hosted = false;
+    r.state.rev = "r2";
     await r.freezer.tick(r.target);
     expect(r.reloads).toBe(0);
     r.state.playing = false;

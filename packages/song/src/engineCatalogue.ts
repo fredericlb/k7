@@ -102,6 +102,17 @@ export function isPluginScanned(
   return keys.has(scanKey(format, name));
 }
 
+/** Does the engine's scan name EVERY one of `plugins`? False against an empty cache, which cannot say. */
+export function scanHostsAll(
+  plugins: { format: string; name: string }[],
+  file = extsPath(),
+): boolean {
+  const keys = scannedPluginKeys(file);
+  return (
+    keys.size > 0 && plugins.every((p) => keys.has(scanKey(p.format, p.name)))
+  );
+}
+
 /** Scanned plugin names grouped by lowercased format — `{ vst3: ["Serum"], internal: […] }`. */
 export function scannedPluginNames(
   file = extsPath(),

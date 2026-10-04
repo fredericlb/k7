@@ -1,7 +1,8 @@
 // autoFreeze.ts — freezing VST modules WITHOUT anyone asking. A VST is the plugin an engine is most
 // likely not to have — installed on one machine, unavailable on another platform — so a track
 // through one is rendered once, on a machine that has it, and the render plays everywhere until
-// what it was made from changes. Nothing is written to the project's YAML: the render's NAME is a
+// what it was made from changes — but only on an engine LACKING one of its VSTs: one that has them all
+// plays them live. Nothing is written to the project's YAML: the render's NAME is a
 // fingerprint of its inputs, so a stale render is simply one whose name nobody asks for.
 // Renders live in a cache OUTSIDE the project (`<studioHome>/.renders`), never in git: an unused
 // one is purged after a month, and "used" is its ATIME. Full rationale: docs/autoFreeze.md.
@@ -15,6 +16,7 @@ import {
   AUTO_RENDERS_HOME_DIR,
   hostsPlugin,
 } from "@studio/song-schema/moduleTypes";
+import { scanHostsAll } from "./engineCatalogue";
 import {
   activeFreezePlans,
   type FreezePlan,
@@ -43,9 +45,14 @@ export interface AutoFreeze {
   cut: ProjectDoc;
   /** The plugins the render needs its RENDERING engine to have: the VSTs inside the plan. */
   plugins: { format: string; name: string }[];
-  /** The render is on disk, so it plays instead of the live modules. */
+  /** The render is on disk. */
   ready: boolean;
+  /** The engine this machine drives has every VST of the plan: it plays them LIVE, and is the one that may render. */
+  hosted: boolean;
 }
+
+/** Whether `f`'s render stands in for its modules: made, and the engine cannot host them itself. */
+export const playsRender = (f: AutoFreeze): boolean => f.ready && !f.hosted;
 
 /** Is this module a VST — an external plugin format in a plugin slot? */
 export function isVstModule(m: Module | undefined): boolean {
@@ -219,16 +226,17 @@ export function autoFreezes(
         format: String(m?.plugin?.type ?? "").toLowerCase(),
         name: String(m?.plugin?.name ?? ""),
       }));
-    const ready = existsSync(render);
-    if (ready) markUsed(render);
-    out.push({
+    const f: AutoFreeze = {
       module,
       render,
       plan: { ...plan, render },
       cut,
       plugins,
-      ready,
-    });
+      ready: existsSync(render),
+      hosted: scanHostsAll(plugins),
+    };
+    if (playsRender(f)) markUsed(render);
+    out.push(f);
   }
   return out;
 }
