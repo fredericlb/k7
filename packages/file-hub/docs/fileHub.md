@@ -56,6 +56,15 @@ reads, which spares every call a cookie across origins; `/api/files` itself has 
 guard, the ticket being its gate, with the session as a fallback for a same-origin caller.
 Twelve hours, and the browser asks again after six.
 
+**Whether the caller is an admin rides the same way.** The host passes `isAdmin(req)`. pl8 checks
+the session's OIDC `groups` against `AUTH_ADMIN_GROUPS`, and an empty list admits nobody. The hello
+answers `admin`, the ticket signs it, and the hub stamps `x-studio-admin: 1` on what it forwards,
+having dropped any copy the client sent. The file service trusts that header for the same reason
+it trusts `x-studio-user`: only the hub's secret reaches it. Today it guards one thing, the
+origin's libraries list, which the hub names to every instance as `$STUDIO_LIBRARIES_FILE`
+(`packages/file-service/docs/libraries.md`). A ticket outlives a group change by up to twelve
+hours, the same as it outlives the session.
+
 ## An engine is bound by a CLAIM
 
 A request naming an engine (`x-studio-engine-id`) binds the account's file service to it only

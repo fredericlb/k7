@@ -168,24 +168,35 @@ avoided everywhere else. A line this
 screen does not know is refused **here**: there is no service behind to pass it to, unlike the
 editor's bar, whose lines end at `/command`.
 
-## The LIBRARIES, before everything else
+## The LIBRARIES, behind the header and the admins'
 
-An account declares its libraries at the top of the page, before the list of repositories and
-before the tree: named repositories of the modules and chains all its projects inherit. Without
-one, st0 refuses to open anything — not on principle, but because no `@st0/…` reference would
-resolve, and a song opened
-with all its shared modules missing reads as a broken song rather than as an account somebody has
-not finished setting up. That is also why the card is **at the top and tinted when empty**: it is
-the only thing to do on this screen until it is done, and the refusal `ProjectGate` will meet a
-click later is the same fact, said too late.
+The libraries are named repositories of the modules and chains every project inherits, and there
+is **one list for the whole origin**, not one per account. It is drawn in a panel the header's
+**Libraries** entry opens (`LibrariesCard.tsx`), not on the page: the list changes rarely, and only
+an admin may change it. Without a library st0 refuses to open anything — not on principle, but
+because no `@st0/…` reference would resolve, and a song opened with all its shared modules missing
+reads as a broken song rather than as a server somebody has not finished setting up.
+
+**Only an admin edits it.** An admin is a member of one of pl8's `AUTH_ADMIN_GROUPS` (the OIDC
+`groups` claim), and the file hub says so in its hello, in the ticket and on every request it
+forwards. The file service refuses a `PUT` without that stamp
+([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
+sees the same panel read-only, with **Update** still there: it pulls the account's own clones and
+changes nothing anyone else sees. Hiding the add and remove controls is courtesy; the 403 is the gate.
+
+**The page itself says something only when something is wrong** (`LibrariesNotice.tsx`): no library
+yet, or one this account could not clone. In that case it shows one amber line at the top, with a
+button that opens the panel. A healthy list costs the page nothing.
 
 **A list, each one named.** The name is the level its refs use — `@drums/audio/kick` — and it is
-optional on the card: the first library is called `st0`, which is what every `@st0/…` written before
-libraries had names means, and any other takes its repository's name. The file service clones each
-one under `<studioHome>/libraries/<name>` and keeps it at its latest; no workspace holds a copy
-([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). A row's ✕
-removes one — its clone goes too, unless it holds work nobody published — and **Update** fetches
-them all now rather than at the next open.
+optional in the form: the first library is called `st0`, which is what every `@st0/…` written before
+libraries had names means, and any other takes its repository's name. **Each account still clones
+each one**, under `<studioHome>/libraries/<name>`, with its own deploy key: the clone is a working
+copy the account authors modules in and publishes from, so it cannot be shared
+([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). A clone
+that fails for an account, because its key cannot read the repository, is shown on that account's
+row with git's words; it is not a refusal of the list. A row's ✕ removes a library — the admin's
+clone goes at once, every other account's at its next open, unless it holds work nobody published.
 
 **An empty repository gets one empty commit, once**, when it is added (`initIfEmpty`): a
 repository just created in a web interface has no branch for the next machine to fetch.
@@ -227,10 +238,10 @@ question. A refusal names what git said and stores nothing. Where the clone land
 kept current is
 [packages/file-service/docs/libraries.md](../../../../packages/file-service/docs/libraries.md).
 
-**Nouveau** and **Importer** are greyed until the card holds a library, saying so on the button rather
+**Nouveau** and **Importer** are greyed until the origin lists a library, saying so on the button rather
 than on the click, and the file service refuses the same two calls on its own side. A workspace
 made before the library exists is a folder whose every `@st0/…` resolves to nothing — the same
-half-set-up account the card exists to prevent, one level down and harder to read, since by then
+half-set-up account the libraries notice exists to prevent, one level down and harder to read, since by then
 there is a workspace and a project in it to blame instead.
 
 ## Dropping a foreign project on a workspace
@@ -267,9 +278,9 @@ live rig written again on every open and saved nowhere
 ([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
 
 Its card is one button, because the bench names nothing: no chain, no project, no machine in the
-address. It sits here, under the libraries card, because the library is what it needs — every
-module the rig can reach is in the account's clone. With no library declared the card draws nothing
-at all — a second empty box beside the one that says what to do would only dilute it.
+address. It sits at the top, under the libraries notice, because the library is what it needs —
+every module the rig can reach is in the account's clone. With no library listed the card draws
+nothing at all — a second empty box beside the one that says what to do would only dilute it.
 
 Neither a MODULE nor a CHAIN is edited on it: both are authored from a project that is already
 open, against an engine already playing a song that very probably names them
@@ -701,7 +712,7 @@ Every git operation this app STARTS locks the page until it is done: one overlay
 the screen, saying in words what git is doing, over a bar that is measured when git reports a
 percentage (a clone) and slides otherwise. Keys are swallowed while it is up. That covers the home
 page's clone, publish, compact, and the project create / copy / rename / delete that commit, the
-libraries card's add / remove / update, and the editor's `project commit`, `project pull` and
+libraries panel's add / remove / update, and the editor's `project commit`, `project pull` and
 `project alternative` — all through `runGit` in `src/components/GitBusy.tsx`, and
 `<GitBusyOverlay/>` mounted once in `Home.tsx` and once in `App.tsx`.
 

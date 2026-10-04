@@ -11,15 +11,16 @@ export const TICKET_TTL_MS = 12 * 60 * 60_000;
 const sign = (key: Buffer, payload: string): string =>
   createHmac("sha256", key).update(payload).digest("base64url");
 
-/** A ticket naming `user` until `now + ttl`. */
+/** A ticket naming `user`, and whether the session made them an admin, until `now + ttl`. */
 export function mintTicket(
   key: Buffer,
   user: string,
+  admin = false,
   now = Date.now(),
   ttlMs = TICKET_TTL_MS,
 ): string {
   const payload = Buffer.from(
-    JSON.stringify({ u: user, exp: now + ttlMs }),
+    JSON.stringify({ u: user, exp: now + ttlMs, ...(admin ? { a: 1 } : {}) }),
   ).toString("base64url");
   return `${payload}.${sign(key, payload)}`;
 }
@@ -29,7 +30,7 @@ export function readTicket(
   key: Buffer,
   presented: string,
   now = Date.now(),
-): { user: string; engineId: string | null } | null {
+): { user: string; admin: boolean; engineId: string | null } | null {
   const [ticket, engineId] = presented.split("~", 2);
   const [payload, sig] = (ticket ?? "").split(".");
   if (!payload || !sig) return null;
@@ -37,12 +38,12 @@ export function readTicket(
   const b = Buffer.from(sign(key, payload));
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
-    const { u, exp } = JSON.parse(
+    const { u, exp, a } = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
     if (typeof u !== "string" || !u || typeof exp !== "number" || exp < now)
       return null;
-    return { user: u, engineId: engineId || null };
+    return { user: u, admin: a === 1, engineId: engineId || null };
   } catch {
     return null;
   }

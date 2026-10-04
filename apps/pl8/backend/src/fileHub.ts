@@ -3,6 +3,7 @@
 // a workspace lives, so a pl8 without it refuses to start rather than serve an origin where no
 // project can open. See packages/file-hub/docs/fileHub.md.
 
+import { isAdmin, type SessionUser } from "@frediverse/oidc";
 import type { EngineMount } from "@studio/engine-registry";
 import { FILE_HUB_HELLO, FILE_HUB_PATH, FileHub } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
@@ -18,6 +19,13 @@ export function requireFilesRoot(): string {
   );
   process.exit(1);
 }
+
+/** `$AUTH_ADMIN_GROUPS`, comma-separated — the same variable, and the same reading, as z0's. */
+const adminGroups = (): string[] =>
+  (process.env.AUTH_ADMIN_GROUPS ?? "")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
 
 export function mountFileHub(
   app: Express,
@@ -39,6 +47,9 @@ export function mountFileHub(
     tunnels: engine.tunnels,
     selfPort: () => port,
     userOf: (req) => req.user?.email ?? "",
+    // Who may edit the origin's libraries: the `groups` claim against this list, which empty admits nobody.
+    isAdmin: (req) =>
+      isAdmin((req as { user?: SessionUser }).user, adminGroups()),
     // Set by `npm run dev` only: this process's own watch cannot see the ones it spawns.
     watchSources: process.env.STUDIO_FILES_WATCH === "1",
     // Stable across restarts, so an open page keeps its ticket through a deploy.

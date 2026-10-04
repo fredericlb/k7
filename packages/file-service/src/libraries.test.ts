@@ -20,6 +20,7 @@ import {
   commitLibrary,
   defaultLibraryName,
   libraryDir,
+  libraryFailure,
   librarySettings,
   pruneLibraries,
   retireWorkspaceLibraries,
@@ -42,6 +43,7 @@ let tmp: string;
 const saved: Record<string, string | undefined> = {};
 const ENV_KEYS = [
   "STUDIO_HOME",
+  "STUDIO_LIBRARIES_FILE",
   "GIT_CONFIG_COUNT",
   "GIT_CONFIG_KEY_0",
   "GIT_CONFIG_VALUE_0",
@@ -81,6 +83,7 @@ beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "fs-libs-"));
   for (const k of ENV_KEYS) saved[k] = process.env[k];
   process.env.STUDIO_HOME = join(tmp, "home");
+  delete process.env.STUDIO_LIBRARIES_FILE;
   // A key already "there", so `ensureKey` makes none: CI's image has git and no ssh-keygen, and
   // the SSH URI below is rewritten to a path on disk, so no key is ever used.
   const keyDir = sshDir(slugify(EMAIL));
@@ -102,6 +105,41 @@ afterEach(() => {
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
   rmSync(tmp, { recursive: true, force: true });
+});
+
+describe("the origin's list", () => {
+  const ownFile = () =>
+    join(process.env.STUDIO_HOME as string, "libraries.json");
+  beforeEach(() => {
+    process.env.STUDIO_LIBRARIES_FILE = join(tmp, "data", "libraries.json");
+  });
+
+  it("reads the account's own file until an admin first saves the origin's", () => {
+    mkdirSync(process.env.STUDIO_HOME as string, { recursive: true });
+    writeFileSync(ownFile(), JSON.stringify({ uri: URI }));
+    expect(librarySettings()).toEqual([{ name: "st0", uri: URI }]);
+    const list = [{ name: "drums", uri: "git@example.test:studio/drums.git" }];
+    setLibrarySettings(list);
+    expect(librarySettings()).toEqual(list);
+    expect(
+      JSON.parse(
+        readFileSync(process.env.STUDIO_LIBRARIES_FILE as string, "utf8"),
+      ),
+    ).toEqual({ libraries: list });
+    // The account's file is left as it was: nothing reads it once the origin's exists.
+    expect(JSON.parse(readFileSync(ownFile(), "utf8"))).toEqual({ uri: URI });
+  });
+
+  it("remembers why a clone failed, until one succeeds", async () => {
+    const bad = { name: "gone", uri: "git@example.test:studio/gone.git" };
+    const r = await syncLibrary(EMAIL, bad);
+    expect(r.state).toBe("failed");
+    expect(libraryFailure("gone")).toBe(r.note);
+    expect((await syncLibrary(EMAIL, { name: "gone", uri: URI })).state).toBe(
+      "cloned",
+    );
+    expect(libraryFailure("gone")).toBeUndefined();
+  });
 });
 
 describe("the setting", () => {

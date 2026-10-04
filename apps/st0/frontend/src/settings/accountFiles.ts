@@ -14,14 +14,21 @@ export async function findAccountFiles(
     const me = await api.getMe().catch(() => null);
     const userEmail = me?.email || me?.sub || "unknown";
     const hosted = await engines.hostedFiles();
+    // The hub's hello says who is an admin; with no hub there is no origin list to edit.
+    const admin = hosted?.admin ?? false;
     if (hosted && !bindEngine)
-      return { fileBase: hosted.fileBase, token: hosted.fileToken, userEmail };
+      return {
+        fileBase: hosted.fileBase,
+        token: hosted.fileToken,
+        userEmail,
+        admin,
+      };
     const { chosen } = await engines.find().catch(() => ({ chosen: null }));
     const token = chosen ? fileTokenOf(chosen) : null;
     if (chosen?.fileBase && token)
-      return { fileBase: chosen.fileBase, token, userEmail };
+      return { fileBase: chosen.fileBase, token, userEmail, admin };
     return hosted
-      ? { fileBase: hosted.fileBase, token: hosted.fileToken, userEmail }
+      ? { fileBase: hosted.fileBase, token: hosted.fileToken, userEmail, admin }
       : null;
   } catch {
     return null;

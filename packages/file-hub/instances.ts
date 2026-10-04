@@ -128,6 +128,11 @@ export class Instances {
       STUDIO_HOME: home,
       STUDIO_FILE_PORT: String(port),
       STUDIO_HUB_SECRET: secret,
+      // ONE list for every account, beside their folders: the admins edit it (docs/fileHub.md).
+      STUDIO_LIBRARIES_FILE: join(
+        resolve(this.opts.dataRoot),
+        "libraries.json",
+      ),
     };
     delete env.STUDIO_ENGINE_TOKEN;
     if (this.opts.mediatekRoot) env.STUDIO_MEDIATEK = this.opts.mediatekRoot;

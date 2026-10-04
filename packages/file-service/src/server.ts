@@ -22,6 +22,7 @@ import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import {
   type AccountLibrariesReply,
   type AccountWorkspaceList,
+  ADMIN_HEADER,
   type ColdChainsReply,
   HUB_SECRET_HEADER,
   type ServedProjectReply,
@@ -53,6 +54,7 @@ import {
   defaultLibraryName,
   type LibrarySetting,
   libraryDir,
+  libraryFailure,
   librarySettings,
   pruneLibraries,
   setLibrarySettings,
@@ -459,16 +461,20 @@ app.get(
  * cloned nothing, and the screen has a button for it rather than an error.
  */
 /**
- * The account's LIBRARIES — named repositories this machine clones and keeps at their latest.
+ * The LIBRARIES — the origin's list, which the admins edit, and this account's clone of each.
  * Answered BEFORE `resolveWorkspace`, like the key: the gate asks with no workspace chosen yet,
- * and an empty list is the ordinary state of a new machine, which the gate has a screen for.
+ * and an empty list is the ordinary state of a new origin, which the gate has a screen for.
  */
 const librariesView = (notes?: AccountLibrariesReply["notes"]) => {
   const reply: AccountLibrariesReply = {
-    libraries: librarySettings().map((l) => ({
-      ...l,
-      cloned: existsSync(libraryDir(l.name)),
-    })),
+    libraries: librarySettings().map((l) => {
+      const error = libraryFailure(l.name);
+      return {
+        ...l,
+        cloned: existsSync(libraryDir(l.name)),
+        ...(error ? { error } : {}),
+      };
+    }),
   };
   if (notes?.length) reply.notes = notes;
   return reply;
@@ -476,7 +482,9 @@ const librariesView = (notes?: AccountLibrariesReply["notes"]) => {
 
 app.get(
   "/account/libraries",
-  wrap((_req, res) => {
+  wrap((req, res) => {
+    // A library an admin added is cloned for THIS account behind the answer, at most once a minute.
+    void syncLibraries(req.userEmail!).catch(() => {});
     res.json(librariesView());
   }),
 );
@@ -499,6 +507,11 @@ app.put(
   "/account/libraries",
   validate(librariesBody),
   wrap(async (req, res) => {
+    // The list is every account's, so only the hub's word that the caller is an admin may change it.
+    if (req.get(ADMIN_HEADER) !== "1")
+      return res
+        .status(403)
+        .json({ error: "only the origin's admins may edit the libraries" });
     const body = req.body as z.infer<typeof librariesBody>;
     const before = librarySettings();
     const asked =

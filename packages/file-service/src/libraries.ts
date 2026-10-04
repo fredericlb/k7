@@ -1,5 +1,5 @@
-// libraries.ts — the account's LIBRARIES: a list of named git repositories this file service
-// clones under `<studioHome>/libraries/<name>` and keeps at their latest commit. `@<name>/…`
+// libraries.ts — the LIBRARIES: the origin's one list of named git repositories, which this
+// account's service clones under `<studioHome>/libraries/<name>` and keeps at their latest. `@<name>/…`
 // resolves against them, from every workspace of the account; no workspace holds a copy, and no
 // workspace repository records one. Rationale: packages/song/docs/sharedFolders.md, mechanics:
 // docs/libraries.md.
@@ -15,7 +15,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import {
   assertSshGitUri,
@@ -67,8 +67,14 @@ export interface LibrarySetting {
   uri: string;
 }
 
-/** Where the list lives. One small JSON file beside the workspaces, not in any of them. */
-const settingsPath = (): string => join(studioHome(), "libraries.json");
+/** The account's own file: where the list lives with no hub, and what is read until an admin first saves the origin's. */
+const accountSettingsPath = (): string => join(studioHome(), "libraries.json");
+
+/** The ORIGIN's list, one for every account, which the hub names; the account's own file without one. */
+function settingsPath(): string {
+  // biome-ignore lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
+  return process.env.STUDIO_LIBRARIES_FILE || accountSettingsPath();
+}
 
 /**
  * The account's libraries, in the order they were added.
@@ -80,7 +86,10 @@ const settingsPath = (): string => join(studioHome(), "libraries.json");
 export function librarySettings(): LibrarySetting[] {
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(settingsPath(), "utf8"));
+    const at = existsSync(settingsPath())
+      ? settingsPath()
+      : accountSettingsPath();
+    raw = JSON.parse(readFileSync(at, "utf8"));
   } catch {
     return []; // absent, or written by a hand that got it wrong
   }
@@ -125,11 +134,12 @@ export function settingsProblem(list: LibrarySetting[]): string | null {
 export function setLibrarySettings(list: LibrarySetting[]): void {
   const problem = settingsProblem(list);
   if (problem) throw new Error(problem);
-  mkdirSync(studioHome(), { recursive: true });
-  writeFileSync(
-    settingsPath(),
-    `${JSON.stringify({ libraries: list }, null, 2)}\n`,
-  );
+  const at = settingsPath();
+  mkdirSync(dirname(at), { recursive: true });
+  // Through a sibling and a rename: every account's service reads this file, and none may see half of it.
+  const tmp = `${at}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify({ libraries: list }, null, 2)}\n`);
+  renameSync(tmp, at);
 }
 
 /** The name a library gets when none is given: `st0` for the account's first, else its repository's. */
@@ -290,6 +300,24 @@ export function syncLibrary(
   userEmail: string,
   lib: LibrarySetting,
 ): Promise<LibrarySync> {
+  return syncOnce(userEmail, lib).then((r) => {
+    if (r.state === "failed") failures.set(lib.name, r.note);
+    else failures.delete(lib.name);
+    return r;
+  });
+}
+
+/** Why each library's last clone or pull failed, until one succeeds — what the account's page shows. */
+const failures = new Map<string, string>();
+
+/** The last failure of `name` on this account, or undefined. */
+export const libraryFailure = (name: string): string | undefined =>
+  failures.get(name);
+
+function syncOnce(
+  userEmail: string,
+  lib: LibrarySetting,
+): Promise<LibrarySync> {
   return serial(lib.name, async () => {
     const at = libraryDir(lib.name);
     const env = envFor(userEmail);
@@ -384,9 +412,10 @@ export async function refreshLibraries(userEmail: string): Promise<void> {
       if (r.state === "failed" || r.state === "kept")
         console.warn(`[libraries] ${r.name}: ${r.note}`);
   };
-  const sync = syncLibraries(userEmail).then(log, (e: Error) =>
-    console.warn(`[libraries] ${e.message}`),
-  );
+  // The list is the admins', so a library they dropped goes from this account's clones on its next open.
+  const sync = syncLibraries(userEmail)
+    .then(async (r) => [...r, ...(await pruneLibraries(userEmail))])
+    .then(log, (e: Error) => console.warn(`[libraries] ${e.message}`));
   if (librarySettings().some((l) => !isPopulated(libraryDir(l.name))))
     await sync;
 }

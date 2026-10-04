@@ -1,13 +1,27 @@
-# libraries.ts — the account's libraries, cloned and kept by this service
+# libraries.ts — the origin's libraries, cloned and kept by each account's service
 
-An account has a LIST of libraries, each a git repository with a NAME: `st0`, `drums`. This service
-clones each one to `<studioHome>/libraries/<name>` and keeps it at its remote's latest commit, and
+The origin has ONE list of libraries, each a git repository with a NAME: `st0`, `drums`. Only an
+admin edits it; every account inherits it. Each account's service clones each one to `<studioHome>/libraries/<name>` and keeps it at its remote's latest commit, and
 `@<name>/<type>/<module>` resolves against that clone from every workspace of the account. No
 workspace holds a copy, and no workspace repository records one (a workspace still carrying a
 `_libraries` folder is cleaned on open — below). The layout and why nothing declares it is in
 `packages/song/docs/sharedFolders.md`; what follows is how the clones are kept.
 
-## The setting: `<studioHome>/libraries.json`
+## The setting: `$STUDIO_LIBRARIES_FILE`
+
+The file hub names it, `<dataRoot>/libraries.json`, beside the account folders. Every account's
+service reads that one file, and it is written through a sibling and a rename, so no reader sees
+half of it. While it does not exist, the account's own `<studioHome>/libraries.json` is read
+instead. That keeps a server that has not been through an admin's first save working, with the
+list each account had. Without a hub, which only tests run, the account's file is the setting.
+
+**One list, one clone per account.** A library's clone is a working copy: the module builder
+writes into it and `commitLibrary` publishes from it with the ACCOUNT's deploy key. A shared
+checkout would mix two accounts' unpublished edits and push them under one key. So the list is
+shared and the clones are not. The cost is a clone per account (small YAML repositories), plus
+the requirement that **every account's key can read every listed repository**. When an account's
+key cannot, that clone fails *for that account*. `libraryFailure` keeps git's words until a sync
+succeeds, and `GET` answers them as the row's `error`.
 
 `{ "libraries": [{ "name": "st0", "uri": "git@host:me/st0.git" }, …] }`, in the order they were
 added. `librarySettings` reads it; `setLibrarySettings` writes it, after `settingsProblem` has
@@ -72,9 +86,16 @@ one checkout, and a Save must not commit while a fetch is fast-forwarding under 
 
 ## The routes
 
-`GET /account/libraries` answers the list, each with `cloned`. `PUT` sets the WHOLE list — `{ uri }`
-alone ADDS one. Answered before `resolveWorkspace`: the
-gate asks with no workspace chosen yet.
+`GET /account/libraries` answers the list, each with `cloned` and, after a failed sync, `error`.
+It also starts a sync behind the answer, at most once a minute, so a library an admin just added
+gets cloned for this account without waiting for a project to open. `PUT` sets the WHOLE list —
+`{ uri }` alone ADDS one — and **answers 403 unless the hub stamped `x-studio-admin: 1`**. The
+list is every account's, and the hub is the only party that knows the caller's groups
+(`packages/file-hub/docs/fileHub.md`). Answered before `resolveWorkspace`: the gate asks with no
+workspace chosen yet.
+
+Other accounts follow an edit lazily: their next open (`refreshLibraries`) clones what is new and
+prunes what was dropped, by the same rules as the admin's own `PUT`.
 
 **A library is validated by CLONING it.** `isSshGitUri` says the paste LOOKS like an SSH URI; only a
 clone says it is a repository this machine's deploy key can read, which is the question. So `PUT`

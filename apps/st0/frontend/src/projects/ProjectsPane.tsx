@@ -19,7 +19,7 @@ import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref, workspaceHref } from "./api";
 import { BenchCard } from "./BenchCard";
 import { type DroppedProject, ImportProject } from "./ImportProject";
-import { LibrariesCard } from "./LibrariesCard";
+import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
 import { useWorkspaceSync } from "./useWorkspaceSync";
@@ -52,7 +52,13 @@ export function ProjectsPane({
   onOpen,
   onChanged,
   onOpenSettings,
+  libraries,
+  onOpenLibraries,
 }: {
+  /** The origin's libraries as this account sees them, read by Home; they decide whether a workspace may be made. */
+  libraries: AccountLibrary[] | undefined;
+  /** Opens the header's Libraries panel, where the list is shown and, for an admin, edited. */
+  onOpenLibraries: () => void;
   /** The account's workspaces, projects included — the only source, a project being a folder there. */
   /** Forwarded to RepoList, whose prose points at the deploy key. */
   onOpenSettings: () => void;
@@ -81,12 +87,7 @@ export function ProjectsPane({
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
   const blocked = fileService ? "" : m["projects.noFilesBlocked"]();
 
-  // The account's libraries, read by the card below and kept HERE: they also decide whether a
-  // workspace may be made at all, and two reads would be two answers.
-  const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
-    undefined,
-  );
-  /** …and what that costs the two workspace buttons. Still reading is not yet a refusal: the file service says no anyway. */
+  /** What the libraries cost the two workspace buttons. Still reading is not yet a refusal: the file service says no anyway. */
   const blockedWorkspace =
     blocked || (libraries?.length === 0 ? m["ws.needLibraries"]() : "");
 
@@ -352,7 +353,6 @@ export function ProjectsPane({
     };
   }, [openWs, fileService]);
 
-  // The libraries repository comes FIRST: nothing else here works until a new account has one.
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       {/* A project dropped on a row: what to call it, then what the translation cost. */}
@@ -365,8 +365,8 @@ export function ProjectsPane({
           setImported(null);
         }}
       />
-      <LibrariesCard fileService={fileService} onLibraries={setLibraries} />
-      {/* Under the card that declares the libraries, because every module the rig can name is in one. */}
+      {/* FIRST when it says anything: nothing else here works until a library is cloned. */}
+      <LibrariesNotice libraries={libraries} onOpen={onOpenLibraries} />
       <BenchCard libraries={libraries} />
       {ws ? (
         <RepoTree

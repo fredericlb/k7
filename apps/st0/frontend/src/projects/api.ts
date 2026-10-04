@@ -156,6 +156,8 @@ export interface AccountFiles {
   token: string;
   /** Who is asking — read off `/auth/me` rather than off a configured workspace, this page having none. */
   userEmail: string;
+  /** Whether the caller may edit the origin's libraries — the hub's word, which the file service enforces. */
+  admin: boolean;
 }
 
 /** The file-service calls this page makes, each carrying its file service explicitly: a row touches a different repository every time. */

@@ -235,9 +235,9 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   `frontend/docs/sharedModules.md` is the page to read; `@banc` opens one live RIG,
   kept nowhere, and nothing else.
 
-  **st0 will not open a project without a library.** The account declares its libraries on
-  this app's own home page — the card above everything else — and `ProjectGate` refuses before it
-  clones anything. See `frontend/docs/projects.md` and
+  **st0 will not open a project without a library.** The origin has ONE list, which the admins
+  (pl8's `AUTH_ADMIN_GROUPS`) edit in the home page's header panel, **Libraries**. `ProjectGate`
+  refuses before it clones anything. See `frontend/docs/projects.md` and
   `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
   `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer

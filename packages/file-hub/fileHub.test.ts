@@ -25,6 +25,7 @@ createServer((req, res) => {
     res.end(JSON.stringify({ url: req.url, headers: req.headers, body, engine,
       home: process.env.STUDIO_HOME,
       secret: process.env.STUDIO_HUB_SECRET,
+      libraries: process.env.STUDIO_LIBRARIES_FILE,
       mediatek: [process.env.MEDIATEK_URL, process.env.MEDIATEK_TOKEN] }));
   });
 }).listen(Number(process.env.STUDIO_FILE_PORT), "127.0.0.1");
@@ -37,6 +38,7 @@ interface Echo {
   engine: string | null;
   home: string;
   secret: string;
+  libraries: string;
   mediatek: [string, string];
 }
 
@@ -66,6 +68,7 @@ describe("the file hub", () => {
       }),
       command: () => ({ cmd: process.execPath, args: [fake], cwd: dir }),
       userOf: (req) => String(req.headers["x-test-session"] ?? ""),
+      isAdmin: (req) => req.headers["x-test-admin"] === "1",
       registry: {
         get: (id: string) =>
           claims.has(id)
@@ -223,15 +226,45 @@ describe("the file hub", () => {
     expect(engineBinds().map((b) => b.id)).toEqual(["e1", "e1"]);
   });
 
-  const hello = async (session?: string) => {
+  const hello = async (session?: string, admin = false) => {
+    const headers: Record<string, string> = {};
+    if (session) headers["x-test-session"] = session;
+    if (admin) headers["x-test-admin"] = "1";
     const r = await fetch(base.replace("/api/files", "/api/files-hub"), {
-      headers: session ? { "x-test-session": session } : {},
+      headers,
     });
     return {
       status: r.status,
-      body: (await r.json()) as { path: string; ticket: string },
+      body: (await r.json()) as {
+        path: string;
+        ticket: string;
+        admin: boolean;
+      },
     };
   };
+
+  it("names ONE libraries list for every account, beside their homes", async () => {
+    const a = (await call("/x", { session: "a@example.com" })).echo;
+    const b = (await call("/x", { session: "b@example.com" })).echo;
+    expect(a.libraries).toBe(b.libraries);
+    expect(a.libraries).toBe(join(a.home, "..", "libraries.json"));
+  });
+
+  it("says who is an admin, carries it in the ticket and stamps it", async () => {
+    const plain = (await hello("fred@example.com")).body;
+    const boss = (await hello("boss@example.com", true)).body;
+    expect(plain.admin).toBe(false);
+    expect(boss.admin).toBe(true);
+    const asBoss = await call("/x", {
+      headers: { "x-studio-engine-token": boss.ticket },
+    });
+    expect(asBoss.echo.headers["x-studio-admin"]).toBe("1");
+    // A client's own claim is dropped: only the hub says who is an admin.
+    const asFred = await call("/x", {
+      headers: { "x-studio-engine-token": plain.ticket, "x-studio-admin": "1" },
+    });
+    expect(asFred.echo.headers["x-studio-admin"]).toBeUndefined();
+  });
 
   it("mints a ticket only for a session", async () => {
     expect((await hello()).status).toBe(401);
