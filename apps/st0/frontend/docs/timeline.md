@@ -99,15 +99,17 @@ time signature are the shell's to say and the transport already says them, and a
 keys is the one thing on screen that cannot be trusted — it is stale the moment a key is rebound,
 and `/help` answers the same question from the keymap itself.
 
-What the header did carry that nothing else does is the two **view** toggles, and they now hang
-under the tool column, below a rule: the ruler's unit (bars ↔ seconds) and Expand. They sit there
+What the header did carry that nothing else does is the **view** toggles, and they now hang
+under the tool column, below a rule: the ruler's unit (bars ↔ seconds), Expand, and the automation
+rows shown or hidden — that last one drawn only when some lane has automation, so it is never a
+toggle that changes nothing. They sit there
 because a control that changes what this surface SHOWS and writes nothing to disk is exactly what
 the strip already holds — the tools are the same kind of thing — and `ModeStrip`'s `footer` is the
 slot, `mt-auto` putting it at the bottom rather than at the end of the modes. `stripButton` is the
 look, shared so a footer control is the same object as a mode rather than a copy of it.
 
 The column is drawn **even where there are no tools**: a second device dispatches no tool line
-(`ExternalTimeline`), and these two are the pane's own either way.
+(`ExternalTimeline`), and these toggles are the pane's own either way.
 
 A hovered marker names itself in its own tooltip and glows its line; that is the whole of it now.
 

@@ -88,7 +88,7 @@ What the surface answers **itself**, before `/command`:
 |---|---|
 | `transport play` / `stop` / `toggle` / `rewind` | over the socket, as in the shell: the file service would send that message after an HTTP round trip and a walk of the undo journal |
 | `transport replay` | a seek to the start of the current run, then the bare verb |
-| `transport locate`, `transport loop`, `ui select`, `ui zoom …`, `ui ruler`, `ui lanes` | the cursor and the zoom belong to the mounted pane (`TimelineHandle`); no service can move them. On a surface with no arrangement, the line **says so** — the key is bound, the command exists, it is the device that is the wrong place |
+| `transport locate`, `transport loop`, `ui select`, `ui zoom …`, `ui ruler`, `ui lanes`, `ui automation` | the cursor and the zoom belong to the mounted pane (`TimelineHandle`); no service can move them. On a surface with no arrangement, the line **says so** — the key is bound, the command exists, it is the device that is the wrong place |
 | any other `ui …` | names a pane, a panel or a screen this device does not have — refused **in words**, rather than posted to a service that would answer "unknown command" |
 
 The **layout** verbs (`ui close`, `ui global`, `ui focus next`, the two closes) are the one exception

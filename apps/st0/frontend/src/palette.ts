@@ -66,6 +66,7 @@ export const LOCAL_COMMANDS = [
   "ui review", // reopen the take review on a clip — waveform, onsets, level
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
+  "ui automation", // show or hide each lane's automation rows
   "ui logs clear",
   // The RIGHT-HAND panels and the settings tabs: all leave the project alone, and the bare lines toggle.
   "ui settings",
@@ -283,6 +284,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui lanes": {
     en: "Show what the clips hold, in the lanes",
     fr: "Afficher le contenu des clips dans les pistes",
+  },
+  "ui automation": {
+    en: "Show or hide the automation lanes",
+    fr: "Afficher ou masquer les pistes d'automation",
   },
   "ui logs clear": {
     en: "Empty the log panel",

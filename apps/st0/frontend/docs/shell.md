@@ -1004,6 +1004,12 @@ inside its clips, and that height is precisely what the pane below is holding �
 through `onView`, beside `selecting` / `zoomed` / `loop`: one channel for "what state is the timeline in",
 rather than a second prop that could disagree with it.
 
+**A lane's modules split it back.** Double-clicking a lane header asks for that lane's modules in the
+graph's slot, and a request the user can't see is a miss — so while the `trackModules` slot is open,
+expanded lanes give up the column and the layout is the ordinary split, the lanes still tall. Closing
+the slot hands the column back. Only that slot does it: a clip or a grid is opened by a single click
+on the lanes themselves, and would otherwise halve them on every pick.
+
 ## The command bar
 
 It is the last row of the shell, under the minimap when there is one, full width — always there, not
@@ -1340,7 +1346,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the footer's panel row | `ui panel <graph\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a surface's pane button (the desk) | `ui turntables` | `fullscreen` / `setFull` in `App`, like any pane |
-| the timeline header's clock / height | `ui ruler`, `ui lanes` | `TimelineHandle` |
+| the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |
 | the timeline corner's ＋ piste | `track new`, and `picture lane new` on a project with a viewport | `App` — the menu appears only when there are two kinds of lane, see [timeline.md](timeline.md) |
 | a timeline header dragged to another row | `track order`, `picture lane order` | `App` — the drag names the lane whose place is taken, see [timeline.md](timeline.md) |
 | a layer moved or resized in the VIEWPORT | `picture rect` | `App` — the selection box is `components/ViewportOverlay.tsx`, see [picture.md](picture.md) |
