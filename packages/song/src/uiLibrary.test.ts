@@ -134,6 +134,28 @@ describe("where a panel files itself", () => {
     expect(lib.byRef["@workspace/audio/reverb"]).toBeTruthy();
   });
 
+  // Which folders hold a panel is cached on the folders' NAMES, so it must move with them inside the settle window too.
+  it("sees a panel added, edited and removed straight after a read", () => {
+    const ref = "@workspace/audio/reverb";
+    expect(loadUiLibrary(dir).byRef[ref]).toBeUndefined();
+    const path = writeUiFile(dir, ref, PANEL);
+    expect(loadUiLibrary(dir).byRef[ref]?.ui.cols).toBe(2);
+    writeUiFile(dir, ref, { ...PANEL, cols: 3 });
+    expect(loadUiLibrary(dir).byRef[ref]?.ui.cols).toBe(3);
+    rmSync(path);
+    expect(loadUiLibrary(dir).byRef[ref]).toBeUndefined();
+  });
+
+  it("ignores a panel under a dot folder, which the module stamp does not see", () => {
+    mkdirSync(join(root, "_modules", "audio", ".trash"), { recursive: true });
+    writeFileSync(
+      join(root, "_modules", "audio", ".trash", "ui.yaml"),
+      uiFileText(PANEL),
+      "utf8",
+    );
+    expect(loadUiLibrary(dir).byRef["@workspace/audio/.trash"]).toBeUndefined();
+  });
+
   it("is not read as a node of the module it sits beside", () => {
     // Every `<name>.yaml` in a module folder is a use, so an unguarded one reads as "reverb:ui".
     writeSharedModule("plugin:\n  name: Reverb\n  type: vst3\n");
