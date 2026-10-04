@@ -67,10 +67,7 @@ import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 import { AssemblyBuilder } from "@studio/ui-module-builder/assembly";
 import { projectLabel } from "@studio/web-protocol/projects";
-import {
-  type EngineLatency,
-  formatLatency,
-} from "@studio/web-protocol/quality";
+import type { EngineLatency } from "@studio/web-protocol/quality";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
@@ -94,7 +91,7 @@ import { CommandsSettings } from "./components/CommandsSettings";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
-import { EngineLoad } from "./components/EngineLoad";
+import { EngineLink } from "./components/EngineLink";
 import { EngineSwitch } from "./components/EngineSwitch";
 import { EngineSyncFailedDialog } from "./components/EngineSyncFailedDialog";
 import {
@@ -2813,7 +2810,6 @@ export default function App({
       {/* The mix leaving for the interface, at the right end of the bar; no phone fits it and a snapshot has no engine. */}
       {!isMobile && !snapshot && (
         <>
-          <EngineLoad className="shrink-0" />
           <MasterMeter
             className="shrink-0"
             ref={masterMeterRef}
@@ -2942,6 +2938,14 @@ export default function App({
                 current={engine}
                 onSwitch={onSwitchEngine}
                 compat={engineCompat}
+              />
+            )}
+            {/* …and how that engine is doing, right of it: the light, the latency, the memory (components/EngineLink.tsx). */}
+            {!frozen && (
+              <EngineLink
+                connected={connected}
+                latency={engineLatency}
+                compact={isMobile}
               />
             )}
             {/* Dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
@@ -3956,15 +3960,9 @@ export default function App({
               : "gap-3 px-4 py-1 text-xs",
           )}
         >
-          {/* left: the frediverse logo, the engine status light, then the status text */}
+          {/* left: the frediverse logo, then the status text */}
           <div className="flex min-w-0 items-center gap-2.5">
             <FrediverseMark size="sm" className="shrink-0 opacity-60" />
-            <Circle
-              className={`h-2.5 w-2.5 shrink-0 ${connected ? "fill-emerald-500 text-emerald-500" : "fill-red-500 text-red-500"}`}
-              aria-label={
-                connected ? "engine connected" : "engine disconnected"
-              }
-            />
             {/* The MODE and the tool, PERSISTENT unlike the line beside it: a state nobody can see is one you leave by surprise (docs/timeline.md). */}
             {/* The waveform's comes FIRST when one is open, the clip pane being the surface in front. */}
             {rollMode && graphSlot?.kind === "clip" ? (
@@ -4044,25 +4042,8 @@ export default function App({
             )}
           </div>
 
-          {/* How good this engine link is — Q1/Q2/Q3 off the measured latency, a property of the SESSION (@studio/web-protocol/quality). */}
-          <span
-            className="ml-auto shrink-0 whitespace-nowrap font-mono tabular-nums"
-            title={
-              engineLatency
-                ? m["engines.latencyBreakdown"]({
-                    network: Math.round(engineLatency.networkMs),
-                    audio: Math.round(engineLatency.audioMs),
-                  })
-                : m["engines.noLatency"]()
-            }
-          >
-            {engineLatency
-              ? formatLatency(engineLatency)
-              : m["engines.noLatency"]()}
-          </span>
-
           {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
             <span
               className="whitespace-nowrap font-mono tabular-nums"

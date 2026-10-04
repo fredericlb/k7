@@ -284,9 +284,12 @@ move around. What it drops is the clock and record. A set declares no tempo and 
 so the clock would count bars nothing is written against, and record would arm a lane with nowhere
 to put a take.
 
-The status bar's **Q badge** sits beside it for a related reason: Q1/Q2/Q3 off the measured latency
-is a property of the SESSION rather than of a screen — it decides what you can do here
-(`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows.
+The **engine's health** sits in the header, right of the engine switch (`components/EngineLink.tsx`):
+the connection light, the Q badge and the engine process's memory. They describe the engine that
+switch names, so they stand beside its name rather than at the far end of the status bar. Q1/Q2/Q3
+off the measured latency is a property of the SESSION rather than of a screen — it decides what you
+can do here (`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows. A phone
+keeps the light alone.
 
 ### On a phone, one menu holds everywhere there is to go
 
