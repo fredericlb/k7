@@ -113,7 +113,10 @@ describe("settledParse", () => {
 describe("readModuleFile", () => {
   it("hands out a fresh module each time, though the parse behind it is shared", () => {
     // The loaders write `ui` and `cc` onto the modules they get; that must not reach the next read.
-    writeFileSync(file(), 'extends: "@st0/audio/reverb"\nparams:\n  Mix: 0.3\n');
+    writeFileSync(
+      file(),
+      'extends: "@st0/audio/reverb"\nparams:\n  Mix: 0.3\n',
+    );
     settle(file());
     const at = { path: file(), rel: "nodes/clip.yaml" };
     const first = readModuleFile(at).value as Record<string, unknown>;

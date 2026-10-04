@@ -3,12 +3,7 @@
 // and root files (project.yaml, graph.yaml, settings.yaml). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
-import {
-  type Dirent,
-  existsSync,
-  readdirSync,
-  statSync,
-} from "node:fs";
+import { type Dirent, existsSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import {
   formatIssue,
