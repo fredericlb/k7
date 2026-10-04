@@ -97,15 +97,17 @@ built: the same rule the module builder's store follows, and what keeps a librar
 `_libraries/<name>/modules` and a project's own `modules/` from being told apart by string surgery
 here.
 
-## `/account/bench-library` — publishing what the bench changed
+## `/account/library-edits` — publishing what an admin changed
 
-`GET` answers the open library bench and what its clone holds unpublished, or null; `POST …/commit`
-commits it with the admin's message and pushes it, `POST …/discard` resets it to what is pushed —
-both for admins only. Nothing else in this service publishes a library: a Save, a rename and a
-verb all end at the disk. See `docs/libraries.md`.
+`GET` answers every library whose edit clone holds work unpublished, `{ libraries: [{library,
+changed, ahead}] }` — empty for a non-admin; `POST …/commit` `{message}` commits every changed
+library with the admin's message and pushes each, `POST …/discard` resets every clone to its
+remote, `POST …/drop` `{name}` removes one clone and is called only by the hub after a pull — all
+three for admins only, 403 otherwise. Nothing else in this service publishes a library: a Save, a
+rename and a verb all end at the disk. See `docs/libraries.md`.
 
 A refused push is answered rather than thrown: "committed but not pushed" is a real outcome with
-work safely on disk behind it, and the editor's row says so.
+work safely on disk behind it, and the editor's bar says so.
 
 ## `POST /open` asks for the libraries first
 

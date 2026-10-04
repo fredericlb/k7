@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setLibraryOverlay } from "@studio/song/sharedFolders";
+import { setLibraryOverlays } from "@studio/song/sharedFolders";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -122,7 +122,7 @@ describe("node preset", () => {
     });
   });
 
-  it("keeps a preset in a library only from that library's bench", async () => {
+  it("keeps a preset in a library only for an admin, who edits it", async () => {
     await runCommand("node preset save comp b-lib st0", host(), "cli");
     expect(
       existsSync(join(home, "libraries", "st0", "presets", "workspace")),
@@ -130,10 +130,10 @@ describe("node preset", () => {
   });
 
   it("keeps a preset in a library, and lists every scope, workspace first", async () => {
-    // An admin's bench open on `st0`, the one place its presets are written.
-    setLibraryOverlay({ name: "st0", root: join(home, "libraries", "st0") });
+    // An admin's own clone of `st0`, the one place its presets are written.
+    setLibraryOverlays([{ name: "st0", root: join(home, "libraries", "st0") }]);
     await runCommand("node preset save comp b-lib st0", host(), "cli");
-    setLibraryOverlay(null);
+    setLibraryOverlays([]);
     await runCommand("node preset save comp a-ws", host(), "cli");
     expect(
       existsSync(

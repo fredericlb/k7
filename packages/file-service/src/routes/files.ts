@@ -14,10 +14,10 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import { NEEDS_META } from "@studio/take-render/render";
+import { ADMIN_HEADER } from "@studio/web-protocol";
 import express, { Router } from "express";
 import { z } from "zod";
 import { guard } from "../background.ts";
-import { BENCH_WORKSPACE } from "../bench.ts";
 import {
   applyClientProject,
   engineLoadOf,
@@ -38,12 +38,11 @@ import {
   webGitEnv,
 } from "../engineLink.ts";
 import { refreshLibraries, retireWorkspaceLibraries } from "../libraries.ts";
-import { releaseCleanLibraryBench } from "../libraryBench.ts";
+import { refreshLibraryEdits } from "../libraryEdits.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
-import { workspaceRoot } from "../slug.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
 import { workspaceChanges, workspaceDiff } from "../workspaceChanges.ts";
 
@@ -239,12 +238,11 @@ filesRouter.post(
   validate(openBody),
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
-    // The hub's clones at their latest — at most once a minute, however many opens. A
+    // The hub's clones fetched — at most once a minute, however many opens. A
     // library that will not sync is not a project that refuses: its refs resolve to what is here.
     await refreshLibraries();
-    // Outside the bench, a bench clone with nothing unpushed would only hide what was pulled since.
-    if (resolve(req.ws!.root) !== resolve(workspaceRoot(BENCH_WORKSPACE)))
-      await releaseCleanLibraryBench(req.userEmail!);
+    // An admin reads and writes the libraries through clones of their own, brought to their remote here.
+    await refreshLibraryEdits(req.userEmail!, req.get(ADMIN_HEADER) === "1");
     // …and what this workspace held of them before, taken out now that nothing reads it.
     try {
       const retired = await retireWorkspaceLibraries(

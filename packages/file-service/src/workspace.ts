@@ -111,12 +111,12 @@ import {
 import {
   accountLibraries,
   isInSharedModules,
+  isLibraryEditable,
   isLibraryName,
   LIBRARIES_DIR,
   librariesHome,
   libraryFamilyRoots,
   libraryOf,
-  libraryOverlay,
   libraryRoot,
   moduleLibraryDirs,
   moduleNamespaceOf,
@@ -1608,13 +1608,12 @@ export class Workspace {
   }
 
   /** `_modules`'s own STRUCTURE is fixed to every route — its files are edited in place, never renamed, moved or deleted this way — see docs/workspace.md. */
-  /** A library is written only on its bench, by the admin who opened it: every other copy is the hub's, read-only. */
+  /** A library is written only through an admin's own edit clone of it: every other copy is the hub's, read-only. */
   assertLibraryWritable(abs: string, verb = "change"): void {
     const lib = libraryOf(abs);
-    const benched = libraryOverlay();
-    if (lib && lib.name !== benched?.name)
+    if (lib && !isLibraryEditable(lib.name))
       throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': a library is edited on its bench, which an admin opens from the Libraries page`,
+        `can't ${verb} '${this.toRel(abs)}': only the origin's admins edit a library`,
       );
   }
 

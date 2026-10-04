@@ -1,6 +1,6 @@
-// The libraries as an account's service holds them, over REAL git: the clone an admin's bench
-// edits — made from the server's remote, read in place of the server's own, committed and pushed
-// from, thrown away — and taking a workspace's OLD `_libraries` (submodule or clone) out of it.
+// The libraries as an account's service holds them, over REAL git: an admin's own clone of each —
+// made from the server's remote, read in place of the server's own, following pushes from elsewhere,
+// committed and pushed from, thrown away — and taking a workspace's OLD `_libraries` out of it.
 // A mocked git would prove the opposite of what is claimed. See docs/libraries.md.
 
 import { execFileSync } from "node:child_process";
@@ -16,18 +16,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sshDir } from "@studio/engine-client/paths";
 import {
-  libraryOverlay,
+  isLibraryEditable,
   libraryRoot,
-  setLibraryOverlay,
+  setLibraryOverlays,
 } from "@studio/song/sharedFolders";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retireWorkspaceLibraries } from "./libraries.ts";
 import {
-  commitLibraryBench,
-  discardLibraryBench,
-  libraryBenchStatus,
-  openLibraryBench,
-} from "./libraryBench.ts";
+  commitLibraryEdits,
+  discardLibraryEdits,
+  dropLibraryEdits,
+  libraryEditsStatus,
+  refreshLibraryEdits,
+} from "./libraryEdits.ts";
 import { slugify } from "./slug.ts";
 
 // Every fixture drives REAL git — a dozen subprocesses per test, well past vitest's 5 s default.
@@ -111,80 +112,75 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  setLibraryOverlay(null);
+  setLibraryOverlays([]);
   for (const k of ENV_KEYS)
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe("the bench's clone of a library", () => {
-  const benchClone = (name: string) =>
-    join(tmp, "home", "bench-libraries", name);
+describe("an admin's own clone of each library", () => {
+  const editClone = (name: string) => join(tmp, "home", "library-edits", name);
+  const open = (admin = true) => refreshLibraryEdits(EMAIL, admin, true);
+  const amp = () =>
+    readFileSync(join(libraryRoot("st0"), "modules/amp.yaml"), "utf8");
 
-  it("is cloned from the server's remote, and read in place of the server's clone", async () => {
+  it("is cloned from the server's remote and read in place of the server's clone; anyone else reads the server's", async () => {
     const shared = serverClone("st0");
+    await open(false);
     expect(libraryRoot("st0")).toBe(shared);
-    await openLibraryBench(EMAIL, "st0");
-    expect(libraryOverlay()?.name).toBe("st0");
-    expect(libraryRoot("st0")).toBe(benchClone("st0"));
-    expect(
-      readFileSync(join(benchClone("st0"), "modules/amp.yaml"), "utf8"),
-    ).toBe("gain: 1\n");
+    expect(isLibraryEditable("st0")).toBe(false);
+    await open();
+    expect(libraryRoot("st0")).toBe(editClone("st0"));
+    expect(isLibraryEditable("st0")).toBe(true);
+    expect(amp()).toBe("gain: 1\n");
   });
 
-  it("counts what it holds, and a commit pushes it where everybody fetches", async () => {
+  it("follows a push from elsewhere at the next open while it holds nothing, and keeps work it holds", async () => {
     serverClone("st0");
-    await openLibraryBench(EMAIL, "st0");
-    writeFileSync(join(benchClone("st0"), "modules/amp.yaml"), "gain: 3\n");
-    expect(await libraryBenchStatus(EMAIL)).toEqual({
-      library: "st0",
-      changed: 1,
-      ahead: 0,
+    await open();
+    publishElsewhere("modules/amp.yaml", "gain: 2\n");
+    await open();
+    expect(amp()).toBe("gain: 2\n");
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 5\n");
+    publishElsewhere("modules/other.yaml", "x: 1\n");
+    await open();
+    expect(amp()).toBe("gain: 5\n");
+  });
+
+  it("counts what each holds, and a commit pushes it where everybody fetches", async () => {
+    serverClone("st0");
+    await open();
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 3\n");
+    expect(await libraryEditsStatus(EMAIL)).toEqual({
+      libraries: [{ library: "st0", changed: 1, ahead: 0 }],
     });
-    const r = await commitLibraryBench(EMAIL, "louder amp");
+    const r = await commitLibraryEdits(EMAIL, "louder amp");
     expect(r.pushed).toBe(true);
     expect(git(origin, "show", "main:modules/amp.yaml")).toBe("gain: 3");
     expect(git(origin, "log", "-1", "--format=%ae %s")).toBe(
       `${EMAIL} louder amp`,
     );
-    expect(await libraryBenchStatus(EMAIL)).toMatchObject({
-      changed: 0,
-      ahead: 0,
-    });
+    expect(await libraryEditsStatus(EMAIL)).toEqual({ libraries: [] });
   });
 
   it("is made what is pushed again by a discard", async () => {
     serverClone("st0");
-    await openLibraryBench(EMAIL, "st0");
-    writeFileSync(join(benchClone("st0"), "modules/amp.yaml"), "gain: 9\n");
-    writeFileSync(join(benchClone("st0"), "modules/new.yaml"), "x: 1\n");
-    await discardLibraryBench(EMAIL);
-    expect(
-      readFileSync(join(benchClone("st0"), "modules/amp.yaml"), "utf8"),
-    ).toBe("gain: 1\n");
-    expect(existsSync(join(benchClone("st0"), "modules/new.yaml"))).toBe(false);
+    await open();
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 9\n");
+    writeFileSync(join(editClone("st0"), "modules/new.yaml"), "x: 1\n");
+    await discardLibraryEdits(EMAIL);
+    expect(amp()).toBe("gain: 1\n");
+    expect(existsSync(join(editClone("st0"), "modules/new.yaml"))).toBe(false);
   });
 
-  it("keeps work not pushed across benches, and removes a clean clone it left", async () => {
-    serverClone("st0");
-    serverClone("drums");
-    await openLibraryBench(EMAIL, "st0");
-    writeFileSync(join(benchClone("st0"), "modules/amp.yaml"), "gain: 4\n");
-    await openLibraryBench(EMAIL, "drums");
-    expect(libraryOverlay()?.name).toBe("drums");
-    expect(existsSync(benchClone("st0"))).toBe(true);
-    // Back on st0, its work is still there; drums, clean, is gone.
-    await openLibraryBench(EMAIL, "st0");
-    expect(
-      readFileSync(join(benchClone("st0"), "modules/amp.yaml"), "utf8"),
-    ).toBe("gain: 4\n");
-    expect(existsSync(benchClone("drums"))).toBe(false);
-  });
-
-  it("refuses a library the server holds no clone of", async () => {
-    await expect(openLibraryBench(EMAIL, "nope")).rejects.toThrow(/no clone/);
-    expect(libraryOverlay()).toBeNull();
+  it("goes when the hub pulls its library, work included, and the server's clone is read again", async () => {
+    const shared = serverClone("st0");
+    await open();
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 7\n");
+    await dropLibraryEdits("st0");
+    expect(existsSync(editClone("st0"))).toBe(false);
+    expect(libraryRoot("st0")).toBe(shared);
   });
 });
 

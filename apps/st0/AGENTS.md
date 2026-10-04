@@ -226,11 +226,11 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   excludes the shared folders on purpose — a project keeps no `modules/` of its own to exclude.
   `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
   others offer **New folder…** and **New module…**. A library module opens the same builder,
-  but **a library is written only on its BENCH** — `/@banc/@<name>/live.st0`, an admin's, opened
-  from the library's row in the Libraries page; anywhere else the file service refuses the write.
-  There, Save writes into `_libraries/<name>/…`, which is the admin's own clone of THAT library,
-  and nothing is published until the editor's bottom row (`frontend/src/components/BenchLibraryRow.tsx`) commits and
-  pushes it — or discards it. Nothing forks, because the library is the only copy, and no song
+  but **a library is written only by an admin**, from any project; for anyone else the file
+  service refuses the write. For an admin, Save writes into `_libraries/<name>/…`, which is the
+  admin's own clone of THAT library, and nothing is published until the editor's bottom bar
+  (`frontend/src/components/LibraryEditsRow.tsx`) commits and pushes every changed library — or
+  discards them. Nothing forks, because the library is the only copy, and no song
   repository is touched. One store and one path space: pl8's file hub clones each library ONCE
   for the whole origin, with the server's own read-only key, and the file service answers it at
   the virtual `_libraries/<name>/…` in every workspace (`packages/song/docs/sharedFolders.md`,
@@ -239,7 +239,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
   **st0 will not open a project without a library.** The origin has ONE list, which the admins
   (pl8's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
-  page's header — the same page that shows them the server's key and each library's **Bench**,
+  page's header — the same page that shows them the server's key and each library's **Pull**,
   and anyone a **Retry** on a library the server failed to clone. `ProjectGate` refuses before it
   clones anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s

@@ -211,8 +211,8 @@ describe("the file hub", () => {
     expect(roots[1].remote).toBe(
       join(dirname(roots[0].remote), "..", "libraries"),
     );
-    // …and the account's bench clones beside it, read-only to the engine too.
-    expect(roots[2].name).toBe(`bench-${roots[0].name.slice(3)}`);
+    // …and the account's own edit clones beside it, read-only to the engine too.
+    expect(roots[2].name).toBe(`edits-${roots[0].name.slice(3)}`);
     expect(roots[2].writable).toBe(false);
     expect(roots[3].name).toBe(`models-${roots[0].name.slice(3)}`);
     expect(roots[3].writable).toBe(false);

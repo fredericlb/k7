@@ -1,5 +1,5 @@
 // LibrariesPage.tsx — `/libraries`, a page of its own: the origin's libraries, each row's clone
-// state and Retry, and for an admin the list's edits, the server's key and each library's Bench.
+// state, Retry and Pull, and for an admin the list's edits and the server's key.
 // A page and not a panel: it is visited on purpose, rarely, and an admin reads the key off it.
 // See ../../docs/projects.md.
 

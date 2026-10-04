@@ -144,8 +144,8 @@ door for one's own work is st0's home page, which is a different address entirel
 ## What is not here, and the backend that is
 
 - **`modules` and `chains`** belong with the AUTHORING: a module is written against a project
-  where the plugin it names is actually LOADED, and pushed to a library repository from an
-  admin's bench. That is st0's job, not a hosted catalogue's.
+  where the plugin it names is actually LOADED, and pushed to a library repository by an
+  admin, from any project open in st0. That is st0's job, not a hosted catalogue's.
 - **The level above a project** — the workspaces, the libraries, the deploy key and the
   shares — belongs to the editor that opens one, so it is st0's home page.
 

@@ -540,6 +540,9 @@ export const LIBRARIES_DIR = "_libraries";
 /** Where the file service clones them, under the machine's state (`<studioHome>/libraries/<name>`). */
 export const LIBRARIES_HOME_DIR = "libraries";
 
+/** Where an admin's account keeps its own clone of each library, the one it edits (`<studioHome>/library-edits/<name>`). */
+export const LIBRARY_EDITS_DIR = "library-edits";
+
 /** Where automatic VST renders are cached, under the machine's state (`<studioHome>/.renders`) — never in a workspace (packages/song/docs/autoFreeze.md). */
 export const AUTO_RENDERS_HOME_DIR = ".renders";
 

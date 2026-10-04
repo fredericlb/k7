@@ -31,7 +31,7 @@ import {
   type WorkspaceList,
   type WorkspaceSyncList,
 } from "@studio/web-protocol";
-import { benchLibraryOf, isBenchProject } from "@studio/web-protocol/projects";
+import { isBenchProject } from "@studio/web-protocol/projects";
 import express, { type Response } from "express";
 import { z } from "zod";
 import { installProcessNet } from "./background.ts";
@@ -52,12 +52,12 @@ import {
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import {
-  commitLibraryBench,
-  discardLibraryBench,
-  dropLibraryBench,
-  libraryBenchStatus,
-  restoreLibraryBench,
-} from "./libraryBench.ts";
+  commitLibraryEdits,
+  discardLibraryEdits,
+  dropLibraryEdits,
+  libraryEditsStatus,
+  restoreLibraryEdits,
+} from "./libraryEdits.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -336,11 +336,6 @@ app.post(
       });
     if (!hasLibraries(res)) return;
     const project = String(req.body.project);
-    // A bench ON a library edits it, which only the hub's word that the caller is an admin allows.
-    if (benchLibraryOf(project) && req.get(ADMIN_HEADER) !== "1")
-      return res
-        .status(403)
-        .json({ error: "only the origin's admins edit a library" });
     try {
       // A chain's bench is what k7 records through, apps/k7/docs/chainSource.md.
       res.json(await ensureBench(req.userEmail!, project));
@@ -463,47 +458,47 @@ app.get(
  */
 /**
  * The LIBRARIES' list and the hub's clones are the hub's own routes (`/account/libraries*`, never
- * forwarded here). What THIS service holds is the clone an admin's bench edits: what it holds
- * that its remote does not, its commit and push, and throwing it away — docs/libraries.md.
+ * forwarded here). What THIS service holds is an admin's own clone of each library: what they
+ * hold that their remote does not, their commit and push, and throwing it away — docs/libraries.md.
  */
 app.get(
-  "/account/bench-library",
+  "/account/library-edits",
   wrap(async (req, res) => {
-    res.json(await libraryBenchStatus(req.userEmail!));
+    res.json(await libraryEditsStatus(req.userEmail!));
   }),
 );
 
-const benchCommitBody = z.object({
+const editsCommitBody = z.object({
   message: z.string().trim().min(1).max(500),
 });
 app.post(
-  "/account/bench-library/commit",
-  validate(benchCommitBody),
+  "/account/library-edits/commit",
+  validate(editsCommitBody),
   wrap(async (req, res) => {
     // A push reaches every account through the hub's clone, so it is the admins' alone.
     if (req.get(ADMIN_HEADER) !== "1")
       return res
         .status(403)
         .json({ error: "only the origin's admins publish a library" });
-    const { message } = req.body as z.infer<typeof benchCommitBody>;
+    const { message } = req.body as z.infer<typeof editsCommitBody>;
     try {
-      res.json(await commitLibraryBench(req.userEmail!, message));
+      res.json(await commitLibraryEdits(req.userEmail!, message));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
   }),
 );
 
-// The hub calls this after a pull of that library: no bench outlives what it was cloned before.
+// The hub calls this after a pull of that library: no edit clone outlives what it was cloned before.
 app.post(
-  "/account/bench-library/drop",
+  "/account/library-edits/drop",
   wrap(async (req, res) => {
     if (req.get(ADMIN_HEADER) !== "1")
       return res
         .status(403)
         .json({ error: "only the origin's admins edit a library" });
     try {
-      await dropLibraryBench(String(req.body?.name ?? ""));
+      await dropLibraryEdits(String(req.body?.name ?? ""));
       res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
@@ -512,15 +507,15 @@ app.post(
 );
 
 app.post(
-  "/account/bench-library/discard",
+  "/account/library-edits/discard",
   wrap(async (req, res) => {
     if (req.get(ADMIN_HEADER) !== "1")
       return res
         .status(403)
         .json({ error: "only the origin's admins edit a library" });
     try {
-      await discardLibraryBench(req.userEmail!);
-      res.json(await libraryBenchStatus(req.userEmail!));
+      await discardLibraryEdits(req.userEmail!);
+      res.json(await libraryEditsStatus(req.userEmail!));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
@@ -645,8 +640,8 @@ app.listen(FILE_PORT, HOST, () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
   // The engine session is the recorded owner's from the first frame, not from the first request.
   adoptRecordedOwner();
-  // The library a bench was editing is read from its clone again, as it was before the restart.
-  restoreLibraryBench();
+  // An admin's edit clones are read again, as they were before the restart.
+  restoreLibraryEdits();
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
   // Same for the media library, tolerated rather than required: its root may be an unmounted drive.

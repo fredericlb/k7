@@ -90,7 +90,7 @@ a folder name git would give a clone, so none can collide with a workspace.
 | address | what it opens | the road |
 |---|---|---|
 | `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
-| `/@banc/@<library>/live.st0` | an admin's bench ON a library: one live rig, generated, with that library read from the admin's own clone — 403 for anyone else. `/@banc/<chain>/live.st0` seeds the rig with a library chain instead, for anyone; the bare `/@banc/live.st0` is refused | the libraries check, then the machine writes the rig again and opens it |
+| `/@banc/<chain>/live.st0` | the bench: one live rig, generated, seeded with a copy of a library chain, for anyone. The bare `/@banc/live.st0` and a bare library (`/@banc/@st0/live.st0`) are refused — a library is edited by an admin from any project | the libraries check, then the machine writes the rig again and opens it |
 | `/@shares/<token>.st0` | a frozen snapshot pl8 holds | none of it: no account, no engine, no working copy |
 
 **Anything else is refused** with the "missing" screen, which says a project opens from the home
@@ -108,15 +108,14 @@ has no library: refusing it would put the demos behind the one piece of setup th
 precede, and a song that needs a library says so itself, as an unresolved reference.
 
 `POST /open` asks the file hub to bring the origin's libraries to their latest on the way — waiting
-only for one not cloned yet — and takes out whatever `_libraries` submodule the workspace holds
+only for one not cloned yet — brings an admin's own clones of them to their remote, and takes out whatever `_libraries` submodule the workspace holds
 (`packages/file-service/docs/libraries.md`). Nothing about the libraries rides on the request:
 they are the server's, and it knows them.
 
 The bench is matched on the **app** as well as the name. It is a `.st0` project, so
 `/z0/editor/@banc/…` names nothing and is refused like any other unknown address. Its wait is
 reported as `cloning` because from here it is the same thing: a visible wait while the server
-brings the libraries up to date — and, for a library bench, clones that library for the admin —
-and the first one is the slow one. The project part of the address rides
+brings the libraries up to date, and the first one is the slow one. The project part of the address rides
 along with it, since the machine is the side that says which address the bench answers.
 
 **`parseLaunch` knows about none of them.** All three are ordinary addresses whose first part

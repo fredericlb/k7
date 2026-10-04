@@ -145,11 +145,11 @@ whenever it is opened, so putting it under version control would version somethi
 of one session. `ProjectGate` does no lookup and no clone: one call to the machine, which makes the
 folder.
 
-It answers **one** project, `live.st0`, preceded by what the bench is ON. A library —
-`/@banc/@st0/live.st0` is an admin's bench on `@st0`, the one place that library is edited
-(`benchLibraryOf`, `libraryBenchProject`) — or a library chain's ref — `/@banc/vocals/warm/live.st0`
-seeds the rig with a copy of that chain, what k7 records through (`apps/k7/docs/chainSource.md`).
-The bare `/@banc/live.st0` is refused by the service. `benchChainOf` is the whole rule — spelled
+It answers **one** project, `live.st0`, preceded by the library chain's ref the bench is ON —
+`/@banc/vocals/warm/live.st0` (or `/@banc/@st0/vocals/warm/live.st0`) seeds the rig with a copy of
+that chain, what k7 records through (`apps/k7/docs/chainSource.md`). The bare `/@banc/live.st0` and
+a bare library ref, `/@banc/@st0/live.st0`, are refused by the service: a library is not edited on
+a bench but by an admin from any project. `benchChainOf` is the whole rule — spelled
 once, in this package, so the browser that builds the link and the service that reads it cannot
 drift. Anything else under `@banc` names nothing and is a 404 whose sentence says where a chain and
 a module are edited instead (`apps/st0/frontend/docs/sharedModules.md`).

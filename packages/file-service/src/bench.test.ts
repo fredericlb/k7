@@ -1,9 +1,7 @@
-// The bench ON a library — an admin's, the one place that library is written — and what every
-// other place may not do. What is proved: it opens, it keeps nothing of the rig, a library module
-// written there lands in the bench's own clone and never in the server's, and a write into a
-// library from anywhere else is refused.
+// The BENCH — a live rig seeded with a library chain — and the guard on library writes. What is
+// proved: it opens, it keeps nothing of the rig, it names no library to edit; a library module is
+// written into an admin's own clone and never the server's, and refused to anyone else.
 
-import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -14,16 +12,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { rootDir, sshDir } from "@studio/engine-client/paths";
-import { libraryOverlay, setLibraryOverlay } from "@studio/song/sharedFolders";
-import {
-  BENCH_PROJECT,
-  libraryBenchProject,
-} from "@studio/web-protocol/projects";
+import { rootDir } from "@studio/engine-client/paths";
+import { setLibraryOverlays } from "@studio/song/sharedFolders";
+import { BENCH_PROJECT, benchProject } from "@studio/web-protocol/projects";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
-import { closeLibraryBench, releaseCleanLibraryBench } from "./libraryBench.ts";
-import { slugify } from "./slug.ts";
 import { Workspace } from "./workspace.ts";
 import { listWorkspaces } from "./workspaces.ts";
 
@@ -38,143 +31,120 @@ const benchDir = (): string => join(benchRoot(), BENCH_PROJECT);
 /** The server's clone, read-only — under `$STUDIO_HOME/libraries` when no hub names another. */
 const libraryDir = (): string => join(home, "libraries", "st0");
 const libraryChain = (): string => join(libraryDir(), "chains/live/vocals");
-/** The bench's own clone of `st0`, already there — so opening it runs no clone. */
-const benchClone = (): string => join(home, "bench-libraries", "st0");
-
-const git = (cwd: string, ...args: string[]) =>
-  execFileSync("git", args, {
-    cwd,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      GIT_CONFIG_GLOBAL: "/dev/null",
-      GIT_CONFIG_NOSYSTEM: "1",
-      GIT_AUTHOR_NAME: "t",
-      GIT_AUTHOR_EMAIL: "t@t.test",
-      GIT_COMMITTER_NAME: "t",
-      GIT_COMMITTER_EMAIL: "t@t.test",
-    },
-  });
+/** An admin's own clone of `st0`, the one a library write may reach. */
+const editClone = (): string => join(home, "library-edits", "st0");
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-bench-home-"));
   // Off the real machine: this test writes library checkouts, and the user's own are not fixtures.
   process.env.STUDIO_HOME = home;
-
   // The `st0` library, laid out by hand where the hub would have cloned it.
-  mkdirSync(libraryChain(), { recursive: true });
+  mkdirSync(join(libraryChain(), "nodes"), { recursive: true });
+  mkdirSync(join(libraryDir(), "modules/audio/comp"), { recursive: true });
+  writeFileSync(
+    join(libraryDir(), "modules/audio/comp/module.yaml"),
+    "plugin:\n  type: internal\n  name: Compressor\n",
+  );
   writeFileSync(
     join(libraryChain(), "graph.yaml"),
     '# Voix live.\nmodules:\n  "@in": [ comp ]\n  comp: [ "@out" ]\n',
     "utf8",
   );
-  // …and the bench's clone of it, a checkout of its own with nothing unpublished.
-  mkdirSync(join(benchClone(), "modules"), { recursive: true });
-  writeFileSync(join(benchClone(), "modules", "amp.yaml"), "gain: 1\n");
-  git(benchClone(), "init", "-q", "--initial-branch=main");
-  git(benchClone(), "add", "-A");
-  git(benchClone(), "commit", "-q", "-m", "first");
-  // A key already "there", so `ensureKey` makes none: CI's image has no ssh-keygen.
-  const keyDir = sshDir(slugify(EMAIL));
-  mkdirSync(keyDir, { recursive: true });
-  writeFileSync(join(keyDir, "id_ed25519"), "placeholder\n");
+  writeFileSync(
+    join(libraryChain(), "nodes", "comp.yaml"),
+    'extends: "@st0/audio/comp"\n',
+  );
+  mkdirSync(join(editClone(), "modules"), { recursive: true });
 });
 
 afterEach(() => {
-  setLibraryOverlay(null);
+  setLibraryOverlays([]);
   process.env.STUDIO_HOME = PINNED_HOME;
   rmSync(home, { recursive: true, force: true });
 });
 
-const openLibraryBench = () => ensureBench(EMAIL, libraryBenchProject("st0"));
+const openChainBench = () => ensureBench(EMAIL, benchProject("live/vocals"));
 
-describe("the bench on a library", () => {
-  it("opens on a live rig", async () => {
-    const { workspace, project } = await openLibraryBench();
+describe("the bench", () => {
+  it("opens on a live rig seeded with the chain", async () => {
+    const { workspace, project } = await openChainBench();
     expect(workspace).toBe(BENCH_WORKSPACE);
     expect(project).toBe(BENCH_PROJECT);
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
-    expect(graph).toContain("IN: [ fader ]");
+    expect(graph).toContain("IN:");
     expect(existsSync(join(benchDir(), "surfaces"))).toBe(false);
   });
 
   it("is not one of the workspaces the home page lists", async () => {
     mkdirSync(join(rootDir(), "songs"), { recursive: true });
-    await openLibraryBench();
+    await openChainBench();
     expect(existsSync(benchRoot())).toBe(true);
     expect(listWorkspaces(EMAIL).map((w) => w.name)).toEqual(["songs"]);
   });
 
   it("throws away what was wired on it, at the next open", async () => {
-    await openLibraryBench();
+    await openChainBench();
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(BENCH_PROJECT);
     ws.write(
       `${BENCH_PROJECT}/graph.yaml`,
       "modules:\n  IN: [ reverb ]\n  reverb: [ MIX ]\n",
     );
-    await openLibraryBench();
+    await openChainBench();
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).not.toContain("reverb");
   });
 
-  it("stops overlaying the library once its clone holds nothing unpushed, outside the bench", async () => {
-    await openLibraryBench();
-    // The fixture's one commit was never pushed: that work keeps the overlay.
-    await releaseCleanLibraryBench(EMAIL);
-    expect(libraryOverlay()?.name).toBe("st0");
-    const bare = join(home, "st0.git");
-    git(home, "init", "-q", "--bare", bare);
-    git(benchClone(), "remote", "add", "origin", bare);
-    git(benchClone(), "push", "-q", "origin", "main");
-    await releaseCleanLibraryBench(EMAIL);
-    expect(libraryOverlay()).toBeNull();
-  });
-
-  it("writes a library module into the BENCH's clone, never the server's", async () => {
-    await openLibraryBench();
-    const ws = new Workspace(benchRoot());
-    ws.setActiveProject(BENCH_PROJECT);
-    const rel = "_libraries/st0/modules/audio/comp/module.yaml";
-    expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
-    expect(
-      readFileSync(
-        join(benchClone(), "modules/audio/comp/module.yaml"),
-        "utf8",
-      ),
-    ).toContain("internal");
-    expect(existsSync(join(libraryDir(), "modules/audio/comp"))).toBe(false);
-    expect(existsSync(join(benchRoot(), "_libraries"))).toBe(false);
-  });
-
-  it("refuses a write into a library anywhere but on its bench", async () => {
-    await openLibraryBench();
-    closeLibraryBench();
-    const ws = new Workspace(benchRoot());
-    expect(() =>
-      ws.write("_libraries/st0/modules/amp.yaml", "gain: 2\n"),
-    ).toThrow(/bench/);
-    expect(existsSync(join(libraryDir(), "modules/amp.yaml"))).toBe(false);
-  });
-
-  it("refuses a path that climbs out of the library through the virtual folder", async () => {
-    await openLibraryBench();
-    const ws = new Workspace(benchRoot());
-    expect(() =>
-      ws.write("_libraries/st0/../../escape.yaml", "x: 1\n"),
-    ).toThrow(/escapes/);
-  });
-
-  it("is refused for an address naming neither a library nor a chain", async () => {
-    await expect(ensureBench(EMAIL, BENCH_PROJECT)).rejects.toThrow(/library/);
+  it("is refused for a bare rig, and for a library — which is edited from any project", async () => {
+    await expect(ensureBench(EMAIL, BENCH_PROJECT)).rejects.toThrow(/chain/);
+    await expect(ensureBench(EMAIL, benchProject("@st0"))).rejects.toThrow(
+      /any project/,
+    );
   });
 
   it("clears the per-chain benches an older address left behind", async () => {
     const stale = join(benchRoot(), "chains", "live", "vocals.st0");
     mkdirSync(stale, { recursive: true });
     writeFileSync(join(stale, "project.yaml"), "project:\n  name: x\n", "utf8");
-    await openLibraryBench();
+    await openChainBench();
     expect(existsSync(join(benchRoot(), "chains"))).toBe(false);
     expect(existsSync(join(libraryChain(), "graph.yaml"))).toBe(true);
+  });
+});
+
+describe("a write into a library", () => {
+  const songs = (): Workspace => {
+    mkdirSync(join(rootDir(), "songs"), { recursive: true });
+    return new Workspace(join(rootDir(), "songs"));
+  };
+
+  it("lands in an admin's own clone, never the server's, from any workspace", () => {
+    setLibraryOverlays([{ name: "st0", root: editClone() }]);
+    const ws = songs();
+    const rel = "_libraries/st0/modules/audio/limit/module.yaml";
+    expect(ws.write(rel, "plugin:\n  type: internal\n")).toEqual({});
+    expect(
+      readFileSync(
+        join(editClone(), "modules/audio/limit/module.yaml"),
+        "utf8",
+      ),
+    ).toContain("internal");
+    expect(existsSync(join(libraryDir(), "modules/audio/limit"))).toBe(false);
+    expect(existsSync(join(rootDir(), "songs", "_libraries"))).toBe(false);
+  });
+
+  it("is refused to an account that holds no clone of it — anyone but an admin", () => {
+    const ws = songs();
+    expect(() =>
+      ws.write("_libraries/st0/modules/amp.yaml", "gain: 2\n"),
+    ).toThrow(/admins/);
+    expect(existsSync(join(libraryDir(), "modules/amp.yaml"))).toBe(false);
+  });
+
+  it("refuses a path that climbs out of the library through the virtual folder", () => {
+    setLibraryOverlays([{ name: "st0", root: editClone() }]);
+    expect(() =>
+      songs().write("_libraries/st0/../../escape.yaml", "x: 1\n"),
+    ).toThrow(/escapes/);
   });
 });

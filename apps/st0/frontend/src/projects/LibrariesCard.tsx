@@ -1,14 +1,13 @@
 // LibrariesCard.tsx — the origin's libraries: the named repositories of modules and chains EVERY
 // project inherits, one list for all accounts, cloned ONCE by the server with its own key. Only an
-// admin sees the add, remove and pull controls, the server's key, and each row's Bench — the
-// one place that library is edited; the hub refuses anyone else's write anyway, so hiding them is
-// courtesy, not the gate. Adding one CLONES it, which is what says the URI is a repository.
+// admin sees the add, remove and pull controls and the server's key — and edits a library from
+// any project; the hub refuses anyone else's write anyway, so hiding them is courtesy, not the
+// gate. Adding one CLONES it, which is what says the URI is a repository.
 // See packages/song/docs/sharedFolders.md and packages/file-service/docs/libraries.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
   ArrowDownToLine,
-  Hammer,
   LibraryBig,
   Loader2,
   RefreshCw,
@@ -26,7 +25,7 @@ import { useEffect, useState } from "react";
 import { runGit } from "../components/GitBusy";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
-import { accountFiles, libraryBenchHref } from "./api";
+import { accountFiles } from "./api";
 import type { AccountFiles } from "./workspaceOps";
 
 /** What a call did to a library, when it is worth reading: kept work, a failure — never "up to date". */
@@ -144,7 +143,7 @@ export function LibrariesCard({
 
   const pull = async (name: string) => {
     if (!fileService) return setError(m["libs.noFiles"]());
-    // The sentence says what goes: every account's bench of it, unpushed work included.
+    // The sentence says what goes: every admin's own copy of it, unpushed work included.
     const agreed = await askConfirm({
       title: m["libs.pullTitle"]({ name }),
       body: m["libs.pullBody"](),
@@ -245,17 +244,6 @@ export function LibrariesCard({
                   <RotateCw className="h-3.5 w-3.5" />
                 )}{" "}
                 {m["libs.retry"]()}
-              </Button>
-            )}
-            {/* The bench is where a library is EDITED, in a clone of its own — an <a>, since it opens a project. */}
-            {canEdit && l.cloned && (
-              <Button variant="ghost" size="sm" asChild>
-                <a
-                  href={libraryBenchHref(l.name)}
-                  title={m["libs.benchHint"]()}
-                >
-                  <Hammer className="h-3.5 w-3.5" /> {m["libs.bench"]()}
-                </a>
               </Button>
             )}
             {canEdit && (

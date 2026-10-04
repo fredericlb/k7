@@ -61,7 +61,7 @@ routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 /                     the home page — st0 answers the origin's root
 /?ws=<workspace>      …with one workspace's tree unfolded
 /@local/demos/x.st0   a project, by its workspace and its folder — see below
-/@banc/@st0/live.st0  an admin's bench on a library
+/@banc/vocals/warm/live.st0  a bench: a live rig seeded with a library chain
 /external             the menu of surfaces a second device drives
 /libraries            the origin's libraries — read by anyone, edited by an admin
 ```
@@ -186,7 +186,7 @@ reads as a broken song rather than as a server somebody has not finished setting
 `groups` claim), and the file hub says so in its hello, in the ticket and on every request it
 forwards. The hub answers the libraries routes itself and refuses a change without that
 ([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
-sees the same page read-only: no add, no remove, no **Pull**, no key and no bench. Hiding them is
+sees the same page read-only: no add, no remove, no **Pull** and no key. Hiding them is
 courtesy; the 403 is the gate.
 
 **Nothing pulls on its own; a row says when there is something to pull.** The server fetches each
@@ -195,10 +195,10 @@ a **Pull** for an admin. **Check for updates** fetches now rather than within th
 anyone's, since it moves nothing. A pull moves every account's library at once, so it is a gesture
 somebody makes on purpose rather than a side effect of a page or a song being opened.
 
-**A pull destroys every bench of that library**, on every account, unpushed work included, and the
-confirmation says so. A bench is a clone of the library edited ahead of the server's copy; once
-that copy moves, the bench is cloned again from it at its next open rather than left to publish
-over what was just pulled.
+**A pull destroys every admin's edit clone of that library**, on every account, unpushed work
+included, and the confirmation says so. An edit clone is the library edited ahead of the server's
+copy; once that copy moves, it is cloned again from it at the admin's next open rather than left to
+publish over what was just pulled.
 
 **Retry is anyone's.** A row the server could not clone — or could not pull — carries a **Retry**
 that asks the hub to clone it again (`POST /account/libraries/retry`). The usual cause is a deploy
@@ -218,12 +218,13 @@ page shows admins the SERVER's public key, which each library repository must ac
 read-only deploy key: no account's key is involved in reading a library. A clone that fails later
 is shown on its row with git's words. A row's ✕ removes a library and its clone.
 
-**A library is edited on its bench, and nowhere else.** Each row has a **Bench** button for admins,
-which opens `/@banc/@<name>/live.st0` (§ The BENCH). The server's clone is everyone's and is reset to
-its remote at every sync, so nothing is written into it; an edit lives in the admin's own clone
-until it is pushed ([sharedModules.md](sharedModules.md)).
+**An admin edits a library from any project; nobody else edits it.** The server's clone is
+everyone's and is reset to its remote at every sync, so nothing is written into it; an admin's edit
+lives in the admin's own clone of that library until it is pushed from the editor's bottom bar
+([sharedModules.md](sharedModules.md)). This page has no button for it: the place to change a
+module is the project you hear it in.
 
-**An empty repository gets one empty commit, once**, when its bench is first opened
+**An empty repository gets one empty commit, once**, when an admin's clone of it is first made
 (`initIfEmpty`): a repository just created in a web interface has no branch for the server to fetch.
 
 > **Nothing SEEDS modules into it, deliberately.** `initIfEmpty` lays the commit and nothing else:
@@ -294,18 +295,16 @@ type and never its name — and a `.dawproject` has no MIME type. So the judgeme
 DROP, where the name is finally readable, and a file this cannot take is refused in a sentence
 rather than by a highlight that never appeared.
 
-## The BENCH, opened from the library it edits
+## The BENCH, a rig for one chain
 
-A module is something you HEAR: what it does cannot be read in its file, and its parameters only
+A chain is something you HEAR: what it does cannot be read in its file, and its parameters only
 exist inside a project with the plugin loaded. The bench is that project — a live rig written again
 on every open and saved nowhere ([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
 
-**This page has no bench card.** A bench is always ON something: `/@banc/@<library>/live.st0` is an
-admin's bench on a library, opened from that library's row in the Libraries page, and
-`/@banc/<chain>/live.st0` is a chain's, which k7 opens to record through. A bench that names
-nothing would edit nothing and play nothing in particular, so the bare `/@banc/live.st0` is refused.
-The Libraries page is where the library is, so it is where its bench opens: an admin who wants to
-change a module is already looking at the list it is in.
+**This page has no bench card.** A bench is always ON a chain: `/@banc/<chain>/live.st0` seeds the
+rig with a copy of a library chain, which k7 opens to record through. It edits no library — an
+admin does that from any project — so a bench that names nothing, or names a bare library, is
+refused.
 
 **The bench is in no list of workspaces.** Its `Banc` folder is a workspace on disk, but it is
 reached by an address and rebuilt on every open; a row for it on this page would offer to open,
@@ -815,16 +814,17 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   workspace buttons are still greyed. Give it a real one → the page lists `@st0`, both buttons come
   back, and `<dataRoot>/libraries/st0` is on disk;
 - **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ removes it and its clone;
-- **as a non-admin**: the page lists the libraries with no add, ✕, Pull, key or Bench;
+- **as a non-admin**: the page lists the libraries with no add, ✕, Pull or key;
 - **push a commit to a library from elsewhere**, then **Check for updates** → its row reads *1 new
-  commit(s) to pull*; as an admin, open its Bench first, then **Pull** and confirm → the row is
-  clean, `<dataRoot>/<account>/bench-libraries/<name>` is gone, and the Bench opens a fresh clone;
+  commit(s) to pull*; as an admin, open any project first, then **Pull** and confirm → the row is
+  clean, `<dataRoot>/<account>/library-edits/<name>` is gone, and the next project open clones it
+  again;
 - **a library the server cannot clone** (its key not yet a deploy key there): the row says *clone
   failed* with git's words and a **Retry**; add the key at the host, Retry → the row is cloned;
-- **open a library's bench, then go home** → `Banc` is not in the list of workspaces;
-- **a row's Bench**, as an admin: opens `/@banc/@st0/live.st0` on a rig you can play. Edit a module
-  of `@st0` → the bottom row says what changed; **Discard** puts it back, **Commit & push** publishes
-  it and the row goes away. Wire something into the rig, reopen it → the rig is the scaffold again;
+- **open a chain's bench, then go home** → `Banc` is not in the list of workspaces;
+- **as an admin, in any project**: edit a module of `@st0` → the bottom bar says what changed;
+  **Discard** puts it back, **Commit & push** publishes it and the bar goes away. As a non-admin,
+  the same save is refused;
 - **drag a `.dawproject` onto a workspace row**: that row alone lights up, the popin opens on the
   file's name, and the folder under the field follows what you type. Import → the log, with its
   warnings in amber, then **L'ouvrir** opens the project in this tab, and Back shows the row's

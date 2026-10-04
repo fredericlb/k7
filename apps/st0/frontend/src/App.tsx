@@ -78,7 +78,6 @@ import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
-import { BenchLibraryRow } from "./components/BenchLibraryRow";
 import { ChainsBuilder } from "./components/ChainsBuilder";
 import { ChainsTab } from "./components/ChainsTab";
 import { ClipView, type EditTarget } from "./components/ClipView";
@@ -103,6 +102,7 @@ import { GitBusyOverlay, runGit } from "./components/GitBusy";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
+import { LibraryEditsRow } from "./components/LibraryEditsRow";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
@@ -4123,8 +4123,8 @@ export default function App({
           </div>
         </footer>
 
-        {/* What the bench changed in its library and has not published — the one place a library is committed. */}
-        <BenchLibraryRow rev={rev} />
+        {/* What an admin changed in the libraries and has not published — the one place a library is committed. */}
+        <LibraryEditsRow rev={rev} />
 
         {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
         {docked && (

@@ -49,21 +49,20 @@ chains still have to go somewhere. Which libraries the origin has is set by its 
 page's Libraries page, never from this tab: a library's own row cannot be renamed, moved or
 deleted from here.
 
-## A library is edited on its BENCH, and nowhere else
+## An admin edits a library from any project, and nobody else edits it
 
 Everything inside a library — making, renaming, deleting, moving, a builder's Save, a chain's verb,
-a preset saved into it — is refused by the file service unless that library is the one this
-account's bench has open (`/@banc/@<name>/live.st0`, opened by an admin from the library's row in
-the Libraries page). The refusal says so; the tab still offers the entries, since the service is
-the gate. What forced it: the server's clone of a library is every account's and is reset to its
-remote at every sync, so a write into it would be read by everyone before anyone published it and
-then lost. The bench edits a clone of the admin's own, and a push is what reaches the others
-(`packages/file-service/docs/libraries.md`).
+a preset saved into it — is refused by the file service unless the account is one of the origin's
+admins. The refusal says so; the tab still offers the entries, since the service is the gate. What
+forced it: the server's clone of a library is every account's and is reset to its remote at every
+sync, so a write into it would be read by everyone before anyone published it and then lost. An
+admin's account keeps a clone of its own of EVERY library, made with the admin's key, and a push is
+what reaches the others (`packages/file-service/docs/libraries.md`).
 
-The overlay belongs to the account, not to the bench's tab: while a library bench is open, every
-project of that admin's account reads the library from the bench's clone. That is what lets a song
-that names a module be the place to hear an edit before it is pushed. Once the clone holds nothing
-unpushed, opening another project goes back to the server's clone, which is at least as new.
+Those clones belong to the account, not to a project: every project an admin opens reads every
+library from them. That is what lets the song that names a module be the place to hear an edit
+before it is pushed — there is no special place to go to. A clone holding nothing unpushed is made
+exactly its remote again at the next open, so a push from anywhere else is never hidden behind it.
 
 ## `@engine`, which is not a folder
 
@@ -167,7 +166,7 @@ chain, a template — and never on the repository row nor on `modules`, `chains`
 themselves, which are the library's shape rather than its content. `@engine` gets neither, for the
 reason it gets no create.
 
-Neither publishes: like every edit on the bench, they wait in its clone for **Commit & push**
+Neither publishes: like every edit to a library, they wait in the admin's clone for **Commit & push**
 (below), so a rename and the edit that motivated it go out as one commit under a message somebody
 wrote.
 
@@ -187,16 +186,16 @@ A **module** row drags onto another folder of its own library and type: the type
 category below it. Only module rows drag; a folder, a chain and anything at the `@workspace` or
 `@engine` level do not. Unlike a rename, a move **takes its refs with it**: every `extends:` naming
 the old ref, in the library and in this workspace's projects, is repointed; the library's part waits
-for the bench's push. What the move cannot reach is any other workspace. The rules and the reasons are in
+for the admin's push. What the move cannot reach is any other workspace. The rules and the reasons are in
 `packages/song/docs/moduleMove.md`.
 
 ## Editable at once — Save writes, the push publishes
 
 Every module opens in the builder **editable**, a library's as readily as `@workspace`'s: no lock,
 no Edit button, no dialog. The builder never writes on its own — each pane holds its edits until
-**Save** — and on a library module, on its bench, Save writes the four files into the bench's
-clone and nothing more. Publishing is a second decision, taken once for everything the bench
-changed, from the row at the bottom of the editor (§ Publishing). A module somebody opened to read
+**Save** — and on a library module, for an admin, Save writes the four files into the admin's
+clone of that library and nothing more. Publishing is a second decision, taken once for everything
+changed in every library, from the bar at the bottom of the editor (§ Publishing). A module somebody opened to read
 costs nothing: closing it unsaved leaves the library untouched.
 
 What publishing a library module means is still worth knowing: the library's copy is the only copy,
@@ -237,7 +236,7 @@ a library's            _libraries/st0/modules/audio/reverb/module.yaml
 ```
 
 Both are workspace paths, both served by the file service, both written by the same route — the
-second one lands in the bench's clone of `st0`, since `_libraries/<name>/` is a VIRTUAL folder
+second one lands in the admin's clone of `st0`, since `_libraries/<name>/` is a VIRTUAL folder
 the file service maps to that library's root and confines there
 (`packages/file-service/docs/workspace.md`). The builder gets `moduleStore` either way, and what
 tells them apart is a folder name rather than which tab you clicked — `isLibraryPath` reads it off
@@ -264,32 +263,33 @@ pane you happen to be looking at. The machinery underneath is the ordinary one: 
 takes, and nothing else: no song repository is touched, since none records which version of a
 library it uses (`packages/song/docs/sharedFolders.md`).
 
-## Publishing — the row at the bottom of the editor
+## Publishing — the bar at the bottom of the editor
 
-While the bench's clone holds changed files or commits not pushed, a row sits above the command
-bar (`src/components/BenchLibraryRow.tsx`) saying how much, with two buttons:
+While any of the admin's library clones holds changed files or commits not pushed, a bar sits above
+the command bar (`src/components/LibraryEditsRow.tsx`) listing each such library and how much —
+*Libraries changed: @st0: 2 file(s) changed, 1 commit(s) not pushed* — with two buttons:
 
-- **Commit & push** asks for a message, commits everything changed with the admin as author,
-  pushes it with the admin's key, and asks the server to pull its own clone, so every account reads
-  it at its next open. A refused push says "committed, not pushed" and keeps the work in the clone;
-  the next one pushes it.
-- **Discard** resets the clone to what is pushed, after a confirmation.
+- **Commit & push** asks for ONE message, commits everything changed in every library with the
+  admin as author, pushes each with the admin's key, and asks the server to pull its own clone of
+  each, so every account reads it at its next open. A refused push says "committed, not pushed" and
+  keeps the work in the clone; the next one pushes it.
+- **Discard** resets every clone to its remote, after a confirmation.
 
-One gesture for the whole bench rather than one per Save: a commit on a history everyone reads is
-worth a sentence, and a module, its rename and the chain that uses it are one change. It is the
-ACCOUNT's state, not the bench tab's, so the row shows in any project an admin has open while
-something is unpublished.
+One gesture for everything rather than one per Save: a commit on a history everyone reads is worth
+a sentence, and a module, its rename and the chain that uses it are one change. It is the
+ACCOUNT's state, not a project's, so the bar shows in any project an admin has open while something
+is unpublished. A non-admin never sees it: there is nothing of theirs to publish.
 
-## What the bench is for
+An admin's **Pull** on the Libraries page drops every account's clone of that library, unpushed work
+included — the server's copy has moved under it — and the next open clones it again.
 
-`/@banc/@<library>/live.st0` opens **one live rig** with that library overlaid — a place to HEAR a
-library module when no song you have open happens to name it, and the only place the library is
-written. The rig itself is kept nowhere; the library's edits are kept in the bench's clone until
-they are pushed or discarded. `apps/pl8/docs/banc.md` is its page.
+## The bench is not where a library is edited
 
-`/@banc/<chain>/live.st0` is the other bench, seeded with a library chain, which anyone may open
-and which edits no library. The bare `/@banc/live.st0`, and every other address under `@banc`, is
-refused with a sentence pointing here.
+`/@banc/<chain>/live.st0` opens a live rig seeded with a COPY of a library chain, which anyone may
+open and which edits no library (`apps/pl8/docs/banc.md`). To hear a library module no song you
+have open names, wire it into the song you have open. The bare `/@banc/live.st0`, a bare library
+such as `/@banc/@st0/live.st0`, and every other address under `@banc` is refused with a sentence
+saying where a library is edited.
 
 ## What to check in a browser
 
@@ -309,22 +309,25 @@ The suites here mount nothing, so none of this is covered by a green run:
   offers no menu;
 - right-click a type folder inside `@workspace` → **New folder…** and **New module…**, the second
   taking just a name there and `<type>/<name>` on the level's own row;
-- in an ordinary project, edit an `@st0` module and press Save → refused, with a sentence naming
-  the bench;
-- open `@st0`'s **Bench** from the Libraries page, click an `@st0` module → the builder opens
-  editable, with no Edit button and no dialog; typing writes NOTHING: the Save button lights up
-  instead. Close it unsaved → the library is untouched;
-- edit two of the four files, press **Save** once → both land, nothing is committed, and the bottom
-  row says what changed. **Commit & push** → one commit appears in THAT library's repository,
-  pushed, none in the song's repository, and the row goes away;
+- as a NON-admin, edit an `@st0` module and press Save → refused, with a sentence saying only the
+  origin's admins edit a library; no bar appears at the bottom;
+- as an admin, in any project, click an `@st0` module → the builder opens editable, with no Edit
+  button and no dialog; typing writes NOTHING: the Save button lights up instead. Close it unsaved
+  → the library is untouched;
+- edit two of the four files, press **Save** once → both land in
+  `<dataRoot>/<account>/library-edits/st0`, nothing is committed, and the bottom bar says what
+  changed. **Commit & push** → one commit appears in THAT library's repository, pushed, none in the
+  song's repository, and the bar goes away;
+- edit modules of two libraries, **Commit & push** once → one commit in each, both pushed;
 - edit again and **Discard** → the module is back as pushed;
+- with nothing unpushed, push a change to `@st0` from elsewhere (the `st0-library` submodule), then
+  open a project a minute later → the module is the new one;
 - type something that will not parse and press Save → it is held back with the reason;
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob
   changes the sound;
-- push a change to a library from ANOTHER account's bench, then open a project here (or press
-  **Update** in the Libraries page) → the module is the new one, in every workspace at once;
+- push a change to a library from ANOTHER admin's account, then open a project here as a
+  non-admin → the module is the new one, in every workspace at once;
 - open a workspace that still has the old `_libraries` submodule → it is gone after the open, with
   one unpushed commit "libraries: no longer a submodule…" in that workspace;
-- open `/@banc/modules.st0` or `/@banc/live.st0` → a refusal that says where a module is edited;
-- open `/@banc/@st0/live.st0` as a non-admin → refused; as an admin → the rig, with `@st0/…`
-  resolved out of the bench's clone.
+- open `/@banc/modules.st0`, `/@banc/live.st0` or `/@banc/@st0/live.st0` → a refusal that says
+  where a library is edited.

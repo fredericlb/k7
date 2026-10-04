@@ -18,7 +18,6 @@ import {
   USER_HEADER,
 } from "@studio/web-protocol";
 import type { Request, RequestHandler, Response } from "express";
-import { dropBenches } from "./benchDrop.ts";
 import {
   type BindingDeps,
   bindEngine,
@@ -26,6 +25,7 @@ import {
   releaseIfUnclaimed,
   unbindAll,
 } from "./binding.ts";
+import { dropEditClones } from "./editsDrop.ts";
 import {
   type Instance,
   Instances,
@@ -165,7 +165,7 @@ export class FileHub {
       const admin = ticket ? ticket.admin : (this.opts.isAdmin?.(req) ?? false);
       if (isLibrariesPath(req.path)) {
         const drop = async (name: string) =>
-          dropBenches(
+          dropEditClones(
             resolve(this.opts.dataRoot),
             await this.instances.running(),
             name,

@@ -40,8 +40,8 @@ Nothing here saves — `moduleCatalogue` only lists. A `@workspace` module is wr
 builder, the same as any other file st0 saves, no lock and no confirmation: it is already yours, one git
 repository with no publish step.
 
-`@st0`, like every library, is written only on its bench, and published only by that bench's commit
-and push onto a repository other songs read (`apps/st0/frontend/docs/sharedModules.md`) — a decision
+`@st0`, like every library, is written only by an admin, into their own clone of it, and published
+only by their commit and push onto a repository other songs read (`apps/st0/frontend/docs/sharedModules.md`) — a decision
 worth a gesture of its own, unlike a workspace save which costs nobody else anything they did not
 already agree to by sharing the workspace.
 

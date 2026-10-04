@@ -62,8 +62,8 @@ answers `admin`, the ticket signs it, and the hub stamps `x-studio-admin: 1` on 
 having dropped any copy the client sent. The file service trusts that header for the same reason
 it trusts `x-studio-user`: only the hub's secret reaches it. It guards what reaches every account
 at once: the libraries list, the server's key and a forced update (all answered by the hub
-itself — below), and in the file service a bench ON a library and its commit and discard
-(`packages/file-service/docs/libraries.md`). A ticket outlives a group change by up to twelve
+itself — below), and in the file service every write into a library and its commit and
+discard (`packages/file-service/docs/libraries.md`). A ticket outlives a group change by up to twelve
 hours, the same as it outlives the session.
 
 ## The libraries are the hub's
@@ -72,7 +72,8 @@ The origin has ONE list of libraries, `<dataRoot>/libraries.json` (`../libraries
 hub clones each library ONCE, under `<dataRoot>/libraries/<name>`, which every account's file
 service gets as `$STUDIO_LIBRARIES_HOME` and reads without writing. One list because a library is
 the reference every song resolves `@<name>/…` against; one clone because nothing in it is anyone's
-work — an edit happens on an admin's bench, in a clone of their own, and reaches this one by a push.
+work — an admin edits in a clone of their own, from any project, and the edit reaches this one by a
+push.
 
 - **The server's own key** clones them, `<dataRoot>/.libraries-key`, made on first ask. Admins see
   its public half in the Libraries page and add it to each library repository as a READ-ONLY
@@ -80,14 +81,15 @@ work — an edit happens on an admin's bench, in a clone of their own, and reach
   a library one account could not read would compile differently for it.
 - **A sync only FETCHES; a PULL makes a clone EXACTLY its remote** — `reset --hard @{u}`,
   `clean -fd`. There is nothing to keep, so nothing to merge. What the clone lacks is counted and
-  answered on the row as `behind`. A pull is an admin's gesture on the Libraries page or a bench's
-  push, never a side effect of a read or an open: it changes what every account's songs compile
+  answered on the row as `behind`. A pull is an admin's gesture on the Libraries page or follows an
+  admin's push, never a side effect of a read or an open: it changes what every account's songs compile
   against. A clone is made in a dot-named sibling and renamed into place, so no reader sees half a
   library.
-- **An admin's pull destroys every bench of that library** (`../benchDrop.ts`), on every account
-  and unpushed work included: a running file service is told, so it closes the overlay reading the
-  clone; an idle account's clone is removed on disk, where its next start would read it again. A
-  bench's own push pulls without it, since that bench's clone IS the remote.
+- **An admin's pull destroys every account's edit clone of that library** (`../editsDrop.ts`),
+  unpushed work included: a running file service is told, so it stops reading the clone; an idle
+  account's clone is removed on disk, where its next start would read it again. The next open
+  clones it afresh. The pull that follows an admin's **Commit & push** drops nothing, since the
+  clone pushed from IS the remote.
 - **A library is validated by CLONING it.** A `PUT` clones what is new or moved before writing the
   list, and a clone that fails answers git's words and stores nothing: a setting kept after a
   refused clone reads as done and breaks at the next thing that needs it. A later failure is
@@ -110,7 +112,7 @@ The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), wh
 route, `POST /libraries/sync`. Its gate is the hub secret of one of the hub's own instances —
 the secret that already proves the other direction — so nothing outside the hub's children can
 make it fetch. On an ordinary call the hub fetches at most once a minute and waits only for a clone
-that is missing; `force` (the verb) fetches now and waits, and `pull` (a bench push) moves the clone.
+that is missing; `force` (the verb) fetches now and waits, and `pull` (an admin's push) moves the clone.
 
 ## An engine is bound by a CLAIM
 
@@ -145,8 +147,8 @@ anything else, so a tab left open cannot push its project into an engine someone
 Each account's copy on the engine's machine stays in its own folder, `ws-<accountKey>`, and is
 simply there again when that account comes back. The libraries travel beside it, read-only, as
 two roots (`../binding.ts`): `libs`, the hub's clones, the same for every account, and
-`bench-<accountKey>`, that account's bench clones, which an admin's account reads a library from
-while its bench is open. A module's files the engine loads — a Faust source, an amp's model, its
+`edits-<accountKey>`, that account's edit clones, which an admin's account reads every library
+from. A module's files the engine loads — a Faust source, an amp's model, its
 samples — live in one, and no workspace holds a copy (`packages/file-service/docs/libraries.md`).
 
 ## What stays on the engine's machine

@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setLibraryOverlay } from "@studio/song/sharedFolders";
+import { setLibraryOverlays } from "@studio/song/sharedFolders";
 import { librariesFixture } from "@studio/song/testSupport";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
@@ -32,23 +32,23 @@ beforeEach(() => {
   writeFileSync(join(proj, "project.yaml"), 'project:\n  name: "song"\n');
   ws = new Workspace(root);
   ws.setActiveProject("song.st0");
-  // An admin's bench open on `st0`: the one state in which a library entry may change.
-  setLibraryOverlay({ name: "st0", root: lib });
+  // An admin's own clone of `st0`: the one state in which a library entry may change.
+  setLibraryOverlays([{ name: "st0", root: lib }]);
 });
 afterEach(() => {
-  setLibraryOverlay(null);
+  setLibraryOverlays([]);
   rmSync(root, { recursive: true, force: true });
   delete process.env.STUDIO_HOME;
 });
 
-it("refuses to rename or delete a library entry with no bench open on that library", async () => {
-  setLibraryOverlay(null);
+it("refuses to rename or delete a library entry to an account holding no clone of it", async () => {
+  setLibraryOverlays([]);
   await expect(
     ws.renameEntry("_libraries/st0/modules/audio/verb", "hall"),
-  ).rejects.toThrow(/bench/);
+  ).rejects.toThrow(/admins/);
   await expect(
     ws.deleteEntry("_libraries/st0/modules/audio/verb"),
-  ).rejects.toThrow(/bench/);
+  ).rejects.toThrow(/admins/);
   expect(existsSync(join(lib, "modules", "audio", "verb"))).toBe(true);
 });
 

@@ -115,8 +115,8 @@ st0, and `publish` is why the distinction earns one: on a SHARED module a save i
 it is a publish onto a repository other people read.
 
 It is optional, and no host implements it: the save ends at the disk. st0 does not publish from
-the builder, because a library is edited on its bench and published from there in one gesture for
-everything the bench changed — the editor's bottom row, which commits and pushes
+the builder, because a library is edited by an admin from any project and published in one gesture for
+everything changed in every library — the editor's bottom bar, which commits and pushes
 (`apps/st0/frontend/docs/sharedModules.md`). The hook stays for a host whose save must leave the
 machine with the module itself.
 

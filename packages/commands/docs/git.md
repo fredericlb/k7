@@ -30,9 +30,9 @@ clock along with the request. When the bound is hit, git is killed and the call 
 
 The libraries are repositories of their own, which the FILE HUB clones once for the origin and
 fetches ([file-service/docs/libraries.md](../../file-service/docs/libraries.md)). Publishing a
-module you edited is the bench's commit; this verb is the other direction — fetch every library
+module you edited is an admin's **Commit & push** in the editor's bottom bar; this verb is the other direction — fetch every library
 now rather than within the minute, and say what is to pull (`behind`). It PULLS nothing: a pull
-moves every account's library and destroys its benches, so it is an admin's gesture on st0's
+moves every account's library and destroys every admin's edit clone of it, so it is an admin's gesture on st0's
 Libraries page. It is the file service asking the hub for a forced sync, reached through
 `CommandHost.updateLibraries`: the dependency runs file-service → commands, never back.
 

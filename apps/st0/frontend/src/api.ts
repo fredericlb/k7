@@ -24,7 +24,7 @@ import type {
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
-  BenchLibraryStatus,
+  LibraryEditsStatus,
   ModelDownloadJob,
   SeparateJob,
   StemsReply,
@@ -313,24 +313,20 @@ export const api = {
   nodePresets: (node: string) =>
     fget<NodePresets>(`/presets?node=${encodeURIComponent(node)}`),
 
-  /** The library the bench edits and what its clone holds unpublished, or null — packages/file-service/docs/libraries.md. */
-  benchLibrary: () => fget<BenchLibraryStatus | null>("/account/bench-library"),
+  /** The libraries an admin changed and what their clones hold unpublished — packages/file-service/docs/libraries.md. */
+  libraryEdits: () => fget<LibraryEditsStatus>("/account/library-edits"),
 
-  /** Commit what the bench changed and push it; the server's clone follows. */
-  commitBenchLibrary: (message: string) =>
+  /** Commit what changed in every library and push it; the server's clones follow. */
+  commitLibraryEdits: (message: string) =>
     fsend<{ pushed: boolean; note: string }>(
       "POST",
-      "/account/bench-library/commit",
+      "/account/library-edits/commit",
       { message },
     ),
 
-  /** Throw away what the bench changed. */
-  discardBenchLibrary: () =>
-    fsend<BenchLibraryStatus | null>(
-      "POST",
-      "/account/bench-library/discard",
-      {},
-    ),
+  /** Throw away what changed in every library. */
+  discardLibraryEdits: () =>
+    fsend<LibraryEditsStatus>("POST", "/account/library-edits/discard", {}),
 };
 
 /** The MÉDIATHÈQUE — pl8's hosted catalogue, reached through `PL8` (declared at the top) — and pl8's API root, for the one caller outside this file: the DESK, a package with three hosts, which takes its base as a prop. */

@@ -163,7 +163,7 @@ The param list comes from the template's own **graph**: an assembly folder is a 
 No new route, and the same road the chains builder takes.
 
 A promotion lives on the **template**, so two turntables cannot drift apart. A save writes into a
-library, which only its bench may do and only its push publishes, so it is a button and never a
+library, which only an admin may do and only their push publishes, so it is a button and never a
 timer — the rule a shared module already follows (`apps/st0/frontend/docs/sharedModules.md`).
 
 ## Not covered

@@ -163,17 +163,6 @@ export function benchChainOf(project: string): string | null | undefined {
     : undefined;
 }
 
-/** The library a `@banc/@<library>/live.st0` address EDITS — the admins' bench — or null for any other bench address. */
-export function benchLibraryOf(project: string): string | null {
-  const ref = benchChainOf(project);
-  return ref && /^@[a-z0-9-]+$/.test(ref) ? ref.slice(1) : null;
-}
-
-/** The project half of the bench that edits `library`. */
-export function libraryBenchProject(library: string): string {
-  return benchProject(`@${library}`);
-}
-
 /** Whether the project half of a `@banc` address names that rig, bare or seeded with a chain; nothing else under `@banc` names anything. */
 export function isBenchProject(project: string): boolean {
   return benchChainOf(project) !== undefined;

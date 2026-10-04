@@ -32,11 +32,8 @@ import {
   type WorkspaceSyncList,
 } from "@studio/web-protocol";
 import {
-  BENCH_REPO,
   externalOf,
   LIBRARIES_PAGE,
-  launchUrl,
-  libraryBenchProject,
   localProjectUrl,
   shareUrl,
 } from "@studio/web-protocol/projects";
@@ -93,16 +90,6 @@ export function workspaceHref(ws: Addressable): string {
 /** Where the LIBRARIES page is: `/libraries`, a page of its own — an `<a>` to it, not a route, since the router's basename is the project. */
 export function librariesHref(): string {
   return `${import.meta.env.BASE_URL}${LIBRARIES_PAGE}`;
-}
-
-/** Where the bench that EDITS `library` opens: `/@banc/@<library>/live.st0`, an admin's — see apps/pl8/docs/banc.md. */
-export function libraryBenchHref(library: string): string {
-  return launchUrl(
-    window.location.origin,
-    BENCH_REPO,
-    libraryBenchProject(library),
-    "st0",
-  );
 }
 
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
@@ -236,7 +223,7 @@ export const accountFiles = {
       "libraries",
     ),
 
-  /** Bring `name` to its remote's latest — admins only; every bench of it is DESTROYED. */
+  /** Bring `name` to its remote's latest — admins only; every admin's own copy of it is DESTROYED. */
   pullLibrary: async (
     m: AccountFiles,
     name: string,

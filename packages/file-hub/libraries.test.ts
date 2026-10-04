@@ -1,7 +1,7 @@
 // The hub's LibraryStore over REAL git: the list validated and written, each library cloned ONCE
 // with the server's key, a push from elsewhere counted on a sync and taken only on a pull, dropped
 // clones pruned, failures remembered, the accounts' former lists merged when the origin has none
-// yet, and a pull's bench drop. See docs/fileHub.md.
+// yet, and a pull's drop of the admins' edit clones. See docs/fileHub.md.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { dropBenches } from "./benchDrop.ts";
+import { dropEditClones } from "./editsDrop.ts";
 import { LibraryStore, settingsProblem } from "./libraries.ts";
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -218,29 +218,21 @@ describe("the hub's libraries", () => {
   });
 });
 
-describe("a pull's bench drop", () => {
-  it("removes every idle account's bench clone of that library, and its mark as open", async () => {
-    const bench = (account: string, lib: string) =>
-      join(data, account, "bench-libraries", lib);
+describe("a pull's drop of the edit clones", () => {
+  it("removes every idle account's edit clone of that library, and only that one", async () => {
+    const clone = (account: string, lib: string) =>
+      join(data, account, "library-edits", lib);
     for (const [a, lib] of [
       ["alice", "st0"],
       ["bob", "st0"],
       ["bob", "drums"],
     ]) {
-      mkdirSync(bench(a, lib), { recursive: true });
-      writeFileSync(join(bench(a, lib), "amp.yaml"), "unpushed\n");
+      mkdirSync(clone(a, lib), { recursive: true });
+      writeFileSync(join(clone(a, lib), "amp.yaml"), "unpushed\n");
     }
-    writeFileSync(join(data, "alice", "bench-libraries", ".active"), "st0\n");
-    writeFileSync(join(data, "bob", "bench-libraries", ".active"), "drums\n");
-    await dropBenches(data, [], "st0", () => undefined);
-    expect(existsSync(bench("alice", "st0"))).toBe(false);
-    expect(existsSync(bench("bob", "st0"))).toBe(false);
-    expect(existsSync(bench("bob", "drums"))).toBe(true);
-    expect(existsSync(join(data, "alice", "bench-libraries", ".active"))).toBe(
-      false,
-    );
-    expect(existsSync(join(data, "bob", "bench-libraries", ".active"))).toBe(
-      true,
-    );
+    await dropEditClones(data, [], "st0", () => undefined);
+    expect(existsSync(clone("alice", "st0"))).toBe(false);
+    expect(existsSync(clone("bob", "st0"))).toBe(false);
+    expect(existsSync(clone("bob", "drums"))).toBe(true);
   });
 });

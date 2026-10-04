@@ -116,7 +116,7 @@ they are set here, with no project open, and every surface that starts a separat
 **Only the library's COLD chains are offered** — a chain whose steps are all offline modules, the
 only kind that can separate (`packages/song/docs/coldModules.md`); one that processes, or both
 separates and processes, is not one. The file service lists them (`GET /account/cold-chains`),
-against the bench's clone of the library. The instrumental picker narrows further, to the chains
+against the library as this account reads it — an admin's own clone, else the server's. The instrumental picker narrows further, to the chains
 whose offline step declares an `instrumental` output.
 
 **A cold chain this machine cannot run YET is still listed**, and the reason shows under the picker

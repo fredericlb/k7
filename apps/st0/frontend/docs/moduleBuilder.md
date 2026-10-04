@@ -107,8 +107,8 @@ fix it. Locked says so in the header, beside the button that unlocks it when the
 
 The builder takes `readOnly` and `onRequestEdit`: one shows the whole screen without arming a
 single write, the other draws the button that asks to be let in. No host passes them today: st0
-opens every module editable, a library module being writable on its bench only and published from
-the bench's commit row ([sharedModules.md](sharedModules.md)). They stay for a host that has no way to write — the
+opens every module editable, a library module being writable by an admin only and published from
+the editor's bottom bar ([sharedModules.md](sharedModules.md)). They stay for a host that has no way to write — the
 assembly template builder keeps its own pair for its library templates. What the button *says* is
 the host's: a shared package cannot know whose a module is or what writing to it costs. Same
 argument as `renderPreview`.

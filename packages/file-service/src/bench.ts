@@ -1,19 +1,14 @@
 // bench.ts — the BENCH: one live rig, in a workspace of its own, thrown away and scaffolded again
-// on every open. Two kinds: an admin's bench ON a library (`@banc/@<lib>/live.st0`), the only place
-// that library can be edited, in a clone of its own (libraryBench.ts); and a bench seeded with a
-// library CHAIN, which anyone plays and nobody edits through. Rationale: apps/pl8/docs/banc.md.
+// on every open: the bare rig, or one seeded with a library CHAIN, which anyone plays and nobody
+// edits through. A library is not edited here: an admin edits it from any project
+// (libraryEdits.ts). Rationale: apps/pl8/docs/banc.md.
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { scaffoldLive } from "@studio/song/scaffoldLive";
-import {
-  BENCH_PROJECT,
-  benchChainOf,
-  benchLibraryOf,
-} from "@studio/web-protocol/projects";
+import { BENCH_PROJECT, benchChainOf } from "@studio/web-protocol/projects";
 import { spliceChain } from "./benchChain.ts";
 import { refreshLibraries, retireWorkspaceLibraries } from "./libraries.ts";
-import { closeLibraryBench, openLibraryBench } from "./libraryBench.ts";
 import { workspaceRoot } from "./slug.ts";
 
 /** The workspace the bench lives in — reserved by convention, capitalised as `Examples` is. */
@@ -27,21 +22,22 @@ export const BENCH_WORKSPACE = "Banc";
 export const benchDir = (): string =>
   join(workspaceRoot(BENCH_WORKSPACE), BENCH_PROJECT);
 
-/** The bench `project` names, made fresh: the folder is REMOVED and written again; a library bench opens its clone first. */
+/** The bench `project` names, made fresh: the folder is REMOVED and written again. */
 export async function ensureBench(
   userEmail: string,
   project: string,
 ): Promise<{ workspace: string; project: string }> {
-  const library = benchLibraryOf(project);
-  const chain = library ? null : benchChainOf(project);
-  if (!library && !chain)
-    throw new Error("a bench opens on a library, or on one of their chains");
+  const chain = benchChainOf(project);
+  if (!chain) throw new Error("a bench opens on one of the libraries' chains");
+  // A bare `@<library>` names no chain: a library is edited from any project, by an admin.
+  if (/^@[a-z0-9-]+$/.test(chain))
+    throw new Error(
+      `'${chain}' is a library, not a chain — an admin edits it from any project`,
+    );
   const root = workspaceRoot(BENCH_WORKSPACE);
   mkdirSync(root, { recursive: true });
-  // The hub's clones at their latest, so a chain just published is the one the rig gets — docs/libraries.md.
+  // The hub's clones fetched, so a chain just published is the one the rig gets — docs/libraries.md.
   await refreshLibraries();
-  if (library) await openLibraryBench(userEmail, library);
-  else closeLibraryBench();
   // The bench held the account's clone once; the hub holds it now.
   const retired = await retireWorkspaceLibraries(userEmail, root).catch(
     (e: Error) => ({ retired: false, note: e.message }),
@@ -56,7 +52,7 @@ export async function ensureBench(
   rmSync(dir, { recursive: true, force: true });
   // Named after the workspace and not after the folder: what the app says everywhere is "the bench".
   scaffoldLive(dir, BENCH_WORKSPACE);
-  if (chain) spliceChain(dir, chain);
+  spliceChain(dir, chain);
 
   return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };
 }

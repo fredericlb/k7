@@ -5,13 +5,13 @@ A module ref carries its level as an `@` prefix:
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@st0/audio/delay/tape-delay` | the origin's library called `st0`, at `st0/modules` under `librariesHome()` — every library is a level of its own name (`@drums/…`) | st0's Libraries tab, on that library's bench |
+| `@st0/audio/delay/tape-delay` | the origin's library called `st0`, at `st0/modules` under `librariesHome()` — every library is a level of its own name (`@drums/…`) | st0's Libraries tab, by an admin, from any project |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
 
 ## A library is a level, named by the origin's list
 
 Each of the origin's libraries is read at `libraryRoot(<name>)` — the file hub's one clone of it,
-or an admin's bench clone while that bench is open — and its `modules/` is the level `@<name>`.
+or, for an admin's account, its own clone of that library — and its `modules/` is the level `@<name>`.
 `moduleNamespaceOf`'s test is structural: the library a root sits in, by path, else `workspace`.
 `engine`, `workspace` and `meta` cannot name a library, so no library collides with a fixed level,
 and the origin's first library is `st0` — the level every

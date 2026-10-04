@@ -787,7 +787,7 @@ export function EditorTab({
     [file?.path, refresh, onChanged, onEditTarget, setStatus],
   );
 
-  // A library change is published from the bench's commit row (BenchLibraryRow.tsx), not here: this only redraws the tab.
+  // A library change is published from the commit row at the bottom (LibraryEditsRow.tsx), not here: this only redraws the tab.
   const afterLibraryChange = useCallback(async () => {
     await refreshLibraries();
   }, [refreshLibraries]);

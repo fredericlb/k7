@@ -2,15 +2,16 @@
 
 The origin has ONE list of libraries, each a git repository with a NAME: `st0`, `drums`. The file
 hub holds it, clones each library ONCE with the server's own key and fetches it, moving it only
-when an admin pulls or a bench pushes — the list, the key and the clones are the hub's, and their choices are in
-`packages/file-hub/docs/fileHub.md`. This service READS those clones (`$STUDIO_LIBRARIES_HOME`),
-and `@<name>/<type>/<module>` resolves against them from every workspace of the account. No
-workspace holds a copy, and no workspace repository records one (a workspace still carrying a
-`_libraries` folder is cleaned on open — below). The layout and why nothing declares it is in
-`packages/song/docs/sharedFolders.md`.
+when an admin pulls or pushes — the list, the key and the clones are the hub's, and their choices
+are in `packages/file-hub/docs/fileHub.md`. This service READS those clones
+(`$STUDIO_LIBRARIES_HOME`), and `@<name>/<type>/<module>` resolves against them from every
+workspace of the account. No workspace holds a copy, and no workspace repository records one (a
+workspace still carrying a `_libraries` folder is cleaned on open — below). The layout and why
+nothing declares it is in `packages/song/docs/sharedFolders.md`.
 
-What this service keeps is what cannot be shared: the clone an admin's bench EDITS, the guard that
-refuses every other write into a library, and the call that asks the hub to sync.
+What this service keeps is what cannot be shared: an admin's own clone of each library, which is
+what an admin EDITS, the guard that refuses every other write into a library, and the call that
+asks the hub to sync.
 
 ## Asking the hub: `askHubSync`
 
@@ -25,10 +26,10 @@ it forwards, which is how the hub knows the caller is one of its instances:
 - **The verb `project libraries update`** forces the fetch and says what is to pull. The verb
   reaches this service through `CommandHost.updateLibraries`: its subject is the account, and the
   dependency runs file-service → commands, never back ([commands/docs/git.md](../../commands/docs/git.md)).
-- **A bench push** PULLS that one library (`pull: true`), so every account reads what was just
-  pushed. It drops no bench: the pushing bench's clone is the remote, and the others are an admin's
-  Pull away from going — that one destroys every bench of the library, through
-  `POST /account/bench-library/drop`, which only the hub calls.
+- **An admin's Commit & push** PULLS each library it pushed (`pull: true`), so every account reads
+  what was just pushed. It drops no edit clone: the one pushed from is the remote. An admin's
+  **Pull** on the Libraries page is the other kind — it destroys every account's edit clone of that
+  library, through `POST /account/library-edits/drop`, which only the hub calls.
 
 With no `$STUDIO_HUB_URL` — which only tests run — the libraries are whatever the folder holds.
 
@@ -39,58 +40,64 @@ With no `$STUDIO_HUB_URL` — which only tests run — the libraries are whateve
 library is a folder whose chains and modules point at nothing, and the refusal has to come before
 the folder exists rather than at the first open. `Examples` is not a user gesture and is not gated.
 
-## Nobody writes a library outside its bench
+## Only an admin writes a library, through their own clone
 
 The hub's clones are made EXACTLY their remote at every sync, so anything written into one is lost
 at the next — and a write from one account would be read by all of them before it was ever pushed.
 So every write that lands in a library is refused (`Workspace.assertLibraryWritable` in
 `../src/workspace.ts`; `writeNodePreset` in `packages/song-edit/src/presets.ts` for
 `node preset save … <library>`; the `/command` route for a verb whose `at` is in a library) —
-unless it targets the ONE library overlaid by this account's bench clone. That covers every
-gesture of the file tree, the builder's Save and a chain edited from the Libraries tab alike: a
-library is edited on its bench, or not at all.
+unless `isLibraryEditable(name)`, which is true only for a library this account reads from an edit
+clone of its own, and only an admin's account has those. The refusal says that only the origin's
+admins edit a library. That covers every gesture of the file tree, the builder's Save and a chain
+edited from the Libraries tab alike, from any project.
 
-## The bench's clone: `libraryBench.ts`
+## The admin's clones: `libraryEdits.ts`
 
-`/@banc/@<library>/live.st0` opens an admin's bench ON a library. It reads and writes
-`<studioHome>/bench-libraries/<name>`, a clone of the library's remote made with the ADMIN's own
-deploy key, because the push is theirs: the server's key is read-only, and an edit pushed under a
-key nobody owns would be nobody's. Opening it overlays that library (`setLibraryOverlay`), so the
-compile, the file tree and the engine's paths read the bench's clone instead of the hub's.
+For an admin's account, this service keeps a clone of EVERY library the hub holds, under
+`<studioHome>/library-edits/<name>` (`LIBRARY_EDITS_DIR`), made with the ADMIN's own deploy key,
+because the push is theirs: the server's key is read-only, and an edit pushed under a key nobody
+owns would be nobody's. They are overlaid all at once (`setLibraryOverlays`), so the compile, the
+file tree and the engine's paths read the admin's clone of each library instead of the hub's.
 
-- **It is kept until a push leaves it clean.** Unpushed work is the one thing on a server that
-  nobody else has a copy of, so reopening the bench resumes it; a clean clone is brought forward to
-  what was pushed since. Opening another library's bench deletes the CLEAN clones of the others and
-  leaves the rest.
-- **The open one is remembered** in `bench-libraries/.active`: the overlay lives in this process,
-  and a service restarted by the idle stop must read the same library from the same place.
-- **The overlay is per account process**, not per project: an admin's account reads its bench
-  clone in ordinary projects too, which is what lets a song using the module hear the edit before
-  it is pushed. **Only while there IS such an edit**: opening any project outside the bench lifts
-  an overlay whose clone has nothing uncommitted or unpushed (`releaseCleanLibraryBench`). A clean
-  clone is the remote at best and behind it at worst — a library pushed from elsewhere would
-  otherwise stay invisible to that admin's every project until the bench was reopened.
+- **Every open refreshes them** (`refreshLibraryEdits`, from `POST /open` with the hub's admin
+  header), at most once a minute. A library with no clone yet is cloned. A clone holding NOTHING
+  uncommitted or unpushed is made exactly its remote — fetch, `reset --hard @{u}`, `clean`: a clean
+  clone is the remote at best and behind it at worst, and a library pushed from elsewhere (the
+  `st0-library` submodule, another admin) must never stay hidden behind it.
+- **A clone holding work keeps it.** Unpushed work is the one thing on a server that nobody else
+  has a copy of, so no open touches it; only a commit, a discard or an admin's Pull ends it.
+- **A clone the admin's key cannot make** leaves that library read from the hub's clone, read-only,
+  with the reason in the log: the admin's key is not yet a deploy key with write access there.
+- **A non-admin's account overlays nothing**: every library is read from the hub's clone, and
+  every write into one is refused.
+- **The clones on disk are read again at start** (`restoreLibraryEdits`): the overlay lives in this
+  process, and a service restarted by the idle stop must read each library from the same place
+  until the next open refreshes them.
+- A library dropped from the list has its clone deleted at the next refresh, unless it holds work.
 - A brand-new repository — unborn HEAD — gets one empty commit, pushed (`initIfEmpty`), so it has a
   branch for the hub to fetch. **It fills nothing.** The library is the reference: a build shipping
   its own copy of somebody's modules would be a second source of truth. A new library is therefore
   EMPTY, and an unresolved `@<name>/…` ref is not a compile error
   (`packages/song/docs/sharedFolders.md`).
 
-A chain's bench (`/@banc/<chain>/live.st0`) edits no library: it closes any overlay.
+A chain's bench (`/@banc/<chain>/live.st0`) edits no library and changes no overlay.
 
 ### Publishing: commit & push, or discard
 
-A Save writes; nothing it does publishes. Publishing is one explicit gesture on the bench, because
-a library is every account's and a push is not undone by the next keystroke:
+A Save writes; nothing it does publishes. Publishing is one explicit gesture for everything
+changed, because a library is every account's and a push is not undone by the next keystroke:
 
-- `GET /account/bench-library` answers `{library, changed, ahead}`, or null with no bench open —
-  what the editor's bottom row shows.
-- `POST /account/bench-library/commit` (admins) commits everything changed with the message the
-  admin typed, pushes it with their key, then asks the hub to sync THAT library. The author is the
-  admin, via `-c` rather than a written config: a machine must not leave its own identity in a
-  checkout. A commit whose push failed is pushed by the next one, even with nothing new staged,
-  and a refused push is REPORTED rather than called saved: everyone else still has the old module.
-- `POST /account/bench-library/discard` (admins) resets the clone to what is pushed.
+- `GET /account/library-edits` answers `{ libraries: [{library, changed, ahead}] }`, one entry per
+  library holding work — what the editor's bottom bar shows.
+- `POST /account/library-edits/commit` (admins) commits everything changed in every library with
+  the ONE message the admin typed, pushes each with their key, then asks the hub to pull THAT
+  library. The author is the admin, via `-c` rather than a written config: a machine must not leave
+  its own identity in a checkout. A commit whose push failed is pushed by the next one, even with
+  nothing new staged, and a refused push is REPORTED rather than called saved: everyone else still
+  has the old module.
+- `POST /account/library-edits/discard` (admins) resets every clone to its remote.
+- `POST /account/library-edits/drop` (admins, called by the hub) removes one clone after a Pull.
 
 `unpublishedCounts` decides what "clean" means, and it refuses to guess: a folder that is not the
 top of a git checkout of its own throws rather than answering. `git -C` climbs to whatever

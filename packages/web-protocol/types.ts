@@ -238,13 +238,15 @@ export interface LibrariesKeyReply {
   publicKey: string;
 }
 
-/** `GET /bench/library` — the library the bench edits, and what its clone holds that its remote does not. */
-export interface BenchLibraryStatus {
-  library: string;
-  /** Files changed and not committed. */
-  changed: number;
-  /** Commits not pushed. */
-  ahead: number;
+/** `GET /account/library-edits` — each library an admin changed, and what their clone of it holds that its remote does not. */
+export interface LibraryEditsStatus {
+  libraries: {
+    library: string;
+    /** Files changed and not committed. */
+    changed: number;
+    /** Commits not pushed. */
+    ahead: number;
+  }[];
 }
 
 /** `GET`/`PUT /account/libraries`, `POST /account/libraries/check` and `/pull` — the list, and what the call did to each. */

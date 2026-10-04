@@ -72,15 +72,16 @@ one: a mirror of the médiathèque deletes whatever the owner's manifest does no
 git checkout that would delete files somebody committed. So `mediatekPrefetch` carries `songs` and
 nothing else.
 
-**A shared module is edited on its library's BENCH, and nowhere else.** In a workspace's file API
-a library answers at the VIRTUAL folder `_libraries/<name>/…` — confined to that library's root,
-never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's clone is
-every account's and is reset to its remote at every sync, so nothing may write into it. ONE
-library may be OVERLAID instead (`setLibraryOverlay`): an admin's bench clone of it, read in place
-of the hub's by everything that asks `libraryRoot(name)` — the compile, the file tree, the
-engine's paths. Writes are refused anywhere but there, and a push from it is what publishes
-(`packages/file-service/docs/libraries.md`, `apps/st0/frontend/docs/sharedModules.md`). No song
-repository gets a commit: none records a version.
+**A shared module is edited by an admin, from any project, and by nobody else.** In a workspace's
+file API a library answers at the VIRTUAL folder `_libraries/<name>/…` — confined to that library's
+root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's clone is
+every account's and is reset to its remote at every sync, so nothing may write into it. Libraries
+may be OVERLAID instead, any number at once (`setLibraryOverlays`): an admin's account gets its own
+clone of each, read in place of the hub's by everything that asks `libraryRoot(name)` — the
+compile, the file tree, the engine's paths. `isLibraryEditable(name)` is true for an overlaid
+library and only for one; writes are refused anywhere else, and a push from the clone is what
+publishes (`packages/file-service/docs/libraries.md`, `apps/st0/frontend/docs/sharedModules.md`).
+No song repository gets a commit: none records a version.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
 project beside it, and it forks on write (`docs/moduleFork.md`).
@@ -93,7 +94,7 @@ the module travels whole. See `docs/moduleAssets.md`.
 A chain template lives in a library, and its nodes name `@<name>/…` modules of the same library or
 another. `moduleLibraryDirs(dir)` needs no second arm for that: the libraries are the
 origin's, so a folder inside one sees them exactly as a project does. `libraryOf(dir)` says which
-library a path is in — the overlay's clone counting as its library, the hub's clone of an
+library a path is in — an overlay's clone counting as its library, the hub's clone of an
 overlaid library as none — which is what the write guard asks and what the file API maps back to
 `_libraries/<name>/…`.
 
