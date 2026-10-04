@@ -12,6 +12,7 @@ import type {
   WebRackSound,
 } from "@studio/graph-model";
 import { type PanelLike, panelWidgets } from "@studio/graph-model/panel";
+import { ampModelInfo } from "@studio/song/ampModel";
 import { type AutoFreeze, playsRender } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
@@ -297,6 +298,14 @@ export function buildGraphDoc(
           ...(needs?.url
             ? { modelDownload: { file: needs.file, url: needs.url } }
             : {}),
+          // The amp model it loads, read off the file, so its panel can show that model's knobs only.
+          ...(() => {
+            const info =
+              typeof module?.model === "string" && module.model
+                ? ampModelInfo(module.model)
+                : null;
+            return info ? { ampModel: info } : {};
+          })(),
           // Everything below already reads `undefined` off a missing module; this flag is what lets the graph SAY so.
           missing: module ? undefined : true,
           // Only past one: a single flow input is what every node already draws.

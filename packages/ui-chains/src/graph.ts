@@ -67,6 +67,8 @@ const CARRIED = [
   "stage",
   // A model the machine has not got and can download — what the right-click offers to fetch.
   "modelDownload",
+  // …and the model it HAS loaded, which a panel's widgets.js reads — ui-chains-react's lcdScreen.md.
+  "ampModel",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */

@@ -21,6 +21,14 @@ const stem = (path: string) => {
   return dot > 0 ? base.slice(0, dot) : base;
 };
 
+/** Which runtime plays a model file, read off its extension: `.nam` is NAM, any `.json` is an RTNeural net — AIDA-X, or the rarer Proteus. */
+export function modelBadge(path: string): string | undefined {
+  const ext = path.slice(path.lastIndexOf(".")).toLowerCase();
+  if (ext === ".nam") return "NAM";
+  if (ext === ".json") return "AIDA";
+  return undefined;
+}
+
 /** `assets/`-relative paths → one level per folder; a file sitting directly in `assets/` becomes a leaf at the root, beside the folders. */
 export function buildAssetTree(
   files: string[],
@@ -51,6 +59,7 @@ export function buildAssetTree(
       key: `f:${file}`,
       label: stem(file),
       entry: file, // what the caller writes to the module — the full assets-relative path
+      badge: param === "model" ? modelBadge(file) : undefined,
     });
   }
 
@@ -84,6 +93,7 @@ export function searchAssets(
         key: `f:${file}`,
         label: stem(file),
         entry: file,
+        badge: param === "model" ? modelBadge(file) : undefined,
         // The folder path, so two profiles with the same name stay distinguishable.
         hint: file.includes("/")
           ? file.slice(0, file.lastIndexOf("/"))

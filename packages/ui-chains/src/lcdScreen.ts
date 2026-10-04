@@ -1,5 +1,5 @@
-// lcdScreen.ts — what an lcdscreen widget runs: the panel's `widgets.js`, compiled once per
-// source text, and the rolling history of the audio taps its draw functions read. The script
+// lcdScreen.ts — what a panel's `widgets.js` runs: its lcdscreen draws and its `visible` rule,
+// compiled once per source text, and the rolling history of the audio taps the draws read. The script
 // is the module author's own code running in the page, with the trust a jsdsp module already
 // has in the engine. Framework-agnostic; the React half is ui-chains-react's LcdScreenWidget.
 // Rationale and the draw contract: packages/ui-chains-react/docs/lcdScreen.md.
@@ -54,12 +54,48 @@ export type LcdPointer = (
   ev: LcdPointerEvent,
 ) => boolean | undefined;
 
+/** What the panel's `visible` gets: the module as it stands, with nothing to draw on. */
+export interface PanelFrame {
+  /** The module's params by name, as the card reads them. */
+  params: Readonly<Record<string, number | string>>;
+  /** The files it loads by param name, as authored — `model`, `ir`… */
+  assets: Readonly<Record<string, string>>;
+  /** The amp model it loads, when it loads one the file service could read — `knobs` is how many it reacts to. */
+  ampModel?: { kind: "nam" | "aida-x" | "proteus"; knobs: number };
+}
+
+/** `widgets.js`'s reserved `visible` key: widget id → false hides it; an id it leaves out stays shown. */
+export type PanelVisible = (
+  panel: PanelFrame,
+) => Readonly<Record<string, boolean>> | undefined;
+
+/** The reserved key — a screen cannot be named this, and the builder says so. */
+export const VISIBLE_KEY = "visible";
+
 /** A compiled script: the draw functions it returned, the pointer handlers, or why there are none. */
 export interface LcdScript {
   draws: Readonly<Record<string, LcdDraw>>;
   pointers: Readonly<Record<string, LcdPointer>>;
+  visible?: PanelVisible;
   error?: string;
 }
+
+/** The widget ids a script hides for this module; a `visible` that throws hides nothing, so a bug never empties a card. */
+export function hiddenWidgets(
+  script: LcdScript,
+  panel: PanelFrame,
+): ReadonlySet<string> {
+  if (!script.visible) return EMPTY;
+  let shown: Readonly<Record<string, boolean>> | undefined;
+  try {
+    shown = script.visible(panel);
+  } catch {
+    return EMPTY;
+  }
+  if (!shown || typeof shown !== "object") return EMPTY;
+  return new Set(Object.keys(shown).filter((id) => shown[id] === false));
+}
+const EMPTY: ReadonlySet<string> = new Set();
 
 /** How many tap points a screen keeps — ~6 s at 44.1 kHz with the engine's 256-sample bucket. */
 export const LCD_HISTORY = 1024;
@@ -112,8 +148,11 @@ function compile(source: string): LcdScript {
     };
   const draws: Record<string, LcdDraw> = {};
   const pointers: Record<string, LcdPointer> = {};
+  let visible: PanelVisible | undefined;
   for (const [id, f] of Object.entries(out as Record<string, unknown>)) {
-    if (typeof f === "function") draws[id] = f as LcdDraw;
+    if (id === VISIBLE_KEY) {
+      if (typeof f === "function") visible = f as PanelVisible;
+    } else if (typeof f === "function") draws[id] = f as LcdDraw;
     // An interactive screen is `{ draw, pointer }` — docs/lcdScreen.md.
     else if (f && typeof f === "object") {
       const { draw, pointer } = f as { draw?: unknown; pointer?: unknown };
@@ -121,7 +160,7 @@ function compile(source: string): LcdScript {
       if (typeof pointer === "function") pointers[id] = pointer as LcdPointer;
     }
   }
-  return { draws, pointers };
+  return visible ? { draws, pointers, visible } : { draws, pointers };
 }
 
 /** An envelope point as the one number a meter wants: how far from zero it swung. */

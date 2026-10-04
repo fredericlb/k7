@@ -117,6 +117,8 @@ export interface WebChainStep {
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
   /** The model this module names and the machine has not got, when its `model_url` says where to fetch it — the right-click's "Download model". */
   modelDownload?: { file: string; url: string };
+  /** The amp model it loads, as its file declares it — what a panel's widgets.js reads to show only that model's knobs. */
+  ampModel?: { kind: "nam" | "aida-x" | "proteus"; knobs: number };
   // The UI inside this module's rectangle, already merged; undefined == neither it nor its base defines one.
   ui?: WebModuleUI;
   // Which MIDI CC plays which param, from the module FOLDER's controller.yaml, keyed by `bind` verbatim.

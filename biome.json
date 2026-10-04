@@ -4,6 +4,7 @@
   "files": {
     "includes": [
       "!commons",
+      "!st0-library",
       "!**/node_modules",
       "!**/.tmp-*",
       "!**/dist",

@@ -100,6 +100,10 @@ import {
   newSway,
   stepSway,
 } from "@studio/ui-chains/hang";
+import {
+  compileWidgetsScript,
+  hiddenWidgets,
+} from "@studio/ui-chains/lcdScreen";
 import { type LaneNotes, noteLoadAt } from "@studio/ui-chains/noteLoad";
 import { patchAct } from "@studio/ui-chains/patchGesture";
 import { type TakeReadout, takeReadout } from "@studio/ui-chains/takeClock";
@@ -1828,9 +1832,21 @@ function NodeInner({
   const [tabAt, setTabAt] = useState(0);
   const tabs = n.ui?.tabs ?? [];
   const openTab = tabs.length ? Math.min(tabAt, tabs.length - 1) : -1;
-  // What the grid draws: the widgets every tab shows, then the open tab's.
+  // What the grid draws: the widgets every tab shows, then the open tab's, less those widgets.js's `visible` hides.
+  const hidden = n.ui?.script
+    ? hiddenWidgets(compileWidgetsScript(n.ui.script), {
+        params: n.params ?? {},
+        assets: n.assets ?? {},
+        ampModel: n.ampModel,
+      })
+    : null;
   const shownWidgets = n.ui
-    ? { ...n.ui.widgets, ...(openTab >= 0 ? tabs[openTab].widgets : {}) }
+    ? Object.fromEntries(
+        Object.entries({
+          ...n.ui.widgets,
+          ...(openTab >= 0 ? tabs[openTab].widgets : {}),
+        }).filter(([id]) => !hidden?.has(id)),
+      )
     : null;
   // The corner cluster, decided once, since three things read this same list.
   const corners = cornerButtons(n);

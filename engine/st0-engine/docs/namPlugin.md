@@ -124,8 +124,11 @@ NAM, any other JSON tried as RTNeural, which tells AIDA-X (`in_shape` + `layers`
 ### The knobs
 
 `Knob 1`, `Knob 2`, `Knob 3`, 0..1, default 0.5. Generic names, because what a knob does is the
-model's: one is trained with gain, another with gain and tone. A module draws them under the names
-its model gives them (the library's `amps/neural-amp-knobs`, forked per model). They are fixed
+model's: one is trained with gain, another with gain and tone. ONE module serves every model: its
+panel carries the three knobs and its `widgets.js` hides those the loaded model lacks, from the
+count the file service reads off the file (`packages/song/src/ampModel.ts`,
+`packages/ui-chains-react/docs/lcdScreen.md`). A module forked per model is only for naming its
+knobs, which neither format declares. They are fixed
 because a Tracktion plugin's parameters are fixed when it is created; a model reads the first
 `inputs − 1` of them, in the order it was trained with, and a `.nam` or a knobless model ignores all
 three. Three is the most AIDA-X's trainer produces plus one.
