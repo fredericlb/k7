@@ -56,6 +56,8 @@ struct ServeContext {
     DetachedWork& work;
     std::string engineId;
     std::string engineToken;
+    // This PROCESS, where engineId is the machine's: a reconnect that answers another one met a restarted engine.
+    std::string bootId;
 
     // Every connected client — for the MACHINE's replies only; a project's go through broadcastTo (docs/protocol.md).
     std::function<void(const nlohmann::json&)> broadcast;

@@ -71,6 +71,7 @@
   "editorSettings.vimHint": "Raccourcis Vim dans l'éditeur CUE — :w enregistre.",
   "common.on": "Activé",
   "common.off": "Désactivé",
+  "engine.crashed": "Le moteur a planté et a été relancé. Le projet lui est renvoyé ; ce qui jouait s'est arrêté.",
   "engineLoad.copyingTitle": "Copie du projet vers le moteur",
   "engineLoad.copyingBody": "Ses fichiers audio sont copiés sur la machine du moteur avant l'ouverture du projet, pour que rien ne se télécharge pendant qu'il joue.",
   "engineLoad.applyingTitle": "Chargement du projet dans le moteur",

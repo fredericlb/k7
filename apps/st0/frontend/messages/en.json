@@ -71,6 +71,7 @@
   "editorSettings.vimHint": "Vim keybindings in the CUE editor — :w saves.",
   "common.on": "On",
   "common.off": "Off",
+  "engine.crashed": "The engine crashed and was restarted. The project is being sent to it again; anything playing stopped.",
   "engineLoad.copyingTitle": "Copying the project to the engine",
   "engineLoad.copyingBody": "Its audio files are copied to the machine the engine runs on before the project opens, so nothing is downloaded while it plays.",
   "engineLoad.applyingTitle": "Loading the project on the engine",

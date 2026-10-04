@@ -1,6 +1,6 @@
 // toast.tsx — lightweight notifications, shared by the apps that mount this shell. No external
 // library. Render <Toaster/> once at the app root; call `showToast({ message, variant })` from
-// anywhere. Stacks bottom-right. A SUCCESS leaves on its own after `duration` ms; an ERROR
+// anywhere. Stacks bottom-right, or top-right by `placement`. A SUCCESS leaves after `duration`; an ERROR
 // stays until dismissed, and hovering either one holds it.
 
 import { CheckCircle2, X, XCircle } from "@frediverse/ui/icons";
@@ -15,7 +15,11 @@ export interface ToastItem {
   variant: "success" | "error";
   /** Milliseconds before it leaves on its own, or 0 to stay until dismissed. */
   duration: number;
+  /** Bottom-right by default; top-right for what must not be missed behind the transport bar. */
+  placement: ToastPlacement;
 }
+
+export type ToastPlacement = "bottom-right" | "top-right";
 
 /** How long a success stays on screen; an error gets 0, meaning it waits to be dismissed. */
 export const TOAST_DURATION_MS = 3000;
@@ -27,6 +31,7 @@ export function showToast(opts: {
   message: string;
   variant?: "success" | "error";
   duration?: number;
+  placement?: ToastPlacement;
 }): void {
   const variant = opts.variant ?? "success";
   const t: ToastItem = {
@@ -35,6 +40,7 @@ export function showToast(opts: {
     variant,
     // An error nobody read is an error that did not happen, so it waits to be dismissed.
     duration: opts.duration ?? (variant === "error" ? 0 : TOAST_DURATION_MS),
+    placement: opts.placement ?? "bottom-right",
   };
   for (const l of listeners) l(t);
 }
@@ -55,12 +61,27 @@ export function Toaster() {
 
   if (!items.length) return null;
 
+  const stack = (placement: ToastPlacement, className: string) => {
+    const here = items.filter((t) => t.placement === placement);
+    return here.length ? (
+      <div
+        className={cx(
+          "pointer-events-none fixed right-4 z-50 flex flex-col items-end gap-2",
+          className,
+        )}
+      >
+        {here.map((t) => (
+          <Toast key={t.id} item={t} onDismiss={() => dismiss(t.id)} />
+        ))}
+      </div>
+    ) : null;
+  };
+
   return (
-    <div className="pointer-events-none fixed bottom-10 right-4 z-50 flex flex-col items-end gap-2">
-      {items.map((t) => (
-        <Toast key={t.id} item={t} onDismiss={() => dismiss(t.id)} />
-      ))}
-    </div>
+    <>
+      {stack("top-right", "top-4")}
+      {stack("bottom-right", "bottom-10")}
+    </>
   );
 }
 

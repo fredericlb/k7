@@ -121,7 +121,10 @@ int serve(int port) {
     Outbox outbox;
     outbox.start();
 
-    ServeContext ctx{host, g_work, engineId, engineToken, {}, {}};
+    // The start time in ms names this process: the supervisor's relaunch after a crash is a new one.
+    const std::string bootId = std::to_string(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+    ServeContext ctx{host, g_work, engineId, engineToken, bootId, {}, {}};
     ctx.broadcast = [&server, &outbox](const json& j) {
         const auto payload = std::make_shared<const std::string>(j.dump());
         for (auto& client : server.getClients())

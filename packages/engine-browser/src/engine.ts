@@ -175,6 +175,7 @@ interface EngineMessage {
   plugins?: unknown[]; // 'plugins' (catalogue) AND 'edit-plugins' (instances) both use this field
   // 'plugin-params': which plugin was asked about, echoed back beside the `id` above so a late reply can be matched.
   format?: string;
+  boot?: string; // 'whoami': the engine PROCESS, so a reconnect can tell a restarted engine
 }
 
 export class EngineClient {
@@ -188,6 +189,9 @@ export class EngineClient {
   private presetsCbs = new Set<PresetsCb>();
   private busyCbs = new Set<BusyCb>();
   private warningCbs = new Set<WarningCb>();
+  private restartCbs = new Set<() => void>();
+  /** The engine PROCESS last met on this link, from `whoami`; another one after a reconnect is a restart. */
+  private boot: string | null = null;
   private ioLevelsCbs = new Set<IoLevelsCb>();
   private sessionsCbs = new Set<SessionsCb>();
   private devicesCbs = new Set<DevicesCb>();
@@ -420,6 +424,12 @@ export class EngineClient {
     else if (m.type === "presets" && m.module)
       for (const cb of this.presetsCbs) cb(m.module, m.presets ?? []);
     else if (m.type === "busy") for (const cb of this.busyCbs) cb(!!m.busy);
+    else if (m.type === "whoami" && typeof m.boot === "string" && m.boot) {
+      // A different process behind the same engine id: the supervisor relaunched it, i.e. it died.
+      const restarted = this.boot !== null && this.boot !== m.boot;
+      this.boot = m.boot;
+      if (restarted) for (const cb of this.restartCbs) cb();
+    }
     // `error` is handled at the bottom beside `engine-warning`: dropped here, a refused command would vanish without trace.
     else if (m.type === "io-levels")
       for (const cb of this.ioLevelsCbs)
@@ -654,6 +664,12 @@ export class EngineClient {
   onWarning(cb: WarningCb): () => void {
     this.warningCbs.add(cb);
     return () => this.warningCbs.delete(cb);
+  }
+
+  /** The engine came back as ANOTHER process — it crashed (or was restarted) and lost what it held. */
+  onEngineRestart(cb: () => void): () => void {
+    this.restartCbs.add(cb);
+    return () => this.restartCbs.delete(cb);
   }
 
   // Meter the INTERFACE — one peak per channel set, plus the master out; it enables the devices it measures, so ask only while on screen.
