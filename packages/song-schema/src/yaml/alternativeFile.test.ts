@@ -31,4 +31,13 @@ describe("setAlternativeParam", () => {
     expect(read(out).params).toEqual({ Gain: 3 });
     expect(out).toMatch(/^ {6}Gain: 7$/m);
   });
+
+  it("removes a param on null, under the engine named, and leaves a file without it untouched", () => {
+    const text =
+      "engine: nam\nengines:\n  nam:\n    params:\n      model: a.nam\n      ir: b.wav\n";
+    const out = read(setAlternativeParam(text, "model", null, "nam"));
+    expect(out.engines.nam.params).toEqual({ ir: "b.wav" });
+    const bare = "params: { Gain: 3 }\n";
+    expect(setAlternativeParam(bare, "model", null)).toBe(bare);
+  });
 });

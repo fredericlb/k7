@@ -313,8 +313,9 @@ Nothing else here writes past the project on a click.
 
 ## File-valued params
 
-`model` and `onnx` (`moduleTypes`' `FILE_PARAMS`) are params like any other — they land in `params:`
-beside the numbers — but their value is a filename, so two things differ. It is checked against the
+`model` and `onnx` (`moduleTypes`' `FILE_PARAMS`) are params like any other — they land where a knob
+would, in the `params:` of the attribute set that is on, under `engines.<name>` when the module runs
+an engine (`../../song/docs/engines.md`) — but their value is a filename, so two things differ. It is checked against the
 assets the module actually carries, and it is NOT patched into the running engine: a plugin loads
 its file when it is BUILT, so the handler writes and reloads. Swapping an amp model is not a knob
 drag.

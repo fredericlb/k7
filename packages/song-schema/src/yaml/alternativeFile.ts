@@ -85,11 +85,11 @@ export function paramsSwitch(text: string, name: string): ParamsSwitch | null {
   return { params, inherited };
 }
 
-/** Set one param on the set that is ON, under `engines.<engine>` when the module runs one (packages/song/docs/engines.md). */
+/** Set one param on the set that is ON, under `engines.<engine>` when the module runs one; `null` removes it (packages/song/docs/engines.md). */
 export function setAlternativeParam(
   text: string,
   name: string,
-  value: number | string,
+  value: number | string | null,
   engine?: string,
 ): string {
   const doc = parseDocument(text, OPTS);
@@ -97,6 +97,13 @@ export function setAlternativeParam(
     (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
   );
   const inSet = engine ? ["engines", engine, "params"] : ["params"];
+  if (value === null) {
+    const key =
+      at === 0 ? [...inSet, name] : ["alternatives", at - 1, ...inSet, name];
+    if (!doc.hasIn(key)) return text;
+    doc.deleteIn(key);
+    return doc.toString(OUT);
+  }
   if (at === 0) doc.setIn([...inSet, name], value);
   else {
     // An empty set is written `- {}`; opened into block style, so its params read one per line.

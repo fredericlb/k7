@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setModuleParam } from "@studio/song-edit/projectEdit";
+import { setModuleAsset, setModuleParam } from "@studio/song-edit/projectEdit";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { runCommand } from "./commandSpec";
@@ -116,5 +116,18 @@ describe("a knob on a module with engines", () => {
       "vari-mu": { params: { Intensty: 0.7 } },
     });
     expect(node().params).toBeUndefined();
+  });
+});
+
+describe("a file param on a module with engines", () => {
+  it("lands under the engine that is on, like a knob, and clears from there", async () => {
+    await runCommand("node engine comp vari-mu", host(), "cli");
+    setModuleAsset(dir, "comp", "model", "twin.nam");
+    expect(node().engines).toEqual({
+      "vari-mu": { params: { model: "twin.nam" } },
+    });
+    expect(node().params).toBeUndefined();
+    setModuleAsset(dir, "comp", "model", null);
+    expect(node().engines["vari-mu"].params).toEqual({});
   });
 });

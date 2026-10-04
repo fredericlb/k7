@@ -317,14 +317,20 @@ export function setModuleChannel(
   );
 }
 
-/** Point a file-valued param at one of the module's own assets, ASSETS-RELATIVE — a param like any other. */
+/** Point a file-valued param at one of the module's own assets, ASSETS-RELATIVE — a param like any other, so it lands where setModuleParam's would. */
 export function setModuleAsset(
   dir: string,
   module: string,
   param: string,
   file: string | null,
 ): string {
-  return editModuleValue(dir, module, ["params", param], file);
+  const { engine, path } = withModuleStamp(dir, () => ({
+    engine: engineOn(dir, module),
+    path: moduleFileOf(dir, module).path,
+  }));
+  return rewriteFile(path, (text) =>
+    setAlternativeParam(text, param, file, engine),
+  );
 }
 
 // --- clip files ---------------------------------------------------------------
