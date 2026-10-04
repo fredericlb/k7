@@ -25,6 +25,9 @@ import { studioHome } from "./studioHome";
 /** The scan cache. CONTRACT path — the C++ engine writes and reads this same file (PluginScan.cpp `extsCacheFile()`). */
 export const EXTS_PATH = join(studioHome(), "exts.json");
 
+// Read at the call, so a $STUDIO_HOME set after this module loads (a test fixture) is the one honoured.
+const extsPath = (): string => join(studioHome(), "exts.json");
+
 /** One plugin as the engine's scan describes it. `format` is as scanned ("VST3", "internal"). */
 export interface ScannedPlugin {
   name: string;
@@ -41,7 +44,7 @@ export interface ScannedPlugin {
 const memo = new Map<string, { stamp: string; plugins: ScannedPlugin[] }>();
 
 /** Every scanned plugin; EMPTY means "we cannot say", not "none installed" — docs/enginePlugin.md. */
-export function scannedPlugins(file = EXTS_PATH): ScannedPlugin[] {
+export function scannedPlugins(file = extsPath()): ScannedPlugin[] {
   if (!existsSync(file)) return [];
   let stamp: string;
   try {
@@ -84,7 +87,7 @@ const scanKey = (format: string, name: string): string =>
   `${format.toLowerCase()}|${name.toLowerCase()}`;
 
 /** Every scanned plugin as a "<format>|<name>" key set (both lowercased). Empty ⇒ "unknown" (see scannedPlugins). */
-export function scannedPluginKeys(file = EXTS_PATH): Set<string> {
+export function scannedPluginKeys(file = extsPath()): Set<string> {
   return new Set(scannedPlugins(file).map((p) => scanKey(p.format, p.name)));
 }
 
@@ -92,7 +95,7 @@ export function scannedPluginKeys(file = EXTS_PATH): Set<string> {
 export function isPluginScanned(
   format: string,
   name: string,
-  file = EXTS_PATH,
+  file = extsPath(),
 ): boolean {
   const keys = scannedPluginKeys(file);
   if (!keys.size) return true; // no cache to judge against
@@ -100,7 +103,9 @@ export function isPluginScanned(
 }
 
 /** Scanned plugin names grouped by lowercased format — `{ vst3: ["Serum"], internal: […] }`. */
-export function scannedPluginNames(file = EXTS_PATH): Record<string, string[]> {
+export function scannedPluginNames(
+  file = extsPath(),
+): Record<string, string[]> {
   const names: Record<string, string[]> = {};
   for (const p of scannedPlugins(file))
     (names[p.format.toLowerCase()] ??= []).push(p.name);
@@ -125,7 +130,7 @@ export function ioModules(): Record<string, LoadedModule> {
 }
 
 /** Every module the engine's SCAN offers, keyed by ref — real plugins only; the io roles are ioModules(). */
-export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
+export function engineModules(file = extsPath()): Record<string, LoadedModule> {
   const out: Record<string, LoadedModule> = {};
   for (const p of scannedPlugins(file)) {
     // The ref and the plugin block come from moduleTypes, the one rule the browser applies too.

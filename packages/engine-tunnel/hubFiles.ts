@@ -4,14 +4,23 @@
 
 import { createReadStream, createWriteStream, type WriteStream } from "node:fs";
 import { mkdir, realpath, rename, rm, stat } from "node:fs/promises";
-import { posix } from "node:path";
+import { posix, win32 } from "node:path";
 import { CHUNK_BYTES, type RemoteStat, type TunnelRoot } from "./frames.ts";
 
 /** At most this many paths per stat request — a document names dozens, never thousands. */
 export const MAX_STAT_PATHS = 2000;
 
 // `realpath` answers in backslashes on Windows; elsewhere a backslash is a name character and must not pass.
-const SEPS = process.platform === "win32" ? ["/", "\\"] : ["/"];
+const WIN = process.platform === "win32";
+const SEPS = WIN ? ["/", "\\"] : ["/"];
+const P = WIN ? win32 : posix;
+
+// Absolute, with no `.` or `..` segment; a Windows root is `C:\…` and its paths mix both separators.
+const isPlain = (p: string): boolean =>
+  WIN
+    ? win32.isAbsolute(p) &&
+      !p.split(/[\\/]/).some((s) => s === "." || s === "..")
+    : posix.isAbsolute(p) && posix.normalize(p) === p;
 
 const within = (root: string, p: string): boolean =>
   p === root ||
@@ -19,7 +28,7 @@ const within = (root: string, p: string): boolean =>
 
 /** The root `p` lies in, lexically, or null; a relative or non-normal path is refused outright. */
 export function rootOf(roots: TunnelRoot[], p: string): TunnelRoot | null {
-  if (!posix.isAbsolute(p) || posix.normalize(p) !== p) return null;
+  if (!isPlain(p)) return null;
   return roots.find((r) => within(r.remote, p)) ?? null;
 }
 
@@ -36,7 +45,7 @@ async function stillInside(root: TunnelRoot, p: string): Promise<boolean> {
     try {
       return within(realRoot, await realpath(probe));
     } catch {
-      const up = posix.dirname(probe);
+      const up = P.dirname(probe);
       if (up === probe) return false;
       probe = up;
     }
@@ -103,9 +112,9 @@ export class Upload {
     const root = rootOf(roots, path);
     if (!root?.writable)
       throw new Error(`not writable from the engine: ${path}`);
-    if (!(await stillInside(root, posix.dirname(path))))
+    if (!(await stillInside(root, P.dirname(path))))
       throw new Error(`outside the shared tree: ${path}`);
-    await mkdir(posix.dirname(path), { recursive: true });
+    await mkdir(P.dirname(path), { recursive: true });
     return new Upload(path);
   }
 

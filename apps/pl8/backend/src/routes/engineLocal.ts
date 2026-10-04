@@ -3,6 +3,7 @@
 // into the machine's copy of the médiathèque, so the answer is never a path to nothing. See
 // ../../docs/playbackTarget.md.
 
+import { relative, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import type { EngineMount } from "@studio/engine-registry";
 import { JobError, requestJob } from "@studio/engine-tunnel/jobs-client";
@@ -42,9 +43,10 @@ export function engineLocalRouter(engines: EngineMount): Router {
         return res
           .status(409)
           .json({ error: `no engine '${engineId}' is registered` });
+      const root = mediatekDir();
       const ch = await engines.tunnels.openReady(
         engineId,
-        [{ remote: mediatekDir(), name: "mediatek", writable: false }],
+        [{ remote: root, name: "mediatek", writable: false }],
         OPEN_JOBS_MS,
         "jobs",
       );
@@ -56,7 +58,11 @@ export function engineLocalRouter(engines: EngineMount): Router {
       try {
         const reply = await requestJob(
           ch,
-          { type: "local", path: abs },
+          // The tunnel's spelling: the root as shared, then `/`-joined, whatever this server's separator.
+          {
+            type: "local",
+            path: `${root}/${relative(root, abs).split(sep).join("/")}`,
+          },
           (r) => r.type === "local",
         );
         res.json({
