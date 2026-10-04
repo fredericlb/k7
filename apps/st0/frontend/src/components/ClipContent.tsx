@@ -14,13 +14,23 @@ export const ClipContent = memo(function ClipContent({
   clip,
   spanBeats,
   project,
+  overlay,
 }: {
   clip: WebClip;
   // The beats the block spans on screen — notes lay out against this, so the mini-roll lines up with the arrangement.
   spanBeats: number;
   // Tempo and time signature decide how much of the source the region shows, so they are part of the envelope's identity.
   project: EnvelopeProject;
+  // A frozen lane's authored clips, whose notes are drawn over the render they became (packages/song/docs/freeze.md).
+  overlay?: WebClip[];
 }) {
+  if (overlay?.length && clip.type === "audio")
+    return (
+      <>
+        <ClipWaveform clip={clip} project={project} />
+        <NotesOver clip={clip} spanBeats={spanBeats} overlay={overlay} />
+      </>
+    );
   return clip.type === "midi" ? (
     <ClipMidi
       notes={clip.notes}
@@ -33,17 +43,60 @@ export const ClipContent = memo(function ClipContent({
   );
 });
 
+// Each authored MIDI clip as a mini-roll at its own place inside the render's block, so a note sits over the sound it made.
+function NotesOver({
+  clip,
+  spanBeats,
+  overlay,
+}: {
+  clip: WebClip;
+  spanBeats: number;
+  overlay: WebClip[];
+}) {
+  if (spanBeats <= 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {overlay.map((m, i) => {
+        if (m.type !== "midi") return null;
+        const span =
+          m.length > 0 ? m.length : spanBeats - (m.start - clip.start);
+        return (
+          <div
+            key={`${m.id}-${i}`}
+            className="absolute inset-y-0"
+            style={{
+              left: `${((m.start - clip.start) / spanBeats) * 100}%`,
+              width: `${(span / spanBeats) * 100}%`,
+            }}
+          >
+            <ClipMidi
+              notes={m.notes}
+              spanBeats={span}
+              loopStart={m.loopStart}
+              loopEnd={m.loopEnd}
+              tone="text-sky-300"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // The notes as a mini piano-roll, y scaled to the clip's own range; a looping clip tiles its window's notes as the engine repeats them.
 function ClipMidi({
   notes,
   spanBeats,
   loopStart = 0,
   loopEnd = 0,
+  tone = "text-foreground",
 }: {
   notes: WebNote[];
   spanBeats: number;
   loopStart?: number;
   loopEnd?: number;
+  // The notes' colour class: over a waveform they need one that is not the waveform's.
+  tone?: string;
 }) {
   if (!notes.length || spanBeats <= 0) return null;
   const loopLen = loopEnd > loopStart ? loopEnd - loopStart : 0;
@@ -70,7 +123,7 @@ function ClipMidi({
   }
   const rows = hi - lo + 1; // pitch rows to stack
   return (
-    <div className="absolute inset-0 text-foreground">
+    <div className={`absolute inset-0 ${tone}`}>
       {placed.map((n, i) => (
         <div
           key={i}

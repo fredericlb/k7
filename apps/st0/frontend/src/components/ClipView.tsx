@@ -272,7 +272,7 @@ export function ClipView({
     if (target.kind === "seq") return null;
     const base = target.clip;
     for (const t of freshProject?.tracks ?? [])
-      for (const c of t.clips ?? [])
+      for (const c of [...(t.clips ?? []), ...(t.frozenMaterial ?? [])])
         if (c.id === base.id && Math.abs(c.start - base.start) < 1e-6) return c;
     return base;
   }, [target, freshProject]);

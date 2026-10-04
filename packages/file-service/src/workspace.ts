@@ -458,6 +458,9 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
     mute: t.mute,
     solo: t.solo,
     clips: t.clips.map((c) => toWebClip(c, natural)),
+    ...(t.frozenMaterial?.length
+      ? { frozenMaterial: t.frozenMaterial.map((c) => toWebClip(c, natural)) }
+      : {}),
     plugins: t.plugins.map((pl) => ({
       id: pl.id,
       type: pl.type,

@@ -97,6 +97,7 @@ import { TOOL_LABEL, TOOLS, type Tool, toolLine } from "../timelineTools";
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type {
   WebAutomationLane,
+  WebClip,
   WebProject,
   WebTrack,
   WebVideoTrack,
@@ -1467,6 +1468,29 @@ export function TimelineTab({
     }
     commitMoveRef.current();
   }, [moveArgs, setStatus, coverClip, onOpenClip]);
+
+  /** The frozen lane's authored MIDI clip under the pointer — or its first, when the press falls between two. */
+  const openFrozenNotes = useCallback(
+    (e: React.MouseEvent, track: WebTrack, c: WebClip) => {
+      const p = projRef.current;
+      const midi = (track.frozenMaterial ?? []).filter(
+        (m) => m.type === "midi",
+      );
+      if (!p || !midi.length) return;
+      e.stopPropagation();
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const at =
+        c.start + (e.clientX - r.left) / Math.max(1e-6, ppbRef.current);
+      const hit =
+        midi.find(
+          (m) =>
+            m.start <= at && at < m.start + (m.length > 0 ? m.length : NATURAL),
+        ) ?? midi[0];
+      clipOpenedAt.current = performance.now();
+      onOpenClip?.({ kind: "clip", project: p, clip: hit });
+    },
+    [onOpenClip],
+  );
 
   // Drop the clip as an `event move` between 1-based timecodes; a zero net move just cancels. See docs/timeline.md.
   const commitMove = useCallback(() => {
@@ -3094,6 +3118,12 @@ export function TimelineTab({
                               onPointerMove={onClipDragMove}
                               onPointerUp={endClipDrag}
                               onPointerCancel={endClipDrag}
+                              // A RENDER opens the notes it was made from: the authored MIDI clip under the pointer (docs/timeline.md).
+                              onDoubleClick={
+                                c.frozen && t.frozenMaterial
+                                  ? (e) => openFrozenNotes(e, t, c)
+                                  : undefined
+                              }
                               // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
                               onContextMenu={(e) => {
                                 e.preventDefault();
@@ -3324,6 +3354,9 @@ export function TimelineTab({
                                       c.length > 0 ? c.length : NATURAL
                                     }
                                     project={envProject}
+                                    overlay={
+                                      c.frozen ? t.frozenMaterial : undefined
+                                    }
                                   />
                                 </div>
                               )}

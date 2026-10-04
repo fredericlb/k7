@@ -126,6 +126,14 @@ The timeline's lane menu offers **Freeze** / **Unfreeze** on the point, and noth
 inside somebody else's render: thawing that one means naming the module downstream of it, and an entry
 there would name the wrong one.
 
+A frozen lane keeps its **material in view**. The compiler hands each frozen lane's authored clips
+back on the track as `frozenMaterial` — beside `clips`, never in it, since playing them is exactly
+what the freeze stops. The engine ignores the field, as it ignores `groups`. One compile answers
+both, so what the timeline draws over a render is what that render was made from at the same
+revision. The expanded lane draws those notes over the render's waveform, and a double-click on the
+render opens the piano roll on the clip under the pointer: a frozen notes lane is still a part to
+read and to edit, and an edit there is heard once the lane is frozen again.
+
 ## One verb for a lane and a reverb
 
 A lane is a module ([trackModules.md](trackModules.md)), so one verb reaches a lane and a reverb

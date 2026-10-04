@@ -165,7 +165,12 @@ export function trackPlacing(
 ): string {
   if (!project || !clip) return "";
   for (const t of project.tracks)
-    if (t.clips?.some((c) => c.id === clip)) return t.id;
+    if (
+      t.clips?.some((c) => c.id === clip) ||
+      // A frozen lane's authored clips still sit on it, under the render.
+      t.frozenMaterial?.some((c) => c.id === clip)
+    )
+      return t.id;
   return "";
 }
 

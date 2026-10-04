@@ -350,6 +350,15 @@ generated lane has no file and no chain of its own, so it names its **group**.
 A header selection survives playback, as every caret position does — see "The caret and the
 playhead are independent" above.
 
+## A frozen lane's render
+
+A frozen lane plays one clip, its render, and the block cannot be moved — but it still stands for
+the notes it was made from. Expanded, the block draws them over its waveform, each authored clip at
+its own place and in a colour the waveform does not use. A double-click on the block opens the piano
+roll on the authored clip under the pointer, or the first one when the press falls between two: the
+render has no notes of its own to open, and the waveform panel would show nothing the lane does not.
+`packages/song/docs/freeze.md` says where those clips come from.
+
 ## A lane's alternatives
 
 A lane can hold several sets of attributes and play one, and its gutter says **which**:
