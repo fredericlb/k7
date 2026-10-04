@@ -33,6 +33,8 @@ const ENV_KEYS = [
   "GIT_CONFIG_VALUE_1",
   "GIT_CONFIG_KEY_2",
   "GIT_CONFIG_VALUE_2",
+  "GIT_CONFIG_KEY_3",
+  "GIT_CONFIG_VALUE_3",
 ];
 const saved: Record<string, string | undefined> = {};
 
@@ -148,6 +150,23 @@ describe("the hub's libraries", () => {
     expect(existsSync(join(data, "libraries", "st0", "stray.yaml"))).toBe(
       false,
     );
+  });
+
+  it("counts what to pull into a clone made while its repository was EMPTY", async () => {
+    const empty = join(tmp, "empty.git");
+    git(tmp, "init", "-q", "--bare", "--initial-branch=main", empty);
+    process.env.GIT_CONFIG_COUNT = "4";
+    process.env.GIT_CONFIG_KEY_3 = `url.${empty}.insteadOf`;
+    process.env.GIT_CONFIG_VALUE_3 = "git@example.test:studio/empty.git";
+    const store = new LibraryStore(data);
+    await store.set([{ uri: "git@example.test:studio/empty.git" }]);
+    publish(empty, "a.yaml", "a: 1\n");
+    publish(empty, "b.yaml", "b: 1\n");
+    await store.sync({ force: true });
+    expect(store.view().libraries[0]).toMatchObject({ behind: 2 });
+    await store.sync({ pull: true });
+    expect(store.view().libraries[0].behind).toBeUndefined();
+    expect(existsSync(join(data, "libraries", "st0", "b.yaml"))).toBe(true);
   });
 
   it("prunes the clone of a library the list dropped", async () => {

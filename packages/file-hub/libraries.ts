@@ -363,16 +363,13 @@ export class LibraryStore {
     }
   }
 
-  /** How many commits `@{u}` has that HEAD does not. */
+  /** How many commits `@{u}` has that HEAD does not — all of them, for a clone made while the repository was empty. */
   private async countBehind(
     at: string,
     env: NodeJS.ProcessEnv,
   ): Promise<number> {
-    const { stdout } = await this.git(
-      at,
-      ["rev-list", "--count", "HEAD..@{u}"],
-      env,
-    );
+    const range = (await this.head(at, env)) ? "HEAD..@{u}" : "@{u}";
+    const { stdout } = await this.git(at, ["rev-list", "--count", range], env);
     return Number.parseInt(stdout.trim(), 10) || 0;
   }
 
