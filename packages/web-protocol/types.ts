@@ -425,6 +425,8 @@ export interface WebTrack {
   solo: boolean;
   disabled?: boolean; // true ⇒ track is ignored (filtered by the brain); absent when false
   clips: WebClip[];
+  /** A FROZEN lane's authored clips, drawn over its render and opened from it — see packages/song/docs/freeze.md. */
+  frozenMaterial?: WebClip[];
   plugins: WebPlugin[];
   // `docs`/`todos`, `frozen`, `alternatives` and `alternative` all left this type — see docs/document.md.
 }

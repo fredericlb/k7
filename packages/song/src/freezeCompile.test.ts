@@ -68,8 +68,11 @@ describe("a freeze inside one lane's run", () => {
     expect(String(gtr?.clips[0]?.source)).toContain("r.wav");
     // `amp` is baked; `cab`, which is downstream, is still built and still on this track.
     expect(pluginModules(gtr)).toEqual(["cab"]);
+    // What the render replaced travels BESIDE the clips, for the browser to draw — never in them.
+    expect(gtr?.frozenMaterial?.map((c) => c.name)).toEqual(["riff"]);
     // …and nothing else in the song noticed.
     expect(trackOf(doc, "keys")?.clips.length).toBe(1);
+    expect(trackOf(doc, "keys")?.frozenMaterial).toBeUndefined();
     expect(pluginModules(trackOf(doc, "verb"))).toEqual(["plate", "verb"]);
   });
 
@@ -79,6 +82,7 @@ describe("a freeze inside one lane's run", () => {
     setYaml(join(p, "nodes", "amp.yaml"), ["frozen"], "renders/gone.wav");
     const doc = compileNodeProject(p);
     expect(trackOf(doc, "gtr")?.clips.map((c) => c.name)).toEqual(["riff"]);
+    expect(trackOf(doc, "gtr")?.frozenMaterial).toBeUndefined();
     expect(pluginModules(trackOf(doc, "gtr"))).toEqual(["amp", "cab"]);
   });
 });
@@ -91,6 +95,10 @@ describe("a freeze at a bus", () => {
     // Both lanes are inside the render, so playing them again would be the take twice.
     expect(trackOf(doc, "gtr")?.clips).toEqual([]);
     expect(trackOf(doc, "keys")?.clips).toEqual([]);
+    // …and each still carries what it was, though the render plays on another track.
+    expect(trackOf(doc, "keys")?.frozenMaterial?.map((c) => c.name)).toEqual([
+      "riff",
+    ]);
     expect(pluginModules(trackOf(doc, "gtr"))).toEqual([]);
     // The bus return carries the render, and `plate` — downstream of the point — still runs on it.
     const bus = trackOf(doc, "verb");

@@ -912,6 +912,14 @@ function compileNodeProjectIn(
               events.map((p) =>
                 placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
               ),
+        // …and what the render replaced, kept for the browser to draw over it and open (docs/freeze.md).
+        ...(frozenLanes.has(lane) && events.length
+          ? {
+              frozenMaterial: events.map((p) =>
+                placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+              ),
+            }
+          : {}),
         plugins: [
           ...(patterns.has(id) ? [patterns.get(id) as PluginDoc] : []),
           ...(trackPlugins[id] ?? []),

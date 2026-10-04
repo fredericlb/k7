@@ -153,6 +153,8 @@ export interface TrackDoc {
   monitor: string; // Tracktion's "off" | "auto" (armed) | "on"; ignored when inputChannels is empty
   inputGain: number; // interface input trim in dB, 0 == unity; ignored when inputChannels is empty
   clips: ClipDoc[];
+  // A FROZEN lane's authored clips, which its render replaced in `clips` — for the browser to draw; the engine ignores it.
+  frozenMaterial?: ClipDoc[];
   plugins: PluginDoc[];
   sends: SendDoc[];
   automation: AutomationDoc[];
