@@ -1,6 +1,6 @@
 // librariesRoutes.ts — `/account/libraries*`, answered by the HUB and never forwarded: the list and
 // the clones are the origin's, not an account's, so no account's file service holds them. Reading
-// is everyone's; changing the list, forcing a pull and the server's key are the admins'.
+// and retrying a clone are everyone's; changing the list, forcing a pull and the server's key are the admins'.
 // See docs/fileHub.md.
 
 import type { Request, Response } from "express";
@@ -38,6 +38,13 @@ export async function librariesRoute(
     // A library added a minute ago is cloned behind the answer, at most once a minute.
     void store.sync().catch(() => undefined);
     res.json(store.view());
+    return;
+  }
+  // Clone again what failed — a deploy key just added at the host, say. Anyone may: it changes nothing anybody wrote.
+  if (req.method === "POST" && sub === "/retry") {
+    const body = (await jsonBody(req)) as { name?: unknown };
+    const name = typeof body.name === "string" ? body.name : undefined;
+    res.json(store.view(await store.sync({ name, force: true })));
     return;
   }
   if (!admin) {

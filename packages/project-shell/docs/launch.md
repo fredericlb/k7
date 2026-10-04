@@ -76,7 +76,7 @@ the way back.
 An account with **no library** is the same case one level up, and goes the same way:
 **`renderNoLibraries`** draws the app's form for adding one under the refusal, and its `onAdded`
 re-runs the resolve. A refusal that sends you to another page to fix it is a dead end; st0 puts its
-Libraries panel there, which an admin can add to and anyone else reads, being told to ask one.
+Libraries page there, which an admin can add to and anyone else reads, being told to ask one.
 
 `onCreated` re-runs the whole resolve rather than being told what was made. The wizard therefore
 does not have to report a project, an address or a workspace correctly: it makes one and asks the
@@ -102,7 +102,7 @@ there — never through the gate.
 (the file hub answers it): every `@<library>/…` ref resolves against one of them, so without
 any the rig opens with every shared module missing, which reads as a broken rig rather than as an
 account nobody finished setting up — hence a screen of its own and no Retry, the answer staying the
-answer until an admin sets it in st0's Libraries panel (`apps/st0/frontend/docs/projects.md`). A workspace
+answer until an admin sets it in st0's Libraries page (`apps/st0/frontend/docs/projects.md`). A workspace
 on this machine is what a NEW account has — `Examples`, seeded with the demos — and a new account
 has no library: refusing it would put the demos behind the one piece of setup they exist to
 precede, and a song that needs a library says so itself, as an unresolved reference.

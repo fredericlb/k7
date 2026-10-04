@@ -63,6 +63,7 @@ routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 /@local/demos/x.st0   a project, by its workspace and its folder — see below
 /@banc/@st0/live.st0  an admin's bench on a library
 /external             the menu of surfaces a second device drives
+/libraries            the origin's libraries — read by anyone, edited by an admin
 ```
 
 **The path belongs to the launch.** `parseLaunch` reads it before anything is mounted, and the
@@ -85,6 +86,7 @@ switched off:
 | `/@shares/<token>.st0` | `SharedGate` — no account, no engine, no working copy |
 | `/` | `AuthGate` → `Home` — the account, and nothing else |
 | `/external` | `AuthGate` → `ExternalIndex` — probes for a machine without claiming one |
+| `/libraries` | `AuthGate` → `LibrariesPage` — the account's file service, no engine |
 | `/@local/…`, `/@banc/…` | `AuthGate` → `EngineGate` → `ProjectGate` → the editor |
 
 The `Profiler` stays on the editor's stack only: it bills every commit of the subtree to keep the rare long
@@ -169,12 +171,14 @@ avoided everywhere else. A line this
 screen does not know is refused **here**: there is no service behind to pass it to, unlike the
 editor's bar, whose lines end at `/command`.
 
-## The LIBRARIES, behind the header and the admins'
+## The LIBRARIES, a page of their own and the admins'
 
 The libraries are named repositories of the modules and chains every project inherits, and there
-is **one list for the whole origin**, not one per account. It is drawn in a panel the header's
-**Libraries** entry opens (`LibrariesCard.tsx`), not on the page: the list changes rarely, and only
-an admin may change it. Without a library st0 refuses to open anything — not on principle, but
+is **one list for the whole origin**, not one per account. It is a PAGE, `/libraries`
+(`LibrariesPage.tsx`, drawing `LibrariesCard.tsx`), which the header's **Libraries** entry links
+to — reserved like `/external`, and read before `parseLaunch`. Not a panel beside the projects: the
+list changes rarely, only an admin changes it, and an admin goes there on purpose to read the
+server's key off it. Without a library st0 refuses to open anything — not on principle, but
 because no `@st0/…` reference would resolve, and a song opened with all its shared modules missing
 reads as a broken song rather than as a server somebody has not finished setting up.
 
@@ -182,19 +186,24 @@ reads as a broken song rather than as a server somebody has not finished setting
 `groups` claim), and the file hub says so in its hello, in the ticket and on every request it
 forwards. The hub answers the libraries routes itself and refuses a change without that
 ([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
-sees the same panel read-only: no add, no remove, no **Update**, no key and no bench. Hiding them is
+sees the same page read-only: no add, no remove, no **Update**, no key and no bench. Hiding them is
 courtesy; the 403 is the gate.
+
+**Retry is anyone's.** A row the server could not clone — or could not pull — carries a **Retry**
+that asks the hub to clone it again (`POST /account/libraries/retry`). The usual cause is a deploy
+key not yet added at the git host, which is fixed elsewhere and then retried here; it changes
+nothing anybody wrote, so it needs no admin.
 
 **The page itself says something only when something is wrong** (`LibrariesNotice.tsx`): no library
 yet, or one the server could not clone. In that case it shows one amber line at the top, with a
-button that opens the panel. A healthy list costs the page nothing.
+link to the Libraries page. A healthy list costs the page nothing.
 
 **A list, each one named.** The name is the level its refs use — `@drums/audio/kick` — and it is
 optional in the form: the first library is called `st0`, which is what every `@st0/…` written before
 libraries had names means, and any other takes its repository's name. **The server clones each one
 once**, with a key of its own, and every account reads that clone
 ([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). So the
-panel shows admins the SERVER's public key, which each library repository must accept as a
+page shows admins the SERVER's public key, which each library repository must accept as a
 read-only deploy key: no account's key is involved in reading a library. A clone that fails later
 is shown on its row with git's words. A row's ✕ removes a library and its clone.
 
@@ -281,11 +290,15 @@ exist inside a project with the plugin loaded. The bench is that project — a l
 on every open and saved nowhere ([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
 
 **This page has no bench card.** A bench is always ON something: `/@banc/@<library>/live.st0` is an
-admin's bench on a library, opened from that library's row in the Libraries panel, and
+admin's bench on a library, opened from that library's row in the Libraries page, and
 `/@banc/<chain>/live.st0` is a chain's, which k7 opens to record through. A bench that names
 nothing would edit nothing and play nothing in particular, so the bare `/@banc/live.st0` is refused.
-The panel is where the library is, so it is where its bench opens: an admin who wants to change a
-module is already looking at the list it is in.
+The Libraries page is where the library is, so it is where its bench opens: an admin who wants to
+change a module is already looking at the list it is in.
+
+**The bench is in no list of workspaces.** Its `Banc` folder is a workspace on disk, but it is
+reached by an address and rebuilt on every open; a row for it on this page would offer to open,
+publish or delete a rig that is thrown away anyway. `workspaceNames` drops it with the hidden ones.
 
 ## A project opens in THIS tab, and a back arrow returns
 
@@ -713,7 +726,7 @@ Every git operation this app STARTS locks the page until it is done: one overlay
 the screen, saying in words what git is doing, over a bar that is measured when git reports a
 percentage (a clone) and slides otherwise. Keys are swallowed while it is up. That covers the home
 page's clone, publish, compact, and the project create / copy / rename / delete that commit, the
-libraries panel's add / remove / update, and the editor's `project commit`, `project pull` and
+Libraries page's add / remove / update, and the editor's `project commit`, `project pull` and
 `project alternative` — all through `runGit` in `src/components/GitBusy.tsx`, and
 `<GitBusyOverlay/>` mounted once in `Home.tsx` and once in `App.tsx`.
 
@@ -761,11 +774,14 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
   greyed, and hovering one says to add the repository first;
 - **add a libraries repository** (as an admin, the server's key added to it as a read-only deploy
   key): the button says *Clonage…* and waits — a clone, not a spelling check. Give it a URI whose
-  host is wrong → the refusal carries git's own words, the panel still reads as empty, and the two
-  workspace buttons are still greyed. Give it a real one → the panel lists `@st0`, both buttons come
+  host is wrong → the refusal carries git's own words, the page still reads as empty, and the two
+  workspace buttons are still greyed. Give it a real one → the page lists `@st0`, both buttons come
   back, and `<dataRoot>/libraries/st0` is on disk;
 - **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ removes it and its clone;
-- **as a non-admin**: the panel lists the libraries with no add, ✕, Update, key or Bench;
+- **as a non-admin**: the page lists the libraries with no add, ✕, Update, key or Bench;
+- **a library the server cannot clone** (its key not yet a deploy key there): the row says *clone
+  failed* with git's words and a **Retry**; add the key at the host, Retry → the row is cloned;
+- **open a library's bench, then go home** → `Banc` is not in the list of workspaces;
 - **a row's Bench**, as an admin: opens `/@banc/@st0/live.st0` on a rig you can play. Edit a module
   of `@st0` → the bottom row says what changed; **Discard** puts it back, **Commit & push** publishes
   it and the row goes away. Wire something into the rig, reopen it → the rig is the scaffold again;

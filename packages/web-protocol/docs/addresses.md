@@ -236,3 +236,6 @@ this account can drive, across every project on the machine. It needs no project
 which is why it sits at the app's mount rather than under one. `isExternalIndex` matches it —
 exactly one segment, `external`, after the mount — and `main.tsx` reads it before `parseLaunch`.
 Since every project address starts with a sentinel, the plain word collides with nothing.
+
+`/libraries` is the second such page, st0's list of the origin's libraries, matched by
+`isLibrariesPage` the same way and for the same reason: it opens no project.

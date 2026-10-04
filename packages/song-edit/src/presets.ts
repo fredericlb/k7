@@ -193,7 +193,7 @@ export function writeNodePreset(
     throw new Error(`'${node}' extends no module, so it has no presets`);
   if (scope !== WORKSPACE_SCOPE && libraryOverlay()?.name !== scope)
     throw new Error(
-      `a preset is kept in '${scope}' from its bench only — an admin opens it from the Libraries panel`,
+      `a preset is kept in '${scope}' from its bench only — an admin opens it from the Libraries page`,
     );
   const path = presetFile(dir, scope, ref, name.trim());
   const exists = existsSync(path);

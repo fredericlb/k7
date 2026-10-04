@@ -11,7 +11,7 @@ can name comes from. There are two, and a bench always names what it is ON:
 - **`/@banc/@<library>/live.st0`** — an admin's bench ON a library: the rig, with that library
   read from a clone of the admin's own instead of the server's. It is the only place a library is
   written ([apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md)), and
-  it is opened from the library's row in st0's Libraries panel. Anyone else gets a 403: a library
+  it is opened from the library's row in st0's Libraries page. Anyone else gets a 403: a library
   is every account's, and only the origin's admins change it.
 - **`/@banc/<chain ref>/live.st0`** — the rig with a **copy** of that library chain between the
   input and the fader. It is how a chain is HEARD on a live input — k7 records through it
@@ -86,7 +86,7 @@ A chain with a **cold** step is refused on the seeded address, since it cannot r
 None of this is covered by a green suite past `packages/file-service/src/bench.test.ts`, which
 proves the folder is rebuilt and that nothing leaves it.
 
-- as an admin, open `@st0`'s **Bench** from the Libraries panel → the graph shows the input, the
+- as an admin, open `@st0`'s **Bench** from the Libraries page → the graph shows the input, the
   fader and the master run, with no library chain named anywhere;
 - name a library module in the graph, save, listen → it is in the run;
 - reopen the bench → the graph is the scaffold again, and what you wired is gone;

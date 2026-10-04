@@ -4,6 +4,7 @@ import {
   BENCH_PROJECT,
   BENCH_REPO,
   benchChainOf,
+  benchLibraryOf,
   benchProject,
   EXTERNAL_INDEX,
   EXTERNAL_SEGMENT,
@@ -13,11 +14,13 @@ import {
   isBenchProject,
   isDroppableProject,
   isExternalIndex,
+  isLibrariesPage,
   isLocal,
   isProjectAddress,
   isShare,
   LOCAL_REPO,
   launchUrl,
+  libraryBenchProject,
   localProjectUrl,
   localTarget,
   PROJECT_SUFFIXES,
@@ -461,8 +464,22 @@ describe("which addresses open a project", () => {
   });
 
   it("says no to the home page and to the chrome", () => {
-    for (const p of ["/", "", "/@tabs", "/external"])
+    for (const p of ["/", "", "/@tabs", "/external", "/libraries"])
       expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
+  });
+
+  it("finds the libraries page at the mount, exactly one segment", () => {
+    expect(isLibrariesPage("/libraries", "/")).toBe(true);
+    expect(isLibrariesPage("/libraries/", "/")).toBe(true);
+    expect(isLibrariesPage("/libraries/x.st0", "/")).toBe(false);
+    expect(isLibrariesPage("/external", "/")).toBe(false);
+  });
+
+  it("names a library's bench, and tells it from a chain's", () => {
+    expect(benchLibraryOf(libraryBenchProject("drums"))).toBe("drums");
+    expect(benchLibraryOf(benchProject("@st0/live/vocals"))).toBeNull();
+    expect(benchLibraryOf(benchProject("live/vocals"))).toBeNull();
+    expect(benchLibraryOf(benchProject())).toBeNull();
   });
 
   it("says no to something that is not an address at all", () => {

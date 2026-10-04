@@ -1606,7 +1606,7 @@ export class Workspace {
     const benched = libraryOverlay();
     if (lib && lib.name !== benched?.name)
       throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': a library is edited on its bench, which an admin opens from the Libraries panel`,
+        `can't ${verb} '${this.toRel(abs)}': a library is edited on its bench, which an admin opens from the Libraries page`,
       );
   }
 

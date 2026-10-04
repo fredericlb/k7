@@ -13,6 +13,7 @@ import {
   projectBasename,
 } from "@studio/project-shell/launch";
 import {
+  isLibrariesPage,
   isShare,
   projectLabel,
   shareToken,
@@ -42,6 +43,7 @@ import { PROFILING } from "@studio/project-shell/profiling";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { Home } from "./projects/Home";
+import { LibrariesPage } from "./projects/LibrariesPage";
 
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
@@ -65,6 +67,12 @@ const at = parseLaunch(
 const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
 
 /** …and the MENU of surfaces, `/external`, read BEFORE any of it: a single segment is a legal project address, so the word is reserved. */
+/** …and the LIBRARIES page, `/libraries`, reserved for the same reason. */
+const librariesPage = isLibrariesPage(
+  window.location.pathname,
+  import.meta.env.BASE_URL,
+);
+
 const externalIndex = isExternalIndex(
   window.location.pathname,
   import.meta.env.BASE_URL,
@@ -152,6 +160,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             {externalIndex ? (
               // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
               <ExternalIndex />
+            ) : librariesPage ? (
+              <LibrariesPage />
             ) : !at ? (
               <Home />
             ) : profiling ? (

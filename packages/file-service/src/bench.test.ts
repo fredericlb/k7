@@ -25,6 +25,7 @@ import { BENCH_WORKSPACE, ensureBench } from "./bench.ts";
 import { closeLibraryBench } from "./libraryBench.ts";
 import { slugify } from "./slug.ts";
 import { Workspace } from "./workspace.ts";
+import { listWorkspaces } from "./workspaces.ts";
 
 const EMAIL = "someone@example.test";
 
@@ -95,6 +96,13 @@ describe("the bench on a library", () => {
     const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
     expect(graph).toContain("IN: [ fader ]");
     expect(existsSync(join(benchDir(), "surfaces"))).toBe(false);
+  });
+
+  it("is not one of the workspaces the home page lists", async () => {
+    mkdirSync(join(rootDir(), "songs"), { recursive: true });
+    await openLibraryBench();
+    expect(existsSync(benchRoot())).toBe(true);
+    expect(listWorkspaces(EMAIL).map((w) => w.name)).toEqual(["songs"]);
   });
 
   it("throws away what was wired on it, at the next open", async () => {

@@ -33,7 +33,7 @@ import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { HomeSettings } from "../settings/HomeSettings";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
-import { accountFiles, shares as sharesApi } from "./api";
+import { accountFiles, librariesHref, shares as sharesApi } from "./api";
 import {
   type ArmedDelete,
   buildHomePalette,
@@ -41,7 +41,6 @@ import {
   homeArgValues,
   runHomeCommand,
 } from "./homeCommands";
-import { LibrariesCard } from "./LibrariesCard";
 import { ProjectsPane } from "./ProjectsPane";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -58,10 +57,7 @@ export function Home() {
   // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
   // SERVER comes back with it, because the app switch needs it — the other apps are ITS.
   const [isDesktop, setIsDesktop] = useState(false);
-  // ONE right column, so one panel at a time: the settings, or the libraries.
-  const [panel, setPanel] = useState<"settings" | "libraries" | null>(null);
-  const toggle = (p: "settings" | "libraries") =>
-    setPanel((v) => (v === p ? null : p));
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [server, setServer] = useState<string | null>(null);
   useEffect(() => {
     void desktop.state().then((d) => {
@@ -95,7 +91,7 @@ export function Home() {
     void probe();
   }, [probe]);
 
-  // The libraries, read here for the notice and the workspace buttons; the panel's card reports its edits back.
+  // The libraries, read here for the notice and the workspace buttons; they are edited on their own page.
   const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
     undefined,
   );
@@ -309,20 +305,16 @@ export function Home() {
               variant="ghost"
               size="sm"
               title={m["home.settingsHint"]()}
-              aria-expanded={panel === "settings"}
-              onClick={() => toggle("settings")}
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen((v) => !v)}
             >
               <SlidersHorizontal className="h-4 w-4" /> {m["home.settings"]()}
             </Button>
-            {/* Libraries — the origin's list, every account's; an admin edits it there, anyone else reads it (./LibrariesCard.tsx). */}
-            <Button
-              variant="ghost"
-              size="sm"
-              title={m["home.librariesHint"]()}
-              aria-expanded={panel === "libraries"}
-              onClick={() => toggle("libraries")}
-            >
-              <LibraryBig className="h-4 w-4" /> {m["home.libraries"]()}
+            {/* Libraries — a PAGE of its own, `/libraries`: the origin's list, which an admin edits there (./LibrariesPage.tsx). */}
+            <Button variant="ghost" size="sm" asChild>
+              <a href={librariesHref()} title={m["home.librariesHint"]()}>
+                <LibraryBig className="h-4 w-4" /> {m["home.libraries"]()}
+              </a>
             </Button>
             {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
             <Button variant="ghost" size="sm" asChild>
@@ -366,20 +358,12 @@ export function Home() {
             fileService={fileService ?? null}
             onOpen={open}
             onChanged={changed}
-            onOpenSettings={() => setPanel("settings")}
+            onOpenSettings={() => setSettingsOpen(true)}
             libraries={libraries}
-            onOpenLibraries={() => setPanel("libraries")}
           />
         </div>
-        <RightPanel open={panel !== null} width="w-[24rem]">
-          {panel === "libraries" ? (
-            <LibrariesCard
-              fileService={fileService ?? null}
-              onLibraries={setLibraries}
-            />
-          ) : (
-            <HomeSettings onClose={() => setPanel(null)} />
-          )}
+        <RightPanel open={settingsOpen} width="w-[24rem]">
+          <HomeSettings onClose={() => setSettingsOpen(false)} />
         </RightPanel>
       </div>
 

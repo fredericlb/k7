@@ -27,6 +27,7 @@ import type {
   WorkspaceSummary,
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
+import { BENCH_WORKSPACE } from "./bench.ts";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
 import { refreshLibraries, retireWorkspaceLibraries } from "./libraries.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
@@ -438,11 +439,16 @@ export function listWorkspaces(_userEmail: string): WorkspaceSummary[] {
   return out;
 }
 
-/** The workspace folders under a user root, sorted — the one place the hidden ones are dropped. */
+/** The workspace folders under a user root, sorted — the one place the hidden ones are dropped, the BENCH's among them: it is opened by its address, never chosen from a list. */
 export function workspaceNames(dir: string): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .filter(
+        (e) =>
+          e.isDirectory() &&
+          !e.name.startsWith(".") &&
+          e.name !== BENCH_WORKSPACE,
+      )
       .map((e) => e.name)
       .sort((a, b) => a.localeCompare(b));
   } catch {

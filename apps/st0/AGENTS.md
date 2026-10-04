@@ -227,7 +227,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
   others offer **New folder…** and **New module…**. A library module opens the same builder,
   but **a library is written only on its BENCH** — `/@banc/@<name>/live.st0`, an admin's, opened
-  from the library's row in the Libraries panel; anywhere else the file service refuses the write.
+  from the library's row in the Libraries page; anywhere else the file service refuses the write.
   There, Save writes into `_libraries/<name>/…`, which is the admin's own clone of THAT library,
   and nothing is published until the editor's bottom row (`frontend/src/components/BenchLibraryRow.tsx`) commits and
   pushes it — or discards it. Nothing forks, because the library is the only copy, and no song
@@ -238,8 +238,9 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   chain's bench, `/@banc/<chain>/live.st0`, is a live RIG kept nowhere that edits no library.
 
   **st0 will not open a project without a library.** The origin has ONE list, which the admins
-  (pl8's `AUTH_ADMIN_GROUPS`) edit in the home page's header panel, **Libraries** — the same panel
-  that shows them the server's key and each library's **Bench**. `ProjectGate` refuses before it
+  (pl8's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
+  page's header — the same page that shows them the server's key and each library's **Bench**,
+  and anyone a **Retry** on a library the server failed to clone. `ProjectGate` refuses before it
   clones anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
   `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer
