@@ -9,7 +9,8 @@
 import { useEngineStoreOrNull } from "@studio/engine-browser/store";
 import type { RackLitStore } from "@studio/ui-chains-react";
 import { useEffect, useMemo } from "react";
-import type { WebGraph, WebProject } from "./types";
+import { clipLoop } from "./clipLoop";
+import type { WebClip, WebGraph, WebNote, WebProject } from "./types";
 
 /** One note reaching a rack, in ARRANGEMENT beats: when it starts, when it stops, which key. */
 export interface Hit {
@@ -20,6 +21,30 @@ export interface Hit {
 
 /** The shortest a pad stays lit, in beats — a floor on the DISPLAY, not on the note, so a thirty-second hit does not flicker. */
 export const MIN_FLASH_BEATS = 0.25;
+
+/** One clip's notes in arrangement beats — a LOOPED event tiles its window's notes across its placed length, as the engine plays them. */
+function clipHits(c: WebClip, out: Hit[]): void {
+  const hit = (at: number, nt: WebNote): void => {
+    out.push({
+      from: c.start + at,
+      to: c.start + at + Math.max(nt.duration, MIN_FLASH_BEATS),
+      key: nt.key,
+    });
+  };
+  const loop = clipLoop(c);
+  if (!loop) {
+    for (const nt of c.notes) hit(nt.time, nt);
+    return;
+  }
+  const win = c.notes.filter((n) => n.time >= loop.from && n.time < loop.to);
+  const span = c.length > 0 ? c.length : loop.win;
+  for (let k = 0; k < loop.passes; k++)
+    for (const nt of win) {
+      const at = nt.time - loop.from + k * loop.win;
+      // A pass cut short by the placed length plays only the notes that start inside it.
+      if (at < span) hit(at, nt);
+    }
+}
 
 /** Every note reaching each rack node, keyed by module and computed once per project + graph — only MIDI material counts. */
 export function rackHits(
@@ -36,13 +61,7 @@ export function rackHits(
     const racks = chain.use.filter((s) => s.rack?.length);
     if (!racks.length) continue;
     const hits: Hit[] = [];
-    for (const c of lane.clips)
-      for (const nt of c.notes)
-        hits.push({
-          from: c.start + nt.time,
-          to: c.start + nt.time + Math.max(nt.duration, MIN_FLASH_BEATS),
-          key: nt.key,
-        });
+    for (const c of lane.clips) clipHits(c, hits);
     if (!hits.length) continue;
     // Keyed by MODULE and not by chain: a pad knows which module it is drawn on, and one shared by two chains hears both.
     void chainName;

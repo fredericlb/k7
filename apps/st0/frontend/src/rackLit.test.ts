@@ -64,6 +64,42 @@ describe("rackHits", () => {
     expect(hits.kit?.[0].to).toBe(MIN_FLASH_BEATS);
   });
 
+  it("tiles a LOOPED event's window across its placed length, as the engine plays it", () => {
+    const looped = {
+      tempo: 120,
+      tracks: [
+        {
+          id: "beat",
+          clips: [
+            {
+              id: "c",
+              type: "midi",
+              start: 8,
+              // Window [4, 6) of the source, played 2.5 times: the third pass is cut at its middle.
+              length: 5,
+              loopStart: 4,
+              loopEnd: 6,
+              notes: [
+                { time: 0, duration: 1, key: 40 }, // before the window: never plays
+                { time: 4, duration: 1, key: 36 },
+                { time: 5, duration: 1, key: 38 },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as WebProject;
+    const hits = rackHits(looped, graph());
+    expect(hits.kit?.map((h) => [h.from, h.key])).toEqual([
+      [8, 36],
+      [9, 38],
+      [10, 36],
+      [11, 38],
+      [12, 36],
+    ]);
+    expect(litAt(hits.kit ?? [], 10.5)).toEqual(new Set([36]));
+  });
+
   it("gives nothing to a chain with no rack, and nothing for a lane with no notes", () => {
     expect(rackHits(project([]), graph())).toEqual({});
     const noRack = {

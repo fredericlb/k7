@@ -131,6 +131,7 @@ contain the playhead.
 | | lights? | why |
 |---|---|---|
 | a sequence in the project | yes | its notes are in the compiled doc |
+| a LOOPED event of one | yes | the doc states the window, not the passes: the notes inside `[loopStart, loopEnd)` are tiled across the placed length, as the engine plays them (`clipLoop`) |
 | a live MIDI input | **no** | those notes were never written down |
 | a strudel lane | **no** | the engine makes them as it plays; the browser never sees them |
 | accuracy | ~50 ms | the state frame's own rate |
