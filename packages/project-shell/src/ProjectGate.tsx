@@ -28,6 +28,10 @@ import {
   useState,
 } from "react";
 import {
+  EngineLoadScreen,
+  type EngineLoadStrings,
+} from "./EngineLoadScreen.tsx";
+import {
   configureFileApi,
   diagnoseFileService,
   type FileServiceFault,
@@ -52,6 +56,8 @@ type Phase =
   // Nobody has touched this tab for a long time; the one button reopens it — see docs/idle.md.
   /** `why` decides whether waking is automatic: a tab put behind another wakes itself. */
   | { k: "idle"; why: "timeout" | "hidden" }
+  // Opened, and on its way to the engine — copied, applied, dry-run; see EngineLoadScreen.tsx.
+  | { k: "loading"; workspace: string; project: string }
   | { k: "open"; workspace: string; project: string };
 
 /** What the gate needs about its engine, structurally — see docs/launch.md. */
@@ -88,6 +94,8 @@ export interface ProjectGateStrings {
   idleTitle?: string;
   idleBody?: string;
   resume?: string;
+  /** The wait for the engine after the project opened; English when an app passes none. */
+  loading?: EngineLoadStrings;
 }
 
 /**
@@ -290,7 +298,7 @@ export function ProjectGate({
           }
           if (cancelled) return;
           return setPhase({
-            k: "open",
+            k: "loading",
             workspace: local.workspace,
             project: local.project,
           });
@@ -328,7 +336,7 @@ export function ProjectGate({
           await projectApi.open(bench.project);
           if (cancelled) return;
           return setPhase({
-            k: "open",
+            k: "loading",
             workspace: bench.workspace,
             project: bench.project,
           });
@@ -357,6 +365,16 @@ export function ProjectGate({
       cancelled = true;
     };
   }, [configure, engine.fileBase, target, attempt]);
+
+  if (phase.k === "loading") {
+    const { workspace, project } = phase;
+    return (
+      <EngineLoadScreen
+        strings={strings.loading}
+        onReady={() => setPhase({ k: "open", workspace, project })}
+      />
+    );
+  }
 
   if (phase.k === "open")
     return (

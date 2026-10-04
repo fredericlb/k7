@@ -52,6 +52,11 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   EngineClient: FakeClient,
 }));
+// The dry run sends and asks on its own, which is engineLoad.test.ts's business, not the count pinned here.
+vi.mock("./engineLoad.ts", async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  warmUp: async () => {},
+}));
 
 /** The real one writes yaml and refuses a missing wav; what is under test is which project it is handed. */
 const addTakeToTrack = vi.fn(() => "take-1");

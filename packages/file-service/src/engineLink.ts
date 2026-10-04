@@ -36,6 +36,7 @@ import {
   type ChangedFile,
   type CommandInfo,
   ENGINE_RECONNECT_MIN_MS,
+  type EngineLoadPhase,
   type EngineSyncState,
 } from "@studio/web-protocol";
 import chokidar from "chokidar";
@@ -43,6 +44,14 @@ import { autoFreezer } from "./autoFreezeJobs.ts";
 import { guard } from "./background.ts";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { askBoundMachine } from "./boundMachine.ts";
+import {
+  beginLoad,
+  endLoad,
+  isWarming,
+  loadPhase,
+  type WarmDeps,
+  warmUp,
+} from "./engineLoad.ts";
 import {
   engineSyncState,
   forgetSyncFailure,
@@ -321,14 +330,53 @@ function dropClientProject(ws: Workspace): void {
 
 /** Send a document in `ws`' session once its files are on the engine's machine — docs/engineSync.md. */
 function sendDoc(ws: Workspace, doc: ProjectDoc): void {
-  sendWhenSynced(sessionOf(ws), doc, namedSongFiles, (d) =>
-    ensureEngine(ws)?.sendProject(d),
-  );
+  const session = sessionOf(ws);
+  sendWhenSynced(session, doc, namedSongFiles, (d) => {
+    // The dry run is playing a silenced copy; its restore sends the latest document — docs/engineLoad.md.
+    if (isWarming(session)) return;
+    const c = ensureEngine(ws);
+    if (!c) return endLoad(session);
+    c.sendProject(d);
+    void warmUp(session, d, warmDeps(ws, c));
+  });
+}
+
+/** The dry run's hands on one session's engine link. */
+function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
+  const session = sessionOf(ws);
+  return {
+    sendProject: (d) => c.sendProject(d),
+    play: () => c.transport("play"),
+    stopAndRewind: () => {
+      c.transport("stop");
+      c.transport("rewind");
+    },
+    loaded: async () =>
+      (await awaitSessions(c))?.some((x) => x.id === session && x.loaded),
+    restore: () => {
+      const doc = clientDocs.get(session);
+      const project = served.get(session)?.project;
+      if (doc) sendDoc(ws, doc);
+      else if (project) pushProject(ws, project);
+    },
+    log: (msg) => console.warn(`   ⚠ ${basename(ws.root)}: ${msg}`),
+  };
 }
 
 /** The copy holding `ws`' document back, or the last one that failed, for the /workspace poll. */
 export function engineSyncOf(ws: Workspace | null): EngineSyncState | null {
   return engineSyncState(sessionOf(ws));
+}
+
+/** Where `ws`' opened project stands on its way to playable, for the gate; a failed copy ends the wait. */
+export function engineLoadOf(ws: Workspace | null): EngineLoadPhase | null {
+  const session = sessionOf(ws);
+  const sync = engineSyncState(session);
+  if (sync && (sync.failed || sync.error)) {
+    endLoad(session);
+    return null;
+  }
+  return loadPhase(session);
 }
 
 /** Forget a failed copy and recompile and send the project, which copies again — the dialog's Reload. */
@@ -514,6 +562,8 @@ function sendActiveProject(ws: Workspace, p: string): void {
   try {
     pushProject(ws, p);
   } catch (e) {
+    // Nothing reaches the engine, so nothing is left to wait for: the editor shows the compile error.
+    endLoad(sessionOf(ws));
     // Not fatal — /project-doc and /graph surface it — but never silent, see docs/activeProject.md.
     console.error(
       `   ✗ could not send ${basename(p)} to the engine: ${(e as Error).message}`,
@@ -585,6 +635,8 @@ export function startEngineForActive(ws: Workspace): void {
   // What THIS session was serving: another person opening their song is not a switch here.
   const before = served.get(sessionOf(ws))?.project ?? null;
   const switching = before !== null && p !== before;
+  // A project NEWLY in this session is copied, applied and dry-run before the gate lets go — docs/engineLoad.md.
+  if (p !== before) beginLoad(sessionOf(ws));
   watchStrudel(ws, p);
   // …and the module folders, for a different consumer — see docs/activeProject.md.
   watchModuleFolders(p);
