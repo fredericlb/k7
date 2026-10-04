@@ -40,8 +40,8 @@ Four things are written at init, and each answers a failure:
   will guess.
 - **A `.gitignore`** — `_recycle_bin/`, `_history/`, `*.cache`, `.studio-active`. A clone brings
   its author's; this one never had an author. Without it a deleted project comes back through
-  the repository, and the undo journal — a ring of up to a thousand entries, blobs included — is
-  committed and pushed with the song.
+  the repository. The undo journal is not in a workspace at all ([history.md](history.md)); the
+  `_history/` line keeps any such folder out of a commit all the same.
 - **A repo-local `user.email` / `user.name`.** Not hygiene: `gitEnvFor` pins
   `GIT_CONFIG_GLOBAL` to `/dev/null` (see below), so a machine WITH a git identity has none
   here, and the very first commit would fail with *"Please tell me who you are"* — on a musician's

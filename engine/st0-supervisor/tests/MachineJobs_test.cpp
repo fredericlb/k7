@@ -1,6 +1,7 @@
 // MachineJobs_test.cpp — the jobs that only answer, called as the agent calls them: the log seeded
 // by its tail and continued by offset, a local path handed back under `raw`, a set list counted,
-// and the providers going through the one accessor rather than the file.
+// the providers going through the one accessor rather than the file, an undo's audio sent back,
+// and the month after which this machine stops keeping it.
 
 #include "MachineJobs.h"
 #include "Paths.h"
@@ -115,6 +116,49 @@ void providersGoThroughTheAccessor()
     CHECK((read[0]["providers"] == json{"dml", "cpu"}));
 }
 
+// The reply must NAME the file, freshly stamped: that is what makes the channel upload it.
+void keptAudioIsSentBackUp()
+{
+    const auto dir = scratch();
+    const auto blob = dir / "1-b0";
+    std::ofstream(blob) << "old";
+    const auto before = fs::file_time_type::clock::now() - std::chrono::hours(48);
+    fs::last_write_time(blob, before);
+    std::vector<std::string> held;
+    auto jobs = st0::machineJobs(fakeAccess(held));
+    auto r = ask(jobs, {{"type", "send-up"}, {"file", st0::paths::utf8(blob)}});
+    CHECK(r[0]["type"] == "sent");
+    CHECK(r[0]["file"] == st0::paths::utf8(blob));
+    CHECK(fs::last_write_time(blob) > before);
+    bool threw = false;
+    try {
+        ask(jobs, {{"type", "send-up"}, {"file", st0::paths::utf8(dir / "gone")}});
+    } catch (const std::exception&) {
+        threw = true;
+    }
+    CHECK(threw);
+}
+
+void keptHistoryGoesAfterAMonth()
+{
+    const auto remote = scratch() / "remote";
+    const auto kept = remote / "server" / "history-fred" / "song-0123" / "blobs";
+    const auto other = remote / "server" / "ws-fred";
+    fs::create_directories(kept);
+    fs::create_directories(other);
+    std::ofstream(kept / "old") << "x";
+    std::ofstream(kept / "new") << "x";
+    std::ofstream(other / "clip.wav") << "x";
+    const auto old = fs::file_time_type::clock::now() - st0::kKeptHistoryTtl - std::chrono::hours(1);
+    fs::last_write_time(kept / "old", old);
+    fs::last_write_time(other / "clip.wav", old);
+    CHECK(st0::purgeKeptHistory(remote) == 1);
+    CHECK(!fs::exists(kept / "old"));
+    CHECK(fs::exists(kept / "new"));
+    // Only what a server asked to KEEP: a workspace copy is not this purge's.
+    CHECK(fs::exists(other / "clip.wav"));
+}
+
 }  // namespace
 
 void runMachineJobsTests()
@@ -124,4 +168,6 @@ void runMachineJobsTests()
     RUN(aLocalPathComesBackRaw);
     RUN(aSetListIsCounted);
     RUN(providersGoThroughTheAccessor);
+    RUN(keptAudioIsSentBackUp);
+    RUN(keptHistoryGoesAfterAMonth);
 }

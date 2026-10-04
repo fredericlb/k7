@@ -543,6 +543,9 @@ export const LIBRARIES_HOME_DIR = "libraries";
 /** Where automatic VST renders are cached, under the machine's state (`<studioHome>/.renders`) — never in a workspace (packages/song/docs/autoFreeze.md). */
 export const AUTO_RENDERS_HOME_DIR = ".renders";
 
+/** Where every project's undo journal is kept, under the machine's state (`<studioHome>/.history`) — never in a workspace (packages/file-service/docs/history.md). */
+export const HISTORY_HOME_DIR = ".history";
+
 /** The folder a WORKSPACE's own shared library sits in, at the workspace root — the `@workspace` level. */
 export const SHARED_MODULES_DIR = "_modules";
 

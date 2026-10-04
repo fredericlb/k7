@@ -39,6 +39,7 @@ constexpr Ms kSessionsPoll{2000};
 constexpr Ms kPluginsPoll{60000};
 constexpr Ms kPluginsPollFast{2000};
 constexpr Ms kDeregisterBound{1500};
+constexpr Ms kKeptHistoryPurge{3600 * 1000};
 
 using Clock = std::chrono::steady_clock;
 
@@ -620,6 +621,12 @@ struct Supervisor::Impl {
         deregisterFrom(registryUrls, finish);
     }
 
+    static void purgeKeptHistoryNow()
+    {
+        if (const auto n = purgeKeptHistory(paths::studioDir() / "remote"))
+            log::line("supervisor", "purged " + std::to_string(n) + " kept undo file(s) older than a month");
+    }
+
     void installLoops()
     {
         timers.push_back(loop.every(kHeartbeat, [this] { beat(); }));
@@ -627,6 +634,9 @@ struct Supervisor::Impl {
         timers.push_back(loop.every(kDevicesPoll, [this] { pollDevices(); }));
         timers.push_back(loop.every(kEditPluginsPoll, [this] { pollEditPlugins(); }));
         timers.push_back(loop.every(kSessionsPoll, [this] { pollSessions(); }));
+        // The undo audio servers asked this machine to keep: a month after its last use, it goes.
+        purgeKeptHistoryNow();
+        timers.push_back(loop.every(kKeptHistoryPurge, [] { purgeKeptHistoryNow(); }));
         schedulePlugins();
     }
 };

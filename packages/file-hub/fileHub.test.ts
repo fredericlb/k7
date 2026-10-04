@@ -15,14 +15,19 @@ import { FileHub } from "./index.ts";
 const FAKE = `
 import { createServer } from "node:http";
 let engine = null;
+let who = null;
 createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", () => {
     if (req.url === "/health") return res.end("{}");
-    if (req.url === "/hub/engine") engine = JSON.parse(body).url;
+    if (req.url === "/hub/engine") {
+      const b = JSON.parse(body);
+      engine = b.url;
+      who = b.engineId ? b.engineId + "|" + b.engineName : null;
+    }
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ url: req.url, headers: req.headers, body, engine,
+    res.end(JSON.stringify({ url: req.url, headers: req.headers, body, engine, who,
       home: process.env.STUDIO_HOME,
       secret: process.env.STUDIO_HUB_SECRET,
       libraries: process.env.STUDIO_LIBRARIES_HOME,
@@ -37,6 +42,7 @@ interface Echo {
   headers: Record<string, string>;
   body: string;
   engine: string | null;
+  who: string | null;
   home: string;
   secret: string;
   libraries: string;
@@ -75,6 +81,7 @@ describe("the file hub", () => {
         get: (id: string) =>
           claims.has(id)
             ? ({
+                hostname: `rig-${id}`,
                 holders: new Map(
                   (claims.get(id) ?? []).map((h, i) => [
                     String(i),
@@ -187,6 +194,8 @@ describe("the file hub", () => {
     expect(engineBinds()).toHaveLength(1);
     expect(bound.map((b) => b.kind)).toEqual(["engine", "jobs"]);
     expect(echo.engine).toBe("ws://127.0.0.1:4242/api/engine-tunnel/local/k1");
+    // Which engine, by id and name: an undo's audio is kept by one, and its error names it.
+    expect(echo.who).toBe("e1|rig-e1");
     const roots = bound[0].roots as {
       remote: string;
       writable: boolean;
@@ -213,7 +222,13 @@ describe("the file hub", () => {
       writable: true,
     });
     expect(roots[4].remote).toBe(join(dirname(roots[0].remote), ".renders"));
-    expect(roots[5]).toEqual({
+    // The undo journal's cache, writable: the machine keeps its audio and sends a file back for an undo.
+    expect(roots[5]).toMatchObject({
+      name: `history-${roots[0].name.slice(3)}`,
+      writable: true,
+    });
+    expect(roots[5].remote).toBe(join(dirname(roots[0].remote), ".history"));
+    expect(roots[6]).toEqual({
       remote: "/library",
       name: "mediatek",
       writable: false,

@@ -1,18 +1,24 @@
-// history.ts — a per-project undo/redo journal on disk. Records file-content diffs
-// (text inline, binary as backup blobs) as a ring of up to 1000 entries with a cursor;
-// undo/redo write the recorded before/after back over the project. Stored under
-// `_history/` beside the project (hidden by workspace skip()). See docs/history.md.
+// history.ts — a per-project undo/redo journal. Records file-content diffs (text inline, binary as
+// blobs) as a ring of up to 1000 entries with a cursor; undo/redo write the recorded before/after
+// back over the project. The journal lives in the account's `.history/` cache, never in the project
+// or its repository; a blob is handed to the bound ENGINE's machine and fetched back when an undo
+// needs it, so an undo past a step kept by another engine fails rather than guessing. See docs/history.md.
 
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { studioHome } from "@studio/song/studioHome";
+import { HISTORY_HOME_DIR } from "@studio/song-schema/moduleTypes";
 import type { HistoryPeek, HistoryState } from "@studio/web-protocol";
 
+/** A journal folder inside a project: nothing writes one, and the tree and the walks still hide it. */
 const HISTORY_DIR = "_history";
 const MAX_ENTRIES = 1000;
 
@@ -23,11 +29,17 @@ export interface FileChange {
   after: string | null;
 }
 
-// A binary file's change, keyed to backup blobs on disk (filename under blobs/, or null for absent).
+// A binary file's change, keyed to blobs (a file name under blobs/, or null for absent).
 export interface BlobChange {
   path: string;
   before: string | null;
   after: string | null;
+}
+
+/** The engine a step's blobs were handed to: its registry id, and the name an error shows. */
+export interface EngineRef {
+  id: string;
+  name: string;
 }
 
 export interface HistoryEntry {
@@ -37,6 +49,8 @@ export interface HistoryEntry {
   label: string;
   changes: FileChange[];
   blobs: BlobChange[];
+  /** Where the blobs are kept: an engine, or null when none was bound and they stayed here. */
+  keptOn?: EngineRef | null;
 }
 
 export type { HistoryPeek, HistoryState } from "@studio/web-protocol";
@@ -48,10 +62,40 @@ export interface NewEntry {
   blobs: { path: string; before: Buffer | null; after: Buffer | null }[];
 }
 
+/** Where a blob goes once recorded — the bound engine's machine; injected, so a test needs no engine. */
+export interface BlobKeeper {
+  /** The engine bound now, or null. */
+  engine(): EngineRef | null;
+  /** Hand these files to that engine's machine; true once it holds every one. */
+  keep(files: string[]): Promise<boolean>;
+  /** Bring one file back from the bound engine's machine; true once it is on disk here. */
+  fetch(file: string): Promise<boolean>;
+}
+
+/** No engine to keep anything on: every blob stays in the account's cache. */
+export const LOCAL_KEEPER: BlobKeeper = {
+  engine: () => null,
+  keep: async () => false,
+  fetch: async () => false,
+};
+
 interface Journal {
   nextId: number;
   cursor: number; // entries[0..cursor-1] are applied; entries[cursor..] are redoable
   entries: HistoryEntry[];
+}
+
+/** Where every project's journal lives: the account's cache, out of every workspace (docs/history.md). */
+export function historyHome(): string {
+  return join(studioHome(), HISTORY_HOME_DIR);
+}
+
+/** The journal folder of the project at `dir`: its name, for a reader, and a hash of its path, for uniqueness. */
+export function historyStoreFor(dir: string): string {
+  const abs = resolve(dir);
+  const name = basename(abs).replace(/[^\w.-]+/g, "_") || "project";
+  const hash = createHash("sha256").update(abs).digest("hex").slice(0, 12);
+  return join(historyHome(), `${name}-${hash}`);
 }
 
 const filesOf = (e: HistoryEntry): string[] => [
@@ -68,23 +112,23 @@ const peek = (e: HistoryEntry): HistoryPeek => ({
 export class ProjectHistory {
   private loaded = false;
   private j: Journal = { nextId: 1, cursor: 0, entries: [] };
-  private readonly baseDir: string;
+  /** One undo or redo at a time: each may wait on the engine, and both move the cursor. */
+  private queue: Promise<unknown> = Promise.resolve();
+  /** Blobs on their way to the engine, so a caller (a test) can wait for them. */
+  private keeping: Promise<unknown>[] = [];
 
+  /** `storeDir` is the journal's own folder (`historyStoreFor`); `baseDir` the workspace root paths resolve against. */
   constructor(
     private readonly storeDir: string,
-    baseDir?: string,
-  ) {
-    this.baseDir = baseDir ?? storeDir;
-  }
+    private readonly baseDir: string,
+    private readonly keeper: BlobKeeper = LOCAL_KEEPER,
+  ) {}
 
-  private get historyDir(): string {
-    return join(this.storeDir, HISTORY_DIR);
-  }
   private get blobsDir(): string {
-    return join(this.historyDir, "blobs");
+    return join(this.storeDir, "blobs");
   }
   private get journalPath(): string {
-    return join(this.historyDir, "journal.json");
+    return join(this.storeDir, "journal.json");
   }
 
   private load(): void {
@@ -98,7 +142,7 @@ export class ProjectHistory {
   }
 
   private persist(): void {
-    mkdirSync(this.historyDir, { recursive: true });
+    mkdirSync(this.storeDir, { recursive: true });
     writeFileSync(this.journalPath, JSON.stringify(this.j), "utf8");
   }
 
@@ -112,8 +156,16 @@ export class ProjectHistory {
   private blobPath(name: string): string {
     return join(this.blobsDir, name);
   }
+  // Only the copy here: one an engine holds is that machine's to purge (docs/history.md).
   private deleteBlob(name: string | null): void {
     if (name) rmSync(this.blobPath(name), { force: true });
+  }
+  private dropBlobs(entries: HistoryEntry[]): void {
+    for (const dead of entries)
+      for (const b of dead.blobs) {
+        this.deleteBlob(b.before);
+        this.deleteBlob(b.after);
+      }
   }
   private storeBlob(
     id: number,
@@ -146,17 +198,61 @@ export class ProjectHistory {
     copyFileSync(this.blobPath(name), abs);
   }
 
+  /** Hand an entry's blobs to the engine, dropping the copies here once it holds them all. */
+  private keepOnEngine(names: string[]): void {
+    const files = names.map((n) => this.blobPath(n));
+    const run = this.keeper
+      .keep(files)
+      .then((ok) => {
+        if (ok) for (const f of files) rmSync(f, { force: true });
+      })
+      .catch(() => {
+        // Not kept there: the copies here stay, and the entry is undone from them.
+      });
+    this.keeping.push(run);
+  }
+
+  /** Resolves once every blob handed to the engine so far has landed or failed. */
+  async settled(): Promise<void> {
+    await Promise.all(this.keeping);
+  }
+
+  /** Every blob `side` of `e` needs, on disk here — fetched back from its engine; throws before any write when not to be had. */
+  private async ensureBlobs(
+    e: HistoryEntry,
+    side: "before" | "after",
+  ): Promise<string[]> {
+    const fetched: string[] = [];
+    for (const b of e.blobs) {
+      const name = b[side];
+      if (!name || existsSync(this.blobPath(name))) continue;
+      const kept = e.keptOn;
+      if (!kept)
+        throw new Error(
+          `The audio of ${b.path} for this step is no longer kept.`,
+        );
+      const now = this.keeper.engine();
+      if (now?.id !== kept.id)
+        throw new Error(
+          `The audio of ${b.path} for this step is kept by the engine "${kept.name}", not by the one in use. Switch back to "${kept.name}" to go past this step.`,
+        );
+      const file = this.blobPath(name);
+      const ok = await this.keeper.fetch(file).catch(() => false);
+      if (!ok || !existsSync(file))
+        throw new Error(
+          `The engine "${kept.name}" no longer has the audio of ${b.path} for this step: it keeps it for a month.`,
+        );
+      fetched.push(file);
+    }
+    return fetched;
+  }
+
   /** Record one change on top of the stack, dropping any redo tail it lands on. */
   push(e: NewEntry): void {
     this.load();
     if (!e.changes.length && !e.blobs.length) return;
     // Drop the redo tail — a fresh edit forks history.
-    for (const dead of this.j.entries.slice(this.j.cursor)) {
-      for (const b of dead.blobs) {
-        this.deleteBlob(b.before);
-        this.deleteBlob(b.after);
-      }
-    }
+    this.dropBlobs(this.j.entries.slice(this.j.cursor));
     this.j.entries.length = this.j.cursor;
     const id = this.j.nextId++;
     const blobs: BlobChange[] = e.blobs.map((b, n) => ({
@@ -164,6 +260,7 @@ export class ProjectHistory {
       before: this.storeBlob(id, `b${n}`, b.before),
       after: this.storeBlob(id, `a${n}`, b.after),
     }));
+    const engine = blobs.length ? this.keeper.engine() : null;
     this.j.entries.push({
       id,
       ts: Date.now(),
@@ -171,20 +268,21 @@ export class ProjectHistory {
       label: e.label,
       changes: e.changes,
       blobs,
+      ...(blobs.length ? { keptOn: engine } : {}),
     });
     this.j.cursor = this.j.entries.length;
     // Evict from the front past the cap, discarding those entries' blobs.
     if (this.j.entries.length > MAX_ENTRIES) {
       const drop = this.j.entries.length - MAX_ENTRIES;
-      for (const dead of this.j.entries.slice(0, drop))
-        for (const b of dead.blobs) {
-          this.deleteBlob(b.before);
-          this.deleteBlob(b.after);
-        }
+      this.dropBlobs(this.j.entries.slice(0, drop));
       this.j.entries.splice(0, drop);
       this.j.cursor -= drop;
     }
     this.persist();
+    const names = blobs
+      .flatMap((b) => [b.before, b.after])
+      .filter((n) => n !== null);
+    if (engine && names.length) this.keepOnEngine(names);
   }
 
   peekUndo(): HistoryPeek | null {
@@ -207,32 +305,52 @@ export class ProjectHistory {
     };
   }
 
+  /** Apply one entry's `side`, all or nothing: a blob that cannot be had throws before any write. */
+  private async apply(
+    e: HistoryEntry,
+    side: "before" | "after",
+  ): Promise<void> {
+    const fetched = await this.ensureBlobs(e, side);
+    for (const c of e.changes) this.writeText(c.path, c[side]);
+    for (const b of e.blobs) this.restoreBlob(b.path, b[side]);
+    // The engine still holds what was fetched; the copy here was only for this write.
+    for (const f of fetched) rmSync(f, { force: true });
+  }
+
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn);
+    this.queue = run.catch(() => {});
+    return run;
+  }
+
   /** Revert the last applied entry; returns what it touched, or null when there's nothing to undo. */
-  undo(): HistoryPeek | null {
-    this.load();
-    if (this.j.cursor <= 0) return null;
-    const e = this.j.entries[this.j.cursor - 1];
-    for (const c of e.changes) this.writeText(c.path, c.before);
-    for (const b of e.blobs) this.restoreBlob(b.path, b.before);
-    this.j.cursor--;
-    this.persist();
-    return peek(e);
+  undo(): Promise<HistoryPeek | null> {
+    return this.serial(async () => {
+      this.load();
+      if (this.j.cursor <= 0) return null;
+      const e = this.j.entries[this.j.cursor - 1];
+      await this.apply(e, "before");
+      this.j.cursor--;
+      this.persist();
+      return peek(e);
+    });
   }
 
   /** Re-apply the next undone entry; returns what it touched, or null when there's nothing to redo. */
-  redo(): HistoryPeek | null {
-    this.load();
-    if (this.j.cursor >= this.j.entries.length) return null;
-    const e = this.j.entries[this.j.cursor];
-    for (const c of e.changes) this.writeText(c.path, c.after);
-    for (const b of e.blobs) this.restoreBlob(b.path, b.after);
-    this.j.cursor++;
-    this.persist();
-    return peek(e);
+  redo(): Promise<HistoryPeek | null> {
+    return this.serial(async () => {
+      this.load();
+      if (this.j.cursor >= this.j.entries.length) return null;
+      const e = this.j.entries[this.j.cursor];
+      await this.apply(e, "after");
+      this.j.cursor++;
+      this.persist();
+      return peek(e);
+    });
   }
 }
 
-// Whether a directory entry name is the history store — Workspace's skip() hides it.
+// Whether a directory entry name is an in-project journal folder — Workspace's skip() hides it.
 export const isHistoryDir = (name: string): boolean => name === HISTORY_DIR;
 
 export { HISTORY_DIR };
