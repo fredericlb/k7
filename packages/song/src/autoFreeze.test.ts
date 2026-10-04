@@ -87,7 +87,7 @@ describe("where an automatic render is kept", () => {
   it("marks a render used on its atime, leaving its mtime alone", () => {
     const p = project("used");
     const r = render(p, "amp");
-    const old = new Date(Date.now() - 3 * 24 * 3600 * 1000);
+    const old = new Date(Date.now() - 40 * 24 * 3600 * 1000);
     utimesSync(r, old, old);
     compileWithAutoFreezes(p);
     const st = statSync(r);

@@ -63,7 +63,7 @@ every engine copy and every LFS quota pays for renders nobody will play again.
 - **Reached by the engine as a root of its own.** The bound engine sees the cache as
   `renders-<account>`, WRITABLE: the render job writes its wav there and the tunnel uploads it, and a
   doc that plays it gets it copied down like any clip (`packages/file-hub/binding.ts`).
-- **Purged after 48 hours unused** (`packages/file-hub/renderCache.ts`). The HUB sweeps every
+- **Purged after a month (30 days) unused** (`packages/file-hub/renderCache.ts`). The HUB sweeps every
   account's cache hourly, not the file service: an account's service is stopped when idle, which is
   exactly when its renders go stale. A purged render is only a missing one — the next compile plays
   the track live and the freezer makes it again.

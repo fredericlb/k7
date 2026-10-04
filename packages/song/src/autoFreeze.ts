@@ -4,7 +4,7 @@
 // what it was made from changes. Nothing is written to the project's YAML: the render's NAME is a
 // fingerprint of its inputs, so a stale render is simply one whose name nobody asks for.
 // Renders live in a cache OUTSIDE the project (`<studioHome>/.renders`), never in git: an unused
-// one is purged after 48 h, and "used" is its ATIME. Full rationale: docs/autoFreeze.md.
+// one is purged after a month, and "used" is its ATIME. Full rationale: docs/autoFreeze.md.
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync, utimesSync } from "node:fs";

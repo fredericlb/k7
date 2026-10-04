@@ -107,7 +107,7 @@ export class FileHub {
       Math.min(idle, 5 * 60_000),
     );
     this.reaper.unref();
-    // The accounts' automatic renders: one nobody played for 48 h goes (renderCache.ts).
+    // The accounts' automatic renders: one nobody played for a month goes (renderCache.ts).
     const sweep = () => {
       const n = purgeStaleRenders(resolve(opts.dataRoot));
       if (n) log(`purged ${n} unused render(s)`);

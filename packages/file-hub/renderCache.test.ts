@@ -33,7 +33,7 @@ function render(account: string, name: string, atime: number, mtime = atime) {
 }
 
 describe("purgeStaleRenders", () => {
-  it("deletes what nobody used for 48 h, in every account, and keeps the rest", () => {
+  it("deletes what nobody used for a month, in every account, and keeps the rest", () => {
     const old = render("a", "amp-1.wav", NOW - RENDER_TTL_MS - 1);
     const fresh = render("b", "amp-2.wav", NOW - RENDER_TTL_MS + 60_000);
     expect(purgeStaleRenders(root, NOW)).toBe(1);

@@ -3,7 +3,7 @@
 // made on the ENGINE'S machine — the one that has the VSTs: over the bound machine's jobs path when
 // the server hosts the files, by the local engine binary when this service runs beside the engine.
 // It lands in the account's render cache, never in the project: nothing is committed, and the hub
-// purges a render nobody used for 48 h. See docs/autoFreeze.md.
+// purges a render nobody used for a month. See docs/autoFreeze.md.
 
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";

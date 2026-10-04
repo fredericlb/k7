@@ -1,5 +1,5 @@
 // renderCache.ts — purging the accounts' automatic VST renders (`<account>/.renders`) that nobody
-// played for 48 h. The hub runs it, not the file services: an account's service is stopped when
+// played for a month. The hub runs it, not the file services: an account's service is stopped when
 // idle, which is exactly when its renders go stale. "Used" is the later of atime and mtime, since
 // the compile marks a render on its atime alone. See packages/song/docs/autoFreeze.md.
 
@@ -8,9 +8,9 @@ import { join } from "node:path";
 import { AUTO_RENDERS_HOME_DIR } from "@studio/song-schema/moduleTypes";
 
 /** A render nobody used for this long is deleted; the next compile that wants it renders it again. */
-export const RENDER_TTL_MS = 48 * 3600 * 1000;
+export const RENDER_TTL_MS = 30 * 24 * 3600 * 1000;
 
-/** How often the hub sweeps: an hour late on a 48-hour rule is nothing. */
+/** How often the hub sweeps: an hour late on a one-month rule is nothing. */
 export const RENDER_SWEEP_EVERY_MS = 3600 * 1000;
 
 const listOrEmpty = (dir: string): string[] => {
