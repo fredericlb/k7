@@ -8,7 +8,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { clearYamlCache, parsedYaml } from "./yamlCache";
+import { readModuleFile } from "./moduleIO";
+import {
+  clearYamlCache,
+  parsedYaml,
+  settledParse,
+  settledText,
+} from "./yamlCache";
 
 // An mtime is not a key — 76% of fast rewrites share one — so a stamp is trusted only once it is old.
 
@@ -78,5 +84,43 @@ describe("parsedYaml", () => {
     const second = parsedYaml(file()) as { notes: unknown[] };
     // Same object, so the mutation IS visible: which is why the raw is never handed out.
     expect(second.notes).toHaveLength(2);
+  });
+});
+
+describe("settledParse", () => {
+  it("keeps one entry per PARSER, so a file read two ways answers each with its own", () => {
+    writeFileSync(file(), "source: kick.wav\n");
+    settle(file());
+    expect(settledText(file())).toBe("source: kick.wav\n");
+    expect(parsedYaml(file())).toEqual({ source: "kick.wav" });
+    expect(settledText(file())).toBe("source: kick.wav\n");
+  });
+
+  it("serves a settled file without reading it again", () => {
+    writeFileSync(file(), "a: 1\n");
+    settle(file());
+    let parses = 0;
+    const count = (t: string) => {
+      parses++;
+      return t;
+    };
+    settledParse(file(), "counted", count);
+    settledParse(file(), "counted", count);
+    expect(parses).toBe(1);
+  });
+});
+
+describe("readModuleFile", () => {
+  it("hands out a fresh module each time, though the parse behind it is shared", () => {
+    // The loaders write `ui` and `cc` onto the modules they get; that must not reach the next read.
+    writeFileSync(file(), 'extends: "@st0/audio/reverb"\nparams:\n  Mix: 0.3\n');
+    settle(file());
+    const at = { path: file(), rel: "nodes/clip.yaml" };
+    const first = readModuleFile(at).value as Record<string, unknown>;
+    first.ui = { knobs: [] };
+    (first.params as Record<string, number>).Mix = 0.9;
+    const second = readModuleFile(at).value as Record<string, unknown>;
+    expect(second.ui).toBeUndefined();
+    expect(second.params).toEqual({ Mix: 0.3 });
   });
 });

@@ -169,6 +169,20 @@ the reads for two seconds after an edit — and only the file that changed is re
 layer below is still keyed per file. What it would have cost otherwise is the edit you just made
 not existing.
 
+That layer below is `settledParse`, and the vocabulary's three readers sit on it: `readModuleFile`
+(every `module.yaml` and node file), `loadUiLibrary` (every `ui.yaml`) and the `widgets.js` beside
+a panel. Without it, those two seconds re-read every library the project can see, and they are
+exactly the two seconds a command and the browser's follow-up fetches land in. On `01.danse.st0`
+— 15 tracks, 53 plugins, three module libraries — one node edit had the next compile read 740
+files (1,107 reads, `ui.yaml` twice) in 910 ms, and the graph build the same again in 873 ms;
+through the per-file layer each reads only the edited file and costs ~330 ms, the rest being the
+`stat`s that prove the other 739 settled. A kit preset pays both, so that is most of its server
+time.
+
+A parse held there is shared by every later read of the file, so the two YAML readers hand out a
+`structuredClone` of it: `applyUiLibrary` writes `ui` and `cc` onto the modules it gets, which is
+the first of the two rules above. A script is a string, and goes out as it is.
+
 Inside a `withModuleStamp` scope those young reads are held **for the scope**: values built under
 one stamp are consistent with each other, and the danger is only in letting them outlive the
 derivation that asked. That is what keeps a compile from reading the médiathèque three times in the

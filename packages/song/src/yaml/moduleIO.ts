@@ -7,7 +7,6 @@ import {
   type Dirent,
   existsSync,
   readdirSync,
-  readFileSync,
   statSync,
 } from "node:fs";
 import { basename, extname, join } from "node:path";
@@ -16,6 +15,7 @@ import {
   type ModuleIssue,
   parseModule,
 } from "@studio/song-schema/yaml/moduleFile";
+import { settledParse } from "./yamlCache";
 
 export interface ModuleFile {
   /** Absolute path to the file that exists. */
@@ -129,11 +129,12 @@ export interface ReadModule {
   issues: string[];
 }
 
-/** Read one module file, validating it in process. */
+/** Read one module file, validating it in process; a settled file is not read again. */
 export function readModuleFile(file: ModuleFile): ReadModule {
-  const { value, issues } = parseModule(readFileSync(file.path, "utf8"));
+  const { value, issues } = settledParse(file.path, "module", parseModule);
   return {
-    value: (value as Record<string, unknown> | null) ?? null,
+    // Cloned: the loaders write `ui` and `cc` onto what they get, and the parse is shared.
+    value: value ? structuredClone(value as Record<string, unknown>) : null,
     issues: issues.map((i: ModuleIssue) => formatIssue(file.rel, i)),
   };
 }

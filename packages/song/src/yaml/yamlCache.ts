@@ -1,7 +1,7 @@
-// yamlCache.ts — the parsed YAML of one file, kept against its mtime and size, and only once
-// that mtime is old enough that no later write could reproduce it. A compile then re-reads the
-// file it just edited and nothing else. The raw parse never leaves this module — see
-// docs/moduleCache.md for why that is what makes handing the result out safe.
+// yamlCache.ts — one file read and parsed, kept against its mtime and size, and only once that
+// mtime is old enough that no later write could reproduce it. A compile then re-reads the file it
+// just edited and nothing else. What a parser returns is SHARED between callers: hand it out only
+// where something rebuilds or clones it — see docs/moduleCache.md.
 
 import { readFileSync, statSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
@@ -9,7 +9,7 @@ import { parse as parseYaml } from "yaml";
 // this one's, which is why the window has one spelling. See docs/moduleCache.md.
 import { SETTLE_MS } from "../moduleCache";
 
-/** How many parsed files to hold. A song is ~200 of them, and one service drives a handful. */
+/** How many parsed files to hold. A song is ~200 of them, its module libraries ~800 more. */
 const MAX_FILES = 4000;
 
 interface Entry {
@@ -18,38 +18,54 @@ interface Entry {
   value: unknown;
 }
 
+/** Keyed by parser then path, so one file read two ways keeps both. */
 const memo = new Map<string, Entry>();
 
-/** `path` parsed as YAML 1.2, from the cache when it has SETTLED — see docs/moduleCache.md. */
-export function parsedYaml(path: string): unknown {
+/** `parse` of `path`'s text, from the cache when the file has SETTLED — `kind` names the parser. */
+export function settledParse<T>(
+  path: string,
+  kind: string,
+  parse: (text: string) => T,
+): T {
   let st: { mtimeMs: number; size: number };
   try {
     st = statSync(path);
   } catch {
     // Vanished since the readdir: read anyway, and never cache what we could not stat.
-    return parseYaml(readFileSync(path, "utf8"), { version: "1.2" });
+    return parse(readFileSync(path, "utf8"));
   }
+  const key = `${kind}\0${path}`;
   // A future mtime — a skewed clock on a network mount — is never settled, so never cached.
   const settled = Date.now() - st.mtimeMs > SETTLE_MS;
-  const hit = memo.get(path);
+  const hit = memo.get(key);
   if (settled && hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) {
-    memo.delete(path); // insertion order is the LRU: a hit goes back to the young end
-    memo.set(path, hit);
-    return hit.value;
+    memo.delete(key); // insertion order is the LRU: a hit goes back to the young end
+    memo.set(key, hit);
+    return hit.value as T;
   }
-  const value = parseYaml(readFileSync(path, "utf8"), { version: "1.2" });
+  const value = parse(readFileSync(path, "utf8"));
   if (!settled) {
     // Still inside the window where the next write could reuse this stamp — storing it would hit later.
-    memo.delete(path);
+    memo.delete(key);
     return value;
   }
-  memo.delete(path);
-  memo.set(path, { mtimeMs: st.mtimeMs, size: st.size, value });
+  memo.delete(key);
+  memo.set(key, { mtimeMs: st.mtimeMs, size: st.size, value });
   for (const oldest of memo.keys()) {
     if (memo.size <= MAX_FILES) break;
     memo.delete(oldest);
   }
   return value;
+}
+
+/** `path` parsed as YAML 1.2, from the cache when it has SETTLED — see docs/moduleCache.md. */
+export function parsedYaml(path: string): unknown {
+  return settledParse(path, "yaml", (t) => parseYaml(t, { version: "1.2" }));
+}
+
+/** `path`'s text, from the cache when it has SETTLED — a string, so sharing it is safe. */
+export function settledText(path: string): string {
+  return settledParse(path, "text", (t) => t);
 }
 
 /** Forget everything — for a test that wants a cold read of a file it has already loaded. */

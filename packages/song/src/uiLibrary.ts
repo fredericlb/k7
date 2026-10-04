@@ -3,7 +3,7 @@
 // which module a panel belongs to; the file only says how it looks. Read across every module library the project
 // can see, nearest first. Rationale: docs/uiLibrary.md.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   type ModuleUI,
@@ -14,6 +14,7 @@ import { parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { UI_BASE } from "./yaml/moduleIO";
+import { settledParse, settledText } from "./yaml/yamlCache";
 
 /** The panel file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
 export const UI_FILE = `${UI_BASE}.yaml`;
@@ -46,7 +47,7 @@ export function loadUiLibrary(dir: string): UiLibrary {
   const out: UiLibrary = { byRef: {}, issues: [] };
   eachLibrarySibling(dir, UI_BASE, ({ ref, path, rel }, label) => {
     if (out.byRef[ref]) return; // a nearer library already answered — that is precedence working
-    const parsed = parseUiFile(readFileSync(path, "utf8"));
+    const parsed = settledParse(path, "ui", parseUiFile);
     if (!parsed.value) {
       out.issues.push(
         `${label}/${rel}: ${parsed.issues[0]?.message ?? "unreadable"}`,
@@ -56,7 +57,8 @@ export function loadUiLibrary(dir: string): UiLibrary {
     const script = readScriptBeside(path);
     out.byRef[ref] = {
       ref,
-      ui: parsed.value,
+      // Cloned: the parse is shared by every later read of this file.
+      ui: structuredClone(parsed.value),
       path,
       ...(script ? { script } : {}),
     };
@@ -73,7 +75,7 @@ function readScriptBeside(uiPath: string): string | undefined {
   const at = join(dirname(uiPath), WIDGETS_SCRIPT);
   if (!existsSync(at)) return undefined;
   try {
-    return readFileSync(at, "utf8");
+    return settledText(at);
   } catch {
     return undefined; // unreadable is absent: the screen says so, and the panel still loads
   }
