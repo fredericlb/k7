@@ -133,6 +133,17 @@ export function withModuleStamp<T>(dir: string, fn: () => T): T {
   }
 }
 
+/** Run `fn` inside a scope already holding `stamp` — for a pure read that has just paid for the walk. */
+function withStamp<T>(dir: string, stamp: string, fn: () => T): T {
+  const outer = scope;
+  scope = { dir, stamp };
+  try {
+    return fn();
+  } finally {
+    scope = outer;
+  }
+}
+
 /** `build()`'s result for `dir`, kept until the module folders change — see docs/moduleCache.md. */
 export function cachedForModules<T>(
   dir: string,
@@ -145,6 +156,9 @@ export function cachedForModules<T>(
     stamp = scope.stamp;
   } else {
     stamp = stampFor(dir);
+    // A build only READS, so what it asks the cache in turn is answered under the stamp just walked.
+    const own = build;
+    build = () => withStamp(dir, stamp, own);
   }
   // Too young to key on: nothing built now may outlive the caller that asked for it, since the
   // next write can still land under this same stamp. Inside a scope it is held for that scope.
@@ -164,6 +178,33 @@ export function cachedForModules<T>(
   for (const oldest of memo.keys()) {
     if (memo.size <= MAX_ENTRIES) break;
     memo.delete(oldest);
+  }
+  if (!slot.values.has(key)) slot.values.set(key, build());
+  return slot.values.get(key) as T;
+}
+
+/** The stamp minus its mtime: what the folders' NAMES alone say, which no same-tick write can reproduce. */
+const namesOf = (stamp: string): string =>
+  stamp.slice(0, stamp.lastIndexOf(":"));
+const byNames = new Map<string, Slot>();
+
+/** `build()`'s result for `dir` when it depends on which files EXIST and never on what they say — docs/moduleCache.md. */
+export function cachedForModuleNames<T>(
+  dir: string,
+  key: string,
+  build: () => T,
+): T {
+  const stamp = namesOf(
+    scope?.dir === dir ? (scope.stamp ??= stampFor(dir)) : stampFor(dir),
+  );
+  let slot = byNames.get(dir);
+  if (slot && slot.stamp !== stamp) slot = undefined;
+  byNames.delete(dir);
+  if (!slot) slot = { stamp, values: new Map() };
+  byNames.set(dir, slot);
+  for (const oldest of byNames.keys()) {
+    if (byNames.size <= MAX_ENTRIES) break;
+    byNames.delete(oldest);
   }
   if (!slot.values.has(key)) slot.values.set(key, build());
   return slot.values.get(key) as T;

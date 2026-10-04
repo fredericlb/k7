@@ -8,6 +8,7 @@ import { basename, join, resolve } from "node:path";
 import { ENGINES_DIR, engineRefOf } from "@studio/song-schema/engines";
 import { MODULE_TYPES, moduleRefOf } from "@studio/song-schema/moduleTypes";
 import { engineFoldersOf } from "./engines";
+import { cachedForModuleNames } from "./moduleCache";
 import { moduleNamespaceOf, modulePanelRoots } from "./sharedFolders";
 import { moduleFileFor } from "./yaml/moduleIO";
 
@@ -43,8 +44,9 @@ export function siblingsIn(
   };
   const dirs = (abs: string): string[] => {
     try {
-      return readdirSync(abs).filter((n) =>
-        statSync(join(abs, n)).isDirectory(),
+      // A dot folder is skipped because the module stamp skips it, and the walk is cached on that stamp.
+      return readdirSync(abs).filter(
+        (n) => !n.startsWith(".") && statSync(join(abs, n)).isDirectory(),
       );
     } catch {
       return []; // unreadable folder — the rest of the library still loads
@@ -79,11 +81,26 @@ export function eachLibrarySibling(
   base: string,
   take: (found: SiblingFile, library: string) => void,
 ): void {
+  // Which folders hold the file is a matter of NAMES, so it outlives an edit's settle window (docs/moduleCache.md).
+  const found = cachedForModuleNames(dir, `siblings:${base}`, () =>
+    siblingsOf(dir, base),
+  );
+  for (const { file, label } of found) take(file, label);
+}
+
+/** The walk itself, nearest library first; frozen because the cache hands the same list to every caller. */
+function siblingsOf(
+  dir: string,
+  base: string,
+): readonly { file: SiblingFile; label: string }[] {
+  const out: { file: SiblingFile; label: string }[] = [];
   // The project's OWN `modules/` is the one root that is no library, so its null namespace is named here.
   const own = resolve(join(dir, "modules"));
   for (const root of modulePanelRoots(dir)) {
     const ns = resolve(root) === own ? null : moduleNamespaceOf(root);
     const label = basename(root);
-    for (const found of siblingsIn(root, ns, base)) take(found, label);
+    for (const file of siblingsIn(root, ns, base))
+      out.push(Object.freeze({ file: Object.freeze(file), label }));
   }
+  return Object.freeze(out);
 }

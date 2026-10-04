@@ -194,6 +194,29 @@ undo entry is diffed against, so a same-size rewrite inside one tick (`v1` → `
 `0.5` to `0.7`) was journalling nothing at all. `SETTLE_MS` is exported from `moduleCache.ts` and
 imported by both, because three windows that could drift is three chances to be wrong.
 
+### What only NAMES decide is kept through the window
+
+Those two seconds are exactly when an edit's follow-up reads land, and there are many: one
+`node alternative copy` is one compile inside the command, then `/project-errors`, `/hints`,
+`/module-catalogue` and `/base-modules` from the browser — each its own request, so its own
+uncached vocabulary. Inside each, most of the cost was not content but the walk that finds the
+panels and the MIDI maps: per module folder of every library, two `existsSync` misses for
+`ui.yaml`/`.yml`, an `engines/` probe and a `stat` per entry — four walks per vocabulary (panels
+and maps, for `loadModules` and for `loadModuleRefs`).
+
+Which folders hold a `ui.yaml` or a `controller.yaml` is a fact about NAMES, and the stamp already
+hashes every entry name. `cachedForModuleNames` keys on the stamp minus its mtime and has no
+window, because a same-tick write can reproduce an mtime but not a name it adds or removes. The
+CONTENT those files hold still goes through `settledParse`. The walk skips dot folders because the
+stamp does — a folder the stamp cannot see must not be one the index depends on.
+
+And a `build()` handed to `cachedForModules` outside a scope runs inside one holding the stamp it
+was just asked under, so the reads nested in it do not walk again. That is safe for the reason a
+scope is: both builds, `readModules` and `readModuleRefs`, only read.
+
+On `01.danse.st0`, inside the window: `loadModuleRefs` 180 → 112 ms, `loadModules` 100 → 38 ms,
+a compile 310 → 170 ms, a graph build 275 → 150 ms. Settled, nothing changes (~27 ms each).
+
 ### Reading is the syscall, not the byte
 
 Worth knowing before optimising the next one. On this machine `readFileSync` costs ~0.36 ms per
