@@ -14,7 +14,11 @@ function fakeSink(opts: { failOn?: string } = {}) {
       if (path === opts.failOn) throw new Error("boom");
       put.set(
         path,
-        typeof body === "string" ? body : Buffer.from(body).toString("utf8"),
+        typeof body === "string"
+          ? body
+          : body instanceof Blob
+            ? await body.text()
+            : Buffer.from(body).toString("utf8"),
       );
     },
     remove: async (path) => {
