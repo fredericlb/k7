@@ -51,14 +51,14 @@ const input = (g = ws.graphDoc()) => {
 
 /** Run a verb the way the /command route does, and hand back the graph it built. */
 const run = async (line: string) => {
-  const { before, after } = await runWebCommand(ws, line);
-  return {
-    moved: before !== after,
-    graph:
-      before === after
-        ? undefined
-        : ws.withRevision(() => ws.graphDoc(), after),
-  };
+  const { before, after, graph } = await runWebCommand(
+    ws,
+    line,
+    undefined,
+    undefined,
+    { graph: true },
+  );
+  return { moved: before !== after, graph };
 };
 
 describe("an intrinsic a dropdown wrote", () => {

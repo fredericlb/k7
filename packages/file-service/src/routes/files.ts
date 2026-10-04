@@ -553,25 +553,24 @@ filesRouter.post(
     const target = at ? req.ws!.mediaPath(at) : undefined;
     const t0 = performance.now();
     // The two tokens come OUT of the run, so this route takes no walk of its own — see docs/fileRoutes.md.
+    // The graph is built INSIDE the run, under the token it ended on and beside its reload — docs/fileRoutes.md.
     const {
       output,
       before,
       after: rev,
       files,
-    } = await runWebCommand(req.ws!, line, req.userEmail, target);
-    const ran = performance.now();
+      graph,
+      ranAt,
+    } = await runWebCommand(req.ws!, line, req.userEmail, target, {
+      graph: wantsGraph,
+    });
     // The project MOVED — "something", where `changed` on the reply below is "these files".
     const moved = rev !== before;
-    // The graph, drawn in a scope SEEDED with that same token rather than one this route walked for.
-    const graph =
-      moved && wantsGraph
-        ? req.ws!.withRevision(() => req.ws!.graphDoc(), rev)
-        : undefined;
     // One line per WRITING command, in the shape the engine's `[applyFull]` uses — see docs/fileRoutes.md.
     if (moved)
       console.log(
-        `[cmd] ${line.trim().slice(0, 60)} — ran=${(ran - t0).toFixed(0)}ms graph=${
-          wantsGraph ? `${(performance.now() - ran).toFixed(0)}ms` : "skipped"
+        `[cmd] ${line.trim().slice(0, 60)} — ran=${(ranAt - t0).toFixed(0)}ms graph=${
+          wantsGraph ? `${(performance.now() - ranAt).toFixed(0)}ms` : "skipped"
         }`,
       );
     // `refused` — understood and declined, which is neither "it ran" nor "it threw"; sent only when true.

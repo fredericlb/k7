@@ -196,10 +196,16 @@ to diff what the mutation did, so it names both instants off walks it was doing 
 asks for the revision several times over (its own memo, then `clipExtents` through the compiled
 doc). `req.userEmail` lets commit/pull pin git to this user's deploy key — see `makeHost`.
 
+The graph is built INSIDE the run (`runWebCommand(…, { graph })`), not by the route after it: the
+verb's held reload compiles in the same module-stamp scope, so a writing command rebuilds the
+module vocabulary once rather than twice (`docs/activeProject.md`, "A reload is held to the end of
+the run").
+
 One line is logged per WRITING command, in the shape the engine's `[applyFull]` uses: the two
-halves of the wait, so "the insert is slow" can be answered without a profiler.
-`graph=skipped` is the third state and the one worth seeing — a gesture that costs nothing
-here.
+halves of the wait, so "the insert is slow" can be answered without a profiler. `ran=` is the
+verb, journal included; `graph=` is what follows it — the held reload's compile and the graph,
+which share their cost. `graph=skipped` is the third state and the one worth seeing — a gesture
+that costs nothing here; its reload, if it had one, is then counted in `ran=`.
 
 ## `/engine-doc` vs `/project-doc` vs `/video-doc`
 

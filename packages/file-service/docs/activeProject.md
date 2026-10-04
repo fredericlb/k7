@@ -438,6 +438,28 @@ nothing else to do with the tab. A job forgotten between two polls is said as it
 failed separation — the registry keeps a finished job for five minutes, and the files may well be on
 disk.
 
+### A reload is held to the end of the run
+
+`reload` in a web run does not compile. It names the project in `HeldPush`, and the run sends it
+after `recordChange` has closed — inside ONE `withModuleStamp` scope that also builds the graph the
+reply carries, under the `after` token the route used to seed the graph with on its own. A writing
+command is exactly the case the module cache cannot keep: its write moved the stamp less than two
+seconds ago, so each derivation that reads the vocabulary rebuilds it, and the compile and the graph
+used to be two. On `01.danse.st0` a kit preset through the route went from 1.21 s to 0.95 s of server
+time, and every reloading verb pays the same toll.
+
+The scope must open after the last write, never before: verbs write with `fs` beside the service, and
+a scope taken before a write would serve the vocabulary from before it (`packages/song/docs/moduleCache.md`).
+`recordChange` returning is the first point the service KNOWS the writing is over — which is why the
+push waits for it rather than for the verb's own `reload` call.
+
+What the engine sees does not move. Every engine call a verb makes after its reload — transport, arm,
+the plugin and device listings — flushes the held push first, so the document still arrives before
+anything that depends on it. A whole document the verb sends itself (`applyProject`, `sendProject`)
+CANCELS the held one instead: sent after it, the older compile would be the one left playing.
+`heldReload.test.ts` pins that a reloading run reaches the engine once, with what it wrote, before it
+answers.
+
 ## `GLOBAL_COMMAND` is a copy, and it drifts
 
 The verbs that need no active project — the rig preferences, the workspace's set lists, and the whole-repo

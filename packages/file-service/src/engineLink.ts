@@ -23,8 +23,9 @@ import {
 } from "@studio/engine-client/engineClient";
 import type { SessionInfo } from "@studio/engine-client/engineControl";
 import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
+import type { WebGraph } from "@studio/graph-model";
 import { patternFiles } from "@studio/song/enginePattern";
-import { listBaseModules } from "@studio/song/loader";
+import { listBaseModules, withModuleStamp } from "@studio/song/loader";
 import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc } from "@studio/song/project";
 import {
@@ -900,6 +901,23 @@ export function awaitArm(
   });
 }
 
+/** A reload a verb asked for, held until the run's last write — see docs/activeProject.md. */
+interface HeldPush {
+  dir: string | null;
+}
+
+/** Compile and send the reload `held` names, if any, reporting a failure the way `reload` always has. */
+function flushPush(ws: Workspace, out: CommandOutput, held?: HeldPush): void {
+  const dir = held?.dir;
+  if (!held || !dir) return;
+  held.dir = null;
+  try {
+    pushProject(ws, dir);
+  } catch (e) {
+    out.push(`reload error: ${(e as Error).message}`);
+  }
+}
+
 function makeHost(
   ws: Workspace,
   out: CommandOutput,
@@ -907,11 +925,18 @@ function makeHost(
   snapshot?: (absPath: string) => void,
   // Where the verbs act when it is NOT the open project — absolute, resolved and checked by the caller.
   at?: string,
+  // Given by a run that flushes it, so the reload's compile shares the graph's module stamp.
+  held?: HeldPush,
 ): CommandHost {
   const dir = at ?? ws.activeProjectPath();
   const requireDir = (): string => {
     if (!dir) throw new Error(NO_PROJECT);
     return dir;
+  };
+  // Every engine call goes out AFTER the document a reload held back, as it did when reload sent it at once.
+  const engine = (): EngineClient | undefined => {
+    flushPush(ws, out, held);
+    return ensureEngine(ws);
   };
   // The module vocabulary costs ~1 s and only `create module` needs it — hence a memoised getter.
   let baseModuleCache: string[] | undefined;
@@ -938,39 +963,50 @@ function makeHost(
     reload: () => {
       try {
         ws.invalidateProjectDoc();
-        pushProject(ws, requireDir());
+        // Held, when the run will flush it, so its compile and the graph walk the module folders once.
+        if (held) held.dir = requireDir();
+        else pushProject(ws, requireDir());
       } catch (e) {
         out.push(`reload error: ${(e as Error).message}`);
       }
     },
     // Every engine call below names `ws`: defaulting sent transport and arm to the empty room.
-    transport: (a: TransportAction) => ensureEngine(ws)?.transport(a),
+    transport: (a: TransportAction) => engine()?.transport(a),
     arm: (track) => {
-      const c = ensureEngine(ws);
+      const c = engine();
       if (!c || !isReady(ws)) {
         out.push(NO_ENGINE);
         return Promise.resolve(undefined);
       }
       return awaitArm(c, track, out, () => isReady(ws));
     },
+    // A whole document replaces a held reload rather than following it, or the older one would land last.
     applyProject: (p) => {
+      if (held) held.dir = null;
       ws.setCachedProjectDoc(requireDir(), p);
       sendDoc(ws, p);
     },
-    sendProject: (p) => sendDoc(ws, p),
+    sendProject: (p) => {
+      if (held) held.dir = null;
+      sendDoc(ws, p);
+    },
     // Say so when there is nothing to ask, or "opening…" reads as a dead button.
     showNativePluginUI: (id) => {
-      const e = ensureEngine(ws);
+      const e = engine();
       if (!e) out.push(NO_ENGINE);
       else e.showNativePluginUI(id);
     },
-    listPlugins: (filter) =>
-      enginePlugins(ws, (c) => c.listPlugins(filter), out, 4000, false),
-    rescanPlugins: (force) =>
-      enginePlugins(ws, (c) => c.rescanPlugins(force), out, 60000, true),
+    listPlugins: (filter) => {
+      flushPush(ws, out, held);
+      return enginePlugins(ws, (c) => c.listPlugins(filter), out, 4000, false);
+    },
+    rescanPlugins: (force) => {
+      flushPush(ws, out, held);
+      return enginePlugins(ws, (c) => c.rescanPlugins(force), out, 60000, true);
+    },
     getPlugins: (filter) =>
       new Promise<PluginInfo[]>((res) => {
-        const c = ensureEngine(ws);
+        const c = engine();
         if (!c || !isReady(ws)) {
           res([]);
           return;
@@ -1033,14 +1069,14 @@ function makeHost(
     },
     // `system channel type`: the engine makes the pair NOW, and answers WHETHER one heard it.
     setInputStereo: (channel, stereo) => {
-      const c = ensureEngine(ws);
+      const c = engine();
       if (!c || !isReady(ws)) return false;
       c.setInputStereo(channel, stereo);
       return true;
     },
     getAudioDevices: () =>
       new Promise<AudioDeviceInfo[]>((res) => {
-        const c = ensureEngine(ws);
+        const c = engine();
         if (!c || !isReady(ws)) {
           res([]);
           return;
@@ -1076,6 +1112,10 @@ export interface WebCommandRun {
   after: string;
   /** …and which files it wrote, from the same diff. `null` = not known; see `Recorded`. */
   files: ChangedFile[] | null;
+  /** The graph after a WRITING command, when asked for; built beside the held reload. */
+  graph?: WebGraph;
+  /** `performance.now()` when the verb finished — what is after it is the reload and the graph. */
+  ranAt: number;
 }
 
 export async function runWebCommand(
@@ -1084,15 +1124,24 @@ export async function runWebCommand(
   userEmail?: string,
   // The folder the verbs act on when it is not the open project. Absolute; the route checks it.
   at?: string,
+  // Build the graph a writing command's reply carries, in the same module stamp as its reload.
+  opts: { graph?: boolean } = {},
 ): Promise<WebCommandRun> {
   const out: CommandOutput = [];
+  const held: HeldPush = { dir: null };
   // A refusal too, and the first one a caller meets — see docs/activeProject.md.
   if (!at && !ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim())) {
     const no: CommandOutput = [NO_PROJECT];
     no.refused = true;
     // Nothing ran: the two instants are one, and `[]` is the truth where `null` would say "re-ask".
     const rev = ws.revision().rev;
-    return { output: no, before: rev, after: rev, files: [] };
+    return {
+      output: no,
+      before: rev,
+      after: rev,
+      files: [],
+      ranAt: performance.now(),
+    };
   }
   // Journal whatever files the command changes, so Ctrl+Z can undo it (a no-op when nothing changed).
   const { before, after, files } = await ws.recordChange(
@@ -1101,7 +1150,7 @@ export async function runWebCommand(
       try {
         await runCommand(
           line,
-          makeHost(ws, out, userEmail, snapshot, at),
+          makeHost(ws, out, userEmail, snapshot, at, held),
           SURFACE,
         );
       } catch (e) {
@@ -1111,7 +1160,24 @@ export async function runWebCommand(
   );
   // A verb writes beside the service, so the stamp must hear of it BEFORE the graph is built — docs/moduleWatch.md.
   if (after !== before) moduleFoldersMoved();
-  return { output: out, before, after, files };
+  const ranAt = performance.now();
+  // Past the last write: the held reload and the graph read ONE module stamp, at the token the run ended on.
+  const settle = (): WebGraph | undefined =>
+    ws.withRevision(() => {
+      flushPush(ws, out, held);
+      return after !== before && opts.graph ? ws.graphDoc() : undefined;
+    }, after);
+  const project = ws.activeProjectPath();
+  const graph = project ? withModuleStamp(project, settle) : settle();
+  // With no graph the reload is the verb's own cost, so `ran=` carries it rather than nothing.
+  return {
+    output: out,
+    before,
+    after,
+    files,
+    graph,
+    ranAt: opts.graph ? ranAt : performance.now(),
+  };
 }
 
 export function webCompletions(ws: Workspace, line: string): string[] {
