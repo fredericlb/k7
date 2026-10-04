@@ -94,6 +94,19 @@ it("loads a kit onto another node IN PLACE of its own, and reloads", async () =>
   expect(reloaded).toBe(1);
 });
 
+it("loads a kit onto a node that states no pads of its own", async () => {
+  writeFileSync(
+    join(dir, "nodes", "other.yaml"),
+    'extends: "@workspace/instruments/drums"\ntype: rack\n',
+  );
+  await runCommand("node preset save kit house", host(), "cli");
+  await runCommand("node preset apply other workspace house", host(), "cli");
+  expect(node("other").rack.symbols).toEqual({
+    BD: { note: 36, sample: "@st0/kicks/808.wav" },
+    SN: { note: 38 },
+  });
+});
+
 it("refuses a kit with a pad playing a project's own sample", async () => {
   writeFileSync(
     join(dir, "nodes", "kit.yaml"),

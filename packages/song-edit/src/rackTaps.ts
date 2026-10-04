@@ -53,6 +53,9 @@ function editTaps(
   return editModuleFile(dir, node, (text) => {
     const doc = parseDocument(text, OPTS);
     const base = tapBase(text);
+    // A node with no `rack:` of its own has nothing yaml's deleteIn/setIn can descend through.
+    const parent = base.slice(0, -1);
+    if (doc.getIn(parent) == null) doc.setIn(parent, doc.createNode({}));
     change(doc, base);
     const symbols = doc.getIn(base);
     if (isMap(symbols))
