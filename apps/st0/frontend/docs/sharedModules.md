@@ -46,7 +46,7 @@ same reason: only one of them is fixed by adding a module.
 
 A library is listed when the server has cloned it, whether or not it has a `modules/` yet — its
 chains still have to go somewhere. Which libraries the origin has is set by its admins in the home
-page's Libraries panel, never from this tab: a library's own row cannot be renamed, moved or
+page's Libraries page, never from this tab: a library's own row cannot be renamed, moved or
 deleted from here.
 
 ## A library is edited on its BENCH, and nowhere else
@@ -54,7 +54,7 @@ deleted from here.
 Everything inside a library — making, renaming, deleting, moving, a builder's Save, a chain's verb,
 a preset saved into it — is refused by the file service unless that library is the one this
 account's bench has open (`/@banc/@<name>/live.st0`, opened by an admin from the library's row in
-the Libraries panel). The refusal says so; the tab still offers the entries, since the service is
+the Libraries page). The refusal says so; the tab still offers the entries, since the service is
 the gate. What forced it: the server's clone of a library is every account's and is reset to its
 remote at every sync, so a write into it would be read by everyone before anyone published it and
 then lost. The bench edits a clone of the admin's own, and a push is what reaches the others
@@ -296,7 +296,7 @@ The suites here mount nothing, so none of this is covered by a green run:
 
 - with **no library** on the origin, open any project → st0 refuses with "no libraries" before it
   clones anything — adding one opens the project;
-- as an admin, add an **empty** repository from the home page's Libraries panel, leaving the name
+- as an admin, add an **empty** repository from the home page's Libraries page, leaving the name
   blank → it is listed as `@st0`, cloned under `<dataRoot>/libraries/st0`, and no workspace gains a
   `_libraries/` folder;
 - add a SECOND repository named `drums` → switch the tree to **Libraries** → `@workspace`, `@drums`,
@@ -310,7 +310,7 @@ The suites here mount nothing, so none of this is covered by a green run:
   taking just a name there and `<type>/<name>` on the level's own row;
 - in an ordinary project, edit an `@st0` module and press Save → refused, with a sentence naming
   the bench;
-- open `@st0`'s **Bench** from the Libraries panel, click an `@st0` module → the builder opens
+- open `@st0`'s **Bench** from the Libraries page, click an `@st0` module → the builder opens
   editable, with no Edit button and no dialog; typing writes NOTHING: the Save button lights up
   instead. Close it unsaved → the library is untouched;
 - edit two of the four files, press **Save** once → both land, nothing is committed, and the bottom
@@ -321,7 +321,7 @@ The suites here mount nothing, so none of this is covered by a green run:
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob
   changes the sound;
 - push a change to a library from ANOTHER account's bench, then open a project here (or press
-  **Update** in the Libraries panel) → the module is the new one, in every workspace at once;
+  **Update** in the Libraries page) → the module is the new one, in every workspace at once;
 - open a workspace that still has the old `_libraries` submodule → it is gone after the open, with
   one unpushed commit "libraries: no longer a submodule…" in that workspace;
 - open `/@banc/modules.st0` or `/@banc/live.st0` → a refusal that says where a module is edited;

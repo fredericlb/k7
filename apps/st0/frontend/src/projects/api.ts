@@ -34,6 +34,7 @@ import {
 import {
   BENCH_REPO,
   externalOf,
+  LIBRARIES_PAGE,
   launchUrl,
   libraryBenchProject,
   localProjectUrl,
@@ -87,6 +88,11 @@ export function projectHref(ws: Addressable, p: RepoProject): string {
  */
 export function workspaceHref(ws: Addressable): string {
   return localProjectUrl(window.location.origin, ws.name, ".", "st0");
+}
+
+/** Where the LIBRARIES page is: `/libraries`, a page of its own — an `<a>` to it, not a route, since the router's basename is the project. */
+export function librariesHref(): string {
+  return `${import.meta.env.BASE_URL}${LIBRARIES_PAGE}`;
 }
 
 /** Where the bench that EDITS `library` opens: `/@banc/@<library>/live.st0`, an admin's — see apps/pl8/docs/banc.md. */
@@ -204,6 +210,20 @@ export const accountFiles = {
         headers: filesHeaders(m),
       }),
       "libraries key",
+    ),
+
+  /** Clone `name` again on the server — or every library — after a failure; anyone may. */
+  retryLibrary: async (
+    m: AccountFiles,
+    name?: string,
+  ): Promise<AccountLibrariesReply> =>
+    json<AccountLibrariesReply>(
+      await fetch(`${m.fileBase}/account/libraries/retry`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify(name ? { name } : {}),
+      }),
+      "libraries",
     ),
 
   /** Bring every library to its latest commit now, rather than at the next open. */

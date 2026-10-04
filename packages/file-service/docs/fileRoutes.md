@@ -115,7 +115,7 @@ request: the hub holds the list.
 
 A sync that fails is not a project that refuses: the song opens, and every `@st0/…` ref in it that
 does not resolve reports itself missing, which is what the graph already draws a `?` for. The
-failure is logged and swallowed, and the Libraries panel shows it on the library's row.
+failure is logged and swallowed, and the Libraries page shows it on the library's row.
 
 ## `POST /project/create` takes an ARCHETYPE, not a mode
 

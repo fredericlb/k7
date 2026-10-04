@@ -11,6 +11,7 @@ import {
   LibraryBig,
   Loader2,
   RefreshCw,
+  RotateCw,
   TriangleAlert,
   X,
 } from "@frediverse/ui/icons";
@@ -126,6 +127,11 @@ export function LibrariesCard({
     run("update", () => accountFiles.updateLibraries(fileService));
   };
 
+  const retry = (name: string) => {
+    if (!fileService) return setError(m["libs.noFiles"]());
+    run(`retry:${name}`, () => accountFiles.retryLibrary(fileService, name));
+  };
+
   if (libraries === undefined)
     return (
       <div className="flex items-center gap-2 border-b px-6 py-4 text-xs text-muted-foreground">
@@ -195,6 +201,23 @@ export function LibrariesCard({
               <span className="shrink-0 text-amber-500">
                 {l.error ? m["libs.failed"]() : m["libs.notCloned"]()}
               </span>
+            )}
+            {/* Anyone may ask again: a deploy key added at the host a minute ago is the usual reason it failed. */}
+            {(!l.cloned || l.error) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title={m["libs.retryHint"]()}
+                onClick={() => retry(l.name)}
+                disabled={busy !== null}
+              >
+                {busy === `retry:${l.name}` ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RotateCw className="h-3.5 w-3.5" />
+                )}{" "}
+                {m["libs.retry"]()}
+              </Button>
             )}
             {/* The bench is where a library is EDITED, in a clone of its own — an <a>, since it opens a project. */}
             {canEdit && l.cloned && (

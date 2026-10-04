@@ -273,6 +273,17 @@ describe("the file hub", () => {
         body: JSON.stringify({ libraries: [{ name: "Bad Name", uri: "x" }] }),
       });
     expect((await put(false)).status).toBe(403);
+    // A retry changes nothing anybody wrote, so it is anyone's.
+    const retry = await fetch(`${base}/account/libraries/retry`, {
+      method: "POST",
+      headers: {
+        "x-test-session": "fred@example.com",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "st0" }),
+    });
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toEqual({ libraries: [] });
     // An admin gets as far as the list's own validation.
     const refused = await put(true);
     expect(refused.status).toBe(400);

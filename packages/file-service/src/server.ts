@@ -160,7 +160,7 @@ app.get(
  * that resolve to nothing — see docs/libraries.md. A URI is validated by CLONING when it is added.
  */
 const NO_LIBRARIES =
-  "no libraries — an admin adds them in st0's Libraries panel, and the server clones them";
+  "no libraries — an admin adds them in st0's Libraries page, and the server clones them";
 const hasLibraries = (res: Response): boolean => {
   if (accountLibraries().length) return true;
   res.status(400).json({ error: NO_LIBRARIES });

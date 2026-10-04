@@ -75,7 +75,7 @@ the reference every song resolves `@<name>/…` against; one clone because nothi
 work — an edit happens on an admin's bench, in a clone of their own, and reaches this one by a push.
 
 - **The server's own key** clones them, `<dataRoot>/.libraries-key`, made on first ask. Admins see
-  its public half in the Libraries panel and add it to each library repository as a READ-ONLY
+  its public half in the Libraries page and add it to each library repository as a READ-ONLY
   deploy key. Not each account's key: every account would then need access to every library, and
   a library one account could not read would compile differently for it.
 - **A sync makes a clone EXACTLY its remote** — fetch, `reset --hard @{u}`, `clean -fd`. There is
@@ -94,8 +94,9 @@ work — an edit happens on an admin's bench, in a clone of their own, and reach
   decks.
 
 `/account/libraries*` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET`
-the list, for anyone, starting a sync behind the answer at most once a minute; `PUT` the list,
-`POST /update` (a forced sync) and `GET /key`, for admins, 403 otherwise.
+the list, for anyone, starting a sync behind the answer at most once a minute; `POST /retry`
+(`{ name? }`, a forced clone of what failed), for anyone too, since it changes nothing anybody
+wrote; `PUT` the list, `POST /update` (a forced sync) and `GET /key`, for admins, 403 otherwise.
 
 The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves one
 route, `POST /libraries/sync`. Its gate is the hub secret of one of the hub's own instances —

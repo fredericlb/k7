@@ -52,12 +52,9 @@ export function ProjectsPane({
   onChanged,
   onOpenSettings,
   libraries,
-  onOpenLibraries,
 }: {
   /** The origin's libraries as this account sees them, read by Home; they decide whether a workspace may be made. */
   libraries: AccountLibrary[] | undefined;
-  /** Opens the header's Libraries panel, where the list is shown and, for an admin, edited. */
-  onOpenLibraries: () => void;
   /** The account's workspaces, projects included — the only source, a project being a folder there. */
   /** Forwarded to RepoList, whose prose points at the deploy key. */
   onOpenSettings: () => void;
@@ -365,7 +362,7 @@ export function ProjectsPane({
         }}
       />
       {/* FIRST when it says anything: nothing else here works until a library is cloned. */}
-      <LibrariesNotice libraries={libraries} onOpen={onOpenLibraries} />
+      <LibrariesNotice libraries={libraries} />
       {ws ? (
         <RepoTree
           workspace={ws}
