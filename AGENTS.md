@@ -141,13 +141,14 @@ git add commons && git commit -m "bump commons"
 ```
 
 `push.recurseSubmodules=on-demand` is configured, so pushing the parent pushes
-commons first.
+commons first. Never edit `commons/` for something only studio needs — put it in
+`packages/` instead: that is the line between "shared with phare" and "shared
+inside studio".
 
 `st0-library/` is a second submodule: the `@st0` modules library (`music/st0-libraries`), the one
 the origin clones read-only for every account. It is here so a module and the code it relies on
-change together; a library commit is published only when it reaches that repository's `master`. Never edit `commons/` for something only studio needs — put it in
-`packages/` instead: that is the line between "shared with phare" and "shared
-inside studio".
+change together; a library commit is published only when it reaches that repository's `master`.
+Its URL is relative, like commons', and CI checks out commons alone: no job reads the library.
 
 # Developing on the Windows machine
 
