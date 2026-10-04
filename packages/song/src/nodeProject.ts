@@ -23,7 +23,7 @@ import { materialRefOf, placementId } from "@studio/song-schema/placementId";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
-import { type AutoFreeze, autoFreezes } from "./autoFreeze";
+import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { withConsole } from "./console";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
@@ -368,7 +368,8 @@ export function compileWithAutoFreezes(dir: string): {
       // The compile read the song; a graph that will not load here is no reason to stop playing it live.
       return { doc: live, freezes: [] };
     }
-    const ready = freezes.filter((f) => f.ready);
+    // An engine that hosts every VST of a freeze plays them live; the render is for one that cannot.
+    const ready = freezes.filter(playsRender);
     if (!ready.length) return { doc: live, freezes };
     return {
       doc: compileNodeProjectIn(

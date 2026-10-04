@@ -2,20 +2,21 @@
 // (packages/song/docs/autoFreeze.md), in the background, while nobody is listening. A render is
 // made on the ENGINE'S machine — the one that has the VSTs: over the bound machine's jobs path when
 // the server hosts the files, by the local engine binary when this service runs beside the engine.
+// So a render is only ever made by an engine that will NOT play it: it is for the ones lacking a VST.
 // It lands in the account's render cache, never in the project: nothing is committed, and the hub
 // purges a render nobody used for a month. See docs/autoFreeze.md.
 
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import { scannedPlugins } from "@studio/engine-client/pluginCache";
-import { type AutoFreeze, setThawed, thawedIn } from "@studio/song/autoFreeze";
+import {
+  type AutoFreeze,
+  playsRender,
+  setThawed,
+  thawedIn,
+} from "@studio/song/autoFreeze";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
 import { renderCutAsync } from "@studio/take-render/render";
-import {
-  type CataloguePlugin,
-  compatibility,
-} from "@studio/web-protocol/compat";
 import { askBoundMachine, boundJobsUrl } from "./boundMachine.ts";
 
 /** How long the engine must sit stopped with no edit before a THAWED module is frozen again. */
@@ -24,8 +25,6 @@ export const THAW_IDLE_MS = 20_000;
 /** What the freezer needs from the rest of the service — injected, so a test needs no engine. */
 export interface AutoFreezeDeps {
   compile(dir: string): { freezes: AutoFreeze[] };
-  /** The catalogue of the engine that would RENDER: the bound one's, or this machine's own. */
-  catalogue(): CataloguePlugin[];
   render(f: AutoFreeze, outAbs: string): Promise<void>;
   now(): number;
   log(line: string): void;
@@ -49,6 +48,8 @@ interface DirState {
   /** When a thaw was asked for, or the project last changed while one was in force. */
   thawActivity: number;
   lastRev: string | null;
+  /** The freezes whose render the last compile played — a change (another engine bound) is a reload. */
+  applied: string | null;
 }
 
 export class AutoFreezer {
@@ -66,6 +67,7 @@ export class AutoFreezer {
         pendingReload: false,
         thawActivity: 0,
         lastRev: null,
+        applied: null,
       };
       this.dirs.set(key, s);
     }
@@ -125,16 +127,11 @@ export class AutoFreezer {
     rev: string,
   ): Promise<string[]> {
     const { freezes } = this.deps.compile(t.dir);
-    const missing = freezes.filter((f) => !f.ready);
-    const catalogue = this.deps.catalogue();
     // A render made WITHOUT a VST would bake its stub and then play everywhere as the truth: only
     // an engine that has every VST in the plan renders it. An empty catalogue cannot say.
-    const renderable = missing.filter(
-      (f) =>
-        catalogue.length > 0 &&
-        compatibility(f.plugins, catalogue).score === 100,
-    );
+    const renderable = freezes.filter((f) => !f.ready && f.hosted);
     s.checkedRev = rev;
+    this.reloadIfApplied(t, s, freezes);
     const done: string[] = [];
     for (const f of renderable) {
       const out = f.render;
@@ -150,13 +147,30 @@ export class AutoFreezer {
     }
     if (!done.length) return [];
     this.deps.log(`   ❄ auto-froze ${done.join(", ")}`);
-    // The render changes what the engine should play: now if stopped, at the stop otherwise.
+    // Made by an engine that hosts the VSTs, so nothing it plays changes; another engine will use it.
+    return done;
+  }
+
+  /** Reload when the renders the compile plays changed (an engine bound with another catalogue): now if stopped, at the stop otherwise. */
+  private reloadIfApplied(
+    t: FreezeTarget,
+    s: DirState,
+    freezes: AutoFreeze[],
+  ): void {
+    const applied = freezes
+      .filter(playsRender)
+      .map((f) => f.render)
+      .sort()
+      .join("\n");
+    const before = s.applied;
+    s.applied = applied;
+    // The first look only learns: the doc already sent was compiled from the same state.
+    if (before === null || before === applied) return;
     if (t.playing()) s.pendingReload = true;
     else {
       s.checkedRev = null;
       t.reload();
     }
-    return done;
   }
 }
 
@@ -179,10 +193,9 @@ async function renderOnEngineMachine(
   await renderCutAsync(bin, f.cut, outAbs);
 }
 
-/** The freezer the service runs: the real compile, catalogue and render. */
+/** The freezer the service runs: the real compile and render. */
 export const autoFreezer = new AutoFreezer({
   compile: compileWithAutoFreezes,
-  catalogue: scannedPlugins,
   render: renderOnEngineMachine,
   now: Date.now,
   log: (line) => console.log(line),

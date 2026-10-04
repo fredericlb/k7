@@ -12,7 +12,7 @@ import type {
   WebRackSound,
 } from "@studio/graph-model";
 import { type PanelLike, panelWidgets } from "@studio/graph-model/panel";
-import type { AutoFreeze } from "@studio/song/autoFreeze";
+import { type AutoFreeze, playsRender } from "@studio/song/autoFreeze";
 import { moduleBaseChoices } from "@studio/song/basePreset";
 import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { loadCurves } from "@studio/song/curves";
@@ -437,7 +437,7 @@ export function buildGraphDoc(
   // …and what an automatic freeze bakes, each node naming the VST whose render holds it — packages/song/docs/autoFreeze.md.
   const autoFrozen: NonNullable<WebGraph["autoFrozen"]> = {};
   for (const f of autoFreezes ?? [])
-    if (f.ready)
+    if (playsRender(f))
       for (const n of [...f.plan.lanes, ...f.plan.modules])
         autoFrozen[n] = f.module;
   // A lane's other attribute sets, from the module it IS — only past one, docs/graphFlags.md.
