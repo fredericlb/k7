@@ -3,6 +3,7 @@
 // written down (caught by walking each schema's keys and asking whether any example mentions them).
 // Both read the markdown under st0/docs/ itself. See ../../docs/docExamples.md.
 
+import { PresetFileSchema } from "@studio/song-schema/presets";
 import {
   ClipSchema,
   CurveSchema,
@@ -15,7 +16,6 @@ import {
   ModuleSchema,
   UiFileSchema,
 } from "@studio/song-schema/yaml/moduleSchema";
-import { PresetFileSchema } from "@studio/song-schema/presets";
 import {
   ProjectFileSchema,
   SettingsSchema,
