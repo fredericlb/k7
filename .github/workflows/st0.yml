@@ -61,8 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
+      # commons only: no job reads st0-library, a repository in another group this token may not reach.
+      - run: git submodule update --init commons
 
       - uses: actions/setup-node@v4
         with:
@@ -99,8 +99,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
+      # commons only: no job reads st0-library, a repository in another group this token may not reach.
+      - run: git submodule update --init commons
 
       - run: sudo apt-get update && sudo apt-get install -y ninja-build
 
@@ -132,8 +132,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
+      # commons only: no job reads st0-library, a repository in another group this token may not reach.
+      - run: git submodule update --init commons
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -180,8 +180,8 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
+      # commons only: no job reads st0-library, a repository in another group this token may not reach.
+      - run: git submodule update --init commons
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc

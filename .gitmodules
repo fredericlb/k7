@@ -4,5 +4,5 @@
 	branch = master
 [submodule "st0-library"]
 	path = st0-library
-	url = ssh://192.168.87.10:6611/music/st0-libraries.git
+	url = ../../music/st0-libraries.git
 	branch = master
