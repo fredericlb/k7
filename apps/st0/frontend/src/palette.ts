@@ -23,7 +23,7 @@ import { WAVE_MODES } from "./waveMode";
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui assembly", // open an assembly TEMPLATE in the builder, by the ref a box names
-  "ui global", // the layout view — the default, and the only one a project does not derive
+  "ui global", // the home page — the timeline, or the first pane a project without one declares
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
@@ -117,8 +117,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Ouvrir un modèle d'assemblage dans le constructeur",
   },
   "ui global": {
-    en: "Show the timeline and the chains together",
-    fr: "Afficher la timeline et les chaînes ensemble",
+    en: "Back to the project's home page",
+    fr: "Revenir à la page d'accueil du projet",
   },
   "ui editor": {
     en: "Fullscreen the editor",

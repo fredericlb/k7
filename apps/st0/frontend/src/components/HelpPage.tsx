@@ -19,7 +19,7 @@ import { Markdown } from "./Markdown";
 const VIEW_COMMANDS: { command: string; help: string }[] = [
   {
     command: "ui global",
-    help: "leave fullscreen — back to the layout, holding whichever panes the project declares",
+    help: "back to the home page — the timeline, or the first pane a project without one declares",
   },
   { command: "ui editor", help: "fullscreen the editor pane" },
   { command: "ui timeline", help: "fullscreen the timeline pane" },

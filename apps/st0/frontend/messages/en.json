@@ -161,7 +161,6 @@
   "cmd.zoom out": "zoom out",
   "cmd.zoom reset": "zoom reset",
   "cmd.help": "help",
-  "pane.resize": "Resize the pane",
   "home.unknownCommand": "\"{line}\" is not a command on this screen",
   "home.filesReadyHint": "Projects are read, created and deleted on the server, at {address}",
   "home.noFilesHint": "The server's file service is not answering — the list waits for it",

@@ -114,7 +114,6 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { PaneSplitter } from "./components/PaneSplitter";
 import type { RollHandle } from "./components/PianoRoll";
 import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
@@ -283,9 +282,9 @@ export default function App({
 }) {
   // Read once as a boolean: nearly every call site asks 'is this editable', not 'which snapshot is it'.
   const frozen = !!snapshot;
-  // The layout: null is the global view, a pane name is that pane expanded; `focus` is which pane owns the keys.
-  const [full, setFull] = useState<Pane | null>(null);
-  // A phone shows one pane, not the studio layout — the hamburger drives `full`. See docs/shell.md.
+  // The PAGE asked for; null is the project's home page, resolved into `full` once the layout is known (docs/shell.md).
+  const [chosen, setFull] = useState<Pane | null>(null);
+  // A phone draws the pages from its hamburger rather than from the header's row. See docs/shell.md.
   const isMobile = useIsMobile();
   const [mobileMenu, setMobileMenu] = useState(false);
   // The timeline, because it is what the default view opens on — see ringPanes.
@@ -343,19 +342,6 @@ export default function App({
     ),
   );
   const [panelH, setPanelH] = useState(280);
-  /** A pane's dragged size in px, by pane. Absent (or 0) means it is still on the Tailwind
-   *  fraction it opens at — see components/PaneSplitter.tsx. */
-  const [paneSize, setPaneSize] = useState<Partial<Record<Pane, number>>>({});
-  const sizePane = useCallback(
-    (p: Pane, px: number) =>
-      setPaneSize((cur) => ({ ...cur, [p]: px > 0 ? px : undefined })),
-    [],
-  );
-  // One ref per resizable pane: the splitter measures the pane it resizes at drag start.
-  const viewportPaneRef = useRef<HTMLDivElement>(null);
-  const timelinePaneRef = useRef<HTMLDivElement>(null);
-  const deskPaneRef = useRef<HTMLDivElement>(null);
-  const masteringPaneRef = useRef<HTMLDivElement>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   // What the editor has open (a clip/track), for the minimap's highlight ring.
@@ -801,7 +787,7 @@ export default function App({
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
     {
-      full,
+      full: chosen,
       panel,
       help: showHelp,
       builder: openBuilder,
@@ -827,7 +813,7 @@ export default function App({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the layout changing IS the signal.
   useEffect(() => {
     setEditorPopin(false);
-  }, [full]);
+  }, [chosen]);
 
   // Optimistic, like the mixer: the editor switches modality on the click and the write's answer settles it.
   const toggleVim = useCallback(async () => {
@@ -856,31 +842,23 @@ export default function App({
     [hasTimeline, hasViewport, hasTurntables, hasMastering, frozen],
   );
   const ringPanes = layout.ring;
+  /** The page a project opens on: its arrangement when it declares one, else the first pane it does (docs/shell.md). */
+  const homePane: Pane = ringPanes.includes("timeline")
+    ? "timeline"
+    : ringPanes[0];
+  /** The ONE page on screen — never null: there is no split, a second view being the bottom panel's job. */
+  const full: Pane =
+    chosen && layout.fullscreen.includes(chosen) ? chosen : homePane;
 
   // Whether there is an arrangement on screen — the SURFACE's answer, and now the only one.
   const noArrangement = !hasTimeline;
 
   // The popin IS the active pane while it is up: the pane underneath must not also answer the keys.
-  const activePane = editorPopin ? "editor" : (full ?? focusPane);
-  const visible = useCallback(
-    (p: Pane) => (full === null ? ringPanes.includes(p) : full === p),
-    [full, ringPanes],
-  );
-
-  // Expanded lanes take the column — unless the graph's slot holds something asked for, which splits it as unexpanded lanes do.
-  const lanesTakeColumn = tlView.expanded && !graphSlot;
+  const activePane = editorPopin ? "editor" : full;
+  const visible = useCallback((p: Pane) => full === p, [full]);
 
   /** Is the chains pane off screen? ONE answer, read by the class that hides it and by the `active` it is handed. */
-  const chainsOffScreen =
-    full === "timeline" ||
-    // The desk fullscreened takes the column exactly as the arrangement does.
-    full === "turntables" ||
-    (full === null && !ringPanes.includes("chains")) ||
-    // Expanded lanes give the timeline the whole column — only possible in a layout that HAS a timeline.
-    (full === null && ringPanes.includes("timeline") && lanesTakeColumn);
-
-  /** Is the graph the ONLY pane in the column? What decides `flex-1` and whether ChainsTab draws its sidebar. */
-  const chainsAlone = ringPanes.length === 1;
+  const chainsOffScreen = full !== "chains";
 
   const timelineVisible = visible("timeline");
   /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
@@ -958,10 +936,10 @@ export default function App({
       builderDirty.current = false;
       setBuilder({ path, pane });
       if (full === "editor") return;
-      if (beforeBuilder.current === undefined) beforeBuilder.current = full;
+      if (beforeBuilder.current === undefined) beforeBuilder.current = chosen;
       fullscreen("editor");
     },
-    [builder, full, fullscreen, layout],
+    [builder, chosen, full, fullscreen, layout],
   );
   const closeModuleBuilder = useCallback(() => {
     builderDirty.current = false;
@@ -975,14 +953,10 @@ export default function App({
     onPointerDown: () => focusOn(p),
   });
 
-  // Focus can be left on a pane the layout no longer shows — snap it back to the ring.
+  // The keys follow the page: one pane on screen is the one that owns them.
   useEffect(() => {
-    if (full === null && !ringPanes.includes(focusPane))
-      setFocusPane(ringPanes[0]);
-  }, [full, ringPanes, focusPane]);
-
-  const ringFor = (p: Pane) =>
-    !full && focusPane === p ? "ring-1 ring-inset ring-primary/50" : undefined;
+    if (focusPane !== full) setFocusPane(full);
+  }, [full, focusPane]);
 
   const togglePanel = useCallback(
     (p: Panel) => setPanel((cur) => (cur === p ? null : p)),
@@ -1339,7 +1313,7 @@ export default function App({
       );
     // Turning it ON also clears whatever had taken the graph's place, and the stack: two arrangements cannot share it.
     setGraphSlot(null);
-    setFull(null);
+    setFull("chains");
     setStackView(false);
     setMixerView(true);
     setStatus(
@@ -1353,7 +1327,7 @@ export default function App({
   const toggleStack = useCallback(() => {
     if (stackView) return setStackView(false);
     setGraphSlot(null);
-    setFull(null);
+    setFull("chains");
     setMixerView(false);
     setStackView(true);
     setStatus("stack view — a column per track, the mix last");
@@ -1428,7 +1402,7 @@ export default function App({
         return true;
       }
       if (line === "global") {
-        // Back to the layout: with one of them, that is exactly 'leave the fullscreen'.
+        // Back to the project's home page — there is no split to return to.
         setFull(null);
         return true;
       }
@@ -1437,9 +1411,10 @@ export default function App({
         fullscreen(line as Pane);
         return true;
       }
+      // One page on screen, so walking the keys' owner IS walking the pages.
       if (line === "focus next") {
-        const i = ringPanes.indexOf(focusPane);
-        focusOn(ringPanes[(i + 1) % ringPanes.length]);
+        const i = ringPanes.indexOf(full);
+        fullscreen(ringPanes[(i + 1) % ringPanes.length]);
         return true;
       }
       if (line === "close") {
@@ -1663,7 +1638,7 @@ export default function App({
         else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
         else {
           // The chains slot is where it goes, so make sure the slot is on screen.
-          setFull(null);
+          setFull("chains");
           setGraphSlot({ kind: "grid", path, view: seq.view });
         }
         return true;
@@ -1687,6 +1662,7 @@ export default function App({
         setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
         // …and put the clip panel on screen: it is the ONE place a clip is drawn now.
         setGraphSlot({ kind: "recording" });
+        setFull("chains");
         return true;
       }
       // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
@@ -2013,8 +1989,7 @@ export default function App({
     },
     [
       fullscreen,
-      focusOn,
-      focusPane,
+      full,
       openInEditor,
       armMidiLearn,
       ringPanes,
@@ -2218,8 +2193,10 @@ export default function App({
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
       // …and the lane's modules, side by side, OVER the graph; the framing above still happens.
-      if (target.kind === "track")
+      if (target.kind === "track") {
         setGraphSlot({ kind: "trackModules", trackId: target.id });
+        setFull("chains");
+      }
     },
     [openInEditor],
   );
@@ -2532,7 +2509,8 @@ export default function App({
     // The two layers Esc backs out of before it touches the layout; `popin` counts every registered overlay — see popins.ts.
     if (anyPopin) cond.popin = "1";
     if (graphSlot) cond.graph_slot = "1";
-    if (full) cond.fullscreen = "1";
+    // Away from the home page, Escape goes back to it; on it, the key falls through to the bottom panel.
+    if (full !== homePane) cond.fullscreen = "1";
     if (caret?.trackId) cond.caret_track = caret.trackId;
     // …and the PICTURE lane under it, which reports no track id and arms through its own verb.
     const pic = pictureRowId(caret?.row);
@@ -2586,7 +2564,7 @@ export default function App({
     tlView,
     focusPane,
     full,
-    // `activePane` is `full ?? focusPane`, and both are above — but the tool conditions read it by name.
+    homePane,
     activePane,
     waveView,
     rollMode,
@@ -2649,12 +2627,6 @@ export default function App({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [commandsPage, historyDeps, undoConfirm]);
-
-  // The layout has no mobile form, so entering mobile lands on a pane — the timeline; a project that fullscreens nothing is skipped.
-  useEffect(() => {
-    const [first] = layout.fullscreen;
-    if (isMobile && full === null && first) setFull("timeline");
-  }, [isMobile, full]);
 
   // …and never on a snapshot: there is no engine coming, and what plays here is the browser, ready at once.
   const waitingForEngine = !frozen && !!ws?.activeProject && !engineReady;
@@ -2854,7 +2826,7 @@ export default function App({
         </MobileMenu>
       ) : (
         <>
-          {/* Pane buttons and no view toggles: the row is the LAYOUT's fullscreenable set, not PANES (docs/shell.md). */}
+          {/* The PAGES, one lit: the row is the LAYOUT's fullscreenable set, not PANES, and picking one never splits (docs/shell.md). */}
           <nav className="flex items-center gap-1">
             {layout.fullscreen.map((p) => {
               const Icon = PANE_META[p].icon;
@@ -2864,15 +2836,9 @@ export default function App({
                   key={p}
                   size={toolSize}
                   variant={full === p ? "default" : "ghost"}
-                  aria-pressed={full === p}
-                  onClick={() =>
-                    void runCommand(`ui ${full === p ? "global" : p}`)
-                  }
-                  title={
-                    full === p
-                      ? `${PANE_META[p].label} — back to the layout (esc)`
-                      : `${PANE_META[p].label} fullscreen${key ? ` (${key})` : ""}`
-                  }
+                  aria-current={full === p ? "page" : undefined}
+                  onClick={() => void runCommand(`ui ${p}`)}
+                  title={`${PANE_META[p].label}${key ? ` (${key})` : ""}`}
                   aria-keyshortcuts={key}
                   aria-label={PANE_META[p].label}
                 >
@@ -3106,7 +3072,6 @@ export default function App({
                   : full === "editor"
                     ? "flex-1"
                     : "hidden",
-                ringFor("editor"),
               )}
               // Stop above the floating minimap rather than over it — inline, because it is a measurement (see `stripH`).
               style={editorPopin && stripH ? { bottom: stripH + 8 } : undefined}
@@ -3269,27 +3234,11 @@ export default function App({
               {/* The FRAME: a `split` surface the project declares, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
               {hasViewport && (
                 <div
-                  ref={viewportPaneRef}
                   {...paneProps("viewport")}
                   className={cn(
                     "flex min-h-0 min-w-0",
-                    full === "viewport"
-                      ? "flex-1"
-                      : full !== null
-                        ? "hidden"
-                        : // Expanded lanes have asked for the room; the frame stands down for
-                          // them as the graph does, rather than squeezing three panes into one.
-                          lanesTakeColumn
-                          ? "hidden"
-                          : "w-1/3 shrink-0",
-                    ringFor("viewport"),
+                    full === "viewport" ? "flex-1" : "hidden",
                   )}
-                  // Once dragged the width is the drag's; until then it is the fraction above.
-                  style={
-                    full === null && !lanesTakeColumn && paneSize.viewport
-                      ? { width: paneSize.viewport }
-                      : undefined
-                  }
                 >
                   {/* `trackOrder` is what makes a shader's audio input mean anything: `levels` is indexed, not named — see src/shaderAudio.ts. */}
                   <ViewportTab
@@ -3311,37 +3260,16 @@ export default function App({
                   />
                 </div>
               )}
-              {hasViewport && full === null && !lanesTakeColumn && (
-                <PaneSplitter
-                  pane={viewportPaneRef}
-                  axis="x"
-                  onSize={(px) => sizePane("viewport", px)}
-                  label={m["pane.resize"]()}
-                />
-              )}
-              {/* …and the panes that stack, in the column the frame is now beside. */}
+              {/* …and the other pages, one of them on screen at a time. */}
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 {/* The ARRANGEMENT, only when the project declares a `timeline` surface — absent means not mounted (docs/shell.md). */}
                 {hasTimeline && (
                   <div
-                    ref={timelinePaneRef}
                     {...paneProps("timeline")}
                     className={cn(
                       "flex min-h-0 min-w-0",
-                      // Expanded lanes take the whole height, exactly as `full timeline` does: the pane below has stood down for them.
-                      full === "timeline" || (full === null && lanesTakeColumn)
-                        ? "flex-1"
-                        : full === "chains"
-                          ? "hidden"
-                          : "h-1/2 shrink-0",
-                      ringFor("timeline"),
+                      full === "timeline" ? "flex-1" : "hidden",
                     )}
-                    // Once dragged the height is the drag's; until then it is the fraction above.
-                    style={
-                      full === null && !lanesTakeColumn && paneSize.timeline
-                        ? { height: paneSize.timeline }
-                        : undefined
-                    }
                   >
                     <TimelineTab
                       ref={timelineRef}
@@ -3363,7 +3291,7 @@ export default function App({
                       onEditTarget={setEditTarget}
                       // A clicked clip shows its content where the graph is, and makes the slot visible with it.
                       onOpenClip={(t) => {
-                        setFull(null);
+                        setFull("chains");
                         setGraphSlot({ kind: "clip", target: t });
                       }}
                       // …and the bare lane puts the graph back: what a click opened, a click on nothing closes.
@@ -3465,38 +3393,14 @@ export default function App({
                     />
                   </div>
                 )}
-                {hasTimeline && full === null && !lanesTakeColumn && (
-                  <PaneSplitter
-                    pane={timelinePaneRef}
-                    axis="y"
-                    onSize={(px) => sizePane("timeline", px)}
-                    label={m["pane.resize"]()}
-                  />
-                )}
-                {/* The DESK: a `split` surface directly over the graph, mounted for as long as the project declares it (docs/shell.md). */}
+                {/* The DESK: a page mounted for as long as the project declares it, its document outliving its screen (docs/shell.md). */}
                 {turntablesSurface && (
                   <div
-                    ref={deskPaneRef}
                     {...paneProps("turntables")}
                     className={cn(
                       "flex min-h-0 min-w-0",
-                      full === "turntables"
-                        ? "flex-1"
-                        : full !== null
-                          ? "hidden"
-                          : // Expanded lanes have asked for the height; the desk stands down for
-                            // them as the frame and the graph do.
-                            lanesTakeColumn
-                            ? "hidden"
-                            : "h-1/2 shrink-0",
-                      ringFor("turntables"),
+                      full === "turntables" ? "flex-1" : "hidden",
                     )}
-                    // Once dragged the height is the drag's; until then it is the fraction above.
-                    style={
-                      full === null && !lanesTakeColumn && paneSize.turntables
-                        ? { height: paneSize.turntables }
-                        : undefined
-                    }
                   >
                     <SurfaceTab
                       surface={turntablesSurface}
@@ -3512,38 +3416,14 @@ export default function App({
                     />
                   </div>
                 )}
-                {turntablesSurface && full === null && !lanesTakeColumn && (
-                  <PaneSplitter
-                    pane={deskPaneRef}
-                    axis="y"
-                    onSize={(px) => sizePane("turntables", px)}
-                    label={m["pane.resize"]()}
-                  />
-                )}
-                {/* The MASTER STRIP, when declared: last in the column, over the graph holding the module it drives (docs/mastering.md). */}
+                {/* The MASTER STRIP, when declared: a page of its own over one quick-master node (docs/mastering.md). */}
                 {masteringSurface && (
                   <div
-                    ref={masteringPaneRef}
                     {...paneProps("mastering")}
                     className={cn(
                       "flex min-h-0 min-w-0",
-                      full === "mastering"
-                        ? "flex-1"
-                        : full !== null
-                          ? "hidden"
-                          : // Expanded lanes have asked for the height; the strip stands down for
-                            // them as the desk, the frame and the graph do.
-                            lanesTakeColumn
-                            ? "hidden"
-                            : "h-1/3 shrink-0",
-                      ringFor("mastering"),
+                      full === "mastering" ? "flex-1" : "hidden",
                     )}
-                    // Once dragged the height is the drag's; until then it is the fraction above.
-                    style={
-                      full === null && !lanesTakeColumn && paneSize.mastering
-                        ? { height: paneSize.mastering }
-                        : undefined
-                    }
                   >
                     <MasteringTab
                       surface={masteringSurface}
@@ -3553,28 +3433,11 @@ export default function App({
                     />
                   </div>
                 )}
-                {masteringSurface && full === null && !lanesTakeColumn && (
-                  <PaneSplitter
-                    pane={masteringPaneRef}
-                    axis="y"
-                    onSize={(px) => sizePane("mastering", px)}
-                    label={m["pane.resize"]()}
-                  />
-                )}
                 <div
                   {...paneProps("chains")}
                   className={cn(
                     "flex min-h-0 min-w-0",
-                    // Alone in the column it takes it outright — the same `flex-1` a fullscreened
-                    // graph gets (see `viewPanes`). And LAST in the column it takes what is LEFT,
-                    // for the same reason by another route: a drag on the pane above has to come
-                    // out of this one, and two fixed halves plus a seam overflow by the seam.
-                    chainsAlone || full === "chains"
-                      ? "flex-1"
-                      : chainsOffScreen
-                        ? "hidden"
-                        : "flex-1",
-                    ringFor("chains"),
+                    chainsOffScreen ? "hidden" : "flex-1",
                   )}
                 >
                   {/* The slot takes the graph's PLACE, not its mount: ChainsTab holds the MIDI runtime (docs/shell.md, docs/midi.md). */}
@@ -3592,8 +3455,8 @@ export default function App({
                       active={!chainsOffScreen && !graphSlot}
                       // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
                       icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
-                      // The sidebar is fullscreen chrome: it belongs wherever the graph has the whole window, which a set's desk denies it.
-                      showList={chainsAlone || full === "chains"}
+                      // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
+                      showList
                       trackOrder={trackOrder}
                       videoSpans={videoLaneSpans}
                       noteLanes={noteLanes}
