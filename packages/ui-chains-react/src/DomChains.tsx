@@ -149,6 +149,7 @@ import {
 } from "./chainsCss";
 import { EngineSelect, engineSelectW } from "./EngineSelect";
 import { LcdScreenWidget, type LcdSet, LcdSetContext } from "./LcdScreenWidget";
+import { createLcdZoom, LcdZoomContext } from "./lcdZoom";
 import { Minimap } from "./Minimap";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
 import { loadBadge } from "./nodeLoad";
@@ -3037,8 +3038,11 @@ export function DomChains({
   // What the drawing takes from the camera, committed only when one of the three differs.
   const [lod, setLod] = useState<Lod>(() => lodFor(cam.current.k));
   const lodRef = useRef(lod);
+  // The settled zoom the screens size their pixels for, published at the same two moments a camera is kept.
+  const [lcdZoom] = useState(() => createLcdZoom(cam.current.k));
   // Persist ONLY after a real fit: the identity camera is indistinguishable from one the user chose.
   const persist = () => {
+    lcdZoom.set(cam.current.k);
     const store = camStoreRef.current;
     if (store && fitted.current) store.current = { ...cam.current };
   };
@@ -4873,138 +4877,140 @@ export function DomChains({
     <EngineStoreProvider value={meterStore}>
       <IconsContext.Provider value={icons}>
         <LcdSetContext.Provider value={lcdSet}>
-          <div
-            ref={hostRef}
-            className={`dgx${panning ? " panning" : ""}`}
-            onPointerDown={onPointerDown}
-            onDoubleClick={canvasDoubleClick}
-            // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
-            onPointerMove={patch ? movePatch : undefined}
-            onClick={patch ? canvasDrop : undefined}
-            onContextMenu={canvasMenu}
-            style={{ cursor: hovered ? "pointer" : undefined }}
-          >
-            {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
-            <canvas ref={cvRef} className="dgx-cablecv" />
-            {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
-            <div className="dgx-world" ref={worldRef}>
-              <svg
-                className="dgx-cables"
-                ref={cablesSvg}
-                width={graph.width}
-                height={graph.height}
-              >
-                <Cables
-                  signal={model.signal}
-                  auto={model.auto}
-                  showLabels={showLabels}
-                  hovered={hovered}
-                  setHovered={setHovered}
-                  onInsert={onEdgeInsert ? insert : undefined}
-                  onUnautomate={unautomate}
-                />
-                {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
-                {patch && (
-                  <path
-                    ref={patchEl}
-                    className="dgx-patchcable"
-                    style={{ stroke: cableColorFor(patch.type) }}
-                    d={patchD(patch.fixedAt, patch.fixedAt)}
+          <LcdZoomContext.Provider value={lcdZoom}>
+            <div
+              ref={hostRef}
+              className={`dgx${panning ? " panning" : ""}`}
+              onPointerDown={onPointerDown}
+              onDoubleClick={canvasDoubleClick}
+              // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
+              onPointerMove={patch ? movePatch : undefined}
+              onClick={patch ? canvasDrop : undefined}
+              onContextMenu={canvasMenu}
+              style={{ cursor: hovered ? "pointer" : undefined }}
+            >
+              {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
+              <canvas ref={cvRef} className="dgx-cablecv" />
+              {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
+              <div className="dgx-world" ref={worldRef}>
+                <svg
+                  className="dgx-cables"
+                  ref={cablesSvg}
+                  width={graph.width}
+                  height={graph.height}
+                >
+                  <Cables
+                    signal={model.signal}
+                    auto={model.auto}
+                    showLabels={showLabels}
+                    hovered={hovered}
+                    setHovered={setHovered}
+                    onInsert={onEdgeInsert ? insert : undefined}
+                    onUnautomate={unautomate}
                   />
-                )}
-              </svg>
-              {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
-              {ghosts.map((g) => (
-                <Node
-                  key={`gone:${g.node.id}`}
-                  n={{ ...g.node, x: g.x, y: g.y }}
-                  selected={null}
-                  showWidgets={showWidgets}
-                  far={far}
-                  ch={ch}
-                  trackOrder={EMPTY_ORDER}
-                  onTapNode={NOOP}
-                  onContext={NOOP}
-                  onOpenPlugin={NOOP}
-                  onBypass={NOOP}
-                  onDragStart={NOOP}
-                  onTapWidget={NOOP}
-                  onPickWidget={NOOP}
-                  onPickAsset={NOOP}
-                  onPickTrackInput={NOOP}
-                  onContextParam={NOOP}
+                  {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
+                  {patch && (
+                    <path
+                      ref={patchEl}
+                      className="dgx-patchcable"
+                      style={{ stroke: cableColorFor(patch.type) }}
+                      d={patchD(patch.fixedAt, patch.fixedAt)}
+                    />
+                  )}
+                </svg>
+                {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
+                {ghosts.map((g) => (
+                  <Node
+                    key={`gone:${g.node.id}`}
+                    n={{ ...g.node, x: g.x, y: g.y }}
+                    selected={null}
+                    showWidgets={showWidgets}
+                    far={far}
+                    ch={ch}
+                    trackOrder={EMPTY_ORDER}
+                    onTapNode={NOOP}
+                    onContext={NOOP}
+                    onOpenPlugin={NOOP}
+                    onBypass={NOOP}
+                    onDragStart={NOOP}
+                    onTapWidget={NOOP}
+                    onPickWidget={NOOP}
+                    onPickAsset={NOOP}
+                    onPickTrackInput={NOOP}
+                    onContextParam={NOOP}
+                  />
+                ))}
+                {graph.nodes.map((n) => (
+                  <Node
+                    key={n.id}
+                    n={n}
+                    selected={selected}
+                    showWidgets={showWidgets}
+                    far={far}
+                    ch={ch}
+                    trackOrder={trackOrder ?? EMPTY_ORDER}
+                    onTapNode={tapNode}
+                    onContext={contextNode}
+                    onOpenPlugin={openPlugin}
+                    onBypass={bypassModule}
+                    onToggleAssembly={onToggleAssembly}
+                    onAlternative={onAlternative ? pickAlternative : undefined}
+                    onEngine={onEngine ? pickEngine : undefined}
+                    onPresets={onPresets ? pickPresets : undefined}
+                    presetName={n.module ? presetNames?.[n.module] : undefined}
+                    onZoomTo={zoomToNode}
+                    warning={
+                      n.pluginId ? engineWarnings?.[n.pluginId] : undefined
+                    }
+                    onDragStart={beginDrag}
+                    onTapWidget={tapWidget}
+                    onPickWidget={pickWidget}
+                    onPickAsset={pickAsset}
+                    trackInput={
+                      onPickTrackInput && n.kind === "track"
+                        ? (trackInputs?.[n.label] ?? "aucune")
+                        : undefined
+                    }
+                    onPickTrackInput={pickTrackInput}
+                    onWatchWaveform={onWatchWaveform}
+                    onContextParam={contextParam}
+                    onTypeValue={typeWidget}
+                    onTapEdit={onTapEdit ? editTap : undefined}
+                    sinkPlay={sinkPlay}
+                    onTapJack={onConnect ? tapJack : undefined}
+                    patchWant={patchWant}
+                    // The curve cables, all four halves gated on the one callback that commits them.
+                    onStartAutomation={onAutomate ? startAutomation : undefined}
+                    onLandAutomation={onAutomate ? landAutomation : undefined}
+                    onStartEvent={onAutomate ? startEvent : undefined}
+                    onLandEvent={onAutomate ? landEvent : undefined}
+                    // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
+                    // member of an OPEN box — its place is its FRAME's, not the graph's.
+                    onHeaderDrag={
+                      onMoveNode && !row && !n.assembly
+                        ? beginNodeDrag
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+              {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
+              {minimap && !row && (
+                <Minimap
+                  nodes={graph.nodes}
+                  bounds={graph}
+                  cam={cam}
+                  view={hostSize}
+                  paintRef={minimapPaint}
+                  onCenter={centerOn}
+                  onFit={zoomFit}
+                  onOrganize={onOrganize}
+                  onStack={onStack}
+                  stacked={stacked}
                 />
-              ))}
-              {graph.nodes.map((n) => (
-                <Node
-                  key={n.id}
-                  n={n}
-                  selected={selected}
-                  showWidgets={showWidgets}
-                  far={far}
-                  ch={ch}
-                  trackOrder={trackOrder ?? EMPTY_ORDER}
-                  onTapNode={tapNode}
-                  onContext={contextNode}
-                  onOpenPlugin={openPlugin}
-                  onBypass={bypassModule}
-                  onToggleAssembly={onToggleAssembly}
-                  onAlternative={onAlternative ? pickAlternative : undefined}
-                  onEngine={onEngine ? pickEngine : undefined}
-                  onPresets={onPresets ? pickPresets : undefined}
-                  presetName={n.module ? presetNames?.[n.module] : undefined}
-                  onZoomTo={zoomToNode}
-                  warning={
-                    n.pluginId ? engineWarnings?.[n.pluginId] : undefined
-                  }
-                  onDragStart={beginDrag}
-                  onTapWidget={tapWidget}
-                  onPickWidget={pickWidget}
-                  onPickAsset={pickAsset}
-                  trackInput={
-                    onPickTrackInput && n.kind === "track"
-                      ? (trackInputs?.[n.label] ?? "aucune")
-                      : undefined
-                  }
-                  onPickTrackInput={pickTrackInput}
-                  onWatchWaveform={onWatchWaveform}
-                  onContextParam={contextParam}
-                  onTypeValue={typeWidget}
-                  onTapEdit={onTapEdit ? editTap : undefined}
-                  sinkPlay={sinkPlay}
-                  onTapJack={onConnect ? tapJack : undefined}
-                  patchWant={patchWant}
-                  // The curve cables, all four halves gated on the one callback that commits them.
-                  onStartAutomation={onAutomate ? startAutomation : undefined}
-                  onLandAutomation={onAutomate ? landAutomation : undefined}
-                  onStartEvent={onAutomate ? startEvent : undefined}
-                  onLandEvent={onAutomate ? landEvent : undefined}
-                  // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
-                  // member of an OPEN box — its place is its FRAME's, not the graph's.
-                  onHeaderDrag={
-                    onMoveNode && !row && !n.assembly
-                      ? beginNodeDrag
-                      : undefined
-                  }
-                />
-              ))}
+              )}
             </div>
-            {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
-            {minimap && !row && (
-              <Minimap
-                nodes={graph.nodes}
-                bounds={graph}
-                cam={cam}
-                view={hostSize}
-                paintRef={minimapPaint}
-                onCenter={centerOn}
-                onFit={zoomFit}
-                onOrganize={onOrganize}
-                onStack={onStack}
-                stacked={stacked}
-              />
-            )}
-          </div>
+          </LcdZoomContext.Provider>
         </LcdSetContext.Provider>
       </IconsContext.Provider>
     </EngineStoreProvider>

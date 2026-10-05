@@ -115,6 +115,14 @@ than the script.
 graph's ornament rate. The loop rules are the waveform's (`waveformWidget.md`). A screen for a
 module that is silent is a still picture.
 
+**Its pixels follow the camera.** A card sits under the graph's CSS scale, and a canvas scaled by CSS
+is blurred, so the canvas is sized for the screen's density TIMES the camera's zoom when it
+magnifies (`lcdBackingScale` in `src/lcdZoom.ts`). Only the SETTLED zoom counts, published when the
+camera comes to rest, as a store rather than React state: a glide would otherwise reallocate
+every canvas each frame, and re-render the graph to do it. A screen stays a canvas rather than SVG
+because it redraws at the ornament rate while audio flows, and the scripts are written against
+`CanvasRenderingContext2D`. The larger side is capped at `LCD_MAX_BACKING` device pixels.
+
 **A draw that throws stops.** The error is printed on the glass and the function is not called
 again until the script text changes: a throw per frame is a frozen tab.
 

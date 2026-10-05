@@ -18,6 +18,7 @@ import {
   TapHistory,
 } from "@studio/ui-chains/lcdScreen";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { LcdZoomContext, lcdBackingScale } from "./lcdZoom";
 
 /** How a screen changes its module: live while `commit` is false, written into the file when it is true. */
 export type LcdSet = (
@@ -59,6 +60,9 @@ export function LcdScreenWidget({
   const draw = script.draws[id];
   const pointer = script.pointers[id];
   const lcdSet = useContext(LcdSetContext);
+  const zoom = useContext(LcdZoomContext);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   // A draw that threw is not called again until its script changes: a throw per frame is a frozen tab.
   const [crash, setCrash] = useState<{ source?: string; message: string }>();
   const crashed =
@@ -167,24 +171,32 @@ export function LcdScreenWidget({
     if (!canvas || !ctx) return;
     let W = 0;
     let H = 0;
-    let appliedDpr = 0;
+    let appliedScale = 0;
     let raf = 0;
     let last = 0;
     const minDt = 1000 / WOBBLE_FPS;
 
     const paint = (now: number): void => {
-      const dpr = window.devicePixelRatio || 1;
+      // Sized for the camera too, since the card sits under its CSS scale — docs/lcdScreen.md.
+      const scale = lcdBackingScale(
+        window.devicePixelRatio || 1,
+        zoomRef.current?.get() ?? 1,
+        W,
+        H,
+      );
+      const bw = Math.round(W * scale);
+      const bh = Math.round(H * scale);
       if (
-        appliedDpr !== dpr ||
-        canvas.width !== W * dpr ||
-        canvas.height !== H * dpr
+        appliedScale !== scale ||
+        canvas.width !== bw ||
+        canvas.height !== bh
       ) {
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
-        appliedDpr = dpr;
+        canvas.width = bw;
+        canvas.height = bh;
+        appliedScale = scale;
       }
       // Reset every frame: the script may leave any transform, clip or style behind.
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.clearRect(0, 0, W, H);
       const f = drawRef.current;
       if (!f) return;
@@ -236,9 +248,15 @@ export function LcdScreenWidget({
       wake();
     });
     ro.observe(canvas);
+    // A settled zoom is a new resolution: repaint at it.
+    const unzoom = zoomRef.current?.subscribe(() => {
+      dirtyRef.current = true;
+      wake();
+    });
     wake();
     return () => {
       ro.disconnect();
+      unzoom?.();
       if (raf) cancelAnimationFrame(raf);
       wakeRef.current = NOOP;
     };
