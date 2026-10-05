@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc -b",
+    "pretypecheck": "paraglide-js compile --emit-ts-declarations --silent",
     "typecheck": "tsc -b",
     "preview": "vite preview"
   },

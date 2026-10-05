@@ -20,15 +20,6 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
-  # node_modules itself, under a fixed key: the command reinstalls only when its stamp names another lockfile.
-  - type: SetupCacheStep
-    name: set up node_modules cache
-    key: node-modules-alpine
-    paths:
-    - node_modules
-    uploadStrategy: UPLOAD_IF_CHANGED
-    condition: SUCCESSFUL
-    optional: false
   - type: CommandStep
     name: lint and test
     runInContainer: true
@@ -40,19 +31,11 @@ jobs:
         set -e
         # No C toolchain: ssh2's crypto binding is optional, and node-pty is out of the workspace (docs/remote.md).
         apk add --no-cache git ffmpeg
-        # The stamp names the lockfile and the Node that installed it; a match means nothing to install.
-        WANT="$(sha256sum package-lock.json | cut -d' ' -f1) $(node -v)"
-        if [ "$(cat node_modules/.ci-lockfile 2>/dev/null)" = "$WANT" ]; then
-          echo "node_modules restored for this lockfile, npm ci skipped"
-        else
-          npm ci
-          echo "$WANT" > node_modules/.ci-lockfile
-        fi
+        # 14s from the npm cache above; a cached node_modules (1.2 GB) would cost more to move than that.
+        npm ci
         # The four checks at once, each one's output grouped, and red if any one is — docs/tests.md.
         npx concurrently --group --names lint,bytes,typecheck,test \
           "npm run lint" "npm run lint:bytes" "npm run typecheck -- --jobs 2" "npm run test -- --jobs 4"
-        # What a run leaves in node_modules would otherwise re-upload the whole cache.
-        rm -rf node_modules/.vite node_modules/.cache
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
