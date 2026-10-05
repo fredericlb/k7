@@ -289,10 +289,14 @@ export function buildGraphDoc(
           module: s.module,
           // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.
           ...(module?.extends ? { uses: String(module.extends) } : {}),
-          // …and the engine's stage it takes, the one test the compile applies, so the footer shows what the engine does.
+          // …and the engine's stage it takes, the one test the compile applies — none on a strip, whose own Volume is the level.
           ...(() => {
             const stage =
-              module && plugin?.type !== OFFLINE_TYPE ? stageOf(module) : [];
+              module &&
+              plugin?.type !== OFFLINE_TYPE &&
+              plugin?.name !== MIXER_PLUGIN
+                ? stageOf(module)
+                : [];
             return stage.length ? { stage } : {};
           })(),
           ...(needs?.url

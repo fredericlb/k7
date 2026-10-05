@@ -14,6 +14,11 @@ argument, at more length and with the way it was found, is in
 [liveProject.md](liveProject.md). It is also the general rule: a project owns a module when it
 CHANGES one, and a strip changes nothing.
 
+**The card is two columns**: Volume's fader over Pan, and High / Mid / Low beside them. It draws **no
+engine stage** (in / mix / out) on its header, which every other audio module carries: the strip's own
+`Volume` is the lane's level, and a second level and a dry/wet on a channel strip would be two
+controls for one value (`graphDoc.ts` leaves `stage` off any `Mixer` plugin).
+
 ```yaml
 # graph.yaml
 modules:

@@ -1,9 +1,9 @@
-# mixer — the strip, one column: a fader for Volume, then Pan and the three bands a lane is sat in a mix with
-cols: 1
-rows: 7
+# mixer — the strip, two columns: Volume's fader over Pan, and beside them the three bands a lane is sat in a mix with
+cols: 2
+rows: 4
 widgets:
   w1: { type: fader, col: 0, row: 0, rowSpan: 3, label: Volume, bind: Volume, min: -60, max: 6 }
   w2: { type: knob, col: 0, row: 3, label: Pan, bind: Pan, min: -1, max: 1 }
-  w3: { type: knob, col: 0, row: 6, label: Low, bind: Low, min: -18, max: 18 }
-  w4: { type: knob, col: 0, row: 5, label: Mid, bind: Mid, min: -18, max: 18 }
-  w5: { type: knob, col: 0, row: 4, label: High, bind: High, min: -18, max: 18 }
+  w5: { type: knob, col: 1, row: 0, label: High, bind: High, min: -18, max: 18 }
+  w4: { type: knob, col: 1, row: 1, label: Mid, bind: Mid, min: -18, max: 18 }
+  w3: { type: knob, col: 1, row: 2, label: Low, bind: Low, min: -18, max: 18 }
