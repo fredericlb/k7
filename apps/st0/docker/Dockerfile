@@ -30,7 +30,8 @@ COPY . .
 # The build stamp shown in the SPA's chrome — docs/versioning.md.
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
-RUN npm run build --workspace st0-frontend
+# vite alone: the lint job typechecks every workspace (docs/images.md).
+RUN npm exec --workspace st0-frontend -- vite build
 
 # ---- backend prod deps: st0-backend's closure only, no devDependencies -------
 FROM toolchain AS backend-deps

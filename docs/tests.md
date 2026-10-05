@@ -8,7 +8,8 @@ ran**, which is the hazard below.
 holds: 144 s sequential, ~62 s at four, green on every run, on a 12-thread machine. Thirty
 workspaces racing for CPU is what made it **red because the machine was busy**, and the C++
 perf assertion below is the one test still sensitive to that, which is why a developer's run
-stays sequential unless asked. `npm run typecheck` goes through the same runner. The generous
+stays sequential unless asked. `npm run typecheck` goes through the same runner, and CI runs it
+(`--jobs 2`) beside the tests and the two lints, so the four together use the CPU the tests leave. The generous
 timeouts later in this page are cheap insurance kept regardless.
 
 This page is the reason the numbers in `vitest.config.ts` are what they are.

@@ -53,7 +53,8 @@ computation falls back to UTC if the builder image lacks timezone data, so a mis
 tzdata shifts the stamp by an hour or two rather than failing the build.
 
 The image also carries `:latest` and `:@commit_hash@`. Three tags, three uses: the one
-you deploy, the one you can `git show`, and the one you can read.
+you deploy, the one you can `git show`, and the one you can read. Only the commit's is pushed
+before the tests pass; the other two follow once they have ([images.md](images.md)).
 
 ## Why `ENV` and not phare's `RUN VITE_APP_VERSION=… npm run build`
 
@@ -64,15 +65,15 @@ still needs the safer form differently from the other three).
 
 Phare writes the variable as a command prefix on the `RUN` line. That works there because
 its monolith builds each SPA on its own `RUN`… and would not survive being written as a
-chain, which is exactly the shape z0's Dockerfile needs.
+chain, which is the shape any one `RUN` building several SPAs takes.
 
-`apps/z0/docker/Dockerfile` builds **six** SPAs in one `&&` chain. A shell
+`apps/z0/docker/Dockerfile` builds **six** SPAs in one `RUN`. Written as a chain, a shell
 command-prefix assignment applies to the first command only, so
 `VITE_APP_VERSION=x npm run build -w a && npm run build -w b` stamps `a` and silently
 ships the other five as `dev`. Nothing fails; you just get five wrong SPAs in a
 correctly tagged image — the worst combination, because the tag says the stamp is right.
 
-`ENV` in the `frontend-build` stage covers the whole chain. That stage is a throwaway
+`ENV` in the `frontend-build` stage covers whatever that `RUN` runs. That stage is a throwaway
 whose only export is `dist/`, so the variable reaches no runtime image.
 
 ## Two things that would silently break it

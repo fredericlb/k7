@@ -32,12 +32,9 @@ FROM deps AS frontend-build
 COPY . .
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
-RUN npm run build --workspace z0-online \
- && npm run build --workspace z0-buzzer \
- && npm run build --workspace z0-remote \
- && npm run build --workspace z0-editor \
- && npm run build --workspace z0-presenter \
- && npm run build --workspace z0-monitor
+# vite alone: the lint job typechecks every workspace (docs/images.md).
+RUN npm exec --workspace z0-online --workspace z0-buzzer --workspace z0-remote \
+    --workspace z0-editor --workspace z0-presenter --workspace z0-monitor -- vite build
 
 # ---- backend prod deps: z0-backend's closure only, no devDependencies --------
 FROM toolchain AS backend-deps

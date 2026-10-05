@@ -29,7 +29,8 @@ FROM deps AS frontend-build
 COPY . .
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
-RUN npm run build --workspace k7-frontend
+# vite alone: the lint job typechecks every workspace (docs/images.md).
+RUN npm exec --workspace k7-frontend -- vite build
 
 # ---- backend prod deps: k7-backend's closure only, no devDependencies --------
 FROM toolchain AS backend-deps

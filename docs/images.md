@@ -1,6 +1,6 @@
 # The four images — why their Dockerfiles open the same way
 
-The OneDev job `build and publish studio images` builds st0, pl8, k7 and z0 one after the
+The OneDev job `build studio images` builds st0, pl8, k7 and z0 one after the
 other, as four `BuildImageStep`s (`.onedev-buildspec.yml`). Each Dockerfile builds from the repo root
 (`apps/st0/docker/Dockerfile` and its three siblings), and each needs the same two expensive
 things: an `npm ci` over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with.
@@ -33,9 +33,25 @@ hold). It still sees only the manifests, so it is cached across deploys like the
 A lockfile change invalidates the install layers, but the `/root/.npm` cache mount survives
 between builds, so `npm ci` reinstalls from the local cache instead of the registry.
 
-## What all of this assumes
+## The layers are kept in the registry, not only in the builder
 
-The cache lives in the Docker daemon (BuildKit) that OneDev's `BuildImageStep` runs on. On an
-executor whose daemon is fresh for each build, none of it carries over between deploys. The
-shared stages still pay off within one run, and the fix would then be a registry cache
-(`--cache-to`/`--cache-from` in the step's `moreOptions`).
+Each `BuildImageStep` exports its cache to `studio/cache:<app>` (`mode=max`, so the install
+stages are in it, not only the final image) and imports it on the next run. A builder that
+starts empty, or one whose cache was pruned, still finds the installs. `image-manifest=true`
+stores the cache as an ordinary OCI image, which a registry that refuses BuildKit's own cache
+manifest still accepts.
+
+## An image build checks no types
+
+The frontends are built with `vite build` alone, not with their `build` script, whose second half
+is `tsc`. Every frontend has a `typecheck` script, and `lint and test` runs all of them, so a type
+error is still red; the image job just doesn't find it a second time.
+
+## Built beside the tests, published after them
+
+`build studio images` has no trigger. `publish studio images` does, and depends on it and on
+`lint and test`, which therefore run at the same time. The build pushes each image under the
+commit hash only, which nothing deploys. The publish job moves `:latest` and the version stamp
+onto those manifests with `docker buildx imagetools create`, a copy inside the registry, once both
+have passed. The stamp travels from the build job as an artifact, because it is baked into the
+SPAs and a second clock reading could disagree with it.

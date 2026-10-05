@@ -1,5 +1,6 @@
 version: 47
 jobs:
+# Runs WHILE "build studio images" builds; "publish studio images" waits for both — docs/images.md.
 - name: lint and test
   steps:
   - type: CheckoutStep
@@ -19,6 +20,15 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
+  # node_modules itself, under a fixed key: the command reinstalls only when its stamp names another lockfile.
+  - type: SetupCacheStep
+    name: set up node_modules cache
+    key: node-modules-alpine
+    paths:
+    - node_modules
+    uploadStrategy: UPLOAD_IF_CHANGED
+    condition: SUCCESSFUL
+    optional: false
   - type: CommandStep
     name: lint and test
     runInContainer: true
@@ -26,14 +36,23 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
+        # Without it sh answers with the LAST command's status, and an earlier failure passes.
+        set -e
         # No C toolchain: ssh2's crypto binding is optional, and node-pty is out of the workspace (docs/remote.md).
         apk add --no-cache git ffmpeg
-        npm ci
-        npm run lint
-        npm run lint:bytes
-        # Four workspaces at a time — docs/tests.md.
-        npm run typecheck -- --jobs 4
-        npm run test -- --jobs 4
+        # The stamp names the lockfile and the Node that installed it; a match means nothing to install.
+        WANT="$(sha256sum package-lock.json | cut -d' ' -f1) $(node -v)"
+        if [ "$(cat node_modules/.ci-lockfile 2>/dev/null)" = "$WANT" ]; then
+          echo "node_modules restored for this lockfile, npm ci skipped"
+        else
+          npm ci
+          echo "$WANT" > node_modules/.ci-lockfile
+        fi
+        # The four checks at once, each one's output grouped, and red if any one is — docs/tests.md.
+        npx concurrently --group --names lint,bytes,typecheck,test \
+          "npm run lint" "npm run lint:bytes" "npm run typecheck -- --jobs 2" "npm run test -- --jobs 4"
+        # What a run leaves in node_modules would otherwise re-upload the whole cache.
+        rm -rf node_modules/.vite node_modules/.cache
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
@@ -46,7 +65,9 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-- name: build and publish studio images
+# No trigger of its own: "publish studio images" runs it beside "lint and test". It pushes only the
+# commit's tag, which nothing deploys; :latest and the version stamp wait for the tests.
+- name: build studio images
   steps:
   - type: CheckoutStep
     name: checkout
@@ -76,17 +97,22 @@ jobs:
     buildVersion: '@file:build_version@'
     condition: SUCCESSFUL
     optional: false
-  # Four images now, not one: st0/pl8/k7 each their own (no nginx, no BASE_IMAGE — see
-  # apps/<app>/docker/Dockerfile), z0 still built on the shared base image since it hasn't
-  # moved off st0's own hostname and still needs nginx internally.
+  # The publish job tags with this same stamp, the one baked into the SPAs.
+  - type: PublishArtifactStep
+    name: publish build version
+    artifacts: build_version
+    condition: SUCCESSFUL
+    optional: false
+  # Four images: st0/pl8/k7 each their own, z0 still on the shared base image for its nginx. Each keeps
+  # its layers in the registry (cache:<app>), so a fresh builder still finds the installs — docs/images.md.
   - type: BuildImageStep
     name: build and push st0 image
     buildPath: .
     dockerfile: apps/st0/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/st0:latest dev.frediver.se/frediverse/studio/st0:@commit_hash@ dev.frediver.se/frediverse/studio/st0:@build_version@
-    moreOptions: --build-arg APP_VERSION=@build_version@
+      tags: dev.frediver.se/frediverse/studio/st0:@commit_hash@
+    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   - type: BuildImageStep
@@ -95,8 +121,8 @@ jobs:
     dockerfile: apps/pl8/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/pl8:latest dev.frediver.se/frediverse/studio/pl8:@commit_hash@ dev.frediver.se/frediverse/studio/pl8:@build_version@
-    moreOptions: --build-arg APP_VERSION=@build_version@
+      tags: dev.frediver.se/frediverse/studio/pl8:@commit_hash@
+    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:pl8 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:pl8,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   - type: BuildImageStep
@@ -105,8 +131,8 @@ jobs:
     dockerfile: apps/k7/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/k7:latest dev.frediver.se/frediverse/studio/k7:@commit_hash@ dev.frediver.se/frediverse/studio/k7:@build_version@
-    moreOptions: --build-arg APP_VERSION=@build_version@
+      tags: dev.frediver.se/frediverse/studio/k7:@commit_hash@
+    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   - type: BuildImageStep
@@ -115,8 +141,41 @@ jobs:
     dockerfile: apps/z0/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/z0:latest dev.frediver.se/frediverse/studio/z0:@commit_hash@ dev.frediver.se/frediverse/studio/z0:@build_version@
-    moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
+      tags: dev.frediver.se/frediverse/studio/z0:@commit_hash@
+    moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:z0 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:z0,mode=max,image-manifest=true,oci-mediatypes=true
+    condition: SUCCESSFUL
+    optional: false
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 3600
+# What a deployment pulls: the commit's four images, tagged :latest and with their stamp once the tests
+# pass. imagetools copies a manifest within the registry, so nothing is built or pulled here.
+- name: publish studio images
+  steps:
+  - type: SetBuildVersionStep
+    name: set build version
+    buildVersion: '@file:build_version@'
+    condition: SUCCESSFUL
+    optional: false
+  - type: RunImagetoolsStep
+    name: tag st0 image
+    arguments: create -t dev.frediver.se/frediverse/studio/st0:latest -t dev.frediver.se/frediverse/studio/st0:@build_version@ dev.frediver.se/frediverse/studio/st0:@commit_hash@
+    condition: SUCCESSFUL
+    optional: false
+  - type: RunImagetoolsStep
+    name: tag pl8 image
+    arguments: create -t dev.frediver.se/frediverse/studio/pl8:latest -t dev.frediver.se/frediverse/studio/pl8:@build_version@ dev.frediver.se/frediverse/studio/pl8:@commit_hash@
+    condition: SUCCESSFUL
+    optional: false
+  - type: RunImagetoolsStep
+    name: tag k7 image
+    arguments: create -t dev.frediver.se/frediverse/studio/k7:latest -t dev.frediver.se/frediverse/studio/k7:@build_version@ dev.frediver.se/frediverse/studio/k7:@commit_hash@
+    condition: SUCCESSFUL
+    optional: false
+  - type: RunImagetoolsStep
+    name: tag z0 image
+    arguments: create -t dev.frediver.se/frediverse/studio/z0:latest -t dev.frediver.se/frediverse/studio/z0:@build_version@ dev.frediver.se/frediverse/studio/z0:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   triggers:
@@ -126,10 +185,13 @@ jobs:
   jobDependencies:
   - jobName: lint and test
     requireSuccessful: true
+  - jobName: build studio images
+    requireSuccessful: true
+    artifacts: build_version
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
-  timeout: 3600
+  timeout: 1800
 # Manual-only (no triggers): a cheap, fast stand-in for the desktop build's real archive —
 # run this from the OneDev UI BEFORE the first "build linux desktop" to find a too-low upload limit
 # in seconds rather than after a 30+ minute compile. Raise PROBE_MB and re-run if it passes
