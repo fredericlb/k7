@@ -434,5 +434,7 @@
   "uploadTrack.title": "Upload this track",
   "uploadTrack.lyrics": "Download the lyrics automatically",
   "uploadTrack.instrumental": "Create the instrumental version",
-  "uploadTrack.confirm": "Upload"
+  "uploadTrack.confirm": "Upload",
+  "song.public": "Public: everyone sees it",
+  "songbook.visibility": "Public or private"
 }

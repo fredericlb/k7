@@ -434,5 +434,7 @@
   "uploadTrack.title": "Envoyer ce morceau",
   "uploadTrack.lyrics": "Télécharger les paroles automatiquement",
   "uploadTrack.instrumental": "Créer la version instrumentale",
-  "uploadTrack.confirm": "Envoyer"
+  "uploadTrack.confirm": "Envoyer",
+  "song.public": "Public : tout le monde le voit",
+  "songbook.visibility": "Public ou privé"
 }
