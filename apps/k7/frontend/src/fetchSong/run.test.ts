@@ -624,6 +624,54 @@ describe("runPipeline", () => {
     );
     expect(findLrc).not.toHaveBeenCalled();
   });
+
+  it("skips the lyrics the upload popin turned down, and still makes stems", async () => {
+    const findLrc = vi.fn(async () => [lrc()]);
+    const engines = vi.fn(async () => []);
+    await runPipeline(
+      noStems,
+      "continue",
+      steps(fakePl8({ engines }), {
+        findLrc,
+        onLrc: async () => noStems,
+      }) as never,
+      { lyrics: false, instrumental: true },
+    );
+    expect(findLrc).not.toHaveBeenCalled();
+    expect(engines).toHaveBeenCalled();
+  });
+
+  it("makes no stems when the upload popin turned the instrumental down", async () => {
+    const findLrc = vi.fn(async () => []);
+    const engines = vi.fn(async () => []);
+    await runPipeline(
+      noStems,
+      "continue",
+      steps(fakePl8({ engines }), {
+        findLrc,
+        onLrc: async () => noStems,
+      }) as never,
+      { lyrics: true, instrumental: false },
+    );
+    expect(findLrc).toHaveBeenCalled();
+    expect(engines).not.toHaveBeenCalled();
+  });
+
+  it("does not go back to the lyrics when resuming a stem cut", async () => {
+    const findLrc = vi.fn(async () => [lrc()]);
+    await runPipeline(
+      song({
+        ...noStems,
+        fetchStatus: { ...noStems.fetchStatus, phase: "stemming" },
+      }),
+      "continue",
+      steps(fakePl8({ engines: async () => [] }), {
+        findLrc,
+        onLrc: async () => noStems,
+      }) as never,
+    );
+    expect(findLrc).not.toHaveBeenCalled();
+  });
 });
 
 describe("syncLyrics", () => {

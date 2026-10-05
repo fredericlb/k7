@@ -430,5 +430,9 @@
   "song.visibility.publicHint": "Tout le monde le voit dans le recueil et peut le modifier.",
   "song.visibility.private": "Privé",
   "song.visibility.privateHint": "Vous seul le voyez.",
-  "song.visibility.required": "Choisissez si le morceau est public ou privé."
+  "song.visibility.required": "Choisissez si le morceau est public ou privé.",
+  "uploadTrack.title": "Envoyer ce morceau",
+  "uploadTrack.lyrics": "Télécharger les paroles automatiquement",
+  "uploadTrack.instrumental": "Créer la version instrumentale",
+  "uploadTrack.confirm": "Envoyer"
 }

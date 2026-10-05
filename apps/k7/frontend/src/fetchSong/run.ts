@@ -261,6 +261,12 @@ export async function syncLyrics(
  * up wherever `song` says the pipeline got to on `"continue"` — a reload, or an upload. */
 export type PipelineMode = "download" | "continue";
 
+/** The two steps after the track, each one the user may turn down — the upload popin asks. */
+export interface PipelineOptions {
+  lyrics?: boolean;
+  instrumental?: boolean;
+}
+
 /** The whole chain a track goes through once it exists: search → download → find lyrics →
  * stem, unless LRCLIB says the song is instrumental. Every step reads the song its own predecessor returned, so a reload can resume
  * from `song.fetchStatus`/`song.lyricsMatch` alone rather than losing the thread — see
@@ -269,6 +275,7 @@ export async function runPipeline(
   song: Song,
   mode: PipelineMode,
   steps: PipelineSteps,
+  { lyrics = true, instrumental = true }: PipelineOptions = {},
 ): Promise<Song> {
   let current = song;
   // A fresh start never resumes a stored hunt or job: it may be the very one that failed.
@@ -289,7 +296,15 @@ export async function runPipeline(
   // Lyrics already timed are left alone: re-timing them is the ⋮ menu's « Resync lyrics ».
   const untimed =
     !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
-  if (current.audio && current.lyricsMatch === "" && untimed) {
+  // A run resumed while stemming is past the lyrics: they were timed, or turned down.
+  const pastLyrics = resume && song.fetchStatus.phase === "stemming";
+  if (
+    lyrics &&
+    !pastLyrics &&
+    current.audio &&
+    current.lyricsMatch === "" &&
+    untimed
+  ) {
     try {
       current = await syncLyrics(current, steps);
     } catch (err) {
@@ -299,6 +314,7 @@ export async function runPipeline(
   }
 
   if (
+    instrumental &&
     current.audio &&
     !current.instrumental &&
     current.lyricsMatch !== "instrumental"

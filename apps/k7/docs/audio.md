@@ -317,6 +317,10 @@ often than a track to play along to, so it is asked for rather than ridden along
 - **An upload goes INTO the library**, as this song, under the album `k7` (`songs/<artist>/k7/<title>`):
   a folder of its own, so filing it never collides with — nor replaces — a catalogue song, and the
   uploaded track can be separated like any other.
+- **An upload asks what to make of the track** before it leaves, from either way in — the insert or
+  « Add a track… » (`UploadTrackDialog.tsx`): the lyrics off LRCLIB, OFF by default, and the
+  instrumental, ON. Cancelling uploads nothing. A run resumed while stemming never goes back to the
+  lyrics, so a reload keeps that answer without k7 having to store it.
 - **A track is never replaced nor removed from k7**: it is a song of pl8's library, and a different
   file for it, or none, is the library's business. The ⋮ menu offers « Add a track… » only to a song
   that has none.

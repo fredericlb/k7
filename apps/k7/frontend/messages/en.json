@@ -430,5 +430,9 @@
   "song.visibility.publicHint": "Everyone sees it in the songbook and can edit it.",
   "song.visibility.private": "Private",
   "song.visibility.privateHint": "Only you see it.",
-  "song.visibility.required": "Choose whether the song is public or private."
+  "song.visibility.required": "Choose whether the song is public or private.",
+  "uploadTrack.title": "Upload this track",
+  "uploadTrack.lyrics": "Download the lyrics automatically",
+  "uploadTrack.instrumental": "Create the instrumental version",
+  "uploadTrack.confirm": "Upload"
 }

@@ -1,9 +1,11 @@
 import { hasTimecodes, withoutTimecodes } from "@k7/lyrics";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { UploadTrackDialog } from "../components/UploadTrackDialog";
 import { pl8 } from "../fetchSong/pl8";
 import {
   type PipelineMode,
+  type PipelineOptions,
   type PipelineSteps,
   runPipeline,
   type StatusPatch,
@@ -32,6 +34,11 @@ export function SongDetailContainer({
   onBack,
 }: Props) {
   const [song, setSong] = useState<Song | null>(null);
+  // The uploaded file the popin is asking about, and where its answer goes; null when it is closed.
+  const [asking, setAsking] = useState<{
+    file: File;
+    answer: (options: Required<PipelineOptions> | null) => void;
+  } | null>(null);
   // Status writes go out one after the other: two PATCHes racing could leave a stale phase stored.
   const writes = useRef<Promise<unknown>>(Promise.resolve());
   const running = useRef(false);
@@ -117,7 +124,7 @@ export function SongDetailContainer({
   // Search → download → stem → find lyrics, from wherever `start` says the pipeline stands.
   // A failure is stored on the song, so it is still shown after a reload until a re-run or a dismiss.
   const runFetch = useCallback(
-    async (start: Song, mode: PipelineMode) => {
+    async (start: Song, mode: PipelineMode, options?: PipelineOptions) => {
       // One run per page: a second would race the first and clear its phase when it finishes.
       if (running.current) return;
       running.current = true;
@@ -133,7 +140,7 @@ export function SongDetailContainer({
         if (leaving.current.signal.aborted) return;
         if (start.fetchStatus.phase === "failed")
           void onStatus({ phase: "", error: "" });
-        adopt(await runPipeline(start, mode, pipelineSteps()));
+        adopt(await runPipeline(start, mode, pipelineSteps(), options));
         onChangeRef.current();
       } catch (err) {
         // The page went, not the job: nothing failed, and the next page to open this song picks it up.
@@ -191,11 +198,22 @@ export function SongDetailContainer({
     onChange();
   };
 
-  // "Add a track…" in the ⋮ menu, once the insert was ignored — no pipeline involved.
-  const handleUploadAudio = async (file: File) => {
+  // Both ways in — the insert's upload and the ⋮ menu's "Add a track…" — ask first, then run what was kept.
+  const uploadTrack = async (file: File) => {
+    const options = await new Promise<Required<PipelineOptions> | null>(
+      (answer) => setAsking({ file, answer }),
+    );
+    if (!options) return;
     const updated = await api.uploadSongAudio(songId, file);
     setSong(updated);
     onChange();
+    if (options.lyrics || options.instrumental)
+      void runFetch(updated, "continue", options);
+  };
+
+  const answer = (options: Required<PipelineOptions> | null) => {
+    asking?.answer(options);
+    setAsking(null);
   };
 
   const handleToggleFavorite = async () => {
@@ -224,12 +242,7 @@ export function SongDetailContainer({
     if (song) void runFetch(song, "download");
   };
   const handleUpload = (file: File) => {
-    void (async () => {
-      const updated = await api.uploadSongAudio(songId, file);
-      setSong(updated);
-      onChange();
-      await runFetch(updated, "continue");
-    })();
+    void uploadTrack(file);
   };
 
   // The insert's Retry after a failure: every step not done yet, lyrics included once unmatched —
@@ -312,26 +325,33 @@ export function SongDetailContainer({
   if (!song) return <p className="muted">{m["common.loading"]()}</p>;
 
   return (
-    <SongDetailView
-      song={song}
-      initialTab={initialTab}
-      onSave={handleSave}
-      onUploadSheets={handleUploadSheets}
-      onDeleteSheet={handleDeleteSheet}
-      sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
-      onUploadAudio={handleUploadAudio}
-      onToggleFavorite={handleToggleFavorite}
-      onMixInstrumental={handleMixInstrumental}
-      onDelete={handleDelete}
-      onBack={onBack}
-      onDownload={handleDownload}
-      onUpload={handleUpload}
-      onIgnore={handleIgnore}
-      onRerun={handleRerun}
-      onRestart={handleRestart}
-      onResyncLyrics={handleResyncLyrics}
-      onRename={handleRename}
-      onDismissFailure={handleDismissFailure}
-    />
+    <>
+      <SongDetailView
+        song={song}
+        initialTab={initialTab}
+        onSave={handleSave}
+        onUploadSheets={handleUploadSheets}
+        onDeleteSheet={handleDeleteSheet}
+        sheetUrl={(fileId) => api.sheetFileUrl(songId, fileId)}
+        onUploadAudio={uploadTrack}
+        onToggleFavorite={handleToggleFavorite}
+        onMixInstrumental={handleMixInstrumental}
+        onDelete={handleDelete}
+        onBack={onBack}
+        onDownload={handleDownload}
+        onUpload={handleUpload}
+        onIgnore={handleIgnore}
+        onRerun={handleRerun}
+        onRestart={handleRestart}
+        onResyncLyrics={handleResyncLyrics}
+        onRename={handleRename}
+        onDismissFailure={handleDismissFailure}
+      />
+      <UploadTrackDialog
+        file={asking?.file ?? null}
+        onConfirm={answer}
+        onCancel={() => answer(null)}
+      />
+    </>
   );
 }
