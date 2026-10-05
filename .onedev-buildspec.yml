@@ -26,12 +26,14 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        apk add --no-cache python3 make g++ git ffmpeg
+        # No C toolchain: ssh2's crypto binding is optional, and node-pty is out of the workspace (docs/remote.md).
+        apk add --no-cache git ffmpeg
         npm ci
         npm run lint
         npm run lint:bytes
-        npm run typecheck
-        npm run test
+        # Four workspaces at a time — docs/tests.md.
+        npm run typecheck -- --jobs 4
+        npm run test -- --jobs 4
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL

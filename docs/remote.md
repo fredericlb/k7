@@ -119,6 +119,13 @@ Windows support; code-server means WSL here. What tmux provides on Linux — a P
 that outlives and multiplexes its viewers — is exactly what `server.mjs` implements
 with node-pty and xterm.js, the bricks VS Code itself is made of.
 
+## Its dependencies stay out of the workspace
+
+`scripts/console/package.json` is a package of its own, NOT a workspace, with its own lockfile.
+node-pty ships prebuilt binaries for Windows and macOS only, so every Linux `npm ci` — CI, and each
+image — would otherwise compile it from C++ for a console that runs on this Windows machine alone.
+`npm run console` and `npm run remote:install` install it into `scripts/console/node_modules`.
+
 ## The name, and the one accepted beside it
 
 `scripts/dev-hosts.mjs` holds all three. `priv.st0.app` is st0's own origin, with z0 still a

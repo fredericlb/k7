@@ -35,12 +35,12 @@
     "tokens": "node scripts/tokens.mjs",
     "commons:sync": "git submodule update --remote --merge commons",
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "node scripts/workspaces.mjs test",
+    "typecheck": "node scripts/workspaces.mjs typecheck",
     "images": "bash commons/scripts/build-images.sh",
     "check-images": "node commons/scripts/check-image-closure.cjs",
     "vscode": "node scripts/vscode.mjs",
-    "console": "node scripts/console/server.mjs",
+    "console": "npm install --prefix scripts/console --no-audit --no-fund && node scripts/console/server.mjs",
     "remote:install": "node scripts/remote.mjs install",
     "remote:uninstall": "node scripts/remote.mjs uninstall",
     "remote:status": "node scripts/remote.mjs status",
@@ -65,11 +65,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/xterm": "^5.5.0",
     "concurrently": "^9.0.1",
     "knip": "6.32.2",
-    "node-pty": "^1.1.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "storybook": "^10.5.0",
@@ -98,7 +95,6 @@
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
-    "esbuild@0.21.5": true,
-    "node-pty@1.1.0": true
+    "esbuild@0.21.5": true
   }
 }

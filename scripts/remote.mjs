@@ -95,6 +95,16 @@ async function run(name) {
 }
 
 function install() {
+  // The console keeps its own node_modules, so no Linux install compiles node-pty (../docs/remote.md).
+  const deps = spawnSync("npm", ["install", "--no-audit", "--no-fund"], {
+    cwd: join(repo, "scripts", "console"),
+    stdio: "inherit",
+    shell: true,
+  });
+  if (deps.status !== 0) {
+    console.error("npm install in scripts/console failed");
+    process.exit(1);
+  }
   const node = process.execPath;
   const vbs = join(repo, "scripts", "hidden.vbs");
   const self = join(repo, "scripts", "remote.mjs");
