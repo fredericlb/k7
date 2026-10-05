@@ -1456,22 +1456,26 @@ export function TimelineTab({
       setStatus("event move — enter runs it, esc drops the line");
       return;
     }
-    // A press that never passed the slop is a CLICK: parking the caret over the clip is what SHOWS it, and only the graph slot is told outright.
+    // A press that never passed the slop is a CLICK: it selects the clip, and only a DOUBLE-click opens it (docs/timeline.md).
     if (!d.moved && m) {
       coverClip(m);
-      const p = projRef.current;
-      const clip = p?.tracks
-        .find((t) => t.id === d.trackId)
-        ?.clips.find((c) => c.id === d.clipId);
       setMove(null);
-      if (p && clip) {
-        clipOpenedAt.current = performance.now();
-        onOpenClip?.({ kind: "clip", project: p, clip });
-      }
       return;
     }
     commitMoveRef.current();
-  }, [moveArgs, setStatus, coverClip, onOpenClip]);
+  }, [moveArgs, setStatus, coverClip]);
+
+  /** A clip's double-click: its contents in the event panel. */
+  const openClip = useCallback(
+    (e: React.MouseEvent, c: WebClip) => {
+      const p = projRef.current;
+      if (!p) return;
+      e.stopPropagation();
+      clipOpenedAt.current = performance.now();
+      onOpenClip?.({ kind: "clip", project: p, clip: c });
+    },
+    [onOpenClip],
+  );
 
   /** The frozen lane's authored MIDI clip under the pointer — or its first, when the press falls between two. */
   const openFrozenNotes = useCallback(
@@ -3122,17 +3126,17 @@ export function TimelineTab({
                             <div
                               // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                               key={`${c.id}-${i}`}
-                              title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, drag to move (ctrl : hors grille)`}
+                              title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, double-click to open, drag to move (ctrl : hors grille)`}
                               // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                               onPointerDown={(e) => beginClipDrag(e, t, c)}
                               onPointerMove={onClipDragMove}
                               onPointerUp={endClipDrag}
                               onPointerCancel={endClipDrag}
-                              // A RENDER opens the notes it was made from: the authored MIDI clip under the pointer (docs/timeline.md).
-                              onDoubleClick={
+                              // A double-click opens the clip; a RENDER opens the notes it was made from, the authored MIDI clip under the pointer (docs/timeline.md).
+                              onDoubleClick={(e) =>
                                 c.frozen && t.frozenMaterial
-                                  ? (e) => openFrozenNotes(e, t, c)
-                                  : undefined
+                                  ? openFrozenNotes(e, t, c)
+                                  : openClip(e, c)
                               }
                               // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
                               onContextMenu={(e) => {

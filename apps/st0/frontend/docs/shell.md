@@ -918,11 +918,12 @@ track count, so any fixed number would be wrong for most songs.
 
 ## What a click in the timeline does to the event panel
 
-Two gestures move the slot, and they are symmetric on purpose. **A clip** opens its content in the
-bottom panel's `event`, under the timeline still on screen, and lights that button; the caret parks on
-it too, which is what fills the command conditions (`hover_midi_sequence`), but the panel is what SHOWS
-it and is told outright, since a click is what the caret cannot say on its own. **The bare lane** moves
-the caret to where you clicked and lets the event go — what a click opened, a click on nothing clears.
+Two gestures move the slot. **A clip's click** selects it and nothing more: the caret parks on it,
+which is what fills the command conditions (`hover_midi_sequence`). **Its double-click** opens its
+content in the bottom panel's `event`, under the timeline still on screen, and lights that button. A
+single click does not open the panel because the panel takes half the window and folds the lanes:
+selecting a clip to move or edit it must not change the layout under the pointer. **The bare lane**
+moves the caret to where you clicked and lets the event go — a click on nothing clears what was open.
 The panel stays up and says nothing is open, since it was asked for; Escape and its footer button close it.
 
 The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare lane;

@@ -708,7 +708,7 @@ system's arrow, having no mark to place and so nothing to promise.
 
 ### The clip panel frames the EVENT, and acts only on it
 
-Clicking an audio event opens `AudioClipPanel` on the whole file, framed on the window **that
+Double-clicking an audio event opens `AudioClipPanel` on the whole file, framed on the window **that
 event** plays: its span plus a bar of context either side (`frameWindow`). The wheel still reaches
 everything, and the header offers both ways out — *tout* for the file, *l'événement* to come back.
 

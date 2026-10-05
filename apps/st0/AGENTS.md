@@ -169,7 +169,7 @@ turntables | mastering | chains`) and is what `full` fullscreens; four of them â
 matching surface. A **panel** is one of four (`event | graph | mix | logs`) and is what
 the bottom of the window shows, under the page, opening on half its height; `mix` is the graph with
 every mixer strip lined up on one rank. While a panel is open the timeline's lanes are folded and
-Expand is dead. A clip's CONTENTS are the `event` panel's, opened by a click on it. Both are URL state (`src/useViewRoute.ts`); see
+Expand is dead. A clip's CONTENTS are the `event` panel's, opened by a double-click on it. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
 
 ### Commands are the CLI's, verbatim

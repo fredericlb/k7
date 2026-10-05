@@ -3286,9 +3286,9 @@ export default function App({
                       readOnly={frozen}
                       setStatus={setStatus}
                       onEditTarget={setEditTarget}
-                      // A clicked clip shows its content in the event panel, under the timeline still on screen.
+                      // A double-clicked clip shows its content in the event panel, under the timeline still on screen.
                       onOpenClip={(t) => openEvent({ kind: "clip", target: t })}
-                      // …and the bare lane lets it go: what a click opened, a click on nothing clears, the panel staying up.
+                      // …and the bare lane lets it go: a click on nothing clears what was open, the panel staying up.
                       onEmptyClick={() => setGraphSlot(null)}
                       onCaret={setCaret}
                       onView={setTlView}
@@ -3639,7 +3639,7 @@ export default function App({
                     onTrackSet={onTrackSet}
                   />
                 )}
-                {/* The EVENT: what a clip click or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
+                {/* The EVENT: what a clip's or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
                 {panel === "event" && (
                   <div className="flex h-full min-h-0 min-w-0">
                     {!graphSlot && (
