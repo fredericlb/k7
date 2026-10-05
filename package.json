@@ -29,7 +29,7 @@
     "engine/st0-android/web"
   ],
   "scripts": {
-    "prepare": "node scripts/install-hooks.mjs",
+    "prepare": "git config core.hooksPath .githooks || exit 0",
     "dev": "node scripts/dev.mjs",
     "dev:native": "node scripts/dev-native.mjs",
     "clean": "rm -rf node_modules commons/packages/*/node_modules commons/dev/*/node_modules packages/*/node_modules apps/*/node_modules apps/*/*/node_modules apps/*/*/*/node_modules",
