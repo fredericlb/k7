@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { GitBusyOverlay } from "../components/GitBusy";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
+import { VERSION } from "../version";
 import { LibrariesCard } from "./LibrariesCard";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -36,6 +37,7 @@ export function LibrariesPage() {
       <GitBusyOverlay />
       <AppHeader
         title="st0"
+        version={VERSION}
         subtitle={m["home.libraries"]()}
         actions={
           <Button variant="ghost" size="sm" asChild>

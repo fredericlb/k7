@@ -177,8 +177,8 @@ until its divider is dragged. It is the wiring and the layout; almost nothing el
 | `actions` | the **master meter**, then the pane row — or, on a phone, the one menu that also holds the side panels' buttons |
 
 **No brand name and no build stamp: the project's name has the left of the bar.** The brand is what
-the home page says — repeating it over a song names the tool rather than the work — and a stamp
-would read `dev` in every build, `VITE_APP_VERSION` being set by nothing in this repo.
+the home page says — repeating it over a song names the tool rather than the work — and the stamp
+goes with it, being the tooltip of that name on the home page (`../../../docs/versioning.md`).
 
 **The master meter is at the RIGHT end, first in `actions`.** The bar and the fader under it are a
 control rather than a caption, so they belong on the side the bar keeps its controls; and the meter

@@ -120,15 +120,19 @@ constant-folds into the bundle.
 
 | image | where it answers | SPA | render site |
 |---|---|---|---|
-| st0 | `/` (root of its own subdomain) | `st0-frontend` | `apps/st0/frontend/src/App.tsx` — header, after the title |
-| pl8 | `/` (root of its own subdomain) | `pl8-frontend` | `apps/pl8/frontend/src/Library.tsx` — header, after the subtitle |
-| k7 | `/` (root of its own subdomain) | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — beside the mark |
+| st0 | `/` (root of its own subdomain) | `st0-frontend` | `apps/st0/frontend/src/projects/Home.tsx`, `LibrariesPage.tsx` — tooltip on the header's title |
+| pl8 | `/` (root of its own subdomain) | `pl8-frontend` | `apps/pl8/frontend/src/Library.tsx` — tooltip on the header's title |
+| k7 | `/` (root of its own subdomain) | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — tooltip on the header's title |
 | z0 | `/z0` | `z0-online` | `src/App.tsx` — header |
 | z0 | `/z0/monitor` | `z0-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
 | z0 | `/z0/remote` | `z0-remote` | `src/views/RemoteView.tsx` — `.status-bar` |
 | z0 | `/z0/buzzer` | `z0-buzzer` | `src/views/BuzzerView.tsx` — fixed bottom-left |
 | z0 | `/z0/presenter` | `z0-presenter` | `src/components/Game2D.tsx` — overlay, bottom-left |
 | z0 | `/z0/editor` | `z0-editor` | **nowhere** — it ships in the image and renders no stamp |
+
+Where the bar is `@frediverse/ui`'s `AppHeader` — st0, pl8, k7 — the stamp is its `version` prop, a
+tooltip on the app's name and never visible text: nobody needs it in the moment, and it is one hover
+away for whoever asks which image this is.
 
 `z0-editor` is the one gap, and it is listed rather than left out so the table still answers
 "what is in the image". Its chrome is `@frediverse/ui` like st0's rather

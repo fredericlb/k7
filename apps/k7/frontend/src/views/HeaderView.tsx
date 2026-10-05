@@ -85,7 +85,8 @@ export function HeaderView({
           type="button"
           className="brand"
           onClick={onHome}
-          title={m["nav.home"]()}
+          // A label and not a title: a title here would shadow AppHeader's version tooltip.
+          aria-label={m["nav.home"]()}
         >
           {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
           <img
@@ -96,7 +97,7 @@ export function HeaderView({
           <span className="brand-text">k7</span>
         </button>
       }
-      subtitle={VERSION}
+      version={VERSION}
       items={items}
       actions={
         <>

@@ -213,6 +213,7 @@ export function Library() {
         <AppHeader
           // No `variant`: the house look, the accent tinted over the page.
           title="pl8"
+          version={VERSION}
           subtitle={sectionLabel(section)}
           items={sectionItems(section, counts, setSection)}
           className="z-20"
@@ -230,10 +231,6 @@ export function Library() {
                   <FolderTree className="h-5 w-5" />
                 </Button>
               ) : null}
-              {/* Nobody needs it in the moment, so it is the one thing left unlabelled here. */}
-              <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
-                {VERSION}
-              </span>
               {/* Where sound comes out, beside the cog: it is changed while listening — see ../docs/playbackTarget.md. */}
               <PlaybackPicker
                 target={playback.target}

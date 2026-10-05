@@ -34,6 +34,7 @@ import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { HomeSettings } from "../settings/HomeSettings";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
+import { VERSION } from "../version";
 import { accountFiles, librariesHref, shares as sharesApi } from "./api";
 import {
   type ArmedDelete,
@@ -274,6 +275,7 @@ export function Home() {
       <GitBusyOverlay />
       <AppHeader
         title="st0"
+        version={VERSION}
         subtitle={m["home.projects"]()}
         className="z-20"
         actions={
