@@ -1638,11 +1638,6 @@ function visibleTo(rec, viewer) {
   return !rec.fields.Private || rec.fields.OwnerId === viewer;
 }
 
-export async function getSongOwner(uid) {
-  const rec = await getSongRecord(uid);
-  return rec ? rec.fields.OwnerId : null;
-}
-
 /** Whether `viewer` may reach the song at all: false for a missing one and for someone else's private one. */
 export async function songVisibleTo(uid, viewer) {
   const rec = await getSongRecord(uid);

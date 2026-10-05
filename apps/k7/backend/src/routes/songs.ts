@@ -1,14 +1,16 @@
 /* Songbook: each song carries free-text lyrics / tablature, plus a sheet made of
    uploaded PDF / image / score files (not text). A public song is shared by everyone logged
-   in, a private one is its creator's alone; the star is each person's, and only a song's
-   creator deletes it — ../../docs/ownership.md.
+   in and deleted by an admin; a private one is its creator's alone, to read and to delete.
+   The star is each person's — ../../docs/ownership.md.
 */
 
 import { streamFile, sub, validate, wrap } from "@frediverse/http";
 import { upload } from "@frediverse/http/upload";
+import { isAdmin } from "@frediverse/oidc";
 import { canonicalSheetMime } from "@k7/shared/sheetKind";
 import { Router } from "express";
 import { z } from "zod";
+import { env } from "../env.ts";
 import { searchLrclib } from "../lrclib.ts";
 import {
   LibraryPathError,
@@ -77,17 +79,26 @@ songsRouter.param("sid", (req, res, next, sid) => {
     .catch(next);
 });
 
-/** The song again, as the asking user sees it — their star, and whether they created it. */
+/** A private song is deleted by its creator, a public one by an admin. */
+const mayDelete = (song, req) =>
+  song.private ? song.mine : isAdmin(req.user, env.adminGroups);
+
+/** A song as the asking user sees it, with whether they may delete it. */
+const withRights = (song, req) =>
+  song && { ...song, canDelete: mayDelete(song, req) };
+
+/** The song again, as the asking user sees it — their star, whether they created it, whether they delete it. */
 const sendSong = async (req, res, status = 200) => {
   const song = await store.getSong(req.params.sid, sub(req));
   if (!song) return res.status(404).json({ error: "not found" });
-  res.status(status).json(song);
+  res.status(status).json(withRights(song, req));
 };
 
 songsRouter.get(
   "/",
   wrap(async (req, res) => {
-    res.json(await store.listSongs(sub(req)));
+    const songs = await store.listSongs(sub(req));
+    res.json(songs.map((s) => withRights(s, req)));
   }),
 );
 
@@ -97,7 +108,9 @@ songsRouter.post(
   wrap(async (req, res) => {
     const song = await store.createSong(sub(req), req.body);
     if (!song) return res.status(500).json({ error: "song was not created" });
-    res.status(201).json(await store.getSong(song.id, sub(req)));
+    res
+      .status(201)
+      .json(withRights(await store.getSong(song.id, sub(req)), req));
   }),
 );
 
@@ -126,7 +139,7 @@ songsRouter.put(
       req.body.favorite,
     );
     if (!song) return res.status(404).json({ error: "not found" });
-    res.json(song);
+    res.json(withRights(song, req));
   }),
 );
 
@@ -297,11 +310,15 @@ songsRouter.delete(
 songsRouter.delete(
   "/:sid",
   wrap(async (req, res) => {
-    // Anyone edits a song; deleting it is its creator's alone.
-    if ((await store.getSongOwner(req.params.sid)) !== sub(req))
-      return res
-        .status(403)
-        .json({ error: "only the song's creator can delete it" });
+    // Anyone edits a public song; deleting it is an admin's, and a private one its creator's.
+    const song = await store.getSong(req.params.sid, sub(req));
+    if (!song) return res.status(404).json({ error: "not found" });
+    if (!mayDelete(song, req))
+      return res.status(403).json({
+        error: song.private
+          ? "only the song's creator can delete it"
+          : "only an admin can delete a public song",
+      });
     const ok = await store.deleteSong(req.params.sid);
     if (!ok) return res.status(404).json({ error: "not found" });
     res.status(204).end();

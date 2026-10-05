@@ -85,6 +85,8 @@ services:
       # Only needed if PL8_DOMAIN below is not play.st0.app — the default in code
       # points at that fixed host regardless of what PL8_DOMAIN is set to.
       MEDIATEK_URL: ${MEDIATEK_URL:-}
+      # The groups whose members delete a public song — apps/k7/docs/ownership.md.
+      AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
       # The pocketbase service above, reached over the container network.
       POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
       POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:?set POCKETBASE_EMAIL — see .env.example}

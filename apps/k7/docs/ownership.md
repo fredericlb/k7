@@ -22,17 +22,22 @@ row id and has no owner of its own, so the database is asked before the cached f
 
 ## Shared: the songbook and the practice book
 
-Songs are the band's common book, so every logged-in user lists, reads and **edits** every song —
-lyrics, tablature, sheets, the reference track. A song still records who created it, and only
-that person can **delete** it: editing is how a shared book grows, while deleting one song would
-wipe someone else's work at once. The page shows the delete button to the creator alone (`mine`
-on the song), and the backend refuses anyone else with a 403.
+Songs are the band's common book, so every logged-in user lists, reads and **edits** every public
+song — lyrics, tablature, sheets, the reference track. Only an **admin** can **delete** one: editing
+is how a shared book grows, while deleting a song wipes everyone's work on it at once, its creator's
+included, so it belongs to whoever looks after the book rather than to whoever added the song. An
+admin is a member of one of the OIDC groups in `AUTH_ADMIN_GROUPS` — the variable, and the
+`groups` claim, pl8 and z0 read too; left empty, no public song can be deleted.
 
 **A private song** is the exception inside the shared book. Adding a song asks whether it is public
 or private, with neither preselected: whether the band sees it is the creator's call, and a default
 would make it for them. A private song follows the owned rule — left out of everyone else's list,
 and `songVisibleTo` turns every `/api/songs/:sid` route into a **404** for anyone but its creator,
-the same answer as a song that is not there. The choice is made once, at creation.
+the same answer as a song that is not there. The choice is made once, at creation. A private song is deleted by its creator, and nobody else
+— an admin included — can even see it.
+
+Delete is an entry of the song's ⋮ menu, drawn only when the song says `canDelete`. The backend
+works that flag out per request and refuses a delete without it with a 403.
 
 The **singing exercises** follow the same shape for the same reason: a warm-up somebody wrote down
 is worth having whoever is at the desk, so every logged-in user lists them, adds to them and

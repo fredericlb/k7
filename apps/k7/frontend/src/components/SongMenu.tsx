@@ -159,10 +159,10 @@ export function SongMenu({
             </DropdownMenuItem>
           )}
 
-          {song.mine && (
+          {song.canDelete && (
             <>
               <DropdownMenuSeparator />
-              {/* Everyone edits the shared songbook; only a song's creator deletes it. */}
+              {/* A private song is deleted by its creator, a public one by an admin. */}
               <DropdownMenuItem
                 className="text-destructive"
                 onSelect={() => void onDelete()}

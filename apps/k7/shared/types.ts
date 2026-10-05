@@ -120,8 +120,10 @@ export interface Song {
   private: boolean;
   // The asking user's own star: the songbook is shared, a favourite is not.
   favorite: boolean;
-  // The asking user created it, which is what lets them delete it.
+  // The asking user created it.
   mine: boolean;
+  // The asking user may delete it: its creator for a private song, an admin for a public one.
+  canDelete: boolean;
   createdAt: string;
 }
 

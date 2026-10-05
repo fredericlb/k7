@@ -23,6 +23,8 @@ const raw = defineEnv(
     MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "pl8")),
     // Written by `npm run tokens`; without it the library refuses the push, never being open.
     MEDIATEK_TOKEN: z.string().optional(),
+    // The OIDC groups whose members delete a public song, comma-separated; empty, nobody does.
+    AUTH_ADMIN_GROUPS: z.string().default(""),
   },
   { service: "k7-backend" },
 );
@@ -57,4 +59,8 @@ export const env = {
     base: raw.MEDIATEK_URL,
     token: raw.MEDIATEK_TOKEN,
   },
+  // Read as pl8 and z0 read the same variable — ../../docs/ownership.md.
+  adminGroups: raw.AUTH_ADMIN_GROUPS.split(",")
+    .map((g) => g.trim())
+    .filter(Boolean),
 };
