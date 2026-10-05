@@ -21,7 +21,8 @@ export interface StrudelEvent {
 const QUERY_GRID = 1 << 20;
 
 // A double as an EXACT fraction on that grid, as text, which Fraction.js parses without its Farey search (docs/patternPlugin.md).
-const onGrid = (x: number): string => `${Math.round(x * QUERY_GRID)}/${QUERY_GRID}`;
+const onGrid = (x: number): string =>
+  `${Math.round(x * QUERY_GRID)}/${QUERY_GRID}`;
 
 // The events whose onset lies in [from, to) cycles; a query that throws yields nothing rather than crashing a clock.
 export function queryEvents(
