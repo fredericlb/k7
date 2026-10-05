@@ -35,6 +35,7 @@ const song = (over: Partial<Song> = {}): Song =>
     },
     lyricsMatch: "",
     fetchIgnored: false,
+    private: false,
     ...over,
   }) as Song;
 

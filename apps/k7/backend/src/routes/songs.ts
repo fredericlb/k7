@@ -1,6 +1,7 @@
 /* Songbook: each song carries free-text lyrics / tablature, plus a sheet made of
-   uploaded PDF / image / score files (not text). Shared by everyone logged in; the star
-   is each person's, and only a song's creator deletes it — ../../docs/ownership.md.
+   uploaded PDF / image / score files (not text). A public song is shared by everyone logged
+   in, a private one is its creator's alone; the star is each person's, and only a song's
+   creator deletes it — ../../docs/ownership.md.
 */
 
 import { streamFile, sub, validate, wrap } from "@frediverse/http";
@@ -20,6 +21,8 @@ const required = "artist and title are required";
 const createSchema = z.object({
   artist: z.string({ error: required }).trim().min(1, required),
   title: z.string({ error: required }).trim().min(1, required),
+  // Asked at creation, never defaulted: a private song is seen by its creator alone.
+  private: z.boolean({ error: "choose public or private" }),
 });
 
 const patchSchema = z.object({
@@ -64,12 +67,12 @@ const favoriteSchema = z.object({ favorite: z.boolean() });
 
 export const songsRouter = Router();
 
-// No owner guard: any logged-in user reaches any song; the param only answers 404 for one that is not there.
+// Any logged-in user reaches a public song; someone else's private one answers 404, like a missing one.
 songsRouter.param("sid", (req, res, next, sid) => {
   store
-    .getSongOwner(sid)
-    .then((owner) =>
-      owner === null ? res.status(404).json({ error: "not found" }) : next(),
+    .songVisibleTo(sid, sub(req))
+    .then((visible) =>
+      visible ? next() : res.status(404).json({ error: "not found" }),
     )
     .catch(next);
 });

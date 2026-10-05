@@ -1627,9 +1627,15 @@ function publicSong(rec, viewer = "", favorites: Set<string> = new Set()) {
     },
     lyricsMatch: f.LyricsMatch || "",
     fetchIgnored: Boolean(f.FetchIgnored),
+    private: Boolean(f.Private),
     favorite: favorites.has(f.Uid),
     createdAt: f.CreatedAt || "",
   };
+}
+
+/** A public song is everyone's to see; a private one is its creator's alone — ../../docs/ownership.md. */
+function visibleTo(rec, viewer) {
+  return !rec.fields.Private || rec.fields.OwnerId === viewer;
 }
 
 export async function getSongOwner(uid) {
@@ -1637,13 +1643,20 @@ export async function getSongOwner(uid) {
   return rec ? rec.fields.OwnerId : null;
 }
 
-/** Every song — the songbook is shared — with `viewer`'s favourites floated to the top. */
+/** Whether `viewer` may reach the song at all: false for a missing one and for someone else's private one. */
+export async function songVisibleTo(uid, viewer) {
+  const rec = await getSongRecord(uid);
+  return rec !== null && visibleTo(rec, viewer);
+}
+
+/** Every song `viewer` may see — the public book and their own private songs — favourites first. */
 export async function listSongs(viewer = "") {
   const [recs, favorites] = await Promise.all([
     db.listRecords("Songs"),
     favoritesOf(viewer),
   ]);
   return recs
+    .filter((rec) => visibleTo(rec, viewer))
     .map((rec) => publicSong(rec, viewer, favorites))
     .sort(
       (a, b) =>
@@ -1677,7 +1690,7 @@ async function setSongFavoriteUnlocked(uid, viewer, favorite: boolean) {
   return getSong(uid, viewer);
 }
 
-export async function createSong(ownerId, { artist, title }) {
+export async function createSong(ownerId, { artist, title, private: hidden }) {
   const uid = randomUUID();
   const createdAt = new Date().toISOString();
   await db.addRecords("Songs", [
@@ -1689,6 +1702,7 @@ export async function createSong(ownerId, { artist, title }) {
       Lyrics: "",
       Tablature: "",
       SheetMeta: "[]",
+      Private: Boolean(hidden),
       CreatedAt: createdAt,
     },
   ]);

@@ -4,7 +4,8 @@ Everything k7 saves belongs to the person who saved it, and nobody else can see 
 their takes, moments and their clips, markers, releases and their versions, pages, the Supernote
 settings. There is no sharing feature yet; when one exists, it is the only way past this rule.
 
-Two things are shared instead: the **songbook**, and the **singing exercises**.
+Two things are shared instead: the **songbook** — all of it but the songs added as private — and
+the **singing exercises**.
 
 ## Owned: filtered by list, guarded by address
 
@@ -26,6 +27,12 @@ lyrics, tablature, sheets, the reference track. A song still records who created
 that person can **delete** it: editing is how a shared book grows, while deleting one song would
 wipe someone else's work at once. The page shows the delete button to the creator alone (`mine`
 on the song), and the backend refuses anyone else with a 403.
+
+**A private song** is the exception inside the shared book. Adding a song asks whether it is public
+or private, with neither preselected: whether the band sees it is the creator's call, and a default
+would make it for them. A private song follows the owned rule — left out of everyone else's list,
+and `songVisibleTo` turns every `/api/songs/:sid` route into a **404** for anyone but its creator,
+the same answer as a song that is not there. The choice is made once, at creation.
 
 The **singing exercises** follow the same shape for the same reason: a warm-up somebody wrote down
 is worth having whoever is at the desk, so every logged-in user lists them, adds to them and

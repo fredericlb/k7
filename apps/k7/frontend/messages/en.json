@@ -423,5 +423,12 @@
   "recover.found": "{count} take(s) a closed or crashed tab left unsaved — download to keep them.",
   "recover.download": "Download",
   "recover.discard": "Discard",
-  "recover.discardConfirm": "Discard this take for good? It is saved nowhere else."
+  "recover.discardConfirm": "Discard this take for good? It is saved nowhere else.",
+  "song.private": "Private: only you see it",
+  "song.visibility.question": "Who can see this song?",
+  "song.visibility.public": "Public",
+  "song.visibility.publicHint": "Everyone sees it in the songbook and can edit it.",
+  "song.visibility.private": "Private",
+  "song.visibility.privateHint": "Only you see it.",
+  "song.visibility.required": "Choose whether the song is public or private."
 }

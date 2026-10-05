@@ -115,6 +115,8 @@ export const SCHEMA: CollectionSchema = {
     { name: "LyricsMatch", type: "text" },
     // The insert dismissed on purpose — "Ignore" — so it never offers again for this song.
     { name: "FetchIgnored", type: "bool" },
+    // Seen by its creator alone instead of the whole band — ../../docs/ownership.md.
+    { name: "Private", type: "bool" },
     { name: "CreatedAt", type: "text" },
   ],
   SongFavorites: [

@@ -116,6 +116,8 @@ export interface Song {
   lyricsMatch: "" | "matched" | "unmatched" | "instrumental";
   // The fetch insert was dismissed on purpose ("Ignore") — never offer it again for this song.
   fetchIgnored: boolean;
+  // Seen by its creator alone; chosen when the song is added — apps/k7/docs/ownership.md.
+  private: boolean;
   // The asking user's own star: the songbook is shared, a favourite is not.
   favorite: boolean;
   // The asking user created it, which is what lets them delete it.

@@ -423,5 +423,12 @@
   "recover.found": "{count} prise(s) qu'un onglet fermé ou planté a laissée(s) non enregistrée(s) — téléchargez-les pour les garder.",
   "recover.download": "Télécharger",
   "recover.discard": "Jeter",
-  "recover.discardConfirm": "Jeter cette prise pour de bon ? Elle n'est enregistrée nulle part ailleurs."
+  "recover.discardConfirm": "Jeter cette prise pour de bon ? Elle n'est enregistrée nulle part ailleurs.",
+  "song.private": "Privé : vous seul le voyez",
+  "song.visibility.question": "Qui peut voir ce morceau ?",
+  "song.visibility.public": "Public",
+  "song.visibility.publicHint": "Tout le monde le voit dans le recueil et peut le modifier.",
+  "song.visibility.private": "Privé",
+  "song.visibility.privateHint": "Vous seul le voyez.",
+  "song.visibility.required": "Choisissez si le morceau est public ou privé."
 }

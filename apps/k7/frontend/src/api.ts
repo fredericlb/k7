@@ -432,7 +432,11 @@ export const api = {
 
   getSong: (id: string): Promise<Song> => f(`/api/songs/${id}`).then(json),
 
-  createSong: (data: { artist: string; title: string }): Promise<Song> =>
+  createSong: (data: {
+    artist: string;
+    title: string;
+    private: boolean;
+  }): Promise<Song> =>
     f("/api/songs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

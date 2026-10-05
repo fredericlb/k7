@@ -2,8 +2,8 @@
 
 A toggle on the settings screen, three fields, and from then on the songbook lands on the
 device by itself: one EPUB per song in `Document/Songbook`, on activation and once an hour.
-It is the whole shared songbook, not the user's favourites: the device is a copy of the book
-everyone plays from ([ownership.md](ownership.md)).
+It is the whole songbook as the user sees it — the shared book plus their own private songs — not
+their favourites: the device is a copy of the book they play from ([ownership.md](ownership.md)).
 
 ## Why the protocol, and not WebDAV or a cloud
 

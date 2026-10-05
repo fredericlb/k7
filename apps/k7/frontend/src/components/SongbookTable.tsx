@@ -2,7 +2,7 @@
 // A click anywhere on a row opens the song; the star and the links act on their own and stop there.
 
 import { Button } from "@frediverse/ui/button";
-import { FileMusic, Guitar, MicVocal, Star } from "@frediverse/ui/icons";
+import { FileMusic, Guitar, Lock, MicVocal, Star } from "@frediverse/ui/icons";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Song, SongTab } from "../types";
@@ -96,6 +96,16 @@ export function SongbookTable({
                 {s.artist}
               </td>
               <td className="songbook-title" title={s.title}>
+                {s.private && (
+                  <span
+                    className="songbook-private"
+                    title={m["song.private"]()}
+                    role="img"
+                    aria-label={m["song.private"]()}
+                  >
+                    <Lock className="size-3" />
+                  </span>
+                )}
                 {s.title}
               </td>
               <td className="songbook-links">

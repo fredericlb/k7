@@ -635,6 +635,36 @@ input[type="range"] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.songbook-table .songbook-private {
+  display: inline-flex;
+  margin-right: 0.35em;
+  vertical-align: -0.05em;
+  opacity: 0.6;
+}
+/* The new-song form's public/private choice: radios, since the base rule restyles every button. */
+.song-visibility {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.song-visibility legend {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.song-visibility-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+.song-visibility-option input {
+  margin-top: 0.25em;
+}
+.song-visibility-option > span {
+  display: grid;
+}
 .songbook-table .songbook-links,
 .songbook-table .songbook-links-head {
   width: 1%;
