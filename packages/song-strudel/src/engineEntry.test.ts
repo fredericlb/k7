@@ -53,6 +53,16 @@ describe("engineEntry", () => {
     expect(api.labels(0, 2).sort()).toEqual(["Kit", "Pad", "Stray"]);
   });
 
+  it("tiles windows on inexact boundaries exactly, and quickly — a raw double costs Fraction.js a Farey search", async () => {
+    await api.load(DEMO);
+    const t0 = performance.now();
+    let got = 0;
+    for (let i = 0; i < 200; i++)
+      got += api.laneEvents(i * 0.1, (i + 1) * 0.1, "Kit", false, ["pad", "kit"]).length;
+    expect(got).toBe(80);
+    expect(performance.now() - t0).toBeLessThan(2000);
+  });
+
   it("keeps the previous pattern when a new one does not evaluate", async () => {
     await api.load('s("bd sn hh")');
     await expect(api.load('s("bd"')).rejects.toThrow();

@@ -106,6 +106,8 @@ target_include_directories(studio_rtneural INTERFACE ${STUDIO_RTNEURAL_DIR} ${ST
 target_compile_definitions(studio_rtneural INTERFACE
     RTNEURAL_USE_EIGEN=1 RTNEURAL_DEFAULT_ALIGNMENT=16 RTNEURAL_NO_DEBUG=1)
 target_link_libraries(studio_rtneural INTERFACE nlohmann_json::nlohmann_json)
+# Its templates overflow MSVC's section limit (C1128): JUCE gives the engine /bigobj, the tests need it from here.
+target_compile_options(studio_rtneural INTERFACE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
 target_link_libraries(studio_engine PRIVATE studio_rtneural)
 
 # The package's public headers live right here; expose this dir to consumers.

@@ -17,6 +17,12 @@ export interface StrudelEvent {
   label?: string; // `.label("kick")` — names the track these events land on
 }
 
+// A query's ends are snapped to this grid, in cycles: about a microsecond at a second per cycle, under one sample.
+const QUERY_GRID = 1 << 20;
+
+// A double as an EXACT fraction on that grid, as text, which Fraction.js parses without its Farey search (docs/patternPlugin.md).
+const onGrid = (x: number): string => `${Math.round(x * QUERY_GRID)}/${QUERY_GRID}`;
+
 // The events whose onset lies in [from, to) cycles; a query that throws yields nothing rather than crashing a clock.
 export function queryEvents(
   // biome-ignore lint/suspicious/noExplicitAny: a Strudel pattern is untyped
@@ -28,7 +34,7 @@ export function queryEvents(
   // biome-ignore lint/suspicious/noExplicitAny: haps are untyped
   let haps: any[];
   try {
-    haps = pattern.queryArc(from, to);
+    haps = pattern.queryArc(onGrid(from), onGrid(to));
   } catch {
     return out;
   }

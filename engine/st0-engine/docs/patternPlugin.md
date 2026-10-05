@@ -97,6 +97,16 @@ the banks — is fixed at construction and part of `keyOf`.
 One QuickJS runtime per lane, capped at 64 MiB, and every call has a 250 ms deadline: a pattern
 that loops forever or allocates without end fails its load and the lane keeps the previous one.
 
+**A query's window is snapped to an exact fraction before Strudel sees it** (`onGrid` in
+`packages/song-strudel/src/events.ts`, a 1/2²⁰-cycle grid). The worker's windows are
+`playhead / secondsPerCycle`, arbitrary doubles, and Strudel's `TimeSpan` hands a double to
+Fraction.js, which runs a Farey search for a fraction close to it and then carries that huge
+denominator through every comparison. Under QuickJS that cost a 0.1-cycle query up to 250 ms, so
+the deadline above cut queries off and their notes never played. Text on a grid parses exactly and
+cheaply. Two windows meeting at one double snap to the same point, so they still tile with no gap
+and no overlap. V8 is fast enough that the Node tests cannot see the cost: `StrudelHost_test.cpp`'s
+`anotherThreadCanQueryIt` is the check that does.
+
 ## Licence
 
 `@strudel/*` is AGPL-3.0-or-later and is linked INTO the engine, which is GPLv3 (Tracktion). GPLv3
