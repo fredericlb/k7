@@ -15,7 +15,7 @@ import {
 } from "@frediverse/ui/icons";
 import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
-import { AppSwitch } from "@studio/ui-app-switch";
+import { UserMenu } from "@studio/ui-user-menu";
 import type {
   AccountLibrary,
   AccountWorkspace,
@@ -24,6 +24,7 @@ import type {
 import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { api } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { GitBusyOverlay } from "../components/GitBusy";
 import { RightPanel } from "../components/RightPanel";
@@ -55,7 +56,7 @@ export function Home() {
   const openWs = params.get(WS_PARAM);
 
   // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
-  // SERVER comes back with it, because the app switch needs it — the other apps are ITS.
+  // SERVER comes back with it, because the user menu needs it — the other apps are ITS.
   const [isDesktop, setIsDesktop] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [server, setServer] = useState<string | null>(null);
@@ -64,6 +65,15 @@ export function Home() {
       setIsDesktop(d !== null);
       setServer(d?.server ?? null);
     });
+  }, []);
+
+  // Who is signed in, for the user menu: AuthGate asked already, but hands nothing down.
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    void api
+      .getMe()
+      .then((u) => setEmail(u?.email || u?.name || u?.sub || null))
+      .catch(() => {});
   }, []);
 
   const [workspaces, setWorkspaces] = useState<AccountWorkspace[]>([]);
@@ -325,13 +335,13 @@ export function Home() {
                 <Tablet className="h-4 w-4" /> {m["home.surfaces"]()}
               </a>
             </Button>
-            {/* The way out — pl8, k7, z0 — and on the HOME page alone: opened on a project, the
-                editor's header has no room for a link that leaves the session. On the DESKTOP
-                those apps answer on the paired SERVER, this origin serving only st0's own
-                bundle; unpaired there is nowhere to go, and the button says so rather than
-                linking at a 503 (@studio/ui-app-switch/docs/appSwitch.md). */}
-            <AppSwitch
+            {/* Last: the account, the other apps, the logout — on the HOME page alone (packages/ui-user-menu/docs/userMenu.md). */}
+            <UserMenu
               self="st0"
+              email={email}
+              onLogout={() =>
+                void api.logout().then(() => window.location.reload())
+              }
               origin={server}
               unavailable={
                 isDesktop && !server ? m["home.appsUnavailable"]() : undefined

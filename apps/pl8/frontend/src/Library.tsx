@@ -9,12 +9,12 @@ import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
 import { Disc3, FolderTree, Search, Settings } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import { RECORDINGS_DIR, SONG_FILE } from "@studio/mediatek/types";
-import { AppSwitch } from "@studio/ui-app-switch";
+import { UserMenu } from "@studio/ui-user-menu";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
-import { library } from "./api";
+import { auth, currentUser, library } from "./api";
 import { FindSongs } from "./FindSongs";
 import { LibraryContents } from "./LibraryContents";
 import {
@@ -234,8 +234,6 @@ export function Library() {
               <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
                 {VERSION}
               </span>
-              {/* The way out to the studio's other apps — first of the three because it is the only one that LEAVES. */}
-              <AppSwitch self="pl8" />
               {/* Where sound comes out, beside the cog: it is changed while listening — see ../docs/playbackTarget.md. */}
               <PlaybackPicker
                 target={playback.target}
@@ -252,6 +250,12 @@ export function Library() {
               >
                 <Settings className="h-4 w-4" />
               </Button>
+              {/* Last, at the far right: the account, the other apps, the logout (@studio/ui-user-menu). */}
+              <UserMenu
+                self="pl8"
+                email={currentUser()}
+                onLogout={() => void auth.logout()}
+              />
             </>
           }
         />

@@ -9,6 +9,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { loadServiceEnv } from "@frediverse/env";
 import { setupAuth } from "@frediverse/oidc";
 import { engineErrorHandler } from "@studio/engine-registry";
 import { prefsStore } from "@studio/user-prefs";
@@ -25,6 +26,9 @@ process.on("uncaughtException", (err) => {
   console.error("uncaught exception:", err);
   process.exit(1);
 });
+
+// Dev config layered INTO process.env, as pl8 does: OIDC_SCOPES below is read from there.
+Object.assign(process.env, loadServiceEnv("st0-backend"));
 
 const PORT = process.env.PORT || 8789;
 const app = express();

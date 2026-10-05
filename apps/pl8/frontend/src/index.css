@@ -22,7 +22,7 @@
    was the first thing to actually depend on one: the params pane fell back to its content's
    height and read as roughly correct, and the graph preview under the grid collapsed to nothing
    at all — no error, no warning, just an invisible panel. */
-@source "../../../../packages/ui-app-switch/src";
+@source "../../../../packages/ui-user-menu/src";
 @source "../../../../packages/ui-mini-player/src";
 @source "../../../../packages/ui-module-builder/src";
 @source "../../../../packages/ui-waveform/src";

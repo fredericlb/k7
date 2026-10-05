@@ -17,7 +17,7 @@
    package shares with the app (`flex`, `border-t`) is generated anyway, so only the classes
    unique to the package are dropped and the component looks almost right. `h-[30%]` on the
    module builder's bottom panes was the first to actually depend on one. */
-@source "../../../../packages/ui-app-switch/src";
+@source "../../../../packages/ui-user-menu/src";
 @source "../../../../packages/ui-mini-player/src";
 @source "../../../../packages/ui-module-builder/src";
 @source "../../../../packages/ui-chains-react/src";

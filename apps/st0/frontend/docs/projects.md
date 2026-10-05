@@ -46,11 +46,12 @@ This screen is **the front door itself**. st0 answers at the origin root
 If the first thing you want at a front door is your own work, then the page listing that work IS
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
-**The way out to pl8, k7 and z0 is in THIS page's header, and only here.** Opened on a project,
-st0 draws the editor's header, where a link that leaves the session has no business. It is the
-switch every app of the origin carries — `@studio/ui-app-switch`, the one pl8's header mounts
-too, rather than a link this app spells its own way — so a row opens a NEW tab and the desktop
-app can hand it to the system browser (`packages/ui-app-switch/docs/appSwitch.md`).
+**The user menu — the account, the way out to pl8, k7 and z0, the logout — is in THIS page's
+header, and only here.** Opened on a project, st0 draws the editor's header, where a menu that
+leaves the session has no business. It is the menu every app of the origin carries —
+`@studio/ui-user-menu`, the one pl8's and k7's headers mount too, rather than links this app
+spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
+browser (`packages/ui-user-menu/docs/userMenu.md`).
 
 `/auth/*` follows the root: the IdP knows only one `redirect_uri`, on st0's origin, so those
 routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).

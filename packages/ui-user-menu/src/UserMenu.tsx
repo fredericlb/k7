@@ -1,0 +1,85 @@
+// UserMenu.tsx — studio's user menu: @frediverse/ui's, with one link per OTHER studio app of the
+// origin. `serviceUrl` resolves each one's address — st0's own origin, z0's path under it, or
+// pl8/k7's own subdomain; `origin` makes those links resolve against the paired SERVER instead of
+// this tab's origin, which is the desktop app's case. See ../docs/userMenu.md.
+
+import {
+  FolderGit2,
+  Gamepad2,
+  Library,
+  type LucideIcon,
+  Mic,
+} from "@frediverse/ui/icons";
+import { UserMenu as BaseUserMenu } from "@frediverse/ui/user-menu";
+import { type StudioService, serviceUrl } from "@studio/web-protocol/services";
+
+/** Every app of the origin, in the order they are worth reaching — the host drops its own. */
+const APPS: {
+  id: StudioService;
+  label: string;
+  hint: string;
+  icon: LucideIcon;
+}[] = [
+  // st0 FIRST, and it IS the reference origin every other row resolves from (../docs/userMenu.md).
+  {
+    id: "st0",
+    label: "st0",
+    hint: "your projects — the repositories, the songs, the shares",
+    icon: FolderGit2,
+  },
+  {
+    id: "pl8",
+    label: "pl8",
+    hint: "the media library — songs, samples, takes",
+    icon: Library,
+  },
+  {
+    id: "k7",
+    label: "k7",
+    hint: "the rehearsal recorder — sessions, takes, tablature",
+    icon: Mic,
+  },
+  {
+    id: "z0",
+    label: "z0",
+    hint: "le blind-test — l'accueil du jeu",
+    icon: Gamepad2,
+  },
+];
+
+export interface UserMenuProps {
+  /** The app drawing the menu — the one row it never holds. */
+  self: StudioService;
+  /** Who is signed in, as the menu's heading; null while it is not known yet. */
+  email?: string | null;
+  /** Ends the session — the host's own call, since each app reaches /auth from a different origin. */
+  onLogout: () => void;
+  /** Where the studio answers when it is not this origin: the desktop's paired server. */
+  origin?: string | null;
+  /** Said in place of the app rows when there is nowhere to go, in the words of the app saying it. */
+  unavailable?: string;
+}
+
+export function UserMenu({
+  self,
+  email,
+  onLogout,
+  origin,
+  unavailable,
+}: UserMenuProps) {
+  // The origin every link resolves siblings FROM: the paired server if one was handed in, else this tab's.
+  const ref = origin || window.location.origin;
+  const links = APPS.filter((app) => app.id !== self).map((app) => ({
+    ...app,
+    // The trailing slash lands on the app's mount rather than on a redirect to it.
+    href: `${serviceUrl(ref, app.id)}/`,
+  }));
+  return (
+    <BaseUserMenu
+      email={email}
+      onLogout={onLogout}
+      links={links}
+      notice={unavailable}
+    />
+  );
+}

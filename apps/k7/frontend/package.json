@@ -25,7 +25,7 @@
     "@studio/engine-protocol": "*",
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",
-    "@studio/ui-app-switch": "*",
+    "@studio/ui-user-menu": "*",
     "@studio/web-protocol": "*",
     "@tailwindcss/vite": "^4.3.2",
     "@tombatossals/chords-db": "^0.5.1",

@@ -507,6 +507,8 @@ export default function App() {
         onNav={(tab) => navigate(tabPath(tab))}
         onStartSession={handleStartSession}
         onOpenSettings={() => navigate("/settings")}
+        email={user.email || user.sub}
+        onLogout={logout}
       />
 
       <main className="main">

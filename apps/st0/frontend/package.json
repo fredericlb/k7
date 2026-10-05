@@ -30,7 +30,7 @@
     "@studio/song-schema": "*",
     "@studio/st0-plugins": "*",
     "@studio/st0-sdk": "*",
-    "@studio/ui-app-switch": "*",
+    "@studio/ui-user-menu": "*",
     "@studio/ui-chains": "*",
     "@studio/ui-chains-react": "*",
     "@studio/ui-editor": "*",

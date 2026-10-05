@@ -12,9 +12,9 @@ deregisters the engine, stops it and ends the process.
 
 `MainActivity` is a Capacitor `BridgeActivity`. With a studio connected, **the screen is one of the
 studio apps, edge to edge, and nothing of the app's own**: no header, no tab bar. It opens on
-**st0**, and the apps' own switch (`packages/ui-app-switch`, in st0's home page, pl8's and k7's
+**st0**, and the apps' own user menu (`packages/ui-user-menu`, in st0's home page, pl8's and k7's
 headers) is how you move between them. A phone has no room for a second header above the app's
-own, and the one it had duplicated the switch.
+own, and the one it had duplicated that menu.
 
 The status bar above the app is painted **the colour of that app's top edge**, so the app's
 header reads as running up under it. That colour is measured, not declared: `assets/top-color.js`
@@ -45,12 +45,12 @@ Two ways from the page to the native half:
 **The apps load from the studio, not from the APK.** Each app is same-origin with its backend
 (relative `/api` and `/auth`, cookie sessions), so a bundled copy would be an app with no server.
 The page takes the studio from the supervisor's own list and gives each view
-`serviceUrl(origin, "st0" | "pl8" | "k7")`, the mapping `AppSwitch` uses. With several studios
+`serviceUrl(origin, "st0" | "pl8" | "k7")`, the mapping `UserMenu` uses. With several studios
 connected, st0's settings pick which one the apps open.
 
 What the app views do that a browser would do on its own:
 
-- **A link to a sibling app switches view** instead of opening a window: `AppSwitch`'s links,
+- **A link to a sibling app switches view** instead of opening a window: `UserMenu`'s app rows,
   `target=_blank` and cross-app links all go to that app's view, at that URL. Only a link the *user* followed
   does this. A redirect stays in its view, since the sign-in flow bounces pl8 and k7 through st0's
   `/auth`. Other hosts in a new window open in the browser.

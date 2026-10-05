@@ -1,6 +1,6 @@
 // studios.ts — which studio the app views open, and where each of its apps answers. The studios are
 // the ones the supervisor is connected to (the engine tray's list); each app's address comes from
-// serviceUrl, the one mapping AppSwitch and the apps themselves use (docs/addresses.md).
+// serviceUrl, the one mapping UserMenu and the apps themselves use (docs/addresses.md).
 
 import { serviceUrl, studioFamily } from "@studio/web-protocol/services";
 import { APP_IDS, type AppId, type StudioInstance } from "./native";

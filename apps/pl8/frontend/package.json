@@ -17,7 +17,7 @@
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",
     "@studio/song-schema": "*",
-    "@studio/ui-app-switch": "*",
+    "@studio/ui-user-menu": "*",
     "@studio/ui-editor": "*",
     "@studio/ui-mini-player": "*",
     "@studio/ui-module-builder": "*",

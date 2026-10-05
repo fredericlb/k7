@@ -14,7 +14,7 @@ import {
   Settings,
   Target,
 } from "@frediverse/ui/icons";
-import { AppSwitch } from "@studio/ui-app-switch";
+import { UserMenu } from "@studio/ui-user-menu";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { NavKey } from "../types";
@@ -26,6 +26,9 @@ interface Props {
   onNav: (tab: NavKey) => void;
   onStartSession: () => Promise<void>;
   onOpenSettings: () => void;
+  /** Who is signed in, for the user menu's heading. */
+  email: string;
+  onLogout: () => void;
 }
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
@@ -45,6 +48,8 @@ export function HeaderView({
   onNav,
   onStartSession,
   onOpenSettings,
+  email,
+  onLogout,
 }: Props) {
   const [creating, setCreating] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -95,7 +100,6 @@ export function HeaderView({
       items={items}
       actions={
         <>
-          <AppSwitch self="k7" />
           {/* Drawn as one of AppHeader's tabs (its classes, tint variant) so /settings lights up like an entry. */}
           <Button
             variant="ghost"
@@ -134,6 +138,8 @@ export function HeaderView({
               </p>
             )}
           </div>
+          {/* Last, at the far right: the account, the other apps, the logout (@studio/ui-user-menu). */}
+          <UserMenu self="k7" email={email} onLogout={onLogout} />
         </>
       }
     />
