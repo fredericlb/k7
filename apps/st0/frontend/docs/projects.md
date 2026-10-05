@@ -665,7 +665,7 @@ Three things it does not do, each for its own reason:
   — would be a second place where a project's name lives.
 
 **The active project FOLLOWS the rename.** A delete clears the marker, because the project has
-ended; a rename leaves the same project under another folder, so `.studio-active` is re-pointed at
+ended; a rename leaves the same project under another folder, so the active-project marker is re-pointed at
 it and reopening the workspace lands where it was. The engine is stopped either way, and starting
 it again is opening the project — the gesture that starts one anywhere else.
 

@@ -211,7 +211,7 @@ The **web editor is the only editing surface** — it connects to the engine via
 WebSocket. For a look at a project without opening anything, `st0 inspect graph`
 prints the routing and `st0 inspect timeline` prints the tracks and their clips.
 
-The **active project** is remembered per-workspace in a `.studio-active` marker,
+The **active project** is remembered per-workspace in an active-project marker,
 so the editor comes back where you left it. The file service reconnects
 automatically if the engine restarts and reloads the song whenever a file
 changes on disk. `applied` messages (the exact diff the engine ran) show in the

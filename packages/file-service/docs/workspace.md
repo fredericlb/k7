@@ -6,9 +6,11 @@ The file service serves many users' workspaces from one process, so `root`, the 
 project and the compiled/waveform caches all live on a `Workspace` instance rather than in
 module state, and the path-traversal guards (`safePath`/`toRel`) read `this.root`.
 
-The active project is remembered per-workspace in a `.studio-active` marker file inside
-the root (a dotfile, so it's hidden from the tree). Global machine preferences stay global
-(`preferences.yaml`).
+The active project is remembered per-workspace in a marker file BESIDE the root, never in it:
+`<the workspaces' folder>/.active-projects/<workspace>` (`activeMarkerOf`). Which project is open
+here is this machine's state, not the band's, so it must not appear in a commit, a push or a diff
+of the workspace — and a `.gitignore` entry would not hold that for a clone whose author wrote their
+own. A `.studio-active` file found INSIDE a workspace is read once, moved beside it and deleted. Global machine preferences stay global (`preferences.yaml`).
 
 It is also what `tree()` walks, and what `setActiveProject` has to be strict about, since a
 project can be named out of a listing this machine's clone is ahead of — both in

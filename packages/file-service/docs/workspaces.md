@@ -38,7 +38,8 @@ Four things are written at init, and each answers a failure:
   and on a config file this service deliberately ignores, and a workspace whose branch is
   `master` on one machine and `main` on another is a push that is refused for a reason nobody
   will guess.
-- **A `.gitignore`** — `_recycle_bin/`, `_history/`, `*.cache`, `.studio-active`. A clone brings
+- **A `.gitignore`** — `_recycle_bin/`, `_history/`, `*.cache`. The active-project marker is not in
+  it because it is not in the workspace at all ([workspace.md](workspace.md)). A clone brings
   its author's; this one never had an author. Without it a deleted project comes back through
   the repository. The undo journal is not in a workspace at all ([history.md](history.md)); the
   `_history/` line keeps any such folder out of a commit all the same.
@@ -213,7 +214,7 @@ A rename takes `beforeMove` instead, exactly as `deleteProject` does, and the ro
 alternative — "stop it first" — is a refusal that asks somebody to go and find the transport in
 another tab before they may rename a folder, and the handles are released the same way either way.
 
-**The marker FOLLOWS it**, which is where the two acts part. A delete clears `.studio-active`,
+**The marker FOLLOWS it**, which is where the two acts part. A delete clears the active-project marker,
 having ended the project; a rename re-points it at the new folder, the project being the same one.
 The compiled-doc cache is invalidated with it, and the project CACHE dropped
 (`forgetProjects`) as a delete and an import do — the listing is memoised, and a renamed project
@@ -288,7 +289,7 @@ build its caches to read one line.
 `Workspace.defaultProject()` answers it, and `POST /open` calls it whenever the address said `.`
 without the workspace's own folder being a project. Three tiers, most deliberate first:
 
-1. the `.studio-active` marker — the project last open here, which is what someone coming back
+1. the active-project marker — the project last open here, which is what someone coming back
    expects;
 2. the first `projectDirsUnder(root)`, which is alphabetical because the walk is;
 3. `null` — and that is the ORDINARY state of a workspace just made, since `createWorkspace`

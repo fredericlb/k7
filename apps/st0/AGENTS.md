@@ -38,7 +38,7 @@ When it names none, `main.tsx` mounts `AuthGate` → `Home` instead — the proj
 needs the account and neither an engine nor a project (`frontend/docs/projects.md`). One address
 short-circuits both: `/external`, the menu of surfaces a second device can drive — every surface
 of the project the ENGINE is holding, which `GET /engine/served` answers and which is not the same
-question as each workspace's `.studio-active` marker. It is `AuthGate` → `ExternalIndex` and probes
+question as each workspace's active-project marker. It is `AuthGate` → `ExternalIndex` and probes
 for a machine without claiming one (`frontend/docs/external.md`). It is read BEFORE `parseLaunch`, since a single segment is
 otherwise a repository — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
@@ -298,7 +298,7 @@ in from.
 
 A workspace is one git repository and holds **several projects**. The editor's tree is the whole
 workspace, and the ▶ on a project row is what hands that one to the engine — `POST /open`, which
-writes `.studio-active` and switches the session, with no navigation and no remount
+writes its active-project marker and switches the session, with no navigation and no remount
 (`packages/file-service/docs/activeProject.md`). The address may still name a project, and that
 is what it opens ON; a bare `/@local/<workspace>` opens the one last played.
 
@@ -346,7 +346,7 @@ REPOSITORIES, which belong to a person, and a workspace is what the gate resolve
 copy of (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
 
 Identity is the OIDC email, which names the engine SESSION rather than a folder — the workspaces are `<state>/workspace/<workspace>` with nobody underneath (`packages/engine-client/docs/paths.md`) — and the active
-project is remembered per-workspace in a `.studio-active` marker. There is **no global session
+project is remembered per-workspace in an active-project marker. There is **no global session
 file**; the workspace is the scope.
 
 ## Many browsers at once (no lease)

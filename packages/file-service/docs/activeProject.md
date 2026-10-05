@@ -52,7 +52,7 @@ at exactly the wrong second.
 Without an existence check the sequence is:
 
 1. `POST /open {path: "01_danse.st0"}` — accepted, because the *name* claims st0;
-2. `activeProject` set to a path with nothing at it, and the `.studio-active` marker written,
+2. `activeProject` set to a path with nothing at it, and the active-project marker written,
    so a reload arrives broken too;
 3. the first thing to compile it — `/project-doc` — reaches `@studio/song`'s `loadProject`,
    which finds no directory, falls through to "not a folder project", finds no `.yaml` either,
@@ -60,7 +60,7 @@ Without an existence check the sequence is:
 
 Every word of that is true and none of it is the problem. So `setActiveProject` checks
 existence **before** the name rule and says what actually happened, and `isProjectDir` itself
-requires a directory — which also stops a stale `.studio-active` marker (a project deleted
+requires a directory — which also stops a stale active-project marker (a project deleted
 outside the service) from being restored at construction.
 
 ## Whose project — the note is per SESSION
@@ -334,7 +334,7 @@ per project would be a menu that fills in row by row.
 `/engine/served` says which ONE of those the engine is actually holding for this person. The menu above
 lists every project on the disk that declares a surface; this says which of them a second device can
 reach without moving the engine off something. A session is per service and per person, so the answer is
-one project for the whole account — not one per workspace, which is what the `.studio-active` markers are
+one project for the whole account — not one per workspace, which is what the active-project markers are
 and why they cannot answer this (`packages/engine-protocol/docs/sessions.md`).
 
 `servedProject` is a belief about another process, like every other read of `served`: the engine can have

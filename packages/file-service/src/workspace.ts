@@ -1,7 +1,7 @@
 // workspace.ts — the filesystem layer over ONE workspace root: file ops, the active
 // project, and the compiled/waveform caches, all per-instance because the service
-// serves many users' workspaces from one process. The active project is remembered in
-// a `.studio-active` dotfile in the root. Full rationale: docs/workspace.md.
+// serves many users' workspaces from one process. The active project is remembered in a
+// marker BESIDE the workspace, never in it (`activeMarkerOf`). Full rationale: docs/workspace.md.
 
 import {
   type Dirent,
@@ -503,8 +503,52 @@ export function setAudioDevicePref(name: string, type?: string): string | null {
   return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
 }
 
-// The per-workspace active-project marker, a dotfile — exported so workspaces.ts can read it bare.
-export const ACTIVE_MARKER = ".studio-active";
+// Where each workspace's active-project marker lives: a folder BESIDE the workspaces, so no commit, push or diff of one ever sees it.
+export const ACTIVE_MARKERS_DIR = ".active-projects";
+// The marker a workspace kept INSIDE itself, moved out at its first read.
+const LEGACY_MARKER = ".studio-active";
+
+/** The marker file of the workspace at `root`: `<the workspaces' folder>/.active-projects/<workspace>`. */
+export function activeMarkerOf(root: string): string {
+  const abs = resolve(root);
+  return join(dirname(abs), ACTIVE_MARKERS_DIR, basename(abs));
+}
+
+/** The workspace's open project, absolute; null when nothing is open. */
+export function readActiveMarker(root: string): string | null {
+  let rel: string;
+  try {
+    rel = readFileSync(activeMarkerOf(root), "utf8").trim();
+  } catch {
+    rel = moveLegacyMarker(root);
+  }
+  return rel ? resolve(root, rel) : null;
+}
+
+/** Remember `rel` (workspace-relative, "" for none) as the workspace's open project. */
+export function writeActiveMarker(root: string, rel: string): void {
+  const at = activeMarkerOf(root);
+  mkdirSync(dirname(at), { recursive: true });
+  writeFileSync(at, rel ? `${rel}\n` : "", "utf8");
+}
+
+/** Read an in-workspace marker once, write it beside the workspace and delete it from the workspace. */
+function moveLegacyMarker(root: string): string {
+  const legacy = join(root, LEGACY_MARKER);
+  let rel: string;
+  try {
+    rel = readFileSync(legacy, "utf8").trim();
+  } catch {
+    return "";
+  }
+  try {
+    writeActiveMarker(root, rel);
+    rmSync(legacy, { force: true });
+  } catch {
+    /* best-effort: read again next time */
+  }
+  return rel;
+}
 
 // Text files that differ between two snapshots — a null side means the file was absent then.
 function diffText(
@@ -757,20 +801,11 @@ export class Workspace {
     return missingModel(m);
   }
   private readActiveMarker(): string | null {
-    try {
-      const rel = readFileSync(join(this.root, ACTIVE_MARKER), "utf8").trim();
-      return rel ? resolve(this.root, rel) : null;
-    } catch {
-      return null;
-    }
+    return readActiveMarker(this.root);
   }
   private writeActiveMarker(abs: string): void {
     try {
-      writeFileSync(
-        join(this.root, ACTIVE_MARKER),
-        this.toRel(abs) + "\n",
-        "utf8",
-      );
+      writeActiveMarker(this.root, this.toRel(abs));
     } catch {
       /* best-effort — a failed write just means the reopen won't stick */
     }
@@ -849,7 +884,7 @@ export class Workspace {
     if (wasActive) {
       this.activeProject = null;
       try {
-        writeFileSync(join(this.root, ACTIVE_MARKER), "", "utf8"); // clear the reopen marker
+        writeActiveMarker(this.root, ""); // clear the reopen marker
       } catch {
         /* best-effort */
       }

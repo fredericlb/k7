@@ -229,7 +229,7 @@ of interrupting yourself across the room, and would drown the one useful line â€
 among the others.
 
 The filter is `/engine/served`, not the `active` flag each line carries. The two answer different
-questions: `active` is a **workspace**'s `.studio-active` marker, one per workspace, written by
+questions: `active` is a **workspace**'s active-project marker, one per workspace, written by
 whoever opened last â€” a machine with three markers is still one engine holding one song. `served` is
 the file service's note on what it has **sent**, one per session, so one project for the whole
 account (`packages/file-service/docs/activeProject.md`).
