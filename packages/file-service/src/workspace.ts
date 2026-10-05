@@ -288,7 +288,7 @@ const BINARY_EXT = new Set([
   ".webm",
   ".mkv",
 ]);
-const isBinary = (name: string): boolean =>
+export const isBinary = (name: string): boolean =>
   BINARY_EXT.has(extname(name).toLowerCase());
 
 // Where deleted projects go — hidden by skip(), so "deleting" is a reversible move.

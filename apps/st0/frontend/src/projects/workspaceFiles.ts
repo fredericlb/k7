@@ -23,6 +23,26 @@ const get = async <T>(
     what,
   );
 
+/** What the read-only tree and its viewer read through: a workspace's files, or an admin's edit clone of a library. */
+export interface TreeSource {
+  /** Changes when the source does, so what was read of the last one is dropped. */
+  key: string;
+  changes(): Promise<GitChange[]>;
+  diff(path: string): Promise<string>;
+  read(path: string): Promise<FileContent>;
+}
+
+/** A workspace of the account, as the home page reads it. */
+export const workspaceSource = (
+  m: AccountFiles,
+  workspace: string,
+): TreeSource => ({
+  key: `workspace:${workspace}`,
+  changes: () => workspaceFiles.changes(m, workspace),
+  diff: (path) => workspaceFiles.diff(m, workspace, path),
+  read: (path) => workspaceFiles.read(m, workspace, path),
+});
+
 export const workspaceFiles = {
   read: (m: AccountFiles, workspace: string, path: string) =>
     get<FileContent>(

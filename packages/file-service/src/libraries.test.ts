@@ -29,6 +29,11 @@ import {
   libraryEditsStatus,
   refreshLibraryEdits,
 } from "./libraryEdits.ts";
+import {
+  libraryEditDiff,
+  libraryEditFiles,
+  libraryEditRead,
+} from "./libraryEditsFiles.ts";
 import { slugify } from "./slug.ts";
 
 // Every fixture drives REAL git — a dozen subprocesses per test, well past vitest's 5 s default.
@@ -162,6 +167,25 @@ describe("an admin's own clone of each library", () => {
       `${EMAIL} louder amp`,
     );
     expect(await libraryEditsStatus(EMAIL)).toEqual({ libraries: [] });
+  });
+
+  it("shows its tree, what it changed and the diff of it, read-only", async () => {
+    serverClone("st0");
+    await open();
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 3\n");
+    const { nodes, changes } = await libraryEditFiles("st0");
+    expect(nodes.map((n) => n.path)).toEqual(["modules"]);
+    expect(changes).toMatchObject([{ path: "modules/amp.yaml" }]);
+    expect(await libraryEditDiff("st0", "modules/amp.yaml")).toContain(
+      "+gain: 3",
+    );
+    expect(libraryEditRead("st0", "modules/amp.yaml").content).toBe(
+      "gain: 3\n",
+    );
+    expect(() => libraryEditRead("st0", "../escape.yaml")).toThrow(/bad path/);
+    expect(() => libraryEditRead("drums", "modules/amp.yaml")).toThrow(
+      /no edit clone/,
+    );
   });
 
   it("is made what is pushed again by a discard", async () => {

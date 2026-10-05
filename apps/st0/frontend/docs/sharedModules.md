@@ -267,8 +267,12 @@ library it uses (`packages/song/docs/sharedFolders.md`).
 
 While any of the admin's library clones holds changed files or commits not pushed, a bar sits above
 the command bar (`src/components/LibraryEditsRow.tsx`) listing each such library and how much —
-*Libraries changed: @st0: 2 file(s) changed, 1 commit(s) not pushed* — with two buttons:
+*Libraries changed: @st0: 2 file(s) changed, 1 commit(s) not pushed* — with three buttons:
 
+- **Show diff** opens a popin (`src/components/LibraryDiffDialog.tsx`) drawing each changed
+  library's clone with the SAME tree and diff viewer the home page draws a workspace with
+  (`ChangedTree` in `src/projects/RepoTree.tsx`): what a commit would publish is read before it is
+  published, in the one viewer the app already has rather than a second one to keep in step.
 - **Commit & push** asks for ONE message, commits everything changed in every library with the
   admin as author, pushes each with the admin's key, and asks the server to pull its own clone of
   each, so every account reads it at its next open. A refused push says "committed, not pushed" and

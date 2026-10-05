@@ -1,7 +1,8 @@
 // RepoTree.tsx — a workspace's tree as the file service holds it, with an "Ouvrir dans st0" button on
 // every folder that is a project, and the file a click picks drawn read-only beside it. What git has
 // not committed is blue, and drawn as its diff. Read-only: what is written in a project is written
-// once it is open. See ../../docs/projects.md.
+// once it is open. `ChangedTree` is that body alone, which the editor's library "show diff" reuses
+// over another source. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -26,7 +27,7 @@ import { m } from "../paraglide/messages.js";
 import type { AccountFiles } from "./api";
 import { type Changed, changedOf, slash, withChanges } from "./changedTree";
 import { FileViewer } from "./FileViewer";
-import { workspaceFiles } from "./workspaceFiles";
+import { type TreeSource, workspaceSource } from "./workspaceFiles";
 
 /** `git status` is local and cheap: often enough that a save elsewhere turns its file blue. */
 const CHANGES_MS = 5000;
@@ -38,7 +39,7 @@ interface RowProps {
   depth: number;
   open: Set<string>;
   onToggle: (path: string) => void;
-  projectHref: (path: string, app: ProjectApp) => string;
+  projectHref?: (path: string, app: ProjectApp) => string;
   changed: Changed;
   selected: string | null;
   onSelect: (path: string) => void;
@@ -111,7 +112,7 @@ function Row(props: RowProps) {
           </span>
         </button>
         {/* An ANCHOR, not a router link: the project is the router's basename, so leaving for it is a whole-page navigation. */}
-        {node.app && (
+        {node.app && projectHref && (
           <Button size="sm" variant="secondary" asChild>
             <a href={projectHref(node.path, node.app)}>
               <ArrowRight className="h-3.5 w-3.5" /> Ouvrir dans {node.app}
@@ -127,21 +128,19 @@ function Row(props: RowProps) {
   );
 }
 
-/** The uncommitted paths of one workspace, re-read on a timer while the tree is shown. */
-function useChanges(
-  files: AccountFiles | null,
-  workspace: string,
-): GitChange[] {
+/** The uncommitted paths of one source, re-read on a timer while the tree is shown. */
+function useChanges(source: TreeSource | null): GitChange[] {
   const [changes, setChanges] = useState<GitChange[]>([]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `source.key` is its identity; the object is rebuilt per render.
   useEffect(() => {
     setChanges([]);
-    if (!files) return;
+    if (!source) return;
     let stop = false;
     const read = () =>
-      workspaceFiles
-        .changes(files, workspace)
+      source
+        .changes()
         .then((c) => !stop && setChanges(c))
-        // A workspace git cannot read is drawn uncoloured rather than as an error.
+        // A source git cannot read is drawn uncoloured rather than as an error.
         .catch(() => undefined);
     void read();
     const t = setInterval(read, CHANGES_MS);
@@ -149,7 +148,7 @@ function useChanges(
       stop = true;
       clearInterval(t);
     };
-  }, [files, workspace]);
+  }, [source?.key]);
   return changes;
 }
 
@@ -169,31 +168,7 @@ export function RepoTree({
   /** A project's address, not the act of opening it: the row makes it a real link. */
   projectHref: (path: string, app: ProjectApp) => string;
 }) {
-  const changes = useChanges(files, workspace.name);
-  const changed = useMemo(() => changedOf(changes), [changes]);
-  // Reading order, at every level: folders first, then by name.
-  const rows = useMemo(
-    () => (nodes ? sortNodes(withChanges(nodes, changes)) : null),
-    [nodes, changes],
-  );
-  const [selected, setSelected] = useState<string | null>(null);
-  // The folders open at the start: the first level is enough, and a workspace opening fully collapsed hides what anybody comes here for.
-  const [open, setOpen] = useState<Set<string>>(new Set());
-  // Once per workspace, when the tree arrives: after that the folds are the person's own, including the ones they closed again.
-  const seeded = useRef<string | null>(null);
-  useEffect(() => {
-    if (!rows || seeded.current === workspace.name) return;
-    seeded.current = workspace.name;
-    setSelected(null);
-    setOpen(new Set(rows.filter((n) => n.dir).map((n) => n.path)));
-  }, [rows, workspace.name]);
-  const toggle = (path: string) =>
-    setOpen((s) => {
-      const next = new Set(s);
-      if (!next.delete(path)) next.add(path);
-      return next;
-    });
-
+  const source = files ? workspaceSource(files, workspace.name) : null;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-6 py-2">
@@ -205,48 +180,89 @@ export function RepoTree({
           {workspace.origin ?? m["repos.hereOnly"]()}
         </span>
       </div>
+      <ChangedTree source={source} nodes={nodes} projectHref={projectHref} />
+    </div>
+  );
+}
 
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className="max-h-[40vh] min-h-0 shrink-0 overflow-auto border-b py-2 md:max-h-none md:w-80 md:border-r md:border-b-0">
-          {rows === null ? (
-            <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {m["repos.reading"]()}
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              {m["repos.emptyWorkspace"]()}
-            </div>
-          ) : (
-            rows.map((n) => (
-              <Row
-                key={n.path}
-                node={n}
-                depth={0}
-                open={open}
-                onToggle={toggle}
-                projectHref={projectHref}
-                changed={changed}
-                selected={selected}
-                onSelect={setSelected}
-              />
-            ))
-          )}
-        </div>
-        <div className="min-h-0 min-w-0 flex-1">
-          {selected && files ? (
-            <FileViewer
-              files={files}
-              workspace={workspace.name}
-              path={selected}
-              code={changed.codes.get(selected)}
+/** The tree with what git has not committed in blue, and the picked file read-only beside it. */
+export function ChangedTree({
+  source,
+  nodes,
+  projectHref,
+}: {
+  /** What the tree's colours and the viewer read through; null draws the tree with nothing to open. */
+  source: TreeSource | null;
+  /** null until the file service has answered — that is not an empty tree. */
+  nodes: FileNode[] | null;
+  projectHref?: (path: string, app: ProjectApp) => string;
+}) {
+  const changes = useChanges(source);
+  const changed = useMemo(() => changedOf(changes), [changes]);
+  // Reading order, at every level: folders first, then by name.
+  const rows = useMemo(
+    () => (nodes ? sortNodes(withChanges(nodes, changes)) : null),
+    [nodes, changes],
+  );
+  const [selected, setSelected] = useState<string | null>(null);
+  // The folders open at the start: the first level is enough, and a workspace opening fully collapsed hides what anybody comes here for.
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  // Once per source, when the tree arrives: after that the folds are the person's own, including the ones they closed again.
+  const seeded = useRef<string | null>(null);
+  const key = source?.key ?? "";
+  useEffect(() => {
+    if (!rows || seeded.current === key) return;
+    seeded.current = key;
+    setSelected(null);
+    setOpen(new Set(rows.filter((n) => n.dir).map((n) => n.path)));
+  }, [rows, key]);
+  const toggle = (path: string) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      if (!next.delete(path)) next.add(path);
+      return next;
+    });
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="max-h-[40vh] min-h-0 shrink-0 overflow-auto border-b py-2 md:max-h-none md:w-80 md:border-r md:border-b-0">
+        {rows === null ? (
+          <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {m["repos.reading"]()}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            {m["repos.emptyWorkspace"]()}
+          </div>
+        ) : (
+          rows.map((n) => (
+            <Row
+              key={n.path}
+              node={n}
+              depth={0}
+              open={open}
+              onToggle={toggle}
+              projectHref={projectHref}
+              changed={changed}
+              selected={selected}
+              onSelect={setSelected}
             />
-          ) : (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              {m["repos.pickFile"]()}
-            </div>
-          )}
-        </div>
+          ))
+        )}
+      </div>
+      <div className="min-h-0 min-w-0 flex-1">
+        {selected && source ? (
+          <FileViewer
+            source={source}
+            path={selected}
+            code={changed.codes.get(selected)}
+          />
+        ) : (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            {m["repos.pickFile"]()}
+          </div>
+        )}
       </div>
     </div>
   );

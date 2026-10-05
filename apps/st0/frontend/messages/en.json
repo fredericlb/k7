@@ -307,6 +307,8 @@
   "libs.back": "Projects",
   "libedits.title": "Libraries changed",
   "libedits.pending": "@{library}: {changed} file(s) changed, {ahead} commit(s) not pushed",
+  "libedits.diff": "Show diff",
+  "libedits.diffTitle": "Changes to the libraries",
   "libedits.commit": "Commit & push",
   "libedits.commitTitle": "Publish {libraries}",
   "libedits.commitBody": "Everything changed in these libraries is committed and pushed; every account reads it as soon as the server pulls.",
