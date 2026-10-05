@@ -108,7 +108,7 @@ strip, the graph or the editor — and **never splits two of them**. `full` is t
 never empty: with nothing chosen it is the project's home page, the timeline when declared and
 otherwise the first pane the project does declare. The header's pane buttons pick the page and
 light the one on screen; the one way to see a second view at the same time is the footer's bottom
-panel (`graph`, `logs`). The EDITOR is never the home page — it is shown deliberately (`ui editor`)
+panel (`event`, `graph`, `logs`). The EDITOR is never the home page — it is shown deliberately (`ui editor`)
 or arrives as a popin when a command sends it to a file (`frontend/docs/shell.md`). Every pane is
 **mounted exactly once and never unmounted**; `hidden` takes it off screen, which is what lets the
 editor be restyled into a popin without losing its undo history, and what keeps the viewport's GL
@@ -166,9 +166,9 @@ The vocabulary is two words, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of six (`editor | viewport | timeline |
 turntables | mastering | chains`) and is what `full` fullscreens; four of them — `timeline`,
 `viewport`, `turntables` and `mastering` — are mounted only when the project declares the
-matching surface. A **panel** is one of two (`graph | logs`) and is what
-the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
-drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. Both are URL state (`src/useViewRoute.ts`); see
+matching surface. A **panel** is one of three (`event | graph | logs`) and is what
+the bottom of the window shows, under the page. One thing is deliberately NOT a panel: the MIXER, a view of the graph
+drawn in the graph's pane. A clip's CONTENTS are the `event` panel's, opened by a click on it. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
 
 ### Commands are the CLI's, verbatim

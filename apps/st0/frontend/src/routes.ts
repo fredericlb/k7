@@ -11,7 +11,7 @@ export type Pane =
   | "mastering"
   | "chains";
 // No `View` and no `docs` panel: there is ONE layout, and which panes it holds is `viewPanes`' answer (docs/shellRouting.md).
-export type Panel = "graph" | "logs";
+export type Panel = "event" | "graph" | "logs";
 
 /** The part of the shell's state the URL carries. */
 export interface RouteState {
@@ -30,7 +30,7 @@ const PANES: Pane[] = [
   "mastering",
   "chains",
 ];
-const PANELS: Panel[] = ["graph", "logs"];
+const PANELS: Panel[] = ["event", "graph", "logs"];
 
 /** What a layout does with the panes: the `ring` it cycles, and what `full` may fullscreen. */
 export interface Layout {

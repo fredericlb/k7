@@ -531,13 +531,12 @@ export default function App({
     automation: Record<string, WebAutomationLane[]>;
   }>({ alternatives: undefined, frozen: undefined, automation: {} });
 
-  // A take rolling (record enabled AND playing) shows it, one-way: the pane STAYS when the take ends, only the × puts the graph back.
+  // A take rolling (record enabled AND playing) shows it in the event panel, one-way: it STAYS when the take ends, only the × closes it.
   const rolling = recordEnabled && playing;
   useEffect(() => {
-    if (rolling)
-      setGraphSlot((s) =>
-        s?.kind === "recording" ? s : { kind: "recording" },
-      );
+    if (!rolling) return;
+    setGraphSlot((s) => (s?.kind === "recording" ? s : { kind: "recording" }));
+    setPanel("event");
   }, [rolling]);
   const timelineRef = useRef<TimelineHandle>(null);
   /** The clip pane's caret — the timeline handle's three verbs on whichever grid the pane draws (gridCaret.ts). */
@@ -962,6 +961,18 @@ export default function App({
     (p: Panel) => setPanel((cur) => (cur === p ? null : p)),
     [],
   );
+  /** Put something in the slot and show it: the `event` panel is the one place the slot is drawn. */
+  const openEvent = useCallback((slot: NonNullable<typeof graphSlot>) => {
+    setGraphSlot(slot);
+    setPanel("event");
+  }, []);
+  /** The occupant's ✕ and Escape: the event is let go, and the panel that drew it goes with it. */
+  const closeEvent = useCallback(() => {
+    setGraphSlot(null);
+    setPanel((cur) => (cur === "event" ? null : cur));
+  }, []);
+  /** The slot as it is on SCREEN — what the keys and the footer's badges may act on, a hidden panel's clip being nobody's target. */
+  const shownSlot = panel === "event" ? graphSlot : null;
 
   const startResize = useCallback(
     (e: React.PointerEvent) => {
@@ -1311,8 +1322,7 @@ export default function App({
       return setStatus(
         "no strip in this song — a strip is a Mixer module at the end of a track",
       );
-    // Turning it ON also clears whatever had taken the graph's place, and the stack: two arrangements cannot share it.
-    setGraphSlot(null);
+    // Turning it ON shows the graph and drops the stack: two arrangements cannot share it.
     setFull("chains");
     setStackView(false);
     setMixerView(true);
@@ -1326,7 +1336,6 @@ export default function App({
   /** …and the stack view, which takes the graph's whole pane like the mixer row does. */
   const toggleStack = useCallback(() => {
     if (stackView) return setStackView(false);
-    setGraphSlot(null);
     setFull("chains");
     setMixerView(false);
     setStackView(true);
@@ -1426,9 +1435,9 @@ export default function App({
         closeTopPopin();
         return true;
       }
-      // Put the graph back. The occupants' ✕ does exactly this — see GraphSlotPane.
+      // Let the event go and close its panel. The occupants' ✕ does exactly this — see GraphSlotPane.
       if (line === "slot close") {
-        setGraphSlot(null);
+        closeEvent();
         return true;
       }
       // The rack builder popin — the building is the browser's, so the command only OPENS it.
@@ -1471,7 +1480,7 @@ export default function App({
         return true;
       }
       /** The selection, the loop and `t` belong to whichever grid is ON SCREEN — `selection copy` excepted, at its own branch. */
-      const clipGrid = graphSlot?.kind === "clip" ? clipGridRef.current : null;
+      const clipGrid = shownSlot?.kind === "clip" ? clipGridRef.current : null;
       if (line === "select") {
         if (clipGrid) clipGrid.toggleSelect();
         else timelineRef.current?.toggleSelect();
@@ -1637,9 +1646,7 @@ export default function App({
         if (!seq.name) setStatus(`usage: sequence edit ${seq.view} <sequence>`);
         else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
         else {
-          // The chains slot is where it goes, so make sure the slot is on screen.
-          setFull("chains");
-          setGraphSlot({ kind: "grid", path, view: seq.view });
+          openEvent({ kind: "grid", path, view: seq.view });
         }
         return true;
       }
@@ -1661,8 +1668,7 @@ export default function App({
         }
         setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
         // …and put the clip panel on screen: it is the ONE place a clip is drawn now.
-        setGraphSlot({ kind: "recording" });
-        setFull("chains");
+        openEvent({ kind: "recording" });
         return true;
       }
       // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
@@ -1711,7 +1717,7 @@ export default function App({
         timelineRef.current?.toggleAutomation();
         return true;
       }
-      // `ui panel <graph|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
+      // `ui panel <event|graph|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
       if (line.startsWith("panel ")) {
         const want = line.slice("panel ".length).trim();
         const names = Object.keys(PANEL_META) as Panel[];
@@ -1990,6 +1996,9 @@ export default function App({
     [
       fullscreen,
       full,
+      openEvent,
+      closeEvent,
+      shownSlot,
       openInEditor,
       armMidiLearn,
       ringPanes,
@@ -2192,13 +2201,11 @@ export default function App({
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
-      // …and the lane's modules, side by side, OVER the graph; the framing above still happens.
-      if (target.kind === "track") {
-        setGraphSlot({ kind: "trackModules", trackId: target.id });
-        setFull("chains");
-      }
+      // …and the lane's modules, side by side, in the event panel; the framing above still happens.
+      if (target.kind === "track")
+        openEvent({ kind: "trackModules", trackId: target.id });
     },
-    [openInEditor],
+    [openInEditor, openEvent],
   );
   // The canvas reports what the framing found: a track wired to nothing has to say so, or the double-click reads as a miss.
   const reportFramed = useCallback((chains: number) => {
@@ -2508,7 +2515,7 @@ export default function App({
     cond.focus_pane = focusPane;
     // The two layers Esc backs out of before it touches the layout; `popin` counts every registered overlay — see popins.ts.
     if (anyPopin) cond.popin = "1";
-    if (graphSlot) cond.graph_slot = "1";
+    if (shownSlot) cond.graph_slot = "1";
     // Away from the home page, Escape goes back to it; on it, the key falls through to the bottom panel.
     if (full !== homePane) cond.fullscreen = "1";
     if (caret?.trackId) cond.caret_track = caret.trackId;
@@ -2528,7 +2535,7 @@ export default function App({
     if (activePane === "timeline" && tlView.tool !== "pointer")
       cond.tool_held = "1";
     // The WAVEFORM's mode, when an audio clip is the one open — its picture and its gestures are one thing (waveMode.ts).
-    if (waveView && graphSlot?.kind === "clip") {
+    if (waveView && shownSlot?.kind === "clip") {
       cond.wave_open = "1";
       cond[waveCondition(waveView)] = "1";
       cond.wave_mode = waveView;
@@ -2536,16 +2543,16 @@ export default function App({
       if (waveView !== "standard") cond.wave_marks = "1";
     }
     // …and the ROLL's, on the same terms — one clip pane draws one leaf or the other, never both.
-    if (rollMode && graphSlot?.kind === "clip") {
+    if (rollMode && shownSlot?.kind === "clip") {
       cond.roll_open = "1";
       cond[rollCondition(rollMode)] = "1";
       cond.roll_mode = rollMode;
       // Esc's rung, for the same reason as the wave's: `select` writes nothing, so there is nothing to back out of.
       if (rollMode !== "select") cond.roll_armed = "1";
     }
-    if (clipSel && graphSlot?.kind === "clip") cond.clip_selection = "1";
+    if (clipSel && shownSlot?.kind === "clip") cond.clip_selection = "1";
     // …and the grid itself, whether or not it holds a rectangle: `x` acts on the caret's own cell when there is none.
-    if (graphSlot?.kind === "clip") cond.clip_grid = "1";
+    if (shownSlot?.kind === "clip") cond.clip_grid = "1";
     // No `clipboard_events` / `clipboard_notes` condition: there is one paste verb and its binding is unconditional (keys.ts).
     if (editTarget?.kind === "seq")
       cond.hover_midi_sequence = fileStem(editTarget.path);
@@ -2560,7 +2567,7 @@ export default function App({
     caret,
     clipSel,
     editTarget,
-    graphSlot,
+    shownSlot,
     tlView,
     focusPane,
     full,
@@ -3289,12 +3296,9 @@ export default function App({
                       readOnly={frozen}
                       setStatus={setStatus}
                       onEditTarget={setEditTarget}
-                      // A clicked clip shows its content where the graph is, and makes the slot visible with it.
-                      onOpenClip={(t) => {
-                        setFull("chains");
-                        setGraphSlot({ kind: "clip", target: t });
-                      }}
-                      // …and the bare lane puts the graph back: what a click opened, a click on nothing closes.
+                      // A clicked clip shows its content in the event panel, under the timeline still on screen.
+                      onOpenClip={(t) => openEvent({ kind: "clip", target: t })}
+                      // …and the bare lane lets it go: what a click opened, a click on nothing clears, the panel staying up.
                       onEmptyClick={() => setGraphSlot(null)}
                       onCaret={setCaret}
                       onView={setTlView}
@@ -3440,19 +3444,14 @@ export default function App({
                     chainsOffScreen ? "hidden" : "flex-1",
                   )}
                 >
-                  {/* The slot takes the graph's PLACE, not its mount: ChainsTab holds the MIDI runtime (docs/shell.md, docs/midi.md). */}
-                  <div
-                    className={cn(
-                      "flex min-h-0 min-w-0 flex-1",
-                      graphSlot && "hidden",
-                    )}
-                  >
+                  {/* The graph alone: what used to take its place is the bottom panel's `event` now (docs/shell.md). */}
+                  <div className="flex min-h-0 min-w-0 flex-1">
                     <ChainsTab
                       cameras={cameras}
                       midiDevices={midiDevices}
                       reloadKey={reloadKey}
                       organizeKey={organizeKey}
-                      active={!chainsOffScreen && !graphSlot}
+                      active={!chainsOffScreen}
                       // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
                       icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                       // The sidebar is fullscreen chrome, and the graph is only ever on screen as a whole page.
@@ -3553,148 +3552,6 @@ export default function App({
                       onMidiStatus={setStatus}
                     />
                   </div>
-                  {graphSlot?.kind === "grid" && (
-                    <SeqGridPane
-                      path={graphSlot.path}
-                      view={graphSlot.view}
-                      onClose={() => setGraphSlot(null)}
-                      onChanged={bumpReload}
-                      setStatus={setStatus}
-                    />
-                  )}
-                  {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
-                  {graphSlot?.kind === "clip" && (
-                    <ClipView
-                      target={graphSlot.target}
-                      onClose={() => setGraphSlot(null)}
-                      // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
-                      reloadKey={reloadKey}
-                      // A click on the editor's arrangement ruler is the timeline's seek.
-                      onSeek={seek}
-                      // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
-                      onChanged={bumpReload}
-                      setStatus={setStatus}
-                      // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
-                      caretRef={clipGridRef}
-                      onSelection={setClipSel}
-                      onSetLoop={(start, end, enabled) =>
-                        engineRef.current?.loop(start, end, enabled)
-                      }
-                      // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
-                      command={runCommand}
-                      // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
-                      quietCommand={quietCommand}
-                      // …and they get the same right-click every other entity has.
-                      onContextMenu={openContextMenu}
-                      // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
-                      onCreateNote={(seqId, key, t0, t1) =>
-                        runCommand(
-                          `sequence note new ${seqId} ${key} ${t0} ${t1}`,
-                        )
-                      }
-                      // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
-                      onSetVelocity={(seqId, key, start, vel) =>
-                        runCommand(
-                          `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
-                        )
-                      }
-                      // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
-                      onSetNoteRange={(seqId, key, start, ns, ne) =>
-                        runCommand(
-                          `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
-                        )
-                      }
-                      // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
-                      onMoveNote={(seqId, key, start, nk, ns) =>
-                        runCommand(
-                          `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
-                        )
-                      }
-                      // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
-                      onPreviewNote={(track, key, vel) =>
-                        engineRef.current?.previewNote(track, key, vel)
-                      }
-                      waveRef={waveRef}
-                      onWaveView={setWaveView}
-                      rollRef={rollRef}
-                      onRollMode={setRollMode}
-                      // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
-                      onRemoveNote={(seqId, key, start) =>
-                        runCommand(
-                          `sequence note remove ${seqId} ${key} ${start}`,
-                        )
-                      }
-                    />
-                  )}
-                  {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
-                  {graphSlot?.kind === "trackModules" && (
-                    <TrackModulesPane
-                      cameras={cameras}
-                      midiDevices={midiDevices}
-                      trackId={graphSlot.trackId}
-                      reloadKey={reloadKey}
-                      command={quietCommand}
-                      onModuleField={runCommand}
-                      onRecorder={onRecorder}
-                      onProjectField={onProjectField}
-                      trackOrder={trackOrder}
-                      pluginParamsStore={pluginParamsStore}
-                      requestPluginParams={requestPluginParams}
-                      watchPluginParams={watchPluginParams}
-                      setPluginParam={setPluginParam}
-                      moduleParams={offlineParams}
-                      trackControls={trackControls}
-                      onContextMenu={openContextMenu}
-                      onBypassModule={(mod) => void bypassModule(mod)}
-                      onAlternative={runAlternative}
-                      onEngine={runEngine}
-                      onPresets={openPresets}
-                      presetNames={presetNames}
-                      onAssetBrowse={browseAssets}
-                      onTapEdit={editTap}
-                      onWatchWaveform={watchWaveform}
-                      onTrackToggle={onLaneToggle}
-                      onTrackSet={onTrackSet}
-                      onEdgeInsert={frozen ? undefined : insertIntoChain}
-                      engineWarnings={engineWarnings}
-                      onClose={() => setGraphSlot(null)}
-                    />
-                  )}
-                  {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
-                  {graphSlot?.kind === "recording" && (
-                    <AudioClipPanel
-                      clip={rolling ? null : (reviewTake?.clip ?? null)}
-                      track={reviewTake?.track ?? ""}
-                      rolling={rolling}
-                      tempo={recInfo.tempo}
-                      beatsPerBar={recInfo.beatsPerBar}
-                      countIn={recInfo.countIn}
-                      startBeat={takeStart}
-                      // Where the clip on screen actually SITS on its lane, asked of the document.
-                      placedAt={
-                        (reviewTake &&
-                          placedBeat(
-                            projectDoc,
-                            reviewTake.track,
-                            reviewTake.clip,
-                          )) ??
-                        takeStart
-                      }
-                      onSeek={seek}
-                      trackOrder={trackOrder}
-                      trackNames={recInfo.names}
-                      command={runCommand}
-                      quietCommand={quietCommand}
-                      onContextMenu={openContextMenu}
-                      reloadKey={reloadKey}
-                      onStop={() => void runCommand("transport stop")}
-                      onClose={() => {
-                        setReviewOn(null);
-                        if (reviewTake) setReviewedTake(reviewTake.clip);
-                        setGraphSlot(null);
-                      }}
-                    />
-                  )}
                 </div>
               </div>
             </div>
@@ -3793,6 +3650,158 @@ export default function App({
                     onTrackSet={onTrackSet}
                   />
                 )}
+                {/* The EVENT: what a clip click or a lane header's double-click opened, drawn under whichever page is on (docs/shell.md). */}
+                {panel === "event" && (
+                  <div className="flex h-full min-h-0 min-w-0">
+                    {!graphSlot && (
+                      <p className="m-auto px-4 text-center text-xs text-muted-foreground">
+                        {m["panel.eventEmpty"]()}
+                      </p>
+                    )}
+                    {graphSlot?.kind === "grid" && (
+                      <SeqGridPane
+                        path={graphSlot.path}
+                        view={graphSlot.view}
+                        onClose={closeEvent}
+                        onChanged={bumpReload}
+                        setStatus={setStatus}
+                      />
+                    )}
+                    {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
+                    {graphSlot?.kind === "clip" && (
+                      <ClipView
+                        target={graphSlot.target}
+                        onClose={closeEvent}
+                        // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
+                        reloadKey={reloadKey}
+                        // A click on the editor's arrangement ruler is the timeline's seek.
+                        onSeek={seek}
+                        // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
+                        onChanged={bumpReload}
+                        setStatus={setStatus}
+                        // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
+                        caretRef={clipGridRef}
+                        onSelection={setClipSel}
+                        onSetLoop={(start, end, enabled) =>
+                          engineRef.current?.loop(start, end, enabled)
+                        }
+                        // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
+                        command={runCommand}
+                        // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
+                        quietCommand={quietCommand}
+                        // …and they get the same right-click every other entity has.
+                        onContextMenu={openContextMenu}
+                        // The roll's draw gesture, and all four ANSWER the promise rather than dropping it — the ghost is held until the reload lands (rollPending.ts).
+                        onCreateNote={(seqId, key, t0, t1) =>
+                          runCommand(
+                            `sequence note new ${seqId} ${key} ${t0} ${t1}`,
+                          )
+                        }
+                        // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
+                        onSetVelocity={(seqId, key, start, vel) =>
+                          runCommand(
+                            `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
+                          )
+                        }
+                        // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
+                        onSetNoteRange={(seqId, key, start, ns, ne) =>
+                          runCommand(
+                            `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
+                          )
+                        }
+                        // …except a drag that changed the PITCH, which is the verb that keeps the duration and refuses an occupied slot.
+                        onMoveNote={(seqId, key, start, nk, ns) =>
+                          runCommand(
+                            `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
+                          )
+                        }
+                        // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
+                        onPreviewNote={(track, key, vel) =>
+                          engineRef.current?.previewNote(track, key, vel)
+                        }
+                        waveRef={waveRef}
+                        onWaveView={setWaveView}
+                        rollRef={rollRef}
+                        onRollMode={setRollMode}
+                        // …and the roll's `remove` mode, which is the caret's `x` reached by the pointer instead.
+                        onRemoveNote={(seqId, key, start) =>
+                          runCommand(
+                            `sequence note remove ${seqId} ${key} ${start}`,
+                          )
+                        }
+                      />
+                    )}
+                    {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
+                    {graphSlot?.kind === "trackModules" && (
+                      <TrackModulesPane
+                        cameras={cameras}
+                        midiDevices={midiDevices}
+                        trackId={graphSlot.trackId}
+                        reloadKey={reloadKey}
+                        command={quietCommand}
+                        onModuleField={runCommand}
+                        onRecorder={onRecorder}
+                        onProjectField={onProjectField}
+                        trackOrder={trackOrder}
+                        pluginParamsStore={pluginParamsStore}
+                        requestPluginParams={requestPluginParams}
+                        watchPluginParams={watchPluginParams}
+                        setPluginParam={setPluginParam}
+                        moduleParams={offlineParams}
+                        trackControls={trackControls}
+                        onContextMenu={openContextMenu}
+                        onBypassModule={(mod) => void bypassModule(mod)}
+                        onAlternative={runAlternative}
+                        onEngine={runEngine}
+                        onPresets={openPresets}
+                        presetNames={presetNames}
+                        onAssetBrowse={browseAssets}
+                        onTapEdit={editTap}
+                        onWatchWaveform={watchWaveform}
+                        onTrackToggle={onLaneToggle}
+                        onTrackSet={onTrackSet}
+                        onEdgeInsert={frozen ? undefined : insertIntoChain}
+                        engineWarnings={engineWarnings}
+                        onClose={closeEvent}
+                      />
+                    )}
+                    {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
+                    {graphSlot?.kind === "recording" && (
+                      <AudioClipPanel
+                        clip={rolling ? null : (reviewTake?.clip ?? null)}
+                        track={reviewTake?.track ?? ""}
+                        rolling={rolling}
+                        tempo={recInfo.tempo}
+                        beatsPerBar={recInfo.beatsPerBar}
+                        countIn={recInfo.countIn}
+                        startBeat={takeStart}
+                        // Where the clip on screen actually SITS on its lane, asked of the document.
+                        placedAt={
+                          (reviewTake &&
+                            placedBeat(
+                              projectDoc,
+                              reviewTake.track,
+                              reviewTake.clip,
+                            )) ??
+                          takeStart
+                        }
+                        onSeek={seek}
+                        trackOrder={trackOrder}
+                        trackNames={recInfo.names}
+                        command={runCommand}
+                        quietCommand={quietCommand}
+                        onContextMenu={openContextMenu}
+                        reloadKey={reloadKey}
+                        onStop={() => void runCommand("transport stop")}
+                        onClose={() => {
+                          setReviewOn(null);
+                          if (reviewTake) setReviewedTake(reviewTake.clip);
+                          closeEvent();
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
                 {panel === "logs" && (
                   <LogsPanel
                     lines={logs}
@@ -3829,7 +3838,7 @@ export default function App({
             <FrediverseMark size="sm" className="shrink-0 opacity-60" />
             {/* The MODE and the tool, PERSISTENT unlike the line beside it: a state nobody can see is one you leave by surprise (docs/timeline.md). */}
             {/* The waveform's comes FIRST when one is open, the clip pane being the surface in front. */}
-            {rollMode && graphSlot?.kind === "clip" ? (
+            {rollMode && shownSlot?.kind === "clip" ? (
               rollMode !== "select" && (
                 <Badge
                   variant="rec"
@@ -3839,7 +3848,7 @@ export default function App({
                   {rollMode}
                 </Badge>
               )
-            ) : waveView && graphSlot?.kind === "clip" ? (
+            ) : waveView && shownSlot?.kind === "clip" ? (
               waveView !== "standard" && (
                 <Badge
                   variant="rec"

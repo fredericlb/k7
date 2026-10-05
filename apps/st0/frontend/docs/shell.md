@@ -162,7 +162,7 @@ not.
 `App` is the st0 web editor itself: **one page at a time, full width** — the timeline, the graph, the
 desk, the frame, the master strip or the editor — with the transport controls and the page buttons in
 the header. Two pages are never split side by side; the one way to see a second view under the page is
-the footer's bottom panel (`graph`, `logs`). It is the wiring and the layout; almost nothing else.
+the footer's bottom panel (`event`, `graph`, `logs`). It is the wiring and the layout; almost nothing else.
 
 ### The header is the shared bar, with st0's contents in it
 
@@ -582,10 +582,9 @@ uses, so a twitch while removing a mark does not re-place it.
 
 ### The clip under the caret is REPORTED, not drawn
 
-`ClipView` is drawn in one place, the graph's slot, at the pane's full height. A second copy in a
-bottom panel would be the same roll twice, on two surfaces that could come to disagree about which clip
-you meant — and the panel would be the worse of the two: shorter, and answering the caret rather than
-the click.
+`ClipView` is drawn in one place, the bottom panel's `event`, and it answers the CLICK rather than the
+caret. A panel that followed the caret would redraw a roll at every step of `hjkl` and drop the clip you
+were working on as soon as the caret moved off it.
 
 `editTarget` is no part of that drawing. The caret reports what it is over because the command
 conditions read it — `hover_midi_sequence` and `hover_audio_clip` are what let a command know which
@@ -622,7 +621,7 @@ let `full` decide whether it is `hidden`.
 | if there is… | Escape does | command |
 |---|---|---|
 | an overlay in front | closes the topmost one | `ui popin close` |
-| …else a graph slot | puts the chains graph back | `ui slot close` |
+| …else an open event | lets it go and closes its panel | `ui slot close` |
 | …else a page other than home | returns to the home page | `ui global` |
 | …else | closes the bottom panel | `ui close` |
 
@@ -918,14 +917,14 @@ centred card would squeeze the arrangement into a strip less legible than the ti
 The popin's bottom edge is pushed up by the strip's MEASURED height — the minimap sizes itself to the
 track count, so any fixed number would be wrong for most songs.
 
-## What a click in the timeline does to the graph's slot
+## What a click in the timeline does to the event panel
 
-Two gestures move the slot, and they are symmetric on purpose. **A clip** opens its content there and
-goes to the graph's page, since a request the user cannot see is a miss; the caret parks on it too,
-which is what fills the command conditions (`hover_midi_sequence`), but the slot is what SHOWS it and is
-told outright, since a click is what the caret cannot say on its own. **The bare lane** moves the caret
-to where you clicked and puts the graph back — what a click opened, a click on nothing closes, or a clip
-sits parked there until you find its ✕.
+Two gestures move the slot, and they are symmetric on purpose. **A clip** opens its content in the
+bottom panel's `event`, under the timeline still on screen, and lights that button; the caret parks on
+it too, which is what fills the command conditions (`hover_midi_sequence`), but the panel is what SHOWS
+it and is told outright, since a click is what the caret cannot say on its own. **The bare lane** moves
+the caret to where you clicked and lets the event go — what a click opened, a click on nothing clears.
+The panel stays up and says nothing is open, since it was asked for; its ✕ and Escape close it.
 
 The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare lane;
 clips stop propagation, so they never reach the lane's handler at all.
@@ -997,14 +996,16 @@ occupants genuinely differ:
   the row gets the height back. When there is no row to draw — loading, an error, a lane that reaches
   no module — the pane says so in its body, where the row would be.
 
-The **Mixer button** is not an occupant — it rearranges the graph rather than replacing it, which is why
-it clears the slot on its way in.
+The **Mixer button** is not an occupant — it rearranges the graph on the graph's page, and leaves the
+event panel alone.
 
-**Filling the slot goes to the graph's page.** A lane's modules, a clip's waveform or piano roll, a
-grid, a take review — each is asked for, and the slot is drawn only where the graph is, so every road
-into it (`onOpenClip`, `sequence edit`, `ui review`, a lane header's double-click) also sets `full` to
-`chains`. The mixer and the stack views do the same, being arrangements of that one graph. Wanting the
-timeline in sight at the same time is what the bottom panel's `graph` is for.
+**Filling the slot opens the `event` panel.** A lane's modules, a clip's waveform or piano roll, a
+grid, a take review — each is asked for, and a request the user cannot see is a miss, so every road
+into the slot (`onOpenClip`, `sequence edit`, `ui review`, a lane header's double-click, a take
+starting to roll) goes through `openEvent`, which also sets `panel` to `event`. The page is left as it
+was: the clip opens under the timeline it was clicked on. Toggling the panel off keeps the event, so
+the button brings it back; the keys and the footer's mode badges act only on an event that is on
+screen (`shownSlot`).
 
 ## The command bar
 
@@ -1339,7 +1340,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 |---|---|---|
 | the footer's mixer / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` / `toggleDocs` in `App` |
 | the minimap's stack button, left of zoom fit | `ui stack` | `toggleStack` in `App` |
-| the footer's panel row | `ui panel <graph\|logs>` | `togglePanel` |
+| the footer's panel row | `ui panel <event\|graph\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a pane button in the header (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |
@@ -1494,4 +1495,4 @@ be revisited when the edge's path table moves is a manifest written wrong.
 ## The one seam is the bottom panel's
 
 A page takes the whole width and height, so there is no seam between panes to drag. The one splitter
-is the bottom panel's (`graph`/`logs`): written in place, it resizes the panel that FOLLOWS it.
+is the bottom panel's (`event`/`graph`/`logs`): written in place, it resizes the panel that FOLLOWS it.

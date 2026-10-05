@@ -161,6 +161,7 @@
   "cmd.zoom out": "zoom arrière",
   "cmd.zoom reset": "zoom initial",
   "cmd.help": "aide",
+  "panel.eventEmpty": "Aucun événement ouvert — cliquez un clip, ou double-cliquez l'en-tête d'une piste",
   "home.unknownCommand": "« {line} » n'est pas une commande de cet écran",
   "home.filesReadyHint": "Les projets sont lus, créés et supprimés sur le serveur, à {address}",
   "home.noFilesHint": "Le service de fichiers du serveur ne répond pas — la liste l’attend",
