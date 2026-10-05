@@ -65,6 +65,8 @@ const CARRIED = [
   "uses",
   // The engine's stage the card draws on its header's second line — docs/graphBuild.md.
   "stage",
+  // A lane's strip, whose header draws neither the bypass nor the alternative badges.
+  "strip",
   // A model the machine has not got and can download — what the right-click offers to fetch.
   "modelDownload",
   // …and the model it HAS loaded, which a panel's widgets.js reads — ui-chains-react's lcdScreen.md.
@@ -1036,6 +1038,25 @@ export function widgetRect(
     w: colsWidth(Math.max(1, w.colSpan ?? 1)),
     h: rowsHeight(Math.max(1, w.rowSpan ?? 1)),
   };
+}
+
+/** `widgetRect` on a STRIP drawn taller than its grid: the fader takes the extra height and what sits under it moves down (docs/graphBuild.md). */
+export function stripWidgetRect(
+  n: { strip?: boolean; ui?: WebModuleUI; h: number },
+  w: WebWidget,
+  left = 0,
+): { x: number; y: number; w: number; h: number } {
+  const r = widgetRect(w, left);
+  const fader = n.strip
+    ? Object.values(n.ui?.widgets ?? {}).find((x) => x.type === "fader")
+    : undefined;
+  const extra = fader ? n.h - nodeSize(n.ui).h : 0;
+  if (!fader || extra <= 0) return r;
+  if (w.type === "fader" && w.bind === fader.bind)
+    return { ...r, h: r.h + extra };
+  const under =
+    w.col === fader.col && w.row >= fader.row + (fader.rowSpan ?? 1);
+  return under ? { ...r, y: r.y + extra } : r;
 }
 
 // A widget's range, defaulting to 0..1 — right for a normalised plugin param, wrong for native units.

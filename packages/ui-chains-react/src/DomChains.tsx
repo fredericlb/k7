@@ -83,13 +83,13 @@ import {
   type RecVerb,
   rackBindSymbol,
   recBindVerb,
+  stripWidgetRect,
   TAB_COL_W,
   TAB_H,
   type TrackControlValues,
   UI_HEADER,
   widgetDenorm,
   widgetNorm,
-  widgetRect,
   widgetTyped,
 } from "@studio/ui-chains/graph";
 import { groupEdgeInsets } from "@studio/ui-chains/groupEdge";
@@ -1052,7 +1052,7 @@ function WidgetInner({
   inset?: number;
 }) {
   // Right of the tab column when the panel draws one — `tabColumnW`, the same figure the card is widened by.
-  const r = insetRect(widgetRect(w, columnW(n.ui)), inset);
+  const r = insetRect(stripWidgetRect(n, w, columnW(n.ui)), inset);
   styleOverride = styleOverride && insetStyle(styleOverride, inset);
   // Hoisted above the two delegating returns, since the subscription below is a hook.
   const tgt = widgetTarget(n, w, ch.offlineChannel);
@@ -1493,10 +1493,13 @@ function headerNameW(n: GraphNode, hasGlyph: boolean, rightW = 0): number {
   return Math.max(16, n.w - left - HD_PAD - lead - HD_GAP - rightW);
 }
 
-/** Whether a node draws the on/off block: a live module, not a baked one, which has nothing to bypass. */
+/** Whether a node draws the on/off block: a live module, not a baked one (nothing to bypass) nor a strip (never off). */
 function hasBypass(n: GraphNode): boolean {
   return (
-    n.kind === "module" && !!n.module && !(n.frozen && n.kind === "module")
+    n.kind === "module" &&
+    !!n.module &&
+    !n.strip &&
+    !(n.frozen && n.kind === "module")
   );
 }
 
@@ -1818,7 +1821,9 @@ function NodeInner({
       : 0;
   // …and the alternatives' row, on the top line beside the name — drawn wherever the host can switch them.
   const altsW =
-    onAlternative && n.module ? altBadgesW(n.alternatives ?? []) : 0;
+    onAlternative && n.module && !n.strip
+      ? altBadgesW(n.alternatives ?? [])
+      : 0;
   // The tags right of the name — frozen and the console — and with the badges, everything the name gives way to.
   const frozenTag = !!n.frozen || !!n.autoFrozen;
   const warnTag = !!warning;

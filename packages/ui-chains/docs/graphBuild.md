@@ -1011,7 +1011,10 @@ rules:
   importance, and the camera fits the row's height to the view. `asDrawn` is the exception: every
   card at the width the full graph draws it, the lane's clips kept, every card as tall as the
   tallest, and a box exactly that tall, so a height fit makes that card fill the view — for a row
-  that is a VIEW of the graph's nodes (one lane's path) rather than a rank of strips;
+  that is a VIEW of the graph's nodes (one lane's path) rather than a rank of strips. A STRIP
+  stretched that way spends the height on its fader (`stripWidgetRect`): the fader grows and what
+  sits under it in its column moves down, so the level gets the travel and the knobs keep their
+  size. Any other card leaves the extra height empty, having no control that reads better taller;
 - the cards come **without their sockets**: the plates are CSS-pinned to the top and bottom edges
   while this row meets its cables on the sides, and a plug on the wrong edge is worse than none;
 - its `links` option decides whether the graph's own cables come along. Off for a rank of channel

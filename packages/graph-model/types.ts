@@ -115,6 +115,8 @@ export interface WebChainStep {
   notSupported?: boolean; // plugin.type is "not_supported" — st0 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
+  /** A lane's STRIP (the internal `Mixer`): it cannot be bypassed and has no alternatives — packages/song/docs/trackMixer.md. */
+  strip?: boolean;
   /** The model this module names and the machine has not got, when its `model_url` says where to fetch it — the right-click's "Download model". */
   modelDownload?: { file: string; url: string };
   /** The amp model it loads, as its file declares it — what a panel's widgets.js reads to show only that model's knobs. */

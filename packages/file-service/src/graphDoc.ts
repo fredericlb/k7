@@ -359,6 +359,7 @@ export function buildGraphDoc(
           stub,
           notSupported: notSupported || undefined,
           unknownPlugin: unknownPlugin || undefined,
+          strip: plugin?.name === MIXER_PLUGIN || undefined,
           // Only an instantiable plugin has a native editor window to open — distinct from `ui`, the moduleUI widget grid.
           hasNativePluginUI:
             slot &&

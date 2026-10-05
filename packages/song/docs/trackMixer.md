@@ -17,7 +17,9 @@ CHANGES one, and a strip changes nothing.
 **The card is two columns**: Volume's fader over Pan, and High / Mid / Low beside them. It draws **no
 engine stage** (in / mix / out) on its header, which every other audio module carries: the strip's own
 `Volume` is the lane's level, and a second level and a dry/wet on a channel strip would be two
-controls for one value (`graphDoc.ts` leaves `stage` off any `Mixer` plugin).
+controls for one value (`graphDoc.ts` leaves `stage` off any `Mixer` plugin). Nor does it draw the
+bypass block or the alternative badges: a strip is never off and has one attribute set, so the name
+takes the header's whole width (`strip` on the graph node).
 
 ```yaml
 # graph.yaml
