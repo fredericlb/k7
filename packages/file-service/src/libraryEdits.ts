@@ -119,17 +119,30 @@ async function followRemote(at: string, env: NodeJS.ProcessEnv): Promise<void> {
   await git(at, ["clean", "-fdq"], env);
 }
 
-/** What an OPEN does: an admin's clones made or brought to their remote, and read in place of the hub's; anyone else reads the hub's. */
-export function refreshLibraryEdits(
+/** What an OPEN does: an admin reads their clones in place of the hub's, anyone else the hub's; WAITED FOR only where a clone is missing, unless `force`. */
+export async function refreshLibraryEdits(
   userEmail: string,
   admin: boolean,
   force = false,
 ): Promise<void> {
+  if (!admin) {
+    setLibraryOverlays([]);
+    return;
+  }
+  const listed = hubLibraries();
+  const here = listed.filter((n) => isPopulated(join(editsHome(), n)));
+  // What is here is read at once: the fetches below take seconds per library, and a song must not wait on them.
+  setLibraryOverlays(
+    here.map((name) => ({ name, root: join(editsHome(), name) })),
+  );
+  const work = syncLibraryEdits(userEmail, force);
+  if (force || here.length < listed.length) return work;
+  void work.catch((e: Error) => console.warn(`[libraries] ${e.message}`));
+}
+
+/** Each clone made, or brought to its remote while it holds nothing unpushed — one at a time, at most once a minute unless `force`. */
+function syncLibraryEdits(userEmail: string, force: boolean): Promise<void> {
   return serial(async () => {
-    if (!admin) {
-      setLibraryOverlays([]);
-      return;
-    }
     if (!force && Date.now() - lastRefresh < REFRESH_EVERY_MS) return;
     lastRefresh = Date.now();
     const env = envFor(userEmail);

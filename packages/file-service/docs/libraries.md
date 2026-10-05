@@ -65,6 +65,10 @@ file tree and the engine's paths read the admin's clone of each library instead 
   uncommitted or unpushed is made exactly its remote — fetch, `reset --hard @{u}`, `clean`: a clean
   clone is the remote at best and behind it at worst, and a library pushed from elsewhere (the
   `st0-library` submodule, another admin) must never stay hidden behind it.
+- **The open waits for that only where a clone is missing.** The clones already there are read
+  at once and refreshed behind the answer, like the hub's: a fetch over SSH costs seconds per
+  library, and a song held on the loading screen for them is worse than a push from elsewhere
+  reaching the module caches a few seconds after the open (`moduleWatch.md`).
 - **A clone holding work keeps it.** Unpushed work is the one thing on a server that nobody else
   has a copy of, so no open touches it; only a commit, a discard or an admin's Pull ends it.
 - **A clone the admin's key cannot make** leaves that library read from the hub's clone, read-only,
