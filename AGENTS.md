@@ -103,7 +103,8 @@ will be — they run on the musician's machine. `docs/versioning.md` is the page
 
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md) (the
-hosted image's stamp), [desktop-release.md](docs/desktop-release.md) (the OTHER half — the
+hosted image's stamp), [images.md](docs/images.md) (why the four Dockerfiles open with the same
+three stages), [desktop-release.md](docs/desktop-release.md) (the OTHER half — the
 packaged app for the three desktops, a rolling snapshot off master and a release per `vX.Y.Z`
 tag, and the one workflow that compiles the C++ engine),
 and four plan/recipe pages, [platter-plan.md](docs/platter-plan.md) (the DJ deck's
