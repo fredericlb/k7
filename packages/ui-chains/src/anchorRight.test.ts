@@ -1,15 +1,27 @@
 // A row that ENDS on its lane's mixer hands that card over to be pinned right; any other row is left whole.
 
-import type { WebGraph } from "@studio/graph-model";
+import type { WebGraph, WebModuleUI } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";
 import { splitTrailingMixer } from "./anchorRight";
-import { moduleRow } from "./graph";
+import { moduleRow, nodeSize } from "./graph";
+
+// The shipped strip's shape: one column of controls, and the engine's three stage sliders on its header.
+const STRIP_UI: WebModuleUI = {
+  cols: 1,
+  rows: 7,
+  widgets: { v: { type: "fader", col: 0, row: 0, rowSpan: 3, bind: "Volume" } },
+};
+const STAGE = ["@input-volume", "@mix", "@output-volume"];
 
 const graph = (use: string[]): WebGraph => ({
   chains: {
     lead: {
       from: "gt_lead",
-      use: use.map((module) => ({ module })),
+      use: use.map((module) =>
+        module === "strip"
+          ? { module, ui: STRIP_UI, stage: STAGE }
+          : { module },
+      ),
       out: [{ to: "MIX", gain: 1 }],
     },
   },
@@ -60,8 +72,17 @@ describe("splitTrailingMixer", () => {
     const amp = whole.nodes[1];
     const mixer = whole.nodes[2];
     expect(split?.row.width).toBe(amp.x + amp.w + margin);
-    expect(split?.mixer.width).toBe(mixer.w);
+    expect(split?.mixer.width).toBe(split?.mixer.nodes[0].w);
     expect(split?.mixer.nodes[0].x).toBe(0);
+    expect(mixer.w).toBeGreaterThan(0);
+  });
+
+  it("sizes the bare card by its panel, not by the header's stage sliders", () => {
+    const whole = row(["amp", "strip"]);
+    const split = splitTrailingMixer(whole);
+    // In the row the header's three sliders make the card wider than its one column needs.
+    expect(whole.nodes[2].w).toBeGreaterThan(nodeSize(STRIP_UI).w);
+    expect(split?.mixer.nodes[0].w).toBe(nodeSize(STRIP_UI).w);
   });
 
   it("leaves a row alone when its last card is not the mixer", () => {

@@ -4,7 +4,7 @@
 // The one thing a reader would get wrong: the cable INTO the mixer is dropped, not redrawn — a pinned
 // card no longer sits after the module that feeds it (docs/graphBuild.md).
 
-import type { LaidOutGraph } from "./graph";
+import { type LaidOutGraph, nodeSize } from "./graph";
 
 /** The row without its last card, and that card alone — or null when the row does not END on a lane's mixer. */
 export function splitTrailingMixer(
@@ -16,6 +16,8 @@ export function splitTrailingMixer(
   if (!last?.trackFace || !before) return null;
   // `moduleRow` starts its first card one margin in, and ends the row the same margin past its last.
   const margin = row.nodes[0].x - row.left;
+  // Sized by its panel alone: the stage sliders that widen a mixer live in the header a bare card hides.
+  const w = nodeSize(last.ui).w;
   return {
     row: {
       ...row,
@@ -28,9 +30,9 @@ export function splitTrailingMixer(
     // No margin either side: the card is flush with the pane's right edge, and the row keeps its own gap.
     mixer: {
       ...row,
-      nodes: [{ ...last, x: row.left, bare: true }],
+      nodes: [{ ...last, x: row.left, w, bare: true }],
       edges: [],
-      width: row.left + last.w,
+      width: row.left + w,
     },
   };
 }

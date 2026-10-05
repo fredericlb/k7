@@ -51,6 +51,8 @@ fader instead.
 
 The mixer graph keeps the row's `height` and `top`, so fitting both to the same pane height gives
 them the same scale. Its column then only needs the mixer's aspect ratio to be exactly its width.
+That width is the PANEL's: a mixer is an audio effect, so its header carries the engine's three stage
+sliders and is widened for them, and a card that hides its header has no use for that width.
 
 The cable into the mixer is dropped rather than drawn. A card pinned to the screen has no fixed
 place in the row's world, so a cable to it would have to be rebuilt on every camera frame, for an
