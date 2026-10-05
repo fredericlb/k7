@@ -22,8 +22,10 @@ import type {
 } from "@studio/web-protocol";
 import { projectLabel } from "@studio/web-protocol/projects";
 import { type DragEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
+import { SETTINGS_ROUTE } from "./api";
 import { ImportWorkspace } from "./ImportWorkspace";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
@@ -93,10 +95,7 @@ export function RepoList({
   workspaceHref,
   shares,
   onChanged,
-  onOpenSettings,
 }: {
-  /** Opens the settings PANEL beside this list — the key is read there, not on a page. */
-  onOpenSettings: () => void;
   workspaces: AccountWorkspace[];
   busy: boolean;
   error: string | null;
@@ -201,13 +200,9 @@ export function RepoList({
           <span className="text-xs">
             {parts((h) => m["repos.noFilesAside"](h), {
               settings: (
-                <button
-                  type="button"
-                  onClick={onOpenSettings}
-                  className="underline"
-                >
+                <Link to={SETTINGS_ROUTE} className="underline">
                   {m["repos.settingsWord"]()}
-                </button>
+                </Link>
               ),
             })}
           </span>
@@ -224,13 +219,9 @@ export function RepoList({
               new: <strong>{m["repos.newWord"]()}</strong>,
               import: <strong>{m["repos.importWord"]()}</strong>,
               key: (
-                <button
-                  type="button"
-                  onClick={onOpenSettings}
-                  className="underline"
-                >
+                <Link to={SETTINGS_ROUTE} className="underline">
                   {m["repos.deployKeyWord"]()}
-                </button>
+                </Link>
               ),
             })
           )}

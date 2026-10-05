@@ -2,7 +2,7 @@
 
 "Play this" has more than one possible answer — this browser, the host that serves the files, or
 the engine on the musician's own machine — and which one is a CHOICE, not something the app picks
-for you in silence: an icon button in the header, left of the cog, holding a menu of destinations.
+for you in silence: an icon button in the header, left of the user menu, holding a menu of destinations.
 
 ## Why a menu and not a switch
 
@@ -26,9 +26,9 @@ have to agree on before either can move. The price is `asPlaybackTarget`: an id 
 never heard of — written by a newer one, in another tab — reads as the default rather than as a
 destination nothing can play.
 
-## Left of the cog, not inside it
+## Beside the user menu, not inside it
 
-The cog holds what you set once: signing out. Where sound comes out is changed *while listening*
+The user menu holds what you set once: the settings, signing out. Where sound comes out is changed *while listening*
 — you hear it in the wrong room and reach for it — so it is one click, not two, and its icon
 answers the question without opening anything.
 

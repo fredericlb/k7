@@ -1,6 +1,6 @@
 # The engine page — the tray's options, in the browser
 
-`/engine` (cog menu → « État du moteur ») shows the chosen engine's state and offers
+`/engine` shows the chosen engine's state and offers
 the tray's engine actions from any browser. It exists because the tray lives on the
 engine's machine and the médiathèque does not: working remotely, the tray's menu is
 exactly the panel you cannot reach.
@@ -38,6 +38,6 @@ wire.
 
 ## Routing
 
-`engine` is a `SECTION_IDS` entry with no header tab: only the cog links to it,
+`engine` is a `SECTION_IDS` entry with no header tab and no link: it is reached by its address,
 and `routes.test.ts` pins both the round-trip and the no-collision rule
 (`/console` and `/dev-status` are among the paths the proxy claims above pl8).

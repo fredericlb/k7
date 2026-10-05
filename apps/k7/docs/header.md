@@ -16,10 +16,10 @@ session, so it hangs under it (`recordings.md`). **Publications** holds releases
 pages that list them (`pages.md`). Fewer entries is what keeps the bar from folding on a tablet
 held upright. The old list addresses (`/moments`, `/pages`) still land on their entry.
 
-**Settings is a page reached from a control**, the gear in the actions, and not a fifth entry:
-the bar would fold sooner for a screen opened rarely. The gear still wears `AppHeader`'s tab
-classes, copied in `HeaderView.tsx`, so on `/settings` it is the tab that joins the page and no
-entry is. A change to the shared tab's look has to be made there too.
+**Settings is a page reached from the user menu**, the row under the email, and not a fifth
+entry: the bar would fold sooner for a screen opened rarely, and every studio app keeps its
+settings in the same place (`packages/ui-user-menu/docs/userMenu.md`). On `/settings` no entry is
+lit.
 
 The icons stay all the same, because an entry that is named **and** carries a glyph is found
 faster than one that is only named.
@@ -44,5 +44,5 @@ its title row with an arrow back to that entry's list (`apps/k7/frontend/src/com
 It sits on the title's row, not above it, so it costs no height. It goes to the entry's list rather
 than to the browser's history, so a link opened cold still lands inside k7.
 
-Settings has none: it is reached from the gear, not from an entry, and the entries are right there.
+Settings has none: it is reached from the user menu, not from an entry, and the entries are right there.
 The `/new` forms have Cancel instead, which is the same way out.

@@ -35,6 +35,7 @@ import {
   externalOf,
   LIBRARIES_PAGE,
   localProjectUrl,
+  SETTINGS_PAGE,
   shareUrl,
 } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
@@ -87,10 +88,11 @@ export function workspaceHref(ws: Addressable): string {
   return localProjectUrl(window.location.origin, ws.name, ".", "st0");
 }
 
-/** Where the LIBRARIES page is: `/libraries`, a page of its own — an `<a>` to it, not a route, since the router's basename is the project. */
-export function librariesHref(): string {
-  return `${import.meta.env.BASE_URL}${LIBRARIES_PAGE}`;
-}
+/** The LIBRARIES page as a ROUTE: with no project in the address the router's basename is the mount, so the home pages switch without a reload. */
+export const LIBRARIES_ROUTE = `/${LIBRARIES_PAGE}`;
+
+/** …and the SETTINGS page, the same way. */
+export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
 
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
 export function externalHref(row: SurfacedProject, surface: string): string {

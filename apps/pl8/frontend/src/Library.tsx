@@ -6,7 +6,7 @@
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { FileTree, type TreeNode } from "@frediverse/ui/file-tree";
-import { Disc3, FolderTree, Search, Settings } from "@frediverse/ui/icons";
+import { Disc3, FolderTree, Search } from "@frediverse/ui/icons";
 import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import { RECORDINGS_DIR, SONG_FILE } from "@studio/mediatek/types";
 import { UserMenu } from "@studio/ui-user-menu";
@@ -236,22 +236,13 @@ export function Library() {
                 target={playback.target}
                 onChoose={playback.choose}
               />
-              {/* One cog for the settings — a page, as in k7 (../docs/settings.md). */}
-              <Button
-                variant={isSettings ? "secondary" : "ghost"}
-                size="icon"
-                aria-label="Paramètres"
-                title="Paramètres"
-                aria-current={isSettings ? "page" : undefined}
-                onClick={() => setSection("settings")}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-              {/* Last, at the far right: the account, the other apps, the logout (@studio/ui-user-menu). */}
+              {/* Last, at the far right: the account, the settings, the other apps, the logout (@studio/ui-user-menu). */}
               <UserMenu
                 self="pl8"
                 email={currentUser()}
                 onLogout={() => void auth.logout()}
+                onSettings={() => setSection("settings")}
+                settingsLabel="Paramètres"
               />
             </>
           }

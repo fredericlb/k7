@@ -70,8 +70,8 @@ asserted anyway because it costs nothing.
 ## Two sections have no tab
 
 `find` and `settings` are in `SECTION_IDS` but not in the header's tab strip. Each is reached by a
-button — « Trouver des morceaux » on Morceaux, the cog for the settings page
-([settings.md](settings.md)) — and each draws edge to edge, because nothing either shows is on
+control — « Trouver des morceaux » on Morceaux, the user menu's « Paramètres » for the settings
+page ([settings.md](settings.md)) — and each draws edge to edge, because nothing either shows is on
 the volume.
 
 They are sections rather than dialogues for the same reason: **an address**. A page reloads,

@@ -1380,7 +1380,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
 | the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |
 | the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | pl8's `POST /api/stems`, see [playlists.md](playlists.md) |
-| the settings panel's *Separation chains* | `system stems <chaîne>` — the panel itself writes through `PUT /account/cold-chains/stems`, since it has no project to run a command in | `@studio/commands` — `<state>/preferences.yaml`, read by every screen that could start one |
+| the settings page's *Separation chains* | `system stems <chaîne>` — the page itself writes through `PUT /account/cold-chains/stems`, since it has no project to run a command in | `@studio/commands` — `<state>/preferences.yaml`, read by every screen that could start one |
 
 Two of those handles exist only for this: `EditorHandle` carries the tree's own verbs, and `FileTreeHandle`
 exposes the two things nothing else holds — the pins, which are that component's `localStorage`, and the OS

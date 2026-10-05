@@ -4,7 +4,7 @@
 projects inside them, the libraries and the published shares. It is where you
 start, and where you come back to on leaving a song.
 
-The **deploy key is not here**: it is in the Sync tab of the settings (`/@settings`,
+The **deploy key is not here**: it is in the Sync section of the settings page (`/settings`,
 `settings.md`). It is pasted into the git host once and never looked
 at again, and keeping it at the foot of a screen opened for every song is paying every day for an
 installation gesture. The two sentences here that mention it point there, because the day it is
@@ -53,6 +53,13 @@ leaves the session has no business. It is the menu every app of the origin carri
 spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
 browser (`packages/ui-user-menu/docs/userMenu.md`).
 
+**One header for this page and the two that hang off it**, `/libraries` and `/settings`
+(`HomeHeader.tsx`). Its entries are **Projects** and **Libraries**, the one for the page you are on
+lit, and its last action is the user menu. The same entries in the same place on all three say
+which of them you are on, so neither of the other two carries a back button of its own. They are
+routes, so going between them reloads nothing. `/external` is not among them: it is the page a
+SECOND device opens, independent of this one, with a header of its own (`external.md`).
+
 `/auth/*` follows the root: the IdP knows only one `redirect_uri`, on st0's origin, so those
 routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 
@@ -65,6 +72,7 @@ routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 /@banc/vocals/warm/live.st0  a bench: a live rig seeded with a library chain
 /external             the menu of surfaces a second device drives
 /libraries            the origin's libraries — read by anyone, edited by an admin
+/settings             what a browser may change — settings.md
 ```
 
 **The path belongs to the launch.** `parseLaunch` reads it before anything is mounted, and the
@@ -88,6 +96,7 @@ switched off:
 | `/` | `AuthGate` → `Home` — the account, and nothing else |
 | `/external` | `AuthGate` → `ExternalIndex` — probes for a machine without claiming one |
 | `/libraries` | `AuthGate` → `LibrariesPage` — the account's file service, no engine |
+| `/settings` | `AuthGate` → `SettingsPage` — no engine |
 | `/@local/…`, `/@banc/…` | `AuthGate` → `EngineGate` → `ProjectGate` → the editor |
 
 The `Profiler` stays on the editor's stack only: it bills every commit of the subtree to keep the rare long
@@ -99,8 +108,8 @@ The list of projects, and importing a repository (which clones it), need the acc
 on the server and nothing else: the workspaces are there whether or not an engine is running, so
 the page does not wait on an engine probe to draw them (`settings/accountFiles.ts`'s `findAccountFiles`,
 asked with `bindEngine` off). If that service does not answer, the list is replaced by the
-sentence that says so, rather than by an empty screen that would look like a new account. The
-header says whether the files answer, with the address in a tooltip and a button to ask again.
+sentence that says so, rather than by an empty screen that would look like a new account; the
+header says nothing about the server, the list being where its absence shows.
 
 What can be read and set **without an engine** is what saves installation day: the libraries here,
 and the deploy key in the settings, both asked of the server. A page an engine

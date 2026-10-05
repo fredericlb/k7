@@ -3,39 +3,23 @@
 // service, and the two polls — for the presentational body beside it. The list is the SERVER's
 // files and needs no engine. See ../../docs/projects.md.
 
-import { AppHeader } from "@frediverse/ui/app-header";
-import { Button } from "@frediverse/ui/button";
-import {
-  LibraryBig,
-  RefreshCw,
-  Server,
-  ServerOff,
-  SlidersHorizontal,
-  Tablet,
-} from "@frediverse/ui/icons";
 import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
-import { UserMenu } from "@studio/ui-user-menu";
 import type {
   AccountLibrary,
   AccountWorkspace,
   ShareSummary,
 } from "@studio/web-protocol";
-import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api } from "../api";
 import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
 import { GitBusyOverlay } from "../components/GitBusy";
-import { RightPanel } from "../components/RightPanel";
-import { desktop } from "../desktop";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
-import { HomeSettings } from "../settings/HomeSettings";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
-import { VERSION } from "../version";
-import { accountFiles, librariesHref, shares as sharesApi } from "./api";
+import { accountFiles, shares as sharesApi } from "./api";
+import { HomeHeader } from "./HomeHeader";
 import {
   type ArmedDelete,
   buildHomePalette,
@@ -56,27 +40,6 @@ export function Home() {
   const [params, setParams] = useSearchParams();
   const openWs = params.get(WS_PARAM);
 
-  // Asked once: a hosted origin will not grow the route mid-session (../desktop.ts). The
-  // SERVER comes back with it, because the user menu needs it — the other apps are ITS.
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [server, setServer] = useState<string | null>(null);
-  useEffect(() => {
-    void desktop.state().then((d) => {
-      setIsDesktop(d !== null);
-      setServer(d?.server ?? null);
-    });
-  }, []);
-
-  // Who is signed in, for the user menu: AuthGate asked already, but hands nothing down.
-  const [email, setEmail] = useState<string | null>(null);
-  useEffect(() => {
-    void api
-      .getMe()
-      .then((u) => setEmail(u?.email || u?.name || u?.sub || null))
-      .catch(() => {});
-  }, []);
-
   const [workspaces, setWorkspaces] = useState<AccountWorkspace[]>([]);
   const [shares, setShares] = useState<ShareSummary[]>([]);
   const [busy, setBusy] = useState(true);
@@ -86,21 +49,15 @@ export function Home() {
   const [fileService, setFileService] = useState<
     AccountFiles | null | undefined
   >(undefined);
-  const [probing, setProbing] = useState(false);
 
   /** The account's files on the server, engine or none — and no `hold()`: a claim is a lease ON A PROJECT, which this page has none of. */
-  const probe = useCallback(async () => {
-    setProbing(true);
-    try {
-      setFileService(await findAccountFiles(false));
-    } finally {
-      setProbing(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void probe();
-  }, [probe]);
+    let live = true;
+    void findAccountFiles(false).then((f) => live && setFileService(f));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // The libraries, read here for the notice and the workspace buttons; they are edited on their own page.
   const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
@@ -273,110 +230,25 @@ export function Home() {
       {/* Where a workspace's compaction says what it gave back. */}
       <Toaster />
       <GitBusyOverlay />
-      <AppHeader
-        title="st0"
-        version={VERSION}
-        subtitle={m["home.projects"]()}
-        className="z-20"
-        actions={
-          <>
-            {/* Whether the files answer, said BEFORE the click: without them two buttons here are grey, and finding out by clicking is what this avoids. */}
-            <span
-              className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex"
-              title={
-                fileService
-                  ? m["home.filesReadyHint"]({ address: fileService.fileBase })
-                  : m["home.noFilesHint"]()
-              }
-            >
-              {fileService ? (
-                <Server className="h-3.5 w-3.5" />
-              ) : (
-                <ServerOff className="h-3.5 w-3.5 text-amber-500" />
-              )}
-              {fileService === undefined
-                ? "…"
-                : fileService
-                  ? m["home.filesReady"]()
-                  : m["home.noFiles"]()}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              title={m["home.reprobe"]()}
-              disabled={probing}
-              onClick={() => void probe()}
-            >
-              <RefreshCw
-                className={probing ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-              />
-            </Button>
-            {/* Settings — a PANEL and not a page, so the list of what needs the key stays on
-                screen while it is pasted (../settings/HomeSettings.tsx). */}
-            <Button
-              variant="ghost"
-              size="sm"
-              title={m["home.settingsHint"]()}
-              aria-expanded={settingsOpen}
-              onClick={() => setSettingsOpen((v) => !v)}
-            >
-              <SlidersHorizontal className="h-4 w-4" /> {m["home.settings"]()}
-            </Button>
-            {/* Libraries — a PAGE of its own, `/libraries`: the origin's list, which an admin edits there (./LibrariesPage.tsx). */}
-            <Button variant="ghost" size="sm" asChild>
-              <a href={librariesHref()} title={m["home.librariesHint"]()}>
-                <LibraryBig className="h-4 w-4" /> {m["home.libraries"]()}
-              </a>
-            </Button>
-            {/* Surfaces — `/external`, and an `<a>` rather than a route, since a client navigation would keep the editor's manifest (../../docs/external.md). */}
-            <Button variant="ghost" size="sm" asChild>
-              <a
-                href={`${import.meta.env.BASE_URL}${EXTERNAL_INDEX}`}
-                title={m["home.surfacesHint"]()}
-              >
-                <Tablet className="h-4 w-4" /> {m["home.surfaces"]()}
-              </a>
-            </Button>
-            {/* Last: the account, the other apps, the logout — on the HOME page alone (packages/ui-user-menu/docs/userMenu.md). */}
-            <UserMenu
-              self="st0"
-              email={email}
-              onLogout={() =>
-                void api.logout().then(() => window.location.reload())
-              }
-              origin={server}
-              unavailable={
-                isDesktop && !server ? m["home.appsUnavailable"]() : undefined
-              }
-            />
-          </>
-        }
-      />
+      <HomeHeader subtitle={m["home.projects"]()} className="z-20" />
 
-      {/* A ROW from here down: the settings panel docks beside the repositories, not over them. */}
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-          {error && (
-            <code className="mx-6 mt-3 overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
-              {error}
-            </code>
-          )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        {error && (
+          <code className="mx-6 mt-3 overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
+            {error}
+          </code>
+        )}
 
-          <ProjectsPane
-            workspaces={workspaces}
-            shares={shares}
-            busy={busy}
-            openWs={openWs}
-            fileService={fileService ?? null}
-            onOpen={open}
-            onChanged={changed}
-            onOpenSettings={() => setSettingsOpen(true)}
-            libraries={libraries}
-          />
-        </div>
-        <RightPanel open={settingsOpen} width="w-[24rem]">
-          <HomeSettings onClose={() => setSettingsOpen(false)} />
-        </RightPanel>
+        <ProjectsPane
+          workspaces={workspaces}
+          shares={shares}
+          busy={busy}
+          openWs={openWs}
+          fileService={fileService ?? null}
+          onOpen={open}
+          onChanged={changed}
+          libraries={libraries}
+        />
       </div>
 
       {/* The bar, full width at the bottom on the editor's own terms, with what it said held above it in amber (../../docs/commandBar.md). */}

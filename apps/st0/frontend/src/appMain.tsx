@@ -13,14 +13,14 @@ import {
   projectBasename,
 } from "@studio/project-shell/launch";
 import {
-  isLibrariesPage,
+  isHomePage,
   isShare,
   projectLabel,
   shareToken,
 } from "@studio/web-protocol/projects";
 import { lazy, Profiler, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { canServeLenses, serveLenses } from "./camera/serveLenses";
 import { AuthGate } from "./components/AuthGate";
 
@@ -42,8 +42,10 @@ const SharedGate = lazy(() =>
 import { PROFILING } from "@studio/project-shell/profiling";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
+import { LIBRARIES_ROUTE, SETTINGS_ROUTE } from "./projects/api";
 import { Home } from "./projects/Home";
 import { LibrariesPage } from "./projects/LibrariesPage";
+import { SettingsPage } from "./settings/SettingsPage";
 
 import "./index.css";
 /** The waveform's own wrapper and marker rules — a plain stylesheet, so the `@source` scan cannot produce it and it has to be imported. */
@@ -58,21 +60,16 @@ setFileApiTally(tally);
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;
 
+/** The pages hanging off the home — `/libraries`, `/settings` — read FIRST: `parseLaunch` would take the word for a workspace. */
+const homePage = isHomePage(window.location.pathname, import.meta.env.BASE_URL);
+
 /** Which of the three things this address is, read out of the address and nothing else — a branch, a SHARE being the wrong stack rather than a disabled one. */
-const at = parseLaunch(
-  window.location.pathname,
-  "st0",
-  import.meta.env.BASE_URL,
-);
+const at = homePage
+  ? null
+  : parseLaunch(window.location.pathname, "st0", import.meta.env.BASE_URL);
 const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
 
 /** …and the MENU of surfaces, `/external`, read BEFORE any of it: a single segment is a legal project address, so the word is reserved. */
-/** …and the LIBRARIES page, `/libraries`, reserved for the same reason. */
-const librariesPage = isLibrariesPage(
-  window.location.pathname,
-  import.meta.env.BASE_URL,
-);
-
 const externalIndex = isExternalIndex(
   window.location.pathname,
   import.meta.env.BASE_URL,
@@ -130,11 +127,15 @@ clearDevPerfEntries(import.meta.env.DEV);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   // The basename is the app's mount AND the project it was opened on: React Router only writes BELOW it, so the project cannot be rewritten out.
   <BrowserRouter
-    basename={projectBasename(
-      window.location.pathname,
-      "st0",
-      import.meta.env.BASE_URL,
-    )}
+    basename={
+      homePage
+        ? import.meta.env.BASE_URL
+        : projectBasename(
+            window.location.pathname,
+            "st0",
+            import.meta.env.BASE_URL,
+          )
+    }
   >
     <LocaleProvider>
       {sharedToken ? (
@@ -160,10 +161,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             {externalIndex ? (
               // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
               <ExternalIndex />
-            ) : librariesPage ? (
-              <LibrariesPage />
             ) : !at ? (
-              <Home />
+              // The pages with no project are ROUTES, so going between them reloads nothing.
+              <Routes>
+                <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
+                <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
+                <Route path="*" element={<Home />} />
+              </Routes>
             ) : profiling ? (
               <Profiler id="app" onRender={reportCommit}>
                 <EngineGate external={external} />

@@ -95,7 +95,7 @@ panel's button — and asking each of them would be asking the same question thr
 module separates and which model it wants is a fact about the library and about this machine's
 `<state>/models`, not about the set list in front of you.
 
-st0's settings panel sets the same answer with no command (*Separation chains*, apps/st0/frontend/docs/settings.md),
+st0's settings page sets the same answer with no command (*Separation chains*, apps/st0/frontend/docs/settings.md),
 choosing only from the library's cold chains; this verb is the command-bar road to it.
 
 It is **checked while it is set**, which is the cheap moment: a chain that does not separate is

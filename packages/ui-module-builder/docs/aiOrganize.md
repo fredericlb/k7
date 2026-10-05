@@ -22,7 +22,7 @@ button only when a host passes one, the rule `onScanParams` follows (`builder.md
 when its backend says this account has a key. The médiathèque passes nothing, and draws no
 button.
 
-**Each account sets its own key and model** in st0's settings panel
+**Each account sets its own key and model** in st0's settings page
 (`apps/st0/frontend/docs/settings.md`), and st0's backend keeps them in a file per account
 beside the preferences. An account is a person, and a request billed to somebody else's key is
 one they never agreed to. Nothing in the server's environment has to change for one person to

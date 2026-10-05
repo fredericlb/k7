@@ -5,8 +5,9 @@
 import { Button } from "@frediverse/ui/button";
 import { LibraryBig, TriangleAlert } from "@frediverse/ui/icons";
 import type { AccountLibrary } from "@studio/web-protocol";
+import { Link } from "react-router-dom";
 import { m } from "../paraglide/messages.js";
-import { librariesHref } from "./api";
+import { LIBRARIES_ROUTE } from "./api";
 
 export function LibrariesNotice({
   libraries,
@@ -26,9 +27,9 @@ export function LibrariesNotice({
       <TriangleAlert className="h-4 w-4 shrink-0 text-amber-500" />
       <span className="flex-1">{said}</span>
       <Button variant="ghost" size="sm" asChild>
-        <a href={librariesHref()}>
+        <Link to={LIBRARIES_ROUTE}>
           <LibraryBig className="h-3.5 w-3.5" /> {m["home.libraries"]()}
-        </a>
+        </Link>
       </Button>
     </div>
   );

@@ -266,14 +266,14 @@ home-screen icon points at it.
 
 The menu is reachable by its hand-typed address, and by `ui external <surface>` from an open project
 — which gives ONE surface's link. Neither is discoverable from the tablet you have just set down on
-the amp. So the home page's header carries a **Surfaces** button, beside the pl8 link
-(`projects/Home.tsx`).
+the amp. So the open project's share panel gives its QR code, and the device keeps it from then on —
+installed, it starts here.
 
-On the HOME page and not in the editor, for the reason that already puts the pl8 link there: opened
-on a project, st0 draws the editor's header, where a link taking you out of the session has no place.
-And it is the right page anyway — it is the one in front of you while you set the device up.
+It is linked from neither the home page's header nor the editor's: it is an INDEPENDENT page, the
+second device's own, and it wears its own header rather than the home page's. Reaching it from the
+laptop would only open on the laptop what belongs on the tablet.
 
-An `<a>` and not a route, and that matters: `/external` is read by `main.tsx` **before** the router,
+Never a route, and that matters: `/external` is read by `main.tsx` **before** the router,
 so arriving by client navigation would leave the document on the editor's manifest, and the device
 would install on the wrong application. A real navigation re-reads the document, and the
 `<link rel="manifest">` with it.

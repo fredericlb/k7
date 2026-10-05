@@ -314,7 +314,7 @@ be looked at. Everything works in it but pushing; `Publier` is the day it gets a
 holds every working copy, and pl8 keeps no register of them (`apps/pl8/docs/projects.md`). What
 this app owns is the SCREEN above a project, at `/` with nothing after it — the workspaces, the
 projects inside them, the libraries and the published shares. The deploy key is not on it but in
-the Sync tab of `/@settings`, which the hosted origin draws too, since the key is the account's
+the Sync section of `/settings`, which the hosted origin draws too, since the key is the account's
 rather than the app's. `frontend/docs/projects.md` is the page that says why.
 
 A project is named by an ADDRESS — the workspace, then the project folder inside it:

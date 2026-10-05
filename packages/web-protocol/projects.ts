@@ -262,7 +262,7 @@ export function localProjectUrl(
   );
 }
 
-/** The desktop app's TAB STRIP: a sentinel for the same reason `@settings` is one, and chrome rather than a screen — apps/st0-desktop/docs/tabs.md. */
+/** The desktop app's TAB STRIP: a sentinel, and chrome rather than a screen — apps/st0-desktop/docs/tabs.md. */
 export const TABS_REPO = "@tabs";
 
 export function isTabs(repo: string): boolean {
@@ -336,8 +336,11 @@ export function externalOf(projectUrl: string, surface: string): string {
 /** The MENU of those addresses, `/external` — a RESERVED repository short name; see docs/addresses.md. */
 export const EXTERNAL_INDEX = "external";
 
-/** The LIBRARIES page, `/libraries` — the origin's list, and where an admin edits it; reserved like `external`. */
+/** The LIBRARIES page, `/libraries` — the origin's list, and where an admin edits it; reserved like `external`, and a ROUTE of st0's home. */
 export const LIBRARIES_PAGE = "libraries";
+
+/** The SETTINGS page, `/settings` — what a browser may change; reserved and routed like the libraries. */
+export const SETTINGS_PAGE = "settings";
 
 /** Is this address exactly `word`, one segment below the mount? */
 function isReservedPage(pathname: string, base: string, word: string): boolean {
@@ -348,20 +351,23 @@ function isReservedPage(pathname: string, base: string, word: string): boolean {
   return rest.length === 1 && rest[0] === word;
 }
 
+/** Is this address one of the pages that hang off st0's home — `/libraries`, `/settings`? Read before `parseLaunch`, which would take the word for a workspace. */
+export function isHomePage(pathname: string, base: string): boolean {
+  return (
+    isReservedPage(pathname, base, LIBRARIES_PAGE) ||
+    isReservedPage(pathname, base, SETTINGS_PAGE)
+  );
+}
+
 /** Is this address that menu? Exactly one segment below the mount, and that word. */
 export function isExternalIndex(pathname: string, base: string): boolean {
   return isReservedPage(pathname, base, EXTERNAL_INDEX);
 }
 
-/** Is this address the libraries page? */
-export function isLibrariesPage(pathname: string, base: string): boolean {
-  return isReservedPage(pathname, base, LIBRARIES_PAGE);
-}
-
 /**
  * Does this ADDRESS open a project? Every screen on this origin that is not one is named here:
- * the home page has no segment at all, `@settings` and `@tabs` are chrome, `external` is the
- * menu of surfaces and `libraries` the libraries page. Everything else is `<dépôt>/<projet>`, `@local/…` and `@shares/…` included.
+ * the home page has no segment at all, `@tabs` is chrome, `external` is the menu of surfaces,
+ * `libraries` the libraries page and `settings` the settings page. Everything else is `<dépôt>/<projet>`, `@local/…` and `@shares/…` included.
  *
  * One definition because two sides ask it and would drift: the main process, to know what a
  * second window would open on, and the tab strip, to know which tabs wear a note.
@@ -377,7 +383,8 @@ export function isProjectAddress(url: string): boolean {
     head !== "" &&
     !isTabs(head) &&
     head !== EXTERNAL_INDEX &&
-    head !== LIBRARIES_PAGE
+    head !== LIBRARIES_PAGE &&
+    head !== SETTINGS_PAGE
   );
 }
 

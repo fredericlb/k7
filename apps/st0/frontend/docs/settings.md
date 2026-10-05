@@ -1,10 +1,9 @@
-# The settings panel, and the line it draws
+# The settings page, and the line it draws
 
-The cog on the home page opens a panel **docked at the right**, beside the repositories rather
-than over them. `settings/HomeSettings.tsx`, opening and closing through the same
-`components/RightPanel.tsx` the editor's column uses. It is the same shape the editor's own cog uses
-(`components/SettingsPanel.tsx`), and for the same reason: settings are set while you look at
-what they affect.
+The user menu's Settings row, on the home page, opens `/settings`, a page of its own: `settings/SettingsPage.tsx`,
+a route of the home page like `/libraries` (`appMain.tsx`), so going there reloads nothing.
+The editor keeps its own settings as a panel (`components/SettingsPanel.tsx`), because those are
+set while you look at the song they affect; these are not.
 
 It holds what a **browser** may change. Everything about a machine — which audio interface the
 engine opens, whether the engine is running, the web UIs it trusts, autostart — is the tray's
@@ -19,7 +18,7 @@ browser alone, and the DEPLOY KEY, which only a machine can have made.
 
 Inside the Android app (`engine/st0-engine/docs/android.md`) the line above moves, and for the
 reason it was drawn: the process on the machine is the app st0 is running in, and the phone has no
-tray to hold its menu. So the panel's first sections are **this phone's engine** —
+tray to hold its menu. So the page's first sections are **this phone's engine** —
 `settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
 which one the apps open, the private CA. The tray's hint is not drawn there, since it would point
 at a menu that does not exist.
@@ -27,16 +26,16 @@ at a menu that does not exist.
 They are drawn only when `window.st0Android` is there (`settings/androidEngine.ts`), which the app
 answers for st0's origin alone; a browser never sees them.
 
-## Why a panel and not a page
+## Why a page and not a panel
 
-The deploy key is pasted at a git host, and the list of repositories that need it is the reason
-you are pasting it. A page replaces that list with the key; a panel keeps both on screen. The
-same argument closed the address: `/@settings` was a route, a reserved repository name in
-`@studio/web-protocol/projects` and a branch in `appMain.tsx`, all to show one section.
+Everything here is set once and left: the language, the deploy key pasted at a git host the day a
+workspace is first pushed, the separation chains, the AI key. Visited on purpose and rarely — the
+reasoning that made the libraries a page — it does not earn a column beside the repositories, and
+a page gives it an ADDRESS. The two sentences in `RepoList.tsx` that name the deploy key are
+therefore links to `/settings`.
 
-The prose in `RepoList.tsx` that points at the key therefore OPENS the panel rather than
-linking: with no address there is nothing to link to, and a reader is one click from the thing
-the sentence names.
+The cost is that the list of repositories that need the key is not on screen while it is pasted.
+It is one Back away, and the key is pasted once per machine.
 
 ## The language
 
@@ -53,7 +52,7 @@ base locale, so a browser asking for French gets French; st0 drops that middle s
 `vite.config.ts`. The reason is that this app is written in English — the commands, the file
 syntax, the module names — and half of it is deliberately not translated at all (`i18n.ts` lists
 which). A French browser landing on a French shell whose every verb is English reads as a broken
-translation, where an English shell with a French option in the panel reads as a choice. It is an
+translation, where an English shell with a French option on the settings page reads as a choice. It is an
 app-level override and not a commons edit, which is the line that file already draws.
 
 Each locale is named in **its own language** — English, Français — because the list is what you
@@ -62,7 +61,7 @@ that changes nothing is a button that looks broken.
 
 The editor's own settings panel reaches the same value through `ui language <en|fr>`, and there is
 no second store behind it — both doors call the runtime's `setLocale`, which writes that one key.
-The panel is not itself a command, for the reason the deploy key's buttons are not: the home page
+The page is not itself a command, for the reason the deploy key's buttons are not: the home page
 has no command bar, the palette being the project shell's.
 
 ### Where the words themselves live
@@ -98,7 +97,7 @@ because the file is read where the code is.
 the home page works without it.
 
 **It is made on the machine and never leaves it** (`packages/git-repos/docs/keys.md`), so there
-is one per MACHINE and not one per account, and this panel asks a machine for it exactly as the
+is one per MACHINE and not one per account, and this page asks a machine for it exactly as the
 home page does. With no machine answering there is no key to read, and it says so instead of
 offering a Generate button that would write nowhere.
 
@@ -138,8 +137,8 @@ chain the library no longer holds still shows, so a renamed chain does not read 
 ## AI — the account's Claude key
 
 `AiSection.tsx`. The key and model the module builder's AI organize runs on
-(`packages/ui-module-builder/docs/aiOrganize.md`). It is here, on the home page's panel and not on
-the editor's, because it belongs to the ACCOUNT: the same key serves every project and every
+(`packages/ui-module-builder/docs/aiOrganize.md`). It is here, on the settings page and not in
+the editor's panel, because it belongs to the ACCOUNT: the same key serves every project and every
 machine, and it is kept by st0's backend, the service that knows who you are.
 
 **The key can be set, replaced and removed, and never read.** The row shows a hint

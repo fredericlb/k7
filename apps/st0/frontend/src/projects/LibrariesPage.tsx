@@ -3,16 +3,14 @@
 // A page and not a panel: it is visited on purpose, rarely, and an admin reads the key off it.
 // See ../../docs/projects.md.
 
-import { AppHeader } from "@frediverse/ui/app-header";
-import { Button } from "@frediverse/ui/button";
-import { ArrowLeft, Loader2 } from "@frediverse/ui/icons";
+import { Loader2 } from "@frediverse/ui/icons";
 import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
 import { useEffect, useState } from "react";
 import { GitBusyOverlay } from "../components/GitBusy";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
-import { VERSION } from "../version";
+import { HomeHeader } from "./HomeHeader";
 import { LibrariesCard } from "./LibrariesCard";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -35,18 +33,7 @@ export function LibrariesPage() {
       <Toaster />
       {/* Adding, removing, updating and retrying all clone or pull: the page waits for git. */}
       <GitBusyOverlay />
-      <AppHeader
-        title="st0"
-        version={VERSION}
-        subtitle={m["home.libraries"]()}
-        actions={
-          <Button variant="ghost" size="sm" asChild>
-            <a href={import.meta.env.BASE_URL}>
-              <ArrowLeft className="h-4 w-4" /> {m["libs.back"]()}
-            </a>
-          </Button>
-        }
-      />
+      <HomeHeader subtitle={m["home.libraries"]()} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl">
           {fileService === undefined ? (

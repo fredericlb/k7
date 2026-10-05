@@ -1,7 +1,9 @@
 # The user menu
 
 One button at the top right of every studio app that has somewhere to go: the signed-in
-account's email, a row per app on the origin minus the one drawing it, and the logout. **st0's
+account's email, the app's settings, a row per app on the origin minus the one drawing it, and
+the logout. **No studio header has a settings button of its own**: st0, pl8 and k7 each hand
+`onSettings` their own navigation, so the settings are found the same way in every app. **st0's
 home page, pl8's header and k7's header mount the same component.**
 
 The menu itself — the email heading, the rows opening in a new tab, the logout, the notice in
@@ -10,7 +12,8 @@ place of the rows — is `@frediverse/ui/user-menu`, shared with phare
 the origin has and where each one answers. That is the whole reason it is a package — an
 app-local copy would be one table of addresses per app.
 
-st0 draws it on its home page only, not in an opened project: the editor's header has no room for
+st0 draws it on the home page and the two pages that share its header, `/libraries` and
+`/settings` — not on `/external`, a second device's page, and not in an opened project: the editor's header has no room for
 a menu that leaves the session.
 
 ## The account and the logout

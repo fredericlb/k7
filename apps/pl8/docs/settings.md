@@ -1,8 +1,8 @@
 # Settings
 
-« Paramètres » is a page, reached from the cog in the header, as k7's is. It holds who is signed
-in (with the sign-out button, which is why the cog opens a page rather than a menu), the
-**engines** registered here, and the instance's **slskd settings** — what "Find songs"
+« Paramètres » is a page, reached from the user menu's row under the email, as in st0 and k7
+(`packages/ui-user-menu/docs/userMenu.md`). It holds who is signed in (with the sign-out button),
+the **engines** registered here, and the instance's **slskd settings** — what "Find songs"
 ([hunt.md](hunt.md)) needs to reach the daemon and bring the bytes back.
 
 ## « Moteurs » — the engines this registry holds

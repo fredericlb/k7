@@ -237,5 +237,9 @@ which is why it sits at the app's mount rather than under one. `isExternalIndex`
 exactly one segment, `external`, after the mount — and `main.tsx` reads it before `parseLaunch`.
 Since every project address starts with a sentinel, the plain word collides with nothing.
 
-`/libraries` is the second such page, st0's list of the origin's libraries, matched by
-`isLibrariesPage` the same way and for the same reason: it opens no project.
+`/libraries` and `/settings` are two more such pages — st0's list of the origin's libraries, and
+its settings — reserved for the same reason: neither opens a project. `isHomePage` matches both,
+and it is read BEFORE `parseLaunch`, which would otherwise take the word for a workspace and the
+router would mount under it. Once loaded they are ROUTES of st0's home, the router's basename
+being the mount, so going between the home and either one reloads nothing. `/external` stays a
+branch because it swaps the page's manifest before anything mounts.

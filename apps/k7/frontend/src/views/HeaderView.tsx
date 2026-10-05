@@ -11,7 +11,6 @@ import {
   type LucideIcon,
   Mic,
   MicOff,
-  Settings,
   Target,
 } from "@frediverse/ui/icons";
 import { UserMenu } from "@studio/ui-user-menu";
@@ -101,23 +100,6 @@ export function HeaderView({
       items={items}
       actions={
         <>
-          {/* Drawn as one of AppHeader's tabs (its classes, tint variant) so /settings lights up like an entry. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`-mt-3 -mb-[calc(0.75rem+1px)] h-auto self-stretch rounded-none border border-b-0 px-3${
-              activeNav === "settings"
-                ? " border-primary/20 bg-background bg-clip-padding text-foreground hover:bg-background hover:text-foreground"
-                : " border-transparent"
-            }`}
-            onClick={onOpenSettings}
-            title={m["settings.title"]()}
-            aria-label={m["settings.title"]()}
-            aria-current={activeNav === "settings" ? "page" : undefined}
-          >
-            <Settings className="size-4" />
-          </Button>
-
           {/* The one thing this bar DOES rather than opens, so its error hangs off the button that failed. */}
           <div className="topbar-new-wrap">
             <Button
@@ -139,8 +121,14 @@ export function HeaderView({
               </p>
             )}
           </div>
-          {/* Last, at the far right: the account, the other apps, the logout (@studio/ui-user-menu). */}
-          <UserMenu self="k7" email={email} onLogout={onLogout} />
+          {/* Last, at the far right: the account, the settings, the other apps, the logout (@studio/ui-user-menu). */}
+          <UserMenu
+            self="k7"
+            email={email}
+            onLogout={onLogout}
+            onSettings={onOpenSettings}
+            settingsLabel={m["settings.title"]()}
+          />
         </>
       }
     />

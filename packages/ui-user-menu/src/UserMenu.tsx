@@ -54,6 +54,10 @@ export interface UserMenuProps {
   email?: string | null;
   /** Ends the session — the host's own call, since each app reaches /auth from a different origin. */
   onLogout: () => void;
+  /** Opens the host's settings page, the row under the email — the host's own navigation. */
+  onSettings?: () => void;
+  /** That row's name, in the host's language. */
+  settingsLabel?: string;
   /** Where the studio answers when it is not this origin: the desktop's paired server. */
   origin?: string | null;
   /** Said in place of the app rows when there is nowhere to go, in the words of the app saying it. */
@@ -64,6 +68,8 @@ export function UserMenu({
   self,
   email,
   onLogout,
+  onSettings,
+  settingsLabel,
   origin,
   unavailable,
 }: UserMenuProps) {
@@ -78,6 +84,8 @@ export function UserMenu({
     <BaseUserMenu
       email={email}
       onLogout={onLogout}
+      onSettings={onSettings}
+      settingsLabel={settingsLabel}
       links={links}
       notice={unavailable}
     />

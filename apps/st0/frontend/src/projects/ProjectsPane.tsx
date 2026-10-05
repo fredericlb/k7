@@ -52,14 +52,11 @@ export function ProjectsPane({
   fileService,
   onOpen,
   onChanged,
-  onOpenSettings,
   libraries,
 }: {
   /** The origin's libraries as this account sees them, read by Home; they decide whether a workspace may be made. */
   libraries: AccountLibrary[] | undefined;
   /** The account's workspaces, projects included — the only source, a project being a folder there. */
-  /** Forwarded to RepoList, whose prose points at the deploy key. */
-  onOpenSettings: () => void;
   workspaces: AccountWorkspace[];
   /** Frozen snapshots published by `project share link` — the account's WHOLE list, cut up by the rows with `sharesOf`. */
   shares: ShareSummary[];
@@ -404,7 +401,6 @@ export function ProjectsPane({
         />
       ) : (
         <RepoList
-          onOpenSettings={onOpenSettings}
           workspaces={workspaces}
           busy={busy}
           error={error}

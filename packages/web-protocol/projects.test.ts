@@ -13,7 +13,7 @@ import {
   isBenchProject,
   isDroppableProject,
   isExternalIndex,
-  isLibrariesPage,
+  isHomePage,
   isLocal,
   isProjectAddress,
   isShare,
@@ -462,15 +462,17 @@ describe("which addresses open a project", () => {
   });
 
   it("says no to the home page and to the chrome", () => {
-    for (const p of ["/", "", "/@tabs", "/external", "/libraries"])
+    for (const p of ["/", "", "/@tabs", "/external", "/libraries", "/settings"])
       expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
   });
 
-  it("finds the libraries page at the mount, exactly one segment", () => {
-    expect(isLibrariesPage("/libraries", "/")).toBe(true);
-    expect(isLibrariesPage("/libraries/", "/")).toBe(true);
-    expect(isLibrariesPage("/libraries/x.st0", "/")).toBe(false);
-    expect(isLibrariesPage("/external", "/")).toBe(false);
+  it("finds the home's own pages at the mount, exactly one segment", () => {
+    expect(isHomePage("/libraries", "/")).toBe(true);
+    expect(isHomePage("/settings/", "/")).toBe(true);
+    expect(isHomePage("/st0/settings", "/st0/")).toBe(true);
+    expect(isHomePage("/settings/x.st0", "/")).toBe(false);
+    expect(isHomePage("/external", "/")).toBe(false);
+    expect(isHomePage("/", "/")).toBe(false);
   });
 
   it("says no to something that is not an address at all", () => {
