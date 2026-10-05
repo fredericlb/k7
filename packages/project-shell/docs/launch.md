@@ -55,7 +55,7 @@ which the MACHINE settles rather than the address:
 
 - the workspace's own folder is a project (`hiver.st0/` cloned as itself), so `.` names it;
 - it is not, and the workspace holds several projects. Then `.` names none of them, and
-  `POST /open` resolves it: the `.studio-active` marker first, then the first project on disk,
+  `POST /open` resolves it: the active-project marker first, then the first project on disk,
   then nothing at all — see `packages/file-service/docs/workspaces.md`.
 
 That last case is what a bare `/@local/band` is, and it is why the address may name a project

@@ -58,6 +58,11 @@ import {
   libraryEditsStatus,
   restoreLibraryEdits,
 } from "./libraryEdits.ts";
+import {
+  libraryEditDiff,
+  libraryEditFiles,
+  libraryEditRead,
+} from "./libraryEditsFiles.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -465,6 +470,47 @@ app.get(
   "/account/library-edits",
   wrap(async (req, res) => {
     res.json(await libraryEditsStatus(req.userEmail!));
+  }),
+);
+
+// What the bottom bar's "show diff" draws: one edited library's tree, its uncommitted paths, a diff, a file.
+const libraryParam = (req: express.Request): string =>
+  String(req.query.library ?? "");
+const failed = (res: express.Response, e: unknown) =>
+  res
+    .status((e as { status?: number }).status ?? 400)
+    .json({ error: (e as Error).message });
+app.get(
+  "/account/library-edits/files",
+  wrap(async (req, res) => {
+    try {
+      res.json(await libraryEditFiles(libraryParam(req)));
+    } catch (e) {
+      failed(res, e);
+    }
+  }),
+);
+app.get(
+  "/account/library-edits/diff",
+  wrap(async (req, res) => {
+    const path = String(req.query.path ?? "");
+    try {
+      res.json({ path, diff: await libraryEditDiff(libraryParam(req), path) });
+    } catch (e) {
+      failed(res, e);
+    }
+  }),
+);
+app.get(
+  "/account/library-edits/file",
+  wrap((req, res) => {
+    try {
+      res.json(
+        libraryEditRead(libraryParam(req), String(req.query.path ?? "")),
+      );
+    } catch (e) {
+      failed(res, e);
+    }
   }),
 );
 

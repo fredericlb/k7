@@ -42,7 +42,7 @@ export function parsePorcelainZ(out: string): GitChange[] {
 }
 
 /** A path the caller may hand git: relative, inside the workspace, no `..`. */
-function checkedPath(path: string): string {
+export function checkedPath(path: string): string {
   const p = path.replace(/\\/g, "/");
   if (
     !p ||

@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { Workspace } from "./workspace.ts";
+import { activeMarkerOf, Workspace } from "./workspace.ts";
 
 // Renaming a project is `renameEntry` plus the one thing a PROJECT has: a suffix that says which
 // app opens the folder. See docs/workspaces.md.
@@ -24,7 +24,10 @@ beforeEach(() => {
   writeFileSync(join(proj, "project.yaml"), "package st0\n");
   ws = new Workspace(root);
 });
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  rmSync(activeMarkerOf(root), { force: true });
+});
 
 describe("Workspace.renameProject", () => {
   it("moves the folder and answers where it landed", async () => {
@@ -79,7 +82,7 @@ describe("Workspace.renameProject", () => {
     // A rename does not end the project: the marker names the same one, under its new folder.
     ws.setActiveProject("winter.st0");
     await ws.renameProject("winter.st0", "spring.st0", () => {});
-    expect(readFileSync(join(root, ".studio-active"), "utf8").trim()).toBe(
+    expect(readFileSync(activeMarkerOf(root), "utf8").trim()).toBe(
       "spring.st0",
     );
     expect(ws.workspaceInfo().activeProject).toBe("spring.st0");

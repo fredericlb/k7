@@ -109,6 +109,12 @@ rename and a verb all end at the disk. See `docs/libraries.md`.
 A refused push is answered rather than thrown: "committed but not pushed" is a real outcome with
 work safely on disk behind it, and the editor's bar says so.
 
+`GET …/files?library=`, `…/diff?library=&path=` and `…/file?library=&path=` READ one edit clone
+for the bar's "show diff" — its tree with its uncommitted paths, one path's diff against HEAD, one
+file — the same three answers `/tree`, `/git/changes`, `/git/diff` and `/file` give the home
+page of a workspace, so one viewer draws both (`../src/libraryEditsFiles.ts`). A library with no
+edit clone here, which is every library for a non-admin, is a 404.
+
 ## `POST /open` asks for the libraries first
 
 The libraries are the file hub's, so the open asks the hub to bring them to their latest

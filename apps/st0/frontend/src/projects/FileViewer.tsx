@@ -1,13 +1,13 @@
-// FileViewer.tsx — one workspace file, read-only, beside the home page's tree: its content when it
-// is committed, its diff against HEAD when it is not. Nothing here writes; a project is edited open.
+// FileViewer.tsx — one file, read-only, beside the read-only tree (a workspace's, or a library's in
+// the editor's "show diff"): its content when it is committed, its diff against HEAD when it is
+// not. Nothing here writes; a project is edited open.
 // See ../../docs/projects.md § A workspace's files.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import type { AccountFiles } from "./api";
 import { allAdded, type DiffRow, parseUnifiedDiff } from "./unifiedDiff";
-import { workspaceFiles } from "./workspaceFiles";
+import type { TreeSource } from "./workspaceFiles";
 
 type Shown =
   | { kind: "text"; lines: string[] }
@@ -17,20 +17,18 @@ type Shown =
 
 /** What to draw for one path: a change is diffed, an untracked file is all added. */
 async function load(
-  files: AccountFiles,
-  workspace: string,
+  source: TreeSource,
   path: string,
   code: string | undefined,
 ): Promise<Shown> {
-  const read = () => workspaceFiles.read(files, workspace, path);
+  const read = () => source.read(path);
   if (!code) {
     const f = await read();
     return f.binary
       ? { kind: "binary" }
       : { kind: "text", lines: f.content.replace(/\n$/, "").split("\n") };
   }
-  const diff =
-    code === "??" ? "" : await workspaceFiles.diff(files, workspace, path);
+  const diff = code === "??" ? "" : await source.diff(path);
   if (diff) return { kind: "diff", rows: parseUnifiedDiff(diff) };
   // Untracked, or added on a branch with no commit yet: no earlier version to compare with.
   const f = await read();
@@ -63,22 +61,21 @@ function Gutter({ n }: { n?: number }) {
 }
 
 export function FileViewer({
-  files,
-  workspace,
+  source,
   path,
   code,
 }: {
-  files: AccountFiles;
-  workspace: string;
+  source: TreeSource;
   path: string;
   /** git's status letters when the path is not committed. */
   code: string | undefined;
 }) {
   const [shown, setShown] = useState<Shown | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `source.key` is its identity; the object is rebuilt per render.
   useEffect(() => {
     let stop = false;
     setShown(null);
-    load(files, workspace, path, code)
+    load(source, path, code)
       .then((s) => !stop && setShown(s))
       .catch(
         (e: Error) => !stop && setShown({ kind: "error", message: e.message }),
@@ -86,7 +83,7 @@ export function FileViewer({
     return () => {
       stop = true;
     };
-  }, [files, workspace, path, code]);
+  }, [source.key, path, code]);
 
   return (
     <div className="flex h-full min-w-0 flex-col">

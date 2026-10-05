@@ -198,13 +198,10 @@ describe("a workspace made here, which starts with no repository", () => {
       join(rootDir(), "hiver", ".gitignore"),
       "utf8",
     );
-    for (const line of [
-      "_recycle_bin/",
-      "_history/",
-      "*.cache",
-      ".studio-active",
-    ])
+    for (const line of ["_recycle_bin/", "_history/", "*.cache"])
       expect(ignored).toContain(line);
+    // The active-project marker is kept beside the workspace, so there is nothing of it to ignore.
+    expect(ignored).not.toContain(".studio-active");
   });
 
   it("puts its media through git LFS", async () => {

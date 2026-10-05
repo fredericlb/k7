@@ -1,9 +1,18 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { Workspace } from "./workspace.ts";
+import { activeMarkerOf, Workspace } from "./workspace.ts";
 
 // The two consequences of being opened ON a project instead of picking one — see docs/activeProject.md.
 
@@ -28,7 +37,10 @@ beforeEach(() => {
   writeFileSync(join(root, "orig", "old.als"), "binary\n", "utf8");
   ws = new Workspace(root);
 });
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  rmSync(activeMarkerOf(root), { force: true });
+});
 
 const names = (): string[] =>
   ws
@@ -167,7 +179,21 @@ describe("opening a project pl8 named out of a stale mirror", () => {
   it("does not restore a marker pointing at a project that has been removed", () => {
     ws.setActiveProject("song.st0");
     rmSync(join(root, "song.st0"), { recursive: true, force: true });
-    // A fresh Workspace reads `.studio-active`; the name still claims st0, the folder is gone.
+    // A fresh Workspace reads the marker; the name still claims st0, the folder is gone.
     expect(new Workspace(root).workspaceInfo().activeProject).toBe(null);
+  });
+
+  it("keeps its marker BESIDE the workspace, where no commit or diff of it sees it", () => {
+    ws.setActiveProject("song.st0");
+    expect(readdirSync(root)).not.toContain(".studio-active");
+    expect(readFileSync(activeMarkerOf(root), "utf8").trim()).toBe("song.st0");
+    expect(new Workspace(root).workspaceInfo().activeProject).toBe("song.st0");
+  });
+
+  it("moves a marker the workspace still holds out of it, and keeps what it said", () => {
+    writeFileSync(join(root, ".studio-active"), "song.st0\n");
+    expect(new Workspace(root).workspaceInfo().activeProject).toBe("song.st0");
+    expect(existsSync(join(root, ".studio-active"))).toBe(false);
+    expect(readFileSync(activeMarkerOf(root), "utf8").trim()).toBe("song.st0");
   });
 });

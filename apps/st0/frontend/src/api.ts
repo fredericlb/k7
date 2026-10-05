@@ -24,6 +24,9 @@ import type {
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
+  FileContent,
+  FileNode,
+  GitChange,
   LibraryEditsStatus,
   ModelDownloadJob,
   SeparateJob,
@@ -322,6 +325,26 @@ export const api = {
       "POST",
       "/account/library-edits/commit",
       { message },
+    ),
+
+  /** One edited library's tree and what git has not committed in it — the bar's "show diff". */
+  libraryEditFiles: (library: string) =>
+    fget<{ nodes: FileNode[]; changes: GitChange[] }>(
+      `/account/library-edits/files?library=${encodeURIComponent(library)}`,
+    ),
+
+  /** …one path of it against HEAD. */
+  libraryEditDiff: async (library: string, path: string) =>
+    (
+      await fget<{ path: string; diff: string }>(
+        `/account/library-edits/diff?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}`,
+      )
+    ).diff,
+
+  /** …and one file of it, read-only. */
+  libraryEditRead: (library: string, path: string) =>
+    fget<FileContent>(
+      `/account/library-edits/file?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}`,
     ),
 
   /** Throw away what changed in every library. */

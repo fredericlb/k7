@@ -31,7 +31,7 @@ surfaces. Its identity fields are `AccountWorkspace`'s, repeated per project rat
 because the list is read as a flat one: the caller is looking for a SURFACE and the workspace it
 lives in is a detail of the address. `path` is workspace-relative, `.` for a lone-project clone.
 
-`active` is the workspace's `.studio-active` marker — the project this workspace currently has
+`active` is the workspace's active-project marker — the project this workspace currently has
 open. One per workspace at a time, which is why it is a flag and not a filter: a caller that wants
 only the live ones can say so, and one showing a menu wants to know which row is already up. See
 `apps/st0/frontend/docs/external.md`.

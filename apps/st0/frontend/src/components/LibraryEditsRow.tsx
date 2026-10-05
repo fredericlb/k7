@@ -4,13 +4,19 @@
 // the one place it is. See ../../docs/sharedModules.md and packages/file-service/docs/libraries.md.
 
 import { Button } from "@frediverse/ui/button";
-import { GitCommitHorizontal, Loader2, Undo2 } from "@frediverse/ui/icons";
+import {
+  FileDiff,
+  GitCommitHorizontal,
+  Loader2,
+  Undo2,
+} from "@frediverse/ui/icons";
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import { showToast } from "@studio/project-shell/toast";
 import type { LibraryEditsStatus } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
 import { api, engines } from "../api";
 import { m } from "../paraglide/messages.js";
+import { LibraryDiffDialog } from "./LibraryDiffDialog";
 
 /** How often to ask again: a library write moves no workspace revision. */
 const POLL_MS = 3000;
@@ -19,6 +25,7 @@ export function LibraryEditsRow({ rev }: { rev: string | number | null }) {
   const [admin, setAdmin] = useState(false);
   const [edits, setEdits] = useState<LibraryEditsStatus["libraries"]>([]);
   const [busy, setBusy] = useState<"commit" | "discard" | null>(null);
+  const [diffOpen, setDiffOpen] = useState(false);
 
   // Only an admin edits a library, so only an admin has anything to be told here.
   useEffect(() => {
@@ -108,6 +115,14 @@ export function LibraryEditsRow({ rev }: { rev: string | number | null }) {
           )
           .join(" · ")}
       </span>
+      <Button size="sm" variant="ghost" onClick={() => setDiffOpen(true)}>
+        <FileDiff className="h-3.5 w-3.5" /> {m["libedits.diff"]()}
+      </Button>
+      <LibraryDiffDialog
+        libraries={edits.map((e) => e.library)}
+        open={diffOpen}
+        onOpenChange={setDiffOpen}
+      />
       <Button
         size="sm"
         variant="ghost"

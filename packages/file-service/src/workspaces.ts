@@ -34,9 +34,10 @@ import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
 import {
-  ACTIVE_MARKER,
+  activeMarkerOf,
   isProjectDir,
   projectDirsUnder,
+  readActiveMarker,
   Workspace,
 } from "./workspace.ts";
 
@@ -81,13 +82,7 @@ export function liveWorkspaces(): Workspace[] {
  * What a workspace this service made ignores. A clone brings its own; this is the list for one
  * that never had an author to write it — see docs/workspaces.md.
  */
-const GITIGNORE = [
-  "_recycle_bin/",
-  "_history/",
-  "*.cache",
-  ".studio-active",
-  "",
-].join("\n");
+const GITIGNORE = ["_recycle_bin/", "_history/", "*.cache", ""].join("\n");
 
 /** Create a workspace folder, git-initialised with NO remote. Returns false if it was already there. */
 export async function createWorkspace(
@@ -392,6 +387,8 @@ export async function removeWorkspace(
   closeModuleWatchesUnder(root);
   await unload?.(root);
   rmSync(root, { recursive: true, force: true });
+  // Its marker is beside it, not in it: a workspace made again under the name must not reopen a ghost.
+  rmSync(activeMarkerOf(root), { force: true });
   const slug = slugify(userEmail);
   forgetRemotes(slug);
   forgetListing(slug);
@@ -538,14 +535,5 @@ export async function listSurfacedProjects(
 const surfaced = new Map<string, { at: number; rows: SurfacedProject[] }>();
 
 /** The workspace's open project, absolute, straight off the marker file; null when nothing is open. */
-function activeOf(workspaceRootDir: string): string | null {
-  try {
-    const rel = readFileSync(
-      join(workspaceRootDir, ACTIVE_MARKER),
-      "utf8",
-    ).trim();
-    return rel ? resolve(workspaceRootDir, rel) : null;
-  } catch {
-    return null;
-  }
-}
+const activeOf = (workspaceRootDir: string): string | null =>
+  readActiveMarker(workspaceRootDir);
