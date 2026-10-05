@@ -110,3 +110,13 @@ Two settings go with it:
   gets from xterm's `<script>` tags and biome cannot see.
 - `!**/.tmp-*` is excluded from `files.includes`. Scratch scripts at the repo root are not
   source, and linting them put 86 errors in front of the five that are real.
+
+## The pre-push hook
+
+`.githooks/pre-push` runs `lint`, the two blocking checks and `test` before a push leaves the
+machine. It is a tracked shell script rather than husky or lefthook: one hook needs no dependency.
+`npm install` points `core.hooksPath` at it through `scripts/install-hooks.mjs`, which does nothing
+where there is no checkout — every image's `npm ci` runs `prepare` too. `lint:comments` and
+`lint:dead` stay out of it because they report a debt rather than block. Biome skips JSON: much
+of it is written by generators, whose spacing is not biome's.
+`git push --no-verify` skips it.
