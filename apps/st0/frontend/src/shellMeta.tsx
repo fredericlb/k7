@@ -11,6 +11,7 @@ import {
   Loader2,
   type LucideIcon,
   MonitorPlay,
+  Music,
   Pause,
   Play,
   ScrollText,
@@ -45,8 +46,9 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
 
 // No metadata for a layout: there is one, and which panes it holds is what the project declares (routes.ts).
 
-// The bottom panels: `graph` is the caret track's path, `logs` what happened — the MIXER and a clip's CONTENTS are drawn where the graph is.
+// The bottom panels: `event` is the clip or lane opened, `graph` the caret track's path, `logs` what happened — the MIXER stays where the graph is.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
+  event: { icon: Music, label: "Event" },
   graph: { icon: Workflow, label: "Graph" },
   logs: { icon: ScrollText, label: "Logs" },
 };

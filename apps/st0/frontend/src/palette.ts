@@ -23,7 +23,7 @@ import { WAVE_MODES } from "./waveMode";
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui assembly", // open an assembly TEMPLATE in the builder, by the ref a box names
-  "ui global", // the layout view — the default, and the only one a project does not derive
+  "ui global", // the home page — the timeline, or the first pane a project without one declares
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
@@ -60,7 +60,7 @@ export const LOCAL_COMMANDS = [
   "ui mixer", // line the mixer strips up in the graph's pane
   "ui stack", // the graph as one column per track, the mix last
   "ui notes", // draw the project's doc modules on the graph
-  "ui panel", // open one of the bottom panels (graph | logs)
+  "ui panel", // open one of the bottom panels (event | graph | logs)
   "ui surface", // a screen this PROJECT declares — surfaces/, layout: view
   "ui builder", // the shared module builder, over the shell
   "ui review", // reopen the take review on a clip — waveform, onsets, level
@@ -117,8 +117,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Ouvrir un modèle d'assemblage dans le constructeur",
   },
   "ui global": {
-    en: "Show the timeline and the chains together",
-    fr: "Afficher la timeline et les chaînes ensemble",
+    en: "Back to the project's home page",
+    fr: "Revenir à la page d'accueil du projet",
   },
   "ui editor": {
     en: "Fullscreen the editor",
@@ -444,7 +444,7 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
     { name: "sequence", kind: "file", hint: "a sequence of this project" },
   ],
   // The four fixed sets below are completed in makeCompleteArg: none is a project's, so there is no round trip to spend.
-  "ui panel": [{ name: "panel", kind: "choice", hint: "graph · logs" }],
+  "ui panel": [{ name: "panel", kind: "choice", hint: "event · graph · logs" }],
   "ui tool": [
     { name: "tool", kind: "choice", hint: "pointer · cut · erase · mute" },
   ],
@@ -655,7 +655,7 @@ export function makeListArg(shell: {
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     const first = priorArgs.length === 0;
     // The shell's other fixed sets, each the shell's OWN vocabulary — asking the backend would be a round trip for a literal.
-    if (canonical === "ui panel" && first) return ["graph", "logs"];
+    if (canonical === "ui panel" && first) return ["event", "graph", "logs"];
     if (canonical === "ui tool" && first) return [...TOOLS];
     if (canonical === "ui wave" && first) return [...WAVE_MODES];
     if (canonical === "ui roll" && first) return [...ROLL_MODES];

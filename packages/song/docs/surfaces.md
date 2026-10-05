@@ -344,18 +344,15 @@ read against a guess, and almost every project has an arrangement. The other thr
 optimism — each is the exception, so the same default would make `/viewport`, `/turntables` and
 `/mastering` briefly parse for every ordinary song.
 
-### Where the desk goes in the column
+### Where the desk goes in the ring
 
-Directly over the graph: the ring is built top-down as the panes are stacked — frame, arrangement,
-desk, master, chains. A set declares no timeline, so in practice the desk and the graph *are* its
-column, each taking half, which is the point of the desk being a pane at all. A fader on the desk is
-a param on a module in the graph, and the two are readable at once; `full` is how either gets the
-whole window.
+The shell shows one pane at a time, and the ring is their order — frame, arrangement, desk, master,
+chains — which is the order Tab walks and the header lists. A set declares no timeline, so its desk
+comes first among what it declares and is the page it opens on. A fader on the desk is a param on a
+module in the graph; the bottom panel's `graph` is how both are read at once.
 
-The **master strip is last** in that column for two reasons that happen to agree: it is the last
-thing the signal meets, so the stack reads in signal order from the top down; and like the desk it
-is a picture of modules in the graph, so it wants to be next to them. It is shorter than the desk —
-ten sliders rather than two decks — and takes a third of the height instead of a half.
+The **master strip is last** before the graph: it is the last thing the signal meets, so the ring
+reads in signal order.
 
 ## `mastering`
 

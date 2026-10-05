@@ -159,9 +159,10 @@ not.
 
 ## The layout (`App.tsx`)
 
-`App` is the st0 web editor itself: the global view — **the timeline over the chains graph, full
-width** — with the transport controls and the pane toggles in the header. It is the wiring and the
-layout; almost nothing else.
+`App` is the st0 web editor itself: **one page at a time, full width** — the timeline, the graph, the
+desk, the frame, the master strip or the editor — with the transport controls and the page buttons in
+the header. Two pages are never split side by side; the one way to see a second view under the page is
+the footer's bottom panel (`event`, `graph`, `logs`). It is the wiring and the layout; almost nothing else.
 
 ### The header is the shared bar, with st0's contents in it
 
@@ -202,10 +203,11 @@ service beside the engine when they live on its machine (`/project-compat`). Not
 be false is worse than none.
 
 The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
-control goes in `actions`*), and here it lands on a real distinction. A **pane** button fullscreens
-something that is already mounted, and Escape backs out of it: `aria-pressed`, not `aria-current`,
-and each one carries its key in its tooltip — which is why the row stays icons rather than labelled
-entries that would drop the shortcut.
+control goes in `actions`*), and here it lands on a real distinction. A **pane** button shows a page
+that is already mounted, and exactly one of them is lit — the page on screen: `aria-current="page"`,
+not `aria-pressed`, since pressing the lit one changes nothing rather than switching it off. Each one
+carries its key in its tooltip, which is why the row stays icons rather than labelled entries that
+would drop the shortcut.
 
 `items` is **empty** while every surface is a pane, and the prop is still passed rather than dropped
 because it is the shared bar's slot for exactly that kind of page. Note the constraint if you use
@@ -301,9 +303,8 @@ could only ever hold the panes, leaving anything else to a second hamburger besi
 tap dispatching `timeline` sets the status line to *"timeline" is a ui command* and changes nothing
 else.
 
-A pane row is `aria-current`, not `aria-pressed`. On the desktop a pane button toggles fullscreen and
-Escape backs out of it; on a phone there is no layout to back out to, so picking one means "show me
-that" and the current row is where you are, not a switch left on.
+A pane row is `aria-current`, not `aria-pressed`, exactly like the desktop's header row: picking one
+means "show me that page", and the current row is where you are, not a switch left on.
 
 **There is ONE layout**, and no project chooses a second one. `project.yaml`'s `project_type` is
 accepted and ignored — the schema keeps it as a plain string so a folder still carrying it loads —
@@ -311,31 +312,27 @@ and nothing here reads it: it could say `live` while the folder declared a timel
 `surfaces/` cannot have.
 
 **The timeline itself is a SURFACE, and the project has to ask for it.** `surfaces/timeline.yaml`
-(`type: timeline`, `layout: split`) is what puts it in the layout; a folder without one opens on its
-graph, keeps its editor, and is warned about in its diagnostics. `noArrangement` is what the
-transport, the minimap and the graph's claim on the column read: a rig and a song that has not
-declared its arrangement look alike on screen and are not the same fact. See
+(`type: timeline`, `layout: split`) is what puts it in the layout, and it is the **home page** — the
+one a project opens on, `/` and `ui global` lead to, and Escape comes back to. A folder without one
+opens on the first pane it does declare (a set's desk, a rig's graph), keeps its editor, and is warned
+about in its diagnostics. `noArrangement` is what the transport and the minimap read: a rig and a song
+that has not declared its arrangement look alike on screen and are not the same fact. See
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
-**The VIEWPORT is the second**, `surfaces/viewport.yaml`, above the timeline in the same column. It owns
-a WebGL context and one `<video>` per layer, which is the most expensive thing the never-unmount rule
-below protects. See [picture.md](picture.md).
+**The VIEWPORT is the second**, `surfaces/viewport.yaml`, a page of its own. It owns a WebGL context
+and one `<video>` per layer, which is the most expensive thing the never-unmount rule below protects.
+See [picture.md](picture.md).
 
-**The DESK is the third**, `surfaces/turntables.yaml` (usually named `desk.yaml`), and it sits
-directly *over the graph* — last in the column, nearest the chains it is played against. A set
-declares no timeline, so those two panes are its whole layout, half each. The pairing is why it is a
-pane rather than a screen over the window: a fader on the desk is a param on a module in the graph,
-and a screen covering the graph makes "which module is this one on" a round trip. `full` is how the
-desk gets the whole window when you do want it whole. What it holds is a DOCUMENT — the loaded songs,
-the crossfader, the six EQ knobs — and a set does not stop existing because you went to look at the
-graph. See
+**The DESK is the third**, `surfaces/turntables.yaml` (usually named `desk.yaml`). A set declares no
+timeline, so the desk is its home page. A fader on the desk is a param on a module in the graph, and
+the bottom panel's `graph` is how both are read at once. What it holds is a DOCUMENT — the loaded
+songs, the crossfader, the six EQ knobs — and a set does not stop existing because you went to look
+at the graph. See
 [../../../../packages/st0-plugins/docs/turntables/deckSet.md](../../../../packages/st0-plugins/docs/turntables/deckSet.md).
 
-The editor is not in the default layout. Giving it the left half means every song opens with half the
-screen showing a YAML file you had not asked for, while the two views that are *about the song* —
-where things happen in time, and how the signal flows — share the other half. `ui editor` gives it
-the screen, and a command that sends it to a file opens it as a popin (below). It stays mounted
-throughout, so summoning it costs nothing.
+The editor is never the home page: every song would open on a YAML file you had not asked for, rather
+than on a view that is *about the song*. `ui editor` gives it the screen, and a command that sends it
+to a file opens it as a popin (below). It stays mounted throughout, so summoning it costs nothing.
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
@@ -585,36 +582,36 @@ uses, so a twitch while removing a mark does not re-place it.
 
 ### The clip under the caret is REPORTED, not drawn
 
-`ClipView` is drawn in one place, the graph's slot, at the pane's full height. A second copy in a
-bottom panel would be the same roll twice, on two surfaces that could come to disagree about which clip
-you meant — and the panel would be the worse of the two: shorter, and answering the caret rather than
-the click.
+`ClipView` is drawn in one place, the bottom panel's `event`, and it answers the CLICK rather than the
+caret. A panel that followed the caret would redraw a roll at every step of `hjkl` and drop the clip you
+were working on as soon as the caret moved off it.
 
 `editTarget` is no part of that drawing. The caret reports what it is over because the command
 conditions read it — `hover_midi_sequence` and `hover_audio_clip` are what let a command know which
 clip you mean without you naming it.
 
-## A view is a LAYOUT, not a mode
+## A page is a PANE, and there is one on screen
 
-Every pane is mounted always, and always the *same instance* — including the editor, which the default
-layout does not show. Three pieces of state decide what you see, and none of them mounts or unmounts
+Every pane is mounted always, and always the *same instance* — including the editor, which is never
+the home page. Three pieces of state decide what you see, and none of them mounts or unmounts
 anything:
 
-- `full` — which pane gets the whole screen (`null` = the layout's own arrangement)
-- `focus` — which pane gets the keys; Tab walks the focus ring (`ringPanes`, which is
-  `viewPanes(...).ring`: the panes the layout actually shows, so the editor is not on it — and focus
-  left on a pane the layout dropped is snapped back, or the keys would go to something off screen.
-  That snap is what moves the keys to the graph when a project declaring no timeline opens)
-- `panel` — the side panel, independent of both
+- `full` — the page on screen, never empty: `null` in the state means the project's home page (the
+  timeline, else the first pane declared), resolved against the layout before anything reads it.
+  There is no split: two panes sharing the window each got too little of it to work in, and a second
+  view under the page is the bottom panel's job
+- `focus` — which pane gets the keys, which is the page on screen; Tab walks the pages of the ring
+  (`ringPanes`, which is `viewPanes(...).ring`, so the editor is not on it)
+- `panel` — the bottom panel, independent of both
 
-There is no fourth piece: the LAYOUT is not state. Which panes it holds is a function of what the
-project declares, read fresh wherever it is needed. See [shellRouting.md](shellRouting.md) and
+There is no fourth piece: which pages exist is not state. It is a function of what the project
+declares, read fresh wherever it is needed. See [shellRouting.md](shellRouting.md) and
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
-`f` expands what you are on, Escape backs out. Because nothing is torn down by any of that, the state
-that would be expensive to rebuild — the open file and its undo history, the timeline caret, the zoom
-stack, the graph canvas — simply never moves. This is the one invariant to preserve when adding a pane:
-mount it once, unconditionally, and let the tables decide its size.
+Because nothing is torn down by a change of page, the state that would be expensive to rebuild — the
+open file and its undo history, the timeline caret, the zoom stack, the graph canvas — simply never
+moves. This is the one invariant to preserve when adding a pane: mount it once, unconditionally, and
+let `full` decide whether it is `hidden`.
 
 ### Escape backs out ONE layer, outermost first
 
@@ -624,8 +621,8 @@ mount it once, unconditionally, and let the tables decide its size.
 | if there is… | Escape does | command |
 |---|---|---|
 | an overlay in front | closes the topmost one | `ui popin close` |
-| …else a graph slot | puts the chains graph back | `ui slot close` |
-| …else a fullscreened pane | returns to the layout | `ui {current_view}` |
+| …else an open event | lets it go and closes its panel | `ui slot close` |
+| …else a page other than home | returns to the home page | `ui global` |
 | …else | closes the bottom panel | `ui close` |
 
 The ladder only works if each rung is **exclusive**, and that is the whole reason
@@ -920,13 +917,14 @@ centred card would squeeze the arrangement into a strip less legible than the ti
 The popin's bottom edge is pushed up by the strip's MEASURED height — the minimap sizes itself to the
 track count, so any fixed number would be wrong for most songs.
 
-## What a click in the timeline does to the pane below
+## What a click in the timeline does to the event panel
 
-Two gestures move the slot, and they are symmetric on purpose. **A clip** opens its content there; the
-caret parks on it too, which is what fills the command conditions (`hover_midi_sequence`), but the slot
-is what SHOWS it and is told outright, since a click is what the caret cannot say on its own. **The bare
-lane** moves the caret to where you clicked and puts the graph back — what a click opened, a click on
-nothing closes, or a clip sits parked there until you find its ✕.
+Two gestures move the slot, and they are symmetric on purpose. **A clip** opens its content in the
+bottom panel's `event`, under the timeline still on screen, and lights that button; the caret parks on
+it too, which is what fills the command conditions (`hover_midi_sequence`), but the panel is what SHOWS
+it and is told outright, since a click is what the caret cannot say on its own. **The bare lane** moves
+the caret to where you clicked and lets the event go — what a click opened, a click on nothing clears.
+The panel stays up and says nothing is open, since it was asked for; its ✕ and Escape close it.
 
 The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare lane;
 clips stop propagation, so they never reach the lane's handler at all.
@@ -998,22 +996,16 @@ occupants genuinely differ:
   the row gets the height back. When there is no row to draw — loading, an error, a lane that reaches
   no module — the pane says so in its body, where the row would be.
 
-The **Mixer button** is not an occupant — it rearranges the graph rather than replacing it, which is why
-it clears the slot on its way in.
+The **Mixer button** is not an occupant — it rearranges the graph on the graph's page, and leaves the
+event panel alone.
 
-**Expanding the lanes takes the pane away entirely.** The Expand button grows every lane to show what is
-inside its clips, and that height is precisely what the pane below is holding — so the lower pane goes
-`hidden`, on the same terms as `full timeline`. That state lives in `TimelineTab` and reaches the shell
-through `onView`, beside `selecting` / `zoomed` / `loop`: one channel for "what state is the timeline in",
-rather than a second prop that could disagree with it.
-
-**An occupied slot splits it back.** A lane's modules, a clip's waveform or piano roll, a grid, a take
-review — each is asked for, and a request the user can't see is a miss. So while the graph's slot
-holds anything, expanded lanes give up the column and the layout is the ordinary split, the lanes
-still tall. Closing the slot hands the column back. The split must not undo the click that caused it:
-the timeline keeps a stable scrollbar gutter, so a pane gaining a scrollbar does not refit the lanes
-and slide the clip from under the pointer, and a press on bare lane within a double-click of a clip
-opening does not close it.
+**Filling the slot opens the `event` panel.** A lane's modules, a clip's waveform or piano roll, a
+grid, a take review — each is asked for, and a request the user cannot see is a miss, so every road
+into the slot (`onOpenClip`, `sequence edit`, `ui review`, a lane header's double-click, a take
+starting to roll) goes through `openEvent`, which also sets `panel` to `event`. The page is left as it
+was: the clip opens under the timeline it was clicked on. Toggling the panel off keeps the event, so
+the button brings it back; the keys and the footer's mode badges act only on an event that is on
+screen (`shownSlot`).
 
 ## The command bar
 
@@ -1348,9 +1340,9 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 |---|---|---|
 | the footer's mixer / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` / `toggleDocs` in `App` |
 | the minimap's stack button, left of zoom fit | `ui stack` | `toggleStack` in `App` |
-| the footer's panel row | `ui panel <graph\|logs>` | `togglePanel` |
+| the footer's panel row | `ui panel <event\|graph\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
-| a surface's pane button (the desk) | `ui turntables` | `fullscreen` / `setFull` in `App`, like any pane |
+| a pane button in the header (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |
 | the timeline corner's ＋ piste | `track new`, and `picture lane new` on a project with a viewport | `App` — the menu appears only when there are two kinds of lane, see [timeline.md](timeline.md) |
 | a timeline header dragged to another row | `track order`, `picture lane order` | `App` — the drag names the lane whose place is taken, see [timeline.md](timeline.md) |
@@ -1437,10 +1429,9 @@ Some gestures need a second command the user did not type, and both are held as 
 
 ## Mobile
 
-A phone shows ONE pane, not the studio layout: the panes are too small side by side and there is no pointer
-to drag a splitter with. `full` already means "one pane, whole screen", so the menu just drives it and the
-global view is never entered — which is why entering mobile has to land on a pane. Timeline is the default,
-being the one pane that says what the song *is*: the editor needs a keyboard and the graph needs room.
+A phone shows one page, as the desktop does, and the menu drives `full` where the desktop's header row
+does. The home page is the same one, the timeline being the one pane that says what the song *is*: the
+editor needs a keyboard and the graph needs room.
 
 Every row of chrome is a row the panes do not get. On a phone in landscape the whole window is about 400px
 tall, so the header and footer are trimmed to what a touch target needs and no more. The one control that
@@ -1501,23 +1492,7 @@ be revisited when the edge's path table moves is a manifest written wrong.
 | the palette catalogue and argument completion | `src/palette.ts` |
 | self-contained slices of state | `src/hooks/` — engine link, project doc, track controls, polls, logs, MIDI recording, dialogs |
 
-## Panes are resized by their splitter
+## The one seam is the bottom panel's
 
-Every seam between two panes is a `PaneSplitter` (`components/PaneSplitter.tsx`): a 4 px bar you grab. One
-component for both axes — a vertical cut and a horizontal one differ only in which coordinate moves — and
-it resizes **the pane before it**, the order every cut in this shell is written in.
-
-- **The size is read off the DOM when the drag starts**, not held by the splitter. Until somebody has
-  pulled, a pane is sized by its Tailwind fraction (`w-1/3`, `h-1/2`); measuring is what lets the first
-  drag carry on from where that fraction put it instead of jumping. Once pulled, `paneSize` holds pixels
-  and the `style` wins.
-- **The last pane in the column takes what is left** (`flex-1`, never a fixed half). A pane pulled wider
-  has to take it from somebody, and two fixed halves plus a seam overflow by the width of the seam.
-- **The cursor and `user-select` move to the `body`** for the whole drag: the pointer leaves the 4 px bar
-  immediately, and without it the cursor flickers and everything passing underneath gets selected.
-
-A double-click gives the pane its fraction back — the way out of a botched drag, and the reason `paneSize`
-tells "absent" from "zero".
-
-The bottom panel's splitter (`graph`/`logs`) is written in place and resizes the pane that FOLLOWS it, so
-its arithmetic is the inverse.
+A page takes the whole width and height, so there is no seam between panes to drag. The one splitter
+is the bottom panel's (`event`/`graph`/`logs`): written in place, it resizes the panel that FOLLOWS it.

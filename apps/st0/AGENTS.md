@@ -103,17 +103,16 @@ matches before changing it:
 
 ### Layout: panes, not tabs
 
-`App.tsx` lays out the panes the project declares: the **frame BESIDE** a column holding the
-**timeline over the desk over the strip over the graph**. A picture is wide, so stacking it took a
-third of the height off everything below; the column is what stacks. **Every seam between two
-panes is draggable** (`components/PaneSplitter.tsx`), and double-clicking one gives the pane back
-the fraction it opened at. The EDITOR has no slot in the layout — it is fullscreened deliberately
-(`ui editor`) or arrives as a popin when a command sends it to a file
-(`frontend/docs/shell.md`). A pane that IS in the layout is **mounted exactly once and never
-unmounted**; `hidden` takes it off screen, which is what lets the editor be restyled into a
-popin without losing its undo history, and what keeps the viewport's GL context alive while you
-are looking elsewhere. One layout, holding whichever of those panes the project declares; `full`
-sits on top of it to fullscreen one.
+`App.tsx` shows **one pane at a time, as a full page** — the frame, the timeline, the desk, the
+strip, the graph or the editor — and **never splits two of them**. `full` is that page, and it is
+never empty: with nothing chosen it is the project's home page, the timeline when declared and
+otherwise the first pane the project does declare. The header's pane buttons pick the page and
+light the one on screen; the one way to see a second view at the same time is the footer's bottom
+panel (`event`, `graph`, `logs`). The EDITOR is never the home page — it is shown deliberately (`ui editor`)
+or arrives as a popin when a command sends it to a file (`frontend/docs/shell.md`). Every pane is
+**mounted exactly once and never unmounted**; `hidden` takes it off screen, which is what lets the
+editor be restyled into a popin without losing its undo history, and what keeps the viewport's GL
+context alive while you are looking elsewhere.
 
 **A note is a MODULE, not a panel.** Neither a module nor a track takes a `docs:` or `todos:`
 field, and both schemas are `.strict()`, so a file still holding one refuses to load. A note is a
@@ -135,9 +134,9 @@ PAIR is validated:
 | `mastering` | `split` | the master strip: ONE `quick-master` node drawn as its three parts (`frontend/docs/mastering.md`) |
 
 **Every surface is a PANE**, in the layout and in the pane ring. Which for the viewport is
-load-bearing (it owns a GL context and a `<video>` per layer), and for the desk is what puts it
-directly over the graph — a fader on the desk is a param on a module there, and a set, declaring
-no timeline, is those two panes and nothing else.
+load-bearing (it owns a GL context and a `<video>` per layer). A set, declaring no timeline, opens
+on its desk, and a fader there is a param on a module in the graph — which the bottom panel's
+`graph` shows under it.
 
 > `view` is a word in the `layout` enum and nothing draws in it: a file that says it is
 > refused by name rather than by "invalid enum value". A project on disk needs the one-word edit
@@ -167,9 +166,9 @@ The vocabulary is two words, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of six (`editor | viewport | timeline |
 turntables | mastering | chains`) and is what `full` fullscreens; four of them — `timeline`,
 `viewport`, `turntables` and `mastering` — are mounted only when the project declares the
-matching surface. A **panel** is one of two (`graph | logs`) and is what
-the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
-drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. Both are URL state (`src/useViewRoute.ts`); see
+matching surface. A **panel** is one of three (`event | graph | logs`) and is what
+the bottom of the window shows, under the page. One thing is deliberately NOT a panel: the MIXER, a view of the graph
+drawn in the graph's pane. A clip's CONTENTS are the `event` panel's, opened by a click on it. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
 
 ### Commands are the CLI's, verbatim

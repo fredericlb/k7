@@ -28,7 +28,7 @@ export const KEYS: Record<string, Binding> = {
   "4": "ui turntables",
   // `f` fullscreens whatever is focused, interpolating the pane into the command name; unset focus goes quiet.
   f: { if: "focus_pane", command: "ui {focus_pane}" },
-  // Tab cycles which pane owns the keys, taking Tab from focus traversal — hence the skip-a-focused-control rule.
+  // Tab walks the pages, taking Tab from focus traversal — hence the skip-a-focused-control rule.
   tab: "ui focus next",
   // Space is the transport wherever you are, short of a text editor — App's listener lets it through a focused control.
   space: "transport toggle",
@@ -37,7 +37,7 @@ export const KEYS: Record<string, Binding> = {
   enter: "transport rewind",
   // t locates the transport to the timeline caret; quiet on a label, which is a row rather than a beat.
   t: "transport locate",
-  // Esc backs out ONE layer, outermost first: a popin, the graph slot, the tool in hand, a fullscreen pane, the panel. First match wins.
+  // Esc backs out ONE layer, outermost first: a popin, the graph slot, the tool in hand, a page other than home, the panel. First match wins.
   esc: [
     { if: "popin", command: "ui popin close" },
     { if: "graph_slot", command: "ui slot close" },

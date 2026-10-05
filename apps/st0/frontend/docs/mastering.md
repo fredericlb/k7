@@ -1,6 +1,6 @@
 # The `mastering` surface — one node, drawn as three appliances
 
-A project that declares `surfaces/<id>.yaml` with `type: mastering` gets a pane over the graph
+A project that declares `surfaces/<id>.yaml` with `type: mastering` gets a page of its own
 holding ten sliders in three boxes: the compressor, the spreader, the limiter — the three parts of
 one `quick-master` node, in the order the signal meets them.
 
@@ -112,12 +112,11 @@ member of the enum is what stops a new type falling off the end silently.
 
 ## Where it sits
 
-Last in the column, directly over the graph, at a third of the height (the desk takes a half).
-Two reasons that happen to agree: it is the last thing the signal meets, so the stack reads in
-signal order from the top down; and every knob on it is a param on one module in the graph, so it
-wants to be next to it — the same argument that makes the desk a pane.
+A full page, like every pane, and last in the ring before the graph: it is the last thing the signal
+meets, so the ring reads in signal order. Every knob on it is a param on one module in the graph,
+which the bottom panel's `graph` shows under it.
 
-`ui mastering`, `f`, Tab and `/mastering` all reach it, through the pane ring like anything else.
+`ui mastering`, Tab and `/mastering` all reach it, through the pane ring like anything else.
 It has **no number key**: 1–4 are spoken for, and this is a pane you set up once rather than one
 you flip to mid-take.
 
