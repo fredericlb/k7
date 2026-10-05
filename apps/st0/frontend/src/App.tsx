@@ -98,6 +98,7 @@ import {
   EngineSyncProgress,
   syncRunning,
 } from "./components/EngineSyncProgress";
+import { FooterTab, FooterTabs } from "./components/FooterTab";
 import { GitBusyOverlay, runGit } from "./components/GitBusy";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
@@ -2687,52 +2688,48 @@ export default function App({
   const headerTools = snapshot ? (
     <>
       {/* The one thing a visitor may WRITE, and it is a panel rather than a pane: it is not part of the song. */}
-      <Button
-        size={toolSize}
-        variant={rightPanel === "comments" ? "default" : "ghost"}
-        aria-pressed={rightPanel === "comments"}
+      <FooterTab
+        plain={isMobile}
+        active={rightPanel === "comments"}
         title={m["share.comments"]()}
         aria-label={m["share.comments"]()}
         onClick={() => toggleRight("comments")}
       >
         <MessageSquare className="h-4 w-4" />
-      </Button>
+      </FooterTab>
       <ShareDownload base={snapshot.base} />
     </>
   ) : (
     <>
       {/* The PLAYLIST, for a SET only — every project's are reachable from the palette instead (docs/playlists.md). */}
       {hasTurntables && (
-        <Button
-          size={toolSize}
-          variant={rightPanel === "playlists" ? "default" : "ghost"}
-          aria-pressed={rightPanel === "playlists"}
+        <FooterTab
+          plain={isMobile}
+          active={rightPanel === "playlists"}
           title={`Playlists${playlistKey ? ` (${playlistKey})` : ""}`}
           aria-label="Playlists"
           aria-keyshortcuts={playlistKey}
           onClick={() => void runCommand("ui playlists")}
         >
           <ListMusic className="h-4 w-4" />
-        </Button>
+        </FooterTab>
       )}
       {/* What you listen AGAINST — always offered, a reference belonging to the repository and not to a surface (docs/references.md). */}
-      <Button
-        size={toolSize}
-        variant={rightPanel === "references" ? "default" : "ghost"}
-        aria-pressed={rightPanel === "references"}
+      <FooterTab
+        plain={isMobile}
+        active={rightPanel === "references"}
         title={`${m["refs.title"]()}${referencesKey ? ` (${referencesKey})` : ""}`}
         aria-label={m["refs.title"]()}
         aria-keyshortcuts={referencesKey}
         onClick={() => void runCommand("ui references")}
       >
         <Headphones className="h-4 w-4" />
-      </Button>
+      </FooterTab>
       {/* SHARE. The badge stays on the button: it says the repository is behind BEFORE you open anything. */}
-      <Button
-        size={toolSize}
-        variant={rightPanel === "share" ? "default" : "ghost"}
+      <FooterTab
+        plain={isMobile}
+        active={rightPanel === "share"}
         className="relative"
-        aria-pressed={rightPanel === "share"}
         disabled={share.busy}
         title={
           conflicted
@@ -2758,19 +2755,18 @@ export default function App({
             {badge}
           </span>
         )}
-      </Button>
+      </FooterTab>
       {/* The COG opens the settings panel — one surface with a tab per entry, where a dropdown used to be. */}
-      <Button
-        size={toolSize}
-        variant={rightPanel === "settings" ? "default" : "ghost"}
-        aria-pressed={rightPanel === "settings"}
+      <FooterTab
+        plain={isMobile}
+        active={rightPanel === "settings"}
         title={`${m["settings.menu"]()}${settingsKey ? ` (${settingsKey})` : ""}`}
         aria-label={m["settings.menu"]()}
         aria-keyshortcuts={settingsKey}
         onClick={() => void runCommand("ui settings")}
       >
         <Settings className="h-4 w-4" />
-      </Button>
+      </FooterTab>
     </>
   );
 
@@ -2843,8 +2839,6 @@ export default function App({
               );
             })}
           </nav>
-          <div className="mx-1 h-5 w-px bg-border" />
-          {headerTools}
         </>
       )}
     </div>
@@ -3846,7 +3840,8 @@ export default function App({
 
         <footer
           className={cn(
-            "flex items-center border-t border-border text-muted-foreground",
+            // The header's tint, so the panel tabs read as tabs against it (components/FooterTab.tsx).
+            "flex items-center border-t border-primary/20 bg-primary/20 text-muted-foreground",
             isMobile
               ? "gap-2 px-2 py-0.5 text-[10px]"
               : "gap-3 px-4 py-1 text-xs",
@@ -3934,7 +3929,7 @@ export default function App({
             )}
           </div>
 
-          {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices */}
+          {/* right: the tempo and signature, the metronome, a separator, then the bottom-panel choices, a separator, then the side panels' buttons */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {/* Next to the metronome because it is what the metronome clicks — the doc's tempo, not the engine's. */}
             <span
@@ -3958,11 +3953,28 @@ export default function App({
               }
             />
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
-            <nav className="flex items-center gap-1">
+            {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
+            <Button
+              size="icon-xs"
+              variant={showDocs ? "default" : "ghost"}
+              disabled={docCount === 0}
+              onClick={() => void runCommand("ui notes")}
+              title={
+                docCount === 0
+                  ? "No notes in this project: a note is a node of @meta/doc, wired from what it is about"
+                  : showDocs
+                    ? `Hide the ${docCount} note(s) on the graph`
+                    : `Show the ${docCount} note(s) on the graph`
+              }
+              aria-label="Toggle docs"
+              aria-pressed={showDocs}
+            >
+              <StickyNote className="h-3.5 w-3.5" />
+            </Button>
+            <FooterTabs dense={isMobile}>
               {/* The mix panel, apart from the loop below because it is dead when the song has no strip (docs/shell.md). */}
-              <Button
-                size="icon-xs"
-                variant={panel === "mix" ? "default" : "ghost"}
+              <FooterTab
+                active={panel === "mix"}
                 disabled={mixerStrips.length === 0}
                 onClick={() => void runCommand("ui mixer")}
                 title={
@@ -3973,45 +3985,35 @@ export default function App({
                       : `Mix panel — this song's ${mixerStrips.length} strips lined up`
                 }
                 aria-label="Mix panel"
-                aria-pressed={panel === "mix"}
               >
                 <PANEL_META.mix.icon className="h-3.5 w-3.5" />
-              </Button>
-              {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
-              <Button
-                size="icon-xs"
-                variant={showDocs ? "default" : "ghost"}
-                disabled={docCount === 0}
-                onClick={() => void runCommand("ui notes")}
-                title={
-                  docCount === 0
-                    ? "No notes in this project: a note is a node of @meta/doc, wired from what it is about"
-                    : showDocs
-                      ? `Hide the ${docCount} note(s) on the graph`
-                      : `Show the ${docCount} note(s) on the graph`
-                }
-                aria-label="Toggle docs"
-                aria-pressed={showDocs}
-              >
-                <StickyNote className="h-3.5 w-3.5" />
-              </Button>
+              </FooterTab>
               {(Object.keys(PANEL_META) as Panel[]).map((p) => {
                 if (p === "mix") return null;
                 const Icon = PANEL_META[p].icon;
                 return (
-                  <Button
+                  <FooterTab
                     key={p}
-                    size="icon-xs"
-                    variant={panel === p ? "default" : "ghost"}
+                    active={panel === p}
                     onClick={() => void runCommand(`ui panel ${p}`)}
                     title={`${PANEL_META[p].label} panel`}
                     aria-label={`${PANEL_META[p].label} panel`}
                   >
                     <Icon className="h-3.5 w-3.5" />
-                  </Button>
+                  </FooterTab>
                 );
               })}
-            </nav>
+            </FooterTabs>
+            {/* The SIDE panels' buttons, at the corner nearest the column they open — a phone keeps them in its menu (docs/shell.md). */}
+            {!isMobile && (
+              <>
+                <span
+                  className="h-4 w-px shrink-0 bg-border"
+                  aria-hidden="true"
+                />
+                <FooterTabs>{headerTools}</FooterTabs>
+              </>
+            )}
           </div>
         </footer>
 

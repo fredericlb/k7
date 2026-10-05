@@ -174,7 +174,7 @@ until its divider is dragged. It is the wiring and the layout; almost nothing el
 | `title` / `subtitle` | **nothing**, inside a project — see below |
 | `children` | the project's name, the engine playing it, its alternatives picker, the workspace warning, and the **transport** centred over them |
 | `items` | **empty** — see below |
-| `actions` | the **master meter**, then the pane row, Playlists (a SET only), Share, the cog — or, on a phone, the one menu they collapse into |
+| `actions` | the **master meter**, then the pane row — or, on a phone, the one menu that also holds the side panels' buttons |
 
 **No brand name and no build stamp: the project's name has the left of the bar.** The brand is what
 the home page says — repeating it over a song names the tool rather than the work — and a stamp
@@ -653,8 +653,20 @@ is the whole point of that tab not being a dialog over the thing it meters.
 
 ## The right column: four panels, one at a time
 
-The end of the bar holds four buttons, and each toggles a panel **docked at the right** of the pane row
-— pushing the panes rather than covering them:
+The right end of the FOOTER holds four buttons, after a separator, and each toggles a panel **docked at
+the right** of the pane row — pushing the panes rather than covering them. They sit at the bottom right
+because the footer is where every other panel button is, and that corner is the nearest one to the
+column they open; the header keeps the pages and the meter. A phone has no room in its footer and keeps
+them in its menu.
+
+**Every button that opens a panel is a TAB** (`components/FooterTab.tsx`), the bottom panels' and these
+alike: the shared header's tabs upside down, hanging from the footer's top rule, the open one taking the
+page's background and opening into the panel it shows. A lit button says a toggle is on; a tab says
+WHICH of several places you are looking at, which is what a panel row is. The footer wears the header's
+tint for it, since a tab in the page's own colour on a bar of the same colour is not seen. The notes
+button stays a toggle: it opens nothing.
+
+The buttons:
 
 | button | panel | what it is |
 |---|---|---|
@@ -1351,7 +1363,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | a picture lane's **A** button, and `r` on its row | `ui picture arm <lane>` | `App` — browser-side like `ui midi learn`, since the camera is the browser's ([picture.md](picture.md)) |
 | the cog | `ui settings` — toggles its panel | `App` |
 | the header's Playlists button, on a SET | `ui playlists` — toggles its panel | `App` |
-| the header's Share button | `ui share` — toggles its panel | `App` |
+| the footer's Share button | `ui share` — toggles its panel | `App` |
 | the settings panel's tabs | `ui settings editor\|io\|account` | `App` |
 | the settings panel's *Commandes* | `ui settings commands` — the one that is still a page | `App` |
 | the account tab's rows | `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
