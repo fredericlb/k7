@@ -15,13 +15,11 @@ import { SeqGridFile } from "./SeqGridFile";
 export function SeqGridPane({
   path,
   view,
-  onClose,
   onChanged,
   setStatus,
 }: {
   path: string;
   view: SeqView;
-  onClose: () => void;
   // A write landed: the polls need to pick the notes up (the timeline draws them too).
   onChanged: () => void;
   setStatus: (s: string) => void;
@@ -39,8 +37,7 @@ export function SeqGridPane({
   const Icon = view === "tracker" ? Grid3x3 : Piano;
   return (
     <GraphSlotPane
-      onClose={onClose}
-      // Its own strip: a glyph for the grid's kind, the stem, and the path in full — the frame adds the ✕ after it.
+      // Its own strip: a glyph for the grid's kind, the stem, and the path in full .
       bar={
         <>
           <Icon className="h-4 w-4 text-muted-foreground" />

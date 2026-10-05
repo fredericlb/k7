@@ -9,22 +9,12 @@ import {
   type PluginParamsStore,
   usePluginParams,
 } from "@studio/engine-browser/params";
-import {
-  automationLanes,
-  splitPort,
-  type WebAutomationLane,
-} from "@studio/graph-model";
+import { automationLanes, type WebAutomationLane } from "@studio/graph-model";
 import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
-import {
-  alignModuleRank,
-  buildGraph,
-  layout,
-  spaceModulesEvenly,
-  subgraphForTrack,
-} from "@studio/ui-chains/graph";
+import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import { stackLayout } from "@studio/ui-chains/stackLayout";
 import {
@@ -38,6 +28,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import { withoutNotes } from "../graphNotes";
 import { useDocument } from "../hooks/useDocument";
 import {
   droppedReport,
@@ -51,9 +42,6 @@ import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
 import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
-
-/** The mixer row is framed a fifth SMALLER than a perfect fit — see where it is used. */
-const ROW_ZOOM_OUT = 0.8;
 
 export function ChainsTab({
   reloadKey,
@@ -103,7 +91,6 @@ export function ChainsTab({
   onTrackSet,
   focus,
   onFocused,
-  alignModules,
   stack,
   onStack,
   inputDevices,
@@ -231,8 +218,6 @@ export function ChainsTab({
   focus?: { id: string; nonce: number } | null;
   /** How many chains that framing found — so the shell's status line can say when it was none. */
   onFocused?: (chains: number) => void;
-  /** Modules to pull onto ONE rank and frame the camera on — the mixer view; a list, since the shell knows which are strips (mixerStrips.ts). */
-  alignModules?: readonly string[];
   /** The STACK view: a column per lane, the MIX's last — @studio/ui-chains's stackLayout.ts. */
   stack?: boolean;
   /** …and its toggle, drawn on the minimap beside zoom fit. */
@@ -361,22 +346,8 @@ export function ChainsTab({
 
   /** The graph as it is DRAWN: without the notes unless the shell asked — filtered before `buildGraph`, or the hole would stay in the layout. */
   const drawn = useMemo(() => {
-    if (!graph || showDocs || docNames.size === 0) return graph;
-    return {
-      ...graph,
-      chains: Object.fromEntries(
-        Object.entries(graph.chains).map(([name, c]) => [
-          name,
-          {
-            ...c,
-            use: c.use.filter((s) => !docNames.has(s.module)),
-            out: (c.out ?? []).filter(
-              (o) => !docNames.has(splitPort(o.to).node),
-            ),
-          },
-        ]),
-      ),
-    };
+    if (!graph || showDocs) return graph;
+    return withoutNotes(graph, docNames);
   }, [graph, showDocs, docNames]);
 
   // Where each node was DRAWN last — the session memory that keeps an EDIT from reorganizing the picture; `graph organize` empties it.
@@ -411,8 +382,6 @@ export function ChainsTab({
     const { nodes, edges } = foldAssemblies(drawn, built, openAssemblies);
     // The STACK view is an arrangement too, but a whole one: no pins, no held positions, no dagre.
     if (stack) return stackLayout(nodes, edges, drawn, trackOrder);
-    // The mixer view is an ARRANGEMENT of this same graph: one rank, then an even re-spacing for a console's rhythm.
-    const row = alignModules ?? [];
     // `graph organize` ran: forget the session's positions AND ignore the old pins this once, since the reload may not have landed.
     const fresh = organizeSeen.current !== organizeKey;
     organizeSeen.current = organizeKey;
@@ -421,25 +390,19 @@ export function ChainsTab({
       // …and forget what has been pinned, or organize would clear the file's positions and then decline to write the new ones.
       pinned.current.clear();
     }
-    // The pins and the held positions apply only to the free graph: the mixer row IS an arrangement.
-    const out = spaceModulesEvenly(
-      layout(
-        alignModuleRank(nodes, row),
-        edges,
-        row.length || fresh ? undefined : drawn.positions,
-        row.length ? undefined : (prevLaid.current ?? undefined),
-      ),
-      row,
+    const out = layout(
+      nodes,
+      edges,
+      fresh ? undefined : drawn.positions,
+      prevLaid.current ?? undefined,
     );
-    if (!row.length)
-      prevLaid.current = new Map(
-        // Where a pushed-aside card BELONGS, not where the open frame shoved it (docs/assemblies.md).
-        out.nodes.map((n) => [n.id, n.pushed ?? { x: n.x, y: n.y }]),
-      );
+    prevLaid.current = new Map(
+      // Where a pushed-aside card BELONGS, not where the open frame shoved it (docs/assemblies.md).
+      out.nodes.map((n) => [n.id, n.pushed ?? { x: n.x, y: n.y }]),
+    );
     return out;
   }, [
     drawn,
-    alignModules,
     inputDevices,
     cameras,
     midiDevices,
@@ -451,13 +414,12 @@ export function ChainsTab({
     trackOrder,
   ]);
 
-  /** The graph writes down where it drew itself — once, and then the FILE is the layout; not the mixer row, not a curve, not twice (docs/chainsGraph.md). */
+  /** The graph writes down where it drew itself — once, and then the FILE is the layout; not a curve, not twice (docs/chainsGraph.md). */
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `command` is a stable callback and re-running on its identity would re-send the batch.
   useEffect(() => {
     // `onMoveNode` absent means this graph cannot be pinned by hand — a frozen snapshot — so it must not pin itself either.
-    if (!laid || !onMoveNode || stack || (alignModules?.length ?? 0) > 0)
-      return;
+    if (!laid || !onMoveNode || stack) return;
     const have = drawn?.positions ?? {};
     const at: Record<string, { x: number; y: number }> = {};
     for (const n of laid.nodes) {
@@ -477,7 +439,7 @@ export function ChainsTab({
     if (!names.length) return;
     for (const name of names) pinned.current.add(name);
     void command(`graph pin ${JSON.stringify(at)}`);
-  }, [laid, drawn?.positions, onMoveNode, alignModules, stack]);
+  }, [laid, drawn?.positions, onMoveNode, stack]);
 
   // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
   const laidShown = useMemo(() => {
@@ -612,7 +574,7 @@ export function ChainsTab({
     onFocused?.(chains.length);
   }, [focus, graph, laid, active, chainNodes, onFocused]);
 
-  /** Frame the whole stack when the stack view opens, and give the camera back when it closes — as the mixer row does. */
+  /** Frame the whole stack when the stack view opens, and give the camera back when it closes. */
   const camBeforeStack = useRef<Cam | null>(null);
   const stackFramed = useRef(false);
   useEffect(() => {
@@ -630,35 +592,6 @@ export function ChainsTab({
       camBeforeStack.current = was ?? null;
     }
   }, [stack, laid, active]);
-
-  /** Frame the aligned row when the mixer view opens — and only then; keyed on the LIST, so turning it off leaves the camera alone. */
-  const rowKey = (alignModules ?? []).join("|");
-  const rowFramed = useRef<string | null>(null);
-  /** Where the camera was before the row took it, so closing the view gives it back. */
-  const camBeforeRow = useRef<Cam | null>(null);
-  useEffect(() => {
-    if (!laid || !active) return;
-    if (rowFramed.current === rowKey) return;
-    if (!rowKey) {
-      rowFramed.current = rowKey;
-      // Leaving: put the camera back where it was — the row only borrowed it to show itself.
-      const back = camBeforeRow.current;
-      camBeforeRow.current = null;
-      if (back) camApi.current?.set(back);
-      return;
-    }
-    const wanted = new Set(rowKey.split("|"));
-    const nodes = laid.nodes.filter((n) => n.module && wanted.has(n.module));
-    // On the HEIGHT, and marked done only if it ACTUALLY framed: a hidden pane has no size, and that attempt would spend this key's one chance.
-    if (!nodes.length) return;
-    const was = camApi.current?.get();
-    // …and pulled BACK a fifth from a perfect fit: a row framed exactly fills the pane edge to edge, which reads as a wall.
-    if (camApi.current?.fitTo(nodes, { axis: "height", zoom: ROW_ZOOM_OUT })) {
-      rowFramed.current = rowKey;
-      // Remembered only once the frame actually happened, and only the FIRST time in.
-      if (was && !camBeforeRow.current) camBeforeRow.current = was;
-    }
-  }, [rowKey, laid, active]);
 
   // Scroll the selected row in, keyed on `expanded` too — the row doesn't exist until its group opens.
   const selectedRowRef = useRef<HTMLButtonElement | null>(null);
@@ -824,8 +757,6 @@ export function ChainsTab({
           <DomChains
             onToggleAssembly={toggleAssembly}
             icons={icons}
-            // The mixer arrangement is a ROW: the wheel walks along it, derived from the same list that made it one.
-            row={(alignModules?.length ?? 0) > 0}
             graph={shown}
             selected={selected}
             trackOrder={trackOrder}

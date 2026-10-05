@@ -46,15 +46,13 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
 
 // No metadata for a layout: there is one, and which panes it holds is what the project declares (routes.ts).
 
-// The bottom panels: `event` is the clip or lane opened, `graph` the caret track's path, `logs` what happened — the MIXER stays where the graph is.
+// The bottom panels: `event` is the clip or lane opened, `graph` the caret track's path, `mix` the strips lined up, `logs` what happened.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
   event: { icon: Music, label: "Event" },
   graph: { icon: Workflow, label: "Graph" },
+  mix: { icon: SlidersVertical, label: "Mix" },
   logs: { icon: ScrollText, label: "Logs" },
 };
-
-/** The mixer's icon, still needed though it left PANEL_META — its button now opens a graph view. */
-export const MixerIcon = SlidersVertical;
 
 // The moving clock, its OWN component so the ~20 Hz playhead re-renders one <span>. Needs <EngineStoreProvider>.
 export function TransportClock({

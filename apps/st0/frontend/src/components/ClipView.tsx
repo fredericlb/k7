@@ -333,7 +333,7 @@ export function ClipView({
   );
   // No title bar: each of the three leaves draws its own header, and the frame contributes the shell and one floating ✕.
   return (
-    <GraphSlotPane onClose={onClose}>
+    <GraphSlotPane>
       {target.kind === "seq" ? (
         <SeqRoll
           path={target.path}

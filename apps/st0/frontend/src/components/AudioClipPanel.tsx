@@ -9,7 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { Check, Loader2, Square, X } from "@frediverse/ui/icons";
+import { Check, Loader2, Square } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
@@ -654,14 +654,6 @@ export function AudioClipPanel({
             </Button>
           </>
         )}
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          onClick={onClose}
-          aria-label={m["common.close"]()}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
       {/* The take list beside the wave: one row when there is nothing to choose between, two columns after several passes. */}

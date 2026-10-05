@@ -162,7 +162,8 @@ not.
 `App` is the st0 web editor itself: **one page at a time, full width** — the timeline, the graph, the
 desk, the frame, the master strip or the editor — with the transport controls and the page buttons in
 the header. Two pages are never split side by side; the one way to see a second view under the page is
-the footer's bottom panel (`event`, `graph`, `logs`). It is the wiring and the layout; almost nothing else.
+the footer's bottom panel (`event`, `graph`, `mix`, `logs`), which opens on half the main column's height
+until its divider is dragged. It is the wiring and the layout; almost nothing else.
 
 ### The header is the shared bar, with st0's contents in it
 
@@ -336,11 +337,12 @@ to a file opens it as a popin (below). It stays mounted throughout, so summoning
 
 See also [shellRouting.md](shellRouting.md) for how the screen state maps to the URL.
 
-### The Mixer is an ARRANGEMENT of the graph, not a panel
+### The Mixer is a bottom PANEL: the graph, arranged
 
-It is not a panel, and not a second picture either: it is **the same graph** — same nodes, same
-cards, same cables — with the strips pulled onto one rank. `alignModuleRank` in `@studio/ui-chains`,
-between `buildGraph` and `layout`.
+The `mix` panel is not a second picture. It is **the same graph** (same nodes, same cards, same cables)
+with the strips pulled onto one rank: `alignModuleRank` in `@studio/ui-chains`, between `buildGraph`
+and `layout`, drawn by `GraphPanel` given its `strips`. It is a panel and not a page so that the
+timeline stays on screen above the faders it is mixing.
 
 Every track ends on a mixer module (`trackMixer`, by plugin type) but a track with a longer chain
 ends DEEPER, so by default the mixers sit on a staircase no zoom shows them all of. The shared rank
@@ -359,17 +361,13 @@ way. In practice the row packs TIGHTER than dagre spaced it (gap 24 against `nod
 shrinks leftward rather than sprawling — but a song that puts something else at that depth could see
 an overlap.
 
-The camera frames those nodes on the way IN only, pulled back a fifth from a perfect fit
-(`ROW_ZOOM_OUT`) — a row framed exactly fills the pane edge to edge and reads as a wall — and
-**left-aligned** rather than centred (`frameOriginX`), since a rank wider than the pane, centred,
-hides both ends and the first channel is what you look for to know where you are. It **gives the
-camera back** on the way out, through `ChainsCamApi`: a view that borrows the camera owes it
-afterwards, or every visit to the mixer costs you your place in the graph.
+The camera frames those nodes once, as the panel opens, pulled back a fifth from a perfect fit:
+a row framed exactly fills the pane edge to edge and reads as a wall. The panel owns its camera, so
+the graph's page keeps its own place.
 
 That framing is the whole visible effect, so it must not fail quietly. `fitTo` answers whether it
-ACTUALLY framed — a pane still hidden has no size and frames nothing — and the view records the
-attempt as done only then, which also stops the row's own camera being remembered as where you had
-been.
+ACTUALLY framed (a pane with no size yet frames nothing), and the panel records the attempt as done
+only then.
 
 Which modules are strips is the project's answer, not the package's: `mixerStrips.ts` reads it off
 the compiled doc and `useProjectDoc` hands the list up, so the row and the faders can never be one
@@ -382,9 +380,10 @@ plugin type `Mixer` (`trackMixer`, `MIXER_PLUGIN`) last in the lane's run.
 `scripts/migrateTrackMixer.ts` gives one to a lane that has not got one.
 
 A song can still have **none** — one whose lanes all run into buses, or one with no `graph.yaml` at
-all. So the button stays **disabled** at zero and says why in its tooltip, and clicking it with one
-strip sets a status line saying there is nothing to line up. Nothing else explains an empty mixer,
-and a control that answers a click with nothing is worse than one visibly unavailable.
+all. So the button stays **disabled** at zero and says why in its tooltip, and `ui panel mix` opened
+anyway says so in the panel. Nothing else explains an empty mixer, and a control that answers a click
+with nothing is worse than one visibly unavailable. That is why the mix button sits apart from the
+loop that draws the other panel buttons.
 
 A strip's controls are its module's own panel — the very card the graph draws. A hand-rolled strip per
 track would be a second implementation of a channel strip and would drift from what the module's
@@ -924,7 +923,7 @@ bottom panel's `event`, under the timeline still on screen, and lights that butt
 it too, which is what fills the command conditions (`hover_midi_sequence`), but the panel is what SHOWS
 it and is told outright, since a click is what the caret cannot say on its own. **The bare lane** moves
 the caret to where you clicked and lets the event go — what a click opened, a click on nothing clears.
-The panel stays up and says nothing is open, since it was asked for; its ✕ and Escape close it.
+The panel stays up and says nothing is open, since it was asked for; Escape and its footer button close it.
 
 The caret mark is `pointer-events-none`, so a press landing on it reads as a press on the bare lane;
 clips stop propagation, so they never reach the lane's handler at all.
@@ -937,7 +936,7 @@ side over the graph. `trackModules` walks the same reach the framing uses (`subg
 out of the lane's own chain is in it) and adds the ORDER a node set does not carry, then `moduleRow` lays
 it out **as drawn** (`asDrawn`): every card at the size the graph gives it, so the row is a view of the
 same nodes and not a bigger version of them. The framing
-still happens underneath, deliberately: closing the row with its ✕ leaves the graph already framed on the
+still happens underneath, deliberately: closing the panel leaves the graph already framed on the
 track it was about.
 
 **The cables are drawn here, and they are the graph's own.** A rank of channel strips wants none —
@@ -982,22 +981,23 @@ find the sound behind the symbol, which is `ChainsTab`'s `triggerRack` and has n
 
 ### One frame for everything that takes the slot
 
-`GraphSlotPane` is the shell, the title bar and the ✕. The occupants supply a body and what to call it, and
-nothing else about the chrome — written per occupant they drift, into title bars at three type scales and a
-✕ that ends up inside `PianoRoll`, a leaf several of them draw. Three ways to wear it, because the
-occupants genuinely differ:
+`GraphSlotPane` is the shell and the title bar. The occupants supply a body and what to call it, and
+nothing else about the chrome — written per occupant they drift, into title bars at three type scales.
+**No bottom panel carries a ✕**: the footer's panel buttons and Escape close every one of them, and a
+second way per occupant is chrome that takes height from a panel that has only half the window. Three ways
+to wear the frame, because the occupants genuinely differ:
 
-- **`title` (+ `note`)** — a name, a detail, the ✕. The plain case.
+- **`title` (+ `note`)** — a name and a detail. The plain case.
 - **`bar`** — a strip of your own, for a header that carries CONTROLS rather than a label: the clip panel
-  counts beats and offers Stop while a take rolls. The ✕ is still the frame's, added last with `ml-auto`.
-- **neither** — no bar, and the ✕ floats over the top-right corner. A clip's contents draw their own
+  counts beats and offers Stop while a take rolls.
+- **neither** — no bar. A clip's contents draw their own
   header already; a second row above it would say the same thing twice. A lane's row of modules wears
   none either: its first card IS the lane, so a bar naming it would be that card's name again, and
   the row gets the height back. When there is no row to draw — loading, an error, a lane that reaches
   no module — the pane says so in its body, where the row would be.
 
-The **Mixer button** is not an occupant — it rearranges the graph on the graph's page, and leaves the
-event panel alone.
+The **mix panel** is not an occupant. It is a panel of its own beside `event`, and opening it leaves the
+slot alone.
 
 **Filling the slot opens the `event` panel.** A lane's modules, a clip's waveform or piano roll, a
 grid, a take review — each is asked for, and a request the user cannot see is a miss, so every road
@@ -1338,9 +1338,9 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 
 | what draws it | the command | where the behaviour lives |
 |---|---|---|
-| the footer's mixer / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` / `toggleDocs` in `App` |
+| the footer's mix / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` (→ `togglePanel`) / `toggleDocs` in `App` |
 | the minimap's stack button, left of zoom fit | `ui stack` | `toggleStack` in `App` |
-| the footer's panel row | `ui panel <event\|graph\|logs>` | `togglePanel` |
+| the footer's panel row | `ui panel <event\|graph\|mix\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a pane button in the header (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |

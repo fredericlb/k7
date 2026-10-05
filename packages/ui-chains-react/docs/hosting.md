@@ -125,7 +125,7 @@ host knows since nothing about it is written to the project. The button is drawn
 
 ### `row` — a graph read across
 
-st0's mixer view. It changes what the navigation MEANS rather than what it looks like: the wheel
+st0's mix panel. It changes what the navigation MEANS rather than what it looks like: the wheel
 walks along the row instead of zooming, and nothing pans vertically, because there is one line of
 cards and everything above or below it is empty. The cards, the cables and the zoom are untouched.
 

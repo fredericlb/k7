@@ -47,7 +47,6 @@ export function TrackModulesPane({
   onTrackSet,
   onEdgeInsert,
   engineWarnings,
-  onClose,
 }: {
   /** The lane whose path this is. */
   trackId: string;
@@ -104,8 +103,6 @@ export function TrackModulesPane({
     nameFor: (module: string) => string,
   ) => void;
   engineWarnings?: Record<string, string>;
-  /** Put the graph back — every other thing that takes its place closes the same way. */
-  onClose: () => void;
 }) {
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -220,9 +217,7 @@ export function TrackModulesPane({
   // No bar: the row IS the view, the lane's own card names it, and the ✕ floats top right (GraphSlotPane).
   // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
   const frame = (body: React.ReactNode, aside?: React.ReactNode) => (
-    <GraphSlotPane onClose={onClose} aside={aside}>
-      {body}
-    </GraphSlotPane>
+    <GraphSlotPane aside={aside}>{body}</GraphSlotPane>
   );
   // What the pane says when there is no row to draw, where the row would be.
   const say = (text: React.ReactNode) =>

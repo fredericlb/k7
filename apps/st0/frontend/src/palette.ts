@@ -57,7 +57,7 @@ export const LOCAL_COMMANDS = [
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
-  "ui mixer", // line the mixer strips up in the graph's pane
+  "ui mixer", // the mix panel: the mixer strips lined up under the page
   "ui stack", // the graph as one column per track, the mix last
   "ui notes", // draw the project's doc modules on the graph
   "ui panel", // open one of the bottom panels (event | graph | logs)
@@ -238,8 +238,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Afficher les notes d'une séquence en tracker",
   },
   "ui mixer": {
-    en: "Line up the mixer strips",
-    fr: "Aligner les tranches de la console",
+    en: "Show the mix panel",
+    fr: "Afficher le panneau de mixage",
   },
   "ui stack": {
     en: "Stack the graph, one column per track",
@@ -655,7 +655,8 @@ export function makeListArg(shell: {
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     const first = priorArgs.length === 0;
     // The shell's other fixed sets, each the shell's OWN vocabulary — asking the backend would be a round trip for a literal.
-    if (canonical === "ui panel" && first) return ["event", "graph", "logs"];
+    if (canonical === "ui panel" && first)
+      return ["event", "graph", "mix", "logs"];
     if (canonical === "ui tool" && first) return [...TOOLS];
     if (canonical === "ui wave" && first) return [...WAVE_MODES];
     if (canonical === "ui roll" && first) return [...ROLL_MODES];

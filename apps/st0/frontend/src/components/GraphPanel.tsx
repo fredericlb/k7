@@ -2,19 +2,32 @@
 // "where does THIS track go?" without leaving the timeline. Same pipeline as the Chains
 // tab (subgraph -> buildGraph -> dagre -> DomChains), only the input set differs; dagre
 // already lays the path out, so don't hand-roll a strip — it would lose the routed sends.
-// The track comes from the caret, so the panel has no selection state of its own.
+// The track comes from the caret, so the panel has no selection state of its own. Given
+// `strips`, it is the MIX panel instead: the whole graph with every strip pulled onto one rank.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
-import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
+import {
+  alignModuleRank,
+  buildGraph,
+  layout,
+  spaceModulesEvenly,
+  subgraphForTrack,
+} from "@studio/ui-chains/graph";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
-import { type Cam, DomChains, type TapAction } from "@studio/ui-chains-react";
+import {
+  type Cam,
+  type ChainsCamApi,
+  DomChains,
+  type TapAction,
+} from "@studio/ui-chains-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import { withoutNotes } from "../graphNotes";
 import { useDocument } from "../hooks/useDocument";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { m } from "../paraglide/messages.js";
@@ -27,6 +40,7 @@ export function GraphPanel({
   midiDevices,
   organizeKey = 0,
   trackId,
+  strips,
   trackOrder,
   videoSpans,
   noteLanes,
@@ -58,6 +72,8 @@ export function GraphPanel({
   // Bumped when `graph organize` ran — empties the held node positions (see ChainsTab's).
   organizeKey?: number;
   trackId: string | null;
+  /** The mixer strips (mixerStrips.ts): set, the panel draws the whole graph lined up on them rather than one track's path. */
+  strips?: readonly string[];
   // The engine's track order; the live-signal set is derived off the store (see ChainsTab).
   trackOrder: string[];
   /** …and when each video lane shows a picture, which nothing meters — straight through, for a subgraph holding one (../videoSpans.ts). */
@@ -127,7 +143,24 @@ export function GraphPanel({
   }, [viewport]);
 
   const laid = useMemo(() => {
-    if (!graph || !trackId) return null;
+    if (!graph) return null;
+    if (strips) {
+      // The mixer row is an ARRANGEMENT: no pins and no held positions, one rank, then a console's even spacing.
+      const { nodes, edges } = buildGraph(
+        withoutNotes(graph, new Set(Object.keys(graph.modules ?? {}))),
+        {
+          drawMainOut: true,
+          cameras,
+          midiDevices,
+          ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
+        },
+      );
+      return spaceModulesEvenly(
+        layout(alignModuleRank(nodes, strips), edges),
+        strips,
+      );
+    }
+    if (!trackId) return null;
     const sub = subgraphForTrack(graph, trackId);
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
     const { nodes, edges } = buildGraph(sub, {
@@ -151,7 +184,18 @@ export function GraphPanel({
       out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
     );
     return out;
-  }, [graph, trackId, organizeKey, cameras, midiDevices, aspectRow]);
+  }, [graph, trackId, strips, organizeKey, cameras, midiDevices, aspectRow]);
+
+  // The mix frames its STRIPS by height, a fifth back from a perfect fit, once — marked done only if it actually framed (docs/shell.md).
+  const [cam, setCam] = useState<ChainsCamApi | null>(null);
+  const stripsFramed = useRef(false);
+  useEffect(() => {
+    if (!strips || !laid || !cam || stripsFramed.current) return;
+    const wanted = new Set(strips);
+    const nodes = laid.nodes.filter((n) => n.module && wanted.has(n.module));
+    if (cam.fitTo(nodes, { axis: "height", zoom: 0.8 }))
+      stripsFramed.current = true;
+  }, [strips, laid, cam]);
 
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);
@@ -200,7 +244,14 @@ export function GraphPanel({
     if (error)
       return <Note className="text-red-400">graph unavailable — {error}</Note>;
     if (!graph) return <Note>loading…</Note>;
-    if (!trackId) return <Note>{m["graph.selectTrack"]()}</Note>;
+    if (strips && !strips.length)
+      return (
+        <Note>
+          No strip in this song: a strip is a Mixer module at the end of a
+          track.
+        </Note>
+      );
+    if (!strips && !trackId) return <Note>{m["graph.selectTrack"]()}</Note>;
     if (!laidShown) return <Note>No chain takes {trackId} as its source.</Note>;
     return (
       <DomChains
@@ -214,8 +265,11 @@ export function GraphPanel({
         onTriggerRack={triggerRack}
         onSelect={setSelected}
         onContextMenu={onContextMenu}
+        // The mix is a ROW: the wheel walks along it.
+        row={!!strips}
+        onCamReady={setCam}
         // This panel follows the caret's track, so another track IS a different graph and earns a re-frame; a reload isn't.
-        fitKey={trackId}
+        fitKey={strips ? "mix" : trackId}
         organizeKey={organizeKey}
         camStore={camStore}
         command={command}
@@ -242,9 +296,13 @@ export function GraphPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-xs">
-        <span className="font-semibold text-primary">Graph</span>
+        <span className="font-semibold text-primary">
+          {strips ? "Mix" : "Graph"}
+        </span>
         <span className="truncate font-mono text-muted-foreground">
-          {trackId ?? "no track selected"}
+          {strips
+            ? `${strips.length} strip${strips.length === 1 ? "" : "s"}`
+            : (trackId ?? "no track selected")}
         </span>
       </div>
       <div className="min-h-0 flex-1">{body()}</div>

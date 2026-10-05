@@ -104,7 +104,7 @@ default.
 
 ## A ROW is navigated differently
 
-When the graph is arranged as a row (st0's mixer view), the wheel walks ALONG it and nothing moves
+When the graph is arranged as a row (st0's mix panel), the wheel walks ALONG it and nothing moves
 vertically — there is only one line of cards, and a view that drifts off it is a view of nothing.
 The same holds for a drag: both axes normally, but a row drops the vertical, since a gesture with
 only one useful direction out of two is worse than one with a single honest direction. The wheel

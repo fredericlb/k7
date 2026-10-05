@@ -221,7 +221,6 @@ import {
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   MiniTransport,
-  MixerIcon,
   PANE_META,
   PANEL_META,
   PANES,
@@ -341,7 +340,9 @@ export default function App({
         .replace(/^\/+|\/+$/g, ""),
     ),
   );
-  const [panelH, setPanelH] = useState(280);
+  // Null until the divider is dragged: the panel opens on half the main column.
+  const [panelH, setPanelH] = useState<number | null>(null);
+  const panelEl = useRef<HTMLDivElement>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   // What the editor has open (a clip/track), for the minimap's highlight ring.
@@ -442,7 +443,7 @@ export default function App({
     selecting: false,
     zoomed: false,
     loop: false,
-    expanded: false,
+    expanded: true,
   });
   /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
   const [rightPanel, setRightPanel] = useState<
@@ -516,8 +517,6 @@ export default function App({
     | { kind: "trackModules"; trackId: string }
     | null
   >(null);
-  /** The mixer view: the SAME graph, with every strip pulled onto one rank (`alignModuleRank`). */
-  const [mixerView, setMixerView] = useState(false);
   // The STACK view: a column per lane, the MIX's last — exclusive with the mixer row.
   const [stackView, setStackView] = useState(false);
 
@@ -978,7 +977,7 @@ export default function App({
     (e: React.PointerEvent) => {
       e.preventDefault();
       const startY = e.clientY;
-      const startH = panelH;
+      const startH = panelH ?? panelEl.current?.offsetHeight ?? 280;
       const onMove = (ev: PointerEvent) =>
         setPanelH(
           Math.max(
@@ -1317,27 +1316,17 @@ export default function App({
 
   /** The footer's two graph toggles, each as ONE callback the button and the command share. */
   const toggleMixer = useCallback(() => {
-    if (mixerView) return setMixerView(false);
-    if (mixerStrips.length === 0)
+    if (panel !== "mix" && mixerStrips.length === 0)
       return setStatus(
         "no strip in this song — a strip is a Mixer module at the end of a track",
       );
-    // Turning it ON shows the graph and drops the stack: two arrangements cannot share it.
-    setFull("chains");
-    setStackView(false);
-    setMixerView(true);
-    setStatus(
-      mixerStrips.length === 1
-        ? "mixer view — this song has ONE strip, so there is nothing to line up"
-        : `mixer view — ${mixerStrips.length} strips lined up`,
-    );
-  }, [mixerView, mixerStrips.length]);
+    togglePanel("mix");
+  }, [panel, mixerStrips.length, togglePanel]);
 
-  /** …and the stack view, which takes the graph's whole pane like the mixer row does. */
+  /** …and the stack view, which takes the graph's whole pane. */
   const toggleStack = useCallback(() => {
     if (stackView) return setStackView(false);
     setFull("chains");
-    setMixerView(false);
     setStackView(true);
     setStatus("stack view — a column per track, the mix last");
   }, [stackView]);
@@ -1435,7 +1424,7 @@ export default function App({
         closeTopPopin();
         return true;
       }
-      // Let the event go and close its panel. The occupants' ✕ does exactly this — see GraphSlotPane.
+      // Let the event go and close its panel. Escape and the footer's panel button do exactly this.
       if (line === "slot close") {
         closeEvent();
         return true;
@@ -1717,7 +1706,7 @@ export default function App({
         timelineRef.current?.toggleAutomation();
         return true;
       }
-      // `ui panel <event|graph|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
+      // `ui panel <event|graph|mix|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
       if (line.startsWith("panel ")) {
         const want = line.slice("panel ".length).trim();
         const names = Object.keys(PANEL_META) as Panel[];
@@ -3281,6 +3270,7 @@ export default function App({
                     <TimelineTab
                       ref={timelineRef}
                       active={activePane === "timeline"}
+                      lanesLocked={panel !== null}
                       reloadKey={reloadKey}
                       // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
                       rolling={rolling}
@@ -3540,8 +3530,6 @@ export default function App({
                       onTrackSet={onTrackSet}
                       focus={graphFocus}
                       onFocused={reportFramed}
-                      // The mixer view, which is a rank change on this same graph — see mixerView.
-                      alignModules={mixerView ? mixerStrips : undefined}
                       stack={stackView}
                       onStack={() => void runCommand("ui stack")}
                       // The sockets a live input can be on — the same list the editor's strip uses.
@@ -3616,8 +3604,9 @@ export default function App({
                 className="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/60"
               />
               <div
+                ref={panelEl}
                 className="min-h-0 shrink-0 overflow-hidden border-t border-border bg-background"
-                style={{ height: panelH }}
+                style={{ height: panelH ?? "50%" }}
               >
                 {panel === "graph" && (
                   <GraphPanel
@@ -3662,7 +3651,6 @@ export default function App({
                       <SeqGridPane
                         path={graphSlot.path}
                         view={graphSlot.view}
-                        onClose={closeEvent}
                         onChanged={bumpReload}
                         setStatus={setStatus}
                       />
@@ -3762,7 +3750,6 @@ export default function App({
                         onTrackSet={onTrackSet}
                         onEdgeInsert={frozen ? undefined : insertIntoChain}
                         engineWarnings={engineWarnings}
-                        onClose={closeEvent}
                       />
                     )}
                     {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
@@ -3801,6 +3788,38 @@ export default function App({
                       />
                     )}
                   </div>
+                )}
+                {panel === "mix" && (
+                  <GraphPanel
+                    cameras={cameras}
+                    midiDevices={midiDevices}
+                    reloadKey={reloadKey}
+                    organizeKey={organizeKey}
+                    trackId={null}
+                    strips={mixerStrips}
+                    trackOrder={trackOrder}
+                    videoSpans={videoLaneSpans}
+                    noteLanes={noteLanes}
+                    viewport={videoDoc?.viewport}
+                    project={projectDoc}
+                    command={quietCommand}
+                    onBypassModule={(mod) => void bypassModule(mod)}
+                    onModuleField={runCommand}
+                    onRecorder={onRecorder}
+                    onProjectField={onProjectField}
+                    onAlternative={runAlternative}
+                    onAssetBrowse={browseAssets}
+                    onTapEdit={editTap}
+                    onWatchWaveform={watchWaveform}
+                    engineWarnings={engineWarnings}
+                    onContextMenu={openContextMenu}
+                    pluginParamsStore={pluginParamsStore}
+                    setPluginParam={setPluginParam}
+                    moduleParams={offlineParams}
+                    trackControls={trackControls}
+                    onTrackToggle={onLaneToggle}
+                    onTrackSet={onTrackSet}
+                  />
                 )}
                 {panel === "logs" && (
                   <LogsPanel
@@ -3940,23 +3959,23 @@ export default function App({
             />
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
             <nav className="flex items-center gap-1">
-              {/* The mixer REARRANGES the graph rather than opening a panel, and is dead when the song has no strip (docs/shell.md). */}
+              {/* The mix panel, apart from the loop below because it is dead when the song has no strip (docs/shell.md). */}
               <Button
                 size="icon-xs"
-                variant={mixerView ? "default" : "ghost"}
+                variant={panel === "mix" ? "default" : "ghost"}
                 disabled={mixerStrips.length === 0}
                 onClick={() => void runCommand("ui mixer")}
                 title={
                   mixerStrips.length === 0
                     ? "No strip in this song: a strip is a Mixer module at the end of a track"
                     : mixerStrips.length === 1
-                      ? "One strip — the view frames it, but there is nothing to line up"
-                      : `Mixer view — line up this song's ${mixerStrips.length} strips`
+                      ? "Mix panel — one strip, nothing to line up"
+                      : `Mix panel — this song's ${mixerStrips.length} strips lined up`
                 }
-                aria-label="Mixer view"
-                aria-pressed={mixerView}
+                aria-label="Mix panel"
+                aria-pressed={panel === "mix"}
               >
-                <MixerIcon className="h-3.5 w-3.5" />
+                <PANEL_META.mix.icon className="h-3.5 w-3.5" />
               </Button>
               {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
               <Button
@@ -3977,6 +3996,7 @@ export default function App({
                 <StickyNote className="h-3.5 w-3.5" />
               </Button>
               {(Object.keys(PANEL_META) as Panel[]).map((p) => {
+                if (p === "mix") return null;
                 const Icon = PANEL_META[p].icon;
                 return (
                   <Button

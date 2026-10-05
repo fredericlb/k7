@@ -1,45 +1,20 @@
 // GraphSlotPane.tsx — the frame every occupant of the graph's slot wears: the shell that fills
-// the pane, the title bar, and the one ✕ that puts the graph back. The occupants supply a body
-// and what to call it. See docs/shell.md on the slot itself.
-
-import { X } from "@frediverse/ui/icons";
-
-/** The close button, written once rather than per occupant — copies drift, and a ✕ living in the leaf cannot be relied on by the frame. */
-function CloseSlot({
-  onClose,
-  className,
-}: {
-  onClose: () => void;
-  className: string;
-}) {
-  return (
-    <button
-      type="button"
-      className={`rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground ${className}`}
-      title="Close — back to the graph"
-      aria-label="Close — back to the graph"
-      onClick={onClose}
-    >
-      <X className="h-3.5 w-3.5" />
-    </button>
-  );
-}
+// the pane and the title bar. It has no ✕: a bottom panel closes from the footer's panel buttons
+// or Escape. The occupants supply a body and what to call it. See docs/shell.md on the slot itself.
 
 /** One frame for everything that takes the graph's place — the SHELL is the point, worn three ways: `title`, `bar`, or no bar at all. */
 export function GraphSlotPane({
   title,
   note,
   bar,
-  onClose,
   aside,
   children,
 }: {
   title?: React.ReactNode;
   note?: React.ReactNode;
-  /** Replaces title/note entirely — the ✕ is still the frame's. */
+  /** Replaces title/note entirely. */
   bar?: React.ReactNode;
-  onClose: () => void;
-  /** A column pinned at the body's right, sized by itself — the floating ✕ stays over the body, never over it. */
+  /** A column pinned at the body's right, sized by itself. */
   aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -54,20 +29,10 @@ export function GraphSlotPane({
               {note != null && <span>· {note}</span>}
             </>
           )}
-          <CloseSlot onClose={onClose} className="ml-auto" />
         </div>
       )}
       <div className="flex min-h-0 min-w-0 flex-1">
-        {/* `relative` for the floating ✕ of the bar-less case, and harmless otherwise. */}
-        <div className="relative min-h-0 min-w-0 flex-1">
-          {children}
-          {!hasBar && (
-            <CloseSlot
-              onClose={onClose}
-              className="absolute right-2 top-2 z-10 bg-background/80"
-            />
-          )}
-        </div>
+        <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
         {aside}
       </div>
     </div>

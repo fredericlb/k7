@@ -532,9 +532,12 @@ export function TimelineTab({
   onDropFiles,
   dropUpload,
   readOnly = false,
+  lanesLocked = false,
   ref,
 }: {
   active: boolean;
+  /** A bottom panel is open: the lanes draw folded and Expand is dead, the user's choice kept for when it closes (docs/shell.md). */
+  lanesLocked?: boolean;
   reloadKey: number;
   /** Nothing here can be written — a shared snapshot; what it takes away is the EDITING GESTURES and only those (docs/shared.md). */
   readOnly?: boolean;
@@ -666,8 +669,9 @@ export function TimelineTab({
   const { doc: proj, error } = useDocument(() => api.projectDoc(), reloadKey);
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
   const [sel, setSel] = useState<Selection | null>(null);
-  // Expanded: taller lanes showing each clip's content. A per-session view toggle, not a saved preference.
-  const [expanded, setExpanded] = useState(false);
+  // Expanded: taller lanes showing each clip's content. A per-session view toggle, on by default, not a saved preference.
+  const [wantExpanded, setExpanded] = useState(true);
+  const expanded = wantExpanded && !lanesLocked;
   // Whether each lane's automation rows are drawn under it — a view toggle like Expand, writing nothing.
   const [showAutomation, setShowAutomation] = useState(true);
   // Which unit the RULER counts in: a song carrying picture is read in bars while you write it and in seconds while you cut it.
@@ -1755,7 +1759,9 @@ export function TimelineTab({
       toggleRuler: () =>
         setRulerMode((m) => (m === "bars" ? "seconds" : "bars")),
       // The height button: tall lanes draw each clip's waveform or notes.
-      toggleLanes: () => setExpanded((v) => !v),
+      toggleLanes: () => {
+        if (!lanesLocked) setExpanded((v) => !v);
+      },
       toggleAutomation: () => setShowAutomation((v) => !v),
       // Picking up a tool drops the rectangle: the two are different questions, and a press is about to mean something else.
       setTool: (t) => {
@@ -1776,6 +1782,7 @@ export function TimelineTab({
       loop,
       onSetLoop,
       clipUnderCaret,
+      lanesLocked,
     ],
   );
 
@@ -2092,13 +2099,16 @@ export function TimelineTab({
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
+                disabled={lanesLocked}
                 aria-pressed={expanded}
                 title={
-                  expanded
-                    ? "collapse lanes"
-                    : "expand lanes to show clip contents (waveforms / notes)"
+                  lanesLocked
+                    ? "lanes stay folded while a bottom panel is open"
+                    : expanded
+                      ? "collapse lanes"
+                      : "expand lanes to show clip contents (waveforms / notes)"
                 }
-                className={stripButton(expanded)}
+                className={`${stripButton(expanded)} disabled:opacity-40`}
               >
                 <StretchVertical className="h-4 w-4" />
               </button>

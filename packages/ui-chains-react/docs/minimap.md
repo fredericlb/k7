@@ -10,7 +10,7 @@ draws it; `DomChains` places it and owns everything it does.
 `minimap` is a prop, off by default. The graph is also drawn in the editor column's panel, in a
 lane's own row and in the module builder's preview; those are small enough that a map would take a
 real share of what they show, and a preview of one card has nothing to navigate. A ROW never gets
-one: the mixer view is walked along, not zoomed around (`camera.md`).
+one: the mix panel is walked along, not zoomed around (`camera.md`).
 
 ## It repaints from the graph's paint, not from React
 

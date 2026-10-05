@@ -321,7 +321,7 @@ never reaches any of this — a touchscreen sends touch events, handled below.
 
 ### The mixer row navigates differently, because it IS a row
 
-While the graph is arranged as a row (`row`, from the mixer view), the wheel walks **along** it
+While the graph is arranged as a row (`row`, from the mix panel), the wheel walks **along** it
 instead of zooming, and nothing pans vertically — dragging included. There is one line of cards
 and everything above or below it is empty, so a gesture that could slide the line off the top
 has one useful direction out of two. A mouse has no horizontal delta to offer, so its notch

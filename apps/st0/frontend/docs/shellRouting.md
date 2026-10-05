@@ -56,8 +56,8 @@ the layout rather than parsing into a state nothing can draw.
 > [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 `full` is the SCREEN, so it owns the path. `panel` is a modifier on whatever
-screen you are on — you can have the mixer open over the timeline or over the chains — so
-it is a query parameter. Nesting it (`/timeline/mixer`) would say it belongs to the
+screen you are on — you can have the mix open over the timeline or over the chains — so
+it is a query parameter. Nesting it (`/timeline/mix`) would say it belongs to the
 timeline, which it does not.
 
 Help (`/docs`) is a path of its own because it is an overlay over everything. `/help` is
