@@ -9,7 +9,7 @@ rather than a component tree:
 
 | piece | meaning |
 |---|---|
-| `full` | which single pane has the whole screen, or `null` for the layout. |
+| `full` | which single pane has the whole screen, or `null` for the project's home page (`/`) — never a split. |
 | `panel` | the side panel (graph, logs), independent of it. |
 
 There is no third field for a surface, and that is the point: a surface is *in* the layout rather
