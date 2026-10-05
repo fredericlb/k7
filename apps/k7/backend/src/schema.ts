@@ -123,17 +123,6 @@ export const SCHEMA: CollectionSchema = {
     { name: "SongUid", type: "text", required: true },
     { name: "OwnerId", type: "text", required: true },
   ],
-  SupernoteSync: [
-    { name: "OwnerId", type: "text", required: true },
-    { name: "Enabled", type: "bool" },
-    { name: "BaseUrl", type: "text" },
-    { name: "Account", type: "text" },
-    { name: "Secret", type: "text" },
-    { name: "LastSyncAt", type: "text" },
-    { name: "LastStatus", type: "text" },
-    { name: "LastCount", type: "number" },
-    { name: "Pushed", type: "text" },
-  ],
 };
 
 export const TABLES = Object.keys(SCHEMA);

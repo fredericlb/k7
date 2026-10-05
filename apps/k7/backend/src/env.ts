@@ -9,7 +9,6 @@ const raw = defineEnv(
     PORT: port(8787),
     SESSION_SECRET: z.string().default(DEV_SECRET),
     API_TOKEN_SECRET: z.string().optional(),
-    SUPERNOTE_SECRET: z.string().optional(),
     // Only needed to run migratePocketbaseData.ts once, copying the old Grist doc over.
     GRIST_API_URL: z.string().optional(),
     GRIST_DOC_ID: z.string().optional(),
@@ -29,7 +28,7 @@ const raw = defineEnv(
   { service: "k7-backend" },
 );
 
-// RTC tickets, API tokens and the Supernote seal all derive from this secret: a deployment that missed it would sign with a value anyone can read here.
+// RTC tickets and API tokens both derive from this secret: a deployment that missed it would sign with a value anyone can read here.
 if (process.env.NODE_ENV === "production" && raw.SESSION_SECRET === DEV_SECRET)
   throw new Error(
     "SESSION_SECRET is unset — refusing to sign with the development secret in production",
@@ -39,8 +38,6 @@ export const env = {
   port: raw.PORT,
   sessionSecret: raw.SESSION_SECRET,
   apiTokenSecret: raw.API_TOKEN_SECRET || `${raw.SESSION_SECRET}:api-token`,
-  // Seals the stored Supernote password — ../../docs/supernote.md.
-  supernoteSecret: raw.SUPERNOTE_SECRET || `${raw.SESSION_SECRET}:supernote`,
   grist: {
     apiUrl: raw.GRIST_API_URL,
     docId: raw.GRIST_DOC_ID,

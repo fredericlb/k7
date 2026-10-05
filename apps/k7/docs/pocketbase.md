@@ -1,7 +1,7 @@
 # Why PocketBase, and what that costs
 
 k7's rows — sessions, moments, markers, releases, versions, pages, singing exercises, songs,
-favourites, Supernote sync — and its song-sheet attachments live in a PocketBase instance k7
+favourites — and its song-sheet attachments live in a PocketBase instance k7
 alone talks to. Nothing else in the studio reads it; unlike the médiathèque, this store has one
 consumer.
 

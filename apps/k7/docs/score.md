@@ -59,7 +59,7 @@ the app.
 
 ## What the exports leave out
 
-A score is in neither the PDF nor the EPUB export, nor in a Supernote book. It is notation, not a
+A score is in neither the PDF nor the EPUB export. It is notation, not a
 page, and drawing it to paper is not something this app does yet.
 
 ## Where its files live

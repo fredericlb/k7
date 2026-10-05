@@ -20,7 +20,6 @@
     "@k7/shared": "*",
     "@studio/mediatek": "*",
     "@studio/web-protocol": "*",
-    "epub-gen-memory": "^1.1.2",
     "express": "^4.19.2",
     "ws": "^8.18.0",
     "zod": "^4.4.3"

@@ -7,16 +7,11 @@ hand; the measured ones say what was measured.
 
 ## Nothing waits on a stalled upstream for ever
 
-PocketBase, pl8 (`mediatek.ts`, `@studio/mediatek/remote`) and Supernote are all reached with
+PocketBase and pl8 (`mediatek.ts`, `@studio/mediatek/remote`) are both reached with
 `fetch`, and a `fetch` with no signal waits as long as the peer does. Each call is bounded by what it
 carries: a JSON exchange 15–30 s, a measurement pl8 may have to compute 5 minutes, a file 10, an
-upload of a whole recording 30. Only lrclib had one before. A stalled Supernote in particular held
-its owner's run lock — `running` in `supernote/sync.ts` — until a restart, answering every later sync
-"already running"; with a bounded call the `finally` releases it. `docs/pocketbase.md` has the
+upload of a whole recording 30. `docs/pocketbase.md` has the
 PocketBase half, the shared sign-in and the re-sign on a 401 included.
-
-The Supernote directory pager stops on a short page, so a server ignoring `pageNo` would answer the
-same full page for ever: the same page twice ends it, and so does a ceiling of 1000 pages.
 
 ## A file is served without ever crashing the process
 

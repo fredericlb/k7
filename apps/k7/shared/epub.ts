@@ -1,10 +1,7 @@
 // One song -> the input an EPUB generator needs: a chapter for the lyrics, one for the
 // tablature, one for the sheet images.
 //
-// Shared because the songbook is exported from BOTH sides — the browser's zip and the
-// backend's Supernote sync — and a book that differs by who built it would be a bug
-// nobody could see. How a sheet resolves to an address is the caller's, and the only
-// difference between the two: ../docs/export.md.
+// How a sheet resolves to an address is the caller's: ../docs/export.md.
 
 import { sheetKind } from "./sheetKind.ts";
 import type { SheetFile, Song } from "./types.ts";
@@ -13,7 +10,6 @@ import type { SheetFile, Song } from "./types.ts";
  * Held apart from any page's stylesheet: it ships INSIDE the book. Sizes stay in `em` and
  * never px, so a reader's own font setting still scales them: the body text is now the
  * reader's own size, and the margin is what a chord grid needs rather than what prose does.
- * Change anything here and every book is re-pushed: ../docs/supernote.md says why.
  */
 export const EPUB_CSS = `
 body { font-family: serif; margin: 0.25em; }

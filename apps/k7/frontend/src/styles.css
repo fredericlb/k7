@@ -555,20 +555,6 @@ input[type="range"] {
   margin-top: 6px;
 }
 
-/* The Supernote panel: its title and its switch on one line, then a plain field stack. */
-.supernote-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.supernote-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-}
-
 /* A list page's round +, floating at the bottom right over whatever scrolls under it. */
 .add-fab {
   position: fixed;

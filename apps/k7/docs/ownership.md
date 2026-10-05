@@ -1,8 +1,7 @@
 # Who sees what
 
 Everything k7 saves belongs to the person who saved it, and nobody else can see it: sessions and
-their takes, moments and their clips, markers, releases and their versions, pages, the Supernote
-settings. There is no sharing feature yet; when one exists, it is the only way past this rule.
+their takes, moments and their clips, markers, releases and their versions, pages. There is no sharing feature yet; when one exists, it is the only way past this rule.
 
 Two things are shared instead: the **songbook** — all of it but the songs added as private — and
 the **singing exercises**.
@@ -46,6 +45,4 @@ an exercise is a sentence about what to sing.
 
 **A favourite is a person's**, not the song's: `SongFavorites` holds one row per user and song, so
 one person's stars never reorder or mark anyone else's list. What follows the star is personal —
-the songbook export takes the user's favourites ([export.md](export.md)) — while the Supernote
-sync pushes the whole songbook, being the device's copy of the shared book
-([supernote.md](supernote.md)).
+the songbook export takes the user's favourites ([export.md](export.md)).

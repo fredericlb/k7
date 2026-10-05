@@ -15,7 +15,6 @@ import type {
   SingingExercise,
   Song,
   SongEnvelope,
-  SupernoteSync,
   User,
 } from "./types";
 
@@ -496,27 +495,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ favorite }),
     }).then(json),
-
-  // --- Supernote sync (the private cloud is the user's own) ---
-
-  supernoteStatus: (): Promise<SupernoteSync> => f("/api/supernote").then(json),
-
-  activateSupernote: (input: {
-    baseUrl: string;
-    account: string;
-    password: string;
-  }): Promise<SupernoteSync> =>
-    f("/api/supernote", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }).then(json),
-
-  disableSupernote: (): Promise<SupernoteSync> =>
-    f("/api/supernote", { method: "DELETE" }).then(json),
-
-  syncSupernote: (): Promise<SupernoteSync> =>
-    f("/api/supernote/sync", { method: "POST" }).then(json),
 
   // --- Remote microphone signaling ---
 

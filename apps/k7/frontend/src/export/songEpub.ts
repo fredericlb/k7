@@ -1,6 +1,6 @@
-// One song -> one EPUB blob, in the browser. What goes IN the book is shared with the
-// backend's Supernote sync (`@k7/shared/epub`); this file is only the generator and the
-// awkward way a CommonJS bundle hands it over — ../../../docs/export.md.
+// One song -> one EPUB blob, in the browser. What goes IN the book is `@k7/shared/epub`;
+// this file is only the generator and the awkward way a CommonJS bundle hands it over —
+// ../../../docs/export.md.
 
 import { epubInput } from "@k7/shared/epub";
 import { api } from "../api";

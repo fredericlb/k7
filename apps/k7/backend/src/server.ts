@@ -15,10 +15,8 @@ import { rtcRouter } from "./routes/rtc.ts";
 import { sessionsRouter } from "./routes/sessions.ts";
 import { singingRouter } from "./routes/singing.ts";
 import { songsRouter } from "./routes/songs.ts";
-import { supernoteRouter } from "./routes/supernote.ts";
 import { tokenRouter } from "./routes/token.ts";
 import { attachRtc } from "./rtc.ts";
-import { startSupernoteSchedule } from "./supernote/schedule.ts";
 
 const PORT = env.port;
 const app = express();
@@ -43,7 +41,6 @@ app.use("/api/songs", requireAuth, songsRouter);
 app.use("/api/singing", requireAuth, singingRouter);
 app.use("/api/rtc", requireAuth, rtcRouter);
 app.use("/api/token", requireAuth, tokenRouter);
-app.use("/api/supernote", requireAuth, supernoteRouter);
 
 // The built SPA — this process's own frontend/dist, since there is no nginx in this image.
 // Static files first (an asset request that matches a real file wins outright), then a
@@ -102,7 +99,6 @@ const server = createServer(app);
 // Node cuts a request off after 300 s; an hours-long take over a phone's uplink needs longer to arrive (docs/recordings.md).
 server.requestTimeout = 30 * 60_000;
 attachRtc(server);
-startSupernoteSchedule();
 
 // A stop lets the requests in flight finish — an upload among them — rather than waiting out the SIGKILL.
 process.on("SIGTERM", () => {

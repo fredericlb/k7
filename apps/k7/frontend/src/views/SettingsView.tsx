@@ -5,7 +5,6 @@ import { useState } from "react";
 import { api } from "../api";
 import { CleanUpSessions } from "../components/CleanUpSessions";
 import { CodeText } from "../components/CodeText";
-import { SupernoteSettings } from "../components/SupernoteSettings";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import type { Locale } from "../paraglide/runtime.js";
@@ -92,10 +91,6 @@ export function SettingsView({
 
       <Card className="mt-4">
         <CleanUpSessions sessions={sessions} onClean={onCleanSessions} />
-      </Card>
-
-      <Card className="mt-4">
-        <SupernoteSettings />
       </Card>
 
       <Card className="mt-4">

@@ -1,7 +1,5 @@
 // Naming what comes out of an export: one file per song, unique among its siblings.
-// Shared, and it has to be: the browser names the entries of a zip with this, and the
-// server names the files it pushes to a Supernote with it. Two answers would mean the
-// hourly sync pushed a second copy of every song under a different name.
+// The browser names the entries of the songbook zip with this.
 
 /** Characters no desktop accepts in a file name, plus the ones that only cause trouble. */
 // biome-ignore lint/suspicious/noControlCharactersInRegex: a control character in a file name is the point — it is what has to go
