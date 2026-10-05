@@ -11,7 +11,7 @@ import { Button } from "@frediverse/ui/button";
 import { Headphones, Pause, Play } from "@frediverse/ui/icons";
 import { Switch } from "@frediverse/ui/switch";
 import { Waveform } from "@k7/recorder";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { usePitchShift } from "../hooks/usePitchShift";
 import { usePl8Stream } from "../hooks/usePl8Stream";
@@ -40,8 +40,17 @@ export function SongPlayer({
 }: Props) {
   const own = useRef<HTMLAudioElement | null>(null);
   const element = audioRef ?? own;
+  // The element as STATE: it appears only once the song has a track, and what listens to it must rebind then.
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+  const bindAudio = useCallback(
+    (node: HTMLAudioElement | null) => {
+      element.current = node;
+      setAudioEl(node);
+    },
+    [element],
+  );
   // Transposing the sheet transposes what you play along to — ../../docs/audio.md.
-  usePitchShift(element, transpose);
+  usePitchShift(audioEl, transpose);
   // Original or instrumental: one element, so the lyrics keep following whichever plays.
   const [version, setVersion] = useState<"original" | "instrumental">(
     "original",
@@ -83,7 +92,7 @@ export function SongPlayer({
   // Whether it is rolling — NOT `playing` below, which says which VERSION is on.
   const [running, setRunning] = useState(false);
   useEffect(() => {
-    const el = element.current;
+    const el = audioEl;
     if (!el) return;
     const tick = () => setTime(el.currentTime);
     const sync = () => setRunning(!el.paused);
@@ -100,7 +109,7 @@ export function SongPlayer({
       el.removeEventListener("pause", sync);
       el.removeEventListener("ended", sync);
     };
-  }, [element]);
+  }, [audioEl]);
 
   /** A click on the shape goes there and plays: seeking and starting are one gesture. */
   const seek = (seconds: number) => {
@@ -124,7 +133,7 @@ export function SongPlayer({
   const body = (
     <div className="song-player">
       <audio
-        ref={element}
+        ref={bindAudio}
         crossOrigin="use-credentials"
         // A replaced track is another library path, so another URL: nothing stale to bust.
         src={

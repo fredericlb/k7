@@ -4,20 +4,22 @@
 //
 // Built on demand and BYPASSED at zero, so a song nobody transposes pays neither the latency nor
 // the CPU. What reads wrong: a media element may be given a source node only once, so the graph is
-// kept for the element's whole life. See ../../docs/audio.md.
+// kept for the element's whole life. It takes the ELEMENT, not a ref, so it sees one appear later.
+// See ../../docs/audio.md.
 
 import { useEffect, useRef } from "react";
 import type { StretchNode } from "signalsmith-stretch";
 
 interface Graph {
+  el: HTMLAudioElement;
   ctx: AudioContext;
   source: MediaElementAudioSourceNode;
   node: StretchNode;
 }
 
-/** Play `element` shifted by `semitones`, its tempo untouched. Zero means the browser plays it raw. */
+/** Play `el` shifted by `semitones`, its tempo untouched. Zero means the browser plays it raw. */
 export function usePitchShift(
-  element: React.RefObject<HTMLAudioElement | null>,
+  el: HTMLAudioElement | null,
   semitones: number,
 ): void {
   const graph = useRef<Graph | null>(null);
@@ -26,8 +28,12 @@ export function usePitchShift(
   wanted.current = semitones;
 
   useEffect(() => {
-    const el = element.current;
     if (!el) return;
+    // A graph belongs to the element it was built on: another element starts from nothing.
+    if (graph.current && graph.current.el !== el) {
+      void graph.current.ctx.close();
+      graph.current = null;
+    }
     // Nothing built and nothing asked: the element plays itself, which is the cheapest thing there is.
     if (!graph.current && semitones === 0) return;
 
@@ -63,23 +69,27 @@ export function usePitchShift(
         return;
       }
       node.start();
-      graph.current = { ctx, source: ctx.createMediaElementSource(el), node };
+      graph.current = {
+        el,
+        ctx,
+        source: ctx.createMediaElementSource(el),
+        node,
+      };
       wire(graph.current);
     })();
 
     return () => {
       alive = false;
     };
-  }, [element, semitones]);
+  }, [el, semitones]);
 
   // A context born outside a gesture starts suspended; pressing play is the gesture that frees it.
   useEffect(() => {
-    const el = element.current;
     if (!el) return;
     const resume = () => void graph.current?.ctx.resume();
     el.addEventListener("play", resume);
     return () => el.removeEventListener("play", resume);
-  }, [element]);
+  }, [el]);
 
   // Closed on unmount only: rebuilding per render would cost a media source the element cannot give twice.
   useEffect(
