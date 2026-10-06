@@ -4,6 +4,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Download, RotateCw, Upload, X } from "@frediverse/ui/icons";
+import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import type { Song } from "../types";
@@ -41,7 +42,13 @@ export function SongFetchInsert({
   };
 
   const input = (
-    <input ref={file} type="file" accept="audio/*" hidden onChange={picked} />
+    <input
+      ref={file}
+      type="file"
+      accept={AUDIO_ACCEPT}
+      hidden
+      onChange={picked}
+    />
   );
 
   if (song.audio) {

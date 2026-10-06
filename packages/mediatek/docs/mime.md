@@ -68,3 +68,12 @@ and it would put `express` inside a package three frontends import for `./types`
 
 What they share is the **vocabulary**: family names (`types.ts`), extensions and content
 types (`media.ts`), and what a search query means including its limit (`catalogue.ts`).
+
+## A picker filters by extension, never by `audio/*`
+
+`AUDIO_ACCEPT` is the extension list spelled for an `<input type="file">`, and every audio picker in
+the studio uses it — pl8's and k7's. `audio/*` is not a substitute: iOS turns it into its own
+file-type test, and a file the Files app does not tag as audio — a FLAC or an Opus in iCloud Drive,
+anything synced without its type — is drawn greyed out and cannot be picked. An extension iOS
+matches by name. The list is also what the library takes, so a picker never offers a file the
+upload would then refuse.

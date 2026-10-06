@@ -9,6 +9,7 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import { Download, EllipsisVertical } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
+import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useRef, useState } from "react";
 import { BackButton } from "../components/BackButton";
 import { ReleaseEditForm } from "../components/ReleaseEditForm";
@@ -208,7 +209,7 @@ export function ReleaseDetailView({
       <input
         ref={replaceInput}
         type="file"
-        accept="audio/*"
+        accept={AUDIO_ACCEPT}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -227,7 +228,7 @@ export function ReleaseDetailView({
           />
           <Input
             type="file"
-            accept="audio/*"
+            accept={AUDIO_ACCEPT}
             onChange={(e) => setVFile(e.target.files?.[0] ?? null)}
           />
         </div>

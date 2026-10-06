@@ -3,6 +3,7 @@ import { Card } from "@frediverse/ui/card";
 import { Field } from "@frediverse/ui/field";
 import { Input } from "@frediverse/ui/input";
 import { Textarea } from "@frediverse/ui/textarea";
+import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useState } from "react";
 import { SwitchField } from "../components/SwitchField";
 import { m } from "../paraglide/messages.js";
@@ -97,7 +98,7 @@ export function ReleaseFormView({ onSave, onCancel }: Props) {
       <Field label={m["release.audioLabel"]()}>
         <Input
           type="file"
-          accept="audio/*"
+          accept={AUDIO_ACCEPT}
           onChange={(e) => setAudio(e.target.files?.[0] ?? null)}
         />
       </Field>

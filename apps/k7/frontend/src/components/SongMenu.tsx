@@ -12,6 +12,7 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import { EllipsisVertical } from "@frediverse/ui/icons";
 import { SHEET_ACCEPT } from "@k7/shared/sheetKind";
+import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import { useRef, useState } from "react";
 import { pl8 } from "../fetchSong/pl8";
 import { makeInstrumental } from "../fetchSong/run";
@@ -195,7 +196,7 @@ export function SongMenu({
       <input
         ref={track}
         type="file"
-        accept="audio/*"
+        accept={AUDIO_ACCEPT}
         hidden
         onChange={() =>
           picked(
