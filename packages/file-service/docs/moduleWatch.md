@@ -43,6 +43,14 @@ The first ask after starting a watch is also a no. The watcher has seen no event
 has it seen the folders, and the walk it forces is what gives every later answer something to be
 measured against.
 
+## What it watches
+
+The roots the stamp walks: the module panel roots, `nodes/`, and a chain project's `chains/`,
+`tracks/` and `vstpresets/` (`packages/song/docs/chainFiles.md`). A root that does not exist is
+simply not watched, so an older project costs nothing for the newer format's folders.
+`layout.yaml` is not watched: where a card sits feeds the segments, which are read fresh on every
+load, and none of the cached reads — the module map and the ref map — looks at it.
+
 ## Why a watcher is not enough on its own
 
 `fs.watch` delivers on a later tick. A command that WRITES a module file and then rebuilds the

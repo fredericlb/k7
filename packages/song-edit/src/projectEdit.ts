@@ -3,14 +3,9 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
-import {
-  existsSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { extname, join, relative, sep } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import { chainItemText, editChainItem } from "@studio/song/chainItemEdit";
 import {
   baseModuleRefs,
   loadModuleRefs,
@@ -19,7 +14,7 @@ import {
   splitModuleKey,
   withModuleStamp,
 } from "@studio/song/loader";
-import { chainsUsing, sharedRoots } from "@studio/song/moduleFork";
+import { sharedRoots } from "@studio/song/moduleFork";
 import { keepsItsModule, resolveModule } from "@studio/song/moduleResolve";
 import { isTrack } from "@studio/song/trackModule";
 import { entityFileFor, moduleFileFor } from "@studio/song/yaml/moduleIO";
@@ -32,21 +27,6 @@ import {
   alternativeNames,
   setAlternativeParam,
 } from "@studio/song-schema/yaml/alternativeFile";
-import {
-  addNode,
-  clearNodePositions,
-  connectNodes,
-  disconnectNodes,
-  insertBetween,
-  parseGraph,
-  removeNode,
-  renameNode,
-  setModuleEnabled,
-  setNodePosition,
-  setNodePositions,
-  unlinkNode,
-} from "@studio/song-schema/yaml/graphFile";
-import { GRAPH_BASE, GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import {
   setModuleAutomation,
   setModuleList,
@@ -63,34 +43,51 @@ export function editModuleFile(
   module: string,
   transform: (text: string) => string,
 ): string {
-  return rewriteFile(moduleFileOf(dir, module).path, transform);
+  return rewriteModule(moduleFileOf(dir, module), transform);
 }
 
-// Rewrite one file through `transform`, writing only when it changed.
-function rewriteFile(
-  path: string,
+/** Where a module's text is: a file of its own, or — `item` set — an item of a chain file. */
+interface ModuleText {
+  path: string;
+  dir?: string;
+  item?: string;
+}
+
+// Rewrite a module's text through `transform`, writing only when it changed; the file's path.
+function rewriteModule(
+  at: ModuleText,
   transform: (text: string) => string,
 ): string {
-  const before = readFileSync(path, "utf8");
+  if (at.item && at.dir) return editChainItem(at.dir, at.item, transform);
+  const before = readFileSync(at.path, "utf8");
   const after = transform(before);
   // No format pass afterwards: the YAML writers emit canonical output.
-  if (after !== before) writeFileSync(path, after, "utf8");
-  return path;
+  if (after !== before) writeFileSync(at.path, after, "utf8");
+  return at.path;
 }
 
+// What a module's text says — a chain node's item cut out as a node file would hold it.
+const readModuleText = (at: ModuleText): string =>
+  at.item && at.dir
+    ? chainItemText(at.dir, at.item)
+    : readFileSync(at.path, "utf8");
+
 // Where a module's file is — a node's own file in the flat `nodes/`, or a shared one at `@workspace`/`@st0`.
-function moduleFileOf(
-  dir: string,
-  module: string,
-): { folder: string; path: string } {
-  const modules = loadModules(dir) as Record<string, { home?: string }>;
+function moduleFileOf(dir: string, module: string): ModuleText {
+  const modules = loadModules(dir) as Record<
+    string,
+    { home?: string; chain?: string }
+  >;
   const b = modules[module];
+  // A chain project's node (not a lane) is an item of its chain file — docs/chainFiles.md.
+  if (b?.home === "chains" && b.chain)
+    return { path: join(dir, "chains", `${b.chain}.yaml`), dir, item: module };
   // A node carries its own folder — the only shape a project's own `loadModules` returns now.
   if (b?.home) {
     const folder = join(dir, b.home);
     const found = moduleFileFor(folder, b.home, module);
     if (!found) throw new Error(`module "${module}" has no file in ${b.home}`);
-    return { folder, path: found.path };
+    return { path: found.path };
   }
   const shared = sharedModuleFileOf(dir, module);
   if (shared) return shared;
@@ -98,10 +95,7 @@ function moduleFileOf(
 }
 
 /** The same for a SHARED catalogue module, whose file lives in the workspace's `_modules` — see docs/projectEdit.md. */
-function sharedModuleFileOf(
-  dir: string,
-  key: string,
-): { folder: string; path: string } | null {
+function sharedModuleFileOf(dir: string, key: string): ModuleText | null {
   if (!key.startsWith("@")) return null;
   const { module, node } = splitModuleKey(key);
   const [ns, ...rest] = module.slice(1).split("/");
@@ -110,7 +104,7 @@ function sharedModuleFileOf(
   // The ref IS the path inside its catalogue — that is how readModuleTree keyed it.
   const folder = join(root, ...rest);
   const found = moduleFileFor(folder, "", node ?? "module");
-  return found ? { folder, path: found.path } : null;
+  return found ? { path: found.path } : null;
 }
 
 /** Bind a curve to a module's param — null unbinds, and `trigger` names whose note-ons restart an envelope. */
@@ -147,11 +141,11 @@ export function setModuleParam(
 ): string {
   // A module with engines keeps its knobs PER engine, so the one that is on is asked first (docs/engines.md).
   // The reads before the write share one stamp walk; the scope closes BEFORE the write (packages/song/docs/moduleCache.md).
-  const { engine, path } = withModuleStamp(dir, () => ({
+  const { engine, at } = withModuleStamp(dir, () => ({
     engine: engineOn(dir, module),
-    path: moduleFileOf(dir, module).path,
+    at: moduleFileOf(dir, module),
   }));
-  return rewriteFile(path, (text) =>
+  return rewriteModule(at, (text) =>
     setAlternativeParam(text, name, value, engine),
   );
 }
@@ -169,7 +163,7 @@ export function moduleAlternatives(
   dir: string,
   module: string,
 ): { names: string[]; current: string } {
-  const text = readFileSync(moduleFileOf(dir, module).path, "utf8");
+  const text = readModuleText(moduleFileOf(dir, module));
   const names = alternativeNames(text);
   return {
     names,
@@ -191,11 +185,11 @@ export function newModuleAlternative(
     const node = loadModules(dir)[module];
     return {
       blankEvents: !!node && isTrack(resolveModule(node, loadModuleRefs(dir))),
-      file: moduleFileOf(dir, module).path,
+      file: moduleFileOf(dir, module),
     };
   });
   let chosen = name ?? "";
-  const path = rewriteFile(file, (text) => {
+  const path = rewriteModule(file, (text) => {
     const made = addAlternative(text, name, { ...opts, blankEvents });
     chosen = made.name;
     return made.text;
@@ -324,11 +318,11 @@ export function setModuleAsset(
   param: string,
   file: string | null,
 ): string {
-  const { engine, path } = withModuleStamp(dir, () => ({
+  const { engine, at } = withModuleStamp(dir, () => ({
     engine: engineOn(dir, module),
-    path: moduleFileOf(dir, module).path,
+    at: moduleFileOf(dir, module),
   }));
-  return rewriteFile(path, (text) =>
+  return rewriteModule(at, (text) =>
     setAlternativeParam(text, param, file, engine),
   );
 }
@@ -421,28 +415,6 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
   }
 }
 
-// --- chains file --------------------------------------------------------------
-
-/** The graph file a folder holds — a project's, or a library CHAIN's, which is the same file; docs/projectEdit.md. */
-function graphFileOf(dir: string): { path: string } {
-  const file = entityFileFor(dir, "", GRAPH_BASE);
-  if (!file) throw new Error(`${dir}: no ${GRAPH_FILE}`);
-  return { path: file.path };
-}
-
-/** Bypass (or re-enable) a module — off-then-on returns the file to what it was, and no chain need be named. */
-export function setModuleBypass(
-  dir: string,
-  module: string,
-  bypassed: boolean,
-): string {
-  const { path } = graphFileOf(dir);
-  const before = readFileSync(path, "utf8");
-  const after = setModuleEnabled(before, module, !bypassed);
-  if (after !== before) writeFileSync(path, after, "utf8");
-  return path;
-}
-
 /** What a module file says about WHAT IT IS — repointing its `extends` drops these, docs/projectEdit.md. */
 const DESCRIBES_WHAT_IT_IS = ["plugin", "params", "rack"] as const;
 
@@ -503,220 +475,20 @@ export function setModuleExtends(
   };
 }
 
-/** Take a node out of the SIGNAL PATH, joining what fed it to what it fed, and leave it in the graph wired to nothing. */
-export function unlinkChainNode(
-  dir: string,
-  node: string,
-): { rewired: string[] } {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const { value, issues } = parseGraph(text);
-  if (!value)
-    throw new Error(`${GRAPH_FILE}: ${issues[0]?.message ?? "unreadable"}`);
-  // The last module in a run has no entry of its own, and is still in the chain and unlinkable.
-  const isDest = Object.values(value.modules ?? {}).some((dests) =>
-    dests.includes(node),
-  );
-  if (!(node in (value.modules ?? {})) && !isDest)
-    throw new Error(`no '${node}' in the chains`);
+// --- the graph: graphEdit.ts, re-exported so a caller keeps one import ---
 
-  const r = unlinkNode(text, node);
-  if (r.text !== text) writeFileSync(path, r.text, "utf8");
-  return { rewired: r.rewired };
-}
-
-/** The lane whose chain plays `node`, or null — the FIRST when several reach it, docs/projectEdit.md. */
-export function laneOfNode(dir: string, node: string): string | null {
-  try {
-    const text = readFileSync(graphFileOf(dir).path, "utf8");
-    return chainsUsing(text, node)[0] ?? null;
-  } catch {
-    return null; // no graph, or one that will not read — a node with no run to be named after
-  }
-}
-
-/**
- * Is `name` on the graph without a file of its own — a MODULE used directly as a node? st0 writes
- * that shape itself (a lane's `mix-<lane>` strip), and an import writes it for a plugin used once,
- * so the node verbs have to know it rather than answering "no such node". See docs/projectEdit.md.
- */
-function moduleUsedAsNode(dir: string, name: string): boolean {
-  if (entityFileFor(join(dir, "nodes"), "nodes", name)) return false;
-  try {
-    const text = readFileSync(graphFileOf(dir).path, "utf8");
-    const g = parseGraph(text).value;
-    const modules = g?.modules ?? {};
-    return (
-      name in modules ||
-      Object.values(modules).some((dests) => (dests ?? []).includes(name))
-    );
-  } catch {
-    return false; // no graph, or one that will not read — nothing says this name is on it
-  }
-}
-
-/** Rename a node: its file, its preset, and every trace of it in the chains — the order is load-bearing, docs/projectEdit.md. */
-export function renameChainNode(
-  dir: string,
-  from: string,
-  to: string,
-): { moved: string[]; rewired: string[] } {
-  const found = entityFileFor(join(dir, "nodes"), "nodes", from);
-  if (!found) {
-    // A module used directly has no instance to rename: the name on the graph IS the module's, and
-    // renaming it here would leave the graph naming something no folder answers to.
-    if (moduleUsedAsNode(dir, from))
-      throw new Error(
-        `'${from}' is a module used directly on the graph, not a node of one — rename the module, ` +
-          `or give it a node first (\`node new\`) and rename that`,
-      );
-    throw new Error(`no node '${from}' in this project`);
-  }
-  const ext = extname(found.path);
-  const destAbs = join(dir, "nodes", `${to}${ext}`);
-  if (existsSync(destAbs))
-    throw new Error(`nodes/${to}${ext} already exists — refusing to overwrite`);
-  const moved = [`${found.rel} → nodes/${to}${ext}`];
-  renameSync(found.path, destAbs);
-  const preset = join(dir, "nodes", `${from}.vstpreset`);
-  if (existsSync(preset)) {
-    renameSync(preset, join(dir, "nodes", `${to}.vstpreset`));
-    moved.push(`nodes/${from}.vstpreset → nodes/${to}.vstpreset`);
-  }
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const r = renameNode(text, from, to);
-  if (r.text !== text) writeFileSync(path, r.text, "utf8");
-  return { moved, rewired: r.rewired };
-}
-
-/** Delete a node: its file, its preset, and every trace of it in the chains — files first, docs/projectEdit.md. */
-export function deleteChainNode(
-  dir: string,
-  node: string,
-): { rewired: string[]; removed: string[] } {
-  const found = entityFileFor(join(dir, "nodes"), "nodes", node);
-  if (!found) {
-    // A module used directly: there is no file to delete, and the MODULE stays — it is a
-    // definition, and other chains may name it. What goes is its place in the graph.
-    if (moduleUsedAsNode(dir, node)) {
-      const { path } = graphFileOf(dir);
-      const text = readFileSync(path, "utf8");
-      const r = removeNode(text, node);
-      if (r.text !== text) writeFileSync(path, r.text, "utf8");
-      return { rewired: r.rewired, removed: [] };
-    }
-    throw new Error(`no node '${node}' in this project`);
-  }
-  const removed = [found.rel];
-  rmSync(found.path, { force: true });
-  // Its own preset, when it has one — `nodes/<node>.vstpreset` (see loader's ancestry fold).
-  const preset = join(dir, "nodes", `${node}.vstpreset`);
-  if (existsSync(preset)) {
-    rmSync(preset, { force: true });
-    removed.push(`nodes/${node}.vstpreset`);
-  }
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const r = removeNode(text, node);
-  if (r.text !== text) writeFileSync(path, r.text, "utf8");
-  return { rewired: r.rewired, removed };
-}
-
-/** Put a module in the graph wired to nothing — dropped in, to be connected after. */
-export function placeChainNode(dir: string, module: string): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = addNode(text, module);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Pin every node in `at` that has no pin yet — one write, for a graph recording where it drew itself. */
-export function setChainNodePositions(
-  dir: string,
-  at: Record<string, { x: number; y: number }>,
-): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = setNodePositions(text, at);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Hand EVERY node back to the layout — `graph organize` clearing the pins in one write. */
-export function clearChainNodePositions(dir: string): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = clearNodePositions(text);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Pin a node's place on the graph — or, with null, hand it back to the layout. */
-export function setChainNodePosition(
-  dir: string,
-  node: string,
-  at: { x: number; y: number } | null,
-): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = setNodePosition(text, node, at);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Draw a new arrow from `from` to `to` (each optionally `name#port`) — the patch-cable gesture's write. */
-export function connectChainNodes(
-  dir: string,
-  from: string,
-  to: string,
-): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = connectNodes(text, from, to);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Take the arrow from `from` to `to` out — the patch cable pulled and dropped on the canvas. */
-export function disconnectChainNodes(
-  dir: string,
-  from: string,
-  to: string,
-): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = disconnectNodes(text, from, to);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Move ONE end of an existing arrow — one read and one write, so the cable can never be left half-gone. */
-export function replugChainNodes(
-  dir: string,
-  from: string,
-  to: string,
-  newFrom: string,
-  newTo: string,
-): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = connectNodes(disconnectNodes(text, from, to), newFrom, newTo);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
-
-/** Insert a module into the arrow from `before` to `after` — the two ends the graph was dropped on. */
-export function insertChainStep(
-  dir: string,
-  before: string,
-  after: string | undefined,
-  module: string,
-): string {
-  const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
-  const next = insertBetween(text, before, after, module);
-  if (next !== text) writeFileSync(path, next, "utf8");
-  return path;
-}
+export {
+  clearChainNodePositions,
+  connectChainNodes,
+  deleteChainNode,
+  disconnectChainNodes,
+  insertChainStep,
+  laneOfNode,
+  placeChainNode,
+  renameChainNode,
+  replugChainNodes,
+  setChainNodePosition,
+  setChainNodePositions,
+  setModuleBypass,
+  unlinkChainNode,
+} from "./graphEdit";

@@ -608,7 +608,7 @@ export function FileTree({
               if (taken.length) onUpload(dir, taken);
             }}
             onOpen={(node) => {
-              // A CHAIN first: it is a folder holding a `graph.yaml` and a `nodes/`, which the module lookup below cannot tell apart.
+              // A CHAIN first: a chain file, or a folder chain the module lookup below cannot tell from a module.
               const chain = chainByPath.get(node.path);
               if (chain) {
                 onOpenChain?.(chain.ref, chain.node);

@@ -1383,12 +1383,12 @@ export class Workspace {
     return out;
   }
 
-  /** The CHAINS the account's libraries hold, by `@<library>/<path>` — see docs/workspace.md. */
+  /** The CHAINS the account's libraries hold, by `@<library>/<path>`: `path` is the chain's file, or a folder chain's folder. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
     // The walk is shared with the ACCOUNT's own listing, which has no workspace to be relative to.
     return libraryChainDirs().map((c) => ({
       ref: c.ref,
-      path: this.toRel(c.dir),
+      path: this.toRel(c.at),
       nodes: c.nodes,
     }));
   }

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { chainNames } from "@studio/audio-passes/processChain";
 import { libraryAssemblies, projectAssemblies } from "@studio/song/assemblies";
 import { loadCurves } from "@studio/song/curves";
+import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { alternativesOf } from "@studio/song-schema/alternatives";
@@ -368,6 +369,26 @@ export function registerVerb(spec: CommandSpec, handler: SidHandler): void {
 // The provider names as a TYPE, so the vocabulary follows and a stale reference stops compiling.
 export type ProviderName = keyof typeof PROVIDERS;
 
+/** What a list shows beside a value that is not what a person reads, by provider — docs/completions.md. */
+const PROVIDER_LABELS: Partial<
+  Record<ProviderName, (h: CommandHost) => Record<string, string>>
+> = {
+  // A chain project's node is its uuid: shown as its module and its place, inserted as the uuid.
+  nodes: (h) => {
+    if (!h.songPath) return {};
+    try {
+      return Object.fromEntries(
+        Object.entries(nodePlaces(h.songPath)).map(([n, p]) => [
+          n,
+          nodeCaption(p),
+        ]),
+      );
+    } catch {
+      return {}; // an unreadable chain file costs the label, not the completion
+    }
+  },
+};
+
 // The DISPLAY class of an argument, mirrored on the wire and kept in step by a test.
 export const ARG_CLASSES = [
   "track",
@@ -566,12 +587,27 @@ export const PROVIDER_NAMES: ReadonlySet<string> = new Set(
 const forSurface = (surface: Surface): CommandSpec[] =>
   loadCommandSpecs().filter((c) => c.surfaces.includes(surface));
 
+/** One completion: the LINE it completes to, and what a list may show for its value instead. */
+export interface CompletionItem {
+  line: string;
+  label?: string;
+}
+
 // Autocomplete: the token under the cursor picks its ArgSpec BY POSITION, earlier ones echoed.
 export function completions(
   line: string,
   host: CommandHost,
   surface: Surface,
 ): string[] {
+  return completionItems(line, host, surface).map((c) => c.line);
+}
+
+/** …the same candidates, each with its label when its provider gives one (docs/completions.md). */
+export function completionItems(
+  line: string,
+  host: CommandHost,
+  surface: Surface,
+): CompletionItem[] {
   const s = line.replace(/^\s+/, "");
   const specs = forSurface(surface);
   // Pick the command the way runCommand does — LONGEST prefix — so completion offers args for what will run.
@@ -592,13 +628,17 @@ export function completions(
         : undefined;
     if (!values) return [];
     const prefix = [spec.command, ...tokens.slice(0, i)].join(" ");
+    const labels = arg?.complete ? PROVIDER_LABELS[arg.complete]?.(host) : {};
     return values(host)
       .filter((v) => v.toLowerCase().startsWith(partial.toLowerCase()))
-      .map((v) => `${prefix} ${v}`);
+      .map((v) => ({
+        line: `${prefix} ${v}`,
+        ...(labels?.[v] ? { label: labels[v] } : {}),
+      }));
   }
   return specs
     .filter((c) => c.command.startsWith(s) && c.command !== s)
-    .map((c) => c.command);
+    .map((c) => ({ line: c.command }));
 }
 
 // Dispatch a line: longest-prefix match, prepend fixed args, run the handler. Nothing dispatched is a refusal.

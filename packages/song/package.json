@@ -59,7 +59,11 @@
     "./scaffoldSet": "./src/scaffoldSet.ts",
     "./videoOutputs": "./src/videoOutputs.ts",
     "./rawDoc": "./src/rawDoc.ts",
-    "./libraryFiles": "./src/libraryFiles.ts"
+    "./libraryFiles": "./src/libraryFiles.ts",
+    "./chainProject": "./src/chainProject.ts",
+    "./chainItemEdit": "./src/chainItemEdit.ts",
+    "./chainGraphEdit": "./src/chainGraphEdit.ts",
+    "./chainCreate": "./src/chainCreate.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

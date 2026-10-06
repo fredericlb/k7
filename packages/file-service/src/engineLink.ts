@@ -8,7 +8,8 @@ import { basename, relative, resolve } from "node:path";
 import {
   argClass,
   argHint,
-  completions,
+  type CompletionItem,
+  completionItems,
   loadCommandSpecs,
   runCommand,
 } from "@studio/commands/commandSpec";
@@ -1179,9 +1180,16 @@ export async function runWebCommand(
   };
 }
 
-export function webCompletions(ws: Workspace, line: string): string[] {
+/** `/complete`'s answer: bare lines, and with `labelled` an object for a labelled one only — docs/completions.md. */
+export function webCompletions(
+  ws: Workspace,
+  line: string,
+  labelled = false,
+): (string | CompletionItem)[] {
   try {
-    return completions(line, makeHost(ws, []), SURFACE);
+    return completionItems(line, makeHost(ws, []), SURFACE).map((c) =>
+      labelled && c.label ? c : c.line,
+    );
   } catch {
     return [];
   }

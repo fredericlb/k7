@@ -117,3 +117,21 @@ describe("the chains vocabulary", () => {
     ).toEqual([]);
   });
 });
+
+describe("a chain project's files", () => {
+  it("offers a chain item what a node may extend, and the lanes a lane item names", () => {
+    expect(at("song.st0/chains/gtr.yaml", ["steps"], "extends", HINTS)).toEqual(
+      ["@meta/audio/mixer"],
+    );
+    expect(at("song.st0/chains/gtr.yaml", ["steps"], "track", HINTS)).toEqual([
+      "melody",
+      "pad",
+    ]);
+  });
+
+  it("reads a lane's tracks/ file as a project's node", () => {
+    expect(at("song.st0/tracks/melody.yaml", [], "extends", HINTS)).toEqual([
+      "@meta/audio/mixer",
+    ]);
+  });
+});

@@ -1796,9 +1796,11 @@ function NodeInner({
     ? (trackLabel?.(trackFace) ?? trackFace)
     : n.uses
       ? moduleDisplayName(n.uses)
-      : n.label;
+      : (n.place ?? n.label);
+  // What the node is CALLED where a person reads it: an unnamed node's place, never its uuid (packages/song/docs/chainFiles.md).
+  const ownName = n.place ?? n.label;
   // The node's own name goes under the header only when the header says something else.
-  const ownNameUnder = !trackFace && headName !== n.label;
+  const ownNameUnder = !trackFace && headName !== ownName;
   // The engine's stage on the header's second line, always IN / MIX / OUT whatever order it arrives in.
   const stageBinds = [
     INPUT_VOLUME_PARAM,
@@ -2106,7 +2108,7 @@ function NodeInner({
         <span
           className="dgx-hdtop"
           // The node's own name, which has no line of its own: the second line holds the engine's stage.
-          title={ownNameUnder ? n.label : undefined}
+          title={ownNameUnder ? ownName : undefined}
         >
           {/* The accent dot marks identity only on a node with no glyph of its own, which leads the row instead. */}
           {!hasGlyph && <span className="dgx-tri" />}
@@ -2125,7 +2127,7 @@ function NodeInner({
           <span
             className={`dgx-nm${flagCls}`}
             // The whole ref, not just the word drawn: the filing is one hover away rather than gone.
-            title={[...new Set([n.uses, n.label])].filter(Boolean).join("\n")}
+            title={[...new Set([n.uses, ownName])].filter(Boolean).join("\n")}
             style={{
               fontSize: headerFontPx(
                 headName,

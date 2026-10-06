@@ -127,16 +127,16 @@ time. A separation is asked for by naming the library chain that holds it, which
 name. A name with no `@` that no project chain answers is looked for in every library, the default
 `st0` first: that is what a bare chain name meant before libraries had names.
 
-A library chain is a TEMPLATE — a `graph.yaml` with `@in` and `@out` for ends, and a `nodes/`
-folder beside it — read from the account's **libraries** (each one's `chains/…`, walked by
-`@studio/song`'s `libraryChainDirs`), because that is the disk the engine can open, rather than the
-machine's médiathèque cache: a chain is a folder holding a `graph.yaml` at any depth, and nothing
-inside one is another — the médiathèque's own rule, restated there because `scanFamily` is bound to
-the cache root. A library with no `chains/`, or none cloned at all, is an empty list, never a
-throw. Same layout as a
-project, deliberately and to the filename: see `@studio/mediatek`'s `docs/chains.md`. Each node is
-resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the
-eq's plugin, params and preset folded in.
+A library chain is a TEMPLATE — one file, `<library>/chains/<path>.yaml`, written as a project's
+chain is and ending at `@out` (`@studio/song`'s `docs/sharedFolders.md` has the layout and why) —
+read from the account's **libraries**, because that is the disk the engine can open, rather than
+the machine's médiathèque cache. `@studio/song`'s `libraryChains.ts` is the one reader, for this
+command, the bench and the chains builder alike: it walks every library's `chains/`, reads the
+folder layout a clone may still hold as well, and hands back the steps in order. A library with no
+`chains/`, or none cloned at all, is an empty list, never a throw. Each step is resolved through
+the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the eq's plugin, params
+and preset folded in. A **bypassed** step is in the template and out of the signal, so a bounce
+skips it.
 
 That vocabulary can be short: a library chain names modules of its own, and one the workspace
 does not hold is simply not there.
@@ -215,15 +215,13 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
 **Nothing puts either of these in your library.** The account's libraries repository is the
 reference and nothing seeds it, so `stemsplit` the MODULE and a chain naming it are both things to
 author there; what the module has to say is in `@studio/dsp`'s `docs/catalogue.md`. The chain is
-two files:
+one file:
 
 ```yaml
-# <library>/chains/stems/graph.yaml
-modules:
-  "@in": [ stemsplit ]
-  stemsplit: [ "@out" ]
-# <library>/chains/stems/nodes/stemsplit.yaml
-extends: "@st0/cold/stemsplit"
+# <library>/chains/stems.yaml
+steps:
+  - { id: 69d0d198-…, extends: "@st0/cold/stemsplit" }
+  - to: [ { chain: "@out" } ]
 ```
 
 …and then `clip process riff @st0/stems`.

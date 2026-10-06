@@ -27,7 +27,9 @@ import {
 import { parsePosition } from "@studio/song-schema/timecode";
 import type { ControllerFile } from "@studio/song-schema/yaml/moduleSchema";
 import { type Assembly, resolveAssemblies } from "./assemblies";
+import { loadLinkLevels } from "./chainProject";
 import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
+import { applyLinkLevels, unplayedLevels } from "./linkLevels";
 import {
   exportSub,
   isVideoSource,
@@ -60,6 +62,14 @@ import type {
   RawVideoTrack,
 } from "./rawDoc";
 import { type Lane, laneMaterials, laneSignal, lanesOf } from "./trackModule";
+
+// Where an unnamed node sits, for whatever SHOWS one — this package exports no chainProject subpath.
+export {
+  type NodePlace,
+  nodeCaption,
+  nodePlaces,
+  placeOf,
+} from "./nodePlace";
 
 // --- model -------------------------------------------------------------------
 
@@ -1235,6 +1245,15 @@ function loadGraphIn(dir: string): GraphDoc {
     moduleRefsMap,
     videoTracksMap,
     resolveAssemblies(dir),
+  );
+  // A chain project's link levels, laid on as the compile lays them, and named where none is played (docs/chainFiles.md).
+  applyLinkLevels(g.chains, loadLinkLevels(dir));
+  g.warnings.push(
+    ...unplayedLevels(
+      g.chains,
+      (to) => isSink(g, to),
+      (n) => n in g.tracks || g.disabledTracks.includes(n),
+    ),
   );
   g.warnings.push(...checkInputLabels(g));
   return g;

@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { CommandHost } from "@studio/commands/commands";
+import { laneFolder } from "@studio/song/chainItemEdit";
 import { createTrackFile, isVideoSource } from "@studio/song/loader";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { listVideoPlacements } from "@studio/song-schema/yaml/videoTrackFile";
@@ -85,7 +86,8 @@ export async function transcribeTrack(
     ]);
     return;
   }
-  const nodeFile = join(h.songPath, "nodes", `${trackOut}.yaml`);
+  // `nodes/`, or a chain project's `tracks/` — wherever this project keeps a lane's own file.
+  const nodeFile = join(h.songPath, laneFolder(h.songPath), `${trackOut}.yaml`);
   const existed = existsSync(nodeFile);
   if (!existed) {
     try {

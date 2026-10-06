@@ -4,6 +4,12 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  chainFiles,
+  eventItemIds,
+  laneFolder,
+  spliceChainItem,
+} from "@studio/song/chainItemEdit";
 import { loadProjectRoot } from "@studio/song/loader";
 import { parseMarkers } from "@studio/song/project";
 import { setQuotedKeyMap } from "@studio/song/yaml/edit";
@@ -54,6 +60,24 @@ function edit(
   report.removed += removed;
 }
 
+/** Run a lane-file transform over every chain item with events, summing what each one moved. */
+function eachEventItem(
+  text: string,
+  fn: (t: string) => { text: string; moved: number; removed: number },
+): { text: string; moved: number; removed: number } {
+  let out = text;
+  let moved = 0;
+  let removed = 0;
+  for (const id of eventItemIds(text))
+    out = spliceChainItem(out, id, (t) => {
+      const r = fn(t);
+      moved += r.moved;
+      removed += r.removed;
+      return r.text;
+    });
+  return { text: out, moved, removed };
+}
+
 /** Insert (or delete) `lenBeats` of time at `atBeats`, everything judged by its `start`. */
 export function spliceProjectTime(
   dir: string,
@@ -73,23 +97,23 @@ export function spliceProjectTime(
   const end = atBeats + lenBeats;
 
   // 1. The LANES — what is playing, every take of it, and every alternative's own two lists.
-  for (const f of yamlIn(dir, "nodes"))
-    edit(
-      dir,
-      `nodes/${f}`,
-      (text) => {
-        const { text: out, splice } = spliceTime(
-          text,
-          atBeats,
-          lenBeats,
-          mode,
-          num,
-          den,
-        );
-        return { text: out, ...splice };
-      },
-      report,
+  const lanes = (text: string) => {
+    const { text: out, splice } = spliceTime(
+      text,
+      atBeats,
+      lenBeats,
+      mode,
+      num,
+      den,
     );
+    return { text: out, ...splice };
+  };
+  const folder = laneFolder(dir);
+  for (const f of yamlIn(dir, folder))
+    edit(dir, `${folder}/${f}`, lanes, report);
+  // …and in a chain project, any node item that holds events of its own (docs/chainFiles.md).
+  for (const rel of chainFiles(dir))
+    edit(dir, rel, (text) => eachEventItem(text, lanes), report);
 
   // 2. The CURVES: only a `custom` one is positioned, an LFO being periodic and an ADSR per-trigger.
   for (const f of yamlIn(dir, "curves"))

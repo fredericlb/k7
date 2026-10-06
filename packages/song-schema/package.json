@@ -23,6 +23,8 @@
     "./warpPoints": "./src/warpPoints.ts",
     "./yaml/alternativeFile": "./src/yaml/alternativeFile.ts",
     "./yaml/assemblyFile": "./src/yaml/assemblyFile.ts",
+    "./yaml/chainFile": "./src/yaml/chainFile.ts",
+    "./yaml/chainSchema": "./src/yaml/chainSchema.ts",
     "./yaml/assemblySchema": "./src/yaml/assemblySchema.ts",
     "./yaml/curveFile": "./src/yaml/curveFile.ts",
     "./yaml/entitySchemas": "./src/yaml/entitySchemas.ts",

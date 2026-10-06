@@ -42,9 +42,11 @@ describe("which kind of file a path is", () => {
   it("recognises sequences, clips, tracks and video tracks", () => {
     expect(isSeqFile("sequences/lead.yaml")).toBe(true);
     expect(isClipFile("clips/kick.yaml")).toBe(true);
-    // A lane lives in `nodes/` — it is a node of a `@meta/…-track` module.
+    // A lane lives in `nodes/` — it is a node of a `@meta/…-track` module — or a chain project's `tracks/`.
     expect(isTrackFile("nodes/melody.yaml")).toBe(true);
-    expect(isTrackFile("tracks/melody.yaml")).toBe(false);
+    expect(isTrackFile("tracks/melody.yaml")).toBe(true);
+    expect(isTrackFile("video_tracks/melody.yaml")).toBe(false);
+    expect(isTrackFile("chains/melody.yaml")).toBe(false);
     expect(isVideoTrackFile("video_tracks/cam.yaml")).toBe(true);
   });
 
@@ -154,6 +156,8 @@ describe("rackKeyOf", () => {
 
   it("answers nothing for every other file", () => {
     expect(rackKeyOf("clips/kick.yaml")).toBe(null);
+    // A chain file holds many nodes, so its path answers for none of them.
+    expect(rackKeyOf("chains/da.main.yaml")).toBe(null);
     expect(rackKeyOf("modules/instruments/drum_1/panel.yaml")).toBe(null);
   });
 });

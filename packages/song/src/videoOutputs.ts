@@ -6,7 +6,10 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { RENDER_NODE, VIDEO_OUT_NODE } from "@studio/song-schema/moduleTypes";
+import { CHAINS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { chainTaken } from "./chainCreate";
+import { isChainProject, readChainProject } from "./chainProject";
 
 /** The line itself, indented for a block mapping — one spelling, shared by the scaffold. */
 export const VIDEO_RUN_LINE = `  ${RENDER_NODE}: [ ${VIDEO_OUT_NODE} ]`;
@@ -33,6 +36,7 @@ export function addVideoRun(text: string): string | null {
 
 /** Give `dir`'s graph the run if it has none — the CALLER decides there is a viewport, docs/videoOutputs.md. */
 export function ensureVideoRun(dir: string): boolean {
+  if (isChainProject(dir)) return ensureChainVideoRun(resolve(dir));
   const file = join(resolve(dir), GRAPH_FILE);
   if (!existsSync(file)) return false;
   let text: string;
@@ -46,6 +50,27 @@ export function ensureVideoRun(dir: string): boolean {
   if (next === null) return false;
   try {
     writeFileSync(file, next, "utf8");
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+/** The same in a chain project: a chain starting at RENDER, written when none does. */
+function ensureChainVideoRun(dir: string): boolean {
+  const cp = readChainProject(dir);
+  if (Object.values(cp.chains).some((c) => c.start === RENDER_NODE))
+    return false;
+  // A chain file that would not read may be the one that starts there: guessing would write a second.
+  if (cp.issues.length) return false;
+  let name = "picture";
+  for (let i = 2; chainTaken(dir, name); i++) name = `picture-${i}`;
+  try {
+    writeFileSync(
+      join(dir, CHAINS_DIR, `${name}.yaml`),
+      `start: ${RENDER_NODE}\nsteps:\n  - to:\n      - { chain: ${VIDEO_OUT_NODE} }\n`,
+      "utf8",
+    );
   } catch {
     return false;
   }

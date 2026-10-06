@@ -9,6 +9,9 @@ import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { namePart } from "@studio/song-schema/instanceName";
 import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
+import { parseDocument } from "yaml";
+import { editChainItem } from "./chainItemEdit";
+import { isChainProject, readChainProject } from "./chainProject";
 import { deriveChains } from "./chainsGraph";
 import { engineModules, ioModules } from "./engineCatalogue";
 import { MODULE_TYPES, moduleRefOf } from "./loader";
@@ -130,7 +133,8 @@ export function materialiseEngineModule(
   // Repointed AFTER the file exists, same rule as a fork: a chain naming a module with no file won't load.
   const graphFile = entityFileFor(dir, "", GRAPH_BASE);
   let chains: string[] = [];
-  if (graphFile) {
+  if (isChainProject(dir)) chains = repointChainItems(dir, ref, localRef);
+  else if (graphFile) {
     const text = readFileSync(graphFile.path, "utf8");
     const r = renameNode(text, ref, localRef);
     if (r.text !== text) writeFileSync(graphFile.path, r.text, "utf8");
@@ -143,4 +147,19 @@ export function materialiseEngineModule(
     path: `${SHARED_MODULES_PATH}/${type}/${module}/module.yaml`,
     chains,
   };
+}
+
+/** A chain project names a module by an item's `extends`, never as a node: every item extending `ref` is repointed. */
+function repointChainItems(dir: string, ref: string, to: string): string[] {
+  const chains = new Set<string>();
+  for (const n of Object.values(readChainProject(dir).nodes)) {
+    if (n.track || (n.value as { extends?: unknown }).extends !== ref) continue;
+    editChainItem(dir, n.name, (text) => {
+      const doc = parseDocument(text, { version: "1.2" });
+      doc.set("extends", to);
+      return doc.toString({ lineWidth: 0 });
+    });
+    chains.add(n.chain);
+  }
+  return [...chains];
 }

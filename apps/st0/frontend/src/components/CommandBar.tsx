@@ -29,7 +29,12 @@ import {
   nextField,
   wantsKind,
 } from "../commandFill";
-import { rankCommands, rankValues } from "../palette";
+import {
+  type ArgOption,
+  rankCommands,
+  rankOptions,
+  toOptions,
+} from "../palette";
 import { recentCommands } from "../recentCommands";
 import type { ArgClass, MenuEntity } from "../types";
 import { CommandParams } from "./CommandParams";
@@ -105,8 +110,11 @@ export const CommandBar = forwardRef<
   CommandBarHandle,
   {
     commands: PaletteCommand[];
-    /** One param's WHOLE vocabulary, given the params before it; the ranking happens here. */
-    listArg: (command: string, priorArgs: string[]) => Promise<string[]>;
+    /** One param's WHOLE vocabulary, given the params before it; the ranking happens here. An option's label is what it is LISTED by. */
+    listArg: (
+      command: string,
+      priorArgs: string[],
+    ) => Promise<readonly (string | ArgOption)[]>;
     onRun: (line: string) => void; // the assembled canonical command line
     onClose?: () => void;
     autoFocus?: boolean;
@@ -136,7 +144,7 @@ export const CommandBar = forwardRef<
   const [values, setValues] = useState<string[]>([]);
   const [active, setActive] = useState(0);
   // The active field's WHOLE vocabulary, fetched once per field and ranked here: one round trip per question, and a fuzzy match.
-  const [vocab, setVocab] = useState<string[]>([]);
+  const [vocab, setVocab] = useState<ArgOption[]>([]);
   const [sel, setSel] = useState(0);
   // Whether the command list is on screen at all — it has to be FOCUS: the bar is docked, and the catalogue non-empty from the moment it loads.
   const [focused, setFocused] = useState(false);
@@ -155,7 +163,7 @@ export const CommandBar = forwardRef<
   );
   // The form's own typing goes in its field, so the bar's query is only ever the command's.
   const suggestions = useMemo(
-    () => (command ? rankValues(vocab, values[active] ?? "") : []),
+    () => (command ? rankOptions(vocab, values[active] ?? "") : []),
     [command, vocab, values, active],
   );
   const list: readonly unknown[] = command ? suggestions : matches;
@@ -263,7 +271,7 @@ export const CommandBar = forwardRef<
     setVocab([]);
     listArg(command.canonical, values.slice(0, active))
       .then((vals) => {
-        if (latest.current === id) setVocab(vals);
+        if (latest.current === id) setVocab(toOptions(vals));
       })
       .catch(() => {});
     // Deliberately NOT on `values`: that would re-fetch on every keystroke, and the prior args are read at fetch time.
@@ -337,7 +345,7 @@ export const CommandBar = forwardRef<
     if (e.key === "Tab") {
       e.preventDefault();
       // A highlighted suggestion is taken first — completion is still the validation — and the same key then steps on.
-      if (suggestions.length) takeSuggestion(suggestions[selIdx]);
+      if (suggestions.length) takeSuggestion(suggestions[selIdx].value);
       setActive((i) => nextField(command.args, i));
       setSel(0);
       return;
@@ -349,7 +357,7 @@ export const CommandBar = forwardRef<
         command.args,
         values,
         active,
-        suggestions.length ? suggestions[selIdx] : undefined,
+        suggestions.length ? suggestions[selIdx].value : undefined,
       );
       if (act.kind === "take") takeSuggestion(act.value);
       else if (act.kind === "run") runNow(values);
@@ -475,7 +483,7 @@ export const CommandBar = forwardRef<
               command.args,
               values,
               active,
-              suggestions.length ? suggestions[selIdx] : undefined,
+              suggestions.length ? suggestions[selIdx].value : undefined,
             ).kind
           }
           onType={setField}

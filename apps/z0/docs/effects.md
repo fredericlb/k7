@@ -30,12 +30,15 @@ knows how to hold a song's versions: its sidecar lists them under `variants:`, a
 does not name a file beside the master names a **chain**
 ([variants.md](../../../packages/mediatek/docs/variants.md)).
 
-```
-chains/blindtest/deformees/blue-monday/
-  graph.yaml            "@in" → pitch → wobble → highpass → chorus → overdrive → "@out"
-  nodes/pitch.yaml   extends: "@st0/audio/utility/pitch-shift"
-                         params: { "semitones up": 5 }
-  nodes/…
+```yaml
+# chains/blindtest/deformees/blue-monday.yaml — pitch → wobble → highpass → chorus → overdrive
+steps:
+  - id: a3bf6b9a-…
+    extends: "@st0/audio/zz_utility/pitch-shift"
+    params:
+      "semitones up": 5
+  - …
+  - to: [ { chain: "@out" } ]
 ```
 
 ```yaml
@@ -210,10 +213,8 @@ Without playing a note — a second engine beside the running one would block th
   graph, `bitcrush` as `"De Rez"` and `pitch-shift` as `"Pitch Shifter"`;
 - the six graphs build with the real `GraphBuilder` and use only node types `DspGraph::build`
   accepts;
-- the **16 chains** go through `chainSteps()` — the very function drawing and playing a variant use
-  — and return the expected step sequence; every `nodes/*.yaml` names an existing module, with no
-  orphan and no step without a node;
-- the médiathèque scan lists all 16 in the `chains` family, so pl8 shows them;
+- the **16 chains** go through `readTemplate()` — the reader a bounce and the bench use — and
+  return the expected step sequence, every step naming an existing module;
 - session-side, each category `variant:` finds, for every song concerned, either a file beside the
   master (28) or a chain that exists (20); 18 fall back to the master, which is the rule.
 

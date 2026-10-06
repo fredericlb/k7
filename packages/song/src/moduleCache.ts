@@ -57,6 +57,8 @@ function moduleStamp(dir: string): string {
   };
   for (const root of modulePanelRoots(dir)) walk(root, 0);
   walk(join(dir, "nodes"), 0);
+  // A chain project's nodes, lanes and plugin states (docs/chainFiles.md).
+  for (const sub of ["chains", "tracks", "vstpresets"]) walk(join(dir, sub), 0);
   // A rescan rewrites this and touches no library — `@engine/…` refs come out of it.
   stamp(EXTS_PATH);
   // …and a model landing in the machine's cache changes what a module's `onnx:` resolves to, in no

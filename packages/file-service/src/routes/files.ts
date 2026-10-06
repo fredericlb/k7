@@ -516,7 +516,13 @@ filesRouter.get(
 filesRouter.get(
   "/complete",
   wrap((req, res) =>
-    res.json(webCompletions(req.ws!, String(req.query.line ?? ""))),
+    res.json(
+      webCompletions(
+        req.ws!,
+        String(req.query.line ?? ""),
+        req.query.labels === "1",
+      ),
+    ),
   ),
 );
 // `at` is a folder the verbs act on INSTEAD of the open project, `want` names the views the caller will DRAW.

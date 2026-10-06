@@ -4,6 +4,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
@@ -67,10 +68,12 @@ export function editTrackStruct(
   transform: (text: string) => string,
   what: string,
 ): string {
-  // `nodes/`, because a lane IS a node of a `@meta/…-track` module and lives there.
-  const found = entityFileFor(join(dir, "nodes"), "nodes", id);
+  // `nodes/` (or a chain project's `tracks/`), because a lane IS a node of a `@meta/…-track` module.
+  const found = laneFileFor(dir, id);
   if (!found)
-    throw new Error(`track "${id}" has no file in nodes/ — cannot ${what}`);
+    throw new Error(
+      `track "${id}" has no file in ${laneFolder(dir)}/ — cannot ${what}`,
+    );
   const text = readFileSync(found.path, "utf8");
   const next = transform(text);
   if (next !== text) writeFileSync(found.path, next, "utf8");
@@ -317,8 +320,8 @@ export function resizeTrackPlacement(
   endBeats: number,
   tempo: number,
 ): ResizeReport | null {
-  const own = entityFileFor(join(dir, "nodes"), "nodes", id);
-  if (!own) throw new Error(`track "${id}" has no file in nodes/`);
+  const own = laneFileFor(dir, id);
+  if (!own) throw new Error(`track "${id}" has no file in ${laneFolder(dir)}/`);
   const text = readFileSync(own.path, "utf8");
   const at = findPlacementAt(text, fromBeats, num, den);
   if (at < 0) return null;

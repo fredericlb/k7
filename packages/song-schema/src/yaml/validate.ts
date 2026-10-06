@@ -10,6 +10,8 @@ import {
   PresetFileSchema,
   SHARED_PRESETS_DIR,
 } from "../presets";
+import { parseChain } from "./chainFile";
+import { CHAINS_DIR, TRACKS_DIR } from "./chainSchema";
 import {
   ClipSchema,
   CurveSchema,
@@ -17,6 +19,7 @@ import {
   VideoTrackSchema,
 } from "./entitySchemas";
 import { parseGraph } from "./graphFile";
+import { GRAPH_BASE } from "./graphSchema";
 import { MIX_BASE, parseMix } from "./mixFile";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./mixViewFile";
 import { locate, type ModuleIssue, parseModule } from "./moduleFile";
@@ -98,13 +101,19 @@ export function parserFor(path: string): Parse | null {
     if (base === "config") return against(ModuleConfigSchema);
     return parseModule; // module.yaml, and every <node>.yaml beside it
   }
-  // The project's flat nodes/ folder, LANES included; there is no `tracks/` branch (docs/trackModules.md).
+  // The project's flat nodes/ folder, LANES included — a library's older chain folder holds one too.
   if (inFolder("nodes")) return parseModule;
+  // A chain project's lane file is a module file (docs/chainFiles.md in @studio/song).
+  if (inFolder(TRACKS_DIR)) return parseModule;
+  // …and a chain, one per file, unless it is a library's older chain FOLDER's graph.yaml.
+  if (inFolder(CHAINS_DIR))
+    return base === GRAPH_BASE ? parseGraph : parseChain;
   if (inFolder("clips")) return against(ClipSchema);
   if (inFolder("sequences")) return against(SequenceSchema);
   if (inFolder("curves")) return against(CurveSchema);
   if (inFolder("video_tracks")) return against(VideoTrackSchema);
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
+  // A root `chains.yaml` is the segments file under its older name; a chain FILE was routed above.
   if (base === "chains") return parseGraph;
   if (base === "project") return against(ProjectFileSchema);
   // The cue sheet, at the ROOT: `views/mix.yaml` shares its base, so ORDER is what tells them apart.

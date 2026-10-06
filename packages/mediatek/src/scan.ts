@@ -11,10 +11,8 @@ import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
 import {
-  CHAINS_FILE,
   type Family,
   type MediatekEntry,
-  NODES_DIR,
   SONG_FILE,
   type SongVariant,
 } from "./types.ts";
@@ -28,8 +26,8 @@ export const UI_FILE = "ui.yaml";
 /** Where a module keeps what it LOADS rather than what it IS — `@studio/song`'s MODULE_ASSETS_DIR. */
 export const ASSETS_DIR = "assets";
 
-// Those three words live in types.ts, which a browser may import; re-exported where importers look.
-export { CHAINS_FILE, NODES_DIR, SONG_FILE };
+// That word lives in types.ts, which a browser may import; re-exported where importers look.
+export { SONG_FILE };
 
 function dirents(abs: string): Dirent[] {
   try {

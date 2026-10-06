@@ -114,6 +114,13 @@ export interface RawPlugin {
 
 /** The authored module struct plus what the LOADER adds; an INHERITED one has no local identity. */
 export interface LoadedModule {
+  // -- a chain project's node (docs/chainFiles.md) -------------------------------
+  /** The chain the node is an item of. */
+  chain?: string;
+  /** Its `id:` — a lane is known by its lane name, everything else by this. */
+  nodeId?: string;
+  /** Where its plugin state is saved, project-relative: `vstpresets/<file>`. */
+  presetRel?: string;
   // -- authored -----------------------------------------------------------------
   extends?: string;
   plugin?: RawPlugin;

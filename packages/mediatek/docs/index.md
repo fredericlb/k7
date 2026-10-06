@@ -58,16 +58,13 @@ for a different job: one is versioned with the songs it was written for and can 
 
 ## The words a browser needs live in `types.ts`
 
-`RECORDINGS_DIR`, `CHAINS_FILE`, `NODES_DIR` and `SONG_FILE` sit in `types.ts` rather than in
-`layout.ts` or `scan.ts`, where the rest of that shape lives. The reason is one-way: those two
-open `node:fs`, and a surface reaching for the *name* of a file must not pull the filesystem in
-with it. Both re-export the constants, so an importer may take them from either.
+`RECORDINGS_DIR` and `SONG_FILE` sit in `types.ts` rather than in `layout.ts` or `scan.ts`, where
+the rest of that shape lives. The reason is one-way: those two open `node:fs`, and a surface
+reaching for the *name* of a file must not pull the filesystem in with it. `scan.ts` re-exports
+`SONG_FILE`, so an importer may take it from either.
 
-`CHAINS_FILE` is `graph.yaml` — literally the same name a st0 project uses at its root, and
-deliberately so. A shared chain is not a different object from a project's whole topology: a chain
-is a **folder** holding that file with a `nodes/` beside it, which is exactly what a project holds,
-and the two differ only in a chain having no `project.yaml` and naming its ends `@in`/`@out`. One
-name, so nothing downstream carries a second spelling.
+A chain's layout is not a word of this package: chains live in the account's libraries, and
+`@studio/song`'s `libraryChains.ts` is the one reader of them (`packages/song/docs/sharedFolders.md`).
 
 ## `files` and `assets` are two different questions
 

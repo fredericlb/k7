@@ -45,6 +45,13 @@ import {
 import { ENTITY_SCHEMAS } from "@studio/song-schema/yaml/entitySchemas";
 import { parseGraph as parseGraphYaml } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
+import { moduleOfItem } from "@studio/song-schema/yaml/chainFile";
+import {
+  CHAINS_DIR,
+  type NodeItem,
+  TRACKS_DIR,
+  VSTPRESETS_DIR,
+} from "@studio/song-schema/yaml/chainSchema";
 import {
   cueRefs,
   MIX_BASE,
@@ -63,7 +70,14 @@ import {
   resolveModuleAssetIn,
   resolveModuleFileIn,
 } from "./assetPath";
-import { presetFor } from "./basePreset";
+import { basePresetIn, presetFor } from "./basePreset";
+import { chainTaken, createChainLane, createChainNode } from "./chainCreate";
+import {
+  isChainProject,
+  readChainProject,
+  readLayout,
+  toSegments,
+} from "./chainProject";
 import { loadControllerLibrary } from "./controller";
 import { docModules } from "./docModule";
 import { engineModules, engineRef, ioModules } from "./engineCatalogue";
@@ -460,6 +474,7 @@ function loadNodes(
   raw: { rel: string; module: Record<string, unknown> }[],
   yamlIssues: string[],
 ): void {
+  if (isChainProject(dir)) return loadChainNodes(dir, out, raw, yamlIssues);
   const folder = join(dir, NODES_DIR);
   if (!existsSync(folder) || !statSync(folder).isDirectory()) return;
   for (const { id: node, file } of entityFiles(folder, NODES_DIR)) {
@@ -497,6 +512,71 @@ function loadNodes(
       ...resolveAssets(value, folder),
       // Its own folder, so the ancestry fold can resolve a file this module inherits.
       folderAbs: folder,
+    } as LoadedModule;
+  }
+}
+
+// A chain project's nodes: each item of `chains/`, a lane's from `tracks/` — keyed by lane name or id (docs/chainFiles.md).
+function loadChainNodes(
+  dir: string,
+  out: Record<string, LoadedModule>,
+  raw: { rel: string; module: Record<string, unknown> }[],
+  yamlIssues: string[],
+): void {
+  const cp = readChainProject(dir);
+  yamlIssues.push(...cp.issues);
+  const presets = join(dir, VSTPRESETS_DIR);
+  for (const n of Object.values(cp.nodes)) {
+    let value: Record<string, unknown> | null;
+    let rel: string;
+    if (n.track) {
+      const file = entityFileFor(join(dir, TRACKS_DIR), TRACKS_DIR, n.track);
+      if (!file) {
+        yamlIssues.push(
+          `${CHAINS_DIR}/${n.chain}.yaml: lane "${n.track}" has no ${TRACKS_DIR}/${n.track}.yaml`,
+        );
+        continue;
+      }
+      const read = readModuleFile(file);
+      yamlIssues.push(...read.issues);
+      value = read.value;
+      rel = file.rel;
+    } else {
+      value = moduleOfItem(n.value);
+      rel = `${CHAINS_DIR}/${n.chain}.yaml`;
+    }
+    if (!value || typeof value !== "object") continue;
+    raw.push({ rel, module: value });
+    // A node's state is `vstpresets/<its vstpreset:>`, defaulting to its id; a chosen `base:` still wins.
+    const presetName = n.track
+      ? undefined
+      : ((n.value as NodeItem).vstpreset ?? `${n.id}.vstpreset`);
+    const own =
+      presetName && existsSync(join(presets, presetName))
+        ? join(presets, presetName)
+        : undefined;
+    const preset = basePresetIn(presets, value.base) ?? own;
+    out[n.name] = {
+      ...value,
+      name: n.name,
+      node: n.name,
+      file: n.name,
+      home: n.track ? TRACKS_DIR : CHAINS_DIR,
+      chain: n.chain,
+      nodeId: n.id,
+      ...(presetName ? { presetRel: `${VSTPRESETS_DIR}/${presetName}` } : {}),
+      ...(typeof value.io === "string"
+        ? { kind: "io" }
+        : typeof value.extends !== "string"
+          ? { kind: "plugin" }
+          : {}),
+      rack: value.rack
+        ? resolveRackAudio(value.rack as RawRack, dir, dir)
+        : undefined,
+      ...(preset ? { preset } : {}),
+      ...dspSourceFor(value, dir),
+      ...resolveAssets(value, dir),
+      folderAbs: dir,
     } as LoadedModule;
   }
 }
@@ -727,6 +807,12 @@ export function loadChains(
   root: RawProjectRoot,
   validate = false,
 ): unknown {
+  if (isChainProject(dir)) {
+    const cp = readChainProject(dir);
+    if (cp.issues.length && validate)
+      throw new Error(`invalid chains:\n  ${cp.issues.join("\n  ")}`);
+    return toSegments(cp, readLayout(dir)).graph;
+  }
   const file = entityFileFor(dir, "", GRAPH_BASE);
   if (!file) return root?.chains;
   const { value, issues } = parseGraphYaml(readFileSync(file.path, "utf8"));
@@ -904,26 +990,27 @@ export function withChainModuleRefs(
   return out;
 }
 
-// Create `nodes/<id>.yaml` — a LANE and nothing else, with no kind, appending to `trackOrder` only when there is one.
+// Create a LANE's file (`nodes/`, or `tracks/` and its chain in a chain project), appending to `trackOrder` when there is one.
 export function createTrackFile(dir: string, id: string): string[] {
   // The filename is the id, and the id is what a chain's key names.
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
     throw new Error(
       `invalid track name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
+  const body = [`extends: "${TRACK_REF}"`, "events: []", ""].join("\n");
+  // A chain project keeps a lane in `tracks/`, played by a chain of its own (docs/chainFiles.md).
+  const written = isChainProject(dir) ? createChainLane(dir, id, body) : null;
   const rel = `nodes/${id}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (!written && existsSync(join(dir, rel)))
     throw new Error(`track '${id}' already exists (${rel})`);
   // A module of that name is NOT in the way: the lane takes the bare name and the module keeps its
   // ref, which is the only way a node names one anyway (docs/trackModules.md). `freeNodeName`
   // proposes past both, so nothing shadows anything by accident.
 
-  mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
-    join(dir, rel),
-    [`extends: "${TRACK_REF}"`, "events: []", ""].join("\n"),
-    "utf8",
-  );
+  if (!written) {
+    mkdirSync(join(dir, "nodes"), { recursive: true });
+    writeFileSync(join(dir, rel), body, "utf8");
+  }
 
   const root = loadProjectRoot(dir, true);
   if (Array.isArray(root.trackOrder)) {
@@ -931,7 +1018,7 @@ export function createTrackFile(dir: string, id: string): string[] {
     if (projectFile)
       setFileValue(projectFile.path, ["trackOrder"], [...root.trackOrder, id]);
   }
-  return [rel];
+  return written ?? [rel];
 }
 
 /** State a lane order in `project.yaml` — the song's lanes, or its picture's, which are two lists (docs/trackKind.md). */
@@ -962,7 +1049,11 @@ export function createVideoTrackFile(dir: string, id: string): string[] {
   if (existsSync(join(dir, rel)))
     throw new Error(`picture lane '${id}' already exists (${rel})`);
   // The graph draws a song's lanes and its picture lanes in ONE name space, so the two cannot share a name.
-  if (existsSync(join(dir, "nodes", `${id}.yaml`)) || id in loadModules(dir))
+  if (
+    existsSync(join(dir, "nodes", `${id}.yaml`)) ||
+    existsSync(join(dir, "tracks", `${id}.yaml`)) ||
+    id in loadModules(dir)
+  )
     throw new Error(`'${id}' is already a track or a module in this project`);
   // Looked up BEFORE either write: an orphan lane file would fail the compile until somebody listed it by hand.
   const projectFile = entityFileFor(dir, "", "project");
@@ -1122,6 +1213,9 @@ export function createIoModuleFile(
     throw new Error(
       `invalid io module name '${name}' — letters, digits, '_' and '-' only`,
     );
+  // In a chain project the name is the new chain's, and what comes back is the node's id.
+  if (isChainProject(dir))
+    return createChainNode(dir, name, ioModuleBody(name, role)).id;
   const rel = `${NODES_DIR}/${name}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
@@ -1142,10 +1236,15 @@ export function freeNodeName(
 // Is this name already spoken for, as a module OR as a file in `nodes/` — built once so proposing and accepting cannot disagree.
 export function nodeNameTaken(dir: string): (name: string) => boolean {
   const taken = loadModules(dir);
-  return (n) => n in taken || existsSync(join(dir, NODES_DIR, `${n}.yaml`));
+  // In a chain project a proposed name becomes a CHAIN's, so a chain file of that name takes it too.
+  const chains = isChainProject(dir);
+  return (n) =>
+    n in taken ||
+    existsSync(join(dir, NODES_DIR, `${n}.yaml`)) ||
+    (chains && chainTaken(dir, n));
 }
 
-// Create one USE of a module: `nodes/<node>.yaml`, FLAT whatever it is a use of — see docs/nodes.md.
+// Create one USE of a module: `nodes/<node>.yaml`, FLAT — or a loose chain item, returning its id (docs/chainFiles.md).
 export function createNode(
   dir: string,
   category: string,
@@ -1204,7 +1303,8 @@ export function createNode(
   // Free among the NODES, which is what the file check below asks. A module of that name is not in
   // the way: the node takes the bare name and the module keeps its ref (docs/trackModules.md).
   const rel = `${NODES_DIR}/${node}.yaml`;
-  if (existsSync(join(dir, rel)))
+  const chains = isChainProject(dir);
+  if (!chains && existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   const plugin = fromEngine?.plugin;
   // The explicit level, which is the form new files are written in — see loadModuleRefs.
@@ -1223,6 +1323,8 @@ export function createNode(
       `plugin:\n` +
       `  type: ${JSON.stringify(String(plugin?.type ?? ""))}\n` +
       `  name: ${JSON.stringify(String(plugin?.name ?? ""))}\n`;
+  // A chain project: one item in a chain named `node`, and the node's id is what comes back.
+  if (chains) return createChainNode(dir, node, body).id;
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
   writeFileSync(join(dir, rel), body, "utf8");
   return rel;

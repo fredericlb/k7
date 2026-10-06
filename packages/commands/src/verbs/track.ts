@@ -1,7 +1,8 @@
 // track.ts — the `track duplicate` verbs: one lane becomes two, each with its own
 // copy of the signal chain. The empty form leaves the events behind; the chain is
 // copied either way, because a duplicated lane must not share its effect instances
-// with the lane it came from. See packages/song/docs/nodes.md.
+// with the lane it came from. See packages/song/docs/nodes.md; a chain project is copied by
+// trackChain.ts (packages/song/docs/chainFiles.md).
 
 import {
   copyFileSync,
@@ -12,6 +13,9 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { chainTaken } from "@studio/song/chainCreate";
+import { laneFolder } from "@studio/song/chainItemEdit";
+import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { type GraphDoc, loadGraph } from "@studio/song/graph";
 import { createTrackFile, loadModules } from "@studio/song/loader";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";
@@ -35,6 +39,7 @@ import {
 } from "@studio/song-schema/yaml/trackFile";
 import { parseDocument } from "yaml";
 import type { CommandHost, SidHandler } from "../commands.ts";
+import { duplicateLaneChain } from "./trackChain.ts";
 
 export const TRACK_VERBS: Record<string, SidHandler> = {
   "track.duplicate": (a, h) => duplicateTrack(a, h, true),
@@ -198,7 +203,8 @@ async function duplicateTrack(
   }
   const dir = h.songPath;
   const lane = splitPort(idArg).node;
-  const srcRel = join("nodes", `${lane}.yaml`);
+  const chained = isChainProject(dir);
+  const srcRel = join(laneFolder(dir), `${lane}.yaml`);
   const srcAbs = join(dir, srcRel);
   if (!existsSync(srcAbs)) {
     h.refuse([`no track "${idArg}" — ${srcRel} does not exist`]);
@@ -218,15 +224,17 @@ async function duplicateTrack(
       return;
     }
 
-    const g = loadGraph(dir);
+    const g = chained ? null : loadGraph(dir);
     const graphAbs = join(dir, GRAPH_FILE);
-    const graphText = existsSync(graphAbs)
-      ? readFileSync(graphAbs, "utf8")
-      : "";
+    const graphText =
+      !chained && existsSync(graphAbs) ? readFileSync(graphAbs, "utf8") : "";
     const parsed = graphText ? parseGraph(graphText) : null;
     if (parsed && (!parsed.value || parsed.issues.length))
       throw new Error(parsed.issues[0]?.message ?? "graph.yaml unreadable");
-    const modules = parsed?.value?.modules ?? {};
+    // In a chain project the graph's names are the chain files' nodes, and a chain's name is taken too.
+    const modules = chained
+      ? readChainProject(dir).nodes
+      : (parsed?.value?.modules ?? {});
 
     // One name space: the graph keys, the module folders and the node files (docs/nodes.md).
     const reserved = new Set<string>();
@@ -235,7 +243,8 @@ async function duplicateTrack(
       reserved.has(name) ||
       name in modules ||
       name in loadedModules ||
-      existsSync(join(dir, "nodes", `${name}.yaml`));
+      existsSync(join(dir, laneFolder(dir), `${name}.yaml`)) ||
+      (chained && chainTaken(dir, name));
     const claim = (name: string): string => {
       reserved.add(name);
       return name;
@@ -262,9 +271,12 @@ async function duplicateTrack(
       if (placements.length) addTrackPlacements(dir, newLane, placements);
     }
 
-    const chainFiles = duplicateChain(dir, lane, newLane, g, taken, claim);
+    const chainFiles = g
+      ? duplicateChain(dir, lane, newLane, g, taken, claim)
+      : duplicateLaneChain(dir, lane, newLane, taken, claim);
     await h.reload();
-    h.log([`+ track ${newLane} (${[...made, ...chainFiles].join(", ")})`]);
+    const files = [...new Set([...made, ...chainFiles])];
+    h.log([`+ track ${newLane} (${files.join(", ")})`]);
   } catch (e) {
     h.refuse([`track duplicate: ${(e as Error).message}`]);
   }

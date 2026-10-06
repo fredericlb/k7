@@ -27,6 +27,7 @@ import { parse as parseYaml } from "yaml";
 import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
+import { isChainProject } from "./chainProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 
 export type * from "@studio/engine-protocol/project";
@@ -137,7 +138,9 @@ export function loadProject(sourcePath: string): ProjectDoc {
     const dir = statSync(abs).isDirectory() ? abs : dirname(abs);
     // A node project (graph.yaml / modules/) is the graph model — compile it down (nodeProject.ts).
     const doc =
-      existsSync(join(dir, GRAPH_FILE)) || existsSync(join(dir, "modules"))
+      existsSync(join(dir, GRAPH_FILE)) ||
+      existsSync(join(dir, "modules")) ||
+      isChainProject(dir)
         ? compileNodeProject(dir)
         : mapDoc(assembleFolder(dir), dir);
     // Set here, not in the two compilers, so both agree by not each deciding.

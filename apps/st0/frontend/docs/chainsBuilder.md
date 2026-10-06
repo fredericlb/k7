@@ -8,19 +8,20 @@ as it was.
 
 ## Why there is no second editor
 
-A chain template **is** a graph. Same parser, same derivation, same segments. Two differences, and
-both are about what it *is* rather than how it is written: no `project.yaml` beside it, and ends
-named `@in`/`@out` instead of a lane and a sink. Same file name, same `nodes/` beside it — a
-chain is a folder laid out exactly as a project is.
-
-So the whole feature is four small seams rather than a parallel editor:
+A chain template is a chain FILE, `<library>/chains/<path>.yaml` — the format a project's chains
+are written in, ending at `@out` (`packages/song/docs/sharedFolders.md`). A library clone not yet
+migrated still holds FOLDER chains, `graph.yaml` with `nodes/` beside it, and the screen opens both:
 
 | where | what it does |
 |---|---|
-| `@studio/song`'s `graphFileOf` | one name to look for, so all eight graph verbs reach a template without one of them knowing it might be one |
-| `GET /library-chains` | what the library holds — `ref` (`process/normalize`) and `path`, the address a browser may hand back |
-| `GET /graph?at=<path>` | that chain's graph, through the branch `graphDoc` already had for a non-active project |
-| `POST /command { line, at }` | the verbs, pointed at the chain's folder instead of the open song |
+| `GET /library-chains` | what the libraries hold — `ref` and `path`, the address a browser may hand back: the file, or a folder chain's folder |
+| `src/templateGraph.ts` | a chain file drawn from its own saved text, as one run from `@in` to `@out` |
+| `GET /graph?at=<path>` | a folder chain's graph, through the branch `graphDoc` already had for a non-active project |
+| `POST /command { line, at }` | the verbs, pointed at a folder chain instead of the open song |
+
+A chain file is drawn in the browser because the server's graph and its verbs read a FOLDER as a
+project; until they read a chain file, the gestures on one are said to reach folder chains only
+rather than run against nothing, and the file is edited as text.
 
 `at` is a path the caller was **given**, never one it built — the rule `/module-libraries` and
 `POST /module` already follow — and it goes through `safePath` like every path a browser sends.
@@ -36,9 +37,8 @@ Three doors, and the tab is the one you find without knowing the word:
 - `chains builder` in the command bar, which toggles like `help`.
 - `/chains-builder`, or `/chains-builder/<ref>` — an address you can bookmark.
 
-A chain row is a
-LEAF though a chain is a folder on disk: what the tab offers is the chain, not its files, and the
-module lookup beside it cannot tell the two folders apart — so the chain map is asked first.
+A chain file is a leaf row. A folder chain is a folder row with its node files under it, and the
+module lookup beside it cannot tell that folder from a module's — so the chain map is asked first.
 
 ## What the screen wires
 
@@ -52,9 +52,9 @@ A chain drawn without its gestures would be a picture of one, which pl8 already 
 
 ## The text half
 
-Beside the drawing: one tab per file — the chain graph, then each node — in the repo own YamlPane,
-with the autosave every text pane here runs. No Save button; written as soon as it is a file the
-compiler could read.
+Beside the drawing: the chain file, or for a folder chain one tab per file — the graph, then each
+node — in the repo own YamlPane, with the autosave every text pane here runs. No Save button;
+written as soon as it is a file the compiler could read.
 
 The two halves are one chain seen twice. A verb rewrites the file under the pane showing it, so a
 save bumps the same revision the gestures do and both re-read. Editing a node extends changes
@@ -62,9 +62,10 @@ what the graph draws on the next read.
 
 ## What is not wired yet
 
-- **Creating a chain.** Adding a NODE to one works and is tested (`chainNodeNew.test.ts`): pointed
-  at a template, `node new` writes into that chain's own `nodes/` and puts the node in its graph.
-  Making a new chain from nothing has no verb yet.
+- **Gestures on a chain file.** The graph verbs and `node new` reach a folder chain only; a chain
+  file is edited as text, and its drawing has no cable, splice or pin.
+- **Creating a chain.** Adding a NODE to a folder chain works and is tested
+  (`chainNodeNew.test.ts`). Making a new chain from nothing has no verb yet.
 - **Committing.** The library is a git repository (`pl8-libraries`) and an edit leaves it dirty.
   Nothing in this screen publishes.
 - **The engine.** A chain edited here is not heard. It is heard by being named in a project that

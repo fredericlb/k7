@@ -45,6 +45,10 @@ opening it. So the header says the MODULE, with the node's own name on hover —
 It is absent on a node that IS a module (a `modules/…/module.yaml` names itself) and on a track,
 which has no module at all. That absence is what the header reads as "one name here".
 
+`WebChainStep.place` stands in for the node's own name where that name is a uuid — a chain
+project's unnamed node, `chain · step n` (`packages/song/docs/chainFiles.md`). Only ever SHOWN:
+`module` stays the identity every verb is sent, and a step without `place` shows `module`.
+
 ## Ports: what is sent, and when
 
 `inputs` is sent only when a module has more than the one input every module has; absent means the

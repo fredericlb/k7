@@ -31,6 +31,7 @@ import {
   loadAssemblyTemplate,
   projectAssemblies,
 } from "./assemblies";
+import { isChainProject } from "./chainProject";
 import { entityFiles } from "./yaml/moduleIO";
 
 /** The name a member takes in the project: the box's, then the template's own word for it. */
@@ -47,6 +48,11 @@ export function createAssembly(
   id: string,
   at?: { x: number; y: number },
 ): { file: string; members: Record<string, string> } {
+  // A box names its members by NAME, which a chain project's nodes no longer have (docs/chainFiles.md).
+  if (isChainProject(dir))
+    throw new Error(
+      "a chain project cannot hold assemblies yet — a box names its nodes, and these are known by id",
+    );
   // The filename IS the id, exactly as it is for a surface and every other flat entity folder.
   if (!/^[A-Za-z0-9_-]+$/.test(id))
     throw new Error(

@@ -15,9 +15,9 @@ export const isSeqFile = (path: string): boolean =>
 /** A clip file — audio (a waveform) or video. */
 export const isClipFile = (path: string): boolean =>
   kind("clips").test(norm(path));
-/** A LANE's file — a node in `nodes/`; deliberately the loose test, since what it decides is whether the minimap points at a track. */
+/** A LANE's file — a node in `nodes/`, or a chain project's `tracks/`; deliberately loose, since it decides whether the minimap points at a track. */
 export const isTrackFile = (path: string): boolean =>
-  kind("nodes").test(norm(path));
+  kind("nodes").test(norm(path)) || kind("tracks").test(norm(path));
 /** A PICTURE lane's placement file: a flat mapping whose `events:` lists placements, in seconds (VideoReadersStrip.tsx). */
 export const isVideoTrackFile = (path: string): boolean =>
   kind("video_tracks").test(norm(path));
@@ -36,6 +36,7 @@ export const rackKeyOf = (path: string): string | null => {
         .split("/")
         .pop() ?? null
     );
+  // A chain project's file holds many nodes, keyed by uuid, so its path names none (packages/song/docs/chainFiles.md).
   const m = /(^|\/)nodes\/([^/]+)\.ya?ml$/i.exec(p);
   return m ? m[2] : null;
 };

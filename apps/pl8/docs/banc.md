@@ -12,7 +12,10 @@ can name comes from. A bench always names the chain it is ON:
   input and the fader (`/@banc/vocals/warm/live.st0`, `/@banc/@st0/vocals/warm/live.st0`). It is
   how a chain is HEARD on a live input — k7 records through it
   ([apps/k7/docs/chainSource.md](../../k7/docs/chainSource.md)) — anyone may open it, and it edits
-  no library.
+  no library. The copy is the RIG's own: the template's steps become the rig's segments and node
+  files, a chain file's nodes named after the modules they extend, since an id says nothing on a
+  card (`packages/file-service/src/benchChain.ts`). The rig stays a segment project so the one
+  scaffold `live` writes is the one the bench opens.
 
 The bare `/@banc/live.st0` is refused, and so is a bare library ref, `/@banc/@st0/live.st0`. A rig
 on nothing would play nothing in particular, and a library is not edited on a bench: an admin edits

@@ -6,6 +6,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import {
   materialWindowOf,
   type WindowValue,
@@ -172,8 +173,9 @@ export function splitSequenceMaterial(
   num: number,
   den: number,
 ): PhysicalSplitReport | null {
-  const own = entityFileFor(join(dir, "nodes"), "nodes", trackId);
-  if (!own) throw new Error(`track "${trackId}" has no file in nodes/`);
+  const own = laneFileFor(dir, trackId);
+  if (!own)
+    throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
   const text = readFileSync(own.path, "utf8");
   const index = findPlacementAt(text, fromBeats, num, den);
   if (index < 0) return null;
@@ -249,8 +251,9 @@ export function consolidateSequenceMaterial(
   num: number,
   den: number,
 ): ConsolidateReport | null {
-  const own = entityFileFor(join(dir, "nodes"), "nodes", trackId);
-  if (!own) throw new Error(`track "${trackId}" has no file in nodes/`);
+  const own = laneFileFor(dir, trackId);
+  if (!own)
+    throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
   const text = readFileSync(own.path, "utf8");
 
   const startOf = (p: Record<string, unknown>): number | null => {

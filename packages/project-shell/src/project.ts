@@ -35,6 +35,12 @@ import type {
 } from "@studio/web-protocol";
 import { fget, fsend } from "./fileApi.ts";
 
+/** One `/complete` candidate: the line it completes to, and what a list shows for its value instead. */
+export interface Completion {
+  line: string;
+  label?: string;
+}
+
 /** A derived view a writing command may be asked to build — a list, see docs/fileApi.md. */
 export type CommandWant = "graph";
 
@@ -172,8 +178,14 @@ export const projectApi = {
 
   // --- The CLI's own verbs, which the command bar dispatches through ------------
   commands: () => fget<CommandInfo[]>("/commands"),
+  /** Every candidate as an item, the label set only where the service gave one — commands/docs/completions.md. */
   complete: (line: string) =>
-    fget<string[]>(`/complete?line=${encodeURIComponent(line)}`),
+    fget<(string | Completion)[]>(
+      `/complete?line=${encodeURIComponent(line)}&labels=1`,
+    ).then((list) =>
+      // A service that predates labels answers bare strings, and so does the current one for an unlabelled line.
+      list.map((c): Completion => (typeof c === "string" ? { line: c } : c)),
+    ),
   /** Run a verb; `want`, `graph`, `rev`, `refused` and `changed` are all in docs/fileApi.md. */
   command: (
     line: string,

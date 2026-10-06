@@ -63,6 +63,8 @@ const CARRIED = [
   "shader",
   // The module this node is a USE of — the header draws it as the card's name.
   "uses",
+  // …and where an unnamed node sits, which every text that would show its uuid shows instead.
+  "place",
   // The engine's stage the card draws on its header's second line — docs/graphBuild.md.
   "stage",
   // A lane's strip, whose header draws neither the bypass nor the alternative badges.

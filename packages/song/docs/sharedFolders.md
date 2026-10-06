@@ -98,6 +98,39 @@ library a path is in — an overlay's clone counting as its library, the hub's c
 overlaid library as none — which is what the write guard asks and what the file API maps back to
 `_libraries/<name>/…`.
 
+## A chain template is ONE file
+
+`<library>/chains/<path>.yaml` is the chain `@<library>/<path>`, written as a project's chain file is
+([chainFiles.md](chainFiles.md)): its steps in order, each node an item with its `id`, and last the
+one link it makes.
+
+```yaml
+# <library>/chains/process/normalize.yaml
+steps:
+  - { id: 0706883d-…, extends: "@st0/cold/normalize", params: { Target: -1 } }
+  - to: [ { chain: "@out" } ]
+```
+
+- **No `start`, no `ports`.** A template is fed by whatever it is put after — a clip's audio in a
+  bounce, the rig's input on the bench — so its one input is implicit: its first node's main input.
+  A declared port would name another input of that node, which nothing that runs a template feeds.
+- **One run.** Every reader flattens a template — a bounce into a plugin list, the bench into its
+  own segments — so a side-by-side step, or a link anywhere but `@out`, is refused by name rather
+  than half-run.
+- **`@out` is written, not implied**, because a chain's last step is where it says its signal goes,
+  and a template's goes to wherever it is put. It is one of `CHAIN_SINKS` for that.
+- **A node's plugin state** is `<library>/vstpresets/<file>`, named by its `vstpreset:` (default
+  `<id>.vstpreset`): the library stands where a project stands, its `vstpresets/` beside its
+  `chains/`. Ids are uuids, so every template shares the one folder without colliding.
+
+`libraryChains.ts` also reads the FOLDER a clone may still hold — `chains/<path>/graph.yaml`, ends
+`@in`/`@out`, a `nodes/` beside it — and answers the file when a ref is held both ways, so a live
+clone keeps working until it is migrated. `scripts/migrateLibraryChains.ts` converts a library: it
+takes the run a graph declares from `@in` to `@out`, refuses anything else and any file a chain
+file has no place for, and reads every conversion back through the same reader, step by step,
+before writing it. The run is what it trusts, not the folder reader: a graph that still keys its
+source under `tracks:` reads as no step at all.
+
 ## Why nothing declares them
 
 A declared list could only ever name those same two places, so it decides nothing — while giving

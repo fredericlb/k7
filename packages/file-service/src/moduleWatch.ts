@@ -7,6 +7,11 @@ import { type FSWatcher, watch } from "node:fs";
 import { join, sep } from "node:path";
 import { setFoldersStill } from "@studio/song/moduleCache";
 import { modulePanelRoots } from "@studio/song/sharedFolders";
+import {
+  CHAINS_DIR,
+  TRACKS_DIR,
+  VSTPRESETS_DIR,
+} from "@studio/song-schema/yaml/chainSchema";
 
 /** A ceiling, not a cache interval: it makes a MISSED event a delay — see docs/moduleWatch.md. */
 export const WALK_ANYWAY_MS = 10_000;
@@ -15,6 +20,8 @@ export const WALK_ANYWAY_MS = 10_000;
 const rootsOf = (dir: string): string[] => [
   ...modulePanelRoots(dir),
   join(dir, "nodes"),
+  // A chain project's nodes, lanes and plugin states; `layout.yaml` feeds no cached read (docs/moduleWatch.md).
+  ...[CHAINS_DIR, TRACKS_DIR, VSTPRESETS_DIR].map((d) => join(dir, d)),
 ];
 
 interface Watch {

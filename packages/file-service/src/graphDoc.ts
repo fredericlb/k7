@@ -19,7 +19,7 @@ import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
-import { inputLandingTrack, loadGraph } from "@studio/song/graph";
+import { inputLandingTrack, loadGraph, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { missingModel } from "@studio/song/modelCache";
 import {
@@ -236,6 +236,8 @@ export function buildGraphDoc(
   // …and the `assets/` listings, memoised for this whole build because ancestors repeat.
   const assets = assetLookup();
   const usedCurves: WebGraph["curves"] = {};
+  // A chain project's unnamed nodes, by where they sit — what a card shows instead of the uuid.
+  const places = nodePlaces(dir);
   const chains: WebGraph["chains"] = {};
   for (const [name, c] of Object.entries(g.chains))
     chains[name] = {
@@ -289,6 +291,7 @@ export function buildGraphDoc(
           module: s.module,
           // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.
           ...(module?.extends ? { uses: String(module.extends) } : {}),
+          ...(places[s.module] ? { place: places[s.module].place } : {}),
           // …and the engine's stage it takes, the one test the compile applies — none on a strip, whose own Volume is the level.
           ...(() => {
             const stage =

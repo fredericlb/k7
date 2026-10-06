@@ -24,6 +24,7 @@ import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
+import { loadLinkLevels } from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { withConsole } from "./console";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
@@ -41,6 +42,7 @@ import {
   loadGraph,
   parseChains,
 } from "./graph";
+import { applyLinkLevels } from "./linkLevels";
 import {
   type Diagnostic,
   exportSub,
@@ -405,6 +407,8 @@ function compileNodeProjectIn(
     rawChains,
     (n) => n in lanesMap,
   ); // keyed by each head's resolved name
+  // A chain project's link levels, which segments cannot carry: a send to a bus plays at its level (docs/chainFiles.md).
+  applyLinkLevels(chains, loadLinkLevels(dir));
   // A lane's MUTE, from the one place a bypass is written.
   const bypassed = bypassedOf(rawChains);
   // Kept apart from `bypassed` on purpose: one says the module is off, the other where the signal goes.
@@ -688,15 +692,17 @@ function compileNodeProjectIn(
       );
       if (!type) continue; // internal missing its name
       // Named by what this step IS, so a node saves beside its own file; a flat node carries its own folder (`home`).
-      const presetSave = module.home
-        ? join(dir, String(module.home), `${String(module.node)}.vstpreset`)
-        : join(
-            dir,
-            "modules",
-            String(module.category),
-            String(module.file ?? step.module),
-            `${String(module.node ?? module.file ?? step.module)}.vstpreset`,
-          );
+      const presetSave = module.presetRel
+        ? join(dir, String(module.presetRel))
+        : module.home
+          ? join(dir, String(module.home), `${String(module.node)}.vstpreset`)
+          : join(
+              dir,
+              "modules",
+              String(module.category),
+              String(module.file ?? step.module),
+              `${String(module.node ?? module.file ?? step.module)}.vstpreset`,
+            );
       (trackPlugins[owner] ??= []).push({
         id: `${name}:${step.module}`,
         type, // engine wire form: built-in xmlTypeName (e.g. "4osc") or external format ("vst3")

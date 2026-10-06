@@ -24,6 +24,7 @@ import {
   surfaceTypeOf,
 } from "@studio/song-schema/yaml/surfaceRegistry";
 import type { SurfaceType } from "@studio/song-schema/yaml/surfaceSchema";
+import { isChainProject, readChainProject } from "./chainProject";
 import { type Diagnostic, NODES_DIR } from "./loader";
 import { ensureVideoRun } from "./videoOutputs";
 import { entityFiles } from "./yaml/moduleIO";
@@ -129,6 +130,11 @@ const CAMERA_FIELD = new RegExp(
 
 /** Whether `dir` declares a LENS, which needs no lane — a camera is a plain node (docs/moduleTypes.md). */
 function namesCamera(dir: string): boolean {
+  // A chain project's nodes are items of its chain files, read whole rather than grepped (docs/chainFiles.md).
+  if (isChainProject(dir))
+    return Object.values(readChainProject(dir).nodes).some(
+      (n) => (n.value as { io?: unknown }).io === CAMERA_IO,
+    );
   const nodes = join(resolve(dir), NODES_DIR);
   let found: string[];
   try {

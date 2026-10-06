@@ -1,5 +1,6 @@
 // The bench opened ON a library chain — k7's chain source. What is proved: the chain lands between
-// the input and the fader, a cold chain is listed but refused, and the library is never written.
+// the input and the fader in either layout, a cold chain is listed but refused, and the library is
+// never written.
 
 import {
   mkdirSync,
@@ -61,6 +62,13 @@ beforeEach(() => {
     "chains/master/norm/nodes/norm.yaml",
     'extends: "@st0/audio/normalize"\n',
   );
+  // The same chain as a FILE: nodes inline, named by id, and a preset in the library's vstpresets/.
+  put(
+    "chains/vocals/bright.yaml",
+    'steps:\n  - { id: a1, extends: "@st0/audio/comp", params: { Ratio: 0.5 } }\n' +
+      '  - { id: b2, extends: "@st0/audio/eq", bypass: true }\n  - to: [ { chain: "@out" } ]\n',
+  );
+  put("vstpresets/a1.vstpreset", "state");
 });
 
 afterEach(() => {
@@ -73,10 +81,12 @@ describe("the bench, on a library chain", () => {
     const chains = liveChains(benchDir());
     expect(chains.map((c) => c.ref)).toEqual([
       "@st0/master/norm",
+      "@st0/vocals/bright",
       "@st0/vocals/warm",
     ]);
     expect(chains[0].unavailable).toContain("on disk");
     expect(chains[1].unavailable).toBeNull();
+    expect(chains[2].unavailable).toBeNull();
   });
 
   it("puts the chain between the input and the fader, the rest of the rig untouched", async () => {
@@ -92,6 +102,21 @@ describe("the bench, on a library chain", () => {
     expect(readdirSync(join(benchDir(), "nodes"))).toEqual(
       expect.arrayContaining(["comp.yaml", "eq.yaml", "fader.yaml"]),
     );
+  });
+
+  it("copies a chain FILE as the bench's own segments and node files, named after their modules", async () => {
+    await ensureBench(EMAIL, benchProject("vocals/bright"));
+    const graph = readFileSync(join(benchDir(), "graph.yaml"), "utf8");
+    expect(graph).toContain("IN: [ comp ]");
+    expect(graph).toContain("comp: [ eq ]");
+    expect(graph).toContain("eq: [ fader ]");
+    expect(graph).toMatch(/bypassed: \[ eq \]/);
+    expect(
+      readFileSync(join(benchDir(), "nodes", "comp.yaml"), "utf8"),
+    ).toContain("Ratio: 0.5");
+    expect(
+      readFileSync(join(benchDir(), "nodes", "comp.vstpreset"), "utf8"),
+    ).toBe("state");
   });
 
   it("refuses a chain that cannot run live, and one the library does not hold", async () => {

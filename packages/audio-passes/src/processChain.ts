@@ -21,9 +21,11 @@ import {
   pluginDoc,
   trackDoc,
 } from "@studio/engine-protocol/build";
-import { CHAINS_FILE, NODES_DIR } from "@studio/mediatek/types";
-import { chainSteps } from "@studio/song/chainsGraph";
-import { libraryChainDirs } from "@studio/song/libraryChains";
+import {
+  type LibraryChainDir,
+  libraryChainDirs,
+  readTemplate,
+} from "@studio/song/libraryChains";
 import { loadModuleRefs } from "@studio/song/loader";
 import { type MissingModel, missingModel } from "@studio/song/modelCache";
 import { resolveModule } from "@studio/song/moduleResolve";
@@ -97,24 +99,6 @@ function dspGraphOf(m: LoadedModule): string | undefined {
   }
 }
 
-/** A chain of one of the account's LIBRARIES: its ref (`@st0/bass/di`), its library and path, and its folder. */
-interface LibraryChain {
-  ref: string;
-  library: string;
-  path: string;
-  folder: string;
-}
-
-/** The chains the account's libraries hold — see docs/processChain.md. */
-function libraryChains(): LibraryChain[] {
-  return libraryChainDirs().map((c) => ({
-    ref: c.ref,
-    library: c.library,
-    path: c.path,
-    folder: c.dir,
-  }));
-}
-
 /** The chains this command can name: the project's own, then every library's under its `@<library>/` ref. */
 export function chainNames(_dir: string, project: ProjectDoc): string[] {
   const own = new Set<string>();
@@ -123,7 +107,7 @@ export function chainNames(_dir: string, project: ProjectDoc): string[] {
       const at = p.id.indexOf(":");
       if (at > 0) own.add(p.id.slice(0, at));
     }
-  return [...[...own].sort(), ...libraryChains().map((c) => c.ref)];
+  return [...[...own].sort(), ...libraryChainDirs().map((c) => c.ref)];
 }
 
 /** A chain of the PROJECT, taken off the compiled document under its `<chain>:` prefix — docs/processChain.md. */
@@ -138,15 +122,12 @@ function projectChain(
   return null;
 }
 
-/** The library chain a ref names, by path first and then by bare name — a variant's own order.
- *
- * `library` narrows it to one library when the ref named one; a BARE ref looks in the default
- * library first, since that is what every bare ref meant before libraries had names. */
-function findChainFolder(
+/** The library chain a ref names, by path then by bare name, in `library` or the default one first — docs/processChain.md. */
+function findLibraryChainBy(
   library: string | null,
   want: string,
-): LibraryChain | null {
-  const chains = libraryChains()
+): LibraryChainDir | null {
+  const chains = libraryChainDirs()
     .filter((c) => library === null || c.library === library)
     .sort(
       (a, b) =>
@@ -160,40 +141,33 @@ function findChainFolder(
   );
 }
 
-/** A chain of the MÉDIATHÈQUE: its `graph.yaml` for the order, its `nodes/` for what each step runs. */
+/** A library chain's steps as a bounce runs them: plugins in order, or the cold steps that separate. */
 function mediatekChain(
   dir: string,
-  abs: string,
+  chain: LibraryChainDir,
 ): {
   plugins: PluginDoc[];
   cold: ColdStep[];
   missing: string[];
-  /** How many steps the graph names — what tells "every step is offline" from "some are". */
+  /** How many steps the chain runs — what tells "every step is offline" from "some are". */
   steps: number;
   /** Each OFFLINE step, what it declares it writes, and the model it names that this machine has not got. */
   offline: { step: string; outputs: string[]; model: MissingModel | null }[];
 } {
-  const steps = chainSteps(readFileSync(join(abs, CHAINS_FILE), "utf8"));
+  const read = readTemplate(chain);
+  // A bypassed step is in the template and out of the signal, so a bounce skips it.
+  const steps = read.steps.filter((s) => !s.bypass);
   const byRef = loadModuleRefs(dir);
   const plugins: PluginDoc[] = [];
   const cold: ColdStep[] = [];
-  const missing: string[] = [];
+  const missing: string[] = [...read.missing];
   const offline: {
     step: string;
     outputs: string[];
     model: MissingModel | null;
   }[] = [];
 
-  for (const step of steps) {
-    const file = join(abs, NODES_DIR, `${step}.yaml`);
-    let raw: Record<string, unknown> = {};
-    try {
-      raw = (parseYaml(readFileSync(file, "utf8"), { version: "1.2" }) ??
-        {}) as Record<string, unknown>;
-    } catch {
-      missing.push(`${step} (no ${NODES_DIR}/${step}.yaml)`);
-      continue;
-    }
+  for (const { name: id, label: step, module: raw } of steps) {
     const m = resolveModule(raw as unknown as LoadedModule, byRef);
     // An OFFLINE module is diverted here: it has no engine plugin by construction, docs/processChain.md.
     if (isOfflineModule(m)) {
@@ -225,7 +199,7 @@ function mediatekChain(
     }
     plugins.push(
       pluginDoc({
-        id: `${BOUNCE_CHAIN}:${step}`,
+        id: `${BOUNCE_CHAIN}:${id}`,
         type,
         name,
         path: m.preset ? String(m.preset) : "",
@@ -235,7 +209,13 @@ function mediatekChain(
       }),
     );
   }
-  return { plugins, cold, missing, steps: steps.length, offline };
+  return {
+    plugins,
+    cold,
+    missing,
+    steps: steps.length + read.missing.length,
+    offline,
+  };
 }
 
 /** A library chain that SEPARATES, for the settings that pick which one this machine uses. */
@@ -261,10 +241,10 @@ export interface ColdChain {
  */
 export function coldChains(dir: string): ColdChain[] {
   const out: ColdChain[] = [];
-  for (const c of libraryChains()) {
+  for (const c of libraryChainDirs()) {
     let chain: ReturnType<typeof mediatekChain>;
     try {
-      chain = mediatekChain(dir, c.folder);
+      chain = mediatekChain(dir, c);
     } catch {
       continue; // an unreadable graph file is no chain to offer
     }
@@ -320,17 +300,17 @@ export function resolveChain(
     }
   }
 
-  const found = findChainFolder(named?.library ?? null, want);
+  const found = findLibraryChainBy(named?.library ?? null, want);
   if (!found) {
     const known = chainNames(dir, project);
     throw new Error(
       `no chain '${trimmed}' — known here: ${known.join(", ") || "none"}` +
-        (libraryChains().length
+        (libraryChainDirs().length
           ? ""
           : " (this machine has cloned no library holding chains)"),
     );
   }
-  const { plugins, cold, missing } = mediatekChain(dir, found.folder);
+  const { plugins, cold, missing } = mediatekChain(dir, found);
   if (missing.length)
     throw new Error(
       `chain '${found.ref}' has steps this machine cannot load: ${missing.join(", ")}`,

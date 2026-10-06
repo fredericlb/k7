@@ -1,9 +1,10 @@
-// The walk over every library's `chains/`. It answers every caller — a workspace's chains builder,
-// the ACCOUNT's own listing, a bounce — so what it files as a chain is what all of them draw.
+// The walk over every library's `chains/`, and the reader of one. It answers every caller — a
+// workspace's chains builder, the account's listing, a bounce, the bench — so what it files as a
+// chain and the steps it reads are what all of them run.
 //
-// What would be wrong silently: descending INTO a chain (a nodes folder read as chains of its
-// own), throwing on a library that holds no chains at all, which is a new account's state, and a
-// bare ref no longer meaning the default library, which every ref written before names did.
+// What would be wrong silently: descending INTO a folder chain, throwing on a library with no
+// chains, a bare ref no longer meaning the default library, and a chain FILE read as anything but
+// one run ending at `@out`.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,6 +14,7 @@ import {
   chainRefParts,
   findLibraryChain,
   libraryChainDirs,
+  readTemplate,
 } from "./libraryChains.ts";
 import { librariesFixture } from "./testSupport";
 
@@ -65,7 +67,8 @@ describe("libraryChainDirs", () => {
     writeFileSync(join(at, "nodes", "readme.md"), "not a node\n");
     const [found] = libraryChainDirs();
     expect(found.nodes).toEqual(["amp.yaml", "cab.yml"]);
-    expect(found.dir).toBe(at);
+    expect(found.at).toBe(at);
+    expect(found.layout).toBe("folder");
   });
 
   it("stops at the graph file rather than descending into a chain", () => {
@@ -114,5 +117,104 @@ describe("chainRefParts / findLibraryChain", () => {
     expect(findLibraryChain("@drums/room")?.ref).toBe("@drums/room");
     expect(findLibraryChain("room")).toBeUndefined();
     expect(findLibraryChain("@drums/di")).toBeUndefined();
+  });
+});
+
+/** A chain FILE `chains/<path>.yaml` in `library`, its text as given. */
+function chainFile(path: string, text: string, library = "st0"): string {
+  const at = join(librariesFixture(root, library), "chains", `${path}.yaml`);
+  mkdirSync(join(at, ".."), { recursive: true });
+  writeFileSync(at, text);
+  return at;
+}
+
+const TWO_STEPS = `steps:
+  - { id: n1, extends: "@st0/audio/comp", params: { Ratio: 0.5 } }
+  - { id: n2, extends: "@st0/audio/eq", bypass: true }
+  - to: [ { chain: "@out" } ]
+`;
+
+describe("chain files", () => {
+  it("files a `<path>.yaml` as the chain `<path>`, beside folder chains", () => {
+    chainFile("vocals/warm", TWO_STEPS);
+    chain("di");
+    expect(
+      libraryChainDirs().map((c) => [c.ref, c.layout, c.nodes.length]),
+    ).toEqual([
+      ["@st0/di", "folder", 0],
+      ["@st0/vocals/warm", "file", 0],
+    ]);
+  });
+
+  it("answers the FILE when a ref is held both ways — the folder is what was migrated", () => {
+    chain("di");
+    const at = chainFile("di", TWO_STEPS);
+    const found = libraryChainDirs();
+    expect(found).toHaveLength(1);
+    expect(found[0].at).toBe(at);
+  });
+
+  it("reads the steps in order: module fields alone, the bypass, a message label", () => {
+    chainFile("vocals/warm", TWO_STEPS);
+    const [c] = libraryChainDirs();
+    const { steps, missing } = readTemplate(c);
+    expect(missing).toEqual([]);
+    expect(steps).toEqual([
+      {
+        name: "n1",
+        label: "@st0/audio/comp",
+        module: { extends: "@st0/audio/comp", params: { Ratio: 0.5 } },
+      },
+      {
+        name: "n2",
+        label: "@st0/audio/eq",
+        module: { extends: "@st0/audio/eq" },
+        bypass: true,
+      },
+    ]);
+  });
+
+  it("finds a node's preset in the LIBRARY's vstpresets/, by its id", () => {
+    const lib = librariesFixture(root, "st0");
+    chainFile("vocals/warm", TWO_STEPS);
+    mkdirSync(join(lib, "vstpresets"), { recursive: true });
+    writeFileSync(join(lib, "vstpresets", "n1.vstpreset"), "x");
+    const [c] = libraryChainDirs();
+    const [first, second] = readTemplate(c).steps;
+    expect(first.preset).toBe(join(lib, "vstpresets", "n1.vstpreset"));
+    expect(second.preset).toBeUndefined();
+  });
+
+  it("refuses what is not one run to `@out`, by name", () => {
+    const read = (text: string) => () => {
+      rmSync(join(root, ".studio-home"), { recursive: true, force: true });
+      chainFile("x", text);
+      return readTemplate(libraryChainDirs()[0]);
+    };
+    expect(read("start: true\nsteps:\n  - { id: a, extends: x }\n")).toThrow(
+      /no `start`/,
+    );
+    expect(
+      read(
+        "steps:\n  - { id: a, extends: x }\n  - [ { id: b, extends: x }, { id: c, extends: x } ]\n",
+      ),
+    ).toThrow(/side by side/);
+    expect(
+      read("steps:\n  - { id: a, extends: x }\n  - to: [ { chain: MIX } ]\n"),
+    ).toThrow(/links only to "@out"/);
+    expect(read("steps: [ 3 ]\n")).toThrow();
+  });
+});
+
+describe("folder chains, read", () => {
+  it("reads the derived steps and names a node file that is not there", () => {
+    const at = chain("di", ["amp.yaml"]);
+    writeFileSync(
+      join(at, "graph.yaml"),
+      'modules:\n  "@in": [ amp ]\n  amp: [ cab ]\n  cab: [ "@out" ]\nbypassed: [ amp ]\n',
+    );
+    const { steps, missing } = readTemplate(libraryChainDirs()[0]);
+    expect(steps.map((s) => [s.name, s.bypass])).toEqual([["amp", true]]);
+    expect(missing).toEqual(["cab (no nodes/cab.yaml)"]);
   });
 });

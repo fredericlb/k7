@@ -27,6 +27,7 @@ import {
   dropNodeFromAssemblies,
   renameNodeInAssemblies,
 } from "@studio/song/assemblyEdit";
+import { chainNodeName } from "@studio/song/chainGraphEdit";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import {
   createCurveFile,
@@ -39,6 +40,8 @@ import {
   coldPlacementError,
   isInputModule,
   loadGraph,
+  nodeCaption,
+  nodePlaces,
   parseChains,
 } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
@@ -3635,7 +3638,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         placeChainNode(h.songPath, node);
         setChainNodePosition(h.songPath, node, at ?? ORPHAN_AT);
         h.log([
-          `created ${rel} on ${target} — in the graph, wired to nothing yet`,
+          `created ${shownNode(h.songPath, rel)} on ${target} — in the graph, wired to nothing yet`,
         ]);
         await h.reload();
       } catch (e) {
@@ -3676,8 +3679,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       setChainNodePosition(h.songPath, node, at ?? ORPHAN_AT);
       h.log([
         ref
-          ? `created ${rel} on module ${category}/${module} from ${ref} — in the graph, wired to nothing yet`
-          : `created ${rel} — in the graph, wired to nothing yet`,
+          ? `created ${shownNode(h.songPath, rel)} on module ${category}/${module} from ${ref} — in the graph, wired to nothing yet`
+          : `created ${shownNode(h.songPath, rel)} — in the graph, wired to nothing yet`,
       ]);
       await h.reload();
     } catch (e) {
@@ -3886,7 +3889,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([usage]);
       return;
     }
-    const [before, after, node] = parts;
+    // A chain project's node answers to the name `node new` was given as well as to its id.
+    const [before, after, node] = parts.map((p) =>
+      chainNodeName(h.songPath, p),
+    );
     let g: ReturnType<typeof loadGraph>;
     try {
       g = loadGraph(h.songPath);
@@ -4012,7 +4018,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([usage]);
       return;
     }
-    const [from, to] = parts;
+    const [from, to] = parts.map((p) => chainNodeName(h.songPath, p));
     const base = (s: string) => s.split("#")[0];
     if (base(from) === base(to)) {
       h.refuse([`can't connect '${base(from)}' to itself`]);
@@ -4060,7 +4066,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const [from, to] = parts;
+    const [from, to] = parts.map((p) => chainNodeName(h.songPath, p));
     try {
       disconnectChainNodes(h.songPath, from, to);
       h.log([`disconnected ${from} → ${to}`]);
@@ -4399,4 +4405,10 @@ export function registerCommand(c: { sid: string; handler: SidHandler }): void {
   if (SID_HANDLERS[c.sid])
     throw new Error(`command '${c.sid}' already has a handler`);
   SID_HANDLERS[c.sid] = c.handler;
+}
+
+/** A created node as a person reads it: its module and place in a chain project, its path otherwise. */
+function shownNode(dir: string, rel: string): string {
+  const p = nodePlaces(dir)[rel];
+  return p ? `${nodeCaption(p)} (${rel})` : rel;
 }

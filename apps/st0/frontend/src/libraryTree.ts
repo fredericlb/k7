@@ -16,12 +16,16 @@ import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 /** How a level is written wherever a person reads one: in a ref, and on a tree row. */
 export const nsLabel = (ns: string): string => `@${ns}`;
 
-/** A library chain, as the tab lists it: `ref` is `@<library>/<path under chains/>`, `nodes` its node files. */
+/** A library chain, as the tab lists it: `ref` is `@<library>/<path under chains/>`, `path` its file or a folder chain's folder. */
 export interface LibraryChainRow {
   ref: string;
   path: string;
+  /** A FOLDER chain's node files; a chain file holds its nodes, so none. */
   nodes?: string[];
 }
+
+/** A chain kept as ONE file — the format; a folder chain is one a library clone has not migrated yet. */
+export const isChainFile = (path: string): boolean => /\.ya?ml$/i.test(path);
 
 /** An assembly template of the library: `path` its folder, `file` the `assembly.yaml` the builder opens. */
 export interface LibraryAssemblyRow {
@@ -92,18 +96,22 @@ function repositoryRow(
         name: "chains",
         path: `${root}/chains`,
         dir: true,
-        // A chain OPENS and its nodes are under it — a chain with none is still a folder, one node away from having some.
-        children: chains.map((c) => ({
-          name: withinLibrary(l.ns, c.ref),
-          path: c.path,
-          dir: true,
-          children: (c.nodes ?? []).map((n) => ({
-            name: n,
-            // The real path, like every other row here — what tells this node's row from its chain's when one is clicked.
-            path: `${c.path}/nodes/${n}`,
-            dir: false,
-          })),
-        })),
+        // A chain file is a leaf; a folder chain OPENS, its node files under it, even with none yet.
+        children: chains.map((c) =>
+          isChainFile(c.path)
+            ? { name: withinLibrary(l.ns, c.ref), path: c.path, dir: false }
+            : {
+                name: withinLibrary(l.ns, c.ref),
+                path: c.path,
+                dir: true,
+                children: (c.nodes ?? []).map((n) => ({
+                  name: n,
+                  // The real path, like every other row here — what tells this node's row from its chain's when one is clicked.
+                  path: `${c.path}/nodes/${n}`,
+                  dir: false,
+                })),
+              },
+        ),
       },
       {
         name: "assemblies",

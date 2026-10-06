@@ -8,8 +8,11 @@ import {
   commandNameOf,
   LOCAL_COMMANDS,
   LOCAL_READABLE,
+  optionsFromCompletions,
   rankCommands,
+  rankOptions,
   rankValues,
+  toOptions,
 } from "./palette";
 import type { CommandInfo } from "./types";
 
@@ -160,6 +163,53 @@ describe("finding a param's value the same way", () => {
 
   it("answers nothing rather than everything for a miss", () => {
     expect(rankValues(TRACKS, "qqq")).toEqual([]);
+  });
+});
+
+describe("a node named by a uuid is found and listed by its module", () => {
+  const WAH = "0b7c2f4e-1d2a-4c55-9a10-3e8f6a2b9d01";
+  const COMP = "5f1e9a3c-7b42-4e0d-8c6a-2d9b1f4e7a30";
+  const NODES = [
+    { value: WAH, label: "@st0/auto-wah · fx · step 2" },
+    { value: COMP, label: "@st0/comp · fx · step 1" },
+    { value: "gtr" },
+  ];
+
+  it("matches what was typed against the label", () => {
+    expect(rankOptions(NODES, "auto-wah")).toEqual([NODES[0]]);
+  });
+
+  it("still matches the value, so a pasted uuid finds its node", () => {
+    expect(rankOptions(NODES, WAH)[0]).toEqual(NODES[0]);
+  });
+
+  it("matches an unlabelled option by its value alone", () => {
+    expect(rankOptions(NODES, "gtr")).toEqual([NODES[2]]);
+  });
+
+  it("turns bare strings into options and leaves options alone", () => {
+    expect(toOptions(["a", { value: WAH, label: "x" }])).toEqual([
+      { value: "a" },
+      { value: WAH, label: "x" },
+    ]);
+  });
+
+  it("slices the sent prefix off each line, keeping the label and dropping a duplicate", () => {
+    const prefix = "node bypass ";
+    expect(
+      optionsFromCompletions(
+        [
+          { line: `node bypass ${WAH}`, label: "@st0/auto-wah · fx · step 2" },
+          { line: "node bypass gtr" },
+          { line: "node bypass gtr" },
+          { line: "node other" },
+        ],
+        prefix,
+      ),
+    ).toEqual([
+      { value: WAH, label: "@st0/auto-wah · fx · step 2" },
+      { value: "gtr" },
+    ]);
   });
 });
 

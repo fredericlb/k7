@@ -209,6 +209,52 @@ describe("resolving a chain of the médiathèque", () => {
   });
 });
 
+// The same chains kept as ONE file — the format a library is migrated to; the readers take both.
+describe("a library chain kept as one file", () => {
+  it("resolves its items in order, skipping a bypassed one", () => {
+    put(
+      library,
+      "chains/live/vocal-file.yaml",
+      'steps:\n  - { id: s1, extends: "@st0/audio/eq", params: { Low: -12 } }\n' +
+        '  - { id: s2, extends: "@st0/audio/eq", bypass: true }\n' +
+        '  - { id: s3, extends: "@st0/audio/eq" }\n  - to: [ { chain: "@out" } ]\n',
+    );
+    const c = resolveChain(dir, loadProject(dir), "@st0/live/vocal-file");
+    expect(c.plugins.map((p) => [p.id, p.params])).toEqual([
+      ["process:s1", { Low: -12 }],
+      ["process:s3", { Low: 1 }],
+    ]);
+    expect(c.slug).toBe("vocal-file");
+  });
+
+  it("is listed as a cold chain when its one step separates", () => {
+    put(
+      library,
+      "modules/audio/stemsplit/module.yaml",
+      "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\n",
+    );
+    put(library, "modules/audio/stemsplit/assets/htdemucs.onnx", "x");
+    put(
+      library,
+      "chains/stems.yaml",
+      'steps:\n  - { id: cut, extends: "@st0/audio/stemsplit" }\n  - to: [ { chain: "@out" } ]\n',
+    );
+    expect(coldChains(dir).map((c) => [c.ref, c.unavailable])).toEqual([
+      ["@st0/stems", null],
+    ]);
+    expect(
+      resolveChain(dir, loadProject(dir), "@st0/stems").cold.map((s) => s.step),
+    ).toEqual(["@st0/audio/stemsplit"]);
+  });
+
+  it("names what a file that is not a template's shape gets wrong", () => {
+    put(library, "chains/bad.yaml", "start: true\nsteps: []\n");
+    expect(() => resolveChain(dir, loadProject(dir), "@st0/bad")).toThrow(
+      /no `start`/,
+    );
+  });
+});
+
 // A chain that SEPARATES — the offline half, wired in `mediatekChain`; docs/processChain.md.
 describe("a chain that separates", () => {
   /** `model: false` writes no `assets/` file — a machine that has not downloaded it. */

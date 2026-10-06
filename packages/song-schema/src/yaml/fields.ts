@@ -5,6 +5,12 @@
 import type { z } from "zod";
 import { SHAPE_KINDS } from "../moduleTypes";
 import {
+  CHAIN_STARTS,
+  ChainFileSchema,
+  LinkSchema,
+  NODE_ITEM_KEYS,
+} from "./chainSchema";
+import {
   AdsrCurveSchema,
   AudioClipSchema,
   CustomCurveSchema,
@@ -58,6 +64,8 @@ const WIDGET_FIELDS = [
 export type FileKind =
   | "module"
   | "chains"
+  // One file of a chain project's `chains/`, its nodes inline — docs/fields.md.
+  | "chain"
   | "clip"
   | "sequence"
   | "curve"
@@ -70,6 +78,11 @@ export function fileKindFor(path?: string): FileKind | null {
   if (!p) return null;
   if (/(^|\/)modules\//.test(p)) return "module";
   if (/(^|\/)nodes\//.test(p)) return "module";
+  // A chain project's lane file is a module file, and its chain files a kind of their own.
+  if (/(^|\/)tracks\//.test(p)) return "module";
+  // A library's older chain FOLDER keeps a segments file, which is not a chain file.
+  if (/(^|\/)chains\/(.+\/)?graph\.ya?ml$/.test(p)) return "chains";
+  if (/(^|\/)chains\/.+\.ya?ml$/.test(p)) return "chain";
   if (/(^|\/)clips\//.test(p)) return "clip";
   if (/(^|\/)sequences\//.test(p)) return "sequence";
   if (/(^|\/)curves\//.test(p)) return "curve";
@@ -83,6 +96,7 @@ export function fileKindFor(path?: string): FileKind | null {
 export function fieldsAt(kind: FileKind, path: string[]): string[] {
   if (kind === "module") return moduleFields(path);
   if (kind === "chains") return chainFields(path);
+  if (kind === "chain") return chainFileFields(path);
   if (kind === "project") return projectFields(path);
   if (kind === "clip") return clipFields(path);
   if (kind === "sequence") return sequenceFields(path);
@@ -192,6 +206,19 @@ function chainFields(path: string[]): string[] {
   return [];
 }
 
+/** A chain file: its own keys, then under `steps` a node's (a module's plus the item's), a lane's and a link's. */
+function chainFileFields(path: string[]): string[] {
+  if (path.length === 0) return keys(ChainFileSchema);
+  if (path[0] !== "steps") return [];
+  const rest = path.slice(1);
+  if (rest.length === 0)
+    return [
+      ...new Set(["to", "track", ...NODE_ITEM_KEYS, ...keys(ModuleSchema)]),
+    ];
+  if (rest[0] === "to") return rest.length === 1 ? keys(LinkSchema) : [];
+  return moduleFields(rest);
+}
+
 /** The values allowed for a field whose schema is a closed set. Empty for free text. */
 export function valuesAt(
   kind: FileKind,
@@ -218,6 +245,11 @@ export function valuesAt(
     if (path.length === 0 && field === "shape")
       return ["sine", "triangle", "saw", "square"];
     return [];
+  }
+  if (kind === "chain") {
+    if (path.length === 0 && field === "start")
+      return ["true", ...CHAIN_STARTS];
+    return path[0] === "steps" ? valuesAt("module", path.slice(1), field) : [];
   }
   if (kind === "video_track") return [];
   return [];

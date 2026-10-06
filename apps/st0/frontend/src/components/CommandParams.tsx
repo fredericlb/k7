@@ -10,6 +10,7 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import { createPortal } from "react-dom";
 import type { EnterAction } from "../commandFill";
+import type { ArgOption } from "../palette";
 import type { ArgClass } from "../types";
 import type { PaletteArg, PaletteCommand } from "./CommandBar";
 
@@ -32,7 +33,7 @@ export function CommandParams({
   values: readonly string[];
   active: number;
   /** The active field's vocabulary, already ranked — empty when it has none. */
-  suggestions: readonly string[];
+  suggestions: readonly ArgOption[];
   selected: number;
   argColor: Record<ArgClass, string>;
   /** What Enter will do THIS press, so the footer can name it — see `enterAction`. */
@@ -45,6 +46,7 @@ export function CommandParams({
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const arg: PaletteArg | undefined = command.args[active];
+  const picked = suggestions.find((o) => o.value === (values[active] ?? ""));
 
   return createPortal(
     <section
@@ -78,6 +80,12 @@ export function CommandParams({
                   <span className="ml-1 opacity-60">· optional</span>
                 )}
               </span>
+              {/* The field holds what is inserted; a taken labelled value is named beside it, since a uuid says nothing. */}
+              {i === active && picked?.label && (
+                <span className="min-w-0 truncate text-[10px] text-muted-foreground">
+                  {picked.label}
+                </span>
+              )}
             </span>
             <input
               ref={i === active ? inputRef : undefined}
@@ -101,14 +109,14 @@ export function CommandParams({
 
       {suggestions.length > 0 && (
         <ul className="max-h-48 overflow-auto border-t border-border py-1 text-xs">
-          {suggestions.map((v, i) => (
-            <li key={v}>
+          {suggestions.map((o, i) => (
+            <li key={o.value}>
               <button
                 type="button"
                 // mousedown, and preventDefault: the blur that would close this list must never be the one that was about to pick from it.
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onPick(v);
+                  onPick(o.value);
                 }}
                 onMouseEnter={() => onHover(i)}
                 className={cn(
@@ -117,7 +125,8 @@ export function CommandParams({
                   i === selected && "bg-accent",
                 )}
               >
-                {v}
+                {/* A labelled option is LISTED by its label and inserts its value, which a person cannot read (commands/docs/completions.md). */}
+                {o.label ?? o.value}
               </button>
             </li>
           ))}

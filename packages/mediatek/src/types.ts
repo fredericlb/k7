@@ -19,12 +19,6 @@ export const RECORDINGS_DIR = "recordings";
 /** The set lists this volume holds, `playlists/<name>.yaml` — a root zone, not a family; see docs/playlists.md. */
 export const PLAYLISTS_DIR = "playlists";
 
-/** The file that makes a folder a CHAIN — the same name a st0 project uses at its root, see docs/index.md. */
-export const CHAINS_FILE = "graph.yaml";
-
-/** Where a chain keeps the nodes its segments name, beside its graph file. */
-export const NODES_DIR = "nodes";
-
 /** The sidecar that makes a folder a SONG and carries its title, provenance and variants. */
 export const SONG_FILE = "song.yaml";
 

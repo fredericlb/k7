@@ -36,11 +36,15 @@ export function swappedModule<T extends LoadedModule>(m: T): T | null {
   if (typeof fields?.extends !== "string" || !fields.extends) return null;
   // What makes it THIS node — its name, its file, its folder — and what it could be switched to instead.
   const { name, node, file, home, folderAbs, alternatives, alternative } = m;
+  const { presetRel, chain, nodeId } = m;
   return {
     name,
     node,
     file,
     home,
+    ...(presetRel ? { presetRel } : {}),
+    ...(chain ? { chain } : {}),
+    ...(nodeId ? { nodeId } : {}),
     folderAbs,
     alternatives,
     alternative,

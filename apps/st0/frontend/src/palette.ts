@@ -3,7 +3,9 @@
 // Apart from the shell because everything here is a pure function of the backend's catalogue
 // plus a `files()` getter, with no shell state. See docs/commandBar.md.
 
+import type { Completion } from "@studio/project-shell/project";
 import { api } from "./api";
+import { type ArgOption, optionsFromCompletions } from "./argOptions";
 import {
   canonicalizeCommand,
   commandLabel,
@@ -19,6 +21,14 @@ import { PANES } from "./shellMeta";
 import { TOOLS } from "./timelineTools";
 import type { CommandInfo, MenuEntity } from "./types";
 import { WAVE_MODES } from "./waveMode";
+
+export {
+  type ArgOption,
+  optionsFromCompletions,
+  rankOptions,
+  rankValues,
+  toOptions,
+} from "./argOptions";
 
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
@@ -623,22 +633,6 @@ export function commandNameOf(
   return best;
 }
 
-/** A param's candidate values, ranked the same way. Empty query keeps the provider's order. */
-export function rankValues(
-  values: readonly string[],
-  query: string,
-  limit = 30,
-): string[] {
-  const q = query.trim();
-  if (!q) return values.slice(0, limit);
-  return values
-    .map((v) => ({ v, score: fuzzyScore(q, v) }))
-    .filter((x) => x.score >= 0)
-    .sort((a, b) => b.score - a.score || a.v.localeCompare(b.v))
-    .slice(0, limit)
-    .map((x) => x.v);
-}
-
 /** One param's WHOLE vocabulary, given the params before it — fetched whole and ranked in the browser, so the match is fuzzy and costs one round trip. */
 export function makeListArg(shell: {
   /** What the editor can OPEN — `ui file`'s vocabulary. */
@@ -650,7 +644,10 @@ export function makeListArg(shell: {
   /** The languages the shell is compiled for. */
   locales: () => string[];
 }) {
-  return async (command: string, priorArgs: string[]): Promise<string[]> => {
+  return async (
+    command: string,
+    priorArgs: string[],
+  ): Promise<(string | ArgOption)[]> => {
     const canonical = canonicalizeCommand(command);
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     const first = priorArgs.length === 0;
@@ -690,15 +687,11 @@ export function makeListArg(shell: {
     }
     // The line MUST end with a space, even for an empty partial: that is how `completions` tells an argument from a command name.
     const line = [canonical, ...priorArgs, partial].join(" ");
-    const full = await api.complete(line).catch(() => [] as string[]);
-    // `completions` answers with whole LINES, so strip the prefix we sent rather than indexing tokens, which also keeps spaces in values.
-    const prefix = `${[canonical, ...priorArgs].join(" ")} `;
-    return [
-      ...new Set(
-        full
-          .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : ""))
-          .filter((v) => v),
-      ),
-    ];
+    const full = await api.complete(line).catch(() => [] as Completion[]);
+    // `completions` answers with whole LINES, so the prefix we sent is what is sliced back off.
+    return optionsFromCompletions(
+      full,
+      `${[canonical, ...priorArgs].join(" ")} `,
+    );
   };
 }

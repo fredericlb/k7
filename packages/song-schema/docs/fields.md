@@ -15,8 +15,16 @@ which a single flat table cannot do. Every object gets its own fields, `project:
 
 `modules/audio/cab/module.yaml` is a module whatever it is called, and so is `nodes/melody.yaml` — a
 node is an ordinary module that happens to live in `nodes/`, LANES INCLUDED
-(`packages/song/docs/trackModules.md`). There is no `tracks/` kind for exactly that reason, and
-`validate.ts` reads the folder the same way.
+(`packages/song/docs/trackModules.md`). There is no `tracks/` kind for exactly that reason: a chain
+project's `tracks/<lane>.yaml` is a module file too, and `validate.ts` reads the folder the same way.
+
+A chain project's `chains/<name>.yaml` is a kind of its own, `chain` — not `chains`, which is the
+segments file under its older root name `chains.yaml`, and stays one inside a library's older
+chain folder (`chains/<name>/graph.yaml`). Its keys are positional the way the editor's key path
+is: the file's own at the top; under `steps` a node's (a module's fields plus `id`, `bypass`,
+`vstpreset`, `mapping`), a lane item's `track` and an end step's `to`; under `steps.to` a link's;
+and below a node's field, that module field's own vocabulary
+(`packages/song/docs/chainFiles.md`).
 
 There is no per-kind narrowing for a lane either. A lane is a node, so which of `events:` /
 `tracks:` / `strudel:` it may write is decided by what it extends — a question about the project,

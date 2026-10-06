@@ -8,12 +8,16 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { MIX_NODE } from "@studio/song-schema/moduleTypes";
+import { CHAINS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import {
+  connectNodes,
   insertBetween,
   mergeSegments,
   parseGraph,
 } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { chainGraphText, editChainGraph } from "./chainGraphEdit";
+import { isChainProject, newNodeId, readChainProject } from "./chainProject";
 import type { Chain, GraphDoc } from "./graph";
 import { loadModules } from "./loader";
 import { SHARED_STRIP } from "./scaffoldLive";
@@ -82,6 +86,7 @@ export function planTrackMixer(
   g: GraphDoc,
 ): MixerPlan | null {
   if (hasTrackMixer(g, lane)) return null;
+  if (isChainProject(dir)) return planChainMixer(dir, lane, g);
   if (!existsSync(join(dir, GRAPH_FILE)))
     throw new Error(`no ${GRAPH_FILE} — a strip has nowhere to be wired`);
   const c = chainOf(g, lane);
@@ -100,8 +105,47 @@ export function planTrackMixer(
   return { lane, name, rel: `nodes/${name}.yaml`, after: c ? prev : null };
 }
 
+/** In a chain project the strip is an item of the lane's chain, named by a fresh id; a run ending nowhere takes it too. */
+function planChainMixer(dir: string, lane: string, g: GraphDoc): MixerPlan {
+  const c = chainOf(g, lane);
+  const prev = c?.use.length ? c.use[c.use.length - 1].module : lane;
+  const dests = parseGraph(chainGraphText(dir)).value?.modules?.[prev] ?? [];
+  if (dests.length && !dests.includes(MIX_NODE))
+    throw new Error(
+      `'${lane}' does not run into ${MIX_NODE} — wire its strip by hand, this would guess`,
+    );
+  const chain = readChainProject(dir).nodes[lane]?.chain ?? lane;
+  return {
+    lane,
+    name: newNodeId(),
+    rel: `${CHAINS_DIR}/${chain}.yaml`,
+    after: prev,
+  };
+}
+
+/** The writes a chain project's plan implies: the strip spliced in before the sum, or hung on a run that ended nowhere. */
+function applyChainMixer(dir: string, plan: MixerPlan): string[] {
+  const after = plan.after ?? plan.lane;
+  const item = { id: plan.name, extends: SHARED_STRIP };
+  return editChainGraph(
+    dir,
+    (text) => {
+      const dests = parseGraph(text).value?.modules?.[after] ?? [];
+      return dests.includes(MIX_NODE)
+        ? insertBetween(text, after, MIX_NODE, plan.name)
+        : connectNodes(
+            insertBetween(text, after, undefined, plan.name),
+            plan.name,
+            MIX_NODE,
+          );
+    },
+    { add: { [plan.name]: item } },
+  );
+}
+
 /** The two writes a plan implies: the node's file, and the one arrow in `graph.yaml`. */
 export function applyTrackMixer(dir: string, plan: MixerPlan): string[] {
+  if (isChainProject(dir)) return applyChainMixer(dir, plan);
   const graphPath = join(dir, GRAPH_FILE);
   const text = readFileSync(graphPath, "utf8");
   const next = plan.after

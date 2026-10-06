@@ -5,10 +5,12 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createChainNode } from "./chainCreate";
+import { isChainProject } from "./chainProject";
 import { loadModuleRefs, NODES_DIR } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 
-/** Write `nodes/<node>.yaml` extending `ref`, which must resolve; the file written, project-relative. */
+/** Write `nodes/<node>.yaml` extending `ref`, which must resolve; the file written — in a chain project, the new node's id. */
 export function createNodeOn(
   dir: string,
   ref: string,
@@ -24,15 +26,14 @@ export function createNodeOn(
     throw new Error(`'${ref}' is not a module this project can see`);
   if (m.kind === "io")
     throw new Error(`'${ref}' is an io module — use node new io/<role>`);
+  const body =
+    `# ${node}: one use of module "${ref}" — state only what THIS use changes.\n` +
+    `extends: ${JSON.stringify(ref)}\n`;
+  if (isChainProject(dir)) return createChainNode(dir, node, body).id;
   const rel = `${NODES_DIR}/${node}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  writeFileSync(
-    join(dir, rel),
-    `# ${node}: one use of module "${ref}" — state only what THIS use changes.\n` +
-      `extends: ${JSON.stringify(ref)}\n`,
-    "utf8",
-  );
+  writeFileSync(join(dir, rel), body, "utf8");
   return rel;
 }

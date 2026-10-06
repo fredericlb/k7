@@ -32,6 +32,13 @@ function projectValues(
           (r) => !isNodeFile(path) || !isEngineRef(r),
         )
       : [];
+  // A chain file's node is a project's use too, and a lane item names one of the project's lanes.
+  if (kind === "chain") {
+    if (keyPath.length !== 1 || keyPath[0] !== "steps") return [];
+    if (field === "extends")
+      return (hints.baseModules ?? []).filter((r) => !isEngineRef(r));
+    return field === "track" ? (hints.tracks ?? []) : [];
+  }
   if (kind !== "chains") return [];
   // Inside `tracks:` or `modules:` the "field" is a NODE's name and the values are its destinations.
   const wiring = [...(hints.modules ?? []), ...(hints.ioSinks ?? [])];
@@ -46,9 +53,9 @@ function projectValues(
   return [];
 }
 
-/** A project's use of a module, `nodes/<name>.yaml` — which reaches a scanned plugin through its library face. */
+/** A project's use of a module, `nodes/<name>.yaml` or a lane's `tracks/<name>.yaml` — it reaches a scanned plugin through its library face. */
 const isNodeFile = (path: string): boolean =>
-  /(^|\/)nodes\/[^/]+\.ya?ml$/.test(path.replace(/\\/g, "/"));
+  /(^|\/)(nodes|tracks)\/[^/]+\.ya?ml$/.test(path.replace(/\\/g, "/"));
 
 /** The vocabulary for the file at `path`. Offers nothing for a file that isn't ours. */
 export function schemaVocabulary(path?: string, hints?: Hints): YamlVocabulary {

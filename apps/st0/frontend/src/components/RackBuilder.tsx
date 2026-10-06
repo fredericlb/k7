@@ -18,6 +18,7 @@ import {
   defaultSymbol,
   GRID,
   type KitDestination,
+  kitSampleRef,
   kitUploadDir,
   padNote,
   type RackPad,
@@ -206,11 +207,30 @@ export function RackBuilder({
         want: [],
       });
       if (made.refused) throw new Error(made.output.join(" · "));
-      // …then its taps, in one write rather than a reload per pad.
-      await api.write(
-        `${prefix}nodes/${kit}.yaml`,
-        buildKitNodeYaml(kit, rackPads, dest, rackRef),
+      // A chain project names the node by a uuid, inside a chain file: the one name that just appeared (packages/song/docs/chainFiles.md).
+      const fresh = (await api.hints()).modules.filter(
+        (n) => !taken.includes(n),
       );
+      const inChain = fresh.length === 1 && fresh[0] !== kit ? fresh[0] : null;
+      if (inChain) {
+        // …so its taps go through the verbs that know where that node lives, a note then a sample each.
+        for (const p of rackPads) {
+          const sample = kitSampleRef(dest, kit, p.fileName);
+          for (const line of [
+            `node tap note ${inChain} ${p.symbol} ${p.note}`,
+            `node tap sample ${inChain} ${p.symbol} ${JSON.stringify(sample)}`,
+          ]) {
+            const r = await api.command(line, { want: [] });
+            if (r.refused) throw new Error(r.output.join(" · "));
+          }
+        }
+      } else {
+        // …else its taps, in one write rather than a reload per pad.
+        await api.write(
+          `${prefix}nodes/${kit}.yaml`,
+          buildKitNodeYaml(kit, rackPads, dest, rackRef),
+        );
+      }
       onCreated(kit);
     } catch (e) {
       // Which file, and what the earlier ones left behind — the samples land before the module by design.

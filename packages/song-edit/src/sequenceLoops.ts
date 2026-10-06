@@ -6,6 +6,12 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  chainFiles,
+  eventItemIds,
+  laneFolder,
+  spliceChainItem,
+} from "@studio/song/chainItemEdit";
+import {
   halveSequenceLoops,
   type KeptLoop,
 } from "@studio/song-schema/yaml/trackFile";
@@ -27,32 +33,55 @@ export function halveLoopsOf(
   snapshot?: (path: string) => void,
 ): LoopHalving {
   const out: LoopHalving = { files: [], halved: 0, kept: [] };
-  const at = join(dir, "nodes");
-  if (!existsSync(at)) return out;
-  let names: string[];
+  const folder = laneFolder(dir);
+  const at = join(dir, folder);
+  let names: string[] = [];
   try {
-    names = readdirSync(at)
-      .filter((f) => /\.ya?ml$/i.test(f))
-      .sort();
+    if (existsSync(at))
+      names = readdirSync(at)
+        .filter((f) => /\.ya?ml$/i.test(f))
+        .sort();
   } catch {
-    return out; // no lanes to reach is not a failure to halve
+    names = []; // no lanes to reach is not a failure to halve
   }
-  for (const f of names) {
-    const rel = `nodes/${f}`;
+  const rels = [...names.map((f) => `${folder}/${f}`), ...chainFiles(dir)];
+  for (const rel of rels) {
+    const path = join(dir, rel);
     let before: string;
     try {
-      before = readFileSync(join(at, f), "utf8");
+      before = readFileSync(path, "utf8");
     } catch {
       continue;
     }
-    const { text, halved, kept } = halveSequenceLoops(before, ref);
-    const lane = f.replace(/\.ya?ml$/i, "");
+    const isChain = !rel.startsWith(`${folder}/`);
+    const { text, halved, kept } = isChain
+      ? halveInChain(before, ref)
+      : halveSequenceLoops(before, ref);
+    const lane = rel.slice(rel.indexOf("/") + 1).replace(/\.ya?ml$/i, "");
     out.kept.push(...kept.map((k) => ({ ...k, lane })));
     if (!halved) continue;
-    snapshot?.(join(at, f));
-    writeFileSync(join(at, f), text, "utf8");
+    snapshot?.(path);
+    writeFileSync(path, text, "utf8");
     out.files.push(rel);
     out.halved += halved;
   }
   return out;
+}
+
+// The same over a chain file: every node item holding events of its own (docs/chainFiles.md).
+function halveInChain(
+  text: string,
+  ref: string,
+): { text: string; halved: number; kept: KeptLoop[] } {
+  let out = text;
+  let halved = 0;
+  const kept: KeptLoop[] = [];
+  for (const id of eventItemIds(text))
+    out = spliceChainItem(out, id, (t) => {
+      const r = halveSequenceLoops(t, ref);
+      halved += r.halved;
+      kept.push(...r.kept);
+      return r.text;
+    });
+  return { text: out, halved, kept };
 }

@@ -45,6 +45,29 @@ reads the **ref map** and not the compiled project — `status` is an authoring 
 reaches the engine, so it only ever lives on the files. A lookup rather than a list, so one read
 answers for every name a provider offers.
 
+A value is what is INSERTED, and in a chain project a node's is its uuid. So a provider may also
+give a LABEL for the values a person cannot read — `PROVIDER_LABELS`, which `nodes` alone fills,
+with the module and the place (`packages/song/docs/chainFiles.md`). `completionItems` carries it;
+`completions` is the same list as bare lines, for a caller that has nowhere to show a label.
+
+### The label on the wire
+
+The file service's `/complete` answers a list of bare lines, and only that, unless the caller adds
+`labels=1`. Then a LABELLED candidate comes as `{ line, label }` and every other one stays a bare
+string, in the same list and the same order. Two choices, both forced by the file service (in pl8's
+image) and st0's frontend shipping on their own:
+
+- **Opt-in, not a new default.** An older frontend reads every entry as a string; handed an object,
+  it loses the whole field's completion, not just the label.
+- **Objects only where a label exists, not a parallel array.** Old projects and every other
+  provider look exactly as they did, and a newer frontend meeting an older service — which ignores
+  `labels=1` — reads the same list, since it already takes a bare string as an item with no label.
+
+`projectApi.complete` (`packages/project-shell/src/project.ts`) asks with `labels=1` and hands
+back items. st0's command bar LISTS a labelled value by its label, matches what is typed against
+the label as well as the value (`auto-wah` finds the node), and INSERTS the value: the field holds
+the uuid, and names the label beside it.
+
 ## The rest, and the one thing each gets wrong
 
 - **`moduleAlternatives`** offers every alternative name in the project, deduped, and not the

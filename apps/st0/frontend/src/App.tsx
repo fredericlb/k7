@@ -2180,14 +2180,13 @@ export default function App({
   const focusLine = useRef("");
   const focusRowInPanes = useCallback(
     (target: RowTarget) => {
-      // Named, not fuzzy-matched, and under `nodes/`, because that is where a lane lives (packages/song/docs/trackModules.md).
-      const file = entityFile(
-        editorRef.current?.files() ?? [],
-        "nodes",
-        target.id,
-      );
+      // Named, not fuzzy-matched: a lane lives in `nodes/`, or in a chain project's `tracks/` (packages/song/docs/chainFiles.md).
+      const files = editorRef.current?.files() ?? [];
+      const file =
+        entityFile(files, "nodes", target.id) ??
+        entityFile(files, "tracks", target.id);
       const path = file && openInEditor(file, false);
-      focusLine.current = `${target.id} — ${path ?? "no nodes/ file"}`;
+      focusLine.current = `${target.id} — ${path ?? "no nodes/ or tracks/ file"}`;
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });

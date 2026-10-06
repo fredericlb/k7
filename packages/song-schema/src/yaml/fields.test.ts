@@ -107,7 +107,8 @@ describe("derived lane fields", () => {
   it("has no kind of its own — a lane is a module file", () => {
     // No `track` FileKind and no per-kind narrowing: a lane file answers as a module — see docs/fields.md.
     expect(fileKindFor("nodes/melody.yaml")).toBe("module");
-    expect(fileKindFor("tracks/melody.yaml")).toBeNull();
+    // …and so does a chain project's `tracks/<lane>.yaml`, the lane's own file there.
+    expect(fileKindFor("tracks/melody.yaml")).toBe("module");
     expect(fieldsAt("module", [])).toEqual(
       expect.arrayContaining(["events", "tracks", "strudel", "color"]),
     );

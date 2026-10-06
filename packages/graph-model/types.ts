@@ -87,6 +87,8 @@ export interface WebChainStep {
   module: string; // a module node name
   /** The module this node USES — the header's main name, absent when the node IS one; see docs/graph.md. */
   uses?: string;
+  /** Where a chain project's unnamed node sits, `chain · step n` — shown in its uuid's place, never sent back. */
+  place?: string;
   /** The engine's stage this module takes — `@input-volume`, `@mix`, `@output-volume` — drawn in its card's FOOTER. */
   stage?: string[];
   category?: WebModuleCategory; // its type folder — picks the node's icon

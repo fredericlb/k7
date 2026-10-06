@@ -2,6 +2,7 @@ import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 import { describe, expect, it } from "vitest";
 import {
   fileFolderOf,
+  isChainFile,
   isLibraryPath,
   libraryModuleRef,
   libraryOfPath,
@@ -330,6 +331,21 @@ describe("the library repository row", () => {
     // One node away from having some; a leaf row would say it could never.
     expect(chains?.children?.[1].dir).toBe(true);
     expect(chains?.children?.[1].children).toEqual([]);
+  });
+
+  it("draws a chain FILE as a leaf at its file — its nodes are inside it", () => {
+    const rows = libraryTree(LEVELS, [
+      {
+        ref: "@st0/stems",
+        path: "_libraries/st0/chains/stems.yaml",
+        nodes: [],
+      },
+    ])[0].children?.[1].children;
+    expect(rows?.map((c) => [c.name, c.path, c.dir, c.children])).toEqual([
+      ["stems", "_libraries/st0/chains/stems.yaml", false, undefined],
+    ]);
+    expect(isChainFile("_libraries/st0/chains/stems.yaml")).toBe(true);
+    expect(isChainFile("_libraries/st0/chains/process/normalize")).toBe(false);
   });
 
   it("draws each assembly template as a leaf at its folder", () => {

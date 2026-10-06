@@ -20,7 +20,7 @@ Each of these already exists under a name close enough to confuse, and none of t
 | existing | what it is | why not |
 |---|---|---|
 | a group LANE (`@meta/group-track`, `ProjectDoc.groups`, [mixFolding.md](mixFolding.md)) | a mixer relationship over lanes | members must be **lanes**. It holds `deckA` and the stem lanes; it cannot hold `trimA`, `platterA` or `fadeA`, which are modules. And it carries mute/solo, not topology |
-| a chain TEMPLATE (a library's `chains/<ref>/`) | a reusable graph with `@in`/`@out` ends | nothing inlines one into a host graph. It is edited standalone from the project that uses it, or bounced offline (`processChain.ts`). Its ends are unnamed and it has one of each |
+| a chain TEMPLATE (a library's `chains/<ref>.yaml`) | one run of nodes, fed by what it is put after and ending at `@out` | nothing inlines one into a host graph. It is edited standalone, bounced offline (`processChain.ts`) or copied onto the bench. Its ends are unnamed and it has one of each ([sharedFolders.md](sharedFolders.md)) |
 | `frozen: "inside"` ([freeze.md](freeze.md)) | one card standing for everything upstream | a **render**, not a document node. It cannot be opened, and it refuses when the region leaks |
 
 The word is **assembly** deliberately. `group` is taken by the first row and `rack` by
@@ -40,7 +40,7 @@ by its library like everything else in it:
 <libraries>/st0/assemblies/    @st0/turntable
 ```
 
-A template is laid out **exactly as a chain template is** — `graph.yaml` and `nodes/` — plus one
+A template is a FOLDER laid out as a project's graph is — `graph.yaml` and `nodes/` — plus one
 file that is the whole of what makes it an assembly:
 
 ```yaml

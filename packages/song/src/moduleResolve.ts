@@ -37,6 +37,10 @@ const OWN_ONLY = [
   "file",
   "node",
   "home",
+  // A chain project's node: its chain, its id, where its state is saved — never a parent's.
+  "presetRel",
+  "chain",
+  "nodeId",
 ] as const;
 
 /** Every key of `o` whose value is not undefined — the shape a spread should carry. */

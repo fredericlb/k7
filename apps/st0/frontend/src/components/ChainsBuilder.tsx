@@ -1,6 +1,7 @@
-// ChainsBuilder.tsx — the library's chains, edited as what they are: graphs. The list on the
-// left, the chosen one drawn on the right by the same buildGraph → layout → DomChains pipeline
-// the project's own graph uses, with the same gestures. See docs/chainsBuilder.md.
+// ChainsBuilder.tsx — the library's chains, edited as what they are: graphs. The text on the left,
+// the chosen one drawn on the right by the same buildGraph → layout → DomChains pipeline the
+// project's own graph uses — with its gestures for a folder chain, read-only for a chain file,
+// which the server's verbs do not reach yet. See docs/chainsBuilder.md.
 
 import { Loader2, Workflow, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
@@ -14,14 +15,17 @@ import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { isChainFile } from "../libraryTree";
 import { m } from "../paraglide/messages.js";
 import { needsAttention, saveLabel } from "../saveLabel";
+import { templateGraph } from "../templateGraph";
 import type { WebGraph } from "../types";
 
 interface LibraryChain {
   ref: string;
+  /** The chain's file, or a folder chain's folder. */
   path: string;
-  /** The node files beside the graph, by name — the other half of what a chain IS. */
+  /** A folder chain's node files beside its graph; a chain file holds its nodes, so none. */
   nodes: string[];
 }
 
@@ -68,9 +72,12 @@ export function ChainsBuilder({
     [chains, open],
   );
 
+  // A chain FILE is drawn from its own text in the browser; only a folder chain has a graph the server builds.
+  const isFile = !!chosen && isChainFile(chosen.path);
+
   // The chain's own graph, asked for by path; null while it loads and when nothing is chosen — the drawing waits, not the list.
   useEffect(() => {
-    if (!chosen) {
+    if (!chosen || isFile) {
       setGraph(null);
       return;
     }
@@ -83,12 +90,20 @@ export function ChainsBuilder({
     return () => {
       live = false;
     };
-  }, [chosen, rev]);
+  }, [chosen, isFile, rev]);
 
   /** Run a verb ON THE CHAIN — every gesture goes through this, so one place knows the edit is aimed somewhere other than the song. */
   const command = useCallback(
     async (line: string) => {
       if (!chosen) return;
+      // No verb reaches a chain file yet: said rather than run against nothing.
+      if (isFile) {
+        onLog?.(
+          "error",
+          `[${chosen.ref}] a chain file is edited as text — "${line}" reaches folder chains only`,
+        );
+        return;
+      }
       // Reported to the shell's transcript WITH where it was aimed: a bare line would claim an edit to the project that never happened.
       onLog?.("cmd", `› [${chosen.ref}] ${line}`);
       try {
@@ -102,7 +117,7 @@ export function ChainsBuilder({
         onLog?.("error", `[${chosen.ref}] ${(e as Error).message}`);
       }
     },
-    [chosen, onLog],
+    [chosen, isFile, onLog],
   );
 
   /** The node id the drawing selects: the focused file without its extension, or none. */
@@ -111,32 +126,34 @@ export function ChainsBuilder({
     [focusNode],
   );
 
-  const drawn = useMemo(() => {
-    if (!graph) return null;
-    const { nodes, edges } = buildGraph(graph);
-    return layout(nodes, edges);
-  }, [graph]);
-
   // --- the text half -----------------------------------------------------------------
 
-  // A chain is two things on disk, and the gestures above reach only the first: params and `extends` are text.
+  // A folder chain is two things on disk, and the gestures reach only the first: params and `extends` are text.
   const files = useMemo(
     () =>
-      chosen
+      chosen && isChainFile(chosen.path)
         ? [
-            { label: GRAPH_FILE, path: `${chosen.path}/${GRAPH_FILE}` },
-            ...chosen.nodes.map((n) => ({
-              label: `nodes/${n}`,
-              path: `${chosen.path}/nodes/${n}`,
-            })),
+            {
+              label: chosen.path.split("/").pop() ?? chosen.path,
+              path: chosen.path,
+            },
           ]
-        : [],
+        : chosen
+          ? [
+              { label: GRAPH_FILE, path: `${chosen.path}/${GRAPH_FILE}` },
+              ...chosen.nodes.map((n) => ({
+                label: `nodes/${n}`,
+                path: `${chosen.path}/nodes/${n}`,
+              })),
+            ]
+          : [],
     [chosen],
   );
   const [openFile, setOpenFile] = useState<string | null>(null);
   // The tree asked for a node: open its tab — an effect, since the screen stays mounted and a second click must move the pane.
   useEffect(() => {
-    if (chosen && focusNode) setOpenFile(`${chosen.path}/nodes/${focusNode}`);
+    if (chosen && focusNode && !isChainFile(chosen.path))
+      setOpenFile(`${chosen.path}/nodes/${focusNode}`);
   }, [chosen, focusNode]);
   const [text, setText] = useState("");
   // What was last read or saved, so the pane knows whether it is dirty without a second state.
@@ -178,6 +195,23 @@ export function ChainsBuilder({
   // The same autosave every text pane in this repo runs — see @studio/ui-editor's docs/autosave.md.
   const autosave = useAutosave({ path, text, saved, write });
 
+  // A chain file's drawing follows what was last SAVED, as a folder chain's follows its re-read graph.
+  const fileGraph = useMemo(
+    () => (chosen && isFile ? templateGraph(chosen.ref, saved) : null),
+    [chosen, isFile, saved],
+  );
+  const shown = fileGraph
+    ? "graph" in fileGraph
+      ? fileGraph.graph
+      : null
+    : graph;
+  const drawn = useMemo(() => {
+    if (!shown) return null;
+    const { nodes, edges } = buildGraph(shown);
+    return layout(nodes, edges);
+  }, [shown]);
+  const fileError = fileGraph && "error" in fileGraph ? fileGraph.error : null;
+
   return (
     <div className="absolute inset-0 z-10 flex bg-background">
       {/* No chain LIST here: the file tree's Libraries tab is the navigation, and a second list would be two places to look. */}
@@ -211,32 +245,34 @@ export function ChainsBuilder({
                 {f.label}
               </button>
             ))}
-            <button
-              type="button"
-              // `node new` writes into the chain's own `nodes/`, the verb resolving that folder from the graph file it was pointed at.
-              onClick={() => {
-                void askText({
-                  title: m["cb.newNodeTitle"](),
-                  body: m["cb.newNodeBody"](),
-                  placeholder: "<type>/<module> <nom>",
-                  confirmLabel: m["common.create"](),
-                  // The line becomes `node new <this>`, so a quote here would become extra arguments there.
-                  validate: (v) =>
-                    !v.trim()
-                      ? m["cb.nodeNamesModule"]()
-                      : /["']/.test(v)
-                        ? m["cb.noQuotes"]()
-                        : !/^\S+\/\S+/.test(v.trim())
-                          ? m["cb.moduleShape"]()
-                          : "",
-                }).then((name) => {
-                  if (name?.trim()) void command(`node new ${name.trim()}`);
-                });
-              }}
-              className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
-            >
-              + nœud
-            </button>
+            {isFile ? null : (
+              <button
+                type="button"
+                // `node new` writes into the chain's own `nodes/`, the verb resolving that folder from the graph file it was pointed at.
+                onClick={() => {
+                  void askText({
+                    title: m["cb.newNodeTitle"](),
+                    body: m["cb.newNodeBody"](),
+                    placeholder: "<type>/<module> <nom>",
+                    confirmLabel: m["common.create"](),
+                    // The line becomes `node new <this>`, so a quote here would become extra arguments there.
+                    validate: (v) =>
+                      !v.trim()
+                        ? m["cb.nodeNamesModule"]()
+                        : /["']/.test(v)
+                          ? m["cb.noQuotes"]()
+                          : !/^\S+\/\S+/.test(v.trim())
+                            ? m["cb.moduleShape"]()
+                            : "",
+                  }).then((name) => {
+                    if (name?.trim()) void command(`node new ${name.trim()}`);
+                  });
+                }}
+                className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+              >
+                + nœud
+              </button>
+            )}
           </div>
           <div className="min-h-0 min-w-0 flex-1">
             {path ? (
@@ -264,12 +300,12 @@ export function ChainsBuilder({
         </aside>
       ) : null}
       <section className="relative min-w-0 flex-1 basis-0">
-        {error && (
+        {(error ?? fileError) && (
           <div
             role="alert"
             className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 bg-destructive/10 p-2 text-xs"
           >
-            <p className="min-w-0 flex-1">{error}</p>
+            <p className="min-w-0 flex-1">{error ?? fileError}</p>
             {/* It covers the top of the drawing, so it has to be closable without running another verb. */}
             <button
               type="button"
