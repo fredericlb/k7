@@ -93,6 +93,18 @@ the hub answering a corrupt frame by cutting the socket. On loopback the socket 
 is why the tunnel suite does not see it. The patch asks again at the length the record began with;
 it refuses to apply, loudly, to an IXWebSocket that no longer reads as it expects.
 
+## Closing a socket leaves the crypto standing
+
+The same patch removes `mbedtls_psa_crypto_free()` from `SocketMbedTLS::close`. PSA's state — the
+key slots, the random generator — is ONE for the process, set up once by `tls::init` in `main`, and
+every TLS socket draws from it: the tunnel, each heartbeat, each job. IXWebSocket frees it whenever
+any one socket closes, so the next socket re-initialises it while the others are still inside it.
+With heartbeats to several registries on threads of their own, that is a use-after-free under
+load: the heap corrupts and macOS's allocator traps the process (`EXC_BREAKPOINT` in
+`psa_initialize_key_slots` or `getaddrinfo`), every few minutes once a wake from sleep lets a
+backlog of heartbeats out together. `tests/Tls_test.cpp` closes one socket and asks the generator
+for bytes. The state is never freed: the process leaves by `_Exit`.
+
 ## Trust comes from the OS
 
 mbedTLS knows no certificates, so `TrustRoots.cpp` hands it the OS's: the Keychain's anchors and
