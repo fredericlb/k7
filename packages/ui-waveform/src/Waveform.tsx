@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { columnsOf, mirroredYs, spectrumLayer } from "./spectrum";
 import {
   labelled,
   labelMinPx,
@@ -26,6 +27,8 @@ import type {
 
 interface Props {
   envelope: Envelope;
+  /** `contour` is the dB curve; `spectrum` the DJ desk's band-coloured columns — docs/spectrum.md. */
+  look?: "contour" | "spectrum";
   duration: number;
   threshold?: number; // absence hides the threshold line
   events?: DetectedEvent[];
@@ -81,6 +84,8 @@ const ENV_UNPLAYED = "150, 150, 163"; // grey — the material as a whole
 const ENV_PLAYED = "139, 92, 246"; // accent purple — left of the playhead
 /** How much of the contour's ink the PEAK curve behind it gets — see docs/envelopes.md. */
 const PEAK_ALPHA = 0.45;
+/** What is left of a spectrum column once the playhead has passed it — the played part dims. */
+const PLAYED_ALPHA = 0.4;
 
 // Stable defaults: a fresh `[]` per render is a new identity, which fired the draw effect on every host render.
 const NO_EVENTS: DetectedEvent[] = [];
@@ -206,6 +211,7 @@ function envelopeLayer(
 
 function WaveformInner({
   envelope,
+  look = "contour",
   duration,
   threshold,
   events = NO_EVENTS,
@@ -303,22 +309,51 @@ function WaveformInner({
 
   /** One y per pixel column, memoised because neither of its two passes depends on the transport — see docs/layers.md. */
   const ys = useMemo(
-    () => contourYs(samples, intervalMs, width, v0, span, HEIGHT),
-    [samples, intervalMs, width, v0, span, HEIGHT],
+    () =>
+      look === "spectrum"
+        ? []
+        : contourYs(samples, intervalMs, width, v0, span, HEIGHT),
+    [look, samples, intervalMs, width, v0, span, HEIGHT],
   );
   /** …and the same again for the PEAK when the host has one, null otherwise — see docs/envelopes.md. */
   const peakYs = useMemo(
     () =>
-      envelope.peak?.length
+      envelope.peak?.length && look !== "spectrum"
         ? contourYs(envelope.peak, intervalMs, width, v0, span, HEIGHT)
         : null,
-    [envelope.peak, intervalMs, width, v0, span, HEIGHT],
+    [look, envelope.peak, intervalMs, width, v0, span, HEIGHT],
+  );
+
+  /** The spectrum look's columns, null under the contour — the same memo boundary as `ys`. */
+  const { low, mid, high, peak } = envelope;
+  const cols = useMemo(
+    () =>
+      look === "spectrum"
+        ? columnsOf(
+            { intervalMs, samples, peak, low, mid, high },
+            width,
+            v0,
+            span,
+          )
+        : null,
+    [look, intervalMs, samples, peak, low, mid, high, width, v0, span],
   );
 
   // The two contours, rasterised once each; the DPR is read here rather than tracked, which is the cheap trade.
   const layers = useMemo(() => {
     const dpr = window.devicePixelRatio || 1;
+    if (cols)
+      return {
+        spectrum: spectrumLayer(cols, width, HEIGHT, dpr),
+        spectrumPlayed: spectrumLayer(cols, width, HEIGHT, dpr, PLAYED_ALPHA),
+        unplayed: null,
+        played: null,
+        peakUnplayed: null,
+        peakPlayed: null,
+      };
     return {
+      spectrum: null,
+      spectrumPlayed: null,
       unplayed: envelopeLayer(ys, width, HEIGHT, dpr, ENV_UNPLAYED),
       played: envelopeLayer(ys, width, HEIGHT, dpr, ENV_PLAYED),
       // The peak behind it, in the same two colours so the progress fill still reads as one picture.
@@ -329,7 +364,9 @@ function WaveformInner({
         ? envelopeLayer(peakYs, width, HEIGHT, dpr, ENV_PLAYED, PEAK_ALPHA)
         : null,
     };
-  }, [ys, peakYs, width, HEIGHT]);
+  }, [cols, ys, peakYs, width, HEIGHT]);
+  // The dB axis means nothing on the spectrum's linear, mirrored scale, so that look draws none.
+  const dbAxis = cols ? [] : DB_GRID;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -351,7 +388,7 @@ function WaveformInner({
 
     // dB grid lines (labels drawn last, on top)
     ctx.lineWidth = 1;
-    for (const db of DB_GRID) {
+    for (const db of dbAxis) {
       const y = Math.round(dbToY(db)) + 0.5;
       ctx.strokeStyle = "rgba(255,255,255,0.07)";
       ctx.beginPath();
@@ -441,18 +478,41 @@ function WaveformInner({
       ctx.drawImage(left, 0, 0, width, HEIGHT);
       ctx.restore();
     };
+    if (layers.spectrum) {
+      // Each side of the playhead gets ONE layer: the dim one over the bright would still read bright.
+      const side = (
+        layer: HTMLCanvasElement | null,
+        x0: number,
+        x1: number,
+      ) => {
+        if (!layer || x1 <= x0) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x0, 0, x1 - x0, HEIGHT);
+        ctx.clip();
+        ctx.drawImage(layer, 0, 0, width, HEIGHT);
+        ctx.restore();
+      };
+      side(layers.spectrum, Math.max(0, playX), width);
+      side(layers.spectrumPlayed, 0, Math.min(width, playX));
+    }
     fill(layers.peakUnplayed, layers.peakPlayed);
     fill(layers.unplayed, layers.played);
 
     // Threshold line (horizontal, at its dB level) — only when a threshold is set.
     if (threshold != null) {
-      const ty = Math.round(dbToY(ampToDb(threshold))) + 0.5;
+      const tys = layers.spectrum
+        ? mirroredYs(threshold, HEIGHT)
+        : [dbToY(ampToDb(threshold))];
       ctx.strokeStyle = "rgba(255,90,90,0.7)";
       ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(0, ty);
-      ctx.lineTo(width, ty);
-      ctx.stroke();
+      for (const y of tys) {
+        const ty = Math.round(y) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, ty);
+        ctx.lineTo(width, ty);
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
     }
 
@@ -563,7 +623,7 @@ function WaveformInner({
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textBaseline = "bottom";
     ctx.fillStyle = "rgba(255,255,255,0.4)";
-    for (const db of DB_GRID) {
+    for (const db of dbAxis) {
       const y = Math.round(dbToY(db));
       if (y > 10) ctx.fillText(`${db} dB`, 3, y - 1);
     }
@@ -615,6 +675,7 @@ function WaveformInner({
     width,
     height,
     layers,
+    dbAxis,
     threshold,
     events,
     annotations,

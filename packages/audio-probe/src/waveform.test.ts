@@ -200,6 +200,27 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
     expect(w.toDisplay(1)).toBe(0);
     expect(w.toDisplay(1.5)).toBe(0.5);
   });
+  it("resamples the three bands like the peak, a max per column, so the spectrum look keeps its colour", () => {
+    const low = new Array(100).fill(0).map((_, i) => (i === 10 ? 0.9 : 0.1));
+    const mid = new Array(100).fill(0.2);
+    const high = new Array(100).fill(0.3);
+    const w = regionWaveform(env({ low, mid, high }), clip({}), project, 50);
+    expect(w.low?.length).toBe(50);
+    expect(w.low?.[5]).toBe(0.9); // bucket 10 lands in column 5 and is not averaged away
+    expect(w.mid?.every((v) => v === 0.2)).toBe(true);
+    expect(w.high?.every((v) => v === 0.3)).toBe(true);
+  });
+
+  it("sends no bands at all when the sidecar's do not cover the peak's buckets", () => {
+    const w = regionWaveform(
+      env({ low: [1], mid: [1], high: [1] }),
+      clip({}),
+      project,
+      50,
+    );
+    expect(w.low).toBeUndefined();
+    expect(regionWaveform(env(), clip({}), project, 50).high).toBeUndefined();
+  });
 });
 
 describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {

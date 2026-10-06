@@ -7,6 +7,7 @@ import {
   nudgedTime,
   nudgeOf,
   type PadEdit,
+  planSelectionMove,
   settledEdits,
   stepCells,
   unknownKeys,
@@ -233,5 +234,72 @@ describe("nudgeOf / nudgedTime", () => {
     expect(nudgedTime(2, 0.5, 33)).toBe(2.165);
     for (const n of [7, 33, 61, 99])
       expect(String(nudgedTime(4, 0.25, n))).not.toMatch(/\d{8}/);
+  });
+});
+
+describe("dragging a selection", () => {
+  // Three rack sounds in RACK order — kick 36, snare 38, hat 42 — over four one-beat steps.
+  const rowNotes = [36, 38, 42];
+  const cells = [0, 1, 2, 3];
+  const byCell = notesByCell(
+    [note(0, 36), { ...note(1.25, 38), vel: 0.5 }, note(3, 42)],
+    0,
+    4,
+    1,
+  );
+  const plan = (
+    box: [number, number, number, number],
+    dRow: number,
+    dCol: number,
+  ) =>
+    planSelectionMove({
+      box: { rowLo: box[0], rowHi: box[1], colLo: box[2], colHi: box[3] },
+      dRow,
+      dCol,
+      rowNotes,
+      cells,
+      byCell,
+    });
+
+  it("moves every held note by the same rows and steps, through the RACK's rows, nudge kept", () => {
+    // Kick at 0 and snare at 1.25, one row down and one step right: snare at 1, hat at 2.25.
+    expect(plan([0, 1, 0, 1], 1, 1)).toEqual({
+      moves: [
+        [36, 0, 38, 1],
+        [38, 1.25, 42, 2.25],
+      ],
+      // The kick lands on the snare's old pad as the snare leaves it: that pad stays lit.
+      lift: ["36@0"],
+      land: [{ key: "38@1" }, { key: "42@2", vel: 0.5 }],
+    });
+  });
+
+  it("shifts a run along its own row, each note landing where the next one leaves", () => {
+    const run = notesByCell([note(0, 36), note(1, 36)], 0, 4, 1);
+    expect(
+      planSelectionMove({
+        box: { rowLo: 0, rowHi: 0, colLo: 0, colHi: 1 },
+        dRow: 0,
+        dCol: 1,
+        rowNotes,
+        cells,
+        byCell: run,
+      }),
+    ).toEqual({
+      moves: [
+        [36, 0, 36, 1],
+        [36, 1, 36, 2],
+      ],
+      lift: ["36@0"],
+      land: [{ key: "36@1" }, { key: "36@2" }],
+    });
+  });
+
+  it("refuses leaving the grid, landing on a pad that stays, and an empty rectangle", () => {
+    expect(plan([0, 1, 0, 1], 2, 0)).toEqual({ refused: "outside" });
+    expect(plan([0, 0, 0, 0], 0, -1)).toEqual({ refused: "outside" });
+    // The hat at step 3 stays where it is: the kick cannot land there.
+    expect(plan([0, 0, 0, 0], 2, 3)).toEqual({ refused: "occupied" });
+    expect(plan([2, 2, 0, 1], 0, 1)).toEqual({ refused: "empty" });
   });
 });

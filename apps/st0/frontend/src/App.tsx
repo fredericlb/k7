@@ -3697,6 +3697,12 @@ export default function App({
                             `sequence note move ${seqId} ${key} ${start} ${nk} ${ns}`,
                           )
                         }
+                        // …and a dragged SELECTION, every note in one write and one Ctrl+Z.
+                        onMoveNotes={(seqId, moves) =>
+                          runCommand(
+                            `sequence notes move ${seqId} ${JSON.stringify(moves)}`,
+                          )
+                        }
                         // …and the ear. Straight down the engine's socket: a note heard is not an edit, so it is journalled nowhere.
                         onPreviewNote={(track, key, vel) =>
                           engineRef.current?.previewNote(track, key, vel)

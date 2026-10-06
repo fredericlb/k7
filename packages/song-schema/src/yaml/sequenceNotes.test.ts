@@ -9,6 +9,7 @@ import { SequenceSchema } from "./entitySchemas";
 import {
   findNote,
   moveNote,
+  moveNotes,
   removeNote,
   setNoteVelocity,
 } from "./sequenceFile";
@@ -164,5 +165,54 @@ describe("moveNote", () => {
   it("refuses a note it cannot find, and a start before the sequence", () => {
     expect(() => moveNote(AUTHORED, 60, 9, 61, 0)).toThrow(/no note/);
     expect(() => moveNote(AUTHORED, 60, 0, 61, -1)).toThrow(/before/);
+  });
+});
+
+describe("moveNotes", () => {
+  it("moves every note in one pass, each to its own place, length and velocity riding along", () => {
+    const after = moveNotes(AUTHORED, [
+      { k: 60, t: 0, nk: 62, nt: 2 },
+      { k: 64, t: 1, nk: 65, nt: 3 },
+    ]);
+    expect(notesOf(after)).toEqual([
+      { t: 2, d: 1, k: 62 },
+      { t: 3, d: 0.5, k: 65, v: 0.4 },
+      { t: 1, d: 0.5, k: 67 }, // not moved, not touched
+    ]);
+  });
+
+  it("lands on a place another MOVING note leaves — a selection shifted onto itself", () => {
+    // k64 moves onto k67's beat while k67 moves away: neither collides with the other.
+    const after = moveNotes(AUTHORED, [
+      { k: 64, t: 1, nk: 67, nt: 1 },
+      { k: 67, t: 1, nk: 67, nt: 2 },
+    ]);
+    expect(notesOf(after)).toEqual([
+      { t: 0, d: 1, k: 60 },
+      { t: 1, d: 0.5, k: 67, v: 0.4 },
+      { t: 2, d: 0.5, k: 67 },
+    ]);
+  });
+
+  it("refuses a place a note that STAYS already holds, and writes nothing", () => {
+    expect(() => moveNotes(AUTHORED, [{ k: 64, t: 1, nk: 60, nt: 0 }])).toThrow(
+      /already/,
+    );
+  });
+
+  it("refuses two notes landing on one place, a missing note, and a start before the sequence", () => {
+    expect(() =>
+      moveNotes(AUTHORED, [
+        { k: 60, t: 0, nk: 70, nt: 4 },
+        { k: 64, t: 1, nk: 70, nt: 4 },
+      ]),
+    ).toThrow(/two notes/);
+    expect(() => moveNotes(AUTHORED, [{ k: 61, t: 0, nk: 62, nt: 0 }])).toThrow(
+      /no note/,
+    );
+    expect(() =>
+      moveNotes(AUTHORED, [{ k: 60, t: 0, nk: 60, nt: -1 }]),
+    ).toThrow(/before/);
+    expect(() => moveNotes(AUTHORED, [])).toThrow(/no note/);
   });
 });

@@ -34,6 +34,10 @@ export interface WarpMark {
 export interface RegionWaveform {
   peak: number[]; // per-bucket max |sample|, 0..1 (best for a filled/terminal waveform)
   rms: number[]; // per-bucket RMS, 0..1 (linear; feeds @studio/ui-waveform's dB Envelope)
+  /** The file's three band peaks resampled like `peak`, absent when the sidecar has none — docs/waveform.md. */
+  low?: number[];
+  mid?: number[];
+  high?: number[];
   sampleRate: number;
   seconds: number; // duration of the region shown
   startBeat: number; // the clip's start in the arrangement (beats)
@@ -146,6 +150,10 @@ export function regionWaveform(
   const n = Math.max(1, Math.min(buckets, wantFrames));
   const peak = new Array<number>(n).fill(0);
   const rms = new Array<number>(n).fill(0);
+  // The bands ride only when all three cover the same buckets as `peak`, the space they are indexed in.
+  const src = [env.low, env.mid, env.high];
+  const hasBands = src.every((b) => b?.length === envN);
+  const bands = hasBands ? src.map(() => new Array<number>(n).fill(0)) : null;
   const dispPer = n > 0 ? seconds / n : 0;
   const framesPerEnv = envN > 0 ? totalFrames / envN : 1;
   // The last source frame this region may show — its own `to`, or the end of the file.
@@ -164,6 +172,11 @@ export function regionWaveform(
       if (env.peak[e] > mx) mx = env.peak[e];
       sq += env.rms[e] * env.rms[e];
       cnt++;
+      if (bands)
+        for (let k = 0; k < 3; k++) {
+          const v = (src[k] as number[])[e];
+          if (v > bands[k][b]) bands[k][b] = v;
+        }
     }
     peak[b] = mx;
     rms[b] = cnt ? Math.sqrt(sq / cnt) : 0;
@@ -193,6 +206,7 @@ export function regionWaveform(
   return {
     peak,
     rms,
+    ...(bands ? { low: bands[0], mid: bands[1], high: bands[2] } : {}),
     sampleRate: sr,
     seconds,
     startBeat: clip.start,

@@ -20,6 +20,7 @@ ResonatorPlugin::ResonatorPlugin(tracktion::engine::PluginCreationInfo info)
     position_ = knob("position", "Position", 0.0f, 1.0f, 0.5f);
     exciter_ = choice("exciter", "Exciter", {"internal", "input only"}, 0);
     transpose_ = knob("transpose", "Transpose", -24.0f, 24.0f, 0.0f, "st");
+    glide_ = knob("glide", "Glide", 0.0f, 1.0f, 0.0f, "s");
 }
 
 void ResonatorPlugin::readParams()
@@ -33,6 +34,7 @@ void ResonatorPlugin::readParams()
     p.position = position_->getCurrentValue();
     p.internalExciter = index(exciter_) == 0;
     p.transpose = transpose_->getCurrentValue();
+    p.glide = glide_->getCurrentValue();
 }
 
 void ResonatorPlugin::handleMidi(const juce::MidiMessage& m)

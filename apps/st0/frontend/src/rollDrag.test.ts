@@ -3,9 +3,11 @@ import {
   clampKey,
   dragMoved,
   drawSpan,
+  groupOffset,
   keyOffset,
   MIN_NOTE_BEATS,
   movesPitch,
+  planGroupMove,
   type RollDrag,
   tSpan,
   velAt,
@@ -157,5 +159,40 @@ describe("clampKey", () => {
   it("rounds to a whole semitone", () => {
     expect(clampKey(60.4)).toBe(60);
     expect(clampKey(60.6)).toBe(61);
+  });
+});
+
+describe("dragging a selection", () => {
+  const chord = [
+    { key: 60, time: 1, duration: 1 },
+    { key: 64, time: 1, duration: 1, vel: 0.5 },
+    { key: 67, time: 2, duration: 0.5 },
+  ];
+
+  it("moves every note by the same beats and semitones", () => {
+    expect(planGroupMove(chord, [], 1, 2)).toEqual({
+      moves: [
+        [60, 1, 62, 2],
+        [64, 1, 66, 2],
+        [67, 2, 69, 3],
+      ],
+      dBeats: 1,
+      dKeys: 2,
+    });
+  });
+
+  it("stops the WHOLE group at an edge, so a chord keeps its shape", () => {
+    // Up by 70 would push G4 past 127: the group stops when its top note reaches it.
+    expect(groupOffset(chord, 0, 70)).toEqual({ dBeats: 0, dKeys: 60 });
+    // Left by 5 beats stops when the earliest note reaches beat 0.
+    expect(groupOffset(chord, -5, 0)).toEqual({ dBeats: -1, dKeys: 0 });
+  });
+
+  it("refuses a note that stays in the way, and a drag that ends where it began", () => {
+    const stays = [{ key: 62, time: 2, duration: 1 }];
+    expect(planGroupMove(chord, stays, 1, 2)).toEqual({ refused: "occupied" });
+    expect(planGroupMove(chord, [], 0.0000001, 0)).toEqual({
+      refused: "still",
+    });
   });
 });

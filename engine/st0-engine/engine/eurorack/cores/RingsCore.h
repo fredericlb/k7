@@ -20,6 +20,7 @@ public:
         float structure = 0.5f, brightness = 0.5f, damping = 0.5f, position = 0.5f;
         bool internalExciter = true;
         float transpose = 0.0f;
+        float glide = 0.0f;   // seconds the pitch takes to settle on a new note; 0 jumps, as the module does
     };
 
     RingsCore();

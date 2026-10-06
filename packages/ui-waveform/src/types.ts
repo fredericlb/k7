@@ -9,6 +9,10 @@ export interface Envelope {
   samples: number[];
   /** Per-bucket PEAK on the same axis, drawn faintly behind `samples`; optional, and why there are two — docs/envelopes.md. */
   peak?: number[];
+  /** The three band peaks in the same buckets, which the `spectrum` look colours by; optional — docs/spectrum.md. */
+  low?: number[];
+  mid?: number[];
+  high?: number[];
 }
 
 /** A selected time range on the waveform, in seconds. */

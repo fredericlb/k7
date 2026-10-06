@@ -1,10 +1,11 @@
 # The turntable waveform
 
 Under each record, a band that **scrolls beneath the playhead**: the track slides, the head
-stays in the middle. This is not the waveform the rest of the repo draws and must not become it —
-`@studio/ui-waveform` draws a **whole** track into a given width, head crossing it; here a window
-of fixed duration, and the audio moves. Two different questions — "what does this track look
-like" against "what arrives in four seconds".
+stays in the middle. The LOOK is the one every st0 waveform wears, painted by the same function
+(`packages/ui-waveform/docs/spectrum.md`); the SCROLL is this band's alone. `@studio/ui-waveform`
+draws a **whole** track into a given width, head crossing it; here a window of fixed duration,
+and the audio moves. Two different questions — "what does this track look like" against "what
+arrives in four seconds".
 
 ```
         past  ←            │            →  coming
@@ -135,19 +136,9 @@ show.
 
 ### The blend, drawing side
 
-**Additive**, and that is the whole trick. Bass red, mid green, top blue: blending them is
-ordinary light, so bass+mid gives orange-yellow, bass+top gives violet, all three give white.
-Exactly the palette described — out of arithmetic instead of a table of special cases someone has
-to maintain.
-
-Each band is pulled towards its hue (bass towards orange, top towards violet) but keeps a
-**weak** contribution in the two channels it does not own. Too much green across red and blue and
-bass+top comes out nearly white instead of violet: what a band contributes to the channels that
-are not its own is what decides whether the blends land right.
-
-Normalised by the **loudest** band, not by the sum. What a coloured waveform says is which band
-DOMINATES here, and that must read the same in a quiet passage and a loud one; with a sum, a
-column that is nothing but bass comes out at a third of its intensity and reads as muddy brown.
+The colouring is not this band's own: it lives in `@studio/ui-waveform`, which every st0 waveform
+paints through, and its choices (the additive mix, normalising by the loudest band) are argued in
+`packages/ui-waveform/docs/spectrum.md`.
 
 ### What it costs
 

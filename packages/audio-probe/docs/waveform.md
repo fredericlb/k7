@@ -19,6 +19,10 @@ signal and a column's colour cannot invent energy it has not got.
 They are optional because a sidecar below v4 carries none, and a surface reading one should
 degrade to a plain envelope rather than to a blank one.
 
+`regionWaveform` resamples them like `peak`, taking the max per column, and drops all three
+unless all three cover `peak`'s buckets. A half-banded region would colour some columns from
+data that is not there. The drawing side is `packages/ui-waveform/docs/spectrum.md`.
+
 ## `detectTransients` is the written spec, not the code that runs
 
 It is mirrored byte-for-byte in `engine/st0-engine/engine/Waveform.cpp`, which is what actually runs:

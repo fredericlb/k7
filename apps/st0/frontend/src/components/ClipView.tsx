@@ -56,6 +56,7 @@ function SeqRoll({
   onSetVelocity,
   onSetNoteRange,
   onMoveNote,
+  onMoveNotes,
   onContextMenu,
 }: {
   path: string;
@@ -87,6 +88,11 @@ function SeqRoll({
     startBeat: number,
     newKey: number,
     newStart: number,
+  ) => void | Promise<void>;
+  /** Move SEVERAL notes in one write (`sequence notes move`): each [key, start, newKey, newStart] — the roll's dragged selection. */
+  onMoveNotes?: (
+    seqId: string,
+    moves: [number, number, number, number][],
   ) => void | Promise<void>;
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
 }) {
@@ -158,6 +164,9 @@ function SeqRoll({
             ? (k, t, nk, ns) => onMoveNote(name, k, t, nk, ns)
             : undefined
         }
+        onMoveNotes={
+          onMoveNotes ? (moves) => onMoveNotes(name, moves) : undefined
+        }
         onContextMenu={onContextMenu}
       />
     </div>
@@ -181,6 +190,7 @@ export function ClipView({
   onSetVelocity,
   onSetNoteRange,
   onMoveNote,
+  onMoveNotes,
   onPreviewNote,
   onRemoveNote,
   waveRef,
@@ -239,6 +249,11 @@ export function ClipView({
     startBeat: number,
     newKey: number,
     newStart: number,
+  ) => void | Promise<void>;
+  /** Move SEVERAL notes in one write (`sequence notes move`): each [key, start, newKey, newStart] — the roll's dragged selection. */
+  onMoveNotes?: (
+    seqId: string,
+    moves: [number, number, number, number][],
   ) => void | Promise<void>;
   /** Hear one note through a TRACK's chain — over the engine's socket, not through a command; the track is found here. */
   onPreviewNote?: (track: string, key: number, vel: number) => void;
@@ -342,6 +357,7 @@ export function ClipView({
           onSetVelocity={onSetVelocity}
           onSetNoteRange={onSetNoteRange}
           onMoveNote={onMoveNote}
+          onMoveNotes={onMoveNotes}
           onContextMenu={onContextMenu}
         />
       ) : clip?.type === "midi" ? (
@@ -365,6 +381,11 @@ export function ClipView({
             onSetLoop={onSetLoop}
             // …and the same right-click every other entity has, here for a pad's effects.
             onContextMenu={onContextMenu}
+            onPreviewNote={
+              onPreviewNote && midiTrack
+                ? (k, v) => onPreviewNote(midiTrack, k, v)
+                : undefined
+            }
           />
         ) : view === "tracker" ? (
           // The tracker over the sequence FILE, headed the way the other two are; it writes straight to the file (SeqGridFile.tsx).
@@ -441,6 +462,9 @@ export function ClipView({
                   onMoveNote
                     ? (k, t, nk, ns) => onMoveNote(seqId, k, t, nk, ns)
                     : undefined
+                }
+                onMoveNotes={
+                  onMoveNotes ? (moves) => onMoveNotes(seqId, moves) : undefined
                 }
                 onContextMenu={onContextMenu}
                 // A sequence FILE has no placement, so no chain to hear it through: the roll is then silent, and honestly so.

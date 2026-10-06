@@ -718,6 +718,7 @@ export function AudioClipPanel({
               </p>
             ) : rolling ? (
               <Waveform
+                look="spectrum"
                 envelope={live}
                 duration={seconds}
                 height={waveH}
@@ -739,11 +740,15 @@ export function AudioClipPanel({
                 placedAt={placedAt}
                 act={act}
                 tempo={tempo}
-                // Both curves: the RMS solid, the PEAK faint behind it — the two are 9 dB apart on a plucked guitar, and the trim gate measures the RMS.
+                // st0's one waveform, the desk's: the PEAK as height and the three bands as colour (packages/ui-waveform/docs/spectrum.md).
+                look="spectrum"
                 envelope={{
                   intervalMs: wf.intervalMs,
                   samples: wf.rms,
                   peak: wf.peak,
+                  low: wf.low,
+                  mid: wf.mid,
+                  high: wf.high,
                 }}
                 duration={wf.seconds}
                 height={waveH}

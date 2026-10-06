@@ -369,6 +369,10 @@ export interface WebWarpMark {
 export interface WebWaveform {
   rms: number[]; // 0..1 linear per bucket (feeds the recorder Waveform's dB envelope)
   peak: number[]; // 0..1 per bucket
+  /** The three band peaks in `peak`'s buckets, for the spectrum look; absent on a sidecar analysed without them. */
+  low?: number[];
+  mid?: number[];
+  high?: number[];
   seconds: number; // duration of the shown region
   intervalMs: number; // seconds / rms.length * 1000 (envelope sample spacing)
   startBeat: number; // the clip's start in the arrangement

@@ -2,10 +2,10 @@
 // the middle, with the beats in yellow and the transients in grey. Canvas, driven by its own
 // animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
+import { interpolated, spectrumColumns } from "@studio/ui-waveform/spectrum";
 import { useCallback, useEffect, useRef } from "react";
 import type { DeckTempo } from "../deckVocabulary";
 import { shuttleRate } from "../shuttle";
-import { bandsAt, columnColour } from "../spectrumColour";
 import {
   barsIn,
   beatsIn,
@@ -18,8 +18,6 @@ import {
   xOf,
 } from "../waveform";
 
-/** What a column with no band analysis is drawn in — the envelope as it always was. */
-const PLAIN = "rgb(148,163,184)";
 /** Yellow for the inferred grid, grey for the measured transients — the louder colour is what you mix on. */
 const BEAT = "#facc15";
 /** The downbeat, a different HUE rather than a brighter yellow: at a glance you are counting bars. */
@@ -171,17 +169,16 @@ export function Waveform({
       const [from, to] = viewWindow(at);
       const xPx = (s: number) => xOf(s, at) * w;
 
-      // --- one column per pixel, COLOURED BY WHAT IS IN IT; no bands is plain grey (spectrumColour.ts) ---
-      for (let px = 0; px < w; px++) {
-        const seconds = from + (px / w) * WINDOW_SECONDS;
-        const i = bucketAt(envelope, seconds);
-        if (i === null) continue; // before the start or past the end: drawn as nothing
-        const bands = bandsAt(envelope, i);
-        ctx.fillStyle = bands ? columnColour(bands, PLAIN) : PLAIN;
-        const amp = envelope.peak[i] ?? 0;
-        const half = Math.max(0.5, amp * (h / 2 - 1));
-        ctx.fillRect(px, mid - half, 1, half * 2);
-      }
+      // --- the SPECTRUM look, painted by the same function as every st0 waveform (@studio/ui-waveform) ---
+      const perSecond =
+        envelope.seconds > 0 ? envelope.peak.length / envelope.seconds : 0;
+      const amps = { ...envelope, amps: envelope.peak };
+      spectrumColumns(ctx, w, h, (px) => {
+        const seconds = from + ((px + 0.5) / w) * WINDOW_SECONDS;
+        // Before the start or past the end: drawn as nothing.
+        if (bucketAt(envelope, seconds) === null) return null;
+        return interpolated(amps, seconds * perSecond - 0.5);
+      });
 
       // --- the loop, UNDER the grid: it is a region and the beats have to stay readable on it ---
       if (loop) {

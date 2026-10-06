@@ -205,6 +205,7 @@ import {
   isPlayableNote,
   mapNotesInRegion,
   moveNote,
+  moveNotes,
   type NoteIn,
   type PadEffect,
   removeNote,
@@ -2864,6 +2865,51 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ...(v === 1 ? { v: undefined } : { v: Math.round(v * 100) / 100 }),
     }),
   ),
+
+  /** sequence notes move — a dragged SELECTION: every note to its own place, one write, one Ctrl+Z (moveNotes). */
+  "sequence.notesMove": async (arg, h) => {
+    const usage =
+      "usage: sequence notes move <sequence> <movesJSON [[note,start,newNote,newStart],…]>";
+    const trimmed = arg.trim();
+    const sp = trimmed.search(/\s/);
+    if (sp < 0) {
+      h.refuse([usage]);
+      return;
+    }
+    const seqId = trimmed.slice(0, sp);
+    let raw: unknown;
+    try {
+      raw = JSON.parse(trimmed.slice(sp + 1));
+    } catch (e) {
+      h.refuse([`bad moves JSON: ${(e as Error).message}`]);
+      return;
+    }
+    const isMove = (m: unknown): m is [number, number, number, number] =>
+      Array.isArray(m) &&
+      m.length === 4 &&
+      m.every((x) => typeof x === "number" && Number.isFinite(x));
+    if (!Array.isArray(raw) || !raw.length || !raw.every(isMove)) {
+      h.refuse([usage]);
+      return;
+    }
+    const moves = raw.map(([k, t, nk, nt]) => ({ k, t, nk, nt }));
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      writeFileSync(file, moveNotes(text, moves), "utf8");
+    } catch (e) {
+      h.refuse([`sequence notes move: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([`${seqId}: moved ${moves.length} note(s)`]);
+    await h.reload();
+  },
 
   /** Set ONE note's velocity, 0..1, clamped rather than refused; a velocity of 1 CLEARS the field — docs/verbs.md. */
   "sequence.noteVelocity": async (arg, h) => {

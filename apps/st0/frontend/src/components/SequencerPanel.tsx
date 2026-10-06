@@ -4,19 +4,18 @@
 // (1/2 … 1/16 notes) is the person's, per panel. A press toggles; a vertical DRAG on a lit
 // cell is the roll's velocity gesture, restated for a button. Every commit is one note
 // command — one line, one Ctrl+Z — and the grid redraws from the reload it triggers.
+// What a press WRITES is ../hooks/useStepPads.ts; this file is the layout and the drawing.
 
 import { Grip } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { WebRackSound } from "@studio/graph-model";
 import {
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
@@ -32,37 +31,21 @@ import {
   songSecondsOfCol,
 } from "../gridCaret";
 import { useGridCaret } from "../hooks/useGridCaret";
-import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
+import { CELL_H, type Row, useStepPads } from "../hooks/useStepPads";
 import { m } from "../paraglide/messages.js";
 import {
-  NUDGE_MAX,
   notesByCell,
   nudgedTime,
   nudgeOf,
-  type PadEdit,
   PRECISIONS,
   type Precision,
-  settledEdits,
   stepCells,
   unknownKeys,
 } from "../stepGrid";
 import type { WebClip, WebNote, WebProject } from "../types";
-import { noteName } from "./PianoRoll";
+import { AUDITION_VEL, noteName } from "./PianoRoll";
 import { SeqDoubleButton } from "./SeqDoubleButton";
-
-// A cell's pixel height (h-14), needed as a NUMBER by the velocity line: 0 at the bottom edge, 1 at the top.
-const CELL_H = 56;
-const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v));
-// How long the wheel must be still before a nudge is written — one command for a flick, and letting go still ends the gesture.
-const NUDGE_SETTLE_MS = 250;
-
-/** One row of the grid: a rack sound, or a key the notes use that the rack does not name. */
-interface Row {
-  symbol: string;
-  note: number;
-  known: boolean;
-}
+import { StepPlayhead } from "./StepPlayhead";
 
 export function SequencerPanel({
   project,
@@ -77,6 +60,7 @@ export function SequencerPanel({
   onSeek,
   onSetLoop,
   onContextMenu,
+  onPreviewNote,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -99,6 +83,8 @@ export function SequencerPanel({
   onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
   /** The shell's right-click menu, for a pad's effects. Absent ⇒ the browser's own. */
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
+  /** Audition one key through the clip's track — a click on a row's name. Absent ⇒ the names are plain text. */
+  onPreviewNote?: (key: number, vel: number) => void;
 }) {
   const notes = clip.notes;
   const seqId = clip.name || clip.id;
@@ -241,254 +227,22 @@ export function SequencerPanel({
     [notes, origin, span, prec.beats],
   );
 
-  /** Presses the document has not caught up with yet: a press paints at once and the ghost is held until the document AGREES (see `settledEdits`). */
-  const [pending, setPending] = useState<ReadonlyMap<string, PadEdit>>(
-    new Map(),
-  );
-  /** A pad key back to its step's beat, through a ref and STABLE — else the reconcile below would run on every render. */
-  const cellsRef = useRef(cells);
-  cellsRef.current = cells;
-  const cellStartOfKey = useCallback(
-    (key: string): number | undefined =>
-      cellsRef.current[Number(key.split("@")[1])],
-    [],
-  );
-  const inFlight = useRef(0);
-  useEffect(() => {
-    setPending((cur) => {
-      if (!cur.size) return cur;
-      // Nothing in flight and a document has landed: it has the last word, so a ghost that still disagrees was a command that FAILED.
-      if (inFlight.current === 0) return new Map();
-      const done = settledEdits(cur, byCell, cellStartOfKey, prec.beats);
-      if (!done.length) return cur;
-      const next = new Map(cur);
-      for (const k of done) next.delete(k);
-      return next;
+  /** Everything a press on a pad does — the ghosts, the queue, the gestures — is the hook's; this file draws (useStepPads.ts). */
+  const { pending, onCellDown, onCellMove, onCellUp, onCellWheel, onCellMenu } =
+    useStepPads({
+      clipId: clip.id,
+      seqId,
+      step: prec.beats,
+      cells,
+      rows,
+      origin,
+      span,
+      byCell,
+      grid,
+      command,
+      setStatus,
+      onContextMenu,
     });
-  }, [byCell, cellStartOfKey, prec.beats]);
-  // A different clip's ghosts are not this one's — nor a different PRECISION's: an index counts cells of the step it was made at.
-  useEffect(() => {
-    setPending(new Map());
-  }, [clip.id, prec.beats]);
-  const paint = (key: string, edit: PadEdit) =>
-    setPending((cur) => new Map(cur).set(key, edit));
-
-  /** The commands, in ORDER and never blocking: serialised because each is a read-modify-write, chained rather than gated. */
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
-  const run = (line: string) => {
-    inFlight.current++;
-    queue.current = queue.current
-      .then(() => command(line))
-      .catch(() => {})
-      .finally(() => {
-        inFlight.current--;
-      });
-  };
-
-  /** Right-click on a PAD: its effects, through the shell's own menu, only on a LIT cell, addressed by the note's REAL start. */
-  const onCellMenu = (e: ReactMouseEvent, hit: WebNote | null | undefined) => {
-    if (!hit || !onContextMenu) return;
-    e.preventDefault();
-    e.stopPropagation();
-    onContextMenu(
-      {
-        kind: "pad",
-        sequence: seqId,
-        note: hit.key,
-        start: hit.time,
-        ...(hit.repeat ? { repeat: hit.repeat } : {}),
-        ...(hit.skip ? { skip: hit.skip } : {}),
-      },
-      e.clientX,
-      e.clientY,
-    );
-  };
-
-  /** The press on a lit cell, undecided until it travels — the roll's rule and its 4px slop; the live value is a ref, state only for drawing. */
-  interface VDrag {
-    note: number;
-    time: number;
-    vel: number;
-    moved: boolean;
-    /** Ctrl held at the press: this drag MOVES the note instead of setting its velocity. */
-    move: boolean;
-    /** The cell it started on, so the ghost can be lifted from there on release. */
-    fromKey: string;
-  }
-  const vDrag = useRef<VDrag | null>(null);
-  const pressY = useRef(0);
-
-  /** Move the pressed cell's three level layers in place, NOT through React state: a grid of a thousand buttons cannot reconcile per frame. */
-  const drawLevel = (cell: Element, vel: number) => {
-    const y = (1 - clamp(vel, 0, 1)) * (CELL_H - 1);
-    const above = cell.querySelector<HTMLElement>('[data-fill="above"]');
-    const below = cell.querySelector<HTMLElement>('[data-fill="below"]');
-    const line = cell.querySelector<HTMLElement>('[data-fill="line"]');
-    if (above) above.style.height = `${y}px`;
-    if (below) below.style.top = `${y}px`;
-    if (line) line.style.top = `${y}px`;
-  };
-  // Whether a press actually STARTED on a cell — a release over one whose press began elsewhere must not write a note.
-  const pressed = useRef(false);
-
-  const onCellDown = (
-    e: React.PointerEvent,
-    row: Row,
-    hit: WebNote | null,
-    at: { row: number; col: number },
-  ) => {
-    /** The PRIMARY button only, and load-bearing: without it a right-click runs the press path, removing the pad AND opening the wrong menu. */
-    if (e.button !== 0) return;
-    e.preventDefault();
-    /** SHIFT: the caret grows into the rectangle, before the note gestures, with the head's cell read off the DOM the cells already carry. */
-    if (e.shiftKey) {
-      const feed = grid.beginDrag(at);
-      const onSelMove = (ev: PointerEvent) => {
-        const el = document
-          .elementFromPoint(ev.clientX, ev.clientY)
-          ?.closest?.("[data-col]");
-        const r = Number(el?.getAttribute("data-row"));
-        const c = Number(el?.getAttribute("data-col"));
-        feed(
-          Number.isFinite(r) && Number.isFinite(c) ? { row: r, col: c } : null,
-        );
-      };
-      const onSelUp = () => {
-        window.removeEventListener("pointermove", onSelMove);
-        window.removeEventListener("pointerup", onSelUp);
-      };
-      window.addEventListener("pointermove", onSelMove);
-      window.addEventListener("pointerup", onSelUp);
-      return;
-    }
-    // Captured for both cases: the release then lands on the PRESSED cell wherever the pointer went.
-    e.currentTarget.setPointerCapture(e.pointerId);
-    pressed.current = true;
-    pressY.current = e.clientY;
-    // A press is also where you are: the caret follows it, and any live rectangle goes — two cannot both be current.
-    grid.placeCaret(at);
-    if (!hit) return; // an empty cell has only the toggle — see onCellUp
-    vDrag.current = {
-      note: row.note,
-      time: hit.time,
-      vel: hit.vel ?? 1,
-      moved: false,
-      // Ctrl (or Cmd) at the PRESS decides which gesture this is, and it cannot change mid-drag.
-      move: e.ctrlKey || e.metaKey,
-      fromKey: e.currentTarget.getAttribute("data-key") ?? "",
-    };
-  };
-  const onCellMove = (e: React.PointerEvent) => {
-    const d = vDrag.current;
-    if (!d) return;
-    // A ctrl-drag is going somewhere else; its own cell's level must not follow the pointer.
-    if (d.move) {
-      d.moved = true;
-      return;
-    }
-    if (!d.moved && Math.abs(e.clientY - pressY.current) < 4) return;
-    // Where the pointer sits inside the cell, bottom-up — the roll's velAt at a fixed height.
-    const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
-    d.vel = clamp(1 - y / (CELL_H - 1), 0, 1);
-    d.moved = true;
-    drawLevel(e.currentTarget, d.vel);
-  };
-  /** --- shift + wheel: NUDGE the pad under the cursor, in hundredths of its own step and bounded 0..99 (docs/clipEditors.md). */
-  const nudgeTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  useEffect(() => {
-    const timers = nudgeTimers.current;
-    return () => {
-      for (const t of timers.values()) clearTimeout(t);
-    };
-  }, []);
-
-  const onCellWheel = (
-    e: React.WheelEvent,
-    row: Row,
-    hit: WebNote | null,
-    cellStart: number,
-  ) => {
-    if (!e.shiftKey || !hit) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const key = e.currentTarget.getAttribute("data-key") ?? "";
-    const from = nudgeOf(hit.time, cellStart, prec.beats);
-    // Up is later, down is earlier — the wheel's own direction, and the same one the velocity drag reads.
-    const to = clamp(from + (e.deltaY < 0 ? 1 : -1), 0, NUDGE_MAX);
-    if (to === from) return;
-    paint(key, { on: true, vel: hit.vel, nudge: to });
-
-    /** The command waits for the wheel to STOP: a flick is twenty notches, so one command, one journal line, one Ctrl+Z. */
-    const prev = nudgeTimers.current.get(key);
-    if (prev) clearTimeout(prev);
-    const at = hit.time;
-    nudgeTimers.current.set(
-      key,
-      setTimeout(() => {
-        nudgeTimers.current.delete(key);
-        const landed = nudgedTime(cellStart, prec.beats, to);
-        if (Math.abs(landed - at) < 1e-9) return;
-        run(
-          `sequence note move ${seqId} ${row.note} ${at} ${row.note} ${landed}`,
-        );
-      }, NUDGE_SETTLE_MS),
-    );
-  };
-
-  const onCellUp = (e: React.PointerEvent, row: Row, hit: WebNote | null) => {
-    const d = vDrag.current;
-    const began = pressed.current;
-    pressed.current = false;
-    vDrag.current = null;
-    if (!began) return;
-    const key = e.currentTarget.getAttribute("data-key") ?? "";
-
-    /** A ctrl-drag MOVES the note to the cell it was released over, by point rather than by target, and does nothing on an occupied one. */
-    if (hit && d?.move) {
-      const to = document
-        .elementFromPoint(e.clientX, e.clientY)
-        ?.closest<HTMLElement>("[data-key]");
-      const toKey = to?.getAttribute("data-key") ?? "";
-      const toNote = Number(to?.getAttribute("data-note"));
-      const toStart = Number(to?.getAttribute("data-cell"));
-      if (
-        !toKey ||
-        toKey === d.fromKey ||
-        !Number.isFinite(toNote) ||
-        !Number.isFinite(toStart) ||
-        byCell.has(toKey) ||
-        pending.get(toKey)?.on
-      )
-        return;
-      // Lifted from one cell and put down on the other, at once — the document is ~400 ms away.
-      setPending((cur) =>
-        new Map(cur)
-          .set(d.fromKey, { on: false })
-          .set(toKey, { on: true, vel: hit.vel ?? 1 }),
-      );
-      run(
-        `sequence note move ${seqId} ${row.note} ${hit.time} ${toNote} ${toStart}`,
-      );
-      return;
-    }
-    if (hit && d?.moved) {
-      // Two decimals, like the roll's drag: a file full of 0.7333333333 is noise in a diff.
-      const v = Math.round(clamp(d.vel, 0, 1) * 100) / 100;
-      paint(key, { on: true, vel: v });
-      run(`sequence note velocity ${seqId} ${row.note} ${hit.time} ${v}`);
-      return;
-    }
-    // A press that never travelled: the toggle, off at the note's REAL start and on for one step, clamped to the window.
-    const cellStart = Number(e.currentTarget.getAttribute("data-cell"));
-    if (!Number.isFinite(cellStart)) return;
-    paint(key, hit ? { on: false } : { on: true, vel: 1 });
-    run(
-      hit
-        ? `sequence note remove ${seqId} ${row.note} ${hit.time}`
-        : `sequence note new ${seqId} ${row.note} ${cellStart} ${Math.min(cellStart + prec.beats, origin + span)}`,
-    );
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
@@ -535,9 +289,12 @@ export function SequencerPanel({
         <div className="flex w-max min-w-full">
           <div className="sticky left-0 z-10 shrink-0 bg-background pr-2">
             {rows.map((row) => (
-              <div
+              <button
+                type="button"
                 key={row.note}
-                className="mb-0.5 flex h-14 items-center justify-end gap-1 font-mono text-[11px]"
+                disabled={!onPreviewNote}
+                onClick={() => onPreviewNote?.(row.note, AUDITION_VEL)}
+                className="mb-0.5 flex h-14 w-full items-center justify-end gap-1 rounded font-mono text-[11px] enabled:cursor-pointer enabled:hover:bg-accent"
               >
                 <span
                   className={cn(
@@ -551,7 +308,7 @@ export function SequencerPanel({
                 <span className="text-muted-foreground/70">
                   {row.known ? noteName(row.note) : `k${row.note}`}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
           <div className="relative">
@@ -643,7 +400,7 @@ export function SequencerPanel({
                               : "bg-muted/15 hover:bg-muted/40",
                         // The caret and the rectangle as the timeline draws them: a wash with an OUTLINE, which costs the cell no width.
                         selected &&
-                          "bg-primary/25 outline outline-1 -outline-offset-1 outline-primary",
+                          "cursor-move touch-none bg-primary/25 outline outline-1 -outline-offset-1 outline-primary",
                         isCaret &&
                           "outline outline-1 -outline-offset-1 outline-primary",
                       )}
@@ -713,47 +470,6 @@ export function SequencerPanel({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** The transport line over the grid, held apart so a 20 Hz subscription does not redraw a table of buttons; positioned by TIME fraction. */
-function StepPlayhead({
-  tempo,
-  clipStart,
-  placedEnd,
-  span,
-}: {
-  tempo: number;
-  clipStart: number;
-  placedEnd: number;
-  span: number;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  // Per animation frame, and translated rather than `left`-ed (docs/playhead.md): the box spans the panel, a percentage translate being of its own width.
-  usePlayheadFrames(
-    useCallback(
-      (seconds: number) => {
-        const el = ref.current;
-        if (!el) return;
-        const localBeat = (seconds * tempo) / 60 - clipStart;
-        const inside =
-          span > 0 && localBeat >= 0 && localBeat <= Math.max(placedEnd, span);
-        el.style.visibility = inside ? "visible" : "hidden";
-        if (inside)
-          el.style.transform = `translateX(${((localBeat % span) / span) * 100}%)`;
-      },
-      [tempo, clipStart, placedEnd, span],
-    ),
-  );
-  return (
-    // The outer box does not move and CLIPS: without it the translated inner one would grow a phantom horizontal scrollbar.
-    <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-full overflow-hidden">
-      <div
-        ref={ref}
-        className="absolute inset-y-0 left-0 w-full border-white/80 border-l"
-        style={{ willChange: "transform", visibility: "hidden" }}
-      />
     </div>
   );
 }

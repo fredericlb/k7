@@ -173,3 +173,31 @@ describe("the usual refusals", () => {
     expect(notes()).toHaveLength(4);
   });
 });
+
+describe("sequence notes move — a dragged selection", () => {
+  it("moves every note to its own place in one write, pad effects riding along", async () => {
+    await run("sequence notes move melody [[60,0,62,4.5],[67,2,69,3]]");
+    expect(notes()).toEqual([
+      { t: 4.5, d: 1, k: 62 },
+      { t: 1.1, d: 0.5, k: 64, v: 0.4 },
+      { t: 3, d: 1, k: 69, repeat: 2 },
+      { t: 4, d: 1, k: 72 },
+    ]);
+    expect(reloaded).toBe(1);
+  });
+
+  it("refuses a place a note that stays already holds, and leaves the file as it was", async () => {
+    await run("sequence notes move melody [[60,0,72,4]]");
+    expect(logs.join(" ")).toMatch(/already has a note/);
+    expect(notes()[0]).toEqual({ t: 0, d: 1, k: 60 });
+    expect(reloaded).toBe(0);
+  });
+
+  it("refuses a payload that is not a list of [note,start,newNote,newStart]", async () => {
+    await run("sequence notes move melody [[60,0,62]]");
+    expect(logs.join(" ")).toMatch(/usage: sequence notes move/);
+    await run("sequence notes move melody {");
+    expect(logs.join(" ")).toMatch(/bad moves JSON/);
+    expect(reloaded).toBe(0);
+  });
+});

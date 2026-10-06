@@ -178,6 +178,36 @@ void rings_string_plays_a440_and_rings_on()
     CHECK(peak(x, RingsCore::RATE, 0.5, 0.6) > 1e-3);
 }
 
+void rings_glide_slides_to_the_new_note()
+{
+    // One voice, A3 then A4 at 0.5 s: with a 0.08 s glide the pitch is still between the two 40 ms after the strum.
+    const auto play = [](float glide) {
+        RingsCore c;
+        c.init();
+        c.params.model = 2;
+        c.params.structure = 0.0f;
+        c.params.brightness = 0.3f;
+        c.params.glide = glide;
+        std::vector<float> x, l(RingsCore::BLOCK), r(RingsCore::BLOCK), in(RingsCore::BLOCK, 0.0f);
+        c.noteOn(57, 0.8f);
+        for (int b = 0; b < (int)(RingsCore::RATE / RingsCore::BLOCK); ++b) {
+            if (b == (int)(0.5 * RingsCore::RATE / RingsCore::BLOCK)) c.noteOn(69, 0.8f);
+            c.render(in.data(), l.data(), r.data());
+            x.insert(x.end(), l.begin(), l.end());
+        }
+        return x;
+    };
+    const auto jump = play(0.0f);
+    const auto slide = play(0.08f);
+    // The first note never glides: there is nothing to come from.
+    CHECK(near(f0(slide, RingsCore::RATE, 0.3), 220.0));
+    CHECK(near(f0(jump, RingsCore::RATE, 0.52, 0.04), 440.0));
+    const double mid = f0(slide, RingsCore::RATE, 0.52, 0.04);
+    CHECK(mid > 230.0 && mid < 420.0);
+    // …and it arrives.
+    CHECK(near(f0(slide, RingsCore::RATE, 0.95, 0.05), 440.0));
+}
+
 void elements_string_plays_a440()
 {
     ElementsCore c;
@@ -259,6 +289,7 @@ int main()
     RUN(plaits_plays_a440_and_goes_quiet);
     RUN(braids_plays_a440);
     RUN(rings_string_plays_a440_and_rings_on);
+    RUN(rings_glide_slides_to_the_new_note);
     RUN(elements_string_plays_a440);
     RUN(tides_plays_a440);
     RUN(warps_oscillator_is_in_tune_at_its_own_rate);

@@ -4,7 +4,8 @@
 // once per clip WINDOW and cached (src/clipEnvelope.ts). Both fill the box the caller
 // gives them (absolute inset-0), so the lane row sizes it and this just paints.
 
-import { memo, useEffect, useState } from "react";
+import { bandsAt, spectrumColumns } from "@studio/ui-waveform/spectrum";
+import { memo, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey, type EnvelopeProject } from "../clipEnvelope";
 import type { WebClip, WebNote, WebWaveform } from "../types";
@@ -140,8 +141,10 @@ function ClipMidi({
   );
 }
 
-// A modest bucket count — the lane block is small, so more would just be thrown away by the polygon's linear stretch.
+// A modest bucket count — the lane block is small, so more would just be thrown away by the canvas's stretch.
 const BUCKETS = 160;
+/** The backing height a block's waveform is painted at before CSS stretches it to the lane. */
+const WAVE_H = 100;
 
 /** ONE entry per clip, holding the key it was fetched under — so this stays bounded by the clip count however often one is trimmed. */
 const wfCache = new Map<string, { key: string; data: WebWaveform | null }>();
@@ -187,37 +190,52 @@ function ClipWaveform({
   project: EnvelopeProject;
 }) {
   const wf = useClipWaveform(clip, project);
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  // One column per bucket at a fixed 100 px, stretched by CSS — no observer per clip, many clips on screen.
+  useEffect(() => {
+    const ctx = canvas.current?.getContext("2d");
+    if (!ctx || !wf?.peak.length) return;
+    ctx.clearRect(0, 0, wf.peak.length, WAVE_H);
+    spectrumColumns(ctx, wf.peak.length, WAVE_H, (i) => ({
+      amp: wf.peak[i],
+      bands: bandsAt(wf, i),
+    }));
+  }, [wf]);
 
   const peak = wf?.peak;
   if (!peak || !peak.length) return null;
   const n = peak.length;
-  // One filled polygon rather than a rect per bucket — cheap DOM with many clips on screen.
-  const pts: string[] = [];
-  for (let i = 0; i < n; i++) pts.push(`${i},${50 - peak[i] * 48}`);
-  for (let i = n - 1; i >= 0; i--) pts.push(`${i},${50 + peak[i] * 48}`);
   return (
-    <svg
-      className="absolute inset-0 h-full w-full text-foreground"
-      viewBox={`0 0 ${n} 100`}
-      preserveAspectRatio="none"
-    >
-      <polygon points={pts.join(" ")} className="fill-current opacity-70" />
-      {wf!.transients.map((t, i) => {
-        const x = Math.max(0, Math.min(n, (t / wf!.seconds) * n));
-        return (
-          <line
-            key={i}
-            x1={x}
-            y1={0}
-            x2={x}
-            y2={100}
-            stroke="#facc15" // yellow-400
-            strokeWidth={0.6}
-            strokeDasharray="2 2"
-            strokeOpacity={0.3}
-          />
-        );
-      })}
-    </svg>
+    <>
+      <canvas
+        ref={canvas}
+        width={n}
+        height={WAVE_H}
+        className="absolute inset-0 h-full w-full opacity-90"
+      />
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox={`0 0 ${n} 100`}
+        preserveAspectRatio="none"
+      >
+        {wf!.transients.map((t, i) => {
+          const x = Math.max(0, Math.min(n, (t / wf!.seconds) * n));
+          return (
+            <line
+              key={i}
+              x1={x}
+              y1={0}
+              x2={x}
+              y2={100}
+              stroke="#facc15" // yellow-400
+              strokeWidth={0.6}
+              strokeDasharray="2 2"
+              strokeOpacity={0.3}
+            />
+          );
+        })}
+      </svg>
+    </>
   );
 }

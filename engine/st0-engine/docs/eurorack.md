@@ -115,6 +115,13 @@ in a queue and leave one per 10.5 ms: a chord is strummed rather than collapsed 
 **Its setters re-initialise every resonator** (`set_polyphony` sets `dirty_` unconditionally), so
 they are called on change only. Called per block, nothing rings for more than 20 ms.
 
+**Glide is ours, not the module's.** The hardware has none; `glide` is a one-pole slew, per block,
+on the pitch handed to the firmware, with the knob as its time constant in seconds, and 0 jumps as
+the module does. It is a slew on that one number because the firmware already splits it the right
+way: on a strum the voice being LEFT keeps the pitch it had, and only the new voice follows the
+pitch block by block. So with several voices, the new note slides in from the last one while the
+last one rings on in tune. The first note of a session never glides, having nothing to come from.
+
 **mu-rings and mu-elements take audio from two places.** They are instruments, played from notes,
 and their library modules declare a MIDI input plus an optional audio one, `in`
 (`packages/song/docs/ports.md`). What is wired into `in` arrives as the sidechain pair, the way a

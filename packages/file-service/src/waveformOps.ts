@@ -90,6 +90,9 @@ function buildWaveform(
   return {
     rms: w.rms,
     peak: w.peak,
+    ...(w.low && w.mid && w.high
+      ? { low: w.low, mid: w.mid, high: w.high }
+      : {}),
     seconds: w.seconds,
     intervalMs: w.rms.length ? (w.seconds / w.rms.length) * 1000 : 0,
     startBeat: w.startBeat,

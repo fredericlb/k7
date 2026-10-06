@@ -818,6 +818,22 @@
       { name: velocity, type: number, hint: "0..1 — 1 clears the field" },
     ]
 
+# A dragged SELECTION, and not a rectangle verb: every note names its own destination, since a
+# step grid's rows are rack sounds and not a key range. One write, so one Ctrl+Z; a note may land
+# where another MOVING note leaves, never on one that stays. See @studio/song-schema docs/noteEdits.md.
+- command: "sequence notes move"
+  sid: sequence.notesMove
+  readable:
+    en: "Move several notes at once"
+    fr: "Déplacer plusieurs notes à la fois"
+  help: "move several notes in one write (e.g. sequence notes move drums [[36,0,38,1],[42,0.5,42,1.5]])"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: moves, hint: "JSON [[note,start,newNote,newStart],…] — beats from the start of the sequence" },
+    ]
+
 # --- curves (automation shapes) ---
 # A curve is a normalised function of song time, living in curves/<id>.yaml, which a
 # module's `automation:` then binds to a parameter. Creating one is its own step because

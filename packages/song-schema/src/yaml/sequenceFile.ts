@@ -112,6 +112,60 @@ export function moveNote(
   return doc.toString({ lineWidth: 0 });
 }
 
+/** One note's way to somewhere else: from key `k` at `t` to key `nk` at `nt`. */
+export interface NoteMove {
+  k: number;
+  t: number;
+  nk: number;
+  nt: number;
+}
+
+/**
+ * Move SEVERAL notes in one pass — a dragged selection, one journal entry. Each move names its own
+ * destination, since a step grid's rows are rack sounds and not a key range. A target is free when
+ * no note sits there that is not itself moving away; see docs/noteEdits.md.
+ */
+export function moveNotes(text: string, moves: readonly NoteMove[]): string {
+  if (!moves.length) throw new Error("no note to move");
+  const doc = parseDocument(text, OPTS);
+  const list = doc.getIn(["notes"]);
+  if (!isSeq(list)) throw new Error("the sequence has no notes");
+  const at = (k: number, t: number) =>
+    list.items.findIndex(
+      (_n, i) =>
+        Number(doc.getIn(["notes", i, "k"]) ?? Number.NaN) === k &&
+        Math.abs(Number(doc.getIn(["notes", i, "t"]) ?? Number.NaN) - t) < EPS,
+    );
+  // Every index read BEFORE any write: a moved note must not be found again at its new place.
+  const from = moves.map((m) => {
+    const i = at(m.k, m.t);
+    if (i < 0) throw new Error(`no note k${m.k} at beat ${m.t}`);
+    return i;
+  });
+  if (new Set(from).size !== from.length)
+    throw new Error("the same note is moved twice");
+  const leaving = new Set(from);
+  const landing = new Set<string>();
+  for (const m of moves) {
+    if (!Number.isInteger(m.nk) || m.nk < 0 || m.nk > 127)
+      throw new Error(`k${m.nk} is not a MIDI key`);
+    if (!Number.isFinite(m.nt) || m.nt < 0)
+      throw new Error("a note cannot start before the sequence does");
+    const there = at(m.nk, m.nt);
+    if (there >= 0 && !leaving.has(there))
+      throw new Error(`k${m.nk} already has a note at beat ${m.nt}`);
+    const spot = `${m.nk}@${Math.round(m.nt / EPS)}`;
+    if (landing.has(spot))
+      throw new Error(`two notes would land on k${m.nk} at beat ${m.nt}`);
+    landing.add(spot);
+  }
+  moves.forEach((m, j) => {
+    doc.setIn(["notes", from[j], "k"], m.nk);
+    doc.setIn(["notes", from[j], "t"], m.nt);
+  });
+  return doc.toString({ lineWidth: 0 });
+}
+
 /** Cut one note in two at beat `at`, which must be strictly INSIDE it — see docs/noteEdits.md. */
 export function splitNote(
   text: string,

@@ -5,7 +5,7 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/st0-engine/docs/builtinParams.md.
 //
-// 224 plugins, 1119 parameters.
+// 224 plugins, 1120 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
@@ -1220,6 +1220,7 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
         ],
       },
       { name: "Transpose", min: -24, max: 24, def: 0 },
+      { name: "Glide", min: 0, max: 1, def: 0 },
     ],
   },
   studio_modal_synthesizer: {

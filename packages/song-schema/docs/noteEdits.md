@@ -88,6 +88,16 @@ That is the one place this file departs from "throw on a miss", and the reason i
 is a rectangle rather than an address: a box holding nothing is a thing a person can draw, not a
 surface being out of date. The COMMAND is what refuses it by name.
 
+## `moveNotes`, for a selection that does not map onto keys
+
+A dragged step-grid selection is not a rectangle verb: its rows are rack sounds in the rack's
+order, so "two rows down" sends each note to a different key offset. `moveNotes` takes every
+note's own destination instead — `sequence notes move <sequence> [[k,t,nk,nt],…]` — and still
+writes once, for the reason above. Every index is read BEFORE any write, so a note is never found
+again at the place it just moved to. A destination is free when the note there is itself moving
+away; one that stays makes the whole move refuse, as do two notes landing on one place, a missing
+source, and a start before the sequence. Nothing is written when any of it refuses.
+
 ## Twice as long, playing twice
 
 `doubleSequence` is the ×2 in a note grid's header (`apps/st0/frontend/docs/clipEditors.md`), and

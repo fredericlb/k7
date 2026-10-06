@@ -25,8 +25,10 @@ export interface GridCaret {
   clearSelect: () => void;
   /** Put the caret somewhere (a click). Drops any rectangle: two selections cannot both be live. */
   placeCaret: (c: GridCell) => void;
-  /** Start a shift+drag at `c`, anchoring on the existing rectangle if there is one — so shift-clicking EXTENDS rather than restarting. */
+  /** Start a shift+drag at `c`: the rectangle is anchored where the POINTER pressed, never on the caret or an older rectangle. */
   beginDrag: (c: GridCell) => (next: GridCell | null) => void;
+  /** Move the live rectangle by rows and columns: the notes it held were dragged, and it follows them. */
+  shiftSelect: (dRow: number, dCol: number) => void;
 }
 
 /** The caret over a grid of `bounds`: `active` gates the keys so two surfaces cannot move two carets, and `resetKey` puts it home. */
@@ -104,9 +106,9 @@ export function useGridCaret({
   }, []);
 
   const beginDrag = useCallback((c: GridCell) => {
-    const anchor =
-      selRef.current?.anchor ?? clampCell(caretRef.current, boundsRef.current);
-    setSel({ anchor, head: clampCell(c, boundsRef.current) });
+    const at = clampCell(c, boundsRef.current);
+    setCaret(at);
+    setSel({ anchor: at, head: at });
     return (next: GridCell | null) => {
       if (!next) return;
       setSel((s) => s && { ...s, head: clampCell(next, boundsRef.current) });
@@ -155,6 +157,12 @@ export function useGridCaret({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [active, clearSelect, onStatus]);
 
+  const shiftSelect = useCallback((dRow: number, dCol: number) => {
+    const by = (c: GridCell) =>
+      clampCell({ row: c.row + dRow, col: c.col + dCol }, boundsRef.current);
+    setSel((s) => (s ? { anchor: by(s.anchor), head: by(s.head) } : s));
+  }, []);
+
   const box = useMemo(() => (sel ? selBox(sel) : null), [sel]);
 
   return {
@@ -165,5 +173,6 @@ export function useGridCaret({
     clearSelect,
     placeCaret,
     beginDrag,
+    shiftSelect,
   };
 }

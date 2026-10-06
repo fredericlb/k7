@@ -132,3 +132,51 @@ export function settledEdits(
   }
   return out;
 }
+
+/** A dragged selection, planned: the command's moves, and which pads to clear and light before it lands. */
+export type SelectionMove =
+  | {
+      moves: [number, number, number, number][];
+      lift: string[];
+      land: { key: string; vel?: number }[];
+    }
+  | { refused: "empty" | "outside" | "occupied" };
+
+/**
+ * Where every note the rectangle holds lands when it is dragged `dRow` rows and `dCol` steps.
+ * Rows go through `rowNotes` — a row is a rack sound, not a semitone — and each note keeps its
+ * nudge inside its step. Refused when a note would leave the grid or land on a pad that stays.
+ */
+export function planSelectionMove(a: {
+  box: { rowLo: number; rowHi: number; colLo: number; colHi: number };
+  dRow: number;
+  dCol: number;
+  rowNotes: readonly number[];
+  cells: readonly number[];
+  byCell: ReadonlyMap<string, WebNote>;
+}): SelectionMove {
+  const picked: { r: number; c: number; n: WebNote }[] = [];
+  for (let r = a.box.rowLo; r <= a.box.rowHi; r++)
+    for (let c = a.box.colLo; c <= a.box.colHi; c++) {
+      const n = a.byCell.get(`${a.rowNotes[r]}@${c}`);
+      if (n) picked.push({ r, c, n });
+    }
+  if (!picked.length) return { refused: "empty" };
+  const leaving = new Set(picked.map((p) => `${a.rowNotes[p.r]}@${p.c}`));
+  const moves: [number, number, number, number][] = [];
+  const land: { key: string; vel?: number }[] = [];
+  for (const { r, c, n } of picked) {
+    const nr = r + a.dRow;
+    const nc = c + a.dCol;
+    if (nr < 0 || nr >= a.rowNotes.length || nc < 0 || nc >= a.cells.length)
+      return { refused: "outside" };
+    const key = `${a.rowNotes[nr]}@${nc}`;
+    if (a.byCell.has(key) && !leaving.has(key)) return { refused: "occupied" };
+    // The note's offset inside its step rides along, rounded so a float's tail never reaches the file.
+    const nt = Math.round((a.cells[nc] + (n.time - a.cells[c])) * 1e6) / 1e6;
+    moves.push([n.key, n.time, a.rowNotes[nr], nt]);
+    land.push({ key, ...(n.vel === undefined ? {} : { vel: n.vel }) });
+  }
+  const landing = new Set(land.map((l) => l.key));
+  return { moves, lift: [...leaving].filter((k) => !landing.has(k)), land };
+}

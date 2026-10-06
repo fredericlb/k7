@@ -92,3 +92,56 @@ export function velAt(yInRow: number, rowH: number): number {
   if (rowH <= 1) return 1;
   return Math.max(0, Math.min(1, 1 - yInRow / (rowH - 1)));
 }
+
+/** A note as a group drag reads it: where it is now, and what it carries along. */
+export interface GroupNote {
+  key: number;
+  time: number;
+  duration: number;
+  vel?: number;
+}
+
+/**
+ * The offset a SELECTION drag may take: clamped so the whole group stays on the keyboard and after
+ * beat 0, where `clampKey` would fold a chord onto one key at an edge.
+ */
+export function groupOffset(
+  group: readonly GroupNote[],
+  dBeats: number,
+  dKeys: number,
+): { dBeats: number; dKeys: number } {
+  if (!group.length) return { dBeats: 0, dKeys: 0 };
+  const lo = Math.min(...group.map((n) => n.key));
+  const hi = Math.max(...group.map((n) => n.key));
+  const first = Math.min(...group.map((n) => n.time));
+  return {
+    dBeats: Math.max(-first, dBeats),
+    dKeys: Math.max(-lo, Math.min(127 - hi, Math.round(dKeys))),
+  };
+}
+
+/** Where a selection drag sends every note — `sequence notes move`'s payload — or why it cannot: a note that STAYS is in the way. */
+export function planGroupMove(
+  group: readonly GroupNote[],
+  others: readonly GroupNote[],
+  dBeats: number,
+  dKeys: number,
+):
+  | { moves: [number, number, number, number][]; dBeats: number; dKeys: number }
+  | { refused: "occupied" | "still" } {
+  const off = groupOffset(group, dBeats, dKeys);
+  if (Math.abs(off.dBeats) < 1e-6 && off.dKeys === 0)
+    return { refused: "still" };
+  // Rounded so a pixel's float tail never reaches the file — the velocity drag's own rule, at six places.
+  const at = (t: number) => Math.round(t * 1e6) / 1e6;
+  const moves = group.map((n): [number, number, number, number] => [
+    n.key,
+    n.time,
+    n.key + off.dKeys,
+    at(n.time + off.dBeats),
+  ]);
+  const taken = (k: number, t: number) =>
+    others.some((o) => o.key === k && Math.abs(o.time - t) < 1e-6);
+  if (moves.some(([, , k, t]) => taken(k, t))) return { refused: "occupied" };
+  return { moves, ...off };
+}

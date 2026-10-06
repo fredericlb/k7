@@ -57,6 +57,20 @@ on. A drop outside the grid, onto its own cell, or onto one that already holds a
 nothing: (key, start) is how a note is addressed, and two on one pad would be the same note
 twice. The writer refuses that last case as well, as the last word.
 
+**Dragging the rectangle MOVES everything it holds**, by the rows and steps between the cell
+pressed and the cell released over (`planSelectionMove` in `stepGrid.ts`). No modifier: a press
+INSIDE a live rectangle is that gesture, and a press that never leaves its cell is still a click —
+it places the caret and toggles the pad, as anywhere else. What a selected pad gives up is the
+velocity drag; the rectangle is dropped with a click first when a level is wanted. Rows are rack
+SOUNDS in the rack's order, so two rows down is not two semitones: each note is sent to the row
+`d` below its own and the command carries every destination (`sequence notes move`). Each note
+keeps its nudge inside its step. The drop is refused, with the reason in the status line, when a
+note would leave the grid or land on a pad that is not itself moving — landing where another
+selected note leaves is fine, so a run shifted by one step moves. It is ONE command, so one
+Ctrl+Z, the pads are painted at once like every other gesture here, and the rectangle follows the
+notes. While dragging, the status line says what the drop would do, updated only when the cell
+under the pointer changes: a grid of a thousand buttons is not redrawn per pointer event.
+
 ### Shift+wheel NUDGES the pad under the cursor
 
 One notch is a **hundredth of the sequence's own step** — at 1/16 and 120 bpm, 1.25 ms. The grid
@@ -264,6 +278,18 @@ occupied destination** and `setNoteTimeRange` does not (`@studio/song-schema` `d
 so routing every move through it would start refusing drags that work today. A drag whose pitch
 change the keyboard's edge swallowed counts as horizontal, which is what `movesPitch` answers.
 
+### A body inside the rectangle drags the whole selection
+
+Pressing the body of a note the live rectangle holds moves **every** note it holds by the same
+beats and semitones — the same snapped offset, the same Ctrl rule — and commits them as one
+`sequence notes move`, so one Ctrl+Z. The edges and the velocity line keep their own gestures,
+and a note outside the rectangle is dragged alone, as before. The OFFSET is clamped, not each
+note: the group stops when its top or bottom note reaches the keyboard's end, or its earliest
+reaches beat 0, so a chord dragged against an edge keeps its shape rather than folding onto one
+key (`groupOffset` in `rollDrag.ts`). A drop where a note that stays already starts is refused
+before anything is painted, the writer's own rule asked of the roll first (`planGroupMove`); a
+note leaving makes room for another arriving. The rectangle follows the notes.
+
 ### Removing and splitting
 
 `x` removes what the caret is on, or everything a rectangle holds, through `selection delete` —
@@ -317,7 +343,9 @@ views.
 ## The caret, and the rectangle it grows into
 
 The timeline's caret is here too, on both grids: `hjkl`/arrows move it, `v` grows it into a
-rectangle, Escape drops that, **Shift+drag** draws one with the pointer. Same keys, same marks —
+rectangle, Escape drops that, **Shift+drag** draws one with the pointer, anchored where the
+pointer PRESSED rather than at the caret: a hand reaching for a region means that region, not
+wherever the keyboard last left the caret. Same keys, same marks —
 a primary wash with an outline — and the same rule that the caret disappears while a rectangle is
 live, because the rectangle IS the caret then, with two ends.
 
@@ -489,6 +517,11 @@ through the file service (`engine/st0-engine/docs/protocol.md`). Two things foll
 - **There is no note-off on the wire.** The engine releases it after 100 ms, through Tracktion's
   own `playGuideNote`. A release that has to arrive is a hanging voice every time it does not —
   a dropped pointerup, a closed pane, a socket that blinked.
+
+A row's NAME plays too: a key in the roll's gutter, a sound's name in the sequencer's. That click
+is at **half velocity** (`AUDITION_VEL`, MIDI 64), whatever the notes on the row are worth. It is
+a check of which sound a row is, and a full-velocity hit to identify a kick is louder than the
+question. How quiet half velocity actually sounds is up to the instrument's velocity response.
 
 Four rules worth knowing, each of which could reasonably have gone the other way:
 

@@ -29,7 +29,7 @@ private:
 
     RingsCore core_;
     float mono_[RingsCore::BLOCK] = {};
-    Param model_, polyphony_, structure_, brightness_, damping_, position_, exciter_, transpose_;
+    Param model_, polyphony_, structure_, brightness_, damping_, position_, exciter_, transpose_, glide_;
 };
 
 }  // namespace studio::eurorack

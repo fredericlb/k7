@@ -34,6 +34,8 @@ struct RingsCore::Impl {
     rings::Strummer strummer;
     uint16_t reverb[32768];   // the module's 64 KB of CCM, shared by both parts as on the hardware
     float note = 69.0f;
+    // The pitch the firmware is HANDED, slewed towards `note`; NaN until the first strum, which never glides.
+    float pitch = std::nanf("");
     int queue[QUEUE];
     int queued = 0;
     int cooldown = 0;
@@ -90,8 +92,13 @@ void RingsCore::render(const float* in, float* left, float* right)
         s.cooldown = STRUM_GAP;
         strum = true;
     }
+    // A one-pole slew per block: `glide` is its time constant, and the strummed voice follows it (docs/eurorack.md).
+    if (params.glide <= 0.0f || std::isnan(s.pitch))
+        s.pitch = s.note;
+    else
+        s.pitch += (s.note - s.pitch) * (1.0f - std::exp(-(float)BLOCK / ((float)RATE * params.glide)));
     ps.tonic = TONIC;
-    ps.note = s.note + params.transpose + bend_ - TONIC;
+    ps.note = s.pitch + params.transpose + bend_ - TONIC;
     ps.fm = 0.0f;
     ps.strum = strum;
     // STRUCTURE picks the chord, with no hysteresis: a parameter here does not jitter the way a pot does.

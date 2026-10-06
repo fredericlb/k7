@@ -1,13 +1,13 @@
 // WaveformView.tsx — the audio-clip editor: a bottom split pane (opened with `e`
 // on an audio clip, mirroring the MIDI piano roll) showing the clip's waveform
 // with bar/beat gridlines aligned to the arrangement and a live playhead. The
-// waveform itself is the shared @studio/ui-waveform Waveform (fed a dB envelope
-// from the clip's samples); the notes/grid come from the backend (/api/waveform).
+// waveform itself is the shared @studio/ui-waveform Waveform in its spectrum look
+// (peak and bands per column); the notes/grid come from the backend (/api/waveform).
 
 import { Play, Volume2, X } from "@frediverse/ui/icons";
 import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
-import { Waveform } from "@studio/ui-waveform";
+import { type Envelope, Waveform } from "@studio/ui-waveform";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey } from "../clipEnvelope";
@@ -154,8 +154,18 @@ export function WaveformView({
   }, [clip.id, materialKey, whole, setZoomX]);
 
   // One identity per decode: Waveform is memoised, and an inline literal would be a new object on every render of this pane.
-  const envelope = useMemo(
-    () => (wf ? { intervalMs: wf.intervalMs, samples: wf.rms } : null),
+  const envelope = useMemo<Envelope | null>(
+    () =>
+      wf
+        ? {
+            intervalMs: wf.intervalMs,
+            samples: wf.rms,
+            peak: wf.peak,
+            low: wf.low,
+            mid: wf.mid,
+            high: wf.high,
+          }
+        : null,
     [wf],
   );
 
@@ -515,7 +525,7 @@ function ClipWaveform({
   clipStart,
   clipBeats,
 }: {
-  envelope: { intervalMs: number; samples: number[] };
+  envelope: Envelope;
   duration: number;
   height?: number;
   gridLines: WebWaveform["grid"];
@@ -530,6 +540,7 @@ function ClipWaveform({
     localBeat >= 0 && localBeat <= clipBeats ? (localBeat * 60) / tempo : -1;
   return (
     <Waveform
+      look="spectrum"
       envelope={envelope}
       duration={duration}
       height={height}
