@@ -50,8 +50,21 @@ app.use("/api/token", requireAuth, tokenRouter);
 // backend mounts neither (mountRoutes: [] for auth), and the frontend never asks it to
 // answer either, but a 200-with-HTML is a worse failure than a clean 404 for anything that does.
 const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
-app.use(express.static(FRONTEND_DIST));
+// The shell is asked again on every load and a hashed asset is kept for good — ../../../../docs/versioning.md.
+const SHELL_CACHE = "no-cache";
+app.use(
+  express.static(FRONTEND_DIST, {
+    setHeaders: (res, path) =>
+      res.setHeader(
+        "Cache-Control",
+        path.startsWith(join(FRONTEND_DIST, "assets"))
+          ? "public, max-age=31536000, immutable"
+          : SHELL_CACHE,
+      ),
+  }),
+);
 app.get(/^(?!\/api|\/auth)/, (_req, res) => {
+  res.setHeader("Cache-Control", SHELL_CACHE);
   res.sendFile(join(FRONTEND_DIST, "index.html"));
 });
 

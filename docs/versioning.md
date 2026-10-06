@@ -183,3 +183,22 @@ unresolved-secret error, a wrong one with a 401 on the commons fetch.
 
 If you clone this repo and `commons/` comes up empty, run
 `git submodule sync && git submodule update --init`.
+
+## The shell is asked again on every load, its assets never
+
+st0, pl8 and k7 each serve their own `frontend/dist` from the backend (`src/server.ts`), with two
+cache rules. `index.html` — and every other file outside `assets/`, the manifest and the icons —
+goes out `no-cache`: a browser may keep it, but asks the server before each use, so the first load
+after a deploy is the new build. Files under `assets/` go out `immutable` for a year: Vite names
+each one after a hash of its content, so a name never comes back with other bytes, and a new
+`index.html` names the new ones. Express's default (`max-age=0`) would have had the browser
+re-check every chunk on every load for nothing.
+
+`no-cache` and not `max-age=0`: the two read the same until the server is unreachable, where some
+browsers serve a stale `max-age=0` copy and a `no-cache` one is not served unchecked.
+
+A **service worker** is the other cache, and it ignores these headers for what it precached. st0
+registers one (`apps/st0/frontend/src/appMain.tsx`, `commons/dev/vite-config/docs/pwa.md` for how
+a deploy reaches an open tab). pl8 and k7 build a `sw.js` and never register it, so no worker
+stands between them and these headers. An app on an iPhone's home screen can still be RESUMED
+from memory without any request at all; closing it in the app switcher is what makes it load.
