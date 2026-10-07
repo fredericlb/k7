@@ -22,6 +22,7 @@ import {
   type ChainsCamApi,
   type ChainsIcons,
   DomChains,
+  type NodeEngines,
   type TapAction,
 } from "@studio/ui-chains-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -136,7 +137,12 @@ export function ChainsTab({
   /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
   onEngine?: (module: string, name: string) => void;
   /** A node's preset dropdown — the shell draws the list (packages/song/docs/userPresets.md). */
-  onPresets?: (module: string, x: number, y: number) => void;
+  onPresets?: (
+    module: string,
+    x: number,
+    y: number,
+    engines?: NodeEngines,
+  ) => void;
   /** The preset each node last loaded, by node. */
   presetNames?: Record<string, string>;
   /** Engine load problems by plugin id, badged onto the module they concern. */

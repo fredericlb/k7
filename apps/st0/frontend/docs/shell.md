@@ -952,14 +952,17 @@ same nodes and not a bigger version of them. The framing
 still happens underneath, deliberately: closing the panel leaves the graph already framed on the
 track it was about.
 
-**The cables are drawn here, and they are the graph's own.** A rank of channel strips wants none —
-nothing runs between two channels — but a lane's signal path is exactly the question "what feeds what",
-and a send that skips a module shows as the longer cable it is. Nothing is invented between neighbours:
-two cards side by side with no cable between them is the truth about a lane whose chains do not touch.
-They meet the cards on the **sides** (`flow: "across"`, which moves where a cable ENDS and nothing else),
-because a row is read across and top-and-bottom would send a cable diving under a card to reach the one
-beside it. The socket plates stay undrawn, being CSS-pinned to the top and bottom edges: a plug on the
-wrong edge is worse than no plug.
+**The cards are GLUED** (`moduleRow`'s `gap: 0`): a lane's path is one strip read left to right, and
+two cards touching IS the cable between them. That arrow is still in the row, marked `glued` — the
+canvas draws no cable for it, since cables paint over the cards and one between two touching cards
+would be a loop drawn backwards across the seam, but the live ripple still walks it, so a send further
+on keeps moving. **The cables that remain are the graph's own**: a send that skips a module shows as
+the longer cable it is. Nothing is invented between neighbours: a seam with no arrow behind it is the
+truth about a lane whose chains do not touch, and it offers no `+`. Cables meet the cards on the
+**sides** (`flow: "across"`, which moves where a cable ENDS and nothing else), because a row is read
+across and top-and-bottom would send a cable diving under a card to reach the one beside it. The socket
+plates stay undrawn, being CSS-pinned to the top and bottom edges: a plug on the wrong edge is worse
+than no plug.
 
 **Every card takes the row's whole height** — the tallest card's, the lane's clip list included —
 so the row reads as one band and the side cables run straight, and the camera zooms so that height
@@ -968,7 +971,9 @@ box `moduleRow` draws round the cards and nothing else). The row is a few cards 
 so it is drawn as large as the pane allows; the width runs off the right and the wheel walks along
 it.
 
-**The LANE leads its own row** (`moduleRow`'s `track`). The signal starts there and its fader is the
+**The LANE leads its own row** (`moduleRow`'s `track`), without the colour band its card wears on the
+graph: the whole row is about that lane, so the band would say nothing the row does not. Its cards draw no top or bottom
+border either (`.dgx-node.across`): the row reads as one strip, divided only where two modules meet. The signal starts there and its fader is the
 first thing in the path, so a row that began at the first plugin was a path with its head cut off — and
 the cable out of the lane, the one that says which lane this is, had nothing to leave from. It is the
 same card the graph draws, matched on the node's KIND rather than its name, since `trk:` exists precisely
@@ -977,10 +982,19 @@ than the plugin cards, and that costs them nothing: no card is stretched to its 
 cap keeps a tall row from shrinking or growing the rest. A lane that reaches no module leads
 nothing: the row stays empty and the pane says so, a single card with no cable not being a signal path.
 
-**A `+` on one of its cables works here too**, and asks the same "which module?" the graph asks. The one
-difference is that the pick gets **no position**: this row's coordinates are its own, so a point taken
-from it would pin the new node somewhere meaningless in the real graph. Handed none, `node insert` lets
-the layout decide.
+**A `+` waits on each seam**, shown while the pointer is on it, and **one stands past the last card**,
+always shown (`@studio/ui-chains`'s `rowSeams.ts`, drawn by `ui-chains-react`'s `Seams.tsx`). Both ask
+the same "which module?" a cable's `+` asks on the graph, and run the same `node insert`. The tail
+splices into the arrow OUT of the last card: before the lane's mixer when the row pinned one right —
+the fader closes the path, so a module added "at the end" belongs ahead of it — and otherwise into
+whatever that card's chain feeds, offered only when that chain has ONE way out, since a fork does not
+say which branch "the end" is. In a chain project a seam whose left card is a module shows a **second button** on hover, lower down
+(at 80% of its height) and wearing a branch icon: the picked module is made, then STACKED under that
+left card (`node stack`) — the two become a subchain run in the card's place, drawn as one column, and
+a branch off a card already in a column adds to it. It sits on the seam rather than under the card
+because the seam is where a person already looks to add something, and the card's bottom is its bar. The pick gets **no position**: this row's coordinates are its own, so a
+point taken from it would pin the new node somewhere meaningless in the real graph. Handed none,
+`node insert` lets the layout decide.
 
 **A card drawn here is the graph's card, so it is handed the graph's callbacks** — the bypass, the
 alternative badges, the waveform's subscription, the lane's fader and mute, and the browser a file-valued param's
@@ -1278,6 +1292,13 @@ ways**: a `ui` command typed bare is refused, and so is a non-`ui` command typed
 promises "touches nothing of the project, does not move the transport", and a `ui locate` that quietly
 moved the playhead would be a worse lie than having no namespace at all.
 
+**A server command is never taken for a bare `ui` one.** Stripped of its prefix, a `ui` head can share
+its first word with a server verb — `ui curve` and `curve set`, `curve point add`. So the refusal of a
+bare `ui` line asks the server's catalogue first (`uiVerdict`): an unprefixed line the catalogue names
+goes to the server, past every `ui` handler, which would otherwise take it by that first word. A test
+walks every command of `commands.yaml` and holds that none is refused bare, so a new `ui` head cannot
+silently swallow a verb again.
+
 It is not "writes no file", and the difference is deliberate: a pin, a language and the vim flag are
 remembered — in `localStorage` and in the account's preferences — and remembering how you like to work is
 not editing a song. What draws the line is the PROJECT.
@@ -1357,6 +1378,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a pane button in the header (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |
+| the per-track view's curve button, in its left column (`ModeStrip`, the timeline's) | `ui curves` — shows or hides its curve cards | `App` |
 | the timeline corner's ＋ piste | `track new`, and `picture lane new` on a project with a viewport | `App` — the menu appears only when there are two kinds of lane, see [timeline.md](timeline.md) |
 | a timeline header dragged to another row | `track order`, `picture lane order` | `App` — the drag names the lane whose place is taken, see [timeline.md](timeline.md) |
 | a layer moved or resized in the VIEWPORT | `picture rect` | `App` — the selection box is `components/ViewportOverlay.tsx`, see [picture.md](picture.md) |

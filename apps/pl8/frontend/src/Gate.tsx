@@ -3,9 +3,9 @@
 // cache the moteur plays from is a separate concern this screen never touches.
 
 import { Button } from "@frediverse/ui/button";
-import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Loader2 } from "@frediverse/ui/icons";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { useEffect, useState } from "react";
 import { auth } from "./api";
 import { Library } from "./Library";
@@ -36,22 +36,20 @@ export function Gate() {
     );
 
   return (
-    <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
-      <Card className="flex max-w-sm flex-col items-center gap-4 p-8 text-center">
-        <div className="text-2xl font-semibold tracking-tight">pl8</div>
-        <p className="text-sm text-muted-foreground">
-          Les morceaux, les samples et les modules de studio, au même endroit.
-        </p>
-        <Button
-          className="mt-2 w-full"
-          onClick={() => {
-            window.location.href = auth.loginUrl;
-          }}
-        >
-          <FrediverseMark size="sm" />
-          Se connecter
-        </Button>
-      </Card>
-    </div>
+    <SignInScreen
+      title="pl8"
+      description="Les morceaux, les samples et les modules de studio, au même endroit."
+      className="text-center"
+    >
+      <Button
+        className="w-full"
+        onClick={() => {
+          window.location.href = auth.loginUrl;
+        }}
+      >
+        <FrediverseMark size="sm" />
+        Se connecter
+      </Button>
+    </SignInScreen>
   );
 }

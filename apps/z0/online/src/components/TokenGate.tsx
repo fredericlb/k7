@@ -1,7 +1,8 @@
+import { Alert, AlertDescription } from "@frediverse/ui/alert";
 import { Button } from "@frediverse/ui/button";
-import { Card, CardContent } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Input } from "@frediverse/ui/input";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { type FormEvent, useEffect, useState } from "react";
 import { login } from "../lib/auth";
 import {
@@ -13,6 +14,7 @@ import {
 import { m } from "../paraglide/messages.js";
 
 // The /t/<token> door: LOGIN goes through OIDC, GUEST claims a unique name with no account.
+// A door before the app, so commons' SignInScreen; the session it opens is the description.
 export function TokenGate({
   sessionName,
   onClaimed,
@@ -59,74 +61,63 @@ export function TokenGate({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardContent className="flex flex-col gap-5 py-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <div
-              className="text-xl font-normal tracking-wide"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {m["auth.appTitle"]()}
-            </div>
-            <div
-              className="w-full truncate rounded-md border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground"
-              title={sessionName}
-            >
-              {sessionName}
-            </div>
-          </div>
-
-          {mode === "choose" ? (
-            <div className="flex flex-col gap-2">
-              <Button
-                size="lg"
-                onClick={() => {
-                  setMode("guest");
-                  setError("");
-                }}
-              >
-                {m["token.guest"]()}
-              </Button>
-              <Button variant="outline" size="lg" onClick={login}>
-                <FrediverseMark size="sm" />
-                {m["token.login"]()}
-              </Button>
-            </div>
-          ) : (
-            <form className="flex flex-col gap-3" onSubmit={submit}>
-              <Input
-                type="text"
-                maxLength={32}
-                autoComplete="nickname"
-                placeholder={m["token.usernamePlaceholder"]()}
-                disabled={submitting}
-                autoFocus
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  disabled={submitting}
-                  onClick={() => {
-                    setMode("choose");
-                    setError("");
-                  }}
-                >
-                  {m["token.cancel"]()}
-                </Button>
-                <Button type="submit" className="flex-1" disabled={submitting}>
-                  {m["token.continue"]()}
-                </Button>
-              </div>
-            </form>
+    <SignInScreen
+      title={m["auth.appTitle"]()}
+      description={sessionName}
+      className="max-w-sm text-center"
+    >
+      {mode === "choose" ? (
+        <div className="flex flex-col gap-2">
+          <Button
+            size="lg"
+            onClick={() => {
+              setMode("guest");
+              setError("");
+            }}
+          >
+            {m["token.guest"]()}
+          </Button>
+          <Button variant="outline" size="lg" onClick={login}>
+            <FrediverseMark size="sm" />
+            {m["token.login"]()}
+          </Button>
+        </div>
+      ) : (
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <Input
+            type="text"
+            maxLength={32}
+            autoComplete="nickname"
+            placeholder={m["token.usernamePlaceholder"]()}
+            disabled={submitting}
+            autoFocus
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-        </CardContent>
-      </Card>
-    </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              disabled={submitting}
+              onClick={() => {
+                setMode("choose");
+                setError("");
+              }}
+            >
+              {m["token.cancel"]()}
+            </Button>
+            <Button type="submit" className="flex-1" disabled={submitting}>
+              {m["token.continue"]()}
+            </Button>
+          </div>
+        </form>
+      )}
+    </SignInScreen>
   );
 }

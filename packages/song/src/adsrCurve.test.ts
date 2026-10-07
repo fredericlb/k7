@@ -9,6 +9,7 @@ import { type AdsrCurve, adsrUnit, bakeAdsr, parseCurve } from "./curves";
 const env = (over: Partial<AdsrCurve> = {}): AdsrCurve => ({
   type: "adsr",
   polarity: "unipolar",
+  amplitude: 1,
   attack: 100,
   decay: 100,
   sustain: 200,
@@ -151,5 +152,12 @@ describe("reading one off the file", () => {
     expect(() => parseCurve("env1", { type: "adsr", decay: -5 })).toThrow(
       /adsr decay must be a duration in ms/,
     );
+  });
+});
+
+describe("an envelope's amplitude", () => {
+  it("scales every corner the bake writes", () => {
+    const half = bakeAdsr(env({ amplitude: 0.5 }), [0], 120);
+    expect(Math.max(...half.points.map(([, v]) => v))).toBe(0.5);
   });
 });

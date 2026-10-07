@@ -10,6 +10,7 @@ describe("parseCurve", () => {
     expect(parseCurve("x", { type: "lfo" })).toEqual({
       type: "lfo",
       polarity: "unipolar",
+      amplitude: 1,
       shape: "sine",
       frequency: 1,
       phase: 0,
@@ -54,6 +55,7 @@ describe("sampleCurve — lfo (cycles per bar)", () => {
   const lfo = (over: Partial<Extract<Curve, { type: "lfo" }>> = {}): Curve => ({
     type: "lfo",
     polarity: "unipolar",
+    amplitude: 1,
     shape: "sine",
     frequency: 1,
     phase: 0,
@@ -128,6 +130,7 @@ describe("sampleCurve — custom (linear, held at the ends)", () => {
   const ramp: Curve = {
     type: "custom",
     polarity: "unipolar",
+    amplitude: 1,
     points: [
       { time: "1:1:1", value: 0 }, // beat 0
       { time: "2:1:1", value: 1 }, // beat 4 (bar 2)
@@ -156,6 +159,7 @@ describe("sampleCurve — custom (linear, held at the ends)", () => {
     const unsorted: Curve = {
       type: "custom",
       polarity: "unipolar",
+      amplitude: 1,
       points: [
         { time: "2:1:1", value: 1 },
         { time: "1:1:1", value: 0 },
@@ -170,6 +174,7 @@ describe("bakeCurve", () => {
     const c: Curve = {
       type: "custom",
       polarity: "unipolar",
+      amplitude: 1,
       points: [
         { time: "1:1:1", value: 0 }, // beat 0
         { time: "3:1:1", value: 1 }, // beat 8
@@ -187,6 +192,7 @@ describe("bakeCurve", () => {
     const c: Curve = {
       type: "lfo",
       polarity: "bipolar",
+      amplitude: 1,
       shape: "sine",
       frequency: 1,
       phase: 0,
@@ -198,6 +204,7 @@ describe("bakeCurve", () => {
     const c: Curve = {
       type: "lfo",
       polarity: "unipolar",
+      amplitude: 1,
       shape: "triangle",
       frequency: 1,
       phase: 0,
@@ -209,5 +216,28 @@ describe("bakeCurve", () => {
       expect(v).toBeGreaterThanOrEqual(0), expect(v).toBeLessThanOrEqual(1);
     // Covers at least the song length.
     expect(b.points[b.points.length - 1][0]).toBeGreaterThanOrEqual(16);
+  });
+});
+
+describe("amplitude", () => {
+  const sq = (polarity: "unipolar" | "bipolar") =>
+    parseCurve("x", { type: "lfo", shape: "square", polarity, amplitude: 0.5 });
+
+  it("scales a unipolar curve's top, 0..amplitude", () => {
+    expect(sampleCurve(sq("unipolar"), 0, NUM, DEN)).toBe(0.5);
+    expect(sampleCurve(sq("unipolar"), 2, NUM, DEN)).toBe(0);
+  });
+
+  it("scales a bipolar curve around 0, -amplitude..amplitude", () => {
+    expect(sampleCurve(sq("bipolar"), 0, NUM, DEN)).toBe(0.5);
+    expect(sampleCurve(sq("bipolar"), 2, NUM, DEN)).toBe(-0.5);
+  });
+
+  it("clamps an amplitude past the range, and reads none as the whole range", () => {
+    expect(parseCurve("x", { type: "lfo", amplitude: 3 }).amplitude).toBe(1);
+    expect(
+      parseCurve("x", { type: "custom", points: [{ time: "1:1", value: 1 }] })
+        .amplitude,
+    ).toBe(1);
   });
 });

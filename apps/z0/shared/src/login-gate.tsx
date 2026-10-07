@@ -1,7 +1,8 @@
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 
-// The editor and buzzer do NOT use this: one needs its own styles, the other a guest-join form.
+// The game's sign-in, on commons' screen like every app's; the buzzer adds its join form to the same screen.
 export function LoginGate({
   onLogin,
   title = "BLIND-TEST",
@@ -14,15 +15,11 @@ export function LoginGate({
   loginLabel?: string;
 }) {
   return (
-    <div className="login-gate">
-      <div className="login-card">
-        <div className="login-title">{title}</div>
-        {message && <div className="login-msg">{message}</div>}
-        <Button variant="outline" className="login-btn" onClick={onLogin}>
-          <FrediverseMark size="sm" />
-          {loginLabel}
-        </Button>
-      </div>
-    </div>
+    <SignInScreen title={title} description={message} className="text-center">
+      <Button className="w-full" onClick={onLogin}>
+        <FrediverseMark size="sm" />
+        {loginLabel}
+      </Button>
+    </SignInScreen>
   );
 }

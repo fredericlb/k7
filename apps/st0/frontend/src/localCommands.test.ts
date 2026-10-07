@@ -2,8 +2,18 @@
 // the palette worth having: every action on screen is a command, and every command the palette
 // lists is one the dispatcher will actually recognise.
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BARE_TRANSPORT, isUiLine, UI_EXACT, UI_HEADS } from "./localCommands";
+import { parse } from "yaml";
+import {
+  BARE_TRANSPORT,
+  isUiLine,
+  UI_EXACT,
+  UI_HEADS,
+  uiVerdict,
+} from "./localCommands";
 import { LOCAL_ARGS, LOCAL_COMMANDS } from "./palette";
 
 // What `runLocalCommand` sees: the line lowercased, with any `ui ` prefix already stripped.
@@ -86,5 +96,41 @@ describe("the bare transport verbs", () => {
   it("names them as the catalogue does, so a typed line reaches the same branch", () => {
     // The dispatcher matches the line whole and lowercased; every entry must already be that.
     for (const line of BARE_TRANSPORT) expect(line).toBe(line.toLowerCase());
+  });
+});
+
+describe("uiVerdict — a `ui` head never swallows a server command", () => {
+  // The server's catalogue, as the palette knows it: every `command:` of commands.yaml.
+  const catalogue = (
+    parse(
+      readFileSync(
+        join(
+          dirname(fileURLToPath(import.meta.url)),
+          "../../../../packages/commands/commands.yaml",
+        ),
+        "utf8",
+      ),
+    ) as { command: string }[]
+  ).map((c) => c.command);
+  const isServer = (line: string) =>
+    catalogue.some((c) => line === c || line.startsWith(`${c} `));
+
+  it("sends `curve set` to the server though `ui curve` shares its first word", () => {
+    expect(uiVerdict("curve set wob {}", false, isServer)).toBe("pass");
+    expect(uiVerdict("curve point add wob 1:1 0.5", false, isServer)).toBe(
+      "pass",
+    );
+    expect(uiVerdict("curve", true, isServer)).toBe("ui");
+    expect(uiVerdict("curve wob", true, isServer)).toBe("ui");
+  });
+
+  it("still refuses a `ui` line typed without its prefix, and a prefix on a server line", () => {
+    expect(uiVerdict("zoom", false, isServer)).toBe("refuse");
+    expect(uiVerdict("node bypass amp", true, isServer)).toBe("refuse");
+  });
+
+  it("refuses NO server command unprefixed, whatever the `ui` heads are", () => {
+    for (const c of catalogue)
+      expect(uiVerdict(`${c} x`, false, isServer), c).not.toBe("refuse");
   });
 });

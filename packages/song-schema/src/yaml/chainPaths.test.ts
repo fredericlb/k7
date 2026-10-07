@@ -52,7 +52,18 @@ describe("fileKindFor", () => {
       "start",
       "ports",
       "bus_only",
+      "hidden",
       "steps",
+      "subchains",
+    ]);
+    expect(fieldsAt("chain", ["subchains"])).toEqual(["id", "steps"]);
+    expect(fieldsAt("chain", ["subchains", "steps"])).toEqual(
+      fieldsAt("chain", ["steps"]).filter((f) => f !== "track" && f !== "sub"),
+    );
+    expect(fieldsAt("chain", ["subchains", "steps", "to"])).toEqual([
+      "chain",
+      "level",
+      "port",
     ]);
     expect(fieldsAt("chain", ["steps"])).toEqual(
       expect.arrayContaining([

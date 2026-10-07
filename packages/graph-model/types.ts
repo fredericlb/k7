@@ -178,11 +178,65 @@ export interface WebAutomation {
 }
 // A curve's shape, enough to LABEL its node — the full definition stays on disk.
 export interface WebCurve {
-  type: "lfo" | "custom" | "adsr";
+  type: "lfo" | "custom" | "adsr" | "onoff";
   shape?: "sine" | "triangle" | "saw" | "square"; // lfo only
   /** A `custom` curve's POINTS verbatim, absent for every other type — the definition, not the bake; docs/graph.md. */
   points?: { time: string; value: number }[];
+  /** …and the WHOLE definition, defaults filled: what the curve editor opens on (packages/song/docs/curves.md). */
+  spec?: CurveSpec;
 }
+
+/** An oscillator's waveform. */
+export type LfoShape = "sine" | "triangle" | "saw" | "square";
+export type CurvePolarity = "unipolar" | "bipolar";
+
+/** One of WHEN a curve runs — a curve runs while ANY of its conditions holds; `retrigger` restarts it the moment this one comes true (packages/song/docs/curves.md). */
+export type CurveCondition =
+  | { type: "start"; at: string; retrigger?: boolean }
+  | { type: "end"; at: string; retrigger?: boolean }
+  | { type: "between"; start: string; end: string; retrigger?: boolean }
+  | { type: "event"; event: string; retrigger?: boolean };
+
+/** Which half of its output a curve keeps: all of it, only what is above 0, or only what is below (packages/song/docs/curves.md). */
+export type CurveCut = "none" | "positive" | "negative";
+
+/** One curve, every field resolved — the model a file is read into, the bake samples, and the editor writes. */
+export type CurveSpec = { conditions?: CurveCondition[]; cut?: CurveCut } & (
+  | {
+      type: "lfo";
+      polarity: CurvePolarity;
+      /** 0..1, scaling the output: the whole range at 1. */
+      amplitude: number;
+      shape: LfoShape;
+      frequency: number; // cycles per bar (>0)
+      phase: number; // 0..1 of a cycle
+      /** How long it runs from its own start, a 0-based timecode ("2:0"); absent is for ever. */
+      duration?: string;
+    }
+  | {
+      type: "custom";
+      polarity: CurvePolarity;
+      amplitude: number;
+      points: { time: string; value: number }[];
+    }
+  /** A boolean param's curve: points of 0 or 1, each HELD until the next — polarity and amplitude fixed, unipolar 1. */
+  | {
+      type: "onoff";
+      polarity: CurvePolarity;
+      amplitude: number;
+      points: { time: string; value: number }[];
+    }
+  | {
+      type: "adsr";
+      polarity: CurvePolarity;
+      amplitude: number;
+      attack: number; // ms
+      decay: number; // ms
+      sustain: number; // ms — a hold at `level`
+      release: number; // ms
+      level: number; // 0..1
+    }
+);
 /** One automation LANE as the timeline draws it, derived from the graph by `automationLanes` — docs/graph.md. */
 export interface WebAutomationLane {
   track: string; // the lane it draws under — the chain's own name
@@ -277,6 +331,8 @@ export interface WebGraph {
   trackSignals?: Record<string, WebSignal>;
   // Per-track display colour by track id — the timeline's colour. Absent when the track authors none.
   trackColors?: Record<string, string>;
+  /** A chain project's STACKS — each subchain run in place, its nodes in order; absent outside a chain project. */
+  stacks?: string[][];
   /** Which NODE is each track's fader — the `Mixer` at the end of its chain, so that card can wear the lane's face. */
   trackMixers?: Record<string, string>;
   // What each track HOLDS, in playing order; absent for a group or a strudel lane, which hold no placements.

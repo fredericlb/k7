@@ -14,6 +14,8 @@ import { instanceName } from "@studio/song-schema/instanceName";
 export interface PendingInsert {
   before: string;
   after: string;
+  /** A bottom `+`: the new node is STACKED under `before` rather than spliced into an arrow. */
+  stack?: boolean;
 }
 
 /** The lane a `+` on this arrow drops onto — a chain is called after its lane, so the key IS the answer, port or no port. */
@@ -87,6 +89,7 @@ export const wireCommand = (
 ): string | null => {
   const x = spawn ? Math.round(spawn.x) : 0;
   const y = spawn ? Math.round(spawn.y) : 0;
+  if (at?.stack) return `node stack ${at.before} ${ref}`;
   if (at)
     return `node insert ${at.before} ${at.after} ${ref}${spawn ? ` ${x},${y}` : ""}`;
   return spawn ? `graph move ${ref} ${x} ${y}` : null;

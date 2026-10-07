@@ -482,6 +482,55 @@ describe("buildGraph", () => {
     );
   });
 
+  it("wires the node's note-on into a curve an event condition starts, and none into one that runs always", () => {
+    const lfo = {
+      type: "lfo" as const,
+      polarity: "unipolar" as const,
+      amplitude: 1,
+      shape: "saw" as const,
+      frequency: 1,
+      phase: 0,
+    };
+    const { nodes, edges } = buildGraph({
+      chains: {
+        lead: {
+          use: [
+            {
+              module: "synth",
+              automations: [
+                { param: "Cut", curve: "onNote" },
+                { param: "Res", curve: "free" },
+              ],
+            },
+          ],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      tracks: [],
+      curves: {
+        onNote: {
+          type: "lfo",
+          spec: {
+            ...lfo,
+            conditions: [{ type: "event", event: "note-on", retrigger: true }],
+          },
+        },
+        free: { type: "lfo", spec: lfo },
+      },
+      warnings: [],
+    });
+    const fired = edges.filter((e) => e.signal === "event");
+    expect(fired).toHaveLength(1);
+    expect(fired[0]).toMatchObject({
+      source: "mod:synth",
+      target: "crv:onNote@synth:Cut",
+      sourcePort: "note-on",
+    });
+    const card = (id: string) => nodes.find((n) => n.id === id);
+    expect(card("crv:onNote@synth:Cut")?.eventIn).toBe(true);
+    expect(card("crv:free@synth:Res")?.eventIn).toBe(false);
+  });
+
   it("skips an automation whose curve is missing from the graph", () => {
     const { nodes } = buildGraph({
       chains: {
@@ -2370,5 +2419,69 @@ describe("masterRunAside", () => {
     expect(masterRunAside(nodes, [{ source: "MIX", target: "OUT" }])).toBe(
       nodes,
     );
+  });
+});
+
+describe("moduleRow with curves", () => {
+  // One lane, its eq driven by a curve.
+  const lane = {
+    ...graph(
+      {
+        vox: {
+          from: "vox",
+          use: [
+            { module: "comp" },
+            { module: "eq", automations: [{ param: "Gain", curve: "wob" }] },
+          ],
+          out: [{ to: "OUT", gain: 1 }],
+        },
+      },
+      ["vox"],
+    ),
+    curves: { wob: { type: "lfo" as const, shape: "sine" as const } },
+  };
+  const opts = { links: true, gap: -1 } as const;
+
+  it("keeps the automation landing on a card with no curve card drawn, so its knob glows", () => {
+    const row = moduleRow(lane, ["comp", "eq"], opts);
+    expect(row.nodes.some((n) => n.kind === "curve")).toBe(false);
+    const auto = row.edges.filter((e) => e.automation);
+    expect(auto).toHaveLength(1);
+    expect(auto[0].target).toBe("mod:eq");
+  });
+
+  it("draws no event plug while its curves are hidden, and the node's own when they are shown", () => {
+    const withNotes = {
+      ...lane,
+      chains: {
+        vox: {
+          ...lane.chains.vox,
+          use: lane.chains.vox.use.map((u) => ({ ...u, events: ["note-on"] })),
+        },
+      },
+    };
+    const card = (curves: boolean) =>
+      moduleRow(withNotes, ["comp", "eq"], { ...opts, curves }).nodes.find(
+        (n) => n.module === "eq",
+      );
+    expect(card(false)?.events).toBeUndefined();
+    expect(card(true)?.events).toEqual(["note-on"]);
+  });
+
+  it("draws the curve in a column just before the card it drives, under its top, the neighbours spaced", () => {
+    const row = moduleRow(lane, ["comp", "eq"], { ...opts, curves: true });
+    const at = (kind: string, module?: string) =>
+      row.nodes.find(
+        (n) => n.kind === kind && (!module || n.module === module),
+      );
+    const comp = at("module", "comp");
+    const eq = at("module", "eq");
+    const crv = at("curve");
+    if (!comp || !eq || !crv) throw new Error("three cards");
+    expect(crv.x).toBeGreaterThan(comp.x + comp.w);
+    expect(eq.x).toBeGreaterThan(crv.x + crv.w);
+    expect(crv.y).toBe(eq.y + 24);
+    // …and its cable is a whole one now, both ends in the row.
+    expect(row.edges.find((e) => e.automation)?.source).toBe(crv.id);
   });
 });

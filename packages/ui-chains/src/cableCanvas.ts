@@ -25,11 +25,12 @@ export const CABLE_W = 2.2;
 export const SHADOW_W = 4.4;
 // .dgx-cbl-shadow was `stroke:#000; stroke-opacity:.5`, which canvas spells as one colour.
 export const SHADOW_COLOR = "rgba(0,0,0,.5)";
-// An AUTOMATION cable's dress — thinner, dashed, an arrowhead into the knob. See docs/hang.md.
+// An AUTOMATION cable's dress — thinner, dashed, faint, and no arrowhead: the knob's glow says where it lands. See docs/hang.md.
 export const AUTO_W = 1.8;
 export const AUTO_SHADOW_W = 3.2;
 export const AUTO_DASH: readonly number[] = [5, 4];
-export const AUTO_ARROW = 6.5; // arrowhead length, world px (scaled by boost like the strokes)
+/** …and drawn at a fifth: a binding is context for the signal path, never in front of it. */
+export const AUTO_ALPHA = 0.2;
 const NO_DASH: readonly number[] = [];
 
 /** What a cable CROSSING an open frame is drawn at: half, so the box's own wiring reads first
@@ -191,8 +192,6 @@ export interface CableDraw {
   width?: number;
   shadowWidth?: number;
   dash?: readonly number[];
-  // An arrowhead at the target end, this long in world px, oriented by the LAST DRAWN segment.
-  arrowSize?: number;
 }
 
 // Everything one frame of the cable layer needs. `width`/`height` are DEVICE pixels.
@@ -243,24 +242,6 @@ export function drawCables(
     ctx.strokeStyle = c.color;
     ctx.lineWidth = (c.width ?? CABLE_W) * f.boost;
     ctx.stroke();
-    // The arrowhead, off the last DRAWN segment, so a swinging cable's head still points into the knob.
-    if (c.arrowSize) {
-      const bx = scratch.buf[(n - 2) * 2];
-      const by = scratch.buf[(n - 2) * 2 + 1];
-      const tx = scratch.buf[(n - 1) * 2];
-      const ty = scratch.buf[(n - 1) * 2 + 1];
-      const ang = Math.atan2(ty - by, tx - bx);
-      const size = c.arrowSize * f.boost;
-      const w = 0.42; // the head's half-angle — the proportions arrowPoints drew in SVG
-      ctx.setLineDash(NO_DASH);
-      ctx.beginPath();
-      ctx.moveTo(tx, ty);
-      ctx.lineTo(tx - size * Math.cos(ang - w), ty - size * Math.sin(ang - w));
-      ctx.lineTo(tx - size * Math.cos(ang + w), ty - size * Math.sin(ang + w));
-      ctx.closePath();
-      ctx.fillStyle = c.color;
-      ctx.fill();
-    }
     ctx.globalAlpha = 1;
   }
 }

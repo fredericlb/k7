@@ -73,10 +73,13 @@ export const LOCAL_COMMANDS = [
   "ui panel", // open one of the bottom panels (event | graph | logs)
   "ui surface", // a screen this PROJECT declares — surfaces/, layout: view
   "ui builder", // the shared module builder, over the shell
+  "ui curve", // the curve editor: a new curve, or the one named
+  "ui automate", // the curve editor on a control: the curve it follows, or a new one bound to it
   "ui review", // reopen the take review on a clip — waveform, onsets, level
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
   "ui automation", // show or hide each lane's automation rows
+  "ui curves", // show or hide the curve cards in the per-track graph view
   "ui logs clear",
   // The RIGHT-HAND panels and the settings tabs: all leave the project alone, and the bare lines toggle.
   "ui settings",
@@ -211,8 +214,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Coller ce qui a été copié au curseur",
   },
   "selection delete": {
-    en: "Delete the selected notes",
-    fr: "Supprimer les notes sélectionnées",
+    en: "Delete the selected notes or events",
+    fr: "Supprimer les notes ou événements sélectionnés",
   },
   "transport locate": {
     en: "Move the playhead to the caret",
@@ -271,6 +274,14 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Edit a module in the builder",
     fr: "Modifier un module dans le constructeur",
   },
+  "ui curve": {
+    en: "Create or edit an automation curve",
+    fr: "Créer ou modifier une courbe d'automation",
+  },
+  "ui automate": {
+    en: "Automate a parameter with a curve",
+    fr: "Automatiser un paramètre avec une courbe",
+  },
   "ui review": {
     en: "Reopen the take review on a clip",
     fr: "Rouvrir la relecture d'une prise",
@@ -298,6 +309,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui automation": {
     en: "Show or hide the automation lanes",
     fr: "Afficher ou masquer les pistes d'automation",
+  },
+  "ui curves": {
+    en: "Show or hide the curve cards in the per-track graph view",
+    fr: "Afficher ou masquer les courbes dans la vue graphe par piste",
   },
   "ui logs clear": {
     en: "Empty the log panel",
@@ -441,6 +456,10 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
     { name: "module", kind: "module", hint: "a module of this project" },
     { name: "param", kind: "text", hint: "the name its widget binds" },
   ],
+  "ui automate": [
+    { name: "node", kind: "module", hint: "a node of this project" },
+    { name: "param", kind: "text", hint: "the name its widget binds" },
+  ],
   "ui picture arm": [
     { name: "lane", kind: "text", hint: "a picture lane — bare, it disarms" },
   ],
@@ -489,6 +508,14 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
   "ui builder": [
     { name: "module", kind: "module", hint: "a module of this project" },
+  ],
+  "ui curve": [
+    {
+      name: "curve",
+      kind: "file",
+      optional: true,
+      hint: "a curve of this project — none for a new one",
+    },
   ],
   // `file` is the class a clip is drawn in (see ArgClass); the completion below narrows it to clips/ and hands back the ID.
   "ui review": [
@@ -674,6 +701,12 @@ export function makeListArg(shell: {
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
       return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));
+    // A curve is named by its id, its file's basename, as a clip is below.
+    if (canonical === "ui curve" && first)
+      return shell
+        .files()
+        .filter((f) => /(^|\/)curves\/[^/]+\.ya?ml$/i.test(f))
+        .map((f) => (f.split("/").pop() ?? f).replace(/\.ya?ml$/i, ""));
     // The review takes a clip ID, not a path, so the tree is filtered to clips/ and the basename handed back, which is what the id IS.
     if (canonical === "ui review" && first)
       return shell

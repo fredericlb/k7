@@ -224,6 +224,15 @@ engine a track's signal reaches a sidechain only if that track also reaches a de
 signal is consumed by a port and heard nowhere else is therefore **not expressible today** — see
 `packages/song/docs/setProject.md`, where the crossfade's second input needs exactly that.
 
+## A bipolar curve rides the SET value — `applyAutomationLane`
+
+A unipolar lane spans the param's whole range, so its values are absolute by construction. A bipolar
+one rides ±half a range around a centre, and the centre is `getCurrentExplicitValue()`: the value
+last SET — the preset's, or the text param `applyPluginParams` wrote — which following a curve never
+changes. `getCurrentValue()` is the wrong one: once the param has a curve it is the curve's value at
+the playhead, so a lane re-applied by a diff would be centred on wherever the transport stood, and
+the same bar would play differently depending on where playback was started.
+
 ## Two small ones worth keeping
 
 `applyTrackParams` leaves the track's own fader at unity on purpose: what a track sounds like is

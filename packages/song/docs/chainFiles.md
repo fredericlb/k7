@@ -40,6 +40,93 @@ steps:
 - **A chain without a start that nothing links is hidden**, unless one of its cards was placed on
   the graph (`layout.yaml`). That is the state `node new` leaves a node in until it is wired.
 
+## Subchains
+
+A chain may hold **subchains**: steps under an `id`, listed beside the chain's own.
+
+```yaml
+# chains/gtr.yaml
+start: true
+steps:
+  - { id: lane-1, track: gtr }
+  - { id: amp-1, extends: "@st0/audio/amp" }
+  - to: [ { chain: wet, level: 0.4 }, { chain: MIX, level: 1 } ]
+subchains:
+  - id: wet
+    steps:
+      - { id: verb-1, extends: "@st0/audio/verb" }
+      - to: [ { chain: MIX } ]
+```
+
+A subchain is a chain whose scope is its parent, and the scope is **closed both ways**: only the
+parent and its other subchains link into one, and a subchain links out only to a sibling or a
+built-in end. That is what makes it the parent's own: a chain file can be read, moved or duplicated
+whole, and nothing outside it reaches in or is reached out to. Inside the parent a subchain's id
+SHADOWS a top-level chain of that name; outside, that name is the top-level chain.
+
+A subchain is **steps and an id, nothing else** — no `start`, `ports` or `bus_only`, no lane (a lane
+is a source, and a subchain is fed by its parent), and no subchains of its own, nor a `{ sub }` step. One level keeps a
+node's place readable (`gtr › wet · step 2`) and the write-back below decidable.
+
+In memory a subchain is a chain like the others, keyed `<parent>/<id>` — no file name holds a `/` —
+and its nodes carry `sub` beside `chain`, which stays the FILE (`chainScope.ts`).
+
+**A graph edit puts a subchain back where it was**, as long as its scope still holds: the run is
+named after the subchain its nodes came from, a node inserted at its head included, and returns to
+its parent. An edit that breaks the scope — a cable from another chain into it, or out of it to one —
+**lifts it out** to a chain of its own, `<parent>-<id>`, rather than being refused: the edit was asked
+for, and a chain is still a correct way to write what it made. A library template holds none, being
+one run spliced where it is put.
+
+### Running a subchain in place
+
+A subchain can also be RUN where a step would be, with a `{ sub: <id> }` step: the signal goes
+through it in series and on to the parent's next step.
+
+```yaml
+steps:
+  - { id: lane-1, track: gtr }
+  - { sub: amp }                       # amp-1, then eq-1, then on to strip-1
+  - { id: strip-1, extends: "@st0/audio/strip" }
+  - to: [ { chain: MIX } ]
+subchains:
+  - id: amp
+    steps:
+      - { id: amp-1, extends: "@st0/audio/amp" }
+      - { id: eq-1, extends: "@st0/audio/eq" }
+```
+
+Such a subchain is a STRETCH of its parent's run, which decides the rest: it has no `to:` (its output
+returns), nothing links to it, it is run once, from the parent's own steps and never as the first one
+(that step is a node, its ports what the chain is linked into), and it holds at least one node. It
+compiles inline (`expandCalls`) and not again as a chain of its own.
+
+It is what the per-track row draws as a COLUMN — the stretch's cards one under another — and what the
+branch button on a seam makes (`node stack`, `chainStack.ts`): the card and the new node become a subchain
+run in the card's place, or the new node joins the one the card already sits in. The new node must be
+loose, as `node new` leaves it; its own chain file goes.
+
+**A graph edit writes the stretch back** (`regroupCalls`): the run is rebuilt from segments, so the
+nodes that sat in the subchain are found by where they WERE, and put back as the same `{ sub }`. A new
+node inserted between two of them joins; one inserted before or after stays in the parent. The
+subchain's nodes name the parent's run, not the subchain, so a run never takes a stretch's name.
+
+## Hidden chains
+
+`hidden: true` on a chain sets it aside WHOLE: `readChainProject` keeps it under `hidden` and out of
+`chains` and `nodes`, so its lane has no timeline row, its nodes no graph card, and nothing of it is
+compiled or sent to the engine. It is how `track hide` takes a lane out without deleting it, and
+`track unhide` removes the key. The lane's `tracks/` file and every item stay as written; a new lane
+cannot take its name, the file being still there. A hidden lane leaves `soloed` too, since a solo no
+one can see would silence every other lane; `trackOrder` keeps it, so it comes back where it was.
+
+This is not the other kind of hidden, a chain without a start that nothing links: that one is still
+part of the project, and shows the moment something links it or places one of its cards.
+
+**A graph edit leaves alone every chain it neither showed nor touched** — a hidden one, and one only
+a hidden lane fed. Rebuilt from segments, such a chain's nodes would come back as one loose chain
+each, so its file is not rewritten, and no new chain may take its name.
+
 ## Why the files compile into SEGMENTS
 
 Everything downstream — the compile, the engine, the graph view, every graph edit — reads the

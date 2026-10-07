@@ -237,13 +237,17 @@ import {
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
 import { CONSOLE_VERBS } from "./verbs/console.ts";
+import { CURVE_VERBS } from "./verbs/curve.ts";
 import { ENGINE_VERBS } from "./verbs/engine.ts";
+import { EVENTS_REMOVE_VERBS } from "./verbs/eventsRemove.ts";
+import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { PRESET_VERBS } from "./verbs/preset.ts";
 import { splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
 import { TRACK_VERBS } from "./verbs/track.ts";
+import { TRACK_HIDE_VERBS } from "./verbs/trackHide.ts";
 
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
 const FROZEN_DIR = "renders";
@@ -3096,6 +3100,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PICTURE_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
   ...TRACK_VERBS,
+  ...NODE_STACK_VERBS,
+  ...TRACK_HIDE_VERBS,
+  ...EVENTS_REMOVE_VERBS,
+  ...CURVE_VERBS,
   // …and a module's ENGINES, which a node picks between — packages/song/docs/engines.md.
   ...ENGINE_VERBS,
   ...PRESET_VERBS,

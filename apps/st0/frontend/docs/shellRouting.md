@@ -60,6 +60,12 @@ screen you are on — you can have the mix open over the timeline or over the ch
 it is a query parameter. Nesting it (`/timeline/mix`) would say it belongs to the
 timeline, which it does not.
 
+It is a modifier on the screen it was opened over, though, so **changing the page closes it**: the
+pane buttons, the number keys, `ui <pane>`, `ui global` and the stack view all go through that rule
+(`fullscreen` in `App.tsx`). A panel left open over another page would be showing what you were
+looking at before, under something else. The URL is the exception: going back or forward restores
+both fields as they were, panel included, since that is a screen you already had.
+
 Help (`/docs`) is a path of its own because it is an overlay over everything. `/help` is
 still accepted on the way in, so a link spelling it that way still resolves.
 

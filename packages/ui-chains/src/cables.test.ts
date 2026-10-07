@@ -2,6 +2,7 @@
 // its endpoints, the resampling walks the whole arc, the insert midpoint sits on the
 // cable, and liveness flows forward (and only forward) through a feedback loop.
 
+import { panelWidgets } from "@studio/graph-model/panel";
 import { describe, expect, it } from "vitest";
 import {
   autoTarget,
@@ -18,7 +19,7 @@ import {
   smoothPath,
   TRACK_NODE_PREFIX,
 } from "./cables";
-import type { GraphNode } from "./graph";
+import { columnW, type GraphNode, stripWidgetRect } from "./graph";
 
 const line = [
   { x: 0, y: 0 },
@@ -466,5 +467,40 @@ describe("an automation cable", () => {
       module: "synth",
       param: "Filter Freq",
     });
+  });
+
+  it("stops at the widget's border, on the line from its socket to the widget's centre", () => {
+    const knob = { kind: "knob", bind: "Filter Freq", col: 0, row: 0 };
+    const withKnob = {
+      ...synth,
+      ui: { widgets: { k: knob } },
+    } as unknown as GraphNode;
+    const map = new Map([curve, withKnob].map((n) => [n.id, n]));
+    const a = autoTarget(
+      {
+        ...edge,
+        automation: { param: "Filter Freq", widget: { x: 0, y: 0 } },
+      } as never,
+      map,
+    );
+    const w = panelWidgets(withKnob.ui).find(
+      ([, v]) => v.bind === "Filter Freq",
+    )?.[1];
+    if (!a || !w) throw new Error("a target on the knob");
+    const r = stripWidgetRect(withKnob, w, columnW(withKnob.ui));
+    const box = {
+      l: synth.x + r.x,
+      t: synth.y + r.y,
+      r: synth.x + r.x + r.w,
+      b: synth.y + r.y + r.h,
+    };
+    const onEdge =
+      Math.abs(a.to.x - box.l) < 1e-6 ||
+      Math.abs(a.to.x - box.r) < 1e-6 ||
+      Math.abs(a.to.y - box.t) < 1e-6 ||
+      Math.abs(a.to.y - box.b) < 1e-6;
+    expect(onEdge).toBe(true);
+    // …on the side facing the curve, which sits above the module.
+    expect(a.to.y).toBeCloseTo(box.t);
   });
 });

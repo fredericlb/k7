@@ -1,9 +1,10 @@
-// useNodePresets.tsx — the graph's preset dropdown, host side: fetch a node's presets when its
-// dropdown opens, run the `node preset` verb a pick or a header button asks for, and remember per
-// node which preset was last loaded. That memory is SESSION state, like an open assembly: a node
+// useNodePresets.tsx — the graph's one dropdown, host side: fetch a node's presets when it opens, run
+// the `node preset` verb a pick or a header button asks for — and `node engine` for its engine bar —
+// and remember per node which preset was last loaded. That memory is SESSION state, like an open assembly: a node
 // file says what its values are, not which preset they came from. See packages/song/docs/userPresets.md.
 
 import type { NodePresets, PresetEntry } from "@studio/song-schema/presets";
+import type { NodeEngines } from "@studio/ui-chains-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../api";
 import { PresetPicker } from "../components/PresetPicker";
@@ -16,15 +17,29 @@ export function useNodePresets(runCommand: (line: string) => Promise<void>) {
     x: number;
     y: number;
     data: NodePresets;
+    engines?: NodeEngines;
   } | null>(null);
   const [loaded, setLoaded] = useState<Record<string, PresetEntry>>({});
 
-  const openPresets = useCallback((node: string, x: number, y: number) => {
-    void api
-      .nodePresets(node)
-      .then((data) => setOpen({ node, x, y, data }))
-      .catch(() => {});
-  }, []);
+  const openPresets = useCallback(
+    (node: string, x: number, y: number, engines?: NodeEngines) => {
+      void api
+        .nodePresets(node)
+        .then((data) => setOpen({ node, x, y, data, engines }))
+        // A node with no presets to list still has its engines to offer.
+        .catch(() => {
+          if (engines)
+            setOpen({
+              node,
+              x,
+              y,
+              data: { ref: null, presets: [], scopes: [] },
+              engines,
+            });
+        });
+    },
+    [],
+  );
 
   // A label per node for the dropdown — the name alone, the scope being in the list.
   const presetNames = useMemo(
@@ -65,6 +80,8 @@ export function useNodePresets(runCommand: (line: string) => Promise<void>) {
           `node preset update ${q(open.node)} ${q(p.scope)} ${q(p.name)}`,
         )
       }
+      engines={open.engines}
+      onEngine={(name) => void runCommand(`node engine ${open.node} ${name}`)}
       onClose={() => setOpen(null)}
     />
   ) : null;

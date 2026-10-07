@@ -68,6 +68,7 @@ export {
   type NodePlace,
   nodeCaption,
   nodePlaces,
+  nodeStacks,
   placeOf,
 } from "./nodePlace";
 

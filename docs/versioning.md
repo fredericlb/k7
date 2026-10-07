@@ -125,7 +125,7 @@ constant-folds into the bundle.
 | k7 | `/` (root of its own subdomain) | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — tooltip on the header's title |
 | z0 | `/z0` | `z0-online` | `src/App.tsx` — header |
 | z0 | `/z0/monitor` | `z0-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
-| z0 | `/z0/remote` | `z0-remote` | `src/views/RemoteView.tsx` — `.status-bar` |
+| z0 | `/z0/remote` | `z0-remote` | `src/views/RemoteView.tsx` — the status row above the tabs |
 | z0 | `/z0/buzzer` | `z0-buzzer` | `src/views/BuzzerView.tsx` — fixed bottom-left |
 | z0 | `/z0/presenter` | `z0-presenter` | `src/components/Game2D.tsx` — overlay, bottom-left |
 | z0 | `/z0/editor` | `z0-editor` | **nowhere** — it ships in the image and renders no stamp |
@@ -149,17 +149,17 @@ directly (`express.static` in `src/server.ts`), no nginx and no location list in
 Styling follows each app's own idiom — Tailwind utilities where the surrounding chrome
 is Tailwind (st0, pl8, z0-online), a small class in the app's CSS file
 everywhere else. There is deliberately **no** shared version component: putting it in
-`z0-shared`'s auth badge would land it in six places at once, but that badge
-is an inline topbar item in three apps and a fixed top-right overlay in the other three.
+`z0-shared`'s auth badge would land it in every game SPA at once, and that badge is a
+fixed top-right overlay that knows nothing of each app's layout.
 
 Two placements are constrained by things already on screen, and both constraints are
-recorded next to the CSS rule:
+recorded next to the markup or the CSS rule:
 
 - **buzzer** — the stamp is `pointer-events: none`. The buzz handler is on the page
   container, not the circle, so a span that swallowed taps would carve a dead zone out
   of the buzz surface. Do not "fix" this with `stopPropagation`.
 - **remote** — the stamp is left-aligned in `.status-bar` flow, *not* `margin-left: auto`.
-  `.auth-badge` is fixed at top/right 6px on `z-index: 9999` and would cover it.
+  The shared auth badge is fixed at the top right and would cover it.
 
 ## The submodule, and why CI needs a credential
 

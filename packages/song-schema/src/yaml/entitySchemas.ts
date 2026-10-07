@@ -86,14 +86,61 @@ export const SequenceSchema = z
   .strict();
 
 const Polarity = z.enum(["unipolar", "bipolar"]);
+// 0..1, scaling every curve's output — the whole range at 1, the default (packages/song/docs/curves.md).
+const Amplitude = z.number().min(0).max(1);
+// Which half of the output a curve keeps — absent is `none`, the whole of it.
+const Cut = z.enum(["none", "positive", "negative"]);
+const ConditionTime = z
+  .string()
+  .regex(TIMECODE, "expected a timecode like 5:1:1 — a position in the song");
+// WHEN a curve runs: from a moment, until one, between two, or from a node's event — packages/song/docs/curves.md.
+export const CurveConditionSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("start"),
+      at: ConditionTime,
+      retrigger: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("end"),
+      at: ConditionTime,
+      retrigger: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("between"),
+      start: ConditionTime,
+      end: ConditionTime,
+      retrigger: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("event"),
+      event: z.string().min(1),
+      retrigger: z.boolean().optional(),
+    })
+    .strict(),
+]);
 
 export const LfoCurveSchema = z
   .object({
     type: z.literal("lfo"),
     polarity: Polarity.optional(),
+    amplitude: Amplitude.optional(),
+    cut: Cut.optional(),
+    conditions: z.array(CurveConditionSchema).optional(),
     shape: z.enum(["sine", "triangle", "saw", "square"]).optional(),
     frequency: z.number().positive().optional(), // cycles per bar
     phase: z.number().min(0).max(1).optional(),
+    // How long it runs, a 0-based timecode ("2:0" is two bars); "0" or absent is for ever.
+    duration: z
+      .string()
+      .regex(TIMECODE, 'expected a length like 2:0 — "0" runs for ever')
+      .optional(),
   })
   .strict();
 
@@ -101,6 +148,9 @@ export const CustomCurveSchema = z
   .object({
     type: z.literal("custom"),
     polarity: Polarity.optional(),
+    amplitude: Amplitude.optional(),
+    cut: Cut.optional(),
+    conditions: z.array(CurveConditionSchema).optional(),
     points: z
       .array(
         z
@@ -119,6 +169,9 @@ export const AdsrCurveSchema = z
   .object({
     type: z.literal("adsr"),
     polarity: Polarity.optional(),
+    amplitude: Amplitude.optional(),
+    cut: Cut.optional(),
+    conditions: z.array(CurveConditionSchema).optional(),
     attack: z.number().min(0).optional(), // ms, 0 -> instant
     decay: z.number().min(0).optional(), // ms
     sustain: z.number().min(0).optional(), // ms — a HOLD, see above
@@ -127,10 +180,31 @@ export const AdsrCurveSchema = z
   })
   .strict();
 
+/** A BOOLEAN param's curve: drawn points of 0 or 1, each held until the next — no ramp, no depth, no polarity. */
+export const OnOffCurveSchema = z
+  .object({
+    type: z.literal("onoff"),
+    points: z
+      .array(
+        z
+          .object({
+            time: z.string().regex(TIMECODE, "expected a timecode like 2:1:1"),
+            value: z.union([z.literal(0), z.literal(1)], {
+              message: "an on/off curve is 0 or 1",
+            }),
+          })
+          .strict(),
+      )
+      .min(1),
+    conditions: z.array(CurveConditionSchema).optional(),
+  })
+  .strict();
+
 export const CurveSchema = z.discriminatedUnion("type", [
   LfoCurveSchema,
   CustomCurveSchema,
   AdsrCurveSchema,
+  OnOffCurveSchema,
 ]);
 
 const Px = z.number();

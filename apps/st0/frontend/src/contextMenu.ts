@@ -38,9 +38,13 @@ export type MenuCtx =
       param: string;
       label: string;
       cc?: { ch: number; cc: number };
+      /** A curve drives it today: the menu offers to stop that. */
+      automated?: boolean;
     }
   // Right-click on an AUTOMATION row: the curve the verbs address, and the moment a point would go at.
   | { kind: "curve-point"; curve: string; param: string; tc: string }
+  // A CURVE CARD right-clicked: the curve, and the param it drives when the card is a binding rather than a free curve.
+  | { kind: "curve-card"; curve: string; module?: string; param?: string }
   // A pass-through node — a chain with no modules; nothing is offered on it now, so the id is all it needs to say.
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
@@ -147,6 +151,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   param: "",
   // 'curve': the row IS the curve, so its three read 'point add', 'point move', 'point remove'.
   "curve-point": "curve",
+  // Every row is named by hand, so there is nothing to drop.
+  "curve-card": "",
   chain: "",
   sink: "",
   // What you clicked is the box, and every row about one already begins with the word.
@@ -174,6 +180,8 @@ const CTX_ENTITY: Record<MenuCtx["kind"], MenuEntity | undefined> = {
   clip: "event",
   param: "param",
   "curve-point": "curve",
+  // A bound card stands for the PARAM it drives: its rows are the param's own (`node automate` is offered there).
+  "curve-card": "param",
   chain: undefined,
   sink: undefined,
   assembly: "assembly",
@@ -448,6 +456,24 @@ export function contextMenu(
           arg: quoted,
           help: "bind this param to the next controller knob you touch",
         },
+        // …and the curve editor on it: the curve this param is bound to, or a new one bound on Save (docs/curveEditor.md).
+        {
+          verb: "ui automate",
+          arg: quoted,
+          help: "automate this param with a curve — the one it follows, or a new one",
+        },
+        // …and the unbind, only when a curve drives it: `none` is a literal the entry writes, so it is named — the curve stays.
+        ...(ctx.automated
+          ? [
+              {
+                verb: "node automate",
+                // Unquoted: the verb takes the words between the node and the curve as the param, and keeps quotes literal.
+                arg: `${ctx.id} ${ctx.param} none`,
+                name: "remove automation",
+                help: "stop this param following its curve — the curve itself stays",
+              },
+            ]
+          : []),
         ...from(target),
         ...from(onModule),
         // The unbind, only worth offering when there is one to remove — `module cc` with a value no argument shape can express.
@@ -479,6 +505,29 @@ export function contextMenu(
         },
         { verb: "curve point remove", arg: `${ctx.curve} ${ctx.tc}` },
       ]);
+    case "curve-card": {
+      // A free card has no param to automate: its one row opens the curve itself.
+      if (!ctx.module || !ctx.param)
+        return offer([
+          { verb: "ui curve", arg: ctx.curve, help: "edit this curve" },
+        ]);
+      const quoted = `${ctx.module} ${quoteArg(ctx.param)}`;
+      return offer([
+        // The same editor the param's own menu opens, on the curve this card is (docs/curveEditor.md).
+        {
+          verb: "ui automate",
+          arg: quoted,
+          help: "edit this curve, as the automation of its param",
+        },
+        {
+          verb: "node automate",
+          // Unquoted: the verb takes the words between the node and the curve as the param, and keeps quotes literal.
+          arg: `${ctx.module} ${ctx.param} none`,
+          name: "remove automation",
+          help: "stop this param following this curve — the curve itself stays",
+        },
+      ]);
+    }
     case "chain":
       /** A chain answers no command's FIRST argument, and its one reader verb is gone — so this opens no menu, like `sink`. */
       return [];

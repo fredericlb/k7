@@ -150,10 +150,17 @@ describe("lodFor", () => {
 });
 
 describe("applyCam", () => {
-  it("writes the transform, and tolerates having no element yet", () => {
-    const el = { style: {} as CSSStyleDeclaration } as HTMLElement;
+  it("writes the transform and the zoom, and tolerates having no element yet", () => {
+    const vars = new Map<string, string>();
+    const style = {
+      getPropertyValue: (k: string) => vars.get(k) ?? "",
+      setProperty: (k: string, v: string) => vars.set(k, v),
+    } as unknown as CSSStyleDeclaration;
+    const el = { style } as HTMLElement;
     applyCam(el, { x: 12.5, y: -3, k: 0.75 });
     expect(el.style.transform).toBe("translate(12.5px,-3px) scale(0.75)");
+    // The zoom, for the CSS that caps header text on screen (chainsCss.ts).
+    expect(vars.get("--dgx-k")).toBe("0.75");
     expect(() => applyCam(null, { x: 0, y: 0, k: 1 })).not.toThrow();
   });
 });

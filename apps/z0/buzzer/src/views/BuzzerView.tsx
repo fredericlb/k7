@@ -1,12 +1,19 @@
-import { LockOpen } from "@frediverse/ui/icons";
+import { Alert, AlertTitle } from "@frediverse/ui/alert";
+import { Badge } from "@frediverse/ui/badge";
+import { TriangleAlert } from "@frediverse/ui/icons";
+import { cn } from "@frediverse/ui/lib/utils";
+import { Splash } from "@frediverse/ui/splash";
 import { useEffect, useReducer, useRef, useSyncExternalStore } from "react";
 import { AuthBadge } from "../components/AuthBadge";
+import { BuzzButton } from "../components/BuzzButton";
+import { UnlockDialog, WaitingSheet } from "../components/BuzzerOverlays";
 import {
   LoginGate,
   NAME_CONFIRMED_KEY,
   NAME_KEY,
 } from "../components/LoginGate";
 import { useAuth } from "../lib/auth";
+import { createWakeLock, type WakeLock } from "../lib/wakeLock";
 import { BuzzerSocket } from "../lib/ws";
 import { m } from "../paraglide/messages.js";
 
@@ -88,10 +95,10 @@ export function BuzzerView() {
     pointsThisRound: 0,
     wasAnswering: false,
     pendingRateTimeout: null as number | null,
-    wakeLockAcquired: false,
-    noSleepVideo: null as HTMLVideoElement | null,
-    noSleepAudioCtx: null as AudioContext | null,
   }).current;
+  const wakeLockRef = useRef<WakeLock | null>(null);
+  wakeLockRef.current ??= createWakeLock();
+  const wakeLock = wakeLockRef.current;
 
   // ── helpers ────────────────────────────────────────────────────────────
 
@@ -140,68 +147,8 @@ export function BuzzerView() {
     }, 2000);
   }
 
-  // Three tiers — native API, silent canvas video, silent oscillator — all needing a user gesture.
-  async function acquireWakeLock() {
-    if (nr.wakeLockAcquired) return;
-    if ("wakeLock" in navigator) {
-      try {
-        await (
-          navigator as Navigator & {
-            wakeLock: { request(t: string): Promise<unknown> };
-          }
-        ).wakeLock.request("screen");
-        nr.wakeLockAcquired = true;
-        return;
-      } catch {
-        /* not available over HTTP — fall through */
-      }
-    }
-    if (!nr.noSleepVideo) {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = 1;
-        canvas.height = 1;
-        const stream = canvas.captureStream(1);
-        const video = document.createElement("video");
-        video.setAttribute("playsinline", "");
-        video.setAttribute("muted", "");
-        video.muted = true;
-        video.style.cssText =
-          "position:fixed;top:-1px;left:-1px;width:1px;height:1px;opacity:0.01";
-        video.srcObject = stream;
-        document.body.appendChild(video);
-        nr.noSleepVideo = video;
-      } catch {
-        /* captureStream not supported */
-      }
-    }
-    if (nr.noSleepVideo) {
-      try {
-        await nr.noSleepVideo.play();
-        nr.wakeLockAcquired = true;
-        return;
-      } catch {
-        /* play blocked */
-      }
-    }
-    if (!nr.noSleepAudioCtx) {
-      try {
-        nr.noSleepAudioCtx = new AudioContext();
-        const osc = nr.noSleepAudioCtx.createOscillator();
-        const gain = nr.noSleepAudioCtx.createGain();
-        gain.gain.value = 0.001;
-        osc.connect(gain);
-        gain.connect(nr.noSleepAudioCtx.destination);
-        osc.start();
-        nr.wakeLockAcquired = true;
-      } catch {
-        /* AudioContext not supported */
-      }
-    }
-  }
-
   function buzz() {
-    if (!nr.wakeLockAcquired) void acquireWakeLock();
+    if (!wakeLock.acquired()) void wakeLock.acquire();
     if (!g.playerName) return; // must register first
     const now = Date.now();
     if (now - g.lastBuzzTime < DEBOUNCE_MS) return;
@@ -223,7 +170,7 @@ export function BuzzerView() {
   }
 
   function unlock() {
-    void acquireWakeLock();
+    void wakeLock.acquire();
     g.needsUnlock = false;
     render();
   }
@@ -252,8 +199,8 @@ export function BuzzerView() {
 
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        nr.wakeLockAcquired = false; // native API releases on tab switch
-        void acquireWakeLock();
+        wakeLock.invalidate();
+        void wakeLock.acquire();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -457,15 +404,7 @@ export function BuzzerView() {
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      if (nr.noSleepVideo) {
-        nr.noSleepVideo.pause();
-        nr.noSleepVideo.remove();
-        nr.noSleepVideo = null;
-      }
-      if (nr.noSleepAudioCtx) {
-        nr.noSleepAudioCtx.close().catch(() => {});
-        nr.noSleepAudioCtx = null;
-      }
+      wakeLock.dispose();
       if (nr.lockedTimeout) clearTimeout(nr.lockedTimeout);
       if (nr.lockCountdownInterval) clearInterval(nr.lockCountdownInterval);
       if (nr.pingInterval) clearInterval(nr.pingInterval);
@@ -483,30 +422,12 @@ export function BuzzerView() {
   if (authStatus === "error")
     return <LoginGate message={authError || "auth error"} />;
   if (authStatus === "authenticated" && !g.nameConfirmed) return <LoginGate />;
-  if (authStatus === "loading") {
-    return (
-      <div className="auth-overlay">
-        <span className="auth-loading">…</span>
-      </div>
-    );
-  }
+  if (authStatus === "loading") return <Splash label="Chargement" />;
 
   const isAnswering =
     !!g.playerName &&
     g.answeringName === g.playerName &&
     g.gamePhase === "answering";
-
-  const buzzClasses = [
-    "buzz-button",
-    g.buzzing && !g.locked ? "active" : "",
-    (g.locked || !g.playerName) && !isAnswering ? "disabled" : "",
-    isAnswering ? "answering" : "",
-    g.locked && g.lockReason === "politeness" && !isAnswering
-      ? "politeness"
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   const buzzText = isAnswering
     ? `${g.answerRemaining.toFixed(1)}S`
@@ -520,101 +441,97 @@ export function BuzzerView() {
     <>
       <AuthBadge />
       <div
-        className="buzzer-page"
+        className="fixed inset-0 flex touch-manipulation flex-col items-center justify-center overflow-hidden bg-background font-['Press_Start_2P',monospace] select-none"
         onTouchStart={(e) => {
           e.preventDefault();
           buzz();
         }}
         onMouseDown={buzz}
       >
-        <div className="status-bar">
+        <div className="absolute inset-x-0 top-6 flex justify-center">
           {!isConnected ? (
-            <span className="status connecting">
+            <Badge variant="amber" className="animate-pulse">
               {m["buzzer.connecting"]()}
-            </span>
+            </Badge>
           ) : g.deviceId ? (
-            <span className="status connected">
+            <Badge>
               {g.playerName ? `${g.deviceId}-${g.playerName}` : g.deviceId}
-            </span>
+            </Badge>
           ) : null}
         </div>
 
         {g.playerName && (
-          <div className="player-label">
+          <div className="mb-8 flex items-center gap-3 text-lg tracking-widest text-green">
             {g.playerName.toUpperCase()}
-            <span className="player-score">{g.playerScore}</span>
+            <Badge variant="amber" className="px-3 py-1 text-2xl">
+              {g.playerScore}
+            </Badge>
           </div>
         )}
 
         {g.buzzError ? (
-          <div className="buzz-error">{m["buzzer.buzzTooEarly"]()}</div>
+          <Alert variant="destructive" className="mb-4 w-auto">
+            <TriangleAlert />
+            <AlertTitle className="animate-pulse">
+              {m["buzzer.buzzTooEarly"]()}
+            </AlertTitle>
+          </Alert>
         ) : g.answeringName ? (
-          <div className="answering-label">{g.answeringName.toUpperCase()}</div>
+          <Badge variant="amber" className="mb-4 animate-pulse text-sm">
+            {g.answeringName.toUpperCase()}
+          </Badge>
         ) : null}
 
-        <div className={buzzClasses}>
-          <span
-            className={`buzz-text${g.locked && g.lockReason === "politeness" && !isAnswering ? " politeness-text" : ""}`}
-          >
-            {buzzText}
-          </span>
-          {g.locked && g.lockRemaining > 0 && !isAnswering && (
-            <span className="lock-timer">{g.lockRemaining}s</span>
-          )}
-        </div>
+        <BuzzButton
+          text={buzzText}
+          isAnswering={isAnswering}
+          locked={g.locked}
+          politeness={g.lockReason === "politeness"}
+          hasPlayer={!!g.playerName}
+          pressed={g.buzzing}
+          lockRemaining={g.lockRemaining}
+        />
 
         {g.resultMessage && (
           <div
-            className={`result-message${g.resultType === "win" ? " bravo" : ""}${g.resultType === "rate" ? " rate" : ""}`}
+            className={cn(
+              "mt-7 text-3xl tracking-widest animate-in fade-in zoom-in-50 duration-300",
+              g.resultType === "win" && "text-green",
+              g.resultType === "rate" && "text-destructive",
+            )}
           >
             {g.resultMessage}
           </div>
         )}
 
-        <div className="hint">
+        <div className="absolute bottom-10 text-[9px] text-muted-foreground">
           {g.playerName && <span>{m["buzzer.tapToScore"]()}</span>}
         </div>
 
-        <span className="build">{VERSION}</span>
-
-        {g.needsUnlock ? (
-          <div
-            className="name-overlay"
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              unlock();
-            }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              unlock();
-            }}
-          >
-            <LockOpen className="unlock-icon" />
-            <div className="name-label">{m["buzzer.tapToUnlock"]()}</div>
-          </div>
-        ) : !g.playerName ? (
-          <div
-            className="name-overlay"
-            onTouchStart={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="name-form">
-              <label className="name-label">
-                {g.gameReady && g.regStarted && !g.regComplete
-                  ? m["buzzer.joining"]()
-                  : m["buzzer.waitingForGame"]()}
-              </label>
-              {g.registerError && (
-                <div className="name-error">
-                  {g.registerError === "waiting_for_game"
-                    ? m["buzzer.waitingForGame"]()
-                    : g.registerError}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
+        {/* Not a tap target: the page is the buzzer, and a span that swallowed taps would be a dead zone. */}
+        <span className="pointer-events-none fixed bottom-1.5 left-1.5 text-[8px] text-muted-foreground/60">
+          {VERSION}
+        </span>
       </div>
+
+      <UnlockDialog
+        open={g.needsUnlock}
+        label={m["buzzer.tapToUnlock"]()}
+        onUnlock={unlock}
+      />
+      <WaitingSheet
+        open={!g.needsUnlock && !g.playerName}
+        label={
+          g.gameReady && g.regStarted && !g.regComplete
+            ? m["buzzer.joining"]()
+            : m["buzzer.waitingForGame"]()
+        }
+        error={
+          g.registerError === "waiting_for_game"
+            ? m["buzzer.waitingForGame"]()
+            : g.registerError
+        }
+      />
     </>
   );
 }

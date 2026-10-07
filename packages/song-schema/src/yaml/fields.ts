@@ -9,6 +9,7 @@ import {
   ChainFileSchema,
   LinkSchema,
   NODE_ITEM_KEYS,
+  SubchainSchema,
 } from "./chainSchema";
 import {
   AdsrCurveSchema,
@@ -209,11 +210,26 @@ function chainFields(path: string[]): string[] {
 /** A chain file: its own keys, then under `steps` a node's (a module's plus the item's), a lane's and a link's. */
 function chainFileFields(path: string[]): string[] {
   if (path.length === 0) return keys(ChainFileSchema);
-  if (path[0] !== "steps") return [];
-  const rest = path.slice(1);
+  if (path[0] === "steps") {
+    const own = stepFields(path.slice(1), true);
+    return path.length === 1 ? [...own, "sub"] : own;
+  }
+  // A subchain is an id and steps; its steps are a chain's, but a lane is not one of them.
+  if (path[0] !== "subchains") return [];
+  if (path.length === 1) return keys(SubchainSchema);
+  return path[1] === "steps" ? stepFields(path.slice(2), false) : [];
+}
+
+/** What a step offers at `rest` below it: an item's keys, a link's, or a module field's. */
+function stepFields(rest: string[], lanes: boolean): string[] {
   if (rest.length === 0)
     return [
-      ...new Set(["to", "track", ...NODE_ITEM_KEYS, ...keys(ModuleSchema)]),
+      ...new Set([
+        "to",
+        ...(lanes ? ["track"] : []),
+        ...NODE_ITEM_KEYS,
+        ...keys(ModuleSchema),
+      ]),
     ];
   if (rest[0] === "to") return rest.length === 1 ? keys(LinkSchema) : [];
   return moduleFields(rest);
@@ -249,7 +265,10 @@ export function valuesAt(
   if (kind === "chain") {
     if (path.length === 0 && field === "start")
       return ["true", ...CHAIN_STARTS];
-    return path[0] === "steps" ? valuesAt("module", path.slice(1), field) : [];
+    if (path[0] === "steps") return valuesAt("module", path.slice(1), field);
+    if (path[0] === "subchains" && path[1] === "steps")
+      return valuesAt("module", path.slice(2), field);
+    return [];
   }
   if (kind === "video_track") return [];
   return [];

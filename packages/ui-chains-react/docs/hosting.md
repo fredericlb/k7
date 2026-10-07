@@ -113,15 +113,17 @@ pads drawn but silent, which is the right degradation for a surface with no engi
 
 ### `onPresets` and `presetNames` — a dropdown whose list the host draws
 
-The preset dropdown on a node's second header line, right of the engine select, is only a BUTTON:
-pressing it reports the node and a viewport point, and the host draws the list there. The list is
+A node's second header line holds ONE dropdown, its engine and its preset, and it is only a BUTTON:
+pressing it reports the node, a viewport point and — when the module runs as more than one engine and
+the host gave `onEngine` — the engines and which is on, and the host draws the list there: the
+presets, and a left bar of the engines whose pick is the host's `node engine`. The list is
 the host's because what a preset is, where it is kept and how saving one is written are all
 file-service matters (`packages/song/docs/userPresets.md`), and because its header — save the node
 as a new preset, update the one loaded — is the host's commands. Same split as `onAssetBrowse`.
 
 `presetNames` is what the button wears: the preset each node last loaded, by node, which only the
 host knows since nothing about it is written to the project. The button is drawn only where
-`onPresets` is given, and only on a node that extends a module by ref.
+`onPresets` is given, and only on a node that extends a module by ref or has a choice of engines.
 
 ### `row` — a graph read across
 
@@ -145,6 +147,14 @@ Opt-in and absent by default. It sits on the OUTPUT and not on the input, becaus
 to hear is the signal after everything in the chain has had it. st0 has a transport of its own
 and the desk has a deck, so neither wants a second play button inside the graph; a host with
 neither is why the prop exists.
+
+### The song's clock — `SongClockProvider`
+
+A curve card reads the song's tempo and time signature from a context, `SongClockProvider`, not from a
+prop: every card draws its bar lines in the song's metre and, while the transport plays, a playhead
+— and a host mounts several graphs (st0 has four), so one provider around all of them beats the same
+three numbers threaded through each. Without it a card reads its curve in 4/4 and draws no playhead,
+having no tempo to turn the engine's seconds into beats. st0's shell sets it, from the compiled doc.
 
 ### The parked camera — `CamStore`
 
@@ -238,11 +248,12 @@ cables lifts the first — the other end of any of them is one more click away. 
 offered only when both callbacks are given, so a drop always has somewhere to go; automation
 plugs lift nothing, their bindings being the module's to edit.
 
-**An automation cable is deleted from its middle instead**: hovered, it shows a mauve `×`, and a
-click unbinds that param from its curve through the same verb that bound it,
-`node automate <module> <param> none`, over the host's `command`. Not by lifting an end: the end it
-lands on is a knob, not a socket, so there is no jack to lift it from. The curve itself stays —
-unbinding is not deleting it, and another param can take it.
+**An automation cable takes no click at all**: it is drawn faint and lets the pointer through to
+what is under it (docs/hang.md), so it is unbound from the menus instead — the knob's or the curve
+card's right-click, "remove automation", which is `node automate <module> <param> none` through the
+host's `command`. Not by lifting an end: the end it lands on is a knob, not a socket, so there is no
+jack to lift it from. The curve itself stays — unbinding is not deleting it, and another param can
+take it.
 
 Mechanically: the temporary cable is one dashed path in the world-space SVG, its far end
 moved by direct DOM writes on pointermove (no re-render per frame), its near end pinned at

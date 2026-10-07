@@ -292,9 +292,14 @@ note leaving makes room for another arriving. The rectangle follows the notes.
 
 ### Removing and splitting
 
-`x` removes what the caret is on, or everything a rectangle holds, through `selection delete` —
-one more line of the same family as `selection copy` and `selection paste`, answered by whichever
-grid is on screen through `ClipGridHandle`. The pane answers with a command **line** rather than
+Backspace (and `x`, on a grid) removes what the caret is on, or everything a rectangle holds,
+through `selection delete` — one more line of the same family as `selection copy` and `selection
+paste`. It goes to whichever surface holds a RECTANGLE, the clip grid first; with none drawn, to
+the open grid's caret, and otherwise to the timeline's — but only the timeline in FRONT, since it
+stays mounted off screen and a key must not take an event from a page you are not looking at. On
+the timeline the line is one `events remove` naming each event the rectangle holds, by the rule
+`copy` keeps (track rows, an event in when it STARTS inside), so copy and delete cannot disagree
+and a cleared rectangle is one Ctrl+Z. The pane answers with a command **line** rather than
 running one, which is what keeps a gesture worth exactly one Ctrl+Z; the shell runs it.
 
 Right-click on a note offers the same removal and, when the caret sits strictly inside it,
@@ -465,7 +470,7 @@ grid's rectangle is not a DOM selection (the timeline's lanes are `select-none`,
 `selection consolidate` is the third of the head, and the catalogue's own rather than the shell's
 (`commands.yaml`). Same subject: it takes a rectangle — one lane, `from`, `to` — where every
 `event …` verb takes one placement by its start. `selection delete` is the fourth, back on the
-shell's side because the pane is what knows which notes the box holds.
+shell's side because the pane is what knows which notes or events the box holds.
 
 ### What else the rectangle can do
 

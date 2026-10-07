@@ -1,7 +1,9 @@
 import { Alert, AlertDescription } from "@frediverse/ui/alert";
+import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { Card, CardContent } from "@frediverse/ui/card";
 import { Clock, Loader2 } from "@frediverse/ui/icons";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@frediverse/ui/tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LoadProgress, SessionRow } from "z0-shared/types";
@@ -258,18 +260,16 @@ export default function App() {
     if (tokenResolving) return <AuthLoading />;
     if (tokenInvalid) {
       return (
-        <div className="fixed inset-0 flex items-center justify-center bg-background p-4">
-          <Card className="w-full max-w-sm">
-            <CardContent className="flex flex-col items-stretch gap-3.5 py-4 text-center">
-              <p className="text-sm text-destructive">
-                {m["token.unknownToken"]()}
-              </p>
-              <Button variant="outline" asChild>
-                <a href="/">{m["token.toPicker"]()}</a>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <SignInScreen title={m["auth.appTitle"]()} className="max-w-sm">
+          <div className="flex flex-col gap-3.5">
+            <Alert variant="destructive">
+              <AlertDescription>{m["token.unknownToken"]()}</AlertDescription>
+            </Alert>
+            <Button variant="outline" asChild>
+              <a href="/">{m["token.toPicker"]()}</a>
+            </Button>
+          </div>
+        </SignInScreen>
       );
     }
     if (authStatus !== "authenticated" && tokenResolved) {
@@ -301,21 +301,21 @@ export default function App() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="flex items-center gap-4 border-b border-border px-4 py-2.5">
-        <span className="text-sm font-semibold tracking-wide">
-          {m["header.title"]()}
-        </span>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
-          {VERSION}
-        </span>
-        <span className="flex-1" />
-        <LocaleSwitcher />
-        {/* Logout hides mid-game — a stray tap would kick the player out. */}
-        <AuthBadge
-          logoutLabel={m["auth.logout"]()}
-          showLogout={!loadedSession && !playlistSession}
-        />
-      </header>
+      {/* No studio user menu: a guest player has no studio account, and logout must hide mid-game. */}
+      <AppHeader
+        title={m["header.title"]()}
+        version={VERSION}
+        actions={
+          <div className="flex items-center gap-2">
+            <LocaleSwitcher />
+            {/* Logout hides mid-game — a stray tap would kick the player out. */}
+            <AuthBadge
+              logoutLabel={m["auth.logout"]()}
+              showLogout={!loadedSession && !playlistSession}
+            />
+          </div>
+        }
+      />
       <main className="flex flex-1 justify-center px-4 py-4 sm:px-6 sm:py-6">
         <div className="flex w-full max-w-xl flex-col gap-4">
           {playlistSession ? (

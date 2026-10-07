@@ -22,7 +22,7 @@ export function spliceCurveTime(
   let moved = 0;
   let removed = 0;
   const points = doc.getIn(["points"]);
-  if (!(lenBeats > 0) || doc.get("type") !== "custom" || !isSeq(points))
+  if (!(lenBeats > 0) || !isDrawn(doc.get("type")) || !isSeq(points))
     return { text, moved, removed };
   const end = atBeats + lenBeats;
   // Descending, so removing one does not shift the address of the next.
@@ -122,6 +122,10 @@ function pointIndexAt(
   });
 }
 
+/** The curves made of drawn points: the custom one, and a boolean param's on/off. */
+const isDrawn = (type: unknown): boolean =>
+  type === "custom" || type === "onoff";
+
 /** Put a point at `beat`, IN TIME ORDER and one value per moment — see docs/curveEdits.md. */
 export function setCurvePoint(
   text: string,
@@ -131,10 +135,13 @@ export function setCurvePoint(
   den: number,
 ): string {
   const doc = parseDocument(text, OPTS);
-  if (doc.get("type") !== "custom")
+  const type = doc.get("type");
+  if (!isDrawn(type))
     throw new Error(
-      `not a drawn curve — only a \`type: custom\` one has points to edit`,
+      `not a drawn curve — only a \`type: custom\` or \`onoff\` one has points to edit`,
     );
+  // An on/off curve holds 0 or 1 and nothing between.
+  if (type === "onoff") value = value >= 0.5 ? 1 : 0;
   if (!isSeq(doc.getIn(["points"]))) doc.setIn(["points"], doc.createNode([]));
   const points = doc.getIn(["points"]);
   if (!isSeq(points)) return text;

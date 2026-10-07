@@ -77,6 +77,14 @@ describe("the line the shell runs after it", () => {
   it("says nothing at all for a bare-canvas pick with no point", () => {
     // Nothing to place and nothing to pin: the layout answers, which is the right answer.
     expect(wireCommand("adt1", null)).toBeNull();
+    // A bottom `+` stacks the new node under the card, wherever the click was.
+    expect(
+      wireCommand(
+        "adt1",
+        { before: "amp", after: "amp", stack: true },
+        { x: 1, y: 2 },
+      ),
+    ).toBe("node stack amp adt1");
   });
 
   it("leaves the position out of a splice when the pick carried none", () => {

@@ -17,6 +17,7 @@ import {
   CHAINS_DIR,
   type ChainFile,
   type Item,
+  isCallStep,
   isEndStep,
   isTrackItem,
   itemsOf,
@@ -24,9 +25,11 @@ import {
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 
+/** The links out of a chain's own steps to OTHER chains — one naming its own subchain stays inside it. */
 const linksOf = (c: ChainFile) => {
   const last = c.steps[c.steps.length - 1];
-  return isEndStep(last) ? last.to : [];
+  const own = new Set((c.subchains ?? []).map((sc) => sc.id));
+  return isEndStep(last) ? last.to.filter((l) => !own.has(l.chain)) : [];
 };
 
 /** How many items of the project name each explicit `vstpreset:` file. */
@@ -80,6 +83,9 @@ export function duplicateLaneChain(
     const ids = new Map<string, string>();
     for (const s of src.steps.slice(first))
       for (const i of itemsOf(s)) ids.set(i.id, newNodeId());
+    for (const sc of src.subchains ?? [])
+      for (const s of sc.steps)
+        for (const i of itemsOf(s)) ids.set(i.id, newNodeId());
     // The source text under the new ids, so formatChain keeps each copied item's own YAML and comments.
     let text = cp.texts[from];
     for (const [o, n] of ids) text = text.split(o).join(n);
@@ -104,18 +110,32 @@ export function duplicateLaneChain(
       const { vstpreset: _drop, ...rest } = i as Item & { vstpreset?: string };
       return rest as Item;
     };
-    const oldSteps = src.steps.slice(first);
-    const steps: Step[] = parsed.steps.slice(first).map((s, k) => {
-      const old = oldSteps[k];
-      if (isEndStep(s))
-        return {
-          to: s.to.map((l) => ({ ...l, chain: names.get(l.chain) ?? l.chain })),
-        };
-      if (Array.isArray(s))
-        return s.map((i, j) => copyItem(i, (old as Item[])[j]));
-      return copyItem(s, old as Item);
-    });
+    // A link naming one of this chain's subchains is to the COPY's subchain of that id: never renamed.
+    const own = new Set((src.subchains ?? []).map((sc) => sc.id));
+    const copySteps = (next: Step[], prev: Step[]): Step[] =>
+      next.map((s, k) => {
+        const old = prev[k];
+        if (isEndStep(s))
+          return {
+            to: s.to.map((l) =>
+              own.has(l.chain)
+                ? l
+                : { ...l, chain: names.get(l.chain) ?? l.chain },
+            ),
+          };
+        // A subchain run in place names it by id, and the copy's subchain keeps that id.
+        if (isCallStep(s)) return s;
+        if (Array.isArray(s))
+          return s.map((i, j) => copyItem(i, (old as Item[])[j]));
+        return copyItem(s, old as Item);
+      });
+    const steps = copySteps(parsed.steps.slice(first), src.steps.slice(first));
     const c: ChainFile = { steps };
+    if (parsed.subchains?.length)
+      c.subchains = parsed.subchains.map((sc, j) => ({
+        id: sc.id,
+        steps: copySteps(sc.steps, src.subchains?.[j]?.steps ?? []),
+      }));
     if (from === at.chain) c.start = true;
     else if (src.ports?.length) c.ports = [...src.ports];
     if (src.bus_only) c.bus_only = true;

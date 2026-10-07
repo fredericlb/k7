@@ -91,6 +91,19 @@ describe("the clipboard keys", () => {
     expect(keyToken(ev({ key: "c", ctrlKey: true, altKey: true }))).toBeNull();
     expect(keyToken(ev({ key: "c" }))).toBe("c"); // and the bare letter is untouched
   });
+
+  it("Backspace deletes, on a clip grid and on the timeline in front, and nowhere else", () => {
+    const ev = (init: Partial<KeyboardEvent>) => init as KeyboardEvent;
+    expect(keyToken(ev({ key: "Backspace" }))).toBe("backspace");
+    expect(
+      resolveToken("backspace", { clip_grid: "1" }, effectiveKeys({})),
+    ).toBe("selection delete");
+    expect(
+      resolveToken("backspace", { timeline_active: "1" }, effectiveKeys({})),
+    ).toBe("selection delete");
+    expect(resolveToken("backspace", {}, effectiveKeys({}))).toBeFalsy();
+    expect(shortcutsByCommand()["selection delete"]).toBe("Backspace");
+  });
 });
 
 // The person's own keymap: assignments move a shortcut rather than doubling it, steals are total, and the conditional bindings stay the app's.

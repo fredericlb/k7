@@ -4,8 +4,8 @@
    since bouncing again would only loop. */
 
 import { Button } from "@frediverse/ui/button";
-import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { m } from "../paraglide/messages.js";
 
 interface Props {
@@ -14,9 +14,9 @@ interface Props {
 
 export function LoginView({ loginUrl }: Props) {
   return (
-    <div className="login-screen">
-      <Card className="login-card">
-        <div className="brand">
+    <SignInScreen
+      title={
+        <span className="brand login-brand">
           {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
           <img
             className="brand-icon"
@@ -24,18 +24,20 @@ export function LoginView({ loginUrl }: Props) {
             alt=""
           />
           f<span style={{ color: "var(--red)" }}>·</span>rec
-        </div>
-        <p className="muted">{m["login.failed"]()}</p>
-        <Button
-          className="mt-3 w-full"
-          onClick={() => {
-            window.location.href = loginUrl;
-          }}
-        >
-          <FrediverseMark size="sm" />
-          {m["login.retry"]()}
-        </Button>
-      </Card>
-    </div>
+        </span>
+      }
+      description={m["login.failed"]()}
+      className="text-center"
+    >
+      <Button
+        className="w-full"
+        onClick={() => {
+          window.location.href = loginUrl;
+        }}
+      >
+        <FrediverseMark size="sm" />
+        {m["login.retry"]()}
+      </Button>
+    </SignInScreen>
   );
 }

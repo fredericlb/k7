@@ -3,20 +3,30 @@
 // writes it. Nothing here is hand-rolled: each card is the card the chains view draws.
 // See docs/shell.md.
 
+import { Spline } from "@frediverse/ui/icons";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { splitTrailingMixer } from "@studio/ui-chains/anchorRight";
-import type { TrackControlValues } from "@studio/ui-chains/graph";
+import type { EdgeInsert, TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackModules } from "@studio/ui-chains/graph";
-import { DomChains, type TapAction } from "@studio/ui-chains-react";
+import { rowExit, rowSeams } from "@studio/ui-chains/rowSeams";
+import {
+  DomChains,
+  type NodeEngines,
+  type TapAction,
+} from "@studio/ui-chains-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { useRackTrigger } from "../hooks/useRackTrigger";
+import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
 import { GraphSlotPane } from "./GraphSlotPane";
+
+/** The strip's modes: none — the row has no tools, only the toggles under them. */
+const NO_MODES: readonly string[] = [];
 
 export function TrackModulesPane({
   trackId,
@@ -47,6 +57,8 @@ export function TrackModulesPane({
   onTrackSet,
   onEdgeInsert,
   engineWarnings,
+  showCurves = false,
+  onToggleCurves,
 }: {
   /** The lane whose path this is. */
   trackId: string;
@@ -80,7 +92,12 @@ export function TrackModulesPane({
   /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
   onEngine?: (module: string, name: string) => void;
   /** A node's preset dropdown — the shell draws the list (packages/song/docs/userPresets.md). */
-  onPresets?: (module: string, x: number, y: number) => void;
+  onPresets?: (
+    module: string,
+    x: number,
+    y: number,
+    engines?: NodeEngines,
+  ) => void;
   /** The preset each node last loaded, by node. */
   presetNames?: Record<string, string>;
   onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
@@ -96,13 +113,17 @@ export function TrackModulesPane({
   onTrackSet?: (id: string, control: "volume" | "pan", value: number) => void;
   /** A `+` on one of this row's cables: the shell asks WHICH module, exactly as it does on the graph. */
   onEdgeInsert?: (
-    info: { before: string; after: string },
+    info: EdgeInsert,
     x: number,
     y: number,
     at: { x: number; y: number } | undefined,
     nameFor: (module: string) => string,
   ) => void;
   engineWarnings?: Record<string, string>;
+  /** Whether the row draws each card's curve cards, spaced in before it — `ui curves`. */
+  showCurves?: boolean;
+  /** The top-right button's: the shell's `ui curves`, so the button and the command are one. */
+  onToggleCurves?: () => void;
 }) {
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +156,15 @@ export function TrackModulesPane({
             links: true,
             // …and the lane leads it: the signal starts on the lane, and its fader is the first thing in the path.
             track: trackId,
+            // …glued: a lane's path is one strip, two cards sharing ONE border (two would draw it twice as thick).
+            gap: -1,
+            // …and a STACK — a subchain run in place — one column, its cards one under another.
+            stack: true,
+            // …and, asked for, each card's curves in a column before it, the neighbours spaced to make room.
+            curves: showCurves,
           })
         : null,
-    [graph, modules, trackId, cameras, midiDevices],
+    [graph, modules, trackId, cameras, midiDevices, showCurves],
   );
 
   // A pad on a card in this row PLAYS, by the same hook as the chains pane.
@@ -183,7 +210,7 @@ export function TrackModulesPane({
     () =>
       onEdgeInsert &&
       graph &&
-      ((info: { before: string; after: string }, x: number, y: number) =>
+      ((info: EdgeInsert, x: number, y: number) =>
         onEdgeInsert(info, x, y, undefined, (module) =>
           nodeNameFor(graph, module, info.before),
         )),
@@ -213,6 +240,14 @@ export function TrackModulesPane({
     () => (laidShown ? splitTrailingMixer(laidShown) : null),
     [laidShown],
   );
+
+  // The seams' `+`, and one past the last card — before a pinned mixer, the mixer being where the row's path ENDS.
+  const glued = useMemo(() => {
+    if (!laidShown || !graph) return null;
+    const row = split?.row ?? laidShown;
+    // A branch on each seam only where it can make a subchain: `stacks` is there exactly in a chain project.
+    return rowSeams(row, rowExit(laidShown, row, graph), !!graph.stacks);
+  }, [laidShown, split, graph]);
 
   // No bar: the row IS the view, the lane's own card names it, and the ✕ floats top right (GraphSlotPane).
   // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
@@ -286,11 +321,38 @@ export function TrackModulesPane({
   );
 
   return frame(
-    <DomChains
-      {...shared}
-      graph={split?.row ?? laidShown}
-      onEdgeInsert={edgeInsert || undefined}
-    />,
+    <div className="flex h-full min-h-0">
+      {/* The view's toggles down its left edge, the timeline's column: no modes here, only what the row SHOWS (docs/shell.md). */}
+      {onToggleCurves && (
+        <ModeStrip
+          modes={NO_MODES}
+          current=""
+          onPick={() => {}}
+          title={() => ""}
+          footer={
+            <button
+              type="button"
+              onClick={onToggleCurves}
+              aria-pressed={showCurves}
+              title={
+                showCurves ? "hide the curve cards" : "show the curve cards"
+              }
+              className={stripButton(showCurves)}
+            >
+              <Spline className="h-4 w-4" />
+            </button>
+          }
+        />
+      )}
+      <div className="relative min-h-0 min-w-0 flex-1">
+        <DomChains
+          {...shared}
+          graph={glued?.graph ?? split?.row ?? laidShown}
+          onEdgeInsert={edgeInsert || undefined}
+          seams={glued?.seams}
+        />
+      </div>
+    </div>,
     aside,
   );
 }

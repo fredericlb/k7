@@ -716,29 +716,17 @@ input[type="range"] {
 
 /* ---- Login --------------------------------------------------------------- */
 
-.login-screen {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-.login-card {
-  width: 100%;
-  max-width: 420px;
-  text-align: center;
-}
-/* The login splash is the one place the wordmark gets room to breathe, so it
+/* The sign-in screen is the one place the wordmark gets room to breathe, so it
    carries the display face. Faster One ships a single 400 weight and its own
    slant, so it takes neither the .brand weight nor its negative tracking. */
-.login-card .brand {
+.login-brand {
   font-family: var(--font-display);
   font-size: 34px;
   font-weight: 400;
   letter-spacing: normal;
   cursor: default;
-  margin-bottom: 16px;
 }
-.login-card .brand:hover {
+.login-brand:hover {
   color: inherit;
 }
 

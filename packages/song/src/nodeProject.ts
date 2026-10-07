@@ -27,6 +27,7 @@ import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
 import { loadLinkLevels } from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { withConsole } from "./console";
+import { envelopeFires } from "./curveConditions";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
 import {
   isPatternLane,
@@ -1051,15 +1052,19 @@ function compileNodeProjectIn(
       const curve = curvesMap[ra.curve];
       const track = byId.get(ra.owner);
       if (!curve || !track) continue;
-      // An envelope is placed by its EVENTS; every other curve is a function of song time (docs/graphModel.md).
+      // The events of the node the curve drives — an envelope's triggers, and any curve's `event` condition.
+      const events = noteOns(
+        byId.get(laneOfModule.get(ra.trigger) ?? ra.owner),
+      );
+      // An envelope is placed by its EVENTS; every other curve is a function of song time, both under their conditions (docs/curves.md).
       const baked =
         curve.type === "adsr"
           ? bakeAdsr(
               curve,
-              noteOns(byId.get(laneOfModule.get(ra.trigger) ?? ra.owner)),
+              envelopeFires(curve.conditions, events, num, den),
               tempo,
             )
-          : bakeCurve(curve, num, den, songBeats);
+          : bakeCurve(curve, num, den, songBeats, events);
       if (!baked.points.length) continue;
       track.automation.push({
         param: ra.param,

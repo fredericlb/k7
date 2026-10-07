@@ -1,14 +1,5 @@
-import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card, CardContent } from "@frediverse/ui/card";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@frediverse/ui/dialog";
 import {
   ArrowRight,
   Check,
@@ -16,7 +7,6 @@ import {
   Music2,
   Plus,
   RotateCcw,
-  SkipForward,
   X as XIcon,
 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
@@ -52,6 +42,16 @@ import {
   type PlayedKind,
 } from "../lib/guest";
 import { m } from "../paraglide/messages.js";
+import {
+  BlockedCard,
+  CategoryJump,
+  EndCard,
+  Hud,
+  IntroCard,
+  LastAnswer,
+  type LeaderboardEntry,
+} from "./SoloPanels";
+import { Tip } from "./Tip";
 
 // The walker, on a mutable ref so async flows never read stale state; engine and scoring inject.
 
@@ -67,12 +67,6 @@ interface VerdictFlash {
   kind: VerdictKind;
   detail?: string;
   delta: number;
-}
-interface LeaderboardEntry {
-  rank: number;
-  userName: string;
-  score: number;
-  isMe?: boolean;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -887,172 +881,54 @@ export function SoloGame({
         ? "bg-amber"
         : "bg-green";
 
-  const leaderboardBlock = (
-    <div className="flex w-full max-w-sm flex-col gap-1.5 self-center">
-      <div className="border-b border-border pb-1.5 text-center text-xs uppercase tracking-[0.15em] text-muted-foreground">
-        {m["solo.end.leaderboard"]()}
-      </div>
-      {g.leaderboard === null ? (
-        <p className="py-1.5 text-center text-sm text-muted-foreground">
-          {m["solo.end.loadingBoard"]()}
-        </p>
-      ) : g.leaderboard.length === 0 ? (
-        <p className="py-1.5 text-center text-sm text-muted-foreground">
-          {m["solo.end.boardEmpty"]()}
-        </p>
-      ) : (
-        <ol className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-          {g.leaderboard.map((e, i) => (
-            <li
-              key={`${e.rank}-${e.userName}-${i}`}
-              className={[
-                "grid grid-cols-[2.5rem_1fr_auto] items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-sm tabular-nums",
-                e.isMe
-                  ? "border-primary bg-secondary text-foreground"
-                  : "border-border bg-card text-muted-foreground",
-              ].join(" ")}
-            >
-              <span className={e.isMe ? "text-primary" : ""}>#{e.rank}</span>
-              <span className="truncate text-foreground" title={e.userName}>
-                {e.userName}
-              </span>
-              <span className={e.isMe ? "text-primary" : "text-foreground"}>
-                {e.score}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-
   // ── render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-5 rounded-md border border-border bg-card px-3.5 py-2.5">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-            {m["solo.hud.score"]()}
-          </span>
-          <span className="text-sm font-semibold tabular-nums">{g.score}</span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-            {m["solo.hud.progress"]()}
-          </span>
-          <span className="text-sm font-semibold tabular-nums">
-            {playedSoFar()} / {totalSongs}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="ml-auto"
-          title={m["solo.play.giveUp"]()}
-          aria-label={m["solo.play.giveUp"]()}
-          disabled={g.phase !== "playing" || !currentSong}
-          onClick={skip}
-        >
-          <SkipForward className="size-4" />
-        </Button>
-      </div>
+      <Hud
+        score={g.score}
+        played={playedSoFar()}
+        total={totalSongs}
+        canSkip={g.phase === "playing" && !!currentSong}
+        onSkip={skip}
+      />
 
       {g.phase === "end" ? (
-        <Card className="my-0">
-          <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="text-2xl font-bold tracking-tight text-green">
-              {m["solo.end.title"]()}
-            </div>
-            <div className="text-5xl font-bold tabular-nums">{g.score}</div>
-            {leaderboardBlock}
-            {!isGuest && (
-              <div className="mt-2 flex flex-wrap justify-center gap-2">
-                <Button size="lg" onClick={restart}>
-                  {m["solo.end.playAgain"]()}
-                </Button>
-                <Button variant="outline" size="lg" onClick={onExit}>
-                  {m["solo.end.back"]()}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <EndCard
+          score={g.score}
+          leaderboard={g.leaderboard}
+          showActions={!isGuest}
+          onRestart={restart}
+          onExit={onExit}
+        />
       ) : g.alreadyPlayedAsGuest ? (
-        <Card className="my-0">
-          <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="text-2xl font-bold tracking-tight text-amber">
-              {m["solo.blocked.title"]()}
-            </div>
-            <p className="max-w-md text-sm text-muted-foreground">
-              {m["solo.blocked.note"]()}
-            </p>
-            {leaderboardBlock}
-          </CardContent>
-        </Card>
+        <BlockedCard leaderboard={g.leaderboard} />
       ) : g.phase === "intro" && currentSlot?.kind === "category" ? (
-        <Card className="my-0">
-          <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              {m["solo.intro.category"]({
-                n: g.orderIndex + 1,
-                total: slots.length,
-              })}
-            </div>
-            <div className="text-2xl font-bold tracking-tight">
-              {currentSlot.category?.name}
-            </div>
-            {currentSlot.category?.notice && (
-              <p className="max-w-md text-sm italic text-muted-foreground">
-                {currentSlot.category.notice}
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              {m["solo.intro.summary"]({ songs: currentSlot.songs.length })}
-            </p>
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="h-1.5 w-60 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className="h-full bg-primary transition-[width] duration-150 ease-linear"
-                  style={{ width: `${Math.round(progress * 100)}%` }}
-                />
-              </div>
-              <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-                {loading
-                  ? m["solo.intro.preloadingProgress"]({
-                      percent: Math.round(progress * 100),
-                    })
-                  : m["solo.intro.ready"]()}
-              </div>
-            </div>
-            <div className="mt-2">
-              <Button
-                size="lg"
-                disabled={loading || progress < 1}
-                onClick={() => void startSlot()}
-              >
-                {loading || progress < 1
-                  ? m["solo.intro.preloading"]()
-                  : m["solo.intro.start"]()}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <IntroCard
+          index={g.orderIndex}
+          total={slots.length}
+          slot={currentSlot}
+          loading={loading}
+          progress={progress}
+          onStart={() => void startSlot()}
+        />
       ) : g.phase === "playing" && currentSong ? (
-        <Card className="relative my-0 overflow-hidden">
-          <div
-            className="absolute inset-x-0 top-0 z-10 flex h-1 gap-0.5"
-            title={m["solo.hud.attemptsLeftTitle"]({ n: g.attemptsRemaining })}
+        <Card className="relative overflow-hidden">
+          {/* Bespoke bars, the attempts here and the timer below: commons has no progress component. */}
+          <Tip
+            label={m["solo.hud.attemptsLeftTitle"]({ n: g.attemptsRemaining })}
           >
-            {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
-              <div
-                key={i}
-                className={`flex-1 transition-colors duration-200 ${
-                  i + 1 > g.attemptsRemaining ? "bg-secondary" : "bg-amber"
-                }`}
-              />
-            ))}
-          </div>
+            <div className="absolute inset-x-0 top-0 z-10 flex h-1 gap-0.5">
+              {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 transition-colors duration-200 ${
+                    i + 1 > g.attemptsRemaining ? "bg-secondary" : "bg-amber"
+                  }`}
+                />
+              ))}
+            </div>
+          </Tip>
 
           <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
             <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:justify-between">
@@ -1082,24 +958,17 @@ export function SoloGame({
                     aria-label="loading"
                   />
                 ) : isExcerpt ? (
-                  <span
-                    className="group relative flex cursor-pointer flex-col items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
-                    role="button"
-                    tabIndex={0}
-                    title={m["solo.play.replay"]()}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="group relative size-full flex-col gap-1.5 rounded-none font-normal"
                     onClick={() => void playCurrentSong()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        void playCurrentSong();
-                      }
-                    }}
                   >
                     <RotateCcw className="size-10 text-muted-foreground transition-colors group-hover:text-primary" />
                     <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground transition-colors group-hover:text-primary">
                       {m["solo.play.replay"]()}
                     </span>
-                  </span>
+                  </Button>
                 ) : isPlaying ? (
                   <Music2 className="relative size-9 text-foreground" />
                 ) : (
@@ -1193,15 +1062,16 @@ export function SoloGame({
                   }
                 }}
               />
-              <Button
-                type="submit"
-                size="icon-lg"
-                disabled={!g.guess.trim()}
-                title={m["solo.play.submit"]()}
-                aria-label={m["solo.play.submit"]()}
-              >
-                <ArrowRight className="size-5" />
-              </Button>
+              <Tip label={m["solo.play.submit"]()}>
+                <Button
+                  type="submit"
+                  size="icon-lg"
+                  disabled={!g.guess.trim()}
+                  aria-label={m["solo.play.submit"]()}
+                >
+                  <ArrowRight className="size-5" />
+                </Button>
+              </Tip>
             </form>
 
             {currentSlot?.category?.notice && (
@@ -1226,58 +1096,19 @@ export function SoloGame({
       ) : null}
 
       {previousAnswerText && g.phase !== "end" && (
-        <div className="flex items-baseline gap-2.5 rounded-md border border-border bg-card px-3 py-2 text-xs">
-          <span className="uppercase tracking-[0.15em] text-muted-foreground">
-            {m["solo.play.lastAnswer"]()}
-          </span>
-          <span className="text-foreground">{previousAnswerText}</span>
-        </div>
+        <LastAnswer text={previousAnswerText} />
       )}
 
-      <Dialog
+      <CategoryJump
         open={g.showCategoryJump}
-        onOpenChange={(open) => {
-          if (!open) {
-            g.showCategoryJump = false;
-            render();
-          }
+        onClose={() => {
+          g.showCategoryJump = false;
+          render();
         }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-center text-sm uppercase tracking-[0.15em]">
-              {m["solo.jump.title"]()}
-            </DialogTitle>
-          </DialogHeader>
-          <ul className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto">
-            {slots.map((s, i) => (
-              <li key={i}>
-                <Button
-                  variant={i === g.orderIndex ? "secondary" : "outline"}
-                  className="w-full justify-between font-normal"
-                  onClick={() => jumpToSlot(i)}
-                >
-                  <span className="truncate">{s.category?.name ?? "—"}</span>
-                  {i === g.orderIndex ? (
-                    <Badge variant="tag">{m["solo.jump.current"]()}</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {s.songs.length}
-                    </span>
-                  )}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost" className="w-full">
-                {m["solo.jump.cancel"]()}
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        slots={slots}
+        current={g.orderIndex}
+        onJump={jumpToSlot}
+      />
     </div>
   );
 }

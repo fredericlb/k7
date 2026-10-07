@@ -1,6 +1,10 @@
-// Username badge + optional logout, the terminal-styled one the game SPAs share.
-// The .auth-* classes are themed per app, so the presenter's fixed synthwave
-// badge and the editor's inline blue/grey one are this same markup.
+// The signed-in account, pinned top-right on every game SPA: the name as a commons Badge, and the
+// logout behind commons' UserMenu. It positions itself, so a host's stylesheet owns none of it.
+// Hosts compile z0-shared themselves: their Tailwind must @source this folder, or these classes vanish.
+
+import { Badge } from "@frediverse/ui/badge";
+import { CircleUser } from "@frediverse/ui/icons";
+import { UserMenu } from "@frediverse/ui/user-menu";
 
 export interface AuthBadgeUser {
   name?: string;
@@ -21,36 +25,18 @@ export function AuthBadge({
   if (!user) return null;
   const label = user.name || user.email || "?";
   return (
-    <div className="auth-badge">
-      <svg viewBox="0 0 24 24" className="auth-user-icon" aria-hidden="true">
-        <path
-          d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4.42 0-8 2.69-8 6v2h16v-2c0-3.31-3.58-6-8-6z"
-          fill="currentColor"
-        />
-      </svg>
-      <span className="auth-name">{label}</span>
+    <div className="fixed top-2 right-2 z-50 flex items-center gap-1 rounded-md bg-background">
+      <Badge>
+        {!showLogout && <CircleUser className="size-3" aria-hidden />}
+        {label}
+      </Badge>
       {showLogout && (
-        <button
-          className="auth-logout"
-          title={logoutLabel}
-          aria-label={logoutLabel}
-          onClick={onLogout}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="auth-logout-icon"
-            aria-hidden="true"
-          >
-            <path
-              d="M16 17l5-5-5-5M21 12H9M12 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <UserMenu
+          email={user.email || label}
+          label={label}
+          logoutLabel={logoutLabel}
+          onLogout={onLogout}
+        />
       )}
     </div>
   );

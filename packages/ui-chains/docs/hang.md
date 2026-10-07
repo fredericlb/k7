@@ -56,10 +56,12 @@ a graph must not swing on mount.
 A curve is a node, and its cables behave as cables do: the mauve automation runs hang
 (`hangPoints` from the curve's out socket to the knob they drive), carry the same spring, and
 draw on the same canvas over the cards — wearing their own dress (`AUTO_*` in cableCanvas.ts:
-thinner, dashed over a solid shadow, an arrowhead into the target). The head is oriented by
-the last DRAWN segment, so it keeps pointing along the cable into the knob whatever the spring
-is doing to the middle. Only the param label stays in the SVG, text being the one thing a
-canvas draws worse.
+thinner, dashed over a solid shadow, at a fifth of its opacity, and no head: the knob it lands on
+glows mauve, which says where it ends better than an arrow pointing at it. Faint because a binding
+is context for the signal path and never in front of it — and for the same reason it takes no
+pointer at all: a click on one goes through to whatever is under it. The cable a node's event fires
+a curve with is an automation cable too, and wears the same dress (`AUTO_DRESS` in DomChains). Only the param label stays in
+the SVG, at the cable's opacity, text being the one thing a canvas draws worse.
 
 ## Over the cards
 

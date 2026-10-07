@@ -1,10 +1,21 @@
-/* Tailwind v4 + the shared @frediverse/ui design tokens, then the remote's
-   synthwave styling (ported verbatim; #app → #root patched). */
+/* Tailwind v4 + the shared @frediverse/ui design tokens; every view is styled
+   by utilities, so there is no app stylesheet beside this one. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@frediverse/ui/theme.css";
-@import "./extracted-styles.css";
 
-/* @frediverse/ui lives in the commons submodule; Tailwind ignores a missing
-   @source path without warning, and then emits no design-system classes. */
+/* @frediverse/ui and z0-shared live outside this app; Tailwind ignores a
+   missing @source path without warning, and then emits none of their classes. */
 @source "../../../../commons/packages/ui/src";
+@source "../../shared/src";
+
+@layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-background);
+  }
+}

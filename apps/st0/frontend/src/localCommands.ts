@@ -28,6 +28,8 @@ export const UI_EXACT: readonly string[] = [
   "ruler",
   "lanes",
   "automation",
+  // The per-track view's toggle: its curve cards shown, beside the cards they drive.
+  "curves",
   // The RIGHT-HAND panels: each bare line TOGGLES its own, and one column means opening any closes the others.
   "settings",
   // The workspace's set lists — its own panel, since what it opens belongs to the REPOSITORY (docs/playlists.md).
@@ -81,6 +83,10 @@ export const UI_HEADS: readonly string[] = [
   "copy path ",
   // A node's MODEL, fetched from its module's `model_url` — the right-click's "Download model", followed on the status line.
   "model ",
+  // The curve editor — bare on a NEW curve, with a name on that one (docs/curveEditor.md).
+  "curve ",
+  // …and on the curve a control follows, or a new one bound to it — a widget's right-click.
+  "automate ",
 ];
 
 // The tree's verbs are `fs file new` … and share a head with nothing, so no list of bare names is needed here.
@@ -108,3 +114,19 @@ const heads = (line: string, names: readonly string[]): boolean =>
 /** Does this line — stripped of any `ui ` prefix and lowercased — name a `ui` command? One list of exact names, one of heads. */
 export const isUiLine = (line: string): boolean =>
   UI_EXACT.includes(line) || heads(line, UI_HEADS);
+
+/**
+ * Who answers a line: the shell's `ui` handlers, a refusal for a prefix on the wrong side, or the
+ * caller's other paths (`pass`). An UNPREFIXED line the server's catalogue names is the server's even
+ * when it shares a word with a `ui` head — `curve set` is not `ui curve set`. See docs/shell.md.
+ */
+export function uiVerdict(
+  line: string,
+  prefixed: boolean,
+  isServerCommand: (line: string) => boolean,
+): "ui" | "refuse" | "pass" {
+  const ui = isUiLine(line);
+  if (prefixed) return ui ? "ui" : "refuse";
+  if (!ui) return "pass";
+  return isServerCommand(line) ? "pass" : "refuse";
+}

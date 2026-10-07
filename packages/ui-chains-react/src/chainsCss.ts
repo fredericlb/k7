@@ -19,6 +19,8 @@ import {
 /** The header's on/off block: its width, and the air between it and the glyph — headerNameW counts both. */
 export const BYPASS_W = 26;
 export const BYPASS_GAP = 8;
+/** The largest a node header's text — its name, its dropdowns — is drawn on SCREEN, px. */
+export const HEADER_TEXT_MAX_PX = 16;
 
 import { useEffect } from "react";
 
@@ -69,6 +71,14 @@ const CSS = `
 .dgx-ins-btn { cursor:pointer; pointer-events:auto; }
 .dgx-ins-btn circle { fill:#0d0d0f; stroke:#3b82f6; stroke-width:2; }
 .dgx-ins-btn path { stroke:#3b82f6; stroke-width:2; }
+/* A glued row's seams, OVER the cards: a seam's line and its plus show on hover, the row's tail always (Seams.tsx). */
+.dgx-seams { position:absolute; top:0; left:0; overflow:visible; pointer-events:none; z-index:3; }
+.dgx-seam { cursor:pointer; pointer-events:auto; }
+.dgx-seam-hit { fill:transparent; }
+.dgx-seam-line { stroke:#3b82f6; stroke-width:2.5; stroke-linecap:round; }
+.dgx-seam:not(.end) > :not(.dgx-seam-hit) { opacity:0; transition:opacity .1s; }
+.dgx-seam:not(.end):hover > * { opacity:1; }
+.dgx-seam.end:not(:hover) .dgx-ins-btn { opacity:.6; }
 /* An automation cable's delete, on hover — the mauve of the cable it removes. */
 .dgx-del-btn { cursor:pointer; pointer-events:auto; }
 .dgx-del-btn circle { fill:#0d0d0f; stroke:${MAUVE}; stroke-width:2; }
@@ -93,6 +103,8 @@ const CSS = `
 .dgx-node { border-color:color-mix(in srgb, var(--accent) 42%, var(--line)); }
 /* A stack-view BAR — the inputs above every column, the outputs below: the edge's ground made solid. */
 .dgx-node.bar { background:color-mix(in srgb, ${EDGE} 30%, var(--card)); border-color:color-mix(in srgb, ${EDGE} 70%, var(--line)); }
+/* A lane's row reads as one strip: its cards keep only the borders they share, at the sides. */
+.dgx-node.across { border-top-width:0; border-bottom-width:0; }
 .dgx-node.sel { box-shadow:0 0 0 2px ${RING}, 0 12px 30px -10px rgba(0,0,0,.66); }
 .dgx-node.tappable { cursor:pointer; }
 /* A BARE card draws no header, so everything it holds moves up into that space: widgetRect's offsets stay one figure. */
@@ -148,8 +160,6 @@ const CSS = `
 .dgx-tab.on { color:#e7e6ea; border-left-color:var(--sand); background:rgba(255,255,255,.06); }
 /* The header's second line: the node's own name, and the engine select pushed to its right end. */
 .dgx-hdsub { display:flex; align-items:center; gap:7px; min-width:0; margin-top:2px; }
-/* The engine's stage on the second line: three compact sliders sharing what the engine select leaves. */
-.dgx-hdstage { flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
 /* A track's instrument glyph, white rather than the track's colour, which the border and tint already carry. */
 .dgx-ticon { flex:none; color:#fff; }
 /* In the header the glyph leads the name on one line, saying the node's kind before its label. */
@@ -225,16 +235,17 @@ const CSS = `
   border:2px solid var(--line); border-top-color:var(--sand); animation:dgx-rot .8s linear infinite; }
 @keyframes dgx-rot { to { transform:rotate(360deg); } }
 .dgx-bbtn.on { color:#0d0d0f; background:#f59e0b; border-color:#f59e0b; }
-/* On/off: a block the header's full height at its left edge, before the glyph (BYPASS_W, BYPASS_GAP above). */
+/* The header's left column, the on/off block the header's whole height (BYPASS_W, BYPASS_GAP above). */
 .dgx-hd.byp { padding-left:${BYPASS_W + BYPASS_GAP}px; }
-.dgx-byp { position:absolute; left:0; top:0; bottom:0; width:${BYPASS_W}px; display:grid; place-items:center;
-  cursor:pointer; color:var(--dim); border-right:1px solid #2f2f36; background:rgba(255,255,255,.02); }
+.dgx-hdlead { position:absolute; left:0; top:0; bottom:0; width:${BYPASS_W}px; display:flex; flex-direction:column;
+  border-right:1px solid #2f2f36; }
+.dgx-byp { flex:1; min-height:0; display:grid; place-items:center;
+  cursor:pointer; color:var(--dim); background:rgba(255,255,255,.02); }
+/* The node's icon is the on/off: it takes the switch's colour — dim, lit on hover, dark on amber when bypassed. */
+.dgx-byp .dgx-ticon { color:inherit; }
+/* …and a track's icon in its place, centred in the column like the on/off mark it stands in for. */
+.dgx-leadicon { flex:1; min-height:0; display:grid; place-items:center; background:rgba(255,255,255,.02); }
 .dgx-byp:hover { color:#e7e6ea; background:rgba(255,255,255,.06); }
-/* The universal bypass mark: a circle broken at the top by a vertical stroke. */
-.dgx-bbtn i { width:7px; height:7px; border:1.4px solid currentColor; border-radius:50%;
-  position:relative; }
-.dgx-bbtn i::after { content:""; position:absolute; left:50%; top:-3px;
-  width:1.4px; height:5px; background:currentColor; transform:translateX(-50%); }
 /* No reservation for the bubbles: they hang off the corner (top:-8px), so a name is cut by the CARD and nothing else. */
 .dgx-pbtn i { width:9px; height:1.4px; background:currentColor; box-shadow:0 3px currentColor,0 -3px currentColor; }
 /* The corner minimap: over the pane rather than in the world, and above the cards. */
@@ -288,8 +299,23 @@ const CSS = `
   font:9px/13px ui-monospace,monospace; cursor:pointer; color:var(--dim); background:var(--card);
   border:1px solid var(--line); }
 .dgx-alt:hover { color:#e7e6ea; border-color:var(--sand); }
+/* No header text — nor an alternative badge — is drawn past HEADER_TEXT_MAX_PX on screen, however far the camera zooms: --dgx-k is the zoom (camera.ts). */
+.dgx-node { --dgx-cap:calc(${HEADER_TEXT_MAX_PX}px / var(--dgx-k, 1)); }
+.dgx-hd .dgx-sub { font-size:min(10px, var(--dgx-cap)); }
+.dgx-hd .dgx-tin, .dgx-alt, .dgx-hd .dgx-engine { font-size:min(9px, var(--dgx-cap)); }
+/* A module card's BOTTOM BAR (FOOTER_H): knobs left, badges centred, alternatives right; above the seams' layer. */
+/* Three columns, the outer two of equal share, so the centre is the CARD's centre whatever the sides hold. */
+.dgx-foot { position:absolute; left:0; right:0; bottom:0; box-sizing:border-box; display:grid;
+  grid-template-columns:1fr auto 1fr; align-items:center; gap:6px; padding:0 6px;
+  border-top:1px solid #2f2f36; background:rgba(0,0,0,.12); z-index:4; }
+.dgx-footl { display:flex; align-items:center; gap:4px; min-width:0; justify-self:start; }
+.dgx-footc { display:flex; align-items:center; gap:4px; justify-self:center; }
+.dgx-footr { display:flex; justify-content:flex-end; min-width:0; justify-self:end; }
+/* The cost badge in the bar is one of its badges, not a tab hung on a border. */
+.dgx-load.inbar { position:static; }
+.dgx-footk { display:block; width:16px; height:16px; }
 .dgx-alt.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); cursor:default; }
-/* Engine — which module this one runs as, at the right end of the header's second line; JS sets its width (EngineSelect.tsx). */
+/* The header's one dropdown — engine and preset — on its second line; JS sets its width (PresetButton.tsx). */
 .dgx-engine { flex:none; height:15px; padding:0 4px; border-radius:8px; font:9px/13px ui-monospace,monospace;
   cursor:pointer; color:var(--sand); background:var(--card); border:1px solid var(--line);
   text-overflow:ellipsis; overflow:hidden; white-space:nowrap; }
@@ -298,6 +324,9 @@ const CSS = `
 .dgx-preset { display:flex; align-items:center; gap:2px; color:var(--faint); }
 .dgx-preset.on { color:var(--sand); }
 .dgx-preset span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+/* The engine, leading the one dropdown: what the module runs AS, before which settings it runs with. */
+.dgx-preset-eng { flex:none; max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-weight:600; color:#e7e6ea; padding-right:4px; border-right:1px solid var(--line); margin-right:2px; }
 .dgx-preset svg { flex:none; width:9px; height:9px; }
 .dgx-alt.add { padding:0; display:grid; place-items:center; }
 .dgx-alt.add svg { width:9px; height:9px; }
@@ -328,15 +357,17 @@ const CSS = `
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05); transform:translateX(-50%); }
 .dgx-port.in  { top:-${PORT_PLATE}px;    border-bottom-width:0; border-radius:4px 4px 0 0; }
 .dgx-port.out { bottom:-${PORT_PLATE}px; border-top-width:0;    border-radius:0 0 4px 4px; }
-/* An EVENT socket sits on a SIDE edge, where signal never goes, and is the only one that says its name. */
-.dgx-port.ev { width:${PORT_PLATE}px; height:17px; transform:translateY(-50%); }
-.dgx-port.ev.evout { right:-${PORT_PLATE}px; left:auto; border-left-width:0;  border-radius:0 4px 4px 0; }
-.dgx-port.ev.evin  { left:-${PORT_PLATE}px;             border-right-width:0; border-radius:4px 0 0 4px; }
+/* EVENT sockets are side plates on the LEFT edge: a curve's event IN halfway down it, what a module announces aligned
+   at the bottom (graph.ts eventOutBottom) — the only socket that says its name. */
+.dgx-port.ev { width:${PORT_PLATE}px; height:17px; transform:translateY(-50%);
+  left:-${PORT_PLATE}px; border-right-width:0; border-radius:4px 0 0 4px; }
 /* The name, outside the plate and clear of the card. 6px like every other caption here. */
+/* A curve's AUTOMATION out: a side plate halfway down its right edge, toward the node it sits left of. */
+.dgx-port.cout { width:${PORT_PLATE}px; height:17px; top:50%; transform:translateY(-50%);
+  right:-${PORT_PLATE}px; border-left-width:0; border-radius:0 4px 4px 0; }
 .dgx-evlab { position:absolute; font-size:6px; text-transform:uppercase; letter-spacing:.09em;
   color:var(--dim); white-space:nowrap; transform:translateY(-50%); pointer-events:none; }
-.dgx-evlab.evout { left:calc(100% + ${PORT_PLATE + 3}px); }
-.dgx-evlab.evin  { right:calc(100% + ${PORT_PLATE + 3}px); }
+.dgx-evlab.evout { right:calc(100% + 3px); top:50%; }
 /* …and the barrel, seen end on: a dark bore with a ring coloured by what the port carries. */
 .dgx-port i { width:9px; height:9px; border-radius:50%;
   background:radial-gradient(circle at 37% 33%,#3b3a43,#08080b 68%);
@@ -355,6 +386,9 @@ const CSS = `
 /* A widget is placed at its widgetRect box, so the drawing and the automation targets agree with graph.ts. */
 .dgx-w { position:absolute; box-sizing:border-box; display:flex; flex-direction:column;
   align-items:center; justify-content:center; }
+/* A control a CURVE drives glows the automation cable's mauve, so what is moving by itself reads at a glance. */
+.dgx-w.auto { border-radius:6px; box-shadow:0 0 0 1px color-mix(in srgb, ${MAUVE} 70%, transparent),
+  0 0 10px 1px color-mix(in srgb, ${MAUVE} 55%, transparent); }
 .dgx-w.drag { cursor:ns-resize; }
 .dgx-w.tap { cursor:pointer; }
 /* A dropdown's caption ON TOP of its select, left-aligned with it: the pair is one block .dgx-w centres. */
@@ -372,13 +406,6 @@ const CSS = `
 /* A group: a tinted frame under the controls inside it, inert so a click falls through to the card. */
 .dgx-group { pointer-events:none; border-radius:5px; background:#ffffff0d;
   box-shadow:inset 0 0 0 1px #ffffff14; justify-content:flex-start; align-items:flex-start; }
-/* A stage slider as one row: its caption, the bar taking what is left, its reading — none of the three may push the others out. */
-.dgx-srow { display:flex; align-items:center; gap:4px; width:100%; min-width:0; padding:0 2px; box-sizing:border-box; }
-/* The caption is a fixed width, anchored left, so the three bars start on one line. */
-.dgx-srow .dgx-wlab { margin-top:0; flex:none; width:18px; text-align:left; }
-.dgx-srow .dgx-slider { flex:1; min-width:0; }
-.dgx-sval { flex:none; font:7px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
-.dgx-sval.unknown { color:var(--faint); }
 /* A group's name runs up the left edge, a line of text turned 90° counter-clockwise, ending at the top — clear of the first control's dial. */
 /* It sits on a SPINE, the group's colour made vivid, from the left edge to 12px — where the edge's widgets start. */
 /* vertical-rl turned 180° reads bottom-up; padding and corners turn with it, so they are written on the opposite sides. */
@@ -476,9 +503,13 @@ const CSS = `
   font-size:9px; line-height:1; cursor:pointer; }
 .dgx-play:hover:not(:disabled) { border-color:var(--sand); }
 .dgx-play:disabled { cursor:default; opacity:.35; }
-.dgx-curve { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:9px; padding:8px 10px 9px; box-sizing:border-box; }
-.dgx-cmeta { font:9px ui-monospace,monospace; color:var(--dim); line-height:1.5; }
-.dgx-cmeta b { color:var(--mauve); }
+/* A curve card is its picture and nothing else: no header, the whole card, and the header's grab. */
+.dgx-curve { position:absolute; inset:0; padding:4px 6px; box-sizing:border-box; }
+.dgx-curve.grab { cursor:grab; }
+.dgx-curve.grab:active { cursor:grabbing; }
+/* While playing: where the transport is on the picture, and a dot on the value the curve has there. */
+.dgx-curvehead { position:absolute; top:4%; bottom:4%; width:1px; margin-left:-0.5px; background:#e7e6ea; opacity:.7; pointer-events:none; }
+.dgx-curvedot { position:absolute; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; background:var(--mauve); box-shadow:0 0 0 1.5px #0d0d0f; pointer-events:none; }
 `;
 
 export function useCss(): void {

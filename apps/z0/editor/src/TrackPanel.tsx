@@ -2,11 +2,15 @@
 // to set them against. The two numbers ARE the feature — a blindtest plays an extract, and
 // picking it by ear is what this panel is for. See docs/editing.md.
 
+import { Alert, AlertDescription } from "@frediverse/ui/alert";
+import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
+import { Field } from "@frediverse/ui/field";
 import { Loader2, Pause, Play, SkipForward } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Preview, usePreview } from "./audio";
+import { Tip } from "./controls";
 import type { Category, Song, Track } from "./format";
 import { setTrackField } from "./format";
 import { audioPath, audioUrl, type Catalogue, label } from "./mediatek";
@@ -24,8 +28,7 @@ function TrackField({
   placeholder?: string;
 }) {
   return (
-    <label className="block">
-      <span className="text-xs text-muted-foreground">{text}</span>
+    <Field label={text}>
       <Input
         className="text-xs"
         value={value ?? ""}
@@ -34,7 +37,7 @@ function TrackField({
           onChange(e.target.value === "" ? undefined : e.target.value)
         }
       />
-    </label>
+    </Field>
   );
 }
 
@@ -140,22 +143,20 @@ export function TrackPanel({
             track.youtube ||
             "Piste sans adresse"}
         </p>
-        <p
-          className="truncate text-xs text-muted-foreground"
-          title={track.song}
-        >
-          {track.song ?? track.file ?? track.youtube}
-          {category.variant && (
-            <span className="ml-2 rounded bg-muted px-1">
-              {category.variant}
-            </span>
+        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          {track.song != null ? (
+            <Tip label={track.song}>
+              <span className="truncate">{track.song}</span>
+            </Tip>
+          ) : (
+            <span className="truncate">{track.file ?? track.youtube}</span>
           )}
-        </p>
+          {category.variant && <Badge>{category.variant}</Badge>}
+        </div>
       </div>
 
       <div className="flex gap-3">
-        <label className="flex-1">
-          <span className="text-xs text-muted-foreground">Début (s)</span>
+        <Field label="Début (s)" className="flex-1">
           <Input
             type="number"
             step="0.01"
@@ -169,9 +170,8 @@ export function TrackPanel({
               )
             }
           />
-        </label>
-        <label className="flex-1">
-          <span className="text-xs text-muted-foreground">Fin (s)</span>
+        </Field>
+        <Field label="Fin (s)" className="flex-1">
           <Input
             type="number"
             step="0.01"
@@ -185,10 +185,10 @@ export function TrackPanel({
               )
             }
           />
-        </label>
+        </Field>
       </div>
 
-      {/* The escape hatches: eleven migrated tracks have no médiathèque entry at all. */}
+      {/* The escape hatches: eleven migrated tracks have no médiathèque entry at all; native details, commons has no collapsible. */}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground">
           Adresse et dérogations
@@ -237,11 +237,13 @@ export function TrackPanel({
       )}
       {status === "loading" && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" /> Chargement de l'audio…
+          <Loader2 className="size-3 animate-spin" /> Chargement de l'audio…
         </p>
       )}
       {status === "error" && (
-        <p className="text-xs text-destructive">Audio : {error}</p>
+        <Alert variant="destructive">
+          <AlertDescription>Audio : {error}</AlertDescription>
+        </Alert>
       )}
 
       {status === "ready" && (
@@ -257,10 +259,10 @@ export function TrackPanel({
               }}
             >
               {sounding("all") ? (
-                <Pause className="mr-1 h-3 w-3" />
+                <Pause className="size-3.5" />
               ) : (
-                <Play className="mr-1 h-3 w-3" />
-              )}{" "}
+                <Play className="size-3.5" />
+              )}
               Tout
             </Button>
             <Button
@@ -273,10 +275,10 @@ export function TrackPanel({
               }}
             >
               {sounding("range") ? (
-                <Pause className="mr-1 h-3 w-3" />
+                <Pause className="size-3.5" />
               ) : (
-                <Play className="mr-1 h-3 w-3" />
-              )}{" "}
+                <Play className="size-3.5" />
+              )}
               L'extrait
             </Button>
             <span className="ml-auto font-mono text-xs text-muted-foreground">
@@ -289,20 +291,20 @@ export function TrackPanel({
             <Button
               size="sm"
               variant="secondary"
-              className="flex-1 text-xs"
+              className="flex-1"
               onClick={() =>
                 write("start", Number(audio.currentTime.toFixed(2)))
               }
             >
-              <SkipForward className="mr-1 h-3 w-3" /> Début ici
+              <SkipForward className="size-3.5" /> Début ici
             </Button>
             <Button
               size="sm"
               variant="secondary"
-              className="flex-1 text-xs"
+              className="flex-1"
               onClick={() => write("end", Number(audio.currentTime.toFixed(2)))}
             >
-              <SkipForward className="mr-1 h-3 w-3" /> Fin ici
+              <SkipForward className="size-3.5" /> Fin ici
             </Button>
           </div>
 

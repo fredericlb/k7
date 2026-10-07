@@ -205,7 +205,7 @@ export const SeveralOutputs: Story = {
   },
 };
 
-/** The one cable that KEEPS its arrowhead: it lands on a knob in a widget grid, not in a socket. */
+/** The cable that lands on a knob in a widget grid rather than in a socket — faint, and headless. */
 export const Automation: Story = {
   args: {
     graph: {

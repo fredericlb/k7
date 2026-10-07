@@ -20,7 +20,9 @@ import {
   CHAIN_SINKS,
   CHAINS_DIR,
   type ChainFile,
+  calledSubchains,
   type EndStep,
+  expandCalls,
   type Item,
   isEndStep,
   isTrackItem,
@@ -28,15 +30,26 @@ import {
   LAYOUT_FILE,
   type Link,
   type Step,
+  stepLists,
 } from "@studio/song-schema/yaml/chainSchema";
 import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import { parse, stringify } from "yaml";
+import {
+  type ChainUnit,
+  chainUnits,
+  nestSubchains,
+  regroupCalls,
+  resolveLink,
+  subKey,
+} from "./chainScope";
 
 /** One node as the loader sees it: where it sits, and what it says. */
 export interface ChainNode {
   name: string;
   id: string;
   chain: string;
+  /** The subchain of `chain` it sits in, absent for the chain's own steps. */
+  sub?: string;
   step: number;
   /** Its index in a parallel step; null for a step holding one item. */
   item: number | null;
@@ -47,6 +60,8 @@ export interface ChainNode {
 
 export interface ChainProject {
   chains: Record<string, ChainFile>;
+  /** The chains marked `hidden`, set aside whole: no node of theirs is in `nodes`, and no writer rewrites them. */
+  hidden?: Record<string, ChainFile>;
   /** Each chain file's text as read, so a rewrite keeps its comments (formatChain). */
   texts: Record<string, string>;
   nodes: Record<string, ChainNode>;
@@ -87,27 +102,34 @@ export function readChainProject(dir: string): ChainProject {
         `${CHAINS_DIR}/${f}${i.line ? `:${i.line}:${i.col}` : ""}: ${i.path ? `${i.path}: ` : ""}${i.message}`,
       );
     if (!value) continue;
+    // A hidden chain is not part of the project as compiled: its lane, its nodes and its links are all left out.
+    if (value.hidden) {
+      out.hidden = { ...out.hidden, [name]: value };
+      continue;
+    }
     out.chains[name] = value;
     out.texts[name] = text;
-    value.steps.forEach((step, s) => {
-      const items = itemsOf(step);
-      items.forEach((it, k) => {
-        const n = nameOfItem(it);
-        if (out.nodes[n])
-          out.issues.push(
-            `${CHAINS_DIR}/${f}: "${n}" is already a node of chain "${out.nodes[n].chain}"`,
-          );
-        out.nodes[n] = {
-          name: n,
-          id: it.id,
-          chain: name,
-          step: s,
-          item: Array.isArray(step) ? k : null,
-          ...(isTrackItem(it) ? { track: it.track } : {}),
-          value: it,
-        };
+    for (const { sub, steps } of stepLists(value))
+      steps.forEach((step, s) => {
+        const items = itemsOf(step);
+        items.forEach((it, k) => {
+          const n = nameOfItem(it);
+          if (out.nodes[n])
+            out.issues.push(
+              `${CHAINS_DIR}/${f}: "${n}" is already a node of chain "${out.nodes[n].chain}"`,
+            );
+          out.nodes[n] = {
+            name: n,
+            id: it.id,
+            chain: name,
+            ...(sub ? { sub } : {}),
+            step: s,
+            item: Array.isArray(step) ? k : null,
+            ...(isTrackItem(it) ? { track: it.track } : {}),
+            value: it,
+          };
+        });
       });
-    });
   }
   return out;
 }
@@ -152,37 +174,48 @@ export function toSegments(
   const levels: Record<string, number> = {};
   const bypassed: string[] = [];
   const busOnly: string[] = [];
+  // Subchains are chains like the others here, under a scoped key their parent's links resolve to.
+  const units = chainUnits(cp.chains);
+  const byKey = new Map(units.map((u) => [u.key, u]));
   const linked = new Set<string>();
-  for (const c of Object.values(cp.chains))
-    for (const l of endOf(c)?.to ?? []) linked.add(l.chain);
+  for (const u of units)
+    for (const l of endOf(u.chain)?.to ?? []) {
+      const k = resolveLink(cp.chains, u, l.chain);
+      if (k) linked.add(k);
+    }
 
   // Where a link LANDS: a chain's first node (`#port` when named), a built-in end, or nothing.
-  const targetsOf = (l: Link, seen: Set<string>): string[] => {
-    if (SINKS.has(l.chain) && !cp.chains[l.chain]) return [l.chain];
-    const c = cp.chains[l.chain];
-    if (!c || seen.has(l.chain)) return [];
-    const first = c.steps[0];
+  const targetsOf = (from: ChainUnit, l: Link, seen: Set<string>): string[] => {
+    const key = resolveLink(cp.chains, from, l.chain);
+    const u = key ? byKey.get(key) : undefined;
+    if (key && !u) return [key];
+    if (!u || seen.has(u.key)) return [];
+    const first = u.chain.steps[0];
     if (!first || isEndStep(first)) {
       // A chain of links only passes its input straight on.
-      seen.add(l.chain);
-      return (endOf(c)?.to ?? []).flatMap((x) => targetsOf(x, seen));
+      seen.add(u.key);
+      return (endOf(u.chain)?.to ?? []).flatMap((x) => targetsOf(u, x, seen));
     }
     const head = nameOfItem(itemsOf(first)[0]);
     return [l.port ? `${head}#${l.port}` : head];
   };
 
-  for (const [name, c] of Object.entries(cp.chains)) {
+  for (const u of units) {
+    // A subchain RUN in place is a stretch of its parent, compiled there and not again on its own.
+    if (u.sub && calledSubchains(cp.chains[u.parent]).has(u.sub)) continue;
+    const c = u.chain;
+    const steps = u.sub ? c.steps : expandCalls(c);
     const visible =
       c.start !== undefined ||
-      linked.has(name) ||
-      c.steps.some((s) => itemsOf(s).some((i) => positions[nameOfItem(i)]));
+      linked.has(u.key) ||
+      steps.some((s) => itemsOf(s).some((i) => positions[nameOfItem(i)]));
     if (!visible) continue;
-    const nodeSteps = c.steps
+    const nodeSteps = steps
       .filter((s) => !isEndStep(s))
       .map((s) => itemsOf(s).map(nameOfItem));
     const links = endOf(c)?.to ?? [];
     const ends = links.flatMap((l) =>
-      targetsOf(l, new Set([name])).map((t) => ({ t, level: l.level })),
+      targetsOf(u, l, new Set([u.key])).map((t) => ({ t, level: l.level })),
     );
     const from = typeof c.start === "string" ? [c.start] : [];
     const seq = [from, ...nodeSteps].filter((s) => s.length);
@@ -197,7 +230,7 @@ export function toSegments(
         }
       }
     });
-    for (const s of c.steps)
+    for (const s of steps)
       for (const i of itemsOf(s)) if (i.bypass) bypassed.push(nameOfItem(i));
     if (c.bus_only && nodeSteps[0]) busOnly.push(nodeSteps[0][0]);
   }
@@ -220,6 +253,8 @@ export interface FromSegmentsOptions {
   nameFor?: (head: string, taken: Set<string>) => string;
   /** Nodes written though nothing in `modules` names them — kept as loose chains, hidden. */
   loose?: string[];
+  /** Chain names a new chain must not take: files this rewrite leaves alone. */
+  reserved?: string[];
 }
 
 const bare = (d: string) => d.split("#")[0];
@@ -272,8 +307,16 @@ export function fromSegments(
     return { mids: ds, join };
   };
 
-  const prevChainOf = (n: string) => o.prev?.nodes[n]?.chain;
-  const taken = new Set<string>();
+  // A node that sat in a subchain names the scoped key, so its run is written back into that parent.
+  // …but one RUN in place is a stretch of its parent's run, so it names the parent (regroupCalls).
+  const prevChainOf = (n: string) => {
+    const was = o.prev?.nodes[n];
+    const parent = was && o.prev?.chains[was.chain];
+    if (!was?.sub || (parent && calledSubchains(parent).has(was.sub)))
+      return was?.chain;
+    return subKey(was.chain, was.sub);
+  };
+  const taken = new Set<string>(o.reserved ?? []);
   const chainName = new Map<string, string>();
   const nameFor =
     o.nameFor ??
@@ -295,13 +338,16 @@ export function fromSegments(
   for (const n of o.loose ?? [])
     if (!modules[n] && !heads.includes(n)) heads.push(n);
 
-  // The lane a run holds, when it holds one: a chain that is a lane is named after it.
-  const laneIn = (h: string): string | undefined => {
+  // The first answer `pick` gives along a run, head first, following it while it is one node after another.
+  const alongRun = (
+    h: string,
+    pick: (n: string) => string | undefined,
+  ): string | undefined => {
     const seen = new Set<string>();
     for (let cur: string | undefined = h; cur && !seen.has(cur); ) {
       seen.add(cur);
-      const it = o.itemOf(cur);
-      if (isTrackItem(it)) return it.track;
+      const found = pick(cur);
+      if (found) return found;
       const ds = destsOf(cur);
       cur =
         ds.length === 1 && isNode(ds[0]) && !portOf(ds[0]) && !isHead(ds[0])
@@ -310,12 +356,24 @@ export function fromSegments(
     }
     return undefined;
   };
+  // The lane a run holds, when it holds one: a chain that is a lane is named after it.
+  const laneIn = (h: string): string | undefined =>
+    alongRun(h, (n) => {
+      const it = o.itemOf(n);
+      return isTrackItem(it) ? it.track : undefined;
+    });
+  // The subchain a run's nodes came from, so a node put at its head does not lift it out of its parent.
+  const subIn = (h: string): string | undefined =>
+    alongRun(h, (n) => {
+      const k = prevChainOf(n);
+      return k?.includes("/") ? k : undefined;
+    });
 
   // Names first, so a link can name a chain that is written later.
   for (const h of heads) {
     const prev = isSum(h)
       ? Object.entries(o.prev?.chains ?? {}).find(([, c]) => c.start === h)?.[0]
-      : prevChainOf(h);
+      : (prevChainOf(h) ?? subIn(h));
     // A run holding a lane is that lane's chain, whatever chain its head came from.
     const lane = isSum(h) ? undefined : laneIn(h);
     const want =
@@ -405,7 +463,7 @@ export function fromSegments(
     if (!isSum(h) && busOnly.has(h)) c.bus_only = true;
     out[chainName.get(h) as string] = c;
   }
-  return out;
+  return regroupCalls(nestSubchains(out), o.prev);
 }
 
 /** Write every chain that changed and remove the files of chains that are gone. */

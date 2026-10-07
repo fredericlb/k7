@@ -79,6 +79,7 @@ matches before changing it:
 | `masterMeter.md` | the header's meter, what it holds across a pass, and the Fix button's trim |
 | `mastering.md` | the `mastering` surface — one quick-master node as three appliances, and why nothing on it normalises |
 | `commandBar.md` | the step-by-step palette and module picker |
+| `curveEditor.md` | `ui curve` — the popin that creates and edits an automation curve |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
 | `shared.md` | the OTHER shared: `/@shares/<token>.st0` — this app opened on a frozen snapshot, with no account, no engine and no source |

@@ -1,7 +1,7 @@
 import { AuthBadge as SharedAuthBadge } from "z0-shared/auth-badge";
 import { logout, useAuth } from "../lib/auth";
 
-// This app's auth store on the shared badge; the .auth-* look is its own extracted-styles.css.
+// This app's auth store on the shared badge.
 export function AuthBadge(props: {
   logoutLabel?: string;
   showLogout?: boolean;

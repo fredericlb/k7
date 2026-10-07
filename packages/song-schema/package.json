@@ -9,6 +9,7 @@
     "./engines": "./src/engines.ts",
     "./aspect": "./src/aspect.ts",
     "./builtinParams": "./src/builtinParams.ts",
+    "./curveMath": "./src/curveMath.ts",
     "./instanceName": "./src/instanceName.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
     "./placementId": "./src/placementId.ts",

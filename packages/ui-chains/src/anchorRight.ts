@@ -16,7 +16,7 @@ export function splitTrailingMixer(
   if (!last?.trackFace || !before) return null;
   // `moduleRow` starts its first card one margin in, and ends the row the same margin past its last.
   const margin = row.nodes[0].x - row.left;
-  // Sized by its panel alone: the stage sliders that widen a mixer live in the header a bare card hides.
+  // Sized by its panel alone, the width a bare card needs whatever its header held.
   const w = nodeSize(last.ui).w;
   return {
     row: {
@@ -31,7 +31,8 @@ export function splitTrailingMixer(
     mixer: {
       ...row,
       nodes: [{ ...last, x: row.left, w, bare: true }],
-      edges: [],
+      // Only the automations landing on it: no cable is drawn from a curve not here, but its knobs glow.
+      edges: row.edges.filter((e) => e.automation && e.target === last.id),
       width: row.left + w,
     },
   };

@@ -1,7 +1,7 @@
-// PresetPicker.tsx — "which preset?", asked by a node's preset dropdown on the graph. The same
-// popup as the module and asset pickers, with a header of its own: SAVE the node as a new preset,
-// kept in the workspace or a library, and UPDATE the one last loaded. Every action is a
-// `node preset` verb the caller runs. See packages/song/docs/userPresets.md.
+// PresetPicker.tsx — "which preset?", asked by a node's one dropdown on the graph. The same popup as
+// the module and asset pickers, with a header of its own — SAVE the node as a new preset, kept in the
+// workspace or a library, and UPDATE the one last loaded — and, for a module with several engines, a
+// left bar to pick the ENGINE. Every action is a verb the caller runs. See packages/song/docs/userPresets.md.
 
 import { RefreshCw, Save } from "@frediverse/ui/icons";
 import {
@@ -9,6 +9,7 @@ import {
   PRESET_NAME,
   type PresetEntry,
 } from "@studio/song-schema/presets";
+import type { NodeEngines } from "@studio/ui-chains-react";
 import { useState } from "react";
 import { fuzzyScore } from "../fuzzy";
 import { type TreeNode, TreePicker } from "./TreePicker";
@@ -59,6 +60,8 @@ export function PresetPicker({
   onApply,
   onSave,
   onUpdate,
+  engines,
+  onEngine,
   onClose,
 }: {
   x: number;
@@ -70,8 +73,13 @@ export function PresetPicker({
   onApply: (p: PresetEntry) => void;
   onSave: (name: string, scope: string) => void;
   onUpdate: (p: PresetEntry) => void;
+  /** The engines the node runs as, when there is a choice: the left bar. */
+  engines?: NodeEngines;
+  onEngine?: (name: string) => void;
   onClose: () => void;
 }) {
+  // The engine asked for, lit at once: the popup stays open, so a preset can be picked for it next.
+  const [engine, setEngine] = useState(engines?.current);
   const [name, setName] = useState("");
   const [scope, setScope] = useState(data.scopes[0] ?? "workspace");
   const clean = name.trim();
@@ -91,7 +99,8 @@ export function PresetPicker({
       ? current
       : undefined;
 
-  const header = (
+  // A module with no presets at all (a self-contained one) still opens for its engines, without the save row.
+  const header = !data.scopes.length ? undefined : (
     <div className="flex flex-col gap-1 pb-1 pt-0.5">
       <div className="flex items-center gap-1">
         <input
@@ -147,6 +156,36 @@ export function PresetPicker({
     </div>
   );
 
+  const aside = engines && (
+    <div
+      className="mr-1 flex max-h-[min(28rem,80vh)] flex-col overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      role="menu"
+      aria-label="engine"
+    >
+      <div className="px-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+        engine
+      </div>
+      {engines.names.map((name) => (
+        <button
+          key={name}
+          type="button"
+          role="menuitemradio"
+          aria-checked={name === engine}
+          onClick={() => {
+            if (name === engine) return;
+            setEngine(name);
+            onEngine?.(name);
+          }}
+          className={`px-3 py-1 text-left font-mono hover:bg-accent hover:text-accent-foreground ${
+            name === engine ? "bg-accent text-accent-foreground" : ""
+          }`}
+        >
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <TreePicker<PresetEntry>
       x={x}
@@ -159,6 +198,7 @@ export function PresetPicker({
       onPick={onApply}
       onClose={onClose}
       header={header}
+      aside={aside}
     />
   );
 }

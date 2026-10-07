@@ -142,7 +142,7 @@ Two documents carry two different halves, and neither carries the bake:
 | | what | where |
 |---|---|---|
 | the binding | `{param, curve, trigger?}` per module step | `WebChainStep.automations` |
-| the shape | `{type, shape?}`, **plus `points` for a `custom` curve** | `WebGraph.curves` |
+| the shape | `{type, shape?}`, **plus `points` for a `custom` curve**, and `spec`, the whole definition | `WebGraph.curves` |
 
 `automationLanes()` in `@studio/graph-model` is the one place those are joined into a per-track
 list, and both surfaces that need it read the result: the chains graph draws the binding as a mauve
@@ -152,6 +152,91 @@ arrow into the named param, the timeline draws the shape as a row under the lane
 points per bar would be thousands of numbers on a document the graph pane refetches on every
 reload — to draw a figure its own card already names in two words. A row for an LFO or an ADSR
 still appears, because the binding is real and worth seeing, and draws an empty line.
+
+`spec` is every field of the curve with its defaults filled (`CurveSpec`, `@studio/graph-model`): what
+the curve editor opens on, so editing a curve needs no second fetch of its file.
+
+## Amplitude, and the arithmetic in one place
+
+Every kind of curve takes `amplitude`, 0..1 and 1 by default: it scales the output, so a unipolar
+curve sweeps 0..amplitude and a bipolar one rides ±amplitude around 0. It is applied once, where the
+unit value leaves the curve (`curveOutput`), after polarity — for an envelope at each corner the bake
+writes. One field for all three kinds, because how FAR a curve moves its knob is a question every
+curve answers the same way, and an LFO with no depth is half an LFO.
+
+## Duration
+
+An oscillator may take `duration`, a 0-based timecode (`"2:0"` is two bars; `"0"`, the default and
+never written, is for ever). It runs that long from its own start — the song's, or the run's when a
+condition restarts it — so a retriggered LFO plays for `duration` at each restart. Past it the bake
+writes nothing and the engine holds where it stopped, the same rule as outside a condition's window:
+a duration is a run cut short, and is baked as one (`bakeConditioned`). Only oscillators take one: a
+drawn curve already ends at its last point, and an envelope at its release.
+
+## Cut
+
+`cut` keeps one half of the output: `positive` clamps it to [0,1], `negative` to [-1,0], `none` (the
+default, never written) keeps it whole. It applies after amplitude and polarity, in `curveOutput`, so
+it is a fact about what LEAVES the curve rather than about its shape — a bipolar LFO cut positive
+pushes its knob up from where it sits and never below. An on/off curve takes none: 0 and 1 have no
+half to drop.
+
+The bake does not clamp each sample. It bakes the whole curve and then cuts the breakpoints
+(`cutPoints`), adding one where a segment crosses 0: the engine draws a straight line between
+breakpoints, so a clamped endpoint alone would make the cut start at the next point rather than at the
+crossing — a drawn ramp from -1 to +1 would rise from its first point instead of from its middle.
+
+The arithmetic — an oscillator's wave, an envelope's shape, a drawn curve's interpolation, amplitude
+and polarity — is `@studio/song-schema`'s `curveMath.ts`, with no fs, and `curves.ts` bakes through it.
+The browser's curve editor previews through it too, so what it draws is what the bake plays.
+
+## On/off: a boolean param's curve
+
+`type: onoff` is drawn points like a custom curve with two differences, both because what it drives
+is a SWITCH: every value is 0 or 1 (the schema refuses anything between, `parseCurve` rounds a stray
+one, `curve point add` snaps), and a point HOLDS until the next rather than ramping to it
+(`heldUnit` in `curveMath.ts`). The bake writes each change twice — the old value a microbeat before
+it, the new one on it — so the engine, which interpolates between breakpoints, steps. It takes no
+`amplitude` and no `polarity`: a switch has neither depth nor sign, so it is unipolar at full height.
+
+A param's kind decides the curves it may follow: a boolean one (the curve editor reads that off the
+control bound to it, a toggle or a button) follows an on/off curve and nothing else; a number any
+other. That is the editor's rule rather than the file's — a curve does not know what it is bound to.
+
+## Conditions
+
+A curve may say WHEN it runs (`conditions`, a list): from a moment (`start`), until one (`end`),
+between two (`between`), or from an event of the node it drives (`event`). The engine is told nothing
+about them: they are applied where the curve is baked into breakpoints (`curveConditions.ts`), as the
+amplitude is, so an engine that plays a breakpoint list plays a conditioned curve unchanged.
+
+**Conditions are OR'ed: the curve runs while ANY of them holds.** That is what a list of WHENs means
+when written by hand — "during the intro and again from the last chorus" — and an AND is already
+spelt by the one condition that needs it, `between`. Where two stretches overlap they are one,
+carrying the time of the one that started first; a stretch that RETRIGGERS takes over where it starts,
+which is the rule below applied across conditions rather than within one.
+
+A condition becomes the STRETCHES of song time the curve is sampled over, each with the beat its own
+time counts from. Outside every stretch the bake writes nothing, so the engine holds the value at the
+nearest edge: before a start, the curve's first value there; after an end, its last. That is "the
+automation starts / ends here" without a value invented for the time it does not run.
+
+**`retrigger` is one rule for every kind: the curve restarts the moment its condition comes true.**
+A `start` or `between` without it carries on as if it had run since the song's start, so an LFO is in
+the phase it would have been; with it, the stretch begins the curve's own time. On an `event`, without
+it the FIRST event starts the curve and it runs on; with it, every event restarts it — the next
+stretch begins a microbeat after the last ends, so the jump is a step and not a slope.
+
+**An event is a note-on, for now.** It is the one event the compile can place in song time (the
+node's lane's notes, the triggers an envelope already used), so `event` accepts that name however it
+is spelt (`isNoteOnEvent`) and any other name never comes: the curve never starts. The name is free
+text so the file says what was meant once a node announces more.
+
+**An envelope keeps its triggers**, filtered by the conditions and pooled: a window keeps the note-ons
+inside it and cuts an envelope it fired where it closes, and `retrigger` fires it at the window's
+opening too. Two conditions firing on one beat are one firing, with the longer window.
+Without `retrigger` a note landing while the envelope runs is IGNORED; with it — and with no condition,
+which is what an envelope always did — it cuts the running one and starts again.
 
 ## The two scaffolds
 
@@ -170,6 +255,12 @@ caller's business to know it — which is why there is no default to fall back o
 Both REFUSE rather than overwrite: a curve someone is already using is not a thing to silently
 replace, and the caller wants to know the name is taken. The filename IS the id, so it has to be one
 a path and a reference can both carry.
+
+`writeCurveFile` is the third writer, and the one that DOES replace: `curve set <name> <json>`, the
+curve editor's Save, writes a curve whole from its fields, creating it or overwriting it. Replacing is
+the point there — the editor holds every field, so the file is what it shows — and the fields are
+held to the schema and read back through `parseCurve` before anything is written, so a curve this
+writes is one the compile reads. Keys are written in a fixed order per kind, one point a line.
 
 `editCurveFile` is the seam `curve point add|move|remove` acts through. A transform returning null
 means "nothing was there at that address", which the caller reports by name; returning the text

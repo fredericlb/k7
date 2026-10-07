@@ -2,19 +2,20 @@
 // you pick, and the track panel that sets an extract's bounds. The raw YAML is still one click
 // away, because this format is young and the file is the truth. See docs/editing.md.
 
+import { Alert, AlertDescription } from "@frediverse/ui/alert";
+import { AppHeader } from "@frediverse/ui/app-header";
+import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Loader2,
   LogOut,
   Music,
   Pause,
   Plus,
   Trash2,
 } from "@frediverse/ui/icons";
-import { Input } from "@frediverse/ui/input";
 import {
   useEffect,
   useMemo,
@@ -23,25 +24,25 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Preview } from "./audio";
+import { Row, RowAction, Tip } from "./controls";
 import {
   addSong,
   addTrack,
-  type Category,
-  EFFECT_KEYS,
-  MODES,
   moveSong,
   removeSong,
   removeTrack,
   type Song,
   serialize,
-  setCategoryField,
-  setSessionField,
-  setSongEffect,
-  setSongField,
   songsInRange,
 } from "./format";
 import { label } from "./mediatek";
 import { OrderEditor } from "./OrderEditor";
+import {
+  CategoryFields,
+  SaveBadge,
+  SessionPanel,
+  SongFields,
+} from "./SessionFields";
 import { SongPicker } from "./SongPicker";
 import { Store } from "./store";
 import { TrackPanel } from "./TrackPanel";
@@ -127,35 +128,46 @@ export function Session({
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex items-center gap-3 border-b px-4 py-2">
-        <span className="text-sm font-semibold">
-          {session?.name ?? project}
-        </span>
-        <SaveBadge store={store} />
-        <Button
-          variant={showRaw ? "default" : "ghost"}
-          size="sm"
-          className="ml-auto text-xs"
-          onClick={() => setShowRaw((v) => !v)}
-          title="Le fichier tel qu'il sera écrit, modifications non enregistrées comprises"
-        >
-          <FileText className="mr-1 h-3 w-3" /> YAML
-        </Button>
-        <Button variant="ghost" size="sm" className="text-xs" onClick={quit}>
-          <LogOut className="mr-1 h-3 w-3" /> Projets
-        </Button>
-      </header>
+      {/* No user menu: an opened project has no room for a way out of it (packages/ui-user-menu/docs/userMenu.md). */}
+      <AppHeader
+        title="z0"
+        subtitle={session?.name ?? project}
+        actions={
+          <>
+            <SaveBadge store={store} />
+            <Tip label="Le fichier tel qu'il sera écrit, modifications non enregistrées comprises">
+              <Button
+                variant={showRaw ? "default" : "ghost"}
+                size="sm"
+                aria-pressed={showRaw}
+                onClick={() => setShowRaw((v) => !v)}
+              >
+                <FileText className="size-3.5" /> YAML
+              </Button>
+            </Tip>
+            <Button variant="ghost" size="sm" onClick={quit}>
+              <LogOut className="size-3.5" /> Projets
+            </Button>
+          </>
+        }
+      />
 
-      {store.loadError && (
-        <p className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {store.loadError}
-        </p>
-      )}
-      {store.catalogueError && (
-        <p className="border-b bg-muted px-4 py-1 text-xs text-muted-foreground">
-          Médiathèque injoignable ({store.catalogueError}) — les morceaux
-          s'affichent par leur adresse et l'aperçu audio est indisponible.
-        </p>
+      {(store.loadError || store.catalogueError) && (
+        <div className="flex flex-col gap-2 border-b p-3">
+          {store.loadError && (
+            <Alert variant="destructive">
+              <AlertDescription>{store.loadError}</AlertDescription>
+            </Alert>
+          )}
+          {store.catalogueError && (
+            <Alert>
+              <AlertDescription>
+                Médiathèque injoignable ({store.catalogueError}) — les morceaux
+                s'affichent par leur adresse et l'aperçu audio est indisponible.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
       )}
 
       <div className="flex min-h-0 flex-1">
@@ -165,7 +177,7 @@ export function Session({
             active={pick.k === "session"}
             onClick={() => setPick({ k: "session" })}
           >
-            <FileText className="h-3 w-3 shrink-0" /> En-tête de session
+            <FileText className="size-3 shrink-0" /> En-tête de session
           </Row>
 
           <p className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground">
@@ -177,7 +189,7 @@ export function Session({
                 key={i}
                 className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground italic"
               >
-                <Pause className="h-3 w-3" /> {e.message || "Pause"}
+                <Pause className="size-3" /> {e.message || "Pause"}
               </div>
             ) : (
               <Row
@@ -189,15 +201,11 @@ export function Session({
                 }
                 onClick={() => e.cat && openCat(e.cat, e.songs)}
               >
-                <Music className="h-3 w-3 shrink-0" />
+                <Music className="size-3 shrink-0" />
                 <span className="truncate">
                   {(e.cat && store.categories.get(e.cat)?.name) || e.cat}
                 </span>
-                {e.songs && (
-                  <span className="ml-auto shrink-0 rounded bg-muted px-1 text-[10px]">
-                    {e.songs}
-                  </span>
-                )}
+                {e.songs && <Badge className="ml-auto">{e.songs}</Badge>}
               </Row>
             ),
           )}
@@ -211,7 +219,7 @@ export function Session({
             <p className="text-xs font-medium text-muted-foreground">
               Toutes les catégories
             </p>
-            <IconButton
+            <RowAction
               title="Nouvelle catégorie"
               onClick={() => {
                 void store.createCategory("Nouvelle catégorie").then((slug) => {
@@ -221,8 +229,8 @@ export function Session({
                 });
               }}
             >
-              <Plus className="h-3 w-3" />
-            </IconButton>
+              <Plus />
+            </RowAction>
           </div>
           {[...store.categories.values()].map((c) => (
             <Row
@@ -231,9 +239,7 @@ export function Session({
               onClick={() => openCat(c.slug)}
             >
               <span className="truncate">{c.name ?? c.slug}</span>
-              <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                {c.songs.length}
-              </span>
+              <Badge className="ml-auto">{c.songs.length}</Badge>
             </Row>
           ))}
         </nav>
@@ -252,15 +258,18 @@ export function Session({
                       "mode normal"}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant={adding ? "default" : "secondary"}
-                  className="shrink-0 text-xs"
-                  onClick={() => setAdding((v) => !v)}
-                  title="Ajouter un morceau depuis la médiathèque"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                <Tip label="Ajouter un morceau depuis la médiathèque">
+                  <Button
+                    size="icon-sm"
+                    variant={adding ? "default" : "secondary"}
+                    aria-label="Ajouter un morceau depuis la médiathèque"
+                    aria-pressed={adding}
+                    className="shrink-0"
+                    onClick={() => setAdding((v) => !v)}
+                  >
+                    <Plus className="size-3.5" />
+                  </Button>
+                </Tip>
               </div>
               {adding && (
                 <SongPicker
@@ -288,9 +297,9 @@ export function Session({
                         : "hover:bg-accent/50"
                     }`}
                   >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 px-3 py-1 text-left text-sm"
+                    <Button
+                      variant="ghost"
+                      className="h-auto min-w-0 flex-1 justify-start gap-2 px-3 py-1 font-normal hover:bg-transparent"
                       onClick={() => {
                         setSongIndex(i);
                         setTrackIndex(0);
@@ -307,13 +316,11 @@ export function Session({
                         {songTitle(s, store.catalogue)}
                       </span>
                       {s.tracks.length > 1 && (
-                        <span className="ml-auto shrink-0 rounded bg-muted px-1 text-[10px]">
-                          {s.tracks.length}
-                        </span>
+                        <Badge className="ml-auto">{s.tracks.length}</Badge>
                       )}
-                    </button>
+                    </Button>
                     <div className="flex shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                      <IconButton
+                      <RowAction
                         title="Monter"
                         disabled={i === 0}
                         onClick={() => {
@@ -321,9 +328,9 @@ export function Session({
                           setSongIndex(i - 1);
                         }}
                       >
-                        <ChevronUp className="h-3 w-3" />
-                      </IconButton>
-                      <IconButton
+                        <ChevronUp />
+                      </RowAction>
+                      <RowAction
                         title="Descendre"
                         disabled={i === songs.length - 1}
                         onClick={() => {
@@ -331,9 +338,9 @@ export function Session({
                           setSongIndex(i + 1);
                         }}
                       >
-                        <ChevronDown className="h-3 w-3" />
-                      </IconButton>
-                      <IconButton
+                        <ChevronDown />
+                      </RowAction>
+                      <RowAction
                         title="Retirer de cette catégorie"
                         onClick={() => {
                           edit((d) => removeSong(d, i));
@@ -343,8 +350,8 @@ export function Session({
                           setTrackIndex(0);
                         }}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </IconButton>
+                        <Trash2 />
+                      </RowAction>
                     </div>
                   </div>
                 );
@@ -397,13 +404,12 @@ export function Session({
                     <Button
                       size="sm"
                       variant={i === trackIndex ? "default" : "secondary"}
-                      className="text-xs"
                       onClick={() => setTrackIndex(i)}
                     >
                       {label(t.song, store.catalogue) || `Piste ${i + 1}`}
                     </Button>
                     {!song.flat && (
-                      <IconButton
+                      <RowAction
                         title="Retirer cette piste"
                         onClick={() => {
                           store.editCategory(cat.slug, (d) =>
@@ -412,20 +418,22 @@ export function Session({
                           setTrackIndex(0);
                         }}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </IconButton>
+                        <Trash2 />
+                      </RowAction>
                     )}
                   </span>
                 ))}
-                <Button
-                  size="sm"
-                  variant={addingTrack ? "default" : "secondary"}
-                  className="text-xs"
-                  onClick={() => setAddingTrack((v) => !v)}
-                  title="Ajouter une piste à ce morceau"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                <Tip label="Ajouter une piste à ce morceau">
+                  <Button
+                    size="icon-sm"
+                    variant={addingTrack ? "default" : "secondary"}
+                    aria-label="Ajouter une piste à ce morceau"
+                    aria-pressed={addingTrack}
+                    onClick={() => setAddingTrack((v) => !v)}
+                  >
+                    <Plus className="size-3.5" />
+                  </Button>
+                </Tip>
               </div>
               {addingTrack && (
                 <SongPicker
@@ -463,318 +471,4 @@ export function Session({
       </div>
     </div>
   );
-}
-
-function Row({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
-        active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** A row action: small, quiet, and only reachable once the row is hovered or focused. */
-function IconButton({
-  title,
-  onClick,
-  disabled,
-  children,
-}: {
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-30"
-    >
-      {children}
-    </button>
-  );
-}
-
-function Field({
-  label: text,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string | undefined;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs text-muted-foreground">{text}</span>
-      <Input
-        value={value ?? ""}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </label>
-  );
-}
-
-function SessionPanel({ store }: { store: Store }) {
-  const s = store.session;
-  if (!s) return null;
-  const set = (k: string) => (v: string) =>
-    store.editSession((doc) => setSessionField(doc, k, v));
-  return (
-    <div className="grid max-w-xl gap-3 p-4">
-      <Field label="Nom" value={s.name} onChange={set("name")} />
-      <Field
-        label="Jeton d'URL publique"
-        value={s.token}
-        onChange={set("token")}
-      />
-      <Field
-        label="Mot de passe invité"
-        value={s.password}
-        onChange={set("password")}
-        placeholder="aucun"
-      />
-      <Field
-        label="Consigne par défaut"
-        value={s.notice}
-        onChange={set("notice")}
-      />
-      {/* The password rides in the repository in clear, and changing it is a commit (../../docs/projects.md). */}
-      <p className="text-xs text-muted-foreground">
-        Le mot de passe voyage en clair avec la session : le changer est un
-        commit.
-      </p>
-    </div>
-  );
-}
-
-function CategoryFields({
-  store,
-  cat,
-  onDeleted,
-}: {
-  store: Store;
-  cat: Category;
-  onDeleted: () => void;
-}) {
-  const set =
-    (k: string) =>
-    (v: string | boolean): void =>
-      store.editCategory(cat.slug, (doc) => setCategoryField(doc, k, v));
-  return (
-    <div className="border-b p-3">
-      <div className="grid gap-3 md:grid-cols-3">
-        <Field label="Nom affiché" value={cat.name} onChange={set("name")} />
-        <label className="block">
-          <span className="text-xs text-muted-foreground">Mode</span>
-          <select
-            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-            value={cat.mode ?? ""}
-            onChange={(e) => set("mode")(e.target.value)}
-          >
-            <option value="">normal</option>
-            {MODES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Field
-          label="Variante jouée"
-          value={cat.variant}
-          onChange={set("variant")}
-          placeholder="le master"
-        />
-        <Field
-          label="Consigne"
-          value={cat.notice}
-          onChange={set("notice")}
-          placeholder="celle de la session"
-        />
-        <Field
-          label="Illustration"
-          value={cat.illustration}
-          onChange={set("illustration")}
-        />
-        <label className="flex items-center gap-2 self-end pb-2 text-sm">
-          <input
-            type="checkbox"
-            checked={cat.liveOnly ?? false}
-            onChange={(e) => set("liveOnly")(e.target.checked)}
-          />
-          <span>Seulement en live</span>
-        </label>
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">
-          categories/{cat.slug}.yaml
-        </span>
-        <Button
-          size="sm"
-          variant="secondary"
-          className="ml-auto text-xs"
-          title="Le fichier part à la corbeille du service de fichiers ; les manches qui le nomment restent."
-          onClick={() => {
-            void store.deleteCategory(cat.slug);
-            onDeleted();
-          }}
-        >
-          <Trash2 className="mr-1 h-3 w-3" /> Supprimer la catégorie
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function SongFields({
-  store,
-  cat,
-  song,
-  songIndex,
-}: {
-  store: Store;
-  cat: Category;
-  song: Song;
-  songIndex: number;
-}) {
-  const set =
-    (k: string) =>
-    (v: string | number | boolean | undefined): void =>
-      store.editCategory(cat.slug, (doc) => setSongField(doc, songIndex, k, v));
-  const effect = (k: string, v: number | undefined) =>
-    store.editCategory(cat.slug, (doc) =>
-      setSongEffect(doc, song, songIndex, k, v),
-    );
-  return (
-    <div className="border-b p-3">
-      <div className="grid gap-3 md:grid-cols-3">
-        <Field
-          label="Intitulé"
-          value={song.label}
-          onChange={set("label")}
-          placeholder="l'artiste et le titre"
-        />
-        <label className="block">
-          <span className="text-xs text-muted-foreground">État</span>
-          <select
-            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-            value={song.status ?? ""}
-            onChange={(e) => set("status")(e.target.value)}
-          >
-            <option value="">—</option>
-            <option value="valid">valid</option>
-            <option value="to_replace">to_replace</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs text-muted-foreground">Vitesse</span>
-          <Input
-            type="number"
-            step="0.01"
-            value={song.speed ?? ""}
-            placeholder="1"
-            onChange={(e) =>
-              set("speed")(
-                e.target.value === "" ? undefined : Number(e.target.value),
-              )
-            }
-          />
-        </label>
-      </div>
-
-      {/* A textarea and not an input: `answer:` is a literal block, one accepted spelling per line. */}
-      <label className="mt-3 block">
-        <span className="text-xs text-muted-foreground">
-          Réponses acceptées — une par ligne
-        </span>
-        <textarea
-          rows={song.answer?.includes("\n") ? 4 : 2}
-          className="w-full rounded-md border bg-background p-2 font-mono text-xs"
-          value={song.answer ?? ""}
-          placeholder="celle de la catégorie"
-          onChange={(e) => set("answer")(e.target.value)}
-        />
-      </label>
-
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={song.liveOnly ?? false}
-            onChange={(e) => set("liveOnly")(e.target.checked)}
-          />
-          <span>Seulement en live</span>
-        </label>
-        <details className="w-full">
-          <summary className="cursor-pointer text-xs text-muted-foreground">
-            Traitements{" "}
-            {song.effects ? `(${Object.keys(song.effects).length})` : ""}
-          </summary>
-          <div className="mt-2 grid gap-2 md:grid-cols-3">
-            {EFFECT_KEYS.map((k) => (
-              <label key={k} className="block">
-                <span className="text-xs text-muted-foreground">{k}</span>
-                <Input
-                  type="number"
-                  step="1"
-                  value={song.effects?.[k] ?? ""}
-                  placeholder="—"
-                  onChange={(e) =>
-                    effect(
-                      k,
-                      e.target.value === ""
-                        ? undefined
-                        : Number(e.target.value),
-                    )
-                  }
-                />
-              </label>
-            ))}
-          </div>
-        </details>
-      </div>
-    </div>
-  );
-}
-
-function SaveBadge({ store }: { store: Store }) {
-  const { saveStatus, saveError, hasUnsaved } = store;
-  if (saveStatus === "saving")
-    return (
-      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" /> Enregistrement…
-      </span>
-    );
-  if (saveStatus === "error")
-    return (
-      <span className="text-xs text-destructive" title={saveError}>
-        Non enregistré : {saveError}
-      </span>
-    );
-  if (hasUnsaved)
-    return <span className="text-xs text-muted-foreground">Modifié…</span>;
-  if (saveStatus === "saved")
-    return <span className="text-xs text-muted-foreground">Enregistré</span>;
-  return null;
 }

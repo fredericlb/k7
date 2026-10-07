@@ -11,6 +11,7 @@ import {
   visit,
   type YAMLMap,
 } from "yaml";
+import { currentAlternative } from "../alternatives";
 import { type Module, ModuleSchema } from "./moduleSchema";
 import { TIMECODE, TIMECODE_KEYS } from "./placementSchema";
 
@@ -170,7 +171,9 @@ export function setModuleAutomation(
   trigger?: string,
 ): string {
   const doc = parseDocument(text, PARSE_OPTIONS);
-  const list = doc.getIn(["automations"]) as
+  const base = automationsHome(doc);
+  const key = [...base, "automations"];
+  const list = doc.getIn(key) as
     | { items?: unknown[]; delete?: (i: number) => void }
     | undefined;
   const items = Array.isArray(list?.items) ? list.items : [];
@@ -182,18 +185,34 @@ export function setModuleAutomation(
     if (at < 0) return text; // nothing bound to that param — nothing to take off
     // Counted BEFORE the delete: `items` is the document's own array, not a copy (docs/moduleFile.md).
     const wasOnly = items.length === 1;
-    doc.deleteIn(["automations", at]);
+    doc.deleteIn([...key, at]);
     // …and the empty list goes with the last entry: `automations: []` says something was emptied.
-    if (wasOnly) doc.deleteIn(["automations"]);
+    if (wasOnly) doc.deleteIn(key);
     return String(doc);
   }
   const entry: Record<string, string> = { param, curve };
   // Only when it is not the default: an absent trigger already means the module being automated.
   if (trigger) entry.trigger = trigger;
-  if (at >= 0) doc.setIn(["automations", at], entry);
-  else doc.setIn(["automations", items.length], entry);
+  if (base.length) {
+    const set = doc.getIn(base);
+    if (isMap(set)) set.flow = false;
+  }
+  doc.setIn([...key, at >= 0 ? at : items.length], entry);
   quoteTimecodes(doc);
   return String(doc);
+}
+
+/** Where the resolved node reads its bindings: the set that is on when it swaps the module or has its own list, the node otherwise. */
+function automationsHome(doc: Document): (string | number)[] {
+  const at = currentAlternative(
+    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
+  );
+  if (at === 0) return [];
+  const set = doc.getIn(["alternatives", at - 1]);
+  if (!isMap(set)) return [];
+  return set.has("extends") || set.has("automations")
+    ? ["alternatives", at - 1]
+    : [];
 }
 
 /** Set one value in the file, leaving every other byte alone; `null` removes the key. */

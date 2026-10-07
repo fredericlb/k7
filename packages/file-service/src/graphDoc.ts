@@ -19,7 +19,12 @@ import { CONSOLE_ID, type ConsoleSystem } from "@studio/song/console";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
-import { inputLandingTrack, loadGraph, nodePlaces } from "@studio/song/graph";
+import {
+  inputLandingTrack,
+  loadGraph,
+  nodePlaces,
+  nodeStacks,
+} from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { missingModel } from "@studio/song/modelCache";
 import {
@@ -238,6 +243,7 @@ export function buildGraphDoc(
   const usedCurves: WebGraph["curves"] = {};
   // A chain project's unnamed nodes, by where they sit — what a card shows instead of the uuid.
   const places = nodePlaces(dir);
+  const stacks = nodeStacks(dir);
   const chains: WebGraph["chains"] = {};
   for (const [name, c] of Object.entries(g.chains))
     chains[name] = {
@@ -281,7 +287,12 @@ export function buildGraphDoc(
               type: cv.type,
               shape: cv.type === "lfo" ? cv.shape : undefined,
               // A drawn curve's points travel; a parameterised one's do not. See WebCurve.points.
-              points: cv.type === "custom" ? cv.points : undefined,
+              points:
+                cv.type === "custom" || cv.type === "onoff"
+                  ? cv.points
+                  : undefined,
+              // …and the whole definition, what the curve editor opens on.
+              spec: cv,
             };
             return true;
           });
@@ -535,6 +546,8 @@ export function buildGraphDoc(
     videoTracks: Object.keys(g.videoTracks),
     trackColors,
     trackSignals,
+    // Present, empty or not, exactly in a chain project: what lets a row offer the bottom `+`.
+    ...(stacks ? { stacks } : {}),
     // Only the lanes this graph really draws: a mixer named for a track the file no longer has is a card nobody would find.
     ...(mixers && Object.keys(mixers).length
       ? {
@@ -557,7 +570,11 @@ export function buildGraphDoc(
           all[id] = {
             type: cv.type,
             shape: cv.type === "lfo" ? cv.shape : undefined,
-            points: cv.type === "custom" ? cv.points : undefined,
+            points:
+              cv.type === "custom" || cv.type === "onoff"
+                ? cv.points
+                : undefined,
+            spec: cv,
           };
       return Object.keys(all).length ? all : undefined;
     })(),

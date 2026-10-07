@@ -3,9 +3,18 @@
 // anything opens. Same shape as st0's gate, and deliberately so — a second dialect of "which
 // engine am I on" is how two apps end up disagreeing about one account.
 
+import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import { Card } from "@frediverse/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@frediverse/ui/card";
+import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Loader2, RefreshCw, Server } from "@frediverse/ui/icons";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import type { PublicEngine } from "@studio/web-protocol";
 import { formatLatency } from "@studio/web-protocol/quality";
@@ -61,67 +70,71 @@ export function Gate() {
   if (phase.k === "checking" || phase.k === "looking")
     return (
       <div className="flex h-full items-center justify-center bg-background text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
+        <Loader2 className="size-5 animate-spin" />
       </div>
     );
 
   if (phase.k === "anon")
     return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Card className="p-6 text-center">
-          <p className="mb-4 max-w-xs text-sm text-muted-foreground">
-            L'éditeur ouvre un dépôt de votre compte studio — pas une partie. La
-            connexion est celle de la médiathèque, pas celle du jeu.
-          </p>
-          <Button onClick={() => (window.location.href = auth.loginUrl)}>
-            Se connecter
-          </Button>
-        </Card>
-      </div>
+      <SignInScreen
+        title="z0 — éditeur"
+        description="L'éditeur ouvre un dépôt de votre compte studio — pas une partie. La connexion est celle de la médiathèque, pas celle du jeu."
+        className="text-center"
+      >
+        <Button
+          className="w-full"
+          onClick={() => (window.location.href = auth.loginUrl)}
+        >
+          <FrediverseMark size="sm" />
+          Se connecter
+        </Button>
+      </SignInScreen>
     );
 
   return (
     <div className="flex h-full items-center justify-center bg-background">
-      <Card className="w-96 p-6">
-        <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-          <Server className="h-4 w-4" />
-          Sur quelle machine sont les fichiers&nbsp;?
-        </div>
-        <p className="mb-4 text-xs text-muted-foreground">
-          C'est elle qui tient la copie de travail du dépôt. Le choix reste sur
-          votre compte.
-        </p>
+      <Card className="w-96">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Server className="size-4" />
+            Sur quelle machine sont les fichiers&nbsp;?
+          </CardTitle>
+          <CardDescription className="text-xs">
+            C'est elle qui tient la copie de travail du dépôt. Le choix reste
+            sur votre compte.
+          </CardDescription>
+        </CardHeader>
         {phase.ranked.length === 0 && (
-          <p className="mb-4 text-xs text-muted-foreground">
+          <p className="mb-3 text-xs text-muted-foreground">
             Aucun moteur ne s'est annoncé. Dans le capot :
             «&nbsp;Add&nbsp;web&nbsp;UI…&nbsp;».
           </p>
         )}
-        {phase.ranked.map((r) => (
-          <button
-            key={r.engine.id}
-            type="button"
-            disabled={!r.wsUrl}
-            onClick={() => pick(r)}
-            className={`mb-1 flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm ${
-              r.wsUrl
-                ? "hover:bg-accent/50"
-                : "cursor-not-allowed text-muted-foreground/60"
-            }`}
+        <div className="flex flex-col gap-1">
+          {phase.ranked.map((r) => (
+            <Button
+              key={r.engine.id}
+              variant="outline"
+              disabled={!r.wsUrl}
+              onClick={() => pick(r)}
+              className="w-full justify-between font-normal"
+            >
+              <span className="truncate">{r.engine.hostname}</span>
+              <Badge>{where(r)}</Badge>
+            </Button>
+          ))}
+        </div>
+        <CardFooter>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => void findEngine()}
           >
-            <span className="flex-1 truncate">{r.engine.hostname}</span>
-            <span className="text-xs text-muted-foreground">{where(r)}</span>
-          </button>
-        ))}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-2 w-full text-xs"
-          onClick={() => void findEngine()}
-        >
-          <RefreshCw className="mr-1 h-3 w-3" />
-          Rechercher à nouveau
-        </Button>
+            <RefreshCw className="size-3.5" />
+            Rechercher à nouveau
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );

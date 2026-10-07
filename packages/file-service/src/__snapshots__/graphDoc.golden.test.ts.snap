@@ -273,10 +273,41 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
           "value": 0.2,
         },
       ],
+      "spec": {
+        "amplitude": 1,
+        "points": [
+          {
+            "time": "1:1:1",
+            "value": 0,
+          },
+          {
+            "time": "2:1:1",
+            "value": 1,
+          },
+          {
+            "time": "3:1:1",
+            "value": 1,
+          },
+          {
+            "time": "4:1:1",
+            "value": 0.2,
+          },
+        ],
+        "polarity": "unipolar",
+        "type": "custom",
+      },
       "type": "custom",
     },
     "wobble": {
       "shape": "sine",
+      "spec": {
+        "amplitude": 1,
+        "frequency": 1,
+        "phase": 0,
+        "polarity": "bipolar",
+        "shape": "sine",
+        "type": "lfo",
+      },
       "type": "lfo",
     },
   },

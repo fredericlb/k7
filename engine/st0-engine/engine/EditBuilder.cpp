@@ -607,11 +607,12 @@ void applyAutomationLane(te::Edit& edit, te::Plugin& plugin, const AutomationDoc
         return;
     }
 
-    // Map the curve onto the param's range: unipolar spans it fully, bipolar rides ±half around where the knob already sits.
+    // Map the curve onto the param's range: unipolar spans it fully, bipolar rides ±half around where the knob is SET.
     const auto range = param->getValueRange();
     const float lo = range.getStart();
     const float hi = range.getEnd();
-    const float base = param->getCurrentValue();
+    // The EXPLICIT value — the preset's or the text param's — never the current one, which follows the curve to wherever the playhead is.
+    const float base = param->getCurrentExplicitValue();
     const float half = (hi - lo) * 0.5f;
 
     auto& curve = param->getCurve();

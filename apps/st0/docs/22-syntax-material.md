@@ -65,8 +65,9 @@ the `v` rather than writing `v: 1`.
 
 Every grip on a note is a place, which is what lets one box hold four gestures: the line sets the velocity, the
 **body** moves the note — sideways in time, up and down to another pitch — and **either edge** stretches it.
-Drag on an empty lane to draw a note, `x` removes what the cursor is on, and right-clicking one offers to remove
-or to split it. Each of those is a command line, so each is one undo. Hold Ctrl to leave the grid; you hear
+Drag on an empty lane to draw a note, Backspace (or `x`) removes what the cursor is on or everything a
+selection holds, and right-clicking one offers to remove or to split it. Backspace removes events on the
+timeline the same way. Each of those is a command line, so each is one undo. Hold Ctrl to leave the grid; you hear
 every note you press, through the track's own instrument.
 
 ```yaml schema=Sequence
@@ -84,14 +85,17 @@ notes:
 
 ## curves/<id>.yaml — LFO
 
-An automation curve. An LFO is generated: shape, frequency in cycles per BAR, optional phase. `polarity` decides how a module's automation maps it — unipolar sweeps the parameter's whole range, bipolar rides ± half a range around wherever the knob sits.
+An automation curve. An LFO is generated: shape, frequency in cycles per BAR, optional phase. `polarity` decides how a module's automation maps it — unipolar sweeps the parameter's whole range, bipolar rides ± half a range around wherever the knob sits. `amplitude`, on every kind of curve, scales that: 0.5 sweeps half the range, or rides a quarter of it either side. `duration` stops an LFO that long after it starts — a length like `"2:0"` (two bars) — and the knob stays where it stopped; with a condition that retriggers it, every restart runs that long again. `cut` keeps one half of what the curve puts out: `positive` drops everything below 0, so a bipolar curve only ever pushes the knob up from where it sits; `negative` drops everything above 0, so it only pulls it down; `none`, the default, keeps both. A unipolar curve never goes below 0, so on one `positive` changes nothing and `negative` leaves it flat. `ui curve` opens an editor that writes all of these for you; `ui curve <id>` opens it on that curve.
 
 ```yaml schema=Curve
 type: lfo
 shape: sine          # sine | triangle | saw | square
 frequency: 0.5       # cycles per bar
 polarity: bipolar    # unipolar | bipolar
+amplitude: 0.8       # 0..1, the whole range at 1
+cut: positive        # none | positive (keep 0..1) | negative (keep -1..0)
 # phase: 0.25        # 0..1
+# duration: "2:0"    # how long it runs, a length — "0", the default, is for ever
 ```
 
 ## curves/<id>.yaml — custom
@@ -131,6 +135,56 @@ release: 400        # ms, back to nothing
 level: 0.6          # 0..1, where decay lands
 polarity: unipolar  # unipolar | bipolar
 ```
+
+## curves/<id>.yaml — on/off
+
+For a switch rather than a knob — a bypass, a toggle, a button. Drawn points like a custom curve,
+but each is 0 or 1, and it HOLDS until the next one: the parameter flips, it never ramps. No
+`amplitude` and no `polarity`, which a switch has no use for.
+
+```yaml schema=Curve
+type: onoff
+points:
+  - { time: "1:1:1", value: 0 }
+  - { time: "5:1:1", value: 1 }   # on from bar 5
+  - { time: "9:1:1", value: 0 }   # off again from bar 9
+```
+
+## curves/<id>.yaml — conditions
+
+Any curve can say WHEN it runs, as a list of `conditions` — it runs while ANY of them holds. Four
+kinds: `start` (from a moment on), `end` (until a moment),
+`between` (both), and `event` — from an event the node the curve drives announces, which for now is
+its note-on (`Note On`, however you spell it). Outside its condition a curve leaves its knob where it
+reached. `retrigger: true` restarts the curve the moment its condition comes true — an LFO from the
+top of its cycle, a drawn curve from its first point — where without it the curve carries on as if it
+had been running all along; on an `event`, it restarts at every event rather than only the first.
+
+```yaml schema=Curve
+type: lfo
+shape: saw
+frequency: 1
+conditions:
+  - type: between      # start | end | between | event
+    start: "9:1:1"     # start and end are timecodes; `start` and `end` alone take `at`
+    end: "17:1:1"
+    retrigger: true    # restart when the condition comes true
+  - type: start        # …and again from bar 33, whichever holds
+    at: "33:1:1"
+```
+
+```yaml schema=Curve
+type: custom
+points:
+  - { time: "1:1:1", value: 0 }
+  - { time: "1:3:1", value: 1 }
+conditions:
+  - { type: event, event: Note On, retrigger: true }
+```
+
+An envelope follows the same rules with its note-ons as triggers: a window keeps only the notes
+inside it and cuts the envelope where the window ends; without `retrigger`, a note landing while
+the envelope still runs is ignored rather than cutting it.
 
 Two notes closer together than the envelope is long do not stack: the running one is cut where
 the next fires. One automation lane holds one value, so there is nothing to sum. Per-note

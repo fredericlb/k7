@@ -1,10 +1,18 @@
-/* Tailwind v4 + the shared @frediverse/ui design tokens, then the monitor's
-   terminal styling (ported verbatim; #app → #root patched). */
+/* Tailwind v4 + the shared @frediverse/ui design tokens. The monitor is commons components
+   on the shared tokens, with no stylesheet of its own beyond the page's height. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@frediverse/ui/theme.css";
-@import "./extracted-styles.css";
 
 /* @frediverse/ui lives in the commons submodule; Tailwind ignores a missing
    @source path without warning, and then emits no design-system classes. */
 @source "../../../../commons/packages/ui/src";
+@source "../../shared/src";
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-background);
+}

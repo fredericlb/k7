@@ -1,11 +1,18 @@
 // cables.ts — the cable DRAWING geometry: smooth a routed polyline into cubic beziers,
 // resample it by arc-length for the live-signal wobble, find the insert `+` midpoint,
-// build arrowheads, and propagate the SIGNAL'S STRENGTH along the edges. Pure math over the laid-out
+// and propagate the SIGNAL'S STRENGTH along the edges. Pure math over the laid-out
 // graph (graph.ts owns the layout); no DOM, no React, so it is testable on its own.
 
+import { panelWidgets } from "@studio/graph-model/panel";
 import { flowOf, type NodeFlow, STILL } from "./flow";
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
-import { jackPoint, MIX_OUT, RENDER_OUT } from "./graph";
+import {
+  columnW,
+  curveOutPoint,
+  MIX_OUT,
+  RENDER_OUT,
+  stripWidgetRect,
+} from "./graph";
 
 // graph.ts's trackId() prefix — liveness seeds from the track nodes.
 export const TRACK_NODE_PREFIX = "trk:";
@@ -143,7 +150,7 @@ export function buildCableGeom(
       samples.push({ x: pt.x, y: pt.y, nx: -tan.y / m, ny: tan.x / m, s });
     }
   }
-  // The endpoint closes the curve, or a live cable stops short and its arrowhead's angle is wrong.
+  // The endpoint closes the curve, or a live cable stops short of what it lands on.
   const last = segs[segs.length - 1];
   if (last) {
     const pt = cubicAt(last, 1);
@@ -161,8 +168,6 @@ export function midByArc(g: CableGeom): Pt {
   for (const p of g.samples) if (p.s >= half) return { x: p.x, y: p.y };
   return g.base[g.base.length - 1];
 }
-
-// No SVG arrowhead string here: the head is traced in drawCables.
 
 /**
  * HOW HARD each cable ripples now, walked FORWARD from the metered lanes and both SUMS, and
@@ -308,7 +313,7 @@ export function jackRef(n: GraphNode, port?: string): string {
   return port ? `${name}#${port}` : name;
 }
 
-// Where an automation arrow lands: the target widget's centre, or the module's left edge.
+// Where an automation arrow lands: the target widget's border, or the module's left edge.
 export interface AutoTarget {
   id: string;
   from: Pt;
@@ -327,15 +332,40 @@ export function autoTarget(
   const tgt = byId.get(edge.target);
   const a = edge.automation;
   if (!src || !tgt || !a) return null;
+  // Out of the curve's own socket, into the ring round the knob it drives.
+  const from = curveOutPoint(src);
   return {
     id: edge.id,
-    // Out of the curve's own socket, and it KEEPS its arrowhead: it lands on a knob, not in a hole.
-    from: jackPoint(src, "out", 0),
+    from,
     to: a.widget
-      ? { x: tgt.x + a.widget.x, y: tgt.y + a.widget.y }
+      ? (widgetBorderPoint(tgt, a.param, from) ?? {
+          x: tgt.x + a.widget.x,
+          y: tgt.y + a.widget.y,
+        })
       : { x: tgt.x, y: tgt.y + tgt.h / 2 },
     param: a.param,
     onWidget: !!a.widget,
     ...(tgt.module ? { module: tgt.module } : {}),
   };
+}
+
+/** Where the line from `from` to the widget's centre crosses the box its glow is drawn on — the cable stops at the ring, not inside it. */
+export function widgetBorderPoint(
+  n: GraphNode,
+  param: string,
+  from: Pt,
+): Pt | undefined {
+  const w = panelWidgets(n.ui).find(([, v]) => v.bind === param)?.[1];
+  if (!w) return undefined;
+  const r = stripWidgetRect(n, w, columnW(n.ui));
+  const c = { x: n.x + r.x + r.w / 2, y: n.y + r.y + r.h / 2 };
+  const dx = from.x - c.x;
+  const dy = from.y - c.y;
+  // The fraction of the way out at which the line meets a side: the nearer of the two it could cross.
+  const t = Math.min(
+    dx ? r.w / 2 / Math.abs(dx) : Number.POSITIVE_INFINITY,
+    dy ? r.h / 2 / Math.abs(dy) : Number.POSITIVE_INFINITY,
+  );
+  // A socket inside the box itself has no border to stop at: the centre it is.
+  return t >= 1 ? c : { x: c.x + dx * t, y: c.y + dy * t };
 }

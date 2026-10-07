@@ -212,6 +212,9 @@ export function readFileTemplate(
     throw new Error(
       "a template has no `start` and no `ports`: its one input is what it is put after",
     );
+  // A template is ONE run spliced where it is put, and a subchain is a branch it would carry in with it.
+  if (value.subchains?.length)
+    throw new Error("a template is one run: it holds no `subchains`");
   const steps: TemplateStep[] = [];
   for (const [i, s] of value.steps.entries()) {
     if (isEndStep(s)) {

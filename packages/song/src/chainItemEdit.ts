@@ -6,12 +6,13 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseChain } from "@studio/song-schema/yaml/chainFile";
+import { parseChain, stepSeqs } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
   isTrackItem,
   itemsOf,
   NODE_ITEM_KEYS,
+  stepLists,
   TRACKS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
 import {
@@ -57,13 +58,12 @@ export function chainItemOf(dir: string, name: string): ChainItemRef | null {
 
 /** The item's map node inside a parsed chain file, found by its `id`. */
 function itemNode(doc: Document, id: string): YAMLMap | null {
-  const steps = doc.get("steps", true);
-  if (!isSeq(steps)) return null;
-  for (const s of (steps as YAMLSeq).items) {
-    const maps = isSeq(s) ? s.items : [s];
-    for (const m of maps)
-      if (isMap(m) && m.get("id") === id) return m as YAMLMap;
-  }
+  for (const steps of stepSeqs(doc))
+    for (const s of steps.items) {
+      const maps = isSeq(s) ? s.items : [s];
+      for (const m of maps)
+        if (isMap(m) && m.get("id") === id) return m as YAMLMap;
+    }
   return null;
 }
 
@@ -72,17 +72,15 @@ function slotOf(
   doc: Document,
   target: YAMLMap,
 ): { seq: YAMLSeq; index: number } | null {
-  const steps = doc.get("steps", true);
-  if (!isSeq(steps)) return null;
-  const top = steps as YAMLSeq;
-  for (let i = 0; i < top.items.length; i++) {
-    const s = top.items[i];
-    if (s === target) return { seq: top, index: i };
-    if (isSeq(s)) {
-      const k = (s as YAMLSeq).items.indexOf(target);
-      if (k >= 0) return { seq: s as YAMLSeq, index: k };
+  for (const top of stepSeqs(doc))
+    for (let i = 0; i < top.items.length; i++) {
+      const s = top.items[i];
+      if (s === target) return { seq: top, index: i };
+      if (isSeq(s)) {
+        const k = (s as YAMLSeq).items.indexOf(target);
+        if (k >= 0) return { seq: s as YAMLSeq, index: k };
+      }
     }
-  }
   return null;
 }
 
@@ -160,8 +158,8 @@ export function spliceChainItem(
 export function eventItemIds(chainText: string): string[] {
   const c = parseChain(chainText).value;
   if (!c) return [];
-  return c.steps
-    .flatMap(itemsOf)
+  return stepLists(c)
+    .flatMap((l) => l.steps.flatMap(itemsOf))
     .filter(
       (i) =>
         !isTrackItem(i) &&

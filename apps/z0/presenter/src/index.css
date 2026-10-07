@@ -1,5 +1,5 @@
 /* Tailwind v4 + the shared @frediverse/ui design tokens, then the presenter's
-   synthwave styling (ported verbatim; #app → #root patched). */
+   own stylesheet: the page background and the CRT film over the canvas. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@frediverse/ui/theme.css";
@@ -8,3 +8,4 @@
 /* @frediverse/ui lives in the commons submodule; Tailwind ignores a missing
    @source path without warning, and then emits no design-system classes. */
 @source "../../../../commons/packages/ui/src";
+@source "../../shared/src";

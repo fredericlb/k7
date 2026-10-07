@@ -1,4 +1,18 @@
-import { Play, RefreshCw, Star } from "@frediverse/ui/icons";
+// The session list, on commons' Card, Button and Badge: a host stylesheet styles none of it.
+// Hosts compile z0-shared themselves: their Tailwind must @source this folder, or these classes vanish.
+
+import { Alert, AlertTitle } from "@frediverse/ui/alert";
+import { Badge } from "@frediverse/ui/badge";
+import { Button } from "@frediverse/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@frediverse/ui/card";
+import { Loader2, Play, RefreshCw, Star } from "@frediverse/ui/icons";
+import { cn } from "@frediverse/ui/lib/utils";
 import type { LoadProgress, SessionRow } from "./types";
 
 // Presentational: the host owns the data, and this only emits select(id) and refresh().
@@ -24,49 +38,53 @@ export function SessionPicker({
   onRefresh: () => void;
 }) {
   return (
-    <section className="panel">
-      <header className="panel-title">
-        ┤ {title} ├
-        <button
-          className="audio-btn refresh"
-          disabled={loading}
-          onClick={onRefresh}
-        >
-          <RefreshCw className="size-4" />
-        </button>
-      </header>
-      <div className="panel-body session-body">
+    <Card>
+      <CardHeader className="flex-row items-center">
+        <CardTitle>{title}</CardTitle>
+        <CardAction>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={loading}
+            onClick={onRefresh}
+            aria-label="refresh"
+            title="refresh"
+          >
+            <RefreshCw className="size-4" />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
         {loading && sessions.length === 0 ? (
-          <div className="dim">loading…</div>
+          <p className="text-sm text-muted-foreground">loading…</p>
         ) : error ? (
-          <div className="audio-val warn">{error}</div>
+          <Alert variant="destructive">
+            <AlertTitle>{error}</AlertTitle>
+          </Alert>
         ) : sessions.length === 0 ? (
-          <div className="dim">no sessions in grist</div>
+          <p className="text-sm text-muted-foreground">no sessions in grist</p>
         ) : (
-          <div className="session-list">
+          <div className="flex flex-col gap-2">
             {sessions.map((s) => (
-              <div key={s.id}>
-                <button
-                  className={[
-                    "session-row",
-                    s.id === activeId ? "active" : "",
-                    selecting === s.id ? "pending" : "",
-                    s.resume ? "resumable" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+              <div key={s.id} className="flex flex-col gap-1">
+                <Button
+                  variant={s.id === activeId ? "secondary" : "outline"}
+                  className={cn(
+                    "h-auto w-full flex-wrap gap-3 px-3 py-3 text-left whitespace-normal",
+                    s.resume && "border-amber",
+                    selecting === s.id && "opacity-50",
+                  )}
                   disabled={selecting !== 0}
                   onClick={() => onSelect(s.id)}
-                  style={{ width: "100%" }}
                 >
                   {(selecting === s.id ||
                     (progress && progress.id === s.id)) && (
-                    <span className="spinner" aria-hidden="true" />
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
                   )}
-                  <span className="session-name">{s.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
                   {s.resume ? (
                     <span
-                      className="session-resume"
+                      className="ml-auto flex items-center gap-2"
                       title={
                         s.resume.total
                           ? `continue from song ${s.resume.played ?? 0} of ${s.resume.total}`
@@ -75,32 +93,32 @@ export function SessionPicker({
                     >
                       {((s.resume.played ?? 0) > 0 ||
                         (s.resume.total ?? 0) > 0) && (
-                        <span className="resume-count">
+                        <span className="text-xs text-amber tabular-nums">
                           {s.resume.played ?? 0} / {s.resume.total ?? 0} songs
                         </span>
                       )}
-                      <span className="resume-tag">
+                      <Badge variant="amber">
                         <Play className="size-3" /> RESUME
-                      </span>
+                      </Badge>
                     </span>
                   ) : typeof s.score === "number" ? (
-                    <span
-                      className="session-score"
-                      title="your best solo score"
-                    >
+                    <Badge className="ml-auto" title="your best solo score">
                       <Star className="size-3.5" /> {s.score}
-                    </span>
+                    </Badge>
                   ) : null}
-                </button>
+                </Button>
                 {progress && progress.id === s.id && progress.total > 0 && (
-                  <div className="progress" title={progress.name || ""}>
+                  <div
+                    className="relative h-6 overflow-hidden rounded-md bg-secondary"
+                    title={progress.name || ""}
+                  >
                     <div
-                      className="progress-fill"
+                      className="h-full bg-primary/20"
                       style={{
                         width: `${(progress.done / progress.total) * 100}%`,
                       }}
                     />
-                    <span className="progress-label">
+                    <span className="absolute inset-0 flex items-center justify-center text-xs">
                       caching audio · {progress.done}/{progress.total}
                     </span>
                   </div>
@@ -109,7 +127,7 @@ export function SessionPicker({
             ))}
           </div>
         )}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

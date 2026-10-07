@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { setAlternativeParam } from "./alternativeFile";
+import { setModuleAutomation } from "./moduleFile";
 
 const read = (text: string) => parse(text, { version: "1.2" });
 
@@ -39,5 +40,36 @@ describe("setAlternativeParam", () => {
     expect(out.engines.nam.params).toEqual({ ir: "b.wav" });
     const bare = "params: { Gain: 3 }\n";
     expect(setAlternativeParam(bare, "model", null)).toBe(bare);
+  });
+});
+
+describe("setModuleAutomation on a module with sets", () => {
+  const swapped = `extends: a
+alternatives:
+  - extends: b
+alternative: "2"
+`;
+
+  it("binds inside a set that swaps the module, since the node no longer reads its own fields", () => {
+    const out = read(
+      setModuleAutomation(swapped, "Geometry", "@meta/curves/x"),
+    );
+    expect(out.automations).toBeUndefined();
+    expect(out.alternatives[0].automations).toEqual([
+      { param: "Geometry", curve: "@meta/curves/x" },
+    ]);
+    const off = setModuleAutomation(
+      setModuleAutomation(swapped, "Geometry", "@meta/curves/x"),
+      "Geometry",
+      null,
+    );
+    expect(read(off).alternatives[0].automations).toBeUndefined();
+  });
+
+  it("binds on the node itself under a patch set, which inherits the node's list", () => {
+    const patch = 'alternatives:\n  - params: { Gain: 1 }\nalternative: "2"\n';
+    const out = read(setModuleAutomation(patch, "Gain", "@meta/curves/x"));
+    expect(out.automations).toHaveLength(1);
+    expect(out.alternatives[0].automations).toBeUndefined();
   });
 });

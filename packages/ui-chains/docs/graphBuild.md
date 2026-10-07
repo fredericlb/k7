@@ -24,7 +24,8 @@ again to know which entry is current or what a tapped pad should sound. `Consume
 side: `module` becomes the label and the id, `enabled` becomes `bypassed`/`dim`, `emits` decides an
 edge's signal, `automations` become nodes of their own, and `bases`/`shaders` become options.
 
-`events` is carried and drawn as labelled sockets down the right edge, apart from `jacks.out`: those
+`events` is carried and drawn as labelled sockets up the LEFT edge from its bottom (`eventOutBottom`),
+apart from `jacks.in` and `jacks.out`, which run along the top and bottom: those
 are the signal path, and an event is not something the chain carries. One list would let a cable be
 dragged from a note-on into an audio input — the drawing allowing what the model forbids.
 
@@ -99,9 +100,9 @@ grid ends as a block rather than a row missing.
 A widget spanning rows or columns covers the gaps between them (`rowsHeight`, `colsWidth`), so a
 fader, a screen or a group is one box, not a stack of cells.
 
-A node with an engine stage draws its sliders on the header's second line, so they cost no height;
-`nodeSize` only widens a card too narrow for them — `STAGE_HEADER_LEAD` plus a `STAGE_SLOT_W` slot each
-(`packages/ui-chains-react/docs/nodeCard.md`).
+A module card is its panel and, under it, a bottom bar of `FOOTER_H` — the engine stage's knobs and
+the alternatives (`packages/ui-chains-react/docs/nodeCard.md`) — which `nodeSize` adds when asked; a
+strip has neither, and is its panel alone.
 
 ### The header's name has to be readable at that width
 
@@ -414,7 +415,8 @@ is its mirror and has no input jack — nothing plugs into a preamp, and the soc
 param picked on its card. `monitor` names one, because the file service sets it for an io `in` step
 and nothing else. A **curve** is off the signal path entirely — it drives a knob rather than
 plugging in — so it is left out of `jacksFor` (which types a jack by the signal it carries, and a
-curve carries none) and the renderer gives it one mauve socket of its own. An **automation** edge
+curve carries none) and the renderer gives it one mauve socket of its own, halfway down its RIGHT
+edge in every layout (`curveOutPoint`) — toward the node it sits left of and drives. An **automation** edge
 occupies no jack for the same reason; counted as a feeder it would reveal the next free socket for
 nothing.
 
@@ -757,7 +759,8 @@ named explicitly — so `from` and the chain's own name are usually the same str
 
 ## Automation edges
 
-One curve node per binding, arrowing into the module's param. Each binding is its own node — a curve
+One curve node per binding, arrowing into the module's param. The edge carries the curve's DEPTH
+(`automationDepth.ts`), its amplitude and polarity, which a knob draws as the stretch it sweeps. Each binding is its own node — a curve
 id reused by two params draws twice — so the id carries the chain, the step and the param. The edge
 bypasses `link()` (no collapse, no gain) and carries the automation payload the renderer draws
 purple.
@@ -769,13 +772,16 @@ two event sockets cannot say that the same shape is fired by the drums here and 
 two cards say it by standing apart. The shape is still one file on disk and the label is still the
 curve's id, so the two instances are legibly the same curve.
 
-An `adsr` curve therefore also gets the cable that FIRES it, from the announcing module's note-on
-into the curve's event socket. It runs the other way to the automation edge — events in, values out
+A curve an event FIRES also gets the cable that does it, from the announcing module's note-on into
+the curve's event socket (`firedByEvent`): an `adsr` curve always, and any other when one of its
+conditions is an `event` — the note-ons that start or retrigger it are read from the same node. The
+socket is halfway down the card's LEFT edge (`EVENT_IN_AT`); the automation out is halfway down its
+right edge — in on one side, out on the other. It runs the other way to the automation edge — events in, values out
 — which is what makes the pair readable as a loop. The trigger defaults to the module being
 automated, which is what the compiler does (`nodeProject.ts`), and is drawn from the same field so
 the picture cannot claim one source while the bake uses another. `curveSubLabel` tells `adsr` from
 `custom` for the same reason: an envelope is the one curve here that is not a function of song time,
-and a reader who cannot tell them apart cannot tell why one has a socket on its left.
+and a reader who cannot tell them apart cannot tell why one is fired with no condition naming an event.
 
 The arrow lands on the **widget** bound to that param when the module draws one; with no widget it
 points at the module's border and the param name is shown as a label.
@@ -792,6 +798,30 @@ drawing nothing at all would make the verb's result invisible and the canvas men
 promise with no picture behind it. Its id carries no binding, which is exactly what tells it apart
 from an instance — one free card per curve, one bound card per binding.
 
+### Curve cards
+
+A bound card sits **at the left of the node it drives, under its top** (`src/curvePlacement.ts`),
+on the side its events leave from. Several curves on one node stack downward. dagre sees an automation edge as one more edge and would put the card
+anywhere on its row, so its spot is dropped: the card goes just left of its target, and the row
+sweep sorts it immediately before that target, so the sweep parts them by making room rather than by
+pushing a neighbour between them. Neither the automation edge nor the event one counts in
+`pushBelowInputs` — a curve is not an input, and reading the pair as feeds would put the curve below
+its node and the node below the curve.
+
+The place is FORCED (`curvesUnderLeft`), after the pins and after the cards' remembered places: a
+curve card goes where its target IS, whatever it was before. It is a detail of that node, so a
+binding added to a graph you arranged lands beside it, and a node moved takes its curves along —
+which is also why a curve card cannot be dragged away from its node.
+
+
+**In a row** (`moduleRow`, the per-track view) a curve card is drawn only when asked (`curves`), and
+then the same way: in a column just before the card it drives, under its top, the neighbours moved
+apart by `CURVE_ROOM` either side to make room — the two cards it falls between no longer touch, so
+the seam between them goes. Asked or not, the automation edges landing on a card in the row are kept,
+the curve card missing or not: the glow on a driven knob is read off those edges, and an edge whose
+curve is not drawn simply draws no cable. A card's event plugs go with its curves: hidden, there is nothing for an event
+to fire, and a plug that leads nowhere is an invitation to drag a cable into a view that will not
+draw it.
 ## Orphans are drawn
 
 Tracks no chain mentions are drawn as orphan nodes: a node with nothing wired to it. Leaving them
@@ -1001,7 +1031,7 @@ sockets rather than from one point. A cable between columns needs neither: it is
 `moduleRow` is the standalone surface: the named modules side by side, dagre deliberately not used —
 there are no cables between channel strips to route, and the ORDER is the caller's (the song's track
 order), which a layout engine should not be allowed to choose. The cards come from `buildGraph`, so
-each is the same card the full graph draws, live values and all; only the position is ours. Five
+each is the same card the full graph draws, live values and all; only the position is ours. Seven
 rules:
 
 - a name with no module in the graph is **skipped**, not drawn as a gap: the caller's list comes
@@ -1023,6 +1053,22 @@ rules:
   the longer cable it is. The edges are the graph's own, kept where both ends are in the row;
   nothing is invented between neighbours, because two cards side by side with no cable between them
   is the truth about a lane whose chains do not touch.
+- its `gap` option is the air between two cards: a rank of strips keeps it, since a channel is not
+  wired to the next, and one lane's path sets it to -1, its cards GLUED into one strip: each overlaps
+  the one before by a pixel, a stack's cards likewise, so two neighbours share ONE border — side by
+  side at 0 their two borders read as a line twice as thick. `rowSeams` takes a card ending on, or one
+  pixel past, the next one's start as touching. `rowSeams`
+  then marks each arrow between two touching cards `glued` — the renderer draws no cable for it,
+  one between touching cards being a loop backwards over the seam, but the live ripple still walks
+  it — and puts a `+` on that seam and one past the last card. A seam with no arrow behind it
+  offers none: there is nothing to splice into.
+- its `stack` option draws each of the graph's `stacks` — a chain project's subchains run in place —
+  as one COLUMN, its cards one under another at the column's width and their own heights, a lone card
+  still as tall as the tallest column. The arrow down a column is glued like one across a seam, and
+  `rowSeams` (asked with `branch`) gives each seam whose left card is a module a second button, a
+  BRANCH at `SEAM_BRANCH_AT` of its height, which stacks a new node under that card. `stacks` is in the
+  graph exactly when the project is a chain project, so a `graph.yaml` project gets no branch: it has
+  no subchain to make.
 - its `track` option puts that LANE's own card at the **head** of the row, which one lane's signal
   path wants and a rank of channel strips has no use for. The lane is found by KIND and not by name
   — `trk:` is prefixed precisely so a lane and a module may share one — and, unless `asDrawn`, it

@@ -108,7 +108,7 @@ why a Windows dev machine at 100 % never shows it.
 The labels and the hit paths stay in SVG: they do not move, so they cost nothing per frame —
 and text is the one thing a canvas would draw worse. The automation cables are on the canvas,
 because a cable that sways is a cable that moves: a curve is a node whose cables behave as
-cables do — dashed mauve, an arrowhead traced from the last drawn segment, but the same hang,
+cables do — dashed mauve and faint, but the same hang,
 the same spring, the same layer over the cards (docs/hang.md). Only their param labels remain
 in the SVG, being text.
 

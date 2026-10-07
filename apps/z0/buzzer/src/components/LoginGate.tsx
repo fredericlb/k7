@@ -1,6 +1,7 @@
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Input } from "@frediverse/ui/input";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { type FormEvent, useState } from "react";
 import { login, loginAsGuest, useAuth } from "../lib/auth";
 
@@ -63,28 +64,26 @@ export function LoginGate({ message }: { message?: string }) {
   }
 
   return (
-    <div className="login-gate">
-      <div className="login-card">
-        <div className="login-title">BLIND-TEST</div>
-        {message && <div className="login-msg">{message}</div>}
-
+    <SignInScreen
+      title="BLIND-TEST"
+      description={message}
+      className="text-center"
+    >
+      <div className="flex flex-col gap-3">
         {!isAuthenticated && (
           <>
-            <Button
-              variant="outline"
-              className="login-btn"
-              onClick={handleLogin}
-            >
+            <Button className="w-full" onClick={handleLogin}>
               <FrediverseMark size="sm" />
               LOGIN
             </Button>
             {guestEnabled && (
               <>
-                <div className="divider">
-                  <span>OR GUEST</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  OR GUEST
+                  <span className="h-px flex-1 bg-border" />
                 </div>
                 <Input
-                  className="guest-input"
                   type="password"
                   placeholder="PASSWORD"
                   autoComplete="current-password"
@@ -97,11 +96,11 @@ export function LoginGate({ message }: { message?: string }) {
         )}
 
         <form
-          className={`name-form${!isAuthenticated ? " name-form-separated" : ""}`}
+          className={`flex gap-2${!isAuthenticated ? " mt-2 border-t pt-4" : ""}`}
           onSubmit={submitJoin}
         >
           <Input
-            className="guest-input name-input"
+            className="flex-1"
             type="text"
             placeholder="YOUR NAME"
             autoComplete="off"
@@ -109,18 +108,13 @@ export function LoginGate({ message }: { message?: string }) {
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
           />
-          <Button
-            variant="outline"
-            className="guest-btn"
-            type="submit"
-            disabled={!canJoin}
-          >
+          <Button variant="outline" type="submit" disabled={!canJoin}>
             {joinLabel}
           </Button>
         </form>
 
-        {error && <div className="guest-error">{error}</div>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
-    </div>
+    </SignInScreen>
   );
 }

@@ -13,10 +13,35 @@ one mixer read as seventeen unrelated cards.
 So the header wears the MODULE — the last segment of its ref, which is its file name — or the
 node's own name when there is no second one. When the two differ, the node's name is the first line's
 TOOLTIP: hovering the module's line answers WHICH use this is. It has no line of its own, because the
-second line holds the engine's stage, which is a control and is used far more often than a name that
+second line holds the engine-and-preset dropdown, a control used far more often than a name that
 is read once. The name's own tooltip holds both, the ref and the node. The far LOD says the module too: at that
 zoom the card IS one word, and the useful one is what the node is rather than which copy of it. Two
 LODs answering differently would be two cards.
+
+**A curve card draws the curve editor's picture, and only that**: the same samples, split the same way
+(`previewParts`, `@studio/song-schema`'s `curveMath.ts`, at the editor's resolution), on the same -1..1 frame with 0 dashed and the same beat and bar lines (`previewBeats`), an
+endless oscillator's next cycle faded. One function behind both, so a card cannot show a curve the
+editor would not. The split puts an exact sample on the boundary between the solid cycle
+and the faded rest, in both: split by filtering samples instead, a drop that falls between two of them
+— a saw's, at every cycle's end — belongs to neither line and is not drawn. The card has NO header: the picture is the whole card and says nothing in words —
+its kind is what the picture shows, and its name is the card's tooltip. The header's two gestures
+move onto the picture, so the card still drags (the pin) and a double-click still frames it. Its SVG stretches to the box
+(`preserveAspectRatio="none"`) with `non-scaling-stroke`, so the lines keep their width whatever the
+card's proportions. Its bar lines and its playhead read the song's clock from the host (`SongClockProvider`,
+docs/hosting.md), 4/4 and no playhead without one.
+
+**While the transport plays, a card draws a playhead**: a line where the song is on its picture and a
+dot on the value the curve has there (`previewPlayhead`). An endless oscillator's picture is one
+cycle, so the song folds into it — its phase is the song's, counted from bar 1 — and a finite curve
+holds at its end once past it. It is the picture's arithmetic and not the engine's: a curve under
+conditions is drawn as if it ran always, and an envelope, which has no song time, draws none. The
+position is the engine's frame (~20 Hz), subscribed by the picture alone, so a frame re-renders that
+SVG and never the graph.
+
+**The far LOD draws no curve card**, and no cable into or out of one (`withoutCurves`, in
+`@studio/ui-chains`' `curvePlacement.ts`). A binding is a detail of the knob it moves, and at that zoom
+the knobs are gone: what is left is the signal path, which a mauve card per binding would crowd. The
+cards are dropped AFTER the layout, so zooming changes what is drawn and never where anything sits.
 
 The stack lives inside `UI_HEADER` (38 px), which the layout and the hit areas share, and the header
 is that height ALWAYS — `height:UI_HEADER` in the CSS, not its content's height. A card with one name
@@ -28,20 +53,24 @@ grew would put every widget grid under its own card's chrome.
 The card is SQUARE-cornered, and so are its header and an open box's frame: a card is a
 panel in a rack, and the cables meeting its edges read as plugged into a face, not into a pebble.
 
-### On/off leads the header
+### The node's icon leads the header, and on a module it is the on/off
 
-A live module's bypass is a block at the header's LEFT edge, its full height, before the glyph —
-`.dgx-byp`, `BYPASS_W` wide, a rule between it and the name. It is the first control a hand reaches
-for on a module, so it sits where the eye starts reading the card, and as a block the height of the
-header it is a target rather than a 17 px disc on a corner. Lit amber when the module is bypassed.
-`headerNameW` counts it: the block and the gap after it (`BYPASS_GAP`) replace the header's left
-padding. A baked module, a track and a sink draw none — there is nothing behind them to bypass. `min-width:0` on the row is what makes an ellipsis inside a flex row work at
-all — the same reason it appears on the track's input label.
+The header's LEFT column (`.dgx-hdlead`, `BYPASS_W` wide, its whole height, a rule between it and the
+name) holds the node's ICON — its module glyph, or a lane's track icon. On a live module that icon IS
+the bypass: clicking it switches the module off and on, and it takes the switch's colours — dim, lit on
+hover, amber when bypassed. The first thing a hand reaches for on a module is in the place the eye
+starts reading, and the mark that says what the card is says whether it runs, rather than a generic
+power glyph saying only the latter. A baked module has nothing behind it to bypass, so its icon there
+is just an icon; so is a lane's, and a strip's, which wears its lane's face. The name's row then leads
+with the name. `headerNameW` counts the column: it and the gap after it (`BYPASS_GAP`) replace the
+header's left padding. A card with no column — a sink — leads its name's row with its glyph instead.
+`min-width:0` on the row is what makes an ellipsis inside a flex row work at all — the same reason it
+appears on the track's input label.
 
 ### The header is a COLUMN, and only its top row makes way for the bubbles
 
 `.dgx-hd` stacks two things: `.dgx-hdtop`, a row carrying the glyph, the module's name and whatever
-stands beside them, and `.dgx-hdsub` under it — the engine's stage and the engine select. Two consequences, both of them the point:
+stands beside them, and `.dgx-hdsub` under it — the engine-and-preset dropdown. Two consequences, both of them the point:
 
 - **the glyph leads the module's name and nothing else.** Centred against the whole two-line block
   it belongs to neither line, and reads as an ornament of the card rather than of the name;
@@ -84,28 +113,33 @@ and at a fixed 12.5 px seventeen identically-shaped mixers all read `vo_j…`. T
 anyway: the fit is floored, so a long enough name is still cut.
 
 `headerNameW` is the top row's own numbers written out again: 10 px of padding each side, a 7 px
-gap, a 13 px glyph or an 8 px dot leading the name, and the engine select when there is one. It
+gap, a 13 px glyph or an 8 px dot leading the name, and the tags beside it on a card with no bottom bar. It
 sizes the MODULE's line alone — the node's name below it is ellipsed, having a whole card's width to
 run in. The layout is flex, so the real figure only exists after a reflow, which is exactly what a
 per-card measurement would cost. If the CSS moves, this moves with it.
 
-## The header's two lines: alternatives on the first, the engine on the second
+## The header's two lines: the module on the first, the engine on the second
 
-The top line is the MODULE — its name, then its TAGS (the engine's `!` when the plugin failed to
-load, first because a fault outranks a state; the snowflake when it is frozen), then at the right end the alternatives' badges, which are ways of playing that
-module. The tags are states of the module, so they read beside its name; on a corner of the card a
-tag would hang outside it and collide with whatever dagre puts next to it. Each has a set width
-(`FREEZE_TAG_W` for both discs), counted with the badges in the width `headerNameW` leaves the name. The second line is what the ENGINE does with the node — its stage, IN / MIX /
-OUT, and at the right end the engine select (`packages/song/docs/engines.md`), which says what it runs
-as. Each control sits on the line whose subject it qualifies, and the header, being a fixed two lines,
-has room for both without growing.
+The top line is the MODULE's name, and nothing else on a module card: its TAGS (the engine's `!` when
+the plugin failed to load, first because a fault outranks a state; the snowflake when it is frozen)
+and its cost are in the bottom bar's centre. A card with no bottom bar — a strip — keeps them beside
+its name, each a set width (`FREEZE_TAG_W` for both discs) counted in the width `headerNameW` leaves
+the name, and the cost on the header's bottom border. The second line is what the ENGINE does with the node — ONE dropdown (`PresetButton`) saying what it
+runs as (`packages/song/docs/engines.md`) and with which preset, opening one list the host draws: the
+presets, and a left bar of the engines when there is a choice. Two dropdowns side by side were two
+places to look for "how is this module set up", and the engine bar beside the presets keeps the pick
+and what it changes in one popup. The button is SET-width, never left to the browser:
+`presetButtonW`, the preset's room plus the longest engine name's when there are engines.
 
-Both are SET-width, never left to the browser: `altBadgeW` per badge (5.5 px a character plus
-padding, 15 to 80 px) and `engineSelectW` for the select (capped at 84 px). The badges share the
-top line with the name, so `headerNameW` subtracts their row — badges, gaps and the `+` — and the
-name's fitted size is computed against the width they actually take; a row sized by its content
-would only know that width after a reflow. The select shares the second line with the stage sliders,
-which share out what it leaves, and need no figure of their own.
+## Header text is capped on SCREEN
+
+Everything a header writes — the name, the sub-name, an input's label, the engine-and-preset
+dropdown — and the alternative badges in the bottom bar are drawn at most `HEADER_TEXT_MAX_PX` (16 px) tall on screen,
+whatever the camera's zoom. A graph that fits a row to a pane's height zooms in a long way, and
+header text scaled with it reads as a shout over the controls it names. Sizes are world units under
+a CSS transform, so the cap is the zoom's inverse: `applyCam` writes it to the world as `--dgx-k`,
+and each header text takes `min(its own size, 16px / --dgx-k)`. The boxes keep their size; only the
+text inside them shrinks, so nothing reflows around it.
 
 ## A tabbed panel's column
 
@@ -136,8 +170,9 @@ a window on — and, for the same reason, no on/off block in its header. Its fre
 
 ## The alternatives are badges, not a bubble
 
-A module's attribute sets (`packages/song/docs/alternatives.md`) are drawn as a row of badges at
-the right end of the header's top line: one per set, the one playing lit, and a `+` last. They
+A module's attribute sets (`packages/song/docs/alternatives.md`) are drawn as a row of badges at the
+right of the card's bottom bar: one per set, the one playing lit, and a `+` last. Out of the header,
+they take no width from the name. They
 are not in `cornerButtons`, because they are not one control each module might have — they are a
 list whose length is the module's. A menu hid the one fact worth seeing at a glance, that this node
 has variants and which one is on; a badge per set says it without a click, and switching is one
@@ -154,8 +189,8 @@ the reason to add a set is to try a change against what you are hearing, and a c
 
 A module with only its own settings still gets the `+`, since a second set has to start somewhere
 and that somewhere is the node — but only while the card is hovered or selected, or every card in
-the graph would wear one. Its slot is kept while it is hidden, so hovering a card does not shift its
-name. A note draws none: it returns before the card that carries them.
+the graph would wear one. Its slot is kept while it is hidden, so hovering a card does not shift
+anything. A note draws none: it returns before the card that carries them.
 
 ### Where a bubble sits
 
@@ -169,31 +204,29 @@ Every bubble is the same disc; what differs is the SLOT it takes, counted from t
 are two of them — plugin UI and an assembly's open — and a variant per combination is where a third
 would go wrong.
 
-## The engine's stage, on the header's second line
+## The bottom bar: the stage on the left, the badges centred, the alternatives on the right
 
-A module whose plugin the engine wraps in its own stage (`engine/st0-engine/docs/mix.md`) gets one
-slider per value the stage takes — `in` (`@input-volume`), `mix` (`@mix`), `out` (`@output-volume`) —
-always in that order, only those that apply. WHICH apply is the compile's own test, carried on the
-step as `stage` (`packages/song/src/ownMix.ts`), so the card shows exactly what the engine does to the
-module.
+A module card ends in a BAR (`.dgx-foot`, `FOOTER_H` tall, which `nodeSize` adds under the panel so
+it covers none of it). A strip draws none: it has neither a stage nor attribute sets.
 
-They sit on the header's SECOND line, side by side, sharing what the engine select leaves. The header
-is a fixed two lines whatever it holds, so they cost the card no height; the panel keeps the whole of
-its grid, and the tab column is the tabs' alone. A card with a stage is at least wide enough for a
-`STAGE_SLOT_W` slot per slider after the header's lead (`nodeSize`), so three of them never crush to
-nothing on a narrow panel.
+Its LEFT holds the engine's stage (`engine/st0-engine/docs/mix.md`) — the up to three values the engine
+wraps a plugin in, carried on the step as `stage` (`packages/song/src/ownMix.ts`) — as small knobs
+(`FOOT_KNOB_PX`) in signal order: IN, MIX, OUT, each only when the stage has it, its name the tooltip.
+They are ordinary widgets (a drag, a typed value, a MIDI map). Its CENTRE holds the node's badges —
+the engine's `!`, the snowflake when it is frozen or frozen automatically, and what the plugin costs —
+centred on the CARD, the bar being three columns whose outer two share alike. Its RIGHT holds the
+alternatives' badges. Both kinds are about running THIS module rather than about its panel, which is why they share
+a bar of their own rather than a corner of the grid.
 
-It is not part of `ui.yaml` and nothing edits it: every module has the same three in the same place,
-which is the point — a panel author, a person or AI organize, places the plugin's controls and never
-these. Each is drawn compact: its caption a fixed width anchored left, the bar, the reading a hover
-tooltip. The sliders are ordinary widgets on the same live path as `@mix` everywhere else, so a drag,
-a typed value and a MIDI map all work on them; a lane has none, its level being its strip's fader.
+The bar sits above the seams' layer, so a seam's hover band, which runs the cards' whole height,
+never covers its controls.
 
-## What a plugin costs, on the header's border
+## What a plugin costs, in a badge
 
-A card whose plugin costs something says so in a small badge sitting ON the header's bottom border,
-at the right: `3%`, or `3% · 45 MB` for one of our plugins holding a big buffer. On the border and
-absolute, so it takes no width from the name, which is already sized to the last pixel. The figures
+A card whose plugin costs something says so in a small badge: `3%`, or `3% · 45 MB` for one of our
+plugins holding a big buffer. On a module card it is one of the bottom bar's centred badges; on a card
+with no bar it sits ON the header's bottom border at the right, absolute, so it takes no width from
+the name, which is already sized to the last pixel. The figures
 are the engine's (`engine/st0-engine/docs/load.md`), shaped in `src/nodeLoad.ts`:
 
 - **Silent under 1 % and under 1 MB.** Most nodes cost nearly nothing, and a graph where every card
@@ -263,9 +296,11 @@ as hardware: a bare dot on a border reads as a bullet, and a node with three of 
 list. It sits OUTSIDE the card so it never competes with the widget grid. The bore is coloured by
 what the port carries, so a socket matches the cable that belongs in it.
 
-An EVENT socket sits on a SIDE edge, where signal never goes: inputs and outputs run down the card,
-so left and right are free and the two can never be confused. It is also the only socket that says
-its name — an event is announced, and "note-on" is the whole of what the announcement means.
+An EVENT socket is a plate on a SIDE edge, where signal never goes — inputs and outputs run along the
+top and bottom, so the two can never be confused. What a module announces is on its LEFT edge,
+aligned at the bottom, one above the next (`eventOutBottom`, in px from the corner); a curve's event
+input is halfway down its own left edge. It is the only socket that says its name, beside it — an
+event is announced, and "note-on" is the whole of what the announcement means.
 
 Three states, and they say three different things:
 

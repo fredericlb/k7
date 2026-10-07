@@ -270,6 +270,43 @@ value: a toggle, a pad or a dropdown already set an exact value in one click.
 A drag's release now writes only when the value MOVED. The double-click's two presses each start
 a drag; without that check, each would write the value the control already held.
 
+## An automated control glows
+
+A control whose param a curve drives wears a glow in the automation cable's mauve (`.dgx-w.auto`):
+it is moving by itself, and the cable that says so may be off screen or, in a row, not drawn at all.
+Which params are driven is read off the graph's automation edges, per node, and handed to the card
+as ONE newline-joined string rather than a list, so the memoised card re-renders only when the set
+of driven params actually changes.
+
+The automation cable **stops at that ring** rather than at the control's centre
+(`widgetBorderPoint`, `@studio/ui-chains`' `cables.ts`): run to the centre, it crossed the reading it
+points at. It ends where the line from the curve's socket to the centre crosses the box
+the ring is drawn on — `stripWidgetRect`, the same box the control is placed in, so a strip's
+taller fader is met at its own edge.
+
+A driven **knob also draws its curve's depth**: a mauve arc just inside the value's sand one, over
+the stretch of the travel the curve sweeps (`automationDepth.ts` in `@studio/ui-chains`). The
+stretch is the ENGINE's mapping, not a guess at it — a unipolar curve spans 0..amplitude, a bipolar
+one rides ±amplitude/2 around the knob's AUTHORED value, which is what the engine rides around; the
+live value would make the gauge chase the needle. A cut keeps one side of that: a bipolar curve
+cut positive draws from the set value up, cut negative from it down. An on/off curve has no depth and draws none. The
+depth reaches the memoised card inside the same newline-joined string as the glow, after a tab.
+
+## Several nodes, one control
+
+Shift+click adds a node to the selection, or takes it back out; a plain click is a single selection
+again. The set is the graph's own (`DomChains`), beside the host's single `selected`, which is set
+only when there was none — so a host that knows one selected node is not asked to know several.
+
+When EVERY selected node is a use of the same ref on the same engine, a control moved on one of them
+moves the same control on the others, to the same VALUE — a drag, a typed value, a pick, a toggle,
+an interactive screen. They are uses of one module, so the control means the same param on each; a
+toggle SETS the others to where the one under the hand lands rather than flipping each, which would
+leave them out of step. A selection that is mixed links nothing at all: half a fan-out would be a
+control whose reach nobody can predict. A baked node is left out and the rest still move
+(`@studio/ui-chains`'s `multiSelect.ts`). Each node's value is written to its own file, so a move
+across four nodes is four lines in the journal.
+
 ## A dropdown's caption, on top of it
 
 A dropdown's caption sits directly ON TOP of its select, left-aligned with the select's edge,

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  AUTO_ARROW,
+  AUTO_ALPHA,
   AUTO_DASH,
   AUTO_SHADOW_W,
   AUTO_W,
@@ -327,7 +327,7 @@ describe("drawCables", () => {
     expect(ctx.strokes).toEqual([]);
   });
 
-  it("an automation cable wears its dress: solid shadow, dashed stroke, filled arrowhead", () => {
+  it("an automation cable wears its dress: solid shadow, dashed stroke, a fifth's alpha, no head", () => {
     const ctx = recorder();
     drawCables(
       ctx,
@@ -340,29 +340,19 @@ describe("drawCables", () => {
             width: AUTO_W,
             shadowWidth: AUTO_SHADOW_W,
             dash: AUTO_DASH,
-            arrowSize: AUTO_ARROW,
+            alpha: AUTO_ALPHA,
           },
         ],
       }),
       newScratch(),
     );
     expect(ctx.strokes).toEqual([
-      [SHADOW_COLOR, AUTO_SHADOW_W, 1],
-      ["#a889b5", AUTO_W, 1],
+      [SHADOW_COLOR, AUTO_SHADOW_W, AUTO_ALPHA],
+      ["#a889b5", AUTO_W, AUTO_ALPHA],
     ]);
-    // Solid for the shadow, the dash for the cable, solid again for the head.
-    expect(ctx.dashes).toEqual([[], AUTO_DASH, []]);
-    expect(ctx.fills).toEqual(["#a889b5"]);
-    // The head is a closed triangle whose TIP is the cable's own last drawn point.
-    const closeAt = ctx.calls.findIndex((c) => c[0] === "closePath");
-    expect(closeAt).toBeGreaterThan(-1);
-    const tip = ctx.calls
-      .slice(0, closeAt)
-      .reverse()
-      .find((c) => c[0] === "moveTo");
-    const last = g.base[g.base.length - 1];
-    expect(tip?.[1]).toBeCloseTo(last.x, 12);
-    expect(tip?.[2]).toBeCloseTo(last.y, 12);
+    // Solid for the shadow, the dash for the cable — and nothing filled after it, there being no head.
+    expect(ctx.dashes).toEqual([[], AUTO_DASH]);
+    expect(ctx.fills).toEqual([]);
   });
 });
 

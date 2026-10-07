@@ -36,7 +36,7 @@ export default {
   eq: {
     draw(lcd) { /* as above */ },
     pointer(lcd, ev) {
-      // ev: { type: "down" | "move" | "up" | "wheel", x, y, delta, shift, alt }
+      // ev: { type: "down" | "move" | "up", x, y, shift, alt }
       if (ev.type === "move") lcd.set("Mid Freq", 1200);
       return true;
     },
@@ -86,13 +86,13 @@ picture is made of — an EQ point is a band's frequency AND gain — so one bin
 
 **`set` is a knob's path, not a new one.** Live to the engine once per frame, an override so every
 other widget on the card bound to that param moves with it, and one `node param` per param set when
-the gesture ends — in sequence, since they write one file. A wheel has no release, so it is
-written once the wheel has been still for `WHEEL_COMMIT_MS`. The host provides it through
+the gesture ends — in sequence, since they write one file. The host provides it through
 `LcdSetContext`; a host that provides none gets screens that only draw.
 
 **The pointer is bound natively on the canvas.** A press is stopped there, so it never pans the
-graph or selects the node. A wheel is stopped only when the handler returns true: a screen that
-ignores the wheel off its points leaves the graph's zoom working over it.
+graph or selects the node. **A screen takes no wheel**: the wheel is the graph's zoom, and a screen
+that took it — even only over its points — made zooming over a card depend on where on the card the
+pointer happened to be. Whatever a wheel would set is a drag or a knob instead.
 
 **AI organize makes one only when asked** (`packages/ui-module-builder/docs/aiOrganize.md`): a
 screen that takes the pointer takes it from the graph too.

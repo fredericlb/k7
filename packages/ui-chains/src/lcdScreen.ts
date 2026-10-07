@@ -32,12 +32,10 @@ export type LcdDraw = (lcd: LcdFrame) => void;
 
 /** A pointer on an INTERACTIVE screen, in the same CSS pixels the draw uses. */
 export interface LcdPointerEvent {
-  /** `down`, `move` and `up` bracket one gesture; `wheel` stands alone. */
-  type: "down" | "move" | "up" | "wheel";
+  /** `down`, `move` and `up` bracket one gesture — a screen takes no wheel, which is the graph's zoom. */
+  type: "down" | "move" | "up";
   x: number;
   y: number;
-  /** `wheel` only: positive when the wheel turns down (the browser's `deltaY` sign). */
-  delta: number;
   shift: boolean;
   alt: boolean;
 }
@@ -48,7 +46,7 @@ export interface LcdPointerFrame extends Omit<LcdFrame, "ctx"> {
   set(name: string, value: number): void;
 }
 
-/** A pointer handler: returns true when it took the event, so a wheel it ignores still zooms the graph. */
+/** A pointer handler: returns true when it took the event. */
 export type LcdPointer = (
   lcd: LcdPointerFrame,
   ev: LcdPointerEvent,

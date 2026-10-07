@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@frediverse/ui/tooltip";
 import { clearDevPerfEntries } from "@studio/project-shell/devPerf";
 import { projectBasename } from "@studio/project-shell/launch";
 import ReactDOM from "react-dom/client";
@@ -18,6 +19,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       import.meta.env.BASE_URL,
     )}
   >
-    <Gate />
+    <TooltipProvider>
+      <Gate />
+    </TooltipProvider>
   </BrowserRouter>,
 );

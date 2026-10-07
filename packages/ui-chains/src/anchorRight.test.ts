@@ -77,11 +77,8 @@ describe("splitTrailingMixer", () => {
     expect(mixer.w).toBeGreaterThan(0);
   });
 
-  it("sizes the bare card by its panel, not by the header's stage sliders", () => {
-    const whole = row(["amp", "strip"]);
-    const split = splitTrailingMixer(whole);
-    // In the row the header's three sliders make the card wider than its one column needs.
-    expect(whole.nodes[2].w).toBeGreaterThan(nodeSize(STRIP_UI).w);
+  it("sizes the bare card by its panel", () => {
+    const split = splitTrailingMixer(row(["amp", "strip"]));
     expect(split?.mixer.nodes[0].w).toBe(nodeSize(STRIP_UI).w);
   });
 

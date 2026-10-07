@@ -91,7 +91,12 @@ export const KEYS: Record<string, Binding> = {
   c: COPY_SELECTION,
   // `p` is one line whatever is held: the clipboard carries its kind, so the condition is merely that something IS held.
   p: PASTE_SELECTION,
-  // `x` deletes what a clip grid's rectangle holds — conditional on a grid being open, since the timeline has no counterpart.
+  // Backspace deletes notes AND events: the rectangle wherever one is drawn, else what the caret is on. FIRST, so the legend shows it.
+  backspace: [
+    { if: "clip_grid", command: "selection delete" },
+    { if: "timeline_active", command: "selection delete" },
+  ],
+  // `x` stays beside it for a clip grid, a hand already on the letters not reaching for the corner.
   x: { if: "clip_grid", command: "selection delete" },
   // The MODES of all three surfaces. `a` is the neutral one everywhere and `d` takes something away on two — the pane in FRONT wins both.
   a: [
@@ -129,6 +134,7 @@ export function keyToken(e: KeyboardEvent): string | null {
   if (e.key === "Escape") return "esc";
   // Shift+Tab lands here and cycles FORWARD too: a ring of three is walked in at most two presses.
   if (e.key === "Tab") return "tab";
+  if (e.key === "Backspace") return "backspace";
   return e.key.length === 1 ? e.key : null; // a bare character; named keys above
 }
 
@@ -208,6 +214,7 @@ export function keyLabel(token: string): string {
     enter: "Enter",
     esc: "Esc",
     tab: "Tab",
+    backspace: "Backspace",
     // Spelt out rather than as a glyph, which too few people read at a glance; on a Mac it is ⌘ that fires it — see CHORDS.
     "ctrl+c": "Ctrl+C",
     "ctrl+v": "Ctrl+V",

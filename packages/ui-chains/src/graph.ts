@@ -5,6 +5,7 @@
 
 import dagre from "@dagrejs/dagre";
 import type {
+  CurveSpec,
   WebChainStep,
   WebCurve,
   WebGraph,
@@ -25,7 +26,14 @@ import {
   RACK_BIND,
   rackBindSymbol,
 } from "@studio/song-schema/yaml/moduleSchema";
+import { type AutomationDepth, depthOf } from "./automationDepth";
 // Type-only the other way (hang.ts takes `Pt` as a type), so this import cannot cycle.
+import {
+  curvesLeftOfTargets,
+  curvesUnderLeft,
+  curveTargets,
+  rowSortKey,
+} from "./curvePlacement";
 import { hangPoints } from "./hang";
 
 /** What a node carries from its step, declared once instead of copied — see docs/graphBuild.md. */
@@ -211,6 +219,8 @@ export interface GraphNode extends Carried, Flags {
   aspect?: number;
   /** A curve node's BINDING, carried rather than parsed back out of the id — see docs/graphBuild.md. */
   curveOf?: { curve: string; module?: string; param?: string };
+  /** …and the curve itself, so its card draws the picture the curve editor does. */
+  curveSpec?: CurveSpec;
   /** This node sits in a row read ACROSS, so its cables meet the side edges — `moduleRow`'s doing. */
   flow?: "across";
   /** Which assembly this node is INSIDE — set on the members of an open box, and on nothing else. */
@@ -326,6 +336,8 @@ export interface EdgeAutomation {
   param: string; // the param the curve drives — the edge's label / the fallback text
   // The target widget's node-local centre when the module draws one; absent ⇒ the arrow lands on the border.
   widget?: Pt;
+  /** How far the curve moves the param — what the knob draws as its purple gauge; absent for an on/off curve. */
+  depth?: AutomationDepth;
 }
 
 export interface GraphEdge {
@@ -347,6 +359,8 @@ export interface GraphEdge {
   targetSlot?: number;
   /** A cable that SKIPS cards of its stack column: it runs down the column's right side, in lane `side` (stackLayout.ts). */
   side?: number;
+  /** Its two cards TOUCH in a glued row: no cable is drawn, but the signal still flows through it (rowSeams.ts). */
+  glued?: boolean;
   points: Pt[]; // dagre's routed polyline, absolute graph coords
 }
 
@@ -375,18 +389,31 @@ function sidePath(src: GraphNode, tgt: GraphNode, lane: number): Pt[] {
 }
 
 /** An EVENT socket's centre — its own function because it spreads down the SIDE edges, not the flow's. */
+/** How far down a curve card's LEFT edge the event that fires it plugs in. */
+export const EVENT_IN_AT = 0.5;
+
+/** Where a curve card's automation leaves: the middle of its RIGHT edge, toward the node it sits left of. */
+export const curveOutPoint = (n: GraphNode): Pt => ({
+  x: n.x + n.w + PORT_PLATE / 2,
+  y: n.y + n.h / 2,
+});
+
 export function eventPoint(
   n: GraphNode,
   side: "in" | "out",
   index: number,
 ): Pt {
-  const count = Math.max(1, side === "out" ? (n.events?.length ?? 1) : 1);
+  // A curve's event socket is on its LEFT edge (docs/graphBuild.md)…
+  if (side === "in")
+    return { x: n.x - PORT_PLATE / 2, y: n.y + n.h * EVENT_IN_AT };
+  // …and what a module announces leaves from ITS left edge, aligned at the bottom, one plug above the next.
+  const count = Math.max(1, n.events?.length ?? 1);
   const i = Math.min(Math.max(0, index), count - 1);
-  return {
-    x: side === "in" ? n.x - PORT_PLATE / 2 : n.x + n.w + PORT_PLATE / 2,
-    y: n.y + (n.h * (i + 1)) / (count + 1),
-  };
+  return { x: n.x - PORT_PLATE / 2, y: n.y + n.h - eventOutBottom(i) };
 }
+
+/** How far UP a module's left edge its `i`th event plug's centre sits, in px from the bottom corner, one above the next. */
+export const eventOutBottom = (i: number): number => 14 + 22 * i;
 
 /** A socket's centre in graph space, spread evenly down the node's edge as the plate's CSS is. */
 export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
@@ -457,6 +484,8 @@ export interface LaidOutGraph {
 export interface EdgeInsert {
   before: string;
   after: string;
+  /** Not a splice but a STACK under `before` — a chain project's bottom `+` (rowSeams.ts). */
+  stack?: boolean;
 }
 
 // A track's live mixer state (volume in dB, pan 0..1, flags 0/1), on its own channel.
@@ -629,24 +658,25 @@ function noteOf(
   return { note: text, ...noteSize(text) };
 }
 
-/** One engine-stage slider's slot on the header's second line, and what the header leads with before it (docs/graphBuild.md). */
-export const STAGE_SLOT_W = 40;
-export const STAGE_HEADER_LEAD = 44;
+/** The bottom BAR a module card carries — its stage's knobs on the left, its alternatives on the right (nodeCard.md). */
+export const FOOTER_H = 20;
 
-// How big a node must be to hold `ui`, its tab column, and `stage` sliders on its header's second line.
+// How big a node must be to hold `ui`, its tab column, and with `footer` the bottom bar under them.
 export function nodeSize(
   ui?: WebModuleUI,
-  stage = 0,
+  footer = false,
 ): { w: number; h: number } {
+  const size = panelSize(ui);
+  return footer ? { ...size, h: size.h + FOOTER_H } : size;
+}
+
+function panelSize(ui?: WebModuleUI): { w: number; h: number } {
   const colW = columnW(ui);
-  // The header's second line holds one slot per stage slider, so a card is at least that wide.
-  const stageW = stage ? STAGE_HEADER_LEAD + stage * STAGE_SLOT_W : 0;
   const tabsH = hasTabs(ui) ? (ui?.tabs?.length ?? 0) * TAB_H : 0;
-  if (!ui?.cols || !ui?.rows)
-    return { w: Math.max(NODE_W + colW, stageW), h: NODE_H };
+  if (!ui?.cols || !ui?.rows) return { w: NODE_W + colW, h: NODE_H };
   return {
     // The grid's width, NOT max(NODE_W, …) — see docs/graphBuild.md.
-    w: Math.max(NODE_MIN_W, colW + UI_PAD * 2 + colsWidth(ui.cols), stageW),
+    w: Math.max(NODE_MIN_W, colW + UI_PAD * 2 + colsWidth(ui.cols)),
     h: Math.max(
       NODE_H,
       UI_CONTENT_TOP + Math.max(rowsHeight(ui.rows), tabsH) + UI_EDGE,
@@ -1151,6 +1181,12 @@ function widgetCenter(
   return undefined;
 }
 
+/** Whether a node's events fire this curve: an envelope always, any other when one of its conditions is an event. */
+function firedByEvent(curve: WebCurve): boolean {
+  if (curve.type === "adsr") return true;
+  return !!curve.spec?.conditions?.some((c) => c.type === "event");
+}
+
 // A curve node's secondary line: the kind, plus the LFO shape. ASCII only — the BitmapText atlas.
 function curveSubLabel(curve: WebCurve): string {
   if (curve.type === "lfo") return `lfo ${curve.shape ?? "sine"}`;
@@ -1385,7 +1421,8 @@ export function buildGraph(
         ...carryStep(s),
         // The panel the node actually DRAWS, over the raw one `carryStep` brought — docs/graphBuild.md.
         ui,
-        ...nodeSize(ui, s.stage?.length ?? 0), // as big as its grid needs, and its header's stage sliders
+        // As big as its grid needs, and the bottom bar under it — but a strip, which has neither stage nor sets, draws none.
+        ...nodeSize(ui, !s.strip),
         // …and a NOTE is as big as its text, which overrides that: a note has no widget grid.
         ...noteOf(graph, s.module),
       });
@@ -1411,9 +1448,10 @@ export function buildGraph(
           label: a.curve,
           sub: curveSubLabel(curve),
           kind: "curve",
-          // Only an envelope has anything to be restarted BY, and the socket is what says so.
-          eventIn: curve.type === "adsr",
+          // An envelope, or a curve an event condition starts: what fires it plugs in here.
+          eventIn: firedByEvent(curve),
           curveOf: { curve: a.curve, module: s.module, param: a.param },
+          ...(curve.spec ? { curveSpec: curve.spec } : {}),
           dim: false,
           missing: false,
           stub: false,
@@ -1430,10 +1468,11 @@ export function buildGraph(
           automation: {
             param: a.param,
             widget: widgetCenter(s.ui, a.param),
+            ...(depthOf(curve) ? { depth: depthOf(curve) } : {}),
           },
         });
-        // …and, for an envelope, the cable that FIRES it — the same `trigger` field the compiler bakes.
-        if (curve.type === "adsr") {
+        // …and the cable that FIRES it, for an envelope or an event condition — the same `trigger` the compiler reads.
+        if (firedByEvent(curve)) {
           const from = moduleId(a.trigger ?? s.module);
           const ek = `ev:${from}->${cid}`;
           edges.set(ek, {
@@ -1637,9 +1676,10 @@ export function buildGraph(
         label: id,
         sub: curveSubLabel(curve),
         kind: "curve",
-        eventIn: curve.type === "adsr",
+        eventIn: firedByEvent(curve),
         // No module or param: this card is bound to nothing, which is what makes it free.
         curveOf: { curve: id },
+        ...(curve.spec ? { curveSpec: curve.spec } : {}),
         dim: false,
         missing: false,
         stub: false,
@@ -1870,6 +1910,10 @@ export function spaceModulesEvenly(
   };
 }
 
+/** The room a row makes either side of a card's curve column, px, and the drop of its first curve under the card's top. */
+const CURVE_ROOM = 24;
+const CURVE_DROP = 24;
+
 /** The gap between two strips in a mixer row, px — wider than dagre's `nodesep` on purpose. */
 const STRIP_GAP = 24;
 const ROW_MARGIN = 16; // matches layout()'s marginx/marginy, so the two frame alike
@@ -1887,6 +1931,12 @@ export function moduleRow(
     track?: string;
     /** Every card at the width the full graph draws it, the lane's clips kept, all of them the tallest's height. */
     asDrawn?: boolean;
+    /** The air between two cards, px — 0 makes them touch, -1 GLUES them onto one shared border (rowSeams.ts). */
+    gap?: number;
+    /** Draw each of the graph's `stacks` as one column, its cards one under another (rowSeams.ts). */
+    stack?: boolean;
+    /** Draw each card's CURVE cards in a column just before it, the neighbours spaced to make room. */
+    curves?: boolean;
     /** What the machine has, for the cards whose panel lists it: an input's sockets, the lenses, the MIDI devices. */
     devices?: Pick<
       NonNullable<Parameters<typeof buildGraph>[1]>,
@@ -1899,6 +1949,9 @@ export function moduleRow(
     links = false,
     track,
     asDrawn = false,
+    gap = STRIP_GAP,
+    stack = false,
+    curves = false,
     devices,
   } = opts;
   // The same lists the full graph is built with, or its cards' dropdowns would offer nothing here.
@@ -1920,36 +1973,101 @@ export function moduleRow(
       : undefined;
 
   const row = lane ? [lane, ...picked] : picked;
-  // As drawn, every card is as tall as the tallest one, the lane's clip list included — the row is one band.
-  const line = asDrawn ? row.reduce((h, n) => Math.max(h, n.h), 0) : tallest;
+  // A STACK — a subchain run in place — is one column, its cards one under another at its own heights.
+  const stackOf = new Map<string, number>();
+  if (stack)
+    (graph.stacks ?? []).forEach((st, i) => {
+      for (const m of st) stackOf.set(m, i);
+    });
+  const stackKey = (n: (typeof row)[number]) =>
+    n.module === undefined ? undefined : stackOf.get(n.module);
+  const columns: (typeof row)[] = [];
+  for (const n of row) {
+    const last = columns[columns.length - 1];
+    const k = stackKey(n);
+    if (last && k !== undefined && stackKey(last[0]) === k) last.push(n);
+    else columns.push([n]);
+  }
+  const columnH = (c: typeof row) => c.reduce((h, n) => h + n.h, 0);
+  // As drawn, every lone card is as tall as the tallest column, the lane's clip list included — the row is one band.
+  const line = asDrawn
+    ? columns.reduce((h, c) => Math.max(h, columnH(c)), 0)
+    : tallest;
   const out: GraphNode[] = [];
   const inRow = new Set<string>();
+  // Each card's curve cards, by the card they drive — read off the automation edges (docs/graphBuild.md).
+  const curvesOf = new Map<string, (typeof nodes)[number][]>();
+  if (curves) {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    for (const e of edges) {
+      const c = e.automation ? byId.get(e.source) : undefined;
+      if (c?.kind === "curve")
+        curvesOf.set(e.target, [...(curvesOf.get(e.target) ?? []), c]);
+    }
+  }
   let x = ROW_MARGIN;
-  for (const n of row) {
-    const w = asDrawn ? n.w : Math.round(n.w * widthScale);
-    const h = asDrawn ? line : tallest;
-    inRow.add(n.id);
-    out.push({
-      ...n,
-      w,
-      h,
-      x,
-      y: ROW_MARGIN + Math.round((line - h) / 2),
-      // Sockets are never PLATED here: the plates are CSS-pinned to edges this row does not use.
-      jacks: undefined,
-      // A lane's mini timeline is the ARRANGEMENT, and it would set the height of every card beside it — docs/graphBuild.md.
-      ...(n === lane && !asDrawn
-        ? { clips: undefined, clipsMore: undefined }
-        : {}),
-      ...(links ? { flow: "across" as const } : {}),
+  for (const col of columns) {
+    const width = (n: (typeof row)[number]) =>
+      asDrawn ? n.w : Math.round(n.w * widthScale);
+    const w = col.reduce((m, n) => Math.max(m, width(n)), 0);
+    // Where each card of the column sits, before any x: its curves hang off those tops.
+    let y = ROW_MARGIN;
+    const tops = col.map((n) => {
+      const stacked = col.length > 1;
+      const h = stacked ? n.h : asDrawn ? line : tallest;
+      const top = stacked ? y : ROW_MARGIN + Math.round((line - h) / 2);
+      // A stack's cards share their border too when the row is glued past touching (`gap` < 0).
+      y += h + Math.min(0, gap);
+      return top;
     });
-    x += w + STRIP_GAP;
+    // The column's curves first, at its left and under its tops, spaced off both neighbours.
+    const hung = col.flatMap((n, i) =>
+      (curvesOf.get(n.id) ?? []).map((c, k) => ({ c, top: tops[i], k })),
+    );
+    if (hung.length) {
+      x += CURVE_ROOM;
+      const cw = hung.reduce((m, h) => Math.max(m, h.c.w), 0);
+      const below = new Map<number, number>();
+      for (const { c, top } of hung) {
+        const cy = below.get(top) ?? top + CURVE_DROP;
+        inRow.add(c.id);
+        out.push({ ...c, x, y: cy });
+        below.set(top, cy + c.h + CURVE_ROOM / 2);
+      }
+      x += cw + CURVE_ROOM;
+    }
+    for (const [i, n] of col.entries()) {
+      const stacked = col.length > 1;
+      const h = stacked ? n.h : asDrawn ? line : tallest;
+      inRow.add(n.id);
+      out.push({
+        ...n,
+        w,
+        h,
+        x,
+        y: tops[i],
+        // Sockets are never PLATED here: the plates are CSS-pinned to edges this row does not use.
+        jacks: undefined,
+        // …and its event plugs only with its curves: what they fire is not drawn otherwise.
+        ...(curves ? {} : { events: undefined }),
+        // A lane's mini timeline is the ARRANGEMENT, and it would set the height of every card beside it — docs/graphBuild.md.
+        ...(n === lane && !asDrawn
+          ? { clips: undefined, clipsMore: undefined }
+          : {}),
+        ...(links ? { flow: "across" as const } : {}),
+      });
+    }
+    x += w + gap;
   }
   return {
     nodes: out,
     edges: links
       ? edges
-          .filter((e) => inRow.has(e.source) && inRow.has(e.target))
+          // An automation landing on a card is kept with no curve to start from: its knob glows, and no cable is drawn.
+          .filter(
+            (e) =>
+              inRow.has(e.target) && (inRow.has(e.source) || !!e.automation),
+          )
           .map((e) => ({
             id: e.id,
             source: e.source,
@@ -1967,12 +2085,13 @@ export function moduleRow(
             ],
           }))
       : [],
-    width: out.length ? x - STRIP_GAP + ROW_MARGIN : 0,
-    // As drawn, the box is the cards' own height and no more, so a height fit makes the tallest fill the view.
+    width: out.length ? x - gap + ROW_MARGIN : 0,
+    // As drawn, the box is the cards' own height and no more, so a height fit makes the tallest fill the view — or a stack of curves, past it.
     height: out.length
-      ? asDrawn
-        ? ROW_MARGIN + line
-        : line + ROW_MARGIN * 2
+      ? Math.max(
+          asDrawn ? ROW_MARGIN + line : line + ROW_MARGIN * 2,
+          ...out.map((n) => n.y + n.h + (asDrawn ? 0 : ROW_MARGIN)),
+        )
       : 0,
     // A row lays itself out from `ROW_MARGIN` and ignores pins entirely: it begins at the origin.
     left: 0,
@@ -1992,6 +2111,7 @@ function snapToRankRows(
   placed: GraphNode[],
   // The ranks live on the RAW nodes — a rank is an instruction to the layout, not a fact about the drawing.
   rankOf: Map<string, number>,
+  curves: ReadonlyMap<string, string> = new Map(),
 ): GraphNode[] {
   const ranks = [...new Set(rankOf.values())].sort((a, b) => a - b);
   if (!ranks.length) return placed;
@@ -2012,10 +2132,12 @@ function snapToRankRows(
   });
 
   const moved = new Map<string, number>();
+  const byId = new Map(snapped.map((n) => [n.id, n]));
+  const key = (n: GraphNode) => rowSortKey(n, curves, byId);
   for (const r of ranks) {
     const row = snapped
       .filter((n) => rankOf.get(n.id) === r)
-      .sort((a, b) => a.x - b.x);
+      .sort((a, b) => key(a) - key(b));
     let right = Number.NEGATIVE_INFINITY;
     for (const n of row) {
       const x = Math.max(n.x, right);
@@ -2090,12 +2212,19 @@ export function masterRunAside<
  * The x is left alone, that being the half of a pin nothing here has an opinion about. */
 export function pushBelowInputs<N extends { id: string; y: number; h: number }>(
   nodes: N[],
-  edges: readonly { source: string; target: string }[],
+  edges: readonly {
+    source: string;
+    target: string;
+    automation?: unknown;
+    signal?: string;
+  }[],
 ): N[] {
   const at = new Map(nodes.map((n) => [n.id, n]));
   const out = new Map<string, string[]>();
   const waiting = new Map<string, number>();
   for (const e of edges) {
+    // A curve drives a param, not the signal, and an event fires one: it sits BESIDE its node, so neither edge pushes anything down.
+    if (e.automation || e.signal === "event") continue;
     // A node feeding itself constrains nothing, and would deadlock the walk below.
     if (e.source === e.target || !at.has(e.source) || !at.has(e.target))
       continue;
@@ -2280,11 +2409,18 @@ function layoutFlat(
   }
   dagre.layout(g);
 
-  const placed: GraphNode[] = nodes.map((n) => {
-    const { x, y } = g.node(n.id);
-    // dagre returns a node's CENTRE; everything downstream wants its top-left.
-    return { ...n, x: x - n.w / 2, y: y - n.h / 2 };
-  });
+  const curves = curveTargets(raw, (id) =>
+    nodes.some((n) => n.id === id && n.kind === "curve"),
+  );
+  // A curve's dagre spot is dropped: it goes beside its target, and the row sweep makes the room.
+  const placed: GraphNode[] = curvesLeftOfTargets(
+    nodes.map((n) => {
+      const { x, y } = g.node(n.id);
+      // dagre returns a node's CENTRE; everything downstream wants its top-left.
+      return { ...n, x: x - n.w / 2, y: y - n.h / 2 };
+    }),
+    curves,
+  );
 
   let outNodes = snapToRankRows(
     placed,
@@ -2293,6 +2429,7 @@ function layoutFlat(
         typeof n.rank === "number" ? [[n.id, n.rank] as const] : [],
       ),
     ),
+    curves,
   );
   // BEFORE the pins: where the master column sits is a preference, and a pin outranks a preference.
   outNodes = masterRunAside(outNodes, raw);
@@ -2307,6 +2444,8 @@ function layoutFlat(
       return p ? { ...n, x: p.x, y: p.y } : n;
     });
   }
+  // AFTER the pins and the memory: a curve card goes where its target IS, at its left, whatever it was before.
+  outNodes = curvesUnderLeft(outNodes, curves);
   // AFTER the pins, because a pin is the only thing that can put a card above what feeds it.
   outNodes = pushBelowInputs(outNodes, raw);
   const outEdges: GraphEdge[] = raw.map((e) => ({

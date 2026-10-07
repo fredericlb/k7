@@ -572,8 +572,30 @@ describe("a param", () => {
   });
 
   it("keeps every head — none of them names the control you clicked", () => {
-    // `node param`, `module cc`, `ui midi learn`: three heads, three subjects, and a param is none of them.
-    expect(labels(menu)).toEqual(["ui midi learn", "node param"]);
+    // `node param`, `module cc`, `ui midi learn`, `ui automate`: several heads and subjects, and a param is none of them.
+    expect(labels(menu)).toEqual([
+      "ui midi learn",
+      "ui automate",
+      "node param",
+    ]);
+  });
+
+  it("offers to remove the automation only on a param a curve drives, naming its curve-keeping unbind", () => {
+    expect(labels(menu)).not.toContain("remove automation");
+    const driven = contextMenu(
+      {
+        kind: "param",
+        id: "amp",
+        param: "Filter Freq",
+        label: "Filter Freq",
+        automated: true,
+      },
+      CATALOGUE,
+    );
+    expect(labels(driven)).toContain("remove automation");
+    expect(driven.find((i) => i.label === "remove automation")?.command).toBe(
+      "node automate amp Filter Freq none",
+    );
   });
 
   it("names the unbind apart from the bind, which is the same verb", () => {
@@ -592,6 +614,26 @@ describe("a param", () => {
     expect(says(bound, "module cc none")).toBe(
       "remove the MIDI binding on this param",
     );
+  });
+});
+
+describe("a curve card", () => {
+  it("opens the curve editor on the param it drives, and offers to unbind it", () => {
+    const menu = contextMenu(
+      { kind: "curve-card", curve: "wob", module: "amp", param: "Filter Freq" },
+      CATALOGUE,
+    );
+    expect(lines(menu)).toEqual([
+      'ui automate amp "Filter Freq"',
+      "node automate amp Filter Freq none",
+    ]);
+    expect(labels(menu)).toEqual(["ui automate", "remove automation"]);
+  });
+
+  it("opens a FREE card's curve on its own, having no param to automate", () => {
+    expect(
+      lines(contextMenu({ kind: "curve-card", curve: "wob" }, CATALOGUE)),
+    ).toEqual(["ui curve wob"]);
   });
 });
 

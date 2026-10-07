@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -96,6 +97,42 @@ const run = async (line: string) => {
 };
 
 describe("track duplicate, in a chain project", () => {
+  it("copies the lane chain's subchains under fresh ids, a link to one never read as a top-level chain", async () => {
+    put(
+      "chains/bass.yaml",
+      [
+        "start: true",
+        "steps:",
+        "  - { id: lane-bass, track: bass }",
+        "  - to: [ { chain: verb, level: 0.5 }, { chain: bus, level: 1 } ]",
+        "subchains:",
+        "  - id: verb",
+        "    steps:",
+        '      - { id: sub-1, extends: "@workspace/audio/amp" }',
+        "      - to: [ { chain: MIX } ]",
+        "",
+      ].join("\n"),
+    );
+    const h = await run("track duplicate bass");
+    expect(h.lines.refuse).toEqual([]);
+    const c = chain("bass-copy");
+    expect(c.steps.at(-1).to.map((l: { chain: string }) => l.chain)).toEqual([
+      "verb",
+      "bus",
+    ]);
+    expect(c.subchains).toHaveLength(1);
+    expect(c.subchains[0].id).toBe("verb");
+    expect(c.subchains[0].steps[0].id).not.toBe("sub-1");
+    // The top-level `verb` is gtr's alone: duplicating bass copies none of it.
+    expect(readdirSync(join(dir, "chains")).sort()).toEqual([
+      "bass-copy.yaml",
+      "bass.yaml",
+      "bus.yaml",
+      "gtr.yaml",
+      "verb.yaml",
+    ]);
+  });
+
   it("writes the lane's tracks/ file with its events and colour, and no graph.yaml nor nodes/", async () => {
     const h = await run("track duplicate gtr");
     expect(h.lines.refuse).toEqual([]);

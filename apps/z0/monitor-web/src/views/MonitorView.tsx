@@ -1,13 +1,22 @@
-import { X } from "@frediverse/ui/icons";
-import { usePreloaderState } from "@studio/player-web/preloader";
-import { useEffect, useMemo, useState } from "react";
-import { AuthBadge } from "../components/AuthBadge";
+import { AppHeader } from "@frediverse/ui/app-header";
+import { Badge } from "@frediverse/ui/badge";
+import { Button } from "@frediverse/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@frediverse/ui/dialog";
+import { Volume2 } from "@frediverse/ui/icons";
+import { useEffect, useState } from "react";
+import { AccountMenu } from "../components/AccountMenu";
 import { f } from "../lib/api";
-import { useAudioUIState } from "../lib/audioPlayback";
-import { useMicState } from "../lib/mic";
 import { useMonitorState } from "../lib/monitor";
 import { createMonitorSystem } from "../lib/system";
-import { useVirtualBuzzersState } from "../lib/virtualBuzzers";
+import { AudioPanel, MicPanel, Panel } from "./panels";
+import { BuzzersPanel, PlayersPanel, TrafficPanel } from "./sessionPanels";
 
 // Mounted only once the auth gate has passed, which is what starts the monitor.
 
@@ -20,23 +29,10 @@ function timeNow(): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function medal(i: number): string {
-  if (i === 0) return "①";
-  if (i === 1) return "②";
-  if (i === 2) return "③";
-  return " ";
-}
-
 export function MonitorView() {
   const [sys] = useState(createMonitorSystem);
   const mon = useMonitorState(sys.monitor);
-  const audioUI = useAudioUIState(sys.audio);
-  const pre = usePreloaderState(sys.audio.preloader);
-  const mic = useMicState(sys.mic);
-  const { buzzers } = useVirtualBuzzersState(sys.virtual);
 
-  const [newBuzzerName, setNewBuzzerName] = useState("");
-  const [createError, setCreateError] = useState("");
   const [needsGesture, setNeedsGesture] = useState(true);
   const [clock, setClock] = useState(timeNow);
 
@@ -48,11 +44,6 @@ export function MonitorView() {
       sys.stop();
     };
   }, [sys]);
-
-  const rankedPlayers = useMemo(
-    () => [...mon.players].sort((a, b) => b.score - a.score),
-    [mon.players],
-  );
 
   async function dismissGesture() {
     sys.audio.preloader.resumeContext();
@@ -69,279 +60,75 @@ export function MonitorView() {
     }
   }
 
-  function createVirtualBuzzer(e: React.FormEvent) {
-    e.preventDefault();
-    const err = sys.virtual.create(newBuzzerName);
-    if (err) {
-      setCreateError(err);
-      return;
-    }
-    setCreateError("");
-    setNewBuzzerName("");
-  }
-
   return (
-    <>
-      {needsGesture && (
-        <div
-          className="gesture-overlay"
-          onClick={() => void dismissGesture()}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            void dismissGesture();
-          }}
+    <div className="flex h-full flex-col bg-background text-foreground">
+      {/* Escape and outside clicks are refused: neither unlocks audio, and a leaked click could press a buzzer. */}
+      <Dialog open={needsGesture}>
+        <DialogContent
+          showCloseButton={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          className="sm:max-w-sm"
         >
-          <div className="gesture-text">CLICK TO ENABLE AUDIO</div>
-        </div>
-      )}
-      <div className="screen">
-        <header className="topbar">
-          <span className="title">▌ BLIND-TEST MONITOR</span>
-          <span className={`conn${mon.connected ? " ok" : ""}`}>
-            ● {mon.connected ? "CONNECTED" : "DISCONNECTED"}
+          <DialogHeader>
+            <DialogTitle>Enable audio</DialogTitle>
+            <DialogDescription>
+              The browser plays nothing until this page has been clicked once.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => void dismissGesture()}>
+              <Volume2 className="size-4" />
+              Enable audio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AppHeader
+        title="z0 monitor"
+        version={VERSION}
+        subtitle={
+          <span className="font-mono" title="websocket">
+            {mon.wsURL || "—"}
           </span>
-          <span className="url">{mon.wsURL || "—"}</span>
-          <span className="spacer" />
-          <span className="build">{VERSION}</span>
-          <AuthBadge />
-          <span className="clock">{clock}</span>
-        </header>
+        }
+        actions={
+          <div className="flex items-center gap-3">
+            {mon.connected ? (
+              <Badge className="bg-green/15 text-green">connected</Badge>
+            ) : (
+              <Badge variant="rec">disconnected</Badge>
+            )}
+            <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
+              {VERSION}
+            </span>
+            <span className="font-mono text-sm tabular-nums">{clock}</span>
+            <AccountMenu />
+          </div>
+        }
+      />
 
-        <main className="grid">
-          <section className="panel ws-panel">
-            <header className="panel-title">┤ WEBSOCKET TRAFFIC ├</header>
-            <div className="panel-body ws-body">
-              {mon.wsEntries.length === 0 && (
-                <div className="dim">waiting for messages…</div>
-              )}
-              {mon.wsEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className={`ws-row${entry.direction === "info" ? " info" : ""}`}
-                >
-                  <span className="ts">{entry.ts}</span>
-                  <span className="type">{entry.type.padEnd(16, " ")}</span>
-                  <span className="payload">{entry.payload}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+      <main className="grid min-h-0 flex-1 grid-cols-[2fr_1fr] gap-3 p-3">
+        <TrafficPanel mon={mon} />
 
-          <aside className="side">
-            <section className="panel">
-              <header className="panel-title">┤ PHASE ├</header>
-              <div className="panel-body phase-body">
+        <aside className="flex min-h-0 flex-col gap-3 overflow-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <Panel title="Phase">
+              <div className="text-center text-xl font-bold tracking-widest">
                 {mon.phase ? mon.phase.toUpperCase() : "—"}
               </div>
-            </section>
-
-            <section className="panel">
-              <header className="panel-title">┤ CURRENT SONG ├</header>
-              <div className="panel-body song-body">{mon.song || "—"}</div>
-            </section>
-
-            <section className="panel">
-              <header className="panel-title">┤ AUDIO ├</header>
-              <div className="panel-body audio-body">
-                <div className="audio-row">
-                  <span className="audio-label">PLAYING</span>
-                  <span className="audio-val">
-                    {pre.isPlaying
-                      ? pre.isPaused
-                        ? "⏸ paused"
-                        : "▶ playing"
-                      : "· idle"}
-                  </span>
-                </div>
-                <div className="audio-row">
-                  <span className="audio-label">MODE</span>
-                  <span className="audio-val">
-                    {audioUI.currentMode || "—"}
-                  </span>
-                </div>
-                <div className="audio-row">
-                  <span className="audio-label">VOL</span>
-                  <input
-                    className="audio-vol"
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={Math.round(audioUI.masterGain * 100)}
-                    onChange={(e) =>
-                      sys.audio.setVolume(Number(e.target.value) / 100)
-                    }
-                  />
-                  <span className="audio-val">
-                    {Math.round(audioUI.masterGain * 100)}%
-                  </span>
-                  <button
-                    className="audio-btn"
-                    onClick={() => sys.audio.toggleMute()}
-                  >
-                    {audioUI.muted ? "UNMUTE" : "MUTE"}
-                  </button>
-                </div>
-                {pre.loading && (
-                  <div className="audio-row">
-                    <span className="audio-label">LOADING</span>
-                    <div className="progress-bar-outer">
-                      <div
-                        className="progress-bar-fill"
-                        style={{ width: `${Math.round(pre.progress * 100)}%` }}
-                      />
-                    </div>
-                    <span className="audio-val">
-                      {pre.loaded}/{pre.total}
-                    </span>
-                  </div>
-                )}
-                {pre.failedPaths.length > 0 && (
-                  <div className="audio-row">
-                    <span className="audio-label">FAILED</span>
-                    <span className="audio-val warn">
-                      {pre.failedPaths.length} path(s)
-                    </span>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="panel">
-              <header className="panel-title">┤ MIC ├</header>
-              <div className="panel-body audio-body">
-                <div className="audio-row">
-                  <span className="audio-label">STATE</span>
-                  <span className="audio-val">
-                    {mic.enabled ? "● live" : "· off"}
-                  </span>
-                  <button
-                    className="audio-btn"
-                    onClick={() => void sys.mic.toggle()}
-                  >
-                    {mic.enabled ? "DISABLE" : "ENABLE"}
-                  </button>
-                </div>
-                <div className="audio-row">
-                  <span className="audio-label">GAIN</span>
-                  <input
-                    className="audio-vol"
-                    type="range"
-                    min={0}
-                    max={200}
-                    value={mic.gainPct}
-                    onChange={(e) =>
-                      sys.mic.onGainInput(Number(e.target.value))
-                    }
-                  />
-                  <span className="audio-val">{mic.gainPct}%</span>
-                </div>
-                {mic.error && (
-                  <div className="audio-row">
-                    <span className="audio-label">ERROR</span>
-                    <span className="audio-val warn">{mic.error}</span>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="panel">
-              <header className="panel-title">┤ VIRTUAL BUZZERS ├</header>
-              <div className="panel-body audio-body">
-                <form
-                  className="audio-row vb-form"
-                  onSubmit={createVirtualBuzzer}
-                >
-                  <input
-                    className="vb-input"
-                    type="text"
-                    maxLength={12}
-                    placeholder="player name"
-                    autoComplete="off"
-                    value={newBuzzerName}
-                    onChange={(e) => setNewBuzzerName(e.target.value)}
-                  />
-                  <button
-                    type="submit"
-                    className="audio-btn"
-                    disabled={!newBuzzerName.trim()}
-                  >
-                    CREATE
-                  </button>
-                </form>
-                {createError && (
-                  <div className="audio-row">
-                    <span className="audio-val warn">{createError}</span>
-                  </div>
-                )}
-                {buzzers.length === 0 && (
-                  <div className="audio-row">
-                    <span className="audio-val dim">no virtual buzzers</span>
-                  </div>
-                )}
-                {buzzers.map((b) => (
-                  <div key={b.token} className="audio-row vb-row">
-                    <span
-                      className={`vb-led${b.connected && b.registered ? " on" : ""}`}
-                    >
-                      ●
-                    </span>
-                    <span className="vb-name">{b.name}</span>
-                    <span className="vb-id">{b.deviceId || "—"}</span>
-                    {b.connected && !b.registered ? (
-                      <button
-                        className="audio-btn vb-buzz"
-                        onClick={() => sys.virtual.join(b.name)}
-                      >
-                        JOIN
-                      </button>
-                    ) : (
-                      <button
-                        className="audio-btn vb-buzz"
-                        disabled={!b.connected || !b.registered}
-                        onClick={() => sys.virtual.buzz(b.name)}
-                      >
-                        BUZZ
-                      </button>
-                    )}
-                    <button
-                      className="audio-btn"
-                      onClick={() => sys.virtual.remove(b.name)}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="panel grow">
-              <header className="panel-title">
-                ┤ PLAYERS ({rankedPlayers.length}) ├
-              </header>
-              <div className="panel-body players-body">
-                {rankedPlayers.length === 0 && (
-                  <div className="dim">no players yet</div>
-                )}
-                {rankedPlayers.map((p, i) => (
-                  <div
-                    key={p.name}
-                    className={`player-row${i < 3 ? " top" : ""}${
-                      mon.buzzing.has(p.name) ? " buzzing" : ""
-                    }`}
-                  >
-                    <span className="rank">
-                      {String(i + 1).padStart(2, " ")}
-                    </span>
-                    <span className="medal">{medal(i)}</span>
-                    <span className="name">{p.name}</span>
-                    <span className="score">{Math.round(p.score)}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </main>
-      </div>
-    </>
+            </Panel>
+            <Panel title="Current song">
+              <div className="break-words text-sm">{mon.song || "—"}</div>
+            </Panel>
+          </div>
+          <AudioPanel sys={sys} />
+          <MicPanel sys={sys} />
+          <BuzzersPanel sys={sys} />
+          <PlayersPanel mon={mon} />
+        </aside>
+      </main>
+    </div>
   );
 }

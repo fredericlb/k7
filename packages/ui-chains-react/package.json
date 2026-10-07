@@ -19,6 +19,7 @@
     "@frediverse/ui": "*",
     "@studio/engine-browser": "*",
     "@studio/graph-model": "*",
+    "@studio/song-schema": "*",
     "@studio/ui-chains": "*"
   },
   "devDependencies": {

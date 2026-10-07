@@ -136,6 +136,7 @@ export function TreePicker<T>({
   onPick,
   onClose,
   header,
+  aside,
 }: {
   x: number; // viewport coords of whatever opened it
   y: number;
@@ -151,6 +152,8 @@ export function TreePicker<T>({
   onClose: () => void;
   /** The caller's own row above the search — with one, an empty tree still opens, saying `emptyLabel`. */
   header?: React.ReactNode;
+  /** A column LEFT of the list, inside the popup — a choice the list depends on, like a node's engine. */
+  aside?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
@@ -212,7 +215,7 @@ export function TreePicker<T>({
   }, []);
 
   // Nothing to offer: an empty popup would just be a grey box you have to dismiss.
-  if (!tree.length && !header) return null;
+  if (!tree.length && !header && !aside) return null;
 
   const pick = (e: T) => {
     onPick(e);
@@ -249,7 +252,12 @@ export function TreePicker<T>({
   );
 
   return (
-    <div ref={ref} style={{ left: pos.x, top: pos.y }} className="fixed z-50">
+    <div
+      ref={ref}
+      style={{ left: pos.x, top: pos.y }}
+      className="fixed z-50 flex items-start"
+    >
+      {aside}
       {searching ? (
         <Level
           nodes={

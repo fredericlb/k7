@@ -136,6 +136,30 @@ touches the other's. The two commands differ only in events: `track duplicate` c
 playing placements, `track duplicate empty` writes `events: []`. A node with more than one feeder is
 a meeting point and stays shared — it is a bus, not part of one lane's chain.
 
+## `track rename` takes the whole name
+
+A lane's name IS its filename, `[position.][prefix.]label` (`packages/song/docs/trackKind.md`), so
+the new name is typed whole: `track rename ge.lead vo.lead` changes the instrument as well as the
+file. Everything that names the lane follows — `graph.yaml`'s keys and arrows (a `#port` kept),
+`bypassed`, the boxes, `project.yaml`'s `trackOrder` and `soloed`, a chain project's lane item — and
+so does its strip when it still bears the `mix-<lane>` name `track new` gave it. A strip somebody
+named is left alone, and so are the lane's effect nodes: their names were a convenience, not a
+reference. A lane a surface mapping names is refused, since nothing writes a mapping back.
+
+## `node stack` makes a subchain, so only a chain project has it
+
+`node stack <node> <new>` is the per-track row's BRANCH button, on a seam. It takes a node `node new` just made —
+loose, wired to nothing — and puts it right under `<node>`, the two in a subchain run in `<node>`'s
+place; under a node already in such a subchain, the new one joins it. A lane is a source and nothing
+goes under it, and a node in a side-by-side step has no single place to stand under. A `graph.yaml`
+project is refused: the grouping IS a subchain, and a splice there would be `node insert`.
+
+## `track hide` sets a lane aside, files and all
+
+`track hide <track>` marks the lane's chain `hidden: true`: nothing draws, compiles or plays it, and
+nothing is deleted. It is a chain project's verb, since the flag lives on a chain file. `track unhide`
+is typed rather than offered on a menu — a hidden lane is on no screen to right-click.
+
 ## `track transcribe` — whisper writes the lane's text
 
 The verb is the transcription plugin's (`packages/st0-plugins/src/transcription`) — this section
@@ -234,6 +258,13 @@ than a curve of zero width.
 
 `remove` leaves the curve FILE. An unbind is not a deletion, and an unbound curve still draws as
 its own card on the graph — so nothing is orphaned invisibly, and rebinding is one verb.
+
+## `curve set` writes a curve whole
+
+`curve set <name> <json>` is the curve editor's Save (`ui curve`): the JSON is the file's own fields,
+validated against the schema, and the file is created or replaced with exactly them — one command, so
+one save is one undo. The partial edits stay `curve point add|move|remove`; this is for the editor,
+which holds every field anyway. See `packages/song/docs/curves.md`.
 
 ## `curve point add|move|remove`
 

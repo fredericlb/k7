@@ -1,6 +1,8 @@
 // SongPicker.tsx — pick a médiathèque song by typing. Over the catalogue already in memory, so
 // it answers per keystroke without a request. See docs/editing.md.
 
+import { Badge } from "@frediverse/ui/badge";
+import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
 import { useMemo, useState } from "react";
 import { type Catalogue, type SongInfo, search } from "./mediatek";
@@ -35,20 +37,21 @@ export function SongPicker({
       )}
       <div className="mt-1 max-h-64 overflow-y-auto">
         {hits.map((s) => (
-          <button
+          <Button
             key={s.id}
-            type="button"
-            className="block w-full px-2 py-1 text-left text-xs hover:bg-accent"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start font-normal"
             onClick={() => onPick(s)}
           >
-            <span className="font-medium">{s.title}</span>
-            {s.artist && (
-              <span className="text-muted-foreground"> — {s.artist}</span>
-            )}
-            {!s.master && (
-              <span className="ml-1 text-muted-foreground">(sans audio)</span>
-            )}
-          </button>
+            <span className="truncate">
+              <span className="font-medium">{s.title}</span>
+              {s.artist && (
+                <span className="text-muted-foreground"> — {s.artist}</span>
+              )}
+            </span>
+            {!s.master && <Badge className="ml-auto">sans audio</Badge>}
+          </Button>
         ))}
         {q.trim() && hits.length === 0 && (
           <p className="px-2 py-2 text-xs text-muted-foreground">

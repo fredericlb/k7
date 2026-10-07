@@ -1,9 +1,11 @@
+import { Alert, AlertDescription } from "@frediverse/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@frediverse/ui/avatar";
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@frediverse/ui/card";
 import { ListMusic, Loader2, X } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
+import { cn } from "@frediverse/ui/lib/utils";
 import { useCallback, useEffect, useState } from "react";
 import {
   addPlaylist,
@@ -12,6 +14,7 @@ import {
   type PlaylistRow,
 } from "../lib/playlists";
 import { m } from "../paraglide/messages.js";
+import { Tip } from "./Tip";
 
 // Saved playlists are shared by everyone, but only the person who added one, or an admin, removes it.
 
@@ -110,7 +113,11 @@ export function PlaylistPicker({
           {spotifyOn ? m["playlist.hint"]() : m["playlist.hintDeezerOnly"]()}
         </p>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         {loading && rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -124,16 +131,15 @@ export function PlaylistPicker({
           <div className="flex flex-col gap-2">
             {rows.map((p) => (
               <div key={p.id} className="flex items-stretch gap-1.5">
-                <button
-                  type="button"
+                <Button
+                  variant={p.id === activeId ? "secondary" : "outline"}
                   disabled={selecting !== 0}
+                  aria-current={p.id === activeId || undefined}
                   onClick={() => onSelect(p.id)}
-                  className={[
-                    "flex min-w-0 flex-1 items-center gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                    p.id === activeId
-                      ? "border-primary bg-secondary text-foreground"
-                      : "border-border bg-card text-foreground hover:border-primary",
-                  ].join(" ")}
+                  className={cn(
+                    "h-auto min-w-0 flex-1 justify-start gap-3 px-3 py-2.5 font-normal",
+                    p.id === activeId && "border border-primary",
+                  )}
                 >
                   {selecting === p.id && (
                     <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
@@ -163,18 +169,19 @@ export function PlaylistPicker({
                       </span>
                     )}
                   </span>
-                </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 hover:text-destructive"
-                  title={m["playlist.remove"]()}
-                  aria-label={m["playlist.remove"]()}
-                  disabled={selecting !== 0}
-                  onClick={() => void remove(p.id)}
-                >
-                  <X className="size-4" />
                 </Button>
+                <Tip label={m["playlist.remove"]()}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 hover:text-destructive"
+                    aria-label={m["playlist.remove"]()}
+                    disabled={selecting !== 0}
+                    onClick={() => void remove(p.id)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </Tip>
               </div>
             ))}
           </div>

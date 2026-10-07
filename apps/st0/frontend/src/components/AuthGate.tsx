@@ -4,9 +4,9 @@
 // backend runs a dev stub, so "Sign in" logs you in as a single Dev User — still mandatory.
 
 import { Button } from "@frediverse/ui/button";
-import { Card } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { Loader2 } from "@frediverse/ui/icons";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { type ReactNode, useEffect, useState } from "react";
 import { type AuthUser, api } from "../api";
 import { m } from "../paraglide/messages.js";
@@ -52,45 +52,43 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // Signing in cannot help when the service that mints the session is the thing that is down.
   if (phase.k === "down")
     return (
-      <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
-        <Card className="flex max-w-sm flex-col items-center gap-4 p-8 text-center">
-          <div className="text-2xl font-semibold tracking-tight">st0</div>
-          <p className="text-sm text-muted-foreground">
-            {m["auth.unreachable"]()}
-          </p>
-          <code className="max-w-full truncate rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-            {phase.detail}
-          </code>
-          <Button
-            className="mt-2 w-full"
-            onClick={() => {
-              setPhase({ k: "checking" });
-              setAttempt((n) => n + 1);
-            }}
-          >
-            {m["auth.retry"]()}
-          </Button>
-          <LocaleSwitcher />
-        </Card>
-      </div>
+      <SignInScreen
+        title="st0"
+        description={m["auth.unreachable"]()}
+        footer={<LocaleSwitcher />}
+        className="text-center"
+      >
+        <code className="mb-4 block max-w-full truncate rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
+          {phase.detail}
+        </code>
+        <Button
+          className="w-full"
+          onClick={() => {
+            setPhase({ k: "checking" });
+            setAttempt((n) => n + 1);
+          }}
+        >
+          {m["auth.retry"]()}
+        </Button>
+      </SignInScreen>
     );
 
   return (
-    <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
-      <Card className="flex max-w-sm flex-col items-center gap-4 p-8 text-center">
-        <div className="text-2xl font-semibold tracking-tight">st0</div>
-        <p className="text-sm text-muted-foreground">{m["auth.tagline"]()}</p>
-        <Button
-          className="mt-2 w-full"
-          onClick={() => {
-            window.location.href = api.loginUrl;
-          }}
-        >
-          <FrediverseMark size="sm" />
-          {m["auth.signIn"]()}
-        </Button>
-        <LocaleSwitcher />
-      </Card>
-    </div>
+    <SignInScreen
+      title="st0"
+      description={m["auth.tagline"]()}
+      footer={<LocaleSwitcher />}
+      className="text-center"
+    >
+      <Button
+        className="w-full"
+        onClick={() => {
+          window.location.href = api.loginUrl;
+        }}
+      >
+        <FrediverseMark size="sm" />
+        {m["auth.signIn"]()}
+      </Button>
+    </SignInScreen>
   );
 }

@@ -273,6 +273,12 @@ something was authored and then emptied, which is not what taking a binding off 
 written only when it is not the default: the compiler reads an absent one as the module being
 automated, so writing that would be noise that goes stale the day the binding moves.
 
+The binding goes **where the resolved node reads it**. A set that names another module (`extends`)
+makes the node that module, keeping only its identity — a list on the node's own fields is not
+read at all, so the binding goes in the set that is on. A patch set inherits the node's list, since
+`mergeAuthored` replaces `automations` whole rather than merging it, so a binding goes on the node
+unless that set already holds a list of its own, which would hide it (`packages/song/docs/alternatives.md`).
+
 ## A placement
 
 `packages/song-schema/src/yaml/placementSchema.ts` is its own file because a placement is not a

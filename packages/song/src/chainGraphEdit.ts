@@ -22,6 +22,7 @@ import {
   type Item,
   isTrackItem,
   itemsOf,
+  stepLists,
   TRACKS_DIR,
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
@@ -31,6 +32,7 @@ import { parse, stringify } from "yaml";
 import {
   type ChainProject,
   fromSegments,
+  nameOfItem,
   readChainProject,
   readLayout,
   toSegments,
@@ -77,7 +79,12 @@ function sourceTest(dir: string, cp: ChainProject, items: (n: string) => Item) {
   return (n: string): boolean => {
     if (isTrackItem(items(n))) return true;
     const was = cp.nodes[n];
-    if (was && was.step === 0 && cp.chains[was.chain]?.start === true)
+    if (
+      was &&
+      !was.sub &&
+      was.step === 0 &&
+      cp.chains[was.chain]?.start === true
+    )
       return true;
     resolved ??= (() => {
       const mods = loadModules(dir);
@@ -193,8 +200,30 @@ export function editChainGraph(
   for (const ds of Object.values(result.modules ?? {}))
     for (const d of ds) named.add(bare(d));
   const drop = new Set(opts.drop ?? []);
+  // A chain the graph did not show and the edit does not name is left as it is: rewritten, its nodes would come back one loose chain each.
+  const shown = new Set(Object.keys(graph.modules ?? {}));
+  for (const ds of Object.values(graph.modules ?? {}))
+    for (const d of ds) shown.add(bare(d));
+  const asleep = new Set(
+    Object.entries(cp.chains)
+      .filter(([, c]) => {
+        const ns = stepLists(c)
+          .flatMap((l) => l.steps.flatMap(itemsOf))
+          .map(nameOfItem);
+        return (
+          ns.length > 0 &&
+          ns.every((n) => !shown.has(n) && !named.has(n) && !drop.has(n))
+        );
+      })
+      .map(([name]) => name),
+  );
+  const asleepNodes = new Set(
+    Object.values(cp.nodes)
+      .filter((n) => asleep.has(n.chain))
+      .map((n) => n.name),
+  );
   const loose = [...Object.keys(cp.nodes), ...Object.keys(add)].filter(
-    (n) => !named.has(n) && !drop.has(n),
+    (n) => !named.has(n) && !drop.has(n) && !asleepNodes.has(n),
   );
   const chains = fromSegments(result, {
     itemOf,
@@ -203,8 +232,10 @@ export function editChainGraph(
     levels: lv,
     loose,
     nameFor: nameForOf(itemOf),
+    // …and a new chain takes neither its name nor a hidden chain's, whose files this leaves alone too.
+    reserved: [...asleep, ...Object.keys(cp.hidden ?? {})],
   });
-  const written = writeChains(dir, chains, cp.texts);
+  const written = writeChains(dir, chains, cp.texts, asleep);
   const pos = result.positions ?? {};
   if (stringify(pos) !== stringify(positions)) {
     writeLayout(dir, pos);
@@ -217,13 +248,19 @@ export function editChainGraph(
 function rawItems(cp: ChainProject): Map<string, Item> {
   const out = new Map<string, Item>();
   for (const text of Object.values(cp.texts)) {
-    const steps =
-      (parse(text, { version: "1.2" }) as { steps?: unknown[] } | null)
-        ?.steps ?? [];
-    for (const s of steps)
-      for (const i of Array.isArray(s) ? s : [s])
-        if (i && typeof i === "object" && typeof (i as Item).id === "string")
-          out.set((i as Item).id, i as Item);
+    const file = parse(text, { version: "1.2" }) as {
+      steps?: unknown[];
+      subchains?: { steps?: unknown[] }[];
+    } | null;
+    const lists = [
+      file?.steps,
+      ...(file?.subchains ?? []).map((sc) => sc?.steps),
+    ];
+    for (const steps of lists)
+      for (const s of steps ?? [])
+        for (const i of Array.isArray(s) ? s : [s])
+          if (i && typeof i === "object" && typeof (i as Item).id === "string")
+            out.set((i as Item).id, i as Item);
   }
   return out;
 }
@@ -233,6 +270,7 @@ function writeChains(
   dir: string,
   chains: Record<string, ChainFile>,
   prevTexts: Record<string, string>,
+  keep: ReadonlySet<string> = new Set(),
 ): string[] {
   const folder = join(dir, CHAINS_DIR);
   mkdirSync(folder, { recursive: true });
@@ -252,7 +290,7 @@ function writeChains(
     out.push(`${CHAINS_DIR}/${name}.yaml`);
   }
   for (const name of Object.keys(readChainProject(dir).chains))
-    if (!chains[name])
+    if (!chains[name] && !keep.has(name))
       for (const ext of [".yaml", ".yml"]) {
         const f = join(folder, `${name}${ext}`);
         if (existsSync(f)) {

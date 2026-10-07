@@ -15,10 +15,12 @@ import {
   type ChainFile,
   ChainFileSchema,
   type Item,
+  isCallStep,
   isEndStep,
   isTrackItem,
   itemsOf,
   NODE_ITEM_KEYS,
+  type Step,
 } from "./chainSchema";
 import { locate, type ModuleIssue, quoteTimecodes } from "./moduleFile";
 import { ModuleSchema } from "./moduleSchema";
@@ -59,39 +61,61 @@ export function parseChain(text: string): ParsedChain {
       });
     return { value: null, issues };
   }
-  res.data.steps.forEach((step, s) => {
-    const items = itemsOf(step);
-    items.forEach((item, k) => {
-      if (isTrackItem(item)) return;
-      const at: (string | number)[] = Array.isArray(step)
-        ? ["steps", s, k]
-        : ["steps", s];
-      const m = ModuleSchema.safeParse(moduleOfItem(item));
-      if (!m.success)
-        for (const i of m.error.issues)
-          issues.push({
-            path: [...at, ...i.path].map(String).join("."),
-            message: i.message,
-            ...locate(doc, lines, at),
-          });
+  const lists = (res.data.subchains ?? []).map((sc, j) => ({
+    at: ["subchains", j, "steps"] as (string | number)[],
+    steps: sc.steps,
+  }));
+  for (const { at: base, steps } of [
+    { at: ["steps"], steps: res.data.steps },
+    ...lists,
+  ])
+    steps.forEach((step, s) => {
+      const items = itemsOf(step);
+      items.forEach((item, k) => {
+        if (isTrackItem(item)) return;
+        const at: (string | number)[] = Array.isArray(step)
+          ? [...base, s, k]
+          : [...base, s];
+        const m = ModuleSchema.safeParse(moduleOfItem(item));
+        if (!m.success)
+          for (const i of m.error.issues)
+            issues.push({
+              path: [...at, ...i.path].map(String).join("."),
+              message: i.message,
+              ...locate(doc, lines, at),
+            });
+      });
     });
-  });
   return issues.length ? { value: null, issues } : { value: res.data, issues };
 }
 
 /** Every item's existing YAML node in `text`, by id — what a rewrite puts back rather than retyping. */
 function nodesById(doc: Document): Map<string, YAMLMap> {
   const out = new Map<string, YAMLMap>();
-  const steps = doc.get("steps", true);
-  if (!isSeq(steps)) return out;
-  for (const s of steps.items) {
-    const maps = isSeq(s) ? s.items : [s];
-    for (const m of maps)
-      if (isMap(m)) {
-        const id = m.get("id");
-        if (typeof id === "string") out.set(id, m as YAMLMap);
+  for (const steps of stepSeqs(doc))
+    for (const s of steps.items) {
+      const maps = isSeq(s) ? s.items : [s];
+      for (const m of maps)
+        if (isMap(m)) {
+          const id = m.get("id");
+          if (typeof id === "string") out.set(id, m as YAMLMap);
+        }
+    }
+  return out;
+}
+
+/** Every `steps:` sequence of a chain file's document — the chain's own, then each subchain's. */
+export function stepSeqs(doc: Document): YAMLSeq[] {
+  const out: YAMLSeq[] = [];
+  const own = doc.get("steps", true);
+  if (isSeq(own)) out.push(own);
+  const subs = doc.get("subchains", true);
+  if (isSeq(subs))
+    for (const sc of subs.items)
+      if (isMap(sc)) {
+        const steps = sc.get("steps", true);
+        if (isSeq(steps)) out.push(steps);
       }
-  }
   return out;
 }
 
@@ -133,6 +157,7 @@ export function formatChain(chain: ChainFile, prevText = ""): string {
   if (chain.start !== undefined) top.start = chain.start;
   if (chain.ports?.length) top.ports = chain.ports;
   if (chain.bus_only) top.bus_only = true;
+  if (chain.hidden) top.hidden = true;
   const fresh = parseDocument("start: x", OPTS);
   fresh.delete("start");
   fresh.commentBefore = doc.commentBefore;
@@ -141,12 +166,36 @@ export function formatChain(chain: ChainFile, prevText = ""): string {
     if (isSeq(n)) n.flow = true;
     fresh.set(k, n);
   }
+  fresh.set("steps", stepsNode(fresh, chain.steps, old));
+  if (chain.subchains?.length) {
+    const subs = new YAMLSeq();
+    for (const sc of chain.subchains) {
+      const m = fresh.createNode({ id: sc.id }) as YAMLMap;
+      m.set("steps", stepsNode(fresh, sc.steps, old));
+      subs.items.push(m);
+    }
+    fresh.set("subchains", subs);
+  }
+  quoteTimecodes(fresh);
+  return fresh.toString(OUT);
+}
+
+/** One list of steps as a YAML sequence, each unchanged item keeping its own node. */
+function stepsNode(
+  fresh: Document,
+  list: Step[],
+  old: Map<string, YAMLMap>,
+): YAMLSeq {
   const steps = new YAMLSeq();
-  for (const step of chain.steps) {
+  for (const step of list) {
     if (isEndStep(step)) {
       const n = fresh.createNode(step) as YAMLMap;
       const to = n.get("to", true);
       if (isSeq(to)) for (const l of to.items) if (isMap(l)) l.flow = true;
+      steps.items.push(n);
+    } else if (isCallStep(step)) {
+      const n = fresh.createNode(step) as YAMLMap;
+      n.flow = true;
       steps.items.push(n);
     } else if (Array.isArray(step)) {
       const par = new YAMLSeq();
@@ -154,7 +203,5 @@ export function formatChain(chain: ChainFile, prevText = ""): string {
       steps.items.push(par);
     } else steps.items.push(itemNode(fresh, step as Item, old));
   }
-  fresh.set("steps", steps);
-  quoteTimecodes(fresh);
-  return fresh.toString(OUT);
+  return steps;
 }

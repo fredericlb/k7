@@ -484,6 +484,8 @@ export interface TimelineHandle {
   copy: () => MaybeClipboard;
   /** `selection paste` — the `events add` line putting the clipboard down at the caret. */
   pasteLine: (clip: Clipboard) => PasteResult;
+  /** `selection delete` — the line removing what `copy` would take: the rectangle's events, or the one under the caret. */
+  deleteLine: () => PasteResult;
   startMove: () => void;
   // The header toggles, so `ui ruler`, `ui lanes` and `ui automation` reach what the buttons reach.
   toggleRuler: () => void;
@@ -1713,6 +1715,53 @@ export function TimelineTab({
           note:
             `${out.length} event${out.length > 1 ? "s" : ""} pasted` +
             (dropped ? ` — ${dropped} had no lane and were left` : ""),
+        };
+      },
+      /** `selection delete` — one `events remove` naming each event the rectangle holds, so the lot is one Ctrl+Z. */
+      deleteLine: () => {
+        if (!proj) return { note: "no project" };
+        const num = proj.timeSigNumerator;
+        const den = proj.timeSigDenominator;
+        const s = selRef.current;
+        // NO RECTANGLE: the placement under the caret, the same one `copy` would take.
+        if (!s) {
+          const c = clipUnderCaret;
+          if (!c || caretRow?.kind !== "track" || caretRow.track.generated)
+            return {
+              note: "nothing to delete — put the caret on a clip, or draw a rectangle with v",
+            };
+          return {
+            line: `event remove ${caretRow.track.id} ${beatsToPosition(c.start, num, den)}`,
+            note: "event deleted",
+          };
+        }
+        const a = rowIndexOf(visRows, s.anchor.row);
+        const b = rowIndexOf(visRows, s.head.row);
+        if (a < 0 || b < 0) return { note: "the rectangle is on no row" };
+        const lo = Math.min(s.anchor.beat, s.head.beat);
+        const hi = Math.max(s.anchor.beat, s.head.beat) + 1;
+        // The rule `copy` keeps: track rows only, and an event is in the rectangle when it STARTS there.
+        const hits = visRows
+          .slice(Math.min(a, b), Math.max(a, b) + 1)
+          .flatMap((r) =>
+            r.kind === "track" && !r.track.generated
+              ? laneEvents(r)
+                  .events.filter(
+                    (e) => e.start >= lo - 1e-9 && e.start < hi - 1e-9,
+                  )
+                  .map((e) => ({
+                    track: r.track.id,
+                    start: beatsToPosition(e.start, num, den),
+                  }))
+              : [],
+          );
+        if (!hits.length)
+          return { note: "no event starts inside the rectangle" };
+        // The rectangle held what is gone: it is dropped, as a cut leaves nothing selected.
+        setSel(null);
+        return {
+          line: `events remove ${JSON.stringify(hits)}`,
+          note: `${hits.length} event${hits.length > 1 ? "s" : ""} deleted`,
         };
       },
       // shift+L: the selection becomes the loop region, spanning [lo, hi+1) so the last selected cell is inside it.

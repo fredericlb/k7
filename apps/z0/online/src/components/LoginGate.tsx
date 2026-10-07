@@ -1,9 +1,9 @@
 import { Button } from "@frediverse/ui/button";
-import { Card, CardContent } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
+import { SignInScreen } from "@frediverse/ui/sign-in-screen";
 import { login } from "../lib/auth";
 
-// Styled with @frediverse/ui; the other five keep z0-shared's terminal-look gate on purpose.
+// The apex app's sign-in, on commons' screen like every app's.
 export function LoginGate({
   title = "Z0",
   message,
@@ -14,22 +14,11 @@ export function LoginGate({
   loginLabel?: string;
 }) {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardContent className="flex flex-col items-center gap-5 py-4 text-center">
-          <FrediverseMark size="lg" />
-          <div
-            className="text-2xl font-normal tracking-wide"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {title}
-          </div>
-          {message && <p className="text-sm text-destructive">{message}</p>}
-          <Button size="lg" className="w-full" onClick={login}>
-            {loginLabel}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <SignInScreen title={title} description={message} className="text-center">
+      <Button size="lg" className="w-full" onClick={login}>
+        <FrediverseMark size="sm" />
+        {loginLabel}
+      </Button>
+    </SignInScreen>
   );
 }

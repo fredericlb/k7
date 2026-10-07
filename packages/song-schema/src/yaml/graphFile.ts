@@ -11,6 +11,7 @@ import {
   parseDocument,
   type YAMLSeq,
 } from "yaml";
+import { portRef, splitPort } from "../moduleTypes";
 import { type GraphFile, GraphFileSchema } from "./graphSchema";
 import type { ModuleIssue } from "./moduleFile";
 
@@ -333,14 +334,15 @@ export function renameNode(
 ): { text: string; rewired: string[] } {
   const { doc, file } = read(text);
   const rewired: string[] = [];
+  // A ref names the node bare or through one of its ports (`gtr#L`); the port is kept, the node renamed.
+  const follow = (ref: string): string => {
+    const { node, port } = splitPort(ref);
+    return node === from ? portRef(to, port) : ref;
+  };
 
   for (const [node, dests] of Object.entries(file.modules ?? {})) {
-    if (!dests.includes(from)) continue;
-    setDests(
-      doc,
-      node,
-      dests.map((d) => (d === from ? to : d)),
-    );
+    if (!dests.some((d) => follow(d) !== d)) continue;
+    setDests(doc, node, dests.map(follow));
     rewired.push(node);
   }
 
@@ -348,15 +350,20 @@ export function renameNode(
   const map = doc.get("modules");
   if (isMap(map))
     for (const item of map.items)
-      if (isScalar(item.key) && item.key.value === from) {
-        item.key.value = to;
+      if (
+        isScalar(item.key) &&
+        typeof item.key.value === "string" &&
+        follow(item.key.value) !== item.key.value
+      ) {
+        item.key.value = follow(item.key.value);
         // …and drop the quoting style with it, or a renamed module wears the quotes of the one it replaced.
         item.key.type = undefined;
       }
 
-  const bypassed = doc.get("bypassed");
-  if (isSeq(bypassed)) {
-    const items = (bypassed as YAMLSeq).items;
+  for (const list of ["bypassed", "bus_only"]) {
+    const seq = doc.get(list);
+    if (!isSeq(seq)) continue;
+    const items = (seq as YAMLSeq).items;
     for (let i = 0; i < items.length; i++)
       if (itemText(items[i]) === from) items[i] = doc.createNode(to);
   }

@@ -30,9 +30,6 @@ export type LcdSet = (
 /** The host's setter; absent, every screen only draws. */
 export const LcdSetContext = createContext<LcdSet | null>(null);
 
-// A wheel gesture has no release: it is written once the wheel has been still this long.
-const WHEEL_COMMIT_MS = 400;
-
 const NOOP = (): void => {};
 type Side = "input" | "output";
 const SIDES: readonly Side[] = ["input", "output"];
@@ -262,15 +259,13 @@ export function LcdScreenWidget({
     };
   }, []);
 
-  // The pointer, native so a wheel the script takes never reaches the graph's zoom — docs/lcdScreen.md.
+  // The pointer, native so a press the script takes never pans the graph — docs/lcdScreen.md.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !interactive) return;
     let gesture: Record<string, number> | null = null;
     let pending: Record<string, number> = {};
     let raf = 0;
-    let wheelTimer = 0;
-    let wheelSet: Record<string, number> = {};
     const flushLive = (): void => {
       raf = 0;
       const out = pending;
@@ -279,7 +274,7 @@ export function LcdScreenWidget({
         setRef.current?.(nodeRef.current, out, false);
     };
     const run = (
-      e: PointerEvent | WheelEvent,
+      e: PointerEvent,
       type: LcdPointerEvent["type"],
       into: Record<string, number>,
     ): boolean => {
@@ -293,7 +288,6 @@ export function LcdScreenWidget({
         type,
         x: (e.clientX - box.left) * sx,
         y: (e.clientY - box.top) * sy,
-        delta: e instanceof WheelEvent ? e.deltaY : 0,
         shift: e.shiftKey,
         alt: e.altKey,
       };
@@ -359,30 +353,16 @@ export function LcdScreenWidget({
       run(e, "up", set);
       commit(set);
     };
-    const wheel = (e: WheelEvent): void => {
-      if (!run(e, "wheel", wheelSet)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      window.clearTimeout(wheelTimer);
-      wheelTimer = window.setTimeout(() => {
-        const set = wheelSet;
-        wheelSet = {};
-        commit(set);
-      }, WHEEL_COMMIT_MS);
-    };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
     canvas.addEventListener("pointerup", up);
     canvas.addEventListener("pointercancel", up);
-    canvas.addEventListener("wheel", wheel, { passive: false });
     return () => {
       canvas.removeEventListener("pointerdown", down);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);
       canvas.removeEventListener("pointercancel", up);
-      canvas.removeEventListener("wheel", wheel);
       if (raf) cancelAnimationFrame(raf);
-      window.clearTimeout(wheelTimer);
     };
   }, [interactive]);
 

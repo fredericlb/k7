@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@frediverse/ui/tooltip";
 import { clearDevPerfEntries } from "@studio/project-shell/devPerf";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -12,7 +13,9 @@ clearDevPerfEntries(import.meta.env.DEV);
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LocaleProvider>
-      <App />
+      <TooltipProvider>
+        <App />
+      </TooltipProvider>
     </LocaleProvider>
   </StrictMode>,
 );

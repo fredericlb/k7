@@ -97,6 +97,41 @@
   surfaces: [cli]
   menu: [track]
   args: [{ name: track, complete: tracks }]
+# A lane's name IS its filename, prefix and position included, so the new name is typed whole — and
+# the graph, the boxes, `trackOrder`, `soloed` and the strip named after the lane follow it.
+- command: "track rename"
+  sid: track.rename
+  readable:
+    en: "Rename a track and its file"
+    fr: "Renommer une piste et son fichier"
+  help: "rename a track — the whole name, prefix included, is its filename (e.g. track rename ge.lead vo.lead)"
+  surfaces: [cli]
+  menu: [track]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: name, hint: "the new name, prefix included — e.g. vo.lead" },
+    ]
+# Set a lane aside without deleting it: `hidden: true` on its chain, so nothing draws, compiles or plays
+# it, and every file stays as written. A chain project's verb — see packages/song/docs/chainFiles.md.
+- command: "track hide"
+  sid: track.hide
+  readable:
+    en: "Hide a track from the timeline, graph and engine"
+    fr: "Masquer une piste de la timeline, du graphe et du moteur"
+  help: "set a track aside: its chain is marked hidden — not drawn, not played, files kept (e.g. track hide gtr); `track unhide` brings it back"
+  surfaces: [cli]
+  menu: [track]
+  args: [{ name: track, complete: tracks }]
+# A hidden lane is on no screen, so this one is typed: no menu could hold it.
+- command: "track unhide"
+  sid: track.unhide
+  readable:
+    en: "Show a hidden track again"
+    fr: "Réafficher une piste masquée"
+  help: "bring back a track `track hide` set aside (e.g. track unhide gtr)"
+  surfaces: [cli]
+  args: [{ name: track, hint: "the hidden track's name" }]
 - command: "sequence new"
   sid: sequence.new
   readable:
@@ -846,6 +881,24 @@
   help: "create an automation curve (e.g. curve new sweep) — an LFO you then edit"
   surfaces: [cli]
   args: [{ name: name, hint: "the curve's id — it is the filename, so letters, digits, '_' and '-'" }]
+
+# A curve written WHOLE from its fields — what the curve editor (`ui curve`) saves, creating the curve
+# or replacing it. The JSON is the file's own fields, so one save is one command and one undo.
+- command: "curve set"
+  sid: curve.set
+  readable:
+    en: "Write a curve from its fields"
+    fr: "Écrire une courbe depuis ses champs"
+  help: 'write a curve whole, creating or replacing it (e.g. curve set wobble {"type":"lfo","shape":"saw","frequency":2,"phase":0,"amplitude":0.5})'
+  surfaces: [cli]
+  args:
+    [
+      { name: curve, complete: curves },
+      {
+        name: fields,
+        hint: "JSON — type (lfo|custom|adsr) and its fields: shape, frequency, phase, amplitude, polarity, attack…, points, condition",
+      },
+    ]
 
 # --- surfaces (the special views a project asks for) ---
 # A project draws nothing it has not declared: the arrangement, the frame, the desk and the
@@ -1939,6 +1992,22 @@
         hint: 'JSON [{track,ref,start,from?,to?,fadeIn?,fadeOut?,loop?,disabled?,warp?}] — start is a timecode',
       },
     ]
+# The bulk form of `event remove`: the events NAMED, so what a rectangle holds is one command and one
+# undo. What the timeline's Backspace runs over a rectangle (`selection delete`).
+- command: "events remove"
+  sid: events.remove
+  readable:
+    en: "Remove a batch of events from their tracks"
+    fr: "Retirer un lot d'événements de leurs pistes"
+  help: "remove several placements in one step (JSON payload — what Backspace sends over a timeline rectangle)"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: events,
+        hint: 'JSON [{track,start}] — start is a timecode',
+      },
+    ]
 - command: "event move"
   sid: event.move
   readable:
@@ -2193,6 +2262,22 @@
 #
 # The arrow comes first (before, after) so the node name lands last, where a person types it.
 # No chain to name: the two ends ARE an edge in graph.yaml, so there is nothing to disambiguate.
+# The bottom `+` under a card in a chain project: the new node goes UNDER the one above, both in a
+# subchain run in that one's place — the per-track row draws the pair as one column. A graph.yaml
+# project has no subchains, so it refuses. See packages/song/docs/chainFiles.md, "Subchains".
+- command: "node stack"
+  sid: node.stack
+  readable:
+    en: "Stack a new node under another, in one subchain"
+    fr: "Empiler un nouveau nœud sous un autre, en sous-chaîne"
+  help: "put a node `node new` just made right under another, the two in one subchain run in its place (e.g. node stack amp_1 eq_1)"
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes, hint: "the node the new one goes under" },
+      { name: new, complete: nodes, hint: "a node `node new` just made, wired to nothing" },
+    ]
 - command: "node insert"
   sid: node.insert
   readable:
