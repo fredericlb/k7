@@ -40,6 +40,9 @@ interface BrowserPeer {
   close(): void;
 }
 
+/** How long a data channel may take to open: the FIRST ICE of a run, on a loaded CI box, has taken over 8 s. */
+const OPEN_MS = 20_000;
+
 const until = async (ok: () => boolean, ms = 8000): Promise<void> => {
   const end = Date.now() + ms;
   while (!ok()) {
@@ -109,7 +112,7 @@ describe.skipIf(!available).each(agentKinds)(
       );
       const answer = await hub.signal("e1", pc.localDescription?.sdp ?? "");
       await pc.setRemoteDescription({ type: "answer", sdp: answer });
-      await until(() => dc.readyState === "open");
+      await until(() => dc.readyState === "open", OPEN_MS);
       const big = JSON.stringify({ type: "project", doc: "x".repeat(60_000) });
       for (const f of toFragments(big)) dc.send(f);
       await until(() => engineGot.length === 1 && back.length === 1);
@@ -132,7 +135,7 @@ describe.skipIf(!available).each(agentKinds)(
         );
         const answer = await hub.signal("e1", pc.localDescription?.sdp ?? "");
         await pc.setRemoteDescription({ type: "answer", sdp: answer });
-        await until(() => dc.readyState === "open");
+        await until(() => dc.readyState === "open", OPEN_MS);
         for (const f of toFragments(JSON.stringify({ type: "ping" })))
           dc.send(f);
         await new Promise((r) => setTimeout(r, 200));
