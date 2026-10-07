@@ -3,7 +3,7 @@
 // and the rest is the little view state the tray genuinely owns. See docs/tray.md.
 
 use std::sync::{Arc, Mutex};
-use tauri::menu::{CheckMenuItem, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem};
 use tauri::tray::TrayIcon;
 use tauri::Wry;
 
@@ -12,6 +12,10 @@ use crate::host::Snapshot;
 /// Handles we mutate as status changes. Stored once in AppState during setup.
 pub struct Menus {
     pub status: MenuItem<Wry>, // the one line the menu bar still says on its own
+    /// …and the line under it while an instrument downloads, in the menu only then.
+    pub downloads: MenuItem<Wry>,
+    pub downloads_shown: bool,
+    pub menu: Menu<Wry>,
     pub autostart: CheckMenuItem<Wry>,
     pub tray: TrayIcon<Wry>,
 }

@@ -34,6 +34,10 @@ other array is a handful. It rides the snapshot anyway, because the alternative 
 request/response channel for one list that changes only on a rescan, and `pluginsSig` already keeps
 it off the wire between scans.
 
+`downloads` is the one key that is ABSENT rather than empty: it exists only while an instrument is
+being fetched (`docs/instruments.md`), and a snapshot without it is the common case on every frame.
+It moves once per whole percent, which is as often as the menu line it feeds can show a change.
+
 `owns` is always both-true: every subsystem it names is the supervisor's. It stays on the wire
 because the tray still reads it, and removing a field the other side reads is a two-sided change.
 

@@ -7,6 +7,9 @@
 #include "MixBlend.h"  // indexAfterModule — a module's @mix pair sits around it
 #include "MasterGainPlugin.h" // the OUT node's Volume, behind the master chain
 #include "NamPlugin.h" // a .nam model is loaded onto the plugin as the Edit is built
+#if STUDIO_SFZ
+#include "SfzPlugin.h" // …and an SFZ instrument the same way
+#endif
 #include "TurntablePlugin.h" // …and a platter's record, for the same reason
 
 #include "PluginParams.h"    // applyPluginParams (via addPlugin)
@@ -410,6 +413,15 @@ void loadPluginFiles(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p, con
             if (!nam->loadImpulseResponse(juce::File{juce::String(p.irFile)}, err))
                 warn(err.toStdString(), p.id);
         }
+    // The SFZ instrument, on the message thread like the model: its preload reads the head of every sample.
+#if STUDIO_SFZ
+    if (moved(&PluginDoc::sfzFile))
+        if (auto* sfz = dynamic_cast<studio::SfzPlugin*>(&plugin)) {
+            juce::String err;
+            if (!sfz->loadInstrument(juce::String(p.sfzFile), err))
+                warn(err.toStdString(), p.id);
+        }
+#endif
     // A rack's sounds, in place — only when reloading: a new sampler gets them from addPluginTo, after its params.
     if (was != nullptr && was->rack != p.rack) reloadRack(edit, plugin, p);
     // The RECORD a platter owns, decoded on its own loader thread — neither the message thread nor the audio one waits on it.

@@ -40,6 +40,7 @@ struct PluginDoc {
     std::string namFile;                               // .nam model to load (neural amp modeler module); empty otherwise
     std::string irFile;                                // the cabinet IR a NAM module convolves after its model; empty otherwise
     std::string deckFile;                              // the record a TURNTABLE module owns — decoded whole, docs/turntable.md
+    std::string sfzFile;                               // the .sfz an SFZ instrument plays, its samples beside it — docs/sfzPlugin.md
     // The DSP graph a "DSP Graph" module runs — the JSON DESCRIPTION inline, never a path (DspGraph.h); empty otherwise.
     std::string dspGraph;
     // …and a "Faust" module's SOURCE, likewise inline, but as text for THIS side to compile (FaustPlugin.h).

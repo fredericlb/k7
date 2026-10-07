@@ -9,6 +9,7 @@
 #include "EngineProcess.h"
 #include "EngineQueries.h"
 #include "HostLock.h"
+#include "Instruments.h"
 #include "MachineJobs.h"
 #include "Log.h"
 #include "Paths.h"
@@ -24,6 +25,7 @@
 #include <map>
 #include <optional>
 #include <stdexcept>
+#include <thread>
 
 namespace st0 {
 
@@ -238,6 +240,62 @@ struct Supervisor::Impl {
     void finishDevices()
     {
         snap.audioMenuSig = audio::menuSignature(snap.audioDevices, settings.audioPriority);
+        publish();
+    }
+
+    /** Fetch every instrument this machine has not got, one at a time on a worker, the tray told as it goes (docs/instruments.md). */
+    void fetchInstruments()
+    {
+        std::vector<instruments::Instrument> missing;
+        for (const auto& i : instruments::all())
+            if (!instruments::installed(i)) missing.push_back(i);
+        if (missing.empty()) return;
+        for (const auto& i : missing) snap.downloads.push_back({i.name, i.label, 0, i.bytes, "downloading", ""});
+        publish();
+        // Detached: a download outlives no supervisor, and one cut short leaves only a .part to start over from.
+        std::thread([this, missing] {
+            for (const auto& i : missing) {
+                log::host("instrument " + i.name + ": downloading " + i.url);
+                int lastPercent = -1;
+                std::string lastPhase;
+                std::string error;
+                const bool ok = instruments::install(
+                    i,
+                    [&](const instruments::Progress& p) {
+                        // A frame per whole percent at most: a chunk is a few KB, and each frame is a menu rebuilt.
+                        const int percent = p.total ? static_cast<int>(100 * p.received / p.total) : 0;
+                        if (percent == lastPercent && p.phase == lastPhase) return;
+                        lastPercent = percent;
+                        lastPhase = p.phase;
+                        loop.post([this, name = i.name, p] { onDownload(name, p.received, p.total, p.phase, ""); });
+                    },
+                    error);
+                log::host("instrument " + i.name + (ok ? ": installed" : ": " + error));
+                loop.post([this, name = i.name, ok, error] {
+                    if (ok) onDownload(name, 0, 0, "", "");
+                    else onDownload(name, 0, 0, "failed", error);
+                });
+            }
+        }).detach();
+    }
+
+    /** One download's news, on the loop's thread: an empty phase is a finished one, which leaves the list. */
+    void onDownload(const std::string& name, std::uint64_t received, std::uint64_t total, const std::string& phase,
+                    const std::string& error)
+    {
+        auto& list = snap.downloads;
+        auto it = std::find_if(list.begin(), list.end(), [&](const auto& d) { return d.name == name; });
+        if (it == list.end()) return;
+        if (phase.empty()) {
+            list.erase(it);
+        } else {
+            it->phase = phase;
+            it->error = error;
+            if (phase != "failed") {
+                it->received = received;
+                it->total = total;
+            }
+        }
         publish();
     }
 
@@ -672,6 +730,8 @@ void Supervisor::start()
                   s.performance->dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
         // Started HERE rather than on a tray command: nothing should wait for a menu to be built.
         s.startEngine([&s](bool) { s.beat([&s] { s.installLoops(); }); });
+        // …and the instruments it plays alongside it, whether or not a song names one yet.
+        s.fetchInstruments();
     });
 }
 

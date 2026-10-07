@@ -5,7 +5,7 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/st0-engine/docs/builtinParams.md.
 //
-// 224 plugins, 1120 parameters.
+// 225 plugins, 1121 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
@@ -428,6 +428,11 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
       { name: "Knob 2", min: 0, max: 1, def: 0.5 },
       { name: "Knob 3", min: 0, max: 1, def: 0.5 },
     ],
+  },
+  studio_sfz: {
+    name: "SFZ Player",
+    role: "instrument",
+    params: [{ name: "Volume", min: -40, max: 12, def: 0 }],
   },
   studio_dspgraph: {
     name: "DSP Graph",

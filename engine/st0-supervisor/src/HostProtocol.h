@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -56,6 +57,16 @@ struct InstanceCheck {
     std::string message;
 };
 
+/** One instrument the supervisor is fetching for the engine (Instruments.h) — what the tray's menu says while it runs. */
+struct Download {
+    std::string name;
+    std::string label;
+    std::uint64_t received = 0;
+    std::uint64_t total = 0;
+    std::string phase;  // "downloading" | "unpacking" | "failed"
+    std::string error;
+};
+
 /** The whole of what the tray draws. */
 struct Snapshot {
     std::string status = "stopped";  // "stopped" | "running" | "error"
@@ -80,6 +91,7 @@ struct Snapshot {
     std::optional<InstanceCheck> instanceCheck;
     std::string rootPath;
     std::string mergedLogPath;
+    std::vector<Download> downloads;
 };
 
 /** One command from the tray; `id` is echoed on its result. */

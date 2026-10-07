@@ -134,6 +134,11 @@ a file two renames ago sends the reader into a wall.
 surface to `engine/st0-engine` — what is shared, what is copied, where the connections give way,
 and the plan by lots. Read it before touching the registry, the relay or a gate.
 
+`npm run lint:panels` checks every library panel's `bind:` against the parameters its plugin really
+exposes to the engine, since a bind the plugin does not have is a control that moves and does nothing
+(`packages/song/docs/panelBinds.md`). It instantiates each external plugin, so it runs only on a machine
+where they are installed, and it is not part of `npm run lint`.
+
 `commons/` is a **git submodule** — the shared base, also used by the `phare`
 monorepo. Editing something under `commons/` means committing in two places:
 

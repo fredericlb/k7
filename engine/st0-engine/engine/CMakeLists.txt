@@ -131,6 +131,14 @@ target_link_libraries(studio_engine PRIVATE
 # object library above).
 target_link_libraries(studio_engine PUBLIC studio_nam)
 
+# --- sfizz, for SfzPlugin: an SFZ instrument as a built-in (docs/sfzPlugin.md) ---
+# STUDIO_SFZ says the plugin is compiled in; every platform fetches sfizz, so it always is.
+if(TARGET sfizz::sfizz)
+    target_sources(studio_engine PRIVATE SfzPlugin.cpp)
+    target_link_libraries(studio_engine PRIVATE sfizz::sfizz)
+    target_compile_definitions(studio_engine PUBLIC STUDIO_SFZ=1)
+endif()
+
 # --- The eurorack modules' DSP, for the plugins under eurorack/ ---------------
 # Its own JUCE-free library, so the firmware's macros and its TEST define reach nothing else.
 add_subdirectory(eurorack)

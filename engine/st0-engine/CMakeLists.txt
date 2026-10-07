@@ -151,6 +151,29 @@ FetchContent_Declare(faust
     PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/faust.cmake"
     SOURCE_SUBDIR  build)
 
+# --- sfizz : plays SFZ instruments, for SfzPlugin ------------------------------
+# BSD-2, a C++ sampler library: an instrument is a `.sfz` text and the samples it names, so a
+# multi-sampled piano is a folder of files rather than a plugin to install. Built STATIC, with its
+# own stand-alone tools off. Upstream is archived; the two fixes today's compilers need are in the
+# patch script. Rationale: docs/sfzPlugin.md.
+FetchContent_Declare(sfizz
+    GIT_REPOSITORY https://github.com/sfztools/sfizz.git
+    GIT_PROGRESS   ON
+    GIT_TAG        1.2.3
+    # Not shallow: a shallow clone cannot reach the commit libaiff, a submodule of a submodule, is pinned at.
+    # All six are compiled into the library: abseil, the audio file readers (FLAC is dr_libs'), and so on.
+    GIT_SUBMODULES_RECURSE ON
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/sfizz.cmake")
+set(SFIZZ_SHARED OFF CACHE BOOL "" FORCE)
+set(SFIZZ_JACK OFF CACHE BOOL "" FORCE)
+set(SFIZZ_RENDER OFF CACHE BOOL "" FORCE)
+set(SFIZZ_TESTS OFF CACHE BOOL "" FORCE)
+set(SFIZZ_DEMOS OFF CACHE BOOL "" FORCE)
+set(SFIZZ_DEVTOOLS OFF CACHE BOOL "" FORCE)
+set(SFIZZ_BENCHMARKS OFF CACHE BOOL "" FORCE)
+# sfizz's own option, despite the generic name; LTO across a static library is the parent's call.
+set(ENABLE_LTO OFF CACHE BOOL "" FORCE)
+
 # --- QuickJS (quickjs-ng) : evaluates Strudel patterns, for PatternPlugin --------
 # A small C interpreter, statically linked; the pattern language itself is a committed bundle
 # (engine/strudel/strudel.bundle.js). Why an interpreter in the engine at all: docs/patternPlugin.md.
@@ -318,6 +341,11 @@ endif()
 
 FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen rtneural faust quickjs
                            eurorack stmlib)
+# sfizz is C++14/17 code (its own pick on MSVC is 17), and ours is 20, under which std::result_of is gone and abseil
+# changes types: built at 17 everywhere, its public header — the only one we include — being plain std.
+set(CMAKE_CXX_STANDARD 17)
+FetchContent_MakeAvailable(sfizz)
+set(CMAKE_CXX_STANDARD 20)
 
 # Android populated Tracktion without building its root (see its declaration): add JUCE and the
 # Tracktion modules the way that root does, minus the examples.

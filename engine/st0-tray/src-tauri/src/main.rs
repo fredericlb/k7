@@ -75,6 +75,9 @@ fn main() {
 
             let menus = Menus {
                 status: mb.status,
+                downloads: mb.downloads,
+                downloads_shown: false,
+                menu: mb.menu,
                 autostart: mb.autostart,
                 tray,
             };

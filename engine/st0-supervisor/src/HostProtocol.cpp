@@ -63,6 +63,16 @@ ojson stateFrame(const Snapshot& s)
         f["instanceCheck"] = nullptr;
     }
     f["paths"] = {{"root", s.rootPath}, {"mergedLog", s.mergedLogPath}};
+    // Absent rather than empty when nothing is being fetched — the common case, and the tray defaults it.
+    if (!s.downloads.empty()) {
+        ojson downloads = ojson::array();
+        for (const auto& d : s.downloads) {
+            ojson o = {{"name", d.name}, {"label", d.label}, {"received", d.received}, {"total", d.total}, {"phase", d.phase}};
+            if (!d.error.empty()) o["error"] = d.error;
+            downloads.push_back(o);
+        }
+        f["downloads"] = downloads;
+    }
     return f;
 }
 

@@ -215,6 +215,27 @@ void diff_nam_model_or_ir_pick_is_reload() {
     CHECK(hasKind(diff(a, none), ChangeKind::PluginAdded));
 }
 
+// An SFZ instrument is a FILE it loads, like a model: another pick reloads the instance, and dropping it is a replace.
+void diff_sfz_instrument_pick_is_reload() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "keys");
+        auto p = mkPlugin("t1:piano", "studio_sfz", "piano");
+        p.sfzFile = "/instruments/a/piano.sfz";
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc other = a;
+    other.tracks[0].plugins[0].sfzFile = "/instruments/b/piano.sfz";
+    CHECK(hasKind(diff(a, other), ChangeKind::PluginReloaded));
+    CHECK(!hasKind(diff(a, other), ChangeKind::PluginRemoved));
+    CHECK(!needsFullRebuild(diff(a, other)));
+    ProjectDoc none = a;
+    none.tracks[0].plugins[0].sfzFile.clear();
+    CHECK(hasKind(diff(a, none), ChangeKind::PluginRemoved));
+    CHECK(hasKind(diff(a, none), ChangeKind::PluginAdded));
+}
+
 // A preset is loaded into the live instance and re-aiming a second input re-wires it; a preset dropped is a replace.
 void diff_preset_and_sidechain_reload_in_place() {
     ProjectDoc a;
@@ -783,6 +804,7 @@ int main() {
     RUN(diff_volume_removed_returns_to_unity);
     RUN(diff_plugin_swap_is_replace_and_rebuild);
     RUN(diff_nam_model_or_ir_pick_is_reload);
+    RUN(diff_sfz_instrument_pick_is_reload);
     RUN(diff_preset_and_sidechain_reload_in_place);
     RUN(diff_master_file_move_rebuilds);
     RUN(diff_plugin_add_is_incremental);

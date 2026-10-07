@@ -44,13 +44,13 @@ bool sameSource(const PluginDoc& a, const PluginDoc& b) {
 bool mustReplace(const PluginDoc& a, const PluginDoc& b) {
     const auto dropped = [&](const std::string PluginDoc::*f) { return !(a.*f).empty() && (b.*f).empty(); };
     return !sameSource(a, b) || dropped(&PluginDoc::path) || dropped(&PluginDoc::namFile) ||
-           dropped(&PluginDoc::irFile) || dropped(&PluginDoc::deckFile);
+           dropped(&PluginDoc::irFile) || dropped(&PluginDoc::deckFile) || dropped(&PluginDoc::sfzFile);
 }
 
 // …and one whose FILES or second input moved: loaded again into the same instance, so its tails and its place are kept.
 bool filesMoved(const PluginDoc& a, const PluginDoc& b) {
     return a.path != b.path || a.namFile != b.namFile || a.irFile != b.irFile || a.deckFile != b.deckFile ||
-           a.sidechainFrom != b.sidechainFrom || a.rack != b.rack;
+           a.sfzFile != b.sfzFile || a.sidechainFrom != b.sidechainFrom || a.rack != b.rack;
 }
 
 std::string keyOf(const PluginDoc& p) {

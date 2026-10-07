@@ -66,6 +66,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   NaturalizeDither.h        …that word length: Righteous 4's Naturalize stage, JUCE-free, so tests/ has it in the FAST binary
   AccelerationLimiter.h     …and its HF limit: To Vinyl 4's acceleration limiter, JUCE-free for the same reason
   NamPlugin.{h,cpp}         the neural amp: a .nam, or an AIDA-X / Proteus model, and its cabinet (docs/namPlugin.md)
+  SfzPlugin.{h,cpp}         an SFZ instrument, played by sfizz: a .sfz and the samples beside it (docs/sfzPlugin.md)
   AmpModel.h                …the model behind it, whichever kind; JUCE-free, so tests/ runs the RTNeural half
   NamModel.cpp              …a .nam through NeuralAmpModelerCore, and the loader that picks the kind by file
   RtNeuralModel.cpp         …an AIDA-X or Proteus recurrent net through RTNeural, with its knob inputs
@@ -99,6 +100,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
     patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
   patches/faust.cmake       Faust's poly-dsp.h prints on the audio thread at every voice steal; silenced at fetch time
   patches/tracktion.cmake   Tracktion's SamplerPlugin re-decoded every rack sound on any edit, twice, once under the audio lock
+  patches/sfizz.cmake       sfizz (archived) against today's compilers: its arm64 flag test, and an atomic_queue error clang 19 raises
     <Name>Plugin.{h,cpp}      named mu-<module>: MacroOscillator2 = mu-plaits, MacroOscillator =
                               mu-braids, Resonator = mu-rings, ModalSynthesizer = mu-elements,
                               TidalModulator = mu-tides (Tides 2), DrumVoices = mu-peaks,
@@ -191,6 +193,7 @@ before touching the audio callback, `applyFull`, or the build flags),
 `quickMaster.md` (why that one is compiled rather than a `jsdsp` graph, the allpass the three-way
 split needs, and what its ceiling really guarantees),
 `faust.md` (the interpreter factory, the polyphonic seam, and the one question left open),
+`sfzPlugin.md` (why sfizz, the C++17 island it is built as, and loading an instrument off the audio thread),
 `patternPlugin.md` (why the engine plays pattern lanes, why QuickJS, how a file's events are shared
 between its lanes, samples, the epoch rule, the offline-render path, and what is not yet proven),
 `dspGraph.md` (the graph model `@studio/dsp` emits, and the three places the audio thread is kept

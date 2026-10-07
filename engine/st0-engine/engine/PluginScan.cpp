@@ -12,6 +12,9 @@
 #include "MixerPlugin.h"
 #include "MidiGraphPlugin.h"
 #include "NamPlugin.h"
+#if STUDIO_SFZ
+#include "SfzPlugin.h"
+#endif
 #include "QuickMasterPlugin.h"
 #include "TurntablePlugin.h"
 #include "PatternPlugin.h"
@@ -246,6 +249,10 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Impulse Response", te::ImpulseResponsePlugin::xmlTypeName, "audioEffect", "reverb"),
         // The amp itself rather than its cabinet: a .nam model's non-linear behaviour, filed under what it does to the signal.
         e("Neural Amp Modeler", studio::NamPlugin::xmlTypeName, "audioEffect", "distortion"),
+#if STUDIO_SFZ
+        // A multi-sampled instrument as files rather than a plugin to install: an .sfz and its samples (docs/sfzPlugin.md).
+        e("SFZ Player", studio::SfzPlugin::xmlTypeName, "instrument", "instrument"),
+#endif
         // DSP described as DATA rather than compiled in (DspGraph.h): its parameters come from the description, so two graphs look different.
         e("DSP Graph", studio::GraphDspPlugin::xmlTypeName, "audioEffect", "filter"),
         // The same idea with the compiler on THIS side: the module carries Faust source, and what this build does with it is docs/faust.md.
@@ -286,6 +293,9 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::WaveformTapPlugin>();
     pm.createBuiltInType<studio::BroadcastTapPlugin>();
     pm.createBuiltInType<studio::NamPlugin>();
+#if STUDIO_SFZ
+    pm.createBuiltInType<studio::SfzPlugin>();
+#endif
     pm.createBuiltInType<studio::GraphDspPlugin>();
     pm.createBuiltInType<studio::FaustPlugin>();
     pm.createBuiltInType<studio::MidiGraphPlugin>();

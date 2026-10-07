@@ -714,6 +714,10 @@ function compileNodeProjectIn(
         ...(module.model ? { namFile: String(module.model) } : {}),
         // …and the cabinet IR it convolves after the model, from a library's `irs/` (docs/libraryFiles.md).
         ...(module.ir ? { irFile: String(module.ir) } : {}),
+        // An SFZ instrument, as the module names it: an `@instruments/` one is resolved on the ENGINE's machine.
+        ...(typeof module.params?.sfz === "string" && module.params.sfz
+          ? { sfzFile: module.params.sfz }
+          : {}),
         // The DSP graph, inline because the engine parses no files and this declares the plugin's parameters.
         ...(() => {
           const src = module.jsdsp;

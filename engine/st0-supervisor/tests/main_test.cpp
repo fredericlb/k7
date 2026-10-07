@@ -14,6 +14,7 @@ void runSeparationAudioTests();
 void runHostLockTests();
 void runRegistryTests();
 void runTlsTests();
+void runInstrumentsTests();
 
 int main()
 {
@@ -28,5 +29,6 @@ int main()
     runHostLockTests();
     runRegistryTests();
     runTlsTests();
+    runInstrumentsTests();
     TEST_MAIN_END();
 }

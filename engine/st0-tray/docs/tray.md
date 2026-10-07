@@ -55,7 +55,10 @@ ever urgent:
 **The menu bar keeps one line and no buttons.** A status line is what a menu bar is for; a
 ranking, a catalogue of several hundred rows, a list of live sessions and a row of destructive
 buttons are not, and they belong in a window. `Settings…` is the way in, and the only one — the
-tray draws no device, count, session, version or web UI anywhere. A blocked origin still raises the icon's attention dot and a
+tray draws no device, count, session, version or web UI anywhere. The one exception is a
+download in progress (`engine/st0-supervisor/docs/instruments.md`): a second line, there only while
+it lasts, because a machine fetching 750 MB of piano after its first start has to say so where
+someone looks before playing. A blocked origin still raises the icon's attention dot and a
 banner; both point at the st0 instances tab.
 
 It is hidden on close, never destroyed: Tauri asks an app to exit when its last window closes,

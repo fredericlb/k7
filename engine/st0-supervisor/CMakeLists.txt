@@ -64,6 +64,17 @@ add_library(st0_mbedtls INTERFACE)
 target_link_libraries(st0_mbedtls INTERFACE mbedtls mbedx509 mbedcrypto)
 add_library(MbedTLS::MbedTLS ALIAS st0_mbedtls)
 
+# --- miniz : unpacks the instruments the supervisor downloads (Instruments.cpp, docs/instruments.md) ----
+# MIT, one C file. The release archive is the amalgamated miniz.c/miniz.h, compiled here as it is.
+FetchContent_Declare(miniz
+    URL      https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip
+    URL_HASH SHA256=ada38db0b703a56d3dd6d57bf84a9c5d664921d870d8fea4db153979fb5332c5)
+# The archive holds no CMakeLists.txt, so making it available only unpacks it.
+FetchContent_MakeAvailable(miniz)
+add_library(st0_miniz STATIC ${miniz_SOURCE_DIR}/miniz.c)
+target_include_directories(st0_miniz PUBLIC ${miniz_SOURCE_DIR})
+set_target_properties(st0_miniz PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # --- IXWebSocket : the engine socket, the tunnel, and HTTPS, all over the mbedTLS above ---------
 FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
@@ -177,10 +188,11 @@ add_library(st0_supervisor_core STATIC
     src/SeparationAudio.cpp
     src/OnnxSession.cpp
     src/Separation.cpp
+    src/Instruments.cpp
     src/Supervisor.cpp)
 # `src` is searched before the system headers, and Windows ignores case: no header here may share a system header's name.
 target_include_directories(st0_supervisor_core PUBLIC src)
-target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket datachannel mbedtls mbedx509 mbedcrypto)
+target_link_libraries(st0_supervisor_core PUBLIC nlohmann_json::nlohmann_json ixwebsocket datachannel mbedtls mbedx509 mbedcrypto st0_miniz)
 if(WIN32)
     target_link_libraries(st0_supervisor_core PUBLIC ws2_32 iphlpapi crypt32 dbghelp)
     target_compile_definitions(st0_supervisor_core PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -222,7 +234,8 @@ add_executable(st0_supervisor_tests
     tests/SeparationAudio_test.cpp
     tests/HostLock_test.cpp
     tests/Registry_test.cpp
-    tests/Tls_test.cpp)
+    tests/Tls_test.cpp
+    tests/Instruments_test.cpp)
 target_include_directories(st0_supervisor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../st0-engine/tests)
 target_link_libraries(st0_supervisor_tests PRIVATE st0_supervisor_core)
 st0_beside_runtime(st0_supervisor_tests)

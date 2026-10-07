@@ -278,6 +278,26 @@ params:
 model_url: https://models.example.org/htdemucs_fp16weights.onnx
 ```
 
+## _modules/<type>/<name>/module.yaml — a sampled instrument (SFZ)
+
+An instrument made of recordings — a multi-sampled piano, a drum kit with velocity layers — is a
+`.sfz` file and the samples it names, played by the engine's own **SFZ Player**. The module names
+the `.sfz` with `sfz:`, and the instruments st0 ships are named `@instruments/<name>/<file>.sfz`:
+they live on the machine the ENGINE runs on, not in a library or a project. Its supervisor downloads
+every one of them the first time the engine starts — the tray's menu says so while it does — and a
+song opened before that is finished starts to play the instrument as soon as it lands.
+
+```yaml schema=Module
+# _modules/instruments/keys/piano/module.yaml — a sampled concert grand
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/salamander-grand-piano/Salamander Grand Piano V3.sfz"
+```
+
+Three ship today: `salamander-grand-piano` (the library's `@st0/instruments/keys/piano`), and the
+Rhodes and the Wurlitzer behind two engines of its `electric-piano`, `stereo-rhodes` (the default
+one) and `wurt`. A `sfz:` that is a path instead plays that file, on the engine's machine.
+
 ## _modules/<type>/<name>/module.yaml — keeping the palette readable
 
 `status:` says how the **completions** should treat this module, and nothing else. It changes no

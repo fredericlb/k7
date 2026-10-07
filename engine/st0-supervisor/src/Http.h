@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <filesystem>
+#include <functional>
 #include <string>
 
 namespace st0::http {
@@ -28,5 +31,9 @@ struct Request {
 
 /** Perform `r`; never throws. */
 Response send(const Request& r);
+
+/** GET `r.url` straight into `to`, the body never held in memory; `progress` gets (received, total, 0 when unknown). */
+Response download(const Request& r, const std::filesystem::path& to,
+                  const std::function<void(std::uint64_t, std::uint64_t)>& progress);
 
 }  // namespace st0::http

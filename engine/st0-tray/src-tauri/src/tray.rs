@@ -14,6 +14,7 @@ use crate::trayicon::{self, IconState};
 pub struct MenuBuild {
     pub menu: Menu<Wry>,
     pub status: MenuItem<Wry>,
+    pub downloads: MenuItem<Wry>,
     pub autostart: CheckMenuItem<Wry>,
 }
 
@@ -21,6 +22,8 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     // The one line of state the menu bar keeps. Everything else about the machine — the version, the
     // registry, the ports, and every button that acts — is a tab of the settings window.
     let status = MenuItem::with_id(app, "status", "○ Stopped", false, None::<&str>)?;
+    // Built once, inserted under the status line only while an instrument downloads (`refresh`).
+    let downloads = MenuItem::with_id(app, "downloads", "", false, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     // The way to everything this menu no longer holds — the st0 instances this engine is connected to included.
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
@@ -52,8 +55,26 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
     Ok(MenuBuild {
         menu,
         status,
+        downloads,
         autostart,
     })
+}
+
+/// What the downloads line says: the one being fetched and how far, how many wait behind it, or the first failure.
+fn downloads_line(downloads: &[crate::host::Download]) -> Option<String> {
+    if let Some(d) = downloads.iter().find(|d| d.phase != "failed") {
+        let queued = downloads.iter().filter(|x| x.phase != "failed").count() - 1;
+        let more = if queued > 0 { format!(" (+{queued} more)") } else { String::new() };
+        return Some(if d.phase == "unpacking" {
+            format!("↓ Unpacking {}…{more}", d.label)
+        } else {
+            let pct = if d.total > 0 { d.received * 100 / d.total } else { 0 };
+            format!("↓ Downloading {}… {pct}%{more}", d.label)
+        });
+    }
+    downloads
+        .first()
+        .map(|d| format!("⚠ {}: download failed", d.label))
 }
 
 fn short(id: &str) -> &str {
@@ -100,11 +121,17 @@ pub fn tick_spinner(app: &AppHandle) {
 /// Locks the state only to snapshot it (cloning the handles out), then calls Tauri with the lock released.
 pub fn refresh(app: &AppHandle) {
     let shared = app.state::<SharedState>();
-    let (status_text, item, tray, icon, tip) = {
-        let s = shared.lock().unwrap();
-        let Some(m) = s.menus.as_ref() else {
+    let (status_text, item, tray, icon, tip, downloads) = {
+        let mut s = shared.lock().unwrap();
+        let line = downloads_line(&s.snapshot.downloads);
+        let Some(m) = s.menus.as_mut() else {
             return;
         };
+        // In the menu only while there is something to say: inserted under the status line, removed after.
+        let shown = line.is_some();
+        let toggle = (shown != m.downloads_shown).then(|| (m.menu.clone(), m.downloads.clone(), shown));
+        m.downloads_shown = shown;
+        let downloads = (m.downloads.clone(), line, toggle);
         let running = s.running();
         let is_error = s.snapshot.status == "error";
         let status_text = if running {
@@ -132,15 +159,24 @@ pub fn refresh(app: &AppHandle) {
         } else {
             "st0-engine — stopped"
         };
+        let m = s.menus.as_ref().unwrap();
         (
             status_text,
             m.status.clone(),
             m.tray.clone(),
             trayicon::render(icon_state(&s), s.dark_menubar),
             tip,
+            downloads,
         )
     };
     let _ = item.set_text(status_text);
+    let (line_item, line, toggle) = downloads;
+    if let Some(text) = line {
+        let _ = line_item.set_text(text);
+    }
+    if let Some((menu, it, show)) = toggle {
+        let _ = if show { menu.insert(&it, 1) } else { menu.remove(&it) };
+    }
     let _ = tray.set_icon(Some(icon));
     let _ = tray.set_tooltip(Some(tip));
 }

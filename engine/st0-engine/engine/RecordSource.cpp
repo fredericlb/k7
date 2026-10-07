@@ -97,7 +97,8 @@ std::optional<juce::File> cachedCopy(const juce::File& src)
         constexpr int chunk = 1 << 16;
         juce::AudioBuffer<float> buf{channels, chunk};
         for (juce::int64 at = 0; at < reader->lengthInSamples; at += chunk) {
-            const auto n = static_cast<int>(juce::jmin<juce::int64>(chunk, reader->lengthInSamples - at));
+            // std::min, not juce::jmin<int64>: on Android arm64 that also tries juce_dsp's SIMD overload, a hard error.
+            const auto n = static_cast<int>(std::min<juce::int64>(chunk, reader->lengthInSamples - at));
             reader->read(&buf, 0, n, at, true, channels > 1);
             if (!writer->writeFromAudioSampleBuffer(buf, 0, n)) {
                 writer.reset();

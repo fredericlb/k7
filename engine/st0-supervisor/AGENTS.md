@@ -5,7 +5,8 @@ NDJSON on stdio; it starts or adopts `st0-engine`, keeps it listed at the studio
 holds the tunnel a server reaches the machine through, and runs the jobs the server hands it. Why
 it is shaped this way: [docs/supervisor.md](docs/supervisor.md). The wire to the tray:
 [docs/hostProtocol.md](docs/hostProtocol.md). Its paces and rules:
-[docs/supervisorPolicy.md](docs/supervisorPolicy.md).
+[docs/supervisorPolicy.md](docs/supervisorPolicy.md). The sampled instruments it downloads:
+[docs/instruments.md](docs/instruments.md).
 
 ## Build and test
 

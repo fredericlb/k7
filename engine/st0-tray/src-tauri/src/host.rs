@@ -107,6 +107,19 @@ pub struct Paths {
     pub merged_log: String,
 }
 
+/// An instrument the supervisor is fetching for the engine — the menu's one transient line while it runs.
+#[derive(Clone, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Download {
+    pub name: String,
+    pub label: String,
+    pub received: u64,
+    pub total: u64,
+    /// "downloading" | "unpacking" | "failed"
+    pub phase: String,
+    pub error: Option<String>,
+}
+
 /// The supervisor's view of the world, as far as the tray consumes it.
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -147,6 +160,8 @@ pub struct Snapshot {
     /// An add in flight or just refused; None once one succeeds.
     pub instance_check: Option<InstanceCheck>,
     pub paths: Paths,
+    /// Instruments being fetched; empty, and absent from the frame, once every one is here.
+    pub downloads: Vec<Download>,
 }
 
 // Before the first snapshot the menu must still draw something; these are settings.ts's own defaults, so an
@@ -173,6 +188,7 @@ impl Default for Snapshot {
             edit_plugins_sig: String::new(),
             sessions: Vec::new(),
             sessions_sig: String::new(),
+            downloads: Vec::new(),
             instances: Vec::new(),
             instance_check: None,
             paths: Paths::default(),
