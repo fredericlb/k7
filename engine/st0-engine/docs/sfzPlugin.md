@@ -11,10 +11,12 @@ sfizz is the one maintained-in-recent-memory, permissively licensed (BSD-2) SFZ 
 LIBRARY rather than a plugin: it is linked into the engine the way NAM's core is, with no window and
 no format wrapper. It reads FLAC itself (dr_libs), so an instrument can ship compressed.
 
-**Upstream is archived** (June 2026) at 1.2.3, which is pinned. Two things it needs from today's
-compilers are patched at fetch time (`engine/patches/sfizz.cmake`), and neither will be fixed
-upstream: its 32-bit ARM test matches `arm64` and passes flags clang refuses on Apple Silicon, and
-its vendored `atomic_queue` uses a `template` keyword form that clang 19 makes an error.
+**Upstream is archived** (June 2026) at 1.2.3, which is pinned. Three things are patched at fetch
+time (`engine/patches/sfizz.cmake`), and none will be fixed upstream: its 32-bit ARM test matches
+`arm64` and passes flags clang refuses on Apple Silicon; its vendored `atomic_queue` uses a
+`template` keyword form that clang 19 makes an error; and on MSVC it forces the static C runtime,
+which a library linked into an engine on the dynamic one cannot use — every object it builds
+would clash at link time.
 
 **It is compiled as C++17, ours being 20.** Under C++20 `std::result_of` is gone and abseil changes
 what `string_view` is, and sfizz does not build; 17 is what it already picks for itself on MSVC, so
