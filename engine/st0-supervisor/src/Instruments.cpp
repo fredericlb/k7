@@ -10,6 +10,7 @@
 #include <mbedtls/sha256.h>
 #include <miniz.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <fstream>
@@ -180,8 +181,9 @@ bool install(const Instrument& i, const std::function<void(const Progress&)>& re
     // A big archive over a slow line: bounded, but in the scale of a download and not of a heartbeat.
     req.timeoutSeconds = 3600;
     req.followRedirects = true;
-    const auto res = http::download(req, part, [&](std::uint64_t received, std::uint64_t total) {
-        report({received, total ? total : i.bytes, "downloading"});
+    // The total is the PINNED size: on a chunked response the client's own "total" is only the current chunk's.
+    const auto res = http::download(req, part, [&](std::uint64_t received) {
+        report({std::min(received, i.bytes), i.bytes, "downloading"});
     });
     if (!res.ok()) {
         fs::remove(part, ec);

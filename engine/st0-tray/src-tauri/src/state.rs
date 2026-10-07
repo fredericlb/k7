@@ -38,6 +38,10 @@ impl AppState {
     pub fn running(&self) -> bool {
         self.snapshot.status == "running"
     }
+    /// Is the engine still missing an instrument it is fetching? A failed one is no longer coming.
+    pub fn downloading(&self) -> bool {
+        self.snapshot.downloads.iter().any(|d| d.phase != "failed")
+    }
     /// Can we act on the engine — is it one the supervisor SPAWNED? A foreign engine shows running with Stop and
     /// Restart greyed out, so this app can never kill a process another owner manages.
     pub fn owns_running(&self) -> bool {

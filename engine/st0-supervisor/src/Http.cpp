@@ -37,7 +37,7 @@ Response send(const Request& r)
 }
 
 Response download(const Request& r, const std::filesystem::path& to,
-                  const std::function<void(std::uint64_t, std::uint64_t)>& progress)
+                  const std::function<void(std::uint64_t)>& progress)
 {
     Response out;
     std::ofstream file(to, std::ios::binary | std::ios::trunc);
@@ -57,10 +57,7 @@ Response download(const Request& r, const std::filesystem::path& to,
     args->onChunkCallback = [&](const std::string& chunk) {
         file.write(chunk.data(), static_cast<std::streamsize>(chunk.size()));
         received += chunk.size();
-    };
-    args->onProgressCallback = [&](int, int total) {
-        if (progress) progress(received, total > 0 ? static_cast<std::uint64_t>(total) : 0);
-        return true;
+        if (progress) progress(received);
     };
     auto res = client.request(r.url, "GET", "", args);
     file.close();

@@ -68,7 +68,7 @@ fn downloads_line(downloads: &[crate::host::Download]) -> Option<String> {
         return Some(if d.phase == "unpacking" {
             format!("↓ Unpacking {}…{more}", d.label)
         } else {
-            let pct = if d.total > 0 { d.received * 100 / d.total } else { 0 };
+            let pct = if d.total > 0 { (d.received * 100 / d.total).min(100) } else { 0 };
             format!("↓ Downloading {}… {pct}%{more}", d.label)
         });
     }
@@ -81,8 +81,8 @@ fn short(id: &str) -> &str {
     id.get(..8).unwrap_or(id)
 }
 
-/// Which badge the icon wears. `Running` alone isn't enough: an engine still scanning isn't usable yet,
-/// so it gets the spinner.
+/// Which badge the icon wears. `Running` alone isn't enough: an engine still scanning, or still fetching an
+/// instrument, isn't ready yet, so it gets the spinner.
 fn icon_state(s: &crate::state::AppState) -> IconState {
     // No supervisor, no stack: whatever the engine half believes, an unsupervised app must not wear a green dot.
     if s.host_error.is_some() {
@@ -90,10 +90,8 @@ fn icon_state(s: &crate::state::AppState) -> IconState {
     }
     match s.snapshot.status.as_str() {
         "error" => IconState::Error,
-        "running" => match s.snapshot.plugin_count {
-            Some(_) => IconState::Running,
-            None => IconState::Loading(s.spinner),
-        },
+        "running" if s.snapshot.plugin_count.is_none() || s.downloading() => IconState::Loading(s.spinner),
+        "running" => IconState::Running,
         _ => IconState::Stopped,
     }
 }

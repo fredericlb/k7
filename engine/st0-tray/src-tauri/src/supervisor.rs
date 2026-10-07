@@ -22,7 +22,7 @@ async fn spinner_loop(app: AppHandle) {
         let pending = {
             let s = app.state::<SharedState>();
             let s = s.lock().unwrap();
-            s.running() && s.snapshot.plugin_count.is_none()
+            s.running() && (s.snapshot.plugin_count.is_none() || s.downloading())
         };
         if pending {
             tray::tick_spinner(&app);

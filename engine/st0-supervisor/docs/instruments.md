@@ -38,5 +38,9 @@ dropped, so `<file>.sfz` sits directly under `<name>/`.
 
 The snapshot carries `downloads`, absent when nothing is downloading (`docs/hostProtocol.md`), and
 the tray draws ONE menu line from it: the first one's label and percentage, how many more wait, and
-a failure that stays until the next start. A frame is emitted per whole percent at most, since each
-one rebuilds the menu.
+a failure that stays until the next start; and the icon keeps its spinner, not the green dot, until
+none is left to fetch, since a song naming a missing one would play silent. A frame is emitted per
+whole percent at most, since each one rebuilds the menu.
+
+**The total is the pinned size**, never the server's: GitHub serves the piano chunked, with no
+length, and the HTTP client's own "total" is then the current chunk's.
