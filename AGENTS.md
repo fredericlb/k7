@@ -14,6 +14,7 @@
 - **A page describes the project AS IT IS.** No history: no "it used to be", no account of what
   a change replaced, no migration narrative. Where a past failure is what justifies a decision,
   state the hazard in the present tense and drop the story.
+- **Whenever you edit a js/ts file, make sure it passes biome's lint**
 
 These rules hold in every language here — TypeScript and C++. They are about *where* the
 prose lives and *how much* of it sits in the code: this codebase still writes down the **why**,

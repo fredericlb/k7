@@ -35,7 +35,11 @@ export function curveRuns(
     const last = out[out.length - 1];
     if (!last || r.from > last.to) out.push({ ...r });
     // A run that RESTARTS the curve takes over where it starts; the one it cut keeps nothing after it.
-    else if (r.origin === r.from && r.from > last.from && r.origin !== last.origin) {
+    else if (
+      r.origin === r.from &&
+      r.from > last.from &&
+      r.origin !== last.origin
+    ) {
       const to = Math.max(r.to, last.to);
       last.to = r.from;
       out.push({ ...r, to });

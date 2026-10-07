@@ -42,9 +42,6 @@ import {
   splitModuleKey,
   TRACK_REF,
 } from "@studio/song-schema/moduleTypes";
-import { ENTITY_SCHEMAS } from "@studio/song-schema/yaml/entitySchemas";
-import { parseGraph as parseGraphYaml } from "@studio/song-schema/yaml/graphFile";
-import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { moduleOfItem } from "@studio/song-schema/yaml/chainFile";
 import {
   CHAINS_DIR,
@@ -52,6 +49,9 @@ import {
   TRACKS_DIR,
   VSTPRESETS_DIR,
 } from "@studio/song-schema/yaml/chainSchema";
+import { ENTITY_SCHEMAS } from "@studio/song-schema/yaml/entitySchemas";
+import { parseGraph as parseGraphYaml } from "@studio/song-schema/yaml/graphFile";
+import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import {
   cueRefs,
   MIX_BASE,
@@ -474,7 +474,10 @@ function loadNodes(
   raw: { rel: string; module: Record<string, unknown> }[],
   yamlIssues: string[],
 ): void {
-  if (isChainProject(dir)) return loadChainNodes(dir, out, raw, yamlIssues);
+  if (isChainProject(dir)) {
+    loadChainNodes(dir, out, raw, yamlIssues);
+    return;
+  }
   const folder = join(dir, NODES_DIR);
   if (!existsSync(folder) || !statSync(folder).isDirectory()) return;
   for (const { id: node, file } of entityFiles(folder, NODES_DIR)) {

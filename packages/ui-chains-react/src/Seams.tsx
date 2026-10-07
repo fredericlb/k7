@@ -49,6 +49,7 @@ function SeamsInner({
           : `Add a module between ${s.insert.before} and ${s.insert.after}`;
         const branch = s.branch;
         return (
+          // biome-ignore lint/a11y/useSemanticElements: an SVG group cannot be an HTML <button>; the role is what it can carry
           <g
             key={`${s.insert.before}>${s.insert.after}`}
             className={`dgx-seam${s.end ? " end" : ""}`}
@@ -88,6 +89,7 @@ function SeamsInner({
             </g>
             {/* The second button, lower down: a new node stacked under the left card, the two in one subchain. */}
             {branch && (
+              // biome-ignore lint/a11y/useSemanticElements: an SVG group cannot be an HTML <button>; the role is what it can carry
               <g
                 className="dgx-ins-btn dgx-branch-btn"
                 role="button"

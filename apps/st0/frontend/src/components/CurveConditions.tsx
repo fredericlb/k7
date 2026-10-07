@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Plus, X } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
+import { useId } from "react";
 import {
   conditionProblem,
   DRAFT_WHENS,
@@ -82,6 +83,8 @@ function ConditionRow({
   onPatch: (p: Partial<DraftCondition>) => void;
   onRemove: () => void;
 }) {
+  // One id per row, so each label names its own field however many rows there are.
+  const uid = useId();
   const opens = c.when === "start" || c.when === "between";
   const closes = c.when === "end" || c.when === "between";
   const problem =
@@ -113,11 +116,12 @@ function ConditionRow({
         </Button>
       </div>
       {opens && (
-        <label className={FIELD}>
+        <label className={FIELD} htmlFor={`${uid}-start`}>
           <span className={LABEL}>
             {c.when === "between" ? "from" : "start at"}
           </span>
           <Input
+            id={`${uid}-start`}
             value={c.startAt}
             onChange={(e) => onPatch({ startAt: e.target.value })}
             placeholder="5:1:1"
@@ -127,11 +131,12 @@ function ConditionRow({
         </label>
       )}
       {closes && (
-        <label className={FIELD}>
+        <label className={FIELD} htmlFor={`${uid}-end`}>
           <span className={LABEL}>
             {c.when === "between" ? "to" : "end at"}
           </span>
           <Input
+            id={`${uid}-end`}
             value={c.endAt}
             onChange={(e) => onPatch({ endAt: e.target.value })}
             placeholder="9:1:1"
@@ -141,11 +146,12 @@ function ConditionRow({
         </label>
       )}
       {c.when === "event" && (
-        <label className={FIELD}>
+        <label className={FIELD} htmlFor={`${uid}-event`}>
           <span className={LABEL}>event</span>
           {events ? (
             // From a node: what it announces, and nothing it does not.
             <select
+              id={`${uid}-event`}
               value={c.event}
               onChange={(e) => onPatch({ event: e.target.value })}
               disabled={!events.length}
@@ -159,6 +165,7 @@ function ConditionRow({
             </select>
           ) : (
             <Input
+              id={`${uid}-event`}
               value={c.event}
               onChange={(e) => onPatch({ event: e.target.value })}
               placeholder="Note On"

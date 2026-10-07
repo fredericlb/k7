@@ -24,10 +24,10 @@ import { parsePosition } from "@studio/song-schema/timecode";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml } from "yaml";
+import { isChainProject } from "./chainProject";
 import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
-import { isChainProject } from "./chainProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 
 export type * from "@studio/engine-protocol/project";

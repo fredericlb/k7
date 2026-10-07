@@ -15,7 +15,7 @@ import {
 import { Input } from "@frediverse/ui/input";
 import type { CurveCut, CurveSpec } from "@studio/graph-model";
 import { CURVE_CUTS } from "@studio/song-schema/curveMath";
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   type CurveDraft,
   conditionsProblem,
@@ -93,6 +93,8 @@ export function CurveEditor({
   onClose: () => void;
 }) {
   const [name, setName] = useState(initialName);
+  // One id per popin, so each label names its own field.
+  const uid = useId();
   // From a node, the event starts as one it announces rather than a name it may not.
   // …and the shape starts as one the param can follow: on/off for a boolean, never on/off for a number.
   const shapes = shapesFor(kind);
@@ -133,9 +135,10 @@ export function CurveEditor({
           </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3">
-          <label className={FIELD}>
+          <label className={FIELD} htmlFor={`${uid}-name`}>
             <span className={LABEL}>name</span>
             <Input
+              id={`${uid}-name`}
               value={name}
               onChange={(e) => setName(e.target.value.trim())}
               // An existing curve IS its file; renaming it is another verb's business.
@@ -211,9 +214,12 @@ export function CurveEditor({
             </div>
           )}
           {oscillator && (
-            <label className={FIELD}>
-              <span className={LABEL}>cycles / bar</span>
+            <div className={FIELD}>
+              <label className={LABEL} htmlFor={`${uid}-cycles`}>
+                cycles / bar
+              </label>
               <Input
+                id={`${uid}-cycles`}
                 type="number"
                 min={0.01}
                 step={0.25}
@@ -225,10 +231,14 @@ export function CurveEditor({
                 className="w-24 font-mono text-xs"
               />
               {/* How long it runs, a length: 0 is for ever (docs/curveEditor.md). */}
-              <span className="ml-2 text-xs text-muted-foreground">
+              <label
+                className="ml-2 text-xs text-muted-foreground"
+                htmlFor={`${uid}-duration`}
+              >
                 duration
-              </span>
+              </label>
               <Input
+                id={`${uid}-duration`}
                 value={draft.duration}
                 onChange={(e) => set({ duration: e.target.value })}
                 placeholder="0"
@@ -236,7 +246,7 @@ export function CurveEditor({
                 title="how long the curve runs, a length like 2:0 — 0 runs for ever"
                 className="w-24 font-mono text-xs"
               />
-            </label>
+            </div>
           )}
           {draft.shape === "adsr" && (
             <div className="flex justify-around py-1">

@@ -163,6 +163,7 @@ export function CurvePlot({
         />
       )}
       {beats.map((p, i) => (
+        // biome-ignore lint/a11y/noStaticElementInteractions: a point is dragged by the pointer; the keyboard edits it with `curve point`
         <circle
           key={draft.points[i]?.time ?? i}
           cx={xOf(spanBeats ? p.beat / spanBeats : 0)}
