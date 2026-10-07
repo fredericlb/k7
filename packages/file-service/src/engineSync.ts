@@ -45,7 +45,8 @@ export function forgetSyncFailure(session: string): void {
 
 function collect(v: unknown, into: Set<string>): void {
   if (typeof v === "string") {
-    if (isAbsolute(v)) into.add(v);
+    // An inline source (`faustDsp` opens on `//`) is not a path, and a path holds no line break.
+    if (isAbsolute(v) && !v.includes("\n")) into.add(v);
   } else if (Array.isArray(v)) for (const x of v) collect(x, into);
   else if (v && typeof v === "object")
     for (const x of Object.values(v)) collect(x, into);
@@ -60,7 +61,12 @@ function unsettled(
   collect(doc, named);
   const out: { path: string; key: string; size: number }[] = [];
   for (const path of named) {
-    const st = statSync(path, { throwIfNoEntry: false });
+    let st: ReturnType<typeof statSync>;
+    try {
+      st = statSync(path, { throwIfNoEntry: false });
+    } catch {
+      continue; // ENAMETOOLONG and the like: a string shaped like a path that names no file
+    }
     if (!st?.isFile()) continue;
     const key = `${st.size}:${Math.round(st.mtimeMs)}`;
     if (settled.get(path) !== key) out.push({ path, key, size: st.size });

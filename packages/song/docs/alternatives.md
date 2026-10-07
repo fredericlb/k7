@@ -149,7 +149,9 @@ recompile (`packages/commands/docs/verbs.md`).
 what it changes, so an empty one is "the module as it is" and you then change the two knobs you
 came to try. `copy` starts from what is ON — and from what that set STATES, not from the merged
 result. Copying the merge would bake the module's own fields into the new entry, and every later
-edit to them would then stop reaching it.
+edit to them would then stop reaching it. It copies SETTINGS only: a chain step's `id`, `bypass`,
+`vstpreset` and `mapping` (`NODE_ITEM_KEYS`) say which item it is and where, not how it sounds,
+and a set refuses them — the copy keeps only what `AlternativeSchema` admits.
 
 **A LANE is the exception, and it is `events: []`.** "States only what it changes" cuts the wrong
 way for an arrangement: a set that says nothing about `events:` inherits them, so a new take would

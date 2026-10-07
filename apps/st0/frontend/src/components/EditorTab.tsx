@@ -56,6 +56,7 @@ import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { useDocPerRevision } from "../hooks/useDocPerRevision";
+import type { SetStatus } from "../hooks/useLogs";
 import { type LibraryAssemblyRow, libraryOfPath } from "../libraryTree";
 import { moduleBehind } from "../moduleBehind";
 import { m } from "../paraglide/messages.js";
@@ -278,7 +279,7 @@ export function EditorTab({
   onChanged: () => void;
   /** Run a command line through the shell — the SAME path the palette takes, and what refreshes the open file afterwards. */
   command: (line: string) => void | Promise<void>;
-  setStatus: (s: string) => void;
+  setStatus: SetStatus;
   onEditTarget: (t: EditTarget | null) => void; // the open sequence, for the Editor panel
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
   // Open the shared module builder on the MODULE file of the trio, plus which of the three was clicked.
@@ -464,7 +465,7 @@ export function EditorTab({
               source: resolveGutterSource(req.source, filePath, activeProject),
             };
       void api.preview(r).catch((e) => {
-        setStatus(`preview error: ${(e as Error).message}`);
+        setStatus(`preview error: ${(e as Error).message}`, "error");
       });
       void previewSound(r);
     },
@@ -478,7 +479,7 @@ export function EditorTab({
         const { start, length } = await api.preview(req);
         return { start, length };
       } catch (e) {
-        setStatus(`preview error: ${(e as Error).message}`);
+        setStatus(`preview error: ${(e as Error).message}`, "error");
         return null; // no sound, so no playhead: the strip draws nothing rather than a lie
       }
     },
@@ -658,7 +659,7 @@ export function EditorTab({
       setLibChains(c.chains);
       setLibAssemblies(a.assemblies);
     } catch (e) {
-      setStatus(`load error: ${(e as Error).message}`);
+      setStatus(`load error: ${(e as Error).message}`, "error");
     }
   }, [setStatus]);
 
@@ -673,7 +674,7 @@ export function EditorTab({
         if (t) setTree(t);
         if (h) setHints(h);
       } catch (e) {
-        setStatus(`load error: ${(e as Error).message}`);
+        setStatus(`load error: ${(e as Error).message}`, "error");
       }
     },
     [setStatus],
@@ -712,7 +713,7 @@ export function EditorTab({
         setStatus(path);
         return true;
       } catch (e) {
-        setStatus(`open error: ${(e as Error).message}`);
+        setStatus(`open error: ${(e as Error).message}`, "error");
         return false;
       }
     },
@@ -732,7 +733,7 @@ export function EditorTab({
         onChanged();
         setStatus(`renamed to ${newPath}`);
       } catch (e) {
-        setStatus(`rename failed: ${(e as Error).message}`);
+        setStatus(`rename failed: ${(e as Error).message}`, "error");
       }
     },
     [file?.path, refresh, open, onChanged, setStatus],
@@ -751,7 +752,7 @@ export function EditorTab({
         onChanged();
         setStatus(`moved to ${newPath}`);
       } catch (e) {
-        setStatus(`move failed: ${(e as Error).message}`);
+        setStatus(`move failed: ${(e as Error).message}`, "error");
       }
     },
     [file?.path, refresh, open, onChanged, setStatus],
@@ -781,7 +782,7 @@ export function EditorTab({
         onChanged();
         setStatus(`deleted ${path} (recycled)`);
       } catch (e) {
-        setStatus(`delete failed: ${(e as Error).message}`);
+        setStatus(`delete failed: ${(e as Error).message}`, "error");
       }
     },
     [file?.path, refresh, onChanged, onEditTarget, setStatus],
@@ -809,7 +810,7 @@ export function EditorTab({
           );
         }
       } catch (e) {
-        setStatus(`rename failed: ${(e as Error).message}`);
+        setStatus(`rename failed: ${(e as Error).message}`, "error");
       }
     },
     [afterLibraryChange, refresh, onChanged, setStatus],
@@ -832,7 +833,7 @@ export function EditorTab({
         await api.deleteFile(path);
         await afterLibraryChange();
       } catch (e) {
-        setStatus(`delete failed: ${(e as Error).message}`);
+        setStatus(`delete failed: ${(e as Error).message}`, "error");
       }
     },
     [afterLibraryChange, setStatus],
@@ -878,7 +879,7 @@ export function EditorTab({
         onChanged();
         setStatus(`created ${rel}`);
       } catch (e) {
-        setStatus(`create failed: ${(e as Error).message}`);
+        setStatus(`create failed: ${(e as Error).message}`, "error");
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -893,7 +894,7 @@ export function EditorTab({
         onChanged();
         setStatus(`created ${path}/`);
       } catch (e) {
-        setStatus(`new folder failed: ${(e as Error).message}`);
+        setStatus(`new folder failed: ${(e as Error).message}`, "error");
       }
     },
     [refresh, onChanged, setStatus],
@@ -909,7 +910,7 @@ export function EditorTab({
         onChanged();
         setStatus(`cloned to ${newPath}`);
       } catch (e) {
-        setStatus(`clone failed: ${(e as Error).message}`);
+        setStatus(`clone failed: ${(e as Error).message}`, "error");
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -925,7 +926,7 @@ export function EditorTab({
         onChanged();
         setStatus(`created ${newPath}`);
       } catch (e) {
-        setStatus(`new node failed: ${(e as Error).message}`);
+        setStatus(`new node failed: ${(e as Error).message}`, "error");
       }
     },
     [refresh, open, onChanged, setStatus],
@@ -1039,7 +1040,7 @@ export function EditorTab({
   // The bar is where this pane already says what it did, and a failed write is what the badge is too small to explain.
   useEffect(() => {
     if (autosave.status === "error" && autosave.reason)
-      setStatus(`save error: ${autosave.reason}`);
+      setStatus(`save error: ${autosave.reason}`, "error");
   }, [autosave.status, autosave.reason, setStatus]);
 
   // Drop OS files onto the tree: upload each into the dropped folder, sequentially, skipping existing names.
@@ -1099,7 +1100,7 @@ export function EditorTab({
           if (err.status === 409) skipped++;
           else {
             setUploadState(null);
-            setStatus(`upload error: ${name} — ${err.message}`);
+            setStatus(`upload error: ${name} — ${err.message}`, "error");
             showToast({
               message: `upload failed: ${name}`,
               variant: "error",
@@ -1415,7 +1416,7 @@ export function EditorTab({
                   // Straight into the builder: making a module and then hunting for its row is two acts where somebody meant one.
                   onOpenLibraryModule(path);
                 } catch (e) {
-                  setStatus((e as Error).message);
+                  setStatus((e as Error).message, "error");
                 }
               }}
               onRenameLibraryEntry={renameLibraryEntry}

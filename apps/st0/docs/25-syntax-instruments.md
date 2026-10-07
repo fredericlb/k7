@@ -294,9 +294,10 @@ params:
   sfz: "@instruments/salamander-grand-piano/Salamander Grand Piano V3.sfz"
 ```
 
-Three ship today: `salamander-grand-piano` (the library's `@st0/instruments/keys/piano`), and the
-Rhodes and the Wurlitzer behind two engines of its `electric-piano`, `stereo-rhodes` (the default
-one) and `wurt`. A `sfz:` that is a path instead plays that file, on the engine's machine.
+Four ship today: `salamander-grand-piano` (the library's `@st0/instruments/keys/piano`), and the
+Rhodes, the Wurlitzer and the clavinet behind three engines of its `electric-keys`,
+`stereo-rhodes` (the default one), `wurt` and `clavinet`. A `sfz:` that is a path instead plays
+that file, on the engine's machine.
 
 ## _modules/<type>/<name>/module.yaml — keeping the palette readable
 

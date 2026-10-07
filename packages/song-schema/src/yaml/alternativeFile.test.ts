@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { setAlternativeParam } from "./alternativeFile";
+import { addAlternative, setAlternativeParam } from "./alternativeFile";
+import { AlternativeSchema } from "./moduleSchema";
 import { setModuleAutomation } from "./moduleFile";
 
 const read = (text: string) => parse(text, { version: "1.2" });
@@ -71,5 +72,16 @@ alternative: "2"
     const out = read(setModuleAutomation(patch, "Gain", "@meta/curves/x"));
     expect(out.automations).toHaveLength(1);
     expect(out.alternatives[0].automations).toBeUndefined();
+  });
+});
+
+describe("addAlternative", () => {
+  it("copies a chain step's settings, never its own id or bypass", () => {
+    const step =
+      "id: 8339210a\nextends: \"@st0/fx/drive\"\nbypass: true\nparams: { Gain: 3 }\n";
+    const out = read(addAlternative(step, undefined, { copy: true }).text);
+    expect(out.alternatives).toEqual([{ params: { Gain: 3 } }]);
+    expect(out.id).toBe("8339210a");
+    expect(AlternativeSchema.safeParse(out.alternatives[0]).success).toBe(true);
   });
 });

@@ -22,8 +22,9 @@ while they run, and a song that names an instrument still missing loads it the m
 
 Each entry is a URL and the SHA-256 of what it serves. An archive whose hash differs is **refused**,
 never installed: an upstream that changed its file would otherwise change a song's sound under it.
-The piano is a GitHub commit's zip, which cannot change; the No Budget Orchestra's are plain files
-on a web server, which could, and would then fail loudly until the list is updated.
+The piano is a GitHub commit's zip, which cannot change; the No Budget Orchestra's and the clavinet
+(Musical Artifacts) are plain files on a web server, which could, and would then fail loudly until
+the list is updated.
 
 ## Installed only when whole
 

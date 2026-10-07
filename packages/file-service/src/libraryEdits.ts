@@ -188,6 +188,27 @@ export async function libraryEditsStatus(
   return { libraries };
 }
 
+/** Replay this clone's commits on what was pushed from elsewhere since it last followed its remote; a conflict leaves it as it was. */
+async function catchUp(
+  at: string,
+  userEmail: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  await git(at, ["fetch", "--prune", "origin"], env);
+  const upstream = await git(at, ["rev-parse", "--verify", "-q", "@{u}"], env)
+    .then(() => true)
+    .catch(() => false);
+  if (!upstream) return;
+  try {
+    await git(at, [...author(userEmail), "rebase", "-q", "@{u}"], env);
+  } catch (e) {
+    await git(at, ["rebase", "--abort"], env).catch(() => undefined);
+    throw new Error(
+      `it conflicts with what was pushed from elsewhere, resolve it by hand — ${(e as Error).message}`,
+    );
+  }
+}
+
 /** Commit what changed in every edited library and push it; the hub then pulls its own clone of each. */
 export function commitLibraryEdits(
   userEmail: string,
@@ -208,6 +229,7 @@ export function commitLibraryEdits(
           env,
         );
       try {
+        await catchUp(root, userEmail, env);
         await git(root, ["push", "-u", "origin", "HEAD"], env);
       } catch (e) {
         // Committed here, refused there: the work is safe, but nobody else has it yet.

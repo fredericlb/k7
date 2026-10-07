@@ -54,7 +54,7 @@ import {
   parseLaunch,
   projectsUrl,
 } from "@studio/project-shell/launch";
-import { showToast, Toaster } from "@studio/project-shell/toast";
+import { onToast, showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
 import { moduleKeyFromPath, TAP_SAMPLE } from "@studio/song-schema/moduleTypes";
@@ -153,7 +153,7 @@ import { useCommandKeys } from "./hooks/useCommandKeys";
 import { useEngineCompat } from "./hooks/useEngineCompat";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useInputDevices } from "./hooks/useInputDevices";
-import { useLogs } from "./hooks/useLogs";
+import { type SetStatus, useLogs } from "./hooks/useLogs";
 import type { MidiControlApi } from "./hooks/useMidiControl";
 import { useMidiRecording } from "./hooks/useMidiRecording";
 import { useNodePresets } from "./hooks/useNodePresets";
@@ -420,15 +420,28 @@ export default function App({
   // The project's change token, read here so the whole tree shares the ONE refcounted poll —
   // the desk's drawer takes it as a prop and refetches its graph when it moves (docs/plugins.md).
   const rev = useRevision();
+  const { logs, pushLog, clearLogs } = useLogs(panel);
   const [statusLine, setStatusLine] = useState<{
     text: string;
     refused: boolean;
   }>({ text: "", refused: false });
   const status = statusLine.text;
   /** Say something on the status line — and, by saying it this way, say it is NOT a refusal; only `runCommand` refuses. */
-  const setStatus = useCallback(
-    (text: string) => setStatusLine({ text, refused: false }),
-    [],
+  const setStatus = useCallback<SetStatus>(
+    (text, level) => {
+      setStatusLine({ text, refused: false });
+      // The status line is overwritten by the next message, so an error is kept in the log as well.
+      if (level === "error") pushLog("error", text);
+    },
+    [pushLog],
+  );
+  // An error toast is dismissed and gone, so it is kept in the log as well.
+  useEffect(
+    () =>
+      onToast((t) => {
+        if (t.variant === "error") pushLog("error", t.message);
+      }),
+    [pushLog],
   );
   /** …and the other half: a command was understood and declined. `runCommand` is its one caller. */
   const setRefusal = useCallback(
@@ -632,7 +645,6 @@ export default function App({
   const pendingPrewrite = useRef<string | null>(null);
 
   // The Logs panel's buffer + the process-log tail (polled only while it's open).
-  const { logs, pushLog, clearLogs } = useLogs(panel);
 
   // The engine connection: client lifecycle, live state wiring, stable senders.
   const {
@@ -668,7 +680,7 @@ export default function App({
   const seek = snapshot ? player.seek : engineSeek;
   // Into the status line rather than a dialog: a refused autoplay is something to READ, the rest of the screen still works.
   useEffect(() => {
-    if (player.fault) setStatus(player.fault);
+    if (player.fault) setStatus(player.fault, "error");
   }, [player.fault]);
 
   // Where playback LAST STARTED, in seconds — read off the store's frames, so a start from anywhere counts.
@@ -846,7 +858,7 @@ export default function App({
       setStatus(`vim mode ${vim ? "on" : "off"}`);
     } catch (e) {
       setVimMode(!next);
-      setStatus(`vim error: ${(e as Error).message}`);
+      setStatus(`vim error: ${(e as Error).message}`, "error");
     }
   }, [vimMode]);
 
@@ -1077,8 +1089,7 @@ export default function App({
         if (output.length) setStatus(output.join("  ·  "));
         for (const o of output) pushLog("info", o);
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`);
-        pushLog("error", (e as Error).message);
+        setStatus(`command error: ${(e as Error).message}`, "error");
       }
     },
     [pushLog],
@@ -1125,8 +1136,7 @@ export default function App({
           // kept it would offer the same one again — packages/song/docs/recorderNode.md.
           engineRef.current?.recorder(id, "clear");
         } catch (e) {
-          setStatus(`command error: ${(e as Error).message}`);
-          pushLog("error", (e as Error).message);
+          setStatus(`command error: ${(e as Error).message}`, "error");
         }
       })();
     },
@@ -1283,7 +1293,7 @@ export default function App({
         setFull(null);
         // The layout the project that was open had — the doc effect above corrects it a moment later.
       } catch (e) {
-        setStatus(`open error: ${(e as Error).message}`);
+        setStatus(`open error: ${(e as Error).message}`, "error");
       }
     },
     [bumpReload],
@@ -1456,7 +1466,9 @@ export default function App({
             if (spec) setCurveEdit({ name, isNew: false, spec });
             else setStatus(`no curve "${name}" in this project`);
           })
-          .catch((e) => setStatus(`ui curve: ${(e as Error).message}`));
+          .catch((e) =>
+            setStatus(`ui curve: ${(e as Error).message}`, "error"),
+          );
         return true;
       }
       // `ui automate <node> <param>` — the editor on the curve that control is bound to, or on a new one to bind.
@@ -1503,7 +1515,9 @@ export default function App({
                   },
             );
           })
-          .catch((e) => setStatus(`ui automate: ${(e as Error).message}`));
+          .catch((e) =>
+            setStatus(`ui automate: ${(e as Error).message}`, "error"),
+          );
         return true;
       }
       if (line === "global") {
@@ -1563,7 +1577,7 @@ export default function App({
             );
             if (!end.error) bumpReload();
           })
-          .catch((e: Error) => setStatus(e.message));
+          .catch((e: Error) => setStatus(e.message, "error"));
         return true;
       }
       if (line === "help") {
@@ -1887,7 +1901,7 @@ export default function App({
             }
             setAssemblyBuilder({ file: hit.file, folder: hit.path });
           })
-          .catch((e: Error) => setStatus(e.message));
+          .catch((e: Error) => setStatus(e.message, "error"));
         return true;
       }
 
@@ -2219,8 +2233,7 @@ export default function App({
         if (s === "graph organize") setOrganizeKey((k) => k + 1);
         if (outcome) outcome.ok = !refused;
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`);
-        pushLog("error", (e as Error).message);
+        setStatus(`command error: ${(e as Error).message}`, "error");
       } finally {
         // The placeholder comes down in the same update that carries the new graph, so the two swap in one frame.
         if (willInsert) setInsertingAt(null);
@@ -2258,8 +2271,7 @@ export default function App({
         // Adopted, so the `/revision` tick this write causes does not turn into the full reload skipped here.
         if (rev) noteRevision(rev);
       } catch (e) {
-        setStatus(`command error: ${(e as Error).message}`);
-        pushLog("error", (e as Error).message);
+        setStatus(`command error: ${(e as Error).message}`, "error");
       }
     },
     [projectDoc, runCommand, pushLog],

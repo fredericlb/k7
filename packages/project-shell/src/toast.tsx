@@ -27,6 +27,14 @@ export const TOAST_DURATION_MS = 3000;
 let nextId = 0;
 const listeners = new Set<(t: ToastItem) => void>();
 
+/** Hear every toast as it is shown — an app keeping a log of what it said; returns the unsubscribe. */
+export function onToast(listener: (t: ToastItem) => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 export function showToast(opts: {
   message: string;
   variant?: "success" | "error";

@@ -169,6 +169,23 @@ describe("an admin's own clone of each library", () => {
     expect(await libraryEditsStatus(EMAIL)).toEqual({ libraries: [] });
   });
 
+  it("replays its commit on a push from elsewhere before pushing, and keeps it when the two conflict", async () => {
+    serverClone("st0");
+    await open();
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 3\n");
+    publishElsewhere("modules/other.yaml", "x: 1\n");
+    expect((await commitLibraryEdits(EMAIL, "louder amp")).pushed).toBe(true);
+    expect(git(origin, "show", "main:modules/amp.yaml")).toBe("gain: 3");
+    expect(git(origin, "show", "main:modules/other.yaml")).toBe("x: 1");
+    writeFileSync(join(editClone("st0"), "modules/amp.yaml"), "gain: 4\n");
+    publishElsewhere("modules/amp.yaml", "gain: 7\n");
+    const r = await commitLibraryEdits(EMAIL, "even louder");
+    expect(r.pushed).toBe(false);
+    expect(r.note).toMatch(/conflicts/);
+    expect(amp()).toBe("gain: 4\n");
+    expect(git(origin, "show", "main:modules/amp.yaml")).toBe("gain: 7");
+  });
+
   it("shows its tree, what it changed and the diff of it, read-only", async () => {
     serverClone("st0");
     await open();

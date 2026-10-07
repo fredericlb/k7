@@ -10,6 +10,7 @@ import {
   pickAlternative,
 } from "../alternatives";
 import { quoteTimecodes } from "./moduleFile";
+import { AlternativeSchema } from "./moduleSchema";
 
 // YAML 1.2 (so `5:1:1` stays a string) and no wrapping — the options every module write takes.
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
@@ -185,7 +186,9 @@ function copiedFields(
     >;
     return fields;
   }
-  // The module's own, minus what says where it comes from and what the alternatives are.
-  const { extends: _e, alternatives: _a, alternative: _s, ...fields } = raw;
-  return fields;
+  // The module's own SETTINGS only: a chain step's `id`, `bypass`… are the item's, and a set refuses them.
+  const { extends: _e, name: _n, ...fields } = raw;
+  return Object.fromEntries(
+    Object.entries(fields).filter(([k]) => k in AlternativeSchema.shape),
+  );
 }

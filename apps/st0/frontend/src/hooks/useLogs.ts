@@ -9,6 +9,9 @@ import { api } from "../api";
 import type { LogLine } from "../components/LogsPanel";
 import type { Panel } from "../routes";
 
+/** The status line's setter: an `"error"` is also appended to the Logs panel, since the line is overwritten by the next message. */
+export type SetStatus = (text: string, level?: "error") => void;
+
 export function useLogs(panel: Panel | null): {
   logs: LogLine[];
   pushLog: (kind: LogLine["kind"], text: string) => void;

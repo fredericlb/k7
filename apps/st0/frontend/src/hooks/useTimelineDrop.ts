@@ -13,11 +13,12 @@ import {
   planDrop,
   type TimelineDropEvent,
 } from "../timelineDrop";
+import type { SetStatus } from "./useLogs";
 
 export function useTimelineDrop(
   project: string,
   runCommand: (line: string) => Promise<void>,
-  setStatus: (s: string) => void,
+  setStatus: SetStatus,
   bumpReload: () => void,
 ): {
   onDrop: (d: TimelineDropEvent) => Promise<void>;
@@ -53,7 +54,7 @@ export function useTimelineDrop(
           })),
         );
       } catch (e) {
-        setStatus(`drop failed: ${(e as Error).message}`);
+        setStatus(`drop failed: ${(e as Error).message}`, "error");
         return;
       }
       const total = entries.reduce((s, e) => s + e.size, 0);
@@ -81,7 +82,10 @@ export function useTimelineDrop(
           if (filed.reused) reused.push(c.id);
         } catch (e) {
           setUpload(null);
-          setStatus(`drop failed: ${c.upload} — ${(e as Error).message}`);
+          setStatus(
+            `drop failed: ${c.upload} — ${(e as Error).message}`,
+            "error",
+          );
           return;
         }
         offset += entries[i].size;

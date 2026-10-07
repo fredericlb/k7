@@ -24,16 +24,17 @@ let wss: WebSocketServer | null = null;
 const asked: string[][] = [];
 
 async function machine(answer: Answer): Promise<void> {
-  wss = new WebSocketServer({ port: 0 });
-  await new Promise((r) => wss!.once("listening", r));
-  wss.on("connection", (sock) =>
+  const server = new WebSocketServer({ port: 0 });
+  wss = server;
+  await new Promise((r) => server.once("listening", r));
+  server.on("connection", (sock) =>
     sock.on("message", (data) => {
       const req = JSON.parse(data.toString());
       asked.push(req.files);
       answer(req, (r) => sock.send(JSON.stringify({ id: req.id, ...r })));
     }),
   );
-  setBoundJobsUrl(`ws://127.0.0.1:${(wss.address() as AddressInfo).port}`);
+  setBoundJobsUrl(`ws://127.0.0.1:${(server.address() as AddressInfo).port}`);
 }
 
 const until = async (ok: () => boolean): Promise<void> => {
@@ -67,9 +68,23 @@ describe("sendWhenSynced", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("takes no inline source for a path, even one opening on `//`", async () => {
+    await machine((_req, send) => send({ type: "synced", failed: 0 }));
+    const faustDsp = `// dsp.dsp — a header\n${"x".repeat(5000)}\n`;
+    const sent: unknown[] = [];
+    sendWhenSynced(
+      "s5",
+      { faustDsp, one: `/${"y".repeat(5000)}` },
+      () => [],
+      (d) => sent.push(d),
+    );
+    expect(sent).toHaveLength(1);
+    expect(asked).toEqual([]);
+  });
+
   it("holds the document until the copy ends, sends the latest, and never asks twice", async () => {
     let finish = (): void => {};
-    await machine((req, send) => {
+    await machine((_req, send) => {
       send({ type: "syncing", files: 1, filesDone: 0, bytes: 9, bytesDone: 0 });
       finish = () => send({ type: "synced", failed: 0 });
     });

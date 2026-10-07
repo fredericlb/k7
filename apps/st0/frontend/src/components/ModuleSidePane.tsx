@@ -8,6 +8,7 @@ import { useAutosave } from "@studio/ui-editor/autosave";
 import type { FileContent, Hints } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import type { SetStatus } from "../hooks/useLogs";
 import { m } from "../paraglide/messages.js";
 import { rackKeyOf } from "../projectPaths";
 import { rackSliceRanges, setSliceWindow } from "../sliceSymbols";
@@ -28,7 +29,7 @@ export function ModuleSidePane({
   refName: string;
   hints: Hints;
   vimMode: boolean;
-  setStatus: (s: string) => void;
+  setStatus: SetStatus;
   /** The graph and the arrangement may change under a module edit, exactly as under the main pane's. */
   onChanged: () => void;
 }) {
@@ -44,7 +45,10 @@ export function ModuleSidePane({
         setFile(f);
         setSaved(f.binary ? "" : f.content);
       })
-      .catch((e) => !cancelled && setStatus(`module: ${(e as Error).message}`));
+      .catch(
+        (e) =>
+          !cancelled && setStatus(`module: ${(e as Error).message}`, "error"),
+      );
     return () => {
       cancelled = true;
     };
@@ -71,7 +75,7 @@ export function ModuleSidePane({
   });
   useEffect(() => {
     if (autosave.status === "error" && autosave.reason)
-      setStatus(`save error: ${autosave.reason}`);
+      setStatus(`save error: ${autosave.reason}`, "error");
   }, [autosave.status, autosave.reason, setStatus]);
 
   /** The gutter ▶s, spelled PROJECT-RELATIVE so the request matches the full-screen editor's — and a failure TOASTS, the status line being covered. */
@@ -89,7 +93,7 @@ export function ModuleSidePane({
           ? req
           : { ...req, source: `${dir}/${req.source}` };
       void api.preview(r).catch((e) => {
-        setStatus(`preview error: ${(e as Error).message}`);
+        setStatus(`preview error: ${(e as Error).message}`, "error");
         showToast({
           message: `preview : ${(e as Error).message}`,
           variant: "error",

@@ -6,12 +6,13 @@ import { setVideoPlacementFieldAt } from "@studio/song-schema/yaml/videoTrackFil
 import { useCallback } from "react";
 import { api } from "../api";
 import type { VideoEdit } from "../components/TimelineTab";
+import type { SetStatus } from "./useLogs";
 
 /** Apply a finished picture drag to the lane's own file: a SURGICAL text rewrite by INDEX, one buffer written once, and not a COMMAND. */
 export function useVideoEdits(
   project: string,
   bumpReload: () => void,
-  setStatus: (s: string) => void,
+  setStatus: SetStatus,
 ): (trackId: string, edits: VideoEdit[]) => Promise<void> {
   return useCallback(
     async (trackId: string, edits: VideoEdit[]) => {
@@ -25,7 +26,7 @@ export function useVideoEdits(
         await api.write(path, next);
         bumpReload();
       } catch (err) {
-        setStatus((err as Error).message);
+        setStatus((err as Error).message, "error");
       }
     },
     [project, bumpReload, setStatus],

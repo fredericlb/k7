@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import type { SetStatus } from "../hooks/useLogs";
 import type { SeqView } from "../sequenceEdit";
 import type { Hints } from "../types";
 import { SeqGrid } from "./SeqGrid";
@@ -22,7 +23,7 @@ export function SeqGridFile({
   racks: Hints["racks"];
   // A write landed: the polls need to pick the notes up (the timeline draws them too).
   onChanged: () => void;
-  setStatus: (s: string) => void;
+  setStatus: SetStatus;
 }) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,9 @@ export function SeqGridFile({
     api
       .write(path, next)
       .then(() => onChanged())
-      .catch((e) => setStatus(`could not save ${path}: ${e?.message ?? e}`));
+      .catch((e) =>
+        setStatus(`could not save ${path}: ${e?.message ?? e}`, "error"),
+      );
   };
 
   if (error) return <div className="p-4 text-destructive text-sm">{error}</div>;

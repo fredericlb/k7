@@ -60,7 +60,7 @@ bool escapes(const fs::path& rel)
 
 const std::vector<Instrument>& all()
 {
-    // Pinned by the archive's hash: a GitHub commit's zip for the piano, plain files for the No Budget Orchestra's.
+    // Pinned by the archive's hash: a GitHub commit's zip for the piano, plain files for the others.
     static const std::vector<Instrument> list = {
         {"salamander-grand-piano", "Salamander Grand Piano",
          "https://codeload.github.com/sfzinstruments/SalamanderGrandPiano/zip/3382bf9496bba2486f5ab0de55a264d1dfc38404",
@@ -69,6 +69,8 @@ const std::vector<Instrument>& all()
          "d54168cf4e3ae231bd91634855ad75fa534d48cd38a3258ea6fe77da0eb40a14", 74489660},
         {"nbo-wurt", "Wurlitzer", "https://www.bandshed.net/sounds/sfz/wurt.zip",
          "b7c3b7c0bf76b22e5ab3c6b3d7f997b488a3815608f795b570a0452c31dc79ba", 7947927},
+        {"lithalean-clavinet", "Clavinet", "https://musical-artifacts.com/artifacts/646/Clavinet.zip",
+         "b434bd4b3eff7232948663a0b343ce79512229da912c8edb09f1a6fa2abc060d", 57271531},
     };
     return list;
 }

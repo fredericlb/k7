@@ -97,7 +97,10 @@ changed, because a library is every account's and a push is not undone by the ne
 - `POST /account/library-edits/commit` (admins) commits everything changed in every library with
   the ONE message the admin typed, pushes each with their key, then asks the hub to pull THAT
   library. The author is the admin, via `-c` rather than a written config: a machine must not leave
-  its own identity in a checkout. A commit whose push failed is pushed by the next one, even with
+  its own identity in a checkout. Before the push, the clone fetches and REBASES its commits on
+  what was pushed from elsewhere (the `st0-library` submodule, another admin) since it last
+  followed its remote: the remote moving is the normal case, not an error. A rebase that conflicts
+  is aborted, the commit kept, and the publish reported as refused. A commit whose push failed is pushed by the next one, even with
   nothing new staged, and a refused push is REPORTED rather than called saved: everyone else still
   has the old module.
 - `POST /account/library-edits/discard` (admins) resets every clone to its remote.
