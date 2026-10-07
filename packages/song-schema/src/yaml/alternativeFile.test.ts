@@ -3,8 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { addAlternative, setAlternativeParam } from "./alternativeFile";
-import { AlternativeSchema } from "./moduleSchema";
 import { setModuleAutomation } from "./moduleFile";
+import { AlternativeSchema } from "./moduleSchema";
 
 const read = (text: string) => parse(text, { version: "1.2" });
 
@@ -78,7 +78,7 @@ alternative: "2"
 describe("addAlternative", () => {
   it("copies a chain step's settings, never its own id or bypass", () => {
     const step =
-      "id: 8339210a\nextends: \"@st0/fx/drive\"\nbypass: true\nparams: { Gain: 3 }\n";
+      'id: 8339210a\nextends: "@st0/fx/drive"\nbypass: true\nparams: { Gain: 3 }\n';
     const out = read(addAlternative(step, undefined, { copy: true }).text);
     expect(out.alternatives).toEqual([{ params: { Gain: 3 } }]);
     expect(out.id).toBe("8339210a");
