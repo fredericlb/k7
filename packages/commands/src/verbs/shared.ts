@@ -9,6 +9,11 @@
 // what lets `CommandHost` stay where it is read.
 
 import { resolve, sep } from "node:path";
+import {
+  isInputModule,
+  isMidiInModule,
+  type loadGraph,
+} from "@studio/song/graph";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import type { CommandHost } from "../commands.ts";
 
@@ -41,4 +46,41 @@ export function playlistFile(
     return null;
   }
   return { rel, abs };
+}
+
+/** Does the signal ARRIVING at `node` come off a live input, audio or MIDI? Walks UPSTREAM — docs/verbs.md. */
+export function runCarriesInput(
+  g: ReturnType<typeof loadGraph>,
+  node: string,
+): boolean {
+  const bare = (s: string) => s.split("#")[0];
+  const isLive = (name: string): boolean => {
+    const b = g.modules[name];
+    // A MIDI device lands on a lane too, its notes being what recording there captures (packages/song/docs/midiIn.md).
+    return !!b && (isInputModule(g, b) || isMidiInModule(b));
+  };
+  // Who feeds whom: a chain is a linear run, and its `out` is how one chain reaches another.
+  const feeders = new Map<string, string[]>();
+  const link = (from: string, to: string): void => {
+    const at = feeders.get(bare(to));
+    if (at) at.push(bare(from));
+    else feeders.set(bare(to), [bare(from)]);
+  };
+  for (const c of Object.values(g.chains)) {
+    const run = [...(c.from ? [c.from] : []), ...c.use.map((s) => s.module)];
+    for (let i = 1; i < run.length; i++) link(run[i - 1], run[i]);
+    const last = run[run.length - 1];
+    if (last) for (const o of c.out) link(last, o.to);
+  }
+  // …then back up from `node`, itself included; `seen` is not an optimisation, a graph may hold a cycle.
+  const seen = new Set<string>();
+  const stack = [bare(node)];
+  while (stack.length) {
+    const n = stack.pop() as string;
+    if (seen.has(n)) continue;
+    seen.add(n);
+    if (isLive(n)) return true;
+    for (const f of feeders.get(n) ?? []) stack.push(f);
+  }
+  return false;
 }

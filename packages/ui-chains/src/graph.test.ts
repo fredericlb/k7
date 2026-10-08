@@ -26,6 +26,7 @@ import {
   subgraphForTrack,
   TAP_COLS,
   TAP_ROWS,
+  trackInputs,
   trackModules,
   UI_PAD,
   widgetDenorm,
@@ -1845,6 +1846,39 @@ describe("moduleRow led by its lane", () => {
       "mod:comp",
       "mod:eq",
     ]);
+  });
+
+  it("puts what FEEDS the lane before it — an input, and a preamp past it", () => {
+    const fed = graph(
+      {
+        ...lane.chains,
+        mic: {
+          use: [{ module: "in", monitor: "on" }],
+          out: [{ to: "pre", gain: 1 }],
+        },
+        pre: { use: [{ module: "pre" }], out: [{ to: "vox", gain: 1 }] },
+      },
+      ["vox"],
+    );
+    const inputs = trackInputs(fed, "vox");
+    expect(inputs).toEqual(["in", "pre"]);
+    const row = moduleRow(fed, ["comp", "eq"], {
+      links: true,
+      track: "vox",
+      inputs,
+    });
+    expect(row.nodes.map((n) => n.id)).toEqual([
+      "mod:in",
+      "mod:pre",
+      "trk:vox",
+      "mod:comp",
+      "mod:eq",
+    ]);
+    expect(row.edges).toContainEqual(
+      expect.objectContaining({ source: "mod:pre", target: "trk:vox" }),
+    );
+    // A lane nothing feeds has nothing before it, and a lane's own `from` is never taken for an input.
+    expect(trackInputs(lane, "vox")).toEqual([]);
   });
 
   it("carries the cable OUT of the lane, which the row could not draw without it", () => {

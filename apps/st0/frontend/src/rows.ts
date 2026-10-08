@@ -8,6 +8,7 @@ import { splitPort } from "@studio/song-schema/moduleTypes";
 import { HATCH } from "@studio/ui-timeline/lanes";
 import type {
   WebAutomationLane,
+  WebClip,
   WebGroup,
   WebProject,
   WebTrack,
@@ -175,6 +176,23 @@ export function trackPlacing(
 }
 
 /** The beat `clip` is placed at on lane `track`, or null. */
+/** The placement on `track` playing material `ref` — a take is named by its material, its placement by `ref@start`. */
+export function placementOf(
+  project: WebProject | null | undefined,
+  track: string,
+  ref: string,
+): WebClip | null {
+  const lane = project?.tracks.find((t) => t.id === track);
+  return (
+    lane?.clips.find(
+      (c) =>
+        c.id === ref ||
+        c.name === ref ||
+        !!c.pieces?.some((p) => p.name === ref),
+    ) ?? null
+  );
+}
+
 export function placedBeat(
   project: WebProject | null | undefined,
   track: string,

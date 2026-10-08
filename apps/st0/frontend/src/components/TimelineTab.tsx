@@ -13,6 +13,7 @@ import {
 import {
   Clock,
   Ghost,
+  Layers,
   Music,
   Plus,
   Repeat,
@@ -93,7 +94,14 @@ import { dragOffset, freeSnap, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
 import { type TimelineMode, timelineMode } from "../timelineMode";
-import { TOOL_LABEL, TOOLS, type Tool, toolLine } from "../timelineTools";
+import {
+  CROSSFADE_BEATS,
+  crossfadePair,
+  TOOL_LABEL,
+  TOOLS,
+  type Tool,
+  toolLine,
+} from "../timelineTools";
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type {
   WebAutomationLane,
@@ -1124,6 +1132,43 @@ export function TimelineTab({
           c.start + (e.clientX - r.left) / Math.max(1e-6, ppbRef.current);
         const tc = (b: number) =>
           beatsToPosition(b, p.timeSigNumerator, p.timeSigDenominator);
+        // The crossfade is about TWO events: a drag sizes it, a click makes the default, Alt takes it away.
+        if (toolRef.current === "crossfade") {
+          const pair = crossfadePair(track.clips, c, at);
+          if (!pair)
+            return void setStatus(
+              "no audio event beside this one to crossfade into",
+            );
+          const x0 = e.clientX;
+          const alt = e.altKey;
+          const lenAt = (x: number) => {
+            const dx = Math.abs(x - x0);
+            if (dx < 4) return CROSSFADE_BEATS;
+            return Math.max(
+              0.125,
+              Math.round((2 * dx) / ppbRef.current / 0.125) * 0.125,
+            );
+          };
+          const move = (m: PointerEvent) =>
+            setStatus(
+              `crossfade ${lenAt(m.clientX)} beat(s) — release to set it`,
+            );
+          const up = (u: PointerEvent) => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            const len = alt ? 0 : lenAt(u.clientX);
+            const dur =
+              len > 0
+                ? beatsToDuration(len, p.timeSigNumerator, p.timeSigDenominator)
+                : "0";
+            onToolLine?.(
+              `event crossfade ${track.id} ${tc(pair.a.start)} ${tc(pair.b.start)} ${dur}`,
+            );
+          };
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", up);
+          return;
+        }
         const act = toolLine(toolRef.current, {
           track: track.id,
           name: c.name || c.id,
@@ -3234,12 +3279,35 @@ export function TimelineTab({
                               }}
                             >
                               {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
-                              <ClipActivity
-                                clip={c}
-                                spanBeats={c.length > 0 ? c.length : NATURAL}
-                                color={t.color || undefined}
-                                project={envProject}
-                              />
+                              {/* A COMPED event is one block, its pieces' activity laid where each plays (song docs/takes.md). */}
+                              {c.pieces ? (
+                                c.pieces.map((p) => (
+                                  <div
+                                    key={p.id}
+                                    className="absolute inset-y-0 -z-10"
+                                    style={{
+                                      left: (p.start - c.start) * ppb,
+                                      width: Math.max(1, p.length * ppb),
+                                    }}
+                                  >
+                                    <ClipActivity
+                                      clip={p}
+                                      spanBeats={
+                                        p.length > 0 ? p.length : NATURAL
+                                      }
+                                      color={t.color || undefined}
+                                      project={envProject}
+                                    />
+                                  </div>
+                                ))
+                              ) : (
+                                <ClipActivity
+                                  clip={c}
+                                  spanBeats={c.length > 0 ? c.length : NATURAL}
+                                  color={t.color || undefined}
+                                  project={envProject}
+                                />
+                              )}
                               {/* Where the material STARTS OVER, one rule per pass: `placedRepeats`, since this axis begins at the event's left edge (clipLoop.ts). */}
                               {loopMarks
                                 .filter((b) => b * ppb < drawW)
@@ -3387,6 +3455,10 @@ export function TimelineTab({
                                 ) : (
                                   <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
                                 )}
+                                {/* A COMPED event: several takes heard as one, opened in the clip panel's takes mode. */}
+                                {c.pieces && (
+                                  <Layers className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                )}
                                 {/* A RETURN of material heard earlier, drawn on every placement but the first (docs/timeline.md). */}
                                 {ghost && (
                                   <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
@@ -3411,16 +3483,37 @@ export function TimelineTab({
                               {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
                               {expanded && (
                                 <div className="relative mt-0.5 min-h-0 flex-1">
-                                  <ClipContent
-                                    clip={c}
-                                    spanBeats={
-                                      c.length > 0 ? c.length : NATURAL
-                                    }
-                                    project={envProject}
-                                    overlay={
-                                      c.frozen ? t.frozenMaterial : undefined
-                                    }
-                                  />
+                                  {c.pieces ? (
+                                    c.pieces.map((p) => (
+                                      <div
+                                        key={p.id}
+                                        className="absolute inset-y-0"
+                                        style={{
+                                          left: (p.start - c.start) * ppb,
+                                          width: Math.max(1, p.length * ppb),
+                                        }}
+                                      >
+                                        <ClipContent
+                                          clip={p}
+                                          spanBeats={
+                                            p.length > 0 ? p.length : NATURAL
+                                          }
+                                          project={envProject}
+                                        />
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <ClipContent
+                                      clip={c}
+                                      spanBeats={
+                                        c.length > 0 ? c.length : NATURAL
+                                      }
+                                      project={envProject}
+                                      overlay={
+                                        c.frozen ? t.frozenMaterial : undefined
+                                      }
+                                    />
+                                  )}
                                 </div>
                               )}
                             </div>

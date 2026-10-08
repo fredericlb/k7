@@ -232,7 +232,8 @@ here mounts a component, so arithmetic left inline in one is arithmetic no test 
 
 ### The roll has three modes, and `select` is the default
 
-`rollMode.ts`: `select`, `create`, `remove`. They are the roll's own rather than the timeline's
+`rollMode.ts`: `select`, `create`, `remove` — and a fourth, `takes`, which is a VIEW rather than a
+gesture and is described below. They are the roll's own rather than the timeline's
 tools — what a lane holds here is NOTES, so creating and removing are the two acts, and neither
 means anything on a track. A 32px column of icons down the pane's left edge is the third way to
 one, beside the keys and the bar, and the only one a finger has; each button dispatches
@@ -932,6 +933,36 @@ Four things worth knowing:
 The live value lives in a **ref**, with state only for what to draw: firing the command from inside
 a `setState` updater would run it twice under StrictMode's double invocation — a velocity written,
 then written again.
+
+## The takes mode, in both panels
+
+`takes` is the fourth mode of the waveform and of the roll (`TakesView.tsx`): the open EVENT's takes
+stacked, its own material first, on one song-time axis — the format and the recording path are
+`packages/song/docs/takes.md`. It is a mode and not a third panel because it is a view of the same
+event the panel is open on, and a mode is how both panels already switch what a press means.
+
+- **The event, not the clicked clip.** A comped event is several clips on the timeline; whichever
+  piece is opened, the view finds the event by the id every piece carries (`eventIdOf`), so a re-comp
+  that replaces the piece that was clicked does not lose the view.
+- **One gesture picks.** A drag selects a span, snapped to a sixteenth; a click on a row then runs
+  `event comp` for that row over the span. A click with no span seeks, as the ruler above does —
+  the playhead is where the next take starts. A row's ✓ is the same pick, or the whole take when
+  there is no span: replacing the whole event is that, nothing else.
+- **Its own record button.** It arms the event and, where they were not, the lane and record mode,
+  then rolls; the stop switches back exactly what it switched (`useTakeRecording.ts`). A span is the
+  punch. The shell's record panel stays away for that take: the view is where it is drawn.
+- **Offered only where there is an event.** A reviewed take and a bare sequence file have none, so
+  their strips list the other modes (`WAVE_SOLO_MODES`, `ROLL_SOLO_MODES`).
+- **The panel's own view stays mounted, hidden**, so its zoom, caret and scroll survive a switch.
+- **Its crossfade tool** is the timeline's, at the comp's seams: a press takes the nearest seam, a
+  drag sizes it, Alt removes it (`event comp fade`). Crossfades are drawn across every row.
+- **A comped event's WAVE is edited a piece at a time.** Over the wave, a strip shows the comp: each
+  piece in its take's colour (the takes view's, `takeColor`), each a button. The piece clicked is the
+  wave below — its take's file, its slice of it framed — so onsets and warp edit that take's material.
+  Its window edges are the comp's: growing a piece gives its take the span, shrinking it hands what it
+  lets go back to the piece it touches (`pieceEdgeLines`). Trim, which writes the EVENT's window, is
+  off on a piece (`CompStrip.tsx`).
+- **The roll opens a comped event on its takes**: its notes view would show the first piece alone.
 
 ## What is deliberately NOT drawn
 

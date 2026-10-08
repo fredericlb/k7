@@ -89,6 +89,8 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.offset != b.offset
         || a.sourceFrom != b.sourceFrom || a.sourceTo != b.sourceTo
         || a.loopStart != b.loopStart || a.loopEnd != b.loopEnd
+        || a.fadeIn != b.fadeIn || a.fadeOut != b.fadeOut
+        || a.crossfadeIn != b.crossfadeIn || a.crossfadeOut != b.crossfadeOut
         || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers
         // The NOTES, for the same reason — without this the whole note vocabulary reached the engine and did nothing.
         || a.notes != b.notes;

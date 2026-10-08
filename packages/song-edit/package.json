@@ -13,6 +13,8 @@
     "./sequenceLoops": "./src/sequenceLoops.ts",
     "./materialCut": "./src/materialCut.ts",
     "./materialWindow": "./src/materialWindow.ts",
+    "./crossfade": "./src/crossfade.ts",
+    "./takeEdit": "./src/takeEdit.ts",
     "./trackMix": "./src/trackMix.ts",
     "./windowDescend": "./src/windowDescend.ts",
     "./onsets": "./src/onsets.ts",

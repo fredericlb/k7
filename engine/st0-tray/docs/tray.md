@@ -32,6 +32,15 @@ Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. Wha
 which engine is running, what the ports are, where to heartbeat: all of it comes down in a
 snapshot (`host.rs`), and a click goes back up as a command.
 
+## The microphone is the tray's to ask for
+
+On macOS the microphone grant belongs to the RESPONSIBLE app: the engine records through the
+supervisor the tray launched, so it is the tray that asks, and the tray that `System Settings ›
+Privacy › Microphone` lists. `src-tauri/Info.plist` carries `NSMicrophoneUsageDescription` for
+that reason. An app without one is never asked: macOS hands it silence, the take is written, its
+file is all zeros and the input meter reads -100 dB, which looks like a dead cable rather than a
+refusal. The grant is keyed on the bundle identifier, the other reason that identifier is frozen.
+
 ## Nothing to install beside it
 
 The tray probes for no CLI at startup. `git` and `git-lfs` are the server's business: workspaces are

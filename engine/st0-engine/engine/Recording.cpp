@@ -31,6 +31,8 @@ struct RecordListener : public te::TransportControl::Listener {
     void recordingStarted(tt::SyncPoint start, std::optional<tt::TimeRange>) override {
         auto* tc = host.impl_->transport(session);
         if (tc == nullptr) return;
+        // A take hears its lane around the punch: the brain sent the lane with the punch already cut out.
+        if (!host.current(session).recordMute) return;
 
         // Capture host's address, not `this`: a rebuild may drop this listener before the timer fires.
         EngineHost* hp = &host;

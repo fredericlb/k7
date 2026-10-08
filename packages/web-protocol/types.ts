@@ -337,8 +337,14 @@ export interface WebClip {
   fadeOut?: number;
   /** This clip is a RENDER standing in for a frozen lane, and cannot be edited — see packages/song/docs/freeze.md. */
   frozen?: boolean;
-  /** What the PLACEMENT itself said, unmerged — read by clipboard.ts alone; see docs/document.md. */
+  /** What the PLACEMENT itself said, unmerged — read by clipboard.ts and the takes view; see docs/document.md. */
   event?: WebEvent;
+  /** A PIECE of a comped event: the event's own clip id, and the take it plays (@studio/song docs/takes.md). */
+  comp?: { of: string; take: string };
+  /** A COMPED event, drawn as one clip: the pieces it plays, each a clip of its own on the song's time. */
+  pieces?: WebClip[];
+  /** Which of its fades is half of a crossfade with a neighbour — drawn as one, heard as equal power. */
+  crossfade?: { in?: boolean; out?: boolean };
   notes: WebNote[]; // midi only
 }
 
@@ -351,6 +357,10 @@ export interface WebEvent {
   loop?: number;
   disabled?: boolean;
   warp?: boolean;
+  /** The event's other performances and which plays where, song positions as the file writes them (song docs/takes.md). */
+  takes?: { ref: string; start: string }[];
+  comp?: { take: string; from: string; to: string }[];
+  crossfades?: { at: string; length: string }[];
 }
 
 // A downsampled waveform for one audio clip plus the bar/beat grid aligning it — for the audio-clip editor.

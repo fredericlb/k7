@@ -35,6 +35,9 @@ void applySendLevels(te::Edit& edit, const ProjectDoc& doc, const std::string& t
 void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
                 const ClipDoc& c, const std::string& baseDir);
 
+// An audio clip's two fades, linear or — for a crossfade's half — the equal-power sine (docs/editBuilder.md).
+void applyClipFades(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c);
+
 // Create a MIDI clip on the track from a ClipDoc's notes.
 void insertMidiClip(te::Edit& edit, te::AudioTrack& track, const ClipDoc& c);
 

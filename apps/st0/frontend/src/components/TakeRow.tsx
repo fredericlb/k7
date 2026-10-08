@@ -1,0 +1,196 @@
+// TakeRow.tsx — one row of the takes view: a take's whole material drawn on the song's time axis,
+// bright where the comp plays it and dim where it does not. An SVG whose viewBox is in BEATS, so
+// every row of the view shares one axis without measuring anything. Audio is its RMS envelope,
+// MIDI its notes; both are fetched here, since a take is not in the compiled project until comped.
+
+import { parsePosition } from "@studio/song-schema/timecode";
+import { useEffect, useId, useState } from "react";
+import { parse } from "yaml";
+import { api } from "../api";
+import type { TakeRow as Row } from "../takes";
+
+/** How many times, and how far apart, a row asks again for a take it could not read yet. */
+const RETRIES = 6;
+const RETRY_MS = 1000;
+
+/** What a row draws, in beats from its own start: an envelope, or notes. */
+type Material =
+  | { kind: "audio"; length: number; rms: number[] }
+  | {
+      kind: "midi";
+      length: number;
+      notes: { t: number; d: number; k: number }[];
+    };
+
+/** Read a take's material: the file's envelope, or the sequence's notes and window. */
+function useMaterial(
+  row: Row,
+  kind: "audio" | "midi",
+  tempo: number,
+  prefix: string,
+  reloadKey: number,
+  num: number,
+  den: number,
+): Material | null {
+  const [mat, setMat] = useState<Material | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `reloadKey` is the re-read signal, not a value read here.
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const done = (m: Material) => alive && setMat(m);
+    // A take just recorded may not be readable yet — its file still being closed: try again, a few times.
+    let tries = 0;
+    const retry = (load: () => void) => {
+      if (!alive || ++tries > RETRIES) return;
+      timer = setTimeout(load, RETRY_MS);
+    };
+    const loadAudio = (): void =>
+      void api
+        .waveform(row.ref, 600)
+        .then((w) =>
+          w.rms.length
+            ? done({
+                kind: "audio",
+                length: (w.seconds * tempo) / 60,
+                rms: w.rms,
+              })
+            : retry(loadAudio),
+        )
+        .catch(() => retry(loadAudio));
+    const loadMidi = (): void =>
+      void api
+        .read(`${prefix}sequences/${row.ref}.yaml`)
+        .then(({ content }) => {
+          const seq = (parse(content) ?? {}) as {
+            notes?: { t: number; d: number; k: number }[];
+            to?: string;
+          };
+          const notes = Array.isArray(seq.notes) ? seq.notes : [];
+          const extent = notes.reduce((m, n) => Math.max(m, n.t + n.d), 0);
+          let stated = 0;
+          try {
+            stated = seq.to ? parsePosition(String(seq.to), num, den) : 0;
+          } catch {
+            /* an unreadable window: the notes' own extent frames the row */
+          }
+          done({ kind: "midi", length: Math.max(stated, extent), notes });
+        })
+        .catch(() => retry(loadMidi));
+    if (kind === "audio") loadAudio();
+    else loadMidi();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [row.ref, kind, tempo, prefix, reloadKey, num, den]);
+  return mat;
+}
+
+export function TakeRow({
+  row,
+  kind,
+  label,
+  view,
+  heard,
+  tempo,
+  prefix,
+  reloadKey,
+  num,
+  den,
+  color,
+  onLength,
+}: {
+  row: Row;
+  kind: "audio" | "midi";
+  label: string;
+  /** The beats the view spans, shared by every row. */
+  view: { from: number; to: number };
+  /** Where the comp plays this row, song beats. */
+  heard: { from: number; to: number }[];
+  tempo: number;
+  /** The project's folder, workspace-relative, ending in a slash — where its sequences are read from. */
+  prefix: string;
+  reloadKey: number;
+  num: number;
+  den: number;
+  /** The take's colour — the comp strip's for the same take. */
+  color: string;
+  /** How long the row's material is, beats — reported up so the view frames every take. */
+  onLength?: (ref: string, beats: number) => void;
+}) {
+  const mat = useMaterial(row, kind, tempo, prefix, reloadKey, num, den);
+  const clip = useId();
+  useEffect(() => {
+    if (mat) onLength?.(row.ref, mat.length);
+  }, [mat, row.ref, onLength]);
+  const span = view.to - view.from;
+  if (span <= 0) return null;
+  const body = (() => {
+    if (!mat) return null;
+    if (mat.kind === "audio") {
+      const step = mat.length / Math.max(1, mat.rms.length);
+      const peak = Math.max(1e-6, ...mat.rms);
+      // One bar per bucket, mirrored about the middle: the envelope as the waveform panel draws it.
+      const d = mat.rms
+        .map((v, i) => {
+          const h = Math.min(1, v / peak) * 0.45;
+          return `M${row.start + i * step} ${0.5 - h}h${step}v${2 * h}h${-step}Z`;
+        })
+        .join("");
+      return <path d={d} fill="currentColor" />;
+    }
+    const keys = mat.notes.map((n) => n.k);
+    const lo = Math.min(...keys, 60) - 1;
+    const hi = Math.max(...keys, 72) + 1;
+    return mat.notes.map((n) => (
+      <rect
+        key={`${n.t}:${n.k}`}
+        x={row.start + n.t}
+        y={1 - (n.k - lo + 1) / (hi - lo + 1)}
+        width={Math.max(n.d, 0.05)}
+        height={0.8 / (hi - lo + 1)}
+        fill="currentColor"
+      />
+    ));
+  })();
+  return (
+    <div className="relative h-full min-h-0">
+      <svg
+        viewBox={`${view.from} 0 ${span} 1`}
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+        style={{ color }}
+        role="img"
+        aria-label={label}
+      >
+        <defs>
+          <clipPath id={clip}>
+            {heard.map((h) => (
+              <rect
+                key={`${h.from}`}
+                x={h.from}
+                y={0}
+                width={h.to - h.from}
+                height={1}
+              />
+            ))}
+          </clipPath>
+        </defs>
+        {/* Where the comp plays this take: a tint under it, so a row that is heard nowhere reads as such. */}
+        {heard.map((h) => (
+          <rect
+            key={`bg${h.from}`}
+            x={h.from}
+            y={0}
+            width={h.to - h.from}
+            height={1}
+            fill="currentColor"
+            opacity={0.12}
+          />
+        ))}
+        <g opacity={0.3}>{body}</g>
+        <g clipPath={`url(#${clip})`}>{body}</g>
+      </svg>
+    </div>
+  );
+}

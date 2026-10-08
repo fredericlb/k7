@@ -3,11 +3,11 @@
 // writes it. Nothing here is hand-rolled: each card is the card the chains view draws.
 // See docs/shell.md.
 
-import { Spline } from "@frediverse/ui/icons";
+import { KeyboardMusic, Mic, Spline } from "@frediverse/ui/icons";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { splitTrailingMixer } from "@studio/ui-chains/anchorRight";
 import type { EdgeInsert, TrackControlValues } from "@studio/ui-chains/graph";
-import { moduleRow, trackModules } from "@studio/ui-chains/graph";
+import { moduleRow, trackInputs, trackModules } from "@studio/ui-chains/graph";
 import { rowExit, rowSeams } from "@studio/ui-chains/rowSeams";
 import {
   DomChains,
@@ -19,6 +19,7 @@ import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { useRackTrigger } from "../hooks/useRackTrigger";
+import { laneHasInput } from "../laneInput";
 import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
@@ -28,9 +29,20 @@ import { GraphSlotPane } from "./GraphSlotPane";
 /** The strip's modes: none — the row has no tools, only the toggles under them. */
 const NO_MODES: readonly string[] = [];
 
+/** The two inputs a lane can be given from here, each the `track input` kind it runs. */
+const INPUTS = [
+  { kind: "audio", label: "audio in", Icon: Mic },
+  { kind: "midi", label: "midi in", Icon: KeyboardMusic },
+] as const;
+
+/** A greyed button still shows its tooltip, which is what says why it is greyed. */
+const DISABLED =
+  "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
+
 export function TrackModulesPane({
   trackId,
   cameras,
+  inputDevices,
   midiDevices,
   reloadKey,
   command,
@@ -59,11 +71,14 @@ export function TrackModulesPane({
   engineWarnings,
   showCurves = false,
   onToggleCurves,
+  onTrackInput,
 }: {
   /** The lane whose path this is. */
   trackId: string;
   /** The cameras and MIDI devices this browser sees — what those nodes' dropdowns offer, as in the full graph. */
   cameras?: readonly string[];
+  /** The interface's inputs as the engine groups them — what an audio input's "in" dropdown offers. */
+  inputDevices?: readonly { name: string; channels: number[] }[];
   midiDevices?: readonly string[];
   reloadKey: number;
   command: (line: string) => void | Promise<void>;
@@ -124,6 +139,8 @@ export function TrackModulesPane({
   showCurves?: boolean;
   /** The top-right button's: the shell's `ui curves`, so the button and the command are one. */
   onToggleCurves?: () => void;
+  /** The "audio in" and "midi in" buttons: the shell's `track input`, run on this lane. */
+  onTrackInput?: (kind: "audio" | "midi") => void;
 }) {
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -144,14 +161,20 @@ export function TrackModulesPane({
     () => (graph ? trackModules(graph, trackId) : []),
     [graph, trackId],
   );
+  // …and what feeds the lane, drawn ahead of it: the signal starts at the input, not at the lane.
+  const inputs = useMemo(
+    () => (graph ? trackInputs(graph, trackId) : []),
+    [graph, trackId],
+  );
   const laid = useMemo(
     () =>
       graph
         ? moduleRow(graph, modules, {
+            inputs,
             // The cards the graph draws, at the graph's size: this is a view of the same nodes, not a bigger one.
             asDrawn: true,
             // …and with the same lists in their dropdowns: a lens, a MIDI device.
-            devices: { cameras, midiDevices },
+            devices: { cameras, inputDevices, midiDevices },
             // The cables ARE the subject here: one lane's signal path, met on the SIDES because the row is read across.
             links: true,
             // …and the lane leads it: the signal starts on the lane, and its fader is the first thing in the path.
@@ -164,7 +187,16 @@ export function TrackModulesPane({
             curves: showCurves,
           })
         : null,
-    [graph, modules, trackId, cameras, midiDevices, showCurves],
+    [
+      graph,
+      modules,
+      inputs,
+      trackId,
+      cameras,
+      inputDevices,
+      midiDevices,
+      showCurves,
+    ],
   );
 
   // A pad on a card in this row PLAYS, by the same hook as the chains pane.
@@ -235,6 +267,9 @@ export function TrackModulesPane({
     };
   }, [pluginIds, watchPluginParams]);
 
+  // An input already feeding the lane, or no graph yet to say: either way the input buttons wait.
+  const hasInput = !graph || laneHasInput(graph, trackId);
+
   // A row ending on the lane's mixer pins that mixer to the right, headerless — @studio/ui-chains's anchorRight.ts.
   const split = useMemo(
     () => (laidShown ? splitTrailingMixer(laidShown) : null),
@@ -274,7 +309,7 @@ export function TrackModulesPane({
     onSelect: setSelected,
     trackOrder,
     // Re-frame when the ROW changes, not on every refetch: a param landing must not take the camera back.
-    fitKey: modules.join("|"),
+    fitKey: [...inputs, ...modules].join("|"),
     // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
     fitAxis: "height" as const,
     // …all of it: the tallest card is the pane's height, the others centred on its line.
@@ -323,24 +358,46 @@ export function TrackModulesPane({
   return frame(
     <div className="flex h-full min-h-0">
       {/* The view's toggles down its left edge, the timeline's column: no modes here, only what the row SHOWS (docs/shell.md). */}
-      {onToggleCurves && (
+      {(onToggleCurves || onTrackInput) && (
         <ModeStrip
           modes={NO_MODES}
           current=""
           onPick={() => {}}
           title={() => ""}
           footer={
-            <button
-              type="button"
-              onClick={onToggleCurves}
-              aria-pressed={showCurves}
-              title={
-                showCurves ? "hide the curve cards" : "show the curve cards"
-              }
-              className={stripButton(showCurves)}
-            >
-              <Spline className="h-4 w-4" />
-            </button>
+            <>
+              {onTrackInput &&
+                INPUTS.map(({ kind, label, Icon }) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => onTrackInput(kind)}
+                    disabled={hasInput}
+                    aria-label={label}
+                    title={
+                      hasInput
+                        ? `${label} — this lane already has an input`
+                        : `${label} — an input feeding this lane, ahead of its first node`
+                    }
+                    className={`${stripButton(false)} ${DISABLED}`}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              {onToggleCurves && (
+                <button
+                  type="button"
+                  onClick={onToggleCurves}
+                  aria-pressed={showCurves}
+                  title={
+                    showCurves ? "hide the curve cards" : "show the curve cards"
+                  }
+                  className={stripButton(showCurves)}
+                >
+                  <Spline className="h-4 w-4" />
+                </button>
+              )}
+            </>
           }
         />
       )}

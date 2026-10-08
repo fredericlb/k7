@@ -217,6 +217,7 @@ import {
   findClip,
   WaveformOps,
 } from "./waveformOps.ts";
+import { foldComps } from "./webComp.ts";
 
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
 
@@ -433,6 +434,9 @@ function toWebClip(
     frozen: isFrozenClipId(c.id) ? true : undefined,
     // The placement's own words, straight through — the only part a paste can write back.
     event: c.event,
+    // …and, for a piece of a comped event, which event and which take (song docs/takes.md).
+    ...(c.comp ? { comp: c.comp } : {}),
+    ...(c.crossfade ? { crossfade: c.crossfade } : {}),
     notes: c.notes.map((n) => ({
       time: n.time,
       duration: n.duration,
@@ -462,7 +466,8 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
     ...mixerOf(t),
     mute: t.mute,
     solo: t.solo,
-    clips: t.clips.map((c) => toWebClip(c, natural)),
+    // A comped event is ONE clip to every surface, its pieces carried inside it (webComp.ts).
+    clips: foldComps(t.clips.map((c) => toWebClip(c, natural))),
     ...(t.frozenMaterial?.length
       ? { frozenMaterial: t.frozenMaterial.map((c) => toWebClip(c, natural)) }
       : {}),

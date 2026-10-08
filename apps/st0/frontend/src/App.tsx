@@ -59,6 +59,7 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
 import { moduleKeyFromPath, TAP_SAMPLE } from "@studio/song-schema/moduleTypes";
 import type { ReferenceTrack } from "@studio/song-schema/reference";
+import { beatsToPosition } from "@studio/song-schema/timecode";
 import {
   ViewportTab,
   sceneOf as videoSceneOf,
@@ -133,6 +134,7 @@ import {
 import { type OpenShare, ShareDownload } from "./components/SharedGate";
 import { SharePanel, shareBadge } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
+import type { PanelTakes } from "./components/TakesView";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
 import {
@@ -169,6 +171,7 @@ import { noteRevision, useRevision } from "./hooks/useRevision";
 import { useShare } from "./hooks/useShare";
 import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
+import { useTakeRecording } from "./hooks/useTakeRecording";
 import { useTimelineDrop } from "./hooks/useTimelineDrop";
 import { useTrackControls } from "./hooks/useTrackControls";
 import { useTurntableDeck } from "./hooks/useTurntableDeck";
@@ -205,6 +208,7 @@ import { resolveEditorFile } from "./openInEditor";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
 import { type PendingNode, spawnBox } from "./pendingNode";
+import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: st0's builtin plugins register their pane drawers
 // here, before the shell renders any surface — see packages/st0-sdk/docs/sdk.md.
 import "./plugins";
@@ -222,7 +226,7 @@ import {
 import { type Pane, type Panel, viewPanes } from "./routes";
 import {
   pictureRowId,
-  placedBeat,
+  placementOf,
   type RowKey,
   type RowTarget,
   trackPlacing,
@@ -262,6 +266,10 @@ const EMPTY_PRESETS: PresetInfo[] = [];
 
 /** The same, for a song with no picture — which is most of them. Keeps the timeline's row memo cold. */
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
+
+/** Why Play is refused in record mode with nothing armed — said on the button and on the status line. */
+const NO_ARM_HINT =
+  "record is on and no track is armed — arm a track, or turn record off";
 
 export default function App({
   engineUrl,
@@ -568,8 +576,17 @@ export default function App({
 
   // A take rolling (record enabled AND playing) shows it in the event panel, one-way: it STAYS when the take ends, only the × closes it.
   const rolling = recordEnabled && playing;
+  /** Record is on and nothing is armed — no audio lane, no MIDI lane, no picture lane — so rolling would capture nothing. */
+  const recordWithoutArm =
+    (recordEnabled || midiRecord) && !armed.length && !midiArmed && !videoArmed;
+  // …read by the command path through a ref, so the transport callbacks are not rebuilt on every arm.
+  const recordWithoutArmRef = useRef(recordWithoutArm);
+  recordWithoutArmRef.current = recordWithoutArm;
+  // A take of the takes view is drawn THERE: the record panel would take the very slot it is in.
+  // A ref, set where useTakeRecording is called below: the take is on before the engine rolls.
+  const takeActiveRef = useRef(false);
   useEffect(() => {
-    if (!rolling) return;
+    if (!rolling || takeActiveRef.current) return;
     setGraphSlot((s) => (s?.kind === "recording" ? s : { kind: "recording" }));
     setPanel("event");
   }, [rolling]);
@@ -1242,6 +1259,23 @@ export default function App({
       live = false;
     };
   }, [reloadKey, midiArmed]);
+  // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
+  const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
+  // The takes view's record button: a take INTO the open event rather than onto its lane (song docs/takes.md).
+  const takes = useTakeRecording({
+    store,
+    engine: () => engineRef.current ?? null,
+    runCommand: (line) => runCommandRef.current(line),
+    playing,
+    midiArmed,
+    midiRecord,
+    setMidiRecord,
+    num: projectDoc?.timeSigNumerator ?? 4,
+    den: projectDoc?.timeSigDenominator ?? 4,
+    projectPath: ws?.activeProject ?? ".",
+    onLanded: () => bumpReload(),
+  });
+  takeActiveRef.current = takes.active;
   const { midiInputs, openMidiInputs } = useMidiRecording({
     store,
     tempo: recInfo.tempo,
@@ -1253,6 +1287,11 @@ export default function App({
     midiDevice: midiIn.device,
     onNoMidiIn: (track) =>
       showToast({ message: m["midi.noMidiIn"]({ track }), variant: "error" }),
+    takeTarget: takes.midiTarget,
+    onTakePass: (t, pass) =>
+      void runCommandRef.current(
+        `event take midi ${t.track} ${t.at} ${JSON.stringify(pass)}`,
+      ),
   });
   // A project with a midi-in node asks for MIDI access at once, so its dropdown lists the devices.
   useEffect(() => {
@@ -1348,8 +1387,6 @@ export default function App({
     [visible, focusOn],
   );
 
-  // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
-  const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
   // The palette's catalogue, for the one thing `runCommand` needs: which command a line runs, so it can be remembered.
   const paletteRef = useRef<PaletteCommand[]>([]);
 
@@ -1730,6 +1767,10 @@ export default function App({
       }
       // Replay: back to where playback last started (`replayAtRef`), then rolls again — `play` is not a toggle.
       if (line === "transport replay") {
+        if (recordWithoutArmRef.current && !store.getSnapshot().playing) {
+          setRefusal(NO_ARM_HINT);
+          return true;
+        }
         seek(replayAtRef.current);
         // Deliberately the BARE verb: the seek above has already chosen a position.
         transport("play");
@@ -1737,6 +1778,15 @@ export default function App({
       }
       /** …and so do the four bare verbs, for LATENCY — falling through to the service only when the socket cannot answer (docs/shell.md). */
       if (BARE_TRANSPORT.includes(line)) {
+        // Play in record mode with nothing armed records nothing: refused, with the two ways out.
+        if (
+          (line === "transport play" || line === "transport replay") &&
+          recordWithoutArmRef.current &&
+          !store.getSnapshot().playing
+        ) {
+          setRefusal(NO_ARM_HINT);
+          return true;
+        }
         // On a snapshot there IS no slow path: `transport` is already the browser player, so it always answers.
         if (!frozen && (!connected || engineBusyRef.current)) return false;
         transport(line.slice("transport ".length) as TransportAction);
@@ -2160,6 +2210,7 @@ export default function App({
       share,
       fixClipping,
       openModuleBuilder,
+      setRefusal,
     ],
   );
 
@@ -2787,6 +2838,36 @@ export default function App({
     !(recordEnabled && playing)
       ? ws.lastTake
       : null);
+  /** Where that take sits on its lane — found by its MATERIAL, which is what the file service names it by. */
+  const reviewPlaced = reviewTake
+    ? placementOf(projectDoc, reviewTake.track, reviewTake.clip)
+    : null;
+  const reviewBeat = reviewPlaced?.start ?? null;
+  // …and its takes, so the panel a recording ends on offers the takes mode as the clip panel does.
+  const reviewTakes = useMemo((): PanelTakes | undefined => {
+    if (!reviewTake || !reviewPlaced || !projectDoc || frozen) return undefined;
+    const ev = takesEventOf(
+      projectDoc,
+      reviewTake.track,
+      eventIdOf(reviewPlaced),
+    );
+    return ev
+      ? {
+          host: takes.host,
+          ev,
+          num: projectDoc.timeSigNumerator,
+          den: projectDoc.timeSigDenominator,
+        }
+      : undefined;
+  }, [reviewTake, reviewPlaced, projectDoc, frozen, takes.host]);
+  const reviewEventAt =
+    reviewBeat === null
+      ? null
+      : beatsToPosition(
+          reviewBeat,
+          projectDoc?.timeSigNumerator ?? 4,
+          projectDoc?.timeSigDenominator ?? 4,
+        );
 
   // Everything that makes the transport unable to answer, as one flag: to whoever is reaching for Play the two causes are one fact.
   const transportWaiting = engineBusy || waitingForEngine || copyingToEngine;
@@ -3078,7 +3159,10 @@ export default function App({
                     size={toolSize}
                     variant={playing ? "default" : "secondary"}
                     // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
-                    disabled={transportWaiting}
+                    // …and in record mode with nothing armed it waits for an arm, though a rolling transport can always be stopped.
+                    disabled={
+                      transportWaiting || (!playing && recordWithoutArm)
+                    }
                     onClick={(e) => {
                       transport(playing ? "stop" : "play");
                       blurOnClick(e);
@@ -3086,9 +3170,11 @@ export default function App({
                     title={
                       transportWaiting
                         ? "Loading this project — the engine can't answer the transport yet"
-                        : playing
-                          ? m["transport.pause"]()
-                          : m["transport.play"]()
+                        : !playing && recordWithoutArm
+                          ? NO_ARM_HINT
+                          : playing
+                            ? m["transport.pause"]()
+                            : m["transport.play"]()
                     }
                     aria-label={
                       transportWaiting
@@ -3765,6 +3851,7 @@ export default function App({
                   {panel === "graph" && (
                     <GraphPanel
                       cameras={cameras}
+                      inputDevices={inputDevices}
                       midiDevices={midiDevices}
                       reloadKey={reloadKey}
                       organizeKey={organizeKey}
@@ -3814,6 +3901,8 @@ export default function App({
                         <ClipView
                           target={graphSlot.target}
                           onClose={closeEvent}
+                          // The takes mode's record button and files; a snapshot records nothing, so it offers no takes.
+                          takesHost={frozen ? undefined : takes.host}
                           // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
                           reloadKey={reloadKey}
                           // A click on the editor's arrangement ruler is the timeline's seek.
@@ -3883,6 +3972,7 @@ export default function App({
                       {graphSlot?.kind === "trackModules" && (
                         <TrackModulesPane
                           cameras={cameras}
+                          inputDevices={inputDevices}
                           midiDevices={midiDevices}
                           trackId={graphSlot.trackId}
                           reloadKey={reloadKey}
@@ -3912,6 +4002,11 @@ export default function App({
                           engineWarnings={engineWarnings}
                           showCurves={trackCurves}
                           onToggleCurves={() => void runCommand("ui curves")}
+                          onTrackInput={(kind) =>
+                            void runCommand(
+                              `track input ${graphSlot.trackId} ${kind}`,
+                            )
+                          }
                         />
                       )}
                       {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
@@ -3925,15 +4020,11 @@ export default function App({
                           countIn={recInfo.countIn}
                           startBeat={takeStart}
                           // Where the clip on screen actually SITS on its lane, asked of the document.
-                          placedAt={
-                            (reviewTake &&
-                              placedBeat(
-                                projectDoc,
-                                reviewTake.track,
-                                reviewTake.clip,
-                              )) ??
-                            takeStart
-                          }
+                          placedAt={reviewBeat ?? takeStart}
+                          // …and as a timecode, without which trim and the window drag have no event to write.
+                          eventAt={rolling ? null : reviewEventAt}
+                          // …and its takes, so the takes mode is there the moment the recording ends.
+                          takes={rolling ? undefined : reviewTakes}
                           onSeek={seek}
                           trackOrder={trackOrder}
                           trackNames={recInfo.names}
@@ -3954,6 +4045,7 @@ export default function App({
                   {panel === "mix" && (
                     <GraphPanel
                       cameras={cameras}
+                      inputDevices={inputDevices}
                       midiDevices={midiDevices}
                       reloadKey={reloadKey}
                       organizeKey={organizeKey}

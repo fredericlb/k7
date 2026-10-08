@@ -49,7 +49,7 @@ export const LOCAL_COMMANDS = [
   // …and arm a PICTURE lane, for the same reason: the camera is the browser's and the engine never hears about it.
   "ui picture arm",
   // The timeline's selection, zoom, loop and move: the state lives in TimelineTab and these reach it via its handle.
-  "ui tool", // what a PRESS means on the active surface — pointer · cut · erase · mute
+  "ui tool", // what a PRESS means on the active surface — pointer · cut · erase · mute · crossfade
   "ui wave", // …and on an audio clip's waveform, where the view IS the gesture — standard · onsets · warp
   "ui roll", // …and on the piano roll — select · create · remove
   "ui select", // caret <-> selection rectangle
@@ -475,7 +475,11 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   // The four fixed sets below are completed in makeCompleteArg: none is a project's, so there is no round trip to spend.
   "ui panel": [{ name: "panel", kind: "choice", hint: "event · graph · logs" }],
   "ui tool": [
-    { name: "tool", kind: "choice", hint: "pointer · cut · erase · mute" },
+    {
+      name: "tool",
+      kind: "choice",
+      hint: "pointer · cut · erase · mute · crossfade",
+    },
   ],
   "ui wave": [
     { name: "view", kind: "choice", hint: "standard · onsets · warp" },

@@ -75,6 +75,18 @@ export const MODE_GLYPHS: Record<string, ModeGlyph> = {
     hot: [12, 12],
     body: '<path fill="currentColor" d="M7.05 5.64 L5.64 7.05 L10.59 12 L5.64 16.95 L7.05 18.36 L12 13.41 L16.95 18.36 L18.36 16.95 L13.41 12 L18.36 7.05 L16.95 5.64 L12 10.59 Z"/>',
   },
+  // Two fades crossing: one event going down as the next comes up — the timeline's and the takes view's.
+  crossfade: {
+    vb: "0 0 24 24",
+    hot: [12, 12],
+    body: '<path fill="currentColor" d="M2 5.2 L3.4 3.8 L22 19.2 L20.6 20.6 Z"/><path fill="currentColor" d="M22 5.2 L20.6 3.8 L2 19.2 L3.4 20.6 Z"/><path fill="currentColor" d="M2 20 H22 V22 H2 Z" opacity="0.5"/>',
+  },
+  // TAKES, in both panels: three performances stacked, the middle one picked for a span.
+  takes: {
+    vb: "0 0 24 24",
+    hot: [12, 12],
+    body: '<path fill="currentColor" d="M3 4 H21 V7.5 H3 Z" opacity="0.45"/><path fill="currentColor" d="M3 10.25 H21 V13.75 H3 Z" opacity="0.45"/><path fill="currentColor" d="M3 16.5 H21 V20 H3 Z" opacity="0.45"/><path fill="currentColor" d="M8 10.25 H16 V13.75 H8 Z"/>',
+  },
 };
 
 /** The glyph as inline `<svg>`, sized in `em` — the same shape trackIcons.tsx's `TrackIcon` has. */

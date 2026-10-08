@@ -8,6 +8,15 @@
 import type { EngineStore } from "@studio/engine-browser/store";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type MidiInputInfo, MidiRecorder } from "../webmidi";
+import type { MidiTakeTarget } from "./useTakeRecording";
+
+/** A MIDI pass as `event take midi` files it: song beats throughout. */
+export interface MidiPass {
+  start: number;
+  end: number;
+  notes: { t: number; d: number; k: number; v?: number }[];
+  punch: { from: number; to?: number };
+}
 
 /** The access question: unasked until something needs the keyboard, then granted or not. */
 export type MidiAccess = "unasked" | "granted" | "unavailable";
@@ -25,6 +34,10 @@ export function useMidiRecording(opts: {
   midiDevice: string | null;
   /** Said once a take starts on a lane no midi-in node feeds, since that take records nothing. */
   onNoMidiIn?: (track: string) => void;
+  /** The takes view's take, when one is armed: the pass then goes INTO that event (song docs/takes.md). */
+  takeTarget?: React.RefObject<MidiTakeTarget | null>;
+  /** …and where it is handed, in song beats, instead of being merged into the lane's sequence. */
+  onTakePass?: (target: MidiTakeTarget, pass: MidiPass) => void;
 }): {
   midiInputs: MidiInputInfo[];
   openMidiInputs: () => Promise<boolean>;
@@ -40,7 +53,15 @@ export function useMidiRecording(opts: {
     quietCommand,
     midiDevice,
     onNoMidiIn,
+    takeTarget,
+    onTakePass,
   } = opts;
+  const onTakePassRef = useRef(onTakePass);
+  onTakePassRef.current = onTakePass;
+  // The take this pass belongs to, and where it started — fixed at the start, as the sequence target is.
+  const takeRef = useRef<{ target: MidiTakeTarget; start: number } | null>(
+    null,
+  );
 
   const midiRecRef = useRef<MidiRecorder | null>(null);
   const midiInitedRef = useRef(false);
@@ -125,10 +146,28 @@ export function useMidiRecording(opts: {
         ? (midiSeqRef.current[midiArmed] ?? null)
         : null;
       if (midiArmed && midiDevice === null) onNoMidiInRef.current?.(midiArmed);
+      const take = takeTarget?.current;
+      takeRef.current =
+        take && take.track === midiArmed
+          ? { target: take, start: beatNow() }
+          : null;
       rec.start();
     } else if (!midiRecording && midiActiveRef.current) {
       midiActiveRef.current = false;
       const notes = rec.stop();
+      // A take of the takes view: the whole pass, empty or not, filed into its event.
+      const take = takeRef.current;
+      takeRef.current = null;
+      if (take) {
+        midiTargetRef.current = null;
+        onTakePassRef.current?.(take.target, {
+          start: take.start,
+          end: beatNow(),
+          notes: notes.map((n) => ({ t: n.t, d: n.d, k: n.k, v: n.v })),
+          punch: take.target.punch,
+        });
+        return;
+      }
       const target = midiTargetRef.current;
       midiTargetRef.current = null;
       if (target && notes.length) {
@@ -146,7 +185,15 @@ export function useMidiRecording(opts: {
           );
       }
     }
-  }, [midiRecording, midiArmed, quietCommand, midiSeqRef, midiDevice]);
+  }, [
+    midiRecording,
+    midiArmed,
+    quietCommand,
+    midiSeqRef,
+    midiDevice,
+    takeTarget,
+    beatNow,
+  ]);
 
   return {
     midiInputs,

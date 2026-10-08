@@ -30,6 +30,10 @@ second, stopped, rewound, and kept silent a moment longer so a reverb's tail is 
 session's latest document goes out at its own level. A document that arrives meanwhile is held,
 since it would un-silence the master mid-run; the restore sends the latest one anyway.
 
+**Record is off for that half second.** Rolling a session whose record is on RECORDS: a count-in,
+the record panel opening on every surface, a take. The dry run turns it off before it plays and back
+on after the stop, which is the one thing it changes of the session besides the master.
+
 What it does not silence: a track routed to a CUE output leaves the master before its gain
 (`engine/st0-engine/docs/cueOutput.md`), so half a second of it can be heard.
 

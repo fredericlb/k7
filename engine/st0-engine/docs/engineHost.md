@@ -426,6 +426,10 @@ the mute is session state applied at capture and restored by `stop()` through `a
 it never reaches a file — the brain's writer places only the new clip and does no overlap
 arithmetic (`packages/take-render/docs/rendering.md`).
 
+**Except a TAKE of an event** (`ProjectDoc::recordMute` false): the brain has already cut the punch
+out of the lane it sent, so the old performance is heard around the punch and the track is NOT
+muted — muting it would silence what the punch was chosen to keep (`packages/song/docs/takes.md`).
+
 Track inputs are pointed at their live interface input by a step that needs an allocated
 playback context — the input instances live on it — so it runs **after**
 `ensureContextAllocated()`, never inside `populateEdit()`.

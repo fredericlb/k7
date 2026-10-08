@@ -33,7 +33,7 @@ import {
   separateJob,
   startSeparate,
 } from "@studio/stem-separation/separateJobs";
-import { addTakeToTrack } from "@studio/take-render/recordTake";
+import { addTakeToEvent, addTakeToTrack } from "@studio/take-render/recordTake";
 import {
   type ChangedFile,
   type CommandInfo,
@@ -70,6 +70,7 @@ import {
 import { saveTake } from "./recorderSave.ts";
 import { rootDir, slugify } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
+import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
 import { skip, type Workspace } from "./workspace.ts";
 
 const SURFACE = "cli" as const; // the one surface the shared registry defines
@@ -90,6 +91,8 @@ interface Link {
   attempt: number;
   /** The transport, off the engine's state frames: an automatic freeze waits for it to stop. */
   playing: boolean;
+  /** …and whether rolling records, which the dry run turns off for its half second (docs/engineLoad.md). */
+  recordEnabled: boolean;
 }
 const links = new Map<string, Link>();
 
@@ -209,9 +212,11 @@ function wireEngine(session: string, e: EngineClient): void {
   // The session is carried by the SOCKET, not the frame, so it is what a take belongs to.
   e.on("recorded", (take: RecordedTake) => onRecorded(session, take));
   // Only the transport is kept: an automatic freeze swaps a track's contents, never under the playhead.
-  e.on("state", (st: { playing: boolean }) => {
+  e.on("state", (st: { playing: boolean; recordEnabled: boolean }) => {
     const l = links.get(session);
-    if (l) l.playing = st.playing;
+    if (!l) return;
+    l.playing = st.playing;
+    l.recordEnabled = st.recordEnabled;
   });
 }
 
@@ -272,6 +277,7 @@ export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
     lastUsed: Date.now(),
     attempt: 0,
     playing: false,
+    recordEnabled: false,
   });
   wireEngine(session, client);
   client.connect();
@@ -337,20 +343,40 @@ function sendDoc(ws: Workspace, doc: ProjectDoc): void {
     if (isWarming(session)) return;
     const c = ensureEngine(ws);
     if (!c) return endLoad(session);
-    c.sendProject(d);
+    // An armed take hears the lane around its punch, never under it (takeArm.ts).
+    c.sendProject(withTakeHole(session, d));
     void warmUp(session, d, warmDeps(ws, c));
   });
+}
+
+/** Send `ws` its document again — the one a client sent, else the compiled one — as the dry run's restore does. */
+function resendServed(ws: Workspace): void {
+  const session = sessionOf(ws);
+  const doc = clientDocs.get(session);
+  const project = served.get(session)?.project;
+  if (doc) sendDoc(ws, doc);
+  else if (project) {
+    ws.invalidateProjectDoc();
+    pushProject(ws, project);
+  }
 }
 
 /** The dry run's hands on one session's engine link. */
 function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
   const session = sessionOf(ws);
+  // Whether record was on when the dry run began: rolling would RECORD, count-in, take and all.
+  let recordWasOn = false;
   return {
     sendProject: (d) => c.sendProject(d),
-    play: () => c.transport("play"),
+    play: () => {
+      recordWasOn = links.get(session)?.recordEnabled ?? false;
+      if (recordWasOn) c.setRecordEnabled(false);
+      c.transport("play");
+    },
     stopAndRewind: () => {
       c.transport("stop");
       c.transport("rewind");
+      if (recordWasOn) c.setRecordEnabled(true);
     },
     loaded: async () =>
       (await awaitSessions(c))?.some((x) => x.id === session && x.loaded),
@@ -823,8 +849,13 @@ function onRecorded(session: string, take: RecordedTake): void {
     return;
   }
   const { ws, project } = s;
+  // A take recorded in the takes view goes INTO the event it was armed on, not onto the lane (takeArm.ts).
+  const arm = takeArmOf(session);
   try {
-    const id = addTakeToTrack(project, ws.cachedProjectDoc(project), take);
+    const id =
+      arm && arm.track === take.track
+        ? addTakeToEvent(project, ws.cachedProjectDoc(project), take, arm)
+        : addTakeToTrack(project, ws.cachedProjectDoc(project), take);
     ws.invalidateProjectDoc();
     pushProject(ws, project);
     lastTakes.set(session, { clip: id, track: take.track });
@@ -1066,6 +1097,12 @@ function makeHost(
         if (job.done) return job.files;
         await new Promise((r) => setTimeout(r, COLD_POLL_MS));
       }
+    },
+    // The takes view: where this session's next take goes, the document re-sent with its hole (takeArm.ts).
+    takeArm: (arm) => {
+      setTakeArm(sessionOf(ws), arm);
+      resendServed(ws);
+      return true;
     },
     // `system channel type`: the engine makes the pair NOW, and answers WHETHER one heard it.
     setInputStereo: (channel, stereo) => {

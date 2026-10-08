@@ -1073,8 +1073,12 @@ rules:
   path wants and a rank of channel strips has no use for. The lane is found by KIND and not by name
   — `trk:` is prefixed precisely so a lane and a module may share one — and, unless `asDrawn`, it
   arrives without its clip LIST, which is the arrangement rather than the path and stands taller
-  than any card beside it. It leads nothing when the row has no module in it: one card and no cable is not a path, and
-  the caller has a better thing to say about a lane that reaches nothing.
+  than any card beside it. It leads nothing when the row has no module and no input in it: one card and no cable is not a
+  path, and the caller has a better thing to say about a lane that reaches nothing.
+- its `inputs` option, what `trackInputs` answers, puts the cards FEEDING that lane before it — the input,
+  and a preamp between the input and the lane — as the stack view stands them over it. The signal
+  starts at the input, and the cable onto the lane is what says this lane records from it. A run's
+  `from` is a lane it leaves, never an input, so the walk upstream goes by each run's first module.
 
 ### The -Infinity extent
 

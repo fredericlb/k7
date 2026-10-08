@@ -103,6 +103,9 @@ struct ClipDoc {
     double sourceTo = 0.0;    // 0 == to the file's end
     Beats fadeIn = 0.0;
     Beats fadeOut = 0.0;
+    // Which of the two fades is half of a CROSSFADE with a neighbour: those take an equal-power curve (song docs/takes.md).
+    bool crossfadeIn = false;
+    bool crossfadeOut = false;
     Beats loopStart = 0.0;
     Beats loopEnd = 0.0;  // 0 == no loop
     std::vector<NoteDoc> notes;   // midi only
@@ -164,6 +167,8 @@ struct ProjectDoc {
     std::vector<PluginDoc> masterPlugins;
     // The absolute directory a live recording writes into (the brain's <project>/clips) — the one location the engine is told; empty refuses arming.
     std::string recordDir;
+    // False while a TAKE is recorded: the armed lane keeps playing, its punch already cut out (song docs/takes.md).
+    bool recordMute = true;
     // The metronome enable from settings.yaml: click during playback, emphasising each bar's first beat; a surface toggles it by re-sending.
     bool metronome = false;
     // How loud the click is, 0.2 … 1 (settings.yaml `metronome_level`) — NEVER 0, which Tracktion clamps to 0.2; silence is `metronome` above.

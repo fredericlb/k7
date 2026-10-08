@@ -7,7 +7,7 @@
 import { m } from "./paraglide/messages.js";
 
 /** The pointer is the tool with no verb: it means the grab, the marquee and the caret, as before. */
-export const TOOLS = ["pointer", "cut", "erase", "mute"] as const;
+export const TOOLS = ["pointer", "cut", "erase", "mute", "crossfade"] as const;
 export type Tool = (typeof TOOLS)[number];
 
 export const isTool = (s: string): s is Tool =>
@@ -19,6 +19,7 @@ export const TOOL_LABEL: Record<Tool, () => string> = {
   cut: () => m["tool.cut"](),
   erase: () => m["tool.erase"](),
   mute: () => m["tool.mute"](),
+  crossfade: () => m["tool.crossfade"](),
 };
 
 /** What a press on a clip knows about it — the beats for the decisions, the timecodes for the line. */
@@ -68,6 +69,9 @@ export function toolLine(tool: Tool, c: ClipTarget): ToolAct {
         line: `event remove ${c.track} ${c.tc}`,
         note: m["tool.erased"]({ name: c.name, track: c.track }),
       };
+    case "crossfade":
+      // A crossfade is between TWO events, so the timeline answers this press itself (crossfadePair).
+      return null;
     case "mute":
       // Bare, so the VERB toggles: two surfaces reading the state and deciding would eventually disagree about it.
       return {
@@ -77,4 +81,25 @@ export function toolLine(tool: Tool, c: ClipTarget): ToolAct {
           : m["tool.muted"]({ name: c.name }),
       };
   }
+}
+
+/** What a crossfade click makes, beats — a drag sizes it instead. */
+export const CROSSFADE_BEATS = 0.5;
+
+/** The two neighbouring events a crossfade press means: the one after on the clip's right half, the one before on its left. */
+export function crossfadePair<
+  C extends { id: string; start: number; length: number; type: string },
+>(clips: readonly C[], c: C, at: number): { a: C; b: C } | null {
+  const end = (x: C) => x.start + x.length;
+  const audio = clips.filter((x) => x.type === "audio" && x.id !== c.id);
+  if (at >= c.start + c.length / 2) {
+    const b = audio
+      .filter((x) => x.start > c.start)
+      .sort((p, q) => p.start - q.start)[0];
+    return b ? { a: c, b } : null;
+  }
+  const a = audio
+    .filter((x) => x.start < c.start)
+    .sort((p, q) => end(q) - end(p))[0];
+  return a ? { a, b: c } : null;
 }

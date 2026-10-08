@@ -160,6 +160,30 @@ project is refused: the grouping IS a subchain, and a splice there would be `nod
 nothing is deleted. It is a chain project's verb, since the flag lives on a chain file. `track unhide`
 is typed rather than offered on a menu — a hidden lane is on no screen to right-click.
 
+## `event comp` and `event take …` — an event's takes
+
+`event comp <track> <at> <take> <from> <to>` plays one take over a span, in SONG positions — not
+`event window`'s seconds into a file. The event is found in the LANE FILE by where it starts, not
+among the compiled clips: once comped, its first clip may be a take starting elsewhere. `event take
+arm` is session state the file service keeps, like an arm; `event take midi` is the browser filing a
+MIDI pass. The format and the recording path are `packages/song/docs/takes.md`.
+
+## `event crossfade` makes an overlap, not a key
+
+`event crossfade <track> <atA> <atB> <length>` overlaps two neighbouring audio events out of material
+neither plays yet (B earlier first, then A later, `planCrossfade`) and fades each over the overlap;
+the compiler recognises the shape. `event comp fade` is the same thing at a seam of a comp, written
+under the event's `crossfades:`. Both take a DURATION, `0` removing the fades.
+
+## `track input` puts the input IN the lane's chain
+
+`track input <track> audio|midi` is what the per-track view's two buttons run. In a chain project the
+input is a step of the lane's OWN chain, just ahead of the lane, which is how a hand-written rig
+reads (`IN`, then the lane, then its plugins). `graph chain connect` would get there too, but by
+splitting the lane's chain in two and renaming its file, which nobody asked for. A `graph.yaml`
+project has no chain to put a step in, so there it is a node and a cable. A lane something already
+feeds is refused (`runCarriesInput`), the input being the one thing a lane takes.
+
 ## `track transcribe` — whisper writes the lane's text
 
 The verb is the transcription plugin's (`packages/st0-plugins/src/transcription`) — this section
@@ -289,7 +313,7 @@ parsing.
 
 The one question that decides whether a cable may land on a lane: a track's material is its clips,
 and the single exception the model makes is a live input's signal, which is what recording onto a
-lane IS. `packages/song`'s `graph.ts` asks the same thing of the chain whose `out` names the track,
+lane IS — an audio input's sound, or a MIDI device's notes (`packages/song/docs/midiIn.md`). `packages/song`'s `graph.ts` asks the same thing of the chain whose `out` names the track,
 and warns when the answer is no.
 
 UPSTREAM, not "somewhere in this node's chain". A preamp reaches a compressor through the mic

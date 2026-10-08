@@ -60,6 +60,11 @@ session state — it dies with the roll and never reaches a file — so this wri
 new clip and does no overlap arithmetic; a stop restores the track's mute and the old material
 returns beside the take.
 
+A take recorded in the TAKES view goes elsewhere: `addTakeToEvent` declares it the same way, then
+adds it to the event it was armed on and comps it in over what was played, instead of placing it on
+the lane (`packages/song/docs/takes.md`). Nothing is muted for it — the lane was sent with the punch
+already cut out.
+
 The clip is declared BEFORE it is placed: a placement naming no clip fails the compile, so the
 order keeps the project loadable at every instant. `addTakeToTrack` throws when the take's file is
 not where it says, for the same reason — a clip whose wav is missing makes the whole project fail

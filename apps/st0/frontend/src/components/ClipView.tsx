@@ -19,6 +19,7 @@ import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
 import type { RollMode } from "../rollMode";
 import { trackPlacing } from "../rows";
+import { eventIdOf, takesEventOf } from "../takes";
 import type { Hints, WebClip, WebNote, WebProject } from "../types";
 import type { WaveMode } from "../waveMode";
 import { type AudioClipHandle, AudioClipPanel } from "./AudioClipPanel";
@@ -27,6 +28,7 @@ import { GraphSlotPane } from "./GraphSlotPane";
 import { PianoRoll, type RollHandle } from "./PianoRoll";
 import { SeqGridFile } from "./SeqGridFile";
 import { SequencerPanel } from "./SequencerPanel";
+import type { PanelTakes, TakesHost } from "./TakesView";
 
 // What to show: a concrete clip (timeline caret or click), or the live sequence file open in the editor, parsed here.
 export type EditTarget =
@@ -197,6 +199,7 @@ export function ClipView({
   onWaveView,
   rollRef,
   onRollMode,
+  takesHost,
 }: {
   target: EditTarget;
   onClose: () => void;
@@ -269,6 +272,8 @@ export function ClipView({
   /** …and the ROLL's, the third of the three — `ui roll <mode>`. */
   rollRef?: RefObject<RollHandle | null>;
   onRollMode?: (m: RollMode | null) => void;
+  /** The takes mode's shell half — absent, neither panel offers the mode a record button (song docs/takes.md). */
+  takesHost?: TakesHost;
 }) {
   /** The open clip, kept FRESH: `target` is a snapshot from the click, and the placement is found again by (id, start). */
   const [freshProject, setFreshProject] = useState<WebProject | null>(null);
@@ -293,6 +298,22 @@ export function ClipView({
   }, [target, freshProject]);
   const project =
     target.kind === "seq" ? null : (freshProject ?? target.project);
+  // The EVENT the open clip belongs to, by its own id: a re-comp can replace the very piece that was clicked.
+  const takes = useMemo((): PanelTakes | undefined => {
+    if (target.kind === "seq" || !project || !takesHost) return undefined;
+    const track = trackPlacing(target.project, target.clip.id);
+    const ev = track
+      ? takesEventOf(project, track, eventIdOf(target.clip))
+      : null;
+    return ev
+      ? {
+          host: takesHost,
+          ev,
+          num: project.timeSigNumerator,
+          den: project.timeSigDenominator,
+        }
+      : undefined;
+  }, [target, project, takesHost]);
   const seqId = clip ? clip.name || clip.id : "";
   /** A MIDI clip whose track feeds a RACK opens as a STEP SEQUENCER; a graph that will not BUILD is kept apart from one naming no rack. */
   const midiTrack =
@@ -480,6 +501,8 @@ export function ClipView({
                 onCommand={command}
                 modeRef={rollRef}
                 onModeChange={onRollMode}
+                takes={takes}
+                reloadKey={reloadKey}
               />
             </div>
           </div>
@@ -514,6 +537,7 @@ export function ClipView({
             viewRef={waveRef}
             onViewChange={onWaveView}
             setStatus={setStatus}
+            takes={takes}
           />
         )
       )}

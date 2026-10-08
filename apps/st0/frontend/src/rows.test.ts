@@ -5,12 +5,13 @@ import {
   isCellRow,
   orderableLane,
   pictureRowId,
+  placementOf,
   projectRows,
   type Row,
   rowKey,
   rowTarget,
 } from "./rows";
-import type { WebGroup, WebTrack, WebVideoTrack } from "./types";
+import type { WebGroup, WebProject, WebTrack, WebVideoTrack } from "./types";
 
 // The lane layout, and what each kind of row ADDRESSES — what a header click, a mute key and a graph lookup all ask it.
 
@@ -265,5 +266,57 @@ describe("pictureRowId", () => {
     expect(pictureRowId("track:main")).toBeNull();
     expect(pictureRowId("group:g")).toBeNull();
     expect(pictureRowId(null)).toBeNull();
+  });
+});
+
+const takeProject = {
+  tracks: [
+    {
+      id: "gtr",
+      clips: [
+        {
+          id: "take1@4",
+          name: "take1",
+          start: 4,
+          length: 4,
+          type: "audio",
+          notes: [],
+        },
+        {
+          id: "solo@16",
+          name: "solo",
+          start: 16,
+          length: 8,
+          type: "audio",
+          notes: [],
+          pieces: [
+            {
+              id: "solo@16",
+              name: "solo",
+              start: 16,
+              length: 2,
+              type: "audio",
+              notes: [],
+            },
+            {
+              id: "take2@18",
+              name: "take2",
+              start: 18,
+              length: 6,
+              type: "audio",
+              notes: [],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+} as unknown as WebProject;
+
+describe("placementOf", () => {
+  it("finds a take's placement by its material, and a comped one by the piece that plays it", () => {
+    expect(placementOf(takeProject, "gtr", "take1")?.start).toBe(4);
+    expect(placementOf(takeProject, "gtr", "take2")?.id).toBe("solo@16");
+    expect(placementOf(takeProject, "gtr", "nope")).toBeNull();
   });
 });

@@ -50,6 +50,9 @@ export interface EventDoc {
   loop?: number; // passes; absent == 1
   disabled?: boolean;
   warp?: boolean; // `false` == this event declines the material's stretch map
+  takes?: { ref: string; start: string }[]; // the event's other performances, as the file writes them
+  comp?: { take: string; from: string; to: string }[]; // …and which plays over which span, song positions
+  crossfades?: { at: string; length: string }[]; // …and the crossfades at its seams, a position and a duration
 }
 
 export interface ClipDoc {
@@ -75,6 +78,10 @@ export interface ClipDoc {
   disabled?: boolean;
   // What the placement itself said, unmerged, for anything that has to write it out again.
   event?: EventDoc;
+  /** A PIECE of a comped event: the event's own clip id, and the take this piece plays (@studio/song docs/takes.md). */
+  comp?: { of: string; take: string };
+  /** Which of the two fades is half of a CROSSFADE with a neighbour: the engine gives those the equal-power curve. */
+  crossfade?: { in?: boolean; out?: boolean };
 }
 
 // One rack sound: a note playing a whole clip ("samples") or a window of the shared source ("slice").
@@ -185,6 +192,8 @@ export interface ProjectDoc {
   masterPlugins: PluginDoc[];
   // Where a live take lands ('' for a single-file song, which the engine refuses to arm) — the ONE path it is told.
   recordDir: string;
+  /** False while a TAKE is recorded: the armed lane keeps playing, its punch already cut out of it (@studio/song docs/takes.md). */
+  recordMute?: boolean;
   tracks: TrackDoc[];
   groups: GroupDoc[]; // what the tracks' `group` pointers refer to; the engine ignores it
   markers: Marker[]; // sorted by beat

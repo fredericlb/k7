@@ -37,6 +37,7 @@ import type { WebProject } from "../types";
 export function GraphPanel({
   reloadKey,
   cameras,
+  inputDevices,
   midiDevices,
   organizeKey = 0,
   trackId,
@@ -67,6 +68,8 @@ export function GraphPanel({
   reloadKey: number;
   /** The lenses this browser can see — a camera card's dropdown, packages/song/docs/camera.md. */
   cameras?: readonly string[];
+  /** The interface's inputs as the engine groups them — what an audio input's "in" dropdown offers. */
+  inputDevices?: readonly { name: string; channels: number[] }[];
   /** The MIDI inputs this browser sees, by name — what a midi-in node's dropdown offers. */
   midiDevices?: readonly string[];
   // Bumped when `graph organize` ran — empties the held node positions (see ChainsTab's).
@@ -151,6 +154,7 @@ export function GraphPanel({
         {
           drawMainOut: true,
           cameras,
+          inputDevices,
           midiDevices,
           ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
         },
@@ -165,6 +169,7 @@ export function GraphPanel({
     if (!Object.keys(sub.chains).length) return null; // nothing routes this track
     const { nodes, edges } = buildGraph(sub, {
       cameras,
+      inputDevices,
       midiDevices,
       ...(aspectRow === undefined ? {} : { aspect: aspectRow }),
     });
@@ -184,7 +189,16 @@ export function GraphPanel({
       out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
     );
     return out;
-  }, [graph, trackId, strips, organizeKey, cameras, midiDevices, aspectRow]);
+  }, [
+    graph,
+    trackId,
+    strips,
+    organizeKey,
+    cameras,
+    inputDevices,
+    midiDevices,
+    aspectRow,
+  ]);
 
   // The mix frames its STRIPS by height, a fifth back from a perfect fit, once — marked done only if it actually framed (docs/shell.md).
   const [cam, setCam] = useState<ChainsCamApi | null>(null);

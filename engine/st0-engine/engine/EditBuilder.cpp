@@ -264,6 +264,23 @@ void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
     if (clip != nullptr) {
         applyClipLoop(*clip, c);
         applyClipWarp(*clip, edit, c); // imported time-stretch, if any (WarpTimeManager)
+        applyClipFades(*clip, edit, c);
+    }
+}
+
+// The event's fades, in TIME from its two ends; a crossfade's half takes the sine curve, so the overlap keeps its power (docs/editBuilder.md).
+void applyClipFades(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
+    const auto span = [&](double from, double to) {
+        return tt::TimeDuration::fromSeconds(std::max(0.0, (beatToTime(edit, to) - beatToTime(edit, from)).inSeconds()));
+    };
+    const double end = c.start + c.length;
+    if (c.fadeIn > 0.0) {
+        clip.setFadeIn(span(c.start, c.start + c.fadeIn));
+        clip.setFadeInType(c.crossfadeIn ? te::AudioFadeCurve::convex : te::AudioFadeCurve::linear);
+    }
+    if (c.fadeOut > 0.0 && c.length > 0.0) {
+        clip.setFadeOut(span(end - c.fadeOut, end));
+        clip.setFadeOutType(c.crossfadeOut ? te::AudioFadeCurve::convex : te::AudioFadeCurve::linear);
     }
 }
 

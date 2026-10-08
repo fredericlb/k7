@@ -1,11 +1,12 @@
-// recordTake.ts — turn a finished take into a clip on its track. The engine writes the
-// .wav and says where it landed; declaring it is the brain's job, so this writes the
-// clips/<take>.yaml and the track placement — making a recording indistinguishable from a
-// clip you dropped in yourself. (Arming, by contrast, is session state and never a file.)
+// recordTake.ts — turn a finished take into a clip on its track, or into a TAKE of the event it was
+// recorded over. The engine writes the .wav and says where it landed; declaring it is the brain's
+// job, so this writes the clips/<take>.yaml and the placement or the take entry — making a recording
+// indistinguishable from a clip you dropped in yourself. (Arming is session state and never a file.)
 
 import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { addEventTake } from "@studio/song-edit/takeEdit";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { addPlacement } from "@studio/song-schema/yaml/trackFile";
@@ -45,12 +46,12 @@ function writeClipDecl(
   return path;
 }
 
-/** Declare a finished take and place it on its track; throws if its file is not where it says. */
-export function addTakeToTrack(
+/** A finished take, renamed and declared as a clip, with where it lands — the half both placements share. */
+function declareTake(
   dir: string,
   doc: ProjectDoc,
   take: RecordedTake,
-): string {
+): { id: string; start: string; startBeats: number; lengthBeats: number } {
   if (!existsSync(take.file))
     throw new Error(`recorded file is missing: ${take.file}`);
 
@@ -72,13 +73,68 @@ export function addTakeToTrack(
 
   // Declare the clip BEFORE placing it: a placement naming no clip fails the compile.
   writeClipDecl(dir, id, wavName, window);
+  return {
+    id,
+    start,
+    startBeats: beats(take.start),
+    lengthBeats: beats(take.length),
+  };
+}
 
+/** Declare a finished take and place it on its track; throws if its file is not where it says. */
+export function addTakeToTrack(
+  dir: string,
+  doc: ProjectDoc,
+  take: RecordedTake,
+): string {
+  const { id, start } = declareTake(dir, doc, take);
   // The engine mutes the armed track for the roll, so here is only the placement (docs/rendering.md).
   editTrackStruct(
     dir,
     take.track,
     (text) => addPlacement(text, { ref: id, start }),
     `add the recorded clip "${id}"`,
+  );
+  return id;
+}
+
+/** Where a take recorded in the TAKES view goes: the event starting at `eventBeats`, punched into `punch` when set. */
+export interface TakeTarget {
+  eventBeats: number;
+  punch?: { from: number; to?: number };
+}
+
+/** Declare a finished take and add it to the event it was recorded over, comped in where it was played (song docs/takes.md). */
+export function addTakeToEvent(
+  dir: string,
+  doc: ProjectDoc,
+  take: RecordedTake,
+  target: TakeTarget,
+): string {
+  const { id, start, startBeats, lengthBeats } = declareTake(dir, doc, take);
+  const num = doc.timeSigNumerator;
+  const den = doc.timeSigDenominator;
+  // Heard from where it starts to where it stops, or only inside the punch: the rest is kept, unheard.
+  const from = Math.max(startBeats, target.punch?.from ?? startBeats);
+  const to = Math.min(
+    startBeats + lengthBeats,
+    target.punch?.to ?? Number.POSITIVE_INFINITY,
+  );
+  const span =
+    to > from
+      ? {
+          from: beatsToPosition(from, num, den),
+          to: beatsToPosition(to, num, den),
+        }
+      : null;
+  addEventTake(
+    dir,
+    take.track,
+    target.eventBeats,
+    { ref: id, start },
+    span,
+    num,
+    den,
   );
   return id;
 }

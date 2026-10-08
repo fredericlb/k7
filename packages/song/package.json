@@ -64,7 +64,8 @@
     "./chainItemEdit": "./src/chainItemEdit.ts",
     "./chainStack": "./src/chainStack.ts",
     "./chainGraphEdit": "./src/chainGraphEdit.ts",
-    "./chainCreate": "./src/chainCreate.ts"
+    "./chainCreate": "./src/chainCreate.ts",
+    "./compClips": "./src/compClips.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

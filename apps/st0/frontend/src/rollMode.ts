@@ -7,8 +7,11 @@
 import { m } from "./paraglide/messages.js";
 
 /** Where a press goes. Each stands on one verb, so a gesture stays one command and one Ctrl+Z. */
-export const ROLL_MODES = ["select", "create", "remove"] as const;
+export const ROLL_MODES = ["select", "create", "remove", "takes"] as const;
 export type RollMode = (typeof ROLL_MODES)[number];
+
+/** …all but `takes`, for a roll with no event to record takes into (a bare sequence file). */
+export const ROLL_SOLO_MODES = ROLL_MODES.filter((m) => m !== "takes");
 
 export const isRollMode = (s: string): s is RollMode =>
   (ROLL_MODES as readonly string[]).includes(s);
@@ -21,6 +24,7 @@ export const ROLL_PRESS: Record<RollMode, () => string> = {
   select: () => m["roll.select"](),
   create: () => m["roll.create"](),
   remove: () => m["roll.remove"](),
+  takes: () => m["roll.takes"](),
 };
 
 /**

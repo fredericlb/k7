@@ -33,6 +33,22 @@ export const PlacementSchema = z
     disabled: z.boolean().optional(),
     // Whether THIS event plays the material's stretch map, absent meaning yes (docs/moduleFile.md).
     warp: z.boolean().optional(),
+    // Other performances of this event, each a material and the song position it starts at (packages/song/docs/takes.md).
+    takes: z
+      .array(z.object({ ref: z.string().min(1), start: Timecode }).strict())
+      .optional(),
+    // …and which of them plays over which span, in SONG positions — not the window edges `from`/`to` above.
+    comp: z
+      .array(
+        z
+          .object({ take: z.string().min(1), from: Timecode, to: Timecode })
+          .strict(),
+      )
+      .optional(),
+    // …and the crossfades at its seams: a song position and a duration, each centred on the seam it smooths.
+    crossfades: z
+      .array(z.object({ at: Timecode, length: Timecode }).strict())
+      .optional(),
   })
   .strict()
   // A backwards window is refused where the line can be named, exactly as the clip's own is.
@@ -54,4 +70,7 @@ export const TIMECODE_KEYS = new Set([
   "to",
   // A CURVE point's position — not a placement's key, but the same trap (docs/curves.md).
   "time",
+  // A seam crossfade's place and duration (song docs/takes.md).
+  "at",
+  "length",
 ]);

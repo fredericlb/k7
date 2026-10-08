@@ -72,9 +72,10 @@ export function rowSeams(
         const insert = insertFor(p.id, q.id, byId);
         const y = Math.max(a.y, b.y);
         const h = Math.min(a.y + a.h, b.y + b.h) - y;
-        // A branch stacks under a MODULE: a lane is a source, and nothing goes under it.
+        // A branch stacks under a MODULE: a lane is a source, and nothing goes under it — nor under an input.
+        const input = p.monitor !== undefined || p.device !== undefined;
         const under =
-          branch && p.kind === "module" && p.module
+          branch && p.kind === "module" && p.module && !input
             ? { branch: { before: p.module, after: p.module, stack: true } }
             : {};
         if (insert && h > 0) seams.push({ insert, x: b.x, y, h, ...under });

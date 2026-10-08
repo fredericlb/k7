@@ -261,6 +261,11 @@ ends. Which track is armed for which half is the LANE's arm button (`rec <track>
 split): `useTrackControls.ts` resolves it by what the track holds, an instrument track arming for
 MIDI here and an audio track arming in the engine, and one red lane reads both.
 
+**Play waits for an arm.** With either record on and no lane armed — audio, MIDI or picture — Play
+is greyed and `transport play` (Space included) is refused with the two ways out (`recordWithoutArm`
+in App). Rolling then would be a take of nothing: the engine plays on without recording, and the
+record panel opens on a pass that captures no lane. A rolling transport can always be stopped.
+
 The picker in the bar's right end — LEFT of the output meter — chooses **which input** feeds the
 take. The recorder listens to every input the browser exposes until one is picked — right for the
 one-keyboard rig, wrong the day a pad grid shares the desk and its notes land in the same sequence.
@@ -979,8 +984,11 @@ the cable out of the lane, the one that says which lane this is, had nothing to 
 same card the graph draws, matched on the node's KIND rather than its name, since `trk:` exists precisely
 so a lane and a module may share one — clip list included, as the graph draws it. It stands taller
 than the plugin cards, and that costs them nothing: no card is stretched to its height, and the zoom
-cap keeps a tall row from shrinking or growing the rest. A lane that reaches no module leads
-nothing: the row stays empty and the pane says so, a single card with no cable not being a signal path.
+cap keeps a tall row from shrinking or growing the rest. **What feeds the lane comes before it**
+(`moduleRow`'s `inputs`): an input, and whatever stands between it and the lane, since that is where
+the signal really starts — and the seam between input and lane takes a `+` like any other, which is
+how a preamp goes in. A lane that reaches no module and no input leads nothing: the row stays empty and
+the pane says so, a single card with no cable not being a signal path.
 
 **A `+` waits on each seam**, shown while the pointer is on it, and **one stands past the last card**,
 always shown (`@studio/ui-chains`'s `rowSeams.ts`, drawn by `ui-chains-react`'s `Seams.tsx`). Both ask
@@ -1379,6 +1387,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | a pane button in the header (the desk, the timeline…) | `ui <pane>` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height / automation | `ui ruler`, `ui lanes`, `ui automation` | `TimelineHandle` |
 | the per-track view's curve button, in its left column (`ModeStrip`, the timeline's) | `ui curves` — shows or hides its curve cards | `App` |
+| the per-track view's *audio in* / *midi in*, above it — greyed while something already feeds the lane (`laneHasInput`) | `track input <track> audio\|midi` | `App` |
 | the timeline corner's ＋ piste | `track new`, and `picture lane new` on a project with a viewport | `App` — the menu appears only when there are two kinds of lane, see [timeline.md](timeline.md) |
 | a timeline header dragged to another row | `track order`, `picture lane order` | `App` — the drag names the lane whose place is taken, see [timeline.md](timeline.md) |
 | a layer moved or resized in the VIEWPORT | `picture rect` | `App` — the selection box is `components/ViewportOverlay.tsx`, see [picture.md](picture.md) |

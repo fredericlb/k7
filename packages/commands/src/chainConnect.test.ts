@@ -142,6 +142,17 @@ describe("graph chain connect", () => {
     expect(chains()).toContain("mic: [ gtr ]");
   });
 
+  it("LETS a MIDI device feed a lane too — its notes are what that lane records", async () => {
+    writeFileSync(join(dir, "nodes", "keys.yaml"), "io: midi\n", "utf8");
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  keys: []\n",
+      "utf8",
+    );
+    await runCommand("graph chain connect keys gtr", host(), "cli");
+    expect(logs.join(" ")).toContain("connected keys → gtr");
+  });
+
   it("…and still when the input is UPSTREAM, not the node the cable leaves", async () => {
     // What decides is the run REACHING the source, not the source itself — `runCarriesInput`.
     writeFileSync(join(dir, "nodes", "mic.yaml"), "io: in\n", "utf8");

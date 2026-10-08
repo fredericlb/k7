@@ -124,6 +124,7 @@ studio::ProjectDoc docFromJson(const json& j) {
         for (const auto& p : j.at("masterPlugins"))
             doc.masterPlugins.push_back(pluginFromJson(p));
     doc.recordDir = j.value("recordDir", std::string{});
+    doc.recordMute = j.value("recordMute", true);
     // Project settings ride in a nested `settings` object; the engine reads only what it plays, and absent means the defaults.
     if (j.contains("settings") && j.at("settings").is_object()) {
         const auto& s = j.at("settings");
@@ -177,6 +178,11 @@ studio::TrackDoc trackFromJson(const json& t) {
             cl.sourceTo = c.value("sourceTo", 0.0);
             cl.fadeIn = c.value("fadeIn", 0.0);
             cl.fadeOut = c.value("fadeOut", 0.0);
+            if (c.contains("crossfade")) {
+                const auto& x = c.at("crossfade");
+                cl.crossfadeIn = x.value("in", false);
+                cl.crossfadeOut = x.value("out", false);
+            }
             cl.loopStart = c.value("loopStart", 0.0);
             cl.loopEnd = c.value("loopEnd", 0.0);
             cl.disabled = c.value("disabled", false);

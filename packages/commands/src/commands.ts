@@ -38,7 +38,6 @@ import {
 import { freezeBlockedBy, freezePlans } from "@studio/song/freeze";
 import {
   coldPlacementError,
-  isInputModule,
   loadGraph,
   nodeCaption,
   nodePlaces,
@@ -237,17 +236,20 @@ import {
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
 import { CONSOLE_VERBS } from "./verbs/console.ts";
+import { CROSSFADE_VERBS } from "./verbs/crossfade.ts";
 import { CURVE_VERBS } from "./verbs/curve.ts";
 import { ENGINE_VERBS } from "./verbs/engine.ts";
 import { EVENTS_REMOVE_VERBS } from "./verbs/eventsRemove.ts";
+import { EVENT_TAKE_VERBS } from "./verbs/eventTakes.ts";
 import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { PRESET_VERBS } from "./verbs/preset.ts";
-import { splitWords } from "./verbs/shared.ts";
+import { runCarriesInput, splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
 import { TRACK_VERBS } from "./verbs/track.ts";
 import { TRACK_HIDE_VERBS } from "./verbs/trackHide.ts";
+import { TRACK_INPUT_VERBS } from "./verbs/trackInput.ts";
 
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
 const FROZEN_DIR = "renders";
@@ -277,6 +279,14 @@ export interface CommandHost {
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
   // `system channel type`: group two interface inputs into one stereo device, or take them apart; optional.
   setInputStereo?(channel: number, stereo: boolean): boolean;
+  /** Record the session's next takes INTO one event, or (null) back onto the lane — the takes view's; song docs/takes.md. */
+  takeArm?(
+    arm: {
+      track: string;
+      eventBeats: number;
+      punch: { from: number; to?: number };
+    } | null,
+  ): boolean;
   // A clip's source envelope — per-bucket peaks over the whole file, for `event trim`; optional.
   clipEnvelope?(
     clip: string,
@@ -453,42 +463,6 @@ function arrowState(
   return { ok: true, write: false };
 }
 
-/** Does the signal ARRIVING at `node` come off a live interface input? Walks UPSTREAM — docs/verbs.md. */
-function runCarriesInput(
-  g: ReturnType<typeof loadGraph>,
-  node: string,
-): boolean {
-  const bare = (s: string) => s.split("#")[0];
-  const isLive = (name: string): boolean => {
-    const b = g.modules[name];
-    return !!b && isInputModule(g, b);
-  };
-  // Who feeds whom: a chain is a linear run, and its `out` is how one chain reaches another.
-  const feeders = new Map<string, string[]>();
-  const link = (from: string, to: string): void => {
-    const at = feeders.get(bare(to));
-    if (at) at.push(bare(from));
-    else feeders.set(bare(to), [bare(from)]);
-  };
-  for (const c of Object.values(g.chains)) {
-    const run = [...(c.from ? [c.from] : []), ...c.use.map((s) => s.module)];
-    for (let i = 1; i < run.length; i++) link(run[i - 1], run[i]);
-    const last = run[run.length - 1];
-    if (last) for (const o of c.out) link(last, o.to);
-  }
-  // …then back up from `node`, itself included; `seen` is not an optimisation, a graph may hold a cycle.
-  const seen = new Set<string>();
-  const stack = [bare(node)];
-  while (stack.length) {
-    const n = stack.pop() as string;
-    if (seen.has(n)) continue;
-    seen.add(n);
-    if (isLive(n)) return true;
-    for (const f of feeders.get(n) ?? []) stack.push(f);
-  }
-  return false;
-}
-
 /** An optional trailing `<x>,<y>` — where the cursor was, so a created node is BORN there; docs/verbs.md. */
 function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   const last = parts[parts.length - 1];
@@ -613,6 +587,8 @@ function resolveEvent(
   h: CommandHost,
   trackArg: string,
   atTc: string,
+  // Set by the verbs that rewrite ONE material's window: a comped event is several (song docs/takes.md).
+  refuseComp = false,
 ): {
   track: ProjectDoc["tracks"][number];
   atBeats: number;
@@ -641,6 +617,12 @@ function resolveEvent(
   const hit = track.clips.find((c) => Math.abs(c.start - atBeats) < 1e-6);
   if (!hit) {
     h.refuse([`no event on '${track.id}' at ${atTc}`]);
+    return null;
+  }
+  if (refuseComp && hit.comp) {
+    h.refuse([
+      `the event at ${atTc} is comped from its takes — edit it in its takes view`,
+    ]);
     return null;
   }
   return { track, atBeats, hit, num, den, tempo: p.tempo };
@@ -1001,7 +983,7 @@ async function windowCommand(a: string, h: CommandHost): Promise<void> {
     return;
   }
   const [trackArg, atTc, fromArg, toArg] = parts;
-  const found = resolveEvent(h, trackArg, atTc);
+  const found = resolveEvent(h, trackArg, atTc, true);
   if (!found) return;
   const { track, atBeats, hit, num, den } = found;
   const from = Number(fromArg);
@@ -1758,7 +1740,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const found = resolveEvent(h, trackArg, atTc);
+    const found = resolveEvent(h, trackArg, atTc, true);
     if (!found) return;
     const { track, atBeats, hit, num, den } = found;
     if (!h.clipEnvelope) {
@@ -2143,7 +2125,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     const [, trackArg, atTc, startTc, endTc] = m;
-    const found = resolveEvent(h, trackArg, atTc);
+    const found = resolveEvent(h, trackArg, atTc, true);
     if (!found) return;
     const { track, atBeats, hit, num, den, tempo } = found;
     let startBeats: number;
@@ -2193,7 +2175,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     const [, trackArg, atTc, cutTc] = m;
-    const found = resolveEvent(h, trackArg, atTc);
+    const found = resolveEvent(h, trackArg, atTc, true);
     if (!found) return;
     const { track, atBeats, hit, num, den } = found;
     let cutBeats: number;
@@ -3102,6 +3084,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...TRACK_VERBS,
   ...NODE_STACK_VERBS,
   ...TRACK_HIDE_VERBS,
+  ...TRACK_INPUT_VERBS,
+  ...EVENT_TAKE_VERBS,
+  ...CROSSFADE_VERBS,
   ...EVENTS_REMOVE_VERBS,
   ...CURVE_VERBS,
   // …and a module's ENGINES, which a node picks between — packages/song/docs/engines.md.

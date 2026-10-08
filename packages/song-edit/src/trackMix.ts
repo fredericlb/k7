@@ -16,6 +16,7 @@ import {
   parsePosition,
 } from "@studio/song-schema/timecode";
 import type { Placement } from "@studio/song-schema/yaml/placementSchema";
+import { shiftTakes, shiftTakesAt } from "@studio/song-schema/yaml/takeFile";
 import {
   addPlacement,
   findPlacementAt,
@@ -107,7 +108,17 @@ export function movePlacementToTrack(
   editTrackStruct(
     dir,
     toId,
-    (text) => addPlacement(text, { ...(cut as object), start: toTc } as never),
+    (text) =>
+      addPlacement(text, {
+        // Its takes were played where the event was: they travel with it (song docs/takes.md).
+        ...shiftTakes(
+          cut as Record<string, unknown>,
+          parsePosition(toTc, num, den) - fromBeats,
+          num,
+          den,
+        ),
+        start: toTc,
+      } as never),
     `move a placement onto track "${toId}"`,
   );
   return true;
@@ -130,7 +141,14 @@ export function moveTrackPlacement(
       const at = findPlacementAt(text, fromBeats, num, den);
       if (at < 0) return text;
       moved = true;
-      return movePlacementAt(text, at, toTc);
+      // Its takes, comp and crossfades move with it — they are song positions (song docs/takes.md).
+      return shiftTakesAt(
+        movePlacementAt(text, at, toTc),
+        at,
+        parsePosition(toTc, num, den) - fromBeats,
+        num,
+        den,
+      );
     },
     "move a clip",
   );
@@ -163,10 +181,12 @@ export function moveTrackPlacementsInRange(
       starts.forEach((s, i) => {
         if (s === null || s < fromBeats - 1e-6 || s > toBeats + 1e-6) return;
         // By index, not by position: indices are stable under a start rewrite.
-        out = movePlacementAt(
-          out,
+        out = shiftTakesAt(
+          movePlacementAt(out, i, beatsToPosition(s + deltaBeats, num, den)),
           i,
-          beatsToPosition(s + deltaBeats, num, den),
+          deltaBeats,
+          num,
+          den,
         );
         moved++;
       });

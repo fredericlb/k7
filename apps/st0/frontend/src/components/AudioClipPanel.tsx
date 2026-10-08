@@ -36,9 +36,17 @@ import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
+import { pieceEdgeLines } from "../takes";
 import type { WebWaveform } from "../types";
-import { WAVE_MODES, WAVE_PRESS, type WaveMode } from "../waveMode";
+import {
+  WAVE_MODES,
+  WAVE_PRESS,
+  WAVE_SOLO_MODES,
+  type WaveMode,
+} from "../waveMode";
+import { CompStrip } from "./CompStrip";
 import { ArrangementRuler } from "./Ruler";
+import { type PanelTakes, TakesView } from "./TakesView";
 
 // The waveform fills whatever the panel has left under its header, MEASURED because a canvas needs its height in pixels; 120 is only the first frame.
 const MIN_WAVE_H = 120;
@@ -66,7 +74,7 @@ export interface AudioClipHandle {
 }
 
 export function AudioClipPanel({
-  clip,
+  clip: clipProp,
   track,
   rolling = false,
   tempo = 120,
@@ -75,9 +83,9 @@ export function AudioClipPanel({
   startBeat = 0,
   trackOrder = NO_TRACKS,
   trackNames = NO_NAMES,
-  placedAt = null,
-  eventAt = null,
-  eventWindow = null,
+  placedAt: placedAtProp = null,
+  eventAt: eventAtProp = null,
+  eventWindow: eventWindowProp = null,
   onSeek,
   command,
   quietCommand,
@@ -88,6 +96,7 @@ export function AudioClipPanel({
   viewRef,
   onViewChange,
   setStatus,
+  takes,
 }: {
   /** The clip on screen — null while a take is rolling, since the file does not exist yet. */
   clip: string | null;
@@ -130,6 +139,8 @@ export function AudioClipPanel({
   onViewChange?: (v: WaveMode | null) => void;
   /** Where this panel says what a press would do — a mode you cannot see is one you edit in by accident. */
   setStatus?: (s: string) => void;
+  /** The takes mode's event and shell half; absent, the mode is not offered (song docs/takes.md). */
+  takes?: PanelTakes;
 }) {
   const [wf, setWf] = useState<WebWaveform | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +173,21 @@ export function AudioClipPanel({
   const [asked, setAsked] = useState({ bars: DEFAULT_BARS, start: 0 });
   /** What the picture is FOR right now, and so what it draws and what a click means — the three answers are exclusive in practice. */
   const [view, setView] = useState<WaveMode>("standard");
+  // Takes is a mode only where there is an event to take over: a reviewed take or a bare file has none.
+  const showTakes = view === "takes" && !!takes && !rolling;
+  // A COMPED event is edited a piece at a time: the strip picks one, and the wave below is that piece (CompStrip.tsx).
+  const pieces = takes?.ev.comp.length ? takes.ev.pieces : [];
+  const [pieceId, setPieceId] = useState<string | null>(null);
+  const piece = rolling
+    ? null
+    : (pieces.find((p) => p.id === pieceId) ?? pieces[0] ?? null);
+  const clip = piece ? piece.id : clipProp;
+  const placedAt = piece ? piece.start : placedAtProp;
+  const eventWindow = piece
+    ? { from: piece.sourceFrom, to: piece.sourceTo }
+    : eventWindowProp;
+  // A piece is no placement: the event verbs refuse it, so trim is off and its edges edit the comp instead.
+  const eventAt = piece ? null : eventAtProp;
   const editingOnsets = view === "onsets";
   const editingWarp = view === "warp";
   // `standard` keeps the system's arrow: it places no mark, so there is nothing for a picture to promise.
@@ -661,14 +687,41 @@ export function AudioClipPanel({
         {/* The three views as a 32px column — the only way to one a finger has; absent while a take rolls, there being no mark yet. */}
         {!rolling && clip && (
           <ModeStrip
-            modes={WAVE_MODES}
+            modes={takes ? WAVE_MODES : WAVE_SOLO_MODES}
             current={view}
             onPick={(m) => void command(`ui wave ${m}`)}
             title={(m) => `${m} — ${WAVE_PRESS[m]}`}
             className="-my-2 -ml-2"
           />
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
+        {/* The TAKES mode draws in the wave's place; the wave stays mounted, hidden, so its state survives a switch. */}
+        {showTakes && takes && (
+          <TakesView
+            ev={takes.ev}
+            host={takes.host}
+            tempo={tempo}
+            num={takes.num}
+            den={takes.den}
+            reloadKey={reloadKey}
+            command={command}
+            onSeek={onSeek}
+          />
+        )}
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col gap-1",
+            showTakes && "hidden",
+          )}
+        >
+          {/* A comped event: its parts in their takes' colours, the one clicked being the one below. */}
+          {piece && takes && (
+            <CompStrip
+              ev={takes.ev}
+              selected={piece.id}
+              onSelect={(p) => setPieceId(p.id)}
+              project={{ tempo, timeSigNumerator: takes.num }}
+            />
+          )}
           {/* The SONG's ruler over the wave (Ruler.tsx), the placement's grid rather than the warp — see docs/clipEditors.md. */}
           {!rolling &&
             wf &&
@@ -832,12 +885,30 @@ export function AudioClipPanel({
                 sourceWindow={framed ? act : null}
                 /** …and its two edges DRAG, which is how an event's window is set — an `event …` verb, only where there is one to address (packages/song/docs/materialCut.md). */
                 onWindowMove={
-                  eventAt && track
-                    ? (w) =>
-                        command(
-                          `event window ${track} ${eventAt} ${w.from.toFixed(4)} ${w.to.toFixed(4)}`,
-                        )
-                    : undefined
+                  piece && takes
+                    ? (w) => {
+                        // Seconds into the take's file, back to song beats: where the piece's edges now fall.
+                        const beat = (sec: number) =>
+                          piece.start +
+                          ((sec - (piece.sourceFrom ?? 0)) * tempo) / 60;
+                        const lines = pieceEdgeLines(
+                          takes.ev,
+                          piece,
+                          beat(w.from),
+                          beat(w.to),
+                          takes.num,
+                          takes.den,
+                        );
+                        void (async () => {
+                          for (const l of lines) await command(l);
+                        })();
+                      }
+                    : eventAt && track
+                      ? (w) =>
+                          command(
+                            `event window ${track} ${eventAt} ${w.from.toFixed(4)} ${w.to.toFixed(4)}`,
+                          )
+                      : undefined
                 }
                 // A click on a mark refuses that onset, or takes a hand-placed one back — one verb, because from here it is one act.
                 onMarkerClick={

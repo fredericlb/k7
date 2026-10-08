@@ -18,6 +18,10 @@ export interface RawPlacement {
   disabled?: boolean; // silenced, but still placed — the event-level `mute`
   // Whether this event plays the material's stretch map; absent means yes, so only `false` says anything.
   warp?: boolean;
+  // Other performances of the event and which plays where, in song positions (docs/takes.md).
+  takes?: { ref?: string; start?: string }[];
+  comp?: { take?: string; from?: string; to?: string }[];
+  crossfades?: { at?: string; length?: string }[];
 }
 
 /** A track file's struct (tracks/<id>.yaml), any of the three kinds. */

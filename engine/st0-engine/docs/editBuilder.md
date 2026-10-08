@@ -243,3 +243,12 @@ fader as well would be a second gain stage nothing names.
 doc is ABSOLUTE. Tracktion's `SourceFileReference` — which `SamplerPlugin` uses to open a rack
 sound — otherwise reads a source string as a `ProjectItemID` or as a path relative to the
 nonexistent edit file, and the sound is silent. Nothing else here goes through a resolver.
+
+## Fades, and the crossfade's curve
+
+An audio clip's `fadeIn`/`fadeOut` (beats) are applied at insert, as time measured from its two ends
+(`applyClipFades`). A fade the brain marks as half of a CROSSFADE (`crossfadeIn`/`crossfadeOut`)
+takes Tracktion's `convex` curve — a sine, so the two halves sum to constant power across the
+overlap; a plain fade stays linear. Both are applied at insert and nowhere else, so the diff
+compares them (`clipMoved`): a fade that is not compared is one you edit and do not hear.
+

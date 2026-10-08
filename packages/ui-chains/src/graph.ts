@@ -172,6 +172,25 @@ export function trackModules(graph: WebGraph, track: string): string[] {
   return out;
 }
 
+/** The modules FEEDING one track — its input, and anything between that and the lane — farthest first. */
+export function trackInputs(graph: WebGraph, track: string): string[] {
+  const seen = new Set<string>();
+  // A chain's `from` is a LANE it leaves, never an input, so the walk goes up by each run's first module.
+  const upstream = (target: string): string[] => {
+    if (seen.has(target)) return [];
+    seen.add(target);
+    const out: string[] = [];
+    for (const c of Object.values(graph.chains)) {
+      if (c.from || !c.out?.some((o) => o.to.split("#")[0] === target))
+        continue;
+      const run = c.use.map((st) => st.module).filter((m): m is string => !!m);
+      if (run.length) out.push(...upstream(run[0]), ...run);
+    }
+    return out;
+  };
+  return [...new Set(upstream(track))];
+}
+
 export type Kind =
   | "track"
   | "module"
@@ -1929,6 +1948,8 @@ export function moduleRow(
     links?: boolean;
     /** The LANE this row belongs to: its own card LEADS it, the signal starting there. See docs/graphBuild.md. */
     track?: string;
+    /** …and what feeds that lane (`trackInputs`), drawn before its card: the signal starts at the input. */
+    inputs?: string[];
     /** Every card at the width the full graph draws it, the lane's clips kept, all of them the tallest's height. */
     asDrawn?: boolean;
     /** The air between two cards, px — 0 makes them touch, -1 GLUES them onto one shared border (rowSeams.ts). */
@@ -1948,6 +1969,7 @@ export function moduleRow(
     widthScale = 1,
     links = false,
     track,
+    inputs = [],
     asDrawn = false,
     gap = STRIP_GAP,
     stack = false,
@@ -1961,18 +1983,21 @@ export function moduleRow(
     if (n.kind === "module" && n.module && !byModule.has(n.module))
       byModule.set(n.module, n);
 
-  const picked = modules
-    .map((name) => byModule.get(name))
-    .filter((n): n is (typeof nodes)[number] => !!n);
+  const cards = (names: string[]) =>
+    names
+      .map((name) => byModule.get(name))
+      .filter((n): n is (typeof nodes)[number] => !!n);
+  const picked = cards(modules);
+  const feeding = track ? cards(inputs) : [];
   // One height for the whole row, the tallest MODULE card's — the lane's own is a clip list taller, and is dropped below.
-  const tallest = picked.reduce((h, n) => Math.max(h, n.h), 0);
+  const tallest = [...feeding, ...picked].reduce((h, n) => Math.max(h, n.h), 0);
   // Matched on the KIND and not on the name: `trk:` exists so a lane and a module may share one.
   const lane =
-    track && picked.length
+    track && (picked.length || feeding.length)
       ? nodes.find((n) => n.kind === "track" && n.module === track)
       : undefined;
 
-  const row = lane ? [lane, ...picked] : picked;
+  const row = lane ? [...feeding, lane, ...picked] : picked;
   // A STACK — a subchain run in place — is one column, its cards one under another at its own heights.
   const stackOf = new Map<string, number>();
   if (stack)

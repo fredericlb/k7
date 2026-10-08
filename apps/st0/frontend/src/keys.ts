@@ -96,8 +96,11 @@ export const KEYS: Record<string, Binding> = {
     { if: "clip_grid", command: "selection delete" },
     { if: "timeline_active", command: "selection delete" },
   ],
-  // `x` stays beside it for a clip grid, a hand already on the letters not reaching for the corner.
-  x: { if: "clip_grid", command: "selection delete" },
+  // `x` stays beside it for a clip grid; on the timeline it is the crossfade tool, whose glyph it is.
+  x: [
+    { if: "clip_grid", command: "selection delete" },
+    { if: "timeline_active", command: "ui tool crossfade" },
+  ],
   // The MODES of all three surfaces. `a` is the neutral one everywhere and `d` takes something away on two — the pane in FRONT wins both.
   a: [
     { if: "roll_open", command: "ui roll select" },

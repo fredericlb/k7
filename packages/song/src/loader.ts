@@ -1152,7 +1152,7 @@ export function createModuleFile(
 }
 
 /** What an io module's `module.yaml` SAYS — the role line is what the loader reads; the rest is prose for the reader (docs/moduleTypes.md). */
-function ioModuleBody(
+export function ioModuleBody(
   module: string,
   role: "in" | "out" | "file" | "camera" | "midi",
 ): string {

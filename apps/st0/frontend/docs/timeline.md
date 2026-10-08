@@ -897,6 +897,29 @@ same courtesy a moved clip gets — the gesture in hand is read before the clip'
 `fadeIn`/`fadeOut` live on the placement, on the engine's wire, in the C++ engine and on
 `WebClip`: the wedge is the only part of the feature this pane owns.
 
+## Crossfading two events
+
+The fifth tool, `crossfade` (`x`), fades one event into its neighbour: a press on a clip's right
+half is about the event after it, on its left half the one before (`crossfadePair`). A click makes
+the default half beat, a drag sizes it, Alt takes it away — one `event crossfade` either way.
+
+**A crossfade is an overlap, not a key.** The verb makes the two events overlap by its length out of
+material neither plays yet — B's start pulled earlier first, then A's end later — and gives A a
+fade-out and B a fade-in exactly that long. The compiler tells the pair by that shape and gives both
+halves the equal-power curve (`markCrossfades`); everything else — the wedges, the handles, moving
+either event — is the ordinary fade's. A crossfade never changes what either plays outside it, which
+is why it refuses when neither has material to give.
+
+Only AUDIO events crossfade, and not a comped one: its seams are crossfaded in its takes view.
+
+## A comped event is one block
+
+The engine plays a comped event as several clips; every surface sees ONE (`foldComps`, in the file
+service): the event's id and start, spanning its pieces, carrying them for drawing. The block wears a
+layers icon, draws each piece's activity and waveform where it plays, and opens in its clip panel
+with the comp drawn piece by piece (`docs/clipEditors.md`). Move, copy, mute and fade address the EVENT; resize, window, trim and split refuse it,
+since they would rewrite one take's window (`packages/song/docs/takes.md`).
+
 ## Zooming with two fingers
 
 Three gestures reach the same anchored zoom (`useHZoom` in `@studio/ui-timeline`), and they do

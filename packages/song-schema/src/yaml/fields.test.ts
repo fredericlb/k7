@@ -140,6 +140,10 @@ describe("derived lane fields", () => {
       "disabled",
       // Whether this event plays the material's stretch map — `event status warp` writes it.
       "warp",
+      // Its other performances and which plays where — the takes view writes them (song docs/takes.md).
+      "takes",
+      "comp",
+      "crossfades",
     ]);
   });
 });

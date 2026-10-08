@@ -42,7 +42,12 @@ import { cursorOf, ModeStrip } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import { groupOffset, tSpan } from "../rollDrag";
 import { rollFit } from "../rollFit";
-import { ROLL_MODES, ROLL_PRESS, type RollMode } from "../rollMode";
+import {
+  ROLL_MODES,
+  ROLL_PRESS,
+  ROLL_SOLO_MODES,
+  type RollMode,
+} from "../rollMode";
 import {
   noteAddr,
   paintNotes,
@@ -53,6 +58,7 @@ import type { WebClip, WebProject } from "../types";
 import { RollPlayhead } from "./RollPlayhead";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
 import { SeqDoubleButton } from "./SeqDoubleButton";
+import { type PanelTakes, TakesView } from "./TakesView";
 
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const pc = (k: number) => ((k % 12) + 12) % 12;
@@ -97,6 +103,8 @@ export function PianoRoll({
   onCommand,
   modeRef,
   onModeChange,
+  takes,
+  reloadKey = 0,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -157,11 +165,20 @@ export function PianoRoll({
   modeRef?: RefObject<RollHandle | null>;
   /** …and the same fact going up, for the key conditions and the footer's badge. */
   onModeChange?: (m: RollMode | null) => void;
+  /** The takes mode's event and shell half; absent, the mode is not offered (song docs/takes.md). */
+  takes?: PanelTakes;
+  /** What a take row re-reads its sequence on. */
+  reloadKey?: number;
 }) {
   /** Where a press goes — CHOSEN, and `select` by default: the roll opens ready to read rather than ready to write. */
-  const [mode, setMode] = useState<RollMode>("select");
+  // …except on a comped event, whose notes are its takes': it opens on them (song docs/takes.md).
+  const [mode, setMode] = useState<RollMode>(
+    takes?.ev.comp.length ? "takes" : "select",
+  );
+  const showTakes = mode === "takes" && !!takes;
   // `select` keeps the system's arrow: framing is what an arrow already means, and a picture of one is worse than one.
-  const rollCursor = mode === "select" ? undefined : cursorOf(mode);
+  const rollCursor =
+    mode === "select" || mode === "takes" ? undefined : cursorOf(mode);
   useImperativeHandle(modeRef, (): RollHandle => ({ setMode }), []);
   useEffect(() => onModeChange?.(mode), [mode, onModeChange]);
   // …and NULL on the way out, so an audio clip opened next does not leave the shell believing a roll is on screen.
@@ -537,10 +554,23 @@ export function PianoRoll({
         {/* The three modes as a 32px column — the only way to one a finger has, the keys and the bar being the other two. */}
         {onModeChange && (
           <ModeStrip
-            modes={ROLL_MODES}
+            modes={takes ? ROLL_MODES : ROLL_SOLO_MODES}
             current={mode}
             onPick={(m) => void onCommand?.(`ui roll ${m}`)}
             title={(mode) => `${mode} — ${ROLL_PRESS[mode]()}`}
+          />
+        )}
+        {/* The TAKES mode draws in the lanes' place; the lanes stay mounted, hidden, so the caret and the scroll survive. */}
+        {showTakes && takes && (
+          <TakesView
+            ev={takes.ev}
+            host={takes.host}
+            tempo={project.tempo}
+            num={takes.num}
+            den={takes.den}
+            reloadKey={reloadKey}
+            command={(line) => onCommand?.(line)}
+            onSeek={onSeek}
           />
         )}
         <div
@@ -550,6 +580,7 @@ export function PianoRoll({
           className={cn(
             "relative min-h-0 flex-1 overflow-auto",
             rollCursor && "[&_*]:!cursor-[inherit]",
+            showTakes && "hidden",
           )}
         >
           <div

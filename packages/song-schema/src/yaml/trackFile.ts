@@ -43,7 +43,8 @@ function eventsIn(doc: ReturnType<typeof parseDocument>): (string | number)[] {
   return isSeq(doc.getIn(mine)) ? mine : OWN_EVENTS;
 }
 
-function eventsToEdit(
+/** The events list an edit lands in, forking the selected set's on its first edit — exported for takeFile.ts. */
+export function eventsToEdit(
   doc: ReturnType<typeof parseDocument>,
 ): (string | number)[] {
   const at = selectedSet(doc);

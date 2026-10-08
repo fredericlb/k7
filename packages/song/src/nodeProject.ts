@@ -26,6 +26,7 @@ import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
 import { loadLinkLevels } from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
+import { compClips, markCrossfades } from "./compClips";
 import { withConsole } from "./console";
 import { envelopeFires } from "./curveConditions";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
@@ -135,6 +136,32 @@ function placementToClip(
     ...(p.disabled ? { disabled: true } : {}),
     // `false` is the only value that says anything here, exactly as the file spells it.
     ...(p.warp === false ? { warp: false } : {}),
+    // The event's takes and comp, as written: the takes view draws them, the compile below plays them (docs/takes.md).
+    ...(Array.isArray(p.takes) && p.takes.length
+      ? {
+          takes: p.takes.map((t) => ({
+            ref: String(t.ref ?? ""),
+            start: String(t.start ?? ""),
+          })),
+        }
+      : {}),
+    ...(Array.isArray(p.crossfades) && p.crossfades.length
+      ? {
+          crossfades: p.crossfades.map((x) => ({
+            at: String(x.at ?? ""),
+            length: String(x.length ?? ""),
+          })),
+        }
+      : {}),
+    ...(Array.isArray(p.comp) && p.comp.length
+      ? {
+          comp: p.comp.map((c) => ({
+            take: String(c.take ?? ""),
+            from: String(c.from ?? ""),
+            to: String(c.to ?? ""),
+          })),
+        }
+      : {}),
   };
   const base: ClipDoc = {
     // The PLACEMENT's identity, not the material's — see placementId and docs/graphModel.md.
@@ -886,6 +913,25 @@ function compileNodeProjectIn(
         inputOf[id] ??
         (halfFor(halves, "audio") === half ? inputOf[lane] : undefined);
       const events = eventsFor(t.events, half);
+      // One placement is one clip, or the pieces of its comp when it has one (docs/takes.md).
+      const placed = (p: RawPlacement): ClipDoc[] =>
+        compClips(
+          p,
+          placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+          (ref, start) =>
+            placementToClip(
+              dir,
+              { ref, start },
+              clipsMap,
+              seqMap,
+              num,
+              den,
+              tempo,
+            ),
+          num,
+          den,
+          tempo,
+        );
       return {
         id,
         name: id,
@@ -921,15 +967,11 @@ function compileNodeProjectIn(
           : frozenLanes.has(lane)
             ? []
             : // The lane's authored `events:` become the engine's `clips` — this line IS the boundary between the two words.
-              events.map((p) =>
-                placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
-              ),
+              markCrossfades(events.flatMap(placed)),
         // …and what the render replaced, kept for the browser to draw over it and open (docs/freeze.md).
         ...(frozenLanes.has(lane) && events.length
           ? {
-              frozenMaterial: events.map((p) =>
-                placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
-              ),
+              frozenMaterial: events.flatMap(placed),
             }
           : {}),
         plugins: [

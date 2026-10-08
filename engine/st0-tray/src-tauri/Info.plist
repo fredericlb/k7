@@ -6,5 +6,8 @@
        Rust sets ActivationPolicy::Accessory. Tauri merges this into the bundle. -->
   <key>LSUIElement</key>
   <true/>
+  <!-- Without it macOS never asks, and the engine this app launches records silence (docs/tray.md). -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>st0 records the audio inputs of this machine onto the tracks you arm.</string>
 </dict>
 </plist>

@@ -112,6 +112,21 @@
       { name: track, complete: tracks },
       { name: name, hint: "the new name, prefix included — e.g. vo.lead" },
     ]
+# Give a lane its input — what the per-track view's "audio in" and "midi in" buttons run. A chain
+# project gets the input as a step of the lane's chain, just ahead of the lane; refused when one feeds it.
+- command: "track input"
+  sid: track.input
+  readable:
+    en: "Add an audio or MIDI input to a track"
+    fr: "Ajouter une entrée audio ou MIDI à une piste"
+  help: "create an input node feeding a track, audio or midi (e.g. track input gtr audio); refused when the track already has one"
+  surfaces: [cli]
+  menu: [track]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: kind, hint: "audio or midi" },
+    ]
 # Set a lane aside without deleting it: `hidden: true` on its chain, so nothing draws, compiles or plays
 # it, and every file stays as written. A chain project's verb — see packages/song/docs/chainFiles.md.
 - command: "track hide"
@@ -2110,6 +2125,110 @@
 # written as zero, which is the rule `disabled` and `warp` already follow.
 #
 # The timeline sends these when a fade's corner handle is dragged.
+# An event's TAKES: the performances recorded over it in the takes view, and its COMP, which take
+# plays over which span. `from`/`to` here are SONG positions, unlike `event window`'s seconds. The
+# event's own material is a take like the others: comping it back is naming its ref.
+# See @studio/song's docs/takes.md.
+- command: "event comp"
+  sid: event.comp
+  readable:
+    en: "Choose which take plays over a span of an event"
+    fr: "Choisir la prise jouee sur une portion d'un evenement"
+  help: "play one take over a span of an event, in song positions (e.g. event comp gtr 5:1 gtr_5.1_261008T101500 6:1 7:3)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode, hint: "where the EVENT starts" },
+      { name: take, hint: "a take's ref, or the event's own to put it back" },
+      { name: from, type: timecode, hint: "song position the span starts at" },
+      { name: to, type: timecode, hint: "song position it ends at" },
+    ]
+- command: "event comp fade"
+  sid: event.comp.fade
+  readable:
+    en: "Crossfade one seam of an event's comp"
+    fr: "Fondu enchaine a une jointure de la composition"
+  help: "a crossfade at one seam of the comp, centred on it (e.g. event comp fade gtr 5:1 6:1 0:0:1); a length of 0 removes it"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode, hint: "where the EVENT starts" },
+      { name: seam, type: timecode, hint: "the song position two takes meet at" },
+      { name: length, type: timecode, hint: "a DURATION — 0:0:1 is an eighth; 0 removes it" },
+    ]
+- command: "event take remove"
+  sid: event.take.remove
+  readable:
+    en: "Remove a take from an event"
+    fr: "Retirer une prise d'un evenement"
+  help: "drop one take of an event, and every span of the comp it played (e.g. event take remove gtr 5:1 gtr_5.1_261008T101500)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode, hint: "where the EVENT starts" },
+      { name: take, hint: "the take's ref" },
+    ]
+# Where the next takes go: INTO one event, heard only over the punch. Session state, like an arm,
+# held by the file service and never a file; `disarm` sends recording back onto the lane.
+- command: "event take arm"
+  sid: event.take.arm
+  readable:
+    en: "Record the next takes into an event"
+    fr: "Enregistrer les prochaines prises dans un evenement"
+  help: "record the next takes into one event, punched in at a song position and out at another or at the stop (e.g. event take arm gtr 5:1 6:1 7:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode, hint: "where the EVENT starts" },
+      { name: from, type: timecode, hint: "punch in, a song position" },
+      { name: to, type: timecode, optional: true, hint: "punch out; absent runs to the stop" },
+    ]
+- command: "event take disarm"
+  sid: event.take.disarm
+  readable:
+    en: "Record onto the lane again, not into an event"
+    fr: "Enregistrer de nouveau sur la piste, pas dans un evenement"
+  help: "stop recording takes into an event: the next recording lands on its lane"
+  surfaces: [cli]
+# The browser's half of a MIDI take: notes are captured where the keyboard is, then filed here.
+- command: "event take midi"
+  sid: event.take.midi
+  readable:
+    en: "File a recorded MIDI take on an event"
+    fr: "Classer une prise MIDI enregistree sur un evenement"
+  help: "file a MIDI pass as a take of an event — sent by the takes view, song beats in a JSON pass"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode, hint: "where the EVENT starts" },
+      { name: pass, hint: '{"start":16,"end":24,"notes":[{"t":16.5,"d":0.5,"k":60}]}' },
+    ]
+# A CROSSFADE between two neighbouring events: they are made to overlap by its length out of material
+# neither plays yet (B earlier first, then A later), and each fades over the overlap with the
+# equal-power curve. The timeline's crossfade tool sends it. See @studio/song's docs/takes.md.
+- command: "event crossfade"
+  sid: event.crossfade
+  readable:
+    en: "Crossfade two neighbouring events"
+    fr: "Fondu enchaine entre deux evenements voisins"
+  help: "overlap two neighbouring audio events by a length and fade one into the other (e.g. event crossfade gtr 5:1 9:1 0:0:1); 0 removes it"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: a, type: timecode, hint: "where the first event starts" },
+      { name: b, type: timecode, hint: "where the one after it starts" },
+      { name: length, type: timecode, hint: "a DURATION — 0 removes the crossfade" },
+    ]
 - command: "event window"
   sid: event.window
   readable:

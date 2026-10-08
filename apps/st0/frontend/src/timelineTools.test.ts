@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type ClipTarget,
+  crossfadePair,
   isTool,
   TOOL_LABEL,
   TOOLS,
@@ -92,5 +93,27 @@ describe("the tool vocabulary", () => {
     const said = TOOLS.map((t) => TOOL_LABEL[t]());
     expect(said.every(Boolean)).toBe(true);
     expect(new Set(said).size).toBe(said.length);
+  });
+});
+
+describe("crossfadePair", () => {
+  const clips = [
+    { id: "a@0", start: 0, length: 8, type: "audio" },
+    { id: "b@8", start: 8, length: 8, type: "audio" },
+    { id: "m@16", start: 16, length: 4, type: "midi" },
+  ];
+  it("is the event after on a clip's right half, the one before on its left", () => {
+    expect(crossfadePair(clips, clips[0], 7)).toEqual({
+      a: clips[0],
+      b: clips[1],
+    });
+    expect(crossfadePair(clips, clips[1], 9)).toEqual({
+      a: clips[0],
+      b: clips[1],
+    });
+  });
+  it("is nothing beside a lane's end, and never a MIDI event", () => {
+    expect(crossfadePair(clips, clips[0], 1)).toBeNull();
+    expect(crossfadePair(clips, clips[1], 15)).toBeNull();
   });
 });

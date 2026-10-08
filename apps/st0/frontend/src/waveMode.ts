@@ -5,8 +5,11 @@
 // See apps/st0/frontend/docs/clipEditors.md.
 
 /** What the picture is FOR — and therefore what a press on it does. */
-export const WAVE_MODES = ["standard", "onsets", "warp"] as const;
+export const WAVE_MODES = ["standard", "onsets", "warp", "takes"] as const;
 export type WaveMode = (typeof WAVE_MODES)[number];
+
+/** …all but `takes`, for a panel with no event to record takes into (a reviewed take, a bare file). */
+export const WAVE_SOLO_MODES = WAVE_MODES.filter((m) => m !== "takes");
 
 export const isWaveMode = (s: string): s is WaveMode =>
   (WAVE_MODES as readonly string[]).includes(s);
@@ -19,4 +22,6 @@ export const WAVE_PRESS: Record<WaveMode, string> = {
   standard: "drag the window's edges — o onsets · w warp",
   onsets: "click adds a transient · click a pin removes it · drag moves it",
   warp: "double-click pins a stretch point · drag it to where its beat lands",
+  takes:
+    "drag a span across the takes · click one to play it there · ● records another",
 };
