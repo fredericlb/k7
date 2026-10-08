@@ -106,6 +106,12 @@ a short green build rather than a red one, since a skipped night is not a failur
 cannot answer builds anyway rather than skipping silently. Either can still be run by hand, and a
 hand-run on a day without commits skips the same way.
 
+**The Windows leg checks out `commons` alone**, as GitHub's does. OneDev's `withSubmodules` takes
+every submodule, recursively, and `st0-library`'s amp-model paths run past Windows' 260-character
+limit, so that checkout fails before anything builds; nothing the build runs reads the library. The
+checkout therefore takes none, and the build step's first act is `git submodule update --init
+commons`, authenticated with the same `submodule-token` secret the checkout uses.
+
 The Linux one runs in
 a `node:22-bookworm` container and installs its toolchain on every run, and publishes the same
 `.tar.gz` as the release — the tray's `.deb` and `.AppImage`, and the headless `st0-engine`. It keeps

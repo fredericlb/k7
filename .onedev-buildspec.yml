@@ -495,6 +495,9 @@ jobs:
 # cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
 # is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.
 #
+# commons ALONE, as GitHub's leg does: the checkout takes no submodule, since `withSubmodules` means
+# every one, and st0-library's model paths pass Windows' 260-character limit — no build reads it.
+#
 # The dependency SOURCES stay on the agent's own disk, in STUDIO_FETCHCONTENT_DIR — %LOCALAPPDATA%\st0-ci\fetch
 # unless the agent's environment names another — so a night clones nothing. No OneDev cache: the
 # machine keeps them, and nothing crosses the network. cmd has no trap, so what the last run BUILT
@@ -507,7 +510,7 @@ jobs:
       type: HttpCredential
       accessTokenSecret: submodule-token
     withLfs: false
-    withSubmodules: true
+    withSubmodules: false
     condition: SUCCESSFUL
     optional: false
   - type: CommandStep
@@ -519,6 +522,7 @@ jobs:
         git log -1 --since="24 hours ago" --oneline > last_commit || echo unknown> last_commit
         findstr . last_commit >nul || (echo no commit on this branch in the last 24 hours - nothing to build & exit /b 0)
         git config core.longpaths true || exit /b 1
+        git -c "http.extraHeader=OneDevAuthorization: Bearer @secret:submodule-token@" submodule update --init commons || exit /b 1
         if not defined STUDIO_FETCHCONTENT_DIR set "STUDIO_FETCHCONTENT_DIR=%LOCALAPPDATA%\st0-ci\fetch"
         for /d %%P in ("%STUDIO_FETCHCONTENT_DIR%\*") do for /d %%B in ("%%P\*-build") do rmdir /s /q "%%B"
         if exist "%STUDIO_FETCHCONTENT_DIR%\st0-engine\faust-src\build\lib" rmdir /s /q "%STUDIO_FETCHCONTENT_DIR%\st0-engine\faust-src\build\lib"

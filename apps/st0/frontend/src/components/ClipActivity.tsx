@@ -16,12 +16,15 @@ export const ClipActivity = memo(function ClipActivity({
   spanBeats,
   color,
   project,
+  pending = false,
 }: {
   clip: WebClip;
   // The beats the block draws — a length-0 clip draws NATURAL wide, and the activity must cover what is drawn.
   spanBeats: number;
   color?: string; // the track's authored colour; absent, the type default classes stand
   project: EnvelopeProject; // part of the envelope's identity — see src/clipEnvelope.ts
+  /** A resize in hand: the fill goes grey until the release, the activity drawn being the OLD extent's. */
+  pending?: boolean;
 }) {
   // Audio reads the event's envelope, already windowed to its from/to and normalised against that window's own loudest point.
   const wf = useClipWaveform(clip.type === "audio" ? clip : null, project);
@@ -44,7 +47,8 @@ export const ClipActivity = memo(function ClipActivity({
   return (
     <div
       className={cn(
-        "absolute inset-0 -z-10",
+        "absolute inset-0 -z-10 transition-[filter]",
+        pending && "grayscale",
         // The type default only stands where no track colour is authored — as the flat fill did.
         !color && (clip.type === "midi" ? "bg-emerald-600" : "bg-sky-600"),
       )}

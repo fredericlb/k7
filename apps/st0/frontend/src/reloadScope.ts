@@ -26,3 +26,10 @@ export const movedTheTree = (r: Reload): boolean =>
 export const movedTheVocabulary = (r: Reload): boolean =>
   r.files === null ||
   r.files.some((f) => f.kind !== "edited" || !NAMED_ONLY.test(f.path));
+
+/** A lane's events, a clip, a sequence, a curve — what a TIMELINE edit writes, none of which wires anything. */
+const ARRANGEMENT_ONLY = /^(tracks|clips|sequences|curves)\/[^/]+\.ya?ml$/;
+
+/** Could this have changed the CHAINS — a node, a cable, an input? No when it only rewrote the arrangement. */
+export const movedTheChains = (r: Reload): boolean =>
+  r.files === null || r.files.some((f) => !ARRANGEMENT_ONLY.test(f.path));

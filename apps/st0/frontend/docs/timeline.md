@@ -737,6 +737,10 @@ costs no gesture.
 The resize handles are left-button too and stop propagation, which is what keeps an edge grab
 from also starting a move.
 
+While an edge is in hand the block's fill goes GREY (`ClipActivity`'s `pending`): the activity it
+draws is the old extent's, stretched to the new width, and a coloured fill would read as what the
+event will sound like. The colour comes back with the release, from the event the command wrote.
+
 ### Which lane it lands on
 
 The lane under the cursor is found by hit-testing the DOM (`laneAtPoint`) rather than
@@ -896,6 +900,21 @@ same courtesy a moved clip gets — the gesture in hand is read before the clip'
 
 `fadeIn`/`fadeOut` live on the placement, on the engine's wire, in the C++ engine and on
 `WebClip`: the wedge is the only part of the feature this pane owns.
+
+## A one-shot edit answers at once
+
+A drag holds its own result until the reload (`pending` on a move, a resize, a fade). A one-shot
+command has no drag to hold it, so its LINE is read instead (`pendingEdits.ts`) and the lanes show it
+the moment it is sent: `event remove` / `events remove` hide their events, `event status mute` dims,
+`event status warp` crosses the stretch icon, `event split` draws its seam, `events move` shifts its
+range, `event crossfade` draws its two fades. Every gesture of these kinds ends in one of those lines,
+so reading the line covers the tool, the key, the menu and the bar alike.
+
+A refused line takes its edit back; one that lands keeps it until the next document, which has it done,
+so nothing flickers between the two. The round trip was the lag: the edit, the reply, then a second
+request for the project before a block moved. Not covered: a PASTE (`events add`), whose line does
+not say how long the pasted events are, so they would be drawn wrong until the answer came. The takes
+view does the same for its own picks, crossfades and removed takes (`TakesView.tsx`).
 
 ## Crossfading two events
 

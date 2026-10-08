@@ -1088,6 +1088,16 @@ Four answers to one question follow from that:
   library routes are fetched on mount and by the two acts that write there.
 - **`Reload`** — the command says **which files it wrote**, and each consumer decides.
 
+### A graph only when one is on screen
+
+`runCommand` asks for the graph (`want: ["graph"]`) only while a view of it is on screen — the chains
+pane, the graph or mix panel, a lane's own row (`graphOnScreen`). A delete on the timeline otherwise
+paid a full graph rebuild, 120–160 ms measured against the 15–30 ms the edit itself took, for a
+picture nobody was looking at. A HIDDEN chains pane does not refetch on a reload either: it keeps
+the key it last drew and asks when it is shown again. The armed lane's MIDI device is re-read off the
+graph only when the reload could have moved a chain (`movedTheChains`): a lane's events, a clip, a
+sequence or a curve wire nothing.
+
 That last one is what the reload key carries. `POST /command` answers with `changed`: the files it wrote,
 project-relative, taken straight out of the undo journal's own diff — `recordChange` brackets every
 mutation and compares the two images anyway, so naming them is free. `App` holds `{ key, files }`; `key`

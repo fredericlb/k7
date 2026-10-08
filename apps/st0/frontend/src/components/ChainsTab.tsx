@@ -261,6 +261,9 @@ export function ChainsTab({
   seedRef.current = seedGraph;
   const consumedSeed = useRef(0);
   // The seed is just another way of ANSWERING, so it lives INSIDE the load: one document from one place, retry included.
+  // Hidden, a reload is REMEMBERED rather than fetched: the graph is asked for when the pane is shown again.
+  const shownKey = useRef(reloadKey);
+  if (active) shownKey.current = reloadKey;
   const { doc: graph, error } = useDocument(async () => {
     const seed = seedRef.current;
     if (seed && seed.id > consumedSeed.current) {
@@ -268,7 +271,7 @@ export function ChainsTab({
       return seed.graph;
     }
     return api.graph();
-  }, reloadKey);
+  }, shownKey.current);
 
   /** What a node dropped here would be CALLED, handed to the shell with the click — only this pane can answer it (nodeInsert.ts). */
   const nameFor = useCallback(

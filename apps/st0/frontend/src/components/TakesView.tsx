@@ -7,6 +7,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Check, Circle, Square, Trash2, X } from "@frediverse/ui/icons";
 import { useEngineState } from "@studio/engine-browser/store";
+import { setCompSpan } from "@studio/song-schema/takes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ModeIcon } from "../modeIcons";
@@ -46,7 +47,7 @@ const PAD = 4;
 const GRID = 0.25;
 
 export function TakesView({
-  ev,
+  ev: evProp,
   host,
   tempo,
   num,
@@ -65,6 +66,18 @@ export function TakesView({
   /** Seek the song, in SECONDS, as every other ruler does. */
   onSeek?: (seconds: number) => void;
 }) {
+  // A pick or a crossfade drawn at once, the server's answer replacing it — a new event is the truth.
+  const [local, setLocal] = useState<{
+    comp?: TakesEvent["comp"];
+    crossfades?: TakesEvent["crossfades"];
+    rows?: TakesEvent["rows"];
+  }>({});
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the event's IDENTITY is the signal — a fresh one is the truth.
+  useEffect(() => setLocal({}), [evProp]);
+  const ev: TakesEvent = useMemo(
+    () => ({ ...evProp, ...local }),
+    [evProp, local],
+  );
   const [lengths, setLengths] = useState<Record<string, number>>({});
   const onLength = useCallback(
     (ref: string, beats: number) =>
@@ -100,7 +113,15 @@ export function TakesView({
   const pos = (b: number) => beatsToPosition(b, num, den);
   const pick = (ref: string, whole?: { from: number; to: number }) => {
     const span = sel ?? whole;
-    if (span) void command(compLine(ev, ref, span, num, den));
+    if (!span) return;
+    // The writer's own rule, so what is drawn now is what the file will say (takeFile.ts).
+    const from = Math.max(ev.start, span.from);
+    if (span.to > from)
+      setLocal((l) => ({
+        ...l,
+        comp: setCompSpan(ev.comp, { take: ref, from, to: span.to }, ev.ref),
+      }));
+    void command(compLine(ev, ref, span, num, den));
   };
 
   // The crossfade tool: a press takes the nearest seam, a drag sizes the crossfade, Alt takes it away.
@@ -129,9 +150,15 @@ export function TakesView({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       setXfDrag(null);
-      void command(
-        compFadeLine(ev, seam, alt ? 0 : lenAt(u.clientX), num, den),
-      );
+      const length = alt ? 0 : lenAt(u.clientX);
+      setLocal((l) => ({
+        ...l,
+        crossfades: [
+          ...ev.crossfades.filter((x) => Math.abs(x.at - seam) > 1e-6),
+          ...(length > 0 ? [{ at: seam, length }] : []),
+        ],
+      }));
+      void command(compFadeLine(ev, seam, length, num, den));
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -293,11 +320,17 @@ export function TakesView({
                     size="sm"
                     variant="ghost"
                     className="h-6 w-6 p-0"
-                    onClick={() =>
+                    onClick={() => {
+                      // Gone from the view at once, with every span it played — the writer's own rule.
+                      setLocal((l) => ({
+                        ...l,
+                        rows: ev.rows.filter((x) => x.ref !== r.ref),
+                        comp: ev.comp.filter((x) => x.take !== r.ref),
+                      }));
                       void command(
                         `event take remove ${ev.track} ${ev.at} ${r.ref}`,
-                      )
-                    }
+                      );
+                    }}
                     title="remove this take — its file stays on disk"
                     aria-label={`remove ${label}`}
                   >

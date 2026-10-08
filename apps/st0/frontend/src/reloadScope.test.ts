@@ -2,7 +2,12 @@
 // an unknown list re-asks everything, and only a REWRITE of a by-name entity is skippable.
 
 import { describe, expect, it } from "vitest";
-import { movedTheTree, movedTheVocabulary, type Reload } from "./reloadScope";
+import {
+  movedTheChains,
+  movedTheTree,
+  movedTheVocabulary,
+  type Reload,
+} from "./reloadScope";
 
 const at = (...files: [string, "added" | "edited" | "removed"][]): Reload => ({
   key: 1,
@@ -70,5 +75,22 @@ describe("movedTheVocabulary", () => {
   });
   it("is true when nothing is known", () => {
     expect(movedTheVocabulary({ key: 1, files: null })).toBe(true);
+  });
+});
+
+describe("movedTheChains", () => {
+  const r = (paths: string[] | null): Reload => ({
+    key: 1,
+    files: paths?.map((path) => ({ path, kind: "edited" as const })) ?? null,
+  });
+  it("is no for an arrangement edit — lanes, clips, sequences, curves", () => {
+    expect(movedTheChains(r(["tracks/gtr.yaml", "clips/riff.yaml"]))).toBe(
+      false,
+    );
+  });
+  it("is yes for a chain or a node file, and for a reload that does not say", () => {
+    expect(movedTheChains(r(["chains/gtr.yaml"]))).toBe(true);
+    expect(movedTheChains(r(["nodes/amp.yaml"]))).toBe(true);
+    expect(movedTheChains(r(null))).toBe(true);
   });
 });

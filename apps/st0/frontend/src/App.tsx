@@ -207,6 +207,7 @@ import { noteSpans } from "./noteSpans";
 import { resolveEditorFile } from "./openInEditor";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
+import { type PendingEdit, pendingOf } from "./pendingEdits";
 import { type PendingNode, spawnBox } from "./pendingNode";
 import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: st0's builtin plugins register their pane drawers
@@ -215,7 +216,7 @@ import "./plugins";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
-import { type Reload, UNKNOWN_RELOAD } from "./reloadScope";
+import { movedTheChains, type Reload, UNKNOWN_RELOAD } from "./reloadScope";
 import {
   isRollMode,
   ROLL_MODES,
@@ -909,6 +910,14 @@ export default function App({
 
   /** Is the chains pane off screen? ONE answer, read by the class that hides it and by the `active` it is handed. */
   const chainsOffScreen = full !== "chains";
+  /** Is ANY view of the graph on screen? Only then does a command bring a graph back (docs/shell.md, "A graph only when one is on screen"). */
+  const graphOnScreen =
+    !chainsOffScreen ||
+    panel === "graph" ||
+    panel === "mix" ||
+    (panel === "event" && graphSlot?.kind === "trackModules");
+  const graphOnScreenRef = useRef(graphOnScreen);
+  graphOnScreenRef.current = graphOnScreen;
 
   const timelineVisible = visible("timeline");
   /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
@@ -1083,6 +1092,26 @@ export default function App({
     onMidiSeqs: (seqs) =>
       setMidiArmed((cur) => (cur && !seqs[cur] ? null : cur)),
   });
+  // What one-shot commands are doing to the lanes, shown at once until the document agrees (pendingEdits.ts).
+  const docRef = useRef(projectDoc);
+  docRef.current = projectDoc;
+  const [pendingGroups, setPendingGroups] = useState<
+    { id: number; edits: PendingEdit[] }[]
+  >([]);
+  const pendingSeq = useRef(0);
+  const pendingEdits = useMemo(
+    () => pendingGroups.flatMap((g) => g.edits),
+    [pendingGroups],
+  );
+  // …the groups whose command LANDED: the next document has them done, so it is what lets them go.
+  const landedRef = useRef(new Set<number>());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the document's IDENTITY is the signal — a fresh one is the truth.
+  useEffect(() => {
+    if (!landedRef.current.size) return;
+    const landed = landedRef.current;
+    landedRef.current = new Set();
+    setPendingGroups((g) => g.filter((x) => !landed.has(x.id)));
+  }, [projectDoc]);
   // Its tempo and time signature as one stable value: every curve card below reads it through context.
   const songClock = useMemo(
     () => ({
@@ -1237,6 +1266,14 @@ export default function App({
 
   // Web MIDI capture, driven by the MIDI record + play + a MIDI-armed track; it also holds
   // the device picker's data, which the transport's dropdown beside the MIDI record reads.
+  // A counter that moves only when a reload could have moved the CHAINS: a timeline edit asks no graph (reloadScope.ts).
+  const chainsSeen = useRef({ key: -1, n: 0 });
+  if (reload.key !== chainsSeen.current.key)
+    chainsSeen.current = {
+      key: reload.key,
+      n: chainsSeen.current.n + (movedTheChains(reload) ? 1 : 0),
+    };
+  const chainsKey = chainsSeen.current.n;
   // The armed lane's MIDI device: the midi-in node wired to it, read off the graph — packages/song/docs/midiIn.md.
   const [midiIn, setMidiIn] = useState<{ any: boolean; device: string | null }>(
     {
@@ -1258,7 +1295,7 @@ export default function App({
     return () => {
       live = false;
     };
-  }, [reloadKey, midiArmed]);
+  }, [chainsKey, midiArmed]);
   // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
   const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
   // The takes view's record button: a take INTO the open event rather than onto its lane (song docs/takes.md).
@@ -2242,9 +2279,22 @@ export default function App({
       const wire = pendingWire.current;
       pendingWire.current = null;
       const madeRef = wire ? chainRefFromCreate(s) : null;
+      // A one-shot line shows what it does NOW; a refusal takes it back, the next document makes it true.
+      const doc = docRef.current;
+      const edits = doc
+        ? pendingOf(s, doc.timeSigNumerator, doc.timeSigDenominator)
+        : [];
+      const groupId = ++pendingSeq.current;
+      if (edits.length) setPendingGroups((g) => [...g, { id: groupId, edits }]);
+      const settle = (ok: boolean) => {
+        if (!edits.length) return;
+        if (ok) landedRef.current.add(groupId);
+        else setPendingGroups((g) => g.filter((x) => x.id !== groupId));
+      };
       try {
-        // This one DOES want the graph, unconditionally: ChainsTab stays mounted when hidden and would refetch it anyway.
-        const send = () => api.command(s, { want: ["graph"] });
+        // The graph only when a view of it is on screen: a hidden ChainsTab asks for it when it is shown again.
+        const send = () =>
+          api.command(s, { want: graphOnScreenRef.current ? ["graph"] : [] });
         const gitVerb = /^project (commit|pull|alternative)\b/.exec(s)?.[1];
         // A repo verb locks the page until git is done — docs/projects.md § Git is blocking.
         const { output, refused, graph, rev, changed } = gitVerb
@@ -2261,6 +2311,7 @@ export default function App({
         const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
         if (refused) setRefusal(said);
         else setStatus(said);
+        settle(!refused);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
         // The graph the service built while we waited, present only when the command changed something — see ChainsTab's `seedGraph`.
         if (graph) {
@@ -2284,6 +2335,7 @@ export default function App({
         if (s === "graph organize") setOrganizeKey((k) => k + 1);
         if (outcome) outcome.ok = !refused;
       } catch (e) {
+        settle(false);
         setStatus(`command error: ${(e as Error).message}`, "error");
       } finally {
         // The placeholder comes down in the same update that carries the new graph, so the two swap in one frame.
@@ -3503,6 +3555,8 @@ export default function App({
                     >
                       <TimelineTab
                         ref={timelineRef}
+                        // What one-shot commands are doing, on the lanes before the round trip (pendingEdits.ts).
+                        pendingEdits={pendingEdits}
                         active={activePane === "timeline"}
                         lanesLocked={panel !== null}
                         reloadKey={reloadKey}

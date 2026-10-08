@@ -74,6 +74,11 @@ import { blurOnClick } from "../keys";
 import { cursorOf, ModeStrip, stripButton } from "../modeIcons";
 import { m } from "../paraglide/messages.js";
 import {
+  type PendingEdit,
+  pendingClips,
+  pendingSplitAt,
+} from "../pendingEdits";
+import {
   dropLaneOf,
   findRow,
   HATCH,
@@ -132,7 +137,9 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 const EXPAND_EXTRA = 40;
 // The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
-const NATURAL = 4; // beats drawn for a length-0 clip
+const NATURAL = 4;
+/** No command in flight: one shared empty list, so the lanes' memo inputs do not change for nothing. */
+const NO_PENDING: readonly PendingEdit[] = []; // beats drawn for a length-0 clip
 const DBLCLICK_MS = 500; // the longest gap the OS default lets a double-click have
 // The lane something is about to land on — a clip drag's target lane, and an OS file drag's alike.
 const DROP_LANE = "bg-primary/10 outline outline-1 outline-primary/60";
@@ -523,6 +530,7 @@ export function TimelineTab({
   onSetLoop,
   onMoveEvent,
   onToolLine,
+  pendingEdits = NO_PENDING,
   onResizeEvent,
   onFadeEvent,
   feedMove,
@@ -634,6 +642,8 @@ export function TimelineTab({
   ) => void;
   /** A TOOL's press as the command LINE it produced, alone among this pane's writes; absent ⇒ no tools (docs/timeline.md). */
   onToolLine?: (line: string) => void;
+  /** What one-shot commands are doing and the document not yet: drawn as done already (pendingEdits.ts). */
+  pendingEdits?: readonly PendingEdit[];
   // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar instead of committing (docs/timeline.md).
   feedMove?: (
     trackId: string,
@@ -3171,354 +3181,386 @@ export function TimelineTab({
                             }}
                           />
                         )}
-                        {t.clips.map((c, i) => {
-                          const w = (c.length > 0 ? c.length : NATURAL) * ppb;
-                          // A clip whose content loops to fill its length: flagged, so the repeats aren't mistaken for one long take.
-                          const looping = (c.loopEnd ?? 0) > (c.loopStart ?? 0);
-                          // …and WHERE it starts over: the marks come off `passes`, so a MIDI clip stating its window draws none (clipLoop.ts).
-                          const loop = clipLoop(c);
-                          const loopMarks = loop
-                            ? placedRepeats(loop, ppb)
-                            : [];
-                          // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is where it stops being a glyph and starts being grit.
-                          const loopGlyphs =
-                            !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
-                          // A time-stretched clip gets a countdown-timer icon, CROSSED when this event has declined the map (`event status warp`).
-                          const stretched = !!c.warped;
-                          const unwarped = !!c.warpOff;
-                          /** The same material, placed elsewhere too: `ghost` marks every placement but the earliest, and `kin` lights the rest from the caret. */
-                          const inst = instances.get(materialOf(c));
-                          const ghost =
-                            (inst?.n ?? 1) > 1 &&
-                            !isFirstPlacement(inst, t.id, c.start);
-                          const kin =
-                            !!kinOfCaret &&
-                            materialOf(c) === kinOfCaret &&
-                            c !== clipUnderCaret;
-                          // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
-                          const moving =
-                            !!move &&
-                            move.trackId === t.id &&
-                            c.id === move.clipId &&
-                            Math.abs(c.start - move.origStart) < 1e-6;
-                          // Is THIS placement the one being resized? Same pinning as the move.
-                          const resizing =
-                            !!resize &&
-                            resize.trackId === t.id &&
-                            c.id === resize.clipId &&
-                            Math.abs(c.start - resize.origStart) < 1e-6;
-                          const drawStart = resizing
-                            ? resize.start
-                            : moving
-                              ? move.origStart + move.offset
-                              : c.start;
-                          // Dragging either edge changes the WIDTH too, unlike a move.
-                          const drawW = resizing
-                            ? (resize.end - resize.start) * ppb
-                            : w;
-                          return (
-                            <div
-                              // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
-                              key={`${c.id}-${i}`}
-                              title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, double-click to open, drag to move (ctrl : hors grille)`}
-                              // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
-                              onPointerDown={(e) => beginClipDrag(e, t, c)}
-                              onPointerMove={onClipDragMove}
-                              onPointerUp={endClipDrag}
-                              onPointerCancel={endClipDrag}
-                              // A double-click opens the clip; a RENDER opens the notes it was made from, the authored MIDI clip under the pointer (docs/timeline.md).
-                              onDoubleClick={(e) =>
-                                c.frozen && t.frozenMaterial
-                                  ? openFrozenNotes(e, t, c)
-                                  : openClip(e, c)
-                              }
-                              // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onContextMenu?.(
-                                  {
-                                    kind: "clip",
-                                    id: c.id,
-                                    // Where this placement SITS, so the menu can offer `event remove` — the same pair the move drag commits with.
-                                    track: t.id,
-                                    tc: beatsToPosition(
-                                      c.start,
-                                      proj.timeSigNumerator,
-                                      proj.timeSigDenominator,
-                                    ),
-                                    // …and the RECTANGLE, when one is drawn: a range verb takes a span, and the placement only says where it starts.
-                                    sel: selRange,
-                                  },
-                                  e.clientX,
-                                  e.clientY,
-                                );
-                              }}
-                              className={cn(
-                                // `isolate` keeps the activity layer's -z-10 inside this block; `group` is what the name reads.
-                                "group absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
-                                // Disabled: still placed, still readable, plainly off — an event you cannot see is a deleted one.
-                                c.disabled &&
-                                  "opacity-40 saturate-0 outline-dashed outline-1 outline-muted-foreground",
-                                // A SIBLING of the one under the caret: light on purpose, so it does not compete with the clip you picked.
-                                kin &&
-                                  "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
-                                // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
-                                expanded ? "flex-col" : "items-center",
-                                // The clip in hand: ring it and lift it over its ghost.
-                                (moving || resizing) &&
-                                  "z-10 outline outline-2 outline-primary",
-                                // …and while DRAGGING let the pointer through, or laneAtPoint would always answer "the lane I started on".
-                                moving &&
-                                  move?.dragging &&
-                                  "pointer-events-none",
-                              )}
-                              style={{
-                                left: x(drawStart),
-                                width: Math.max(ppb, drawW),
-                              }}
-                            >
-                              {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
-                              {/* A COMPED event is one block, its pieces' activity laid where each plays (song docs/takes.md). */}
-                              {c.pieces ? (
-                                c.pieces.map((p) => (
-                                  <div
-                                    key={p.id}
-                                    className="absolute inset-y-0 -z-10"
-                                    style={{
-                                      left: (p.start - c.start) * ppb,
-                                      width: Math.max(1, p.length * ppb),
-                                    }}
-                                  >
-                                    <ClipActivity
-                                      clip={p}
-                                      spanBeats={
-                                        p.length > 0 ? p.length : NATURAL
-                                      }
-                                      color={t.color || undefined}
-                                      project={envProject}
-                                    />
-                                  </div>
-                                ))
-                              ) : (
-                                <ClipActivity
-                                  clip={c}
-                                  spanBeats={c.length > 0 ? c.length : NATURAL}
-                                  color={t.color || undefined}
-                                  project={envProject}
-                                />
-                              )}
-                              {/* Where the material STARTS OVER, one rule per pass: `placedRepeats`, since this axis begins at the event's left edge (clipLoop.ts). */}
-                              {loopMarks
-                                .filter((b) => b * ppb < drawW)
-                                .map((b) => (
-                                  <div
-                                    key={b}
-                                    className="pointer-events-none absolute inset-y-0 w-px bg-white/30"
-                                    style={{ left: b * ppb }}
-                                  >
-                                    {/* Only when a pass is wide enough to hold it — below that the glyphs touch and read as a dotted smear. */}
-                                    {loopGlyphs && (
-                                      <Repeat className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 h-2 w-2 text-white/75" />
-                                    )}
-                                  </div>
-                                ))}
-                              {/* The FADES as two wedges, `pointer-events-none` since the corner handle is what you grab; `fadeOf` keeps them live mid-drag (docs/timeline.md). */}
-                              {(["fadeIn", "fadeOut"] as const).map((which) => {
-                                const live =
-                                  fade?.clipId === c.id &&
-                                  fade.trackId === t.id &&
-                                  fade.which === which
-                                    ? fade.len
-                                    : undefined;
-                                const len =
-                                  live ??
-                                  (which === "fadeIn" ? c.fadeIn : c.fadeOut) ??
-                                  0;
-                                if (len <= 0) return null;
-                                const w = Math.min(drawW, len * ppb);
-                                return (
-                                  <div
-                                    key={which}
-                                    className={cn(
-                                      "pointer-events-none absolute inset-y-0 bg-black/45",
-                                      which === "fadeIn" ? "left-0" : "right-0",
-                                    )}
-                                    style={{
-                                      width: w,
-                                      // The wedge itself: a fade-in is dark at the head and clear by its end, a fade-out the mirror.
-                                      clipPath:
-                                        which === "fadeIn"
-                                          ? "polygon(0 0, 100% 100%, 0 100%)"
-                                          : "polygon(100% 0, 100% 100%, 0 100%)",
-                                    }}
+                        {/* The lane as the commands just sent leave it: removed, muted, shifted — before the round trip. */}
+                        {pendingClips(t.id, t.clips, pendingEdits).map(
+                          (c, i) => {
+                            const splitAt = pendingSplitAt(
+                              t.id,
+                              c.start,
+                              pendingEdits,
+                            );
+                            const w = (c.length > 0 ? c.length : NATURAL) * ppb;
+                            // A clip whose content loops to fill its length: flagged, so the repeats aren't mistaken for one long take.
+                            const looping =
+                              (c.loopEnd ?? 0) > (c.loopStart ?? 0);
+                            // …and WHERE it starts over: the marks come off `passes`, so a MIDI clip stating its window draws none (clipLoop.ts).
+                            const loop = clipLoop(c);
+                            const loopMarks = loop
+                              ? placedRepeats(loop, ppb)
+                              : [];
+                            // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is where it stops being a glyph and starts being grit.
+                            const loopGlyphs =
+                              !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
+                            // A time-stretched clip gets a countdown-timer icon, CROSSED when this event has declined the map (`event status warp`).
+                            const stretched = !!c.warped;
+                            const unwarped = !!c.warpOff;
+                            /** The same material, placed elsewhere too: `ghost` marks every placement but the earliest, and `kin` lights the rest from the caret. */
+                            const inst = instances.get(materialOf(c));
+                            const ghost =
+                              (inst?.n ?? 1) > 1 &&
+                              !isFirstPlacement(inst, t.id, c.start);
+                            const kin =
+                              !!kinOfCaret &&
+                              materialOf(c) === kinOfCaret &&
+                              c !== clipUnderCaret;
+                            // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
+                            const moving =
+                              !!move &&
+                              move.trackId === t.id &&
+                              c.id === move.clipId &&
+                              Math.abs(c.start - move.origStart) < 1e-6;
+                            // Is THIS placement the one being resized? Same pinning as the move.
+                            const resizing =
+                              !!resize &&
+                              resize.trackId === t.id &&
+                              c.id === resize.clipId &&
+                              Math.abs(c.start - resize.origStart) < 1e-6;
+                            const drawStart = resizing
+                              ? resize.start
+                              : moving
+                                ? move.origStart + move.offset
+                                : c.start;
+                            // Dragging either edge changes the WIDTH too, unlike a move.
+                            const drawW = resizing
+                              ? (resize.end - resize.start) * ppb
+                              : w;
+                            return (
+                              <div
+                                // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
+                                key={`${c.id}-${i}`}
+                                title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, double-click to open, drag to move (ctrl : hors grille)`}
+                                // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
+                                onPointerDown={(e) => beginClipDrag(e, t, c)}
+                                onPointerMove={onClipDragMove}
+                                onPointerUp={endClipDrag}
+                                onPointerCancel={endClipDrag}
+                                // A double-click opens the clip; a RENDER opens the notes it was made from, the authored MIDI clip under the pointer (docs/timeline.md).
+                                onDoubleClick={(e) =>
+                                  c.frozen && t.frozenMaterial
+                                    ? openFrozenNotes(e, t, c)
+                                    : openClip(e, c)
+                                }
+                                // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onContextMenu?.(
+                                    {
+                                      kind: "clip",
+                                      id: c.id,
+                                      // Where this placement SITS, so the menu can offer `event remove` — the same pair the move drag commits with.
+                                      track: t.id,
+                                      tc: beatsToPosition(
+                                        c.start,
+                                        proj.timeSigNumerator,
+                                        proj.timeSigDenominator,
+                                      ),
+                                      // …and the RECTANGLE, when one is drawn: a range verb takes a span, and the placement only says where it starts.
+                                      sel: selRange,
+                                    },
+                                    e.clientX,
+                                    e.clientY,
+                                  );
+                                }}
+                                className={cn(
+                                  // `isolate` keeps the activity layer's -z-10 inside this block; `group` is what the name reads.
+                                  "group absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
+                                  // Disabled: still placed, still readable, plainly off — an event you cannot see is a deleted one.
+                                  c.disabled &&
+                                    "opacity-40 saturate-0 outline-dashed outline-1 outline-muted-foreground",
+                                  // A SIBLING of the one under the caret: light on purpose, so it does not compete with the clip you picked.
+                                  kin &&
+                                    "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
+                                  // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
+                                  expanded ? "flex-col" : "items-center",
+                                  // The clip in hand: ring it and lift it over its ghost.
+                                  (moving || resizing) &&
+                                    "z-10 outline outline-2 outline-primary",
+                                  // …and while DRAGGING let the pointer through, or laneAtPoint would always answer "the lane I started on".
+                                  moving &&
+                                    move?.dragging &&
+                                    "pointer-events-none",
+                                )}
+                                style={{
+                                  left: x(drawStart),
+                                  width: Math.max(ppb, drawW),
+                                }}
+                              >
+                                {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
+                                {/* A COMPED event is one block, its pieces' activity laid where each plays (song docs/takes.md). */}
+                                {c.pieces ? (
+                                  c.pieces.map((p) => (
+                                    <div
+                                      key={p.id}
+                                      className="absolute inset-y-0 -z-10"
+                                      style={{
+                                        left: (p.start - c.start) * ppb,
+                                        width: Math.max(1, p.length * ppb),
+                                      }}
+                                    >
+                                      <ClipActivity
+                                        clip={p}
+                                        spanBeats={
+                                          p.length > 0 ? p.length : NATURAL
+                                        }
+                                        color={t.color || undefined}
+                                        project={envProject}
+                                        pending={resizing}
+                                      />
+                                    </div>
+                                  ))
+                                ) : (
+                                  <ClipActivity
+                                    clip={c}
+                                    spanBeats={
+                                      c.length > 0 ? c.length : NATURAL
+                                    }
+                                    color={t.color || undefined}
+                                    project={envProject}
+                                    pending={resizing}
                                   />
-                                );
-                              })}
-                              {/* …and the two corner handles that drag them, at the TOP corners so they never share a pixel with the resize strips. */}
-                              {!readOnly &&
-                                (["fadeIn", "fadeOut"] as const).map(
+                                )}
+                                {/* Where the material STARTS OVER, one rule per pass: `placedRepeats`, since this axis begins at the event's left edge (clipLoop.ts). */}
+                                {loopMarks
+                                  .filter((b) => b * ppb < drawW)
+                                  .map((b) => (
+                                    <div
+                                      key={b}
+                                      className="pointer-events-none absolute inset-y-0 w-px bg-white/30"
+                                      style={{ left: b * ppb }}
+                                    >
+                                      {/* Only when a pass is wide enough to hold it — below that the glyphs touch and read as a dotted smear. */}
+                                      {loopGlyphs && (
+                                        <Repeat className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 h-2 w-2 text-white/75" />
+                                      )}
+                                    </div>
+                                  ))}
+                                {/* The FADES as two wedges, `pointer-events-none` since the corner handle is what you grab; `fadeOf` keeps them live mid-drag (docs/timeline.md). */}
+                                {(["fadeIn", "fadeOut"] as const).map(
                                   (which) => {
+                                    const live =
+                                      fade?.clipId === c.id &&
+                                      fade.trackId === t.id &&
+                                      fade.which === which
+                                        ? fade.len
+                                        : undefined;
                                     const len =
+                                      live ??
                                       (which === "fadeIn"
                                         ? c.fadeIn
-                                        : c.fadeOut) ?? 0;
+                                        : c.fadeOut) ??
+                                      0;
+                                    if (len <= 0) return null;
+                                    const w = Math.min(drawW, len * ppb);
                                     return (
                                       <div
-                                        key={`h-${which}`}
+                                        key={which}
                                         className={cn(
-                                          "absolute top-0 z-30 h-2 w-2 cursor-ew-resize rounded-sm",
+                                          "pointer-events-none absolute inset-y-0 bg-black/45",
                                           which === "fadeIn"
                                             ? "left-0"
                                             : "right-0",
-                                          // Visible once there is a fade; otherwise on hover, the same disclosure the edge handles use.
-                                          len > 0
-                                            ? "bg-white/60"
-                                            : "bg-white/0 group-hover:bg-white/35",
                                         )}
-                                        title={
-                                          which === "fadeIn"
-                                            ? "Drag to fade in — Ctrl frees the grid"
-                                            : "Drag to fade out — Ctrl frees the grid"
-                                        }
-                                        onPointerDown={(e) => {
-                                          e.stopPropagation();
-                                          (
-                                            e.currentTarget as HTMLElement
-                                          ).setPointerCapture(e.pointerId);
-                                          setFade({
-                                            trackId: t.id,
-                                            clipId: c.id,
-                                            which,
-                                            start: c.start,
-                                            span:
-                                              c.length > 0 ? c.length : NATURAL,
-                                            orig: len,
-                                            len,
-                                            x: e.clientX,
-                                            ppb,
-                                          });
+                                        style={{
+                                          width: w,
+                                          // The wedge itself: a fade-in is dark at the head and clear by its end, a fade-out the mirror.
+                                          clipPath:
+                                            which === "fadeIn"
+                                              ? "polygon(0 0, 100% 100%, 0 100%)"
+                                              : "polygon(100% 0, 100% 100%, 0 100%)",
                                         }}
-                                        onPointerMove={onFadeMove}
-                                        onPointerUp={commitFade}
-                                        onPointerCancel={() => setFade(null)}
                                       />
                                     );
                                   },
                                 )}
-                              {/* Edge handles, narrow strips INSIDE the block's own ends, and absent rather than inert on a read-only document. */}
-                              {!readOnly &&
-                                (["start", "end"] as const).map((edge) => (
-                                  <div
-                                    key={edge}
-                                    className={cn(
-                                      "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
-                                      edge === "start" ? "left-0" : "right-0",
-                                      "hover:bg-primary/60",
-                                    )}
-                                    onPointerDown={(e) => {
-                                      // Stop it here or the clip's own move drag starts too.
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      (
-                                        e.currentTarget as HTMLElement
-                                      ).setPointerCapture?.(e.pointerId);
-                                      const end =
-                                        c.start +
-                                        (c.length > 0 ? c.length : NATURAL);
-                                      setResize({
-                                        trackId: t.id,
-                                        clipId: c.id,
-                                        edge,
-                                        origStart: c.start,
-                                        origEnd: end,
-                                        start: c.start,
-                                        end,
-                                        x: e.clientX,
-                                        ppb,
-                                      });
-                                    }}
-                                    onPointerMove={onResizeMove}
-                                    onPointerUp={commitResize}
-                                    onPointerCancel={() => setResize(null)}
-                                    title={
-                                      edge === "start"
-                                        ? "drag to move this event's start"
-                                        : "drag to move this event's end"
-                                    }
-                                  />
-                                ))}
-                              <div className="flex items-center gap-0.5 leading-tight">
-                                {/* Kind at a glance: a note for MIDI/sequence clips, a speaker for audio. */}
-                                {c.type === "midi" ? (
-                                  <Music className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                ) : (
-                                  <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                )}
-                                {/* A COMPED event: several takes heard as one, opened in the clip panel's takes mode. */}
-                                {c.pieces && (
-                                  <Layers className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                )}
-                                {/* A RETURN of material heard earlier, drawn on every placement but the first (docs/timeline.md). */}
-                                {ghost && (
-                                  <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                )}
-                                {/* No loop badge here: the marks down the block say the same thing and say WHERE. */}
-                                {stretched &&
-                                  (unwarped ? (
-                                    <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                  ) : (
-                                    <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                                  ))}
-                                {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
-                                <span
-                                  className={cn(
-                                    "truncate opacity-0 transition-opacity group-hover:opacity-100",
-                                    (moving || resizing) && "opacity-100",
-                                  )}
-                                >
-                                  {c.name || c.id}
-                                </span>
-                              </div>
-                              {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
-                              {expanded && (
-                                <div className="relative mt-0.5 min-h-0 flex-1">
-                                  {c.pieces ? (
-                                    c.pieces.map((p) => (
-                                      <div
-                                        key={p.id}
-                                        className="absolute inset-y-0"
-                                        style={{
-                                          left: (p.start - c.start) * ppb,
-                                          width: Math.max(1, p.length * ppb),
-                                        }}
-                                      >
-                                        <ClipContent
-                                          clip={p}
-                                          spanBeats={
-                                            p.length > 0 ? p.length : NATURAL
+                                {/* …and the two corner handles that drag them, at the TOP corners so they never share a pixel with the resize strips. */}
+                                {!readOnly &&
+                                  (["fadeIn", "fadeOut"] as const).map(
+                                    (which) => {
+                                      const len =
+                                        (which === "fadeIn"
+                                          ? c.fadeIn
+                                          : c.fadeOut) ?? 0;
+                                      return (
+                                        <div
+                                          key={`h-${which}`}
+                                          className={cn(
+                                            "absolute top-0 z-30 h-2 w-2 cursor-ew-resize rounded-sm",
+                                            which === "fadeIn"
+                                              ? "left-0"
+                                              : "right-0",
+                                            // Visible once there is a fade; otherwise on hover, the same disclosure the edge handles use.
+                                            len > 0
+                                              ? "bg-white/60"
+                                              : "bg-white/0 group-hover:bg-white/35",
+                                          )}
+                                          title={
+                                            which === "fadeIn"
+                                              ? "Drag to fade in — Ctrl frees the grid"
+                                              : "Drag to fade out — Ctrl frees the grid"
                                           }
-                                          project={envProject}
+                                          onPointerDown={(e) => {
+                                            e.stopPropagation();
+                                            (
+                                              e.currentTarget as HTMLElement
+                                            ).setPointerCapture(e.pointerId);
+                                            setFade({
+                                              trackId: t.id,
+                                              clipId: c.id,
+                                              which,
+                                              start: c.start,
+                                              span:
+                                                c.length > 0
+                                                  ? c.length
+                                                  : NATURAL,
+                                              orig: len,
+                                              len,
+                                              x: e.clientX,
+                                              ppb,
+                                            });
+                                          }}
+                                          onPointerMove={onFadeMove}
+                                          onPointerUp={commitFade}
+                                          onPointerCancel={() => setFade(null)}
                                         />
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <ClipContent
-                                      clip={c}
-                                      spanBeats={
-                                        c.length > 0 ? c.length : NATURAL
-                                      }
-                                      project={envProject}
-                                      overlay={
-                                        c.frozen ? t.frozenMaterial : undefined
+                                      );
+                                    },
+                                  )}
+                                {/* Edge handles, narrow strips INSIDE the block's own ends, and absent rather than inert on a read-only document. */}
+                                {!readOnly &&
+                                  (["start", "end"] as const).map((edge) => (
+                                    <div
+                                      key={edge}
+                                      className={cn(
+                                        "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
+                                        edge === "start" ? "left-0" : "right-0",
+                                        "hover:bg-primary/60",
+                                      )}
+                                      onPointerDown={(e) => {
+                                        // Stop it here or the clip's own move drag starts too.
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        (
+                                          e.currentTarget as HTMLElement
+                                        ).setPointerCapture?.(e.pointerId);
+                                        const end =
+                                          c.start +
+                                          (c.length > 0 ? c.length : NATURAL);
+                                        setResize({
+                                          trackId: t.id,
+                                          clipId: c.id,
+                                          edge,
+                                          origStart: c.start,
+                                          origEnd: end,
+                                          start: c.start,
+                                          end,
+                                          x: e.clientX,
+                                          ppb,
+                                        });
+                                      }}
+                                      onPointerMove={onResizeMove}
+                                      onPointerUp={commitResize}
+                                      onPointerCancel={() => setResize(null)}
+                                      title={
+                                        edge === "start"
+                                          ? "drag to move this event's start"
+                                          : "drag to move this event's end"
                                       }
                                     />
+                                  ))}
+                                {/* A split sent and not yet answered: the cut drawn where the two halves will meet. */}
+                                {splitAt !== undefined && splitAt > c.start && (
+                                  <div
+                                    className="pointer-events-none absolute inset-y-0 z-10 w-px bg-foreground/80"
+                                    style={{
+                                      left: (splitAt - drawStart) * ppb,
+                                    }}
+                                  />
+                                )}
+                                <div className="flex items-center gap-0.5 leading-tight">
+                                  {/* Kind at a glance: a note for MIDI/sequence clips, a speaker for audio. */}
+                                  {c.type === "midi" ? (
+                                    <Music className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                  ) : (
+                                    <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
                                   )}
+                                  {/* A COMPED event: several takes heard as one, opened in the clip panel's takes mode. */}
+                                  {c.pieces && (
+                                    <Layers className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                  )}
+                                  {/* A RETURN of material heard earlier, drawn on every placement but the first (docs/timeline.md). */}
+                                  {ghost && (
+                                    <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                  )}
+                                  {/* No loop badge here: the marks down the block say the same thing and say WHERE. */}
+                                  {stretched &&
+                                    (unwarped ? (
+                                      <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                    ) : (
+                                      <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                    ))}
+                                  {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
+                                  <span
+                                    className={cn(
+                                      "truncate opacity-0 transition-opacity group-hover:opacity-100",
+                                      (moving || resizing) && "opacity-100",
+                                    )}
+                                  >
+                                    {c.name || c.id}
+                                  </span>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
+                                {expanded && (
+                                  <div className="relative mt-0.5 min-h-0 flex-1">
+                                    {c.pieces ? (
+                                      c.pieces.map((p) => (
+                                        <div
+                                          key={p.id}
+                                          className="absolute inset-y-0"
+                                          style={{
+                                            left: (p.start - c.start) * ppb,
+                                            width: Math.max(1, p.length * ppb),
+                                          }}
+                                        >
+                                          <ClipContent
+                                            clip={p}
+                                            spanBeats={
+                                              p.length > 0 ? p.length : NATURAL
+                                            }
+                                            project={envProject}
+                                          />
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <ClipContent
+                                        clip={c}
+                                        spanBeats={
+                                          c.length > 0 ? c.length : NATURAL
+                                        }
+                                        project={envProject}
+                                        overlay={
+                                          c.frozen
+                                            ? t.frozenMaterial
+                                            : undefined
+                                        }
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          },
+                        )}
                       </>
                     )}
                   </div>
