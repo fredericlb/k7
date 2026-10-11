@@ -432,7 +432,7 @@ function mutedLanes(): string {
 const MEDIATEK_UTILITY = "@st0/audio/utility";
 /** The filter lives under `filter/`, not `utility/`: a category is what draws its icon. */
 const MEDIATEK_FILTER = "@st0/audio/filter";
-/** …and the EQ and the echo sit at the root of `audio/`, each one module with its engines. */
+/** …and the EQ and the delay sit at the root of `audio/`, each one module with its engines — the echo is the delay's. */
 const MEDIATEK_AUDIO = "@st0/audio";
 /** …and the PLATTER, which is st0's own and not a library's: a set cannot play without it (docs/metaModules.md). */
 const META_AUDIO = "@meta/audio";
@@ -622,12 +622,16 @@ function echoNode(letter: string): string {
     `#\n` +
     `# \`Time\` is in MILLISECONDS and follows nothing: the desk knows each deck's BPM, but no\n` +
     `# binding carries it here yet. See packages/st0-plugins/docs/turntables/fx.md.\n` +
-    `extends: ${q(`${MEDIATEK_AUDIO}/echo`)}\n` +
-    `params:\n` +
-    `  # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.\n` +
-    `  Time: 375\n` +
-    `  # Three or four audible repeats: enough to hear, little enough not to pile up.\n` +
-    `  Feedback: 0.45\n` +
+    `# The delay's ECHO engine: the one of them whose Time is in milliseconds.\n` +
+    `extends: ${q(`${MEDIATEK_AUDIO}/delay`)}\n` +
+    `engine: echo\n` +
+    `engines:\n` +
+    `  echo:\n` +
+    `    params:\n` +
+    `      # A dotted eighth at 120 BPM — the dub delay that displaces rather than doubles.\n` +
+    `      Time: 375\n` +
+    `      # Three or four audible repeats: enough to hear, little enough not to pile up.\n` +
+    `      Feedback: 0.45\n` +
     `# DRY at rest. This is the one the desk drives.\n` +
     `mix: 0\n`
   );

@@ -88,7 +88,7 @@ export const TRIM_DB: readonly [min: number, max: number] = [-12, 12];
 /** …and of the CHANNEL FADER, in dB. The bottom is SILENCE and not -Infinity — docs/mix.md. */
 export const LEVEL_DB: readonly [min: number, max: number] = [-60, 6];
 
-/** The echo's amount, dry to fully wet — the `echo` module's `Mix`. See docs/fx.md. */
+/** The echo's amount, dry to fully wet — the echo node's `mix`, the delay's `echo` engine. See docs/fx.md. */
 export const ECHO_RANGE: readonly [min: number, max: number] = [0, 1];
 
 /** How fast a record runs backwards under the CENSOR — a platter rate, so 1 is its own speed. */

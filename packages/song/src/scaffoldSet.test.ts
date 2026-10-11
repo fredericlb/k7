@@ -78,10 +78,9 @@ beforeEach(() => {
     "audio/utility/gain",
     "plugin: { type: jsdsp, name: Gain }\nparams:\n  Gain: 0\n",
   );
-  library(
-    "audio/echo",
-    "plugin: { type: jsdsp, name: Echo }\nparams:\n  Time: 375\n  Feedback: 0.45\n",
-  );
+  library("audio/delay", "engine: echo\n");
+  // The deck's echo is the delay's `echo` engine, a node naming it by `engine:`.
+  library("audio/delay/engines/echo", "plugin: { type: jsdsp, name: Echo }\n");
   // No platter here: it is st0's own `@meta/audio/turntable`, which every test resolves (docs/metaModules.md).
   library("audio/eq", "engine: parametric\n");
   library(
@@ -261,7 +260,7 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     // One of each and not one per use: fetching a module once per node would be a bug.
     expect(mediatekRefs(dir)).toEqual([
-      "@st0/audio/echo",
+      "@st0/audio/delay",
       "@st0/audio/eq",
       "@st0/audio/filter/multimode",
       "@st0/audio/utility/fade",
@@ -431,7 +430,7 @@ describe("a scaffolded set", () => {
       file,
       readFileSync(file, "utf8").replace(
         "Feedback: 0.45",
-        "Feedback: 0.45\n  Mix: 0.3",
+        "Feedback: 0.45\n      Mix: 0.3",
       ),
     );
     expect(() => compileNodeProject(dir)).toThrow(
