@@ -3,11 +3,11 @@ import { rackFor } from "./rackFor";
 import {
   NUDGE_MAX,
   noteInCell,
-  PRECISIONS,
   notesByCell,
   nudgedTime,
   nudgeOf,
   type PadEdit,
+  PRECISIONS,
   planSelectionMove,
   settledEdits,
   stepCells,

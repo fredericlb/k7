@@ -463,7 +463,10 @@ export function emitFolder(
     }));
     // The stand-in leads, where the instrument the source had would have stood.
     if (standIn)
-      use.unshift({ module: addStandIn(entry, standIn.drums), enabled: undefined });
+      use.unshift({
+        module: addStandIn(entry, standIn.drums),
+        enabled: undefined,
+      });
     // A LANE gets its strip, last; a return bus and the master chain are not lanes and get none.
     if (fromTrack)
       use.push({ module: addTrackMixer(entry), enabled: undefined });

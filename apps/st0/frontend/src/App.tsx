@@ -117,6 +117,7 @@ import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
 import { MetronomeButton } from "./components/MetronomeButton";
+import { MidiTakeRoll } from "./components/MidiTakeRoll";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
 import {
@@ -142,7 +143,6 @@ import { SharePanel, shareBadge } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
 import { TasksPanel } from "./components/TasksPanel";
-import { MidiTakeRoll } from "./components/MidiTakeRoll";
 import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
 import {
@@ -204,8 +204,8 @@ import {
   uiVerdict,
 } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
-import { midiInDeviceFor, midiInLanes } from "./midiIn";
 import { confirmMenuItem } from "./menuConfirm";
+import { midiInDeviceFor, midiInLanes } from "./midiIn";
 import { describeDownload, followDownload } from "./modelDownload";
 import {
   chainRefFromCreate,

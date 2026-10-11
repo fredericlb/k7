@@ -129,7 +129,9 @@ export function clearAlternativeParams(text: string, engine?: string): string {
   const params = doc.getIn(path);
   if (!isMap(params)) return text;
   const numbers = params.items
-    .filter((pair) => typeof (pair.value as { value?: unknown })?.value === "number")
+    .filter(
+      (pair) => typeof (pair.value as { value?: unknown })?.value === "number",
+    )
     .map((pair) => (pair.key as { value?: unknown })?.value ?? pair.key);
   if (!numbers.length) return text;
   for (const key of numbers) params.delete(key);

@@ -66,7 +66,10 @@ describe("presetFileText", () => {
   });
 
   it("keeps the base the values were taken over, a path in quotes when it holds one", () => {
-    const preset = { base: "Pads/Bell Pad", params: { "A Filter 1 Cutoff": 0.3 } };
+    const preset = {
+      base: "Pads/Bell Pad",
+      params: { "A Filter 1 Cutoff": 0.3 },
+    };
     const text = presetFileText("@st0/instruments/synth/surge-xt", preset);
     expect(text).toContain('base: "Pads/Bell Pad"\n');
     expect(parse(text)).toEqual(preset);
