@@ -94,6 +94,11 @@ transport stops, and an event disarmed first would see its take land on the lane
 The waveform panel and the piano roll each have a `takes` mode (`ui wave takes`, `ui roll takes`):
 one row per take, the event's own first, on one song-time axis. A drag selects a span; a click on a
 row with a span runs `event comp` for it, without one it moves the playhead; a row's ✓ picks it over
-the span or, with none, wherever it was recorded. Its own ● arms the event, arms the lane and turns
-record on where they were not, and rolls from the playhead — punched into the span when there is
-one. See `apps/st0/frontend/docs/clipEditors.md`.
+the span or, with none, wherever it was recorded. A MIDI event takes no span: a click on a row picks that take
+WHOLE. Notes swept from several takes would make the event's piano roll a patchwork of sequences
+to edit at once, and a part played again is judged as a whole far more often than bar by bar. Its own ● arms the event, arms the lane and turns
+record on where they were not, and rolls from the START of what it re-records: the span's when there
+is one, punched into it, else the event's own. Not from the playhead: a take is a part played again,
+from its top, and the count-in rolls in the bars BEFORE that start — Tracktion puts its pre-roll
+ahead of the play position. A MIDI pass turns the engine's record on for the same reason: that is
+what counts in, though the notes are the browser's. See `apps/st0/frontend/docs/clipEditors.md`.

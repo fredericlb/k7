@@ -153,6 +153,8 @@ export interface WebChainStep {
   automations?: WebAutomation[];
   /** A RACK's loaded sounds in symbol order — the EFFECTIVE rack, `extends` folded in; see docs/graph.md. */
   rack?: WebRackSound[];
+  /** Those sounds are an SFZ KIT's pads: fixed, and each played as its note through the node (docs/racks.md). */
+  rackKit?: boolean;
 }
 /** One sound of a rack, flattened: `Rack` in @studio/song splits samples from slices, and a pad does not. */
 export interface WebRackSound {
@@ -163,6 +165,7 @@ export interface WebRackSound {
   source?: string; // slice: the clip id every symbol of the rack cuts from
   from?: number; // slice: window start in that source, seconds
   to?: number; // slice: window end, seconds
+  mute?: boolean; // silenced — a rack tap's `mute:`, or a kit pad's `Mute <note>` param
 }
 // One MIDI control change: the channel a musician counts (1-16), and the control number (0-127).
 export interface WebCc {

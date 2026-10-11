@@ -38,11 +38,11 @@ export const PRESET_VERBS: Record<string, SidHandler> = {
       }
       const done = applyPresetToNode(h.songPath, node, scope, name);
       h.log([
-        `${node}: preset '${name}' (${scope})${done.missingEngine ? ` — its engine '${done.missingEngine}' is not here, applied onto the current one` : ""}`,
+        `${node}: preset '${name}' (${scope})${done.missingEngine ? ` — its engine '${done.missingEngine}' is not here, applied onto the current one` : ""}${done.missingBase ? ` — its base '${done.missingBase}' is not here, applied onto the current one` : ""}`,
       ]);
-      // Another engine is another plugin, and a kit is built with its sampler; otherwise the values reach the engine as a diff.
+      // Another engine is another plugin, a base another state to load, and a kit is built with its sampler; otherwise a values diff.
       const np =
-        done.switched || done.kit
+        done.switched || done.rebased || done.kit
           ? null
           : withModuleParams(h.project(), node, done.params, false);
       if (np) await h.applyProject(np);

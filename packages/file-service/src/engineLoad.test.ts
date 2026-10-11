@@ -13,10 +13,14 @@ import {
 
 const doc = { masterVolume: -3, tracks: [] } as unknown as ProjectDoc;
 
-function fakeDeps(loadedAfter: number) {
+function fakeDeps(loadedAfter: number, engine: unknown = {}) {
   const calls: string[] = [];
   let asked = 0;
+  const link = { current: true, selected: true };
   const deps: WarmDeps = {
+    engine,
+    current: () => link.current,
+    hasEngine: () => link.selected,
     sendProject: (d) => calls.push(`send ${d.masterVolume}`),
     play: () => calls.push("play"),
     stopAndRewind: () => calls.push("stop"),
@@ -24,7 +28,7 @@ function fakeDeps(loadedAfter: number) {
     restore: () => calls.push("restore"),
     log: (m) => calls.push(`log ${m}`),
   };
-  return { deps, calls };
+  return { deps, calls, link };
 }
 
 describe("the dry run", () => {
@@ -57,5 +61,43 @@ describe("the dry run", () => {
     await run;
     expect(calls).not.toContain("play");
     expect(loadPhase("s3")).toBe("copying");
+  });
+
+  it("is taken over by the next engine's document when the account's engine changes", async () => {
+    beginLoad("s4");
+    const old = fakeDeps(1_000_000, "engine A");
+    const stuck = warmUp("s4", doc, old.deps);
+    // The engine changed: a document reaches the session through the NEW link.
+    const next = fakeDeps(1, "engine B");
+    await warmUp("s4", doc, next.deps);
+    await stuck;
+    expect(next.calls).toEqual(["send -100", "play", "stop", "restore"]);
+    expect(old.calls).not.toContain("play");
+    expect(loadPhase("s4")).toBeNull();
+  });
+
+  it("waits for the new engine's document when its link is left before one arrives", async () => {
+    beginLoad("s5");
+    const old = fakeDeps(1_000_000, "engine A");
+    const run = warmUp("s5", doc, old.deps);
+    old.link.current = false;
+    await run;
+    expect(old.calls).not.toContain(
+      "log the engine did not report the project loaded in time",
+    );
+    expect(loadPhase("s5")).toBe("copying");
+    const next = fakeDeps(0, "engine B");
+    await warmUp("s5", doc, next.deps);
+    expect(next.calls).toContain("play");
+  });
+
+  it("lets the gate go when the account is left with no engine at all", async () => {
+    beginLoad("s6");
+    const old = fakeDeps(1_000_000, "engine A");
+    const run = warmUp("s6", doc, old.deps);
+    old.link.current = false;
+    old.link.selected = false;
+    await run;
+    expect(loadPhase("s6")).toBeNull();
   });
 });

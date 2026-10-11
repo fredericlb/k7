@@ -108,6 +108,8 @@ export const KEYS: Record<string, Binding> = {
     { if: "timeline_active", command: "ui tool pointer" },
   ],
   b: { if: "timeline_active", command: "ui tool cut" },
+  // A new lane, the corner button's line; `+` is a bare character whichever layout needs Shift for it.
+  "+": { if: "timeline_active", command: "track new" },
   d: [
     { if: "roll_open", command: "ui roll remove" },
     { if: "timeline_active", command: "ui tool erase" },

@@ -70,6 +70,12 @@ change. The MIDI notes are the case that bit: a clip's notes are written into th
 clip is inserted, so without `a.notes != b.notes` the whole note vocabulary — add, remove,
 velocity, move — reached the engine and did nothing.
 
+`disabled` is on the list for the same reason, and its re-insert is the one that inserts nothing. A
+disabled clip is placed and silent: the full build skips it (`EditBuilder`), so the incremental
+path must too — `ClipAdded` builds no disabled clip, and `ClipMoved` removes the old one and puts
+back only an enabled one. Left off either side, a muted clip played on: unseen as a change, or
+rebuilt by the first edit that re-inserted it.
+
 ## The master chain is compared whole
 
 `sameMasterChain` compares **in order**, unlike a track's plugin diff, which indexes by key: the

@@ -187,6 +187,43 @@ describe("a rack tap's `sample`", () => {
   });
 });
 
+describe("a tap's sample inside an ALTERNATIVE", () => {
+  it("still reaches the engine when that set is the one selected", () => {
+    const p = join(root, "demo.st0");
+    touch(join(p, "samples", "kick.wav"));
+    touch(join(p, "samples", "snare.wav"));
+    mkdirSync(join(p, "nodes"), { recursive: true });
+    writeFileSync(join(p, "project.yaml"), 'project:\n  name: "demo"\n');
+    mkdirSync(join(root, "_modules", "instruments", "drums"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(root, "_modules", "instruments", "drums", "module.yaml"),
+      "type: rack\n",
+    );
+    writeFileSync(
+      join(p, "nodes", "beat.yaml"),
+      'extends: "@meta/track"\nevents: []\n',
+    );
+    writeFileSync(
+      join(p, "nodes", "kit.yaml"),
+      'extends: "@workspace/instruments/drums"\ntype: rack\nrack:\n  symbols:\n    BD: { note: 36, sample: "@project/kick.wav" }\n' +
+        'alternatives:\n  - rack:\n      symbols:\n        BD: { note: 36, sample: "@project/snare.wav" }\nalternative: "2"\n',
+    );
+    writeFileSync(
+      join(p, "graph.yaml"),
+      "modules:\n  beat: [ kit ]\n  kit: [ OUT ]\n",
+    );
+    const rack = loadProject(p)
+      .tracks.flatMap((t) => t.plugins)
+      .find((pl) => pl.rack?.length)?.rack;
+    expect(rack?.[0]).toMatchObject({
+      symbol: "BD",
+      clip: join(p, "samples", "snare.wav"),
+    });
+  });
+});
+
 describe("a PROJECT's own samples, as @project/…", () => {
   it("lists them before the libraries', and resolves them in that project only", () => {
     const p = join(root, "demo.st0");

@@ -48,6 +48,8 @@ export const ProjectSettingsSchema = z
       ])
       .optional(),
     layers: z.array(z.string()).optional(),
+    // The words the home page files this song under, written by `project tag` (src/projectTags.ts).
+    tags: z.array(z.string().min(1)).optional(),
   })
   .strict();
 
@@ -79,6 +81,8 @@ export const ProjectFileSchema = z
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
     // The soloed lanes by id — solo as PROJECT STATE, several at once (docs/projectFile.md).
     soloed: z.array(z.string()).optional(),
+    // …and the HIGHLIGHTED ones, heard 10 dB up on their strip, the fader untouched (song docs/highlight.md).
+    highlighted: z.array(z.string()).optional(),
     markers: z // timeline markers: a position -> its label
       .record(
         z

@@ -302,7 +302,7 @@ const isLaneMixerName = (name: string, lane: string): boolean => {
 };
 
 /** The lane's strip, when it bears the name `track new` gave it: a name somebody CHOSE is left alone. */
-function laneMixer(g: GraphDoc, lane: string): string | null {
+export function laneMixer(g: GraphDoc, lane: string): string | null {
   const chain = Object.values(g.chains).find((c) => c.from === lane);
   for (const step of chain?.use ?? []) {
     const m = g.modules[step.module];

@@ -47,6 +47,7 @@ const frame = (
   input,
   output,
   state: {},
+  sound: () => null,
   color: LCD_COLORS,
   now: 0,
 });

@@ -41,6 +41,11 @@ project:
   # it, and the settings panel's Project tab offers the list.
   console: "@st0/console/console-6"
 
+  # Tags the home page shows beside the project, to file songs under. Free
+  # words, one tag regardless of case. `project tag <tag>` adds one and
+  # `project untag <tag>` removes it; the Tasks panel has both.
+  tags: [to mix, live]
+
   # Nothing here points at the shared folders. A song inherits modules from
   # where they SIT: `../_modules` beside it in the workspace, and the machine's
   # médiathèque. Nearest first, so what is beside the song beats what is global.
@@ -62,6 +67,11 @@ trackOrder: [drums, bass, melody]
 # in and out, and deletes the line with the last one. Absent = nobody soloed.
 # A group's id solos its members; mute stays the lane's own bypass, untouched.
 soloed: [drums, bass]
+
+# The highlighted lanes — each heard 10 dB louder, its fader left where it is:
+# the strip's +10 button, or `track highlight <lane>`, toggles a name in and out.
+# Absent = none.
+highlighted: [melody]
 
 # Named positions, for navigation. TIMECODE -> label, and the keys are
 # quoted for the usual reason: unquoted, "5:1:1" is a number.

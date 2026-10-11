@@ -6,6 +6,7 @@
   "description": "The song layer — parses a folder of CUE files and compiles it: to a flat ProjectDoc/GraphDoc for st0, and the same folder's picture to a VideoProjectDoc. A strudel lane compiles to the engine plugin that plays it (enginePattern.ts). Consumed as source.",
   "exports": {
     "./loader": "./src/loader.ts",
+    "./deadAutomations": "./src/deadAutomations.ts",
     "./nodeOnRef": "./src/nodeOnRef.ts",
     "./basePreset": "./src/basePreset.ts",
     "./alternatives": "./src/alternatives.ts",
@@ -65,6 +66,7 @@
     "./chainStack": "./src/chainStack.ts",
     "./chainGraphEdit": "./src/chainGraphEdit.ts",
     "./chainCreate": "./src/chainCreate.ts",
+    "./groupLanes": "./src/groupLanes.ts",
     "./compClips": "./src/compClips.ts"
   },
   "scripts": {

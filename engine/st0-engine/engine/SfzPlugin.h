@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <memory>
+#include <vector>
 
 namespace sfz {
 class Sfizz;
@@ -52,6 +53,13 @@ public:
 
     tracktion::engine::AutomatableParameter::Ptr volumeDb;
     juce::CachedValue<float> volumeDbValue;
+
+    // A gain per KEY, `Key 0`…`Key 127` in dB, added to the voices that note starts: a kit's pad louder than the rest.
+    std::vector<tracktion::engine::AutomatableParameter::Ptr> keyGains;
+    std::vector<std::unique_ptr<juce::CachedValue<float>>> keyGainValues;
+    // …and a MUTE per key, `Mute 0`…`Mute 127`, on at 0.5 and over: that note starts no voice, whatever its gain.
+    std::vector<tracktion::engine::AutomatableParameter::Ptr> keyMutes;
+    std::vector<std::unique_ptr<juce::CachedValue<float>>> keyMuteValues;
 
     // --- instrument ----------------------------------------------------------
 

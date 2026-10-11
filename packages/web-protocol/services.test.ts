@@ -1,10 +1,12 @@
 // st0 and z0 stay path-resolved on the SAME origin they're given; pl8 and k7 resolve to
 // their OWN hostname, picking dev vs prod by whichever family that origin belongs to.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   authOrigin,
   engineRegistryUrl,
+  parsePorts,
+  servicePorts,
   serviceUrl,
   studioFamily,
   studioOrigin,
@@ -47,6 +49,27 @@ describe("serviceUrl", () => {
 
   it("returns '' for a string that is not a URL, never a throw", () => {
     expect(serviceUrl("not a url", "pl8")).toBe("");
+  });
+
+  it("resolves a sibling to its PORT on a loopback host, where a subdomain resolves nowhere", () => {
+    expect(serviceUrl("http://127.0.0.1:8789", "pl8")).toBe(
+      "http://127.0.0.1:8795",
+    );
+    expect(serviceUrl("http://localhost:8795/x", "k7")).toBe(
+      "http://localhost:8787",
+    );
+  });
+
+  it("sends a loopback sibling back to st0's port, and keeps a dev server's own", () => {
+    expect(serviceUrl("http://127.0.0.1:8795", "st0")).toBe(
+      "http://127.0.0.1:8789",
+    );
+    expect(serviceUrl("http://localhost:5223", "st0")).toBe(
+      "http://localhost:5223",
+    );
+    expect(serviceUrl("http://127.0.0.1:8795", "z0")).toBe(
+      "http://127.0.0.1:8789/z0",
+    );
   });
 });
 
@@ -125,5 +148,39 @@ describe("studioFamily", () => {
 
   it("returns '' for a string that is not a URL", () => {
     expect(studioFamily("not a url")).toBe("");
+  });
+});
+
+describe("moved loopback ports", () => {
+  afterEach(() => {
+    delete process.env.STUDIO_PORTS;
+    delete (globalThis as Record<string, unknown>).__STUDIO_PORTS__;
+  });
+
+  it("reads a host's table from the environment, for node", () => {
+    process.env.STUDIO_PORTS = "st0=18789,pl8=18795";
+    expect(serviceUrl("http://127.0.0.1:18789", "pl8")).toBe(
+      "http://127.0.0.1:18795",
+    );
+    expect(serviceUrl("http://127.0.0.1:18795", "st0")).toBe(
+      "http://127.0.0.1:18789",
+    );
+    expect(engineRegistryUrl("http://127.0.0.1:18795")).toBe(
+      "http://127.0.0.1:18795",
+    );
+  });
+
+  it("prefers the page's global, which a preload sets", () => {
+    process.env.STUDIO_PORTS = "pl8=1";
+    (globalThis as Record<string, unknown>).__STUDIO_PORTS__ = "pl8=18795";
+    expect(servicePorts().pl8).toBe(18795);
+  });
+
+  it("drops what it cannot read and keeps the rest of the table", () => {
+    expect(parsePorts("pl8=18795, nope=1, k7=abc, z0=70000")).toEqual({
+      pl8: 18795,
+    });
+    process.env.STUDIO_PORTS = "pl8=18795";
+    expect(servicePorts().st0).toBe(8789);
   });
 });

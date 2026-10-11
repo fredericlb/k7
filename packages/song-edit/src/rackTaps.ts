@@ -74,7 +74,7 @@ export function setTap(
   dir: string,
   node: string,
   symbol: string,
-  change: { note?: number; sample?: string | null },
+  change: { note?: number; sample?: string | null; mute?: boolean },
 ): string {
   const kit = kitOf(dir, node);
   // A tap the node does not state yet starts from the one it inherits, so setting its sample keeps its note.
@@ -87,6 +87,9 @@ export function setTap(
     if (change.sample === null) doc.deleteIn([...at, "sample"]);
     else if (change.sample !== undefined)
       doc.setIn([...at, "sample"], change.sample);
+    // Unmuted is the default, so it is written as nothing rather than `mute: false`.
+    if (change.mute === true) doc.setIn([...at, "mute"], true);
+    else if (change.mute === false) doc.deleteIn([...at, "mute"]);
   });
 }
 
@@ -110,12 +113,12 @@ function freeNote(
   return null;
 }
 
-/** Add a tap: `symbol` or the next free `T<n>`; beside `near` in note order, else after the kit's highest note. */
+/** Add a tap: `symbol` or the next free `T<n>`; on note `near` when it is one, beside a tap when it names one, else after the kit's highest. */
 export function addTap(
   dir: string,
   node: string,
   symbol?: string,
-  near?: TapNear,
+  near?: TapNear | number,
 ): { symbol: string; note: number } {
   const kit = kitOf(dir, node);
   const taken = Object.keys(kit.symbols);
@@ -130,7 +133,13 @@ export function addTap(
     if (!taken.includes(`T${i}`)) name = `T${i}`;
   const notes = Object.values(kit.symbols).map((s) => Number(s.note));
   let note: number;
-  if (near) {
+  if (typeof near === "number") {
+    if (!Number.isInteger(near) || near < 0 || near > 127)
+      throw new Error(`${near} is not a note, 0..127`);
+    if (notes.includes(near))
+      throw new Error(`'${node}' already has a tap on note ${near}`);
+    note = near;
+  } else if (near) {
     const at = kit.symbols[near.symbol];
     if (!at) throw new Error(`'${node}' has no tap '${near.symbol}'`);
     // The NEAREST free note that side, never a renumbering: a note is what a sequence plays (packages/song/docs/racks.md).

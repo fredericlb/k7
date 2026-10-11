@@ -96,6 +96,14 @@ describe("pasting notes", () => {
     expect(droppedCount(out.length, clip)).toBe(1);
   });
 
+  it("keeps each note's own pitch when pasted at the rectangle's top — the roll's paste", () => {
+    const top = clip.kind === "notes" ? clip.top : Number.NaN;
+    expect(top).toBe(67);
+    const out = pasteNotes(clip, top, 16);
+    expect(out).toContainEqual({ k: 60, t: 16, d: 1 });
+    expect(out).toContainEqual({ k: 62, t: 17.5, d: 2, v: 0.4 });
+  });
+
   it("drops what a negative offset would push before the start", () => {
     expect(pasteNotes(clip, 67, -4)).toHaveLength(0);
   });

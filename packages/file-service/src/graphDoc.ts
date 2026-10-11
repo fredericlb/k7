@@ -45,6 +45,7 @@ import {
   curveIdFromRef,
   hostsPlugin,
   INPUT_VOLUME_PARAM,
+  isLibraryFileFamily,
   isLibraryFileParam,
   LIBRARY_FILE_PARAMS,
   type LibraryFileFamily,
@@ -76,6 +77,23 @@ function assetChoicesFor(
   }
 }
 
+/** A module's chosen files: its asset params, plus a FAUST module's sound slots — every string param it has. */
+function withFaustSlots(
+  module:
+    | { assets?: Record<string, string>; plugin?: unknown; params?: unknown }
+    | undefined,
+): Record<string, string> | undefined {
+  // Read off the PLUGIN's type, which the graph's module always carries — its source path it may not.
+  const type = (module?.plugin as { type?: unknown } | undefined)?.type;
+  if (String(type ?? "").toLowerCase() !== FAUST_TYPE) return module?.assets;
+  const slots = Object.entries(
+    (module?.params ?? {}) as Record<string, unknown>,
+  ).filter((e): e is [string, string] => typeof e[1] === "string");
+  return slots.length
+    ? { ...module?.assets, ...Object.fromEntries(slots) }
+    : module?.assets;
+}
+
 /** …plus the libraries' shared files, for a panel that picks one — every step carrying them would bloat each graph. */
 function withLibraryChoices(
   own: string[] | undefined,
@@ -90,6 +108,11 @@ function withLibraryChoices(
   const families = [
     ...new Set([
       ...also,
+      // A picker that NAMES its family, as a Faust module's sound slot does: its bind is the slot, not a known param.
+      ...widgets.flatMap((w) => {
+        const lib = (w as { library?: unknown }).library;
+        return typeof lib === "string" && isLibraryFileFamily(lib) ? [lib] : [];
+      }),
       ...widgets.flatMap((w) =>
         typeof w.bind !== "string"
           ? []
@@ -104,9 +127,12 @@ function withLibraryChoices(
     ]),
   ];
   if (!families.length) return own;
-  // A project's own `samples/` answers as `@project/…`; its IRs are the libraries' alone.
+  // A project's own `samples/` and `wavetables/` answer as `@project/…`; its IRs are the libraries' alone.
   const shared = families.flatMap((f) =>
-    libraryFiles(f, f === "samples" ? projectDir : undefined),
+    libraryFiles(
+      f,
+      f === "samples" || f === "wavetables" ? projectDir : undefined,
+    ),
   );
   return own || shared.length ? [...(own ?? []), ...shared] : undefined;
 }
@@ -166,6 +192,7 @@ function rackSounds(
       symbol,
       note: Number(s?.note ?? 0),
       ...(s?.sample ? { sample: String(s.sample) } : {}),
+      ...(s?.mute === true ? { mute: true } : {}),
       ...(rack.rackType === "slice"
         ? {
             ...(rack.source ? { source: rack.source } : {}),
@@ -178,6 +205,23 @@ function rackSounds(
     .sort((a, b) => a.note - b.note || a.symbol.localeCompare(b.symbol));
   // EMPTY rather than absent: a rack with no sound yet still draws its "+", the way a kit node starts.
   return out;
+}
+
+/** An SFZ kit's pads, drawn like a rack's: a name and its note each, in note order — packages/song/docs/racks.md. */
+function kitSounds(
+  module: { kit?: Record<string, number>; params?: unknown } | undefined,
+): WebRackSound[] | undefined {
+  if (!module?.kit) return undefined;
+  // A kit pad's mute is the SFZ player's `Mute <note>` param, set on the node like its gain.
+  const params = (module.params ?? {}) as Record<string, unknown>;
+  const muted = (note: number) => Number(params[`Mute ${note}`] ?? 0) >= 0.5;
+  return Object.entries(module.kit)
+    .map(([symbol, note]) => ({
+      symbol,
+      note,
+      ...(muted(note) ? { mute: true } : {}),
+    }))
+    .sort((a, b) => a.note - b.note || a.symbol.localeCompare(b.symbol));
 }
 
 // Beats drawn for a clip whose compiled `length` is 0 — the timeline's number too, docs/graphFlags.md.
@@ -342,7 +386,7 @@ export function buildGraphDoc(
               ? module.outputs.map((o) => ({ name: o.name, type: o.type }))
               : undefined,
           // As authored (inherited like params), so an asset dropdown can show what's loaded without asking the engine.
-          assets: module?.assets,
+          assets: withFaustSlots(module),
           // …and what it may choose from: the module's OWN assets/, walked — docs/graphFlags.md.
           assetChoices: withLibraryChoices(
             assetChoicesFor(dir, module, moduleRefs, assets),
@@ -382,8 +426,9 @@ export function buildGraphDoc(
             !unknownPlugin &&
             EXTERNAL_PLUGIN_FORMATS.has(fmt),
           ui: module?.ui,
-          // A RACK's loaded sounds, the EFFECTIVE rack, so its node can draw a pad per sound.
-          rack: rackSounds(module),
+          // A RACK's loaded sounds, the EFFECTIVE rack, so its node can draw a pad per sound — or an SFZ kit's pads.
+          rack: rackSounds(module) ?? kitSounds(module),
+          ...(!module?.rack && module?.kit ? { rackKit: true } : {}),
           // Which CC plays which param, from `controller.yaml`, keyed like `ui` — docs/graphFlags.md.
           cc: module?.cc,
           // The other attribute sets this module could be switched to — packages/song/docs/alternatives.md.

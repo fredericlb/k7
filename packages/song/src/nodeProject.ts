@@ -24,6 +24,7 @@ import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { orderTracks } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
+import { isSurgePatch } from "./basePreset";
 import { loadLinkLevels } from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { compClips, markCrossfades } from "./compClips";
@@ -36,6 +37,7 @@ import {
   patternShares,
   sampleBanks,
 } from "./enginePattern";
+import { faustFilesOf } from "./faustFiles";
 import { activeFreezePlans } from "./freeze";
 import {
   type Chain,
@@ -44,6 +46,7 @@ import {
   loadGraph,
   parseChains,
 } from "./graph";
+import { highlighted } from "./highlight";
 import { applyLinkLevels } from "./linkLevels";
 import {
   type Diagnostic,
@@ -659,6 +662,8 @@ function compileNodeProjectIn(
         for (const [symbol, e] of Object.entries(rack.symbols)) {
           const note = Number(e.note);
           if (!Number.isFinite(note)) continue;
+          // A muted tap stays on the kit and its pad; the sampler is simply not given it.
+          if (e.mute === true) continue;
           if (rack.rackType === "slice") {
             if (!sourceAbs) continue; // no resolvable source — nothing to slice
             const from = Number(e.from ?? 0);
@@ -736,7 +741,8 @@ function compileNodeProjectIn(
         type, // engine wire form: built-in xmlTypeName (e.g. "4osc") or external format ("vst3")
         // The plugin's real name, so the engine can match it in the scan cache; a built-in falls back to the module name.
         name: pluginName,
-        path: String(module.preset ?? ""), // resolved preset to load
+        // The resolved base to load: a `.vstpreset`, or a Surge XT patch, which leaves as its own field below.
+        path: isSurgePatch(module.preset) ? "" : String(module.preset ?? ""),
         // The .nam model, absolute, leaving as its OWN field because the engine loads it rather than setting it.
         ...(module.model ? { namFile: String(module.model) } : {}),
         // …and the cabinet IR it convolves after the model, from a library's `irs/` (docs/libraryFiles.md).
@@ -744,6 +750,10 @@ function compileNodeProjectIn(
         // An SFZ instrument, as the module names it: an `@instruments/` one is resolved on the ENGINE's machine.
         ...(typeof module.params?.sfz === "string" && module.params.sfz
           ? { sfzFile: module.params.sfz }
+          : {}),
+        // A Surge XT patch is a base like any other, loaded by the synth itself (engine docs/surgePlugin.md).
+        ...(isSurgePatch(module.preset)
+          ? { surgePatch: String(module.preset) }
           : {}),
         // The DSP graph, inline because the engine parses no files and this declares the plugin's parameters.
         ...(() => {
@@ -757,7 +767,10 @@ function compileNodeProjectIn(
           const src = module.faust;
           if (!src) return {};
           const text = readFaustSource(String(src));
-          return text ? { faustDsp: text } : {};
+          if (!text) return {};
+          // …and the files its `soundfile` slots play, named by the node's string params (docs/faustFiles.md).
+          const files = faustFilesOf(module.params, dir);
+          return { faustDsp: text, ...(files ? { faustFiles: files } : {}) };
         })(),
         // The feeder of the module's SECOND input port, as a lane; only the first is carried — see docs/ports.md.
         ...(() => {
@@ -860,6 +873,8 @@ function compileNodeProjectIn(
 
   // The soloed lanes from project.yaml's `soloed:`, a group's id folded onto its members because the engine never sees grouping.
   const soloed = new Set((root.soloed ?? []).map(String));
+  // …and the HIGHLIGHTED ones, heard 10 dB up on their strip's output stage (highlight.ts).
+  const lit = new Set((root.highlighted ?? []).map(String));
 
   const groups: GroupDoc[] = Object.entries(lanesMap)
     .filter(([, t]) => t.type === "group" && !t.disabled)
@@ -974,10 +989,11 @@ function compileNodeProjectIn(
               frozenMaterial: events.flatMap(placed),
             }
           : {}),
-        plugins: [
+        plugins: ((ps: PluginDoc[]) => (lit.has(lane) ? highlighted(ps) : ps))([
           ...(patterns.has(id) ? [patterns.get(id) as PluginDoc] : []),
           ...(trackPlugins[id] ?? []),
-        ],
+        ]),
+        ...(lit.has(lane) ? { highlight: true } : {}),
         sends: trackSends[id] ?? [],
         automation: [],
         // No `docs`/`todos` carried through: a note is a doc module (docs/docModules.md).

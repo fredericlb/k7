@@ -37,6 +37,66 @@ still load: they are how racks were written, and `scripts/migrateRacks.ts` conve
 rack's windows cut into one file each, byte for byte, the kit moved into the nodes that play the
 module, and a module no node plays converted in place so nothing is lost.
 
+## …or a KIT's pads: `st0-rack-sfz`
+
+A sampled drum kit is better played whole — its velocity layers, round-robins and hi-hat choke are
+the point of it — so it can be drawn as a rack without becoming one. `@st0/instruments/st0-rack-sfz`
+is ONE module for every such kit, each kit an ENGINE of it (`engines.md`): an SFZ player
+(`params: sfz:`) naming its pads under `kit:`, `<name>: <note>`. A node changes kit the way it changes
+any engine — the header's dropdown, its values kept per kit — and a preset can name the kit it was
+taken on. Engines rather than a module per kit, because a kit is a choice made on the node, not a
+different instrument to go and find; and rather than bases, because a kit's file lives on the
+ENGINE's machine (`@instruments/…`), not in a module's folder. The node draws a tap per pad, in note
+order, exactly as a rack's. A pad is its NOTE:
+clicking it plays the note through the node's own lane — the whole kit and the node's chain after it,
+the piano roll's `note-preview` — not a file played dry.
+
+**A kit's level is set per kit, and drawn in a column beside its pads.** A rack's samples are normalised
+one-shots, each near 0 dBFS; a sampled kit keeps the balance it was recorded with, its kick 10 dB and
+more under that at a usual velocity, so beside a rack it read as broken rather than as quiet. Each
+kit's engine sets the SFZ player's `Volume` so that its loudest hit at full velocity peaks at 0 dBFS —
+the rack's level, measured, without clipping the hardest stroke — and that `Volume` is a knob right
+of the pad grid, on every octave's tab, the one control a kit's pads leave nowhere else.
+
+**Each pad has a gain of its own, in a row under it.** It is the SFZ player's `Key <note>` param, in
+whole dB from -24 to +12, so a node writes it into its `params:` like any knob and keeps it per
+kit like every other value. It is bound to the NOTE rather than the pad's name because the player
+knows only notes; a kit's pads are fixed to their notes, so the two cannot drift apart. It is a real gain
+and not a velocity: the sample layer and the timbre stay the kit's (engine docs/sfzPlugin.md).
+
+**A pad can be MUTED, on either kind of rack.** The pad stays — drawn dimmed, its note and sample
+kept — and only stops sounding, so a part can drop the hats for eight bars without losing them. The
+two kinds keep it where each keeps its pads: a rack tap says `mute: true` in the node's kit (`node tap
+mute`, a toggle), and the compile simply does not hand that sound to the sampler; a kit's pad is the
+SFZ player's `Mute <note>` param, set on the node like its gain, and the player drops that note's
+note-ons. A mute is not a gain at its bottom: unmuting brings the pad back at the level it had.
+
+The pads are the KIT's, and only the kit's. No "+", no sample to pick, no note to retype, no pad to
+remove: the notes are where the SFZ file put its sounds, and a node that remapped them would be a
+second keymap over the first, which a drum part written for General MIDI would then miss. To play a
+kit from other notes, change the kit.
+
+```yaml
+# st0-rack-sfz/engines/naked-drums/module.yaml
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz"
+kit:
+  Kick: 36
+  Snare: 38
+  HatClosed: 42
+```
+
+### A kit from an SFZ drum kit
+
+`engine/st0-engine/scripts/sfz-to-rack.ts` makes a rack kit out of a sampled one: each piece RENDERED
+through the engine's SFZ player at one velocity, its silent tail trimmed, one file per piece under a
+library's `samples/`, and a preset mapping each to its note. Rendered rather than copied, because a
+sampled kit plays several microphones per hit — a close mic and the overheads at least — and the
+sample has to be what the player sounds for that hit, not one of its microphones. What a rack cannot
+keep is the rest of the kit: its velocity layers, its round-robins and its hi-hat choke, which is why
+the full kit stays an SFZ instrument and the rack is the light, editable copy.
+
 ## The node draws a TAP per sound
 
 The synthesised panel is a `tap` per sound (`TapWidget` in `@studio/ui-chains-react`): the pad, the
@@ -46,9 +106,10 @@ the libraries' `samples/` as its choices (`withLibraryChoices`, handed only to a
 widget only ASKS: every edit is a `node tap` command the host runs, so the card holds no state and
 the command bar can do everything it can.
 
-A rack with NO sounds still draws its panel — just the add tap — because a kit node is born empty
-and that tap is how it gets its first sound. The taps are laid out in NOTE order, the order a kit is
-played in, rather than by name.
+A rack is drawn by octave, a tab each, its twelve notes as a 4×3 grid with the lowest at the bottom
+left (`packages/ui-chains/docs/graphBuild.md`). A pad sits AT its note, the place a part plays it
+from, and an empty cell is an add tap on that note (`node tap at`). A rack with NO sounds still
+draws one octave of add taps, because a kit node is born empty and that is how it gets its first sound.
 
 ```yaml
 # modules/instruments/kit/module.yaml
@@ -134,6 +195,7 @@ contain the playhead.
 | a LOOPED event of one | yes | the doc states the window, not the passes: the notes inside `[loopStart, loopEnd)` are tiled across the placed length, as the engine plays them (`clipLoop`) |
 | a live MIDI input | **no** | those notes were never written down |
 | a strudel lane | **no** | the engine makes them as it plays; the browser never sees them |
+| a pad CLICKED | yes, briefly | the click is the browser's own: the store flashes that pad (`FLASH_MS`), apart from the playback picture each frame replaces, so the next frame does not put it out |
 | accuracy | ~50 ms | the state frame's own rate |
 
 A very short note is floored to `MIN_FLASH_BEATS` **on the display only**: a thirty-second drum hit
@@ -143,6 +205,10 @@ others. What is played is untouched.
 Observing it properly means the engine broadcasting its sounding notes — a change to the state
 frame and its C++ side, on the hottest path there is. That is the trade this took; the derivation
 costs nothing at the engine and is exact for the case a rack is normally used in.
+
+Every pane that draws pads owes them the same answer — the graph, the bottom panel and the per-track
+view each build the store from the project and the graph; a pane that drew pads and built none would
+light nothing, on playback as on a click.
 
 ### It reaches the pad through a store, not a prop
 

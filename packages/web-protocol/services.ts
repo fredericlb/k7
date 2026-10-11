@@ -35,9 +35,44 @@ export const SERVICE_PORTS: Record<StudioService, number> = {
   z0: 8080,
 };
 
+/** How a host moves the loopback ports, as `st0=18789,pl8=18795`: an env var for node, a global for a page. */
+export const PORTS_ENV = "STUDIO_PORTS";
+export const PORTS_GLOBAL = "__STUDIO_PORTS__";
+
+/** `st0=18789,pl8=18795` as a partial table; an unknown name or a bad number is dropped. */
+export function parsePorts(
+  spec: string,
+): Partial<Record<StudioService, number>> {
+  const out: Partial<Record<StudioService, number>> = {};
+  for (const pair of spec.split(",")) {
+    const [name, value] = pair.split("=").map((x) => x.trim());
+    const port = Number(value);
+    if (
+      name in SERVICE_PORTS &&
+      Number.isInteger(port) &&
+      port > 0 &&
+      port < 65536
+    )
+      out[name as StudioService] = port;
+  }
+  return out;
+}
+
+/** SERVICE_PORTS, with what the host moved — the desktop app runs on its own pair beside a dev session. */
+export function servicePorts(): Record<StudioService, number> {
+  const g = globalThis as {
+    [PORTS_GLOBAL]?: unknown;
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const fromPage = g[PORTS_GLOBAL];
+  const spec =
+    typeof fromPage === "string" ? fromPage : g.process?.env?.[PORTS_ENV];
+  return spec ? { ...SERVICE_PORTS, ...parsePorts(spec) } : SERVICE_PORTS;
+}
+
 /** Where a service answers on the machine it runs on. See SERVICE_PORTS for when to prefer it. */
 export function localServiceUrl(service: StudioService): string {
-  return `http://127.0.0.1:${SERVICE_PORTS[service]}`;
+  return `http://127.0.0.1:${servicePorts()[service]}`;
 }
 
 /**
@@ -53,6 +88,8 @@ export function serviceUrl(origin: string, service: StudioService): string {
   } catch {
     return "";
   }
+  if (isLoopbackHost(parsed.hostname))
+    return loopbackServiceUrl(parsed, service);
   const base = st0Hostname(parsed.hostname);
   if (service === "st0") {
     // Unchanged (port included) when nothing was stripped — st0 linking to itself, or a bare
@@ -80,6 +117,22 @@ const LOOPBACK = /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/;
 /** Whether `hostname` (a URL's, brackets and all for IPv6) is one where services are ports rather than subdomains. */
 export const isLoopbackHost = (hostname: string): boolean =>
   LOOPBACK.test(hostname);
+
+/**
+ * `serviceUrl` on a loopback host, where a service is its PORT: a subdomain of 127.0.0.1 resolves
+ * nowhere. st0 keeps a port no sibling owns (a dev server's), and leaves a sibling's for its own.
+ */
+function loopbackServiceUrl(parsed: URL, service: StudioService): string {
+  const host = `${parsed.protocol}//${parsed.hostname}`;
+  const ports = servicePorts();
+  if (service === "z0")
+    return loopbackServiceUrl(parsed, "st0") + SERVICE_PATHS.z0;
+  if (service !== "st0") return `${host}:${ports[service]}`;
+  const sibling = (["pl8", "k7"] as const).some(
+    (s) => parsed.port === String(ports[s]),
+  );
+  return sibling ? `${host}:${ports.st0}` : parsed.origin;
+}
 
 /**
  * Which studio family a URL belongs to, as one key: st0's origin, whichever service was named —
@@ -112,7 +165,7 @@ export function engineRegistryUrl(url: string): string {
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
   if (isLoopbackHost(parsed.hostname))
-    return `${parsed.protocol}//${parsed.hostname}:${SERVICE_PORTS.pl8}`;
+    return `${parsed.protocol}//${parsed.hostname}:${servicePorts().pl8}`;
   return serviceUrl(parsed.origin, "pl8");
 }
 

@@ -32,11 +32,19 @@ export function rootOf(roots: TunnelRoot[], p: string): TunnelRoot | null {
   return roots.find((r) => within(r.remote, p)) ?? null;
 }
 
-/** Whether the REAL path of `p` (or of its nearest existing ancestor) stays inside `root`. */
-async function stillInside(root: TunnelRoot, p: string): Promise<boolean> {
+/** Whether the REAL path of `p` (or of its nearest existing ancestor) stays inside `root` — or, for a `perChild` root, inside its top-level folder. */
+export async function stillInside(
+  root: TunnelRoot,
+  p: string,
+): Promise<boolean> {
+  // A library's clone may itself be a link (a dev's checkout); what it holds is still kept inside that clone.
+  const base =
+    root.perChild && p !== root.remote
+      ? P.join(root.remote, p.slice(root.remote.length + 1).split(/[\\/]/)[0])
+      : root.remote;
   let realRoot: string;
   try {
-    realRoot = await realpath(root.remote);
+    realRoot = await realpath(base);
   } catch {
     return false;
   }

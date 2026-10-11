@@ -469,6 +469,7 @@ describe("which addresses open a project", () => {
   it("finds the home's own pages at the mount, exactly one segment", () => {
     expect(isHomePage("/libraries", "/")).toBe(true);
     expect(isHomePage("/settings/", "/")).toBe(true);
+    expect(isHomePage("/tasks", "/")).toBe(true);
     expect(isHomePage("/st0/settings", "/st0/")).toBe(true);
     expect(isHomePage("/settings/x.st0", "/")).toBe(false);
     expect(isHomePage("/external", "/")).toBe(false);

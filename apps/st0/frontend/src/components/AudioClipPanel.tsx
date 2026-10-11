@@ -9,7 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
-import { Check, Loader2, Square } from "@frediverse/ui/icons";
+import { Check, Loader2, Square, Trash2 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
@@ -93,6 +93,7 @@ export function AudioClipPanel({
   reloadKey = 0,
   onStop,
   onClose,
+  onDiscard,
   viewRef,
   onViewChange,
   setStatus,
@@ -133,6 +134,8 @@ export function AudioClipPanel({
   /** Stop the take. Absent when there is no take to stop — a clip opened from the timeline. */
   onStop?: () => void;
   onClose: () => void;
+  /** Throw the take just recorded away — absent for a clip opened from the timeline, which is not a recording to regret. */
+  onDiscard?: () => void;
   /** Where the shell reaches this panel's MODE — `ui wave <mode>` arrives here, as the timeline's tools do (waveMode.ts). */
   viewRef?: RefObject<AudioClipHandle | null>;
   /** …and the same fact going up, for the key conditions and the footer's badge. */
@@ -245,6 +248,15 @@ export function AudioClipPanel({
   /** The count-in is not the take: nothing is recorded during it, so nothing is drawn and nothing is COLLECTED — `recording` is the honest edge. */
   const counting = rolling && count.phase === "count-in";
   const live = useLiveEnvelope(rolling && !counting, trackOrder);
+  // From Stop until the file's picture arrives, the take as it was heard stays up rather than a blank "reading" line.
+  const [bridging, setBridging] = useState(false);
+  useEffect(() => {
+    if (rolling) setBridging(true);
+  }, [rolling]);
+  useEffect(() => {
+    if (wf) setBridging(false);
+  }, [wf]);
+  const bridge = bridging && !rolling && live.samples.length > 0;
   // No 'how long it ran' kept once it stops: the panel switches to the FILE, whose own length is the honest answer.
   const at = barBeat(count.beats, beatsPerBar);
 
@@ -675,6 +687,17 @@ export function AudioClipPanel({
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
+            {onDiscard && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onDiscard}
+                title="discard this recording — its event leaves the lane"
+                aria-label="discard this recording"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button size="sm" onClick={onClose} title={m["clip.done"]()}>
               <Check className="h-3.5 w-3.5" />
             </Button>
@@ -769,7 +792,7 @@ export function AudioClipPanel({
               <p className="py-6 text-center text-sm text-muted-foreground">
                 {m["clip.countingIn"]()}
               </p>
-            ) : rolling ? (
+            ) : rolling || (bridge && !error) ? (
               <Waveform
                 look="spectrum"
                 envelope={live}

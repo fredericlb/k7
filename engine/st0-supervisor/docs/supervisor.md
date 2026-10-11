@@ -33,6 +33,22 @@ read forever, through a crash and through a rebuild alike. On Windows the three 
 it runs, so two overlapping spawns can still cross handles — a bounded cost, since of our children
 only the engine outlives us.
 
+## An engine is adopted by its PORT, and a probe that cannot ask says nothing
+
+Whether the engine is up is asked of its port (`isServing`), and the answer has three values, not
+two: up, down, or *could not ask* — `socket()` itself failed, which is what running out of file
+descriptors looks like. Read as "down", that third answer cost a machine a whole night: the pidfile
+named the live engine, the probe could not open a socket, the supervisor dropped the pidfile as
+stale, and every engine it started after that died on the port the first one still held, every two
+seconds, while the browser's transport kept being reset. So *could not ask* keeps the pidfile and
+retries, and a start that finds the port already answered with no pidfile naming its owner adopts
+that owner (its pid asked of `lsof`) rather than spawning an engine that can only fail to bind.
+
+What ran the descriptors out was the heartbeat: one started every five seconds whether or not the
+last had come back, so a network gone dead — a sleeping laptop, a DNS lookup the request timeout
+does not bound — stacked them, each holding its sockets and pipes, until the 256 a process gets
+were spent. A heartbeat still in flight now makes the next tick skip.
+
 ## One wire, two implementations, one set of tests
 
 The server's half of the tunnel is TypeScript (`packages/engine-tunnel/hub.ts`), and this program

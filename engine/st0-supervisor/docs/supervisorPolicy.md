@@ -88,7 +88,8 @@ Every URL, whichever tier it came from, is read as its family's **one registry, 
 (`url::engineRegistryUrl` in `Url.cpp`, the twin of `engineRegistryUrl` in
 `packages/web-protocol/services.ts` — `Url_test.cpp` replays that file's cases): `https://st0.app` and
 `https://play.st0.app` both mean `https://play.st0.app`, and `http://localhost:8789` means
-`http://localhost:8795`. st0 holds no registry — it lists engines from pl8
+`http://localhost:8795` — or pl8's port in `$STUDIO_PORTS` when a host moved it, as the desktop app
+does (`packages/web-protocol/docs/addresses.md`). st0 holds no registry — it lists engines from pl8
 (`packages/engine-registry/docs/shared.md`) — so a st0 URL in a settings file is read as pl8's
 rather than heartbeated at a route st0 does not have. The answer is a **list**, one per studio this engine is connected to, deduped.
 

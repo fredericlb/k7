@@ -233,6 +233,12 @@ changes. `getCurrentValue()` is the wrong one: once the param has a curve it is 
 the playhead, so a lane re-applied by a diff would be centred on wherever the transport stood, and
 the same bar would play differently depending on where playback was started.
 
+The centre is read when the lane is BAKED, so a knob moved afterwards would set a value the curve
+never consults, and the knob would do nothing while the curve plays. A param change that has a
+bipolar lane on it therefore bakes that lane again, from the new centre (`EngineHost.cpp`,
+`PluginParamChanged`). A unipolar lane is left alone: it spans the whole range by design, so the knob
+has nothing to say under it.
+
 ## Two small ones worth keeping
 
 `applyTrackParams` leaves the track's own fader at unity on purpose: what a track sounds like is

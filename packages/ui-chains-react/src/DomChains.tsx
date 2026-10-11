@@ -106,6 +106,7 @@ import {
   UI_HEADER,
   widgetDenorm,
   widgetNorm,
+  widgetText,
   widgetTyped,
 } from "@studio/ui-chains/graph";
 import { groupEdgeInsets } from "@studio/ui-chains/groupEdge";
@@ -119,8 +120,14 @@ import {
 import {
   compileWidgetsScript,
   hiddenWidgets,
+  type LcdSounds,
 } from "@studio/ui-chains/lcdScreen";
-import { linkedNodes, toggleSelection } from "@studio/ui-chains/multiSelect";
+import {
+  linkedNodes,
+  linkedValue,
+  nodesInBox,
+  toggleSelection,
+} from "@studio/ui-chains/multiSelect";
 import { type LaneNotes, noteLoadAt } from "@studio/ui-chains/noteLoad";
 import { patchAct } from "@studio/ui-chains/patchGesture";
 import type { RowSeam } from "@studio/ui-chains/rowSeams";
@@ -165,7 +172,12 @@ import {
   SAND,
   useCss,
 } from "./chainsCss";
-import { LcdScreenWidget, type LcdSet, LcdSetContext } from "./LcdScreenWidget";
+import {
+  LcdScreenWidget,
+  type LcdSet,
+  LcdSetContext,
+  LcdSoundsContext,
+} from "./LcdScreenWidget";
 import { createLcdZoom, LcdZoomContext } from "./lcdZoom";
 import { Minimap } from "./Minimap";
 import { moduleFieldValue, projectFieldValue } from "./moduleField";
@@ -365,6 +377,9 @@ function widgetTarget(
   // sets lives in project.yaml, and `@project:aspect` would become a FIELD called "project:aspect".
   const setting = projectBindField(w.bind);
   if (setting) return { kind: "project", field: setting };
+  // A STRIP's highlight is its LANE's, like the lane card's mute and solo — not a field of the mixer module.
+  if (w.bind === "@highlight" && n.trackFace)
+    return { kind: "track", trackId: n.trackFace, control: "highlight" };
   // A lane's output volume IS its mixer fader, whose control keeps the mixer's own name.
   if (n.kind === "track" && w.bind === OUTPUT_VOLUME_PARAM)
     return { kind: "track", trackId: n.label, control: "volume" };
@@ -467,6 +482,31 @@ interface Channels {
   rehearsal: boolean;
   /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
   rackLit?: RackLitStore;
+  /** Which MIDI devices just sent something — a midi-in card's LED. See `MidiActivityStore`. */
+  midiActivity?: MidiActivityStore;
+}
+
+/** Which MIDI devices just sent something, asked by the LABEL a midi-in node names ("" any) — docs/widgets.md. */
+export interface MidiActivityStore {
+  subscribe(cb: () => void): () => void;
+  isLit(label: string): boolean;
+}
+
+/** A midi-in card's LED; a null label is "not a midi-in card", so the hook stays unconditional. */
+function useMidiActivity(
+  store: MidiActivityStore | undefined,
+  label: string | null,
+): boolean {
+  const subscribe = useCallback(
+    (cb: () => void) =>
+      store && label !== null ? store.subscribe(cb) : () => {},
+    [store, label],
+  );
+  const read = useCallback(
+    () => (store && label !== null ? store.isLit(label) : false),
+    [store, label],
+  );
+  return useSyncExternalStore(subscribe, read, read);
 }
 
 /** Which rack sounds are firing, as a pad asks it: one module, one note — docs/widgets.md. */
@@ -599,12 +639,6 @@ const draggable = (w: WebWidget) =>
   w.type === "slider" ||
   w.type === "fader" ||
   w.type === "number";
-
-function fmtValue(v: number | undefined): string {
-  if (v === undefined) return "–";
-  const a = Math.abs(v);
-  return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
-}
 
 // --- edge geometry (the maths is @studio/ui-chains/cables; here, its per-edge metadata) ---
 
@@ -1157,7 +1191,13 @@ function WidgetInner({
   // A dropdown picks an exact value rather than flipping one, so it can't go through onTap.
   onPick: (n: GraphNode, w: WebWidget, value: number) => void;
   /** Open the library browser for this widget, at the click's viewport coords — it picks a FILE. */
-  onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
+  onPickAsset: (
+    n: GraphNode,
+    param: string,
+    x: number,
+    y: number,
+    family?: string,
+  ) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
     pluginId: string,
@@ -1207,6 +1247,11 @@ function WidgetInner({
   // saying it is rolling, never the click, which would light on a refusal too.
   const recNode = tgt?.kind === "recorder" ? (tgt.pluginId ?? null) : null;
   const recState = useRecorderState(useEngineStoreOrNull(), recNode);
+  // …and a midi-in card's device dropdown, whose LED lights while that keyboard is sending.
+  const midiLit = useMidiActivity(
+    ch.midiActivity,
+    tgt?.kind === "module" && tgt.field === "device" ? (n.device ?? "") : null,
+  );
   // A double-click swaps the control for a text field, so an exact value can be typed — docs/widgets.md.
   const [editing, setEditing] = useState(false);
 
@@ -1217,6 +1262,7 @@ function WidgetInner({
       <TapWidget
         bind={w.bind}
         sound={symbol ? n.rack?.find((s) => s.symbol === symbol) : undefined}
+        fixed={!!n.rackKit}
         lit={padLit}
         style={
           styleOverride ?? { left: r.x, top: r.y, width: r.w, height: r.h }
@@ -1411,7 +1457,7 @@ function WidgetInner({
         known={known}
         span={span}
         size={knobPx ?? Math.max(14, size)}
-        text={isMixKnob(w) ? `${Math.round(t * 100)}%` : fmtValue(value)}
+        text={isMixKnob(w) ? `${Math.round(t * 100)}%` : widgetText(w, value)}
       />
     );
   } else if (w.type === "slider") {
@@ -1425,7 +1471,7 @@ function WidgetInner({
     body = (
       <>
         <span className={`dgx-fval${known ? "" : " unknown"}`}>
-          {fmtValue(value)}
+          {widgetText(w, value)}
         </span>
         <div className={`dgx-fader${known ? "" : " unknown"}`}>
           {/* The VU rides left of the throw, and only on a chain that IS a track. */}
@@ -1482,7 +1528,7 @@ function WidgetInner({
   } else if (w.type === "number") {
     body = (
       <span className={`dgx-num${known ? "" : " unknown"}`}>
-        {fmtValue(value)}
+        {widgetText(w, value)}
       </span>
     );
   } else if (w.type === "label") {
@@ -1508,7 +1554,8 @@ function WidgetInner({
         disabled={!n.module}
         onClick={(e) => {
           e.stopPropagation();
-          onPickAsset(n, param, e.clientX, e.clientY);
+          // …and the family the widget names, for a param whose name says nothing about its files.
+          onPickAsset(n, param, e.clientX, e.clientY, w.library);
         }}
       >
         {shown}
@@ -1523,7 +1570,7 @@ function WidgetInner({
             Math.abs(o.value - value) < Math.abs(best.value - value) ? o : best,
           ).value
         : undefined;
-    body = (
+    const select = (
       <select
         className={`dgx-sel${known ? "" : " unknown"}`}
         value={cur ?? ""}
@@ -1539,6 +1586,16 @@ function WidgetInner({
         ))}
       </select>
     );
+    // A MIDI device's dropdown carries the LED that says the keyboard is reaching this browser.
+    body =
+      tgt?.kind === "module" && tgt.field === "device" ? (
+        <span className="dgx-ledrow">
+          <i className={`dgx-led${midiLit ? " on" : ""}`} />
+          {select}
+        </span>
+      ) : (
+        select
+      );
   }
 
   // A curve's cable is in hand and this PLUGIN param can take it — docs/widgets.md.
@@ -1797,6 +1854,7 @@ function NodeInner({
   n,
   selected,
   inSelection,
+  marked,
   automated,
   showWidgets,
   far,
@@ -1810,6 +1868,7 @@ function NodeInner({
   onAlternative,
   onEngine,
   onPresets,
+  onPresetStep,
   presetName,
   onZoomTo,
   warning,
@@ -1836,6 +1895,8 @@ function NodeInner({
   selected: string | null;
   /** In the Shift+click selection, beside the host's one — multiSelect.ts. */
   inSelection?: boolean;
+  /** Lit by the host for a reason of its own — st0's History panel, what a step touched. */
+  marked?: boolean;
   /** The params a curve drives on this node, newline-joined — a STRING, so the memoised card sees a change only when there is one. */
   automated?: string;
   showWidgets: boolean;
@@ -1861,6 +1922,8 @@ function NodeInner({
     y: number,
     engines?: NodeEngines,
   ) => void;
+  /** The arrows beside it: load this node's previous (-1) or next (+1) preset. */
+  onPresetStep?: (module: string, step: -1 | 1) => void;
   /** The preset last loaded on this node, shown on the dropdown. */
   presetName?: string;
   /** A double-click on the header, or on the whole card when zoomed out: frame this node. */
@@ -1871,7 +1934,13 @@ function NodeInner({
   onTapWidget: (n: GraphNode, w: WebWidget) => void;
   onPickWidget: (n: GraphNode, w: WebWidget, value: number) => void;
   /** Open the library browser for this widget — a FILE for the module field the widget names. */
-  onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
+  onPickAsset: (
+    n: GraphNode,
+    param: string,
+    x: number,
+    y: number,
+    family?: string,
+  ) => void;
   /** What this TRACK is fed from, as a chip on its header; undefined draws none. */
   trackInput?: string;
   onPickTrackInput: (n: GraphNode, x: number, y: number) => void;
@@ -1959,11 +2028,15 @@ function NodeInner({
   );
   // The name the card wears: the lane it is the strip of, else the MODULE this node uses — its own underneath (docs/nodeCard.md).
   // A lane's is spelt WITHOUT its instrument code, which the glyph beside it already says; the TRACK node keeps its id, being addressed by it.
+  // A step with no module and no plugin plays nothing: said so, its place kept for the tooltip (packages/song/docs/chainFiles.md).
+  const empty = n.kind === "module" && !n.uses && !n.category && !!n.stub;
   const headName = trackFace
     ? (trackLabel?.(trackFace) ?? trackFace)
     : n.uses
       ? moduleDisplayName(n.uses)
-      : (n.place ?? n.label);
+      : empty
+        ? "empty step"
+        : (n.place ?? n.label);
   // What the node is CALLED where a person reads it: an unnamed node's place, never its uuid (packages/song/docs/chainFiles.md).
   const ownName = n.place ?? n.label;
   // The node's own name goes under the header only when the header says something else.
@@ -2097,6 +2170,7 @@ function NodeInner({
     // A lane's row: the cards are one strip, joined at the sides and framed by nothing above or below.
     inLaneRow ? "across" : "",
     sel ? "sel" : "",
+    marked ? "marked" : "",
     n.frozen || n.autoFrozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render
     n.pending ? "pending" : "",
     far ? "far" : "", // far ⇒ name only; every other LOD draws header + content
@@ -2372,6 +2446,8 @@ function NodeInner({
                 current={presetName}
                 engines={engines}
                 onPresets={onPresets}
+                // Only where there are presets to step through: the engines alone are no list.
+                onStep={hasPresets ? onPresetStep : undefined}
               />
             </span>
           )}
@@ -2990,13 +3066,17 @@ export function DomChains({
   onAlternative,
   onEngine,
   onPresets,
+  onPresetStep,
   presetNames,
   onTriggerRack,
   onRecorder,
   onProjectField,
   rackLit,
+  midiActivity,
+  marked,
   onSetModuleAsset,
   onAssetBrowse,
+  sounds,
   onLibraryBrowse,
   trackInputs,
   onPickTrackInput,
@@ -3111,6 +3191,8 @@ export function DomChains({
     y: number,
     engines?: NodeEngines,
   ) => void;
+  /** The arrows beside the dropdown: the host loads that node's previous (-1) or next (+1) preset. */
+  onPresetStep?: (module: string, step: -1 | 1) => void;
   /** The preset each node last loaded, by node — the HOST's session state, drawn on the dropdown. */
   presetNames?: Record<string, string>;
   /** A RACK pad was clicked: the graph says WHICH sound was asked for and stops there — docs/hosting.md. */
@@ -3126,10 +3208,22 @@ export function DomChains({
   ) => void;
   /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
   rackLit?: RackLitStore;
+  /** Which MIDI devices just sent something: a midi-in card's LED. See `MidiActivityStore`. */
+  midiActivity?: MidiActivityStore;
+  /** The nodes the host wants lit — st0's History panel, what a step touched; read per node at draw. */
+  marked?: (n: GraphNode) => boolean;
   // Set a file-valued param on a module: `param` is the key ("model"), `file` assets-relative or "none".
   onSetModuleAsset?: (module: string, kind: string, file: string) => void;
+  /** The host's decoder of a module's sound files, which a screen draws with `lcd.sound(slot)` — docs/lcdScreen.md. */
+  sounds?: LcdSounds;
   /** Open the asset browser for a module's file-valued param, at viewport coords. */
-  onAssetBrowse?: (module: string, kind: string, x: number, y: number) => void;
+  onAssetBrowse?: (
+    module: string,
+    kind: string,
+    x: number,
+    y: number,
+    family?: string,
+  ) => void;
   onLibraryBrowse?: (
     module: string,
     kind: string,
@@ -3157,7 +3251,10 @@ export function DomChains({
   /** …and the way back, for the same modules. Called per frame during a drag. */
   onModuleParam?: (module: string, name: string, value: number) => void;
   trackControls?: Record<string, TrackControlValues>;
-  onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
+  onTrackToggle?: (
+    trackId: string,
+    control: "mute" | "solo" | "arm" | "highlight",
+  ) => void;
   onTrackSet?: (
     trackId: string,
     control: "volume" | "pan",
@@ -3258,6 +3355,7 @@ export function DomChains({
     onAlternative,
     onEngine,
     onPresets,
+    onPresetStep,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -3289,6 +3387,7 @@ export function DomChains({
     onAlternative,
     onEngine,
     onPresets,
+    onPresetStep,
     onTriggerRack,
     onRecorder,
     onProjectField,
@@ -3969,7 +4068,14 @@ export function DomChains({
     from: number;
     sent: boolean;
     /** The same control on every LINKED node, moved to the same value — multiSelect.ts. */
-    linked: { node: GraphNode; tgt: WidgetTarget; pair: WidgetTarget | null }[];
+    /** The other selected nodes, each moved by the SAME travel from its own start — multiSelect.ts. */
+    linked: {
+      node: GraphNode;
+      tgt: WidgetTarget;
+      pair: WidgetTarget | null;
+      startT: number;
+      value: number;
+    }[];
   } | null>(null);
   const overrideRef = useRef(override);
   overrideRef.current = override;
@@ -4043,6 +4149,7 @@ export function DomChains({
       projectWritable,
       rehearsal: !!rehearsal,
       rackLit,
+      midiActivity,
     }),
     [
       params,
@@ -4059,6 +4166,7 @@ export function DomChains({
       projectWritable,
       rehearsal,
       rackLit,
+      midiActivity,
     ],
   );
 
@@ -4135,9 +4243,17 @@ export function DomChains({
         sent: false,
         linked: linked(n).flatMap((m) => {
           const t = widgetTarget(m, w, ch.offlineChannel);
-          return t && t.kind === tgt.kind
-            ? [{ node: m, tgt: t, pair: pairTarget(m, w, ch.offlineChannel) }]
-            : [];
+          if (!t || t.kind !== tgt.kind) return [];
+          const own = widgetValue(m, w, ch) ?? widgetDenorm(w, 0);
+          return [
+            {
+              node: m,
+              tgt: t,
+              pair: pairTarget(m, w, ch.offlineChannel),
+              startT: widgetNorm(w, own),
+              value: own,
+            },
+          ];
         }),
       };
     },
@@ -4201,8 +4317,27 @@ export function DomChains({
     moved: number;
   } | null>(null);
   const suppressClick = useRef(false);
+  // A Shift+drag over empty space: the rectangle, in HOST pixels, that selects what it touches on release.
+  const [marquee, setMarquee] = useState<{
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } | null>(null);
+  const marqueeRef = useRef(marquee);
   useEffect(() => {
     const move = (e: PointerEvent) => {
+      const mq = marqueeRef.current;
+      if (mq) {
+        const r = hostRef.current?.getBoundingClientRect();
+        marqueeRef.current = {
+          ...mq,
+          x1: e.clientX - (r?.left ?? 0),
+          y1: e.clientY - (r?.top ?? 0),
+        };
+        setMarquee(marqueeRef.current);
+        return;
+      }
       const d = drag.current;
       if (d) {
         const dy = (d.startY - e.clientY) / d.travel;
@@ -4217,9 +4352,11 @@ export function DomChains({
             [d.key]: value,
             ...(d.pair && dry !== null ? { [targetKey(d.pair)]: dry } : {}),
           };
+          // The same TRAVEL, not the same value: each linked knob keeps its offset from the one in hand.
           for (const l of d.linked) {
-            next[targetKey(l.tgt)] = value;
-            if (l.pair) next[targetKey(l.pair)] = pairValue(d.w, value);
+            l.value = linkedValue(d.w, l.startT, d.startT, t);
+            next[targetKey(l.tgt)] = l.value;
+            if (l.pair) next[targetKey(l.pair)] = pairValue(d.w, l.value);
           }
           return next;
         });
@@ -4231,8 +4368,8 @@ export function DomChains({
             if (!cur) return;
             cur.sent = false;
             for (const t of [cur, ...cur.linked]) {
-              sendLive(t.tgt, cur.value);
-              if (t.pair) sendLive(t.pair, pairValue(cur.w, cur.value));
+              sendLive(t.tgt, t.value);
+              if (t.pair) sendLive(t.pair, pairValue(cur.w, t.value));
             }
           });
         }
@@ -4254,6 +4391,29 @@ export function DomChains({
       }
     };
     const up = () => {
+      const mq = marqueeRef.current;
+      if (mq) {
+        marqueeRef.current = null;
+        setMarquee(null);
+        // Host pixels to world through the camera, both corners, then every card the box touches joins the selection.
+        const c = cam.current;
+        const caught = nodesInBox(nodesRef.current, {
+          x0: (mq.x0 - c.x) / c.k,
+          y0: (mq.y0 - c.y) / c.k,
+          x1: (mq.x1 - c.x) / c.k,
+          y1: (mq.y1 - c.y) / c.k,
+        });
+        if (caught.length) {
+          const primary = selRef.current;
+          setMulti((cur) => {
+            const next = new Set(cur.size ? cur : primary ? [primary] : []);
+            for (const name of caught) next.add(name);
+            return next;
+          });
+          if (!primary) cb.current.onSelect(caught[0]);
+        }
+        return;
+      }
       const d = drag.current;
       if (d) {
         drag.current = null;
@@ -4272,7 +4432,7 @@ export function DomChains({
           commitParam(d.node.module, d.tgt, d.value, d.pair, d.w);
           for (const l of d.linked)
             if (l.node.module)
-              commitParam(l.node.module, l.tgt, d.value, l.pair, d.w);
+              commitParam(l.node.module, l.tgt, l.value, l.pair, d.w);
         }
         // The override stays until the matching frame arrives (see the reconcile effects).
       }
@@ -4291,6 +4451,20 @@ export function DomChains({
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    // Shift on EMPTY space draws a selection box instead of panning — even where the camera is fixed.
+    if (
+      e.shiftKey &&
+      e.button === 0 &&
+      !(e.target as HTMLElement).closest(".dgx-node")
+    ) {
+      const r = hostRef.current?.getBoundingClientRect();
+      const x = e.clientX - (r?.left ?? 0);
+      const y = e.clientY - (r?.top ?? 0);
+      marqueeRef.current = { x0: x, y0: y, x1: x, y1: y };
+      setMarquee(marqueeRef.current);
+      e.preventDefault();
+      return;
+    }
     if (fixedRef.current) return;
     flight.current = null;
     // Grabbing the canvas ends any zoom still in flight: you are steering now — docs/camera.md.
@@ -4585,10 +4759,15 @@ export function DomChains({
       cb.current.onPresets?.(module, x, y, engines),
     [],
   );
+  // …and its arrows, which load the neighbouring preset.
+  const stepPresets = useCallback(
+    (module: string, step: -1 | 1) => cb.current.onPresetStep?.(module, step),
+    [],
+  );
   // The widget only ASKS, and the shell writes what comes back — an asset loads at BUILD time.
   const pickAsset = useCallback(
-    (n: GraphNode, param: string, x: number, y: number) => {
-      if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y);
+    (n: GraphNode, param: string, x: number, y: number, family?: string) => {
+      if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y, family);
     },
     [],
   );
@@ -4703,7 +4882,8 @@ export function DomChains({
         if (
           tgt.control === "mute" ||
           tgt.control === "solo" ||
-          tgt.control === "arm"
+          tgt.control === "arm" ||
+          tgt.control === "highlight"
         )
           cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
         return;
@@ -5126,156 +5306,182 @@ export function DomChains({
   const ownStore = useRef<EngineStore | null>(null);
   ownStore.current ??= new EngineStore();
   const meterStore = hostStore ?? ownStore.current;
+  // A host that passes no `sounds` may still provide them ABOVE the graph, once for every graph it mounts.
+  const inheritedSounds = useContext(LcdSoundsContext);
 
   return (
     <EngineStoreProvider value={meterStore}>
       <IconsContext.Provider value={icons}>
         <LcdSetContext.Provider value={lcdSet}>
-          <LcdZoomContext.Provider value={lcdZoom}>
-            <div
-              ref={hostRef}
-              className={`dgx${panning ? " panning" : ""}`}
-              onPointerDown={onPointerDown}
-              onDoubleClick={canvasDoubleClick}
-              // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
-              onPointerMove={patch ? movePatch : undefined}
-              onClick={patch ? canvasDrop : undefined}
-              onContextMenu={canvasMenu}
-              style={{ cursor: hovered ? "pointer" : undefined }}
-            >
-              {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
-              <canvas ref={cvRef} className="dgx-cablecv" />
-              {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
-              <div className="dgx-world" ref={worldRef}>
-                <svg
-                  className="dgx-cables"
-                  ref={cablesSvg}
-                  width={graph.width}
-                  height={graph.height}
-                >
-                  <Cables
-                    signal={model.signal}
-                    auto={model.auto}
-                    showLabels={showLabels}
-                    hovered={hovered}
-                    setHovered={setHovered}
-                    onInsert={onEdgeInsert ? insert : undefined}
+          <LcdSoundsContext.Provider value={sounds ?? inheritedSounds}>
+            <LcdZoomContext.Provider value={lcdZoom}>
+              <div
+                ref={hostRef}
+                className={`dgx${panning ? " panning" : ""}`}
+                onPointerDown={onPointerDown}
+                onDoubleClick={canvasDoubleClick}
+                // Bound only while a cable is in hand — the graph pays nothing for the gesture at rest.
+                onPointerMove={patch ? movePatch : undefined}
+                onClick={patch ? canvasDrop : undefined}
+                onContextMenu={canvasMenu}
+                style={{ cursor: hovered ? "pointer" : undefined }}
+              >
+                {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
+                <canvas ref={cvRef} className="dgx-cablecv" />
+                {marquee && (
+                  <div
+                    className="dgx-marquee"
+                    style={{
+                      left: Math.min(marquee.x0, marquee.x1),
+                      top: Math.min(marquee.y0, marquee.y1),
+                      width: Math.abs(marquee.x1 - marquee.x0),
+                      height: Math.abs(marquee.y1 - marquee.y0),
+                    }}
                   />
-                  {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
-                  {patch && (
-                    <path
-                      ref={patchEl}
-                      className="dgx-patchcable"
-                      style={{ stroke: cableColorFor(patch.type) }}
-                      d={patchD(patch.fixedAt, patch.fixedAt)}
-                    />
-                  )}
-                </svg>
-                {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
-                {ghosts.map((g) => (
-                  <Node
-                    key={`gone:${g.node.id}`}
-                    n={{ ...g.node, x: g.x, y: g.y }}
-                    selected={null}
-                    showWidgets={showWidgets}
-                    far={far}
-                    ch={ch}
-                    trackOrder={EMPTY_ORDER}
-                    onTapNode={NOOP}
-                    onContext={NOOP}
-                    onOpenPlugin={NOOP}
-                    onBypass={NOOP}
-                    onDragStart={NOOP}
-                    onTapWidget={NOOP}
-                    onPickWidget={NOOP}
-                    onPickAsset={NOOP}
-                    onPickTrackInput={NOOP}
-                    onContextParam={NOOP}
-                  />
-                ))}
-                {graph.nodes.map((n) => (
-                  <Node
-                    key={n.id}
-                    n={n}
-                    selected={selected}
-                    inSelection={!!n.module && multi.has(n.module)}
-                    automated={automatedOf.get(n.id)}
-                    showWidgets={showWidgets}
-                    far={far}
-                    ch={ch}
-                    trackOrder={trackOrder ?? EMPTY_ORDER}
-                    onTapNode={tapNode}
-                    onContext={contextNode}
-                    onOpenPlugin={openPlugin}
-                    onBypass={bypassModule}
-                    onToggleAssembly={onToggleAssembly}
-                    onAlternative={onAlternative ? pickAlternative : undefined}
-                    onEngine={onEngine ? pickEngine : undefined}
-                    onPresets={onPresets ? pickPresets : undefined}
-                    presetName={n.module ? presetNames?.[n.module] : undefined}
-                    onZoomTo={zoomToNode}
-                    warning={
-                      n.pluginId ? engineWarnings?.[n.pluginId] : undefined
-                    }
-                    onDragStart={beginDrag}
-                    onTapWidget={tapWidget}
-                    onPickWidget={pickWidget}
-                    onPickAsset={pickAsset}
-                    trackInput={
-                      onPickTrackInput && n.kind === "track"
-                        ? (trackInputs?.[n.label] ?? "aucune")
-                        : undefined
-                    }
-                    onPickTrackInput={pickTrackInput}
-                    onWatchWaveform={onWatchWaveform}
-                    onContextParam={contextParam}
-                    onTypeValue={typeWidget}
-                    onTapEdit={onTapEdit ? editTap : undefined}
-                    sinkPlay={sinkPlay}
-                    onTapJack={onConnect ? tapJack : undefined}
-                    patchWant={patchWant}
-                    // The curve cables, all four halves gated on the one callback that commits them.
-                    onStartAutomation={onAutomate ? startAutomation : undefined}
-                    onLandAutomation={onAutomate ? landAutomation : undefined}
-                    onStartEvent={onAutomate ? startEvent : undefined}
-                    onLandEvent={onAutomate ? landEvent : undefined}
-                    // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
-                    // member of an OPEN box — its place is its FRAME's, not the graph's.
-                    onHeaderDrag={
-                      onMoveNode && !row && !n.assembly
-                        ? beginNodeDrag
-                        : undefined
-                    }
-                  />
-                ))}
-                {seams?.length && onEdgeInsert ? (
-                  <Seams
-                    seams={seams}
+                )}
+                {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
+                <div className="dgx-world" ref={worldRef}>
+                  <svg
+                    className="dgx-cables"
+                    ref={cablesSvg}
                     width={graph.width}
                     height={graph.height}
-                    onInsert={insert}
+                  >
+                    <Cables
+                      signal={model.signal}
+                      auto={model.auto}
+                      showLabels={showLabels}
+                      hovered={hovered}
+                      setHovered={setHovered}
+                      onInsert={onEdgeInsert ? insert : undefined}
+                    />
+                    {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
+                    {patch && (
+                      <path
+                        ref={patchEl}
+                        className="dgx-patchcable"
+                        style={{ stroke: cableColorFor(patch.type) }}
+                        d={patchD(patch.fixedAt, patch.fixedAt)}
+                      />
+                    )}
+                  </svg>
+                  {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
+                  {ghosts.map((g) => (
+                    <Node
+                      key={`gone:${g.node.id}`}
+                      n={{ ...g.node, x: g.x, y: g.y }}
+                      selected={null}
+                      showWidgets={showWidgets}
+                      far={far}
+                      ch={ch}
+                      trackOrder={EMPTY_ORDER}
+                      onTapNode={NOOP}
+                      onContext={NOOP}
+                      onOpenPlugin={NOOP}
+                      onBypass={NOOP}
+                      onDragStart={NOOP}
+                      onTapWidget={NOOP}
+                      onPickWidget={NOOP}
+                      onPickAsset={NOOP}
+                      onPickTrackInput={NOOP}
+                      onContextParam={NOOP}
+                    />
+                  ))}
+                  {graph.nodes.map((n) => (
+                    <Node
+                      key={n.id}
+                      n={n}
+                      selected={selected}
+                      inSelection={!!n.module && multi.has(n.module)}
+                      marked={marked?.(n) ?? false}
+                      automated={automatedOf.get(n.id)}
+                      showWidgets={showWidgets}
+                      far={far}
+                      ch={ch}
+                      trackOrder={trackOrder ?? EMPTY_ORDER}
+                      onTapNode={tapNode}
+                      onContext={contextNode}
+                      onOpenPlugin={openPlugin}
+                      onBypass={bypassModule}
+                      onToggleAssembly={onToggleAssembly}
+                      onAlternative={
+                        onAlternative ? pickAlternative : undefined
+                      }
+                      onEngine={onEngine ? pickEngine : undefined}
+                      onPresets={onPresets ? pickPresets : undefined}
+                      onPresetStep={onPresetStep ? stepPresets : undefined}
+                      presetName={
+                        n.module ? presetNames?.[n.module] : undefined
+                      }
+                      onZoomTo={zoomToNode}
+                      warning={
+                        n.pluginId ? engineWarnings?.[n.pluginId] : undefined
+                      }
+                      onDragStart={beginDrag}
+                      onTapWidget={tapWidget}
+                      onPickWidget={pickWidget}
+                      onPickAsset={pickAsset}
+                      trackInput={
+                        onPickTrackInput && n.kind === "track"
+                          ? (trackInputs?.[n.label] ?? "aucune")
+                          : undefined
+                      }
+                      onPickTrackInput={pickTrackInput}
+                      onWatchWaveform={onWatchWaveform}
+                      onContextParam={contextParam}
+                      onTypeValue={typeWidget}
+                      onTapEdit={onTapEdit ? editTap : undefined}
+                      sinkPlay={sinkPlay}
+                      onTapJack={onConnect ? tapJack : undefined}
+                      patchWant={patchWant}
+                      // The curve cables, all four halves gated on the one callback that commits them.
+                      onStartAutomation={
+                        onAutomate ? startAutomation : undefined
+                      }
+                      onLandAutomation={onAutomate ? landAutomation : undefined}
+                      onStartEvent={onAutomate ? startEvent : undefined}
+                      onLandEvent={onAutomate ? landEvent : undefined}
+                      // EVERY node can be pinned, all by jackRef's answer; the ROW refuses, and so does a
+                      // member of an OPEN box — its place is its FRAME's, not the graph's.
+                      onHeaderDrag={
+                        onMoveNode && !row && !n.assembly
+                          ? beginNodeDrag
+                          : undefined
+                      }
+                    />
+                  ))}
+                  {seams?.length && onEdgeInsert ? (
+                    <Seams
+                      seams={seams}
+                      width={graph.width}
+                      height={graph.height}
+                      onInsert={insert}
+                    />
+                  ) : null}
+                </div>
+                {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
+                {minimap && !row && (
+                  <Minimap
+                    nodes={graph.nodes}
+                    bounds={graph}
+                    cam={cam}
+                    view={hostSize}
+                    paintRef={minimapPaint}
+                    onCenter={centerOn}
+                    onFit={zoomFit}
+                    onOrganize={onOrganize}
+                    onStack={onStack}
+                    stacked={stacked}
                   />
-                ) : null}
+                )}
               </div>
-              {/* Outside `.dgx-world`, so the camera never carries it off: it stays in the pane's corner. */}
-              {minimap && !row && (
-                <Minimap
-                  nodes={graph.nodes}
-                  bounds={graph}
-                  cam={cam}
-                  view={hostSize}
-                  paintRef={minimapPaint}
-                  onCenter={centerOn}
-                  onFit={zoomFit}
-                  onOrganize={onOrganize}
-                  onStack={onStack}
-                  stacked={stacked}
-                />
-              )}
-            </div>
-          </LcdZoomContext.Provider>
+            </LcdZoomContext.Provider>
+          </LcdSoundsContext.Provider>
         </LcdSetContext.Provider>
       </IconsContext.Provider>
     </EngineStoreProvider>
   );
 }
+
+// Exported so a host can provide one decoder for every graph it mounts — docs/lcdScreen.md.
+export { LcdSoundsContext };

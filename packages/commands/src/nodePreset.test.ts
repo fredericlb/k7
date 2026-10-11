@@ -183,6 +183,87 @@ describe("node preset", () => {
     expect(node().engines.tracktion.params.Ratio).toBe(4);
   });
 
+  it("keeps the base the node is on, so its values come back over the same state", async () => {
+    const base = join(root, "_modules", "audio", "compressor", "base", "Pads");
+    mkdirSync(base, { recursive: true });
+    writeFileSync(join(base, "warm.fxp"), "CcnK", "utf8");
+    writeFileSync(
+      join(dir, "nodes", "comp.yaml"),
+      'extends: "@workspace/audio/compressor"\nbase: "Pads/warm"\nengines:\n  tracktion:\n    params: { Ratio: 4 }\n',
+      "utf8",
+    );
+    await runCommand('node preset save comp "warm squash"', host(), "cli");
+    expect(parse(readFileSync(kept("warm squash.yaml"), "utf8")).base).toBe(
+      "Pads/warm",
+    );
+  });
+
+  it("switches the node to a preset's base, drops the values set over the old one, and reloads", async () => {
+    const base = join(root, "_modules", "audio", "compressor", "base", "Pads");
+    mkdirSync(base, { recursive: true });
+    writeFileSync(join(base, "warm.fxp"), "CcnK", "utf8");
+    mkdirSync(kept(), { recursive: true });
+    writeFileSync(
+      kept("warm.yaml"),
+      'base: "Pads/warm"\nparams:\n  Ratio: 6\n',
+      "utf8",
+    );
+    await runCommand("node preset apply comp workspace warm", host(), "cli");
+    expect(node().base).toBe("Pads/warm");
+    // The node's own values were set over the old base: only the preset's are left.
+    expect(node().engines.tracktion.params).toEqual({ Ratio: 6 });
+    expect(reloaded).toBe(1);
+  });
+
+  it("says so, and keeps the node's base, when the preset's base is not here", async () => {
+    mkdirSync(kept(), { recursive: true });
+    writeFileSync(
+      kept("gone.yaml"),
+      'base: "Pads/gone"\nparams:\n  Ratio: 3\n',
+      "utf8",
+    );
+    await runCommand("node preset apply comp workspace gone", host(), "cli");
+    expect(node().base).toBeUndefined();
+    expect(node().engines.tracktion.params.Ratio).toBe(3);
+    expect(logs.at(-1)).toMatch(/base 'Pads\/gone' is not here/);
+  });
+
+  it("lists and loads the presets of the module its attribute set swaps it for", async () => {
+    // A second module with a patch, and the node's second set running as it.
+    const synth = join(root, "_modules", "instruments", "synth");
+    mkdirSync(join(synth, "base", "Pads"), { recursive: true });
+    writeFileSync(
+      join(synth, "module.yaml"),
+      "plugin: { type: internal, name: synth }\n",
+      "utf8",
+    );
+    writeFileSync(join(synth, "base", "Pads", "warm.fxp"), "CcnK", "utf8");
+    writeFileSync(
+      join(dir, "nodes", "comp.yaml"),
+      'extends: "@workspace/audio/compressor"\nalternatives:\n  - { extends: "@workspace/instruments/synth" }\nalternative: "2"\n',
+      "utf8",
+    );
+    const shelf = join(root, "_presets", "workspace", "instruments", "synth");
+    mkdirSync(shelf, { recursive: true });
+    writeFileSync(
+      join(shelf, "Pads - warm.yaml"),
+      'base: "Pads/warm"\n',
+      "utf8",
+    );
+    expect(listNodePresets(dir, "comp")).toMatchObject({
+      ref: "@workspace/instruments/synth",
+      presets: [{ scope: "workspace", name: "Pads - warm" }],
+    });
+    await runCommand(
+      'node preset apply comp workspace "Pads - warm"',
+      host(),
+      "cli",
+    );
+    // Into the set that is on — a top-level base is not what a swapped node reads.
+    expect(node().alternatives[0].base).toBe("Pads/warm");
+    expect(node().base).toBeUndefined();
+  });
+
   it("refuses a name that would leave the module's folder", async () => {
     await runCommand('node preset save comp "../../evil"', host(), "cli");
     expect(logs.at(-1)).toMatch(/invalid preset name/);

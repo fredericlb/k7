@@ -117,10 +117,18 @@ function same(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return true;
 }
 
+/** How long a pad stays lit when it is CLICKED: the engine reports no notes, so the click is all there is to show. */
+export const FLASH_MS = 160;
+
 /** The store the pads subscribe to, per MODULE — a playhead moving through silence notifies nobody, twenty times a second. */
 export class LiveRackLit implements RackLitStore {
   private lit: Record<string, ReadonlySet<number>> = {};
   private listeners = new Map<string, Set<() => void>>();
+  // Pads lit by a click, apart from the playback picture `set` replaces every frame: a flash survives the next paint.
+  private flashes = new Map<
+    string,
+    Map<number, ReturnType<typeof setTimeout>>
+  >();
 
   subscribeTo = (module: string, cb: () => void): (() => void) => {
     const set = this.listeners.get(module) ?? new Set();
@@ -132,7 +140,28 @@ export class LiveRackLit implements RackLitStore {
   };
 
   isLit = (module: string, note: number): boolean =>
-    this.lit[module]?.has(note) ?? false;
+    (this.lit[module]?.has(note) ?? false) ||
+    (this.flashes.get(module)?.has(note) ?? false);
+
+  /** Light one pad for `ms`, as a click on it sounds — what an audition shows, the engine saying nothing of it. */
+  flash = (module: string, note: number, ms = FLASH_MS): void => {
+    const notes = this.flashes.get(module) ?? new Map();
+    this.flashes.set(module, notes);
+    const was = notes.get(note);
+    if (was) clearTimeout(was);
+    notes.set(
+      note,
+      setTimeout(() => {
+        notes.delete(note);
+        this.notify(module);
+      }, ms),
+    );
+    this.notify(module);
+  };
+
+  private notify(module: string): void {
+    for (const cb of this.listeners.get(module) ?? []) cb();
+  }
 
   /** Replace the picture. Only the modules whose set moved are told. */
   set = (next: Record<string, ReadonlySet<number>>): void => {

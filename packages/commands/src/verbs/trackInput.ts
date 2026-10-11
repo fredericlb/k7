@@ -6,12 +6,12 @@
 import { insertChainInput } from "@studio/song/chainCreate";
 import { isChainProject } from "@studio/song/chainProject";
 import { loadGraph } from "@studio/song/graph";
-import { createNode, freeNodeName, ioModuleBody } from "@studio/song/loader";
+import { createNode, freeNodeName } from "@studio/song/loader";
 import {
   connectChainNodes,
   placeChainNode,
 } from "@studio/song-edit/projectEdit";
-import { IO_MODULES, MIDI_IN_NODE } from "@studio/song-schema/moduleTypes";
+import { MIDI_IN_NODE, metaRef } from "@studio/song-schema/moduleTypes";
 import type { CommandHost, SidHandler } from "../commands.ts";
 import { runCarriesInput, splitWords } from "./shared.ts";
 
@@ -40,12 +40,12 @@ async function trackInput(a: string, h: CommandHost): Promise<void> {
     }
     const role = kind === "midi" ? MIDI_IN_NODE : "IN";
     if (isChainProject(dir)) {
-      const io = IO_MODULES[role].io;
-      const { rel } = insertChainInput(
-        dir,
-        lane,
-        ioModuleBody(`${lane}'s input`, io),
-      );
+      // A USE of the built-in input, as a hand-written rig spells it: its card is then named by it.
+      const body =
+        kind === "midi"
+          ? `extends: "${metaRef(MIDI_IN_NODE)}"\n`
+          : `extends: "${metaRef("IN")}"\nmonitor: "auto"\n`;
+      const { rel } = insertChainInput(dir, lane, body);
       h.log([`${lane}: ${kind} input added ahead of it (${rel})`]);
     } else {
       const node = freeNodeName(

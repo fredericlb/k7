@@ -133,6 +133,8 @@ export interface LoadedModule {
   // Numbers, except the file-valued ones (moduleTypes.FILE_PARAMS) — see moduleSchema.
   params?: Record<string, number | string>;
   rack?: RawRack;
+  // An SFZ kit's pads, name → note: drawn like a rack's taps, played through the kit (docs/racks.md).
+  kit?: Record<string, number>;
   // Needs the WHOLE input before producing any of it, and is inherited — see docs/coldModules.md.
   cold?: boolean;
   // The engine's dry/wet around the effect, 0..1, inherited like any field — engine/st0-engine/docs/mix.md.
@@ -293,6 +295,7 @@ export interface RawProjectRoot {
     timeSignature?: string;
     modules_from?: string[];
     libraries_from?: string[];
+    tags?: string[];
     [key: string]: unknown;
   };
   // A dialect a folder may still declare, accepted and ignored — `deadProjectFields` names the line to delete.
@@ -302,6 +305,8 @@ export interface RawProjectRoot {
   trackOrder?: string[];
   // The soloed lanes — solo as project state, resolved by the engine (see projectSchema.ts).
   soloed?: string[];
+  // …and the highlighted ones, heard 10 dB up (highlight.ts).
+  highlighted?: string[];
   markers?: unknown;
   chains?: unknown;
 }

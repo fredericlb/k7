@@ -70,6 +70,8 @@ export function enginesBeside(moduleFile: string): {
 
 /** What a module keeps of ITSELF when it runs as an engine — who it is and how it sits in the graph. */
 const KEPT = [
+  // WHICH module this is a use of: the card names it, its presets are that module's (graphFlags.md).
+  "extends",
   "name",
   "node",
   "file",

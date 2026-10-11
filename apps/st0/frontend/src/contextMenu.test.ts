@@ -303,6 +303,17 @@ describe("a picture shot", () => {
   });
 });
 
+describe("a track among several shift-clicked", () => {
+  it("offers to GROUP them first, then what the clicked one answers", () => {
+    const menu = contextMenu(
+      { kind: "track", id: "gtr", picked: ["gtr", "bass"] },
+      CATALOGUE,
+    );
+    expect(lines(menu)[0]).toBe("track group gtr,bass");
+    expect(lines(menu)).toContain("track mute gtr");
+  });
+});
+
 describe("a track", () => {
   const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
 
@@ -533,6 +544,28 @@ describe("a clip", () => {
     ).join(" ");
     expect(l).not.toContain("clip process");
   });
+
+  it("offers `event process`, which bounces THIS event and leaves the chain to the bar", () => {
+    const withProcess: CommandInfo[] = [
+      ...CATALOGUE,
+      {
+        command: "event process",
+        help: "bounce one event's file through a chain",
+        args: [
+          a("track", "track", "tracks"),
+          a("timecode", "timecode"),
+          a("chain", "choice", "chains"),
+        ],
+      },
+    ];
+    const l = lines(
+      contextMenu(
+        { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
+        withProcess,
+      ),
+    );
+    expect(l).toContain("event process gtr 2:1:1 ");
+  });
 });
 
 describe("a param", () => {
@@ -659,6 +692,24 @@ describe("the ruler and its markers", () => {
     ).toEqual(["marker delete"]);
   });
 
+  it("offers `transport loop` only when it would do something, named for what it does", () => {
+    const set = contextMenu(
+      { kind: "marker-add", tc: "5:1", loop: "set" },
+      CATALOGUE,
+    );
+    expect(lines(set)).toEqual(["project marker new 5:1 ", "transport loop"]);
+    expect(labels(set)).toEqual(["marker new", "Loop selection"]);
+    expect(set[1].complete).toBe(true);
+    expect(
+      labels(
+        contextMenu(
+          { kind: "marker-add", tc: "5:1", loop: "clear" },
+          CATALOGUE,
+        ),
+      ),
+    ).toEqual(["marker new", "Clear loop"]);
+  });
+
   it("obeys what the person turned off, like every other menu", () => {
     // Every entry passes through the one filter, this case included: nothing goes straight to `build` around it.
     expect(
@@ -778,6 +829,27 @@ describe("two rows that would read alike", () => {
     expect(l).toContain("track mute");
     expect(l).toContain("mute");
     expect(new Set(l).size).toBe(l.length);
+  });
+});
+
+describe("a row that asks first", () => {
+  it("carries `confirm` when the catalogue marks the command, and only then", () => {
+    const cat: CommandInfo[] = [
+      {
+        command: "track delete",
+        args: [a("track", "track", "tracks")],
+        confirm: true,
+      },
+      {
+        command: "track mute",
+        args: [a("track", "track", "tracks")],
+      },
+    ];
+    const items = contextMenu({ kind: "track", id: "gtr" }, cat);
+    expect(items.find((i) => i.verb === "track delete")?.confirm).toBe(true);
+    expect(
+      "confirm" in (items.find((i) => i.verb === "track mute") ?? {}),
+    ).toBe(false);
   });
 });
 

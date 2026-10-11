@@ -2,6 +2,7 @@
 // @studio/project-shell's (z0's editor mounts the same thing); what belongs here is the wording, which
 // is paraglide's, and what to render once the project is open. See @studio/project-shell docs/launch.md.
 
+import { AskHost } from "@studio/project-shell/ask";
 import { ProjectGate as Shared } from "@studio/project-shell/gate";
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
 import type { AccountLibrary } from "@studio/web-protocol";
@@ -90,13 +91,17 @@ export function ProjectGate({
     >
       {({ workspace, project, userEmail, quit }) =>
         external ? (
-          <ExternalSurface
-            key={`${workspace}/${project}/${external}`}
-            name={external}
-            project={project}
-            engineUrl={engines.linkUrl(engine)}
-            userEmail={userEmail}
-          />
+          <>
+            <ExternalSurface
+              key={`${workspace}/${project}/${external}`}
+              name={external}
+              project={project}
+              engineUrl={engines.linkUrl(engine)}
+              userEmail={userEmail}
+            />
+            {/* The editor mounts its own; a second device's menu asks the same questions (menuConfirm.ts). */}
+            <AskHost />
+          </>
         ) : (
           // key by workspace+project so moving between them remounts the editor cleanly.
           <App

@@ -1,5 +1,5 @@
 // projectLifecycle.ts — creating a project in a workspace: from scratch (the same
-// scaffold `st0 create` runs), by translating a foreign project (.dawproject, .als), or by
+// scaffold `st0 create` runs), by translating a foreign project (.dawproject, .als, an Ableton .zip), or by
 // copying one that exists. Extracted from workspace.ts; all three re-root the output INSIDE
 // the workspace and guard the path through the host's safePath. See docs/import.md.
 
@@ -23,6 +23,7 @@ import { missingRefs, neededRefs } from "@studio/song/scaffoldNeeds";
 import { scaffoldSet, setProjectFiles } from "@studio/song/scaffoldSet";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
+import { parseAlsZip } from "@studio/translator/abletonZip";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";
 import type { Translation } from "@studio/translator/model";
@@ -43,7 +44,7 @@ export interface LifecycleHost {
 }
 
 /** The foreign project formats this workspace can translate, by extension. */
-export const IMPORTABLE = [".dawproject", ".als"] as const;
+export const IMPORTABLE = [".dawproject", ".als", ".zip"] as const;
 
 /** …and the subset a DROP may carry, which the BROWSER also filters on — see `DROPPABLE_PROJECTS`. */
 export const DROPPABLE = DROPPABLE_PROJECTS;
@@ -137,6 +138,8 @@ function translateInto(
       readSample: readSample ?? (() => null),
     });
   else if (ext === ".dawproject") translation = parseDawproject(bytes, stem);
+  // A zip IS an Ableton project: the folder Collect All and Save leaves, its samples inside it.
+  else if (ext === ".zip") translation = parseAlsZip(bytes, stem);
   else
     throw new Error(
       `cannot import "${source}": expected one of ${IMPORTABLE.join(", ")}`,
@@ -162,7 +165,7 @@ function translateInto(
   } catch {
     /* a dump failure just means the presets stay as .vstpreset assets */
   }
-  emitFolder(outAbs, song, files);
+  const emitted = emitFolder(outAbs, song, files);
   const project = host.toRel(outAbs);
   const log = [
     `read ${source}`,
@@ -175,6 +178,11 @@ function translateInto(
         ]
       : []),
     ...warnings.map((w) => `warning: ${w}`),
+    ...(emitted.standIns
+      ? [
+          `warning: ${emitted.standIns} MIDI track(s) play a STAND-IN instrument — theirs did not cross over; replace it on the graph`,
+        ]
+      : []),
     `wrote ${project}`,
   ];
   return { project, log };

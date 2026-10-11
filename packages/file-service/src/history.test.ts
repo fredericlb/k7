@@ -135,6 +135,24 @@ describe("ProjectHistory", () => {
     expect(h.peekUndo()?.files).toEqual(["c.yaml"]);
   });
 
+  it("lists every entry oldest first, its paths and not its contents, the undone ones marked", async () => {
+    const h = new ProjectHistory(store(), dir);
+    const change = (p: string, after: string) => ({
+      label: `edit ${p}`,
+      changes: [{ path: p, before: null, after }],
+      blobs: [],
+    });
+    h.push(change("a.yaml", "A"));
+    h.push(change("b.yaml", "B"));
+    await h.undo();
+    const list = h.list();
+    expect(list.map((e) => [e.label, e.paths, e.undone])).toEqual([
+      ["edit a.yaml", ["a.yaml"], false],
+      ["edit b.yaml", ["b.yaml"], true],
+    ]);
+    expect(list[0]).not.toHaveProperty("changes");
+  });
+
   it("keeps at most 1000 entries, evicting the oldest", () => {
     const h = new ProjectHistory(store(), dir);
     for (let n = 0; n < 1005; n++)

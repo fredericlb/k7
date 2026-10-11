@@ -21,6 +21,10 @@ import { quoteTimecodes } from "@studio/song-schema/yaml/moduleFile";
 import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./model.js";
 
+/** What a MIDI lane plays when its own instrument could not cross over — a drum rack, and the rest. */
+const STAND_IN_KIT = "@st0/instruments/st0-rack-sfz";
+const STAND_IN_SYNTH = "@st0/instruments/synth/surge-xt";
+
 // --- YAML emitters -----------------------------------------------------------
 
 // The SHAPE decisions, matching what st0 itself writes — see docs/import.md.
@@ -258,6 +262,7 @@ export interface EmitStats {
   modulePresetFiles: number; // .vstpreset files, beside the node or module whose state they are
   missingAudio: string[];
   missingPlugins: string[]; // referenced but not in the st0 cache -> stubbed
+  standIns: number; // MIDI lanes given a library instrument in place of one that did not cross over
   // Tracks given both audio and MIDI: they import as "sequences", and their audio won't load until split by hand.
 }
 
@@ -281,6 +286,7 @@ export function emitFolder(
 
   // A flat node shares ONE namespace with the lanes and the modules — packages/song/docs/nodes.md.
   const usedNodeNames = new Set<string>(usedTrackSlugs);
+  let standIns = 0;
 
   // A plugin's type folder from its role, writing `transformers` rather than the legacy `midi`.
   const typeFolderOf = (role?: string): string =>
@@ -412,12 +418,42 @@ export function emitFolder(
     return name;
   };
 
+  /**
+   * A MIDI lane whose instrument did not cross over — a source DAW's own synth or drum rack — gets a
+   * library one in its place: a lane's notes into its strip is wiring the loader refuses, and a song
+   * that will not open is worse than one whose sound is a stand-in. A drum rack gets the SFZ kit,
+   * whose pads sit on General MIDI notes as most drum racks' do; anything else the synth.
+   */
+  const addStandIn = (entry: string, drums: boolean): string => {
+    let name = `${entry}-instrument`;
+    for (
+      let n = 2;
+      usedChainNames.has(name.toLowerCase()) ||
+      usedNodeNames.has(name.toLowerCase());
+      n++
+    )
+      name = `${entry}-instrument-${n}`;
+    usedNodeNames.add(name.toLowerCase());
+    writeFile(
+      join(outDir, `nodes/${name}.yaml`),
+      `# ${entry}'s instrument, a STAND-IN: the source project's could not be carried over, so the
+` +
+        `# import put a library one here — replace it with the instrument this part was written for.
+` +
+        `extends: ${JSON.stringify(drums ? STAND_IN_KIT : STAND_IN_SYNTH)}
+`,
+    );
+    standIns++;
+    return name;
+  };
+
   // One chain per source: its ordered plugins become `use` steps, each naming a module node, routed to `terminal`.
   const addChain = (
     entry: string,
     fromTrack: string | undefined,
     plugins: PluginOut[],
     terminal: OutDef[],
+    standIn?: { drums: boolean },
   ) => {
     usedChainNames.add(entry.toLowerCase());
     const use = orderPlugins(plugins).map((p) => ({
@@ -425,6 +461,9 @@ export function emitFolder(
       module: moduleRefFor(p, entry),
       enabled: p.enabled ? undefined : false,
     }));
+    // The stand-in leads, where the instrument the source had would have stood.
+    if (standIn)
+      use.unshift({ module: addStandIn(entry, standIn.drums), enabled: undefined });
     // A LANE gets its strip, last; a return bus and the master chain are not lanes and get none.
     if (fromTrack)
       use.push({ module: addTrackMixer(entry), enabled: undefined });
@@ -543,7 +582,18 @@ export function emitFolder(
         )
       : (t.plugins ?? []);
 
-    addChain(slug, isBus ? undefined : slug, plugins, terminal);
+    // Notes and nothing to play them: the instrument stayed behind in the source DAW.
+    const needsInstrument =
+      !isBus &&
+      clips.some((c) => c.type === "midi") &&
+      !plugins.some((p) => p.role === "instrument");
+    addChain(
+      slug,
+      isBus ? undefined : slug,
+      plugins,
+      terminal,
+      needsInstrument ? { drums: !!t.drums } : undefined,
+    );
     if (isBus) busChains.add(slug);
 
     if (!isBus) {
@@ -773,6 +823,7 @@ export function emitFolder(
     modulePresetFiles,
     missingAudio,
     missingPlugins: [...missingPlugins],
+    standIns,
   };
 }
 

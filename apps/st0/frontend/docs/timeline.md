@@ -39,6 +39,9 @@ grammar here** — no operators, no counts, no `d2j`. A grammar would be a secon
 beside `useCommandKeys`, and the rule this app keeps is that a key NAMES a command and takes the
 path typing it would take. Modes-as-conditions buy a whole second keymap without giving that up.
 
+`+` adds a lane — `track new`, the corner button's line — on the timeline only. It is bound as the
+CHARACTER, not as a key plus Shift, since `+` is shifted on one layout and bare on another.
+
 ### A tool is chosen, and belongs to the surface
 
 `timelineTools.ts`, four of them: `pointer` (today's grab, marquee and caret), `cut`, `erase`,
@@ -261,32 +264,32 @@ Three details, each of which could have gone the other way:
 
 - **The step is read at the GRAB** (`unitRef`, assigned during render beside `ppbRef`), not live.
   A wheel notch mid-drag must not change what the gesture means under your hand.
-- **It snaps the OFFSET, not the resulting position** — which is why it is a unit and not the
-  `nearestTick` list the ruler's own gestures use. A take placed by hand at `4:2:2.43` keeps that
-  phase when you move it a bar; the zoom decides how FAR each step is, not where the grid is.
+- **Three ways to land, by the key held** (`snapMode`): with nothing, the edge or the start lands ON
+  the project's grid; with Ctrl, the drag moves by whole steps of it, so a take placed by hand at
+  `4:2:2.43` keeps that phase when you move it a bar; with Shift, it follows the pointer exactly.
 - **In SECONDS mode the step is the seconds one**, converted through the tempo. `rulerScale`
   returns both and the mode picks; a drag snapping to beats under a ruler ticking every five
   seconds would land between every pair of lines.
 
-### …and Ctrl suspends it
+### …and the keys say how it lands
 
-**Hold Ctrl and the drag follows the pointer exactly.** It applies to all three of this view's
-gestures — moving an event, dragging either of its edges, and moving or trimming a picture
-placement — so there is one rule to hold rather than three exceptions to remember. `src/snap.ts`
-states it once (`freeSnap`, `snapTo`, `dragOffset`) and is where its arithmetic is tested; the
-piano roll reads the same two functions (`clipEditors.md`).
+**Nothing held, the grid; Ctrl, the event's own grid; Shift, none.** It applies to all three of this
+view's gestures that move or resize — an event, either of its edges, a picture placement and its
+edges — so there is one rule to hold rather than three exceptions to remember. `src/snap.ts` states
+it once (`snapMode`, `snapPosition`, `moveOffset`) and is where its arithmetic is tested. A fade has
+no position of its own to keep: Shift or Ctrl frees it. The piano roll's note drags take the same keys; drawing a note there keeps
+Ctrl as its free key (`freeSnap`, `clipEditors.md`).
 
-The modifier is read **live**, off each pointer event, and that is deliberately the opposite of
-the step above. The step is what the gesture MEANS and must not move under your hand; the
-modifier is the hand. Press it halfway through a drag and the rest of the drag is free; let go
-and it snaps again from wherever it is.
+The keys are read **live**, off each pointer event, and that is deliberately the opposite of the step
+above. The step is what the gesture MEANS and must not move under your hand; the keys are the hand.
+Press one halfway through a drag and the rest of the drag follows it; let go and it snaps again from
+wherever it is. Shift at the PRESS is still a selection press — the modifier counts once a drag runs.
 
-`⌘` counts too, and only for macOS, where Ctrl+click *is* the right button and the gesture would
-otherwise be unreachable. It is not a second binding to learn: it is the one that works on the
-machine you are on.
+`⌘` counts as Ctrl, and only for macOS, where Ctrl+click *is* the right button and the gesture would
+otherwise be unreachable.
 
 One consequence, on the resize only: the shortest an event may be left is normally the grid's own
-step, a beat. Freed, that floor would refuse exactly the lengths you turned the grid off to
+step, the ruler's unit. Freed, that floor would refuse exactly the lengths you turned the grid off to
 reach, so it drops to a 64th (`MIN_FREE_BEATS`) — short enough to be a real choice, long enough
 that an edge dragged past the other does not leave a placement that plays nothing.
 
@@ -341,6 +344,12 @@ The gutter — the name column, on all three kinds of row — is the row's handl
   the caret (mute/solo, the Graph panel, the minimap) follows without being told.
   A live `v` rectangle is dropped, because its head is somewhere else and leaving one standing
   would draw two selections at once.
+- **shift-click** on a track's name PICKS it. Picked lanes are a set of their own, drawn like a
+  selected label, and the first shift-click brings the lane selected before it in as the anchor.
+  Shift-clicking a picked lane drops it, and a plain click clears the set. The set is not the `v`
+  rectangle: the rectangle is a span of time over adjacent rows, and grouping is about lanes
+  whether or not they are adjacent. Right-click one of the picked lanes and its menu opens on
+  **Group the N tracks** (`track group`, `src/contextMenu.ts`).
 - **double-click** points the *other* panes at the row: the editor opens its file and the
   chains canvas frames the chains it feeds. Nothing is written, and the timeline keeps the
   keyboard — your hands are still on the arrangement.
@@ -432,6 +441,11 @@ inside a rectangle even though the caret could only ever select its label.
 `z` turns the rectangle into the view and consumes it: what you framed is now the whole
 timeline, so there is nothing left to have selected. `shift+L` does the same for the loop
 region, spanning `[lo, hi+1)` so the last selected beat cell is inside it.
+
+The loop band is the ENGINE's loop, not only the one this page set. The engine holds the loop and
+reports it on every state frame; the timeline adopts it whenever it CHANGES — so a page reloaded
+while a loop plays draws that loop at once, and a frame older than a loop just set here, being no
+change, cannot undo it.
 
 ## The zoom stack
 
@@ -886,8 +900,8 @@ edges; putting a fade on the same pixel would make which gesture you got a coin 
 is invisible on a clip with no fade until the block is hovered — an always-lit corner on every
 event is noise — and stays lit once there is one to grab.
 
-Ctrl suspends the grid here as it does on every other drag, read live, so a fade can reach a
-length the ruler's step cannot express.
+Shift or Ctrl suspends the grid here, read live, so a fade can reach a length the ruler's step
+cannot express.
 
 **A fade is a LENGTH.** The gesture sends `beatsToDuration`, and `event fadein` reads it back with
 `parseDuration`. The same number spelled as a POSITION is several bars, both spellings are legal

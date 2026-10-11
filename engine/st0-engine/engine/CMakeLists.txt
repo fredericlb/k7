@@ -40,6 +40,7 @@ add_library(studio_engine STATIC
     FilePeak.cpp
     ProcessMemory.cpp
     MixBlend.cpp
+    SeekRelease.cpp
     ParamDump.cpp
     AudioInputs.cpp
     InputTuner.cpp
@@ -137,6 +138,15 @@ if(TARGET sfizz::sfizz)
     target_sources(studio_engine PRIVATE SfzPlugin.cpp)
     target_link_libraries(studio_engine PRIVATE sfizz::sfizz)
     target_compile_definitions(studio_engine PUBLIC STUDIO_SFZ=1)
+endif()
+
+# --- Surge XT, for SurgePlugin: a full synthesizer as a built-in (docs/surgePlugin.md) ---
+# STUDIO_SURGE says the plugin is compiled in; every desktop fetches Surge, Android does not yet.
+if(TARGET surge-common)
+    add_subdirectory(surge)
+    target_sources(studio_engine PRIVATE SurgePlugin.cpp)
+    target_link_libraries(studio_engine PRIVATE studio_surge)
+    target_compile_definitions(studio_engine PUBLIC STUDIO_SURGE=1)
 endif()
 
 # --- The eurorack modules' DSP, for the plugins under eurorack/ ---------------

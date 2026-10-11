@@ -33,6 +33,7 @@ export function modelBadge(path: string): string | undefined {
 export function buildAssetTree(
   files: string[],
   param: string,
+  family?: string,
 ): TreeNode<string>[] {
   // A folder's children by path, so a level can be built without re-walking the list.
   const roots: TreeNode<string>[] = [];
@@ -53,7 +54,7 @@ export function buildAssetTree(
     return node.children as TreeNode<string>[];
   };
 
-  for (const file of assetsForParam(files, param).sort()) {
+  for (const file of assetsForParam(files, param, family).sort()) {
     const cut = file.lastIndexOf("/");
     folderFor(cut < 0 ? "" : file.slice(0, cut)).push({
       key: `f:${file}`,
@@ -81,11 +82,12 @@ export function searchAssets(
   files: string[],
   param: string,
   query: string,
+  family?: string,
 ): TreeNode<string>[] {
   const q = query.trim();
   if (!q) return [];
   const scored: { node: TreeNode<string>; score: number }[] = [];
-  for (const file of assetsForParam(files, param)) {
+  for (const file of assetsForParam(files, param, family)) {
     const best = Math.max(fuzzyScore(q, stem(file)), fuzzyScore(q, file));
     if (best <= 0) continue;
     scored.push({
@@ -113,6 +115,7 @@ export function AssetPicker({
   y,
   param,
   files,
+  family,
   onPick,
   onClose,
 }: {
@@ -120,11 +123,13 @@ export function AssetPicker({
   y: number;
   param: string; // "model" — the file-valued param being set, which also picks the extension
   files: string[]; // every asset the module can name; filtered here
+  /** The library family the panel's widget names (`wavetables`) — what decides the extensions when the param's name cannot. */
+  family?: string;
   /** The assets-relative path, or "" to clear — an asset is a real choice to UNMAKE. */
   onPick: (file: string) => void;
   onClose: () => void;
 }) {
-  const tree = buildAssetTree(files, param);
+  const tree = buildAssetTree(files, param, family);
   // 'none' first and always: a module with no profile loaded is a legitimate state, not something to hunt for among the files.
   const withNone: TreeNode<string>[] = [
     { key: "none", label: "— none —", entry: "" },
@@ -135,7 +140,7 @@ export function AssetPicker({
       x={x}
       y={y}
       tree={withNone}
-      search={(q) => searchAssets(files, param, q)}
+      search={(q) => searchAssets(files, param, q, family)}
       searchLimit={SEARCH_LIMIT}
       placeholder={`search ${param}…`}
       emptyLabel={`no ${param} file matches`}

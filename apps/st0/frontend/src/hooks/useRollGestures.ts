@@ -20,7 +20,7 @@ import {
 } from "../rollDrag";
 import { laneDraws, type RollMode } from "../rollMode";
 import { noteAddr, type RollNote } from "../rollPending";
-import { freeSnap, snapTo } from "../snap";
+import { freeSnap, snapMode, snapPosition } from "../snap";
 import type { GridCaret } from "./useGridCaret";
 
 const clamp = (v: number, lo: number, hi: number) =>
@@ -375,11 +375,13 @@ export function useRollGestures({
     }
     const d = tDrag.current;
     if (!d || !from) return;
-    // The OFFSET snaps, not the resulting position — the timeline's rule, so a note played in by hand keeps its phase. Ctrl frees it, live.
+    // The timeline's keys, read live: nothing lands on the grid, Ctrl moves by whole steps, Shift frees it (snap.ts).
+    const anchor = d.mode === "end" ? d.time + d.dur : d.time;
+    const raw = (e.clientX - from.x) / Math.max(1, ppb);
     const next: RollDrag = {
       ...d,
-      dBeats: snapTo((e.clientX - from.x) / Math.max(1, ppb), stepAt(e)),
-      // Ctrl does not reach this axis: a row IS a semitone, and there is nothing between two of them to free.
+      dBeats: snapPosition(anchor, raw, gridUnit, snapMode(e)) - anchor,
+      // No modifier reaches this axis: a row IS a semitone, and there is nothing between two of them to free.
       dKeys:
         (onMoveNote || groupRef.current) && d.mode === "move"
           ? keyOffset(e.clientY - from.y, rowH)

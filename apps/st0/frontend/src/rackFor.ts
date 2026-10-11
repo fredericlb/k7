@@ -29,3 +29,21 @@ export function rackFor(
   }
   return null;
 }
+
+/** Each rack key's name for the roll's key column: its sample's file name, else its clip, else its symbol — several on one key joined. */
+export function rackKeyNames(
+  rack: readonly WebRackSound[],
+): Map<number, string> {
+  const names = new Map<number, string>();
+  for (const s of rack) {
+    // `@<library>/<path>` or a bare path: the file name without its extension is what a musician recognises.
+    const file = s.sample
+      ?.split("/")
+      .pop()
+      ?.replace(/\.[^.]+$/, "");
+    const name = file || s.clip || s.symbol;
+    const had = names.get(s.note);
+    names.set(s.note, had ? `${had} / ${name}` : name);
+  }
+  return names;
+}

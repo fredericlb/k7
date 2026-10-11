@@ -79,8 +79,10 @@ studio::PluginDoc pluginFromJson(const json& p) {
     pl.irFile = p.value("irFile", std::string{});
     pl.deckFile = p.value("deckFile", std::string{});
     pl.sfzFile = p.value("sfzFile", std::string{});
+    pl.surgePatch = p.value("surgePatch", std::string{});
     pl.dspGraph = p.value("dspGraph", std::string{});
     pl.faustDsp = p.value("faustDsp", std::string{});
+    pl.faustFiles = p.value("faustFiles", std::map<std::string, std::string>{});
     pl.patternSource = p.value("patternSource", std::string{});
     pl.patternLabel = p.value("patternLabel", std::string{});
     pl.patternCatchAll = p.value("patternCatchAll", false);

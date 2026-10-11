@@ -18,12 +18,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { useRackTrigger } from "../hooks/useRackTrigger";
 import { laneHasInput } from "../laneInput";
+import { midiActivity } from "../midiActivity";
 import { ModeStrip, stripButton } from "../modeIcons";
 import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
-import type { WebGraph } from "../types";
+import { useLiveRackLit } from "../rackLit";
+import type { WebGraph, WebProject } from "../types";
 import { GraphSlotPane } from "./GraphSlotPane";
 
 /** The strip's modes: none — the row has no tools, only the toggles under them. */
@@ -40,6 +43,9 @@ const DISABLED =
   "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground";
 
 export function TrackModulesPane({
+  mark,
+  onPreviewNote,
+  project,
   trackId,
   cameras,
   inputDevices,
@@ -61,6 +67,7 @@ export function TrackModulesPane({
   onAlternative,
   onEngine,
   onPresets,
+  onPresetStep,
   presetNames,
   onAssetBrowse,
   onTapEdit,
@@ -73,6 +80,12 @@ export function TrackModulesPane({
   onToggleCurves,
   onTrackInput,
 }: {
+  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
+  mark?: HistoryMark | null;
+  /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
+  onPreviewNote?: (track: string, key: number, vel: number) => void;
+  /** The arrangement, so the pads light as its notes play under the playhead (rackLit.ts). */
+  project?: WebProject | null;
   /** The lane whose path this is. */
   trackId: string;
   /** The cameras and MIDI devices this browser sees — what those nodes' dropdowns offer, as in the full graph. */
@@ -107,6 +120,8 @@ export function TrackModulesPane({
   /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
   onEngine?: (module: string, name: string) => void;
   /** A node's preset dropdown — the shell draws the list (packages/song/docs/userPresets.md). */
+  /** The arrows beside a node's preset dropdown: load its previous (-1) or next (+1) preset. */
+  onPresetStep?: (module: string, step: -1 | 1) => void;
   onPresets?: (
     module: string,
     x: number,
@@ -124,7 +139,10 @@ export function TrackModulesPane({
     on: boolean,
   ) => void;
   /** The LANE leads this row, so its fader, its mute and its solo are controls in it like any other. */
-  onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
+  onTrackToggle?: (
+    id: string,
+    control: "mute" | "solo" | "arm" | "highlight",
+  ) => void;
   onTrackSet?: (id: string, control: "volume" | "pan", value: number) => void;
   /** A `+` on one of this row's cables: the shell asks WHICH module, exactly as it does on the graph. */
   onEdgeInsert?: (
@@ -200,9 +218,11 @@ export function TrackModulesPane({
   );
 
   // A pad on a card in this row PLAYS, by the same hook as the chains pane.
+  // The pads light here too, as in the graph panes: the notes under the playhead, and a pad just clicked.
+  const rackLit = useLiveRackLit(project, graph);
   const laidRef = useRef(laid);
   laidRef.current = laid;
-  const triggerRack = useRackTrigger(laidRef);
+  const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
   // Bypasses clicked but not yet in `graph`: a bypass bumps no reloadKey, which is all this row refetches on (docs/shell.md).
   const [pendingBypass, setPendingBypass] = useState<Record<string, boolean>>(
@@ -284,6 +304,9 @@ export function TrackModulesPane({
     return rowSeams(row, rowExit(laidShown, row, graph), !!graph.stacks);
   }, [laidShown, split, graph]);
 
+  // The History panel's hover, as the per-card test DomChains reads — above the early returns, like every hook.
+  const marked = useMemo(() => nodePredicate(mark), [mark]);
+
   // No bar: the row IS the view, the lane's own card names it, and the ✕ floats top right (GraphSlotPane).
   // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
   const frame = (body: React.ReactNode, aside?: React.ReactNode) => (
@@ -305,11 +328,12 @@ export function TrackModulesPane({
   // What both halves share: the same callbacks and stores, so the pinned mixer is a card like any other.
   const shared = {
     icons: STUDIO_ICONS,
+    marked,
     selected,
     onSelect: setSelected,
     trackOrder,
-    // Re-frame when the ROW changes, not on every refetch: a param landing must not take the camera back.
-    fitKey: [...inputs, ...modules].join("|"),
+    // Re-frame when a card is added, removed or replaced by one of another size — never on a refetch or a param landing.
+    fitKey: laidShown.nodes.map((n) => `${n.id}:${n.w}x${n.h}`).join("|"),
     // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
     fitAxis: "height" as const,
     // …all of it: the tallest card is the pane's height, the others centred on its line.
@@ -328,6 +352,9 @@ export function TrackModulesPane({
     onAlternative,
     onEngine,
     onPresets,
+    onPresetStep,
+    rackLit,
+    midiActivity,
     presetNames,
     onAssetBrowse,
     onTapEdit,

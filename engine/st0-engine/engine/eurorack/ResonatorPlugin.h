@@ -23,6 +23,8 @@ public:
 
 private:
     void prepareCore(double) override { core_.init(); }
+    // Allocation-free: init() lays the core out in the buffers it already owns, zeroing them.
+    void clearCore() override { core_.init(); }
     void readParams() override;
     void handleMidi(const juce::MidiMessage&) override;
     void renderBlock(const float* const* in, float* const* out) override;

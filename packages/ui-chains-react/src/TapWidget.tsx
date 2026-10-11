@@ -3,9 +3,9 @@
 // a sound instead. Every edit is only ASKED of the host, which writes the node's file; the card holds
 // nothing of its own. See packages/song/docs/racks.md.
 
-import { Plus, X } from "@frediverse/ui/icons";
+import { Plus, Volume2, VolumeX, X } from "@frediverse/ui/icons";
 import type { WebRackSound } from "@studio/graph-model";
-import { RACK_ADD_BIND, rackBindSymbol } from "@studio/ui-chains/graph";
+import { rackAddBind, rackBindSymbol } from "@studio/ui-chains/graph";
 import { useState } from "react";
 import { ValueEditor } from "./ValueEditor";
 
@@ -13,8 +13,10 @@ import { ValueEditor } from "./ValueEditor";
 export type TapAction =
   | { kind: "note"; symbol: string; note: number }
   | { kind: "sample"; symbol: string; x: number; y: number }
-  | { kind: "add" }
-  | { kind: "remove"; symbol: string };
+  | { kind: "add"; note?: number }
+  | { kind: "remove"; symbol: string }
+  // Silence it or bring it back; `kit` says it is an SFZ kit's pad, muted through the player rather than the tap.
+  | { kind: "mute"; symbol: string; note: number; on: boolean; kit: boolean };
 
 /** The sample's file name without its folders or extension — what fits under a pad. */
 const shortName = (ref: string): string =>
@@ -23,6 +25,7 @@ const shortName = (ref: string): string =>
 export function TapWidget({
   bind,
   sound,
+  fixed = false,
   lit,
   style,
   onTrigger,
@@ -32,6 +35,8 @@ export function TapWidget({
   bind: string | undefined;
   /** The sound the bind names, off the node — undefined for the "+" tap, or a stale bind. */
   sound: WebRackSound | undefined;
+  /** An SFZ KIT's pad: it sounds through its note, and nothing about it is edited here (docs/racks.md). */
+  fixed?: boolean;
   lit: boolean;
   style: React.CSSProperties;
   /** Audition it — absent, the pad is drawn and silent, the honest state of a host with no engine. */
@@ -49,32 +54,51 @@ export function TapWidget({
     onDoubleClick: (e: React.MouseEvent) => e.stopPropagation(),
   };
 
-  if (bind === RACK_ADD_BIND)
+  // An add tap: a bare one picks the note itself, an empty cell of the octave grid adds on ITS note.
+  const add = rackAddBind(bind);
+  if (add) {
+    const at = add.note ?? undefined;
     return (
       <button
         type="button"
         className="dgx-w dgx-tap add"
         style={style}
-        title="Add a tap — then pick its sample"
+        title={
+          at === undefined
+            ? "Add a tap — then pick its sample"
+            : `Add a tap on note ${at} — then pick its sample`
+        }
         aria-label="Add a tap"
         disabled={!onEdit}
         {...keep}
         onClick={(e) => {
           e.stopPropagation();
-          onEdit?.({ kind: "add" });
+          onEdit?.(
+            at === undefined ? { kind: "add" } : { kind: "add", note: at },
+          );
         }}
       >
         <Plus />
       </button>
     );
+  }
 
   const symbol = rackBindSymbol(bind) ?? "?";
   const sample = sound?.sample;
-  // Anything it can SOUND: a library sample, or the clip or slice an older kit names (packages/song/docs/racks.md).
-  const playable = !!(sample || sound?.clip || sound?.source);
+  // Anything it can SOUND: a library sample, the clip or slice an older kit names, or a kit's note (packages/song/docs/racks.md).
+  const playable = !!(
+    sample ||
+    sound?.clip ||
+    sound?.source ||
+    (fixed && sound)
+  );
+  // A kit's pad is the kit's: no write, and no sample of its own to show.
+  const edit = fixed ? undefined : onEdit;
+  // …but its MUTE is the node's either way, so a kit's pad takes that one write.
+  const muted = !!sound?.mute;
   return (
     <div
-      className="dgx-w dgx-tap"
+      className={`dgx-w dgx-tap${muted ? " muted" : ""}`}
       style={style}
       {...keep}
       onContextMenu={
@@ -91,11 +115,13 @@ export function TapWidget({
         type="button"
         className={`dgx-tap-pad${lit ? " on" : ""}`}
         title={
-          sample
-            ? `${symbol} — ${sample}`
-            : playable
-              ? symbol
-              : `${symbol} — no sample yet`
+          fixed
+            ? `${symbol} — note ${sound?.note ?? "?"}, played by the kit`
+            : sample
+              ? `${symbol} — ${sample}`
+              : playable
+                ? symbol
+                : `${symbol} — no sample yet`
         }
         disabled={!onTrigger || !playable}
         onClick={(e) => {
@@ -109,8 +135,12 @@ export function TapWidget({
         <button
           type="button"
           className="dgx-tap-note"
-          title="The note it answers to — click to type another"
-          disabled={!onEdit || !sound}
+          title={
+            fixed
+              ? "The note the kit plays it on"
+              : "The note it answers to — click to type another"
+          }
+          disabled={!edit || !sound}
           onClick={(e) => {
             e.stopPropagation();
             setTyping(true);
@@ -120,18 +150,43 @@ export function TapWidget({
         </button>
         <button
           type="button"
-          className={`dgx-tap-sample${sample ? "" : " unknown"}`}
-          title={sample ?? "pick a sample from a library's samples/"}
-          disabled={!onEdit}
+          className={`dgx-tap-sample${sample || fixed ? "" : " unknown"}`}
+          title={
+            fixed
+              ? "Its sound is the kit's: velocity layers and round-robins"
+              : (sample ?? "pick a sample from a library's samples/")
+          }
+          disabled={!edit}
           onClick={(e) => {
             e.stopPropagation();
-            onEdit?.({ kind: "sample", symbol, x: e.clientX, y: e.clientY });
+            edit?.({ kind: "sample", symbol, x: e.clientX, y: e.clientY });
           }}
         >
-          {sample ? shortName(sample) : "sample…"}
+          {fixed ? "kit" : sample ? shortName(sample) : "sample…"}
         </button>
       </div>
-      {onEdit && (
+      {onEdit && sound && (
+        <button
+          type="button"
+          className="dgx-tap-m"
+          title={muted ? `Unmute ${symbol}` : `Mute ${symbol}`}
+          aria-label={muted ? `Unmute ${symbol}` : `Mute ${symbol}`}
+          aria-pressed={muted}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit({
+              kind: "mute",
+              symbol,
+              note: sound.note,
+              on: !muted,
+              kit: fixed,
+            });
+          }}
+        >
+          {muted ? <VolumeX /> : <Volume2 />}
+        </button>
+      )}
+      {edit && (
         <button
           type="button"
           className="dgx-tap-x"
@@ -139,7 +194,7 @@ export function TapWidget({
           aria-label={`Remove ${symbol}`}
           onClick={(e) => {
             e.stopPropagation();
-            onEdit({ kind: "remove", symbol });
+            edit({ kind: "remove", symbol });
           }}
         >
           <X />
@@ -157,7 +212,7 @@ export function TapWidget({
               note <= 127 &&
               note !== sound?.note
             )
-              onEdit?.({ kind: "note", symbol, note });
+              edit?.({ kind: "note", symbol, note });
           }}
         />
       )}

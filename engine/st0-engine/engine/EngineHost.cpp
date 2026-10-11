@@ -14,11 +14,14 @@
 #include "TurntablePlugin.h"   // the platter, which carries a clock of its own
 #include "HeldMemory.h"        // what one of our plugins says it holds
 #include "MixBlend.h"          // a module's @mix pair: placed past, removed with
+#include "SeekRelease.h"       // a seek while playing ends the notes and the tails
 #include "ProcessMemory.h"     // the process's own memory, for the header
 #include "Warnings.h"          // WarningScope — which project an apply's warnings belong to
 #include "MessagePump.h"       // pumpMessages — the loop run() spins, where one may be spun
 
 #include <algorithm>
+#include <limits>
+#include <optional>
 #include <iostream>
 #include <map>
 #include <utility>
@@ -42,14 +45,44 @@ const ProjectDoc& EngineHost::current(const std::string& session) const {
     return s ? s->current : kEmpty;
 }
 
+namespace {
+
+// How often the MIDI devices are looked at for one plugged or unplugged: Tracktion's own default interval.
+constexpr int kMidiScanMs = 4000;
+
+// The rescan Tracktion would run on its own timer, run only when `quiet` says nothing is playing.
+class MidiScanTimer : public juce::Timer {
+public:
+    MidiScanTimer(te::DeviceManager& dm, std::function<bool()> quiet) : dm_(dm), quiet_(std::move(quiet)) {}
+    void timerCallback() override {
+        if (quiet_()) dm_.rescanMidiDeviceList();
+    }
+
+private:
+    te::DeviceManager& dm_;
+    std::function<bool()> quiet_;
+};
+
+}  // namespace
+
 void EngineHost::openAudioDevice() {
     // Open the interface once, INPUTS included — with none open the callback delivers no input samples and every input meters -100 for ever. docs/engineHost.md.
     auto& dm = impl_->engine.getDeviceManager();
     // 512 is Tracktion's own default, and means "as many channels as the device has" — asked of the OUTPUTS too, since a cue bus leaves by a second pair (docs/cueOutput.md).
     dm.initialise(512, 512);
+    // initialise() replays Tracktion's saved setup, which may record from another device than it plays through.
+    if (keepInputsOnOutputDevice(dm.deviceManager)) dm.rescanWaveDeviceList();
     // …then onto the buffer this engine asks for, which decides its quality band; after initialise, because there is no device to ask before it.
     applyPreferredBufferSize(dm.deviceManager);
     publishAudioTiming();   // what whoami answers with, from now on — see AudioDevices.cpp
+    // A MIDI rescan restarts every Edit's playback, so it waits for silence (docs/audioDevice.md).
+    dm.setMidiDeviceScanIntervalSeconds(0);
+    impl_->midiScanTimer = std::make_unique<MidiScanTimer>(dm, [this] {
+        for (const auto& id : impl_->ids())
+            if (isPlaying(id)) return false;
+        return true;
+    });
+    impl_->midiScanTimer->startTimer(kMidiScanMs);
     if (auto* dev = dm.deviceManager.getCurrentAudioDevice())
         std::cerr << "[device] '" << dev->getName() << "' open: "
                   << dev->getActiveInputChannels().countNumberOfSetBits() << " in, "
@@ -86,6 +119,7 @@ void EngineHost::teardownProjectState(const std::string& session) {
         if (auto* tc = impl_->transport(session))
             tc->removeListener(impl_->session(session).recordListener.get());
     impl_->session(session).pendingTakes.clear();
+    impl_->session(session).punchMuted.clear();   // they belong to the old edit, and must not outlive it
     // Keep the WATCHES — interest in an id outlives the plugin behind it — but drop their baselines, or a parameter that came back different would be diffed away.
     for (auto& [id, lastSent] : impl_->session(session).watchedParams)
         lastSent.clear();
@@ -104,6 +138,14 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     // Building a graph is where nearly every warning comes from, so name the project they are about for as long as the build runs.
     WarningScope ws{session};
     impl_->session(session).lastTouchedMs = juce::Time::getMillisecondCounterHiRes();
+    // The transport of the edit about to go: a rebuild must not send the playhead home (docs/engineHost.md).
+    struct HeldTransport { tt::TimePosition at; tt::TimeRange loop; bool looping; bool playing; };
+    std::optional<HeldTransport> held;
+    // The SAME project only: another one opened in this session starts from its top.
+    const bool sameProject = impl_->session(session).edit && impl_->session(session).baseDir == baseDir;
+    if (auto* old = sameProject ? impl_->transport(session) : nullptr)
+        held = HeldTransport{old->getPosition(), old->getLoopRange(), (bool)old->looping,
+                             old->isPlaying() && !old->isRecording()};
     teardownProjectState(session);
     invalidatePluginInfoMemo();   // reload the scan cache once per apply, then memoise it across this apply's per-plugin lookups
 
@@ -149,6 +191,14 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     const double t5 = juce::Time::getMillisecondCounterHiRes();
     edit->dispatchPendingUpdatesSynchronously();
     const double t6 = juce::Time::getMillisecondCounterHiRes();
+
+    // …and the transport put back where it was: the loop, the playhead, and plain playback; a take is not resumed.
+    if (held) {
+        tc->setLoopRange(held->loop);
+        tc->looping = held->looping;
+        tc->setPosition(held->at);
+        if (held->playing) tc->play(false);
+    }
 
     std::cerr << "[applyFull] createEdit=" << (t1 - t0) << "ms populate=" << (t2 - t1)
               << "ms meters+click=" << (t3 - t2) << "ms ensureContext=" << (t4 - t3)
@@ -301,7 +351,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
             case ChangeKind::TrackOutputChanged:
                 break;  // deferred to after the loop — see below
             case ChangeKind::ClipAdded:
-                if (auto* t = trackById(edit, c.trackId, target); t && c.clip) {
+                // A disabled clip is placed and silent, as the full build has it (EditBuilder): nothing is inserted.
+                if (auto* t = trackById(edit, c.trackId, target); t && c.clip && !c.clip->disabled) {
                     if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
                     else insertClip(engine, edit, *t, *c.clip, baseDir);
                 }
@@ -316,6 +367,8 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                 // Re-INSERT, not reposition: everything a clip carries is applied at insert time, so setStart/setLength would drop all but two. docs/engineHost.md.
                 if (auto* t = trackById(edit, c.trackId, target); t && c.clip) {
                     removeClipFor(*t, *c.clip);
+                    // …and only an ENABLED clip goes back in: muting one is this re-insert, with nothing to insert.
+                    if (c.clip->disabled) break;
                     if (c.clip->type == ClipType::Midi) insertMidiClip(edit, *t, *c.clip);
                     else insertClip(engine, edit, *t, *c.clip, baseDir);
                 }
@@ -404,16 +457,24 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
                     for (const auto& p : t.plugins)
                         if (p.id == c.plugin->id) was = &p;
                 loadPluginFiles(edit, *it->second, *c.plugin, was);
-                // A preset sets every parameter it holds, so the document's text params go back on top, as at insert.
-                if (was == nullptr || was->path != c.plugin->path) applyPluginParams(*it->second, c.plugin->params);
+                // A preset or a Surge patch sets every parameter it holds, so the document's text params go back on top, as at insert.
+                if (was == nullptr || was->path != c.plugin->path || was->surgePatch != c.plugin->surgePatch)
+                    applyPluginParams(*it->second, c.plugin->params);
                 wireSidechain(edit, *it->second, c.plugin->sidechainFrom, target);
                 break;
             }
             case ChangeKind::PluginParamChanged:
                 // One per differing parameter, keyed by the display name applyPluginParams() and namedParams() share; an id absent from the edit failed to instantiate.
                 if (auto it = impl_->session(session).pluginsById.find(c.pluginId);
-                    it != impl_->session(session).pluginsById.end() && it->second != nullptr)
+                    it != impl_->session(session).pluginsById.end() && it->second != nullptr) {
                     applyPluginParams(*it->second, {{c.paramName, c.paramValue}});
+                    // A bipolar curve rides around the knob and was baked around its OLD value, so it is baked again (docs/editBuilder.md).
+                    for (const auto& t : target.tracks)
+                        if (t.id == c.trackId)
+                            for (const auto& lane : t.automation)
+                                if (lane.bipolar && lane.pluginId == c.pluginId && lane.param == c.paramName)
+                                    applyAutomationLane(edit, *it->second, lane);
+                }
                 break;
             case ChangeKind::PluginEnabledChanged:
                 // Bypass on the LIVE plugin, which stays in the chain passing its input through; deliberately not a rebuild, which would restart every other plugin.
@@ -488,10 +549,17 @@ void EngineHost::play(const std::string& session) {
     // A loop always starts from its top, so drop the playhead onto the start; Tracktion wraps back on its own.
     if (tc->looping) tc->setPosition(tc->getLoopRange().getStart());
     if (impl_->session(session).recordEnabled && prepareTakes(session)) {
+        // Counting in until recordingStarted says where the punch is: a record press before then cancels the roll.
+        impl_->session(session).punchAt = std::numeric_limits<double>::infinity();
         // Count-in applies to the record roll only, so a plain play clears it and an earlier record's count cannot linger onto ordinary playback.
         setCountIn(countInModeFor(impl_->session(session).current.countIn));
         // The armed track is muted at the punch-in by RecordListener::recordingStarted, not here: the old clips stay audible through the count-in (docs/engineHost.md).
         tc->record(false);
+    } else if (impl_->session(session).recordEnabled) {
+        // Record on with no audio lane to take: the browser captures a MIDI or picture lane, and still owes it a count-in.
+        impl_->session(session).punchAt = std::numeric_limits<double>::infinity();
+        setCountIn(countInModeFor(impl_->session(session).current.countIn));
+        tc->record(false, true);
     } else {
         setCountIn(te::Edit::CountIn::none);
         tc->play(false);
@@ -501,7 +569,19 @@ void EngineHost::play(const std::string& session) {
 void EngineHost::setRecordEnabled(const std::string& session, bool on) {
     // Turning it OFF never creates — a session nobody has is already not recording.
     if (!on) {
-        if (auto* s = impl_->find(session)) s->recordEnabled = false;
+        if (auto* s = impl_->find(session)) {
+            s->recordEnabled = false;
+            // Off mid-roll ENDS the take and keeps playing; during the count-in there is no take yet, so the roll stops (docs/engineHost.md).
+            if (auto* tc = impl_->transport(session); tc != nullptr && tc->isRecording()) {
+                if (tc->getPosition().inSeconds() < s->punchAt) {
+                    stop(session);
+                } else {
+                    ++s->rollGen;
+                    tc->stopRecording(false);
+                    restorePunchMute(*s);
+                }
+            }
+        }
     } else {
         impl_->session(session).recordEnabled = true;
     }
@@ -532,11 +612,17 @@ void EngineHost::applyMetronome(const std::string& session) {
 // in it: a note-on delivered before the stop has no note-off coming, and the chord hangs. So every
 // stop lets go — the notes, and not the tails. See docs/panic.md.
 void EngineHost::stop(const std::string& session) {
-    if (auto* tc = impl_->transport(session)) tc->stop(false, false);
+    if (auto* tc = impl_->transport(session)) {
+        // A record roll's stop switches record OFF: left on, the next Play would be another take, muting the armed lane.
+        if (tc->isRecording()) impl_->session(session).recordEnabled = false;
+        tc->stop(false, false);
+    }
     if (auto& s = impl_->session(session); s.edit) {
+        // Any punch-in mute still waiting on its timer belongs to the roll this stop ended.
+        ++s.rollGen;
         te::midiPanic(*s.edit, false);
         // A stop ends the take, so restore the mute the record roll applied at the punch-in (docs/engineHost.md).
-        applySoloMute(*s.edit, s.current);
+        restorePunchMute(s);
     }
 }
 
@@ -544,9 +630,21 @@ void EngineHost::stop(const std::string& session) {
 // tail and re-seats a plugin whose own state is stuck. Two gestures, one flag apart (docs/panic.md).
 void EngineHost::panic(const std::string& session) {
     if (auto* tc = impl_->transport(session)) tc->stop(false, false);
+    ++impl_->session(session).rollGen;
+    restorePunchMute(impl_->session(session));
     if (auto& s = impl_->session(session); s.edit) te::midiPanic(*s.edit, true);
 }
-void EngineHost::rewind(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->setPosition(tt::TimePosition()); }
+// A jump while playing ends what was sounding, tails included; stopped, it leaves a stop's tail alone (docs/panic.md).
+static void releaseIfPlaying(te::TransportControl& tc, te::Edit* edit) {
+    if (edit != nullptr && tc.isPlaying()) releaseOnSeek(*edit);
+}
+
+void EngineHost::rewind(const std::string& session) {
+    if (auto* tc = impl_->transport(session)) {
+        tc->setPosition(tt::TimePosition());
+        releaseIfPlaying(*tc, impl_->session(session).edit.get());
+    }
+}
 
 // Set the loop region and enable or disable looping; `enabled` false keeps the range, so re-enabling reuses it.
 void EngineHost::setLoop(const std::string& session, double startSeconds, double endSeconds, bool enabled) {
@@ -557,10 +655,19 @@ void EngineHost::setLoop(const std::string& session, double startSeconds, double
     tc->looping = enabled;
 }
 
+EngineHost::LoopState EngineHost::loop(const std::string& session) const {
+    auto* tc = impl_->transport(session);
+    if (tc == nullptr) return {};
+    const auto range = tc->getLoopRange();
+    return {tc->looping.get(), range.getStart().inSeconds(), range.getEnd().inSeconds()};
+}
+
 // Scrub to an absolute position in seconds; Tracktion keeps playing from the new spot if the transport rolls.
 void EngineHost::seek(const std::string& session, double seconds) {
-    if (auto* tc = impl_->transport(session))
+    if (auto* tc = impl_->transport(session)) {
         tc->setPosition(tt::TimePosition::fromSeconds(std::max(0.0, seconds)));
+        releaseIfPlaying(*tc, impl_->session(session).edit.get());
+    }
 }
 
 bool EngineHost::isPlaying(const std::string& session) const {
@@ -642,6 +749,20 @@ void EngineHost::previewNote(const std::string& session, const std::string& trac
     const int vel = juce::jlimit(1, 127, (int) std::lround(velocity * 127.0f));
     // playGuideNote owns the note-off on a 100 ms timer, and forceNote skips a preference about a HOST's keyboard (docs/protocol.md).
     track->playGuideNote(juce::jlimit(0, 127, key), te::MidiChannel(1), vel, true, true, true);
+}
+
+void EngineHost::liveMidi(const std::string& session, const std::string& trackId,
+                          const std::vector<uint8_t>& bytes) {
+    auto* s = impl_->find(session);
+    if (s == nullptr || ! s->edit) return;
+    auto* track = trackById(*s->edit, trackId, s->current);
+    if (track == nullptr || bytes.empty() || bytes.size() > 3) return;
+    // Channel messages only: sysex and the system bytes mean nothing to one track.
+    if (bytes[0] < 0x80 || bytes[0] >= 0xF0) return;
+    juce::MidiMessage m(bytes.data(), (int) bytes.size());
+    // Channel 1, where the audition note plays: whatever channel the keyboard sends on, the lane's instrument hears it.
+    m.setChannel(1);
+    track->injectLiveMidiMessage(m, {});
 }
 
 float EngineHost::trackLevelDb(const std::string& session, int trackIndex) const {
@@ -896,6 +1017,7 @@ private:
         s.session = session;
         s.playing = host_.isPlaying(session);
         s.playheadSeconds = host_.playheadSeconds(session);
+        s.loop = host_.loop(session);
         const auto& doc = host_.current(session);
         s.trackLevelsDb.reserve(doc.tracks.size());
         for (int i = 0; i < (int)doc.tracks.size(); ++i)

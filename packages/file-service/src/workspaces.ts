@@ -20,6 +20,7 @@ import {
 } from "@studio/git-repos/uri";
 import { accountLibraries } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
+import { projectTagsOf } from "@studio/song-schema/projectTags";
 import type {
   AccountWorkspace,
   CloneStep,
@@ -482,12 +483,25 @@ export async function listMachineWorkspaces(
       projects: (single ? ["."] : projectDirsUnder(abs)).flatMap((path) => {
         // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
-        return app ? [{ path, app }] : [];
+        if (!app) return [];
+        const tags = app === "st0" ? tagsOf(join(abs, path)) : [];
+        return [tags.length ? { path, app, tags } : { path, app }];
       }),
     };
   });
   listings.set(slug, { at: Date.now(), rows });
   return rows;
+}
+
+/** An st0 project's tags, read from its project.yaml; none when there is no such file. */
+function tagsOf(projectDir: string): string[] {
+  try {
+    return projectTagsOf(
+      readFileSync(join(projectDir, "project.yaml"), "utf8"),
+    );
+  } catch {
+    return [];
+  }
 }
 
 /** The window under the listing above, so a polling home page does not walk every tree per tick (docs/workspaces.md). */

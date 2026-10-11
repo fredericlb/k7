@@ -18,6 +18,17 @@ time (`engine/patches/sfizz.cmake`), and none will be fixed upstream: its 32-bit
 which a library linked into an engine on the dynamic one cannot use — every object it builds
 would clash at link time.
 
+**One feature is patched in as well: a gain per KEY.** A kit's pad must be able to sit louder or
+quieter than the others. Velocity cannot do that, because on a sampled kit a velocity also picks the
+sample layer, so a softer pad is a different stroke and not just a quieter one. SFZ has no per-key
+level a host can set either: the opcodes that come close (`amp_keytrack`) are a slope, not a
+table, and editing the kit's regions means rewriting a file the supervisor owns. So the patch adds a
+128-entry dB table to sfizz's config and adds a note's entry to its voice volume when the voice starts,
+the same place the region's own `volume` is applied. The plugin exposes it as `Key 0` … `Key 127`,
+from -24 to +12 dB, and writes the table from the audio thread at each block, where sfizz
+reads it, so no lock is shared. A gain applies to the notes that START after it changes. A ringing
+cymbal keeps the level it was struck at, which is also what a real one does.
+
 **It is compiled as C++17, ours being 20.** Under C++20 `std::result_of` is gone and abseil changes
 what `string_view` is, and sfizz does not build; 17 is what it already picks for itself on MSVC, so
 it is the one standard every platform builds it at. Only its public header is included on our side,

@@ -43,3 +43,12 @@ The gate never waits for nothing. A failed copy ends the load (the editor's fata
 over), a document that does not compile ends it (the editor shows the error), no engine at all ends
 it, and an engine that does not report the project within two minutes ends it with a line in the
 log. Another project opened meanwhile takes the load over; the old dry run sees that and stops.
+
+**A load belongs to the ENGINE it is waiting on, not just to the session.** The account's engine can
+change while the gate waits — a page on another device claims another machine, and the claim moves
+back and forth — and a dry run still asking the engine it started on would ask a closed link until
+the two-minute deadline, with the project long since applied on the engine that took over. So the
+first document to reach the session through a DIFFERENT link takes the load over, and a dry run
+whose link is no longer the session's stops at once: it goes back to waiting for the new engine's
+document, which the next `/workspace` poll provokes by redialling, or lets the gate go when no
+engine is selected at all.

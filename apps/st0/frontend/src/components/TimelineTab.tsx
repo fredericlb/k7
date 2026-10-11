@@ -68,6 +68,7 @@ import { clipLoop, placedRepeats } from "../clipLoop";
 import type { MenuCtx } from "../contextMenu";
 import { acceptsFileDrop, dragPayload } from "../fileDrop";
 import type { PasteResult } from "../gridCaret";
+import type { HistoryMark } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
@@ -95,7 +96,7 @@ import {
   rowTarget,
   stepRow,
 } from "../rows";
-import { dragOffset, freeSnap, snapTo } from "../snap";
+import { freeSnap, moveOffset, snapMode, snapPosition, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import type { DropLane, DropUpload, TimelineDropEvent } from "../timelineDrop";
 import { type TimelineMode, timelineMode } from "../timelineMode";
@@ -516,6 +517,7 @@ export function TimelineTab({
   rolling,
   takeStartBeat,
   takeCountInBeats,
+  midiTake = null,
   videoTracks,
   onVideoEdit,
   setStatus,
@@ -540,6 +542,7 @@ export function TimelineTab({
   trackControls,
   onTrackToggle,
   laneNodes,
+  mark,
   onNodeMenu,
   onNewVideoTrack,
   onReorder,
@@ -564,6 +567,8 @@ export function TimelineTab({
   takeStartBeat: number;
   /** The take's pre-roll in BEATS, so the growing clip can skip it: those bars record nothing. */
   takeCountInBeats: number;
+  /** The MIDI take being captured right now, and the beat it starts on — the browser's, so absent from the engine's armed set. */
+  midiTake?: { lane: string; from: number } | null;
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
   videoTracks: WebVideoTrack[];
   /** A picture placement was dragged: set these fields of it in SECONDS, by `ref`, as a LIST — one gesture, one read-modify-write (docs/picture.md). */
@@ -660,7 +665,12 @@ export function TimelineTab({
   onFocusRow?: (target: RowTarget) => void;
   // Per-track mute/solo/arm by track id — the same state the graph's track nodes draw, so the two stay in lockstep.
   trackControls?: Record<string, { mute: number; solo: number; arm: number }>;
-  onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
+  onTrackToggle?: (
+    id: string,
+    control: "mute" | "solo" | "arm" | "highlight",
+  ) => void;
+  /** What a hovered History row touched — its lanes tinted, its clips ringed (historyMarks.ts). */
+  mark?: HistoryMark | null;
   /** What the graph knows about each lane's NODE, by lane id — the same maps the chains pane draws from (packages/song/docs/alternatives.md). */
   laneNodes?: {
     alternatives?: Record<
@@ -702,6 +712,30 @@ export function TimelineTab({
   const [zoom, setZoom] = useState<Viewport[]>([]);
   // The transport loop as an inclusive beat range, or null. The engine enforces the wrap; this only draws the band.
   const [loop, setLoop] = useState<{ lo: number; hi: number } | null>(null);
+  // …and the loop the ENGINE holds, as one string so a frame that repeats it re-renders nothing.
+  const engineLoop = useEngineState((s) =>
+    s.loop?.on ? `${s.loop.start}|${s.loop.end}` : s.loop ? "off" : "",
+  );
+  // Adopted when it CHANGES, not each frame: a reloaded page learns the loop that is playing, and a frame
+  // older than a loop just set here cannot undo it.
+  const lastEngineLoop = useRef("");
+  useEffect(() => {
+    // Not before the document: a refreshed page hears the engine first, and would mark its loop as adopted with nowhere to draw it.
+    if (!proj || engineLoop === lastEngineLoop.current) return;
+    lastEngineLoop.current = engineLoop;
+    if (!engineLoop) return;
+    if (engineLoop === "off") {
+      setLoop(null);
+      return;
+    }
+    const [start, end] = engineLoop.split("|").map(Number);
+    const lo = (start * proj.tempo) / 60;
+    // The band is inclusive of its last cell; the engine's end is where the loop wraps, one cell after it.
+    const hi = (end * proj.tempo) / 60 - 1;
+    setLoop((cur) =>
+      cur && cur.lo === lo && cur.hi === hi ? cur : { lo, hi },
+    );
+  }, [engineLoop, proj]);
   // The clip being moved. A ref shadows it so the key handler reads the live value without re-binding on each nudge.
   const [move, setMove] = useState<Move | null>(null);
   const moveRef = useRef<Move | null>(move);
@@ -891,7 +925,12 @@ export function TimelineTab({
     if (!active) return;
     onEditTarget(
       proj && clipUnderCaret
-        ? { kind: "clip", project: proj, clip: clipUnderCaret }
+        ? {
+            kind: "clip",
+            project: proj,
+            clip: clipUnderCaret,
+            track: caretRow?.kind === "track" ? caretRow.track.id : undefined,
+          }
         : null,
     );
   }, [active, proj, clipUnderCaret, onEditTarget]);
@@ -916,11 +955,31 @@ export function TimelineTab({
   }, [caretRow]);
   // …reported to the shell further down, once the selection rectangle it also carries exists.
 
+  // The lanes shift-clicked together, by track id — what the right-click offers to group (docs/timeline.md).
+  const [picked, setPicked] = useState<string[]>([]);
   // Click a header: the row itself is selected, and a live rectangle is dropped, or a click would leave two selections drawn.
   const selectRow = useCallback((row: Row) => {
     setSel(null);
+    setPicked([]);
     setCaret({ row: rowKey(row), beat: LABEL });
   }, []);
+  // Shift-click a track's header: it joins the picked lanes, or leaves them; the lane named before it joins too, as the anchor.
+  const pickRow = useCallback(
+    (row: Row) => {
+      if (row.kind !== "track") return selectRow(row);
+      const id = row.track.id;
+      const anchor = caret.row.startsWith("track:")
+        ? caret.row.slice("track:".length)
+        : null;
+      setSel(null);
+      setPicked((cur) => {
+        const base = cur.length || !anchor || anchor === id ? cur : [anchor];
+        return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+      });
+      setCaret({ row: rowKey(row), beat: LABEL });
+    },
+    [selectRow, caret.row],
+  );
 
   // Double-click a header: the shell points its other panes at the row. Nothing is written.
   const focusRow = useCallback(
@@ -980,13 +1039,14 @@ export function TimelineTab({
     (row: Row) => ({
       onPointerDown: (e: React.PointerEvent) => beginRowDrag(e, row),
       // Swallowed after a drag: the same press cannot both move the lane and select it.
-      onClick: () => {
+      onClick: (e: React.MouseEvent) => {
         if (rowMoved.current) return;
-        selectRow(row);
+        if (e.shiftKey) pickRow(row);
+        else selectRow(row);
       },
       onDoubleClick: () => focusRow(row),
     }),
-    [selectRow, focusRow, beginRowDrag],
+    [selectRow, pickRow, focusRow, beginRowDrag],
   );
 
   /** …and how a PICTURE lane reads: hidden itself, or hidden because something else is soloed (pictureMix.ts). */
@@ -1231,6 +1291,7 @@ export function TimelineTab({
     end: number;
     x: number; // pointer x at grab
     ppb: number;
+    unit: number; // the ruler's unit at the grab — the step both edges snap to
     pending?: boolean; // released and written, still drawn until the reload — see Move.pending
   } | null>(null);
   const resizeRef = useRef<typeof resize>(null);
@@ -1240,20 +1301,29 @@ export function TimelineTab({
     const r = resizeRef.current;
     if (r?.pending) return; // already written and only still drawn — a hover must not re-time it
     if (!r) return;
-    // Whole beats unless Ctrl frees the edge, and measured from where the edge WAS when grabbed, never from where it is now.
-    const free = freeSnap(e);
-    const d = snapTo((e.clientX - r.x) / r.ppb, free ? 0 : 1);
+    // The ruler's unit at the grab, measured from where the edge WAS: the grid, Ctrl the event's own offset, Shift free (snap.ts).
+    const mode = snapMode(e);
+    const delta = (e.clientX - r.x) / r.ppb;
     // An edge may not cross the other; the floor is the grid's step while there is one, and a 64th once the gesture is free.
-    const min = free ? MIN_FREE_BEATS : 1;
+    const min = mode === "free" ? MIN_FREE_BEATS : r.unit;
     const next =
       r.edge === "start"
         ? {
-            start: Math.max(0, Math.min(r.origEnd - min, r.origStart + d)),
+            start: Math.max(
+              0,
+              Math.min(
+                r.origEnd - min,
+                snapPosition(r.origStart, delta, r.unit, mode),
+              ),
+            ),
             end: r.origEnd,
           }
         : {
             start: r.origStart,
-            end: Math.max(r.origStart + min, r.origEnd + d),
+            end: Math.max(
+              r.origStart + min,
+              snapPosition(r.origEnd, delta, r.unit, mode),
+            ),
           };
     if (next.start !== r.start || next.end !== r.end)
       setResize({ ...r, ...next });
@@ -1305,7 +1375,8 @@ export function TimelineTab({
   const onFadeMove = useCallback((e: React.PointerEvent) => {
     const f = fadeRef.current;
     if (!f || f.pending) return;
-    const free = freeSnap(e);
+    // A fade has no grid of its own to keep an offset from: Shift frees it, and so does Ctrl, as it always has.
+    const free = freeSnap(e) || e.shiftKey;
     // A fade-in grows rightwards and a fade-out leftwards, so the pointer's delta counts against the one and for the other.
     const dx = (e.clientX - f.x) / f.ppb;
     const d = snapTo(f.which === "fadeIn" ? dx : -dx, free ? 0 : 1);
@@ -1385,12 +1456,14 @@ export function TimelineTab({
     const v = vdragRef.current;
     if (!v || v.pending) return;
     // Measured from the GRAB and not from the last frame: a re-applied offset makes the edge run away from the cursor.
-    const d = (e.clientX - v.x) / v.pxPerSec;
+    const raw = (e.clientX - v.x) / v.pxPerSec;
     if (Math.abs(e.clientX - v.x) > DRAG_SLOP) v.moved = true;
-    // Snapped to the ruler's own ticks, whichever unit it is reading; Ctrl suspends it, as on every other drag here.
-    const free = freeSnap(e);
+    // The ruler's own ticks; Ctrl moves by whole steps of its unit instead, keeping the shot's offset; Shift is free (snap.ts).
+    const mode = snapMode(e);
+    const d =
+      mode === "relative" ? snapTo(raw, unitRef.current / bpsRef.current) : raw;
     const snapSec = (sec: number): number => {
-      if (free) return Math.max(0, sec);
+      if (mode !== "grid") return Math.max(0, sec);
       const t = nearestTick(ticksRef.current, sec * bpsRef.current);
       return t === null ? Math.max(0, sec) : Math.max(0, t / bpsRef.current);
     };
@@ -1450,12 +1523,13 @@ export function TimelineTab({
         Math.abs(e.clientY - d.y) > DRAG_SLOP
       )
         d.moved = true;
-      /** Snapped to the RULER'S CURRENT UNIT unless Ctrl is down — the step read at the GRAB, the modifier read live (snap.ts). */
-      const offset = dragOffset(
+      /** On the RULER'S UNIT, read at the grab: the grid itself, Ctrl keeping the event's offset from it, Shift free (snap.ts). */
+      const offset = moveOffset(
         e.clientX - d.x,
         d.ppb,
-        freeSnap(e) ? 0 : d.unit,
+        d.unit,
         m.origStart,
+        snapMode(e),
       );
       const lane = laneAtPoint(e.clientX, e.clientY);
       // Where the event may LAND: a lane takes it when its matching output is wired, which `contentType` says in one word (packages/song/docs/trackModules.md).
@@ -1524,12 +1598,12 @@ export function TimelineTab({
 
   /** A clip's double-click: its contents in the event panel. */
   const openClip = useCallback(
-    (e: React.MouseEvent, c: WebClip) => {
+    (e: React.MouseEvent, c: WebClip, track: string) => {
       const p = projRef.current;
       if (!p) return;
       e.stopPropagation();
       clipOpenedAt.current = performance.now();
-      onOpenClip?.({ kind: "clip", project: p, clip: c });
+      onOpenClip?.({ kind: "clip", project: p, clip: c, track });
     },
     [onOpenClip],
   );
@@ -1552,7 +1626,7 @@ export function TimelineTab({
             m.start <= at && at < m.start + (m.length > 0 ? m.length : NATURAL),
         ) ?? midi[0];
       clipOpenedAt.current = performance.now();
-      onOpenClip?.({ kind: "clip", project: p, clip: hit });
+      onOpenClip?.({ kind: "clip", project: p, clip: hit, track: track.id });
     },
     [onOpenClip],
   );
@@ -2053,7 +2127,8 @@ export function TimelineTab({
     proj,
   ]);
 
-  if (error)
+  // Only with nothing to draw: a failed RE-read keeps the last song on screen while useDocument retries.
+  if (error && !proj)
     return (
       <div className="p-4 text-sm text-red-400">
         timeline unavailable — {error}
@@ -2367,7 +2442,8 @@ export function TimelineTab({
                 className="relative cursor-pointer overflow-hidden"
                 style={{ width: laneW }}
                 onMouseDown={(e) => {
-                  if (e.button !== 0) return;
+                  // A macOS Ctrl+click is the context menu's, not a seek: answered here, it cleared the selection the menu then looped.
+                  if (e.button !== 0 || e.ctrlKey) return;
                   if (!visRows.length) return;
                   const el = e.currentTarget;
                   const rect = el.getBoundingClientRect();
@@ -2459,6 +2535,8 @@ export function TimelineTab({
                     {
                       kind: "marker-add",
                       tc: beatsToPosition(at, tsNum, tsDen),
+                      // The same precedence `toggleLoop` applies: a selection is looped, otherwise a loop is cleared.
+                      loop: selRef.current ? "set" : loop ? "clear" : undefined,
                     },
                     e.clientX,
                     e.clientY,
@@ -2898,11 +2976,12 @@ export function TimelineTab({
 
               const { track: t, index: ti } = row;
               const eff = effOf(t);
-              const armed = armedIds.includes(t.id);
               // Present only for a lane with a CHOICE of attribute sets — see LaneAlternative.
               const alt = laneNodes?.alternatives?.[t.id];
-              // M/S/A states: the graph's live trackControls when available, else the doc's own values. Arm is always the engine's.
+              // M/S/A states: the graph's live trackControls when available, else the doc's own values.
               const ctl = trackControls?.[t.id];
+              // Armed by the engine (audio) or by the browser (MIDI), which only trackControls knows of.
+              const armed = armedIds.includes(t.id) || ctl?.arm === 1;
               const msa: [string, "mute" | "solo" | "arm", boolean, string][] =
                 [
                   [
@@ -2938,7 +3017,13 @@ export function TimelineTab({
                   onContextMenu={(e) => {
                     e.preventDefault();
                     onContextMenu?.(
-                      { kind: "track", id: t.id },
+                      {
+                        kind: "track",
+                        id: t.id,
+                        ...(picked.length > 1 && picked.includes(t.id)
+                          ? { picked }
+                          : {}),
+                      },
                       e.clientX,
                       e.clientY,
                     );
@@ -2955,7 +3040,7 @@ export function TimelineTab({
                       // On the row: a faint tint. Label selected: the full caret mark.
                       onRow && !labelled && "bg-primary/10",
                       inSel && "bg-primary/20",
-                      labelled && LABEL_SELECTED,
+                      (labelled || picked.includes(t.id)) && LABEL_SELECTED,
                     )}
                   >
                     {/* Both live meters, subscribing for themselves — see LaneMeter. */}
@@ -3118,6 +3203,7 @@ export function TimelineTab({
                         move.trackId !== t.id &&
                         DROP_LANE,
                       dropAt?.lane === t.id && DROP_LANE,
+                      mark?.lanes.has(t.id) && "bg-amber-500/15",
                     )}
                     style={{ width: laneW }}
                   >
@@ -3145,15 +3231,27 @@ export function TimelineTab({
                     ) : (
                       <>
                         {/* The take growing on its lane: nothing on disk names it yet, so it is drawn from the transport and replaced on Stop. */}
-                        {rolling && armedIds.includes(t.id) && (
+                        {midiTake?.lane === t.id ? (
                           <RecordingClip
                             tempo={proj.tempo}
-                            startBeat={takeStartBeat}
-                            countInBeats={takeCountInBeats}
+                            startBeat={midiTake.from}
+                            countInBeats={0}
                             beatLo={beatLo}
                             beatHi={beatHi}
                             ppb={ppb}
                           />
+                        ) : (
+                          rolling &&
+                          armedIds.includes(t.id) && (
+                            <RecordingClip
+                              tempo={proj.tempo}
+                              startBeat={takeStartBeat}
+                              countInBeats={takeCountInBeats}
+                              beatLo={beatLo}
+                              beatHi={beatHi}
+                              ppb={ppb}
+                            />
+                          )
                         )}
                         {/* The move ghost: where the clip was picked up, on its own lane only, gone the instant the move commits or cancels. */}
                         {move && move.trackId === t.id && (
@@ -3248,7 +3346,7 @@ export function TimelineTab({
                                 onDoubleClick={(e) =>
                                   c.frozen && t.frozenMaterial
                                     ? openFrozenNotes(e, t, c)
-                                    : openClip(e, c)
+                                    : openClip(e, c, t.id)
                                 }
                                 // Right-click an event → the PLACEMENT's commands; stop the event so the lane's track menu doesn't also fire.
                                 onContextMenu={(e) => {
@@ -3283,6 +3381,9 @@ export function TimelineTab({
                                     "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
                                   // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
                                   expanded ? "flex-col" : "items-center",
+                                  // Touched by the hovered History row, matched on the MATERIAL its file names.
+                                  mark?.clips.has(c.name) &&
+                                    "outline outline-2 outline-amber-500",
                                   // The clip in hand: ring it and lift it over its ghost.
                                   (moving || resizing) &&
                                     "z-10 outline outline-2 outline-primary",
@@ -3466,6 +3567,7 @@ export function TimelineTab({
                                           end,
                                           x: e.clientX,
                                           ppb,
+                                          unit: unitRef.current,
                                         });
                                       }}
                                       onPointerMove={onResizeMove}

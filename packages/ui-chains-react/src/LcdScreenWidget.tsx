@@ -15,9 +15,17 @@ import {
   type LcdFrame,
   type LcdPointer,
   type LcdPointerEvent,
+  type LcdSounds,
   TapHistory,
 } from "@studio/ui-chains/lcdScreen";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { LcdZoomContext, lcdBackingScale } from "./lcdZoom";
 
 /** How a screen changes its module: live while `commit` is false, written into the file when it is true. */
@@ -29,6 +37,8 @@ export type LcdSet = (
 
 /** The host's setter; absent, every screen only draws. */
 export const LcdSetContext = createContext<LcdSet | null>(null);
+/** The host's decoder of a module's sound files, for `lcd.sound(slot)` — none, and every slot reads null. */
+export const LcdSoundsContext = createContext<LcdSounds | null>(null);
 
 const NOOP = (): void => {};
 type Side = "input" | "output";
@@ -57,6 +67,9 @@ export function LcdScreenWidget({
   const draw = script.draws[id];
   const pointer = script.pointers[id];
   const lcdSet = useContext(LcdSetContext);
+  const sounds = useContext(LcdSoundsContext);
+  const soundsRef = useRef(sounds);
+  soundsRef.current = sounds;
   const zoom = useContext(LcdZoomContext);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
@@ -83,6 +96,11 @@ export function LcdScreenWidget({
   const nodeRef = useRef(n);
   nodeRef.current = n;
   const interactive = !!pointerRef.current;
+  // The file a slot names, as the node's assets say, through the host's decoder.
+  const soundOf = useCallback((slot: string): Float32Array | null => {
+    const ref = nodeRef.current.assets?.[slot];
+    return ref ? (soundsRef.current?.get(ref) ?? null) : null;
+  }, []);
   const sourceRef = useRef(n.ui?.script);
   sourceRef.current = n.ui?.script;
   const dirtyRef = useRef(true);
@@ -120,6 +138,15 @@ export function LcdScreenWidget({
     wakeRef.current();
   });
 
+  // A file landing is a repaint too: the first draws found it still loading.
+  useEffect(
+    () =>
+      sounds?.subscribe(() => {
+        dirtyRef.current = true;
+        wakeRef.current();
+      }),
+    [sounds],
+  );
   useEffect(() => {
     if (!pluginId) return;
     return params.subscribeTo(pluginId, () => {
@@ -206,6 +233,7 @@ export function LcdScreenWidget({
         output: tapsRef.current.output.points,
         state: stateRef.current,
         color: LCD_COLORS,
+        sound: soundOf,
         now,
       };
       ctx.save();
@@ -257,7 +285,7 @@ export function LcdScreenWidget({
       if (raf) cancelAnimationFrame(raf);
       wakeRef.current = NOOP;
     };
-  }, []);
+  }, [soundOf]);
 
   // The pointer, native so a press the script takes never pans the graph — docs/lcdScreen.md.
   useEffect(() => {
@@ -302,6 +330,7 @@ export function LcdScreenWidget({
             output: tapsRef.current.output.points,
             state: stateRef.current,
             color: LCD_COLORS,
+            sound: soundOf,
             now: performance.now(),
             set(name, value) {
               if (typeof value !== "number" || !Number.isFinite(value)) return;
@@ -364,7 +393,7 @@ export function LcdScreenWidget({
       canvas.removeEventListener("pointercancel", up);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [interactive]);
+  }, [interactive, soundOf]);
 
   return (
     <div

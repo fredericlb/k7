@@ -182,6 +182,28 @@ What is still open is the **catalogue**: the role decides which type folder a mo
 and its place in a chain, so it will probably carry two entries, a `Faust` effect and a
 `Faust Instrument`, one class being unable to answer both.
 
+## Sound files: `soundfile(...)`, answered by label
+
+A program may read audio with Faust's `soundfile("Table", n)` — what a wavetable instrument is made of.
+The file is the NODE's, not the program's: the document carries `faustFiles`, slot label → absolute
+path (`packages/song/docs/faustFiles.md`), and the plugin answers each slot from that map when Faust
+asks for it in `buildUserInterface` (`attachSounds`). A `[url:…]` in the label is ignored: the label
+before it is the name the node fills.
+
+Three choices hold it:
+
+- **Read in the constructor and in `initialise`, never in the callback.** Each file once, shared by
+  every voice; attached again after each `init`, which may reset the program's pointers.
+- **A slot is NEVER left null.** One the node names no file for, or names a missing file for, gets an
+  empty sound and plays silence — the program dereferences that pointer every sample, so a null is
+  a crash, and an `addSoundfile` left unanswered leaves exactly that. A missing file is a warning.
+- **Another file is another INSTANCE.** The files are part of the plugin's key (`keyOf`), like the
+  source: a swap rebuilds the plugin rather than changing a buffer under the audio thread.
+
+Our own reader (`JuceSoundReader`) over JUCE's formats: Faust's `JuceReader` includes a Projucer
+`JuceHeader.h` this build has no reason to generate, and `SoundUI.h` picks its default reader by the
+JUCE defines and so pulls that header in too — hence a small `UI` of our own rather than `SoundUI`.
+
 ## Verifying what is there
 
 ```

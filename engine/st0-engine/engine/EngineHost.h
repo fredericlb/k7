@@ -50,7 +50,8 @@ struct AudioDeviceInfo {
     std::string type;  // the backend offering it: "ASIO", "Windows Audio", …
     int inputs = 0;    // input channel count (0 if unknown until opened)
     int outputs = 0;   // output channel count
-    bool current = false;   // the device currently open
+    bool current = false;   // the device currently open — its OUTPUT side
+    bool currentInput = false; // the device the open setup takes its INPUTS from, which may be another one
     bool isDefault = false; // its backend's default device
 };
 
@@ -98,6 +99,13 @@ public:
     void seek(const std::string& session, double seconds); // move the playhead to an absolute position (clamped at 0)
     // Set the transport loop [start, end) in seconds and turn looping on or off; playback wraps engine-side, and play() starts from the top. Message-thread only.
     void setLoop(const std::string& session, double startSeconds, double endSeconds, bool enabled);
+    /** The transport loop as the engine holds it — what a client that reconnects draws, having no memory of setting it. */
+    struct LoopState {
+        bool on = false;
+        double startSeconds = 0.0;
+        double endSeconds = 0.0;
+    };
+    LoopState loop(const std::string& session) const;
     bool isPlaying(const std::string& session) const;
     double playheadSeconds(const std::string& session) const;
 
@@ -106,6 +114,9 @@ public:
 
     // Audition one note on a TRACK'S OWN chain — what the piano roll's click plays; velocity 0..1, released after 100 ms. Message-thread only.
     void previewNote(const std::string& session, const std::string& trackId, int key, float velocity);
+
+    // A keyboard PLAYED into a track's own chain: one channel message, held until its own note-off arrives (docs/protocol.md). Message-thread only.
+    void liveMidi(const std::string& session, const std::string& trackId, const std::vector<uint8_t>& bytes);
 
     // Per-track output level in dB, for meters (-100 == silent).
     float trackLevelDb(const std::string& session, int trackIndex) const;
@@ -331,6 +342,8 @@ public:
         std::string session;
         bool playing = false;
         double playheadSeconds = 0.0;
+        // The transport loop, on every frame like the playhead: a page reloaded mid-loop learns it here, never from itself.
+        LoopState loop;
         std::vector<float> trackLevelsDb;   // one per track, -100 == silent
         // Live INPUT peak per track, indexed like trackLevelsDb (-100 with none): read for every track so the two line up, surfaced only for armed ones.
         std::vector<float> trackInputLevelsDb;
@@ -471,6 +484,8 @@ int dumpPluginParamsExternal(const std::string& format, const std::string& ident
 
 // Every BUILT-IN's full parameter list as sentinel-fenced JSON — what a plugin TYPE HAS, where `--dump-params` emits what one instance holds. docs/builtinParams.md.
 int dumpBuiltinParams();
+// Surge XT's parameters and its oscillator and effect slot names as JSON on stdout; 1 when Surge is not compiled in.
+int dumpSurgeLayout();
 
 /** One parameter of a plugin TYPE — name, span, named settings. A plain struct like PluginInfo beside it: the server serialises this and must not see JUCE. */
 struct PluginParamInfo {

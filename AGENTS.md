@@ -32,6 +32,7 @@ The zone's `docs/` directory is where that justification belongs:
 | the menu-bar tray | `engine/st0-tray/docs/` |
 | the native supervisor | `engine/st0-supervisor/docs/` |
 | the Android app | `engine/st0-engine/docs/android.md` |
+| the standalone desktop app | `apps/st0-standalone/docs/` |
 | the rehearsal recorder | `apps/k7/docs/` |
 | the blind-test game | `apps/z0/docs/` |
 | the build scripts | `engine/st0-tray/scripts/docs/` |
@@ -69,6 +70,7 @@ musician's machine and never in the image — `engine/st0-engine`, `engine/st0-s
 | `apps/pl8` | TypeScript | The media library — songs, samples, recordings — hosted, with its own Express backend over a volume of files. It holds **no modules and no chains**: those are authored in st0, for the reason above. It DOES hold **playlists**, under `playlists/` on the volume and with a tab of their own — a root zone rather than a family, since a set list names songs and carries no bytes (`apps/pl8/docs/playlists.md`). A workspace keeps its own under `_playlists/`, in the same format and for a different job: those are versioned with the songs they were written for, and are the ones a `turntables` surface can name (`packages/song/docs/playlists.md`). st0 searches THIS catalogue and uploads into it. It answers on its own subdomain (`play.st0.app`), one link from st0's home page. It mounts no auth routes and only VERIFIES the cookie st0 mints, the same as k7 and z0. It holds the published shares (`/api/shares`), the engine registry (`@studio/engine-registry`), and — through `@studio/file-hub` — the accounts' WORKSPACES, one file service per account. It knows nothing about git: no register of repositories and no deploy key, which are the file service's (`apps/pl8/docs/projects.md`). It DRAWS none of that either: the screen is st0's home page, and this app's own front door is the catalogue. One reason for both — pl8 is what a project draws ON, so what is AUTHORED and what is CHOSEN belong to the editor. |
 | `apps/z0` | TypeScript | The blind-test game — six SPAs behind one origin. Five are the game; the sixth, `editor`, opens a `.z0` project out of a git repository and is where st0's home page sends a `.z0` row. |
 | `apps/k7` | TypeScript | The rehearsal recorder — sessions, takes, tablature, tuner. |
+| `apps/st0-standalone` | TypeScript (Electron) | st0 and pl8 as ONE desktop app: both backends run unchanged under tsx with Electron as their node, pl8's file services with them, the supervisor and its engine beside them, and a window on st0 at `127.0.0.1:18789`. Dev-stub sign-in, a local library seeded on first run; its own ports, published as `STUDIO_PORTS`, so it runs beside `npm run dev` (`apps/st0-standalone/docs/standalone.md`). |
 
 `packages/` is **studio's own shared tier**. All are `@studio/*` and are consumed
 as **raw TypeScript source**: no build step, imported through `package.json`

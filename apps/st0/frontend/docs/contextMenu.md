@@ -50,9 +50,15 @@ where the next value goes.
 
 The bar is a form for COLLECTING arguments. An entry the click answered in full has none left
 to collect, so opening the bar over it would ask a question with no blanks in it and wait for an
-Enter that could only mean yes. That is not a confirm step — nothing in this app asks twice —
-and what a command changes is undone by Ctrl+Z, because every command runs inside the same
-journal (`workspace.recordChange`).
+Enter that could only mean yes. That is not a confirm step: what a command changes is undone by
+Ctrl+Z, because every command runs inside the same journal (`workspace.recordChange`).
+
+**The exception is `confirm:` in `commands.yaml`**, for the few entries that destroy more than one
+Ctrl+Z is trusted to bring back in the musician's mind — `track delete` takes a lane AND its whole
+chain. The menu asks first (`menuConfirm.ts`): the title is the command's own sentence, the body the
+exact line it will run, so the question is still the command and adds no vocabulary. Only the menu
+asks — a line TYPED in the bar was already a deliberate act — and a host with no dialog mounted
+answers no.
 
 So `track mute gtr` goes; `track gain gtr ` asks for the dB. Roughly a third of the rows run.
 The ones worth knowing, because they change something and go at once:
@@ -194,6 +200,12 @@ question about a HANDLER, and the catalogue only describes arguments.
   one after — are `node tap …` lines named by hand: derived, they would read `note`, `sample`,
   `insert` twice, and the two inserts would be indistinguishable. They still pass through `menu:`
   (the `tap` entity), so a person can hide one.
+- **The ruler's loop.** `transport loop` takes no argument: it acts on the selection the ruler
+  swept, which the line cannot carry. So the ruler's context says what it would do — `set` with a
+  selection, `clear` with only a loop, absent with neither — and the row is named for that
+  ("Loop selection" / "Clear loop") rather than offered as a toggle that might do nothing. The
+  ruler's own press ignores a macOS Ctrl+click: that is the menu's gesture, and answered as a
+  click it would clear the very selection the menu is about to loop.
 
 One more derivation worth knowing is not an exception: an **engine module** gets `module own`
 because its `@engine/…` id genuinely IS a base-module ref.
@@ -203,7 +215,8 @@ family). What was clicked is a PLACEMENT on a lane, and the material it referenc
 other lanes too — `clip process` in that menu reads as "process this event" while acting on
 every placement of the file. The event menu offers the `event …` family plus `ui file`; the
 material's own verbs stay reachable from the bar and from the clip's editor, where the clip
-itself is what you are looking at. (It is also why the menu has no MIDI/audio split:
+itself is what you are looking at. Processing is still in that menu, as `event process`, which
+treats the clicked placement alone (`packages/audio-passes/docs/processChain.md`). (It is also why the menu has no MIDI/audio split:
 `clipTargets` lists no MIDI, and without that family the ctx has no need to say which kind
 the clip is.)
 

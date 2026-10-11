@@ -55,6 +55,34 @@ export function useNodePresets(runCommand: (line: string) => Promise<void>) {
     [],
   );
 
+  // An arrow beside the dropdown: the next or previous preset in the order the list shows them, wrapping.
+  const stepPreset = useCallback(
+    (node: string, step: -1 | 1) => {
+      void api.nodePresets(node).then(({ presets }) => {
+        if (!presets.length) return;
+        const now = loaded[node];
+        const at = now
+          ? presets.findIndex(
+              (p) => p.scope === now.scope && p.name === now.name,
+            )
+          : -1;
+        // Nothing loaded yet: the first one forward, the last one back.
+        const next =
+          at < 0
+            ? step > 0
+              ? 0
+              : presets.length - 1
+            : (at + step + presets.length) % presets.length;
+        const p = presets[next];
+        remember(node, p);
+        void runCommand(
+          `node preset apply ${q(node)} ${q(p.scope)} ${q(p.name)}`,
+        );
+      });
+    },
+    [loaded, remember, runCommand],
+  );
+
   const picker = open ? (
     <PresetPicker
       x={open.x}
@@ -86,5 +114,5 @@ export function useNodePresets(runCommand: (line: string) => Promise<void>) {
     />
   ) : null;
 
-  return { presetNames, openPresets, picker };
+  return { presetNames, openPresets, stepPreset, picker };
 }

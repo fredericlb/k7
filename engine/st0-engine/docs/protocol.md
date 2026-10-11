@@ -64,6 +64,7 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 | `{ type: "transport", action: "loop", start: 4, end: 8, enabled: true }` | loop region, in seconds |
 | `{ type: "preview", file: "/abs/kick.wav", start: 0, length: 0 }` | audition a sample |
 | `{ type: "note-preview", track: "melody", key: 60, vel: 1 }` | audition ONE note through that track's own chain — the piano roll's click. Transport-independent like `preview`, but not the same thing: `preview` loads a FILE into a hidden sampler and bypasses every chain, while this plays a note into the track the loaded song already names, so what you hear is the instrument you are writing for. The engine releases it after 100 ms, which is why there is no note-off on the wire: a release that has to arrive is a hanging voice whenever it does not |
+| `{ type: "midi-live", track: "keys", data: [144, 60, 100] }` | a keyboard PLAYED into that track's own chain: one channel message (note on/off, pedal, bend, CC) injected as it arrives, on channel 1 whatever the keyboard sent on. Unlike `note-preview` the release DOES travel the wire, since a played note lasts as long as the key is held; the browser sends all-notes-off and sustain-up when the lane loses its arm, which is what keeps a lost note-off from hanging a voice for good. Sysex and system bytes are dropped |
 | `{ type: "watch-plugin-params", id: "chain:module", on: true }` | follow a plugin's values live |
 | `{ type: "subscribe-waveform", id, side: "input"\|"output", trackIndex }` | tap a module's audio |
 | `{ type: "unsubscribe-waveform", id, side }` | drop that tap |
@@ -169,7 +170,7 @@ frame is skipped for a socket already behind, a reply never is.
 | `{ type: "flushed" }` | flush completed |
 | `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `server/ServeMachine.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
 | `{ type: "session-dropped", session }` | a session was forgotten |
-| `{ type: "state", playing, playhead, levels, inputLevels, waveform }` | the ~20 Hz state frame |
+| `{ type: "state", playing, playhead, loop, levels, inputLevels, waveform }` | the ~20 Hz state frame; `loop` is `{ on, start, end }` in seconds, the transport's own, so a client that reconnects draws the loop that is playing rather than none |
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
 | `{ type: "plugin-params", id, params, meta }` | the state to persist; `meta` only on the get- reply |
 | `{ type: "plugin-base-saved", format, id, path, ok }` | whether the snapshot wrote. `ok:false` leaves no file — no instance open, or a plugin with no state to give |

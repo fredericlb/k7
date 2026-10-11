@@ -70,7 +70,7 @@ a second command to learn, a second merge rule.
 keeps everything else the generic set, and that is the same edit as overriding a gain.
 
 The list of file-valued params is `moduleTypes.FILE_PARAMS` — `model` (an amp: a `.nam` or an
-RTNeural `.json`) and `onnx`. An SFZ instrument's `sfz:` is not one of them: it names a file on the
+RTNeural `.json`) and `onnx`. A Surge XT patch is not one of them: it is a BASE (`userPresets.md`). An SFZ instrument's `sfz:` is not one of them: it names a file on the
 ENGINE's machine (`@instruments/…`, engine `docs/sfzPlugin.md`), which nothing on this side resolves. A `model` may also name a library's shared model as `@<library>/<path>`
 (`libraryFiles.md`): a bare path is this folder's, an `@` one is the library's `models/`. Every other param
 is a number, and that stays overwhelmingly the common case.

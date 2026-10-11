@@ -293,6 +293,7 @@ describe("the library repository row", () => {
       ["assemblies", "_libraries/st0/assemblies"],
       ["samples", "_libraries/st0/samples"],
       ["irs", "_libraries/st0/irs"],
+      ["wavetables", "_libraries/st0/wavetables"],
       ["models", "_libraries/st0/models"],
     ]);
   });
@@ -364,12 +365,14 @@ describe("the library repository row", () => {
       "assemblies",
       "samples",
       "irs",
+      "wavetables",
       "models",
     ]);
   });
 
-  it("takes a drop only on a library's samples/, irs/ or models/, or inside one, and says which", () => {
+  it("takes a drop only on a library's samples/, irs/, wavetables/ or models/, or inside one, and says which", () => {
     expect(fileFolderOf("_libraries/st0/samples")).toBe("samples");
+    expect(fileFolderOf("_libraries/st0/wavetables/akwf")).toBe("wavetables");
     expect(fileFolderOf("_libraries/st0/irs/fender")).toBe("irs");
     expect(fileFolderOf("_libraries/st0/models/guitarml proteus")).toBe(
       "models",

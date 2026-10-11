@@ -89,6 +89,11 @@ apply an armed track still LOOKS armed in the UI and records silence.
   without `dispatchPendingUpdates()` first would wire tracks to the devices that are about
   to be destroyed, which is indistinguishable from working until the next block.
 
+The same `Destination` is thrown away on a much smaller change: `applyTrackInput` clears a
+lane's assignment and makes a new one whenever its channels, monitor mode or trim move. So
+it reads the arm flag off every input instance on the context first and sets it again on the
+new assignment — otherwise flipping a lane's monitor from `auto` to `on` disarms it.
+
 And because that replay fires on every reconnect, `setAudioDevice` returns early when the
 engine is already on the device asked for. Otherwise a routine reconnect would re-wire a rolling
 session's inputs for nothing — and close and reopen a single-client ASIO driver under it.
@@ -258,6 +263,24 @@ the row a musician needs to pick. The running device's `current` flag is carried
 even when the engine is on a collapsed variant, so the picker still ticks the right interface.
 Channel counts are known only for the OPEN device; answering for the rest would mean opening them.
 
+### A setup may take its inputs from another device
+
+CoreAudio lets one setup play through one device and record from another, and Tracktion
+restores whatever setup it saved last (`~/Library/Studio/Settings.xml` on a Mac). The open
+device carries the OUTPUT's name, so a row keyed on that name alone shows the interface as
+`current` with the built-in mic's input count, and the input card offers one mono channel on
+an eight-input interface with nothing to say why. A row therefore carries two flags: `current`
+for the output side with the output count, `currentInput` for the device named by the setup's
+`inputDeviceName` with the input count. On an unsplit setup both land on the same row. The
+tray's settings window says "output only" or "input only" when they do not.
+
+The engine also undoes such a split when it opens: `keepInputsOnOutputDevice` moves the inputs
+onto the output device whenever that device has inputs of its own. A split survives only where
+the output device has none — built-in speakers with the built-in mic — since there it is the
+only way to have an input at all. A pick never needs the correction: `setAudioDevice` names the
+picked device for both directions whenever it has both. What it costs: a deliberate pick of an
+input-only device beside an interface that has inputs does not survive a restart.
+
 ## A device that stops calling back is reopened
 
 An ASIO driver can stop calling back and stay OPEN: no error anywhere, the device still listed as
@@ -282,6 +305,18 @@ refuses every reopen and retrying it for ever is noise. The log says which way i
 
 To check by hand: `audio-cost` twice, a second apart. A `runs` that does not move while a device is
 open is exactly the stall this watches for.
+
+## MIDI devices are rescanned only while nothing plays
+
+When a MIDI device appears or vanishes, Tracktion's `applyNewMidiDeviceList` clears and reloads
+every Edit's context devices. That restarts each Edit's playback graph: the transport stops and
+lanes fall silent for a moment. A Bluetooth keyboard with power saving (a microKEY2 Air) drops and
+rejoins every few seconds, so left to Tracktion's own 4-second timer a song stopped after a few bars
+and its drums cut in and out.
+
+So the engine turns Tracktion's interval to 0 and runs the same rescan from its own timer
+(`MidiScanTimer` in `engine/EngineHost.cpp`), skipped while any session is playing. A keyboard
+plugged in mid-song is seen at the next stop — the price of a song that keeps playing.
 
 ## What is still missing
 

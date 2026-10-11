@@ -50,6 +50,11 @@ export class EngineStore {
     this.takes = foldedTakes(this.takes, s.recorders);
     for (const l of this.listeners) l();
   };
+
+  /** The link dropped: no frame will say "stopped", so this does — keeping the playhead where it was. */
+  offline = (): void => {
+    this.set({ ...INITIAL, playhead: this.state.playhead });
+  };
 }
 
 /** Whether two frames say the same thing — one pass here replacing every subscriber's, and not deep on the envelopes. See docs/meters.md. */
@@ -59,7 +64,11 @@ function sameFrame(a: EngineState, b: EngineState): boolean {
     a.playing !== b.playing ||
     a.playhead !== b.playhead ||
     a.recordEnabled !== b.recordEnabled ||
-    a.load !== b.load
+    a.load !== b.load ||
+    // The loop moves while nothing else does: set from a stopped transport, it must still reach the ruler.
+    a.loop?.on !== b.loop?.on ||
+    a.loop?.start !== b.loop?.start ||
+    a.loop?.end !== b.loop?.end
   )
     return false;
   // A PLATTER's needle moves while the transport does not, so `playhead` cannot speak for it.

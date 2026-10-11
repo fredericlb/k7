@@ -53,10 +53,10 @@ leaves the session has no business. It is the menu every app of the origin carri
 spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
 browser (`packages/ui-user-menu/docs/userMenu.md`).
 
-**One header for this page and the two that hang off it**, `/libraries` and `/settings`
-(`HomeHeader.tsx`). Its entries are **Projects** and **Libraries**, the one for the page you are on
-lit, and its last action is the user menu. The same entries in the same place on all three say
-which of them you are on, so neither of the other two carries a back button of its own. They are
+**One header for this page and the three that hang off it**, `/tasks`, `/libraries` and `/settings`
+(`HomeHeader.tsx`). Its entries are **Projects**, **Tasks** and **Libraries**, the one for the page you
+are on lit, and its last action is the user menu. The same entries in the same place on all four say
+which of them you are on, so none of the others carries a back button of its own. They are
 routes, so going between them reloads nothing. `/external` is not among them: it is the page a
 SECOND device opens, independent of this one, with a header of its own (`external.md`).
 
@@ -72,6 +72,7 @@ routes can only be served by st0 (`packages/web-protocol/docs/addresses.md`).
 /@banc/vocals/warm/live.st0  a bench: a live rig seeded with a library chain
 /external             the menu of surfaces a second device drives
 /libraries            the origin's libraries — read by anyone, edited by an admin
+/tasks                every workspace's TODOS.md in one list — tasks.md
 /settings             what a browser may change — settings.md
 ```
 
@@ -572,6 +573,14 @@ have to have a project already in order to open one, and therefore to create one
 egg that would make the function useless on precisely the new repositories. The progress shown is
 git's, in its own words ("Receiving objects"), because a thirty-second wait that says nothing
 looks like a frozen screen.
+
+### A row shows the project's tags
+
+After the app badge, a project row shows its `project.tags` (set in the Tasks panel, `tasks.md`). The
+file service reads them while listing, from each st0 project's project.yaml
+(`packages/file-service/src/workspaces.ts`). One small file per project is cheap beside the tree walk the
+listing already does, and the 5-second listing cache covers it too. That cache is also why a tag added in
+the editor can take up to five seconds to appear here. A z0 project has no project.yaml and no tags.
 
 ### The suffix decides, and the name is shown first
 

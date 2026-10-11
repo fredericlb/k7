@@ -21,7 +21,14 @@ constexpr int MAX_BLOCK = 4096;
 constexpr float VOLUME_MIN_DB = -40.0f;
 constexpr float VOLUME_MAX_DB = 12.0f;
 
+// A key's gain, in dB: a pad brought up to the front of a kit, or taken well down under it.
+constexpr float KEY_GAIN_MIN_DB = -24.0f;
+constexpr float KEY_GAIN_MAX_DB = 12.0f;
+constexpr int KEYS = 128;
+
 juce::String dbToText(float v) { return juce::String(v, 1) + " dB"; }
+juce::String muteToText(float v) { return v >= 0.5f ? "muted" : "on"; }
+float textToMute(const juce::String& s) { return s.trim().equalsIgnoreCase("muted") || s.getFloatValue() >= 0.5f ? 1.0f : 0.0f; }
 float textToDb(const juce::String& s) { return s.getFloatValue(); }
 
 }  // namespace
@@ -33,6 +40,24 @@ SfzPlugin::SfzPlugin(tracktion::engine::PluginCreationInfo info)
     volumeDbValue.referTo(state, juce::Identifier("volume"), um, 0.0f);
     volumeDb = addParam("volume", "Volume", {VOLUME_MIN_DB, VOLUME_MAX_DB}, dbToText, textToDb);
     volumeDb->attachToCurrentValue(volumeDbValue);
+    for (int k = 0; k < KEYS; ++k) {
+        const juce::String id = "key" + juce::String(k);
+        auto value = std::make_unique<juce::CachedValue<float>>();
+        value->referTo(state, juce::Identifier(id), um, 0.0f);
+        auto param = addParam(id, "Key " + juce::String(k), {KEY_GAIN_MIN_DB, KEY_GAIN_MAX_DB}, dbToText, textToDb);
+        param->attachToCurrentValue(*value);
+        keyGains.push_back(param);
+        keyGainValues.push_back(std::move(value));
+    }
+    for (int k = 0; k < KEYS; ++k) {
+        const juce::String id = "mute" + juce::String(k);
+        auto value = std::make_unique<juce::CachedValue<float>>();
+        value->referTo(state, juce::Identifier(id), um, 0.0f);
+        auto param = addParam(id, "Mute " + juce::String(k), {0.0f, 1.0f}, muteToText, textToMute);
+        param->attachToCurrentValue(*value);
+        keyMutes.push_back(param);
+        keyMuteValues.push_back(std::move(value));
+    }
 }
 
 SfzPlugin::~SfzPlugin()
@@ -40,11 +65,15 @@ SfzPlugin::~SfzPlugin()
     stopTimer();
     notifyListenersOfDeletion();
     volumeDb->detachFromCurrentValue();
+    for (auto& p : keyGains) p->detachFromCurrentValue();
+    for (auto& p : keyMutes) p->detachFromCurrentValue();
 }
 
 void SfzPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 {
     tracktion::engine::copyPropertiesToCachedValues(v, volumeDbValue);
+    for (auto& value : keyGainValues) tracktion::engine::copyPropertiesToCachedValues(v, *value);
+    for (auto& value : keyMuteValues) tracktion::engine::copyPropertiesToCachedValues(v, *value);
     for (auto p : getAutomatableParameters())
         p->updateFromAttachedValue();
 }
@@ -168,6 +197,7 @@ void SfzPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
         else synth.disableFreeWheeling();
     }
     synth.setVolume(volumeDbValue.get());
+    for (int k = 0; k < KEYS; ++k) synth.setKeyGain(k, keyGains[(size_t)k]->getCurrentValue());
 
     // Sliced to the prepared size; each message goes to the slice it falls in, at its sample.
     const double rate = sampleRate > 0.0 ? sampleRate : sampleRate_;
@@ -180,7 +210,11 @@ void SfzPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
             if (at >= done + len) break;
             const auto& m = *it;
             const int delay = at - done;
-            if (m.isNoteOn()) synth.noteOn(delay, m.getNoteNumber(), m.getVelocity());
+            // A muted key's note-on is dropped here; its note-off still passes, so a voice started before the mute ends.
+            if (m.isNoteOn()) {
+                if (keyMutes[(size_t)m.getNoteNumber()]->getCurrentValue() < 0.5f)
+                    synth.noteOn(delay, m.getNoteNumber(), m.getVelocity());
+            }
             else if (m.isNoteOff()) synth.noteOff(delay, m.getNoteNumber(), m.getVelocity());
             else if (m.isController()) synth.cc(delay, m.getControllerNumber(), m.getControllerValue());
             else if (m.isPitchWheel()) synth.pitchWheel(delay, m.getPitchWheelValue() - 8192);

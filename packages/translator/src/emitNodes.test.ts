@@ -541,3 +541,40 @@ describe("what comes out is the arrangement that went in", () => {
     expect(doc.name).toBe("t");
   });
 });
+
+describe("a MIDI lane whose instrument stayed behind", () => {
+  const notes = (name: string, drums = false): TrackOut => ({
+    ...track(name, []),
+    contentType: "notes",
+    clips: [{ type: "midi", start: 0, length: 4, notes: [] }],
+    ...(drums ? { drums: true } : {}),
+  });
+
+  it("gets a library STAND-IN ahead of its strip — a drum rack the kit, anything else the synth", () => {
+    const stats = emitFolder(
+      dir,
+      song([notes("keys"), notes("drums", true)]),
+      {},
+    );
+    expect(stats.standIns).toBe(2);
+    const g = readFileSync(join(dir, "graph.yaml"), "utf8");
+    expect(g).toContain("keys: [ keys-instrument ]");
+    expect(g).toContain("drums: [ drums-instrument ]");
+    expect(
+      readFileSync(join(dir, "nodes/keys-instrument.yaml"), "utf8"),
+    ).toContain('extends: "@st0/instruments/synth/surge-xt"');
+    expect(
+      readFileSync(join(dir, "nodes/drums-instrument.yaml"), "utf8"),
+    ).toContain('extends: "@st0/instruments/st0-rack-sfz"');
+  });
+
+  it("gets none when an instrument crossed over, nor on an audio lane", () => {
+    const synth: PluginOut = { ...fx("Diva"), role: "instrument" };
+    const stats = emitFolder(
+      dir,
+      song([{ ...notes("lead"), plugins: [synth] }, track("gtr", [])]),
+      {},
+    );
+    expect(stats.standIns).toBe(0);
+  });
+});

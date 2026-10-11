@@ -90,7 +90,13 @@ export function fget<T>(path: string): Promise<T> {
  */
 function parse<T>(label: string, text: string): T {
   const began = performance.now();
-  const value = JSON.parse(text) as T;
+  let value: T;
+  try {
+    value = JSON.parse(text) as T;
+  } catch {
+    // A 200 whose body is not whole: the file service was restarted in the middle of answering.
+    throw new Error(`${label}: the answer was cut off (${text.length} bytes)`);
+  }
   tally(label, performance.now() - began, text.length);
   return value;
 }
@@ -103,20 +109,26 @@ function route(path: string): string {
 /** What a read may take: past this it is dropped, and every caller waiting on it with it — docs/fileApi.md. */
 export const READ_MS = 120_000;
 
-async function getOnce(path: string): Promise<string> {
+/** A read whose answer broke off, asked once more before anyone is told: the service was most likely restarting (docs/fileApi.md). */
+async function getOnce(path: string, retried = false): Promise<string> {
   let res: Response;
   let text: string;
   try {
     res = await fetch(cfg().base + path, {
       headers: fileHeaders(),
       signal: AbortSignal.timeout(READ_MS),
+      // Never the browser's copy: every route here answers from the files as they are now, and the revision decides when to ask.
+      cache: "no-store",
     });
     text = await res.text();
   } catch (e) {
     if ((e as Error).name === "TimeoutError")
       throw new Error(`GET ${path}: no answer after ${READ_MS / 1000} s`);
+    if (!retried) return getOnce(path, true);
     throw e;
   }
+  // A 2xx with nothing in it is no answer either: every route here answers JSON.
+  if (res.ok && text === "" && !retried) return getOnce(path, true);
   if (!res.ok) {
     let said: string | undefined;
     try {

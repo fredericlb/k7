@@ -7,7 +7,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <list>
+
+// LAST: it #defines BUFFER_SIZE, MAX_CHAN and friends as bare macros.
+#include "faust/gui/Soundfile.h"
 
 // Faust defines these two statics in no library, so every architecture file carries them; this file is ours.
 std::list<GUI*> GUI::fGuiList;
@@ -48,6 +52,62 @@ struct Controls : public UI {
     void addHorizontalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
     void addVerticalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
     void addSoundfile(const char*, const char*, Soundfile**) override {}
+};
+
+/** Faust's soundfile reader over JUCE's formats; Faust's own JuceReader wants a Projucer header this build lacks. */
+struct JuceSoundReader : public SoundfileReader {
+    juce::AudioFormatManager formats;
+    JuceSoundReader() { formats.registerBasicFormats(); }
+
+    std::unique_ptr<juce::AudioFormatReader> open(const std::string& path) {
+        return std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(juce::File(juce::String(path))));
+    }
+    bool checkFile(const std::string& path) override { return juce::File(juce::String(path)).existsAsFile(); }
+    void getParamsFile(const std::string& path, int& channels, int& length) override {
+        const auto r = open(path);
+        // An unreadable file reserves one empty block, which readFile then fills with silence.
+        channels = r ? juce::jmax(1, (int)r->numChannels) : 1;
+        length = r ? (int)r->lengthInSamples : BUFFER_SIZE;
+    }
+    void readFile(Soundfile* sf, const std::string& path, int part, int& offset, int) override {
+        const auto r = open(path);
+        if (r == nullptr || sf->fIsDouble) {
+            sf->emptyFile(part, offset);
+            return;
+        }
+        const int len = (int)r->lengthInSamples;
+        juce::AudioBuffer<float> tmp((int)r->numChannels, len);
+        r->read(&tmp, 0, len, 0, true, true);
+        sf->fLength[part] = len;
+        sf->fSR[part] = (int)r->sampleRate;
+        sf->fOffset[part] = offset;
+        auto** bufs = static_cast<float**>(sf->fBuffers);
+        for (int ch = 0; ch < sf->fChannels; ++ch)
+            std::copy_n(tmp.getReadPointer(juce::jmin(ch, tmp.getNumChannels() - 1)), len, bufs[ch] + offset);
+        offset += len;
+    }
+};
+
+/** The one UI call the controls ignore: each `soundfile(...)` slot, answered with the sound for its label. */
+struct Sounds : public UI {
+    std::function<Soundfile*(const std::string&)> soundFor;
+    void openTabBox(const char*) override {}
+    void openHorizontalBox(const char*) override {}
+    void openVerticalBox(const char*) override {}
+    void closeBox() override {}
+    void addButton(const char*, FAUSTFLOAT*) override {}
+    void addCheckButton(const char*, FAUSTFLOAT*) override {}
+    void addVerticalSlider(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addHorizontalSlider(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addNumEntry(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addHorizontalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addVerticalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addSoundfile(const char* label, const char*, Soundfile** zone) override {
+        // The label up to any `[metadata]`: that is the name the node gives a file under.
+        std::string name(label);
+        name = name.substr(0, name.find('['));
+        *zone = soundFor(name);
+    }
 };
 
 /** How many notes an instrument holds at once — fixed, since a voice is a whole copy of the program. */
@@ -96,6 +156,11 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
         warn("faust module carries no source - is dsp.dsp missing from its folder?");
         return;
     }
+    // One `label<TAB>path` per line, as EditBuilder writes them.
+    if (state.hasProperty("files"))
+        for (const auto& line : juce::StringArray::fromLines(state.getProperty("files").toString()))
+            if (const int tab = line.indexOfChar('\t'); tab > 0)
+                files_[line.substring(0, tab).toStdString()] = line.substring(tab + 1).toStdString();
 
     const auto libs = faustLibrariesDir();
     const auto libsPath = libs.getFullPathName().toStdString();
@@ -125,6 +190,7 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
 
     // A placeholder rate, only so the control zones exist to be read; `initialise` does it again for real.
     run_->init(44100);
+    attachSounds();
 
     Controls controls;
     run_->buildUserInterface(&controls);
@@ -182,6 +248,28 @@ FaustPlugin::~FaustPlugin()
     if (factory_ != nullptr) deleteInterpreterDSPFactory(factory_);
 }
 
+// Read on the MESSAGE thread — the constructor and initialise — never in the audio callback; each file once.
+void FaustPlugin::attachSounds()
+{
+    if (run_ == nullptr) return;
+    static JuceSoundReader reader;
+    Sounds ui;
+    ui.soundFor = [this](const std::string& label) -> Soundfile* {
+        const auto named = files_.find(label);
+        // A slot the node names no file for plays silence rather than a null pointer the program would read.
+        const std::string path = named != files_.end() ? named->second : std::string{};
+        auto& sound = sounds_[path];
+        if (sound == nullptr) {
+            if (!path.empty() && !reader.checkFile(path))
+                warn("faust: no such sound file for '" + label + "': " + path);
+            sound.reset(reader.createSoundfile({path.empty() ? std::string{"__empty_sound__"} : path},
+                                               MAX_CHAN, false));
+        }
+        return sound.get();
+    };
+    run_->buildUserInterface(&ui);
+}
+
 bool FaustPlugin::takesAudioInput() { return numIn_ > 0; }
 
 // An instrument must run even on a track with nothing feeding it, or it never makes its first sample.
@@ -210,6 +298,7 @@ void FaustPlugin::initialise(const te::PluginInitialisationInfo& info)
 {
     if (run_ == nullptr) return;
     run_->init(static_cast<int>(info.sampleRate));
+    attachSounds();
 
     // The scratch buffers, allocated HERE and never in the callback; in-place is not something a `.dsp` promises.
     // Sized for the largest block a device hands over, not the one announced: a block past the buffer is skipped whole, which is silence.
@@ -226,6 +315,11 @@ void FaustPlugin::deinitialise() {}
 void FaustPlugin::reset()
 {
     resetPending_ = true;
+}
+
+void FaustPlugin::midiPanic()
+{
+    releasePending_ = true;
 }
 
 void FaustPlugin::clearState()
@@ -286,7 +380,11 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || run_ == nullptr) return;
     if (resetPending_.exchange(false)) clearState();
-
+    // Soft: each voice's gate drops and its envelope releases, as a note-off would have it (docs/panic.md).
+    if (releasePending_.exchange(false) && poly_ != nullptr) poly_->allNotesOff(false);
+    // A seek sends no note-off for what was sounding, only this flag on the buffer (docs/panic.md).
+    if (poly_ != nullptr && ctx.bufferForMidiMessages != nullptr && ctx.bufferForMidiMessages->isAllNotesOff)
+        poly_->allNotesOff(false);
 
     const int n = ctx.bufferNumSamples;
     const int start = ctx.bufferStartSample;

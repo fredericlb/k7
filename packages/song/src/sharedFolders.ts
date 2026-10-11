@@ -36,6 +36,7 @@ export type LibraryFamily =
   | "assemblies"
   | "samples"
   | "irs"
+  | "wavetables"
   | "models";
 
 /** Where the libraries are read from: the file hub's ONE clone of each (`$STUDIO_LIBRARIES_HOME`), else `<studioHome>/libraries` — docs/sharedFolders.md. */

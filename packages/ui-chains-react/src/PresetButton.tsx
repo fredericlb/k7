@@ -1,10 +1,10 @@
 // PresetButton.tsx — the node's one dropdown on the header's second line: its ENGINE and its PRESET.
 // Only the button: the list is a popup the HOST draws at the point this reports — its presets, and a
 // left bar of the engines when the module runs as more than one — since what a preset is, where it is
-// kept and which engines exist are the host's. Its width is SET, so the line is known without a reflow.
+// kept and which engines exist are the host's. Its LEAST width is set; it grows into the line, to 300 px.
 // See packages/song/docs/userPresets.md and packages/song/docs/engines.md.
 
-import { ChevronDown } from "@frediverse/ui/icons";
+import { ChevronDown, ChevronLeft, ChevronRight } from "@frediverse/ui/icons";
 
 /** The engines a node can run as, and which it does — handed to the host's popup with the click. */
 export interface NodeEngines {
@@ -19,7 +19,7 @@ const ENGINE_CHAR_W = 5.5;
 const ENGINE_GAP_W = 6;
 const ENGINE_MAX_W = 60;
 
-/** The button's width: the preset's room, and the longest engine name's when there is a choice of engines. */
+/** The button's least width: the preset's room, and the longest engine name's when there is a choice of engines. */
 export function presetButtonW(engines?: NodeEngines): number {
   if (!engines) return PRESET_BUTTON_W;
   const longest = Math.max(0, ...engines.names.map((n) => n.length));
@@ -34,6 +34,7 @@ export function PresetButton({
   current,
   engines,
   onPresets,
+  onStep,
 }: {
   module: string;
   /** The preset last loaded on this node in this session, if any. */
@@ -46,6 +47,8 @@ export function PresetButton({
     y: number,
     engines?: NodeEngines,
   ) => void;
+  /** The arrows after the dropdown: load the previous (-1) or next (+1) preset — drawn only when given. */
+  onStep?: (module: string, step: -1 | 1) => void;
 }) {
   const title = [
     engines ? `Engine — ${engines.current}` : null,
@@ -53,23 +56,42 @@ export function PresetButton({
   ]
     .filter(Boolean)
     .join("\n");
-  return (
-    // Kept off the pane like a widget's press, or it arms a pan and the click never lands.
+  // An arrow is a button of its own, kept off the pane like the dropdown, which loads a preset at once.
+  const arrow = (step: -1 | 1) => (
     <button
       type="button"
-      className={`dgx-engine dgx-preset${current ? " on" : ""}`}
-      style={{ width: presetButtonW(engines) }}
-      title={title}
+      className="dgx-engine dgx-preset-step"
+      title={step < 0 ? "Previous preset" : "Next preset"}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
-        const r = e.currentTarget.getBoundingClientRect();
-        onPresets(module, r.left, r.bottom + 2, engines);
+        onStep?.(module, step);
       }}
     >
-      {engines && <b className="dgx-preset-eng">{engines.current}</b>}
-      <span>{current ?? "preset"}</span>
-      <ChevronDown />
+      {step < 0 ? <ChevronLeft /> : <ChevronRight />}
     </button>
+  );
+  return (
+    <>
+      {/* Kept off the pane like a widget's press, or it arms a pan and the click never lands. */}
+      <button
+        type="button"
+        className={`dgx-engine dgx-preset${current ? " on" : ""}`}
+        style={{ minWidth: presetButtonW(engines) }}
+        title={title}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          const r = e.currentTarget.getBoundingClientRect();
+          onPresets(module, r.left, r.bottom + 2, engines);
+        }}
+      >
+        {engines && <b className="dgx-preset-eng">{engines.current}</b>}
+        <span>{current ?? "preset"}</span>
+        <ChevronDown />
+      </button>
+      {onStep && arrow(-1)}
+      {onStep && arrow(1)}
+    </>
   );
 }

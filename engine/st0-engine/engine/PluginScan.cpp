@@ -15,6 +15,9 @@
 #if STUDIO_SFZ
 #include "SfzPlugin.h"
 #endif
+#if STUDIO_SURGE
+#include "SurgePlugin.h"
+#endif
 #include "QuickMasterPlugin.h"
 #include "TurntablePlugin.h"
 #include "PatternPlugin.h"
@@ -253,6 +256,10 @@ std::vector<PluginInfo> builtInPlugins() {
         // A multi-sampled instrument as files rather than a plugin to install: an .sfz and its samples (docs/sfzPlugin.md).
         e("SFZ Player", studio::SfzPlugin::xmlTypeName, "instrument", "instrument"),
 #endif
+#if STUDIO_SURGE
+        // A full synthesizer whose sound is a PATCH file the module carries: Surge XT's core (docs/surgePlugin.md).
+        e("Surge XT", studio::SurgePlugin::xmlTypeName, "instrument", "instrument"),
+#endif
         // DSP described as DATA rather than compiled in (DspGraph.h): its parameters come from the description, so two graphs look different.
         e("DSP Graph", studio::GraphDspPlugin::xmlTypeName, "audioEffect", "filter"),
         // The same idea with the compiler on THIS side: the module carries Faust source, and what this build does with it is docs/faust.md.
@@ -295,6 +302,9 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::NamPlugin>();
 #if STUDIO_SFZ
     pm.createBuiltInType<studio::SfzPlugin>();
+#endif
+#if STUDIO_SURGE
+    pm.createBuiltInType<studio::SurgePlugin>();
 #endif
     pm.createBuiltInType<studio::GraphDspPlugin>();
     pm.createBuiltInType<studio::FaustPlugin>();

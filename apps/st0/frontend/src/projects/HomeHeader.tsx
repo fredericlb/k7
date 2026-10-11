@@ -1,9 +1,9 @@
-// HomeHeader.tsx — the header of the home page and of the two pages that hang off it, /libraries
-// and /settings: Projects and Libraries as entries, the user menu as its last action. All three
-// are routes, so going between them reloads nothing. See ../../docs/projects.md.
+// HomeHeader.tsx — the header of the home page and of the pages that hang off it, /libraries,
+// /tasks and /settings: Projects, Tasks and Libraries as entries, the user menu as its last action.
+// All are routes, so going between them reloads nothing. See ../../docs/projects.md.
 
 import { AppHeader, type AppHeaderItem } from "@frediverse/ui/app-header";
-import { FolderGit2, LibraryBig } from "@frediverse/ui/icons";
+import { FolderGit2, LibraryBig, ListChecks } from "@frediverse/ui/icons";
 import { UserMenu } from "@studio/ui-user-menu";
 import { type ReactNode, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -11,7 +11,7 @@ import { api } from "../api";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
 import { VERSION } from "../version";
-import { LIBRARIES_ROUTE, SETTINGS_ROUTE } from "./api";
+import { LIBRARIES_ROUTE, SETTINGS_ROUTE, TASKS_ROUTE } from "./api";
 
 export function HomeHeader({
   subtitle,
@@ -51,6 +51,12 @@ export function HomeHeader({
       icon: <FolderGit2 className="h-4 w-4" />,
       active: pathname === "/",
       onClick: () => navigate("/"),
+    },
+    {
+      label: m["home.tasks"](),
+      icon: <ListChecks className="h-4 w-4" />,
+      active: pathname === TASKS_ROUTE,
+      onClick: () => navigate(TASKS_ROUTE),
     },
     {
       label: m["home.libraries"](),

@@ -38,6 +38,14 @@ opens it; the agent rewrites every JSON string under a root as frames cross:
 One queue per direction per channel: a frame waiting on a download is never overtaken by the one
 after it, which is what keeps a `transport play` behind the document it plays.
 
+**A file is served only from INSIDE its root**, by real path (`stillInside`, `hubFiles.ts`), so a
+link cannot aim the engine's machine at anything else on the server. The two library roots are
+`perChild`: each top-level folder there is one library's clone, and containment is checked against
+THAT folder's real location. A clone may then be a link — an admin's edit clone pointed at a
+checkout, as a dev machine has it — while a link inside a library still cannot leave the library.
+Without it every file of a linked clone answers `missing`, and the agent makes the folder and
+nothing in it.
+
 That same queue is why a hosted file service opens its engine channel **`synced`**: frames to the
 engine are then only rewritten, never held for a download, because every file a document names was
 copied before the document was sent, by a **`sync`** request on the jobs channel. The agent answers

@@ -50,13 +50,26 @@ export class MidiRecorder {
   private device: string | null = null;
   // Told when the plugged-in list changes, so the picker re-offers what is there.
   private onInputsChanged?: () => void;
+  // Told of every channel message from ANY device, by its name — the midi-in card's LED.
+  private onActivity?: (device: string) => void;
+  // Handed every channel message from the LISTENED devices, as it arrives — what the armed lane plays.
+  private onLive?: (data: Uint8Array) => void;
   // Open notes keyed by `${channel}:${key}` → their onset beat + velocity.
   private open = new Map<string, { start: number; v: number }>();
   private notes: CapturedNote[] = [];
 
-  constructor(beatNow: () => number, opts?: { onInputsChanged?: () => void }) {
+  constructor(
+    beatNow: () => number,
+    opts?: {
+      onInputsChanged?: () => void;
+      onActivity?: (device: string) => void;
+      onLive?: (data: Uint8Array) => void;
+    },
+  ) {
     this.beatNow = beatNow;
     this.onInputsChanged = opts?.onInputsChanged;
+    this.onActivity = opts?.onActivity;
+    this.onLive = opts?.onLive;
   }
 
   // Ask for MIDI access and attach; false when there is none, and the caller records no MIDI.
@@ -100,8 +113,10 @@ export class MidiRecorder {
     const on = new Set(
       this.device === null ? [] : matchMidiDevice(this.device, names),
     );
+    // Every input is heard, for the LED; only the selected ones play and record.
     inputs.forEach((input, i) => {
-      input.onmidimessage = on.has(names[i]) ? (e) => this.onMessage(e) : null;
+      const listened = on.has(names[i]);
+      input.onmidimessage = (e) => this.onMessage(e, names[i], listened);
     });
   }
 
@@ -110,6 +125,19 @@ export class MidiRecorder {
     this.notes = [];
     this.open.clear();
     this.recording = true;
+  }
+
+  // The take so far, a key still held drawn up to the current beat — what the live roll shows.
+  liveNotes(): CapturedNote[] {
+    if (!this.recording) return [];
+    const now = this.beatNow();
+    const held = [...this.open].map(([key, o]) => ({
+      t: o.start,
+      d: Math.max(MIN_DURATION, now - o.start),
+      k: Number(key.split(":")[1]),
+      v: o.v,
+    }));
+    return [...this.notes, ...held];
   }
 
   // End a take: any key still held is closed at the current beat, so a sustained note lands with a real length.
@@ -141,8 +169,18 @@ export class MidiRecorder {
     this.open.clear();
   }
 
-  private onMessage(e: MIDIMessageEvent): void {
-    if (!this.recording || !e.data || e.data.length < 3) return;
+  private onMessage(
+    e: MIDIMessageEvent,
+    device: string,
+    listened: boolean,
+  ): void {
+    if (!e.data?.length) return;
+    // Channel messages only: clock, active sensing and sysex are neither played nor shown.
+    if (e.data[0] < 0x80 || e.data[0] >= 0xf0) return;
+    this.onActivity?.(device);
+    if (!listened) return;
+    this.onLive?.(e.data);
+    if (!this.recording || e.data.length < 3) return;
     const [status, d1, d2] = e.data;
     const cmd = status & 0xf0;
     const ch = status & 0x0f;

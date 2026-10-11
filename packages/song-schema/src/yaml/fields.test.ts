@@ -22,6 +22,8 @@ describe("derived module fields", () => {
       "font",
       "params",
       "rack",
+      // An SFZ drum kit's pads, name → note, drawn as a rack's taps — packages/song/docs/racks.md.
+      "kit",
       // A COLD module works only on audio already on disk — see docs/coldModules.md.
       "cold",
       // …and where the model a file-valued param names can be downloaded from — packages/song/docs/moduleAssets.md.
@@ -93,6 +95,7 @@ describe("derived module fields", () => {
       "clip",
       "from",
       "to",
+      "mute",
     ]);
   });
 

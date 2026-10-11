@@ -202,6 +202,19 @@ describe("@input-volume and @output-volume", () => {
   });
 });
 
+describe("@device", () => {
+  it("takes the whole rest of the line, since a device's name has spaces", async () => {
+    await runCommand(
+      `node param desk @device Arturia KeyStep 37`,
+      host(),
+      "cli",
+    );
+    expect(readFileSync(localFile(), "utf8")).toContain(
+      "device: Arturia KeyStep 37",
+    );
+  });
+});
+
 describe("an intrinsic nobody implemented", () => {
   it("says so, and names the ones there are", async () => {
     const before = shared();

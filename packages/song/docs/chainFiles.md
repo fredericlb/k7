@@ -161,6 +161,10 @@ person counts. The graph carries that as a step's optional `place`, the card dra
 would have drawn the uuid, and completion offers the uuid labelled `<module> · <place>`
 (`nodePlace.ts`). A lane needs none of this: its name is its own.
 
+A node whose card has no module to name — no `extends`, and so nothing a header could say — shows
+its place instead. A step that also carries no plugin plays nothing at all; its card says **empty
+step**, the place one hover away, so a stray one is seen for what it is and deleted.
+
 ## What the migration refuses
 
 A project whose `assemblies/`, `views/` or `surfaces/` name nodes, and a `nodes/` holding anything

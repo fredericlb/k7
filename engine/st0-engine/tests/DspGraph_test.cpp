@@ -347,6 +347,45 @@ void a_peak_at_zero_db_is_transparent() {
     CHECK(std::abs(biquadGainDb("peak", 1000.0f, 1.0f, 0.0f, 1000.0f)) < 0.05f);
 }
 
+// An all-pass keeps every level and turns DC upside down: H(1) = -1 for a first-order one, whatever its corner.
+void an_allpass_passes_dc_at_full_level_inverted() {
+    auto g = buildGraph(R"({
+      "params": [],
+      "nodes": [
+        { "type": "ain", "out": "x" },
+        { "type": "aallpass", "in": ["x"], "k": [800], "out": "y" },
+        { "type": "aout", "in": ["y"] }
+      ]
+    })");
+    if (!g) return;
+    g->prepare(kRate, kBlock);
+    // Several blocks, so the one-sample memory has settled and the last block is steady state.
+    juce::AudioBuffer<float> buf;
+    for (int i = 0; i < 20; ++i) {
+        buf = dc(0.25f);
+        g->process(buf, 0, kBlock, nullptr, 0);
+    }
+    CHECK(std::abs(buf.getReadPointer(0)[kBlock - 1] + 0.25f) < 1.0e-3f);
+    CHECK(std::abs(buf.getReadPointer(1)[kBlock - 1] + 0.25f) < 1.0e-3f);
+}
+
+// The spread runs the right channel ahead: half a cycle of a still triangle is its top on one side, its floor on the other.
+void an_lfo_spread_puts_the_right_channel_ahead() {
+    auto g = buildGraph(R"({
+      "params": [],
+      "nodes": [
+        { "type": "alfo", "k": [0, 0.5], "shape": "triangle", "out": "l" },
+        { "type": "aout", "in": ["l"] }
+      ]
+    })");
+    if (!g) return;
+    g->prepare(kRate, kBlock);
+    auto buf = dc(0.0f);
+    g->process(buf, 0, kBlock, nullptr, 0);
+    CHECK(std::abs(buf.getReadPointer(0)[10] - 1.0f) < 1.0e-5f);
+    CHECK(std::abs(buf.getReadPointer(1)[10] + 1.0f) < 1.0e-5f);
+}
+
 int main() {
     RUN(a_duplicate_param_name_is_refused);
     RUN(a_param_called_sr_is_refused);
@@ -369,5 +408,7 @@ int main() {
     RUN(a_peak_boosts_its_own_frequency_by_its_gain_and_leaves_the_rest);
     RUN(a_shelf_moves_its_side_and_not_the_other);
     RUN(a_peak_at_zero_db_is_transparent);
+    RUN(an_allpass_passes_dc_at_full_level_inverted);
+    RUN(an_lfo_spread_puts_the_right_channel_ahead);
     TEST_MAIN_END();
 }

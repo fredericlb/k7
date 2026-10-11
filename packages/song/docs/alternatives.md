@@ -87,6 +87,11 @@ replace drops the node's own. The node is not renamed, as a plain replace would 
 new module: its name belongs to every set, and set 1 is still the old module. On a lane or a fader
 the verb refuses and writes nothing.
 
+**A set's `rack` is resolved when the module is LOADED, as the module's own is** (`alternativeRacks`
+in `src/loader.ts`). A tap names a library `sample`, and the loader turns it into the file the sampler
+plays. A set's taps are merged over the module's one whole entry at a time, so a set holding the raw
+name would replace that file with nothing, and the lane would receive its notes and sound no pad.
+
 Switching between two such sets is a different PLUGIN, so it is never the values-only fast path of
 `select` (`packages/commands/docs/verbs.md`): the engine rebuilds that plugin.
 

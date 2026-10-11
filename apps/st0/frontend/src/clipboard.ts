@@ -64,6 +64,8 @@ export type Clipboard =
       /** The rectangle's own size, for the status line and for a paste's bounds check. */
       keys: number;
       beats: number;
+      /** The rectangle's top KEY, so a roll's paste can put each note back on its own pitch. */
+      top: number;
     }
   | {
       kind: "events";
@@ -115,6 +117,7 @@ export function copyNotes(
     sequence,
     keys: hiKey - loKey + 1,
     beats: to - from,
+    top: hiKey,
     notes: inside.map((n) => ({
       k: hiKey - n.key, // rows DOWN from the top, so a paste offsets one way on both axes
       t: n.time - from,

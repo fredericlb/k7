@@ -158,14 +158,17 @@ same family as `@mute`, routed by the renderer rather than sent to a plugin para
 symbols are already known through `extends`, so a `ui.yaml` listing them would be two lists kept in
 step.
 
-**The grid is at least 2×2 and at most four wide** (`rackGrid`, exported so the corners of the rule
-are pinned by a test). Two decisions there:
+**A rack is drawn by OCTAVE: a tab per octave, each a 4×3 grid of its twelve notes.** A pad sits at
+its note, the lowest at the bottom left as on a pad controller, so a kit reads the same on the card
+as on the hardware it is played from, and a note's place never moves when another pad is added. The
+octaves drawn are those holding a sound, and for a rack that takes new pads the one above its highest
+too. An empty cell there is an add tap on ITS note (`@rack+<note>`, the `node tap at` command), so a
+pad is put where it will be played rather than after the highest note. One octave is one page and
+draws no tab column. An SFZ kit draws no empty cells, since its pads are the kit's. It adds a row under
+each pad for that pad's gain, and a column on the right for the kit's level, on every tab.
 
-- **Never smaller than 2×2.** Two pads in a row read as two controls; a square with slots free reads
-  as a rack with slots free, which is what it is.
-- **Square-ish as it grows, capped at four columns.** Eight sounds are 3×3, not 4×2 — the node is
-  read as a pad grid, and a wide flat block says less about the instrument. The cap keeps a
-  sixteen-sound kit from drawing a node wider than the pane.
+`rackGrid`, the square-ish grid of at least 2×2 and at most four wide, is what an ASSEMBLY's
+boxes are laid out on (`src/assembly.ts`): those have no notes to place them by.
 
 **A pad draws bare.** The widget still carries the symbol as its `label`, which is what a tooltip
 and a right-click name it by, but `DomChains` prints it for every button *except* a pad: sixteen

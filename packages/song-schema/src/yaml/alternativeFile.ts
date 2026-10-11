@@ -118,6 +118,25 @@ export function setAlternativeParam(
   return doc.toString(OUT);
 }
 
+/** Remove every NUMBER the set that is ON states, under `engines.<engine>` when the module runs one — a file param stays. */
+export function clearAlternativeParams(text: string, engine?: string): string {
+  const doc = parseDocument(text, OPTS);
+  const at = currentAlternative(
+    (doc.toJS() ?? {}) as { alternatives?: unknown; alternative?: unknown },
+  );
+  const inSet = engine ? ["engines", engine, "params"] : ["params"];
+  const path = at === 0 ? inSet : ["alternatives", at - 1, ...inSet];
+  const params = doc.getIn(path);
+  if (!isMap(params)) return text;
+  const numbers = params.items
+    .filter((pair) => typeof (pair.value as { value?: unknown })?.value === "number")
+    .map((pair) => (pair.key as { value?: unknown })?.value ?? pair.key);
+  if (!numbers.length) return text;
+  for (const key of numbers) params.delete(key);
+  if (!params.items.length) doc.deleteIn(path);
+  return doc.toString(OUT);
+}
+
 /** Set one FIELD on the set that is ON — `engine:` being the one that needs it (packages/song/docs/engines.md). */
 export function setAlternativeField(
   text: string,

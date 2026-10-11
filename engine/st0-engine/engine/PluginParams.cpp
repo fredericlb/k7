@@ -266,8 +266,10 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
         std::map<juce::String, int> seen;
         for (const auto& p : out)
             seen[p.name] = 1;
-        for (auto& extra : nonAutomatableParams(plugin, seen, withStates))
+        for (auto& extra : nonAutomatableParams(plugin, seen, withStates)) {
+            extra.automatable = false;
             out.push_back(std::move(extra));
+        }
     }
     // …then this plugin type's authored property set, APPENDED and guarded by name rather than a fallback — docs/builtinParams.md.
     const auto* sps = stateParamsFor(plugin);
@@ -294,6 +296,7 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
                        sp.max,
                        // The settings, when the plugin's header names them — under `withStates` like every other source, so the 20 Hz path stays free.
                        withStates ? states(sp) : std::vector<std::pair<juce::String, double>>{}});
+        out.back().automatable = false;
     }
     return out;
 }

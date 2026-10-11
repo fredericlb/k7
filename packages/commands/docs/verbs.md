@@ -82,7 +82,9 @@ written, the same rule the fades follow.
 Three families are one function taking the word it writes, because the only thing that differs is
 what the noun promises:
 
-- `track process` / `clip process` — what the first argument may name.
+- `track process` / `clip process` — what the first argument may name. `event process` runs the
+  same bounce on one placement, after giving it its own copy of a clip other events share
+  (`verbs/eventProcess.ts`).
 - `event status mute|warp` — which aspect of the event moves.
 - `event fadein` / `event fadeout` — which end of the clip the fade is on.
 
@@ -115,6 +117,16 @@ identical, and the second one would drift. A factory rather than a SID lookup in
 `off` rather than `0` or `1`: those are values, and the file has no way to say them. A pad that
 plays once on every pass is a pad with neither key, so turning an effect off is a DELETION — the
 same rule the velocity drag follows going back to full. See `packages/song/docs/padEffects.md`.
+
+## `track group` takes the tracks first, and moves them
+
+`track group <tracks> [name]` writes a group lane where a lane's file goes. In a chain project that
+is `tracks/` plus a one-step chain, since a lane is loaded only when a chain names it
+(`packages/song/src/groupLanes.ts`). The tracks come FIRST so the timeline's right-click can fill
+them from the lanes shift-clicked and run the verb at once. The name comes second and defaults to
+`group-N`. A track already in a group is taken out of that group's `tracks:`, because membership
+is written only on the group and a track in two lists is the "in two groups" warning. The group joins
+no `trackOrder`: it is drawn above its first member.
 
 ## `track new` has no kind
 
@@ -177,12 +189,29 @@ under the event's `crossfades:`. Both take a DURATION, `0` removing the fades.
 
 ## `track input` puts the input IN the lane's chain
 
-`track input <track> audio|midi` is what the per-track view's two buttons run. In a chain project the
+`track input <track> audio|midi` is what the per-track view's two buttons run. The step it writes is a USE of the
+built-in input — `extends: "@meta/IN"` (with `monitor: "auto"`) or `extends: "@meta/MIDI"` — the form
+a hand-written rig takes, so its card is named by it rather than by where it sits. In a chain project the
 input is a step of the lane's OWN chain, just ahead of the lane, which is how a hand-written rig
 reads (`IN`, then the lane, then its plugins). `graph chain connect` would get there too, but by
 splitting the lane's chain in two and renaming its file, which nobody asked for. A `graph.yaml`
 project has no chain to put a step in, so there it is a node and a cable. A lane something already
 feeds is refused (`runCarriesInput`), the input being the one thing a lane takes.
+
+## `node param` on a Faust node takes a FILE for a string
+
+A Faust program's knobs are all numbers, so on a node that compiles to the Faust host a value that
+is not one names the sound file of the program's `soundfile` slot of that name
+(`packages/song/docs/faustFiles.md`). A library ref is checked against the `wavetables/` and
+`samples/` the panel's picker offers, the way `setFileParam` checks an `ir`; `none` clears it.
+
+## `task …` — the workspace's TODOS.md, addressed by number
+
+The four task verbs write `TODOS.md` at the WORKSPACE root (`h.repoDir`), never the song's folder,
+and refuse with no workspace rather than fall back — the playlist verbs' rule, for the same reason:
+the list belongs to the repository. A task is named by its number in the list, as the panel and a
+reader see it, and `task mark` stores the project beside the timecode, one file serving every song
+(`verbs/tasks.ts`; the format is `apps/st0/frontend/docs/tasks.md`'s).
 
 ## `track transcribe` — whisper writes the lane's text
 
@@ -249,9 +278,9 @@ it back to the plugin's default, and the two must not sound different.
 
 ## `module new` writes a module and stops
 
-The picker offers two kinds of thing and `makeModule` handles both: something from the CATALOGUE
-(no local folder yet — create one extending it), and a module this project already has (leave it
-alone, do not recreate it). Already there AND told to inherit something else is a real
+`makeModule` handles two cases: a name with no local folder yet (create one, extending the ref when
+one is given), and a module this project already has (leave it alone, do not recreate it). Already
+there AND told to inherit something else is a real
 disagreement rather than redundancy: a module cannot be re-parented by asking for it again, so
 acting would ignore what was typed.
 
@@ -342,6 +371,11 @@ line in the table. See `packages/song/docs/intrinsics.md`.
 
 Each entry takes the value as TYPED and answers with what to say about it, or throws the sentence
 that says why it cannot.
+
+An `@field` is one word, so its value is the whole REST of the line, spaces included:
+`node param keys @device Arturia KeyStep 37`. A plugin param is the opposite: its NAME may hold
+spaces, so there the value is the last word. A device or a lens is named by its label, and labels
+have spaces; reading one like a plugin param would turn the name into a field nobody has.
 
 - **`channel`** — one channel or two, and two only ever means a pair the interface actually
   groups. `findWaveInput` matches a device on its exact channel list, so a set the rig does not
@@ -666,11 +700,11 @@ than none — it reads as "that is not a surface".
 
 ## `module new`, `node new`, `node insert`, `node delete`
 
-`module new <category>/<name> [extends-ref]` scaffolds a module and only that. The optional arg is
-the ref this module INHERITS, filled by the graph's module picker when the pick comes from a
-catalogue rather than from this project. It makes no node: a module and a USE of it are two things,
-and a chain names the use. A module that is already there is not an error — it is the ordinary
-second pick of the same thing.
+`module new <category>/<name> [extends-ref]` scaffolds a workspace module and only that. The
+optional arg is the ref this module INHERITS. It makes no node: a module and a USE of it are two
+things, and a chain names the use. A module that is already there is not an error. Nothing but this
+verb writes into the workspace's `_modules/`: making a module is a decision somebody takes, never a
+side effect of adding a node.
 
 `node new <category>/<name> <node-name> [x,y]` writes one USE of an existing module, as
 `nodes/<node>.yaml`, AND its place in the graph. It names what it uses with `extends` and states
@@ -683,11 +717,11 @@ an arrow DOES know one and spells the name out (the frontend's `nodeInsert.ts`);
 form, for a line somebody typed.
 
 An optional `extends-ref` — any token carrying a slash beyond the target, so its position next to
-the node name is free — scaffolds the module folder first, the same semantics `module new` has:
-created when absent, left alone when there, refused only when what it extends disagrees. This is
-what the graph's `+` sends for a CATALOGUE pick, which has no local folder yet: the whole gesture
-is one command, one round trip, one compile and one engine push. `module new` keeps the bare form,
-for a line somebody types.
+the node name is free — makes the node extend THAT ref directly, the `<category>/<name>` then only
+naming the node by default. This is what the graph's `+` sends for a CATALOGUE pick. No workspace
+module is scaffolded in between: a one-line module that only extends a library one hides the
+library module's preset shelf, since presets are keyed by what a node extends
+(`packages/song/docs/userPresets.md`), and adds a file nobody chose to own.
 
 `node new @<library>/<category>/<name> [<node-name>] [x,y]` — a WHOLE ref in the target's place —
 makes the node extend that ref as it stands, with no workspace module in between

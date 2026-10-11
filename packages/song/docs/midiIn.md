@@ -25,6 +25,20 @@ one; the DEVICE it listens to is the one named by the midi-in node wired to that
 (`midiInDeviceFor`). So a rig with two keyboards records each into its own lane by drawing two
 cables, and a choice made once in the graph does not have to be made again at the transport.
 
+**An armed lane is PLAYED as well as recorded.** Each channel message from its keyboard goes to the
+engine as it arrives (`midi-live`, engine/st0-engine/docs/protocol.md), so the lane's instrument
+sounds under the fingers whether or not a take is rolling. Only the armed lane hears it: a rig of
+two keyboards on two lanes does not play both instruments from either. The card's LED, by contrast,
+lights for ANY channel message from its device, armed or not, since what it answers is "is this
+keyboard reaching the browser at all" (`apps/st0/frontend/src/midiActivity.ts`).
+
+**The cable is also what makes a lane armable for MIDI.** A lane a midi-in node feeds arms in the
+browser even while it holds no sequence, since an empty lane is exactly where a first take goes.
+Every take then becomes a new sequence — on an empty lane and a full one alike, as every audio take
+is a new clip — sized to whole bars around the notes and placed where they were played (`sequence record`, `packages/commands/src/verbs/sequenceRecord.ts`): one command, so
+the take is one undo. Arming it in the engine instead would be refused, because the engine arms
+only a lane with an audio input.
+
 **No node, no MIDI.** A lane no midi-in node feeds records no notes, and starting a take on one says
 so rather than capturing every keyboard on the machine. A global "any input" default would make the
 graph and the take disagree about where the notes came from.
@@ -38,7 +52,10 @@ absent `device` records from every device — a one-keyboard rig need not name i
 
 The card's dropdown lists the inputs this browser sees, with `any` first so a choice can be undone
 without editing the file; it writes `node param <node> @device <label>`. A project with a midi-in
-node asks for MIDI access when it opens, so the list is there before anyone records.
+node asks for MIDI access when it opens, so the list is there before anyone records, and asks
+again on every press of a dropdown: Firefox grants Web MIDI by installing a site-permission
+add-on, and the request made while that install runs fails, so a single ask at open would leave
+the list empty until a reload. Once access is granted the repeat costs nothing and re-lists.
 
 ## The engine is handed nothing
 

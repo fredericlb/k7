@@ -21,6 +21,8 @@ struct AudioDevice {
     std::string name;
     std::string deviceType;
     bool current = false;
+    // The device the engine takes its INPUTS from — another one than `current` when the setup is split.
+    bool currentInput = false;
 };
 
 struct EditPlugin {

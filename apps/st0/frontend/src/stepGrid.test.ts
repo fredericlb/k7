@@ -3,6 +3,7 @@ import { rackFor } from "./rackFor";
 import {
   NUDGE_MAX,
   noteInCell,
+  PRECISIONS,
   notesByCell,
   nudgedTime,
   nudgeOf,
@@ -23,6 +24,21 @@ const note = (time: number, key: number, duration = 0.5): WebNote => ({
 });
 
 describe("the grid", () => {
+  it("offers 1/2 down to 1/32 notes, a 1/32 step being an eighth of a beat", () => {
+    expect(PRECISIONS.map((p) => p.label)).toEqual([
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+    ]);
+    const p32 = PRECISIONS.find((p) => p.label === "1/32");
+    // One bar of 4/4 at 1/32 is thirty-two cells, counted rather than accumulated, so the last sits exactly on 3.875.
+    const cells = stepCells(0, 4, p32?.beats ?? 0);
+    expect(cells).toHaveLength(32);
+    expect(cells.at(-1)).toBe(3.875);
+  });
+
   it("divides the window at the chosen precision, in absolute beats", () => {
     // An 8-beat window at 1/8 notes (half a beat) is sixteen cells.
     expect(stepCells(0, 8, 0.5)).toHaveLength(16);

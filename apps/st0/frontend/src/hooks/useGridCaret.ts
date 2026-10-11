@@ -27,6 +27,8 @@ export interface GridCaret {
   placeCaret: (c: GridCell) => void;
   /** Start a shift+drag at `c`: the rectangle is anchored where the POINTER pressed, never on the caret or an older rectangle. */
   beginDrag: (c: GridCell) => (next: GridCell | null) => void;
+  /** A long press on a row's header: the rectangle becomes that whole row, first step to last. */
+  selectRow: (row: number) => void;
   /** Move the live rectangle by rows and columns: the notes it held were dragged, and it follows them. */
   shiftSelect: (dRow: number, dCol: number) => void;
 }
@@ -115,6 +117,13 @@ export function useGridCaret({
     };
   }, []);
 
+  const selectRow = useCallback((row: number) => {
+    const b = boundsRef.current;
+    const anchor = clampCell({ row, col: 0 }, b);
+    setCaret(anchor);
+    setSel({ anchor, head: clampCell({ row, col: b.cols - 1 }, b) });
+  }, []);
+
   /** The keys, and ONLY the continuous ones — every discrete action is a command; Escape is swallowed hard, or one press would do two things. */
   useEffect(() => {
     if (!active) return;
@@ -173,6 +182,7 @@ export function useGridCaret({
     clearSelect,
     placeCaret,
     beginDrag,
+    selectRow,
     shiftSelect,
   };
 }

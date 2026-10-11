@@ -233,6 +233,7 @@ export const Grid = memo(function Grid({
   top,
   height,
   scroller,
+  strongBars = false,
 }: TickProps & {
   ppb: number;
   laneW: number;
@@ -241,6 +242,8 @@ export const Grid = memo(function Grid({
   height: number;
   /** The pane these lines scroll inside, so only the visible ones are built. See useVisibleBeats. */
   scroller?: RefObject<HTMLElement | null>;
+  /** Bars solid and beats darker, both in the text colour — for a pane whose material swallows the faint lines. */
+  strongBars?: boolean;
 }) {
   const view = useVisibleBeats(scroller, beatLo, ppb);
   return (
@@ -262,12 +265,17 @@ export const Grid = memo(function Grid({
           <div
             key={`grid:${t.key}`}
             className={cn(
-              "pointer-events-none absolute border-l border-dashed",
+              "pointer-events-none absolute border-l",
+              strongBars && t.level === 0 ? "border-solid" : "border-dashed",
               // The ruler's three weights, one step fainter: down here they cross the material rather than sitting in a header of their own.
               t.level === 0
-                ? "border-border/40"
+                ? strongBars
+                  ? "border-foreground/45"
+                  : "border-border/40"
                 : t.level === 1
-                  ? "border-border/25"
+                  ? strongBars
+                    ? "border-foreground/25"
+                    : "border-border/25"
                   : "border-border/10",
             )}
             style={{ left: left0 + left, top, height }}

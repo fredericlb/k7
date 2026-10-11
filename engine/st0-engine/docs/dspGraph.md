@@ -69,6 +69,22 @@ effect's identity belongs.
 It is also the argument `docs/quickMaster.md` invokes for compiling that module rather than adding
 four node types for it.
 
+`aallpass` passes that test: a first-order all-pass is a building block, not an effect — a phaser
+is four of them and a feedback tap, and the same node serves a stereo decorrelator or a dispersion
+stage. It could not be written as arithmetic, because an all-pass needs its own output one sample
+back, and the only node that writes a named wire (`adelay`) reads at least one sample behind
+itself, so a loop through it lands on y[n−2]. The node holds that memory itself, per channel.
+
+Its corner is `k[0]` Hz moved by an audio wire in OCTAVES (`in[1]`), not a frequency wire: a sweep
+is heard evenly in pitch, and octaves are what an LFO can move linearly without an `exp` the
+vocabulary does not have. The coefficient uses π·f/sr without the tan prewarp — Tracktion's phaser
+computes it that way, and matching it is what makes the library's `classic` phaser sound as the
+plugin did; the coefficient stays inside (−1, 1] for any corner, so no clamp is needed.
+
+`alfo` takes an optional second scalar, a phase offset for the RIGHT channel in cycles. That is
+what a chorus's stereo width is (Tracktion's runs its right channel π·Width radians ahead), and a
+one-slot `k` is emitted unchanged, so every graph written before it reads byte for byte the same.
+
 ## Registers, resolved to INDICES
 
 Every input is either a register name or a literal; a literal gets its own preloaded register at

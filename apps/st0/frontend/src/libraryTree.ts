@@ -131,6 +131,13 @@ function repositoryRow(
         children: l.samples ?? [],
       },
       { name: "irs", path: `${root}/irs`, dir: true, children: l.irs ?? [] },
+      // …the tables a wavetable instrument reads, beside the sounds since they are sounds too.
+      {
+        name: "wavetables",
+        path: `${root}/wavetables`,
+        dir: true,
+        children: l.wavetables ?? [],
+      },
       // …and its amp MODELS, which an amp's `model` picks as it picks its own assets.
       {
         name: "models",
@@ -142,10 +149,10 @@ function repositoryRow(
   };
 }
 
-/** Which of a library's FILE folders this row is or lies in — `samples/`, `irs/`, `models/` — the only places a drop goes. */
+/** Which of a library's FILE folders this row is or lies in — `samples/`, `irs/`, `wavetables/`, `models/` — the only places a drop goes. */
 export function fileFolderOf(path: string): LibraryFileFamily | null {
   const m = new RegExp(
-    `^${LIBRARIES_DIR}/[^/]+/(samples|irs|models)(/|$)`,
+    `^${LIBRARIES_DIR}/[^/]+/(samples|irs|wavetables|models)(/|$)`,
   ).exec(path);
   return m ? (m[1] as LibraryFileFamily) : null;
 }

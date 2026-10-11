@@ -10,6 +10,7 @@ export const PRECISIONS = [
   { label: "1/4", beats: 1 },
   { label: "1/8", beats: 0.5 },
   { label: "1/16", beats: 0.25 },
+  { label: "1/32", beats: 0.125 },
 ] as const;
 export type Precision = (typeof PRECISIONS)[number];
 

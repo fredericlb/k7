@@ -102,9 +102,8 @@ describe("node new", () => {
     expect(lines.some((l) => l.trim().startsWith("hall:"))).toBe(true);
   });
 
-  it("scaffolds a CATALOGUE pick's folder from the ref, then creates the node — one command", async () => {
-    // A workspace module to inherit, so the ref is one this project can answer — the engine's own
-    // catalogue is ambient and a test must not depend on it (createNode's same rule).
+  it("links a CATALOGUE pick straight to its ref, scaffolding no workspace module", async () => {
+    // A workspace module to point at, so the ref is one this project can answer — the engine's catalogue is ambient.
     mkdirSync(join(root, "_modules", "audio", "fuzz"), { recursive: true });
     writeFileSync(
       join(root, "_modules", "audio", "fuzz", "module.yaml"),
@@ -116,14 +115,9 @@ describe("node new", () => {
       host(),
       "cli",
     );
-    // The folder is there, inheriting the ref, and the node extends the FOLDER.
-    const made = readFileSync(
-      join(root, "_modules", "audio", "echo", "module.yaml"),
-      "utf8",
-    );
-    expect(made).toContain('extends: "@workspace/audio/fuzz"');
+    expect(existsSync(join(root, "_modules", "audio", "echo"))).toBe(false);
     expect(readFileSync(join(dir, "nodes", "e1.yaml"), "utf8")).toContain(
-      'extends: "@workspace/audio/echo"',
+      'extends: "@workspace/audio/fuzz"',
     );
     expect(chains()).toMatch(/^\s*e1:/m);
   });
@@ -141,7 +135,7 @@ describe("node new", () => {
       "cli",
     );
     expect(readFileSync(join(dir, "nodes", "echo_1.yaml"), "utf8")).toContain(
-      'extends: "@workspace/audio/echo"',
+      'extends: "@workspace/audio/fuzz"',
     );
     await runCommand(
       "node new audio/wah @workspace/audio/fuzz wah1",
@@ -149,7 +143,7 @@ describe("node new", () => {
       "cli",
     );
     expect(readFileSync(join(dir, "nodes", "wah1.yaml"), "utf8")).toContain(
-      'extends: "@workspace/audio/wah"',
+      'extends: "@workspace/audio/fuzz"',
     );
     await runCommand(
       "node new audio/verb verb1 @workspace/audio/fuzz",
@@ -157,32 +151,19 @@ describe("node new", () => {
       "cli",
     );
     expect(readFileSync(join(dir, "nodes", "verb1.yaml"), "utf8")).toContain(
-      'extends: "@workspace/audio/verb"',
+      'extends: "@workspace/audio/fuzz"',
     );
   });
 
-  it("refuses a ref that disagrees with what the module already extends, changing nothing", async () => {
-    mkdirSync(join(root, "_modules", "audio", "fuzz"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "audio", "fuzz", "module.yaml"),
-      "plugin:\n  type: internal\n  name: Chorus\n",
-      "utf8",
-    );
-    mkdirSync(join(root, "_modules", "audio", "echo"), { recursive: true });
-    writeFileSync(
-      join(root, "_modules", "audio", "echo", "module.yaml"),
-      'extends: "@workspace/audio/amp"\n',
-      "utf8",
-    );
+  it("refuses a ref that resolves to nothing, writing no node and no module", async () => {
     await runCommand(
-      "node new audio/echo e1 @workspace/audio/fuzz",
+      "node new audio/echo e1 @workspace/audio/nope",
       host(),
       "cli",
     );
-    expect(logs.join("\n")).toContain(
-      "extends '@workspace/audio/amp', not '@workspace/audio/fuzz'",
-    );
+    expect(logs.join("\n")).toContain("not a module this project can see");
     expect(existsSync(join(dir, "nodes", "e1.yaml"))).toBe(false);
+    expect(existsSync(join(root, "_modules", "audio", "echo"))).toBe(false);
   });
 
   it("reads a module's OWN ref as 'use it', whatever it extends — the picker sends one", async () => {

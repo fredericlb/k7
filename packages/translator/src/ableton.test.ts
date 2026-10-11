@@ -55,10 +55,22 @@ const audioTrack = (id: number, clips: string): string =>
      </DeviceChain>
    </AudioTrack>`;
 
+// Every sample found: these pin the clips' geometry, and a clip whose sample is missing is left out.
 const clipsOf = (xml: string) => {
-  const t = mapLiveSet(xml, "test");
+  const t = mapLiveSet(xml, "test", { readSample: () => new Uint8Array([0]) });
   return t.song.tracks.flatMap((tr) => tr.clips ?? []);
 };
+
+describe("a drum rack", () => {
+  it("marks its track as DRUMS, so a stand-in kit can take its place", () => {
+    const drums = midiTrack(1, "drums").replace(
+      "<Mixer>",
+      '<DeviceChain><Devices><DrumGroupDevice Id="0" /></Devices></DeviceChain><Mixer>',
+    );
+    const t = mapLiveSet(live(drums + midiTrack(2, "keys")), "test");
+    expect(t.song.tracks.map((x) => !!x.drums)).toEqual([true, false]);
+  });
+});
 
 describe("header", () => {
   it("reads tempo from MainTrack (Live 12's name for the master)", () => {
@@ -268,12 +280,33 @@ describe("audio clips", () => {
       ),
     );
     const clip = clipsOf(xml)[0];
-    expect(clip.offset).toBe(16);
+    // Through the markers: 16 beats at 110 bpm, within what the fixture's rounded seconds allow.
+    expect(clip.offset).toBeCloseTo(16, 2);
     // <WarpMarker BeatTime SecTime> lands as the model's [timeline beat, source second] pair.
     expect(clip.warp?.markers).toEqual([
       [0, 0],
       [0.03125, 0.017045],
     ]);
+  });
+
+  it("reads the in-point through the markers when the file's second 0 is not beat 0", () => {
+    // A recording Live placed late on its grid: second 0 sits at clip beat 4, and the clip starts reading at beat 16.
+    const xml = live(
+      audioTrack(
+        1,
+        audioClip({
+          start: 144,
+          end: 184,
+          loopStart: 16,
+          loopEnd: 56,
+          warped: true,
+          markers: `<WarpMarker Id="0" SecTime="0" BeatTime="4" />
+                    <WarpMarker Id="1" SecTime="0.017045454545" BeatTime="4.03125" />`,
+        }),
+      ),
+    );
+    // 12 beats into the FILE at 110 bpm, not 16: the four before second 0 are not in it.
+    expect(clipsOf(xml)[0].offset).toBeCloseTo(12, 4);
   });
 
   it("drops a warp with fewer than two markers — one point defines no stretch", () => {
@@ -323,7 +356,7 @@ describe("audio clips", () => {
     expect(t.files["audio/take.wav"]).toEqual(new Uint8Array([1, 2, 3]));
   });
 
-  it("reports a sample the caller refused, instead of failing", () => {
+  it("reports a sample the caller refused, and leaves its clip out rather than failing", () => {
     const t = mapLiveSet(
       live(
         audioTrack(
@@ -340,11 +373,34 @@ describe("audio clips", () => {
       "test",
       { readSample: () => null },
     );
-    expect(t.song.tracks[0].clips?.[0].source).toBeUndefined();
+    // Placed on a file that is not there, the clip would make the whole song refuse to load.
+    expect(t.song.tracks[0].clips ?? []).toHaveLength(0);
     expect(t.warnings).toContain(
-      "sample not imported: Samples/Imported/take.wav",
+      "sample not imported: Samples/Imported/take.wav — the clips playing it are left out",
     );
-    expect(t.stats.audioClips).toBe(1);
+    expect(t.stats.audioClips).toBe(0);
+  });
+
+  it("leaves a TAKE LANE's clips out: they are takes the comp did not pick", () => {
+    const clip = audioClip({
+      start: 0,
+      end: 8,
+      loopStart: 0,
+      loopEnd: 8,
+      warped: true,
+    });
+    // Live 12 keeps every take beside the arrangement; its file need not even be in the project.
+    const track = audioTrack(1, clip).replace(
+      "</AudioTrack>",
+      `<TakeLanes><TakeLanes><TakeLane Id="0"><ClipAutomation><Events>${clip}${clip}</Events></ClipAutomation></TakeLane></TakeLanes></TakeLanes></AudioTrack>`,
+    );
+    const t = mapLiveSet(live(track), "test", {
+      readSample: () => new Uint8Array([0]),
+    });
+    expect(t.song.tracks[0].clips).toHaveLength(1);
+    expect(t.warnings).toContain(
+      "2 take-lane clip(s) ignored — only the takes comped into the Arrangement are imported",
+    );
   });
 
   it("takes the project sample rate from the first sample", () => {

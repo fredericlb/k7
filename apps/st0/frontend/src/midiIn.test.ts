@@ -1,7 +1,7 @@
 // The midi-in node wired to a lane is what that lane records from — and no node, no MIDI.
 
 import { describe, expect, it } from "vitest";
-import { midiInDeviceFor } from "./midiIn";
+import { midiInDeviceFor, midiInLanes } from "./midiIn";
 import type { WebGraph } from "./types";
 
 const graph = (chains: Record<string, unknown>): WebGraph =>
@@ -35,5 +35,23 @@ describe("which device records into a lane", () => {
     expect(midiInDeviceFor(g, "lead")).toBe("");
     expect(midiInDeviceFor(g, "vox")).toBeNull();
     expect(midiInDeviceFor(g, "bass")).toBeNull();
+  });
+});
+
+describe("which lanes arm for MIDI", () => {
+  it("are the lanes a midi-in node feeds, sequence or not", () => {
+    const g = graph({
+      keys: {
+        from: "keys",
+        use: [{ module: "keys", device: "" }],
+        out: [{ to: "lead" }],
+      },
+      mic: {
+        from: "mic",
+        use: [{ module: "mic", monitor: "on" }],
+        out: [{ to: "vox" }],
+      },
+    });
+    expect([...midiInLanes(g)]).toEqual(["lead"]);
   });
 });

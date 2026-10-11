@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(Studio VERSION 0.0.1 LANGUAGES C CXX)
+# Surge's macOS sources are Objective-C++, and a language a subdirectory enables leaves the build unwritable (docs/surgePlugin.md).
+if(APPLE)
+    enable_language(OBJC OBJCXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -174,6 +178,38 @@ set(SFIZZ_BENCHMARKS OFF CACHE BOOL "" FORCE)
 # sfizz's own option, despite the generic name; LTO across a static library is the parent's call.
 set(ENABLE_LTO OFF CACHE BOOL "" FORCE)
 
+# --- Surge XT : a full synthesizer, for SurgePlugin -------------------------------
+# GPLv3 like this engine. Only its core is built — no JUCE, no plugin wrappers, no Lua, no MTS —
+# and only the submodules that core compiles. A commit of main rather than the 1.3.4 release:
+# that release's core still links juce_dsp, which would put a second JUCE beside Tracktion's.
+# Fetched by a script because FetchContent cannot shallow-fetch a commit; the four fixes being a
+# subproject needs are in the patch script. Rationale: docs/surgePlugin.md.
+if(NOT ANDROID)
+    set(STUDIO_SURGE_COMMIT baa97f7cad09d3dcde472137ed030829ff55d202)
+    set(STUDIO_SURGE_SUBMODULES "libs/PEGTL,libs/eurorack/eurorack,libs/fmt,libs/pffft,libs/simde,libs/zstd,libs/r8brain-free-src,libs/tuning-library,libs/sst/sst-basic-blocks,libs/sst/sst-cmake,libs/sst/sst-cpputils,libs/sst/sst-effects,libs/sst/sst-filters,libs/sst/sst-plugininfra,libs/sst/sst-waveshapers")
+    FetchContent_Declare(surge
+        DOWNLOAD_COMMAND ${CMAKE_COMMAND} -DSRC=<SOURCE_DIR> -DCOMMIT=${STUDIO_SURGE_COMMIT}
+                         -DSUBMODULES=${STUDIO_SURGE_SUBMODULES}
+                         -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/surge-fetch.cmake"
+        UPDATE_COMMAND   ""
+        PATCH_COMMAND    ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/surge.cmake")
+    set(SURGE_SKIP_JUCE_FOR_RACK ON CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_LUA ON CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_ODDSOUND_MTS ON CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_STANDALONE ON CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_VST3 ON CACHE BOOL "" FORCE)
+    set(SURGE_SKIP_WERROR ON CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_XT OFF CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_FX OFF CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_CLAP OFF CACHE BOOL "" FORCE)
+    set(SURGE_BUILD_TESTRUNNER OFF CACHE BOOL "" FORCE)
+    set(SURGE_COPY_TO_PRODUCTS OFF CACHE BOOL "" FORCE)
+    # The other branch stamps the build TIME into a source, which would relink the engine on every build.
+    set(SURGE_RELIABLE_VERSION_INFO OFF CACHE BOOL "" FORCE)
+    # std::filesystem, as the engine uses it; its probe would otherwise run under Tracktion's forced 10.13 and fail.
+    set(SST_PLUGININFRA_FILESYSTEM_FORCE_PLATFORM ON CACHE BOOL "" FORCE)
+endif()
+
 # --- QuickJS (quickjs-ng) : evaluates Strudel patterns, for PatternPlugin --------
 # A small C interpreter, statically linked; the pattern language itself is a committed bundle
 # (engine/strudel/strudel.bundle.js). Why an interpreter in the engine at all: docs/patternPlugin.md.
@@ -346,6 +382,20 @@ FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core e
 set(CMAKE_CXX_STANDARD 17)
 FetchContent_MakeAvailable(sfizz)
 set(CMAKE_CXX_STANDARD 20)
+if(NOT ANDROID)
+    # Surge's sources are compiled at the engine's macOS floor, not the 10.13 Tracktion forced (see below).
+    if(APPLE)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+    endif()
+    # Surge carries its own copies of code the engine already links — Mutable Instruments' plaits, clouds and stmlib
+    # at another commit, a newer tuning-library than sfizz's — so its namespaces are renamed: a static link would
+    # otherwise keep ONE of each, silently, and run the other's code on the wrong layout (docs/surgePlugin.md).
+    set(STUDIO_SURGE_RENAMES plaits=surge_plaits clouds=surge_clouds stmlib=surge_stmlib Tunings=surge_Tunings)
+    get_directory_property(_studio_defs COMPILE_DEFINITIONS)
+    add_compile_definitions(${STUDIO_SURGE_RENAMES})
+    FetchContent_MakeAvailable(surge)
+    set_directory_properties(PROPERTIES COMPILE_DEFINITIONS "${_studio_defs}")
+endif()
 
 # Android populated Tracktion without building its root (see its declaration): add JUCE and the
 # Tracktion modules the way that root does, minus the examples.

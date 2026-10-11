@@ -38,11 +38,13 @@ export const CABLE: Record<WebSignal, string> = {
 // An untyped cable (a source that says nothing) stays the neutral sand rather than claiming a signal it doesn't know.
 export const cableColorFor = (s?: WebSignal): string => (s ? CABLE[s] : SAND);
 export const RING = "#8b5cf6"; // the selection ring (violet-500)
+export const MARK = "#f59e0b"; // a host's highlight ring (amber-500)
 // Where the signal enters or leaves the graph. The audio cable's own orange, since that is what an edge carries.
 export const EDGE = "#d98b45";
 export const CTRL: Record<string, string> = {
   "@mute": "#f97316", // orange-500
   "@solo": "#eab308", // yellow-500
+  "@highlight": "#22d3ee", // cyan-400 — a lane pushed forward, distinct from solo's yellow
   "@arm": "#ef4444", // red-500
 };
 
@@ -106,6 +108,9 @@ const CSS = `
 /* A lane's row reads as one strip: its cards keep only the borders they share, at the sides. */
 .dgx-node.across { border-top-width:0; border-bottom-width:0; }
 .dgx-node.sel { box-shadow:0 0 0 2px ${RING}, 0 12px 30px -10px rgba(0,0,0,.66); }
+/* Lit by the host (st0's History panel): amber, so it never reads as the selection's violet. */
+.dgx-node.marked { box-shadow:0 0 0 3px ${MARK}, 0 0 18px 2px color-mix(in srgb, ${MARK} 45%, transparent); }
+.dgx-marquee { position:absolute; z-index:30; pointer-events:none; border:1px dashed ${RING}; background:color-mix(in srgb, ${RING} 12%, transparent); border-radius:2px; }
 .dgx-node.tappable { cursor:pointer; }
 /* A BARE card draws no header, so everything it holds moves up into that space: widgetRect's offsets stay one figure. */
 .dgx-node.bare > .dgx-hd { display:none; }
@@ -280,6 +285,14 @@ const CSS = `
 .dgx-tap:hover .dgx-tap-x { display:grid; }
 .dgx-tap-x:hover { color:#e7e6ea; }
 .dgx-tap-x svg { width:10px; height:10px; }
+/* A tap's mute, at the corner opposite its remove: shown on hover, and always once it is muted. */
+.dgx-tap-m { position:absolute; top:1px; left:1px; width:14px; height:14px; padding:0; display:none;
+  place-items:center; border:none; border-radius:3px; background:transparent; color:var(--faint); cursor:pointer; }
+.dgx-tap:hover .dgx-tap-m, .dgx-tap.muted .dgx-tap-m { display:grid; }
+.dgx-tap-m:hover { color:#e7e6ea; }
+.dgx-tap-m svg { width:10px; height:10px; }
+.dgx-tap.muted .dgx-tap-m { color:#f59e0b; }
+.dgx-tap.muted .dgx-tap-pad { opacity:.35; text-decoration:line-through; }
 .dgx-tap.add { display:grid; place-items:center; border:1px dashed var(--line); border-radius:6px;
   background:transparent; color:var(--faint); cursor:pointer; }
 .dgx-tap.add:hover:not(:disabled) { color:#e7e6ea; border-color:var(--sand); }
@@ -315,19 +328,22 @@ const CSS = `
 .dgx-load.inbar { position:static; }
 .dgx-footk { display:block; width:16px; height:16px; }
 .dgx-alt.on { color:#0d0d0f; background:var(--sand); border-color:var(--sand); cursor:default; }
-/* The header's one dropdown — engine and preset — on its second line; JS sets its width (PresetButton.tsx). */
+/* The header's one dropdown — engine and preset — on its second line; JS sets its least width (PresetButton.tsx). */
 .dgx-engine { flex:none; height:15px; padding:0 4px; border-radius:8px; font:9px/13px ui-monospace,monospace;
   cursor:pointer; color:var(--sand); background:var(--card); border:1px solid var(--line);
   text-overflow:ellipsis; overflow:hidden; white-space:nowrap; }
 .dgx-engine:hover { border-color:var(--sand); }
-/* The preset dropdown wears the engine select's pill; muted until a preset is loaded. */
-.dgx-preset { display:flex; align-items:center; gap:2px; color:var(--faint); }
+/* The preset dropdown wears the engine select's pill; muted until a preset is loaded. It takes the line's free width, to 300 px. */
+.dgx-preset { display:flex; align-items:center; gap:2px; color:var(--faint); flex:1 1 auto; max-width:300px; }
 .dgx-preset.on { color:var(--sand); }
 .dgx-preset span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; text-align:left; }
 /* The engine, leading the one dropdown: what the module runs AS, before which settings it runs with. */
 .dgx-preset-eng { flex:none; max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   font-weight:600; color:#e7e6ea; padding-right:4px; border-right:1px solid var(--line); margin-right:2px; }
 .dgx-preset svg { flex:none; width:9px; height:9px; }
+/* The previous and next arrows after it: a pill each, the width of the arrow. */
+.dgx-preset-step { width:15px; padding:0; display:grid; place-items:center; color:var(--dim); margin-left:-4px; }
+.dgx-preset-step svg { width:9px; height:9px; }
 .dgx-alt.add { padding:0; display:grid; place-items:center; }
 .dgx-alt.add svg { width:9px; height:9px; }
 /* The copy is on its way: dimmed and inert until the new badge arrives. */
@@ -488,6 +504,10 @@ const CSS = `
   background:#08080b; border:1px solid #2c2c33; border-radius:4px; padding:1px 2px;
   cursor:pointer; }
 .dgx-sel:disabled { cursor:default; opacity:.5; }
+/* A midi-in card's LED beside its device dropdown: dark at rest, green while the keyboard sends. */
+.dgx-ledrow { display:flex; align-items:center; gap:4px; width:100%; min-width:0; }
+.dgx-led { flex:none; width:6px; height:6px; border-radius:50%; background:#2a2a30; box-shadow:inset 0 0 0 1px #3a3a42; }
+.dgx-led.on { background:#4ade80; box-shadow:0 0 6px #4ade80; }
 .dgx-sel.unknown { color:var(--faint); }
 /* The FILE picker fills its colSpan too, and ellipsises: a NAM pack's names run to a sentence. */
 .dgx-file { width:100%; padding:1px 5px; overflow:hidden; text-overflow:ellipsis;

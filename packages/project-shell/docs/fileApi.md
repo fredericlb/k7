@@ -57,6 +57,16 @@ the next caller. `fsend` gets no budget: a write that timed out may still have l
 command may legitimately run long; saying "failed" about a write that happened is worse than
 waiting on it.
 
+### A broken-off read is asked once more, and never comes from the browser's cache
+
+A read is fetched with `cache: "no-store"`. Every route answers from the files as they are now, and
+the workspace's revision is what decides when to ask again, so a copy the browser revalidated on its
+own could only be older than the one asked for. A read whose connection broke, or that came back 2xx
+with an empty body, is asked a second time before anyone is told. The file service restarts while
+it is being developed, and pl8's hub breaks the connection rather than ending it cleanly when the
+service goes away mid-answer (`packages/file-hub/index.ts`). A clean end would pass a cut-off body as
+a whole one, and every caller would fail to parse it.
+
 ### A frozen document is refused in ONE place
 
 `FileCfg.frozen` is the whole of read-only mode, and that is deliberate. `fsend` is the only way

@@ -89,6 +89,17 @@ void PlaitsCore::allNotesOff()
     for (auto& s : impl_->slots) s->gate = false;
 }
 
+void PlaitsCore::silence()
+{
+    impl_->alloc.releaseAll();
+    // An idle voice is not rendered at all, so its decaying LPG stops here.
+    for (auto& s : impl_->slots) {
+        s->gate = false;
+        s->lowBlocks = 0;
+        s->idle = IDLE_BLOCKS;
+    }
+}
+
 void PlaitsCore::render(float* left, float* right)
 {
     std::fill_n(left, BLOCK, 0.0f);

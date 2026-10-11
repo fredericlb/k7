@@ -23,6 +23,8 @@ export const RackSoundSchema = z.object({
   clip: z.string().min(1).optional(),
   from: z.number().min(0).optional(),
   to: z.number().positive().optional(),
+  // Silenced: kept on the kit and drawn, never handed to the sampler (packages/song/docs/racks.md).
+  mute: z.boolean().optional(),
 });
 
 // The rack's two flavours by `rack_type`: a discriminated union gives the better error for the flavour asked for.
@@ -97,6 +99,21 @@ export const RACK_BIND = "@rack:";
 
 /** The bind of a rack's LAST tap, which adds a sound rather than playing one. */
 export const RACK_ADD_BIND = "@rack+";
+
+/** An add tap on ONE note — an empty cell of a rack's octave grid: `@rack+<note>`. */
+export const rackAddBindAt = (note: number): string =>
+  `${RACK_ADD_BIND}${note}`;
+
+/** Whether a bind is an add tap, and the note it adds on — null for a bare `@rack+`, which picks the note itself. */
+export function rackAddBind(
+  bind: string | undefined,
+): { note: number | null } | null {
+  if (!bind?.startsWith(RACK_ADD_BIND)) return null;
+  const rest = bind.slice(RACK_ADD_BIND.length);
+  if (!rest) return { note: null };
+  const note = Number(rest);
+  return Number.isInteger(note) && note >= 0 && note <= 127 ? { note } : null;
+}
 
 /** The symbol a rack-pad bind names, or null for any other bind. */
 export const rackBindSymbol = (bind: string | undefined): string | null =>
@@ -311,6 +328,18 @@ const MODULE_FIELDS = {
         ? { ...r, symbols: {} }
         : r;
     }, RackSchema)
+    .optional(),
+  // An SFZ drum kit's PADS, each a name and the note the kit plays it on — drawn as taps (packages/song/docs/racks.md).
+  kit: z
+    .record(
+      z
+        .string()
+        .regex(
+          /^[A-Za-z0-9_-]+$/,
+          "a pad's name: letters, digits, '_' and '-'",
+        ),
+      z.number().int().min(0).max(127),
+    )
     .optional(),
   // A COLD module needs the whole of its input before it can produce any of it — see docs/coldModules.md.
   cold: z.boolean().optional(),

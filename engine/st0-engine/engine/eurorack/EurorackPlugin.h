@@ -61,6 +61,8 @@ protected:
 
     /** Message thread, rate known: (re)initialise the core. Nothing on the audio thread allocates. */
     virtual void prepareCore(double coreRate) = 0;
+    /** Audio thread, on a reset: empty what rings on — a reverb, a resonator, a grain buffer — without allocating. */
+    virtual void clearCore() {}
     /** Audio thread, once per host block, before any segment: read the parameters into the core. */
     virtual void readParams() {}
     /** Audio thread, at the MIDI message's own sample. */

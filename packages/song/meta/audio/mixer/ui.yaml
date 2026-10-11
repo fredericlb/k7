@@ -7,3 +7,5 @@ widgets:
   w5: { type: knob, col: 1, row: 0, label: High, bind: High, min: -18, max: 18 }
   w4: { type: knob, col: 1, row: 1, label: Mid, bind: Mid, min: -18, max: 18 }
   w3: { type: knob, col: 1, row: 2, label: Low, bind: Low, min: -18, max: 18 }
+  # The lane heard 10 dB up while it is on, its fader untouched (packages/song/docs/highlight.md).
+  w6: { type: button, col: 1, row: 3, label: "+10", bind: "@highlight" }

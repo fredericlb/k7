@@ -90,6 +90,8 @@ export const LOCAL_COMMANDS = [
   "ui settings commands", // the one that is still a PAGE — see components/SettingsPanel.tsx
   "ui playlists", // the workspace's set lists — docs/playlists.md
   "ui references", // the workspace's reference tracks — docs/references.md
+  "ui tasks", // the workspace's task list, TODOS.md — docs/tasks.md
+  "ui history", // the song's undo journal and commits, one list — docs/shell.md
   "ui share", // commit, pull, export, publish — docs/shell.md
   // The LINK to a surface, for another device to open it on (docs/external.md) — `ui`, since it copies an address and changes nothing.
   "ui external",
@@ -350,6 +352,14 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Open or close this repository's reference tracks",
     fr: "Ouvrir ou fermer les morceaux de référence de ce dépôt",
   },
+  "ui tasks": {
+    en: "Open or close this workspace's task list",
+    fr: "Ouvrir ou fermer la liste de tâches de ce dépôt",
+  },
+  "ui history": {
+    en: "Open or close this song's undo steps and commits",
+    fr: "Ouvrir ou fermer l'historique de ce morceau",
+  },
   "ui share": {
     en: "Open or close the share and export panel",
     fr: "Ouvrir ou fermer le panneau de partage",
@@ -408,8 +418,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Partager une copie gelée par lien",
   },
   "project import": {
-    en: "Import a .dawproject or an .als",
-    fr: "Importer un .dawproject ou un .als",
+    en: "Import a .dawproject, an .als or an Ableton .zip",
+    fr: "Importer un .dawproject, un .als ou un .zip Ableton",
   },
   "fs file new": { en: "Create an empty file", fr: "Créer un fichier vide" },
   "fs folder new": { en: "Create a folder", fr: "Créer un dossier" },
@@ -533,7 +543,7 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
     {
       name: "path",
       kind: "file",
-      hint: "a .dawproject or .als of this workspace",
+      hint: "a .dawproject, .als or Ableton .zip of this workspace",
     },
   ],
   // The file verbs take TREE ENTRIES, folders included and binaries kept — `ui file`'s `path` above is the narrower list.

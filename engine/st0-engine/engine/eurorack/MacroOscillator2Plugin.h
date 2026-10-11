@@ -23,6 +23,7 @@ public:
 
 private:
     void prepareCore(double) override { core_.init(); }
+    void clearCore() override { core_.silence(); }
     void readParams() override;
     void handleMidi(const juce::MidiMessage&) override;
     void renderBlock(const float* const*, float* const* out) override { core_.render(out[0], out[1]); }

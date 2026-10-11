@@ -151,6 +151,7 @@ export function mapLiveSet(
     midiClips: 0,
     notes: 0,
     sessionClips: 0,
+    takeLaneClips: 0,
     sampleRate: 0,
     missingSamples: new Set(),
     nativeDevices: new Set(),
@@ -176,6 +177,10 @@ export function mapLiveSet(
     warnings.push(
       `${groups} group track(s) flattened — grouping is not imported yet`,
     );
+  if (ctx.takeLaneClips)
+    warnings.push(
+      `${ctx.takeLaneClips} take-lane clip(s) ignored — only the takes comped into the Arrangement are imported`,
+    );
   if (ctx.sessionClips)
     warnings.push(
       `${ctx.sessionClips} Session view clip(s) ignored — only the Arrangement is imported`,
@@ -189,7 +194,9 @@ export function mapLiveSet(
       `rack "${r}" flattened — the plugins inside are carried, its structure is not`,
     );
   for (const s of ctx.missingSamples)
-    warnings.push(`sample not imported: ${s}`);
+    warnings.push(
+      `sample not imported: ${s} — the clips playing it are left out`,
+    );
 
   const song: Song = {
     project: {
@@ -224,11 +231,21 @@ interface MapCtx {
   midiClips: number;
   notes: number;
   sessionClips: number;
+  takeLaneClips: number;
   sampleRate: number;
   missingSamples: Set<string>;
   nativeDevices: Set<string>;
   racks: Set<string>;
   usedNames: Set<string>;
+}
+
+/** Whether `tag` appears anywhere under `node` — a rack sits at any depth of a device chain. */
+function holds(node: any, tag: string): boolean {
+  if (node == null || typeof node !== "object") return false;
+  if (Array.isArray(node)) return node.some((n) => holds(n, tag));
+  return Object.entries(node).some(
+    ([k, v]) => !k.startsWith("@_") && (k === tag || holds(v, tag)),
+  );
 }
 
 function mapTrack(
@@ -252,6 +269,7 @@ function mapTrack(
 
   const clips = collectArrangementClips(t, ctx);
   if (clips.length) track.clips = clips;
+  if (holds(t.DeviceChain, "DrumGroupDevice")) track.drums = true;
   const plugins = mapDevices(
     t.DeviceChain?.DeviceChain?.Devices,
     contentType,
@@ -264,15 +282,29 @@ function mapTrack(
 // Where Live keeps clips moved between versions and track kinds, so walk rather than hard-code — docs/import.md.
 function collectArrangementClips(track: any, ctx: MapCtx): ClipOut[] {
   const out: ClipOut[] = [];
-  const walk = (node: any, inSession: boolean): void => {
+  // Two places hold clips the Arrangement does not play: Session slots, and Live 12's take lanes.
+  type Where = "arrangement" | "session" | "takes";
+  const walk = (node: any, where: Where): void => {
     if (node == null || typeof node !== "object") return;
     for (const [key, child] of Object.entries(node)) {
       if (key.startsWith("@_")) continue;
-      const session = inSession || key === "ClipSlotList" || key === "ClipSlot";
+      const at: Where =
+        where !== "arrangement"
+          ? where
+          : key === "ClipSlotList" || key === "ClipSlot"
+            ? "session"
+            : key === "TakeLanes"
+              ? "takes"
+              : where;
       if (key === "AudioClip" || key === "MidiClip") {
         for (const clip of asArray<any>(child)) {
-          if (session) {
+          if (at === "session") {
             ctx.sessionClips++;
+            continue;
+          }
+          // A take-lane clip is a take the comp did not pick; its file need not even be in the project.
+          if (at === "takes") {
+            ctx.takeLaneClips++;
             continue;
           }
           const mapped =
@@ -283,11 +315,11 @@ function collectArrangementClips(track: any, ctx: MapCtx): ClipOut[] {
         }
         continue;
       }
-      if (Array.isArray(child)) for (const c of child) walk(c, session);
-      else walk(child, session);
+      if (Array.isArray(child)) for (const c of child) walk(c, at);
+      else walk(child, at);
     }
   };
-  walk(track, false);
+  walk(track, "arrangement");
   out.sort((a, b) => a.start - b.start);
   return out;
 }
@@ -304,6 +336,21 @@ function materialStart(clip: any): number {
   return bool(val(clip, "Loop", "LoopOn"))
     ? num(val(clip, "Loop", "StartRelative"), 0)
     : num(val(clip, "Loop", "LoopStart"), 0);
+}
+
+/** The source second a clip beat reads, through its warp markers — beyond either end, that end's own rate. */
+export function sourceSecondAt(
+  markers: readonly [number, number][],
+  beat: number,
+): number {
+  const seg = (i: number) => {
+    const [b0, s0] = markers[i];
+    const [b1, s1] = markers[i + 1];
+    return b1 > b0 ? s0 + ((beat - b0) * (s1 - s0)) / (b1 - b0) : s0;
+  };
+  for (let i = 0; i < markers.length - 1; i++)
+    if (beat <= markers[i + 1][0]) return Math.max(0, seg(i));
+  return Math.max(0, seg(markers.length - 2));
 }
 
 function mapAudioClip(clip: any, ctx: MapCtx): ClipOut | null {
@@ -324,7 +371,9 @@ function mapAudioClip(clip: any, ctx: MapCtx): ClipOut | null {
       ctx.files[key] = bytes;
       out.source = key;
     } else {
+      // Left out rather than placed on a file that is not there: one such clip would refuse the whole song.
       ctx.missingSamples.add(ref.relative || ref.absolute || ref.name);
+      return null;
     }
   }
 
@@ -332,23 +381,34 @@ function mapAudioClip(clip: any, ctx: MapCtx): ClipOut | null {
   const warped = bool(val(clip, "IsWarped"));
   const toBeats = (v: number): number => (warped ? v : (v * ctx.tempo) / 60);
 
-  const offset = toBeats(materialStart(clip));
-  if (offset) out.offset = round(offset);
+  // <WarpMarker BeatTime SecTime> is exactly the model's [timeline beat, source second] pair.
+  const markers = warped
+    ? asArray<any>(clip.WarpMarkers?.WarpMarker)
+        .map((m): [number, number] => [
+          num(m["@_BeatTime"]),
+          num(m["@_SecTime"]),
+        ])
+        .sort((a, b) => a[0] - b[0])
+    : [];
+  if (markers.length >= 2)
+    out.warp = {
+      markers: markers.map(([b, sec]): [number, number] => [
+        round(b),
+        round(sec),
+      ]),
+    };
+
+  // The in-point is a beat on the CLIP's warp grid, whose second 0 need not be beat 0; st0 counts beats into the FILE.
+  const at = materialStart(clip);
+  const offset =
+    markers.length >= 2
+      ? (sourceSecondAt(markers, at) * ctx.tempo) / 60
+      : toBeats(at);
+  if (offset > 1e-6) out.offset = round(offset);
   const fadeIn = num(val(clip, "Fades", "FadeInLength"), 0);
   if (fadeIn > 0) out.fadeIn = round(toBeats(fadeIn));
   const fadeOut = num(val(clip, "Fades", "FadeOutLength"), 0);
   if (fadeOut > 0) out.fadeOut = round(toBeats(fadeOut));
-
-  // <WarpMarker BeatTime SecTime> is exactly the model's [timeline beat, source second] pair.
-  if (warped) {
-    const markers = asArray<any>(clip.WarpMarkers?.WarpMarker)
-      .map((m): [number, number] => [
-        round(num(m["@_BeatTime"])),
-        round(num(m["@_SecTime"])),
-      ])
-      .sort((a, b) => a[0] - b[0]);
-    if (markers.length >= 2) out.warp = { markers };
-  }
 
   ctx.audioClips++;
   return out;

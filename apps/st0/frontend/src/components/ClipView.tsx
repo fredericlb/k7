@@ -16,7 +16,7 @@ import type { MenuCtx } from "../contextMenu";
 import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
 import { m } from "../paraglide/messages.js";
 import { fileStem } from "../projectPaths";
-import { rackFor } from "../rackFor";
+import { rackFor, rackKeyNames } from "../rackFor";
 import type { RollMode } from "../rollMode";
 import { trackPlacing } from "../rows";
 import { eventIdOf, takesEventOf } from "../takes";
@@ -32,7 +32,8 @@ import type { PanelTakes, TakesHost } from "./TakesView";
 
 // What to show: a concrete clip (timeline caret or click), or the live sequence file open in the editor, parsed here.
 export type EditTarget =
-  | { kind: "clip"; project: WebProject; clip: WebClip }
+  // `track` when the opener knows the lane: a duplicated lane holds clips with the SAME ids as its original.
+  | { kind: "clip"; project: WebProject; clip: WebClip; track?: string }
   | { kind: "seq"; path: string; content: string };
 
 // Enough of a project for the roll (tempo + time signature) until the real doc loads, so a sequence still previews.
@@ -301,7 +302,7 @@ export function ClipView({
   // The EVENT the open clip belongs to, by its own id: a re-comp can replace the very piece that was clicked.
   const takes = useMemo((): PanelTakes | undefined => {
     if (target.kind === "seq" || !project || !takesHost) return undefined;
-    const track = trackPlacing(target.project, target.clip.id);
+    const track = target.track || trackPlacing(target.project, target.clip.id);
     const ev = track
       ? takesEventOf(project, track, eventIdOf(target.clip))
       : null;
@@ -318,15 +319,15 @@ export function ClipView({
   /** A MIDI clip whose track feeds a RACK opens as a STEP SEQUENCER; a graph that will not BUILD is kept apart from one naming no rack. */
   const midiTrack =
     target.kind !== "seq" && target.clip.type === "midi"
-      ? trackPlacing(target.project, target.clip.id)
+      ? target.track || trackPlacing(target.project, target.clip.id)
       : "";
   const [graph, setGraph] = useState<WebGraph | null | undefined>(undefined);
   const [graphError, setGraphError] = useState<string | null>(null);
-  /** WHICH view of these notes, reset per clip: a clip opens on the best view it has, and the header's dropdown moves it from there. */
-  const [mode, setMode] = useState<ClipViewMode>("sequencer");
+  /** WHICH view of these notes, reset per clip: every clip opens on the roll, and the header's dropdown moves it from there. */
+  const [mode, setMode] = useState<ClipViewMode>("roll");
   useEffect(() => {
     setGraphError(null);
-    setMode("sequencer");
+    setMode("roll");
     if (!midiTrack) return void setGraph(null);
     let cancelled = false;
     setGraph(undefined);
@@ -343,7 +344,12 @@ export function ClipView({
     };
   }, [midiTrack, clip?.id]);
   const rack = midiTrack ? rackFor(graph ?? null, midiTrack) : null;
-  // 'sequencer' is the default rather than a claim: with no rack there is no grid to draw, so it falls to the roll.
+  // The roll names a rack's keys after their samples; a lane with no rack keeps note names alone.
+  const keyNames = useMemo(
+    () => (rack ? rackKeyNames(rack) : undefined),
+    [rack],
+  );
+  // The sequencer needs a rack: with none there is no grid to draw, so a pick of it falls to the roll.
   const view: ClipViewMode = mode === "sequencer" && !rack ? "roll" : mode;
 
   /** The TRACKER edits the sequence FILE, so it needs `/hints` — asked only once a tracker is, and on `reloadKey` too. */
@@ -457,6 +463,7 @@ export function ClipView({
               <PianoRoll
                 project={project ?? target.project}
                 clip={clip}
+                keyNames={keyNames}
                 modes={modes}
                 caretRef={caretRef}
                 active
@@ -516,7 +523,11 @@ export function ClipView({
             // So a stretch point dropped from the right-click menu — which runs through the SHELL — is gone from the picture too.
             reloadKey={reloadKey}
             clip={clip.id}
-            track={trackPlacing(project ?? target.project, clip.id)}
+            track={
+              (target.kind === "clip" && target.clip.id === clip.id
+                ? target.track
+                : undefined) || trackPlacing(project ?? target.project, clip.id)
+            }
             // The project's own, so the twelve-bar window is twelve of THIS song's bars.
             tempo={(project ?? target.project).tempo}
             beatsPerBar={(project ?? target.project).timeSigNumerator}

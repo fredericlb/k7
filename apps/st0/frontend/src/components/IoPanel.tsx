@@ -9,7 +9,7 @@
 
 import { ArrowDownToLine, ArrowUpFromLine } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import type { EngineClient } from "@studio/engine-browser";
+import type { EngineClient, EngineInputDevice } from "@studio/engine-browser";
 import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -89,8 +89,8 @@ function Tuner({ hz, clarity }: { hz: number; clarity: number }) {
   const note = noteOf(hz);
   if (!note)
     return (
-      <div className="flex w-24 shrink-0 items-center justify-center">
-        <span className="text-[10px] text-muted-foreground/50">—</span>
+      <div className="flex flex-1 items-center pl-1">
+        <span className="text-[10px] text-muted-foreground/50">no note</span>
       </div>
     );
   const inTune = Math.abs(note.cents) <= IN_TUNE_CENTS;
@@ -98,7 +98,7 @@ function Tuner({ hz, clarity }: { hz: number; clarity: number }) {
   const offset = 50 + Math.max(-50, Math.min(50, note.cents));
   return (
     <div
-      className="flex w-24 shrink-0 items-center gap-1.5"
+      className="flex flex-1 items-center gap-1.5"
       // A weak reading fades rather than disappearing: a note flickering in and out is harder to tune against than a visibly uncertain one.
       style={{ opacity: 0.4 + 0.6 * Math.max(0, Math.min(1, clarity)) }}
       title={`${hz.toFixed(1)} Hz`}
@@ -130,48 +130,77 @@ function Tuner({ hz, clarity }: { hz: number; clarity: number }) {
   );
 }
 
+/** One row of the panel: a name, what it is wired to, its meter — and, for an input, its tuner on the line below. */
 function PortRow({
-  port,
+  name,
+  detail,
+  live,
   level,
+  tuned,
   hz,
   clarity,
 }: {
-  port: IoPort;
+  name: React.ReactNode;
+  detail: string;
+  /** Whether there is a channel behind it to meter: a generic or an unwired port has none. */
+  live: boolean;
   level: number;
+  /** An input, which gets a tuner — an output carries a mix with no single note to find. */
+  tuned: boolean;
   hz: number;
   clarity: number;
 }) {
-  // A generic declares no channel — its nodes carry them — so it is listed but never pretends to meter anything.
-  const live = port.channels.length > 0;
   return (
-    <div className="flex items-center gap-3 px-2 py-1.5">
-      <span className="min-w-0 flex-1 truncate font-mono text-xs">
-        {port.name}
-        {port.namespace && (
-          <span className="ml-1 text-[10px] text-muted-foreground">
-            @{port.namespace}
-          </span>
-        )}
-      </span>
-      <span className="shrink-0 text-[10px] text-muted-foreground">
-        {port.unknownLabel
-          ? `'${port.label}' — no such input`
-          : port.label
-            ? `${port.label} (${port.channels.join("+")})`
-            : live
-              ? `ch ${port.channels.join("+")}`
-              : port.generic
-                ? "generic"
-                : "no channel"}
-      </span>
-      <Meter level={level} live={live} />
-      {/* The tuner sits beside the level, not instead of it, and only on inputs: an output carries a mix with no single note to find. */}
-      {port.dir === "in" && (
-        <Tuner hz={live ? hz : 0} clarity={live ? clarity : 0} />
+    <div className="flex flex-col gap-1 px-2 py-1.5">
+      <div className="flex items-center gap-3">
+        <span className="min-w-0 flex-1 truncate font-mono text-xs">
+          {name}
+        </span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {detail}
+        </span>
+        <Meter level={level} live={live} />
+      </div>
+      {/* The tuner on its own line, as wide as the row: a needle squeezed beside the meter was too short to tune against. */}
+      {tuned && (
+        <div className="flex">
+          <Tuner hz={live ? hz : 0} clarity={live ? clarity : 0} />
+        </div>
       )}
     </div>
   );
 }
+
+/** What a declared port says about its channels, for the row's detail. */
+function portDetail(port: IoPort): string {
+  const live = port.channels.length > 0;
+  return port.unknownLabel
+    ? `'${port.label}' — no such input`
+    : port.label
+      ? `${port.label} (${port.channels.join("+")})`
+      : live
+        ? `ch ${port.channels.join("+")}`
+        : port.generic
+          ? "generic"
+          : "no channel";
+}
+
+/** A declared port's name, with the catalogue it comes from. */
+function portName(port: IoPort): React.ReactNode {
+  return (
+    <>
+      {port.name}
+      {port.namespace && (
+        <span className="ml-1 text-[10px] text-muted-foreground">
+          @{port.namespace}
+        </span>
+      )}
+    </>
+  );
+}
+
+const sameChannels = (a: readonly number[], b: readonly number[]) =>
+  a.length === b.length && a.every((c, i) => c === b[i]);
 
 export function IoPanel({
   /** Null when the engine is not connected: the list still shows, the meters stay dark. */
@@ -185,7 +214,10 @@ export function IoPanel({
     master: number;
     pitches: number[];
     clarity: number[];
+    devices?: EngineInputDevice[];
   }>({ inputs: [], master: -100, pitches: [], clarity: [] });
+  // The INTERFACE's inputs, as the engine groups them — every one, not only those a song declares.
+  const [devices, setDevices] = useState<EngineInputDevice[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -210,13 +242,34 @@ export function IoPanel({
   );
 
   // The channel sets, in the order the reply is indexed by, and held in a ref: rebuilding the interval per level frame would restart the timer.
-  const sets = useMemo(() => inputs.map((p) => p.channels), [inputs]);
+  // Once the engine has said what the interface has, those are what is metered; before, the song's declared inputs.
+  const sets = useMemo(
+    () =>
+      devices.length
+        ? devices.map((d) => d.channels)
+        : inputs.map((p) => p.channels),
+    [devices, inputs],
+  );
   const setsRef = useRef(sets);
   setsRef.current = sets;
 
   useEffect(() => {
     if (!engine || !ports) return;
-    const off = engine.onIoLevels(setLevels);
+    const off = engine.onIoLevels((l) => {
+      setLevels(l);
+      // Kept only when it CHANGES: a fresh array every frame would re-key the sets and the poll with them.
+      if (l.devices?.length)
+        setDevices((cur) =>
+          cur.length === l.devices.length &&
+          cur.every(
+            (d, i) =>
+              d.name === l.devices[i].name &&
+              sameChannels(d.channels, l.devices[i].channels),
+          )
+            ? cur
+            : l.devices,
+        );
+    });
     const id = setInterval(() => engine.ioLevels(setsRef.current), POLL_MS);
     engine.ioLevels(setsRef.current); // …and one straight away, so the panel isn't blank on open
     return () => {
@@ -225,38 +278,49 @@ export function IoPanel({
     };
   }, [engine, ports]);
 
-  const section = (
-    title: string,
-    icon: React.ReactNode,
-    rows: IoPort[],
-    levelOf: (p: IoPort, i: number) => number,
-    // The pitch arrays are indexed by INPUT position, so the output section passes nothing rather than reading a row that means something else.
-    tuned = false,
-  ) => (
-    <div>
-      <div className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-        {icon}
-        {title}
-      </div>
-      {rows.length === 0 ? (
-        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-          none declared
-        </div>
-      ) : (
-        <div className="divide-y divide-border/50">
-          {rows.map((p, i) => (
-            <PortRow
-              key={p.ref}
-              port={p}
-              level={levelOf(p, i)}
-              hz={tuned ? (levels.pitches[i] ?? 0) : 0}
-              clarity={tuned ? (levels.clarity[i] ?? 0) : 0}
-            />
-          ))}
-        </div>
-      )}
+  const heading = (title: string, icon: React.ReactNode) => (
+    <div className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+      {icon}
+      {title}
     </div>
   );
+  const none = (
+    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+      none declared
+    </div>
+  );
+  // The pitch arrays are indexed like the sets asked for, so an input row reads its own.
+  const inputRows = devices.length
+    ? devices.map((d, i) => {
+        // Which of the song's inputs listen here — named, since that is what a channel is FOR in this song.
+        const users = inputs
+          .filter((p) => sameChannels(p.channels, d.channels))
+          .map((p) => p.name);
+        return (
+          <PortRow
+            key={`dev:${d.name}`}
+            name={`in ${d.name}`}
+            detail={users.length ? users.join(", ") : "unused"}
+            live={d.enabled}
+            level={norm(levels.inputs[i] ?? -100)}
+            tuned
+            hz={levels.pitches[i] ?? 0}
+            clarity={levels.clarity[i] ?? 0}
+          />
+        );
+      })
+    : inputs.map((p, i) => (
+        <PortRow
+          key={p.ref}
+          name={portName(p)}
+          detail={portDetail(p)}
+          live={p.channels.length > 0}
+          level={norm(levels.inputs[i] ?? -100)}
+          tuned
+          hz={levels.pitches[i] ?? 0}
+          clarity={levels.clarity[i] ?? 0}
+        />
+      ));
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -267,19 +331,31 @@ export function IoPanel({
           </div>
         ) : (
           <>
-            {section(
-              "inputs",
-              <ArrowDownToLine className="h-3 w-3" />,
-              inputs,
-              (_p, i) => norm(levels.inputs[i] ?? -100),
-              true, // …and their tuners
+            {heading("inputs", <ArrowDownToLine className="h-3 w-3" />)}
+            {inputRows.length ? (
+              <div className="divide-y divide-border/50">{inputRows}</div>
+            ) : (
+              none
             )}
             {/* Every out sink shares one meter: what leaves is the master mix, and Tracktion gives an output DEVICE no measurer. */}
-            {section(
-              "outputs",
-              <ArrowUpFromLine className="h-3 w-3" />,
-              outputs,
-              () => norm(levels.master),
+            {heading("outputs", <ArrowUpFromLine className="h-3 w-3" />)}
+            {outputs.length ? (
+              <div className="divide-y divide-border/50">
+                {outputs.map((p) => (
+                  <PortRow
+                    key={p.ref}
+                    name={portName(p)}
+                    detail={portDetail(p)}
+                    live={p.channels.length > 0}
+                    level={norm(levels.master)}
+                    tuned={false}
+                    hz={0}
+                    clarity={0}
+                  />
+                ))}
+              </div>
+            ) : (
+              none
             )}
           </>
         )}

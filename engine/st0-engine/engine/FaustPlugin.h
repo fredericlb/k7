@@ -11,6 +11,7 @@
 #include <tracktion_engine/tracktion_engine.h>
 
 #include <atomic>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,6 +21,7 @@ class dsp;
 class interpreter_dsp;
 class interpreter_dsp_factory;
 class mydsp_poly;
+struct Soundfile;
 
 namespace studio {
 
@@ -52,17 +54,27 @@ public:
     void initialise(const tracktion::engine::PluginInitialisationInfo&) override;
     void deinitialise() override;
     void reset() override;
+    /** A stop: every voice to its release, on the NEXT block — this arrives on the message thread (docs/panic.md). */
+    void midiPanic() override;
     void applyToBuffer(const tracktion::engine::PluginRenderContext&) override;
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
 private:
     // A stop or a panic on the message thread only raises this; the next block clears the state it owns (docs/panic.md).
     std::atomic<bool> resetPending_{false};
+    // …and a stop only raises this one: the voices are released, not cleared, so a tail still decays.
+    std::atomic<bool> releasePending_{false};
     void clearState();
     /** Render `n` frames, cut at every note so each starts on its own sample. See the .cpp. */
     void renderWithNotes(const tracktion::engine::PluginRenderContext&, int n);
 
     std::string source_;
+    /** The files the program's `soundfile(...)` slots play, by slot LABEL — the node names them (docs/faust.md). */
+    std::map<std::string, std::string> files_;
+    /** Each file read once and shared by every voice; an unnamed or unreadable slot gets the empty one. */
+    std::map<std::string, std::unique_ptr<Soundfile>> sounds_;
+    /** Point every voice's soundfile slots at their sounds — after EVERY init, which may reset them. */
+    void attachSounds();
     interpreter_dsp_factory* factory_ = nullptr;
     interpreter_dsp* dsp_ = nullptr;
     /** The voice group, for an instrument only — and it OWNS `dsp_`, so the destructor frees one, never both. */

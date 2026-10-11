@@ -294,10 +294,71 @@ params:
   sfz: "@instruments/salamander-grand-piano/Salamander Grand Piano V3.sfz"
 ```
 
-Four ship today: `salamander-grand-piano` (the library's `@st0/instruments/keys/piano`), and the
+Seven ship today: `salamander-grand-piano` (the library's `@st0/instruments/keys/piano`), the
 Rhodes, the Wurlitzer and the clavinet behind three engines of its `electric-keys`,
-`stereo-rhodes` (the default one), `wurt` and `clavinet`. A `sfz:` that is a path instead plays
+`stereo-rhodes` (the default one), `wurt` and `clavinet`, and two acoustic drum kits, engines of
+`@st0/instruments/st0-rack-sfz`: `naked-drums` (the default, General MIDI notes, ~1.2 GB) and
+`big-rusty-drums` (Karoryfer's, CC0, close to General MIDI, ~620 MB). A third engine,
+`naked-drums-room`, plays the same Naked Drums through all its microphones, rooms included — bigger
+and longer — on the kit's own notes for its cymbals and hi-hats rather than General MIDI's. And
+six vintage **drum machines** from one ~2 MB download, Retro Drums by The Tic Tok Men, one engine
+per machine: `retro-casio-sk1`, `retro-casio-rz1`, `retro-drumtraks`, `retro-yamaha-mr10`,
+`retro-roland-cr8000` and `retro-mfb-512`. They are one sample per sound, with no velocity layers,
+and each machine sits on its own octave of notes (the RZ-1 on 36–47, the CR-8000 on 72–83…), so a
+part written for one plays silent on another's notes. Each kit is drawn as a pad per piece: click
+one to hear it through the whole kit.
+
+`st0-rack-sfz` is one module for every sampled kit: each **kit is an engine** of it, so a node changes
+kit from its header's dropdown — and keeps its own values per kit — the way `electric-keys` changes
+piano. A kit's engine names its SFZ under `sfz:` and its pads under `kit:`, each a name and the note
+the kit plays it on. The node draws them like a rack's pads, but they are the kit's: a pad cannot be
+retargeted, renamed or given another sample. What a pad DOES have is its own level: the dB field under
+it, -24 to +12, drag it or double-click to type a value. It raises or lowers that one piece without
+changing how hard it is hit, so the snare can sit 3 dB over the rest of the kit and still sound like
+the same stroke. It is saved on the node as `Key <note>` under `params:`, e.g. `Key 38: 3`.
+
+```yaml schema=Module
+# _modules/instruments/st0-rack-sfz/engines/my-kit/module.yaml — another kit for the rack
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz"
+kit:
+  Kick: 36
+  Snare: 38
+  HatClosed: 42
+  HatOpen: 46
+```
+
+The same kit also comes as a **rack** — one sample per piece, one hit each, at a single velocity — as
+the `Naked Drums` preset of `@st0/instruments/st0-rack`: lighter, and pads you can swap one by one,
+but without the full kit's velocity layers, round-robins and hi-hat choke. A `sfz:` that is a path instead plays
 that file, on the engine's machine.
+
+## _modules/<type>/<name>/module.yaml — a synthesizer patch (Surge XT)
+
+**Surge XT** is a full synthesizer built into the engine: three oscillators per scene, two filters
+from forty models, a dozen modulators and two effect chains. Its sound is a **patch**, an `.fxp`
+file kept in the module's `base/` folder and chosen with `base:`, by its path there without the
+extension. Every one of Surge's settings is a param of the module — `A Filter 1 Cutoff`, `A Osc 1 Type`,
+`FX A1 Param 3`, the eight `Macro` knobs — holding the patch's value until the module sets its own.
+Its panel follows Surge's layout, a page per section of each scene and two for the effects; an
+oscillator's or an effect's numbered knobs mean what its type makes them, and the screen beside them
+says what.
+
+```yaml schema=Module
+# _modules/instruments/synth/bass/module.yaml — one of the library's patches, its first macro turned up
+extends: "@st0/instruments/synth/surge-xt"
+base: Basses/Bass 2
+params:
+  Macro 1: 0.7
+```
+
+The library's `@st0/instruments/synth/surge-xt` holds 608 of Surge's factory patches, by category:
+`Basses`, `Leads`, `Pads`, `Plucks`, `Polysynths`, `Keys`, `Brass`, `Winds`, `Sequences`… Each one is
+also a **preset** of the module, `<Category> - <Patch>`, which is how the graph picks one: the preset
+dropdown loads the patch, and drops the values you had set over the last one. A patch saved from Surge XT itself plays the same, dropped into `base/`. A
+preset saved on a Surge node keeps the patch it was taken on, and applying it switches back to that
+patch before setting its values.
 
 ## _modules/<type>/<name>/module.yaml — keeping the palette readable
 
@@ -497,6 +558,18 @@ sample. Only library samples (`@<library>/…`) can be kept: a pad playing `@pro
 since no other project has that file — move the sample into a library first. Loading a kit
 replaces the node's own pads rather than adding to them.
 
+A module whose sound starts from a **base** — a Surge XT patch, a plugin's saved state — keeps it in
+the preset under `base:`, and loading the preset puts the node back on that base before its values:
+the numbers were set over that sound and mean it only there.
+
+```yaml schema=PresetFile
+# preset for @st0/instruments/synth/surge-xt
+base: "Pads/Bell Pad"
+params:
+  A Filter 1 Cutoff: 0.42
+  Macro 1: 0.7
+```
+
 ```yaml schema=PresetFile
 # preset for @workspace/instruments/drums
 rack:
@@ -506,7 +579,8 @@ rack:
 
 Every node that extends the module offers the same presets, wherever they are kept. On the graph,
 the **preset** dropdown sits right of the engine dropdown: pick one to load its values onto the
-node, or type a name in its header to save the node's current values as a new preset, in the
+node, or step through them with the two arrows after it, which load the previous or next one in the
+list's order and wrap round at the ends; or type a name in its header to save the node's current values as a new preset, in the
 workspace or in a library. Once one is loaded, the header offers to **update** it with what you
 changed since. Loading a preset taken on another engine switches the node to that engine first.
 
@@ -559,7 +633,7 @@ rack:
     HH: { note: 42, sample: "@st0/hats/closed.wav" }
 ```
 
-On the graph, a rack node draws one **tap** per sound: a pad that plays its sample when you click it and lights when the sequence reaches its note, the note under it — click it to type another — and the sample's name, which opens the picker of every sample your libraries hold. The last tap is a **+** that adds a sound on the note after the highest; hover a tap for its **×**. All of it writes the node's file, never the module's — and on an [alternative](#syntax-instruments) other than the first, that set, so two sets can be two kits.
+On the graph, a rack node draws one **tap** per sound: a pad that plays its sample when you click it and lights when the sequence reaches its note, the note under it — click it to type another — and the sample's name, which opens the picker of every sample your libraries hold. The taps are laid out by **octave**, a tab each, as a 4×3 grid of its twelve notes with the lowest at the bottom left, like a pad controller. Each empty note is a **+** that adds a sound on that note, and the octave above your highest is offered too; hover a tap for its **×**. All of it writes the node's file, never the module's — and on an [alternative](#syntax-instruments) other than the first, that set, so two sets can be two kits.
 
 From the command bar: `node tap add <node> [name]`, `node tap note <node> <tap> <0-127>`, `node tap sample <node> <tap> "@<library>/<path>"` (or `none`), `node tap remove <node> <tap>`.
 

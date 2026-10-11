@@ -5,12 +5,35 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 
 namespace st0::url {
 
 namespace {
 
 const std::string kPl8Port = "8795";
+
+/** pl8's loopback port: `pl8=` in `$STUDIO_PORTS` when a host moved it (services.ts's `servicePorts`), else 8795. */
+std::string pl8Port()
+{
+    const char* env = std::getenv("STUDIO_PORTS");
+    if (!env) return kPl8Port;
+    const std::string spec(env);
+    for (size_t start = 0; start <= spec.size();) {
+        const size_t comma = spec.find(',', start);
+        const std::string pair = spec.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        if (const size_t eq = pair.find('='); eq != std::string::npos) {
+            const std::string name = pair.substr(0, eq);
+            const std::string value = pair.substr(eq + 1);
+            const bool digits = !value.empty() && value.size() <= 5 &&
+                                std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isdigit(c); });
+            if (name == "pl8" && digits && std::stoi(value) > 0 && std::stoi(value) < 65536) return value;
+        }
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+    }
+    return kPl8Port;
+}
 
 std::string lower(std::string s)
 {
@@ -173,7 +196,7 @@ std::string engineRegistryUrl(const std::string& raw)
 {
     const auto u = parse(raw);
     if (!u || (u->scheme != "http" && u->scheme != "https")) return "";
-    if (isLoopbackHost(u->hostname)) return u->scheme + "://" + u->hostname + ":" + kPl8Port;
+    if (isLoopbackHost(u->hostname)) return u->scheme + "://" + u->hostname + ":" + pl8Port();
     return serviceUrl(u->origin(), "pl8");
 }
 

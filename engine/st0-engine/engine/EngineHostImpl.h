@@ -28,6 +28,9 @@ namespace studio {
 // Move the open device onto the buffer size the engine asks for, or the nearest — shared by the one-time open and every later interface switch, so a pick cannot silently change quality band (docs/audioDevice.md).
 void applyPreferredBufferSize(juce::AudioDeviceManager& jdm);
 
+// Take the inputs from the OUTPUT device when it has some and a restored setup took them elsewhere; true when it moved them (docs/audioDevice.md).
+bool keepInputsOnOutputDevice(juce::AudioDeviceManager& jdm);
+
 // The server's engine opens NO device at construction: Tracktion would replay its own Settings.xml, a second source of truth that wedges the single-client ASIO driver (docs/audioDevice.md).
 struct ServerBehaviour : te::EngineBehaviour {
     bool autoInitialiseDeviceManager() override { return false; }
@@ -77,6 +80,13 @@ struct Session {
     // Watched plugins -> values last reported, the key itself being the subscription; NOT cleared with the edit, only the baseline emptied, since a rebuild swaps the plugin behind a standing interest.
     std::map<std::string, std::map<std::string, double>> watchedParams;
 
+    // Bumped by every stop and every punch-in: a punch-in's delayed mute fires only if no stop came since (docs/engineHost.md).
+    unsigned rollGen = 0;
+    // Where the current record roll's punch-in sits, in seconds: before it, the roll is still counting in.
+    double punchAt = 0.0;
+    // The clips a punch-in muted: the CLIPS and not the lane, whose mute would silence the live input too (docs/engineHost.md).
+    std::vector<te::Clip::Ptr> punchMuted;
+
     // Takes in flight: track id -> the basename prepareTakes() chose, populated at play() and consumed at stop.
     std::map<std::string, std::string> pendingTakes;
 
@@ -125,12 +135,16 @@ struct Session {
     }
 };
 
+// Unmute what the punch-in muted, and forget it — every end of a record roll calls this.
+void restorePunchMute(Session& s);
+
 struct EngineHost::Impl {
     // JUCE's message manager must outlive `engine`, so it is declared first; owning it here keeps the server free of any JUCE include.
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     te::Engine engine{"Studio", nullptr, std::make_unique<ServerBehaviour>()};
     std::unique_ptr<juce::Timer> stateTimer;   // periodic state broadcast
+    std::unique_ptr<juce::Timer> midiScanTimer;   // the MIDI device rescan, held off while anything plays (docs/audioDevice.md)
 
     // What the open device costs, PUBLISHED by the message thread on every open or change; atomic because `whoami` answers on the socket's own thread (publishAudioTiming).
     std::atomic<int> audioBufferFrames{0};

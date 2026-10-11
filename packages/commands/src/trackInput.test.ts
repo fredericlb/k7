@@ -48,7 +48,7 @@ describe("track input", () => {
     const h = await run("track input keys midi");
     expect(h.lines.refuse).toEqual([]);
     const steps = parse(read("chains/keys.yaml")).steps;
-    expect(steps[0].io).toBe("midi");
+    expect(steps[0].extends).toBe("@meta/MIDI");
     expect(steps[1]).toEqual({ id: "lane-keys", track: "keys" });
     const g = loadGraph(dir);
     const feeds = Object.values(g.chains).filter((c) =>
@@ -57,11 +57,11 @@ describe("track input", () => {
     expect(feeds).toHaveLength(1);
   });
 
-  it("puts an audio input there the same way", async () => {
+  it("puts an audio input there the same way, monitoring on auto — heard once the track is armed", async () => {
     await run("track input keys audio");
     const first = parse(read("chains/keys.yaml")).steps[0];
-    expect(first.io).toBe("in");
-    expect(first.monitor).toBe("on");
+    expect(first.extends).toBe("@meta/IN");
+    expect(first.monitor).toBe("auto");
   });
 
   it("refuses a second input, writing nothing", async () => {

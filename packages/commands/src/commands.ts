@@ -111,6 +111,7 @@ import {
 } from "@studio/song-edit/projectEdit";
 import {
   addTap,
+  kitOf,
   removeTap,
   renameTap,
   setTap,
@@ -128,7 +129,10 @@ import {
   setTrackPlacementWarp,
   setTrackPlacementWindow,
 } from "@studio/song-edit/trackMix";
-import { builtinParamsFor } from "@studio/song-schema/builtinParams";
+import {
+  builtinParamAutomatable,
+  builtinParamsFor,
+} from "@studio/song-schema/builtinParams";
 import { renamedInstance } from "@studio/song-schema/instanceName";
 import {
   CUE_NODE,
@@ -239,16 +243,23 @@ import { CONSOLE_VERBS } from "./verbs/console.ts";
 import { CROSSFADE_VERBS } from "./verbs/crossfade.ts";
 import { CURVE_VERBS } from "./verbs/curve.ts";
 import { ENGINE_VERBS } from "./verbs/engine.ts";
+import { EVENT_PROCESS_VERBS } from "./verbs/eventProcess.ts";
 import { EVENTS_REMOVE_VERBS } from "./verbs/eventsRemove.ts";
 import { EVENT_TAKE_VERBS } from "./verbs/eventTakes.ts";
 import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { PRESET_VERBS } from "./verbs/preset.ts";
+import { PROJECT_TAG_VERBS } from "./verbs/projectTags.ts";
+import { SEQUENCE_RECORD_VERBS } from "./verbs/sequenceRecord.ts";
 import { runCarriesInput, splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
+import { TASK_VERBS } from "./verbs/tasks.ts";
 import { TRACK_VERBS } from "./verbs/track.ts";
+import { TRACK_DELETE_VERBS } from "./verbs/trackDelete.ts";
+import { TRACK_GROUP_VERBS } from "./verbs/trackGroup.ts";
 import { TRACK_HIDE_VERBS } from "./verbs/trackHide.ts";
+import { TRACK_HIGHLIGHT_VERBS } from "./verbs/trackHighlight.ts";
 import { TRACK_INPUT_VERBS } from "./verbs/trackInput.ts";
 
 // Where a freeze render lands: one folder for the lot, at the project root — docs/verbs.md.
@@ -518,7 +529,7 @@ function existingExtends(
   }
 }
 
-/** Create the module a `+` picked and hand back its name, or the message to show instead — docs/verbs.md. */
+/** Create the module `module new` names and hand back its name, or the message to show instead — docs/verbs.md. */
 function makeModule(
   songPath: string,
   target: string,
@@ -1553,6 +1564,35 @@ async function setFileParam(
     await h.reload();
   } catch (e) {
     h.refuse([`node param ${param} failed: ${(e as Error).message}`]);
+  }
+}
+
+/** A Faust slot's sound: a library's `wavetables/` or `samples/` file, or `@project/…`, as the picker offers; `none` clears. */
+async function setFaustSound(
+  h: CommandHost,
+  module: string,
+  slot: string,
+  file: string,
+): Promise<void> {
+  const clearing = file === "none";
+  if (!clearing && file.startsWith("@")) {
+    const offered = [
+      ...libraryFiles("wavetables", h.songPath),
+      ...libraryFiles("samples", h.songPath),
+    ];
+    if (!offered.includes(file)) {
+      h.refuse([
+        `no '${file}' in the libraries' wavetables/ or samples/ — they have: ${offered.slice(0, 8).join(", ") || "nothing yet"}`,
+      ]);
+      return;
+    }
+  }
+  try {
+    setModuleAsset(h.songPath, module, slot, clearing ? null : file);
+    h.log([`${module}: ${slot} ${clearing ? "cleared" : `plays ${file}`}`]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`node param ${slot} failed: ${(e as Error).message}`]);
   }
 }
 
@@ -3085,8 +3125,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...NODE_STACK_VERBS,
   ...TRACK_HIDE_VERBS,
   ...TRACK_INPUT_VERBS,
+  ...TASK_VERBS,
+  ...TRACK_GROUP_VERBS,
+  ...TRACK_HIGHLIGHT_VERBS,
   ...EVENT_TAKE_VERBS,
+  ...EVENT_PROCESS_VERBS,
   ...CROSSFADE_VERBS,
+  ...TRACK_DELETE_VERBS,
+  ...SEQUENCE_RECORD_VERBS,
   ...EVENTS_REMOVE_VERBS,
   ...CURVE_VERBS,
   // …and a module's ENGINES, which a node picks between — packages/song/docs/engines.md.
@@ -3094,6 +3140,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   ...PRESET_VERBS,
   // …and the project's summing CONSOLE — packages/song/docs/console.md.
   ...CONSOLE_VERBS,
+  // …and the TAGS the home page files the song under.
+  ...PROJECT_TAG_VERBS,
 
   // The external UI of ONE INSTANCE — the argument names a node, since a module with no instance has no window.
   "node.externalUi": async (a, h) => {
@@ -3278,6 +3326,22 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`node tap add: ${(e as Error).message}`]);
     }
   },
+  // An empty cell of the octave grid: a tap on THAT note (packages/song/docs/racks.md).
+  "node.tap.at": async (a, h) => {
+    const [node, at, symbol] = splitArgs(a);
+    const note = Number(at);
+    if (!node || at === undefined || !Number.isInteger(note))
+      return h.refuse(["usage: node tap at <node> <note> [symbol]"]);
+    try {
+      const made = addTap(h.songPath, node, symbol, note);
+      h.log([
+        `${node}: tap ${made.symbol} on note ${made.note} — pick its sample`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`node tap at: ${(e as Error).message}`]);
+    }
+  },
   "node.tap.insert": async (a, h) => {
     const [node, side, beside, symbol] = splitArgs(a);
     if (!node || (side !== "before" && side !== "after") || !beside)
@@ -3302,6 +3366,24 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h,
       () => renameTap(h.songPath, node, symbol, name),
       `${node}: tap ${symbol} is now ${name}`,
+    );
+  },
+  /** node tap mute <node> <symbol> [on|off] — a TOGGLE without the word; the tap stays, silent. */
+  "node.tap.mute": async (a, h) => {
+    const [node, symbol, word] = splitArgs(a);
+    if (!node || !symbol || (word && word !== "on" && word !== "off"))
+      return h.refuse(["usage: node tap mute <node> <symbol> [on|off]"]);
+    let on = word === "on";
+    if (!word)
+      try {
+        on = !kitOf(h.songPath, node).symbols[symbol]?.mute;
+      } catch (e) {
+        return h.refuse([`node tap mute: ${(e as Error).message}`]);
+      }
+    await tapEdit(
+      h,
+      () => setTap(h.songPath, node, symbol, { mute: on }),
+      `${node}: ${symbol} ${on ? "muted" : "unmuted"}`,
     );
   },
   "node.tap.remove": async (a, h) => {
@@ -3395,7 +3477,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   /** node param <node> <param> <value> — node, param and value may each be quoted; docs/verbs.md. */
   "node.param": async (a, h) => {
-    const m = /^("[^"]*"|\S+)\s+("[^"]*"|.+?)\s+("[^"]*"|\S+)$/.exec(a.trim());
+    // An `@field` is one word, so its value is the REST — a device or a lens is named with spaces.
+    const m =
+      /^("[^"]*"|\S+)\s+(@\S+)\s+(.+)$/.exec(a.trim()) ??
+      /^("[^"]*"|\S+)\s+("[^"]*"|.+?)\s+("[^"]*"|\S+)$/.exec(a.trim());
     if (!m) {
       h.refuse([
         'usage: node param <node> <param> <value>  (e.g. node param synth "Filter Freq" 69)',
@@ -3416,6 +3501,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // …and a FILE-valued one (`model`, `onnx`), whose value is a filename read at BUILD time — setFileParam.
     if (isFileParam(param) || isLibraryFileParam(param)) {
       await setFileParam(h, module, param, rawValue);
+      return;
+    }
+    // …and a FAUST module's sound slot: a Faust knob is always a number, so a string there names a file (docs/verbs.md).
+    if (
+      !Number.isFinite(Number(rawValue)) &&
+      collectPluginModules(h.project()).find((b) => b.module === module)
+        ?.type === "Faust"
+    ) {
+      await setFaustSound(h, module, param, rawValue);
       return;
     }
     const value = Number(rawValue);
@@ -3519,6 +3613,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     if (!param) {
       h.refuse([
         "node automate: no parameter named between the module and the curve",
+      ]);
+      return;
+    }
+    // A built-in's plain-state control takes a value but no curve, so binding one is refused here rather than ignored by the engine.
+    const target = collectPluginModules(h.project()).find(
+      (b) => b.module === module,
+    );
+    if (
+      curve !== "none" &&
+      target &&
+      !builtinParamAutomatable(target.type, param)
+    ) {
+      h.refuse([
+        `node automate: ${target.type}'s '${param}' cannot be automated — the plugin keeps it as plain state; pick an engine whose knobs automate`,
       ]);
       return;
     }
@@ -3656,23 +3764,16 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // Nobody said what to call it: `<module>_<n>`, and no lane prefix — docs/verbs.md.
     const node = named ?? freeNodeName(h.songPath, module);
     try {
-      // A CATALOGUE pick has no local folder yet: the ref scaffolds it on the way in, so the
-      // gesture stays ONE command instead of a `module new` run ahead of it. A module already
-      // there is not an error — the ordinary second pick of the same thing (docs/verbs.md).
-      if (ref) {
-        const made = makeModule(h.songPath, target, ref);
-        if ("error" in made) {
-          h.refuse([`node new failed: ${made.error}`, usage]);
-          return;
-        }
-      }
-      const rel = createNode(h.songPath, category, module, node);
+      // A CATALOGUE pick's node extends the ref itself: no workspace module is scaffolded in between (docs/verbs.md).
+      const rel = ref
+        ? createNodeOn(h.songPath, ref, node)
+        : createNode(h.songPath, category, module, node);
       placeChainNode(h.songPath, node);
       // No cursor behind the line: a fresh layout would drop something wired to nothing anywhere, so this verb answers instead.
       setChainNodePosition(h.songPath, node, at ?? ORPHAN_AT);
       h.log([
         ref
-          ? `created ${shownNode(h.songPath, rel)} on module ${category}/${module} from ${ref} — in the graph, wired to nothing yet`
+          ? `created ${shownNode(h.songPath, rel)} on ${ref} — in the graph, wired to nothing yet`
           : `created ${shownNode(h.songPath, rel)} — in the graph, wired to nothing yet`,
       ]);
       await h.reload();

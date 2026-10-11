@@ -41,6 +41,14 @@ every listener, which is not a fault anyone would trace back to a save. And the 
 their baselines are cleared, since diffing new values against the torn-down instance's would
 hide any parameter that came back different.
 
+**A rebuild keeps the transport.** A fresh Edit brings a fresh transport — stopped, at zero, no
+loop — and any edit can fall back to `applyFull` (a node added beside a waveform tap, a lane
+removed, a reorder), which would send the playhead home in the middle of work. `applyFull`
+therefore reads the old transport first and puts it back on the new one: the position, the loop range and its
+switch, and plain playback, which resumes. A record pass is not resumed: its take ended with the old
+edit. Only for the SAME project (`baseDir` unchanged) — another one opened in the session starts
+from its top.
+
 ### The audio device is opened with its INPUTS
 
 `openAudioDevice()` calls `initialise(512, 2)` — 512 being Tracktion's own default, meaning "as
@@ -281,6 +289,12 @@ bars, which is enough for the usual count, and during one it rolls those bars be
 sets a click range, so the count is audible even with the metronome otherwise off. A plain `play()`
 clears it, so an earlier record's count-in cannot linger onto ordinary playback.
 
+**Record on with no audio lane armed still counts in.** The take is then the BROWSER's — a MIDI
+lane captured from a keyboard the engine never hears, or a picture lane — and it owes the musician
+the same count. So `play()` rolls `record(false, true)`: Tracktion's `allowRecordingIfNoInputsArmed`
+counts in and "records" nothing, `recordingFinished` never fires because no input produced a clip,
+and the punch bookkeeping (`punchAt`, the stop during the count-in) works as for an audio take.
+
 ## Plugin parameters: three different questions
 
 | call | question |
@@ -418,13 +432,33 @@ brain's to read and the engine would only be converting back.
 devices at the record directory, called from `play()` the moment before the transport rolls
 so the timestamp is the take's start.
 
-A take records OVER the lane's own material, so the armed track is muted once the punch-in
-arrives — not at the top of the roll: the count-in plays the already-recorded clips, then
-they go silent under the pass while the input is captured. `RecordListener::recordingStarted`
+A take records OVER the lane's own material, so the armed track's CLIPS are muted once the
+punch-in arrives — not at the top of the roll: the count-in plays the already-recorded clips, then
+they go silent under the pass while the input is captured. The clips and never the lane: the live
+input is monitored THROUGH the lane, and a muted lane cuts the player off from their own sound
+the moment the punch arrives, while the take goes on recording. `RecordListener::recordingStarted`
 computes the count-in duration from the punch-in `SyncPoint` and mutes at the end of it, so
-the mute is session state applied at capture and restored by `stop()` through `applySoloMute`;
+the mute is session state applied at capture — `Session::punchMuted`, the clips it muted and only
+those — and undone by `restorePunchMute` at every end of the roll: stop, record off, panic;
 it never reaches a file — the brain's writer places only the new clip and does no overlap
 arithmetic (`packages/take-render/docs/rendering.md`).
+
+That mute is a TIMER, and a timer outlives the roll it was set for: stopped during the count-in, the
+roll is over before the mute fires, and an unguarded one silences the armed track through the next
+ordinary playback. So each punch-in takes a number from `Session::rollGen`, every stop and panic
+moves it on, and a timer whose number is stale does nothing.
+
+**Record switched off mid-roll ends the take** (`setRecordEnabled`, through Tracktion's
+`stopRecording`) and the transport keeps playing, the lane's mute restored. During the count-in it
+STOPS the roll instead: nothing is captured yet, and a count-in leading into no take is no use.
+Tracktion is "recording" from `record()` on, count-in included, so the two are told apart by
+`Session::punchAt` — infinite from `play()` until `recordingStarted` names the punch.
+
+**A stop that ends a record roll switches record off.** The flag is a wish for the NEXT roll, and
+left on after a take it turns an ordinary Play into another take, which mutes the armed lane at its
+punch-in — heard as an armed track that no longer plays what is on it. Tracktion's own
+recording state is not tied to our flag: left alone, the take ran on until the track was disarmed,
+and arming one again while still rolling punched a fresh, stray take in on the spot.
 
 **Except a TAKE of an event** (`ProjectDoc::recordMute` false): the brain has already cut the punch
 out of the lane it sent, so the old performance is heard around the punch and the track is NOT

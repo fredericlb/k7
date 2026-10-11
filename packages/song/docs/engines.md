@@ -44,6 +44,11 @@ mix and levels, automations, alternatives — and takes everything else from the
 params, panel, ports. The list is `KEPT` in `engines.ts`. A field on that list is a
 question of where the node SITS; a field off it is a question of what the DSP IS.
 
+`extends` is on it: a node running the `echo` engine of `@st0/audio/delay` is still a use of
+`@st0/audio/delay`. Off the list, the engine's own `extends` (often none) would take its place, and
+every card running an engine would lose its module's name — falling back to its place, `chain · step
+n` — and its presets, which are its module's.
+
 ## Knobs are kept per engine
 
 A node's values live under `engines.<name>.params`, never in its top-level `params`. Two things

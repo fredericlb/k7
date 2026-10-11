@@ -9,6 +9,10 @@
 #include "NamPlugin.h" // a .nam model is loaded onto the plugin as the Edit is built
 #if STUDIO_SFZ
 #include "SfzPlugin.h" // …and an SFZ instrument the same way
+#include "WarpMarkers.h" // which interior warp markers reach Tracktion
+#endif
+#if STUDIO_SURGE
+#include "SurgePlugin.h" // …and a Surge XT patch
 #endif
 #include "TurntablePlugin.h" // …and a platter's record, for the same reason
 
@@ -110,13 +114,15 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     clip.setAutoTempo(true);
 
     // The interior markers, as a WARP MAP — auto-tempo cannot place them and loop points do not either; docs/warp.md.
-    if (markers.size() > 2) {
+    // Only those whose segments play near the clip's own speed: a start inside a 17x one put the clip a beat off (WarpMarkers.h).
+    const auto kept = keptWarpMarkers(markers);
+    if (!kept.empty()) {
         // Both layers apply, so the map carries only the DEVIATION from linear and its endpoints come out identity (docs/warp.md).
         const double srcStart = markers.front().second;
         const double beatStart = markers.front().first;
         auto& wtm = clip.getWarpTimeManager();
         wtm.removeAllMarkers(); // back to the two identity endpoints Tracktion seeds
-        for (size_t i = 1; i + 1 < markers.size(); ++i) {
+        for (const size_t i : kept) {
             const double linear =
                 srcStart + (markers[i].first - beatStart) / beatSpan * srcSpanS;
             wtm.insertMarker(te::WarpMarker(tt::TimePosition::fromSeconds(markers[i].second),
@@ -439,6 +445,15 @@ void loadPluginFiles(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p, con
                 warn(err.toStdString(), p.id);
         }
 #endif
+    // The Surge XT patch, on the message thread too: a fresh synth is built and the patch parsed into it.
+#if STUDIO_SURGE
+    if (moved(&PluginDoc::surgePatch))
+        if (auto* surge = dynamic_cast<studio::SurgePlugin*>(&plugin)) {
+            juce::String err;
+            if (!surge->loadPatch(juce::String(p.surgePatch), err))
+                warn(err.toStdString(), p.id);
+        }
+#endif
     // A rack's sounds, in place — only when reloading: a new sampler gets them from addPluginTo, after its params.
     if (was != nullptr && was->rack != p.rack) reloadRack(edit, plugin, p);
     // The RECORD a platter owns, decoded on its own loader thread — neither the message thread nor the audio one waits on it.
@@ -505,6 +520,13 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
         v.setProperty(te::IDs::type, type, nullptr);
         v.setProperty(juce::Identifier(prop),
                       juce::String(!p.dspGraph.empty() ? p.dspGraph : p.faustDsp), nullptr);
+        // A Faust program's sound files, one `label<TAB>path` per line — neither holds a tab or a newline.
+        if (!p.faustFiles.empty()) {
+            juce::StringArray lines;
+            for (const auto& [label, path] : p.faustFiles)
+                lines.add(juce::String(label) + "\t" + juce::String(path));
+            v.setProperty("files", lines.joinIntoString("\n"), nullptr);
+        }
         return edit.getPluginCache().createNewPlugin(v);
     };
     te::Plugin::Ptr plugin = isExternalFormat(p.type) ? makeExternalPlugin(edit, p) : makeBuiltIn();

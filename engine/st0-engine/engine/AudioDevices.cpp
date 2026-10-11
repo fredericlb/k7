@@ -54,6 +54,8 @@ std::vector<AudioDeviceInfo> enumerateDevices(juce::AudioDeviceManager& jdm) {
     auto* cur = jdm.getCurrentAudioDevice();
     const juce::String curName = cur != nullptr ? cur->getName() : juce::String();
     const juce::String curType = cur != nullptr ? cur->getTypeName() : juce::String();
+    // The device carries the OUTPUT's name, and a setup may take its inputs from another one (docs/audioDevice.md).
+    const juce::String inName = cur != nullptr ? jdm.getAudioDeviceSetup().inputDeviceName : juce::String();
 
     for (auto* type : jdm.getAvailableDeviceTypes()) {
         if (type == nullptr) continue;
@@ -71,10 +73,10 @@ std::vector<AudioDeviceInfo> enumerateDevices(juce::AudioDeviceManager& jdm) {
             info.type = typeName.toStdString();
             info.isDefault = (i == defaultOut);
             info.current = (names[i] == curName && typeName == curType);
-            if (info.current && cur != nullptr) {
-                info.inputs = cur->getInputChannelNames().size();
-                info.outputs = cur->getOutputChannelNames().size();
-            }
+            info.currentInput = (names[i] == inName && typeName == curType);
+            // Each count on the row it belongs to: a split setup's inputs are not its output device's.
+            if (info.current) info.outputs = cur->getOutputChannelNames().size();
+            if (info.currentInput) info.inputs = cur->getInputChannelNames().size();
             out.push_back(std::move(info));
         }
     }
@@ -92,15 +94,46 @@ std::vector<AudioDeviceInfo> enumerateDevices(juce::AudioDeviceManager& jdm) {
     std::map<std::string, size_t> byName;
     for (auto& d : out) {
         auto [it, inserted] = byName.try_emplace(d.name, unique.size());
-        if (inserted)
+        if (inserted) {
             unique.push_back(std::move(d));
-        else if (d.current)
-            unique[it->second].current = true;
+            continue;
+        }
+        auto& kept = unique[it->second];
+        if (d.current) {
+            kept.current = true;
+            kept.outputs = d.outputs;
+        }
+        if (d.currentInput) {
+            kept.currentInput = true;
+            kept.inputs = d.inputs;
+        }
     }
     return unique;
 }
 
 }  // namespace
+
+bool keepInputsOnOutputDevice(juce::AudioDeviceManager& jdm) {
+    auto* type = jdm.getCurrentDeviceTypeObject();
+    if (type == nullptr) return false;
+    const auto prev = jdm.getAudioDeviceSetup();
+    const auto out = prev.outputDeviceName;
+    if (out.isEmpty() || prev.inputDeviceName == out) return false;
+    // An output-only device leaves the split as the only way to have inputs at all.
+    if (!type->getDeviceNames(true).contains(out)) return false;
+
+    auto setup = prev;
+    setup.inputDeviceName = out;
+    setup.useDefaultInputChannels = true;
+    const auto err = jdm.setAudioDeviceSetup(setup, true);
+    if (err.isNotEmpty()) {
+        std::cerr << "[audio] kept inputs on '" << prev.inputDeviceName << "': " << err << "\n";
+        jdm.setAudioDeviceSetup(prev, true);
+        return false;
+    }
+    std::cerr << "[audio] inputs moved from '" << prev.inputDeviceName << "' to '" << out << "'\n";
+    return true;
+}
 
 // Move the open device to kPreferredBufferFrames or the nearest size it offers, ties going to the LARGER — docs/audioDevice.md.
 void applyPreferredBufferSize(juce::AudioDeviceManager& jdm) {
@@ -363,6 +396,7 @@ int runAudioDevicesCli() {
         o->setProperty("inputs", d.inputs);
         o->setProperty("outputs", d.outputs);
         o->setProperty("current", d.current);
+        o->setProperty("currentInput", d.currentInput);
         o->setProperty("isDefault", d.isDefault);
         arr.add(juce::var(o));
     }

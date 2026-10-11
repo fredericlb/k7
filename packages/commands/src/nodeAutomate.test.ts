@@ -19,9 +19,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ProjectDoc } from "@studio/song/project";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import { splitWords } from "./commands";
+import { testHost } from "./testHost";
 
 let root: string;
 let dir: string;
@@ -168,5 +170,28 @@ describe("node automate", () => {
     await runCommand("node automate osc", host(), "cli");
     expect(logs.join(" ")).toContain("usage: node automate");
     expect(moduleText()).not.toContain("automations:");
+  });
+});
+
+// A built-in's plain-state control takes a value and no curve, so the binding is refused rather than left to the engine's log.
+describe("node automate on a plain-state control", () => {
+  const withPhaser = () =>
+    ({
+      tracks: [
+        {
+          id: "gtr",
+          plugins: [{ id: "gtr:ph", type: "Phaser", name: "ph", params: {} }],
+          automation: [],
+          clips: [],
+        },
+      ],
+    }) as unknown as ProjectDoc;
+
+  it("refuses Tracktion's phaser Rate, naming why and what to do", async () => {
+    const h = testHost({ project: withPhaser });
+    await runCommand("node automate ph Rate sweep", h, "cli");
+    expect(h.lines.refuse.join(" ")).toMatch(
+      /Phaser's 'Rate' cannot be automated .* pick an engine whose knobs automate/,
+    );
   });
 });

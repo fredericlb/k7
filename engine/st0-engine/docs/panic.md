@@ -51,8 +51,44 @@ only the audio thread may touch, and `midiPanic()` arrives on the message thread
 flag, and the next block hands the module an All-Notes-Off through `handleMidi` — the path the
 MIDI message itself takes, so each of the eight lets go the way its core already answers one: the
 voices go to their release, never cut. `reset()` is a flag for the same reason, and resets the
-rate bridge on the audio thread. `scripts/eurorack-stop.ts` measures it against a running engine:
+rate bridge on the audio thread — and, for the three that ring on (Clouds, Rings, Elements), empties
+the core through its own `init()`, which lays it out again in buffers it already owns. The other
+five allocate in `init()`, and hold nothing a release does not end. `scripts/eurorack-stop.ts` measures it against a running engine:
 a note with no note-off in reach, through a stop and then a panic.
+
+The **Faust host** (`FaustPlugin`) holds an instrument's voices in libfaust's voice group, which
+only the audio thread may touch either: `midiPanic()` raises a flag and the next block calls
+`allNotesOff(false)` — every gate drops, so each voice runs its own envelope's release rather than
+being cut. Without it a Faust instrument rings on through every stop until a panic's `reset()`
+clears the instance.
+
+## A seek while playing ends the notes AND the tails
+
+A playhead jump sends no note-off for what was sounding at the old position: Tracktion's
+`PluginNode` sets `isAllNotesOff` on the block's MIDI buffer instead, and a plugin that reads only
+the messages never sees it. `FourOscPlugin` reads it, and so does `FaustPlugin`.
+
+A flag ends notes, not a reverb. So `EngineHost::seek` and `rewind`, when the transport is
+PLAYING, call `releaseOnSeek` (`SeekRelease.cpp`): `midiPanic()` then `reset()` — a panic, on a
+list of plugins rather than the whole edit. A jump means new material at the new position, and the
+old position's tail over it is noise.
+
+- **Only while playing**, because the transport bar's Stop sends stop then rewind: a rewind that
+  cleared tails would make every Stop a panic.
+- **A list**, because `reset()` means something else on a plugin with no tail. A turntable drops
+  its rate and loop, a recorder is free-running, `NamPlugin` re-prepares its network on the message
+  thread, and a master's limiter cleared mid-song lets a transient through. On it: Tracktion's
+  Reverb, Delay, Impulse Response and 4OSC, and our Faust, DSP graph, SFZ, eurorack, MIDI graph,
+  arpeggiator and pattern plugins.
+- **External plugins are left out**: what a VST does with a reset is its own business.
+- **A eurorack voice is CUT, not released**: Braids, Plaits and Tides allocate in `init()`, so
+  `clearCore()` kills their envelopes instead, and a Plaits voice whose gate a seek dropped would
+  otherwise ring through its LPG decay for a second.
+
+- **AirWindows effects are not cleared**: Tracktion's wrapper has no `reset()`, and their state
+  lives in the effect object it constructs once. A seek leaves their tail ringing.
+
+`scripts/seek-release.ts` measures every case against a running engine.
 
 That is the rule for anything added later: **a MIDI module with state answers `midiPanic()`**, or
 the button silences everything downstream of it and nothing in it.

@@ -56,7 +56,10 @@ function commit(names) {
 function detail(row, ranked) {
   if (!row.present) return "not connected — it keeps its place until you say otherwise";
   const type = row.deviceType || "audio device";
-  if (row.current) return `${type} · in use`;
+  // A split setup says which half each device is, or a mic in use reads as the interface's input.
+  if (row.current && row.currentInput) return `${type} · in use`;
+  if (row.current) return `${type} · in use, output only`;
+  if (row.currentInput) return `${type} · in use, input only`;
   return ranked ? type : `${type} · not ranked`;
 }
 
@@ -81,7 +84,7 @@ function buildAudio(row) {
     "</span>";
   const name = node.querySelector(".name");
   name.textContent = row.name;
-  if (row.current) {
+  if (row.current || row.currentInput) {
     const dot = document.createElement("span");
     dot.className = "live";
     dot.textContent = " ●";

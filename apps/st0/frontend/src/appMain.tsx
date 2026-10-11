@@ -42,9 +42,10 @@ const SharedGate = lazy(() =>
 import { PROFILING } from "@studio/project-shell/profiling";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
-import { LIBRARIES_ROUTE, SETTINGS_ROUTE } from "./projects/api";
+import { LIBRARIES_ROUTE, SETTINGS_ROUTE, TASKS_ROUTE } from "./projects/api";
 import { Home } from "./projects/Home";
 import { LibrariesPage } from "./projects/LibrariesPage";
+import { TasksPage } from "./projects/TasksPage";
 import { SettingsPage } from "./settings/SettingsPage";
 
 import "./index.css";
@@ -60,7 +61,7 @@ setFileApiTally(tally);
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;
 
-/** The pages hanging off the home — `/libraries`, `/settings` — read FIRST: `parseLaunch` would take the word for a workspace. */
+/** The pages hanging off the home — `/libraries`, `/settings`, `/tasks` — read FIRST: `parseLaunch` would take the word for a workspace. */
 const homePage = isHomePage(window.location.pathname, import.meta.env.BASE_URL);
 
 /** Which of the three things this address is, read out of the address and nothing else — a branch, a SHARE being the wrong stack rather than a disabled one. */
@@ -166,6 +167,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Routes>
                 <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
                 <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
+                <Route path={TASKS_ROUTE} element={<TasksPage />} />
                 <Route path="*" element={<Home />} />
               </Routes>
             ) : profiling ? (

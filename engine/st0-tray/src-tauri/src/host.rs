@@ -32,6 +32,8 @@ pub struct AudioDevice {
     pub name: String,
     pub device_type: String,
     pub current: bool,
+    /// The device the engine takes its INPUTS from — another one than `current`'s when the setup is split.
+    pub current_input: bool,
 }
 
 /// One INSTALLED plugin, for the settings window's list. The catalogue, not the instances `EditPlugin` names.

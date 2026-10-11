@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
-import { zipSync } from "fflate";
+import { gzipSync, strToU8, zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DROPPABLE,
@@ -73,6 +73,53 @@ describe("a project dropped on a workspace", () => {
     expect(log.at(-1)).toBe("wrote hiver.st0");
   });
 
+  it("translates a ZIPPED Ableton project, its set past Live's backups and its sample inside", () => {
+    const set = gzipSync(
+      strToU8(`<?xml version="1.0" encoding="UTF-8"?>
+<Ableton MajorVersion="5" MinorVersion="12.0_12402" Creator="Ableton Live 12.0">
+  <LiveSet>
+    <MainTrack><DeviceChain><Mixer>
+      <Tempo><Manual Value="97" /></Tempo>
+      <TimeSignature><Manual Value="201" /></TimeSignature>
+    </Mixer></DeviceChain></MainTrack>
+    <Tracks>
+      <AudioTrack Id="1">
+        <Name><EffectiveName Value="Guitar" /></Name>
+        <DeviceChain>
+          <Mixer><Speaker><Manual Value="true" /></Speaker></Mixer>
+          <MainSequencer><Sample><ArrangerAutomation><Events>
+            <AudioClip Id="0" Time="0">
+              <CurrentStart Value="0" /><CurrentEnd Value="8" />
+              <Loop><LoopStart Value="0" /><LoopEnd Value="8" />
+                    <StartRelative Value="0" /><LoopOn Value="false" /></Loop>
+              <Name Value="take" />
+              <SampleRef><FileRef><RelativePath Value="Samples/Imported/take.wav" />
+                <Name Value="take.wav" /></FileRef></SampleRef>
+              <IsWarped Value="true" /><WarpMarkers></WarpMarkers>
+            </AudioClip>
+          </Events></ArrangerAutomation></Sample></MainSequencer>
+        </DeviceChain>
+      </AudioTrack>
+    </Tracks>
+  </LiveSet>
+</Ableton>`),
+    );
+    const zip = zipSync({
+      "Hiver Project/Hiver.als": set,
+      "Hiver Project/Backup/Hiver [2024].als": set,
+      "Hiver Project/Samples/Imported/take.wav": new Uint8Array([1, 2, 3]),
+    });
+    const { project, log } = importProjectBytes(
+      host(),
+      "Hiver Project.zip",
+      zip,
+      "hiver.st0",
+    );
+    expect(project).toBe("hiver.st0");
+    expect(log[1]).toContain("97 bpm");
+    expect(log.join(" ")).not.toContain("sample not imported");
+  });
+
   it("leaves the dropped file nowhere: the project is all that lands", () => {
     importProjectBytes(host(), "winter.dawproject", dawproject(), "hiver.st0");
     expect(existsSync(join(root, "winter.dawproject"))).toBe(false);
@@ -108,7 +155,8 @@ describe("a project dropped on a workspace", () => {
     expect(() =>
       importProjectBytes(host(), "winter.als", dawproject(), "hiver.st0"),
     ).toThrow(/from the tree/);
-    expect(DROPPABLE).toEqual([".dawproject"]);
+    // …while a zipped Ableton project carries its samples, so it may be dropped.
+    expect(DROPPABLE).toEqual([".dawproject", ".zip"]);
   });
 
   it("refuses bytes that are not the format they claim", () => {

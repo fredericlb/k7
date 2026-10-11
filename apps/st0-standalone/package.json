@@ -1,0 +1,21 @@
+{
+  "name": "st0-standalone",
+  "version": "0.1.0",
+  "private": true,
+  "description": "st0 and pl8 in one desktop app: their two backends, the file services pl8 starts, the supervisor and the engine, all on this machine. See docs/standalone.md.",
+  "author": "F <fred@parapluie.org>",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "node scripts/build-main.mjs",
+    "build:frontends": "npm exec --workspace st0-frontend -- vite build && npm exec --workspace pl8-frontend -- vite build",
+    "start": "node scripts/build-main.mjs && node scripts/start.mjs",
+    "stage": "node scripts/stage.mjs",
+    "package": "node scripts/build-main.mjs && node scripts/stage.mjs && electron-builder --config electron-builder.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "*"
+  }
+}

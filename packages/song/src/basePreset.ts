@@ -1,37 +1,67 @@
-// A module's named BASES — the `.vstpreset` blobs in its own `base/` folder, and which one a
-// module or node has chosen. Rationale, and why a base is not a preset: docs/userPresets.md.
+// A module's named BASES — the whole-state files in its own `base/` folder (a `.vstpreset`, or a Surge
+// XT `.fxp`), and which one a module or node has chosen. Why a base is not a preset: docs/userPresets.md.
+// A base may sit in a subfolder, and is then named by its path: `Pads/Bell Pad`.
 
 import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 
-/** The folder a module keeps its bases in, and the extension they carry. */
+/** The folder a module keeps its bases in, and the extensions a base file carries. */
 export const MODULE_BASES_DIR = "base";
 const BASE_EXT = ".vstpreset";
+const BASE_EXTS = [BASE_EXT, ".fxp"];
+// Deep enough for a category folder and one below it; a library is not a tree to walk forever.
+const MAX_DEPTH = 3;
 
-/** The bases in ONE folder, by name and without the extension, in a stable order. */
+const baseName = (file: string): string | undefined => {
+  const ext = BASE_EXTS.find((e) => file.toLowerCase().endsWith(e));
+  return ext ? file.slice(0, -ext.length) : undefined;
+};
+
+/** The bases in ONE folder, by name and without the extension — subfolders as `<dir>/<name>` — in a stable order. */
 export function basesIn(folder: string | null | undefined): string[] {
   if (!folder) return [];
-  try {
-    return readdirSync(join(folder, MODULE_BASES_DIR))
-      .filter((f) => f.toLowerCase().endsWith(BASE_EXT))
-      .map((f) => f.slice(0, -BASE_EXT.length))
-      .sort();
-  } catch {
-    return []; // no base/ folder, or one that cannot be read — both are "this module has none"
-  }
+  const out: string[] = [];
+  const walk = (abs: string, rel: string, depth: number): void => {
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = readdirSync(abs, { withFileTypes: true });
+    } catch {
+      return; // no base/ folder, or one that cannot be read — both are "this module has none"
+    }
+    for (const e of entries) {
+      if (e.name.startsWith(".")) continue;
+      const child = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (depth < MAX_DEPTH) walk(join(abs, e.name), child, depth + 1);
+        continue;
+      }
+      const name = e.isFile() ? baseName(child) : undefined;
+      if (name) out.push(name);
+    }
+  };
+  walk(join(folder, MODULE_BASES_DIR), "", 0);
+  return out.sort((a, b) => a.localeCompare(b));
 }
 
-/** The file a `base:` names, or undefined so the caller falls back to the module's default. */
+/** The file a `base:` names, or undefined so the caller falls back to the module's default — never one outside `base/`. */
 export function basePresetIn(
   folder: string,
   base: unknown,
 ): string | undefined {
   if (typeof base !== "string" || !base.trim()) return undefined;
-  const file = join(folder, MODULE_BASES_DIR, `${base.trim()}${BASE_EXT}`);
-  return existsSync(file) ? file : undefined;
+  const root = resolve(folder, MODULE_BASES_DIR);
+  for (const ext of BASE_EXTS) {
+    const file = resolve(root, `${base.trim()}${ext}`);
+    if (file.startsWith(root + sep) && existsSync(file)) return file;
+  }
+  return undefined;
 }
 
-/** The `.vstpreset` a module loads: the chosen `base:`, then the node's, then the module's own. */
+/** Whether a resolved base is a Surge XT patch, which the engine loads as one rather than as a `.vstpreset`. */
+export const isSurgePatch = (file: string | undefined): boolean =>
+  !!file && file.toLowerCase().endsWith(".fxp");
+
+/** The state file a module loads: the chosen `base:`, then the node's `.vstpreset`, then the module's own. */
 export function presetFor(
   folder: string,
   leaf: string,

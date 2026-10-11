@@ -89,6 +89,12 @@ void BraidsCore::allNotesOff()
     for (auto& v : impl_->voices) v->env.gateOff();
 }
 
+void BraidsCore::silence()
+{
+    impl_->alloc.releaseAll();
+    for (auto& v : impl_->voices) v->env.kill();
+}
+
 void BraidsCore::render(float* left, float* right)
 {
     std::fill_n(left, BLOCK, 0.0f);

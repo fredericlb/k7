@@ -69,6 +69,14 @@ it("adds a tap to the NODE on the first free note, and leaves the module alone",
   expect(readFileSync(moduleFile(), "utf8")).toBe("type: rack\n");
 });
 
+it("adds a tap on a GIVEN note — an empty pad of the octave grid — and refuses a taken one", async () => {
+  await runCommand("node tap at kit 40", host(), "cli");
+  await runCommand("node tap at kit 42 HH", host(), "cli");
+  expect(kit().rack?.symbols).toEqual({ T1: { note: 40 }, HH: { note: 42 } });
+  await runCommand("node tap at kit 42", host(), "cli");
+  expect(logs.join(" ")).toContain("already has a tap on note 42");
+});
+
 it("sets a tap's sample by its library name — spaces and all — and its note", async () => {
   await runCommand("node tap add kit BD", host(), "cli");
   await runCommand(
@@ -183,4 +191,15 @@ it("renames a tap in place, its note and sample kept, and refuses a taken name",
   expect(logs.join(" ")).toContain("already has a tap 'SN'");
   await runCommand('node tap rename kit SN "two words"', host(), "cli");
   expect(logs.join(" ")).toContain("is not a tap name");
+});
+
+it("mutes a tap and brings it back — a toggle without on/off, and `mute:` written only while on", async () => {
+  await runCommand("node tap at kit 42 HH", host(), "cli");
+  await runCommand("node tap mute kit HH", host(), "cli");
+  expect(kit().rack?.symbols?.HH).toEqual({ note: 42, mute: true });
+  await runCommand("node tap mute kit HH", host(), "cli");
+  expect(kit().rack?.symbols?.HH).toEqual({ note: 42 });
+  await runCommand("node tap mute kit HH on", host(), "cli");
+  await runCommand("node tap mute kit HH on", host(), "cli");
+  expect(kit().rack?.symbols?.HH).toEqual({ note: 42, mute: true });
 });

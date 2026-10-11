@@ -28,13 +28,17 @@ import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { withoutNotes } from "../graphNotes";
+import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
 import { useRackTrigger } from "../hooks/useRackTrigger";
+import { midiActivity } from "../midiActivity";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
 import type { WebProject } from "../types";
 
 export function GraphPanel({
+  mark,
+  onPreviewNote,
   reloadKey,
   cameras,
   inputDevices,
@@ -65,6 +69,10 @@ export function GraphPanel({
   onTrackToggle,
   onTrackSet,
 }: {
+  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
+  mark?: HistoryMark | null;
+  /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
+  onPreviewNote?: (track: string, key: number, vel: number) => void;
   reloadKey: number;
   /** The lenses this browser can see — a camera card's dropdown, packages/song/docs/camera.md. */
   cameras?: readonly string[];
@@ -121,7 +129,10 @@ export function GraphPanel({
   /** …and the third source, for the modules the engine holds NOTHING of — without it a tempo node draws its file's number for ever. */
   moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
-  onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
+  onTrackToggle?: (
+    trackId: string,
+    control: "mute" | "solo" | "arm" | "highlight",
+  ) => void;
   onTrackSet?: (
     trackId: string,
     control: "volume" | "pan",
@@ -214,12 +225,14 @@ export function GraphPanel({
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);
 
+  // The History panel's hover, as the per-card test DomChains reads.
+  const marked = useMemo(() => nodePredicate(mark), [mark]);
   // The rack pads light here too: this panel draws the same nodes, so it owes them the same answer (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
   // …and they PLAY here too, by the same hook as the chains pane.
   const laidRef = useRef(laid);
   laidRef.current = laid;
-  const triggerRack = useRackTrigger(laidRef);
+  const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
   // Bypasses clicked but not yet in `graph`: a bypass bumps no reloadKey, which is all this panel refetches on.
   const [pendingBypass, setPendingBypass] = useState<Record<string, boolean>>(
@@ -255,7 +268,8 @@ export function GraphPanel({
   }, [laid, pendingBypass]);
 
   const body = () => {
-    if (error)
+    // Only with nothing to draw: a failed RE-read keeps the last graph while useDocument retries.
+    if (error && !graph)
       return <Note className="text-red-400">graph unavailable — {error}</Note>;
     if (!graph) return <Note>loading…</Note>;
     if (strips && !strips.length)
@@ -276,6 +290,8 @@ export function GraphPanel({
         videoSpans={videoSpans}
         noteLanes={noteLanes}
         rackLit={rackLit}
+        midiActivity={midiActivity}
+        marked={marked}
         onTriggerRack={triggerRack}
         onSelect={setSelected}
         onContextMenu={onContextMenu}

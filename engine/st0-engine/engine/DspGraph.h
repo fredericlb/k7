@@ -70,7 +70,7 @@ private:
         // audio (block rate)
         biquad, gain, mix,
         // sample rate — these read and write AUDIO wires, not scalars
-        ain, aout, adelay, amul, aadd, atanh, alfo,
+        ain, aout, adelay, amul, aadd, atanh, alfo, aallpass,
         // midi — block rate, rewriting the message list in place; their inputs are SCALARS, never wires
         transpose, velocity, mchannel,
         // …and the two that give the phase a MEMORY and a clock: what a note SOURCE needs (docs/midiGraph.md)
@@ -93,6 +93,9 @@ private:
         float maxMs = 0.0f;
         int mode = 0;          // biquad's filter type, alfo's wave shape, or ain's input PORT — see build()
         float s0 = 0.0f;       // per-node state (envelope level, glide's last value)
+        // aallpass: last input and last output, per channel — the one-sample memory no wire can hold.
+        float x1[2] = {0.0f, 0.0f};
+        float y1[2] = {0.0f, 0.0f};
         bool primed = false;
         studio::Biquad filters[2];
         // biquad: what the coefficients were last computed FROM, so a still knob costs nothing (docs/dspGraph.md).

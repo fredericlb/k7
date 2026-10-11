@@ -71,6 +71,12 @@ void TidesCore::allNotesOff()
     for (auto& v : impl_->voices) v->env.gateOff();
 }
 
+void TidesCore::silence()
+{
+    impl_->alloc.releaseAll();
+    for (auto& v : impl_->voices) v->env.kill();
+}
+
 void TidesCore::render(float* left, float* right)
 {
     std::fill_n(left, BLOCK, 0.0f);

@@ -99,6 +99,20 @@ stays false and nothing is scheduled.
 A two-marker map still skips the whole path: it has no interior points, and an identity two-point
 map is skipped earlier for the `buildAutoTempo` reason spelled out in [editBuilder.md](editBuilder.md).
 
+## A marker whose segment plays far off the clip's speed is left out
+
+Tracktion's `WarpReader` sets the stretcher's speed once per block, from the segment the block
+STARTS in. After a seek the stretcher is reset and primes, reading input at that speed before it
+gives anything back. A map whose first segment is nearly empty, such as an imported one squeezing 71 ms
+of file into 4 ms (seventeen times the clip's speed), makes that priming swallow about a beat of
+audio. A start exactly on the clip then plays it a whole beat early, and keeps it there until the next clip.
+Playing INTO the clip does not, because the reader is positioned just before it, where the speed is 1.
+
+So only the interior markers whose segments play within four times the clip's overall speed, either
+way, reach `WarpTimeManager` (`WarpMarkers.h`, tested in `tests/WarpMarkers_test.cpp`). A segment that
+far off is an import artifact, not a re-timing anyone can hear as intended. Dropping its marker moves
+at most that segment's few milliseconds, and the markers on either side still pin the timing.
+
 ## Verifying it
 
 `scripts/warp-points.ts` is the proof, and it is a **render measured**, not a unit test — this is

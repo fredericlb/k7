@@ -25,6 +25,8 @@ pub struct AudioRow {
     /// Plugged in right now. A ranked name with nothing behind it still gets a row: it is what holds the rank.
     present: bool,
     current: bool,
+    /// The engine's inputs come from this one, which need not be the `current` one.
+    current_input: bool,
     /// 1-based place in the ranking; None for a device that is merely visible.
     rank: Option<usize>,
 }
@@ -150,6 +152,7 @@ fn audio_rows(devices: &[host::AudioDevice], priority: &[String]) -> Vec<AudioRo
                 device_type: d.map(|d| d.device_type.clone()).unwrap_or_default(),
                 present: d.is_some(),
                 current: d.map(|d| d.current).unwrap_or(false),
+                current_input: d.map(|d| d.current_input).unwrap_or(false),
                 rank: (i < priority.len()).then_some(i + 1),
                 name,
             }

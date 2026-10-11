@@ -29,8 +29,10 @@ async function main() {
     process.exit(2);
   }
   const { rate, x: ir } = readWav(cabinet);
-  const dry = await renderAt(model, rate);
-  const cab = await renderAt(model, rate, { irFile: cabinet });
+  // Both renders 12 dB down after the cab, or a lifted amp clips and the clipping is measured (docs/namPlugin.md).
+  const quiet = { params: { Output: -12 } };
+  const dry = await renderAt(model, rate, quiet);
+  const cab = await renderAt(model, rate, { ...quiet, irFile: cabinet });
   const h1 = responseDb(ir, rate, F0);
   const rows = dry.map((d, i) => ({
     k: i + 1,

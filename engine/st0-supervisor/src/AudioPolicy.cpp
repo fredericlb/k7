@@ -35,7 +35,7 @@ std::string signature(const std::vector<AudioDevice>& devices)
 std::string menuSignature(const std::vector<AudioDevice>& devices, const std::vector<std::string>& priority)
 {
     std::vector<std::string> rows;
-    for (const auto& d : devices) rows.push_back(d.name + "|" + d.deviceType + "|" + (d.current ? "true" : "false"));
+    for (const auto& d : devices) rows.push_back(d.name + "|" + d.deviceType + "|" + (d.current ? "true" : "false") + "|" + (d.currentInput ? "true" : "false"));
     std::sort(rows.begin(), rows.end());
     // The ranking IN ORDER, unsorted: a reorder that moved no membership is the whole point of it.
     return joined(rows) + kRs + joined(priority);

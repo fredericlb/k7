@@ -62,6 +62,8 @@ export interface TrackOut {
   plugins?: PluginOut[];
   sends?: SendOut[];
   clips?: ClipOut[];
+  /** Its instrument was a DRUM rack the source DAW alone can play — what a stand-in kit replaces. */
+  drums?: boolean;
 }
 
 export interface Song {

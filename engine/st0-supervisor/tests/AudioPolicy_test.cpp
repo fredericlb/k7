@@ -55,6 +55,16 @@ void aReorderMovesTheMenuSignatureButNotTheSetOne()
     CHECK(signature(d) == signature({dev("B", true), dev("A", false)}));
 }
 
+void anInputMovingAloneMovesTheMenuSignature()
+{
+    // The output stays on A: only the window's "input only" line changes, and it must be redrawn.
+    std::vector<AudioDevice> split{dev("A", true), dev("B", false)};
+    split[1].currentInput = true;
+    std::vector<AudioDevice> whole{dev("A", true), dev("B", false)};
+    whole[0].currentInput = true;
+    CHECK(menuSignature(split, {"A"}) != menuSignature(whole, {"A"}));
+}
+
 }  // namespace
 
 void runAudioPolicyTests()
@@ -67,4 +77,5 @@ void runAudioPolicyTests()
     RUN(ranksOneEvenWhenNothingIsCurrent);
     RUN(neverActsOnAnEmptyList);
     RUN(aReorderMovesTheMenuSignatureButNotTheSetOne);
+    RUN(anInputMovingAloneMovesTheMenuSignature);
 }

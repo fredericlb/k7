@@ -12,6 +12,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
+import { swappedModule } from "@studio/song/alternatives";
+import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadModuleRefs, loadModules } from "@studio/song/loader";
 import {
   resolvedRack,
@@ -38,16 +40,26 @@ import {
   SHARED_PRESETS_DIR,
   WORKSPACE_SCOPE,
 } from "@studio/song-schema/presets";
-import { setAlternativeParam } from "@studio/song-schema/yaml/alternativeFile";
+import {
+  clearAlternativeParams,
+  setAlternativeField,
+  setAlternativeParam,
+} from "@studio/song-schema/yaml/alternativeFile";
 import { parse as parseYaml } from "yaml";
 import { selectModuleEngine } from "./engineSwitch";
 import { editModuleFile } from "./projectEdit";
 import { setKit } from "./rackTaps";
 
-/** The module ref a node's presets are keyed by — what it `extends` — or null for a node with none. */
-export function presetRefOf(dir: string, node: string): string | null {
-  const m = loadModules(dir)[node] as { extends?: unknown } | undefined;
+/** The node as it PLAYS: the module its attribute set names, when the set on swaps it for another (docs/alternatives.md). */
+function playedAs(dir: string, node: string) {
+  const m = loadModules(dir)[node];
   if (!m) throw new Error(`no node named '${node}'`);
+  return swappedModule(m) ?? m;
+}
+
+/** The module ref a node's presets are keyed by — what the node, as it plays, `extends` — or null for one with none. */
+export function presetRefOf(dir: string, node: string): string | null {
+  const m = playedAs(dir, node) as { extends?: unknown };
   const ref = typeof m.extends === "string" ? m.extends : "";
   return presetModulePath(ref) ? ref : null;
 }
@@ -159,7 +171,20 @@ function kitSnapshot(node: string, rack: ReturnType<typeof resolvedRack>): Kit {
   return kit;
 }
 
-/** What a node plays as right now: its resolved numeric params, the engine they belong to, and a rack's kit. */
+// The base a node is on: its own `base:`, else the nearest one up what it extends — a module's default patch included.
+function chosenBase(
+  node: { base?: unknown; extends?: unknown } | undefined,
+  refs: Readonly<Record<string, { base?: unknown; extends?: unknown }>>,
+): string {
+  let cur = node;
+  for (let i = 0; cur && i < 16; i++) {
+    if (typeof cur.base === "string" && cur.base.trim()) return cur.base.trim();
+    cur = typeof cur.extends === "string" ? refs[cur.extends] : undefined;
+  }
+  return "";
+}
+
+/** What a node plays as right now: its resolved numeric params, the engine and base they belong to, and a rack's kit. */
 export function nodeSnapshot(dir: string, node: string): PresetFile {
   const m = loadModules(dir)[node];
   if (!m) throw new Error(`no node named '${node}'`);
@@ -176,8 +201,11 @@ export function nodeSnapshot(dir: string, node: string): PresetFile {
     resolvedType(resolved) === "rack"
       ? kitSnapshot(node, resolvedRack(resolved))
       : undefined;
+  // The base the values were taken over: a Surge patch's routing and wavetables are not params, so they travel by name.
+  const base = chosenBase(playedAs(dir, node), loadModuleRefs(dir));
   return {
     ...(engine ? { engine } : {}),
+    ...(base ? { base } : {}),
     ...(Object.keys(params).length ? { params } : {}),
     ...(rack && Object.keys(rack).length ? { rack } : {}),
   };
@@ -207,8 +235,11 @@ export function writeNodePreset(
   if (mode === "update" && !exists)
     throw new Error(`no preset '${name}' in ${scope} to update`);
   const preset = nodeSnapshot(dir, node);
-  if (!preset.params && !preset.rack)
-    throw new Error(`'${node}' has no params or pads to keep — set some first`);
+  // A base alone is worth keeping: it is the whole sound of a patch (docs/userPresets.md).
+  if (!preset.params && !preset.rack && !preset.base)
+    throw new Error(
+      `'${node}' has no params, base or pads to keep — set some first`,
+    );
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, presetFileText(ref, preset), "utf8");
   return { path, ref, preset };
@@ -223,8 +254,10 @@ export function applyPresetToNode(
 ): {
   params: Record<string, number>;
   switched: boolean;
+  rebased: boolean;
   kit: boolean;
   missingEngine?: string;
+  missingBase?: string;
 } {
   const ref = presetRefOf(dir, node);
   if (!ref)
@@ -246,20 +279,40 @@ export function applyPresetToNode(
       switched = true;
     }
   }
+  // The base next, since the values are what goes on top of it — as the engine applies them (docs/userPresets.md).
+  let rebased = false;
+  let missingBase: string | undefined;
+  if (preset.base) {
+    const m = playedAs(dir, node);
+    const current = chosenBase(m, loadModuleRefs(dir));
+    if (!moduleBaseChoices(m, loadModuleRefs(dir)).includes(preset.base))
+      missingBase = preset.base;
+    else if (current !== preset.base) {
+      // Into the set that is on, as the values go: a node whose set swaps its module reads its base there.
+      const base = preset.base;
+      editModuleFile(dir, node, (text) =>
+        setAlternativeField(text, "base", base),
+      );
+      rebased = true;
+    }
+  }
   // The engine that is on AFTER the switch, since a module with engines keeps its knobs per engine.
   const engine = currentEngine(resolved());
-  if (Object.keys(params).length)
+  // A new base drops the node's own values: they were set over the old state and mean nothing over this one.
+  if (rebased || Object.keys(params).length)
     editModuleFile(dir, node, (text) =>
       Object.entries(params).reduce(
         (t, [k, v]) => setAlternativeParam(t, k, v, engine),
-        text,
+        rebased ? clearAlternativeParams(text, engine) : text,
       ),
     );
   if (preset.rack) setKit(dir, node, preset.rack);
   return {
     params,
     switched,
+    rebased,
     kit: !!preset.rack,
     ...(missingEngine ? { missingEngine } : {}),
+    ...(missingBase ? { missingBase } : {}),
   };
 }

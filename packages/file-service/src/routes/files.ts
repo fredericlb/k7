@@ -582,6 +582,15 @@ filesRouter.get(
   "/history",
   wrap((req, res) => res.json(req.ws!.historyState())),
 );
+// The History panel's two lists: the journal oldest first, the commits newest first — docs/history.md.
+filesRouter.get(
+  "/history/entries",
+  wrap((req, res) => res.json(req.ws!.historyList())),
+);
+filesRouter.get(
+  "/history/commits",
+  wrap(async (req, res) => res.json(await req.ws!.historyCommits())),
+);
 // Without `confirm` a process step reports `needsConfirm` and is NOT applied, since it restores a bounced file.
 const undoBody = z.object({ confirm: z.boolean().optional() });
 for (const dir of ["undo", "redo"] as const) {
@@ -604,6 +613,8 @@ for (const dir of ["undo", "redo"] as const) {
         dir === "undo"
           ? await req.ws!.undoHistory()
           : await req.ws!.redoHistory();
+      // The step rewrote the open project's files, and only a push tells the engine — as `PUT /file` does (docs/history.md).
+      if (done) startEngineForActive(req.ws!);
       res.json(done ? { applied: true, ...done } : { applied: false });
     }),
   );

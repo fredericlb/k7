@@ -49,6 +49,16 @@ before/after content inline; binary changes reference backup blobs. `kind` is `"
 iff the entry carries blobs — the client confirms before undoing one, because it restores
 an audio file.
 
+`GET /history/entries` lists the journal for st0's History panel — every entry's label, time and
+PATHS, never its contents, with `undone` past the cursor — and `GET /history/commits` the commits
+that touched the project folder (`src/projectCommits.ts`), both with paths relative to the project
+so the panel reads one kind of path. The commit list stops at 200: it is a list, not a git client.
+
+**An applied undo or redo pushes the project to the engine**, as `PUT /file` does after a write
+(`src/routes/files.ts`). A step rewrites the open project's files outside any verb, and a verb's
+reload is the only other thing that tells the engine: without the push, an event restored by
+Ctrl+Z is back on disk and on screen and stays silent until the next unrelated edit.
+
 ## Not in the project: the account's cache
 
 The journal is the session's, not the song's. Kept in the project, it is a ring of up to a thousand

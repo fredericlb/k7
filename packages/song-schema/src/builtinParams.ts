@@ -26,6 +26,8 @@ export interface BuiltinParam {
   def?: number;
   /** A discrete parameter's named settings, each carrying the VALUE that selects it — not always index/(n-1). */
   states?: { label: string; value: number }[];
+  /** False for a control that is plain plugin state: it can be set and read, and no curve can drive it. */
+  automatable?: false;
 }
 
 export interface BuiltinPluginInfo {
@@ -77,4 +79,10 @@ export function builtinPluginForRef(
 /** A module's plugin's parameters; undefined and empty DIFFER — the second is a plugin whose state is not params. */
 export function builtinParamsFor(plugin: unknown): BuiltinParam[] | undefined {
   return builtinPluginFor(plugin)?.params;
+}
+
+/** Whether a curve can drive `param` of the built-in spelled `type` — false only for a control the table marks as plain state. */
+export function builtinParamAutomatable(type: string, param: string): boolean {
+  const info = BY_SPELLING.get(type.trim().toLowerCase());
+  return info?.params.find((p) => p.name === param)?.automatable !== false;
 }

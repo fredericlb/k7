@@ -113,13 +113,16 @@ export function useActiveProjectFollow(opts: {
   onTake?: (w: WorkspaceInfo) => void;
   /** Every answer's copy to the engine's machine, null when none is running or failed — docs engineSync.md. */
   onSync?: (s: EngineSyncState | null) => void;
+  /** A take just stopped and has not landed yet: poll at TAKE_POLL_MS rather than every 2 s. */
+  awaitingTake?: boolean;
 }): void {
   const optsRef = useRef(opts);
   optsRef.current = opts;
+  // undefined == no answer read yet; null == read, and there was no take — a ref, as it outlives the interval's re-creation.
+  const seen = useRef<string | null | undefined>(undefined);
+  const eager = !!opts.awaitingTake;
   useEffect(() => {
-    // undefined == no answer read yet; null == read, and there was no take.
-    let seen: string | null | undefined;
-    const id = setInterval(async () => {
+    const tick = async () => {
       try {
         const w = await api.workspace();
         if (w.activeProject !== optsRef.current.lastActiveRef.current) {
@@ -127,17 +130,21 @@ export function useActiveProjectFollow(opts: {
           optsRef.current.onSwitch(w);
         }
         const clip = w.lastTake?.clip ?? null;
-        const landed = isNewTake(seen, clip);
-        seen = clip;
+        const landed = isNewTake(seen.current, clip);
+        seen.current = clip;
         if (landed) optsRef.current.onTake?.(w);
         optsRef.current.onSync?.(w.engineSync ?? null);
       } catch {
         /* backend momentarily unavailable */
       }
-    }, 2000);
+    };
+    const id = setInterval(tick, eager ? TAKE_POLL_MS : 2000);
     return () => clearInterval(id);
-  }, []);
+  }, [eager]);
 }
+
+/** How often /workspace is read while a stopped take is on its way — the gap between Stop and its picture. */
+export const TAKE_POLL_MS = 200;
 
 /** Is `clip` a take this tab has not seen? Seeding on the first answer is what makes this mean 'a take just landed' rather than 'a take exists'. */
 export const isNewTake = (

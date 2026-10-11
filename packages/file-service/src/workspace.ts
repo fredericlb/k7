@@ -47,6 +47,7 @@ import {
   type ConsoleSystem,
   consoleSystems,
 } from "@studio/song/console";
+import { deadAutomations } from "@studio/song/deadAutomations";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { enginesBeside } from "@studio/song/engines";
 import { loadGraph } from "@studio/song/graph";
@@ -156,6 +157,7 @@ import type {
   Hints,
   ModuleLibrary,
   PreviewReq,
+  ProjectCommit,
   ProjectInfo,
   WaveformStatus,
   WebMixer,
@@ -183,6 +185,7 @@ import {
 } from "./graphDoc.ts";
 import {
   type FileChange,
+  type HistoryListEntry,
   type HistoryPeek,
   type HistoryState,
   historyStoreFor,
@@ -197,6 +200,7 @@ import {
   pluginNeedsOf,
   projectCompatOf,
 } from "./pluginNeeds.ts";
+import { projectCommits } from "./projectCommits.ts";
 import {
   copyProjectInto,
   createProjectIn,
@@ -318,9 +322,9 @@ interface WalkedFile {
   source: boolean;
 }
 
-/** Is `abs` inside one of the account libraries' `samples/` or `irs/` — and nowhere else of theirs? */
+/** Is `abs` inside one of the account libraries' `samples/`, `irs/` or `wavetables/` — and nowhere else of theirs? */
 function inLibrarySounds(abs: string): boolean {
-  return (["samples", "irs"] as const).some((family) =>
+  return (["samples", "irs", "wavetables"] as const).some((family) =>
     libraryFamilyRoots(family).some((l) => abs.startsWith(l.root + sep)),
   );
 }
@@ -466,6 +470,7 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
     ...mixerOf(t),
     mute: t.mute,
     solo: t.solo,
+    ...(t.highlight ? { highlight: true } : {}),
     // A comped event is ONE clip to every surface, its pieces carried inside it (webComp.ts).
     clips: foldComps(t.clips.map((c) => toWebClip(c, natural))),
     ...(t.frozenMaterial?.length
@@ -1258,6 +1263,25 @@ export class Workspace {
     if (r) this.invalidateProjectDoc();
     return r;
   }
+  /** The open project's journal for the History panel, its paths PROJECT-relative like a commit's. */
+  historyList(): HistoryListEntry[] {
+    const dir = this.activeProject;
+    if (!dir) return [];
+    const prefix = `${this.toRel(dir)}/`;
+    return this.history(dir)
+      .list()
+      .map((e) => ({
+        ...e,
+        paths: e.paths.map((p) =>
+          p.startsWith(prefix) ? p.slice(prefix.length) : p,
+        ),
+      }));
+  }
+  /** The commits that touched the open project, newest first — none without a repository. */
+  async historyCommits(): Promise<ProjectCommit[]> {
+    const dir = this.activeProject;
+    return dir ? projectCommits(this.root, this.toRel(dir)) : [];
+  }
   peekUndo(): HistoryPeek | null {
     const dir = this.activeProject;
     return dir ? this.history(dir).peekUndo() : null;
@@ -1365,7 +1389,7 @@ export class Workspace {
       const exists = existsSync(abs);
       // A library REPOSITORY's sound folders too, walked like its modules: the tab draws them and takes drops on them.
       const lib = accountLibraries().find((l) => l.name === ns);
-      const sounds = (family: "samples" | "irs" | "models") => {
+      const sounds = (family: "samples" | "irs" | "wavetables" | "models") => {
         const at = lib ? join(lib.root, family) : null;
         return at && existsSync(at) ? this.walk(at) : [];
       };
@@ -1378,6 +1402,7 @@ export class Workspace {
           ? {
               samples: sounds("samples"),
               irs: sounds("irs"),
+              wavetables: sounds("wavetables"),
               models: sounds("models"),
             }
           : {}),
@@ -2204,12 +2229,14 @@ export class Workspace {
     diagnostics: Diagnostic[];
   } {
     try {
-      this.cachedProjectDoc(dir);
+      const doc = this.cachedProjectDoc(dir);
       // Clean — but the non-blocking WARNINGS below surface here or nowhere at all.
       return {
         errors: [],
         diagnostics: [
           ...notSupportedModules(dir),
+          // A curve the engine will refuse, which it otherwise only logs.
+          ...deadAutomations(dir, doc),
           ...libraryModuleIssues(dir),
           ...deadProjectFields(dir),
           // A `surfaces/` file that is THERE and malformed draws nothing, and says nothing either.

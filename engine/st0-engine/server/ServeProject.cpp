@@ -217,6 +217,18 @@ void addProjectHandlers(HandlerTable& t) {
             });
     });
 
+    t.add({"midi-live"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
+        auto& host = ctx.host;
+        // A keyboard played into a track's own chain, one channel message at a time — held until its note-off (docs/protocol.md).
+        const std::string track = j.value("track", std::string{});
+        std::vector<uint8_t> bytes;
+        if (j.contains("data") && j.at("data").is_array())
+            for (const auto& b : j.at("data"))
+                if (b.is_number_integer()) bytes.push_back((uint8_t) std::clamp(b.get<int>(), 0, 255));
+        if (! track.empty() && ! bytes.empty())
+            host.post([session, &host, track, bytes] { host.liveMidi(session, track, bytes); });
+    });
+
     t.add({"arm"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
         auto& host = ctx.host;
         auto& broadcastTo = ctx.broadcastTo;

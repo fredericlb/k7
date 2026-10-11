@@ -33,7 +33,7 @@ ojson stateFrame(const Snapshot& s)
     f["pluginsSig"] = s.pluginsSig;
     ojson devices = ojson::array();
     for (const auto& d : s.audioDevices)
-        devices.push_back({{"name", d.name}, {"deviceType", d.deviceType}, {"current", d.current}});
+        devices.push_back({{"name", d.name}, {"deviceType", d.deviceType}, {"current", d.current}, {"currentInput", d.currentInput}});
     f["audioDevices"] = devices;
     f["audioPriority"] = s.audioPriority;
     f["audioMenuSig"] = s.audioMenuSig;

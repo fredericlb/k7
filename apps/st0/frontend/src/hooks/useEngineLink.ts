@@ -129,6 +129,8 @@ export function useEngineLink(
       if (!c) {
         engineBusyRef.current = false;
         setEngineBusy(false);
+        // A dead engine plays nothing: without this the last frame's `playing: true` keeps the transport and playhead running.
+        store.offline();
       }
       onStatus(c ? "connected to engine" : "engine offline — retrying…");
       pushLog(

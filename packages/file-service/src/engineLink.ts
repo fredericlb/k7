@@ -367,6 +367,10 @@ function warmDeps(ws: Workspace, c: EngineClient): WarmDeps {
   // Whether record was on when the dry run began: rolling would RECORD, count-in, take and all.
   let recordWasOn = false;
   return {
+    engine: c,
+    current: () => links.get(session)?.client === c,
+    // An engine SELECTED, not a link open: right after a switch the link is dropped and redialled by the next poll.
+    hasEngine: () => selectedEngineUrl !== undefined,
     sendProject: (d) => c.sendProject(d),
     play: () => {
       recordWasOn = links.get(session)?.recordEnabled ?? false;
@@ -1241,6 +1245,8 @@ export function webCommandList(): CommandInfo[] {
       readable: c.readable,
       // Which right-clicks may offer it — absent, and every menu its arguments fit may.
       menu: c.menu,
+      // …and whether it asks first.
+      confirm: c.confirm,
       // The trailing user args in order, each with its class and the PROVIDER it completes from.
       args:
         c.args?.map((a) => ({

@@ -236,6 +236,27 @@ void diff_sfz_instrument_pick_is_reload() {
     CHECK(hasKind(diff(a, none), ChangeKind::PluginAdded));
 }
 
+// A Surge XT patch is the same: another patch reloads the instance, so its place survives; dropping it is a replace.
+void diff_surge_patch_pick_is_reload() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "pad");
+        auto p = mkPlugin("t1:surge", "studio_surge", "Surge XT");
+        p.surgePatch = "/modules/surge-xt/assets/Pads/Bell Pad.fxp";
+        t.plugins.push_back(p);
+        a.tracks.push_back(t);
+    }
+    ProjectDoc other = a;
+    other.tracks[0].plugins[0].surgePatch = "/modules/surge-xt/assets/Basses/Bass 2.fxp";
+    CHECK(hasKind(diff(a, other), ChangeKind::PluginReloaded));
+    CHECK(!hasKind(diff(a, other), ChangeKind::PluginRemoved));
+    CHECK(!needsFullRebuild(diff(a, other)));
+    ProjectDoc none = a;
+    none.tracks[0].plugins[0].surgePatch.clear();
+    CHECK(hasKind(diff(a, none), ChangeKind::PluginRemoved));
+    CHECK(hasKind(diff(a, none), ChangeKind::PluginAdded));
+}
+
 // A preset is loaded into the live instance and re-aiming a second input re-wires it; a preset dropped is a replace.
 void diff_preset_and_sidechain_reload_in_place() {
     ProjectDoc a;
@@ -397,6 +418,23 @@ void diff_clip_moved() {
     const auto d = diff(a, b);
     CHECK(d.size() == 1);
     CHECK(hasKind(d, ChangeKind::ClipMoved));
+}
+
+// Muting a clip (`disabled`) on a built song is a re-insert of that clip alone, and so is unmuting it: neither nothing nor a rebuild.
+void diff_clip_disabled_is_a_reinsert() {
+    ProjectDoc a;
+    {
+        auto t = mkTrack("t1", "Bass");
+        t.clips.push_back(mkClip("c1", 0.0));
+        a.tracks.push_back(t);
+    }
+    ProjectDoc muted = a;
+    muted.tracks[0].clips[0].disabled = true;
+    const auto d = diff(a, muted);
+    CHECK(d.size() == 1 && hasKind(d, ChangeKind::ClipMoved));
+    CHECK(!needsFullRebuild(d));
+    const auto back = diff(muted, a);
+    CHECK(back.size() == 1 && hasKind(back, ChangeKind::ClipMoved));
 }
 
 // Two placements of ONE material must not share an engine clip name, since that is how a clip is found again — docs/clipIdentity.md.
@@ -805,6 +843,7 @@ int main() {
     RUN(diff_plugin_swap_is_replace_and_rebuild);
     RUN(diff_nam_model_or_ir_pick_is_reload);
     RUN(diff_sfz_instrument_pick_is_reload);
+    RUN(diff_surge_patch_pick_is_reload);
     RUN(diff_preset_and_sidechain_reload_in_place);
     RUN(diff_master_file_move_rebuilds);
     RUN(diff_plugin_add_is_incremental);
@@ -813,6 +852,7 @@ int main() {
     RUN(diff_pattern_edit_is_in_place);
     RUN(diff_pattern_label_is_identity);
     RUN(diff_clip_moved);
+    RUN(diff_clip_disabled_is_a_reinsert);
     RUN(clip_name_is_the_placement_not_the_material);
     RUN(diff_clip_retimed_by_every_field);
     RUN(diff_removals_before_adds);

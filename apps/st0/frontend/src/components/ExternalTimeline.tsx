@@ -31,6 +31,7 @@ import { useTrackControls } from "../hooks/useTrackControls";
 import { useVideoEdits } from "../hooks/useVideoEdits";
 import { useLocale } from "../i18n";
 import type { ConditionCtx } from "../keys";
+import { confirmMenuItem } from "../menuConfirm";
 import { modeCondition, type TimelineMode } from "../timelineMode";
 import type { CommandInfo } from "../types";
 import { ContextMenu } from "./ContextMenu";
@@ -171,9 +172,9 @@ export function ExternalTimeline({
 
   // Complete runs, incomplete goes to the host's one line — the same rule the shell's bar follows.
   const pickMenuItem = useCallback(
-    (item: MenuItem) => {
-      if (item.complete) void runCommand(item.command);
-      else prewrite(item.command);
+    async (item: MenuItem) => {
+      if (!item.complete) return prewrite(item.command);
+      if (await confirmMenuItem(item)) void runCommand(item.command);
     },
     [runCommand, prewrite],
   );

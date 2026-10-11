@@ -64,4 +64,21 @@ describe("bare (extends-less) modules", () => {
     expect(kit?.type).toBe("sampler");
     expect(kit?.rack?.length).toBe(1); // the BD sound, from the module's own rack
   });
+
+  it("hands the sampler no MUTED tap, and keeps the others", () => {
+    writeNode(dir, "drumkit", {
+      type: "rack",
+      rack: {
+        symbols: {
+          BD: { note: 36, clip: "kick.wav" },
+          HH: { note: 42, clip: "hat.wav", mute: true },
+        },
+      },
+    });
+    replaceChainStep(dir, "lead", { module: "drumkit" });
+    const doc = compileNodeProject(dir);
+    const melody = doc.tracks.find((t) => t.id === "melody");
+    const kit = melody!.plugins.find((p) => p.id.endsWith(":drumkit"));
+    expect(kit?.rack?.map((s) => s.symbol)).toEqual(["BD"]);
+  });
 });

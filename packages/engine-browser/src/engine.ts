@@ -73,6 +73,8 @@ export interface EngineAudioDevice {
   inputs: number;
   outputs: number;
   current: boolean;
+  /** The device the open setup takes its INPUTS from — another one than `current`'s when the setup is split. */
+  currentInput: boolean;
   isDefault: boolean;
 }
 /** One plugin the engine's scan knows about — the installed catalogue, not an instance. */
@@ -145,6 +147,7 @@ interface EngineMessage {
   session?: string; // which project the engine is talking about; absent = engine-global
   playing?: boolean;
   playhead?: number;
+  loop?: { on?: boolean; start?: number; end?: number }; // `state` only: the transport loop, in seconds
   levels?: number[];
   // `master` is the same number on `state` and on `io-levels`, so it is declared once, below, with io-levels' own fields.
   masterClipped?: boolean; // …`state` only: did it overload since the last frame
@@ -398,6 +401,15 @@ export class EngineClient {
       this.emitState({
         playing: !!m.playing,
         playhead: Number(m.playhead ?? 0),
+        ...(m.loop
+          ? {
+              loop: {
+                on: !!m.loop.on,
+                start: Number(m.loop.start ?? 0),
+                end: Number(m.loop.end ?? 0),
+              },
+            }
+          : {}),
         levels: (m.levels ?? []) as number[],
         inputLevels: (m.inputLevels ?? []) as number[],
         armed: (m.armed ?? []) as string[],
@@ -510,6 +522,10 @@ export class EngineClient {
       key: Math.max(0, Math.min(127, Math.round(key))),
       vel: Math.max(0, Math.min(1, vel)),
     });
+  }
+  /** A keyboard PLAYED into a track's chain: one channel message, held until its own note-off — engine/st0-engine/docs/protocol.md. */
+  liveMidi(track: string, data: readonly number[]): void {
+    this.send({ type: "midi-live", track, data: [...data] });
   }
   /**
    * A RECORDER node's two ENGINE verbs. Free-running: neither consults the transport, which is

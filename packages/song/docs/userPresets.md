@@ -77,7 +77,9 @@ is reported and the values land on the current one.
 ## Keyed by the node's module
 
 A preset belongs to the module a node `extends`, so every node of `@st0/instruments/synth` offers
-the same list. A node that extends nothing, or `@meta`'s built-ins, has none: there is no module
+the same list. That is the module the node PLAYS as: when its attribute set on names another module
+(`docs/alternatives.md`), the shelf is that module's, and a base a preset sets goes into that set,
+since a set that swaps the module reads its own fields and not the node's first ones. A node that extends nothing, or `@meta`'s built-ins, has none: there is no module
 for a preset to be for.
 
 ## Saving and loading — on the NODE
@@ -88,12 +90,25 @@ command bar are one behaviour. `GET /presets?node=` is the one route, a LISTING;
 the service builds the path and refuses one that would leave the module's folder.
 
 - **Save** snapshots what the node RESOLVES to — its own values over everything it inherits, on the
-  engine that is on — so a preset reproduces the sound, not just the knobs this node happened to
-  touch. A taken name is refused: overwriting is a decision.
+  engine that is on and the BASE it is on — so a preset reproduces the sound, not just the knobs this
+  node happened to touch. A taken name is refused: overwriting is a decision.
 - **Update** is that decision: it overwrites an existing preset with the node's current values.
 - **Apply** writes the preset's values into the node's own file, on the attribute set that is on,
-  in ONE write, and reaches the engine as a values-only diff unless it switched engines or loaded a
-  kit. Values the preset does not name stay as they are.
+  in ONE write, and reaches the engine as a values-only diff unless it switched engines, switched
+  bases or loaded a kit. Values the preset does not name stay as they are.
+
+**A preset keeps its base**, as `base:` beside `engine:`, and applying it switches the node to that
+base BEFORE its values go in. Its values were taken over that state and only mean that sound on it:
+a Surge XT patch's routing and wavetables are no parameter, so the same numbers over another patch
+are another sound with the preset's name on it. A base the module no longer has is reported, as a
+missing engine is, and the values land on the base that is on.
+
+**Switching base drops the node's own values** before the preset's go in — the one exception to
+"values the preset does not name stay as they are", and for the same reason: a value tuned over the
+old state means nothing over the new one, and a cutoff kept from the last patch would follow the
+musician from patch to patch. So a preset that is ONLY a base (`base:` and no `params:`) is that
+base exactly, which is what a factory preset is: the Surge XT module's library shelf holds one per
+patch, written by `engine/st0-engine/scripts/gen-surge-panel.mjs`.
 
 The dropdown shows which preset was last loaded on each node. That is the shell's SESSION state:
 a node file says what its values are, not where they came from, and after a knob moves the two
@@ -143,6 +158,12 @@ The two do not compete, and the difference is worth holding on to:
 `base/` is its own folder rather than more files loose beside the module, because the loader
 already reads `<name>.vstpreset` there as the single default; a second spelling in the same
 directory would be two rules over one namespace.
+
+**A Surge XT patch is a base too**: an `.fxp` beside the `.vstpreset`s, the same kind of thing — a whole
+state its parameters do not hold. A base may sit in a subfolder and is then named by its path,
+`base: Pads/Bell Pad`, because six hundred patches in one flat list is no choice at all; a name that
+would climb out of `base/` resolves to nothing. The compile sends an `.fxp` to the synth as its patch
+rather than as a `.vstpreset` (`engine/st0-engine/docs/surgePlugin.md`).
 
 ## Choosing one — `base:`, and what it may not disturb
 

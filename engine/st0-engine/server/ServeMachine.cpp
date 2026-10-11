@@ -37,6 +37,7 @@ json audioDevicesMsg(EngineHost& host) {
                        {"inputs", d.inputs},
                        {"outputs", d.outputs},
                        {"current", d.current},
+                       {"currentInput", d.currentInput},
                        {"isDefault", d.isDefault}});
     return json{{"type", "audio-devices"}, {"devices", arr}};
 }

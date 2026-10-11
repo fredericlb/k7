@@ -59,6 +59,8 @@ export const PresetTapSchema = z
 export const PresetFileSchema = z
   .object({
     engine: z.string().min(1).optional(),
+    // The named base the values were taken on — a whole state they only make sense over (packages/song/docs/userPresets.md).
+    base: z.string().min(1).optional(),
     params: z.record(z.string().min(1), z.number()).optional(),
     rack: z.record(z.string().min(1), PresetTapSchema).optional(),
   })
@@ -79,6 +81,7 @@ export function presetFileText(ref: string, preset: PresetFile): string {
   PresetFileSchema.parse(preset);
   const lines = [`# preset for ${ref}`];
   if (preset.engine) lines.push(`engine: ${key(preset.engine)}`);
+  if (preset.base) lines.push(`base: ${key(preset.base)}`);
   const params = Object.entries(preset.params ?? {});
   if (params.length) {
     lines.push("params:");

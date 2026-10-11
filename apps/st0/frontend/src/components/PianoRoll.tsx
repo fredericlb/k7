@@ -73,6 +73,7 @@ const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(pc(k));
 const N_NOTES = 128; // every possible MIDI note (0..127)
 const PX_PER_BEAT = 24; // fallback beat width for the first, unmeasured frame only
 const GUTTER = 44; // note-name column, px
+const NAMED_GUTTER = 112; // …wide enough for a sample's name, when the lane's rack gives its keys one
 const RULER_H = 18; // bar/beat ruler height, px
 const KEYS = Array.from({ length: N_NOTES }, (_, i) => 127 - i); // high → low, top → bottom
 
@@ -105,6 +106,7 @@ export function PianoRoll({
   onModeChange,
   takes,
   reloadKey = 0,
+  keyNames,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -169,7 +171,11 @@ export function PianoRoll({
   takes?: PanelTakes;
   /** What a take row re-reads its sequence on. */
   reloadKey?: number;
+  /** The sample each key fires, from the lane's rack (rackFor.ts): those keys show it, every other key its note name. */
+  keyNames?: ReadonlyMap<number, string>;
 }) {
+  const named = keyNames != null && keyNames.size > 0;
+  const gutter = named ? NAMED_GUTTER : GUTTER;
   /** Where a press goes — CHOSEN, and `select` by default: the roll opens ready to read rather than ready to write. */
   // …except on a comped event, whose notes are its takes': it opens on them (song docs/takes.md).
   const [mode, setMode] = useState<RollMode>(
@@ -249,7 +255,7 @@ export function PianoRoll({
   }, []);
 
   // Wheel zooms the time axis; middle-drag pans (both axes). Bound once the body mounts.
-  const [zoomX, setZoomX] = useHZoom(bodyRef, { gutter: GUTTER });
+  const [zoomX, setZoomX] = useHZoom(bodyRef, { gutter });
   usePanScroll(bodyRef);
 
   // A DIFFERENT clip opens at fit: nothing else let go of the zoom multiplier, so a sequence inherited the last one's scale.
@@ -279,16 +285,21 @@ export function PianoRoll({
   const placed = clip.length > 0;
   const rulersH = RULER_H * (placed ? 2 : 1);
 
-  const availW = Math.max(0, pane.w - GUTTER);
+  const availW = Math.max(0, pane.w - gutter);
   const availH = Math.max(0, pane.h - rulersH);
+  // The fit's spans are taken ONCE per clip: re-fitting on every edit rescaled the roll under the note being dragged.
+  const scaleFor = useRef<{ id: string; rows: number; beats: number }>(null);
+  if (scaleFor.current?.id !== clip.id)
+    scaleFor.current = { id: clip.id, rows: fit.rows, beats: fit.beats };
+  const scale = scaleFor.current;
   // Base scales: the framed rows fill the height and the framed beat span the width, then zoomX stretches the time axis.
-  const rowH = availH > 0 ? availH / fit.rows : 12;
-  const ppb0 = availW > 0 ? availW / fit.beats : PX_PER_BEAT;
+  const rowH = availH > 0 ? availH / scale.rows : 12;
+  const ppb0 = availW > 0 ? availW / scale.beats : PX_PER_BEAT;
   const ppb = ppb0 * zoomX;
   const laneW = canvasBeats * ppb;
   const gridH = N_NOTES * rowH;
   const keyTop = (k: number) => (127 - k) * rowH;
-  const showLabels = rowH >= 9; // only label octave Cs when a row is tall enough
+  const showLabels = rowH >= 9; // a row too short for 9px text is labelled nowhere
 
   // Frame the fit once measured, and again for a different clip. Adding notes keeps clip.id, so the view stays.
   const framedFor = useRef<string>("");
@@ -382,13 +393,13 @@ export function PianoRoll({
           beatOfCol(b.colHi + 1),
         );
       },
-      /** `selection paste` — one `sequence note add`, landing relative to the CARET, so a copied bar pastes a bar later. */
+      /** `selection paste` — one `sequence note add` at the caret's TIME, the copy's start on it; each note keeps its own pitch. */
       pasteLine: (c) => {
         if (c.kind !== "notes")
           return {
             note: m["grid.clipboardHasEvents"](),
           };
-        const out = pasteNotes(c, 127 - caret.row, beatOfCol(caret.col));
+        const out = pasteNotes(c, c.top, beatOfCol(caret.col));
         if (!out.length) return { note: m["grid.nothingToPaste"]() };
         const dropped = droppedCount(out.length, c);
         return {
@@ -585,7 +596,7 @@ export function PianoRoll({
         >
           <div
             className="relative font-mono"
-            style={{ width: GUTTER + laneW, height: rulersH + gridH }}
+            style={{ width: gutter + laneW, height: rulersH + gridH }}
           >
             {/* The rulers, stacked and sticky as one: the SONG's positions on top, the file's own bars and beats below. */}
             <div className="sticky top-0 z-20 bg-background text-[10px] text-muted-foreground">
@@ -593,14 +604,15 @@ export function PianoRoll({
                 <div className="flex" style={{ height: RULER_H }}>
                   <div
                     className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
-                    style={{ width: GUTTER }}
+                    style={{ width: gutter }}
                   />
                   <div
                     className="relative border-b border-border/50"
                     style={{ width: laneW }}
                   >
                     <ArrangementRuler
-                      startBeat={clip.start}
+                      // The canvas starts at the FILE's beat `origin`, and the window's start is where the clip begins in the song.
+                      startBeat={clip.start + origin - (loop?.from ?? 0)}
                       beats={canvasBeats}
                       ppb={ppb}
                       barBeats={barBeats}
@@ -615,7 +627,7 @@ export function PianoRoll({
               <div className="flex" style={{ height: RULER_H }}>
                 <div
                   className="sticky left-0 z-10 shrink-0 border-b border-r border-border bg-background"
-                  style={{ width: GUTTER }}
+                  style={{ width: gutter }}
                 />
                 <div
                   className="relative overflow-hidden border-b border-border"
@@ -641,19 +653,33 @@ export function PianoRoll({
             <div className="flex" style={{ height: gridH }}>
               <div
                 className="sticky left-0 z-10 shrink-0 border-r border-border bg-background"
-                style={{ width: GUTTER }}
+                style={{ width: gutter }}
               >
                 {KEYS.map((k) => (
                   <button
                     type="button"
                     key={k}
-                    disabled={!onPreviewNote}
                     onClick={() => onPreviewNote?.(k, AUDITION_VEL)}
-                    title={onPreviewNote ? noteName(k) : undefined}
-                    className={`flex w-full items-center justify-end pr-1 text-[9px] text-muted-foreground enabled:cursor-pointer enabled:hover:bg-accent ${isBlack(k) ? "bg-muted/50" : ""}`}
+                    onDoubleClick={() => grid.selectRow(127 - k)}
+                    title={
+                      keyNames?.has(k)
+                        ? `${keyNames.get(k)} · ${noteName(k)}`
+                        : onPreviewNote
+                          ? noteName(k)
+                          : undefined
+                    }
+                    className={`flex w-full items-center justify-end pr-1 text-[9px] text-muted-foreground cursor-pointer hover:bg-accent ${isBlack(k) ? "bg-muted/50" : ""}`}
                     style={{ height: rowH, lineHeight: `${rowH}px` }}
                   >
-                    {showLabels && pc(k) === 0 ? (
+                    {!showLabels ? (
+                      ""
+                    ) : keyNames?.has(k) ? (
+                      <span className="min-w-0 truncate text-foreground">
+                        {keyNames.get(k)}
+                      </span>
+                    ) : named ? (
+                      noteName(k)
+                    ) : pc(k) === 0 ? (
                       <>
                         {noteName(k)} <span className="opacity-50">{k}</span>
                       </>
@@ -699,6 +725,8 @@ export function PianoRoll({
                   left0={0}
                   top={0}
                   height={gridH}
+                  // Bars as solid lines: a dense roll swallows the faint dashed ones the timeline's lanes can afford.
+                  strongBars
                 />
                 {/* The caret cell and its rectangle, under the notes and `pointer-events-none`: both are marks, not targets (docs/clipEditors.md). */}
                 {active && !box && (
@@ -905,6 +933,8 @@ export function PianoRoll({
                   clipStart={clip.start}
                   placedEnd={placedEnd}
                   span={canvasBeats}
+                  windowFrom={loop?.from ?? 0}
+                  windowLength={loop?.win ?? 0}
                   ppb={ppb}
                   height={gridH}
                 />

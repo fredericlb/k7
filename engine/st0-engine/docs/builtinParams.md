@@ -121,7 +121,12 @@ Note the phaser's member is `feedbackGain` but its **property** is `feedback` â€
 is what matters here.
 
 Automation does not go through that fallback: a curve needs a real `AutomatableParameter`, so a
-state param can be set and read but never automated.
+state param can be set and read but never automated. The dump says which: such a param carries
+`"automatable": false`, the generated table `automatable: false`, and that flag is what the app
+reads â€” `node automate` refuses a binding to one by name, and a curve already bound to one is a
+project warning (`packages/song/src/deadAutomations.ts`) rather than a line in the engine's log.
+The library's phaser and chorus default to `classic` engines rebuilt as graphs for exactly this
+reason: the plugins' every knob is state, so nothing on them could ever be automated.
 
 ## An empty list is an ANSWER
 

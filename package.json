@@ -24,6 +24,7 @@
     "apps/pl8",
     "apps/pl8/frontend",
     "apps/pl8/backend",
+    "apps/st0-standalone",
     "engine/st0-engine",
     "engine/st0-tray",
     "engine/st0-android/web"

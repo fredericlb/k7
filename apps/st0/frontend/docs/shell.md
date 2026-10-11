@@ -247,21 +247,36 @@ and `truncate` on the name) and the right one is a fixed count of 24-pixel butto
 window they clear it; squeeze the window far enough and the transport draws over them rather than
 pushing them aside.
 
-Play/pause, stop, the clock, then two record buttons — audio, then MIDI — and each **drops focus on
-click** (`blurOnClick`). These are the buttons a mouse is most likely to land on right before
-reaching for Space, and a focused one eats the keypress. On play/pause the theft is invisible,
-because the button does what Space would; on stop and on both records it is not.
+Play/pause, stop, the clock, then the record button, and each **drops focus on click**
+(`blurOnClick`). These are the buttons a mouse is most likely to land on right before reaching for
+Space, and a focused one eats the keypress. On play/pause the theft is invisible, because the button
+does what Space would; on stop and on record it is not.
 
-The two records own the two halves a take can be. The filled circle is the **ENGINE's** record: it
-flips the session's record state, and play records every lane armed there (`transport arm`). The
-second is the **BROWSER's** (`midiRecord` in App, the capture in `useMidiRecording.ts`): the engine
-never hears a controller, so the notes are timed here — in playhead beats, interpolated between
-frames ([playhead.md](playhead.md)) — and committed into the armed track's sequence when the take
-ends. Which track is armed for which half is the LANE's arm button (`rec <track>` reaches the same
-split): `useTrackControls.ts` resolves it by what the track holds, an instrument track arming for
-MIDI here and an audio track arming in the engine, and one red lane reads both.
+**One record, whatever the lane holds.** The circle flips the ENGINE's record state, and play records
+every lane armed there (`transport arm`) — and the MIDI-armed lane too, which the BROWSER captures
+(`useMidiRecording.ts`): the engine never hears a controller, so the notes are timed here, in
+playhead beats interpolated between frames ([playhead.md](playhead.md)). Arm, record, play is one
+gesture for audio and MIDI alike, so there is no second button to know about; `midiRecord` in App is
+what the takes view sets for a MIDI pass, and nothing in the bar shows it. Which half a lane arms is
+its arm button's business (`rec <track>` reaches the same split): `useTrackControls.ts` resolves it
+by what the lane holds and what feeds it, and one red lane reads both.
 
-**Play waits for an arm.** With either record on and no lane armed — audio, MIDI or picture — Play
+The engine counts in even when it records no lane of its own, since the browser's take is owed the
+same count (`engine/st0-engine/docs/engineHost.md`); what is played during it belongs to no take,
+bar a downbeat a hair early (`inTake`). While a MIDI take rolls, the lane draws it growing and the
+event panel draws its notes as they are played (`MidiTakeRoll.tsx`) — a window that follows the
+playhead, since the clip's own piano roll fits its view once and a take outgrows it. When the take
+ends it lands as a NEW clip placed where it was played, as an audio take does, and that clip's piano
+roll replaces the live one.
+
+**A record is one take, not a mode.** Record goes OFF when the roll that recorded stops — the
+engine clears its own in `stop()`, and App clears `midiRecord` on the same edge. Left on, the next
+Play is another take, and an ordinary take mutes the armed lane at its punch-in: an armed track that
+plays silent reads as a broken track, not as a record still lit. Pressing a record while it rolls
+ends the take there and keeps playing; during the engine's count-in there is no take yet, so it
+stops the roll (`engine/st0-engine/docs/engineHost.md`).
+
+**Play waits for an arm.** With record on and no lane armed — audio, MIDI or picture — Play
 is greyed and `transport play` (Space included) is refused with the two ways out (`recordWithoutArm`
 in App). Rolling then would be a take of nothing: the engine plays on without recording, and the
 record panel opens on a pass that captures no lane. A rolling transport can always be stopped.
@@ -491,7 +506,11 @@ on the lane, and this tab is told by neither — so the document it is drawing i
 and nothing in it knows.
 
 The signal is `lastTake` on `/workspace`, read by the 2 s poll (`useActiveProjectFollow`) beside
-`activeProject`. The shell does two things with it: `setWs`, which opens the review panel on the new
+`activeProject` — every 200 ms from the moment a take stops until it lands, or for 15 s. Two seconds
+is the length of a whole breath between Stop and a picture, and the fast rate is bounded because a
+take that never lands (a session serving nothing) must not leave the tab hammering the service. Until
+the file's picture has loaded, the panel keeps the take's live envelope on screen: the take as it was
+heard is a truer picture of it than a "reading" line. The shell does two things with it: `setWs`, which opens the review panel on the new
 clip, and a reload, which puts the clip on its lane. Both have to hang off that read and nothing else
 — the transport keys go straight to the engine socket (below), so no reply from the file service comes
 back to bump a reload, and a take stopped from the header's Stop button would otherwise be on disk, on
@@ -506,6 +525,10 @@ that rule, and a pure function for exactly that reason.
 The automatic appearance is a moment that passes: `lastTake` lives in the file service's MEMORY, so every
 restart of that service loses it, and the ✓ ends it for good as well. A take would otherwise become
 unreachable while its file sits in `clips/`.
+
+The bin beside the ✓ discards the take: `event remove` on its event, which closes the panel too. The
+file stays in `clips/`, so the discard is one Ctrl+Z like any other edit; deleting the file would make
+a misclick on the bin final, and that is the one button on the panel placed to be pressed in a hurry.
 
 `ui review <clip>` names one and opens the panel on it — a `ui` command because it opens a VIEW and writes
 nothing, what the panel then does (`clip process`, `event trim`, `clip onset …`) being the brain's. The
@@ -677,8 +700,25 @@ The buttons:
 |---|---|---|
 | ♪ (a SET only) | Playlists | the repository's set lists: a searchable dropdown, its songs under it |
 | ⌾ | Références | the repository's reference tracks — what you listen AGAINST ([references.md](references.md)) |
+| ☑ | Tâches | the workspace's task list, `TODOS.md` at its root ([tasks.md](tasks.md)) |
+| ⟲ | Historique | the open song's undo steps and the commits that touched it, one list by time |
 | ⇪ | Partager | commit, pull, export, publish — and the badge saying how far behind the repo is |
 | ⚙ | Réglages | tabs: Éditeur, I/O, Compte |
+
+**The I/O tab lists the INTERFACE's inputs, not the song's** (`components/IoPanel.tsx`): every
+input device the engine reports, each with its meter and a tuner on the line below, and beside it
+the song's input nodes that listen there — or `unused`. A song declaring one input on a sixteen-channel
+interface would otherwise hide the fifteen you are trying to find a signal on. Until the engine has
+answered, the rows are the song's declared inputs.
+
+**The History panel LIGHTS, it does not travel** (`components/HistoryPanel.tsx`). Hovering a step
+or a commit rings what it touched on the graph and the timeline — the live ones, as they are now —
+rather than swapping them for the project as it was. A commit carries nothing but the files it
+changed, so the marks are read off PATHS (`historyMarks.ts`): a track file is its lane, a sequence
+or clip file every placement of that material, a chain file its chain — or only the node a journal
+step's command line names in it. A file that is the whole song's (`project.yaml`) lights nothing,
+since lighting everything says nothing. Undone steps stay in the list, dimmed: they are what Ctrl+Y
+brings back, until the next edit drops them.
 
 `rightPanel` in `App` is one value and not one boolean each, because there is **one column**: two panels
 open at once would be two columns, and the panes have already given up the width for one.
@@ -1429,7 +1469,9 @@ file pickers, which are its two hidden inputs.
 
 Three of those rows have TWO answers. `ui select`, `transport locate` and `transport loop` reach whichever
 grid is on screen: the clip pane's caret while it is open ([clipEditors.md](clipEditors.md)), the
-timeline's otherwise. The commands are one thing, and which surface answers is a question about what you
+timeline's otherwise — except that `transport loop` goes to the clip pane only when IT holds the
+selection, as Shift+L's conditions already say: the ruler's "Loop selection" is about the timeline's
+range, and the clip pane open below it would otherwise take the line and find nothing to loop. The commands are one thing, and which surface answers is a question about what you
 are looking at, not about the verb. `ui zoom` stays the timeline's alone: it is the only one that keeps a
 zoom stack. `selection copy` has two answers as well and takes them in ORDER — the clip pane, then the
 timeline, first answer winning — because it is the only one that asks the pane a question instead of acting

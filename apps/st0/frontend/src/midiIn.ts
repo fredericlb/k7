@@ -13,3 +13,12 @@ export function midiInDeviceFor(g: WebGraph, track: string): string | null {
   }
   return null;
 }
+
+/** Every lane a midi-in node is wired to — the lanes that arm in the BROWSER even before they hold a sequence. */
+export function midiInLanes(g: WebGraph): Set<string> {
+  const out = new Set<string>();
+  for (const c of Object.values(g.chains))
+    if (c.use.some((s) => s.device !== undefined))
+      for (const o of c.out ?? []) out.add(o.to);
+  return out;
+}

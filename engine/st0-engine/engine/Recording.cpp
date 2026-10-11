@@ -27,22 +27,30 @@ struct RecordListener : public te::TransportControl::Listener {
     // Bound to ONE session: with N projects there is no "the" edit a finished take could be looked up in.
     RecordListener(EngineHost& h, std::string s) : host(h), session(std::move(s)) {}
 
-    // Mute the armed track at the punch-in, not the top of the roll, so the count-in still plays the old clips (docs/engineHost.md).
+    // Mute the armed track's clips at the punch-in, not the top of the roll, so the count-in still plays the old clips (docs/engineHost.md).
     void recordingStarted(tt::SyncPoint start, std::optional<tt::TimeRange>) override {
         auto* tc = host.impl_->transport(session);
         if (tc == nullptr) return;
+        host.impl_->session(session).punchAt = start.time.inSeconds();
         // A take hears its lane around the punch: the brain sent the lane with the punch already cut out.
         if (!host.current(session).recordMute) return;
 
         // Capture host's address, not `this`: a rebuild may drop this listener before the timer fires.
         EngineHost* hp = &host;
         const std::string sid = session;
-        const auto mute = [hp, sid] {
+        const unsigned gen = ++host.impl_->session(session).rollGen;
+        const auto mute = [hp, sid, gen] {
             auto* s = hp->impl_->find(sid);
             if (s == nullptr || !s->edit) return;
+            // A stop during the count-in already ended this roll: muting now would silence the NEXT, ordinary, playback.
+            if (s->rollGen != gen) return;
             for (const auto& id : hp->armedTracks(sid))
                 if (auto* track = trackById(*s->edit, id, hp->current(sid)))
-                    track->setMute(true);
+                    for (auto* clip : track->getClips())
+                        if (clip != nullptr && !clip->isMuted()) {
+                            clip->setMuted(true);
+                            s->punchMuted.push_back(clip);
+                        }
         };
 
         const double delay = (start.time - tc->getPosition()).inSeconds();
@@ -108,17 +116,27 @@ void EngineHost::attachRecordListener(const std::string& session) {
     if (auto* tc = impl_->transport(session)) tc->addListener(impl_->session(session).recordListener.get());
 }
 
+void restorePunchMute(Session& s) {
+    for (auto& clip : s.punchMuted) clip->setMuted(false);
+    s.punchMuted.clear();
+}
+
 // Wire one track to its declared input, replacing whatever it had; monitor mode and trim belong to the DEVICE, see docs/audioDevice.md.
 void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) {
     if (!impl_->session(session).edit) return;
     auto* track = trackById(*impl_->session(session).edit, t.id, impl_->session(session).current);
     if (track == nullptr) return;
 
+    auto* ctx = impl_->session(session).edit->getCurrentPlaybackContext();
+    // The arm flag lives on the assignment cleared below, so a monitor or trim change would disarm the lane (docs/audioDevice.md).
+    bool wasArmed = false;
+    if (ctx != nullptr)
+        for (auto* in : ctx->getAllInputs())
+            if (in != nullptr && in->isRecordingEnabled(track->itemID)) wasArmed = true;
+
     // Drop any previous assignment for this track, so a changed or removed input never keeps feeding it.
     impl_->session(session).edit->getEditInputDevices().clearAllInputs(*track, nullptr);
     if (t.inputChannels.empty()) return;
-
-    auto* ctx = impl_->session(session).edit->getCurrentPlaybackContext();
     if (ctx == nullptr) return;   // no context yet — applyAllTrackInputs runs after one exists
 
     auto* dev = findWaveInput(impl_->engine, t.inputChannels);
@@ -146,11 +164,14 @@ void EngineHost::applyTrackInput(const std::string& session, const TrackDoc& t) 
                   << "' has no instance on this playback context\n";
         return;
     }
-    if (auto res = instance->setTarget(track->itemID, true, nullptr); !res)
+    if (auto res = instance->setTarget(track->itemID, true, nullptr); !res) {
         std::cerr << "[input] track '" << t.id << "': " << res.error() << '\n';
-    else
+    } else {
+        if (wasArmed) instance->setRecordingEnabled(track->itemID, true);
         std::cerr << "[input] track '" << t.id << "' <- '" << dev->getName()
-                  << "' monitor=" << t.monitor << " gain=" << t.inputGain << "dB\n";
+                  << "' monitor=" << t.monitor << " gain=" << t.inputGain << "dB"
+                  << (wasArmed ? " (kept armed)" : "") << '\n';
+    }
     dev->setMonitorMode(monitorModeOf(t.monitor));
     // Trim, at the DEVICE like the monitor mode above, so two tracks on one physical input share it.
     dev->setInputGainDb(static_cast<float>(t.inputGain));

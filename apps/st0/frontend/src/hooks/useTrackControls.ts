@@ -13,13 +13,18 @@ export function useTrackControls(opts: {
   midiArmed: string | null;
   setMidiArmed: React.Dispatch<React.SetStateAction<string | null>>;
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
+  /** The lanes a midi-in node feeds: they arm in the browser before they hold any sequence. */
+  midiLanesRef?: React.RefObject<Set<string>>;
   quietCommand: (line: string) => Promise<void>;
   bumpReload: () => void;
   /** Mute and solo are the VIEWER's, not the document's — a shared snapshot has nothing to write to, so they mean which stem sounds. */
   local?: boolean;
 }): {
   trackControls: Record<string, TrackControlValues>;
-  onTrackToggle: (id: string, control: "mute" | "solo" | "arm") => void;
+  onTrackToggle: (
+    id: string,
+    control: "mute" | "solo" | "arm" | "highlight",
+  ) => void;
   onTrackSet: (id: string, control: "volume" | "pan", value: number) => void;
 } {
   const {
@@ -28,6 +33,7 @@ export function useTrackControls(opts: {
     midiArmed,
     setMidiArmed,
     midiSeqRef,
+    midiLanesRef,
     quietCommand,
     bumpReload,
     local = false,
@@ -35,7 +41,7 @@ export function useTrackControls(opts: {
 
   // Optimistic mute/solo by track id: the tap flips at once, and the override drops once the refetched doc agrees.
   const [optMS, setOptMS] = useState<
-    Record<string, { mute?: 0 | 1; solo?: 0 | 1 }>
+    Record<string, { mute?: 0 | 1; solo?: 0 | 1; highlight?: 0 | 1 }>
   >({});
 
   const trackControls = useMemo<Record<string, TrackControlValues>>(() => {
@@ -47,6 +53,7 @@ export function useTrackControls(opts: {
         pan: t.pan,
         mute: o?.mute ?? (t.mute ? 1 : 0),
         solo: o?.solo ?? (t.solo ? 1 : 0),
+        highlight: o?.highlight ?? (t.highlight ? 1 : 0),
         // Armed == the engine's audio arm OR being the MIDI capture target, so both kinds of recording read the same.
         arm: armed.includes(t.id) || midiArmed === t.id ? 1 : 0,
       };
@@ -55,11 +62,18 @@ export function useTrackControls(opts: {
   }, [docTracks, armed, optMS, midiArmed]);
 
   // The doc's own mute/solo, read to know what to flip TO without re-creating the callback on every refetch.
-  const docMSRef = useRef<Record<string, { mute: 0 | 1; solo: 0 | 1 }>>({});
+  const docMSRef = useRef<
+    Record<string, { mute: 0 | 1; solo: 0 | 1; highlight: 0 | 1 }>
+  >({});
   useEffect(() => {
-    const m: Record<string, { mute: 0 | 1; solo: 0 | 1 }> = {};
+    const m: Record<string, { mute: 0 | 1; solo: 0 | 1; highlight: 0 | 1 }> =
+      {};
     for (const t of docTracks)
-      m[t.id] = { mute: t.mute ? 1 : 0, solo: t.solo ? 1 : 0 };
+      m[t.id] = {
+        mute: t.mute ? 1 : 0,
+        solo: t.solo ? 1 : 0,
+        highlight: t.highlight ? 1 : 0,
+      };
     docMSRef.current = m;
     // A fresh doc IS the source of truth — except locally, where it never catches up, so clearing would silently un-mute every lane.
     if (!local) setOptMS({});
@@ -67,10 +81,10 @@ export function useTrackControls(opts: {
 
   // Toggle mute/solo/arm: flip optimistically, run, and only THEN bump the reload — refetching first reads stale state.
   const onTrackToggle = useCallback(
-    (id: string, control: "mute" | "solo" | "arm") => {
+    (id: string, control: "mute" | "solo" | "arm" | "highlight") => {
       if (control === "arm") {
         // An instrument track arms for MIDI capture in the browser; an audio track arms in the ENGINE, hence `transport arm`.
-        if (midiSeqRef.current[id]) {
+        if (midiSeqRef.current[id] || midiLanesRef?.current.has(id)) {
           setMidiArmed((cur) => (cur === id ? null : id));
           return;
         }
@@ -87,7 +101,7 @@ export function useTrackControls(opts: {
         .then(bumpReload)
         .catch(bumpReload); // reconcile even if it failed
     },
-    [quietCommand, bumpReload, midiSeqRef, setMidiArmed, local],
+    [quietCommand, bumpReload, midiSeqRef, midiLanesRef, setMidiArmed, local],
   );
 
   // Commit a volume/pan knob by addressing the MIXER NODE, in the units the widget declares — `volume` in dB, needing no conversion at all.

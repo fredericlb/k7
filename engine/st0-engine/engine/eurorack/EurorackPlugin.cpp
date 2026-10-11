@@ -110,9 +110,12 @@ void EurorackPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const int start = ctx.bufferStartSample;
     if (n <= 0 || out_.empty() || n > (int)out_[0].size()) return;
 
+    if (resetPending_.exchange(false)) {
+        bridge_.reset();
+        clearCore();
+    }
     readParams();
 
-    if (resetPending_.exchange(false)) bridge_.reset();
     // Through the path a MIDI all-notes-off takes, so every module's core answers it as it answers the message.
     if (releasePending_.exchange(false) && shape_.midi) handleMidi(juce::MidiMessage::allNotesOff(1));
 

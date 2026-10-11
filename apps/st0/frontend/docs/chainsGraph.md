@@ -23,7 +23,9 @@ instant and a zoom glides — is the package's own
   keying the fit on it throws away the user's pan and zoom whenever they bypass a module or
   edit a chain. `fitKey` identifies *which* graph is on screen: a change re-frames, a
   redraw of the same one leaves the camera alone. A surface that always shows the same graph
-  omits it and frames once, on first paint.
+  omits it and frames once, on first paint. The per-track view keys on its cards' ids AND
+  sizes: a replaced module keeps its node's name, so a key of names alone would leave the
+  camera framing the old card after a replace.
 - **`fitted` vs `userMoved`.** These are deliberately separate. The host keeps changing size
   for a while after the first successful fit — the sidebar appears once `useIsMobile`
   settles, panels mount, the splitter moves — and framing to a viewport that no longer

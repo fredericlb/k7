@@ -47,6 +47,14 @@ target_include_directories(studio_turntable_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
 add_test(NAME studio_turntable_tests COMMAND studio_turntable_tests)
 
+# --- Warp marker tests --------------------------------------------------------
+# Another fast binary, for the same reason: WarpMarkers.h is header-only and JUCE-free, so which markers reach
+# Tracktion is tested without linking it. That the kept ones TIME the sound is scripts/warp-points.ts's.
+add_executable(studio_warp_tests WarpMarkers_test.cpp)
+target_include_directories(studio_warp_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+add_test(NAME studio_warp_tests COMMAND studio_warp_tests)
+
 # --- Recorder ring tests ------------------------------------------------------
 # A FIFTH fast binary, for the reason the two above give: RecorderTap.h is header-only and
 # JUCE-free, so the one property no eye can check — that an overrun is COUNTED rather than

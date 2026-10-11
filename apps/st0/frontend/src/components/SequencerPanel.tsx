@@ -1,7 +1,7 @@
 // SequencerPanel.tsx — a MIDI clip whose track feeds a RACK, edited as a STEP SEQUENCER: one
 // row per rack sound — plus one per key the notes use that the rack does not name — a fixed
 // grid of cells over the clip's window, a lit cell = "this sound hits here". The precision
-// (1/2 … 1/16 notes) is the person's, per panel. A press toggles; a vertical DRAG on a lit
+// (1/2 … 1/32 notes) is the person's, per panel. A press toggles; a vertical DRAG on a lit
 // cell is the roll's velocity gesture, restated for a button. Every commit is one note
 // command — one line, one Ctrl+Z — and the grid redraws from the reload it triggers.
 // What a press WRITES is ../hooks/useStepPads.ts; this file is the layout and the drawing.
@@ -288,13 +288,13 @@ export function SequencerPanel({
       <div className="min-h-0 flex-1 overflow-auto p-2">
         <div className="flex w-max min-w-full">
           <div className="sticky left-0 z-10 shrink-0 bg-background pr-2">
-            {rows.map((row) => (
+            {rows.map((row, rowIndex) => (
               <button
                 type="button"
                 key={row.note}
-                disabled={!onPreviewNote}
                 onClick={() => onPreviewNote?.(row.note, AUDITION_VEL)}
-                className="mb-0.5 flex h-14 w-full items-center justify-end gap-1 rounded font-mono text-[11px] enabled:cursor-pointer enabled:hover:bg-accent"
+                onDoubleClick={() => grid.selectRow(rowIndex)}
+                className="mb-0.5 flex h-14 w-full cursor-pointer items-center justify-end gap-1 rounded font-mono text-[11px] hover:bg-accent"
               >
                 <span
                   className={cn(
@@ -461,6 +461,20 @@ export function SequencerPanel({
                 })}
               </div>
             ))}
+            {/* A line in the gap before each bar's first step, placed as a share of the width like the playhead, so it costs the cells nothing. */}
+            {cells.map((cellStart, i) =>
+              i > 0 &&
+              Math.abs(
+                cellStart / barBeats - Math.round(cellStart / barBeats),
+              ) < 1e-6 ? (
+                <div
+                  key={`bar-${cellStart}`}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-foreground/40"
+                  style={{ left: `calc(${(i / cells.length) * 100}% - 1px)` }}
+                />
+              ) : null,
+            )}
             <StepPlayhead
               tempo={project.tempo}
               clipStart={clip.start}

@@ -453,10 +453,13 @@ export function repointClips(
   to: string,
   /** The render's length in seconds — absent when it could not be read, and then the map is left alone. */
   seconds?: number | null,
+  /** The clip ids allowed to follow — absent means every clip playing `from`; `event process` names its own. */
+  only?: readonly string[],
 ): string[] {
   const moved: string[] = [];
   const rel = relative(dir, to).split("\\").join("/");
   for (const e of entityFiles(join(dir, "clips"), "clips")) {
+    if (only && !only.includes(e.id)) continue;
     let raw: { source?: unknown; warp?: { markers?: unknown } };
     try {
       raw = (parseYaml(readFileSync(e.file.path, "utf8"), { version: "1.2" }) ??
@@ -498,6 +501,8 @@ export async function processWithChain(
   beforeWrite?: (absPath: string) => void,
   /** How to run one COLD step: handed in rather than imported, since the model lives downstream. */
   runCold?: RunColdStep,
+  /** The clip ids the render may be repointed in — see repointClips. */
+  only?: readonly string[],
 ): Promise<ProcessResult> {
   // Every message names the command that produced it, both of them being one implementation.
   const verb = `${scope} process`;
@@ -589,7 +594,7 @@ export async function processWithChain(
     }
     changed = true;
     // The render's own length, so a clip's stretch map can follow it — see repointClips.
-    const moved = repointClips(dir, source, out, wavSeconds(out));
+    const moved = repointClips(dir, source, out, wavSeconds(out), only);
     lines.push(
       `${show(source)} → ${show(out)}` +
         (moved.length

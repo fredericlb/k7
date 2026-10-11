@@ -30,6 +30,7 @@ import { api, thawAutoFreeze } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { withoutNotes } from "../graphNotes";
+import { type HistoryMark, nodePredicate } from "../historyMarks";
 import { useDocument } from "../hooks/useDocument";
 import {
   droppedReport,
@@ -38,6 +39,7 @@ import {
   useMidiControl,
 } from "../hooks/useMidiControl";
 import { useRackTrigger } from "../hooks/useRackTrigger";
+import { midiActivity } from "../midiActivity";
 import { nodeNameFor } from "../nodeInsert";
 import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
@@ -45,6 +47,8 @@ import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
 
 export function ChainsTab({
+  mark,
+  onPreviewNote,
   reloadKey,
   organizeKey = 0,
   active,
@@ -63,6 +67,7 @@ export function ChainsTab({
   onAlternative,
   onEngine,
   onPresets,
+  onPresetStep,
   presetNames,
   engineWarnings,
   onSetModuleAsset,
@@ -102,6 +107,10 @@ export function ChainsTab({
   midiRef,
   onMidiStatus,
 }: {
+  /** What a hovered History row touched, lit on these cards (historyMarks.ts). */
+  mark?: HistoryMark | null;
+  /** Play one note through a lane, as the piano roll's click does — what an SFZ kit's pad sounds through. */
+  onPreviewNote?: (track: string, key: number, vel: number) => void;
   reloadKey: number;
   // Bumped when `graph organize` ran: the one signal that empties the held node positions and lets dagre re-lay out everything.
   organizeKey?: number;
@@ -137,6 +146,8 @@ export function ChainsTab({
   /** A node's engine dropdown — straight through, the command being the SHELL's (packages/song/docs/engines.md). */
   onEngine?: (module: string, name: string) => void;
   /** A node's preset dropdown — the shell draws the list (packages/song/docs/userPresets.md). */
+  /** The arrows beside a node's preset dropdown: load its previous (-1) or next (+1) preset. */
+  onPresetStep?: (module: string, step: -1 | 1) => void;
   onPresets?: (
     module: string,
     x: number,
@@ -214,7 +225,10 @@ export function ChainsTab({
   moduleParams?: Record<string, Record<string, number>>;
   // Live mixer state plus the two callbacks a track node's controls actuate — pure pass-through to the canvas.
   trackControls?: Record<string, TrackControlValues>;
-  onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
+  onTrackToggle?: (
+    trackId: string,
+    control: "mute" | "solo" | "arm" | "highlight",
+  ) => void;
   onTrackSet?: (
     trackId: string,
     control: "volume" | "pan",
@@ -319,6 +333,8 @@ export function ChainsTab({
     [onBypassModule],
   );
 
+  // The History panel's hover, as the per-card test DomChains reads.
+  const marked = useMemo(() => nodePredicate(mark), [mark]);
   // Which of this project's rack sounds are firing right now — derived from the arrangement and the playhead (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
 
@@ -476,7 +492,7 @@ export function ChainsTab({
   const laidRef = useRef(laid);
   laidRef.current = laid;
   // A pad clicked auditions its sound, the same way in every pane that draws a kit.
-  const triggerRack = useRackTrigger(laidRef);
+  const triggerRack = useRackTrigger(laidRef, onPreviewNote, rackLit.flash);
 
   const chainNodes = useCallback(
     (chainName: string) => {
@@ -631,7 +647,8 @@ export function ChainsTab({
     };
   }, [active, pluginIds, watchPluginParams]);
 
-  if (error)
+  // Only with nothing to draw: a failed RE-read keeps the last graph on screen while useDocument retries.
+  if (error && !graph)
     return (
       <div className="p-4 text-sm text-red-400">
         graph unavailable — {error}
@@ -798,9 +815,12 @@ export function ChainsTab({
             onAlternative={onAlternative}
             onEngine={onEngine}
             onPresets={onPresets}
+            onPresetStep={onPresetStep}
             presetNames={presetNames}
             onTriggerRack={triggerRack}
             rackLit={rackLit}
+            midiActivity={midiActivity}
+            marked={marked}
             engineWarnings={engineWarnings}
             onSetModuleAsset={onSetModuleAsset}
             onAssetBrowse={onAssetBrowse}

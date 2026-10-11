@@ -6,6 +6,7 @@
   "description": "st0's translator \u2014 parses another DAW's project (.dawproject, .als) and emits a st0 song folder (YAML). A library consumed as source; the file service is its caller.",
   "exports": {
     "./ableton": "./src/ableton.ts",
+    "./abletonZip": "./src/abletonZip.ts",
     "./dawproject": "./src/dawproject.ts",
     "./emit": "./src/emit.ts",
     "./model": "./src/model.ts",

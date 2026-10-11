@@ -325,7 +325,8 @@ function pipeTo(
     },
   );
   up.on("error", (e) => {
-    if (res.headersSent) res.end();
+    // Past the headers a clean end would pass a cut-off body as a whole one: the browser must see the connection fail.
+    if (res.headersSent) res.destroy();
     else res.status(502).json({ error: `file service: ${e.message}` });
   });
   if (body) up.end(body);

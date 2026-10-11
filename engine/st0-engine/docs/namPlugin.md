@@ -88,13 +88,22 @@ without either being told.
 
 The IR is loaded mono like the model, trimmed of its leading silence, and **normalised**: a cabinet
 is its shape, not its level, and two IRs recorded at different gains would otherwise make swapping
-one for the other a volume change — the problem `Normalize` already solves for the model. Loading
-happens off the audio thread (JUCE's own background loader), and the stage is skipped entirely until
-an IR is there.
+one for the other a volume change — the problem `Normalize` already solves for the model.
+Normalised means **unit energy** (Σx² = 1), done by the module itself before JUCE sees the IR. JUCE's
+own `Normalise::yes` is not that: it scales to an energy of 0.125, 18 dB of headroom, which made
+every cabinet a drop of about 14 dB on a real amp — heard as "the cab kills the track". At unit
+energy a cabinet lifts a guitar amp by 3 to 5 dB, measured on the library's models and IRs: an amp
+puts most of its energy in the mids a cabinet passes. JUCE's resampling keeps that energy, so a
+44.1 kHz IR on a 48 kHz engine lands at the same level. Decoding the file happens when the module
+is built; the convolution engine is built off the audio thread (JUCE's background loader), and the
+stage is skipped entirely until an IR is there.
 
 `scripts/nam-ir.ts` checks what reaches the sound: a sawtooth through the model with and without
 the IR, and the change at each harmonic against the IR's own frequency response there. They agree
-to 0.01 dB — the cabinet heard is the one named, not merely some filter.
+to 0.05 dB — the cabinet heard is the one named, not merely some filter. Both renders run with
+`Output` at -12 dB: the test sawtooth is hot, a cabinet lifts it past full scale, and a clipped
+render measures the clipping. The script compares harmonics to the fundamental, so it sees the
+SHAPE and never the level.
 
 Picking another model or another IR is a REPLACE in the diff (`projectDiff.md`), since both are
 loaded when the plugin is created.

@@ -146,9 +146,26 @@ bool NamPlugin::loadImpulseResponse(const juce::File& file, juce::String& error)
         error = "no such IR: " + file.getFullPathName();
         return false;
     }
-    // Mono like the model, trimmed of its leading silence, and NORMALISED: a cab is its shape, not its level.
-    cab_.loadImpulseResponse(file, juce::dsp::Convolution::Stereo::no, juce::dsp::Convolution::Trim::yes, 0,
-                             juce::dsp::Convolution::Normalise::yes);
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+    if (reader == nullptr || reader->lengthInSamples <= 0) {
+        error = "not a readable IR: " + file.getFullPathName();
+        return false;
+    }
+    // Mono like the model: the first channel.
+    juce::AudioBuffer<float> ir(1, (int)reader->lengthInSamples);
+    reader->read(&ir, 0, ir.getNumSamples(), 0, true, false);
+
+    // UNIT energy, so a cab is its shape and not its level — JUCE's own Normalise aims far lower (docs/namPlugin.md).
+    const float* x = ir.getReadPointer(0);
+    double energy = 0.0;
+    for (int i = 0; i < ir.getNumSamples(); ++i) energy += (double)x[i] * x[i];
+    if (energy > 1.0e-8) ir.applyGain((float)(1.0 / std::sqrt(energy)));
+
+    // Trimmed of its leading silence, and resampled by JUCE to the engine's rate.
+    cab_.loadImpulseResponse(std::move(ir), reader->sampleRate, juce::dsp::Convolution::Stereo::no,
+                             juce::dsp::Convolution::Trim::yes, juce::dsp::Convolution::Normalise::no);
     hasIr_.store(true, std::memory_order_relaxed);
     return true;
 }

@@ -34,6 +34,8 @@ public:
     void noteOn(int key, float velocity);
     void noteOff(int key);
     void allNotesOff();
+    /** Every voice cut, not released: what a seek asks for. Audio thread, allocation-free. */
+    void silence();
     void setBend(float semitones) { bend_ = semitones; }
 
     /** BLOCK frames into two channels, with `params` as they stand. */

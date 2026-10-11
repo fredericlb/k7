@@ -334,6 +334,8 @@ int serve(int port) {
             {"session", s.session},
             {"playing", s.playing},
             {"playhead", s.playheadSeconds},
+            // The loop the transport wraps in, in seconds — so a client that reconnects draws the one that is playing.
+            {"loop", {{"on", s.loop.on}, {"start", s.loop.startSeconds}, {"end", s.loop.endSeconds}}},
             {"levels", s.trackLevelsDb},
             {"inputLevels", s.trackInputLevelsDb},
             {"armed", s.armedTracks},

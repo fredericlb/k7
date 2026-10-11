@@ -16,9 +16,13 @@ import {
   NODE_MIN_W,
   NODE_W,
   nodeSize,
+  PADS_ACROSS,
+  PADS_UP,
   pairValue,
   pushBelowInputs,
   RACK_ADD_BIND,
+  rackAddBind,
+  rackAddBindAt,
   rackBindSymbol,
   rackGrid,
   rackUI,
@@ -32,6 +36,7 @@ import {
   widgetDenorm,
   widgetNorm,
   widgetRange,
+  widgetText,
   widgetTyped,
 } from "./graph";
 
@@ -681,6 +686,32 @@ describe("widgetNorm / widgetDenorm round-trip", () => {
       step: 1,
     };
     expect(Number.isInteger(widgetDenorm(stepped, 0.57))).toBe(true);
+  });
+});
+
+describe("widgetText", () => {
+  const semitones: WebWidget = {
+    type: "knob",
+    col: 0,
+    row: 0,
+    min: -24,
+    max: 24,
+    step: 1,
+  };
+
+  it("reads a whole-number step as a signed integer when the range is bipolar", () => {
+    expect(widgetText(semitones, 7)).toBe("+7");
+    expect(widgetText(semitones, -12)).toBe("-12");
+    expect(widgetText(semitones, 0)).toBe("0");
+  });
+
+  it("leaves a unipolar whole-number range unsigned", () => {
+    expect(widgetText({ ...semitones, min: 1, max: 32 }, 16)).toBe("16");
+  });
+
+  it("keeps the decimals of a continuous control", () => {
+    expect(widgetText({ type: "knob", col: 0, row: 0 }, 0.5)).toBe("0.50");
+    expect(widgetText({ type: "knob", col: 0, row: 0 }, undefined)).toBe("–");
   });
 });
 
@@ -2042,37 +2073,93 @@ describe("a RACK node draws its sounds", () => {
     { symbol: "SN", note: 38, clip: "snare" },
   ];
 
-  it("gives one TAP per sound, named by symbol and bound to it, and a last tap that adds one", () => {
+  it("draws an octave as a 4×3 grid, the lowest note bottom left, an empty note an add tap on it", () => {
     const ui = rackUI(kit);
-    expect(Object.keys(ui.widgets)).toEqual([
-      "rack:BD",
-      "rack:HH",
-      "rack:SN",
-      "rack+",
-    ]);
-    expect(ui.widgets["rack:BD"]).toMatchObject({
+    // 36..47 holds the sounds; 48..59 is offered above them, so a rack can grow upward.
+    expect(ui.tabs?.map((t) => t.name)).toEqual(["C2", "C3"]);
+    expect(ui.cols).toBe(PADS_ACROSS * TAP_COLS);
+    expect(ui.rows).toBe(PADS_UP * TAP_ROWS);
+    const c2 = ui.tabs?.[0].widgets ?? {};
+    expect(Object.keys(c2)).toHaveLength(12);
+    // C (36) is the first cell of the BOTTOM row, D (38) the third, F# (42) the third of the middle one.
+    expect(c2["rack:BD"]).toMatchObject({
       type: "tap",
-      label: "BD",
       bind: "@rack:BD",
       col: 0,
-      row: 0,
+      row: 2 * TAP_ROWS,
       colSpan: TAP_COLS,
       rowSpan: TAP_ROWS,
     });
-    expect(ui.widgets["rack+"]).toMatchObject({
-      type: "tap",
-      bind: RACK_ADD_BIND,
+    expect(c2["rack:SN"]).toMatchObject({
+      col: 2 * TAP_COLS,
+      row: 2 * TAP_ROWS,
     });
-    // Three taps to a row: the fourth — the add tap — starts the second.
-    expect(ui.cols).toBe(3 * TAP_COLS);
-    expect(ui.widgets["rack+"]).toMatchObject({ col: 0, row: TAP_ROWS });
+    expect(c2["rack:HH"]).toMatchObject({ col: 2 * TAP_COLS, row: TAP_ROWS });
+    // B (47) is the last cell of the TOP row, and it adds a sound on its own note.
+    expect(c2["rack+:47"]).toMatchObject({
+      type: "tap",
+      bind: rackAddBindAt(47),
+      col: 3 * TAP_COLS,
+      row: 0,
+    });
+    expect(Object.keys(ui.tabs?.[1].widgets ?? {})).toHaveLength(12);
   });
 
-  it("draws only the add tap for a rack with no sound yet — how a kit node starts", () => {
+  it("gives an SFZ kit's fixed pads no add taps, a gain under each, and its level beside the grid", () => {
+    const ui = rackUI(kit, true);
+    // One octave is one page: no tab column for it.
+    expect(ui.tabs).toBeUndefined();
+    expect(Object.keys(ui.widgets).sort()).toEqual(
+      [
+        "kit:gain:BD",
+        "kit:gain:HH",
+        "kit:gain:SN",
+        "kit:volume",
+        "rack:BD",
+        "rack:HH",
+        "rack:SN",
+      ].sort(),
+    );
+    expect(ui.rows).toBe(PADS_UP * (TAP_ROWS + 1));
+    expect(ui.widgets["kit:volume"]).toMatchObject({
+      type: "knob",
+      bind: "Volume",
+      min: -40,
+      max: 12,
+      col: PADS_ACROSS * TAP_COLS,
+      row: 0,
+    });
+    expect(ui.widgets["kit:gain:HH"]).toMatchObject({
+      type: "number",
+      bind: "Key 42",
+      min: -24,
+      max: 12,
+      step: 1,
+      col: 2 * TAP_COLS,
+      row: TAP_ROWS + 1 + TAP_ROWS,
+      rowSpan: 1,
+    });
+  });
+
+  it("gives a kit over two octaves a tab each, and its level on every tab", () => {
+    const ui = rackUI([...kit, { symbol: "CR", note: 49 }], true);
+    expect(ui.tabs?.map((t) => t.name)).toEqual(["C2", "C3"]);
+    expect(Object.keys(ui.widgets)).toEqual(["kit:volume"]);
+    expect(ui.tabs?.[1].widgets["rack:CR"]).toMatchObject({ col: TAP_COLS });
+  });
+
+  it("opens an empty rack on the octave its first tap lands in", () => {
     const ui = rackUI([]);
-    expect(Object.keys(ui.widgets)).toEqual(["rack+"]);
-    expect(ui.cols).toBe(TAP_COLS);
-    expect(ui.rows).toBe(TAP_ROWS);
+    expect(ui.tabs).toBeUndefined();
+    expect(Object.keys(ui.widgets)).toHaveLength(12);
+    expect(ui.widgets["rack+:36"]).toMatchObject({ bind: rackAddBindAt(36) });
+  });
+
+  it("reads an add bind back to its note, and a bare one to none", () => {
+    expect(rackAddBind(rackAddBindAt(40))).toEqual({ note: 40 });
+    expect(rackAddBind(RACK_ADD_BIND)).toEqual({ note: null });
+    expect(rackAddBind("@rack:BD")).toBeNull();
+    expect(rackAddBind("Cutoff")).toBeNull();
   });
 
   it("is never smaller than 2×2, even holding one sound", () => {
@@ -2088,21 +2175,6 @@ describe("a RACK node draws its sounds", () => {
     expect(rackGrid(9)).toEqual({ cols: 3, rows: 3 });
     expect(rackGrid(16)).toEqual({ cols: 4, rows: 4 });
     expect(rackGrid(24)).toEqual({ cols: 4, rows: 6 });
-  });
-
-  it("lays the taps out three to a row, in the order it is handed", () => {
-    const many = Array.from({ length: 9 }, (_, i) => ({
-      symbol: `P${i}`,
-      note: 36 + i,
-    }));
-    const ui = rackUI(many);
-    // Nine taps and the add tap: four rows of three.
-    expect(ui.cols).toBe(3 * TAP_COLS);
-    expect(ui.rows).toBe(4 * TAP_ROWS);
-    expect(ui.widgets["rack:P4"]).toMatchObject({
-      col: TAP_COLS,
-      row: TAP_ROWS,
-    });
   });
 
   it("reads a pad bind back to its symbol, and leaves every other bind alone", () => {
@@ -2128,7 +2200,7 @@ describe("a RACK node draws its sounds", () => {
     );
     const node = g.nodes.find((n) => n.module === "kit");
     expect(node?.rack).toHaveLength(3);
-    expect(Object.keys(node?.ui?.widgets ?? {})).toContain("rack:BD");
+    expect(Object.keys(node?.ui?.tabs?.[0].widgets ?? {})).toContain("rack:BD");
     expect(node?.w).toBe(nodeSize(rackUI(kit)).w);
   });
 

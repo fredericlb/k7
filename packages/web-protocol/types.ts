@@ -120,6 +120,23 @@ export interface HistoryState {
   nextUndo?: HistoryPeek;
   nextRedo?: HistoryPeek;
 }
+/** One journal step as the History panel lists it — `paths` PROJECT-relative, `undone` past the cursor. */
+export interface HistoryListEntry {
+  id: number;
+  ts: number; // ms since the epoch
+  kind: "text" | "process";
+  label: string;
+  paths: string[];
+  undone: boolean;
+}
+/** One commit that touched the open project, for the same list — `paths` PROJECT-relative. */
+export interface ProjectCommit {
+  hash: string;
+  ts: number; // ms since the epoch
+  subject: string;
+  author: string;
+  paths: string[];
+}
 // The POST /undo | /redo reply: applied, refused pending confirmation, or nothing to do.
 export interface UndoResult {
   applied?: boolean;
@@ -441,6 +458,8 @@ export interface WebTrack {
   mixer?: WebMixer;
   mute: boolean;
   solo: boolean;
+  /** Highlighted from the mixer: heard 10 dB up, its fader untouched (packages/song/docs/highlight.md). */
+  highlight?: boolean;
   disabled?: boolean; // true ⇒ track is ignored (filtered by the brain); absent when false
   clips: WebClip[];
   /** A FROZEN lane's authored clips, drawn over its render and opened from it — see packages/song/docs/freeze.md. */
@@ -628,6 +647,8 @@ export interface CommandInfo {
   args: CommandArg[];
   // Where a right-click may offer it. Absent ⇒ wherever its leading arguments fit — st0's frontend/docs/contextMenu.md.
   menu?: MenuEntity[];
+  // The menu asks before running it — the one exception to "nothing here asks twice", same page.
+  confirm?: boolean;
 }
 
 // A named timeline marker: `beat` is its position, `tc` the timecode it is stored under (the delete key).
@@ -946,6 +967,8 @@ export interface StemsReply {
 export interface RepoProject {
   path: string;
   app: ProjectApp;
+  /** `project.tags` of an st0 project's project.yaml; absent when it has none. */
+  tags?: string[];
 }
 
 /** One module LIBRARY a project can reach, nearest first; `exists: false` is a state, not an absence — docs/machine.md. */
@@ -961,6 +984,8 @@ export interface ModuleLibrary {
   /** A library's shared SOUNDS, beside its modules — what a tap and a cabinet pick, and where a drop lands (@studio/song's libraryFiles.md). */
   samples?: FileNode[];
   irs?: FileNode[];
+  /** …its WAVETABLES, what a Faust instrument's table slot picks (@studio/song's faustFiles.md). */
+  wavetables?: FileNode[];
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
 }

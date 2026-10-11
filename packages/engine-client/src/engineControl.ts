@@ -53,7 +53,8 @@ export interface AudioDeviceInfo {
   type: string; // the driver backend offering it ("ASIO", "Windows Audio", …)
   inputs: number; // input channel count
   outputs: number; // output channel count
-  current: boolean; // the device currently open
+  current: boolean; // the device currently open — its OUTPUT side
+  currentInput: boolean; // the device the open setup takes its INPUTS from, which may be another one
   isDefault: boolean; // its backend's default device
 }
 

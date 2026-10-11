@@ -28,12 +28,58 @@ is asked for rather than derived. A name somebody typed is never quietly renamed
 is refused, the way `project new` refuses it. A name nobody typed still gets today's `-2` suffix,
 since there was no answer to change.
 
-**A drop takes `.dawproject` only** (`DROPPABLE_PROJECTS`, in `@studio/web-protocol` so the browser
-and the service filter on one list). A `.dawproject` is one self-contained file — the audio is
-inside the archive. A `.als` is not: it names its samples by path and `makeSampleReader` resolves
-them against its own location in the workspace, so a dropped one alone would import a project with
-no sound in it and nothing to say which files were meant. That one is imported from the tree, where
-it sits with its folder, and the refusal says so.
+**A drop takes the self-contained formats** (`DROPPABLE_PROJECTS`, in `@studio/web-protocol` so the
+browser and the service filter on one list): a `.dawproject`, whose audio is inside the archive, and
+a `.zip`, which here MEANS an Ableton project — the folder Live's *Collect All and Save* leaves,
+zipped with its samples. A lone `.als` is not one: it names its samples by path and
+`makeSampleReader` resolves them against its own location in the workspace, so a dropped one alone
+would import a project with no sound in it and nothing to say which files were meant. That one is
+imported from the tree, where it sits with its folder, and the refusal says so.
+
+### A zipped Ableton project
+
+`abletonZip.ts` unzips in memory and hands `parseAls` a sample reader over the archive. Two choices
+in it:
+
+- **The set is the one `.als` outside `Backup/`.** Live writes a dated copy there on every save, each
+  a valid `.als` of an OLDER state; taking one would import last week's arrangement without a word.
+  A Mac's `__MACOSX/` and `._` files are skipped the same way. Two sets side by side is refused by
+  name rather than guessed between.
+- **A sample is found where the set says, else by its file NAME** when exactly one file in the zip
+  bears it. The relative path is right for a collected project; the name catches a folder zipped
+  from a level above or below it, where every relative path is off by the same prefix. An absolute
+  path is never followed: it names a disk on another machine.
+
+### What an Ableton set holds that is not the song
+
+- **Take lanes are left out.** Live 12 keeps every take beside the arrangement, under `TakeLanes`;
+  the comp it plays is ordinary clips on the main lane. A take nobody picked is not the song, and
+  its file need not be in the project at all — *Collect All and Save* collects what the arrangement
+  plays, so a real export named 78 take-lane clips whose recordings were never in the zip. They are
+  counted in the log, like Session view clips.
+- **A clip whose sample cannot be read is left out**, and the log names the file. Placed on a file
+  that is not there, one clip would make the loader refuse the whole song; left out, the song
+  opens and the hole is said once, where the fix (collect it, re-import) can be read.
+
+### A warped clip's in-point is a beat of the CLIP's grid, not of the file
+
+Live measures a warped clip's `LoopStart` on the clip's own warp grid, and that grid's beat 0 is not
+the file's second 0: the first `WarpMarker` says which beat second 0 sits on, and a recording Live
+lined up late puts it at beat 4 or 0.6 rather than 0. st0's window counts beats into the FILE — its
+`from` is source seconds at the project tempo. So `mapAudioClip` reads the in-point THROUGH the
+markers (`sourceSecondAt`, extending the end segments' rate past them) instead of copying it. Copied
+straight, every such clip played the file that many beats late — 3.7 s on one real export's solo —
+while every clip whose first marker happened to sit on beat 0 lined up, which is what hid it.
+
+## A MIDI lane always has an instrument
+
+An instrument that does not cross over — Live's own synths and drum racks have no portable form —
+would leave a lane's notes wired straight into its strip, which the loader refuses: one such track
+made a whole imported song refuse to open. So `emit.ts` puts a library instrument in its place, a
+node at the head of the lane's run saying it is a STAND-IN, and the import log counts them. A drum
+rack (`TrackOut.drums`, set by the mapper when a `DrumGroupDevice` sits anywhere in the track's
+chain) gets the SFZ kit, whose pads are on General MIDI notes as most drum racks' are; anything else
+gets Surge XT. A stand-in is a sound to hear the part with, not a translation of the original.
 
 ## One file per RECORDING, not per clip
 

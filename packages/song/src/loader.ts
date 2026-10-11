@@ -21,6 +21,7 @@ import {
 import { ENGINES_DIR, engineRefOf } from "@studio/song-schema/engines";
 import { instanceName } from "@studio/song-schema/instanceName";
 import {
+  assetExtsFor,
   COLD_TYPE,
   CONSOLE_TYPE,
   categoryForRole,
@@ -204,6 +205,26 @@ export function resolveRackAudio(
   return { ...rack, source: at(rack.source), symbols };
 }
 
+/** Each alternative's own `rack`, its audio resolved as the module's is: the set is merged over the module later (docs/alternatives.md). */
+function alternativeRacks(
+  value: Record<string, unknown>,
+  folderAbs: string,
+  projectDir: string | undefined,
+): { alternatives?: unknown[] } {
+  const list = value.alternatives;
+  if (!Array.isArray(list)) return {};
+  const has = (a: unknown): a is { rack: RawRack } =>
+    !!a && typeof a === "object" && !!(a as { rack?: unknown }).rack;
+  if (!list.some(has)) return {};
+  return {
+    alternatives: list.map((a) =>
+      has(a)
+        ? { ...a, rack: resolveRackAudio(a.rack, folderAbs, projectDir) }
+        : a,
+    ),
+  };
+}
+
 // --- a module's own assets (see docs/moduleAssets.md) ----------------------------
 
 // A module's ports: its OWN when it declares them, else its type folder's defaults, the two lists independent (docs/ports.md).
@@ -224,8 +245,8 @@ function portsOf(
 /** Where a module keeps the files it loads: defined in assetPath.ts, re-exported here where every caller already looks. */
 export { MODULE_ASSETS_DIR, MODULE_SOURCES_DIR };
 
-/** What an asset folder holds — one extension per file-valued param, see FILE_PARAMS. */
-const ASSET_EXT = [".nam", ".json", ".onnx"];
+/** What an asset folder holds: every extension a file-valued param takes, from moduleTypes' one table. */
+const ASSET_EXT = [...new Set(FILE_PARAMS.flatMap((p) => assetExtsFor(p)))];
 
 // A module's own `assets/<ref>`, confined to that folder, with the machine's model cache as the ONE fallback (docs/moduleAssets.md).
 export function resolveModuleAsset(
@@ -335,6 +356,7 @@ function readModuleTree(
         rack: value.rack
           ? resolveRackAudio(value.rack as RawRack, folder, project)
           : undefined,
+        ...alternativeRacks(value, folder, project),
         kind: meta.kind,
         ...portsOf(value, meta),
         // The type FOLDER and the module's own folder, which is what says whether a midi-input module gives back audio or midi.
@@ -510,6 +532,7 @@ function loadNodes(
       rack: value.rack
         ? resolveRackAudio(value.rack as RawRack, folder, dir)
         : undefined,
+      ...alternativeRacks(value, folder, dir),
       ...(preset ? { preset } : {}),
       ...dspSourceFor(value, folder),
       ...resolveAssets(value, folder),
@@ -576,6 +599,7 @@ function loadChainNodes(
       rack: value.rack
         ? resolveRackAudio(value.rack as RawRack, dir, dir)
         : undefined,
+      ...alternativeRacks(value, dir, dir),
       ...(preset ? { preset } : {}),
       ...dspSourceFor(value, dir),
       ...resolveAssets(value, dir),
@@ -1152,7 +1176,7 @@ export function createModuleFile(
 }
 
 /** What an io module's `module.yaml` SAYS — the role line is what the loader reads; the rest is prose for the reader (docs/moduleTypes.md). */
-export function ioModuleBody(
+function ioModuleBody(
   module: string,
   role: "in" | "out" | "file" | "camera" | "midi",
 ): string {
@@ -1160,10 +1184,10 @@ export function ioModuleBody(
     return (
       `# ${module}: this machine's audio input, the live rig's IN.\n` +
       `#\n` +
-      `# \`monitor: "on"\` is what makes it audible without arming anything, and it is QUOTED\n` +
-      `# because YAML 1.1 would otherwise read the word as \`true\`.\n` +
+      `# \`monitor: "auto"\` is audible once its track is armed; "on" always, "off" never. QUOTED,\n` +
+      `# because YAML 1.1 would otherwise read "on" and "off" as booleans.\n` +
       `io: in\n` +
-      `monitor: "on"\n` +
+      `monitor: "auto"\n` +
       `# …and a trim in dB, applied at the interface ahead of everything: 0 is unity.\n` +
       `gain: 0\n`
     );

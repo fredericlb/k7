@@ -74,6 +74,8 @@ struct Supervisor::Impl {
     std::uint64_t pluginsTimer = 0;
     /** One tunnel agent per registry, the way IN for a server that cannot dial this machine. */
     std::map<std::string, std::shared_ptr<tunnel::TunnelAgent>> tunnels;
+    /** A heartbeat is in flight: the next tick skips rather than stack a second one behind it. */
+    bool beating = false;
     /** Per registry: how many heartbeats in a row it refused and why — what `.studio.log` says, and when. */
     struct BeatTrack {
         int failures = 0;
@@ -461,10 +463,17 @@ struct Supervisor::Impl {
             return;
         }
         saidNoRegistry = false;
+        // One in flight at a time: a dead network stacked a beat every 5 s, each holding its sockets, until none were left.
+        if (beating) {
+            if (then) then();
+            return;
+        }
+        beating = true;
         auto id = identity;
         auto presence = presenceNow();
         loop.work<registry::Result>([urls, id, presence] { return registry::heartbeat(urls, id, presence); },
                                     [this, then](registry::Result r) {
+                                        beating = false;
                                         for (const auto& o : r.outcomes) noteBeat(o);
                                         snap.lastHeartbeatOk = r.ok();
                                         publish();

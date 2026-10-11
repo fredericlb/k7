@@ -24,6 +24,8 @@ import {
 import {
   RACK_ADD_BIND,
   RACK_BIND,
+  rackAddBind,
+  rackAddBindAt,
   rackBindSymbol,
 } from "@studio/song-schema/yaml/moduleSchema";
 import { type AutomationDepth, depthOf } from "./automationDepth";
@@ -63,6 +65,8 @@ const CARRIED = [
   "engine",
   // A rack's loaded sounds: `rackUI` draws the pads and the renderer reads the row back.
   "rack",
+  // …and whether they are an SFZ kit's, fixed and played as notes — packages/song/docs/racks.md.
+  "rackKit",
   // What the module ANNOUNCES — its note-on, drawn as one socket per name.
   "events",
   // Which named base this module is on: the LIST becomes the dropdown, this says which entry is on.
@@ -514,6 +518,8 @@ export interface TrackControlValues {
   mute: number;
   solo: number;
   arm: number;
+  /** Heard 10 dB up from the mixer's highlight button — packages/song/docs/highlight.md. */
+  highlight?: number;
 }
 
 // A node with no UI is this big; one with a UI is sized by its grid. Header + content always.
@@ -794,6 +800,8 @@ export {
   OUTPUT_VOLUME_PARAM,
   RACK_ADD_BIND,
   RACK_BIND,
+  rackAddBind,
+  rackAddBindAt,
   rackBindSymbol,
 };
 
@@ -832,34 +840,103 @@ export function rackGrid(n: number): { cols: number; rows: number } {
 /** A TAP's footprint in cells: the pad, and under it its note and its sample's name. */
 export const TAP_COLS = 3;
 export const TAP_ROWS = 2;
-/** Three taps to a row: a kit reads down, and a fourth would make every card of one wider than a synth's. */
-const TAPS_PER_ROW = 3;
+/** An octave's pads, four across and three up: twelve notes, the lowest at the bottom left as on a pad controller. */
+export const PADS_ACROSS = 4;
+export const PADS_UP = 3;
+/** The rack's first note with nothing on it yet — song-edit's rackTaps.ts starts there too. */
+const FIRST_RACK_NOTE = 36;
 
-/** The UI a RACK node carries: one `tap` per sound, then the tap that adds one. See docs/racks.md. */
-export function rackUI(rack: readonly WebRackSound[]): WebModuleUI {
-  const n = rack.length + 1;
-  const per = Math.min(TAPS_PER_ROW, n);
-  const widgets: Record<string, WebWidget> = {};
-  const place = (i: number) => ({
-    col: (i % per) * TAP_COLS,
-    row: Math.floor(i / per) * TAP_ROWS,
-    colSpan: TAP_COLS,
-    rowSpan: TAP_ROWS,
-  });
-  rack.forEach((s, i) => {
-    widgets[`rack:${s.symbol}`] = {
-      type: "tap",
-      ...place(i),
-      bind: `${RACK_BIND}${s.symbol}`,
-      label: s.symbol,
+/** An SFZ kit's level, the SFZ player's own trim, and its range in dB — engine/st0-engine/engine/SfzPlugin.cpp. */
+const KIT_VOLUME = { bind: "Volume", min: -40, max: 12 } as const;
+/** …and one pad's, the player's gain on that pad's KEY, in whole dB — the same file. */
+const KIT_PAD_GAIN = { min: -24, max: 12, step: 1 } as const;
+
+/** An octave's tab name, by its C — `C2` for note 36, the piano roll's numbering. */
+export const octaveName = (octave: number): string => `C${octave - 1}`;
+
+/** The UI a RACK node carries: a tab per octave, each a 4×3 grid of its notes — a pad, or an empty cell that adds one. See docs/racks.md. */
+export function rackUI(
+  rack: readonly WebRackSound[],
+  fixed = false,
+): WebModuleUI {
+  // A kit's pad has a row more, under it: its gain, the one thing about a kit's pad that is the node's to set.
+  const padRows = fixed ? TAP_ROWS + 1 : TAP_ROWS;
+  const byNote = new Map<number, WebRackSound>();
+  // Two sounds on one note share its cell, and the first written is the one drawn.
+  for (const s of rack) if (!byNote.has(s.note)) byNote.set(s.note, s);
+  const used = [...new Set(rack.map((s) => Math.floor(s.note / 12)))].sort(
+    (a, b) => a - b,
+  );
+  // A rack that takes new pads also offers the octave over its highest, or where an empty one starts.
+  const octaves = fixed
+    ? used
+    : used.length
+      ? [...new Set([...used, Math.min(10, used[used.length - 1] + 1)])]
+      : [Math.floor(FIRST_RACK_NOTE / 12)];
+  const cell = (note: number) => {
+    const i = note % 12;
+    return {
+      col: (i % PADS_ACROSS) * TAP_COLS,
+      row: (PADS_UP - 1 - Math.floor(i / PADS_ACROSS)) * padRows,
     };
-  });
-  widgets["rack+"] = {
-    type: "tap",
-    ...place(rack.length),
-    bind: RACK_ADD_BIND,
   };
-  return { cols: per * TAP_COLS, rows: Math.ceil(n / per) * TAP_ROWS, widgets };
+  const tabs = octaves.map((o) => {
+    const widgets: Record<string, WebWidget> = {};
+    for (let note = o * 12; note < o * 12 + 12 && note <= 127; note++) {
+      const at = cell(note);
+      const s = byNote.get(note);
+      if (s) {
+        widgets[`rack:${s.symbol}`] = {
+          type: "tap",
+          ...at,
+          colSpan: TAP_COLS,
+          rowSpan: TAP_ROWS,
+          bind: `${RACK_BIND}${s.symbol}`,
+          label: s.symbol,
+        };
+        if (fixed)
+          widgets[`kit:gain:${s.symbol}`] = {
+            type: "number",
+            col: at.col,
+            row: at.row + TAP_ROWS,
+            colSpan: TAP_COLS,
+            rowSpan: 1,
+            bind: `Key ${s.note}`,
+            label: "dB",
+            ...KIT_PAD_GAIN,
+          };
+      } else if (!fixed)
+        widgets[`rack+:${note}`] = {
+          type: "tap",
+          ...at,
+          colSpan: TAP_COLS,
+          rowSpan: TAP_ROWS,
+          bind: rackAddBindAt(note),
+        };
+    }
+    return { name: octaveName(o), widgets };
+  });
+  const gridCols = PADS_ACROSS * TAP_COLS;
+  // A kit's level is drawn on every tab, in a column of its own right of the pads.
+  const widgets: Record<string, WebWidget> = fixed
+    ? {
+        "kit:volume": {
+          type: "knob",
+          col: gridCols,
+          row: 0,
+          colSpan: TAP_COLS,
+          rowSpan: TAP_ROWS,
+          label: "Volume",
+          ...KIT_VOLUME,
+        },
+      }
+    : {};
+  const cols = gridCols + (fixed ? TAP_COLS : 0);
+  const rows = PADS_UP * padRows;
+  // One octave is one page: a single tab draws no tab column.
+  if (tabs.length === 1)
+    return { cols, rows, widgets: { ...widgets, ...tabs[0].widgets } };
+  return { cols, rows, widgets, tabs };
 }
 
 /** The UI a live INPUT node carries: its socket, its width, its monitoring. See docs/graphBuild.md. */
@@ -1049,7 +1126,7 @@ function stepUI(
       s.shaders,
     );
   // Present, even EMPTY: a kit node is born with no sounds, and its "+" is how it gets one.
-  if (s.rack) return rackUI(s.rack);
+  if (s.rack) return rackUI(s.rack, !!s.rackKit);
   // A LENS is told apart the way a live input is: by the field only its own kind carries.
   if (s.camera !== undefined) return cameraUI(cameras ?? [], s.camera);
   // …and a MIDI device the same way, by `device`, which only a midi-in step carries.
@@ -1154,6 +1231,17 @@ export function pairValue(w: WebWidget, wet: number): number {
   const [min, max] = widgetRange(w);
   const f = frac(w, wet);
   return min + (max - min) * Math.sqrt(1 - f * f);
+}
+
+/** A control's reading: whole for a whole-number step, signed when its range goes below zero — docs/widgets.md. */
+export function widgetText(w: WebWidget, v: number | undefined): string {
+  if (v === undefined) return "–";
+  if (w.step && Number.isInteger(w.step)) {
+    const n = Math.round(v);
+    return (w.min ?? 0) < 0 && n > 0 ? `+${n}` : String(n);
+  }
+  const a = Math.abs(v);
+  return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
 }
 
 /** A value TYPED into a control: clamped to its range and quantised to its `step`, null when it is no number. */

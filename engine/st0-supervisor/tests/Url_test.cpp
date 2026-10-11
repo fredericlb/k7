@@ -5,6 +5,8 @@
 
 #include "test_harness.h"
 
+#include <cstdlib>
+
 using namespace st0::url;
 
 namespace {
@@ -21,6 +23,26 @@ void registryOnLoopbackIsPl8sPort()
 {
     CHECK(engineRegistryUrl("http://localhost:8789") == "http://localhost:8795");
     CHECK(engineRegistryUrl("http://127.0.0.1:5223") == "http://127.0.0.1:8795");
+}
+
+void setPorts(const char* spec)
+{
+#ifdef _WIN32
+    _putenv_s("STUDIO_PORTS", spec);
+#else
+    if (*spec) setenv("STUDIO_PORTS", spec, 1);
+    else unsetenv("STUDIO_PORTS");
+#endif
+}
+
+void registryOnLoopbackFollowsMovedPorts()
+{
+    setPorts("st0=18789,pl8=18795");
+    CHECK(engineRegistryUrl("http://127.0.0.1:18795") == "http://127.0.0.1:18795");
+    CHECK(engineRegistryUrl("http://localhost:18789") == "http://localhost:18795");
+    setPorts("pl8=nope");
+    CHECK(engineRegistryUrl("http://127.0.0.1:18795") == "http://127.0.0.1:8795");
+    setPorts("");
 }
 
 void registryOfNonUrlIsEmpty()
@@ -73,6 +95,7 @@ void runUrlTests()
 {
     RUN(registryIsPl8sWhicheverServiceWasNamed);
     RUN(registryOnLoopbackIsPl8sPort);
+    RUN(registryOnLoopbackFollowsMovedPorts);
     RUN(registryOfNonUrlIsEmpty);
     RUN(familyIsSt0sOrigin);
     RUN(userOriginIsStrict);

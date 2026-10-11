@@ -25,6 +25,14 @@ export interface LcdFrame {
   color: { ink: string; dim: string; glow: string; bg: string };
   /** `performance.now()` at this draw. */
   now: number;
+  /** The FILE a slot of the module names (a Faust table), decoded mono; null until loaded, or with no host to load it. */
+  sound: (slot: string) => Float32Array | null;
+}
+
+/** Where a host decodes a module's sound files for its screens: `get` answers from cache and starts a load; `subscribe` hears one land. */
+export interface LcdSounds {
+  get(ref: string): Float32Array | null;
+  subscribe(onLoaded: () => void): () => void;
 }
 
 /** One screen's draw function: `widgets.js` maps a widget id to one of these. */

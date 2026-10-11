@@ -100,6 +100,7 @@ export interface PluginDoc {
   path: string; // resolved .vstpreset to LOAD (the module's own, else the extended module's); '' if none
   irFile?: string; // convolution modules only — an audio file the project owns, unlike `path`'s opaque blob
   namFile?: string; // amp modules only: the `model:` file, a .nam or an RTNeural JSON — see irFile
+  surgePatch?: string; // Surge XT instruments only: the `patch:` file, an .fxp in the module's assets/ (engine docs/surgePlugin.md)
   sfzFile?: string; // SFZ instruments only: `@instruments/<name>/<file>.sfz`, on the engine's machine (engine docs/sfzPlugin.md)
   // TURNTABLE modules only — the record the platter OWNS, decoded whole so a scratch can read it backwards.
   deckFile?: string;
@@ -107,6 +108,8 @@ export interface PluginDoc {
   dspGraph?: string;
   // A Faust module's source, INLINE for the same reason — except the ENGINE compiles it, so the `.dsp` text itself travels.
   faustDsp?: string;
+  // The files a Faust program's `soundfile(...)` slots play, by slot label, absolute — packages/song/docs/faustFiles.md.
+  faustFiles?: Record<string, string>;
   // A PATTERN lane's Strudel source, played by the engine's PatternPlugin; an edit is applied in place.
   patternSource?: string;
   // …the label its events are picked by — the lane's name, matched like a `.label()` slug…
@@ -154,6 +157,8 @@ export interface TrackDoc {
   // No volume and no pan: they are a MODULE (MixerPlugin) at the end of each chain, while mute and solo are mixer-wide.
   mute: boolean;
   solo: boolean;
+  /** Highlighted from the mixer: its strip plays 10 dB up — already in its params; the flag is for the button. */
+  highlight?: boolean;
   disabled: boolean;
   inputChannels: number[]; // 1-based physical channels; a label is resolved against ~/.st0 first, so the engine only ever sees numbers
   // Where this track LEAVES by. Empty is the mixer's sum, which is every track but a CUE bus — packages/song/docs/cue.md.

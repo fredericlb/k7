@@ -45,6 +45,12 @@ reason is not performance: in a checkout everything is behind a private CA, whos
 does not trust, so `https://play.priv.st0.app` fails with `UNABLE_TO_GET_ISSUER_CERT` from
 a backend while working perfectly in the browser beside it.
 
+On a loopback host the same table is what a PAGE uses too, and a host may move it:
+`STUDIO_PORTS=st0=18789,pl8=18795` in the environment for node — and for the supervisor, whose
+`Url.cpp` reads the same variable — or `globalThis.__STUDIO_PORTS__` for a page, set before its
+scripts run (`servicePorts`). The desktop app does, so it runs beside a dev session
+(`apps/st0-standalone/docs/standalone.md`). Unset, the table is `SERVICE_PORTS`.
+
 ## Owning a suffix is not the same as being creatable
 
 `PROJECT_SUFFIXES` has two entries, because two apps open a project. Everything an st0 project can

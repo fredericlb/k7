@@ -135,7 +135,9 @@ timeline and simply never heard.
 
 ## nodes/<name>.yaml — group
 
-No material and no signal of its own — only the member lane names it nests.
+No material and no signal of its own — only the member lane names it nests. On the timeline,
+shift-click the names of the tracks to group, then right-click one of them and pick **Group the N
+tracks** (or type `track group kick,snare drums`). A track already in a group moves to the new one.
 
 ```yaml schema=Module
 extends: "@meta/group-track"

@@ -128,8 +128,12 @@ the name, and the cost on the header's bottom border. The second line is what th
 runs as (`packages/song/docs/engines.md`) and with which preset, opening one list the host draws: the
 presets, and a left bar of the engines when there is a choice. Two dropdowns side by side were two
 places to look for "how is this module set up", and the engine bar beside the presets keeps the pick
-and what it changes in one popup. The button is SET-width, never left to the browser:
-`presetButtonW`, the preset's room plus the longest engine name's when there are engines.
+and what it changes in one popup. The button's LEAST width is set, `presetButtonW` — the preset's
+room plus the longest engine name's when there are engines — and it takes the line's free width
+from there, capped at 300 px: a preset name like `Polysynths - Analyse` is the whole point of the
+button, and a fixed 70 px cut every one of them to its first word. Two arrows follow it when the
+module has presets, and the host given `onPresetStep` loads the previous or next one: browsing a
+shelf of six hundred patches one popup at a time is no way to listen through it.
 
 ## Header text is capped on SCREEN
 

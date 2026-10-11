@@ -11,6 +11,8 @@ export interface EngineState {
   session?: string;
   playing: boolean;
   playhead: number; // seconds
+  // The transport loop the engine wraps in, in seconds — absent from an engine older than it; a reloaded page draws it from here.
+  loop?: { on: boolean; start: number; end: number };
   levels: number[]; // per-track OUTPUT dB (post-fader), same index order as the tracks
   // Per-track live INPUT level in dB, sent for every track so a client can index it like `levels`; -100 with no input assigned.
   inputLevels: number[];

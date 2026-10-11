@@ -694,8 +694,12 @@ export function EditorTab({
   const open = useCallback(
     async (path: string): Promise<boolean> => {
       const posix = path.replace(/\\/g, "/").toLowerCase();
-      // A .dawproject is a ZIP and a .als gzip — offer to import either rather than decoding bytes as text.
-      if (posix.endsWith(".dawproject") || posix.endsWith(".als")) {
+      // A .dawproject and an Ableton project's .zip are ZIPs, a .als gzip — offer to import rather than decode bytes as text.
+      if (
+        posix.endsWith(".dawproject") ||
+        posix.endsWith(".als") ||
+        posix.endsWith(".zip")
+      ) {
         onImportProject(path);
         return false; // an import is not a file in the pane, so nothing should be revealed for it
       }

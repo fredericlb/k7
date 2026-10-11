@@ -152,7 +152,7 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
             g->hasMidiPhase_ = true;
         }
         else if (type == "ain" || type == "aout" || type == "adelay" || type == "amul" ||
-                 type == "aadd" || type == "atanh" || type == "alfo") {
+                 type == "aadd" || type == "atanh" || type == "alfo" || type == "aallpass") {
             // Audio wires in `in`/`out`, scalars in `k` — the two never share a name space.
             node.phase = Phase::sample;
             g->hasSamplePhase_ = true;
@@ -170,6 +170,7 @@ std::unique_ptr<DspGraph> DspGraph::build(const juce::var& description, juce::St
                       : type == "amul"   ? Kind::amul
                       : type == "aadd"   ? Kind::aadd
                       : type == "alfo"   ? Kind::alfo
+                      : type == "aallpass" ? Kind::aallpass
                                          : Kind::atanh;
             if (node.kind == Kind::ain) {
                 // Which of the MODULE's input ports this reads; absent is the first, the chain's own flow.
@@ -250,6 +251,7 @@ void DspGraph::reset()
     for (auto& n : nodes_) {
         n.s0 = 0.0f;
         n.primed = false;
+        for (int ch = 0; ch < 2; ++ch) n.x1[ch] = n.y1[ch] = 0.0f;
         // Forget the cached coefficients too: prepare() may have moved the sample rate under them.
         n.lastFreq_ = -1.0f;
         n.lastQ_ = -1.0f;
@@ -570,14 +572,35 @@ void DspGraph::process(juce::AudioBuffer<float>& buffer, int startSample, int nu
                         const float rate = juce::jmax(0.0f, r(n.k[0]));
                         n.s0 += rate / (float)sampleRate_;
                         if (n.s0 >= 1.0f) n.s0 -= std::floor(n.s0);
-                        const float ph = n.s0;
-                        const float v = n.mode == 1 ? 4.0f * std::abs(ph - 0.5f) - 1.0f
-                                      : n.mode == 2 ? 2.0f * ph - 1.0f
-                                      : n.mode == 3 ? (ph < 0.5f ? 1.0f : -1.0f)
-                                                    : std::sin(ph * juce::MathConstants<float>::twoPi);
+                        // The right channel runs `k[1]` of a cycle ahead: what a chorus's stereo width is (docs/dspGraph.md).
+                        const float spread = n.k[1] >= 0 ? finiteOr(r(n.k[1]), 0.0f) : 0.0f;
                         if (n.out >= 0)
-                            for (int ch = 0; ch < numChans; ++ch)
+                            for (int ch = 0; ch < numChans; ++ch) {
+                                float ph = n.s0 + (ch == 1 ? spread : 0.0f);
+                                ph -= std::floor(ph);
+                                const float v = n.mode == 1 ? 4.0f * std::abs(ph - 0.5f) - 1.0f
+                                              : n.mode == 2 ? 2.0f * ph - 1.0f
+                                              : n.mode == 3 ? (ph < 0.5f ? 1.0f : -1.0f)
+                                                            : std::sin(ph * juce::MathConstants<float>::twoPi);
                                 awires_[(size_t)n.out][(size_t)ch] = v;
+                            }
+                        break;
+                    }
+                    case Kind::aallpass: {
+                        // First order, its corner at k[0] Hz shifted by in[1] OCTAVES, so an LFO sweeps it evenly in pitch.
+                        const float base = juce::jmax(1.0f, finiteOr(r(n.k[0]), 100.0f));
+                        for (int ch = 0; ch < numChans; ++ch) {
+                            const float x = n.in[0] >= 0 ? awires_[(size_t)n.in[0]][(size_t)ch] : 0.0f;
+                            const float oct = n.in[1] >= 0 ? juce::jlimit(-12.0f, 12.0f, finiteOr(awires_[(size_t)n.in[1]][(size_t)ch], 0.0f)) : 0.0f;
+                            // π·f/sr with no tan prewarp, as Tracktion's phaser computes it; the coefficient stays in (-1, 1] for any corner.
+                            const float w = juce::MathConstants<float>::pi * base * std::exp2(oct) / (float)sampleRate_;
+                            const float c = (1.0f - w) / (1.0f + w);
+                            float y = c * (x + n.y1[ch]) - n.x1[ch];
+                            JUCE_UNDENORMALISE(y);
+                            n.x1[ch] = x;
+                            n.y1[ch] = y;
+                            if (n.out >= 0) awires_[(size_t)n.out][(size_t)ch] = y;
+                        }
                         break;
                     }
                     case Kind::adelay: {

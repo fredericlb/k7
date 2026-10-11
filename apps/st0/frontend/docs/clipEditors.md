@@ -14,9 +14,14 @@ A MIDI clip is a list of notes, but when its signal lands on a rack the notes ar
 they are SOUNDS, the rack's symbols. So the editor for that case is a grid, not a roll: one row
 per rack sound (`rackFor.ts` finds the first rack downstream of the track, following the outs;
 bypassed steps still count, since a muted kit still defines the vocabulary), one column per step
-of the clip's window at a chosen **precision** — 1/2, 1/4, 1/8 or 1/16 notes, a closed set so
+of the clip's window at a chosen **precision** — 1/2, 1/4, 1/8, 1/16 or 1/32 notes, a closed set so
 the grid never lands on a step nothing musical means, session state of the panel and written
 nowhere.
+
+A vertical line marks each bar, in the gap before its first step. It is an overlay placed as a
+share of the grid's width — the playhead's own rule — and not a divider between buttons: a divider
+would widen every bar by its own width, and the playhead, which knows nothing of it, would drift
+a little further off the music with every bar it crossed.
 
 ### It paints first, and asks the document afterwards
 
@@ -116,6 +121,14 @@ and clicking the clip again.
 | `roll` | the piano roll — off-grid timing, precise lengths, keys the rack does not name | the same commands |
 | `tracker` | the sequence FILE as a text grid — arrows move, keys type notes | straight to the file (`SeqGridFile`) |
 
+### The roll's key column names a rack's keys
+
+On a lane that reaches a rack, a key the rack fires is labelled with what it plays — the sample's
+file name, else its clip, else its symbol (`rackKeyNames` in `rackFor.ts`) — and every other key
+with its note name, since there the roll is read key by key rather than by octave. The column
+widens to make room. A lane with no rack keeps the plain keyboard: octave Cs only, as a pitch
+reader expects.
+
 ### ×2, beside the switch
 
 `SeqDoubleButton.tsx`, in the sequencer's header and the roll's: the sequence twice as long, its
@@ -143,10 +156,12 @@ Two rules decide what you get:
 
 - **The sequencer is offered only when there is a rack.** `rackFor.ts` answers that, and with no
   rack the entry is not in the menu at all rather than present and dead — there would be no rows
-  to draw. The default mode is `sequencer` and falls through to `roll` when the rack is absent,
-  so a clip still opens on the best view it has.
+  to draw.
+- **Every MIDI clip opens on the roll**, a rack's included: the roll shows what was PLAYED, timing
+  and length and velocity as they are, where the sequencer's steps quantise the picture. The
+  sequencer is one pick away in the header's dropdown.
 - **The mode resets per clip.** It is about what you are looking at, not a state the pane is stuck
-  in; the rack is what the track IS, so the next clip opens on its own best view.
+  in, so the next clip opens on the roll again.
 
 The tracker is the same grid `sequence edit tracker <sequence>` opens in the graph slot — the
 file-owning half is `SeqGridFile`, mounted by both, so there is one answer to "read it, hand it to
@@ -175,6 +190,10 @@ Every ruler in the app draws off one ladder — `rulerScale` picks the unit from
 per beat, `RulerTicks` draws it, `Grid` repeats it one weight fainter across the material
 (`Ruler.tsx`, shared with the timeline). Zooming in descends bar → beat → half → sixteenth;
 zooming out thins the *numbers* while keeping the lines, so the grid never smears.
+
+The roll draws its BAR lines solid and opaque, and its beat lines dashed a step below them
+(`strongBars`), where the timeline keeps both faint: rows of notes swallow a faint line that a
+lane's few events leave visible, and bars and beats are what a part is read by.
 
 The roll's own ruler — the FILE's numbering, under the arrangement ruler — and the grid on the
 lane under it both come from `rulerScale`, at the roll's live `ppb`. Written here instead, as two
@@ -265,8 +284,8 @@ rule the clip pane's other verbs already follow.
 ### The body also drags in PITCH, and that is a different verb
 
 A roll whose notes only slide sideways is a roll you cannot compose on. The body drag therefore
-carries a `dKeys` beside its `dBeats`, snapped to the row and **never freed by Ctrl** — a row IS a
-semitone, and there is nothing between two of them for the modifier to reach. The two edge grips
+carries a `dKeys` beside its `dBeats`, snapped to the row and **never freed by a modifier** — a row IS a
+semitone, and there is nothing between two of them for a key to reach. The two edge grips
 stay horizontal: they are on the note's ENDS, and an end has no pitch.
 
 Which verb commits is decided by whether the pitch changed:
@@ -282,7 +301,7 @@ change the keyboard's edge swallowed counts as horizontal, which is what `movesP
 ### A body inside the rectangle drags the whole selection
 
 Pressing the body of a note the live rectangle holds moves **every** note it holds by the same
-beats and semitones — the same snapped offset, the same Ctrl rule — and commits them as one
+beats and semitones — the same snapped offset, the same keys — and commits them as one
 `sequence notes move`, so one Ctrl+Z. The edges and the velocity line keep their own gestures,
 and a note outside the rectangle is dragged alone, as before. The OFFSET is clamped, not each
 note: the group stops when its top or bottom note reaches the keyboard's end, or its earliest
@@ -308,23 +327,22 @@ Right-click on a note offers the same removal and, when the caret sits strictly 
 like every other (`contextMenu.md`); a split on either edge is not offered at all, since a cut
 there leaves a note of no length.
 
-### …and the roll's gestures land on those lines, unless Ctrl says otherwise
+### …and the roll's gestures land on those lines, unless a key says otherwise
 
 Drawing a note, moving one and stretching one all snap to `gridUnit` — the step the ruler is
-drawing and the caret is walking. **Hold Ctrl and the gesture follows the pointer exactly.** The
-rule, the arithmetic and the modifier are `src/snap.ts`, shared with the timeline
-(`timeline.md`), so the two surfaces cannot come to mean different things.
+drawing and the caret is walking. A roll free at every zoom would be the odd one out: the ruler
+draws lines, the caret walks them, the timeline's drags land on them, and only a note would ignore
+them. A finer position is reached by opening the view, or by a key.
 
-A roll free at every zoom would be the odd one out: the ruler draws lines, the caret walks them,
-the timeline's drags land on them, and only a note would ignore them. A finer position is reached
-by opening the view, and Ctrl is how a free one is asked for.
+**Moving and stretching a note take the timeline's keys** (`snapMode`, `timeline.md`): nothing
+held, the moved start or the stretched end lands ON the grid; **Ctrl** moves it by whole steps, so a
+note played in by hand at 2.43 keeps that phase when you move it a beat; **Shift** frees it. The
+rule and its arithmetic are `src/snap.ts`, so the two surfaces cannot come to mean different
+things. The keys are read live, off each pointer event, so a note can be begun on the grid and
+finished off it.
 
-Two details, identical to the timeline's:
-
-- **The OFFSET snaps, not the resulting position.** A note played in by hand at 2.43 keeps that
-  phase when you move it a beat.
-- **The modifier is read live**, off each pointer event, so a note can be begun on the grid and
-  finished off it.
+**Drawing keeps Ctrl as its free key** (`freeSnap`), because Shift on the lane is already the
+selection rectangle, in every mode.
 
 **Drawing snaps to CELLS, not to lines**, and that difference is the roll's own. The same press
 places the caret, which belongs to the cell you pointed *inside* — a floor. A note landing on the
@@ -404,9 +422,13 @@ Two smaller rules, both the timeline's:
 ### Copying a rectangle, and pasting it at the caret
 
 `selection copy` (**Ctrl+C**, or `c`) puts the rectangle's contents aside; `selection paste`
-(**Ctrl+V**, or `p`) puts them down with their **top-left corner under the caret**. That is the whole model — the clipboard holds
-coordinates relative to the corner, so where you put the caret decides both the shift in time and,
-on a roll, the transposition. `src/clipboard.ts` is the arithmetic, pure and tested.
+(**Ctrl+V**, or `p`) puts them down with their **left edge on the caret**: the clipboard holds
+coordinates relative to the rectangle's corner, so the copy's START lands where the caret is and every
+note keeps its distance from it. On the ROLL a paste keeps each note's own **pitch** and takes only the
+time from the caret: you click where the phrase should go, and a melody or a drum pattern pasted
+elsewhere is the same phrase, not one transposed to whichever row the click fell on. The sequencer's
+grid, whose rows are pads, still puts the top row under the caret. `src/clipboard.ts` is the arithmetic,
+pure and tested.
 
 **With no rectangle drawn, the caret is one.** A caret is already pointing at something, so it is
 treated as the smallest rectangle there is: one cell in a grid — the note or step under it — and
@@ -529,6 +551,11 @@ is at **half velocity** (`AUDITION_VEL`, MIDI 64), whatever the notes on the row
 a check of which sound a row is, and a full-velocity hit to identify a kick is louder than the
 question. How quiet half velocity actually sounds is up to the instrument's velocity response.
 
+DOUBLE-CLICKING a row's name selects the whole row, first step to last. The row's header is the
+one place a row is named whole, and a pointer gesture there is the only way to take a row without
+leaving the mouse for `v` and the keys. The header is live even on a surface that cannot audition,
+since the double-click still has work to do.
+
 Four rules worth knowing, each of which could reasonably have gone the other way:
 
 - **A note or event is IN when it STARTS inside.** The rule `stepGrid`'s cells already follow, and
@@ -616,7 +643,8 @@ the window would be a note you drew, saw, and never heard, and an onset appearin
 instead of under the pointer is an edit nobody made.
 
 Two things the roll does anyway. The grid is **absolute** — a window opening at bar 3 says 3, not
-1 — and the playhead **folds** back into the window (`localBeat % win`) instead of walking off
+1 — and the playhead **folds** back into the window (`from + localBeat % win`, from the window's
+start, since the notes are drawn at their beat in the file) instead of walking off
 along the placed extent, because the later passes of a looped clip really are the same picture
 again. The pitch fit reads only the notes the window contains, so a stray note three octaves down
 cannot squash the pitches that are actually playing.
@@ -633,6 +661,14 @@ pitch axis that is the used range ±20%, clamped to the 128 keys that exist; on 
 the span the notes occupy, not `[0, clip.length]`, which on 16 beats of notes placed 35 long would
 open the pane 38% full where the margin asks for 83%. With a window the fit question disappears:
 the view IS the window, and the pitch fit reads only the notes the window contains.
+
+### The fit is taken once per clip, and an edit does not re-take it
+
+The row height and the pixels per beat come from the fit's spans, and those spans depend on the
+notes. Re-fitting on every edit would rescale the roll whenever a moved note left the framed range:
+the view would slide under the pointer and the zoom would change mid-drag. So `PianoRoll` keeps the
+fit's `rows` and `beats` for as long as the clip's identity holds. Only the canvas's reach
+(`canvasBeats`) follows the notes, and that adds room without moving anything already drawn.
 
 ### A different clip opens at fit, zoom included
 
@@ -945,12 +981,14 @@ event the panel is open on, and a mode is how both panels already switch what a 
   piece is opened, the view finds the event by the id every piece carries (`eventIdOf`), so a re-comp
   that replaces the piece that was clicked does not lose the view.
 - **One gesture picks.** A drag selects a span, snapped to a sixteenth; a click on a row then runs
-  `event comp` for that row over the span. A click with no span seeks, as the ruler above does —
-  the playhead is where the next take starts. A row's ✓ is the same pick, or the whole take when
-  there is no span: replacing the whole event is that, nothing else.
+  `event comp` for that row over the span. A click with no span seeks, as the ruler above does. A
+  row's ✓ is the same pick, or the whole take when
+  there is no span: replacing the whole event is that, nothing else. In the piano roll's takes there is
+  no span at all: a click on a row picks that take whole (song docs/takes.md says why).
 - **Its own record button.** It arms the event and, where they were not, the lane and record mode,
-  then rolls; the stop switches back exactly what it switched (`useTakeRecording.ts`). A span is the
-  punch. The shell's record panel stays away for that take: the view is where it is drawn.
+  then rolls FROM THE START of the span, or of the event when there is none, with the count-in in
+  the bars before it; the stop switches back exactly what it switched (`useTakeRecording.ts`). A span
+  is the punch. The shell's record panel stays away for that take: the view is where it is drawn.
 - **Offered only where there is an event.** A reviewed take and a bare sequence file have none, so
   their strips list the other modes (`WAVE_SOLO_MODES`, `ROLL_SOLO_MODES`).
 - **The panel's own view stays mounted, hidden**, so its zoom, caret and scroll survive a switch.

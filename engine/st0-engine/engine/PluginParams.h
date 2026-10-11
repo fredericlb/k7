@@ -23,6 +23,8 @@ struct ParamRef {
     double min = 0.0, max = 1.0;
     // A DISCRETE parameter's named settings in order, each carrying the VALUE that selects it — the mapping is not always index/(n-1).
     std::vector<std::pair<juce::String, double>> states;
+    // False for a control that is plain plugin state: it can be set and read, and no curve can drive it (docs/builtinParams.md).
+    bool automatable = true;
 };
 
 // Every parameter in a stable order: the automatable ones plus this type's authored property set. `withStates` costs — docs/plugins.md.

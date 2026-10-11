@@ -1,8 +1,8 @@
 // TakesView.tsx — the TAKES mode of the waveform and piano roll panels: one row per take of the
 // event, its own material first, on one song-time axis. A drag selects a span; a click on a row
-// with a span picks that take for it (`event comp`), without one it moves the playhead. Its own
-// record button records the next take INTO the event, from the playhead or punched into the span.
-// See packages/song/docs/takes.md and docs/clipEditors.md.
+// with a span picks that take for it (`event comp`), without one it moves the playhead. A MIDI
+// event has no spans: a click picks a WHOLE take. Its record button records the next take INTO
+// the event, from its start or punched into the span. See packages/song/docs/takes.md.
 
 import { Button } from "@frediverse/ui/button";
 import { Check, Circle, Square, Trash2, X } from "@frediverse/ui/icons";
@@ -101,6 +101,8 @@ export function TakesView({
   }, [ev, lengths]);
   const playheadBeat = useEngineState((s) => (s.playhead * tempo) / 60);
   const [sel, setSel] = useState<{ from: number; to: number } | null>(null);
+  // Notes are not swept between takes: a MIDI event plays one take whole, which keeps its roll one sequence.
+  const wholeOnly = ev.kind === "midi";
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
   const area = useRef<HTMLDivElement>(null);
   const beatAt = (clientX: number): number => {
@@ -165,9 +167,11 @@ export function TakesView({
   };
 
   // A press on a row: a drag selects, a click picks the row for the span or, with none, seeks there.
-  const onDown = (e: React.PointerEvent, ref: string | null) => {
+  const onDown = (e: React.PointerEvent, row: TakesEvent["rows"][number]) => {
     if (e.button !== 0) return;
+    if (wholeOnly) return pick(row.ref, { from: row.start, to: rowEnd(row) });
     if (xfTool) return onFadeDown(e);
+    const ref = row.ref;
     const b = beatAt(e.clientX);
     setDrag({ a: b, b });
     const move = (m: PointerEvent) => setDrag({ a: b, b: beatAt(m.clientX) });
@@ -211,14 +215,15 @@ export function TakesView({
           onClick={() =>
             host.recording
               ? host.stop()
-              : host.record(ev, sel?.from ?? playheadBeat, sel?.to ?? null)
+              : // The span's start when one is drawn, else the event's own: a take re-records a PART, from its top.
+                host.record(ev, sel?.from ?? ev.start, sel?.to ?? null)
           }
           title={
             host.recording
               ? "stop the take"
               : sel
                 ? `record a take punched into ${pos(sel.from)} → ${pos(sel.to)}`
-                : "record a take from the playhead, the event kept as it is"
+                : "record a take from the event's start, the event kept as it is"
           }
           aria-label={host.recording ? "stop the take" : "record a take"}
         >
@@ -229,9 +234,7 @@ export function TakesView({
           )}
         </Button>
         <span className="font-mono">
-          {sel
-            ? `${pos(sel.from)} → ${pos(sel.to)}`
-            : `from ${pos(playheadBeat)}`}
+          {sel ? `${pos(sel.from)} → ${pos(sel.to)}` : `from ${pos(ev.start)}`}
         </span>
         {sel && (
           <Button
@@ -262,9 +265,11 @@ export function TakesView({
             ? seams.length
               ? "press near a seam and drag to size its crossfade"
               : "no seam yet — comp a take in first"
-            : sel
-              ? "click a take to play it over the span"
-              : "drag across the takes to choose a span"}
+            : wholeOnly
+              ? "click a take to play it in place of the others"
+              : sel
+                ? "click a take to play it over the span"
+                : "drag across the takes to choose a span"}
         </span>
       </div>
       {/* The song's bars, which a click seeks to — the one ruler of this view. */}
@@ -340,8 +345,8 @@ export function TakesView({
               </div>
               <div
                 ref={i === 0 ? area : undefined}
-                className="relative min-w-0 flex-1 cursor-crosshair rounded-sm bg-muted/30"
-                onPointerDown={(e) => onDown(e, r.ref)}
+                className={`relative min-w-0 flex-1 rounded-sm bg-muted/30 ${wholeOnly ? "cursor-pointer" : "cursor-crosshair"}`}
+                onPointerDown={(e) => onDown(e, r)}
                 role="presentation"
               >
                 <TakeRow

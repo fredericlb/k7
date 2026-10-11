@@ -172,6 +172,11 @@ actually being drawn, not a guess at its width. A one-row knob is 21 px whatever
 height is what binds: a row less the caption), and `-100` needs 14 px of middle it has not got.
 Better no reading than one over its own pointer.
 
+A control with a whole-number `step` reads as a **whole number**, and as a **signed** one when its
+range goes below zero (`widgetText`, `@studio/ui-chains`' `graph.ts`): a transpose reads `+7`, not
+`7.00`. The decimals said nothing such a control can reach, and they were what pushed the reading
+past the tick on a one-row knob, so the shift was not shown at all.
+
 ## The group
 
 A `group` is painted FIRST (`groupsFirst`), in its `color` or a faint default, with its label small
@@ -295,14 +300,21 @@ depth reaches the memoised card inside the same newline-joined string as the glo
 ## Several nodes, one control
 
 Shift+click adds a node to the selection, or takes it back out; a plain click is a single selection
-again. The set is the graph's own (`DomChains`), beside the host's single `selected`, which is set
+again. A Shift+drag over EMPTY space draws a box, and every module card it touches joins the
+selection on release (`nodesInBox`) — adding, as Shift+click does, never replacing. It is
+checked before the fixed-camera guard: the mix panel's camera does not move, and that is exactly
+where a row of strips is selected by sweeping across it. On a card, Shift keeps its other meaning,
+a fine drag on a control. The set is the graph's own (`DomChains`), beside the host's single `selected`, which is set
 only when there was none — so a host that knows one selected node is not asked to know several.
 
 When EVERY selected node is a use of the same ref on the same engine, a control moved on one of them
-moves the same control on the others, to the same VALUE — a drag, a typed value, a pick, a toggle,
-an interactive screen. They are uses of one module, so the control means the same param on each; a
-toggle SETS the others to where the one under the hand lands rather than flipping each, which would
-leave them out of step. A selection that is mixed links nothing at all: half a fan-out would be a
+moves the same control on the others — they are uses of one module, so the control means the same
+param on each. A DRAG moves each by the same travel from where it stood (`linkedValue`), each
+stopping at its own end of the throw: four amps set apart stay apart, which is what makes driving
+them together worth doing, where landing them all on one value would erase the balance that was
+set. A typed value, a pick, a toggle and an interactive screen SET the others to the one value
+instead, since a word or a switch has no "further along"; a toggle that flipped each would leave
+them out of step. A selection that is mixed links nothing at all: half a fan-out would be a
 control whose reach nobody can predict. A baked node is left out and the rest still move
 (`@studio/ui-chains`'s `multiSelect.ts`). Each node's value is written to its own file, so a move
 across four nodes is four lines in the journal.
@@ -330,6 +342,14 @@ once and then recognised by position, so the two pixels go back to the panel. A 
 text is 8 px and has its own class — it is a heading over a group rather than a reading, and it
 borrowed `.dgx-wval`, so shrinking captions alone would have left it 4 px larger than everything it
 heads.
+
+## A MIDI device's dropdown carries an LED
+
+The `@device` dropdown of a midi-in card has a dot beside it that lights while that keyboard sends.
+The renderer knows nothing of Web MIDI: the host hands it a `MidiActivityStore`, asked by the LABEL
+the node names (`""` any device), and each card subscribes on its own so a note lights one dot
+rather than re-rendering the graph — the reason `RackLitStore` is a store too. A host with no MIDI
+passes none, and the dot stays dark.
 
 ## A widget as a landing target
 

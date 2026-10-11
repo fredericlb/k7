@@ -19,6 +19,12 @@ under `filter` and not under `utility` though both are audio.
 The modules discussed below: `eq3`, `sweep`, `moogladder`, `crossfade`, `fade`, `tempo`,
 `normalize`, `tremolo`, `stemsplit`, `quick-master`, `wurlitzer`, `arpeggiator`, `note-repeat`.
 
+`phaser()` and `chorus()` are Tracktion's two plugins rebuilt as graphs, knob for knob — same
+names, ranges and defaults — because the plugins keep every knob as plain state, which no curve can
+drive. They are the library's `classic` engines of `phaser` and `chorus`. The phaser is what
+`allpass()` was added for. The chorus has no `Mix`: a module's blend is the engine's own `@mix`
+stage, which refuses a param of that name, so the graph is all wet and the module sets `mix: 0.5`.
+
 `quick-master` makes no sound of its own: no `jsdsp.ts`, no `dsp.dsp`, only an
 `extends: "@engine/quick-master"` and defaults over it, the way `eq3` sits on the engine's
 equaliser. What it names is a compiled built-in, and `engine/st0-engine/docs/quickMaster.md` says why

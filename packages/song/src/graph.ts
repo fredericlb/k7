@@ -187,6 +187,7 @@ export interface RackSound {
   clip?: string; // samples: a clips/<id> id (resolved to an absolute path for the engine)
   from?: number; // slice: window start in the source, seconds
   to?: number; // slice: window end in the source, seconds
+  mute?: boolean; // silenced: drawn on its pad, never sent to the sampler
 }
 export type RackType = "samples" | "slice";
 // A rack: how a set of symbols (e.g. "BD", "HH") get their audio — see docs/racks.md.
@@ -228,6 +229,8 @@ export interface Module {
   ui?: ModuleUI;
   // What this module LOADS when it is a rack, `extends` already merged in; absent for a plugin.
   rack?: Rack;
+  // …and an SFZ kit's pads, name → note, which the kit itself plays (docs/racks.md).
+  kit?: Record<string, number>;
   // Which MIDI CC plays which param, keyed by the widget's `bind` string verbatim (controller.ts).
   cc?: ControllerFile;
   inputs: InputDef[]; // typed input ports from the type folder (empty == unconstrained)
@@ -366,6 +369,15 @@ function sourceType(
 }
 
 // Check that every chain feeds each module the input ports its type folder declares; a non-empty result is FATAL (docs/graphModel.md).
+// An SFZ kit's pads as the module states them, name → note; anything else is no kit.
+function kitOf(v: unknown): Record<string, number> | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const pads = Object.entries(v as Record<string, unknown>).filter(
+    (e): e is [string, number] => Number.isInteger(e[1]),
+  );
+  return pads.length ? Object.fromEntries(pads) : undefined;
+}
+
 export function checkChainInputs(
   // Already parsed and keyed by resolved name (see parseChains) — not the raw export.
   parsed: Record<string, Chain>,
@@ -562,6 +574,7 @@ export function buildGraph(
     content: typeof b?.content === "string" ? b.content : undefined,
     // The RACK this module is, if it is one, `extends` already folded in by `resolvedRack`.
     rack: resolvedType(b) === "rack" ? resolvedRack(b) : undefined,
+    kit: kitOf(b?.kit),
     // The render this module is frozen to, if it is. A path, so an empty string is no freeze.
     frozen: typeof b?.frozen === "string" && b.frozen ? b.frozen : undefined,
     automations: normAutomations(b?.automations),

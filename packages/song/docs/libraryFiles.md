@@ -1,10 +1,12 @@
-# A library's shared files — `samples/`, `irs/` and `models/`
+# A library's shared files — `samples/`, `irs/`, `wavetables/` and `models/`
 
 An account library holds more than modules: beside `modules/`, `chains/` and `assemblies/` it may
-carry **`samples/`** and **`irs/`**, folders of sound files any song on the account can use, and
-**`models/`**, amp models (`.nam`, or an AIDA-X / Proteus `.json`). `libraryFiles.ts` lists and
-resolves them; `LibraryFamily` names all six families, and `LIBRARY_FILE_FAMILIES` (in
-`@studio/song-schema/moduleTypes`) what each file folder is walked for.
+carry **`samples/`**, **`irs/`** and **`wavetables/`**, folders of sound files any song on the account
+can use — the last one the tables a Faust wavetable instrument reads ([faustFiles.md](faustFiles.md))
+— and **`models/`**, amp models (`.nam`, or an AIDA-X / Proteus `.json`). `libraryFiles.ts` lists and
+resolves them; `LibraryFamily` names all seven families, and `LIBRARY_FILE_FAMILIES` (in
+`@studio/song-schema/moduleTypes`) what each file folder is walked for. The Libraries tab draws each
+of the four file folders under its library, and takes a dropped file in any of them.
 
 ## Shared files, where a module's `assets/` are its own
 

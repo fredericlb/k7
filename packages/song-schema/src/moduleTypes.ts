@@ -380,8 +380,17 @@ export const assetExtsFor = (param: string): readonly string[] =>
 /** What a rack TAP's sample picker asks for: a library's `samples/`, the way `ir` asks for its `irs/`. */
 export const TAP_SAMPLE = "sample";
 
-/** Those of `files` a param of this name can take — a library pick only the `@<library>/…` sound files. */
-export function assetsForParam(files: string[], param: string): string[] {
+/** Those of `files` a param of this name can take — a library pick only the `@<library>/…` sound files; a panel naming its `family` filters by that. */
+export function assetsForParam(
+  files: string[],
+  param: string,
+  family?: string,
+): string[] {
+  // A Faust slot's name is the program's own, so only the family the panel names can say what it takes.
+  if (family && isLibraryFileFamily(family)) {
+    const exts = LIBRARY_FILE_FAMILIES[family];
+    return files.filter((f) => exts.some((e) => f.toLowerCase().endsWith(e)));
+  }
   if (isLibraryFileParam(param) || param === TAP_SAMPLE)
     return files.filter((f) => f.startsWith("@") && isLibraryAudio(f));
   const exts = assetExtsFor(param);
@@ -409,9 +418,13 @@ export type SharedFileFamily =
 export const LIBRARY_FILE_FAMILIES = {
   samples: LIBRARY_AUDIO_EXTS,
   irs: LIBRARY_AUDIO_EXTS,
+  // Single-cycle frames end to end, what a Faust wavetable instrument's `soundfile` reads (packages/song/docs/faustFiles.md).
+  wavetables: LIBRARY_AUDIO_EXTS,
   models: [".nam", ".json"],
 } as const;
 export type LibraryFileFamily = keyof typeof LIBRARY_FILE_FAMILIES;
+export const isLibraryFileFamily = (name: string): name is LibraryFileFamily =>
+  Object.hasOwn(LIBRARY_FILE_FAMILIES, name);
 
 /** Is `path` a file a library's `family` folder holds? */
 export const isLibraryFileOf = (

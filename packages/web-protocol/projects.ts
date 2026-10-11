@@ -127,12 +127,12 @@ export function projectBasename(
 }
 
 /**
- * The foreign project files a DROP may carry. A `.dawproject` is one self-contained file — the
- * audio is inside it. A `.als` is not: it names its samples by path and reads them off the disk
- * beside it, so a dropped one alone would import a project with no sound. That one is imported
- * from the tree, where it sits with its folder. See packages/translator/docs/import.md.
+ * The foreign project files a DROP may carry: the self-contained ones. A `.dawproject` has its
+ * audio inside it, and a `.zip` is an Ableton project folder with its samples. A lone `.als` is
+ * not: it reads its samples off the disk beside it, so it is imported from the tree, where it sits
+ * with its folder. See packages/translator/docs/import.md.
  */
-export const DROPPABLE_PROJECTS = [".dawproject"] as const;
+export const DROPPABLE_PROJECTS = [".dawproject", ".zip"] as const;
 
 /** …asked of a file NAME, which is all either side has: the browser before it accepts, the service before it reads. */
 export const isDroppableProject = (name: string): boolean =>
@@ -342,6 +342,9 @@ export const LIBRARIES_PAGE = "libraries";
 /** The SETTINGS page, `/settings` — what a browser may change; reserved and routed like the libraries. */
 export const SETTINGS_PAGE = "settings";
 
+/** The TASKS page, `/tasks` — every workspace's TODOS.md in one list; reserved and routed like the libraries. */
+export const TASKS_PAGE = "tasks";
+
 /** Is this address exactly `word`, one segment below the mount? */
 function isReservedPage(pathname: string, base: string, word: string): boolean {
   const segs = segments(pathname);
@@ -351,11 +354,12 @@ function isReservedPage(pathname: string, base: string, word: string): boolean {
   return rest.length === 1 && rest[0] === word;
 }
 
-/** Is this address one of the pages that hang off st0's home — `/libraries`, `/settings`? Read before `parseLaunch`, which would take the word for a workspace. */
+/** Is this address one of the pages that hang off st0's home — `/libraries`, `/settings`, `/tasks`? Read before `parseLaunch`, which would take the word for a workspace. */
 export function isHomePage(pathname: string, base: string): boolean {
   return (
     isReservedPage(pathname, base, LIBRARIES_PAGE) ||
-    isReservedPage(pathname, base, SETTINGS_PAGE)
+    isReservedPage(pathname, base, SETTINGS_PAGE) ||
+    isReservedPage(pathname, base, TASKS_PAGE)
   );
 }
 
@@ -367,7 +371,7 @@ export function isExternalIndex(pathname: string, base: string): boolean {
 /**
  * Does this ADDRESS open a project? Every screen on this origin that is not one is named here:
  * the home page has no segment at all, `@tabs` is chrome, `external` is the menu of surfaces,
- * `libraries` the libraries page and `settings` the settings page. Everything else is `<dépôt>/<projet>`, `@local/…` and `@shares/…` included.
+ * `libraries`, `settings` and `tasks` the home's own pages. Everything else is `<dépôt>/<projet>`, `@local/…` and `@shares/…` included.
  *
  * One definition because two sides ask it and would drift: the main process, to know what a
  * second window would open on, and the tab strip, to know which tabs wear a note.
@@ -384,7 +388,8 @@ export function isProjectAddress(url: string): boolean {
     !isTabs(head) &&
     head !== EXTERNAL_INDEX &&
     head !== LIBRARIES_PAGE &&
-    head !== SETTINGS_PAGE
+    head !== SETTINGS_PAGE &&
+    head !== TASKS_PAGE
   );
 }
 

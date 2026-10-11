@@ -1,6 +1,7 @@
 // useTakeRecording.ts — the takes view's record button: arm the EVENT (the file service then files
 // the take into it and sends the engine the lane with its punch cut out), arm the lane and switch
-// record on where they were not, roll; on stop, put back what it switched and disarm the event. The
+// record on where they were not, roll from the take's start — the engine counts in BEFORE it; on
+// stop, put back what it switched and disarm the event. The
 // one thing a reader would get wrong: the disarm WAITS — an audio take reaches the file service
 // after the stop, and an event disarmed first would see it land on the lane. See song docs/takes.md.
 
@@ -32,6 +33,8 @@ export function useTakeRecording(opts: {
   setMidiRecord: (on: boolean) => void;
   num: number;
   den: number;
+  /** Beats to seconds, for the seek to the take's start. */
+  tempo: number;
   projectPath: string;
   /** Re-read the project: the take is filed after the stop, and the view must show it without a reopen. */
   onLanded: () => void;
@@ -69,6 +72,11 @@ export function useTakeRecording(opts: {
             o.setMidiRecord(true);
             undo.current.push(() => optsRef.current.setMidiRecord(false));
           }
+          // The engine's record too, which is what rolls a count-in before the take's start.
+          if (!s.recordEnabled) {
+            engine()?.setRecordEnabled(true);
+            undo.current.push(() => engine()?.setRecordEnabled(false));
+          }
           midiTarget.current = {
             track: ev.track,
             at: ev.at,
@@ -88,6 +96,8 @@ export function useTakeRecording(opts: {
           }
         }
         setActive(true);
+        // From the take's start, not wherever the playhead was: the count-in rolls in the bars before it.
+        engine()?.seek((from * 60) / Math.max(1e-6, optsRef.current.tempo));
         engine()?.transport("play");
       })();
     },

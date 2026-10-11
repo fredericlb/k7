@@ -34,11 +34,13 @@ const librariesRoots = (inst: Instance): TunnelRoot[] => [
     remote: join(dirname(inst.home), LIBRARIES_HOME_DIR),
     name: "libs",
     writable: false,
+    perChild: true,
   },
   {
     remote: join(inst.home, LIBRARY_EDITS_DIR),
     name: `edits-${inst.slug}`,
     writable: false,
+    perChild: true,
   },
 ];
 

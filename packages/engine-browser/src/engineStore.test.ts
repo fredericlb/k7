@@ -210,3 +210,15 @@ describe("the cost report", () => {
     ).toBe(2);
   });
 });
+
+describe("offline", () => {
+  it("stops the transport where it stood when the link drops", () => {
+    const store = new EngineStore();
+    store.set({ ...IDLE, playing: true, playhead: 12.5, levels: [-6] });
+    store.offline();
+    const s = store.getSnapshot();
+    expect(s.playing).toBe(false);
+    expect(s.playhead).toBe(12.5);
+    expect(s.levels).toEqual([]);
+  });
+});

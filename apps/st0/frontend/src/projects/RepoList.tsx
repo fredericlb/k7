@@ -349,6 +349,11 @@ export function RepoList({
                           {p.path === "." ? projectLabel(w.name) : nameOf(p)}
                         </span>
                         <Badge variant="tag">{p.app}</Badge>
+                        {p.tags?.map((t) => (
+                          <Badge key={t} className="shrink-0">
+                            {t}
+                          </Badge>
+                        ))}
                         {parentOf(p) && (
                           <span className="truncate text-xs text-muted-foreground">
                             {parentOf(p)}

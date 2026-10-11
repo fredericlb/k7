@@ -60,6 +60,22 @@
         hint: "the track's id, which is its filename — optional",
       },
     ]
+# A GROUP lane over tracks: its mute and solo reach every member, and the timeline draws it above them. The
+# tracks come first so the timeline's right-click can fill them from the lanes shift-clicked; the name is
+# optional. A track already in a group leaves it. See verbs/trackGroup.ts.
+- command: "track group"
+  sid: track.group
+  readable:
+    en: "Group the tracks"
+    fr: "Grouper les pistes"
+  help: "make a group of tracks (e.g. track group kick,snare drums) — named group-N if you don't say"
+  surfaces: [cli]
+  menu: [track]
+  args:
+    [
+      { name: tracks, complete: tracks, hint: "track ids, comma-joined" },
+      { name: name, optional: true, hint: "the group's id, which is its filename — optional" },
+    ]
 # The order lanes are DRAWN and mixed in. A project states it or it does not: with no `trackOrder`
 # the names decide (a "3." pin, then the instrument family), and the first reorder writes the whole
 # list — half an order is not an order. See packages/song/docs/trackKind.md.
@@ -333,6 +349,47 @@
     en: "Update the shared libraries"
     fr: "Mettre à jour les bibliothèques partagées"
 
+# --- tasks (TODOS.md at the workspace root, a Markdown checklist) ---
+# What is left to do, for the whole workspace rather than one song: a task may still name the song
+# and the position it is about (`task mark`). A task is addressed by its NUMBER, as the panel lists
+# them; the file stays one a person can edit by hand. See verbs/tasks.ts.
+- command: "task add"
+  sid: task.add
+  readable:
+    en: "Add a task"
+    fr: "Ajouter une tâche"
+  help: "add a task to the workspace's TODOS.md (e.g. task add bounce the bass)"
+  surfaces: [cli]
+  args: [{ name: text, hint: "the task — the rest of the line" }]
+- command: "task mark"
+  sid: task.mark
+  readable:
+    en: "Add a task at a position in this song"
+    fr: "Ajouter une tâche à une position du morceau"
+  help: "add a task pinned to this project at a timecode (e.g. task mark 49:1 fix the snare)"
+  surfaces: [cli]
+  args:
+    [
+      { name: timecode, type: timecode },
+      { name: text, hint: "the task — the rest of the line" },
+    ]
+- command: "task done"
+  sid: task.done
+  readable:
+    en: "Tick or untick a task"
+    fr: "Cocher ou décocher une tâche"
+  help: "tick a task, or untick it (e.g. task done 2)"
+  surfaces: [cli]
+  args: [{ name: number, hint: "the task's place in the list, from 1" }]
+- command: "task remove"
+  sid: task.remove
+  readable:
+    en: "Remove a task"
+    fr: "Supprimer une tâche"
+  help: "remove a task from the list (e.g. task remove 2)"
+  surfaces: [cli]
+  args: [{ name: number, hint: "the task's place in the list, from 1" }]
+
 # --- alternatives (try a direction, keep it or drop it) ---
 # An alternative is a git branch you try a version of the song on, with the branch you
 # left remembered (branch.<name>.studioParent) so `apply` and `cancel` know where to go
@@ -400,6 +457,17 @@
   help: "toggle a track's (or group's) solo (soloed tracks silence the rest)"
   surfaces: [cli]
   menu: [track, group]
+  args: [{ name: track, complete: tracks }]
+# The mixer's HIGHLIGHT: a lane heard 10 dB up while it is on, its fader untouched — project state
+# like solo, at project.yaml's root. See @studio/song's docs/highlight.md.
+- command: "track highlight"
+  sid: track.highlight
+  readable:
+    en: "Highlight a track, 10 dB up"
+    fr: "Mettre une piste en avant, +10 dB"
+  help: "toggle a track's highlight: it plays 10 dB louder while it is on, its fader left as it is (e.g. track highlight gtr)"
+  surfaces: [cli]
+  menu: [track]
   args: [{ name: track, complete: tracks }]
 # A lane's alternatives and its freeze are addressed as a module's: `node alternative *` and
 # `node freeze`, since a lane IS a module. See packages/song/docs/trackModules.md.
@@ -783,6 +851,21 @@
       { name: notes, hint: "JSON [{t,d,k,v?}] — beats from the start of the clip" },
     ]
 
+# The same commit for a lane that holds NO sequence yet: a new one around the notes, placed on
+# the lane, in one write so the take is one undo. `notes` are in SONG beats.
+- command: "sequence record"
+  sid: sequence.record
+  readable:
+    en: "Record notes into a new sequence on a lane"
+    fr: "Enregistrer des notes dans une nouvelle séquence"
+  help: "record notes into a new sequence placed on a lane (JSON payload, song beats)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: notes, hint: "JSON [{t,d,k,v?}] — beats from the start of the song" },
+    ]
+
 # The four verbs that take a RECTANGLE rather than one note, which is why they are `notes`
 # and not `note`: two keys inclusive and a half-open beat span, exactly the box the piano
 # roll's `v` selection draws. A note is in when it STARTS inside, whatever its length does
@@ -1000,6 +1083,25 @@
   help: "run the whole mix through a summing console (e.g. project console @st0/console/console-6), or none; with no name, list them"
   surfaces: [cli]
   args: [{ name: system, optional: true, hint: "@<library>/console/<system>, or none" }]
+
+# The TAGS the home page files a song under, `project.tags` in project.yaml. The tag is the rest of the
+# line; case does not make a second one. See verbs/projectTags.ts.
+- command: "project tag"
+  sid: project.tag
+  readable:
+    en: "Tag the project"
+    fr: "Étiqueter le projet"
+  help: "add a tag to this project, shown beside it on the home page (e.g. project tag to mix); with no tag, list them"
+  surfaces: [cli]
+  args: [{ name: tag, optional: true, hint: "the tag — the rest of the line" }]
+- command: "project untag"
+  sid: project.untag
+  readable:
+    en: "Remove a tag from the project"
+    fr: "Retirer une étiquette du projet"
+  help: "remove a tag from this project (e.g. project untag to mix)"
+  surfaces: [cli]
+  args: [{ name: tag, hint: "the tag — the rest of the line" }]
 
 # --- markers (timeline cue points) ---
 # A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
@@ -1535,6 +1637,20 @@
   surfaces: [cli]
   menu: [node]
   args: [{ name: "node", complete: modules }]
+# Deletes a TRACK: its lane and the chain that lane starts — input, instrument, effects, strip —
+# which is what "delete track" means in a DAW; `node delete` on the lane alone would leave its
+# instrument wired to nothing. Clips and sequences stay on disk, as `event remove` leaves them.
+# `confirm:` makes the right-click ask first (st0's frontend/docs/contextMenu.md).
+- command: "track delete"
+  sid: track.delete
+  readable:
+    en: "Delete a track and its chain"
+    fr: "Supprimer une piste et sa chaîne"
+  help: "delete a track: its lane and the chain it starts — input, instrument, effects (e.g. track delete gtr)"
+  surfaces: [cli]
+  menu: [track]
+  confirm: true
+  args: [{ name: track, complete: tracks }]
 # A templated set of nodes, drawn as one box. Instancing copies the template's node files into
 # the project and its wiring into graph.yaml, so what lands on disk is an ordinary graph plus one
 # record saying which nodes are that box — nothing about the sound changes, in either direction.
@@ -1830,6 +1946,20 @@
       { name: node, complete: nodes },
       { name: symbol, optional: true, hint: "optional — its name; T<n> without one" },
     ]
+- command: "node tap at"
+  sid: node.tap.at
+  readable:
+    en: "Add a tap to a rack node on a note"
+    fr: "Ajouter un pad à un rack sur une note"
+  help: "add a tap to a rack node on a given note — what an empty pad of the octave grid does (e.g. node tap at kit 40, or node tap at kit 40 RIM)"
+  surfaces: [cli]
+  menu: [node]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: note, type: number, hint: "the MIDI note, 0..127 — free on this node" },
+      { name: symbol, optional: true, hint: "optional — its name; T<n> without one" },
+    ]
 - command: "node tap insert"
   sid: node.tap.insert
   readable:
@@ -1858,6 +1988,23 @@
       { name: node, complete: nodes },
       { name: symbol, hint: "the tap — BD, SN, T3…" },
       { name: name, hint: "its new name — one word" },
+    ]
+# Silences a tap without removing it: the pad stays, its note and sample kept, and the sampler is not
+# given it. A TOGGLE without on/off. An SFZ kit's pad mutes through the player's `Mute <note>` param
+# instead, since its pads are the kit's (packages/song/docs/racks.md).
+- command: "node tap mute"
+  sid: node.tap.mute
+  readable:
+    en: "Mute or unmute a rack tap"
+    fr: "Couper ou rétablir un pad du rack"
+  help: "silence one of a rack node's taps, or bring it back — a toggle without on/off (e.g. node tap mute kit HH)"
+  surfaces: [cli]
+  menu: [tap]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, T3…" },
+      { name: state, optional: true, hint: "on or off — omitted, it toggles" },
     ]
 - command: "node tap remove"
   sid: node.tap.remove
@@ -2364,6 +2511,22 @@
       { name: tracks, complete: tracks, hint: "one track — a rectangle over several cannot be consolidated" },
       { name: from, type: timecode },
       { name: to, type: timecode, hint: "the range's end, inclusive" },
+    ]
+# `clip process` for ONE event: when anything else plays its material, the event gets a copy of
+# the clip first, so a right-click on one event never rewrites the others (verbs/eventProcess.ts).
+- command: "event process"
+  sid: event.process
+  readable:
+    en: "Bounce this event through a chain"
+    fr: "Traiter cet événement dans une chaîne"
+  help: "bounce one event's file through a chain, leaving every other event on that material alone (e.g. event process gtr 5:1 @st0/amp-room)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode, hint: "where the EVENT starts" },
+      { name: chain, complete: chains },
     ]
 - command: "event remove"
   sid: event.remove

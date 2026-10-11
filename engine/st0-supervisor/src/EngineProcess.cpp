@@ -9,6 +9,7 @@
 #include "Processes.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <chrono>
 #include <fstream>
 #include <thread>
@@ -96,16 +97,20 @@ bool running()
     return pid > 0 && process::pidAlive(pid);
 }
 
-bool isServing(int port)
+namespace {
+// Three answers, not two: a socket we could not even open says nothing about the engine — docs/supervisor.md.
+enum class Probe { Up, Down, Unknown };
+
+Probe probe(int port)
 {
 #ifdef _WIN32
     SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (s == INVALID_SOCKET) return false;
+    if (s == INVALID_SOCKET) return Probe::Unknown;
     u_long nb = 1;
     ioctlsocket(s, FIONBIO, &nb);
 #else
     int s = socket(AF_INET, SOCK_STREAM, 0);
-    if (s < 0) return false;
+    if (s < 0) return Probe::Unknown;
     fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK);
 #endif
     sockaddr_in addr{};
@@ -131,7 +136,24 @@ bool isServing(int port)
 #else
     close(s);
 #endif
-    return up;
+    return up ? Probe::Up : Probe::Down;
+}
+
+#if !defined(_WIN32) && !defined(__ANDROID__)
+// The pid listening on `port`, asked of lsof; 0 when none, or when there is no lsof to ask.
+int listenerPid(int port)
+{
+    std::string out;
+    if (!process::runCapture("lsof", {"-t", "-nP", "-iTCP:" + std::to_string(port), "-sTCP:LISTEN"}, out))
+        return 0;
+    return std::atoi(out.c_str());
+}
+#endif
+}  // namespace
+
+bool isServing(int port)
+{
+    return probe(port) == Probe::Up;
 }
 
 #ifdef __ANDROID__
@@ -176,15 +198,33 @@ StartResult start(const EngineIdentity& identity, int port)
 {
     if (running()) {
         // A pid is not an identity, so the PORT is asked too — here, where a wrong answer costs a spare engine.
-        if (isServing(port)) {
+        const auto answer = probe(port);
+        if (answer == Probe::Up) {
             log::host("adopting the engine already on the pidfile");
             return {StartKind::Adopted};
         }
+        // Out of descriptors, say: the engine may be fine, and dropping its pidfile would orphan it for good.
+        if (answer == Probe::Unknown)
+            return {StartKind::Error, 0, "could not open a socket to ask :" + std::to_string(port) +
+                                             " — keeping the engine on the pidfile"};
         log::host("pidfile names a live process but nothing answers :" + std::to_string(port) +
                   " — stale, starting a fresh engine");
         std::error_code ec;
         fs::remove(paths::enginePid(), ec);
     }
+#ifndef _WIN32
+    // An engine answering with no pidfile naming it: a fresh one could only fail to bind, so take that one.
+    if (probe(port) == Probe::Up) {
+        if (const int pid = listenerPid(port); pid > 0) {
+            std::ofstream(paths::enginePid(), std::ios::trunc) << pid;
+            log::host("adopting the engine already serving :" + std::to_string(port) + " (pid " +
+                      std::to_string(pid) + "), which no pidfile named");
+            return {StartKind::Adopted, pid};
+        }
+        return {StartKind::Error, 0, "something already serves :" + std::to_string(port) +
+                                         " and no pid could be found for it — stop it, then start again"};
+    }
+#endif
     const auto bin = findBinary();
     if (!bin) return {StartKind::Missing};
 

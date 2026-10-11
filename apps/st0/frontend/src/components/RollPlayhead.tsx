@@ -11,6 +11,8 @@ export function RollPlayhead({
   clipStart,
   placedEnd,
   span,
+  windowFrom = 0,
+  windowLength = 0,
   ppb,
   height,
 }: {
@@ -20,6 +22,9 @@ export function RollPlayhead({
   placedEnd: number;
   /** Beats the canvas draws; a windowed clip's later passes FOLD back into it, so the transport is always somewhere in it. */
   span: number;
+  /** The clip's window in the file's beats — a pass plays it from its start, so that is where the line starts and folds back to; 0 long with none. */
+  windowFrom?: number;
+  windowLength?: number;
   ppb: number;
   height: number;
 }) {
@@ -33,10 +38,16 @@ export function RollPlayhead({
         const localBeat = (seconds * tempo) / 60 - clipStart;
         const inside = localBeat >= 0 && localBeat <= placedEnd;
         el.style.visibility = inside ? "visible" : "hidden";
-        if (inside)
-          el.style.transform = `translateX(${(span > 0 ? localBeat % span : 0) * ppb}px)`;
+        // The roll draws notes at their beat in the FILE, so a windowed clip's line is that beat, not the time since the clip began.
+        const at =
+          windowLength > 0
+            ? windowFrom + (localBeat % windowLength)
+            : span > 0
+              ? localBeat % span
+              : 0;
+        if (inside) el.style.transform = `translateX(${at * ppb}px)`;
       },
-      [tempo, clipStart, placedEnd, span, ppb],
+      [tempo, clipStart, placedEnd, span, windowFrom, windowLength, ppb],
     ),
   );
   return (

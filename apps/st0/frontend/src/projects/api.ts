@@ -37,6 +37,7 @@ import {
   localProjectUrl,
   SETTINGS_PAGE,
   shareUrl,
+  TASKS_PAGE,
 } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
 
@@ -93,6 +94,9 @@ export const LIBRARIES_ROUTE = `/${LIBRARIES_PAGE}`;
 
 /** …and the SETTINGS page, the same way. */
 export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
+
+/** …and the TASKS page, the same way. */
+export const TASKS_ROUTE = `/${TASKS_PAGE}`;
 
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
 export function externalHref(row: SurfacedProject, surface: string): string {

@@ -106,6 +106,9 @@ int main(int argc, char** argv) {
     // …and every built-in's FULL list — what a type has, not what an instance changed. See EngineHost.h.
     if (argc >= 2 && std::string(argv[1]) == "--dump-builtin-params")
         return studio::dumpBuiltinParams();
+    // Surge XT's parameters and what each oscillator and effect type names its slots: what scripts/gen-surge-panel.mjs reads.
+    if (argc >= 2 && std::string(argv[1]) == "--dump-surge-layout")
+        return studio::dumpSurgeLayout();
 
     // Audio-interface enumeration: print the devices as fenced JSON and exit, opening no device.
     if (argc >= 2 && std::string(argv[1]) == "--list-audio-devices")

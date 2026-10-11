@@ -78,6 +78,7 @@ for (const [type, info] of Object.entries(table)) {
       `max: ${num(p.max)}`,
     ];
     if (p.def !== null && p.def !== undefined) bits.push(`def: ${num(p.def)}`);
+    if (p.automatable === false) bits.push("automatable: false");
     if (p.states?.length)
       bits.push(
         `states: [${p.states.map((s) => `{ label: ${str(s.label)}, value: ${num(s.value)} }`).join(", ")}]`,

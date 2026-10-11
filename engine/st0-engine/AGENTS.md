@@ -30,11 +30,14 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   EngineHostImpl.h         PImpl state (all JUCE state in one place)
   EngineTypes.h            small shared value types
   EditBuilder.{h,cpp}     graph build: populateEdit + track/clip/plugin/aux helpers
+  WarpMarkers.h            which interior warp markers reach Tracktion: one far off the clip's speed puts a start a beat off.
+                           JUCE-free and header-only, so tests/ has it in the FAST binary (docs/warp.md)
   SendPlan.h               which bus every send lands on, decided once for the builder AND the diff — JUCE-free
   Biquad.h                 juce::IIRFilter's arithmetic without its lock, for the audio thread alone
   RecordSource.{h,cpp}     a platter's record MAPPED, or decoded once into the record cache and mapped (docs/turntable.md)
   HeldMemory.h             what one of OUR plugins says it holds, in bytes (docs/load.md)
   ProcessMemory.{h,cpp}    the engine process's memory, one system call per platform (docs/load.md)
+  SeekRelease.{h,cpp}      a seek while playing: which plugins let go of their notes and tails (docs/panic.md)
   MixBlend.{h,cpp}         a module's @mix: the split and blend put around it, found by adjacency (docs/mix.md)
   PluginParams.{h,cpp}     plugin parameters as text
   PluginScan.{h,cpp}       discovery + cache
@@ -67,6 +70,9 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   AccelerationLimiter.h     …and its HF limit: To Vinyl 4's acceleration limiter, JUCE-free for the same reason
   NamPlugin.{h,cpp}         the neural amp: a .nam, or an AIDA-X / Proteus model, and its cabinet (docs/namPlugin.md)
   SfzPlugin.{h,cpp}         an SFZ instrument, played by sfizz: a .sfz and the samples beside it (docs/sfzPlugin.md)
+  SurgePlugin.{h,cpp}       Surge XT, the one full synthesizer: an .fxp patch, every parameter of it but the MIDI ones (docs/surgePlugin.md)
+  surge/SurgeCore.{h,cpp}   …the synth behind a JUCE-free pimpl, `studio_surge`: surge-common exports MAC, WINDOWS
+                            and UNICODE as definitions, which must reach no JUCE translation unit
   AmpModel.h                …the model behind it, whichever kind; JUCE-free, so tests/ runs the RTNeural half
   NamModel.cpp              …a .nam through NeuralAmpModelerCore, and the loader that picks the kind by file
   RtNeuralModel.cpp         …an AIDA-X or Proteus recurrent net through RTNeural, with its knob inputs
@@ -100,7 +106,10 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
     patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
   patches/faust.cmake       Faust's poly-dsp.h prints on the audio thread at every voice steal; silenced at fetch time
   patches/tracktion.cmake   Tracktion's SamplerPlugin re-decoded every rack sound on any edit, twice, once under the audio lock
-  patches/sfizz.cmake       sfizz (archived) against today's compilers: its arm64 flag test, and an atomic_queue error clang 19 raises
+  patches/sfizz.cmake       sfizz (archived) against today's compilers: its arm64 flag test, and an atomic_queue error clang 19 raises;
+                            and the gain per key a kit's pad is set louder with (docs/sfzPlugin.md)
+  patches/surge-fetch.cmake Surge XT at one commit, sparse and with only the submodules its core builds from
+  patches/surge.cmake       …and the four fixes being a subproject needs
     <Name>Plugin.{h,cpp}      named mu-<module>: MacroOscillator2 = mu-plaits, MacroOscillator =
                               mu-braids, Resonator = mu-rings, ModalSynthesizer = mu-elements,
                               TidalModulator = mu-tides (Tides 2), DrumVoices = mu-peaks,
@@ -139,6 +148,13 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          packages/song-schema/src/builtinParams.generated.ts. A GENERATOR, like the one
                          above: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace st0-engine`. docs/builtinParams.md.
+  gen-surge-panel.mjs    write the Surge XT module's panel (ui.yaml + widgets.js in st0-library) from
+                         `--dump-surge-layout`, and a factory preset per patch in its base/. A GENERATOR,
+                         output committed: run it after bumping Surge or changing the patches.
+                         `npm run gen:surge-panel --workspace st0-engine`. docs/surgePlugin.md.
+  sfz-to-rack.ts         turn an SFZ drum kit into a RACK kit: each piece rendered through the SFZ player at one
+                         velocity, mics mixed, trimmed, written into a library's samples/ with a rack preset —
+                         what the library's naked_drums samples are (packages/song/docs/racks.md)
   warp-points.ts         a clip's INTERIOR warp points move the sound — rendered and measured,
                          since this is timing no TypeScript test can see (docs/warp.md)
   pad-effects.ts         a sequencer pad's `repeat` and `skip` reach the sound — same kind of
@@ -178,6 +194,8 @@ scripts/               Node harnesses that drive a running engine, not build ste
   eurorack-stop.ts       does a Mutable Instruments module let go of a held note on a stop and on a
                          panic? The level a second after each, against the level while it plays —
                          the only coverage `EurorackPlugin::midiPanic` has (docs/panic.md)
+  seek-release.ts        does a SEEK while playing end the notes and the tails, on every non-VST instrument
+                         and tail effect? A stop is the control that proves a tail was there (docs/panic.md)
   cue-bus.ts             the two facts a CUE bus rests on, neither visible to a unit test: how many
                          destinations a source may have and still be heard only through them, and
                          whether `outputChannels` really takes a track off the mixdown (docs/cueOutput.md)
@@ -194,6 +212,7 @@ before touching the audio callback, `applyFull`, or the build flags),
 split needs, and what its ceiling really guarantees),
 `faust.md` (the interpreter factory, the polyphonic seam, and the one question left open),
 `sfzPlugin.md` (why sfizz, the C++17 island it is built as, and loading an instrument off the audio thread),
+`surgePlugin.md` (why Surge, which commit and which half of it, the fetch, the macros, and what it costs),
 `patternPlugin.md` (why the engine plays pattern lanes, why QuickJS, how a file's events are shared
 between its lanes, samples, the epoch rule, the offline-render path, and what is not yet proven),
 `dspGraph.md` (the graph model `@studio/dsp` emits, and the three places the audio thread is kept
@@ -297,6 +316,10 @@ values loaded from a preset as untouched, Mini V3 the same 77, checked against t
 `.vstpreset`.
 
 ## Building
+
+Every `build:*` script goes through `scripts/build.mjs`, which takes a lock on the build folder (a
+second build waits) and caps the compilers — two builds in one folder corrupt ninja's records and
+recompile everything, enough compilers to freeze the machine. [docs/build.md](docs/build.md).
 
 **macOS** — `npm run build:mac --workspace st0-engine`. Drives the `macos-clang`
 preset (Ninja + AppleClang, RelWithDebInfo, native arm64). Needs `brew install cmake
@@ -428,7 +451,7 @@ Build gotchas:
 invisible.** The presets pin `"targets": ["st0-engine"]`, so `studio_engine_tests` /
 `studio_session_tests` / `studio_midigraph_tests` / `studio_dspgraph_tests` /
 `studio_recorder_tests` / `studio_pattern_tests` / `studio_samplebanks_tests` / `studio_strudel_tests` /
-`studio_eurorack_tests` / `studio_ampmodel_tests` are only built when
+`studio_eurorack_tests` / `studio_ampmodel_tests` / `studio_warp_tests` are only built when
 named — rename a field of the data layer and the suite still referencing it reports nothing until
 someone names it. Build them explicitly after
 touching the data layer — **all of them**, or `ctest` reports the missing one as "Not Run", which
@@ -439,7 +462,7 @@ cmake --build build/<preset> --config RelWithDebInfo --target \
       studio_engine_tests studio_session_tests studio_midigraph_tests \
       studio_dspgraph_tests studio_recorder_tests studio_pattern_tests studio_samplebanks_tests \
       studio_strudel_tests studio_eurorack_tests studio_ampmodel_tests studio_dither_tests \
-      studio_hflimit_tests
+      studio_hflimit_tests studio_warp_tests
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 
@@ -474,9 +497,12 @@ Why it matters:
   user chose; left to itself Tracktion writes its own copy into `Settings.xml` and replays
   that one first, so the hidden choice wins before any st0 code runs.
 
-So: offline tools open no device (`makeOfflineEngine`), the server opens one from
-`openAudioDevice()` after the port is bound, and `Settings.xml` is inert state nobody
-reads. The check that this still holds: put a `deviceType="ASIO"` `Settings.xml` in
+So: offline tools open no device (`makeOfflineEngine`), and the server opens one from
+`openAudioDevice()` after the port is bound. That open is NOT blind to `Settings.xml`:
+`dm.initialise()` runs Tracktion's `loadSettings()`, which replays the saved
+`audio_device_setup` — interface, input device and all — before the supervisor's
+preferences get a say. `keepInputsOnOutputDevice` exists because of it (docs/audioDevice.md).
+The check that the port still comes first: put a `deviceType="ASIO"` `Settings.xml` in
 place, start the engine, and see the port bind in milliseconds.
 
 A related trap: when a render hangs, it is silent — no line is

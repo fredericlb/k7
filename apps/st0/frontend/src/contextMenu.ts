@@ -10,7 +10,8 @@ import type { ArgClass, ArgProvider, CommandInfo, MenuEntity } from "./types";
 
 // What the cursor was over. `id` is the entity as commands name it: a track/module id, a clip's ref, a chain name.
 export type MenuCtx =
-  | { kind: "track"; id: string }
+  // `picked`: the lanes shift-clicked together with this one, when it is among them — what `track group` is offered over.
+  | { kind: "track"; id: string; picked?: string[] }
   | { kind: "group"; id: string }
   // A 'block' in the graph: `missing` is no file, no plugin and no param; `ambient` is the ENGINE's, and can be given a folder.
   // `model`: it names a model this machine has not got, and its module's `model_url` says where to fetch it.
@@ -51,7 +52,8 @@ export type MenuCtx =
   // A BOX — an assembly instance, plus the template ref, so a row may address either (packages/song/docs/assemblies.md).
   | { kind: "assembly"; id: string; uses: string }
   // Right-click on the timeline ruler — offer to drop a marker at `tc`, the beat under the pointer snapped to the drawn grid.
-  | { kind: "marker-add"; tc: string }
+  // `loop`: what `transport loop` would do right now — loop the selection, clear the loop, or nothing to offer.
+  | { kind: "marker-add"; tc: string; loop?: "set" | "clear" }
   // Right-click on an existing marker — offer to delete it by name.
   | { kind: "marker"; name: string }
   /** Right-click on a STRETCH POINT in the warp view: `src` is the FILE second it pins, already spelled, the rounding being the caller's. */
@@ -100,6 +102,8 @@ export interface MenuItem {
   description: string;
   command: string;
   complete: boolean;
+  /** Ask before running it: the catalogue's `confirm:`, for the few that destroy more than Ctrl+Z is trusted with. */
+  confirm?: boolean;
   /** The VERB this entry stands for, without the entity it was built for and untranslated — exactly what `commandPrefs` is keyed by. */
   verb: string;
 }
@@ -234,6 +238,8 @@ const build = (
           readable(c?.help ?? ""),
       command: localizeCommandLine(line) + (e.needsMore ? " " : ""),
       complete: !e.needsMore,
+      // Only when it asks: a row that does not carries no word saying so.
+      ...(c?.confirm ? { confirm: true } : {}),
       verb: e.verb,
     };
   });
@@ -361,9 +367,22 @@ export function contextMenu(
         },
       ]);
     }
-    case "track":
+    case "track": {
+      const several = ctx.picked && ctx.picked.length > 1 ? ctx.picked : null;
       return offer([
-        ...from([{ provider: "tracks", value: ctx.id }]),
+        // Several lanes picked: grouping them comes first, and the clicked lane's own one-track group is not offered beside it.
+        ...(several
+          ? [
+              {
+                verb: "track group",
+                arg: quoteArg(several.join(",")),
+                name: `Group the ${several.length} tracks`,
+              },
+            ]
+          : []),
+        ...from([{ provider: "tracks", value: ctx.id }]).filter(
+          (e) => !several || e.verb !== "track group",
+        ),
         // The shell's own, and last: everything above acts on the track, this one opens the file that spells it.
         {
           verb: "ui file",
@@ -371,6 +390,7 @@ export function contextMenu(
           help: "open the track's own file, tracks/<id>.yaml",
         },
       ]);
+    }
     case "group":
       // NOT derived, deliberately: a group answers `track mute` and `track solo` but is not a value the `tracks` provider lists.
       return offer([
@@ -546,7 +566,22 @@ export function contextMenu(
       ]);
     case "marker-add":
       // A bare timecode: `project marker new <tc> `, leaving the TEXT cursor where the name is typed.
-      return offer(from([{ kind: "timecode", value: ctx.tc }]));
+      return offer([
+        ...from([{ kind: "timecode", value: ctx.tc }]),
+        // The shell's own: it acts on the selection the ruler swept, which no argument of the line carries.
+        ...(ctx.loop
+          ? [
+              {
+                verb: "transport loop",
+                name: ctx.loop === "set" ? "Loop selection" : "Clear loop",
+                help:
+                  ctx.loop === "set"
+                    ? "make the selected range the transport loop"
+                    : "stop looping",
+              },
+            ]
+          : []),
+      ]);
     case "marker":
       // Through `offer` like every other case: going straight to `build` skipped the prefs, in one menu out of nine.
       return offer(from([{ provider: "markerNames", value: ctx.name }]));

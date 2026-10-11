@@ -1,4 +1,4 @@
-# `track process` / `clip process` — bouncing material through a chain
+# `track process` / `clip process` / `event process` — bouncing material through a chain
 
 ```
 track process <track> <chain>
@@ -80,8 +80,16 @@ Two placements of one clip are one file, so `track process` deduplicates its sou
 rendering. Bouncing twice would run the second pass over the first one's output.
 
 That is also why `clip process` says *the clip's* file rather than *this placement's*: a clip
-is material, and a placement is a reference to it. Treating one placement alone would mean
-splitting the clip in two, which is an edit to make on purpose and not a side effect of a bounce.
+is material, and a placement is a reference to it.
+
+`event process <track> <at> <chain>` is the one that treats a placement alone, and it does so by
+making that split on purpose: when any other event plays the same material — as its own or as a
+take — the event first gets a copy of the clip file (`<ref>-2`, `-3`…), and only that copy follows
+the render (`repointClips`' `only`). It is what a right-click on an event offers, since what was
+clicked there is the placement, and a menu entry that rewrote every other placement of the file
+would be acting on things nobody pointed at. A comped event plays several files and is refused
+until it is consolidated. A bounce that writes nothing puts the event back on its material and
+deletes the copy, so a failed run leaves no stray clip behind.
 
 ## Not a freeze
 

@@ -1,8 +1,8 @@
 // nodeInsert.ts — what the graph's `+` types into the command bar.
 //
-// One command, one round trip, one reload: `node new` creates the node AND splices the wiring AND
-// scaffolds a catalogue pick's module folder from its ref, picking the name itself, so the frontend
-// never has to learn a name before it can put it in a chain.
+// One command, one round trip, one reload: `node new` creates the node AND splices the wiring, a
+// catalogue pick's node extending its ref directly, so the frontend never has to learn a name
+// before it can put it in a chain.
 //
 // The arrow goes FIRST in the line so the node name lands last, where a person types it. That is
 // the whole reason for the argument order.
@@ -71,15 +71,8 @@ export function chainRefFromCreate(line: string): string | null {
 export const createForGraphCommand = (type: string, name: string): string =>
   `node new ${type}/${name} `;
 
-/** The catalogue ref that rides ON the line: `node new` scaffolds the folder itself now, so no `module new` runs ahead of it. The ref goes before the spawn token, which the verb reads off the END. */
+/** The catalogue ref that rides ON the line, which the node extends directly. The ref goes before the spawn token, which the verb reads off the END. */
 export const nodeNewRefArg = (ref?: string): string => (ref ? ` ${ref}` : "");
-
-/** …and the line that has to run BEFORE it, or null: a catalogue pick has no local folder yet, where a project's module stays one command. */
-export const ensureModuleCommand = (
-  type: string,
-  name: string,
-  ref?: string,
-): string | null => (ref ? `module new ${type}/${name} ${ref}` : null);
 
 /** Where the node that line makes should GO — a splice on an ARROW, and on the bare canvas only the pin, and only with a point. */
 export const wireCommand = (

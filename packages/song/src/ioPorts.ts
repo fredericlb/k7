@@ -9,11 +9,13 @@
 import {
   loadModuleRefs,
   loadModules,
-  loadProjectRoot,
   splitModuleKey,
   withModuleStamp,
 } from "./loader";
+import { resolveModule } from "./moduleResolve";
+import { nodePlaces } from "./nodePlace";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
+import type { LoadedModule } from "./rawDoc";
 
 export interface IoPort {
   /** How a chain names it: "OUT" for a local module, "@engine/io/IN:in-1" for an inherited node. */
@@ -49,35 +51,49 @@ export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
 function ioPortsIn(dir: string, prefs?: Preferences): IoPort[] {
   type Io = { kind?: string; io?: string; channel?: unknown };
   // No try/catch left: a shared root is found by location, so a missing folder is simply not one.
-  const refs: Record<string, Io> = loadModuleRefs(dir);
-  // …plus the project's OWN io modules, which the ref map leaves out because an input IS a node.
-  let local: Record<string, Io> = {};
+  const byRef = loadModuleRefs(dir);
+  const refs: Record<string, Io> = { ...byRef };
+  // …plus the project's OWN io nodes, which the ref map leaves out because an input IS a node.
+  let local: Record<string, LoadedModule> = {};
   try {
-    local = loadModules(dir) as Record<string, Io>;
+    local = loadModules(dir);
   } catch {
     /* a broken module costs its port, not the panel */
   }
-  for (const [key, m] of Object.entries(local))
-    if (m?.kind === "io" && !refs[key]) refs[key] = m;
+  // RESOLVED, since a node `extends: "@meta/IN"` is an input only through what it extends.
+  for (const [key, m] of Object.entries(local)) {
+    if (refs[key]) continue;
+    let r: Io = m as Io;
+    try {
+      r = resolveModule(m, byRef) as Io;
+    } catch {
+      /* an unresolvable node is read as written */
+    }
+    if (r?.kind === "io") refs[key] = r;
+  }
+  // A chain project's node is named by an id: what a person reads is where it sits (nodePlace.ts).
+  const places = nodePlaces(dir);
   const p = prefs ?? loadPreferences();
 
   const ports: IoPort[] = [];
   for (const [ref, m] of Object.entries(refs)) {
     if (m?.kind !== "io") continue;
-    // A FILE source is an io module but not a PORT: audio read off disk has no channel to meter.
-    if (m.io === "file") continue;
+    // Only AUDIO ports: a file, a lens or a MIDI device is an io module with no channel to meter.
+    if (m.io !== "in" && m.io !== "out") continue;
     const dirn = m.io === "in" ? "in" : "out";
     const authored = m.channel as string | number[] | undefined;
     const r = resolveInput(authored, p);
+    const shown = describe(ref);
     ports.push({
       ref,
-      ...describe(ref),
+      ...shown,
+      ...(places[ref] ? { name: places[ref].place } : {}),
       dir: dirn,
       channels: r.channels,
       label: typeof authored === "string" ? authored : undefined,
       unknownLabel: r.unknownLabel != null || undefined,
-      // A generic sits at the head of its folder; its nodes are what carry channels.
-      generic: !splitModuleKey(ref).node,
+      // A generic sits at the head of its folder; its nodes are what carry channels — and a chain node is never one.
+      generic: !places[ref] && !splitModuleKey(ref).node,
     });
   }
   // Inputs first, then by ref, so the panel's list does not reshuffle across reloads.

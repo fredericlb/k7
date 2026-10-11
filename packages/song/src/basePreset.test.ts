@@ -5,7 +5,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { basesIn, moduleBaseChoices, presetFor } from "./basePreset";
+import {
+  basePresetIn,
+  basesIn,
+  isSurgePatch,
+  moduleBaseChoices,
+  presetFor,
+} from "./basePreset";
 
 let root: string;
 const touch = (...p: string[]) => {
@@ -32,6 +38,31 @@ describe("basesIn", () => {
     mkdirSync(join(root, "m"), { recursive: true });
     expect(basesIn(join(root, "m"))).toEqual([]);
     expect(basesIn(undefined)).toEqual([]);
+  });
+});
+
+describe("a Surge XT patch as a base", () => {
+  it("lists .fxp files beside .vstpreset ones, a category folder named into the base", () => {
+    touch("m", "base", "Pads", "Bell Pad.fxp");
+    touch("m", "base", "Basses", "Bass 2.fxp");
+    touch("m", "base", "warm.vstpreset");
+    expect(basesIn(join(root, "m"))).toEqual([
+      "Basses/Bass 2",
+      "Pads/Bell Pad",
+      "warm",
+    ]);
+  });
+
+  it("resolves a nested base to its .fxp, which the compile sends as a patch", () => {
+    const file = touch("m", "base", "Pads", "Bell Pad.fxp");
+    expect(basePresetIn(join(root, "m"), "Pads/Bell Pad")).toBe(file);
+    expect(isSurgePatch(file)).toBe(true);
+    expect(isSurgePatch(touch("m", "base", "warm.vstpreset"))).toBe(false);
+  });
+
+  it("refuses a base name that climbs out of base/", () => {
+    touch("m", "secret.fxp");
+    expect(basePresetIn(join(root, "m"), "../secret")).toBeUndefined();
   });
 });
 

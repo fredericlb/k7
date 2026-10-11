@@ -202,14 +202,31 @@ export class GraphBuilder {
     return { name: out, rate: "audio" };
   }
 
-  /** A low-frequency oscillator, -1..1, at SAMPLE rate so it cannot zipper — scale it with `amul`/`aadd`. */
-  lfo(shape: "sine" | "triangle" | "saw" | "square", rateHz: Input): Audio {
+  /** A low-frequency oscillator, -1..1, at SAMPLE rate so it cannot zipper; `spread` runs the right channel that share of a cycle ahead. */
+  lfo(
+    shape: "sine" | "triangle" | "saw" | "square",
+    rateHz: Input,
+    spread?: Input,
+  ): Audio {
     const out = `n${this.counter++}`;
+    const k = (i: Input) => (typeof i === "number" ? i : i.name);
     this.json.nodes.push({
       type: "alfo",
-      k: [typeof rateHz === "number" ? rateHz : rateHz.name],
+      // No spread emits the one-slot `k` it always had, so every graph written before it is byte-identical.
+      k: spread === undefined ? [k(rateHz)] : [k(rateHz), k(spread)],
       out,
       shape,
+    });
+    return { name: out, rate: "audio" };
+  }
+  /** A first-order all-pass, its corner `baseHz` moved by `octaves` (a wire); `into` names the wire it writes, for a feedback loop. */
+  allpass(x: Audio, baseHz: Input, octaves?: Audio, into?: Audio): Audio {
+    const out = into ? into.name : `n${this.counter++}`;
+    this.json.nodes.push({
+      type: "aallpass",
+      in: octaves ? [x.name, octaves.name] : [x.name],
+      k: [typeof baseHz === "number" ? baseHz : baseHz.name],
+      out,
     });
     return { name: out, rate: "audio" };
   }

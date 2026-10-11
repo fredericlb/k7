@@ -126,6 +126,11 @@ describe("running as an engine", () => {
     expect(m.params).toEqual({ Intensty: 0.8 });
   });
 
+  it("stays a use of its OWN module, whichever engine it runs — what its card names it by", () => {
+    writeNode(dir, "vox", { extends: COMP, engine: "vari-mu" });
+    expect(resolved("vox").extends).toBe(COMP);
+  });
+
   it("loads the FILE a node sets for its engine, not the engine's default one", () => {
     const ir = join(lib, "irs", "room.wav");
     mkdirSync(join(lib, "irs"), { recursive: true });

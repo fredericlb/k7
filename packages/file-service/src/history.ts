@@ -16,7 +16,11 @@ import {
 import { basename, dirname, join, resolve } from "node:path";
 import { studioHome } from "@studio/song/studioHome";
 import { HISTORY_HOME_DIR } from "@studio/song-schema/moduleTypes";
-import type { HistoryPeek, HistoryState } from "@studio/web-protocol";
+import type {
+  HistoryListEntry,
+  HistoryPeek,
+  HistoryState,
+} from "@studio/web-protocol";
 
 /** A journal folder inside a project: nothing writes one, and the tree and the walks still hide it. */
 const HISTORY_DIR = "_history";
@@ -53,7 +57,11 @@ export interface HistoryEntry {
   keptOn?: EngineRef | null;
 }
 
-export type { HistoryPeek, HistoryState } from "@studio/web-protocol";
+export type {
+  HistoryListEntry,
+  HistoryPeek,
+  HistoryState,
+} from "@studio/web-protocol";
 
 // One recorded change, with blob bytes still in memory — the journal persists them.
 export interface NewEntry {
@@ -283,6 +291,19 @@ export class ProjectHistory {
       .flatMap((b) => [b.before, b.after])
       .filter((n) => n !== null);
     if (engine && names.length) this.keepOnEngine(names);
+  }
+
+  /** Every entry oldest first, its paths and never its contents, `undone` past the cursor — the History panel. */
+  list(): HistoryListEntry[] {
+    this.load();
+    return this.j.entries.map((e, i) => ({
+      id: e.id,
+      ts: e.ts,
+      kind: e.kind,
+      label: e.label,
+      paths: [...e.changes, ...e.blobs].map((c) => c.path),
+      undone: i >= this.j.cursor,
+    }));
   }
 
   peekUndo(): HistoryPeek | null {

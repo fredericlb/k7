@@ -41,6 +41,11 @@ It is asymmetric on purpose:
 - **No reply within `ENGINE_PONG_TIMEOUT_MS`** and the socket is dead whatever it claims. We close
   it ourselves rather than wait for a `close` that will not come.
 
+A link that goes down says nothing about the transport, and the last frame said `playing: true`.
+So the host resets its store on disconnect (`EngineStore.offline`): stopped, meters at the floor,
+the playhead left where it stood. A dead engine plays nothing, and the screen must not pretend it
+does.
+
 ## The backoff, and why it doubles
 
 A fixed one-second backoff means a tab forgotten in the background, on a machine whose engine is

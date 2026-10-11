@@ -71,6 +71,18 @@ const std::vector<Instrument>& all()
          "b7c3b7c0bf76b22e5ab3c6b3d7f997b488a3815608f795b570a0452c31dc79ba", 7947927},
         {"lithalean-clavinet", "Clavinet", "https://musical-artifacts.com/artifacts/646/Clavinet.zip",
          "b434bd4b3eff7232948663a0b343ce79512229da912c8edb09f1a6fa2abc060d", 57271531},
+        // An acoustic drum kit, Wilkinson Audio's (CC BY 4.0), at one commit of sfzinstruments' port.
+        {"naked-drums", "Naked Drums",
+         "https://codeload.github.com/sfzinstruments/WilkinsonAudio.NakedDrums/zip/407732a548606ac715ad8f3fbac63d9f4df77c0d",
+         "a58f73d1c143f77809e45395965895b513890fa2cc7f902172e407862fcc7f11", 1283095413},
+        // …and a second, Karoryfer's (CC0), with brushes, mallets and a rusty character of its own.
+        {"big-rusty-drums", "Big Rusty Drums",
+         "https://codeload.github.com/sfzinstruments/karoryfer.big-rusty-drums/zip/f07ce00df34a46b6b08375be56fe116cf15782bc",
+         "e1f9944f43570ffe0c4d1d57750805c605e3df63dc943b622f5d6dc7b35e2781", 619428922},
+        // Six vintage drum machines, one per octave — The Tic Tok Men's, at one commit of sfzinstruments' port.
+        {"retro-drums", "Retro Drums",
+         "https://codeload.github.com/sfzinstruments/tictokmen.retrodrums1/zip/0d1ba0a79f7616b302deb762f7390ba3c3cd1662",
+         "84a1743ce653fdcc6b8f7dda03248882f632087d57b9990f58d9496c450d56e7", 1916192},
     };
     return list;
 }

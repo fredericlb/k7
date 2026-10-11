@@ -17,6 +17,8 @@ export interface TunnelRoot {
   name: string;
   /** Whether the engine may send files back into it (a take, a plugin snapshot). */
   writable: boolean;
+  /** Each top-level folder is a library's own clone, CONTAINED in its real location, which may be a link — docs/tunnel.md. */
+  perChild?: boolean;
 }
 
 export interface RemoteStat {

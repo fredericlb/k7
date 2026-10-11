@@ -16,6 +16,9 @@
 #include "EditBuilder.h"     // loadVstPreset — the ONE reader of a .vstpreset container
 #include "Warnings.h"       // warn — an orphan belongs to no session, so it warns unstamped
 #include "MessagePump.h"    // pumpMessages — the drain before a CLI returns
+#if STUDIO_SURGE
+#include "surge/SurgeCore.h" // the layout a Surge panel is generated from
+#endif
 
 #include <chrono>
 #include <future>
@@ -94,6 +97,8 @@ int dumpBuiltinParams() {
             out << (firstParam ? "" : ",") << "{\"name\":" << jsonStr(p.name)
                 << ",\"min\":" << jsonNum(p.min) << ",\"max\":" << jsonNum(p.max)
                 << ",\"def\":" << (p.def.has_value() ? jsonNum(*p.def) : "null");
+            // Said only when false: a curve on such a control is refused by the compile rather than lost in the engine.
+            if (!p.automatable) out << ",\"automatable\":false";
             if (!p.states.empty()) {
                 out << ",\"states\":[";
                 bool firstState = true;
@@ -381,6 +386,16 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     plugin = nullptr;  // the cache's reference is gone with deleteFromParent; this drops ours
     pumpMessages(500);
     return 0;
+}
+
+int dumpSurgeLayout() {
+#if STUDIO_SURGE
+    std::cout << surge::SurgeCore::layoutJson() << std::endl;
+    return 0;
+#else
+    std::cerr << "[dump-surge-layout] this engine is built without Surge XT\n";
+    return 1;
+#endif
 }
 
 }  // namespace studio

@@ -37,20 +37,22 @@ std::string digestOf(const std::string& text) {
 
 // What the digest cannot promise, the pair check does: two programs sharing a key are compared in full, so a collision is a replace and never an unheard edit.
 bool sameSource(const PluginDoc& a, const PluginDoc& b) {
-    return a.faustDsp == b.faustDsp && a.dspGraph == b.dspGraph;
+    return a.faustDsp == b.faustDsp && a.faustFiles == b.faustFiles && a.dspGraph == b.dspGraph;
 }
 
 // A pair that shares a key and must STILL be re-created: its program differs, or a file it loaded is gone — nothing unloads one.
 bool mustReplace(const PluginDoc& a, const PluginDoc& b) {
     const auto dropped = [&](const std::string PluginDoc::*f) { return !(a.*f).empty() && (b.*f).empty(); };
     return !sameSource(a, b) || dropped(&PluginDoc::path) || dropped(&PluginDoc::namFile) ||
-           dropped(&PluginDoc::irFile) || dropped(&PluginDoc::deckFile) || dropped(&PluginDoc::sfzFile);
+           dropped(&PluginDoc::irFile) || dropped(&PluginDoc::deckFile) || dropped(&PluginDoc::sfzFile) ||
+           dropped(&PluginDoc::surgePatch);
 }
 
 // …and one whose FILES or second input moved: loaded again into the same instance, so its tails and its place are kept.
 bool filesMoved(const PluginDoc& a, const PluginDoc& b) {
     return a.path != b.path || a.namFile != b.namFile || a.irFile != b.irFile || a.deckFile != b.deckFile ||
-           a.sfzFile != b.sfzFile || a.sidechainFrom != b.sidechainFrom || a.rack != b.rack;
+           a.sfzFile != b.sfzFile || a.surgePatch != b.surgePatch || a.sidechainFrom != b.sidechainFrom ||
+           a.rack != b.rack;
 }
 
 std::string keyOf(const PluginDoc& p) {
@@ -59,6 +61,8 @@ std::string keyOf(const PluginDoc& p) {
     std::string k = "plugin:" + base + p.type + ":" + p.name;
     // A Faust program is compiled in the plugin's CONSTRUCTOR, so its source too — digested, and checked in full by sameSource().
     if (!p.faustDsp.empty()) k += "#" + digestOf(p.faustDsp);
+    // …and the files it plays, read in the CONSTRUCTOR too: another table is another instance (docs/faust.md).
+    for (const auto& [label, path] : p.faustFiles) k += "&" + label + "=" + digestOf(path);
     // A jsdsp GRAPH is built there too, params and all, so editing a module must read as a replace.
     if (!p.dspGraph.empty()) k += "~" + digestOf(p.dspGraph);
     // How a pattern picks and plays its events is fixed at construction; its SOURCE is not — an edit is PatternChanged, in place.
@@ -93,7 +97,9 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.crossfadeIn != b.crossfadeIn || a.crossfadeOut != b.crossfadeOut
         || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers
         // The NOTES, for the same reason — without this the whole note vocabulary reached the engine and did nothing.
-        || a.notes != b.notes;
+        || a.notes != b.notes
+        // …and whether it plays at all: a mute toggled on a built clip is a re-insert, which builds a disabled one as nothing.
+        || a.disabled != b.disabled;
 }
 
 // Is the master chain the same run, IN THE SAME ORDER, set the same way? (docs/projectDiff.md)

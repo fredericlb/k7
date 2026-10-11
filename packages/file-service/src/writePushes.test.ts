@@ -1,4 +1,4 @@
-// `PUT /file` pushes the project to the engine when the write CHANGED it — and only then.
+// `PUT /file`, `POST /undo` and `POST /redo` push the project to the engine when they CHANGED it.
 //
 // The gap this pins: a command reaches the engine (through the host's `applyProject`) and so do
 // `/open` and a reconnect (through `sendActiveProject`), but a plain write does none of them.
@@ -142,4 +142,31 @@ it("pushes a same-bytes rewrite too, because the token counts the mtime", async 
   const settled = sentCount();
   await write("song.st0/nodes/gtr.yaml", text);
   expect(sentCount()).toBeGreaterThan(settled);
+});
+
+const step = (dir: "undo" | "redo") =>
+  fetch(`${base}/${dir}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  }).then((r) => r.json() as Promise<{ applied?: boolean }>);
+
+it("pushes after an undo and after a redo, which rewrite the project's files", async () => {
+  // The bug this pins: an event restored by Ctrl+Z was on disk and on screen, and silent until the next edit.
+  await write(
+    "song.st0/nodes/gtr.yaml",
+    'extends: "@meta/track"\nevents: []\n# to undo\n',
+  );
+  const beforeUndo = sentCount();
+  expect((await step("undo")).applied).toBe(true);
+  expect(sentCount()).toBeGreaterThan(beforeUndo);
+  const beforeRedo = sentCount();
+  expect((await step("redo")).applied).toBe(true);
+  expect(sentCount()).toBeGreaterThan(beforeRedo);
+});
+
+it("does NOT push when there is nothing to undo", async () => {
+  const settled = sentCount();
+  expect((await step("redo")).applied).toBe(false);
+  expect(sentCount()).toBe(settled);
 });

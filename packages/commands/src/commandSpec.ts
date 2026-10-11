@@ -67,6 +67,8 @@ export interface CommandSpec {
   surfaces: Surface[];
   /** Which right-click menus may offer it. Absent ⇒ every one whose click answers its leading args. */
   menu?: MenuEntity[];
+  /** The menu asks before running it: what it destroys is more than one Ctrl+Z is trusted to bring back. */
+  confirm?: boolean;
   // No fixed leading args: a verb that is one setting of another is the ARG's job — docs/completions.md.
   args?: ArgSpec[]; // trailing user args (for completion)
 }
@@ -313,6 +315,7 @@ export function loadCommandSpecs(): CommandSpec[] {
         menu: Array.isArray(c.menu)
           ? menuList(String(c.command), c.menu as unknown[])
           : undefined,
+        confirm: c.confirm === true ? true : undefined,
         args: Array.isArray(c.args)
           ? c.args.map((a: any) => {
               // An unknown provider is a typo: reported and dropped, never thrown — a throw here would empty the WHOLE catalogue.

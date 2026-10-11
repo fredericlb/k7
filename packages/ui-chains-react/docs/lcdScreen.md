@@ -27,6 +27,16 @@ file is a module to an editor and a function body to the page.
 pixels, the module's params by name, the peak history of both audio taps (`input`, `output`,
 oldest first, ending now), a `state` object kept between draws, the screen's palette, and the time.
 
+`lcd.sound(slot)` is the one thing a screen asks for rather than receives: the FILE a slot of the
+module names — a Faust table — decoded mono at its own length, or `null` until it has loaded (or
+with a host that loads none). The host decodes (`LcdSounds`, handed to `DomChains` as `sounds`, or provided once ABOVE every
+graph through `LcdSoundsContext` — st0 does the latter, since it mounts graphs in five places and a
+host passing it to four leaves the fifth's screens loading for ever);
+st0's reads the WAV itself (`apps/st0/frontend/src/lcdSounds.ts`), because the browser's
+`decodeAudioData` resamples to the context's rate and a 2048-sample frame would stop being one. A
+file landing repaints every screen, so a draw only has to handle the `null` it starts with. The
+library's wavetable instrument draws its table with it.
+
 ## An interactive screen
 
 A screen written as `{ draw, pointer }` rather than a bare function also gets the pointer:

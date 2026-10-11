@@ -36,6 +36,10 @@ export const UI_EXACT: readonly string[] = [
   "playlists",
   // …and what you listen AGAINST, which belongs to the repository the same way (docs/references.md).
   "references",
+  // …and the workspace's task list, TODOS.md at its root (docs/tasks.md).
+  "tasks",
+  // …and the open song's history, the undo journal and its commits as one list (docs/shell.md).
+  "history",
   // Commit, pull, export, publish. `ui` because the PANEL is a view; every verb inside it is a `project` one and writes.
   "share",
   // …and the settings panel's tabs.
