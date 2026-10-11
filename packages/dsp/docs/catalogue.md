@@ -17,7 +17,7 @@ the module IS (`audio`, `instruments`, `transformers`, `io`… — see `@studio/
 under `filter` and not under `utility` though both are audio.
 
 The modules discussed below: `eq3`, `sweep`, `moogladder`, `crossfade`, `fade`, `tempo`,
-`normalize`, `tremolo`, `stemsplit`, `quick-master`, `wurlitzer`, `arpeggiator`, `note-repeat`.
+`normalize`, `tremolo`, `stemsplit`, `quick-master`, `arpeggiator`, `note-repeat`.
 
 `phaser()` and `chorus()` are Tracktion's two plugins rebuilt as graphs, knob for knob — same
 names, ranges and defaults — because the plugins keep every knob as plain state, which no curve can
@@ -67,8 +67,8 @@ module beside it: that compiles to `gain(Level)`, a multiplication, straight beh
 that already has a linear `Gain` of the same range and rest. What the subtraction it replaced cost
 to learn, measured, is in `packages/song-schema/docs/stems.md`.
 
-Two modules have their own page, because their numbers are argued rather than read: `sweep`
-(`docs/sweep.md`) and the wurlitzer (`docs/wurlitzer.md`). What the library itself imposes on all
+One module has its own page, because its numbers are argued rather than read: `sweep`
+(`docs/sweep.md`). What the library itself imposes on all
 of them — the three rates, the port index, `geolerp`'s guard — is in `docs/builder.md`.
 
 ## `fade` and `crossfade` — the same effect, and only one shape holds on a desk
@@ -132,8 +132,8 @@ of truth. Two things narrow the gap, and neither is a copy of a module:
   function written out — `crossfade.test.ts` compares the two shapes, both ways, so a module copied
   from one cannot silently drift from what is argued here.
 - **The Faust compiler will walk a library**: `engine/st0-engine/tests/Faust_test.cpp` compiles every
-  `.dsp` under `$STUDIO_MODULES`. Point it at yours before pushing one — that check is what was
-  missing the day the wurlitzer reached an account's library without ever having compiled.
+  `.dsp` under `$STUDIO_MODULES`. Point it at yours before pushing one: nothing else compiles a
+  Faust module before an account's engine is handed it.
 
 A module is written in st0, against a project where the plugin it names is actually LOADED, and
 committed to the library. That is the only path in, and there is deliberately no second one.

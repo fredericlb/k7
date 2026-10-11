@@ -42,6 +42,13 @@ is the truth, and it re-reads on the workspace's revision too, so an edit made e
 A task pinned to the OPEN project shows its timecode as a link that puts the playhead there; one pinned
 to another song shows where, and does nothing. **Attach timecode** is greyed with no song open.
 
+**The timeline flags them too.** Each task pinned to the open project is a small flag at the foot of
+the ruler, on its timecode — amber while open, faded once done — and hovering one (or tabbing to it)
+hangs its text under the ruler, outside the ruler's own clipping. The flags are read by
+`hooks/useProjectTasks.ts`, the same file re-read on the same revision, so a task ticked or added in the
+panel moves the ruler with it. A click falls through to the ruler, which seeks there, as on any tick: a
+flag says where something is to be done, and the place is what a click on the ruler is for.
+
 ## The open project's tags sit above the tasks
 
 The panel's top row holds the OPEN project's tags, `project.tags` in its project.yaml, which the home

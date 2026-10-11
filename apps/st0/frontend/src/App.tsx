@@ -176,6 +176,7 @@ import {
 } from "./hooks/usePolls";
 import { useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
+import { useProjectTasks } from "./hooks/useProjectTasks";
 import { noteRevision, useRevision } from "./hooks/useRevision";
 import { useShare } from "./hooks/useShare";
 import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
@@ -1392,6 +1393,10 @@ export default function App({
     onLanded: () => bumpReload(),
   });
   takeActiveRef.current = takes.active;
+  // The open project's tasks — the timeline flags those with a timecode in its ruler.
+  const projectTasks = useProjectTasks(
+    frozen ? null : (ws?.activeProject ?? null),
+  );
   const { midiInputs, openMidiInputs, liveTake } = useMidiRecording({
     store,
     tempo: recInfo.tempo,
@@ -3715,6 +3720,8 @@ export default function App({
                               : 0
                           }
                           // …and the MIDI take, drawn on its lane the same way, whichever record started it.
+                          // The open project's tasks, flagged in the ruler where they carry a timecode (docs/tasks.md).
+                          tasks={projectTasks}
                           midiTake={
                             liveTake
                               ? { lane: liveTake.lane, from: liveTake.from }

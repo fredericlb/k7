@@ -443,8 +443,8 @@ and it states only what it CHANGES. The merge is the one a node already gets ove
 it extends: `params` merge key by key, so a set that touches `Gain` leaves `Tone` alone, while a
 list replaces outright. `extends` is folded first, so the chosen set always wins.
 
-A set can also be **another module entirely** — a Wurlitzer played by a VST on one set and by a
-Faust module on the other. Give the set its own `extends:`, and that set plays that module, with
+A set can also be **another module entirely** — a Wurlitzer played by a VST on one set and a
+Plaits voice on the other. Give the set its own `extends:`, and that set plays that module, with
 its own knobs: nothing of the first set's plugin, params or panel comes along. Switch to the set and
 run `node replace <node> <module>` to write it for you; the node keeps its name, since it is still
 the same node on either set.

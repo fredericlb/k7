@@ -14,6 +14,7 @@ import {
   Clock,
   Ghost,
   Layers,
+  ListTodo,
   Music,
   Plus,
   Repeat,
@@ -25,6 +26,7 @@ import {
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { arrayEq, useEngineState } from "@studio/engine-browser/store";
+import type { Task } from "@studio/song-schema/tasks";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -131,6 +133,8 @@ import { UploadProgress } from "./UploadProgress";
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
+// One empty list for "no tasks", so a timeline handed none does not get a new array every render.
+const NO_TASKS: readonly Task[] = [];
 /** The name column, 30% wider than the shared `GUTTER_DESKTOP`, since this one carries an arrow, two meters, an icon, a name and three toggles — ONE variable, or a click lands a column off (@studio/ui-timeline's lanes.ts). */
 const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 
@@ -518,6 +522,7 @@ export function TimelineTab({
   takeStartBeat,
   takeCountInBeats,
   midiTake = null,
+  tasks = NO_TASKS,
   videoTracks,
   onVideoEdit,
   setStatus,
@@ -567,6 +572,8 @@ export function TimelineTab({
   takeStartBeat: number;
   /** The take's pre-roll in BEATS, so the growing clip can skip it: those bars record nothing. */
   takeCountInBeats: number;
+  /** The open project's tasks from TODOS.md; those with a timecode are flagged in the ruler (docs/tasks.md). */
+  tasks?: readonly Task[];
   /** The MIDI take being captured right now, and the beat it starts on — the browser's, so absent from the engine's armed set. */
   midiTake?: { lane: string; from: number } | null;
   // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
@@ -708,6 +715,11 @@ export function TimelineTab({
   const [rulerMode, setRulerMode] = useState<RulerMode>("bars");
   // The name of the marker the cursor is over, shown in the header while hovering.
   const [hoverMarker, setHoverMarker] = useState<string | null>(null);
+  // The task flag the cursor is over: its text is drawn under the ruler, which clips its own children.
+  const [hoverTask, setHoverTask] = useState<{
+    beat: number;
+    text: string;
+  } | null>(null);
   // The zoom stack: [] is the song at rest, the last entry is what's drawn.
   const [zoom, setZoom] = useState<Viewport[]>([]);
   // The transport loop as an inclusive beat range, or null. The engine enforces the wrap; this only draws the band.
@@ -2190,6 +2202,16 @@ export function TimelineTab({
   const visMarkers = (proj.markers ?? []).filter(
     (mk) => mk.beat >= beatLo && mk.beat <= lastBeat,
   );
+  // The tasks pinned somewhere in view; a timecode this song's grid cannot read is not drawn rather than drawn wrong.
+  const visTasks = tasks.flatMap((t) => {
+    if (!t.at) return [];
+    try {
+      const beat = parsePosition(t.at.timecode, tsNum, tsDen);
+      return beat >= beatLo && beat <= lastBeat ? [{ ...t, beat }] : [];
+    } catch {
+      return [];
+    }
+  });
 
   // --- dropping OS files on a lane (docs/timeline.md) -------------------------------
 
@@ -2588,7 +2610,37 @@ export function TimelineTab({
                     />
                   </div>
                 ))}
+                {/* Task flags at the ruler's foot: hover for the text; a click falls through to the ruler, which seeks there. */}
+                {visTasks.map((t) => (
+                  <button
+                    type="button"
+                    key={`task:${t.line}`}
+                    className={cn(
+                      "absolute bottom-0 z-20 -translate-x-1/2 border-0 bg-transparent p-0",
+                      t.done ? "text-muted-foreground/50" : "text-amber-400",
+                    )}
+                    style={{ left: x(t.beat) }}
+                    aria-label={t.text}
+                    onMouseEnter={() =>
+                      setHoverTask({ beat: t.beat, text: t.text })
+                    }
+                    onMouseLeave={() => setHoverTask(null)}
+                    onFocus={() => setHoverTask({ beat: t.beat, text: t.text })}
+                    onBlur={() => setHoverTask(null)}
+                  >
+                    <ListTodo className="h-3 w-3" />
+                  </button>
+                ))}
               </div>
+              {/* The hovered task's text, hung under the ruler: inside it, the ruler's own clipping would cut it off. */}
+              {hoverTask && (
+                <div
+                  className="pointer-events-none absolute z-50 max-w-xs rounded border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow"
+                  style={{ top: ROW_H, left: GUTTER + x(hoverTask.beat) }}
+                >
+                  {hoverTask.text}
+                </div>
+              )}
             </div>
 
             {/* lanes — group headers with their members nested under them. */}

@@ -1,0 +1,5 @@
+- loops
+- subchains sur les drums
+- responsive
+- download manager
+- 

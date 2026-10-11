@@ -55,7 +55,7 @@ a chain calls it by. Silent, and it would repoint every step naming it.
 ## A set that names ANOTHER module is that module
 
 A set with its own `extends:` is not a patch over the node: it is another module in the node's
-place — a Wurlitzer played by a VST on set 1 and by a Faust module on set 2.
+place — a Wurlitzer played by a VST on set 1 and a Plaits voice on set 2.
 
 ```yaml
 # nodes/wurli.yaml
