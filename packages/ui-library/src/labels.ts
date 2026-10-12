@@ -1,0 +1,180 @@
+// labels.ts — every sentence the media library draws, as one typed object the host fills from its own
+// catalogue. A function where a sentence carries a value, so the host owns the word order too.
+// See ../docs/host.md.
+
+import type { MiniPlayerLabels } from "@studio/ui-mini-player";
+
+export interface LibraryLabels {
+  sections: {
+    songs: string;
+    samples: string;
+    recordings: string;
+    playlists: string;
+    find: string;
+  };
+  common: {
+    loading: string;
+    cancel: string;
+    back: string;
+    moveUp: string;
+    moveDown: string;
+    remove: string;
+    play: string;
+    pause: string;
+    /** "B", "kB", "MB" — how a size is printed on a row. */
+    units: { b: string; kb: string; mb: string };
+  };
+  tree: {
+    open: string;
+    close: string;
+    findSongs: string;
+    dropOnSong: string;
+    notAudio: (name: string) => string;
+    addVariant: string;
+    queue: string;
+    delete: (name: string) => string;
+    deleteFolder: (name: string) => string;
+    deleteFolderConfirm: (name: string) => string;
+    deleteSubmit: string;
+    uploadFolder: string;
+    newFolder: string;
+    newFolderPlaceholder: string;
+    newFile: string;
+    newFilePlaceholder: string;
+    create: string;
+    rename: string;
+    renamePlaceholder: string;
+    renameSubmit: string;
+  };
+  contents: {
+    emptyLibrary: string;
+    emptyFamily: string;
+    notCatalogued: string;
+    noRecordings: string;
+  };
+  addRecording: { add: string; sending: string; cancel: string };
+  addSong: {
+    button: string;
+    readingTags: string;
+    hint: string;
+    artist: string;
+    artistPlaceholder: string;
+    album: string;
+    albumPlaceholder: string;
+    title: string;
+    titlePlaceholder: string;
+    notAudio: (name: string) => string;
+    occupied: string;
+    cancelUpload: string;
+    replace: string;
+    send: string;
+  };
+  save: {
+    clean: string;
+    pending: string;
+    saving: string;
+    held: string;
+    error: string;
+  };
+  song: {
+    heading: (name: string) => string;
+    noSidecar: string;
+    saved: (path: string) => string;
+    variants: string;
+    variantMissing: string;
+    variantRemoved: (name: string) => string;
+    alreadyAsked: string;
+    analysedNoCache: string;
+    analyseFailed: (message: string) => string;
+    noMaster: string;
+    fileNotInLibrary: string;
+    notAnswering: (target: string) => string;
+    fallback: string;
+    fileMissing: string;
+    noMasterShort: string;
+    analysing: string;
+    analyse: string;
+  };
+  playlists: {
+    unreadable: string;
+    inline: string;
+    none: string;
+    newPlaylist: string;
+    namePlaceholder: string;
+    choose: string;
+    showYaml: string;
+    behind: string;
+    search: string;
+    queueAll: string;
+    queueAllTitle: string;
+    songCount: (n: number) => string;
+    searchPlaceholder: string;
+    noMatch: string;
+    empty: string;
+  };
+  find: {
+    failed: string;
+    searching: string;
+    youtubeDownloading: string;
+    atPeer: (peer: string) => string;
+    waitingPeer: string;
+    peerTry: (n: number) => string;
+    filed: string;
+    youtubeTitle: string;
+    noYtdlp: string;
+    youtubeButton: string;
+    abandon: string;
+    forget: string;
+    placeholder: string;
+    search: string;
+    settings: string;
+    empty: string;
+  };
+  playback: {
+    targets: Record<
+      "browser" | "library" | "engine",
+      { label: string; hint: string }
+    >;
+    title: string;
+    picker: (target: string) => string;
+    noEngine: string;
+    notInLibrary: string;
+    engineSaid: (message: string) => string;
+    masterFailed: string;
+    done: string;
+    bar: MiniPlayerLabels;
+    queueRegion: string;
+    queueWaiting: (n: number) => string;
+    queueButton: (n: number) => string;
+    upNext: string;
+    queueEmpty: string;
+  };
+  engines: {
+    title: string;
+    hint: string;
+    refresh: string;
+    looking: string;
+    none: (origin: string) => string;
+    chosen: string;
+    unreachable: string;
+    sameNetwork: string;
+    someone: string;
+    heldBy: (who: string) => string;
+  };
+  slskd: {
+    hint: string;
+    address: string;
+    apiKey: string;
+    sftpHost: string;
+    port: string;
+    user: string;
+    downloadsDir: string;
+    sshKey: string;
+    passphrase: string;
+    password: string;
+    onFile: string;
+    forget: string;
+    save: string;
+    test: string;
+  };
+}

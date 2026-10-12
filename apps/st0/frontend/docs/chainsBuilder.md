@@ -47,8 +47,7 @@ The list, and `DomChains` on the chosen chain with the patch cable, the splice a
 component's single `command`, which is the one place that knows the edit is aimed somewhere other
 than the song — and it bumps a revision so the drawing re-reads the file the verb just changed.
 
-A chain drawn without its gestures would be a picture of one, which pl8 already has
-(`ChainView`, read-only, beside the YAML).
+A chain drawn without its gestures would be a picture of one.
 
 ## The text half
 
@@ -66,9 +65,9 @@ what the graph draws on the next read.
   file is edited as text, and its drawing has no cable, splice or pin.
 - **Creating a chain.** Adding a NODE to a folder chain works and is tested
   (`chainNodeNew.test.ts`). Making a new chain from nothing has no verb yet.
-- **Committing.** The library is a git repository (`pl8-libraries`) and an edit leaves it dirty.
+- **Committing.** The library is a git repository (`st0-libraries`) and an edit leaves it dirty.
   Nothing in this screen publishes.
 - **The engine.** A chain edited here is not heard. It is heard by being named in a project that
-  is open — this song, or the bench's live rig when no song names it (`apps/pl8/docs/banc.md`):
+  is open — this song, or the bench's live rig when no song names it (`apps/st0/backend/docs/media/banc.md`):
   the library is mounted in both, so a plugin actually loads. This screen edits the topology in
   place; something playing is what auditions it.

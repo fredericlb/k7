@@ -1,0 +1,95 @@
+/* shared.css — the shared vocabulary: muted text, errors, the page column, buttons and inputs. Nested under .rehearsal-root like every sheet here (index.css). */
+
+.rehearsal-root {
+  .muted {
+    color: var(--muted);
+  }
+  .small {
+    font-size: 12px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .error {
+    color: var(--red);
+    font-size: 13px;
+  }
+
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 36px 80px;
+  }
+  .main-inner {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  /* ---- Buttons ------------------------------------------------------------- */
+
+  /* A design-system SWITCH is a <button> too, and this padding crushed its thumb to a sliver. */
+  /* So are a TAB trigger and the shared calendar's days, whose states this unlayered fill hid; one :not() keeps the specificity. */
+  /* A design-system Button marked .ds-button keeps its own size and fill: an icon button here grew into a grey block. */
+  button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"], .ds-button) {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text);
+    background: var(--surface-2);
+    transition: background 0.12s, border-color 0.12s, filter 0.12s;
+  }
+  /* Excluded here too, or hovering the switch would grey out the track it colours itself. */
+  button:not(header button):not([data-slot="switch"], [role="tab"], [data-slot^="calendar-"], .ds-button):hover:not(:disabled) {
+    background: #2c2d36;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  /* Variant/control styling now lives in the shadcn components
+     (src/components/ui); only the base rule above remains for the bespoke
+     buttons (topnav, chord tokens, waveform markers, …). */
+
+  /* ---- Inputs -------------------------------------------------------------- */
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* Cards and the segmented tab control are shadcn components now
+     (src/components/ui/card.tsx, tabs.tsx). */
+
+  /* One column on narrow screens, two once there's room. Day headers and the
+     empty-state row span the full width so grouping reads clearly. */
+  .session-list.home-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px 12px;
+    align-items: start;
+    flex: none;
+    overflow: visible;
+  }
+  @media (min-width: 700px) {
+    .session-list.home-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .home-list .session-day-header,
+  .home-list .home-list-empty {
+    grid-column: 1 / -1;
+  }
+  .home-list-empty {
+    padding: 6px 10px;
+  }
+}

@@ -3,8 +3,7 @@
     "target": "ES2022",
     "lib": ["ES2023"],
     "module": "ESNext",
-    // Bundler resolution (we run via tsx) so we can consume the brain's TypeScript
-    // sources (extensionless relative imports) through its package `exports`.
+    // Bundler resolution under tsx: the brain packages are raw TypeScript reached through their `exports`.
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "noEmit": true,

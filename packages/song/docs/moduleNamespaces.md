@@ -20,7 +20,7 @@ ref written before libraries had names uses. See [sharedFolders.md](sharedFolder
 ## `@st0` names a LIBRARY of modules, and the cache folder is called `mediatek`
 
 The level's name follows the folder of modules rather than the path on the origin: the
-médiathèque is `apps/pl8`, answering on its own subdomain, and the level is `@st0` all the same.
+médiathèque is served by st0's backend under `/media`, and the level is `@st0` all the same.
 A level is written into user files, so renaming one means rewriting every chain in every
 repository on every machine at once, and the failure signature is a `?` on a graph node and
 nothing else. That is worth paying to stop a word that appears nowhere; it is not worth paying
@@ -32,7 +32,7 @@ to chase a URL.
 `<state>/mediatek` is a **cache path** on one machine, not a name anybody writes in a file —
 nothing resolves a ref through it, and renaming it would be a migration of a folder on every
 machine in exchange for nothing. `$STUDIO_MEDIATEK` and the `@studio/mediatek` package keep the
-name for the same reason: the médiathèque is what the thing is called, and `pl8` is what serves
+name for the same reason: the médiathèque is what the thing is called, whatever serves
 it.
 
 ### `@mediatek/…` resolves to nothing
@@ -140,8 +140,7 @@ you want is a panel and presets FOR YOU, not a face the whole account reads.
 
 ## Giving the WHOLE scan a face
 
-`engineFaces()` does for a library what `engineFaceModule()` does for one plugin, and pl8
-offers it on the modules section itself. On the machine this is measured against: 252 plugins
+`engineFaces()` does for a library what `engineFaceModule()` does for one plugin. On the machine this is measured against: 252 plugins
 scanned, 242 modules written, 10 skipped.
 
 ### Some built-ins get no face

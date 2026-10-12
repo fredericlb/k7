@@ -5,7 +5,7 @@ Two files, and the line between them is which MACHINE answers.
 | | who answers | where |
 |---|---|---|
 | `src/fileApi.ts` + `src/project.ts` | the **file service**, on the engine's machine, cross-origin and header-authenticated | `base` from the engine probe |
-| `src/repoLookup.ts` | **pl8**, at a fixed path on the page's own origin, with the session cookie | `serviceUrl(origin, "pl8")` |
+| `src/repoLookup.ts` | **the media library**, st0's backend, at a fixed path on the page's own origin, with the session cookie | `serviceUrl(origin, "pl8")` |
 
 `apps/st0/AGENTS.md` lists the three servers a project app talks to and which is which.
 
@@ -15,8 +15,8 @@ Every call carries the same three headers — the user, the workspace, the engin
 everything in `project.ts` is built from two verbs, `fget` and `fsend`. `engineId` rides in the
 config beside the token because it comes from the same probe; it is **not** used to reach the file
 service, which is addressed by `base`. It is what a call to ANOTHER service must name when it is
-about to borrow this machine — pl8's `/api/stems` is the first, holding the master and asking an
-engine to cut it (`apps/pl8/docs/stems.md`) — and it is the only way the desk can say which
+about to borrow this machine — the media library's `/api/stems` is the first, holding the master and asking an
+engine to cut it (`apps/st0/backend/docs/media/stems.md`) — and it is the only way the desk can say which
 machine it is on.
 
 `mediaUrl` is the exception that proves the header rule: an `<audio>`/`<video>` element GET cannot
@@ -63,7 +63,7 @@ A read is fetched with `cache: "no-store"`. Every route answers from the files a
 the workspace's revision is what decides when to ask again, so a copy the browser revalidated on its
 own could only be older than the one asked for. A read whose connection broke, or that came back 2xx
 with an empty body, is asked a second time before anyone is told. The file service restarts while
-it is being developed, and pl8's hub breaks the connection rather than ending it cleanly when the
+it is being developed, and the file hub breaks the connection rather than ending it cleanly when the
 service goes away mid-answer (`packages/file-hub/index.ts`). A clean end would pass a cut-off body as
 a whole one, and every caller would fail to parse it.
 
@@ -83,7 +83,7 @@ every hook that asks for one would draw an error banner about a service that is 
 absent by design. The values are JSON **text** and not objects, for `fget`'s reason above: several
 components parse the same body and must not be handed one object to alias. A canned answer
 short-circuits before the request and is parsed per caller exactly as a real body is, so a
-component cannot tell which kind it got. See `apps/pl8/docs/shares.md`.
+component cannot tell which kind it got. See `apps/st0/backend/docs/media/shares.md`.
 
 ### Blocked or unreachable
 
@@ -115,14 +115,14 @@ for every request that met it together, and the request is sent again. A write i
 `project.ts` is the shared client. st0 spreads it into its own and adds what only it has — timeline,
 waveforms, video; z0's editor uses it as it stands.
 
-- **Resolving what pl8 named.** pl8 knows a REPOSITORY; this machine knows folders.
+- **Resolving what the media library named.** It knows a REPOSITORY; this machine knows folders.
   `workspaceByRepo` / `startClone` / `cloneStatus` bridge that, cloning when the machine has never
   seen one (`packages/file-service/docs/cloneJobs.md`).
 - **`openBench`** replaces those three rather than sitting beside them: the bench has no
   repository, so there is no name to resolve and nothing to clone. `@banc` in the address routes
   here. It can be slow the first time — a library that is not yet mounted — which is why it takes
   over the clone's progress screen rather than being asked for silently
-  (`apps/pl8/docs/banc.md`). It is handed the project part of the address verbatim, because the
+  (`apps/st0/backend/docs/media/banc.md`). It is handed the project part of the address verbatim, because the
   MACHINE is what builds the bench and therefore what decides which address it answers; the
   libraries are the machine's already.
 - **`open`** takes the project and nothing else: the server keeps the origin's libraries and
@@ -179,24 +179,24 @@ is always a path the caller was GIVEN, by `libraryChains`, and never one it buil
 
 ## Two things this client deliberately has no route for
 
-- **Cutting stems** is pl8's: the library holds the masters, so it owns the cut and keeps the
+- **Cutting stems** is the media library's: the library holds the masters, so it owns the cut and keeps the
   results, and the engine only lends its model over `/process`. This client speaks to ONE machine
-  and pl8 is not it, so those calls live where the library's other routes do — `mediatek` in
-  `apps/st0/frontend/src/api.ts`. See `apps/pl8/docs/stems.md`.
+  and the media library is not it, so those calls live where the library's other routes do — `mediatek` in
+  `apps/st0/frontend/src/api.ts`. See `apps/st0/backend/docs/media/stems.md`.
 - **Grouping two interface inputs into one stereo device** is a verb, not a route:
   `system channel type <channel> <mono|stereo>` writes the preference and tells the engine both,
   so it goes down `/command` with every other act
   (`packages/ui-module-builder/docs/inputChannels.md`). Split over two doors it would be one act
   with no name, and the two halves could disagree.
 
-## Asking pl8: the two lookups
+## Asking the media library: the two lookups
 
 `repoLookup.ts` is same-origin — every studio service sits at a fixed path under one origin — so
 the session cookie rides along without asking and there is no CORS to arrange. The path is asked of
 `serviceUrl` rather than spelled, so where the médiathèque is mounted stays a fact read from one
 table and this file never has to know it.
 
-Both errors are raised in the SERVER's words, because pl8 is the side that can be specific — an
+Both errors are raised in the SERVER's words, because the media library is the side that can be specific — an
 unknown name, or a name two repositories answer to.
 
 `accountLibraries` answers an EMPTY list with a **200** and not a 404: "none set" is the ordinary

@@ -41,7 +41,7 @@ hit, so the hits have to be visible while the warp marks are what the hand is on
 `markerPlace: "low"` exists for the same reason. The top of a waveform is where the loud
 material is, so a row of tabs along the top edge covers the very transients it points at. It is
 opt-in rather than a change of default because three surfaces draw markers here and only one of
-them draws onsets — the DJ desk's cues and k7's session marks are neither.
+them draws onsets — the DJ desk's cues and the rehearsal sessions' marks are neither.
 
 ## Committed on RELEASE, always
 

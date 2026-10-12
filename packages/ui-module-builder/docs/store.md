@@ -9,11 +9,11 @@ same screen, chosen by which tab of its file tree the click came from:
 
 | | a WORKSPACE | a LIBRARY |
 |---|---|---|
-| server | `@studio/file-service`, on the engine's machine, cross-origin | pl8, same-origin |
+| server | `@studio/file-service`, through the file hub on st0's backend | st0's backend, the media library's routes |
 | paths | workspace-relative (`modules/audio/reverb/module.yaml`) | library-relative (`modules/audio/reverb/module.yaml`) |
 | auth | `x-studio-{user,workspace,engine-token}` headers | the session cookie |
 | a save into a shared library | **redirected** — the module is forked into the project | written in place, for everyone |
-| hosts | st0's Project tab | st0's Libraries tab, pl8's own module screen |
+| hosts | st0's Project tab | st0's Libraries tab |
 
 Those two path columns read alike and are not alike — the same string names two different files
 — which is exactly the trap a shared component falls into if it builds its own paths. So it
@@ -126,7 +126,7 @@ if every file landed — `flush()` reports that, and a file held back because it
 compile reports false, since committing a module whose `module.yaml` is still yesterday's would
 put a half-edit in front of everybody.
 
-`hints()` is allowed to be nearly empty. pl8's is: most of `Hints` describes a SONG — its
+`hints()` is allowed to be nearly empty. A library's is: most of `Hints` describes a SONG — its
 tracks, clips, chains — and a library has none of those. What survives there is the list of
 modules a sibling may `extend`.
 

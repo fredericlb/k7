@@ -143,7 +143,7 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 |---|---|
 | st0 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
 | st0 `ChainsBuilder`, `ModuleSidePane` | `chains.yaml`, and a module's own file from the side pane |
-| pl8 `SongEditor` | the médiathèque's `song.yaml` |
+| `@studio/ui-library` `SongEditor` | the médiathèque's `song.yaml` |
 | st0 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
 
@@ -154,7 +154,7 @@ widget in the panel must not stop the module file reaching disk. Its header show
 
 ## The files that have no file yet
 
-pl8's song sidecar and st0's playlists open on a **stub** when nothing is on disk. The stub is
+The médiathèque's song sidecar and st0's playlists open on a **stub** when nothing is on disk. The stub is
 loaded as `saved` as well as as the buffer — so opening a song files nothing, and the first thing
 you actually type creates it. Looking at something must not write it.
 

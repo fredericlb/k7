@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// tokens.mjs — `npm run tokens`: mint the tokens one studio service uses to call another,
-// and put each one where its consumer reads it. Idempotent: a token that still verifies is
-// left alone, so this is safe to run on every checkout. See docs/tokens.md.
+// tokens.mjs — `npm run tokens`: give st0's backend its own API_TOKEN_SECRET in env.yaml, so the
+// tokens it signs do not hang off SESSION_SECRET. No service-to-service token is minted any more:
+// every caller that needed one is now mounted in the same process. See docs/tokens.md.
 
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,151 +13,36 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const force = args.includes("--force");
 /** `--env <file>`, so a test runs the real script against a scratch copy of the secrets. */
-const flagValue = (name) => {
-  const i = args.indexOf(`--${name}`);
-  return i >= 0 && args[i + 1] ? args[i + 1] : null;
-};
-const ENV_FILE = flagValue("env") ?? join(repo, "env.yaml");
+const at = args.indexOf("--env");
+const ENV_FILE =
+  at >= 0 && args[at + 1] ? args[at + 1] : join(repo, "env.yaml");
 
-/** The loopback a checkout takes instead of going out to the LAN proxy and back (../docs/tokens.md). */
-const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8
+// The service that VERIFIES the tokens holds the secret: st0's backend, which serves the library.
+const PATH = ["st0-backend", "API_TOKEN_SECRET"];
 
-const LINKS = [
-  {
-    name: "k7 → pl8",
-    issuer: "pl8-backend",
-    sub: "service:k7",
-    read: (doc) => strAt(doc, ["k7-backend", "MEDIATEK_TOKEN"]),
-    assign: (token, doc) => setIn(doc, ["k7-backend", "MEDIATEK_TOKEN"], token),
-    devUrl: { at: ["k7-backend", "MEDIATEK_URL"], value: MEDIATEK_DEV_URL },
-    where: "env.yaml (k7-backend.MEDIATEK_TOKEN)",
-  },
-];
+if (!existsSync(ENV_FILE)) {
+  console.error(`no ${ENV_FILE} — copy env.example.yaml first`);
+  process.exit(1);
+}
+// Edited as a yaml DOCUMENT, so the comments of a hand-edited file survive.
+const doc = parseDocument(readFileSync(ENV_FILE, "utf8"), { version: "1.2" });
 
-// --- the token scheme, byte for byte commons/packages/oidc/apiToken.ts ------------------
-
-// Duplicated rather than imported, and pinned by a test on both halves (../docs/tokens.md).
-
-const b64url = (buf) =>
-  buf
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-const sign = (secret, payload) =>
-  b64url(createHmac("sha256", secret).update(payload).digest());
-
-function issue(secret, sub) {
-  const payload = b64url(Buffer.from(JSON.stringify({ sub, iat: Date.now() })));
-  return `${payload}.${sign(secret, payload)}`;
+const current = doc.getIn(PATH);
+if (typeof current === "string" && current.trim()) {
+  console.log(`  ${PATH.join(".")}: already set`);
+  process.exit(0);
 }
 
-/** Does this token verify against the secret, and for whom? Null when it does not. */
-function verify(secret, token) {
-  const [payload, sig] = String(token ?? "").split(".");
-  if (!payload || !sig) return null;
-  const a = Buffer.from(sig);
-  const b = Buffer.from(sign(secret, payload));
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  try {
-    const { sub } = JSON.parse(
-      Buffer.from(
-        payload.replace(/-/g, "+").replace(/_/g, "/"),
-        "base64",
-      ).toString(),
-    );
-    return sub ? String(sub) : null;
-  } catch {
-    return null;
-  }
-}
-
-// --- env.yaml, edited as a DOCUMENT so the comments survive ------------------------------
-
-function envDoc() {
-  if (!existsSync(ENV_FILE)) {
-    console.error(`no ${ENV_FILE} — copy env.example.yaml first`);
-    process.exit(1);
-  }
-  return parseDocument(readFileSync(ENV_FILE, "utf8"), { version: "1.2" });
-}
-
-/** The secret a service signs its API tokens with, generated on first run (../docs/tokens.md). */
-function ensureSecret(doc, service) {
-  const current = strAt(doc, [service, "API_TOKEN_SECRET"]);
-  if (current) return { secret: current, made: false };
-  const secret = randomBytes(32).toString("hex");
-  setIn(doc, [service, "API_TOKEN_SECRET"], secret);
-  return { secret, made: true };
-}
-
-/** A non-empty string at a path in the document, or null. */
-function strAt(doc, path) {
-  const v = doc.getIn(path);
-  return typeof v === "string" && v.trim() ? v : null;
-}
-
-/** Set a value, creating the service's section when the file has never had one. */
-function setIn(doc, path, value) {
-  if (!doc.has(path[0])) doc.set(path[0], {});
-  doc.setIn(path, value);
-}
-
-// --- the run -------------------------------------------------------------------------------
-
-const doc = envDoc();
-let envTouched = false;
-const done = [];
-
-const secrets = new Map(); // one per issuer: two links to the same service share its secret
-const fresh = new Set(); // issuers whose secret we just made — every old token is void
-
-for (const link of LINKS) {
-  if (!secrets.has(link.issuer)) {
-    const made = ensureSecret(doc, link.issuer);
-    secrets.set(link.issuer, made.secret);
-    envTouched ||= made.made;
-    if (made.made) {
-      fresh.add(link.issuer);
-      done.push(`${link.issuer}: API_TOKEN_SECRET generated`);
-    }
-  }
-  const secret = secrets.get(link.issuer);
-  const newSecret = fresh.has(link.issuer);
-
-  // The dev-only loopback, written when the file has none and never overwritten (../docs/tokens.md).
-  if (link.devUrl && !strAt(doc, link.devUrl.at)) {
-    if (!dryRun) setIn(doc, link.devUrl.at, link.devUrl.value);
-    envTouched = true;
-    done.push(
-      `${link.devUrl.at.join(".")}: ${link.devUrl.value} (checkout only)`,
-    );
-  }
-
-  // A token that still verifies is left alone: re-minting has a real cost (../docs/tokens.md).
-  const held = link.read(doc);
-  const holder = newSecret ? null : verify(secret, held);
-  if (holder === link.sub && !force) {
-    done.push(`${link.name}: already valid`);
-    continue;
-  }
-
-  const token = issue(secret, link.sub);
-  if (!dryRun) link.assign(token, doc);
-  envTouched = true;
-  done.push(
-    `${link.name}: ${held ? "re-minted" : "minted"} → ${link.where}` +
-      (newSecret ? " (new secret, so any old one is now void)" : ""),
+if (!doc.has(PATH[0])) doc.set(PATH[0], {});
+doc.setIn(PATH, randomBytes(32).toString("hex"));
+if (dryRun) {
+  console.log(
+    `  ${PATH.join(".")}: would be generated\n\n  --dry-run: nothing was written`,
   );
+  process.exit(0);
 }
-
-if (envTouched && !dryRun)
-  writeFileSync(ENV_FILE, doc.toString({ lineWidth: 0 }), "utf8");
-
-for (const line of done) console.log(`  ${line}`);
-if (dryRun) console.log("\n  --dry-run: nothing was written");
-else if (envTouched)
-  console.log(`\n  ${ENV_FILE} updated — restart the médiathèque backend`);
+writeFileSync(ENV_FILE, doc.toString({ lineWidth: 0 }), "utf8");
+console.log(
+  `  ${PATH.join(".")}: generated\n\n  ${ENV_FILE} updated — restart st0's backend; every token signed with the old secret is now void`,
+);

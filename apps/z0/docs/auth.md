@@ -17,7 +17,7 @@ error_hint=The 'redirect_uri' parameter does not match any of the
 
 Every account login would die there — the editor, and the presenter, monitor and remote, which
 share the button. The rule is structural: only the service with no prefix can hold the flow, and
-that is st0. It is why pl8 and k7 mount no auth routes either, and why z0 sets no
+that is st0. It is why z0 mounts no auth routes, and sets no
 `X-Forwarded-Prefix`.
 
 ## Two cookies, one of them ours
@@ -25,7 +25,7 @@ that is st0. It is why pl8 and k7 mount no auth routes either, and why z0 sets n
 | cookie | signed by | what it carries |
 |---|---|---|
 | `bt_session` | z0, `SESSION_SECRET` | the guests: `guest` (a session's password, on the buzzer) and `guest_online` |
-| `studio.sid` | st0, with the same key | the studio account, shared with st0, pl8 and k7 |
+| `studio.sid` | st0, with the same key | the studio account, shared with st0 |
 
 `currentUser()` is the single point of passage, and it reads the account first, the guest
 second. **The order is load-bearing**: `/auth/logout` can only expire z0's cookie, so a guest

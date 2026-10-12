@@ -1,0 +1,6 @@
+{
+  "extends": "@frediverse/tsconfig/react.json",
+  // `node`: the mediatek subpaths imported for their TYPES sit in files that also touch node:fs.
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src"]
+}

@@ -277,7 +277,7 @@ with a `+` in it on every cable of a read-only snapshot and of a lane's own row.
 nothing does not read as "not offered here": it reads as a click that missed.
 
 `onConnect` and `onDisconnect` are optional, and the jacks are clickable only when they are
-given: pl8's read-only views and the desk pass nothing and keep their inert sockets, the way they
+given: the read-only views and the desk pass nothing and keep their inert sockets, the way they
 pass no command bar. LIFTING in particular needs BOTH `onDisconnect` and `onReplug` — the jacks
 offer to pick a cable up only when the drop has somewhere to go. Esc or any right-click drops the
 cable in hand. `onAutomate` is one callback for BOTH curve cables, because both write one line of

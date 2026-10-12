@@ -1,0 +1,404 @@
+/* sessions.css — the sessions: the calendar, the day timeline and a session's page. Nested under .rehearsal-root like every sheet here (index.css). */
+
+.rehearsal-root {
+  /* ---- Sessions: calendar + day timeline ----------------------------------- */
+
+  .sessions-day-view {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  /* The calendar's column, its tag filters wrapping under it at its width. */
+  .calendar-col {
+    flex: none;
+    width: 244px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  /* 25% under the 14px the base button rule sets; the column prefix is what outranks that rule. */
+  .calendar-col .tag-chips button {
+    font-size: 10.5px;
+  }
+  .day-timeline-wrap {
+    flex: 1;
+    min-width: 260px;
+  }
+
+  /* The selected day's sessions on a vertical timeline. */
+  .day-timeline {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+  }
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 50px 16px 1fr;
+    cursor: pointer;
+  }
+  .timeline-time {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    padding: 12px 8px 0 0;
+  }
+  .timeline-spine {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+  .timeline-spine::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item:first-child .timeline-spine::before {
+    top: 13px;
+  }
+  .timeline-item:last-child .timeline-spine::before {
+    bottom: calc(100% - 21px);
+  }
+  .timeline-dot {
+    position: relative;
+    z-index: 1;
+    width: 10px;
+    height: 10px;
+    margin-top: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline-card {
+    margin: 4px 0;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .timeline-item:hover .timeline-card {
+    border-color: var(--accent);
+  }
+  /* Extracted moments get a green dot on their tag timelines. */
+  .timeline-item.validated .timeline-dot {
+    background: var(--green);
+  }
+  /* Two-line date / time label used by the moment (per-tag) timelines. */
+  .timeline-time > div {
+    line-height: 1.3;
+  }
+
+  /* Moments tab: one timeline section per tag. */
+
+  /* Favorite star toggle (song rows, song detail header). */
+  .star-btn {
+    flex: none;
+    background: transparent;
+    padding: 2px 6px;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--muted);
+  }
+  .star-btn:hover:not(:disabled) {
+    background: transparent;
+    color: var(--amber);
+  }
+  .star-btn.on {
+    color: var(--amber);
+  }
+  /* A detail page's title row: the back arrow, then the title. */
+  /* On the baseline, not centred: Palanquin sits low in its line box, so centred icons rode above the title. */
+  .detail-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .detail-head h2 {
+    margin: 0;
+  }
+  /* The line beside the title eats the slack, which pushes a ⋮ after it to the right edge. */
+  .detail-head-sub {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .song-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* The artist eats the slack, which is what keeps the star and the ⋮ together at the end. */
+  .song-detail-artist {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .song-detail-head h2 {
+    margin: 0;
+  }
+  /* Scoped under the head so it outranks the base button rule, whose background would win over .star-btn. */
+  .song-detail-head .star-btn,
+  .song-detail-head .star-btn:hover:not(:disabled) {
+    background: transparent;
+  }
+  .song-detail-head .star-btn {
+    font-size: 22px;
+  }
+
+  .moments-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .moment-filter {
+    gap: 6px;
+  }
+
+  .session-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .session-day-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 10px 10px 4px;
+  }
+  .session-day-header:first-child {
+    padding-top: 2px;
+  }
+
+  .session-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border-radius: 8px;
+    padding: 9px 10px;
+    cursor: pointer;
+  }
+  .session-item:hover {
+    background: var(--surface-2);
+  }
+  .session-item.active {
+    background: var(--accent-soft);
+  }
+  .session-item.active .session-name {
+    color: var(--accent);
+  }
+  .session-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .session-name {
+    font-weight: 600;
+    font-size: 13.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .session-meta {
+    color: var(--muted);
+    font-size: 11.5px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 1px;
+  }
+  /* Quick links to a song's Lyrics / Tab / Sheet; disabled when that field is empty. */
+  /* The reference track, above the tabs: the player full width, its buttons under it. */
+  .song-player {
+    margin: 10px 0 14px;
+  }
+  /* In the rail the player IS the panel's body, so the page margin would be a gap inside a box. */
+  .rail-panel .song-player {
+    margin: 0;
+    padding: 8px;
+    overflow: auto;
+  }
+  .song-player-audio {
+    width: 100%;
+  }
+  /* Full width under the shape: the one control a click on the waveform cannot express. */
+  .song-player-play {
+    width: 100%;
+    margin-top: 6px;
+  }
+  /* The version toggle: the switch and the word it turns on, kept on one line. */
+  .song-player-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .song-player-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  /* A list page's round +, floating at the bottom right over whatever scrolls under it. */
+  .add-fab {
+    position: fixed;
+    right: max(24px, env(safe-area-inset-right));
+    bottom: max(24px, env(safe-area-inset-bottom));
+    z-index: 20;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  }
+  .add-fab:hover {
+    background: var(--accent-hover);
+  }
+  /* Room under the list, so its last row can scroll out from under the +. */
+  .moments-pane:has(> .add-fab) {
+    padding-bottom: 88px;
+  }
+
+  .song-links {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  /* The songbook: one row per song, favourite · artist · title · links, never wider than the screen. */
+  .songbook-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .songbook-table th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .songbook-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .songbook-table tbody tr {
+    cursor: pointer;
+  }
+  .songbook-table tbody tr:hover {
+    background: var(--surface);
+  }
+  .songbook-table .songbook-star {
+    width: 1%;
+    padding-right: 0;
+  }
+  .songbook-table .songbook-title {
+    font-weight: 600;
+  }
+  /* Artist and title share what the star and the links leave, cut with … rather than widening the table. */
+  .songbook-table .songbook-artist,
+  .songbook-table .songbook-title {
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .songbook-table .songbook-visibility {
+    width: 1%;
+    padding-right: 0;
+  }
+  .songbook-table .songbook-visibility-icon {
+    display: inline-flex;
+    vertical-align: middle;
+    opacity: 0.45;
+  }
+  .songbook-table .songbook-visibility-icon.private {
+    opacity: 0.85;
+  }
+  /* The new-song form's public/private choice: radios, since the base rule restyles every button. */
+  .song-visibility {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .song-visibility legend {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .song-visibility-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    cursor: pointer;
+  }
+  .song-visibility-option input {
+    margin-top: 0.25em;
+  }
+  .song-visibility-option > span {
+    display: grid;
+  }
+  .songbook-table .songbook-links,
+  .songbook-table .songbook-links-head {
+    width: 1%;
+    white-space: nowrap;
+  }
+  .songbook-table .song-links {
+    margin-top: 0;
+    justify-content: flex-end;
+  }
+  /* The header's last cell carries the songbook's ⋮ menu, at the right end like the links under it. */
+  .songbook-table .songbook-links-head {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .songbook-links-head .song-menu {
+    display: flex;
+    justify-content: flex-end;
+  }
+  /* Scoped to the table so it outranks the base button rule, whose background would win over .star-btn. */
+  .songbook-table .star-btn,
+  .songbook-table .star-btn:hover:not(:disabled) {
+    background: transparent;
+  }
+  .song-link {
+    padding: 3px 10px;
+    font-size: 11.5px;
+  }
+  .session-del {
+    opacity: 0;
+    padding: 2px 6px;
+    font-size: 12px;
+    background: transparent;
+  }
+  .session-item:hover .session-del,
+  .timeline-item:hover .session-del {
+    opacity: 0.6;
+  }
+  .session-del:hover {
+    opacity: 1 !important;
+    background: transparent;
+  }
+}

@@ -345,7 +345,7 @@ segment under the workspaces root, since there is no per-user level beneath it
 (`packages/engine-client/docs/paths.md`); a workspace this machine cannot name in an address answers
 null, because a row nobody could follow is worse than no row.
 
-`/workspaces/by-repo` is the one that pairs with them: pl8 names a repo by its URI and knows nothing about
+`/workspaces/by-repo` is the one that pairs with them: st0's home page names a repo by its URI and knows nothing about
 this machine's folders, so this is the question st0 asks before deciding whether anything needs cloning at
 all. `POST /workspaces` is the ONE place a workspace is created on request — `getWorkspace` deliberately
 refuses to, Examples aside.

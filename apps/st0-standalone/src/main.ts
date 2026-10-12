@@ -1,4 +1,4 @@
-// main.ts — st0 and pl8 as one desktop app: both backends, the supervisor and its engine, and a window on st0.
+// main.ts — st0 (its media library included) as one desktop app: its backend, the supervisor and its engine, and a window on st0.
 // Sign-in is the OIDC library's dev stub (no issuer configured), so the window opens on /auth/login first. See docs/standalone.md.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -13,7 +13,7 @@ import {
 } from "@studio/electron-shell/servers";
 import { openAppWindow } from "@studio/electron-shell/window";
 import { PORTS_ENV } from "@studio/web-protocol/services";
-import type { BrowserWindow } from "electron";
+import { type BrowserWindow, session } from "electron";
 import { startBackend } from "./backends.ts";
 import {
   appIcon,
@@ -24,13 +24,12 @@ import {
 } from "./paths.ts";
 import { Supervisor } from "./supervisor.ts";
 
-// Not the dev session's 8789/8795, so the two run side by side; every process is told through PORTS_ENV.
-const PORTS = { st0: 18789, pl8: 18795 };
-const PORTS_SPEC = `st0=${PORTS.st0},pl8=${PORTS.pl8}`;
-// Inherited by both backends, the file services they start and the supervisor.
+// Not the dev session's 8789, so the two run side by side; every process is told through PORTS_ENV.
+const PORTS = { st0: 18789 };
+const PORTS_SPEC = `st0=${PORTS.st0}`;
+// Inherited by the backend, the file services it starts and the supervisor.
 process.env[PORTS_ENV] = PORTS_SPEC;
 const ST0 = `http://127.0.0.1:${PORTS.st0}`;
-const PL8 = `http://127.0.0.1:${PORTS.pl8}`;
 
 /** What every window gets, the ones a page opens included: the preload publishes the ports to the page. */
 const webPreferences = {
@@ -57,10 +56,22 @@ function seedLibraries(filesRoot: string): void {
   line("app", `libraries: st0 ← ${source}`);
 }
 
+/** No service worker here: one left by an earlier run hangs the first navigation, and a local origin has nothing to precache — docs/standalone.md. */
+async function noServiceWorker(): Promise<void> {
+  await session.defaultSession.clearStorageData({
+    storages: ["serviceworkers", "cachestorage"],
+  });
+  // Refused rather than left to register again, so the next start has none to clear.
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: [`${ST0}/sw.js`] },
+    (_details, callback) => callback({ cancel: true }),
+  );
+}
+
 function openWindow(): void {
   win = openAppWindow({
     url: `${ST0}/auth/login?return_to=${encodeURIComponent("/")}`,
-    ours: (url) => url.startsWith(ST0) || url.startsWith(PL8),
+    ours: (url) => url.startsWith(ST0),
     webPreferences,
     icon: appIcon(),
     options: {
@@ -82,7 +93,7 @@ async function boot(): Promise<void> {
   mkdirSync(dirs.root, { recursive: true });
   openLog(dirs.log);
   line("app", `state in ${dirs.root}`);
-  await assertPortsFree([PORTS.st0, PORTS.pl8]);
+  await assertPortsFree([PORTS.st0]);
 
   const engine = engineBinary();
   const shared: Record<string, string> = {
@@ -98,7 +109,7 @@ async function boot(): Promise<void> {
 
   const sup = supervisorBinary();
   if (sup && existsSync(sup)) {
-    supervisor = new Supervisor(sup, dirs.engineHome, PL8);
+    supervisor = new Supervisor(sup, dirs.engineHome, ST0);
     supervisor.start();
   } else
     line("app", "no st0-supervisor build found — running without an engine");
@@ -107,14 +118,9 @@ async function boot(): Promise<void> {
     startBackend(
       "st0",
       PORTS.st0,
-      { ...shared, STUDIO_PREFS_DIR: join(dirs.prefs, "st0") },
-      dirs.root,
-    ),
-    startBackend(
-      "pl8",
-      PORTS.pl8,
       {
         ...shared,
+        STUDIO_PREFS_DIR: join(dirs.prefs, "st0"),
         STUDIO_FILES_ROOT: dirs.files,
         STUDIO_MEDIATEK: dirs.mediatek,
       },
@@ -122,7 +128,8 @@ async function boot(): Promise<void> {
     ),
   ];
   await Promise.all(backends.map((b) => waitListening(b)));
-  line("app", "backends up");
+  line("app", "backend up");
+  await noServiceWorker();
   openWindow();
 }
 
@@ -131,7 +138,7 @@ runApp({
   logPath: stateDirs().log,
   boot,
   stop: async () => {
-    // The supervisor first: it deregisters from pl8, which must still be up to hear it.
+    // The supervisor first: it deregisters from st0, which must still be up to hear it.
     await supervisor?.stop();
     await Promise.all(backends.map((b) => stopServer(b)));
   },

@@ -22,7 +22,7 @@ in every project that plays this record. A key, no either. MARKERS, yes: two ban
 same track drop the needle in different places, which is why those live in `mix.yaml`
 ([mixFile.md](../../../song/docs/mixFile.md)).
 
-And pl8 already holds the ground: `bpm:` there is **detected once then edited**, with a rule
+And the médiathèque already holds the ground: `bpm:` there is **detected once then edited**, with a rule
 saying a present value beats a fresh detection — written precisely because "the engine's estimate
 drops an octave on fast material" ([songs.md](../../../mediatek/docs/songs.md)). Which is exactly the
 error `÷2` corrects.
@@ -53,7 +53,7 @@ and two buttons settle it without typing.
 Greyed out while no tempo is measured and while there is no media library to write to: there is
 nothing to correct then, and a button answering on `0` would write `bpm: 0`.
 
-The write goes to pl8 **first**, and the local value follows only once accepted — a failed write
+The write goes to the media library **first**, and the local value follows only once accepted — a failed write
 therefore leaves the fader telling the truth rather than a number nobody holds.
 
 When the media library carries a corrected tempo, a `BPM ✎` appears under the two buttons. Only

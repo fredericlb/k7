@@ -123,7 +123,7 @@ plumbing stays reachable by relative import inside the package.
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | the registry does this work. Deleting a loopback probe nothing replays is to be decided, not left to rot. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, not one reference left in the whole repo. |
 | `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | the two CodeMirror extensions that replace `notes:` **in place**, in the text. The grids' only host (st0, `SeqGrid.tsx`) goes through `mountSeqGrid`, which renders the same grid in a separate container. They keep one property `mountSeqGrid` has not — the YAML envelope stays visible around the grid. |
-| export `AuthUser` | `apps/pl8/frontend/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. **And there is a second in the same case**: `apps/z0/editor/src/api.ts`. |
+| export `AuthUser` | `packages/ui-library/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. **And there is a second in the same case**: `apps/z0/editor/src/api.ts`. |
 
 ### SYMBOLS, not files
 
@@ -138,7 +138,7 @@ declaring it. From pass 4; the three already described elsewhere on this page
 | `installKey` | `packages/git-repos/src/keys.ts` | writes a received private key; no key is received — the file service makes its own (`packages/git-repos/docs/keys.md`). |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
-| `knownPrefs` | `apps/pl8/frontend/src/prefs.ts` | |
+| `knownPrefs` | `packages/ui-library/src/prefs.ts` | |
 | `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
 | `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | four of the file's six drawing primitives; the presenter draws neither button nor player box. |
 
@@ -200,8 +200,8 @@ The same chromatic table and the same arithmetic (`((k%12)+12)%12`, `Math.floor(
 | `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (two characters: `C-`) |
 | `apps/st0/frontend/src/components/PianoRoll.tsx` | `NAMES`, exported as `noteName` |
 | `apps/st0/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
-| `apps/k7/frontend/src/utils/pitch.ts` | `NOTE_NAMES` |
-| `apps/k7/packages/lyrics/src/chords.ts` | `SHARP` |
+| `packages/ui-rehearsal/src/utils/pitch.ts` | `NOTE_NAMES` |
+| `packages/lyrics/src/chords.ts` | `SHARP` |
 
 Two aggravating details. The first two are in **the same folder of the same package**. And
 `PianoRoll.tsx` carries the comment "one spelling of a key, wherever it is read" — true within st0,
@@ -221,7 +221,7 @@ Written here so they stop being mistaken for laziness.
 | `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` does not depend on `@studio/commands`. Both depend on `web-protocol`, which already holds `RegionWaveform` — that is where it would go |
 | `isMouseWheel`: `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Telling a wheel from a trackpad — three signals (`deltaMode`, `wheelDeltaY`'s 120s, the shape of the delta), identical on both sides. Neither package can depend on the other: `ui-timeline` has **no** `@studio/` dependency and the graph would be importing a package named for the arrangement. Defensible here because **both sides are tested**, case by case. The natural home would be a DOM-gesture package that does not exist; creating one for a ten-line function is a decision, not a cleanup |
 
-k7's detector (`apps/k7/backend/src/detect.ts`) has no twin left, but it is tested nowhere — which is
+The rehearsal server's detector (`packages/rehearsal-server/src/detect.ts`) has no twin left, but it is tested nowhere — which is
 what the copies above have when they defend themselves.
 
 ### Cosmetic, but real
@@ -229,15 +229,15 @@ what the copies above have when they defend themselves.
 - **The `piano-16` glyph**, SVG body identical byte for byte:
   `apps/st0/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
   (The rest of the glyph-table duplication is argued and accepted — see `moduleIcons.tsx`.)
-- **The full-screen spinner**, five copies of the same block:
+- **The full-screen spinner**, four copies of the same block:
   `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx`,
-  `packages/project-shell/src/ProjectGate.tsx`, `apps/pl8/frontend/src/Gate.tsx` and
+  `packages/project-shell/src/ProjectGate.tsx` and
   `apps/z0/editor/src/Gate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
   one grows per gate, which makes this count a thing to re-check.
 
 ### Left on purpose
 
-`where()` (`apps/z0/editor/src/Gate.tsx`; pl8's copy went with its engine picker) is two
+`where()` (`apps/z0/editor/src/Gate.tsx`) is two
 identical lines whose only natural home would be `packages/web-protocol/quality.ts`, beside
 `formatLatency` — but that package contains **no** French UI string, and "hors de portée" would bring
 the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for
@@ -252,7 +252,7 @@ the UI's language into a protocol package. Two lines are not worth that property
 |---|---|
 | With no test file at all: `graph-model` and `ui-eyes`. | — |
 | Read in code and absent from **every** `.md`, in addition to the fourteen below: `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/st0/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
-| Imported without being declared, outside the audio axis: `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `pl8-frontend` (`@studio/ui-editor`). | — |
+| Imported without being declared, outside the audio axis: `ui-chains-react`, `ui-rehearsal` and `score` (`@storybook/react-vite`). | — |
 | `yaml` in `st0-frontend` is not only test: `rackBuilder.ts` and `sliceSymbols.ts` import it in production. | `apps/st0/frontend` |
 | `packages/web-protocol` has no `dependencies` block, and that is RIGHT — `types.ts` imports only a `type` from its own `projects.ts`. That absence of a runtime dependency is what lets `engine-client` take it to read `ENGINE_OUTBOX_MAX` without weighing down the supervisor's bundle. | `packages/web-protocol` |
 | Read in code, absent from `env.example.yaml`: `STUDIO_REGISTRY_URL` (9 reads), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |

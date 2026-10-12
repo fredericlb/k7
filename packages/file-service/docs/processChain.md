@@ -3,13 +3,13 @@
 A cut runs on an engine's machine (`packages/stem-separation/docs/stemSplit.md`); what it runs is
 decided HERE, in the account's file service, because this is where the account's library and its
 standing answers live. `resolveColdRun` (`coldRun.ts`) turns a chain and a `want` into a model and
-the outputs it writes, and the hub asks it on pl8's behalf (`POST /hub/cold-chain`,
+the outputs it writes, and the hub asks it on the media library's behalf (`POST /hub/cold-chain`,
 `packages/file-hub/docs/fileHub.md`).
 
 ## Four decisions
 
 **The chain is resolved against the LIBRARIES, not a project.** `resolveChain` wants a project
-directory, but pl8 has no project and no workspace. The libraries are the origin's — the file hub's
+directory, but the media library has no project and no workspace. The libraries are the origin's — the file hub's
 one clone of each, the same for every project — so any directory answers identically, and
 the bench's is used because it is always the same one (`benchDir`). A server that has cloned no
 library yet is refused by name.

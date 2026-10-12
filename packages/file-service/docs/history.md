@@ -67,7 +67,7 @@ song. So it lives in the account's state, never in a workspace:
 
 - **The journal** — `journal.json`, with every text change inline — is in
   `<studioHome>/.history/<project>-<hash>/` (`historyStoreFor`; `HISTORY_HOME_DIR`). On the server
-  that is `$STUDIO_FILES_ROOT/<account>/.history`, on pl8's volume beside `workspace/`. The name
+  that is `$STUDIO_FILES_ROOT/<account>/.history`, on st0's `/workspaces` volume beside `workspace/`. The name
   is the project folder's, for a reader; the hash is of its path, so two projects of one name do
   not share one. A project moved or renamed starts an empty journal.
 - **Forgotten after a month unused.** The hub sweeps every account's `.history` hourly

@@ -94,6 +94,11 @@ jobs:
         working-directory: apps/st0/backend
         run: npx tsc --noEmit
 
+      # The rehearsal server mounted by that backend has its own, laxer tsconfig and only a `typecheck` script too.
+      - name: typecheck the rehearsal server
+        working-directory: packages/rehearsal-server
+        run: npx tsc --noEmit
+
   supervisor:
     name: supervisor (native)
     runs-on: ubuntu-latest

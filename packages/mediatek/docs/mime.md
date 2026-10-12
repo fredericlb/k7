@@ -9,7 +9,7 @@ The library is served by **two HTTP shells** over one library:
 
 | shell | serves |
 |---|---|
-| `apps/pl8/backend/src/routes/library.ts` | the hosted volume |
+| `apps/st0/backend/src/media/routes/library.ts` | the hosted volume |
 | `packages/file-service/src/routes/mediatek.ts` | this machine's cache |
 
 A table per shell drifts **in both directions** — neither ends up a superset of the other —
@@ -53,7 +53,7 @@ rather than being told something false about it.
 
 Each shell has one test asserting its 400 body equals the shared `FAMILY_ERROR`. A test
 mounting both routers and diffing them cannot exist — `@studio/file-service` is a bundled
-program and `pl8-backend` does not depend on it — so the shared constant is the contract and
+program and st0's backend does not depend on it — so the shared constant is the contract and
 those two tests are its witnesses.
 
 ## What is deliberately NOT shared
@@ -72,7 +72,7 @@ types (`media.ts`), and what a search query means including its limit (`catalogu
 ## A picker filters by extension, never by `audio/*`
 
 `AUDIO_ACCEPT` is the extension list spelled for an `<input type="file">`, and every audio picker in
-the studio uses it — pl8's and k7's. `audio/*` is not a substitute: iOS turns it into its own
+the studio uses it — the media library's and the rehearsal pages'. `audio/*` is not a substitute: iOS turns it into its own
 file-type test, and a file the Files app does not tag as audio — a FLAC or an Opus in iCloud Drive,
 anything synced without its type — is drawn greyed out and cannot be picked. An extension iOS
 matches by name. The list is also what the library takes, so a picker never offers a file the

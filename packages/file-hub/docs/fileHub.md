@@ -1,11 +1,12 @@
 # The file hub — workspaces on the server
 
 A workspace belongs to its account, not to whichever engine happens to be running. So the
-server keeps it: `$STUDIO_FILES_ROOT/<account>/workspace/…`, served at `/api/files` by pl8, and
+server keeps it: `$STUDIO_FILES_ROOT/<account>/workspace/…`, served at `/api/files` by st0's backend
+(`apps/st0/backend/src/media/fileHub.ts`), and
 an engine only ever plays a **copy** it fetched through its tunnel
 (`packages/engine-tunnel/docs/tunnel.md`). The server is the ONLY place a workspace lives: an
 engine's machine is shared by whichever accounts play on it and holds none
-(`packages/file-service/docs/owner.md`). So `$STUDIO_FILES_ROOT` is **required**: a pl8 without
+(`packages/file-service/docs/owner.md`). So `$STUDIO_FILES_ROOT` is **required**: the backend without
 it refuses to start, since the origin it would serve could open no project at all.
 
 ## One file-service process per account
@@ -31,10 +32,10 @@ dial to a local engine at boot.
 
 ### In dev, an edit stops them
 
-pl8's `tsx watch` restarts pl8 on an edit to what pl8 IMPORTS, and a spawned process is not an
+The backend's `tsx watch` restarts it on an edit to what it IMPORTS, and a spawned process is not an
 import: an account's file service would keep running yesterday's `commands` or `song` until
-somebody restarted pl8 by hand. So with `watchSources` (`STUDIO_FILES_WATCH=1`, set by pl8's dev
-script and never by the image) the hub watches `@studio/file-service` and every `@studio/*`
+somebody restarted the backend by hand. So with `watchSources` (`STUDIO_FILES_WATCH=1`, set by
+`st0-backend`'s dev script and never by the image) the hub watches `@studio/file-service` and every `@studio/*`
 package it depends on, transitively, and stops all its instances on a change.
 
 Stopping, not a `tsx watch` child. A child that restarts itself keeps its process, so the hub
@@ -56,7 +57,7 @@ reads, which spares every call a cookie across origins; `/api/files` itself has 
 guard, the ticket being its gate, with the session as a fallback for a same-origin caller.
 Twelve hours, and the browser asks again after six.
 
-**Whether the caller is an admin rides the same way.** The host passes `isAdmin(req)`. pl8 checks
+**Whether the caller is an admin rides the same way.** The host passes `isAdmin(req)`. st0's backend checks
 the session's OIDC `groups` against `AUTH_ADMIN_GROUPS`, and an empty list admits nobody. The hello
 answers `admin`, the ticket signs it, and the hub stamps `x-studio-admin: 1` on what it forwards,
 having dropped any copy the client sent. The file service trusts that header for the same reason

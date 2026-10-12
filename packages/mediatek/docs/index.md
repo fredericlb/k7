@@ -8,9 +8,9 @@ would cost more than it buys.
 - **The folder is the truth, on both sides.** The machine's cache runs this same package over a
   local folder, because the engine plays from file paths (`sync.md`). A database holding the rows
   would be a second truth to keep in step with the tree the engine actually reads.
-- **A database is chosen where the data is rows, not where it is bytes.** k7's PocketBase holds
-  rows with one consumer (`apps/k7/docs/pocketbase.md`); pl8's share comments are in SQLite
-  because anonymous visitors write them concurrently (`apps/pl8/docs/comments.md`). Neither
+- **A database is chosen where the data is rows, not where it is bytes.** The rehearsal recorder's PocketBase
+  holds rows with one consumer (`packages/rehearsal-server/docs/pocketbase.md`); the shares' comments are in SQLite
+  because anonymous visitors write them concurrently (`apps/st0/backend/docs/media/comments.md`). Neither
   reason applies to a volume of audio files and their YAML sidecars.
 - **An index would be a dependency for something a walk already does.** A separator earns a
   166 MB model and a per-platform shared library because there is no other way to do the thing at
@@ -166,8 +166,8 @@ decision, not an assumption nobody revisited.
 `@studio/audio-analysis` writes beside an audio file. It is derived from a file the walk already
 counts, so counting it too says the library changed when only its measurements did.
 
-That rule is load-bearing rather than tidy. pl8 sweeps the library in the background writing the
-sidecars nobody has asked for yet (`apps/pl8/docs/analysis.md`), one every quarter second. Were a
+That rule is load-bearing rather than tidy. st0's backend sweeps the library in the background writing the
+sidecars nobody has asked for yet (`apps/st0/backend/docs/media/analysis.md`), one every quarter second. Were a
 sidecar to move the token, each of those writes would invalidate the listing the sweep is walking:
 a full rescan per file, for hours, over a library nobody touched.
 
@@ -226,7 +226,7 @@ project that will not compile.
 
 A write takes its body as bytes or as `{ file }` — an upload a server already streamed to disk,
 which `putFile` MOVES into place (copying only across devices) and which is gone afterwards. That
-is how pl8 files a 512 MB upload without ever holding it in memory (`apps/pl8/docs/audit.md`).
+is how st0's backend files a 512 MB upload without ever holding it in memory (`apps/st0/backend/docs/media/audit.md`).
 
 ## The cache is never load-bearing
 

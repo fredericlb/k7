@@ -5,14 +5,14 @@ import {
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
 
-// The odd SPA of the six: it never talks to z0's backend, so what follows names PL8 throughout.
+// The odd SPA of the six: it never talks to z0's backend, so what follows names st0's throughout.
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/z0/editor/",
   // 3006, which is what the proxy's /z0/editor rule targets.
   port: 3006,
-  // pl8's 8795, not z0's 8080: what this app opens is a repository the médiathèque owns.
-  backendPort: 8795,
+  // st0's 8789, not z0's 8080: what this app opens is a repository st0's file hub owns.
+  backendPort: 8789,
   host: DEV_HOST,
   extend: {
     server: {
@@ -29,6 +29,6 @@ export default defineAppConfig({
       },
     },
   },
-  // Polling only when asked for: native file events are enough (same as st0 and pl8).
+  // Polling only when asked for: native file events are enough (same as st0).
   poll: !!process.env.STUDIO_POLL,
 });

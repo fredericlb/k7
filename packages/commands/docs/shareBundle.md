@@ -4,7 +4,7 @@
 project share link
 ```
 
-Renders the project, packs it with the documents a browser draws it from, sends the lot to pl8,
+Renders the project, packs it with the documents a browser draws it from, sends the lot to the media library,
 and answers a secret. The link opens **st0 itself, read-only**: no account, no engine, no working
 copy. Anyone who has it can listen and look; nobody can change anything, because there is nothing
 on the other end that could be changed.
@@ -69,21 +69,22 @@ as a label, and points each back at its track by name — reporting no track at 
 one, rather than guessing and lighting the wrong lane's mute button. It is the only place the
 engine's output reaches a path, and it is where the traversal bug would be. It is pure and tested.
 
-## The upload is three steps because pl8 does not do multipart
+## The upload is three steps because the media library does not do multipart
 
-Draft, then one raw `PUT` per file, then finish. Every pl8 upload route is
+Draft, then one raw `PUT` per file, then finish. Every media-library upload route is
 `express.raw({ type: "*/*", limit: "512mb" })` — *a 400 MB master should never be a field in a form
 parse* — and the global `express.json` is 8 MB, so the manifest travels as JSON and the audio does
-not. `shareToK7`'s `FormData` is k7's convention, not this one.
+not. `shareToK7`'s `FormData` is the rehearsal server's convention, not this one.
 
 **`finish` is what makes the link answer.** Until then `pending.json` says "not yet" to every
 public route, so a crashed upload is never reachable and short. The bytes are streamed
-(`createReadStream`, `duplex: "half"`), where k7's publish reads its one mp3 into a Blob.
+(`createReadStream`, `duplex: "half"`), where the k7 publish reads its one mp3 into a Blob.
 
-The credential is the machine's own pl8 bearer — `mediatekBase()` / `mediatekToken()`, the
-`service:st0` token `npm run tokens` already writes for the library pull. Sharing needs no plumbing
-of its own. A service token has no person of its own, so **every** call names the user (`?user=`):
-three requests, none of which remembers the others.
+The credential is the file service's own media-library bearer — `mediatekBase()` /
+`mediatekToken()`, which the file hub hands it minted for the account it serves
+(`packages/file-service/docs/mediatekLink.md`). Sharing needs no plumbing of its own. **Every** call
+still names the user (`?user=`): three requests, none of which remembers the others, and a
+`service:` token, which has no person, could not file a share without it.
 
 ## The address
 
@@ -114,4 +115,4 @@ every note in the graph, to anyone the link reaches. That is the feature, and it
 of thing that ships without anyone thinking about it.
 
 A share has no expiry. It lives until it is revoked, from st0's own home page — see
-`apps/pl8/docs/shares.md` for where the bytes live and what revoking one actually does.
+`apps/st0/backend/docs/media/shares.md` for where the bytes live and what revoking one actually does.

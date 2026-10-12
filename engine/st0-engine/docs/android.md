@@ -8,13 +8,13 @@ WebSocket protocol on port 8765, bound to every interface.
 **Foreground only.** There is no service: both live as long as `MainActivity`, and leaving it
 deregisters the engine, stops it and ends the process.
 
-## The app is also where the studio is used: st0, pl8 and k7, full screen
+## The app is also where the studio is used: st0, full screen
 
-`MainActivity` is a Capacitor `BridgeActivity`. With a studio connected, **the screen is one of the
-studio apps, edge to edge, and nothing of the app's own**: no header, no tab bar. It opens on
-**st0**, and the apps' own user menu (`packages/ui-user-menu`, in st0's home page, pl8's and k7's
-headers) is how you move between them. A phone has no room for a second header above the app's
-own, and the one it had duplicated that menu.
+`MainActivity` is a Capacitor `BridgeActivity`. With a studio connected, **the screen is st0, edge
+to edge, and nothing of the app's own**: no header, no tab bar. st0 is the one app with a view —
+the media library and the rehearsal recorder are pages of it, reached from its home sidebar — so
+`APP_IDS` (`engine/st0-android/web/src/native.ts`) holds st0 alone. A phone has no room for a second
+header above the app's own.
 
 The status bar above the app is painted **the colour of that app's top edge**, so the app's
 header reads as running up under it. That colour is measured, not declared: `assets/top-color.js`
@@ -34,8 +34,8 @@ Two ways from the page to the native half:
   `web/src/native.ts`: **`St0Engine`** (`EnginePlugin.kt`), `SupervisorHost`'s snapshots and
   commands; **`AppViews`** (`AppViewsPlugin.kt`), one native WebView per app over the page. Each is
   created the first time it is shown and only hidden after that, so an app keeps its state while
-  another is on screen: a k7 session, a playing pl8 track.
-- **The studio apps** get `window.st0Android` (`StudioBridge.kt`), an androidx.webkit
+  another is on screen. With st0 the only app, that is what keeps it alive under the tray page.
+- **The studio app** gets `window.st0Android` (`StudioBridge.kt`), an androidx.webkit
   WebMessageListener. Every app posts its top colour on it; **only st0, checked by origin on
   every message, may call the engine** (`apps/st0/frontend/src/settings/androidEngine.ts`). The
   object is offered to every origin because the studio can change under a view that already
@@ -44,17 +44,17 @@ Two ways from the page to the native half:
 
 **The apps load from the studio, not from the APK.** Each app is same-origin with its backend
 (relative `/api` and `/auth`, cookie sessions), so a bundled copy would be an app with no server.
-The page takes the studio from the supervisor's own list and gives each view
-`serviceUrl(origin, "st0" | "pl8" | "k7")`, the mapping `UserMenu` uses. With several studios
+The page takes the studio from the supervisor's own list and gives the view
+`serviceUrl(origin, "st0")`, the mapping `UserMenu` uses. With several studios
 connected, st0's settings pick which one the apps open.
 
 What the app views do that a browser would do on its own:
 
-- **A link to a sibling app switches view** instead of opening a window: `UserMenu`'s app rows,
-  `target=_blank` and cross-app links all go to that app's view, at that URL. Only a link the *user* followed
-  does this. A redirect stays in its view, since the sign-in flow bounces pl8 and k7 through st0's
-  `/auth`. Other hosts in a new window open in the browser.
-- **The microphone** goes to the studio's apps only (k7's remote mic), and only once the app holds
+- **A link to an app with a view switches to it** instead of opening a window: `target=_blank` and
+  cross-app links go to that app's view, at that URL. Only a link the *user* followed does this; a
+  redirect stays in its view. Other hosts in a new window open in the browser. Every page of st0
+  is same-origin with its `/auth`, so the views need no third-party cookies.
+- **The microphone** goes to the studio's apps only (the rehearsal recorder's remote mic), and only once the app holds
   RECORD_AUDIO, which it asks for at start for the engine.
 - **The private CA** covers the app views too: a certificate the WebView refuses only for its unknown issuer
   is accepted when `TrustedCas` holds that certificate or its issuer. The WebView hands over the leaf

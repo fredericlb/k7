@@ -46,7 +46,7 @@ nothing. On those rows no menu opens at all and the browser's own takes over (se
 `commons/packages/ui/docs/file-tree.md`).
 
 What is locked is the **tree**, not the content: `song.yaml` edits like any YAML, in the split
-screen pl8 opens on clicking a song (see `apps/pl8/docs/songPlayer.md`). The sidecar is the truth —
+screen the media library opens on clicking a song (see `packages/ui-library/docs/songPlayer.md`). The sidecar is the truth —
 the displayed title, the tempo, the variants — and the folder is only an address; correcting one
 therefore moves nothing.
 
@@ -62,7 +62,7 @@ what the studio produced. Two reasons, in this order:
    drawn elsewhere, and draw it worse.
 2. **Almost nothing would read it.** It would land in `MediatekEntry.kind`, where the only surface
    able to show it is a badge in the list. In exchange it would put every song one notch below its
-   artist, and force every caller able to write — k7 publishing, the upload button — to choose a
+   artist, and force every caller able to write — the rehearsal recorder publishing, the upload button — to choose a
    word for something the sidecar already says better.
 
 What each caller writes is `source:` in `song.yaml`: `upload` for the mediatek's button, `slskd`
@@ -72,12 +72,12 @@ bytes. It is a provenance note for whoever reads the folder, never a filter.
 
 What IS a filter is the **artist folder**: `scanSongs` skips `songs/K7/` outright, at the very
 top of the walk, before it descends into a single one of its albums — `K7_ARTIST` is the one
-artist name every k7 publish writes under (`apps/k7/backend/src/mediatek.ts`'s own `ARTIST`), so
+artist name every rehearsal release is published under (`packages/rehearsal-server/src/mediatek.ts`'s own `ARTIST`), so
 the whole tree it owns stays out of the family's listing. Everything else browses alike: an
 upload, a hunt's Soulseek find, its YouTube fallback, whatever their `source:` line says — the
-folder is what decided, not the sidecar. A published k7 release still lives under `songs/`, at
-the path its tags built, and a caller that already knows that path — k7 fetching its own
-`AudioPath` — reads it directly, never through the catalogue.
+folder is what decided, not the sidecar. A published rehearsal release still lives under `songs/`,
+at the path its tags built, and a caller that already knows that path — the rehearsal server
+fetching its own `AudioPath` — reads it directly, never through the catalogue.
 
 Direct consequence: `songFolder()` always returns four segments (`songs` + the three tags), and two
 tests check that **by the count** rather than against an example path — a fifth level would appear

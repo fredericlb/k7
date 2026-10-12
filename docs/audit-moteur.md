@@ -11,11 +11,12 @@ end of the page.
 
 ## Scope
 
-Two services really talk to the engine: **st0** and **pl8**, each by its two halves (browser +
+Two services really talk to the engine: **st0's editor** and its **media library** (the `pl8` session), each by its two halves (browser +
 backend), plus the **supervisor** (`engine/st0-supervisor`), which announces it to the registries. At the
 margin: **z0** links to it at one point only, a 74-line offline render
 (`apps/z0/backend/src/render.ts`) that goes through the file service over HTTP and never the
-socket; **k7** does not touch it at all.
+socket; the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
+a chain (`packages/ui-rehearsal/docs/chainSource.md`).
 
 Volume: ~7,400 lines of TypeScript in the five engine packages (`engine-protocol` 959,
 `engine-client` 684, `engine-browser` 1,944, `engine-host` 3,029 — the TypeScript supervisor

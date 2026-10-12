@@ -121,10 +121,7 @@ await setupAuth(app, {
   cookieName: SESSION_COOKIE_NAME,
   service: "z0-backend",
   mountRoutes: [],
-  // This app stays single-origin (../../docs/auth.md, config.test.ts) even
-  // though env.yaml's common.COOKIE_DOMAIN now shares "studio.sid" across
-  // st0/pl8/k7's subdomains — "" opts THIS cookie (a different name, the
-  // guest session) out of that, rather than silently broadening it too.
+  // "" keeps THIS cookie (the guest session) host-only, though COOKIE_DOMAIN shares "studio.sid" with st0's alias hosts (../../docs/auth.md).
   cookieDomain: "",
 });
 app.use(authMiddleware);

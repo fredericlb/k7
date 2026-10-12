@@ -84,21 +84,21 @@ and, since a killed backend leaves its file behind, to things that have stopped 
 Neither tier moves while the supervisor runs, so the list is resolved at boot and on an add or a
 remove, never per heartbeat.
 
-Every URL, whichever tier it came from, is read as its family's **one registry, pl8's**
+Every URL, whichever tier it came from, is read as its family's **one registry, st0's backend's**
 (`url::engineRegistryUrl` in `Url.cpp`, the twin of `engineRegistryUrl` in
 `packages/web-protocol/services.ts` — `Url_test.cpp` replays that file's cases): `https://st0.app` and
-`https://play.st0.app` both mean `https://play.st0.app`, and `http://localhost:8789` means
-`http://localhost:8795` — or pl8's port in `$STUDIO_PORTS` when a host moved it, as the desktop app
-does (`packages/web-protocol/docs/addresses.md`). st0 holds no registry — it lists engines from pl8
-(`packages/engine-registry/docs/shared.md`) — so a st0 URL in a settings file is read as pl8's
-rather than heartbeated at a route st0 does not have. The answer is a **list**, one per studio this engine is connected to, deduped.
+`https://play.st0.app` (the permanent alias of st0's host) both mean `https://st0.app`, and any loopback URL means
+`http://localhost:8789` — or st0's port in `$STUDIO_PORTS` when a host moved it, as the desktop app
+does (`packages/web-protocol/docs/addresses.md`). The registry is mounted by st0's backend
+(`packages/engine-registry/docs/shared.md`), so a supervisor that saved `https://play.st0.app` still
+heartbeats the right place. The answer is a **list**, one per studio this engine is connected to, deduped.
 
 The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every studio
 can offer this engine. A registry that is down is simply absent from that studio's picker, which
 is correct — it genuinely cannot be driven right now.
 
 The tray's **st0 instances** tab draws `instances`, one row per studio FAMILY (`studioFamily`:
-st0's origin, or the bare host on loopback), because to the user st0 and pl8's registry are one
+st0's origin, or the bare host on loopback), because to the user st0 and its registry are one
 instance. `weburi.remove` therefore disconnects **the whole family**: the matching pinned registry
 leaves the settings, and that registry is deregistered at once so the engine drops out of its
 picker rather than aging out. A registry from `$STUDIO_REGISTRY_URL` is
@@ -106,7 +106,7 @@ marked not removable — the environment is not the supervisor's to edit. Removi
 falls back to the ambient tiers, exactly as a fresh boot would.
 
 `addRegistry` is an **add**, not a replace: connecting a second studio must not disconnect
-the first. It takes any URL of the family and stores pl8's, is idempotent beyond re-announcing,
+the first. It takes any URL of the family and stores st0's, is idempotent beyond re-announcing,
 and persists the result as the explicit list so the next boot takes it rather than the ambient
 environment variable.
 
@@ -114,7 +114,7 @@ environment variable.
 
 A heartbeat carries the engine's **token**, and the registry that receives it is the one the
 engine's tunnel dials. So a URL that is not a studio must get neither: `https://google.com` typed
-into the form must not end up pinned as `https://play.google.com` and beaten with the token every
+into the form must not end up pinned and beaten with the token every
 five seconds.
 
 `weburi.add` therefore asks the family's registry first — `GET /api/registry/hello`, which a registry
@@ -123,7 +123,7 @@ answers with `{ service: "st0-registry" }` (`REGISTRY_HELLO_PATH` / `REGISTRY_SE
 registry, no heartbeat. A redirect is refused rather than followed, so the answer comes from
 the address the token would go to. While it asks, and after a refusal, the snapshot's
 `instanceCheck` says so, which is how the tray's form shows *Checking…* and the reason. Under a dev
-run the pl8 backend must therefore be up before its instance can be added.
+run st0's backend must therefore be up before its instance can be added.
 
 It proves the SOFTWARE, not the owner: anyone can run a registry, and one that answers correctly
 still receives the token. That is why the form says so, and why only instances the user trusts belong

@@ -180,7 +180,7 @@ which is the shortest way to send it elsewhere: open it, take the address bar. B
 button.
 
 That panel and not another because it is already where you go for **any address the project hands
-out** — the frozen link, the k7 release — and because the gesture is the same: you give a link to
+out** — the frozen link, the k7 release (the rehearsal recorder's) — and because the gesture is the same: you give a link to
 someone, or to a tablet.
 
 The panel lists **all** declared surfaces: all four types draw, and a filter here would hide a
@@ -299,11 +299,11 @@ navigating in place there would replace exactly the screen you are looking at.
 
 ### The same address on both sides
 
-`externalHref` goes through `projectHref`, so a repository registered with pl8 gives `/<dépôt>/…` and
+`externalHref` goes through `projectHref`, so a repository registered on the account gives `/<dépôt>/…` and
 the rest falls back to `@local`. Not cosmetic: the engine identifies a project by its address
 (`projectClaimKey`), and a tablet arriving on `@local/…` while the editor holds `/<dépôt>/…` would
 make **two claims on one song**, the second evicting the first. That, and nothing else, is why this
-menu queries pl8's registry.
+menu queries the account's file service for its repositories.
 
 A tablet on the local network that its engine has not paired yet draws the pairing card in place of
 "no engine answers" — `pairing.md`.

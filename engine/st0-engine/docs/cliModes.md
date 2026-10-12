@@ -2,7 +2,7 @@
 
 Besides serving WebSocket clients, `st0-engine` runs a few one-shot jobs — the ones that need
 what only it has: JUCE's decoders, the plugins it hosts, the Tracktion graph. What is MEASURED
-from audio is not among them: that is `@studio/audio-analysis`'s, in TypeScript, because pl8
+from audio is not among them: that is `@studio/audio-analysis`'s, in TypeScript, because the media library
 measures the same files with no engine at all and one implementation is all there should be.
 
 ## `--decode <file>`

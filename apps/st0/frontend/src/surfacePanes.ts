@@ -23,7 +23,7 @@ export interface DeviceSurfaceCtx {
   surface: ProjectSurface;
   /** Workspace-relative, as every file route takes it. */
   project: string;
-  /** Where the LIBRARY answers — pl8 holds the master (apps/pl8/docs/stems.md). */
+  /** Where the LIBRARY answers — the library holds the master (apps/st0/backend/docs/media/stems.md). */
   libraryBase: string;
   /** The project's change token — the shell's ONE poll, shared with every consumer. */
   rev: string | null;
@@ -51,7 +51,7 @@ export interface ShellPaneProps {
   surface: ProjectSurface;
   deck: Deck;
   project: string;
-  /** Where the LIBRARY answers — pl8 holds the master (apps/pl8/docs/stems.md). */
+  /** Where the LIBRARY answers — the library holds the master (apps/st0/backend/docs/media/stems.md). */
   libraryBase: string;
   /** The project's change token — the shell's ONE poll, shared with every consumer. */
   rev: string | null;

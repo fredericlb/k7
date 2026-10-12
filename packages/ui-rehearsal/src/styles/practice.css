@@ -1,0 +1,156 @@
+/* practice.css — the exercises, the tuner and the empty states. Nested under .rehearsal-root like every sheet here (index.css). */
+
+.rehearsal-root {
+  /* ---- Exercises ----------------------------------------------------------- */
+
+  .exercise {
+    max-width: 520px;
+  }
+  .exercise .detail-head,
+  .exercise .singing-head {
+    margin: 10px 0 4px;
+  }
+  .exercise-chord-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 16px;
+    margin: 16px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .exercise-chord-name {
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .exercise-chord-quality {
+    font-size: 14px;
+  }
+  .exercise-chord-diagram {
+    width: 220px;
+    margin-top: 8px;
+  }
+  .exercise-actions {
+    margin-top: 8px;
+  }
+  .exercise-count {
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  /* ---- Guitar tuner -------------------------------------------------------- */
+
+  .tuner-note {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin: 24px 0 10px;
+    min-height: 92px;
+    justify-content: center;
+  }
+  .tuner-note-name {
+    font-size: 72px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text);
+  }
+  .tuner-note.in-tune .tuner-note-name {
+    color: var(--green);
+  }
+  .tuner-note-oct {
+    font-size: 26px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+  .tuner-cents {
+    font-size: 14px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tuner-meter {
+    max-width: 420px;
+    margin: 8px auto 0;
+  }
+  .tuner-meter-scale {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .tuner-meter-bar {
+    position: relative;
+    height: 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .tuner-meter-center {
+    position: absolute;
+    left: 50%;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--border);
+  }
+  .tuner-needle {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 4px;
+    margin-left: -2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: left 0.08s ease-out;
+  }
+  .tuner-needle.in-tune {
+    background: var(--green);
+  }
+
+  .tuner-strings {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .tuner-string {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--surface-2);
+  }
+  .tuner-string.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .tuner-freq {
+    text-align: center;
+    margin-top: 12px;
+  }
+
+  /* The Tablature renderer and its .tab-* styles now live in the @studio/tablature
+     package (imported by the component). */
+
+
+  /* ---- Home / empty state -------------------------------------------------- */
+
+  .home-empty {
+    color: var(--muted);
+    padding: 40px 0 24px;
+  }
+}

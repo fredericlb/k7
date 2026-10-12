@@ -6,8 +6,6 @@ const config: StorybookConfig = {
   stories: [
     "../packages/*/src/**/*.mdx",
     "../packages/*/src/**/*.stories.@(js|jsx|mjs|ts|tsx)",
-    "../apps/*/packages/*/src/**/*.mdx",
-    "../apps/*/packages/*/src/**/*.stories.@(js|jsx|mjs|ts|tsx)",
     "../apps/*/frontend/src/**/*.mdx",
     "../apps/*/frontend/src/**/*.stories.@(js|jsx|mjs|ts|tsx)",
   ],
@@ -18,9 +16,8 @@ const config: StorybookConfig = {
     "@storybook/addon-mcp",
   ],
   framework: "@storybook/react-vite",
-  // Serve k7's public assets (icons, etc.) some stories reference, and alphaTab's font and soundfont where ScoreView asks for them.
+  // alphaTab's font and soundfont, where ScoreView asks for them.
   staticDirs: [
-    "../apps/k7/frontend/public",
     { from: "../node_modules/@coderline/alphatab/dist/font", to: "/font" },
     {
       from: "../node_modules/@coderline/alphatab/dist/soundfont",

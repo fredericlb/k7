@@ -31,7 +31,7 @@ you are comparing tone, not timing.
 ## Two views, and the bar is the one that outlives everything
 
 `ReferencesPanel` is a listing — it plays nothing. `ReferenceBar` holds the element. That split
-is pl8's, for pl8's reason ([apps/pl8/docs/miniPlayer.md](../../../pl8/docs/miniPlayer.md)): a
+is the médiathèque's, for its reason ([packages/ui-library/docs/miniPlayer.md](../../../../packages/ui-library/docs/miniPlayer.md)): a
 transport owned by a panel dies when the panel closes, and closing the list of references is
 exactly what you do before listening.
 
@@ -47,7 +47,7 @@ again) is the bar, sitting where you can reach it with the list closed.
 
 ## The row is `@studio/ui-mini-player`
 
-The same bar pl8 draws for the médiathèque — see `packages/ui-mini-player/docs/miniPlayer.md`.
+The same bar the médiathèque draws — see `packages/ui-mini-player/docs/miniPlayer.md`.
 It owns no transport, which is what lets one component serve an app playing over three
 destinations and an app playing one file in a tab.
 

@@ -2,13 +2,13 @@
 
 `MiniPlayer` is a **view**. It holds no `<audio>` element, no socket, no timer and no state:
 `playing`, `position` and `duration` are props, and the three buttons are callbacks. The two
-apps that mount it play things that have nothing in common —
+screens that mount it play things that have nothing in common —
 
-| | pl8 | st0 |
+| | the médiathèque | st0's references |
 |---|---|---|
 | what plays | a song of the médiathèque | a reference track in the workspace |
 | through what | this tab's `<audio>`, mpv on the host, or the engine | this tab's `<audio>`, always |
-| beside what | nothing: it IS the app's sound | the engine playing the project, unbothered |
+| beside what | nothing: it IS the screen's sound | the engine playing the project, unbothered |
 
 — so a bar that owned a transport could serve exactly one of them. What is shared is the row: a
 play/pause on the left, the title with whatever the host has to say about it, a clock either side
@@ -23,13 +23,13 @@ One function, one bar.
 
 `labels` carries the five: the region's accessible name, play, pause, the scrubber and the close.
 Not a default in English with an override — a default is what ships untranslated. The hosts
-translate through different catalogues (st0 compiles paraglide messages, pl8 writes French in the
-component), so the bar must have no opinion.
+translate through their own catalogues (the médiathèque's bar is filled from `LibraryLabels`,
+which its host fills in turn), so the bar must have no opinion.
 
 ## Three slots, because a title line is where hosts differ most
 
 `meta` sits after the title (an artist, an album, a version badge), `status` closes the line (a
-failure, or "ended"), and `children` sits right of the transport, before the close — where pl8
+failure, or "ended"), and `children` sits right of the transport, before the close — where the médiathèque
 puts its destination indicator and its queue button. All optional: a host with none of them gets
 a bar that reads correctly with a title alone.
 

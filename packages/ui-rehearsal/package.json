@@ -1,0 +1,50 @@
+{
+  "name": "@studio/ui-rehearsal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The rehearsal pages as React — sessions and takes, publications, songbook, exercises — mounted by st0 under /rehearsal. The host configures the API base and provides the prefix; the catalogue is its own (messages/, compiled into src/paraglide).",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pages": "./src/pages.ts",
+    "./settings": "./src/settings.ts"
+  },
+  "scripts": {
+    "i18n": "paraglide-js compile --emit-ts-declarations --strategy localStorage baseLocale --silent",
+    "pretypecheck": "npm run i18n",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run i18n",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@frediverse/ui": "*",
+    "@studio/lyrics": "*",
+    "@studio/recorder": "*",
+    "@studio/score": "*",
+    "@studio/rehearsal-shared": "*",
+    "@studio/tablature": "*",
+    "@studio/engine-browser": "*",
+    "@studio/engine-protocol": "*",
+    "@studio/mediatek": "*",
+    "@studio/web-protocol": "*",
+    "@tombatossals/chords-db": "^0.5.1",
+    "@tombatossals/react-chords": "^0.2.10",
+    "epub-gen-memory": "^1.1.2",
+    "fflate": "^0.8.3",
+    "pdf-lib": "^1.17.1",
+    "pitchy": "^4.1.0",
+    "react-router-dom": "^7.18.1",
+    "signalsmith-stretch": "^1.3.2"
+  },
+  "devDependencies": {
+    "@frediverse/tsconfig": "*",
+    "@types/react": "^19.2.17",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7"
+  }
+}

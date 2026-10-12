@@ -35,7 +35,8 @@ splitting per workspace would leave a stopped project loaded in the engine forev
 
 **The bench is the exception, and a service of its own** — `SESSIONS.bench`, `banc:<person>`. It
 is the one project a person opens BESIDE the song rather than instead of it: a rig to hear a chain
-through, which k7 records while the song stays loaded (`apps/k7/docs/chainSource.md`). It is also
+through, which the rehearsal recorder records while the song stays loaded
+(`packages/ui-rehearsal/docs/chainSource.md`). It is also
 thrown away on every open, so the "stopped project loaded forever" above costs one small rig at
 most. The browser names it from the `@banc` address, the file service from the `Banc` workspace
 (`apps/st0/frontend/src/engineSession.ts`, `sessionOf`), and a test on each side pins both to this
@@ -79,7 +80,7 @@ sessions nothing is stamped, and that is the case pass-on-absence exists for —
 field would make a new client silently deaf rather than merely unsorted.
 
 So the correctness of one line here lives in the engine's message handlers, `engine/st0-engine/server/Serve*.cpp`, in their choice
-between the `broadcast` and `broadcastTo` verbs. Stamp one reply too few and a pl8 module
+between the `broadcast` and `broadcastTo` verbs. Stamp one reply too few and a media-library module
 audition makes st0 flash `busy` and receive `applied`/`flushed`/`recorded` for a project it
 does not own.
 

@@ -1,7 +1,7 @@
 # Overall findings — the audio axis
 
 Scope: `apps/st0`, `engine/st0-engine`, `engine/st0-supervisor`, `engine/st0-tray` and the packages they drive. Out of
-scope: `apps/{z0,k7,pl8,studio}`.
+scope: `apps/z0` and the rehearsal recorder (`packages/rehearsal-server`, `packages/ui-rehearsal`).
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means
 it goes stale. The remedy is not to believe it but to replay it: the last section gives the exact

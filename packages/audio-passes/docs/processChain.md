@@ -158,7 +158,7 @@ about that file says so afterwards.
 engine is playing (see `@studio/file-service`'s `docs/render.md`). Each source is rendered
 through a separate short-lived engine, from a one-track document holding the file at position 0
 with its natural length and the chain as the plugins on it — the same shape the médiathèque
-auditions a variant through (`apps/pl8/docs/playback.md`).
+auditions a variant through (`packages/ui-library/docs/playback.md`).
 
 Nothing else of the song travels with it. **Automation in particular does not**: a curve is
 written against song time and this clip starts at zero, so baking one in would apply it at the
@@ -207,7 +207,7 @@ plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)
   day `chainSteps` carries the port.
 - **A cold run writes files and repoints nothing.** There is no single output for a clip to point
   at; the four stems land in `stems/` beside the source, where the médiathèque already looks for
-  them (`apps/k7/docs/audio.md`). What changes is the workspace, not the project — the run still
+  them (`packages/rehearsal-server/docs/audio.md`). What changes is the workspace, not the project — the run still
   reports `changed`, because the tree has four new files in it.
 - **It runs before the engine check**, and needs no `st0-engine`: a separation is ffmpeg and a
   model, not a bounce.

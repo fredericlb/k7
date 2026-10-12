@@ -147,7 +147,7 @@ export function isBench(repo: string): boolean {
 
 const ST0 = PROJECT_SUFFIXES.st0;
 
-/** The bench's ONE project — a live rig thrown away and rebuilt on every open, apps/pl8/docs/banc.md. */
+/** The bench's ONE project — a live rig thrown away and rebuilt on every open, apps/st0/backend/docs/media/banc.md. */
 export const BENCH_PROJECT = `live${ST0}`;
 
 /** The library chain a `@banc` address seeds the rig with (`<ref>/live.st0`), `null` for the bare rig, `undefined` for no bench — docs/addresses.md. */
@@ -215,7 +215,7 @@ export async function shareKey(token: string): Promise<string> {
   ).join("");
 }
 
-/** Where a snapshot answers: pl8's ONE unauthenticated prefix, through `serviceUrl` — see docs/addresses.md. */
+/** Where a snapshot answers: the ONE unauthenticated prefix, on the origin `serviceUrl` gives pl8 — see docs/addresses.md. */
 export function shareApiBase(origin: string, key: string): string {
   return `${serviceUrl(origin, "pl8")}/api/public/share/${key}`;
 }
@@ -345,21 +345,43 @@ export const SETTINGS_PAGE = "settings";
 /** The TASKS page, `/tasks` — every workspace's TODOS.md in one list; reserved and routed like the libraries. */
 export const TASKS_PAGE = "tasks";
 
-/** Is this address exactly `word`, one segment below the mount? */
-function isReservedPage(pathname: string, base: string, word: string): boolean {
+/** The MEDIA library, `/media/…` — reserved as a PREFIX, its sections and open files being segments below it. */
+export const MEDIA_PAGE = "media";
+
+/** The REHEARSAL pages, `/rehearsal/…` — reserved as a PREFIX like the media library: sessions, releases, songbook, exercises and the public pages below it. */
+export const REHEARSAL_PAGE = "rehearsal";
+
+/** The segments below the mount, or null when the address is not under it. */
+function belowMount(pathname: string, base: string): string[] | null {
   const segs = segments(pathname);
   const skip = segments(base);
-  for (let i = 0; i < skip.length; i++) if (segs[i] !== skip[i]) return false;
-  const rest = segs.slice(skip.length);
-  return rest.length === 1 && rest[0] === word;
+  for (let i = 0; i < skip.length; i++) if (segs[i] !== skip[i]) return null;
+  return segs.slice(skip.length);
 }
 
-/** Is this address one of the pages that hang off st0's home — `/libraries`, `/settings`, `/tasks`? Read before `parseLaunch`, which would take the word for a workspace. */
+/** Is this address exactly `word`, one segment below the mount? */
+function isReservedPage(pathname: string, base: string, word: string): boolean {
+  const rest = belowMount(pathname, base);
+  return rest?.length === 1 && rest[0] === word;
+}
+
+/** Does this address START with `word` below the mount, whatever follows it? */
+function isReservedPrefix(
+  pathname: string,
+  base: string,
+  word: string,
+): boolean {
+  return belowMount(pathname, base)?.[0] === word;
+}
+
+/** Is this address one of the pages that hang off st0's home — `/libraries`, `/settings`, `/tasks`, `/media/…`, `/rehearsal/…`? Read before `parseLaunch`, which would take the word for a workspace. */
 export function isHomePage(pathname: string, base: string): boolean {
   return (
     isReservedPage(pathname, base, LIBRARIES_PAGE) ||
     isReservedPage(pathname, base, SETTINGS_PAGE) ||
-    isReservedPage(pathname, base, TASKS_PAGE)
+    isReservedPage(pathname, base, TASKS_PAGE) ||
+    isReservedPrefix(pathname, base, MEDIA_PAGE) ||
+    isReservedPrefix(pathname, base, REHEARSAL_PAGE)
   );
 }
 
@@ -371,7 +393,7 @@ export function isExternalIndex(pathname: string, base: string): boolean {
 /**
  * Does this ADDRESS open a project? Every screen on this origin that is not one is named here:
  * the home page has no segment at all, `@tabs` is chrome, `external` is the menu of surfaces,
- * `libraries`, `settings` and `tasks` the home's own pages. Everything else is `<dépôt>/<projet>`, `@local/…` and `@shares/…` included.
+ * `libraries`, `settings`, `tasks`, `media/…` and `rehearsal/…` the home's own pages. Everything else is `<repo>/<project>`, `@local/…` and `@shares/…` included.
  *
  * One definition because two sides ask it and would drift: the main process, to know what a
  * second window would open on, and the tab strip, to know which tabs wear a note.
@@ -389,7 +411,9 @@ export function isProjectAddress(url: string): boolean {
     head !== EXTERNAL_INDEX &&
     head !== LIBRARIES_PAGE &&
     head !== SETTINGS_PAGE &&
-    head !== TASKS_PAGE
+    head !== TASKS_PAGE &&
+    head !== MEDIA_PAGE &&
+    head !== REHEARSAL_PAGE
   );
 }
 

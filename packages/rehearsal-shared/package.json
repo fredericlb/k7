@@ -1,0 +1,24 @@
+{
+  "name": "@studio/rehearsal-shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./types.ts",
+  "exports": {
+    ".": "./types.ts",
+    "./epub": "./epub.ts",
+    "./naming": "./naming.ts",
+    "./pageVersion": "./pageVersion.ts",
+    "./sheetKind": "./sheetKind.ts",
+    "./youtube": "./youtube.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@frediverse/tsconfig": "*",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

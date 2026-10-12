@@ -46,8 +46,8 @@ address lands on the game.
 blind-test player is a **guest with no account**. z0 runs no OIDC flow of its own: the IdP has
 only the **prefixless** callback registered on this client, so a service under a path cannot
 own the flow here — st0 does, having no prefix. `studio.sid` is therefore read (never written)
-beside `bt_session`. Both use ONE key, `common`'s `SESSION_SECRET` — the same constraint pl8
-and k7 are under, and z0 declares no override. A second key would buy nothing:
+beside `bt_session`. Both use ONE key, `common`'s `SESSION_SECRET` — the same constraint st0's
+backend is under, and z0 declares no override. A second key would buy nothing:
 cookie-session signs `<name>=<value>`, so a renamed cookie fails to verify anyway.
 [docs/auth.md](docs/auth.md).
 
@@ -55,7 +55,7 @@ cookie-session signs `<name>=<value>`, so a renamed cookie fails to verify anywa
 here is a song folder; do not reach for `@studio/song`.
 
 **…except `editor`, which is not a game surface at all.** It opens a `.z0` project out of a
-git repository, so it asks pl8 which repositories exist and reads files through the machine's
+git repository, so it asks st0's backend which repositories exist and reads files through the machine's
 file service — the same three steps st0 takes, through the same `@studio/project-shell`.
 It never talks to z0's backend at all, which is what sets it apart: the five others do, even
 though all six take their account login from the origin root. [docs/editor.md](docs/editor.md).

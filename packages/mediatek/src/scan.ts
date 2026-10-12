@@ -117,7 +117,7 @@ function readVariants(
   return out;
 }
 
-/** k7's own artist folder — must match `apps/k7/backend/src/mediatek.ts`'s `ARTIST` (docs/songs.md). */
+/** k7's own artist folder — must match `packages/rehearsal-server/src/mediatek.ts`'s `ARTIST` (docs/songs.md). */
 const K7_ARTIST = "K7";
 
 /** Songs: any folder under `songs/` holding a `song.yaml` or, dropped by hand, any audio — see docs/songs.md. */

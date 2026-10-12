@@ -20,7 +20,7 @@ export interface TurntablesPaneProps {
   deck: Deck;
   /** Workspace-relative, as every file route takes it. */
   project: string;
-  /** Where the LIBRARY answers — pl8 holds the master (apps/pl8/docs/stems.md). */
+  /** Where the LIBRARY answers — the library holds the master (apps/st0/backend/docs/media/stems.md). */
   libraryBase: string;
   /** The project's change token; the graph is refetched whenever it moves. */
   rev: string | null;
@@ -55,7 +55,7 @@ export function TurntablesPane(props: TurntablesPaneProps) {
     [],
   );
 
-  /** …and where the LIBRARY answers, a different service and a different credential: pl8 holds the master (apps/pl8/docs/stems.md). */
+  /** …and where the LIBRARY answers, a different service and a different credential: the library holds the master (apps/st0/backend/docs/media/stems.md). */
   const library = useMemo(() => ({ base: libraryBase }), [libraryBase]);
 
   /** The playlist the declaration names — a plain string off the surface, so it needs no memo of its own. */

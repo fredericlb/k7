@@ -1,8 +1,8 @@
 # The search history's contract
 
-`hunt.ts` is one row of pl8's "trouver des morceaux" history, as the backend writes it and the
+`hunt.ts` is one row of the médiathèque's "trouver des morceaux" history, as the backend writes it and the
 screen draws it. It is stated here rather than in either half because both read the same rows;
-what pl8 *does* with them is `apps/pl8/docs/hunt.md`.
+what the backend *does* with them is `apps/st0/backend/docs/media/hunt.md`.
 
 ## `exhausted` is not "it failed"
 

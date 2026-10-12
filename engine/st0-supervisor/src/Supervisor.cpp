@@ -664,7 +664,7 @@ struct Supervisor::Impl {
                                     });
     }
 
-    /** ADD a registry — always its family's pl8 — persist, adopt, announce; an add and never a replace. */
+    /** ADD a registry — always its family's root — persist, adopt, announce; an add and never a replace. */
     void addRegistry(const std::string& named, std::function<void()> then)
     {
         const auto u = url::engineRegistryUrl(named);

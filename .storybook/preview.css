@@ -8,25 +8,8 @@
 
 @source "../commons/packages/ui/src";
 @source "../packages/ui-waveform/src";
-@source "../apps/k7/packages/lyrics/src";
-@source "../apps/k7/packages/recorder/src";
-@source "../apps/k7/packages/tablature/src";
-@source "../apps/k7/frontend/src";
+@source "../packages/lyrics/src";
+@source "../packages/recorder/src";
+@source "../packages/tablature/src";
+@source "../packages/ui-rehearsal/src";
 @source "../apps/st0/frontend/src";
-
-/* Tailwind's preflight zeroes element margins; k7's legacy stylesheet
-   relies on default block flow in a lot of places (mirrors its index.css). */
-@layer base {
-  p {
-    margin-block: 1em;
-  }
-  h1 {
-    margin-block: 0.67em;
-  }
-  h2 {
-    margin-block: 0.83em;
-  }
-  h3 {
-    margin-block: 1em;
-  }
-}

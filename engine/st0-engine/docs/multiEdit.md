@@ -2,7 +2,7 @@
 
 ## Why one process, and not one per service
 
-Several services (st0, pl8, the DJ desk) want an engine each, on one machine. The obvious
+Several services (st0, the media library, the DJ desk) want an engine each, on one machine. The obvious
 shape is N engine *processes*, and it runs straight into the constraint this repo already
 documents:
 

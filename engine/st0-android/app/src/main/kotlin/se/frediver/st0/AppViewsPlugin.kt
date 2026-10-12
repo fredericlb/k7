@@ -2,7 +2,7 @@
 // AppViews), under a status-bar strip painted the colour of the app's own header (StudioBridge.kt). They load from
 // the connected studio rather than from this APK: each app is same-origin with its backend (`/api`, `/auth`, cookie
 // sessions), so a bundled copy would be an app with no server. A view is made the first time it is shown and then
-// only hidden, so an app keeps its state — a k7 session, a playing pl8 track — while another is on screen.
+// only hidden, so an app keeps its state — a rehearsal take, a track playing in st0's media library — while another is on screen.
 // See docs/android.md.
 
 package se.frediver.st0
@@ -194,8 +194,6 @@ class AppViewsPlugin : Plugin() {
         settings.javaScriptCanOpenWindowsAutomatically = true
         // How an app can tell it is inside this one, should it ever need to.
         settings.userAgentString = "${settings.userAgentString} st0-android"
-        // pl8 signs in through st0's /auth, a sibling host.
-        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         webViewClient = AppClient(id)
         webChromeClient = AppChrome()
         setDownloadListener { url, _, _, _, _ -> openOutside(Uri.parse(url)) }
@@ -269,7 +267,7 @@ class AppViewsPlugin : Plugin() {
     }
 
     private inner class AppChrome : WebChromeClient() {
-        // The microphone, for k7's remote mic and calls: granted to the studio's own apps only, and only
+        // The microphone, for the rehearsal recorder's remote mic and calls: granted to the studio's own apps only, and only
         // once the app holds RECORD_AUDIO itself (asked at start, for the engine).
         override fun onPermissionRequest(request: PermissionRequest) {
             val mic = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

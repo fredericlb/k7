@@ -77,29 +77,25 @@ On a song there is no button — the bar is only so wide, and set lists are not 
 `ui playlists` still opens them: same line, so one behaviour and one journal entry. Never on a
 shared snapshot — a share has no repository, so no `_playlists/`.
 
-## Three servers
+## Two servers, one origin
 
-This is st0's screen that talks to **pl8** for something other than the session. The table
-`AGENTS.md` holds therefore becomes:
+This screen talks to the **media library** for something other than the session. Both answer on
+st0's own origin:
 
 | | for what | where |
 |---|---|---|
-| st0 backend | the session | same origin, **at the root** |
-| file service | the playlist itself — `/playlists`, `/file`, `PUT /file` | on the server, behind pl8's file hub, cross-origin |
-| **pl8 médiathèque** | the songs the playlist names, and the engine registry | its own subdomain, cross-origin |
+| st0 backend | the session, and the **médiathèque**: the songs the playlist names, and the engine registry | same origin, **at the root** |
+| file service | the playlist itself — `/playlists`, `/file`, `PUT /file` | on the server, behind st0's file hub (`/api/files`), same origin |
 
-That last one is the trap, and worth writing down: **st0** answers the origin root, so its `BASE` is
-the empty string and a bare `/api/mediatek/*` goes to its own backend, which has no such route.
-Calls to the médiathèque go through `serviceUrl(…, "pl8")`, never through `BASE` and never
-hard-coded: written bare they come back 404 and the empty catalogue reads as "you have no songs".
-Asking the table is what cannot be wrong when a service's address changes shape.
+Calls to the médiathèque go through `serviceUrl(…, "pl8")` — `"pl8"` is the library's id in
+the services table, which resolves to st0's origin — never hard-coded: asking the table is what
+cannot be wrong when a service's address changes shape.
 
 `/auth/*` at the top of `api.ts` stays bare: st0 is the service whose origin holds the IdP's one
 `redirect_uri`.
 
-Authentication is the session cookie, scoped to the studio's shared `COOKIE_DOMAIN`, which is also
-what makes `songUrl` work in an `<audio src>`: a media element cannot set a header, and does not
-have to when the request is same-site and the cookie covers pl8's subdomain.
+Authentication is the session cookie, which is also what makes `songUrl` work in an `<audio src>`:
+a media element cannot set a header, and does not have to when the request is same-origin.
 
 ## One new route
 
@@ -184,7 +180,7 @@ carry it.
 
 ### "Ajouter de nouveaux morceaux" — a link, not a button
 
-At the **foot of the list**, and it leads to pl8. This screen *names* songs; the volume that holds
+At the **foot of the list**, and it leads to the médiathèque's screens (`/media/*`). This screen *names* songs; the volume that holds
 them is elsewhere, and the screen where one is deposited is the médiathèque's, with its three-field
 dialog. That is where a library is *filed*: tags are asked for rather than guessed, and a song
 already present is recognised instead of being reported as a 409 to someone who only wanted a
@@ -193,7 +189,7 @@ of the same song. The price is leaving the screen; the song list is repolled eve
 anyway, so on return the deposited song is searchable here with nothing reloaded.
 
 **The foot of the list, not the top bar**: the bar carries what you do *to this playlist*, and
-leaving for pl8 is not that. At the bottom, it is the natural continuation of a list you have just
+leaving for the médiathèque is not that. At the bottom, it is the natural continuation of a list you have just
 scanned without finding what you wanted.
 
 ### "Séparer les stems" — preparing the whole set list
@@ -213,7 +209,7 @@ works on stays visible below.
   more. Which module separates and which model it wants is a single answer for the machine: given
   once in st0's global settings, *Separation chains*, living in `<state>/preferences.yaml`
   (`system stems`) — see [settings.md](settings.md). That section holds two such answers — the second is the chain that gives a record WITHOUT its voice, `system
-  instrumental`, which k7 asks for and which no screen here starts. A picker here
+  instrumental`, which the rehearsal songbook asks for and which no screen here starts. A picker here
   would ask the same person the same question on every set list, and three screens that ask it are
   three places to get it wrong. The preference is re-read every time the bar opens, because settings
   are one click away.
@@ -260,9 +256,9 @@ late.
 **This button does not dispatch `playlist stems`**, and it is the same exception as adding by search,
 with a reason of its own. The verb exists and does the same work — it is what you use from the
 palette or the CLI. But a command returns its lines **when it has finished**, and finishing, for
-thirty songs, is an hour of blank screen. So the button does one `POST /api/stems` to pl8 per line and
-polls the job in between, which is the only shape that has a bar. On **pl8**: it holds the masters,
-so it leads the split and keeps the stems, borrowing the engine's model (`apps/pl8/docs/stems.md`).
+thirty songs, is an hour of blank screen. So the button does one `POST /api/stems` to the media library per line
+and polls the job in between, which is the only shape that has a bar. On **the media library**: it holds the masters,
+so it leads the split and keeps the stems, borrowing the engine's model (`apps/st0/backend/docs/media/stems.md`).
 What the rule demands stays true: the ACT is reachable from the command bar.
 
 ## The transport is ours, and it is tiny
@@ -274,9 +270,9 @@ from the top is what the desk does, with the engine behind it. What you listen t
 you have just added — and the next one follows on, which gives "from here" without a button having
 to say so.
 
-pl8 has a shared `PlaybackProvider` — a mini player outliving the screen, with a browser/engine
-destination behind it. None of that here, deliberately: that machinery exists because pl8 is a
-**listening** application whose bottom bar follows you from section to section, whereas this shell is
+The médiathèque has a shared `PlaybackProvider` — a mini player outliving the screen, with a
+browser/engine destination behind it. None of that here, deliberately: that machinery exists because
+the médiathèque is a **listening** screen whose bottom bar follows you from section to section, whereas this shell is
 an editor that already has a transport of its own, driving the engine on a project. Two things
 claiming the word "playing" on one screen are two transports.
 
@@ -310,13 +306,13 @@ master. It is the same resolution on both sides — literally the same function,
 `@studio/mediatek/playlistItems` — because "path first, name second" is a rule, and two copies would
 diverge at the first case learned on one side only.
 
-## What pl8 cannot do from its side
+## What the médiathèque cannot do from its side
 
-pl8 has set lists of its own, under `playlists/` on its volume (`apps/pl8/docs/playlists.md`), in
+The médiathèque has set lists of its own, under `playlists/` on its volume (`packages/ui-library/docs/playlists.md`), in
 this same format. What it cannot do is write into **this** one: the workspace's `_playlists/` is on
-the file service's disk, and giving pl8 the means to write there would make the service that holds
-the session and the single deploy key a writer into everyone's repository, which
-`apps/pl8/docs/projects.md` explicitly refuses.
+the file service's disk, and giving its routes the means to write there would make the code that
+holds the session and the single deploy key a writer into everyone's repository, which
+`apps/st0/backend/docs/media/projects.md` explicitly refuses.
 
 Its hunt therefore targets no playlist at all — it files the song into the médiathèque, and adding
 it to a setlist is one click, here or on its own tab, on exactly that catalogue.

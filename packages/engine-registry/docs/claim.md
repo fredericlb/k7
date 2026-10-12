@@ -37,14 +37,14 @@ wrong song).
 An account has two sessions st0 plays in: its song's and its **bench**'s
 (`packages/engine-protocol/docs/sessions.md`). The registry tells them apart by the claimed address
 — `claimSlot`, `@banc/…` being the bench — so an account's bench sits beside its own song on one
-engine rather than taking the song's place. That is what lets k7 record through a library chain
-while the song stays open (`apps/k7/docs/chainSource.md`). A different ACCOUNT still displaces
+engine rather than taking the song's place. That is what lets the rehearsal recorder record through a library
+chain while the song stays open (`packages/ui-rehearsal/docs/chainSource.md`). A different ACCOUNT still displaces
 either: an engine serves one account at a time (`packages/file-hub/docs/fileHub.md`).
 
 The list names every claim (`heldProjects`) beside the one a picker shows (`heldProject`, the song
 before the bench), since a client looking for the bench must find it on an engine a song holds too.
 
-**3. A claim with no project conflicts with nothing.** pl8 drives an engine and opens no
+**3. A claim with no project conflicts with nothing.** The media library drives an engine and opens no
 project: it auditions modules and plays songs out of the médiathèque. It passes `project: null`,
 which claims the engine as *in use* and competes for nothing. Without this exemption, looking at
 the catalogue would take the song away from the st0 tab on the same machine — which is worse than
@@ -125,7 +125,7 @@ normally releases at once on `pagehide`; only a crash waits the full TTL.
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
 | st0 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
-| pl8 | **none** (`null`) | nothing to lose — see rule 3 |
+| the media library | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in
 `@studio/web-protocol/projects`, beside the address vocabulary it comes from. One spelling, in

@@ -1,10 +1,10 @@
 # Shared mode — st0 opened on a frozen snapshot
 
 An address in `/@shares/<token>.st0` opens **this application**, with no account, no engine and no
-working copy. What it draws is a snapshot pl8 holds: three compiled documents and audio renders.
+working copy. What it draws is a snapshot the media library holds: three compiled documents and audio renders.
 The bundle is built elsewhere — see
 [`packages/commands/docs/shareBundle.md`](../../../../packages/commands/docs/shareBundle.md) for
-what it contains, and [`apps/pl8/docs/shares.md`](../../../pl8/docs/shares.md) for where it lives
+what it contains, and [`apps/st0/backend/docs/media/shares.md`](../../backend/docs/media/shares.md) for where it lives
 and how it is withdrawn.
 
 ## One branch, not three conditional gates
@@ -93,8 +93,8 @@ made from a project that compiled, by the machine that compiled it.
 
 ## The address is a `base`, and that is all
 
-`cfg().base` is a string set once. Nothing requires a file service to answer behind it, so pl8
-serves the same GET shapes from the bundle and st0 does not notice.
+`cfg().base` is a string set once. Nothing requires a file service to answer behind it, so the
+media library serves the same GET shapes from the bundle and st0 does not notice.
 
 The one seam to adjust is the NAME: `fget` asks for `/project-doc` because that is the file
 service's route, and the snapshot calls the same bytes `project-doc.json` because a file needs a
@@ -106,7 +106,7 @@ public router's terminal 404. A clip waveform has nothing to read; it draws none
 
 ## The key is computed here
 
-`shareKey(token)` does a `sha256` in the browser, because pl8 files the HASH and never the secret:
+`shareKey(token)` does a `sha256` in the browser, because the media library files the HASH and never the secret:
 a path segment reaches every access log. That needs `crypto.subtle`, so a **secure context** — over
 plain http anywhere but localhost there is no digest at all. The refusal is raised with a sentence
 rather than left to surface as `undefined is not a function`: it is a deployment matter, not a bug,
@@ -209,9 +209,9 @@ whole of a visitor's half of the header.
 
 **It is the only write in this shell that does not go through `fsend`.** That is the sentence to
 keep: the transport's refusal is what makes a share read-only, and nothing here weakens it. This
-panel talks to pl8's public router directly, on the same base the audio streams from, and the file
+panel talks to the media library's public router directly, on the same base the audio streams from, and the file
 service is not in the path at all. What bounds that route is
-[apps/pl8/docs/comments.md](../../../pl8/docs/comments.md).
+[apps/st0/backend/docs/media/comments.md](../../backend/docs/media/comments.md).
 
 ### The timecode is CAPTURED, never live
 

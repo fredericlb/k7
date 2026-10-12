@@ -1,6 +1,6 @@
 // App.tsx — the page under the studio apps. With a studio connected an app covers it, full screen
-// (AppViewsPlugin.kt): st0 first, the others reached through each app's own switch, and this phone's
-// engine settings inside st0's. The page shows itself — the tray — only while there is no studio to
+// (AppViewsPlugin.kt): st0, the one app with a view today, and this phone's engine settings inside
+// its own. The page shows itself — the tray — only while there is no studio to
 // open, or while the one that is open does not load: then no app is there to reach settings in.
 
 import { Button } from "@frediverse/ui/button";

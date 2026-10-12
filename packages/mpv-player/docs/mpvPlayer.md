@@ -5,8 +5,8 @@ outputs. No engine is involved, and this package does not know that engines exis
 
 ## Two hosts, one driver
 
-The file service and pl8 both mount it, and they differ in exactly one thing — where the media
-is. The file service plays from its **cache** of the médiathèque; pl8 plays from the médiathèque
+The file service and st0's backend both mount it, and they differ in exactly one thing — where the media
+is. The file service plays from its **cache** of the médiathèque; st0's backend plays from the médiathèque
 **itself**, which it serves. So the root is injected (`configureMpv`) rather than read here, and
 so is the answer to "who is asking", which one host takes from a header and the other from a
 session.

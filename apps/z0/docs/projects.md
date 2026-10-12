@@ -244,8 +244,8 @@ tracks that have not even an artist would have nowhere to go.
 | `offboarding-bedrock.z0` | 4 categories, 4 rounds |
 | médiathèque | **279 songs**, **26 variants** (`stems`, `8bit`, `handmade`) |
 
-Their audio is filed by `addSong` / `addSongVariant` from `@studio/mediatek` — the code pl8 calls
-itself — so the folder shape and the sidecar are exactly the médiathèque's.
+Their audio is filed by `addSong` / `addSongVariant` from `@studio/mediatek` — the code the media library
+calls itself — so the folder shape and the sidecar are exactly the médiathèque's.
 `songs/A-Ha/Album inconnu/Take on me/` holds `original.mp3`, `8bit.mp3` and `handmade.mp3` under
 one `song.yaml`, which is the demonstration that the model holds.
 

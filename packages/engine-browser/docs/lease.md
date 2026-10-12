@@ -23,7 +23,7 @@ rather than in any of them.
 ## What a caller supplies
 
 `holdEngine` takes the two calls rather than making them, because the registry's address is the
-caller's to know — pl8's, on its own subdomain, which each app derives from its own origin (see
+caller's to know — st0's backend, which each app derives from its own origin (see
 `packages/engine-registry/docs/shared.md`). The loop is the shared part; the address is not.
 
 `release` is typed as returning nothing and is called fire-and-forget. Use `navigator.sendBeacon`

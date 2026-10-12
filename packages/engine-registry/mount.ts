@@ -36,6 +36,8 @@ export function mountEngineRegistry(
     service: string;
     requireAuth: RequestHandler;
     alsoGuard?: string[];
+    /** False when the host closes gracefully itself and calls the returned goodbye; default true. */
+    exitOnSignal?: boolean;
   },
 ): EngineMount {
   app.use(
@@ -67,6 +69,7 @@ export function mountEngineRegistry(
           /* on the way out — a failed cleanup must not stop the rest */
         }
       };
+      if (opts.exitOnSignal === false) return bye;
       // Both, and idempotent: a service that leaves its endpoint file behind is heartbeated to a dead port for ever after.
       process.on("SIGINT", () => {
         bye();

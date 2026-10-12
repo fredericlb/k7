@@ -89,7 +89,7 @@ the error is caught where the author is. Two tests pin it.
 
 ⚠️ The mediatek's `audio/filter/lowpass` module has exactly the same defect:
 `geolerp(20000, 200, t)`, so its `Amount` works **backwards** from what its doc announces (closed
-at 0, open at 100). It is in pl8's catalogue, not in this repository.
+at 0, open at 100). It is in the médiathèque's catalogue, not in this repository.
 
 ## The path, and sync both ways
 

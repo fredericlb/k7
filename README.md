@@ -4,9 +4,7 @@ The music and stage apps of the frediverse.
 
 | app | what it is | dev site |
 |---|---|---|
-| `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `k7.priv.st0.app` |
-| `apps/st0` | text-first DAW — the web editor; the origin's front door | `priv.st0.app` |
-| `apps/pl8` | the media library — songs, samples, recordings | `play.priv.st0.app` |
+| `apps/st0` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, songbook, tuner, under `/rehearsal`); the origin's front door | `priv.st0.app` |
 | `engine/st0-engine` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/st0-supervisor` | the engine machine's supervisor: starts and watches the engine, holds its tunnel | — |
 | `engine/st0-tray` | the menu-bar tray, a view over the supervisor (Tauri) | — |
@@ -32,9 +30,9 @@ cp env.example.yaml env.yaml   # then fill in the secrets
 npm run dev                    # every app, plus the engine and the desktop app
 ```
 
-In dev the studio answers at **https://priv.st0.app** — st0 at the root, z0 under `/z0` —
-with pl8 and k7 on their own subdomains, `play.priv.st0.app` and `k7.priv.st0.app`
-(`packages/web-protocol/services.ts`).
+In dev the studio answers at **https://priv.st0.app** — st0 at the root, the media library under
+`/media`, the rehearsal recorder under `/rehearsal`, z0 under `/z0` — with `play.priv.st0.app` and
+`k7.priv.st0.app` aliases of st0 (`packages/web-protocol/services.ts`).
 Nothing here terminates TLS: the name resolves to the LAN server, which reverse-proxies to
 the dev servers. See [docs/dev.md](docs/dev.md).
 
@@ -81,7 +79,7 @@ fails looking for the old path.
 ## Images
 
 ```bash
-npm run images          # all apps, or: npm run images k7
+npm run images          # all apps, or: npm run images z0
 npm run check-images    # asserts no workspace package is missing from an image
 ```
 

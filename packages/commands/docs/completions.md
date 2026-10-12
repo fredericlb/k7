@@ -54,8 +54,8 @@ with the module and the place (`packages/song/docs/chainFiles.md`). `completionI
 
 The file service's `/complete` answers a list of bare lines, and only that, unless the caller adds
 `labels=1`. Then a LABELLED candidate comes as `{ line, label }` and every other one stays a bare
-string, in the same list and the same order. Two choices, both forced by the file service (in pl8's
-image) and st0's frontend shipping on their own:
+string, in the same list and the same order. Two choices, both forced by a st0 page already open in a
+browser outliving the file service it was built against, or the reverse:
 
 - **Opt-in, not a new default.** An older frontend reads every entry as a string; handed an object,
   it loses the whole field's completion, not just the label.

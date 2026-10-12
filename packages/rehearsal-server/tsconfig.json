@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    // Bundler resolution, matching st0-backend and file-service: this service now
+    // consumes a `@studio/*` package as raw TypeScript, and those packages import each
+    // other the way a bundler resolves. NodeNext rejected their extensionless relative
+    // imports — a type-check-only failure, since Node 22 runs the sources either way.
+    "moduleResolution": "bundler",
+    // Node 22 runs the .ts sources directly via type-stripping, so we never emit
+    // — tsc is used only for type-checking, and imports keep their .ts extension.
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    // The Grist data layer (store.ts) plumbs dynamic rows; implicit any is
+    // tolerated there for now (strict null-checks etc. stay on). Tighten later.
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

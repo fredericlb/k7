@@ -30,13 +30,13 @@ std::optional<Url> parse(const std::string& s);
 /** Whether `hostname` is one where services are ports rather than subdomains. */
 bool isLoopbackHost(const std::string& hostname);
 
-/** Where `service` ("st0" | "pl8" | "k7") answers, given any URL of its family; "" for a non-URL. */
+/** Where `service` ("st0" | "pl8" | "k7" | "z0") answers, given any URL of its family — st0's origin, z0 a path; "" for a non-URL. */
 std::string serviceUrl(const std::string& origin, const std::string& service);
 
 /** The family key: st0's origin, or the bare scheme and host on loopback; "" for a non-URL. */
 std::string studioFamily(const std::string& url);
 
-/** The ONE engine registry — pl8's — for any URL of a family; "" for a non-URL or a non-web scheme. */
+/** The ONE engine registry — the family root — for any URL of a family; "" for a non-URL or a non-web scheme. */
 std::string engineRegistryUrl(const std::string& url);
 
 /** What the user typed, reduced to a bare origin, strictly; a bare host gets `https://`. */

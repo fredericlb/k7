@@ -107,7 +107,7 @@ seconds would not be disconnected — it would be squatting.
 ## Resuming is reopening
 
 The button does three things: `onResume()`, the `resolving` phase, and `attempt + 1`. The last
-replays **the full setup effect** — resolve the repository name at pl8, clone if the machine has
+replays **the full setup effect** — resolve the repository name at the media library, clone if the machine has
 forgotten the workspace meanwhile, `POST /open`. That is what makes this screen so flat: reopening
 a project is a route the gate already owns, and being asleep only takes it again.
 

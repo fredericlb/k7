@@ -220,7 +220,7 @@ string an author chose inside the library: a workspace library could call itself
 collide head-on with the synthesised catalogue, and nothing would tie the name to where the folder
 sits. A library's name is the one the ORIGIN's list gave it, which is its folder's, which is its refs'.
 
-**Why the default library is spelled `@st0`.** It names neither of the things its spelling
-suggests: the médiathèque is **pl8** and `apps/st0` is the editor. It stays on purpose — a level is
+**Why the default library is spelled `@st0`.** It names a library, not the app `apps/st0` its
+spelling suggests. It stays on purpose — a level is
 written into user files, and moving it would cost every repository a rewrite for a name nobody
 types. `packages/song/scripts/migrateNamespace.ts` is what such a rewrite takes.

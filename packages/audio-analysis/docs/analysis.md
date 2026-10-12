@@ -11,10 +11,10 @@ The arithmetic lives here once. What varies is where the samples come from:
 - **The engine's `--decode`** on a machine that has an engine — the musician's, the standalone app.
   It decodes any format JUCE reads, it is already installed, and the musician's machine has no
   ffmpeg to rely on.
-- **ffmpeg** where there is no engine — pl8, which is hosted. The engine is never in that image and
-  never will be: it is an instrument on a musician's machine. But pl8 holds the bytes, so the
+- **ffmpeg** where there is no engine — st0's backend, which is hosted. The engine is never in that image and
+  never will be: it is an instrument on a musician's machine. But it holds the médiathèque's bytes, so the
   analysis of a freshly uploaded song has to happen where the bytes are. ffmpeg is already in the
-  image for k7's takes and z0's audio.
+  image for the rehearsal recorder's takes and z0's audio.
 
 `DecodeOptions.engineBin` picks between them, and nothing downstream knows which ran: both hand
 over interleaved float32 frames at the file's own rate, every channel. On wav and flac the two

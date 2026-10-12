@@ -86,7 +86,7 @@ jobs:
     artifacts: build_version
     condition: SUCCESSFUL
     optional: false
-  # Four images: st0/pl8/k7 each their own, z0 still on the shared base image for its nginx. Each keeps
+  # Two images: st0 (the media library and the rehearsal recorder included), z0 on the shared base image for its nginx. Each keeps
   # its layers in the registry (cache:<app>), so a fresh builder still finds the installs — docs/images.md.
   - type: BuildImageStep
     name: build and push st0 image
@@ -96,26 +96,6 @@ jobs:
       type: RegistryOutput
       tags: dev.frediver.se/frediverse/studio/st0:@commit_hash@
     moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:st0,mode=max,image-manifest=true,oci-mediatypes=true
-    condition: SUCCESSFUL
-    optional: false
-  - type: BuildImageStep
-    name: build and push pl8 image
-    buildPath: .
-    dockerfile: apps/pl8/docker/Dockerfile
-    output:
-      type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/pl8:@commit_hash@
-    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:pl8 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:pl8,mode=max,image-manifest=true,oci-mediatypes=true
-    condition: SUCCESSFUL
-    optional: false
-  - type: BuildImageStep
-    name: build and push k7 image
-    buildPath: .
-    dockerfile: apps/k7/docker/Dockerfile
-    output:
-      type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/k7:@commit_hash@
-    moreOptions: --build-arg APP_VERSION=@build_version@ --cache-from type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7 --cache-to type=registry,ref=dev.frediver.se/frediverse/studio/cache:k7,mode=max,image-manifest=true,oci-mediatypes=true
     condition: SUCCESSFUL
     optional: false
   - type: BuildImageStep
@@ -132,7 +112,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-# What a deployment pulls: the commit's four images, tagged :latest and with their stamp once the tests
+# What a deployment pulls: the commit's two images, tagged :latest and with their stamp once the tests
 # pass. imagetools copies a manifest within the registry, so nothing is built or pulled here.
 - name: publish studio images
   steps:
@@ -144,16 +124,6 @@ jobs:
   - type: RunImagetoolsStep
     name: tag st0 image
     arguments: create -t dev.frediver.se/frediverse/studio/st0:latest -t dev.frediver.se/frediverse/studio/st0:@build_version@ dev.frediver.se/frediverse/studio/st0:@commit_hash@
-    condition: SUCCESSFUL
-    optional: false
-  - type: RunImagetoolsStep
-    name: tag pl8 image
-    arguments: create -t dev.frediver.se/frediverse/studio/pl8:latest -t dev.frediver.se/frediverse/studio/pl8:@build_version@ dev.frediver.se/frediverse/studio/pl8:@commit_hash@
-    condition: SUCCESSFUL
-    optional: false
-  - type: RunImagetoolsStep
-    name: tag k7 image
-    arguments: create -t dev.frediver.se/frediverse/studio/k7:latest -t dev.frediver.se/frediverse/studio/k7:@build_version@ dev.frediver.se/frediverse/studio/k7:@commit_hash@
     condition: SUCCESSFUL
     optional: false
   - type: RunImagetoolsStep

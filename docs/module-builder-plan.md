@@ -109,7 +109,7 @@ created in the builder, which offers them anyway — it is the entrance, not the
 
 The media library carries st0's chrome: families as tabs, the shared `FileTree` in the sidebar with
 context menus and drag and drop, a cog for the engine and for signing out. The backend has
-`POST /move`, `POST /folder` and `DELETE /folder` (`apps/pl8/backend/src/routes/library.ts`, backed
+`POST /move`, `POST /folder` and `DELETE /folder` (`apps/st0/backend/src/media/routes/library.ts`, backed
 by `@studio/mediatek/write`).
 
 Trap in the shared `FileTree`: the context menu **does not open at all** if no action passes its

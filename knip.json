@@ -36,7 +36,7 @@
     "apps/st0/frontend": {
       "entry": ["src/docs/examples.ts"]
     },
-    "apps/k7/backend": {
+    "packages/rehearsal-server": {
       "ignoreDependencies": ["@types/multer"]
     },
     "apps/z0/backend": {

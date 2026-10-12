@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The media library: what lives under ~/.st0/mediatek, how it is scanned, and the change token surfaces poll. A library, not a service — two HTTP shells serve it and share their vocabulary from here: apps/pl8/backend for the hosted volume, @studio/file-service for this machine's cache. Consumed as source.",
+  "description": "The media library: what lives under ~/.st0/mediatek, how it is scanned, and the change token surfaces poll. A library, not a service — two HTTP shells serve it and share their vocabulary from here: apps/st0/backend (src/media) for the hosted volume, @studio/file-service for this machine's cache. Consumed as source.",
   "types": "./src/layout.ts",
   "exports": {
     "./layout": "./src/layout.ts",

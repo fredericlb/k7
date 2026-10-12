@@ -16,7 +16,7 @@ describe("parseLaunch", () => {
 
   it("is null for an address outside this app's mount", () => {
     // The EDGE keeps other prefixes away from this reader; z0's editor has one of its own.
-    expect(parseLaunch("/k7/sessions", "z0", "/z0/editor/")).toBe(null);
+    expect(parseLaunch("/rehearsal/sessions", "z0", "/z0/editor/")).toBe(null);
   });
 
   it("reads a path the edge claims as a repository name, which is exactly right", () => {

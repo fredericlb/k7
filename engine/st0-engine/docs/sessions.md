@@ -93,7 +93,7 @@ Two verbs rather than a hand-written `{"session", …}` per reply, because seven
 literals is precisely how the eighteenth gets forgotten. A new reply has to *choose*, and the
 choice is reviewable in one word.
 
-Leave a reply unstamped and `forSession` passes it to everyone: a pl8 module audition makes st0
+Leave a reply unstamped and `forSession` passes it to everyone: a module audition in the media library makes st0
 flash `busy` and clear its warning badges, and st0 receives `applied`, `flushed` and `recorded`
 for a project it does not own.
 
@@ -131,7 +131,7 @@ nothing declares nothing, which is the probe case its last count covers.
 
 Three regressions it exists to catch:
 
-- **Record-enable is SESSION state.** As a process-global, arming st0 lights pl8's record light
+- **Record-enable is SESSION state.** As a process-global, arming st0 lights the media library's record light
   and rolling either one records into both.
 - **Only ONE of them plays.** Without sessions the second project tears the first down; without
   the client half, the silent one reads the playing one's state frames as its own.

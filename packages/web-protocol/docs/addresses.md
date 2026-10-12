@@ -14,8 +14,8 @@ once, browser-safe, and nowhere else. See `apps/st0/frontend/docs/projects.md` a
 |---|---|---|---|
 | st0 | the origin itself | `priv.st0.app` | `st0.app` |
 | z0 | a path under st0's origin, `SERVICE_PATHS.z0` | `priv.st0.app/z0` | `st0.app/z0` |
-| pl8 | its own subdomain, `play.` in front of st0's host | `play.priv.st0.app` | `play.st0.app` |
-| k7 | its own subdomain, `k7.` in front of st0's host | `k7.priv.st0.app` | `k7.st0.app` |
+| pl8 | the media library, served BY st0 — st0's origin, its screens under `/media` | `priv.st0.app/media` | `st0.app/media` |
+| k7 | the rehearsal recorder, served BY st0 — st0's origin, its screens under `/rehearsal` | `priv.st0.app/rehearsal` | `st0.app/rehearsal` |
 
 `serviceUrl(origin, service)` answers from any studio URL — st0's or a sibling's, whose label it
 strips first — so a page never spells a host, and a deployment on a domain of its own needs nothing
@@ -26,9 +26,27 @@ parent domain and trusts the sibling origins (`TRUSTED_ORIGINS`), both from the 
 (`docker/docker-compose.yml`).
 
 What you land on is your own WORK: the editor's home page, at st0's origin, lists the workspaces,
-the projects, the libraries and the shares. The catalogue is what a project draws ON, so it is
-pl8, a link in that page's header. The shares and `/api/mediatek` are pl8's backend's; the
-workspaces, the libraries and the deploy key are the file service's.
+the projects, the libraries and the shares. The catalogue is what a project draws ON, so it is the
+media library, a group of entries in that page's sidebar; the rehearsal recorder is another. The
+shares, `/api/mediatek` and the rehearsal routes are st0's backend's; the workspaces, the libraries and the deploy key are the file service's.
+
+### `play.` and `k7.` are aliases, and permanent ones
+
+`pl8` and `k7` are service ids with st0's address, not hosts: `serviceUrl(origin, "pl8")`,
+`serviceUrl(origin, "k7")` and `engineRegistryUrl` answer st0's origin, and so does the
+supervisor's `Url.cpp`. The `play.` and `k7.` labels in front of st0's host are still routed to
+st0's container and stripped like a sibling's (`ALIAS_LABELS`), because things outside this repo's
+reach name them and cannot be rewritten:
+
+- every installed supervisor has `https://play.st0.app` saved as its registry URL;
+- every share link already sent carries `play.`;
+- every k7 publish URL and token saved in a workspace's `.settings.json` names `k7.`;
+- every public page link sent to an audience, and every PWA installed from `k7.`, does too.
+
+So on those hosts st0's backend answers `/api/*`, `/auth/*` and `/rtc` as on its own, and sends
+every other path to the same path under `/media` (for `play.`) or `/rehearsal` (for `k7.`) at st0's
+origin with a 301 (`apps/st0/backend/src/server.ts`). Dropping an alias is a breakage of those, not
+a cleanup.
 
 ### `/auth/*` belongs to st0
 
@@ -42,13 +60,13 @@ and be wrong. Nothing is registered at the IdP per service.
 
 A SERVER calling another studio service uses `SERVICE_PORTS` rather than the public URL, and the
 reason is not performance: in a checkout everything is behind a private CA, whose local CA node
-does not trust, so `https://play.priv.st0.app` fails with `UNABLE_TO_GET_ISSUER_CERT` from
+does not trust, so `https://priv.st0.app` fails with `UNABLE_TO_GET_ISSUER_CERT` from
 a backend while working perfectly in the browser beside it.
 
 On a loopback host the same table is what a PAGE uses too, and a host may move it:
-`STUDIO_PORTS=st0=18789,pl8=18795` in the environment for node — and for the supervisor, whose
+`STUDIO_PORTS=st0=18789` in the environment for node — and for the supervisor, whose
 `Url.cpp` reads the same variable — or `globalThis.__STUDIO_PORTS__` for a page, set before its
-scripts run (`servicePorts`). The desktop app does, so it runs beside a dev session
+scripts run (`servicePorts`). `pl8` and `k7` have no port of their own: they are st0's. The desktop app does, so it runs beside a dev session
 (`apps/st0-standalone/docs/standalone.md`). Unset, the table is `SERVICE_PORTS`.
 
 ## Owning a suffix is not the same as being creatable
@@ -142,7 +160,7 @@ IS a project has nothing after its name and the project is `"."`.
 
 The price, stated where it is paid: this address names a machine's folder, so it is **not
 portable** — a link pasted to somebody names a folder in yours. What it buys is that no service has
-to answer before a project opens (`apps/pl8/docs/projects.md`).
+to answer before a project opens (`apps/st0/backend/docs/media/projects.md`).
 
 ### `@banc` — the bench
 
@@ -153,7 +171,7 @@ folder.
 
 It answers **one** project, `live.st0`, preceded by the library chain's ref the bench is ON —
 `/@banc/vocals/warm/live.st0` (or `/@banc/@st0/vocals/warm/live.st0`) seeds the rig with a copy of
-that chain, what k7 records through (`apps/k7/docs/chainSource.md`). The bare `/@banc/live.st0` and
+that chain, what the rehearsal recorder records through (`packages/ui-rehearsal/docs/chainSource.md`). The bare `/@banc/live.st0` and
 a bare library ref, `/@banc/@st0/live.st0`, are refused by the service: a library is not edited on
 a bench but by an admin from any project. `benchChainOf` is the whole rule — spelled
 once, in this package, so the browser that builds the link and the service that reads it cannot
@@ -167,7 +185,7 @@ even a candidate.
 
 ### `@shares` — a frozen snapshot
 
-`/@shares/<token>.st0` opens a snapshot pl8 holds: no clone, no engine, no account.
+`/@shares/<token>.st0` opens a snapshot the media library holds: no clone, no engine, no account.
 
 The `.st0` on the end is not decoration. `parseLaunch` ends a project at the last segment claiming
 the app's suffix, so spelling the token this way makes it the PROJECT part of an ordinary address —
@@ -182,7 +200,7 @@ what a traversal is not.
 machine has no idea which origin you are reading this on, and a checkout, the LAN proxy and the
 public host are three different answers. Only the tab knows which one it is.
 
-`shareKey` is `sha256(token)` in hex, computed by whoever holds the link. pl8 stores the hash and
+`shareKey` is `sha256(token)` in hex, computed by whoever holds the link. The library stores the hash and
 names the directory with it, so the SECRET is never a path segment: a path segment reaches every
 access log, every `Referer` and every proxy's error page, and the link is the whole of the
 protection. The price is that the page has to do the hashing, and `crypto.subtle` exists only in a
@@ -191,9 +209,9 @@ That refusal is thrown with a sentence rather than left to surface as
 `undefined is not a function`, because it is a real deployment and not a bug: the fix is to serve
 the page over https, and nothing about the share is wrong.
 
-`shareApiBase` goes through `serviceUrl` and not the bare origin: the share's routes are pl8's
-backend's, on pl8's subdomain, and the difference is invisible until a share is opened — exactly
-the kind of route that gets tried last. `public` is IN the path on purpose: a comment that survives
+`shareApiBase` goes through `serviceUrl(origin, "pl8")` and not the bare origin: the share's
+routes are the media library's, and naming the service rather than assuming its address keeps the
+one place that knows where the library answers in `services.ts`. `public` is IN the path on purpose: a comment that survives
 a refactor, and one nobody confuses with `/api/shares`, which is the author's half and is behind the
 guard.
 

@@ -1,5 +1,5 @@
-// stage.mjs — build staging/ for electron-builder: the source tree the backends run from, their prod deps, the binaries, the library.
-// The backends run as raw TypeScript under tsx, exactly as in their Docker images, so what ships is SOURCE plus node_modules.
+// stage.mjs — build staging/ for electron-builder: the source tree the backend runs from, its prod deps, the binaries, the library.
+// The backend runs as raw TypeScript under tsx, exactly as in its Docker image, so what ships is SOURCE plus node_modules.
 // See ../docs/standalone.md for why the tree is copied whole rather than bundled.
 
 import { execFileSync } from "node:child_process";
@@ -45,10 +45,9 @@ const lsFiles = (dir) =>
       (f) => f && existsSync(join(dir, f)) && statSync(join(dir, f)).isFile(),
     );
 
-// What the two backends and the file service import; every workspace manifest too, since npm ci reads them all.
+// What the backend and the file service import; every workspace manifest too, since npm ci reads them all.
 const KEEP = [
   /^apps\/st0\//,
-  /^apps\/pl8\//,
   /^packages\//,
   /^demos\//,
   /^package(-lock)?\.json$/,
@@ -99,8 +98,7 @@ rmSync(staging, { recursive: true, force: true });
 mkdirSync(bin, { recursive: true });
 
 console.log("· frontends");
-for (const ws of ["st0-frontend", "pl8-frontend"])
-  run("npm", ["exec", "--workspace", ws, "--", "vite", "build"]);
+run("npm", ["exec", "--workspace", "st0-frontend", "--", "vite", "build"]);
 
 console.log("· source");
 copyTree(repo, lsFiles(repo).filter(keep), src);
@@ -112,12 +110,11 @@ copyTree(
   ),
   join(src, "commons"),
 );
-for (const a of ["st0", "pl8"])
-  cpSync(
-    join(repo, "apps", a, "frontend", "dist"),
-    join(src, "apps", a, "frontend", "dist"),
-    { recursive: true },
-  );
+cpSync(
+  join(repo, "apps", "st0", "frontend", "dist"),
+  join(src, "apps", "st0", "frontend", "dist"),
+  { recursive: true },
+);
 
 console.log("· production dependencies");
 // --ignore-scripts: the only install script that matters (ssh2's crypto binding) targets the system node's ABI, not Electron's, and has a JS fallback.
@@ -131,8 +128,6 @@ run(
     "--no-fund",
     "--workspace",
     "st0-backend",
-    "--workspace",
-    "pl8-backend",
   ],
   src,
 );

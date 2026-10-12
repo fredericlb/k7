@@ -1,9 +1,17 @@
 import type { Preview } from "@storybook/react-vite";
 import "./preview.css";
-// k7's legacy global stylesheet: plain CSS, and what its own component stories are styled by.
-import "../apps/k7/frontend/src/styles.css";
+// The rehearsal pages' stylesheet, scoped under .rehearsal-root: the decorator below wears it.
+import "../packages/ui-rehearsal/src/styles/index.css";
 
 const preview: Preview = {
+  // Every story inside the rehearsal wrapper: outside it, that stylesheet styles nothing.
+  decorators: [
+    (Story) => (
+      <div className="rehearsal-root">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     controls: {
       matchers: {

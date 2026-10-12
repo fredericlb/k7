@@ -1,5 +1,5 @@
 // engineSession.ts — which engine session this tab drives, and where the bench should play. The
-// bench has a session of its own so it runs BESIDE the song; see apps/pl8/docs/banc.md.
+// bench has a session of its own so it runs BESIDE the song; see apps/st0/backend/docs/media/banc.md.
 //
 // The one thing a reader would get wrong: the file service derives the same name from the
 // WORKSPACE (`sessionOf`), so both halves must agree that the bench is `@banc` and `Banc`.

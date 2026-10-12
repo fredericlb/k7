@@ -1,22 +1,22 @@
-# The hosted half only: st0, pl8 and k7 each their OWN image and container now — no nginx
-# in any of the three, see apps/<app>/docker/Dockerfile. z0 is still one image sharing
-# nginx internally (apps/z0/docker/), since it hasn't moved off st0's own hostname. No
-# engine and no tray: those run on the musician's own machine, and reach this stack through
-# the tunnel their supervisor dials (packages/engine-tunnel/docs/tunnel.md). The accounts'
-# WORKSPACES do live here, in pl8, one file service per account
-# (packages/file-hub/docs/fileHub.md).
+# The hosted half only: st0 (the editor, the media library AND the rehearsal recorder) in its OWN
+# image and container — no nginx, see apps/st0/docker/Dockerfile. z0 is one image sharing
+# nginx internally (apps/z0/docker/), on st0's own hostname. No engine and no tray: those run
+# on the musician's own machine, and reach this stack through the tunnel their supervisor dials
+# (packages/engine-tunnel/docs/tunnel.md). The accounts' WORKSPACES live here, in st0, one file
+# service per account (packages/file-hub/docs/fileHub.md).
 #
-# Traefik fronts FOUR containers now instead of one: Host() routing st0/pl8/k7 straight to
-# each one's own backend port (no nginx to hand off to), and z0 by a PathPrefix(`/z0`) rule
-# layered on st0's own hostname — st0 still answers everything else there. That's the
-# topology env.yaml's COOKIE_DOMAIN/TRUSTED_ORIGINS document.
+# THREE containers: Traefik routes st0 by Host() straight to its own backend port (no nginx to
+# hand off to) and z0 by a PathPrefix(`/z0`) rule layered on st0's own hostname — st0 answers
+# everything else there; pocketbase, the rehearsal recorder's store, is reached on the container
+# network only. st0 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
+# URLs, publish URLs and public pages saved against them. That's the topology env.yaml's
+# COOKIE_DOMAIN/TRUSTED_ORIGINS document.
 #
-# The shared login this enables — one "studio.sid" good on all three hosts — comes from
-# cookieDomain/trustedOrigins being resolved by every setupAuth() call (commons/packages/oidc)
-# straight from the SAME COOKIE_DOMAIN/TRUSTED_ORIGINS/SESSION_SECRET below, repeated on all
-# four services because each is now its own process with its own environment — there is no
-# shared container to inherit them from anymore. pl8's own API CORS is separate and open to
-# every origin regardless — apps/pl8/docs/cors.md.
+# The shared login — one "studio.sid" good on every host — comes from cookieDomain/trustedOrigins
+# being resolved by every setupAuth() call (commons/packages/oidc) straight from the SAME
+# COOKIE_DOMAIN/TRUSTED_ORIGINS/SESSION_SECRET below, repeated on every service because each is
+# its own process with its own environment. The media API's CORS is separate and open to every
+# origin regardless.
 
 x-shared-auth: &shared-auth
   SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET — see .env.example}
@@ -33,81 +33,49 @@ services:
     restart: unless-stopped
     environment:
       <<: *shared-auth
-    volumes:
-      - data:/data
-    networks:
-      - traefik
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.st0.rule=Host(`${ST0_DOMAIN:-st0.app}`)
-      - traefik.http.routers.st0.entrypoints=websecure
-      - traefik.http.routers.st0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      - traefik.http.services.st0.loadbalancer.server.port=8789
-
-  pl8:
-    image: dev.frediver.se/frediverse/studio/pl8:${APP_VERSION:-latest}
-    restart: unless-stopped
-    environment:
-      <<: *shared-auth
-      # Signs the bearer token k7 pushes recordings with — see docs/tokens.md.
+      # Signs the media library's bearer tokens — see docs/tokens.md.
       # Unset falls back to a value derived from SESSION_SECRET, which works but
       # ties token validity to the login secret's rotation; set it explicitly.
       API_TOKEN_SECRET: ${API_TOKEN_SECRET:-}
+      # Signs the rehearsal recorder's personal tokens, saved in users' settings. Unset is the
+      # default derived from SESSION_SECRET that k7 always used, which keeps issued tokens valid.
+      K7_API_TOKEN_SECRET: ${K7_API_TOKEN_SECRET:-}
+      # The pocketbase service below, reached over the container network.
+      POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
+      POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:?set POCKETBASE_EMAIL — see .env.example}
+      POCKETBASE_PASSWORD: ${POCKETBASE_PASSWORD:?set POCKETBASE_PASSWORD — see .env.example}
+      # The rehearsal recorder's audio cache and uploads in flight: the volume below.
+      K7_DATA_DIR: /rehearsal-data
       # Without this, @studio/mediatek defaults to a per-machine state dir
       # (~/.st0/mediatek) instead of the volume below, and the library is empty.
       STUDIO_MEDIATEK: /library
       # The accounts' workspaces, and the only place they live — engines hold copies, never workspaces.
       STUDIO_FILES_ROOT: /workspaces
-      # Who edits the libraries every account shares — the same groups as z0's admins.
+      # Who edits the libraries every account shares and deletes a public song — z0's admins too.
       AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
     volumes:
-      # pl8 IS this volume — apps/pl8/docker/Dockerfile.
+      - data:/data
+      # The media library IS this volume — apps/st0/docker/Dockerfile.
       - library:/library
       - workspaces:/workspaces
+      # The volume k7's own container used, under its old name, so the cached audio is kept.
+      - k7-data:/rehearsal-data
     networks:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.http.routers.pl8.rule=Host(`${PL8_DOMAIN:-play.st0.app}`)
-      - traefik.http.routers.pl8.entrypoints=websecure
-      - traefik.http.routers.pl8.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      - traefik.http.services.pl8.loadbalancer.server.port=8795
+      # The play. and k7. hosts are permanent aliases: saved share links, registries, publish URLs and public pages name them.
+      - traefik.http.routers.st0.rule=Host(`${ST0_DOMAIN:-st0.app}`) || Host(`${PL8_DOMAIN:-play.st0.app}`) || Host(`${K7_DOMAIN:-k7.st0.app}`)
+      - traefik.http.routers.st0.entrypoints=websecure
+      - traefik.http.routers.st0.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.st0.loadbalancer.server.port=8789
 
-  k7:
-    image: dev.frediver.se/frediverse/studio/k7:${APP_VERSION:-latest}
-    restart: unless-stopped
-    environment:
-      <<: *shared-auth
-      # Signed with pl8's API_TOKEN_SECRET above (sub "service:k7") — without it
-      # a rehearsal recording has nowhere to push to. `npm run tokens` mints one
-      # from a checkout; here it must be minted and set by hand.
-      MEDIATEK_TOKEN: ${MEDIATEK_TOKEN:-}
-      # Only needed if PL8_DOMAIN below is not play.st0.app — the default in code
-      # points at that fixed host regardless of what PL8_DOMAIN is set to.
-      MEDIATEK_URL: ${MEDIATEK_URL:-}
-      # The groups whose members delete a public song — apps/k7/docs/ownership.md.
-      AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
-      # The pocketbase service above, reached over the container network.
-      POCKETBASE_URL: ${POCKETBASE_URL:-http://pocketbase:8090}
-      POCKETBASE_EMAIL: ${POCKETBASE_EMAIL:?set POCKETBASE_EMAIL — see .env.example}
-      POCKETBASE_PASSWORD: ${POCKETBASE_PASSWORD:?set POCKETBASE_PASSWORD — see .env.example}
-    volumes:
-      - k7-data:/app/apps/k7/backend/data
-    networks:
-      - traefik
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.k7.rule=Host(`${K7_DOMAIN:-k7.st0.app}`)
-      - traefik.http.routers.k7.entrypoints=websecure
-      - traefik.http.routers.k7.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
-      - traefik.http.services.k7.loadbalancer.server.port=8787
-
-  # k7's data + song-sheet store — apps/k7/docs/pocketbase.md. k7 itself reaches it
-  # over the container network, by service name; not routed through Traefik.
+  # The rehearsal recorder's data + song-sheet store — packages/rehearsal-server/docs/pocketbase.md.
+  # st0 reaches it over the container network, by service name; not routed through Traefik.
   # Community image (no official one is published); pin a version for prod rather
   # than trusting `latest`. First boot has no superuser — create one with
   # `docker compose exec pocketbase /pb/pocketbase superuser create <email> <password>`
-  # and put those same values in POCKETBASE_EMAIL / POCKETBASE_PASSWORD for k7.
+  # and put those same values in POCKETBASE_EMAIL / POCKETBASE_PASSWORD for st0.
   pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
     restart: unless-stopped

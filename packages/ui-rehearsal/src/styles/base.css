@@ -1,0 +1,100 @@
+/* base.css — the wrapper itself: k7's palette as custom properties on .rehearsal-root, the type,
+   and the element defaults that must reach nothing of the host's (no :root, no body, no bare tag). */
+
+.rehearsal-root {
+  --bg: #101114;
+  --surface: #1b1c22;
+  --surface-2: #24252c;
+  --text: #e9e9ee;
+  --muted: #92929e;
+  --border: #2f303a;
+  --accent: #8b5cf6;
+  --accent-hover: #7c3aed;
+  --accent-soft: rgba(139, 92, 246, 0.18);
+  --green: #34d399;
+  --amber: #f0a94e;
+  --red: #f16469;
+  --sidebar-w: 288px;
+  /* Where a bar fixed at the foot starts: past the host's sidebar, w-14 then sm:w-52 (HomeSidebar.tsx). */
+  --rehearsal-inset-left: 3.5rem;
+
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+
+  & ::selection {
+    background: var(--accent-soft);
+  }
+
+  & h1,
+  & h2,
+  & h3 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  & h2 {
+    font-size: 20px;
+  }
+  & h3 {
+    font-size: 15px;
+    margin: 24px 0 10px;
+  }
+}
+@media (min-width: 640px) {
+  .rehearsal-root {
+    --rehearsal-inset-left: 13rem;
+  }
+}
+
+/* A standalone page (public, phone mic) has no host frame around it, so nothing is beside it. */
+.rehearsal-root.rehearsal-standalone {
+  --rehearsal-inset-left: 0px;
+  height: 100%;
+}
+
+/* The page column: it scrolls, the host's sidebar does not. */
+.rehearsal-page {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+/* The take's overlay is fixed boxes only: the wrapper carries the palette and takes no room. */
+.rehearsal-overlay {
+  display: contents;
+}
+
+/* Preflight zeroes element margins; these sheets rely on the browser's paragraph and heading flow. */
+@layer base {
+  .rehearsal-root {
+    & p {
+      margin-block: 1em;
+    }
+    & h1 {
+      margin-block: 0.67em;
+    }
+    & h2 {
+      margin-block: 0.83em;
+    }
+    & h3 {
+      margin-block: 1em;
+    }
+  }
+}
+
+@keyframes spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes song-fetch-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}

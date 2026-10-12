@@ -1,0 +1,12 @@
+/* index.css — the rehearsal pages' stylesheet: every rule nested under .rehearsal-root, the wrapper
+   the pages, the take's overlay, the settings section and each portaled menu or dialog wear.
+   Imported by those modules, so the host loads it with their lazy chunk. */
+
+@import "./base.css";
+@import "./shared.css";
+@import "./sessions.css";
+@import "./publications.css";
+@import "./song.css";
+@import "./practice.css";
+@import "./responsive.css";
+@import "./overlays.css";

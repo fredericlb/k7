@@ -1,7 +1,7 @@
 // service.ts — the CHOSEN machine's file service, the only thing that knows where the
 // médiathèque's cache sits on that disk. The desk needs it because the moteur opens file
 // paths, not URLs, and the paths are that machine's. The same route, written down:
-// apps/pl8/docs/playback.md, « Deux disques ».
+// packages/ui-library/docs/playback.md, "Two records".
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { fileHeaders } from "@studio/project-shell/fileApi";

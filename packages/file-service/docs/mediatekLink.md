@@ -1,18 +1,18 @@
-# Where pl8 is, seen from an account's file service
+# Where the media library is, seen from an account's file service
 
-Two values — `MEDIATEK_URL` and `MEDIATEK_TOKEN` — that everything calling pl8 from this service
+Two values — `MEDIATEK_URL` and `MEDIATEK_TOKEN` — that everything calling the media library from this service
 depends on: the `/mediatek/*` routes, saving a take into the médiathèque, and sharing a project.
 
 ## The hub hands them in, and nothing else does
 
-The file hub starts one service per account (`packages/file-hub/docs/fileHub.md`), and pl8 is the
-process running the hub. So pl8 gives each service its own loopback address and a bearer minted
-**for that account** (`apps/pl8/backend/src/fileHub.ts`). No file on disk is read as a fallback:
+The file hub starts one service per account (`packages/file-hub/docs/fileHub.md`), and st0's backend is
+the process running the hub. So it gives each service its own loopback address and a bearer minted
+**for that account** (`apps/st0/backend/src/media/fileHub.ts`). No file on disk is read as a fallback:
 the only thing that ever started this service is the hub, and a value found anywhere else would be
 some other process's.
 
 Loopback rather than the public origin: the call never leaves the machine, and it does not depend
-on the proxy in front of pl8 being configured for it.
+on the proxy in front of st0 being configured for it.
 
 ## The token's subject is the account
 
@@ -21,5 +21,5 @@ call is that person's, with no service identity to bridge to a person afterwards
 
 ## Sharing goes through the same pair
 
-`Workspace.shareLink` renders the snapshot and posts it to pl8 with this same bearer. Sharing needs
-no plumbing of its own: this service already talks to pl8 with this token.
+`Workspace.shareLink` renders the snapshot and posts it to the media library with this same bearer. Sharing needs
+no plumbing of its own: this service already talks to the media library with this token.

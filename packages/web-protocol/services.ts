@@ -1,23 +1,31 @@
-// services.ts — where each studio service answers. st0, pl8 and k7 each have their OWN
-// subdomain; z0 stays a path under st0's, since it hasn't moved — stated once so nothing
-// derives it a second way. Browser-safe: no node imports, because the SPAs, the file
-// service and the supervisor all have to agree about this.
+// services.ts — where each studio service answers. Every one is st0's origin: z0 is a path under
+// it, and pl8 (the media library) and k7 (the rehearsal recorder) are served BY st0 — `play.` and
+// `k7.` are only alias hosts that saved URLs still reach. Stated once so nothing derives it a
+// second way. Browser-safe: no node imports, because the SPAs, the file service and the
+// supervisor all have to agree about this.
 
 export type StudioService = "st0" | "pl8" | "k7" | "z0";
 
 /** z0's path under st0's own origin — the one service still living there; docs/addresses.md. */
 export const SERVICE_PATHS: Record<"z0", string> = { z0: "/z0" };
 
-/** The label pl8/k7 prepend to st0's own hostname, dev or prod — whichever domain is live. */
-const SUBDOMAIN: Record<"pl8" | "k7", string> = { pl8: "play", k7: "k7" };
+/** The alias hosts st0 also answers on — pl8's and k7's former addresses, kept for saved URLs. */
+const ALIAS_LABELS = ["play", "k7"];
+
+/** The services with an address of their own — the others are served by st0's process. */
+type Addressed = Exclude<StudioService, "pl8" | "k7">;
+
+/** A service and the one whose address it shares — pl8 and k7 are served by st0's own process. */
+const addressOf = (service: StudioService): Addressed =>
+  service === "pl8" || service === "k7" ? "st0" : service;
 
 /**
- * st0's OWN hostname, given any studio hostname — stripping a sibling's label back off if
- * `hostname` was already pl8's or k7's rather than st0's. Pattern-based rather than a fixed
- * table of known domains, so a deployment on its own domain needs nothing configured here.
+ * st0's OWN hostname, given any studio hostname — stripping an alias's label back off.
+ * Pattern-based rather than a fixed table of known domains, so a deployment on its
+ * own domain needs nothing configured here.
  */
 function st0Hostname(hostname: string): string {
-  for (const label of Object.values(SUBDOMAIN)) {
+  for (const label of ALIAS_LABELS) {
     const prefix = `${label}.`;
     if (hostname.startsWith(prefix)) return hostname.slice(prefix.length);
   }
@@ -28,18 +36,16 @@ function st0Hostname(hostname: string): string {
 export const STUDIO_ORIGIN = "https://st0.app";
 
 /** Each backend's port — what a SERVER calls, since node does not trust the dev CA; see docs/addresses.md. */
-export const SERVICE_PORTS: Record<StudioService, number> = {
+export const SERVICE_PORTS: Record<Addressed, number> = {
   st0: 8789,
-  pl8: 8795,
-  k7: 8787,
   z0: 8080,
 };
 
-/** How a host moves the loopback ports, as `st0=18789,pl8=18795`: an env var for node, a global for a page. */
+/** How a host moves the loopback ports, as `st0=18789,z0=18080`: an env var for node, a global for a page. */
 export const PORTS_ENV = "STUDIO_PORTS";
 export const PORTS_GLOBAL = "__STUDIO_PORTS__";
 
-/** `st0=18789,pl8=18795` as a partial table; an unknown name or a bad number is dropped. */
+/** `st0=18789,z0=18080` as a partial table; an unknown name (pl8 and k7 included) or a bad number is dropped. */
 export function parsePorts(
   spec: string,
 ): Partial<Record<StudioService, number>> {
@@ -58,7 +64,7 @@ export function parsePorts(
   return out;
 }
 
-/** SERVICE_PORTS, with what the host moved — the desktop app runs on its own pair beside a dev session. */
+/** SERVICE_PORTS, with what the host moved, and pl8 and k7 on st0's — the desktop app runs on its own ports beside a dev session. */
 export function servicePorts(): Record<StudioService, number> {
   const g = globalThis as {
     [PORTS_GLOBAL]?: unknown;
@@ -67,7 +73,10 @@ export function servicePorts(): Record<StudioService, number> {
   const fromPage = g[PORTS_GLOBAL];
   const spec =
     typeof fromPage === "string" ? fromPage : g.process?.env?.[PORTS_ENV];
-  return spec ? { ...SERVICE_PORTS, ...parsePorts(spec) } : SERVICE_PORTS;
+  const ports = spec
+    ? { ...SERVICE_PORTS, ...parsePorts(spec) }
+    : SERVICE_PORTS;
+  return { ...ports, pl8: ports.st0, k7: ports.st0 };
 }
 
 /** Where a service answers on the machine it runs on. See SERVICE_PORTS for when to prefer it. */
@@ -77,29 +86,23 @@ export function localServiceUrl(service: StudioService): string {
 
 /**
  * Where a service is, given any URL on studio's origin (of any of its apps): everything
- * but that URL's origin is dropped, then st0/z0 keep it (they still share one origin)
- * while pl8/k7 resolve to their OWN host — `<label>.` prepended to st0's own hostname,
- * whichever domain that turns out to be, dev or prod or a deployment's own.
+ * but that URL's origin is dropped, an alias label stripped, and every service keeps what
+ * is left — they share one origin, z0 a path under it.
  */
-export function serviceUrl(origin: string, service: StudioService): string {
+export function serviceUrl(origin: string, named: StudioService): string {
+  const service = addressOf(named);
   let parsed: URL;
   try {
     parsed = new URL(origin);
   } catch {
     return "";
   }
-  if (isLoopbackHost(parsed.hostname))
-    return loopbackServiceUrl(parsed, service);
   const base = st0Hostname(parsed.hostname);
-  if (service === "st0") {
-    // Unchanged (port included) when nothing was stripped — st0 linking to itself, or a bare
-    // dev host like localhost:5223. A stripped family root never carries a dev port of its own.
-    return base === parsed.hostname
-      ? parsed.origin
-      : `${parsed.protocol}//${base}`;
-  }
   if (service === "z0") return serviceUrl(origin, "st0") + SERVICE_PATHS.z0;
-  return `${parsed.protocol}//${SUBDOMAIN[service]}.${base}`;
+  // Unchanged (port included) when nothing was stripped: st0 itself, or a loopback dev host.
+  return base === parsed.hostname
+    ? parsed.origin
+    : `${parsed.protocol}//${base}`;
 }
 
 /**
@@ -119,22 +122,6 @@ export const isLoopbackHost = (hostname: string): boolean =>
   LOOPBACK.test(hostname);
 
 /**
- * `serviceUrl` on a loopback host, where a service is its PORT: a subdomain of 127.0.0.1 resolves
- * nowhere. st0 keeps a port no sibling owns (a dev server's), and leaves a sibling's for its own.
- */
-function loopbackServiceUrl(parsed: URL, service: StudioService): string {
-  const host = `${parsed.protocol}//${parsed.hostname}`;
-  const ports = servicePorts();
-  if (service === "z0")
-    return loopbackServiceUrl(parsed, "st0") + SERVICE_PATHS.z0;
-  if (service !== "st0") return `${host}:${ports[service]}`;
-  const sibling = (["pl8", "k7"] as const).some(
-    (s) => parsed.port === String(ports[s]),
-  );
-  return sibling ? `${host}:${ports.st0}` : parsed.origin;
-}
-
-/**
  * Which studio family a URL belongs to, as one key: st0's origin, whichever service was named —
  * or, on a loopback host where every service is a port of the same host, that host alone.
  * "" for a string that is not a URL.
@@ -152,9 +139,9 @@ export function studioFamily(url: string): string {
 }
 
 /**
- * The ONE engine registry — pl8's — for any URL of a studio family, st0's or pl8's alike: an
- * engine heartbeats there, and st0 lists its engines from there. On a loopback host a service
- * is its port, so pl8's dev port stands in for the subdomain. "" for a string that is not a URL.
+ * The ONE engine registry — st0's origin — for any URL of a studio family, the `play.` and `k7.`
+ * aliases included: an engine heartbeats there, and st0 lists its engines from there. On a loopback host
+ * a service is its port, so st0's backend port stands in. "" for a string that is not a URL.
  */
 export function engineRegistryUrl(url: string): string {
   let parsed: URL;
@@ -165,15 +152,15 @@ export function engineRegistryUrl(url: string): string {
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
   if (isLoopbackHost(parsed.hostname))
-    return `${parsed.protocol}//${parsed.hostname}:${servicePorts().pl8}`;
-  return serviceUrl(parsed.origin, "pl8");
+    return `${parsed.protocol}//${parsed.hostname}:${servicePorts().st0}`;
+  return serviceUrl(parsed.origin, "st0");
 }
 
 /**
  * Where `/auth/*` actually lives, given the origin a page is CURRENTLY running on — the
- * family root. pl8/k7 answer on their OWN subdomain, but the OIDC provider has exactly ONE
- * registered redirect_uri, at that root, so a page on a sibling subdomain must send the
- * browser there instead of to its own, same-looking-but-wrong `/auth/login`.
+ * family root. The `play.` and `k7.` aliases still answer, but the OIDC provider has exactly
+ * ONE registered redirect_uri, at that root, so a page on an alias must send the browser
+ * there instead of to its own, same-looking-but-wrong `/auth/login`.
  */
 export const authOrigin = (origin: string): string => serviceUrl(origin, "st0");
 

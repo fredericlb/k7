@@ -1,0 +1,10 @@
+{
+  "extends": "@frediverse/tsconfig/base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "*.ts"
+  ]
+}

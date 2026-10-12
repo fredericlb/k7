@@ -200,7 +200,7 @@ and refusing the key would turn a working project into one that will not open.
 
 The médiathèque is where a module is authored, so it is where assets are dropped: a module row in
 its tree draws its `assets/` as children, and dropping a file on that row uploads into the folder
-(`apps/pl8/frontend/src/Library.tsx`, `assetsTarget`). The scan reports them as the entry's
+(`packages/ui-library/src/MediaLibrary.tsx`, `assetsTarget`). The scan reports them as the entry's
 `assets` — its own field, separate from `files`, because `files` is the module's definition and
 these are its material.
 
@@ -226,7 +226,7 @@ paths — the **same shape** `listModuleAssets` returns, so a path the tree show
   rule one level up (`scanUnlisted`): a "Nouveau dossier…" that answers 200 and appears nowhere
   reads as the call having done nothing at all.
 
-`apps/pl8/frontend/src/assetTree.ts` turns those paths back into rows. The `assets` segment
+`packages/ui-library/src/assetTree.ts` turns those paths back into rows. The `assets` segment
 itself is never drawn — a module's children ARE its assets, and a fixed row between them and it
 would be a level with nothing to choose in — but it stays in every row's `path`, so a drop, a
 move, a rename and a delete all address the file that is actually there.

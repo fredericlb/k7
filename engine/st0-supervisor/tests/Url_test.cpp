@@ -11,18 +11,29 @@ using namespace st0::url;
 
 namespace {
 
-void registryIsPl8sWhicheverServiceWasNamed()
+void registryIsTheFamilyRootWhicheverServiceWasNamed()
 {
-    CHECK(engineRegistryUrl("https://st0.app") == "https://play.st0.app");
-    CHECK(engineRegistryUrl("https://st0.app/band/winter.st0") == "https://play.st0.app");
-    CHECK(engineRegistryUrl("https://play.st0.app") == "https://play.st0.app");
-    CHECK(engineRegistryUrl("https://k7.st0.app") == "https://play.st0.app");
+    CHECK(engineRegistryUrl("https://st0.app") == "https://st0.app");
+    CHECK(engineRegistryUrl("https://st0.app/band/winter.st0") == "https://st0.app");
+    CHECK(engineRegistryUrl("https://play.st0.app") == "https://st0.app");
+    CHECK(engineRegistryUrl("https://k7.st0.app") == "https://st0.app");
 }
 
-void registryOnLoopbackIsPl8sPort()
+void registryOnLoopbackIsSt0sPort()
 {
-    CHECK(engineRegistryUrl("http://localhost:8789") == "http://localhost:8795");
-    CHECK(engineRegistryUrl("http://127.0.0.1:5223") == "http://127.0.0.1:8795");
+    CHECK(engineRegistryUrl("http://localhost:8080") == "http://localhost:8789");
+    CHECK(engineRegistryUrl("http://127.0.0.1:5223") == "http://127.0.0.1:8789");
+}
+
+void pl8AndK7ResolveToSt0sOrigin()
+{
+    CHECK(serviceUrl("https://st0.app", "pl8") == "https://st0.app");
+    CHECK(serviceUrl("https://play.priv.st0.app/songs/a", "pl8") == "https://priv.st0.app");
+    CHECK(serviceUrl("https://st0.app", "k7") == "https://st0.app");
+    CHECK(serviceUrl("https://k7.priv.st0.app", "k7") == "https://priv.st0.app");
+    CHECK(serviceUrl("https://k7.st0.app/session/1", "st0") == "https://st0.app");
+    CHECK(serviceUrl("https://k7.priv.st0.app", "z0") == "https://priv.st0.app/z0");
+    CHECK(serviceUrl("http://localhost:5223", "k7") == "http://localhost:5223");
 }
 
 void setPorts(const char* spec)
@@ -38,10 +49,10 @@ void setPorts(const char* spec)
 void registryOnLoopbackFollowsMovedPorts()
 {
     setPorts("st0=18789,pl8=18795");
-    CHECK(engineRegistryUrl("http://127.0.0.1:18795") == "http://127.0.0.1:18795");
-    CHECK(engineRegistryUrl("http://localhost:18789") == "http://localhost:18795");
-    setPorts("pl8=nope");
-    CHECK(engineRegistryUrl("http://127.0.0.1:18795") == "http://127.0.0.1:8795");
+    CHECK(engineRegistryUrl("http://127.0.0.1:5223") == "http://127.0.0.1:18789");
+    CHECK(engineRegistryUrl("http://localhost:18789") == "http://localhost:18789");
+    setPorts("st0=nope");
+    CHECK(engineRegistryUrl("http://127.0.0.1:18789") == "http://127.0.0.1:8789");
     setPorts("");
 }
 
@@ -55,7 +66,7 @@ void familyIsSt0sOrigin()
 {
     CHECK(studioFamily("https://play.st0.app/library") == "https://st0.app");
     CHECK(studioFamily("https://st0.app") == "https://st0.app");
-    CHECK(studioFamily("http://localhost:8795") == "http://localhost");
+    CHECK(studioFamily("http://localhost:8080") == "http://localhost");
     CHECK(studioFamily("http://localhost:8789") == "http://localhost");
     CHECK(studioFamily("not a url").empty());
 }
@@ -93,8 +104,9 @@ void loopbackHosts()
 
 void runUrlTests()
 {
-    RUN(registryIsPl8sWhicheverServiceWasNamed);
-    RUN(registryOnLoopbackIsPl8sPort);
+    RUN(registryIsTheFamilyRootWhicheverServiceWasNamed);
+    RUN(registryOnLoopbackIsSt0sPort);
+    RUN(pl8AndK7ResolveToSt0sOrigin);
     RUN(registryOnLoopbackFollowsMovedPorts);
     RUN(registryOfNonUrlIsEmpty);
     RUN(familyIsSt0sOrigin);

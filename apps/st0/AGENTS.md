@@ -11,18 +11,27 @@ rather than inside it, because they serve every audio app in the repo — the re
 | Package | Role |
 |---|---|
 | `frontend` (`st0-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
-| `backend` (`st0-backend`) | Express — **the origin's OIDC flow and st0's preferences**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix. It has no file routes and no engine registry — that is pl8's. It knows *who you are*, never which engines exist or what is on any disk. |
+| `backend` (`st0-backend`) | Express — **the origin's OIDC flow, the account's preferences, the media library and the rehearsal recorder**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix, it mounts the rehearsal routes (`@studio/rehearsal-server`, `packages/rehearsal-server/docs/`), and it mounts the médiathèque (`src/media/`, `docs/media/`) — the catalogue, the shares, the hunt, THE engine registry and the file hub that starts each account's file service. It has no file routes of its own: every file operation is the file service's. |
 
 Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://priv.st0.app`
-by the LAN reverse proxy.
+by the LAN reverse proxy — and at `https://play.priv.st0.app` and `https://k7.priv.st0.app`, the
+aliases the hosted st0 answers as `play.st0.app` and `k7.st0.app`
+(`packages/web-protocol/docs/addresses.md`).
+
+The médiathèque's screens are `@studio/ui-library`, mounted at `/media/*`
+(`frontend/src/projects/MediaPage.tsx`, `packages/ui-library/docs/host.md`); its sections are
+entries of the home sidebar. The rehearsal recorder's screens are `@studio/ui-rehearsal`, mounted
+at `/rehearsal/*` the same way (`frontend/src/projects/RehearsalPage.tsx`, `RehearsalHost.tsx`),
+with a take held above every home route and a public page read before `AuthGate`
+(`packages/ui-rehearsal/docs/routing.md`).
 
 ## The browser talks to THREE servers
 
 | | `backend` | `@studio/file-service` | `engine/st0-engine` |
 |---|---|---|---|
-| runs on | the hosted machine | the hosted machine, one process per account behind pl8's file hub | the engine's machine |
-| owns | `/auth/*` for the whole origin, and st0's preferences | the account's workspaces — every file op | audio playback |
-| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **through pl8's `/api/files`, never directly** | **WebSocket — direct when the browser may, else relayed through this origin** |
+| runs on | the hosted machine | the hosted machine, one process per account behind this backend's file hub | the engine's machine |
+| owns | `/auth/*` for the whole origin, the preferences, the media library, the rehearsal routes and the engine registry | the account's workspaces — every file op | audio playback |
+| reached | same-origin (`/api`, `/auth` via the Vite proxy) | **through this backend's `/api/files`, never directly** | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | a ticket the hub mints from the session | engine token echoed on `whoami` |
 
 **The backend has no file routes and no `store.ts`.** Every file operation lives in
@@ -44,13 +53,14 @@ otherwise a repository — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
-**`/auth/*` is THIS backend's.** st0 answers the origin root (`priv.st0.app`, `st0.app`), z0 a
-`/z0` path on it, and pl8 and k7 their own subdomains (`packages/web-protocol/docs/addresses.md`).
+**`/auth/*` is THIS backend's.** st0 answers the origin root (`priv.st0.app`, `st0.app`) and the
+`play.` and `k7.` aliases, and z0 a `/z0` path on it (`packages/web-protocol/docs/addresses.md`).
 There is one session cookie — `studio.sid`, signed with the `SESSION_SECRET` in `env.yaml`'s
 `common` and scoped to the shared `COOKIE_DOMAIN` so every subdomain receives it — and one
-`redirect_uri` to register with the IdP: `<st0 origin>/auth/callback`. So the flow is st0's; pl8,
-k7 and z0 pass `mountRoutes: []` and merely verify the cookie, and a page on a sibling subdomain
-sends the browser to `authOrigin(origin)` to sign in.
+`redirect_uri` to register with the IdP: `<st0 origin>/auth/callback`. So the flow is st0's; z0 passes
+`mountRoutes: []` and merely verifies the cookie, and a page on a sibling subdomain sends the
+browser to `authOrigin(origin)` to sign in. The rehearsal routes (`@studio/rehearsal-server`) are
+mounted in this process and take its `requireAuth`.
 
 Spell this app's auth calls BARE (`/auth/me`), never under `BASE` — here the two coincide, for
 every other app they do not.
@@ -67,7 +77,7 @@ matches before changing it:
 | page | covers |
 |---|---|
 | `projects.md` | the HOME page — `/` with no project in it: the repositories, the libraries, the shares, the key |
-| `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over pl8's song catalogue |
+| `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over the media library's song catalogue |
 | `references.md` | `_references/` — what you listen against, played by the browser beside whatever the engine is doing |
 | `tasks.md` | `TODOS.md` at the workspace root — the task list panel, a Markdown checklist written through `task` commands |
 | `shell.md` | `App.tsx`/`main.tsx`, the gate stack, the palette |
@@ -94,8 +104,8 @@ matches before changing it:
 ### Three data paths (`src/api.ts`)
 
 1. **Backend** (same-origin `/api/*` and `/auth/*`, both at the origin root since st0 answers
-   it) — the OIDC flow and st0's preferences. The engine registry is pl8's, reached across
-   the origin through `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns
+   it) — the OIDC flow, the preferences, the media library and the engine registry, the last
+   reached through `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns
    the probe, the policy and the lease). Don't spell those routes here again.
 2. **File service** (absolute URL) — everything file-shaped (`/tree`, `/file`, `/hints`,
    `/command`, the compiled `/project-doc` and `/graph`). Bare paths, no `/api` prefix. The
@@ -205,7 +215,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). The MODULE
   BUILDER is the one screen that does have one — see Modules below. `:w` and
   Ctrl+S mean "now", not "at all" — they flush the timer and cannot overrule the rule.
-- **Modules** — `@studio/ui-module-builder`, the same component pl8 runs, drawn in the EDITOR's
+- **Modules** — `@studio/ui-module-builder`, drawn in the EDITOR's
   place beside the file tree, the editor fullscreened for it — so the next module is one click
   away (`frontend/docs/moduleBuilder.md`). A module row in the tree opens it on the panel, and so
   do the **Builder** button on a module file's toolbar and `ui builder <module>`.
@@ -234,14 +244,14 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   admin's own clone of THAT library, and nothing is published until the editor's bottom bar
   (`frontend/src/components/LibraryEditsRow.tsx`) commits and pushes every changed library — or
   discards them. Nothing forks, because the library is the only copy, and no song
-  repository is touched. One store and one path space: pl8's file hub clones each library ONCE
+  repository is touched. One store and one path space: the file hub clones each library ONCE
   for the whole origin, with the server's own read-only key, and the file service answers it at
   the virtual `_libraries/<name>/…` in every workspace (`packages/song/docs/sharedFolders.md`,
   `packages/file-hub/docs/fileHub.md`). `frontend/docs/sharedModules.md` is the page to read; a
   chain's bench, `/@banc/<chain>/live.st0`, is a live RIG kept nowhere that edits no library.
 
   **st0 will not open a project without a library.** The origin has ONE list, which the admins
-  (pl8's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
+  (this backend's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
   page's sidebar — the same page that shows them the server's key and each library's **Pull**,
   and anyone a **Retry** on a library the server failed to clone. `ProjectGate` refuses before it
   clones anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
@@ -264,13 +274,17 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
 ## The backend in detail
 
-**Four source files**: `server.ts`, `types/express.d.ts`, and the module builder's AI organize in
-`aiOrganize.ts` and `aiSettings.ts`. The latter holds the one secret here, each account's own
-Claude key, which the browser can set and never read back
-(`packages/ui-module-builder/docs/aiOrganize.md`). That is the whole thing. There is
-no engine registry here at all: the one registry is pl8's (`@studio/engine-registry`, whose
-`docs/shared.md` says why), and the frontend's `engines` lists from it across the origin — the
-relay included — while keeping its preferences here (`prefsBase`).
+**`server.ts` is the one process**: the OIDC flow, the preferences, the module builder's AI
+organize (`aiOrganize.ts`, `aiSettings.ts` — each account's own Claude key, which the browser can
+set and never read back, `packages/ui-module-builder/docs/aiOrganize.md`), the alias redirect, the
+built SPA, `mountRehearsal` (`@studio/rehearsal-server`, mounted FIRST: the library's catch-all
+`/api` guard would otherwise swallow its public pages and its bearer) — and `mountMedia`
+(`src/media/mount.ts`), which mounts the media library, the shares,
+the hunt, the stems, the host's player, THE engine registry (`@studio/engine-registry`, whose
+`docs/shared.md` says why there is one) and the file hub. The rationale for that half is
+`backend/docs/media/`, one page per subject. `server.ts` owns SIGTERM and SIGINT: the registry is
+mounted with `exitOnSignal: false`, and the stop says its goodbye, stops the account file services,
+then drains the requests in flight.
 - The Vite dev server proxies BOTH `/api` and `/auth` to this backend (`proxyPaths`), which is
   what makes the dev server usable when visited directly on its port. Every other SPA on the
   origin has to point its own `/auth` proxy back here — `AUTH_BACKEND_PORT` in
@@ -314,7 +328,7 @@ be looked at. Everything works in it but pushing; `Publier` is the day it gets a
 ## the HOME page is where a workspace is chosen
 
 **This app does not own workspaces**, and never will: the account's file service on the server
-holds every working copy, and pl8 keeps no register of them (`apps/pl8/docs/projects.md`). What
+holds every working copy, and the media library keeps no register of them (`apps/st0/backend/docs/media/projects.md`). What
 this app owns is the SCREEN above a project, at `/` with nothing after it — the workspaces, the
 projects inside them, the libraries and the published shares. The deploy key is not on it but in
 the Sync section of `/settings`, which the hosted origin draws too, since the key is the account's
@@ -345,8 +359,7 @@ is a wrapper holding this app's wording and what to render once the project is o
 
 **There is no workspace picker anywhere in this app**, and a folder under
 `<state>/workspace/<you>/` is the wrong level to offer a choice at. The home page lists
-REPOSITORIES, which belong to a person, and a workspace is what the gate resolves one INTO. The deploy key is pl8's — one key per person, which the file service fetches a
-copy of (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
+REPOSITORIES, which belong to a person, and a workspace is what the gate resolves one INTO. The deploy key is the file service's — one key per person (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
 
 Identity is the OIDC email, which names the engine SESSION rather than a folder — the workspaces are `<state>/workspace/<workspace>` with nobody underneath (`packages/engine-client/docs/paths.md`) — and the active
 project is remembered per-workspace in an active-project marker. There is **no global session
@@ -366,8 +379,7 @@ the service.
 ## Key conventions
 
 - **The engine never parses song files.** It only receives compiled JSON. Swap this
-  frontend for another and the engine is unchanged — which is exactly what the médiathèque's
-  module previews and the decks do today, on the same binary, over the same protocol.
+  frontend for another and the engine is unchanged — which is exactly what the decks do today, on the same binary, over the same protocol.
 - **Commands are the single source of truth.** `@studio/commands` owns the SID →
   handler mapping, and both the CLI and the web dispatch through it.
 - **Wire shapes live in `@studio/engine-protocol`.** A wire change must also update the

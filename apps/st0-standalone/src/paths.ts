@@ -60,7 +60,7 @@ export function supervisorBinary(): string | null {
   return newestBuild("st0-supervisor", "st0-supervisor");
 }
 
-/** The engine binary, handed to the backends as `$STUDIO_ENGINE` for their offline renders. */
+/** The engine binary, handed to the backend as `$STUDIO_ENGINE` for its offline renders. */
 export function engineBinary(): string | null {
   if (app.isPackaged)
     return join(process.resourcesPath, "bin", exe("st0-engine"));

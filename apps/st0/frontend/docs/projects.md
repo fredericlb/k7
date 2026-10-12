@@ -12,11 +12,12 @@ missing, this is where you notice.
 
 ## Who draws, who holds
 
-**st0 draws; the machine and pl8 hold.** The workspaces and the deploy key are the account's file
-service's, on the server; the libraries are pl8's file hub's, one list and one clone each for the
-whole origin; the shares are pl8's (`/api/shares`), because a share's
-bytes and its comments live on pl8's volume. pl8 keeps no register of repositories —
-[apps/pl8/docs/projects.md](../../../pl8/docs/projects.md) says why.
+**st0's pages draw; the file service and the media library hold.** The workspaces and the deploy
+key are the account's file service's, on the server; the libraries are the file hub's, one list
+and one clone each for the whole origin; the shares are the media library's (`/api/shares`),
+because a share's bytes and its comments live on its volume. All of them answer on this origin,
+from st0's own backend. The media library keeps no register of repositories —
+[apps/st0/backend/docs/media/projects.md](../../backend/docs/media/projects.md) says why.
 
 **The SOURCE of the list is the file service.** What lists the projects is the account's file
 service on the server, over its workspaces (`packages/file-hub/docs/fileHub.md`). A separate index
@@ -33,8 +34,8 @@ Two underlying reasons, in the order they weigh:
    the account's file service, because a project is a folder in it. st0 is wired to that service
    for every project it opens; the médiathèque does nothing else with it.
 
-The corollary is that the médiathèque has **Morceaux** as its landing section: exactly what you do
-not write in a text editor. Projects are here, modules and chains too, playlists next
+The corollary is that the médiathèque opens on its **songs**: exactly what you do not write in a
+text editor. Projects are here, modules and chains too, playlists next
 (`playlists.md`) — the last by a different argument, worth distinguishing: a playlist carries no
 bytes, only names of songs that stay in the catalogue, so the file belongs to the repository it
 was written for.
@@ -42,23 +43,41 @@ was written for.
 ## The address follows
 
 This screen is **the front door itself**. st0 answers at the origin root
-(`priv.st0.app`, `st0.app`), and the médiathèque — **pl8** — on its own subdomain.
+(`priv.st0.app`, `st0.app`), the médiathèque below it under `/media`, and the rehearsal recorder
+under `/rehearsal`.
 If the first thing you want at a front door is your own work, then the page listing that work IS
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
-**The user menu — the account, the way out to pl8, k7 and z0, the logout — is in THIS page's
+**The user menu — the account, the way out to z0, the logout — is in THIS page's
 sidebar, and only here.** Opened on a project, st0 draws the editor's header, where a menu that
 leaves the session has no business. It is the menu every app of the origin carries —
-`@studio/ui-user-menu`, the one pl8's and k7's headers mount too, rather than links this app
-spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
+`@studio/ui-user-menu`, rather than links this app spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
 browser (`packages/ui-user-menu/docs/userMenu.md`).
 
-**One left sidebar for this page and the three that hang off it**, `/tasks`, `/libraries` and
-`/settings` (`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries
-are **Projects**, **Tasks** and **Libraries**, the one for the page you are on lit, and the user
-menu sits at its foot; below `sm` it folds to an icon rail. The same entries in the same place on all four say
-which of them you are on, so none of the others carries a back button of its own. They are
-routes, so going between them reloads nothing. `/external` is not among them: it is the page a
+**One left sidebar for this page and the ones that hang off it**, `/tasks`, `/libraries`,
+`/settings`, the médiathèque's `/media/…` and the rehearsal recorder's `/rehearsal/…`
+(`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries are three
+groups. **Projects**, **Tasks** and **Libraries** — what you WRITE — then, under a title of its own,
+the médiathèque's sections — **Songs**, **Samples**, **Recordings**, **Playlists**, each with its
+count, and **Find** — what you DRAW ON; then **Rehearsal** — **Recordings**, **Publications**,
+**Songbook**, **Exercises** — what you PLAY and keep (`packages/ui-rehearsal/docs/sections.md`). The
+one for the page you are on is lit, and the user menu sits at its foot; below `sm` it folds to an
+icon rail, where a rule stands in for a group's title. The same entries in the same place on
+every page say which of them you are on, so none of the others carries a back button of its own.
+
+The media sections are the library's own (`LIBRARY_SECTIONS` in `@studio/ui-library`,
+`packages/ui-library/docs/host.md`), drawn here rather than in a header of the library's: one
+origin, one nav. "Libraries" is already the module libraries' page, which is why the media group
+is titled after the médiathèque and not after a library. Their counts are known only on the media
+pages, which load the volume's summary; elsewhere the entries carry none rather than a stale
+number. Only `/media/…` mounts the library's playback (`MediaPage.tsx`): it probes and leases an
+engine, which the other home pages deliberately do not, and it puts the playback picker in the
+sidebar's actions, beside the user menu. They are
+routes, so going between them reloads nothing — and a rehearsal take outlives all of them:
+`RehearsalRecording` wraps their `<Routes>` (`apps/st0/frontend/src/appMain.tsx`), holding nothing
+until a take starts, so a take begun on a song page keeps recording while you open the media
+library or a project list (`packages/ui-rehearsal/docs/audio.md`). A rehearsal public page,
+`/rehearsal/@<nametag>`, is drawn before the sign-in gate, outside this frame. `/external` is not among them: it is the page a
 SECOND device opens, independent of this one, with a header of its own (`external.md`).
 
 `/auth/*` follows the root: the IdP knows only one `redirect_uri`, on st0's origin, so those
@@ -194,7 +213,7 @@ server's key off it. Without a library st0 refuses to open anything — not on p
 because no `@st0/…` reference would resolve, and a song opened with all its shared modules missing
 reads as a broken song rather than as a server somebody has not finished setting up.
 
-**Only an admin edits it.** An admin is a member of one of pl8's `AUTH_ADMIN_GROUPS` (the OIDC
+**Only an admin edits it.** An admin is a member of one of the backend's `AUTH_ADMIN_GROUPS` (the OIDC
 `groups` claim), and the file hub says so in its hello, in the ticket and on every request it
 forwards. The hub answers the libraries routes itself and refuses a change without that
 ([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
@@ -242,7 +261,7 @@ module is the project you hear it in.
 > **Nothing SEEDS modules into it, deliberately.** `initIfEmpty` lays the commit and nothing else:
 > the libraries repository is the reference, so a new library is **empty** and a scaffolded set's
 > `@st0/…` refs resolve to nothing until something is put there
-> (`packages/song/docs/sharedFolders.md`). Copying a catalogue in from elsewhere — pl8's volume, or
+> (`packages/song/docs/sharedFolders.md`). Copying a catalogue in from elsewhere — the media library's volume, or
 > the build — would make that elsewhere a second source of truth about somebody else's modules.
 
 ### The debt is said at creation, not discovered at opening
@@ -311,10 +330,10 @@ rather than by a highlight that never appeared.
 
 A chain is something you HEAR: what it does cannot be read in its file, and its parameters only
 exist inside a project with the plugin loaded. The bench is that project — a live rig written again
-on every open and saved nowhere ([apps/pl8/docs/banc.md](../../../pl8/docs/banc.md)).
+on every open and saved nowhere ([apps/st0/backend/docs/media/banc.md](../../backend/docs/media/banc.md)).
 
 **This page has no bench card.** A bench is always ON a chain: `/@banc/<chain>/live.st0` seeds the
-rig with a copy of a library chain, which k7 opens to record through. It edits no library — an
+rig with a copy of a library chain, which the rehearsal recorder opens to record through. It edits no library — an
 admin does that from any project — so a bench that names nothing, or names a bare library, is
 refused.
 
@@ -542,7 +561,7 @@ on its side would be the second thing to keep in step that this package exists t
 ## Creating, copying and deleting a project — on the machine, not here
 
 Each repository's block carries a **"New project"** (the archetype, and a name), and each project
-a **⋮** holding the three acts on one: copy, rename, delete. Neither is done by pl8: what this page
+a **⋮** holding the three acts on one: copy, rename, delete. Neither is done by the media library: what this page
 calls is the file service the whole app uses as soon as a project is open, not a seam that would
 serve only here.
 
@@ -616,7 +635,7 @@ Same reason as `HAS_SCAFFOLD`.
 
 ### Owning a suffix and being creatable are two questions
 
-`ProjectApp` is `"st0" | "z0"` — k7 has no projects. But the menu reflects `SCAFFOLDED_APPS`, not
+`ProjectApp` is `"st0" | "z0"` — the rehearsal recorder has no projects. But the menu reflects `SCAFFOLDED_APPS`, not
 that type. Creating needs a **template** — a map of files the file service knows how to write
 (`createProjectIn`, and `@studio/song`'s `scaffold*` modules). z0 owns `.z0` folders and has none,
 so offering it would make a `.z0` folder containing an st0 song: the suffix saying one thing, the
@@ -697,11 +716,12 @@ the page says so rather than throwing, since a retry would find the old name gon
 A **"Shares"** button on each project row, beside the ⋮, opens a popin listing the frozen
 snapshots **that project** has published, and it is the only place one is withdrawn. **Both ends
 are st0**: `project share link` makes the bundle here, on the machine that has an engine and can
-therefore render sound, and sends it to pl8 — which holds the only copy and serves it to people
+therefore render sound, and sends it to the media library — which holds the only copy and serves it to people
 with no account. What the bundle contains is
 [packages/commands/docs/shareBundle.md](../../../../packages/commands/docs/shareBundle.md); what
-pl8 does with it, including why hosting that does not contradict "pl8 never makes a working copy",
-is [apps/pl8/docs/shares.md](../../../pl8/docs/shares.md).
+the library does with it, including why hosting that does not contradict "the library never makes
+a working copy",
+is [apps/st0/backend/docs/media/shares.md](../../backend/docs/media/shares.md).
 
 **On the row, and not in a card for the whole account.** A share COMES OUT of a project, and the
 question you ask is "what have I published of that song", never "give me the account's twenty
@@ -731,7 +751,7 @@ first: what the people you gave the link to wrote on **that** snapshot. This is 
 that can move a comment between the three states — `Actifs`, `Résolus`, `Ignorés`, three tabs in
 the order a comment travels, since every one lands in the first and leaves for one of the others.
 The frozen viewer draws the same comments with a chip and no tabs
-([shared.md](shared.md)); pl8's half is [apps/pl8/docs/comments.md](../../../pl8/docs/comments.md).
+([shared.md](shared.md)); the media library's half is [apps/st0/backend/docs/media/comments.md](../../backend/docs/media/comments.md).
 
 **Nothing deletes**, and the popin says so: `Résolu` and `Ignoré` are two ways out of the active
 list, not two spellings of gone. A `Réactiver` puts one back.
@@ -755,7 +775,7 @@ origin: { repo: basename(this.root), project: basename(dir) }   // file-service/
 ```
 
 So `origin.repo` is the **workspace's** name — `AccountWorkspace.name`, not the repository's short
-name at pl8 — and `origin.project` is the **last segment with its suffix**, not the path.
+name — and `origin.project` is the **last segment with its suffix**, not the path.
 `sharesForProject.ts` crosses that gap, alone and tested, because it is the kind of rule nobody
 re-reads inside a JSX — named out in full rather than "projectShares", which would collide with
 `ProjectShares.tsx` on a case-insensitive disk. Two consequences:
@@ -766,7 +786,7 @@ re-reads inside a JSX — named out in full rather than "projectShares", which w
   guess it.
 
 **An orphaned share has no screen.** The share of a project since deleted, or published from
-another machine, has no row to hang on: its bytes stay on pl8's volume, with no button to take
+another machine, has no row to hang on: its bytes stay on the media library's volume, with no button to take
 them back, and a share never expires — so that is permanent until somebody calls
 `DELETE /api/shares/:key` by hand. It is an accepted trade: covering the other case takes a second
 list showing what the first does not, which brings back the whole-account card that row grouping
@@ -796,7 +816,7 @@ read and fetch on a timer, and a lock every twenty seconds would make the page u
 
 ## Two polls, because there are two services
 
-The project list is asked of the **machine**, the shares of **pl8**: two services, two timers, and
+The project list is asked of the **machine**, the shares of the **media library**: two services, two timers, and
 they cannot share a token.
 
 The machine's has no token in front of it — no `/revision` to ask first. The service answers the

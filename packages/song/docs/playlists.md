@@ -23,7 +23,7 @@ items:
 ## Here, and ALSO in the médiathèque — two homes, one format
 
 The médiathèque holds set lists of its own, under `playlists/` on its volume
-(`apps/pl8/docs/playlists.md`). Same schema, same parser, same text edits: a file copied either way
+(`packages/ui-library/docs/playlists.md`). Same schema, same parser, same text edits: a file copied either way
 is read by both. What differs is the job.
 
 **A playlist here is the account's document, written for one specific piece of work.** A gig's
@@ -37,8 +37,8 @@ any browser with the session, with no machine up and no repository, and not vers
 It is the one you build while listening.
 
 **The songs themselves stay put either way.** That is the point of the split and not a half-measure:
-the file that names may be ours, the bytes named remain pl8's. st0 searches that catalogue and
-deposits into it — see `apps/st0/frontend/docs/playlists.md`.
+the file that names may be ours, the bytes named remain the médiathèque's. st0's playlist screen searches that catalogue
+and deposits into it — see `apps/st0/frontend/docs/playlists.md`.
 
 ## `_playlists`, beside `_modules`
 
@@ -86,7 +86,7 @@ and this file opens nothing — not even `node:fs`: that is what lets the file s
 browser go by exactly the same rules.
 
 So it is the job of whoever holds both lists — st0's screen
-(`apps/st0/frontend/docs/playlists.md`) and pl8's tab (`apps/pl8/docs/playlists.md`), each with the
+(`apps/st0/frontend/docs/playlists.md`) and the médiathèque's tab (`packages/ui-library/docs/playlists.md`), each with the
 playlist on one side and the médiathèque on the other. They share the resolution itself rather than
 each having a copy: `@studio/mediatek/playlistItems`, where "path first, name second" is written
 once, since two copies would diverge at the first case learned on one side only.

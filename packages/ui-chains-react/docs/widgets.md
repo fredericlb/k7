@@ -19,7 +19,7 @@ A widget's `bind` is read in one order, and the order is the rule:
    branch every widget on one is inert.
 3. **Everything else is a plugin param**, and needs a plugin to send it to.
 4. Failing a plugin, an **offline** target — a param of a module realised outside the graph. It
-   is opt-in, so a host with no surface realising them (pl8, or st0 on a project that declares no
+   is opt-in, so a host with no surface realising them (a project that declares no
    desk) keeps drawing nothing rather than a knob that turns against an address the engine never
    had.
 

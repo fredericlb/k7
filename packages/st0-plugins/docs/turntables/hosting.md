@@ -66,8 +66,8 @@ as they can be on purpose:
 - `engine` is used on exactly one line, `fileLink(engine)`. A prop asking for a whole probe
   reply — a `RankedEngine<PublicEngine>` — would force a host without one to fabricate the other
   fifteen fields: the difference between a seam and a shape one host happens to have.
-- `library` is pl8's API base, because separating a record is pl8's work: pl8 holds the master
-  (`apps/pl8/docs/stems.md`). Optional, so a host with no library to point
+- `library` is the media library's API base, because separating a record is its work: it holds the master
+  (`apps/st0/backend/docs/media/stems.md`). Optional, so a host with no library to point
   at still draws a desk — the knobs then say a record has no stems, which is true, rather than
   the view failing to render.
 
@@ -95,17 +95,17 @@ share a `get`:
 | | how it is reached | credential |
 |---|---|---|
 | the file service | `FileLink.base`, from the engine's own probe reply | the three shared `x-studio-*` headers (`fileHeaders`) |
-| pl8's library | `LibraryLink.base`, supplied by the host | the session cookie, `credentials: "include"` |
+| the media library | `LibraryLink.base`, supplied by the host | the session cookie, `credentials: "include"` |
 
 The file service sits on a machine with no cookie jar, and `requireEngineToken` gates the whole
 service before `/mediatek` is even mounted — so a call missing the engine token is a 401 whatever
-it asks for. Sending `fileHeaders()` at pl8 would be the mirror mistake: a 401 carrying an engine
+it asks for. Sending `fileHeaders()` at the media library would be the mirror mistake: a 401 carrying an engine
 token nobody there can check. `fileHeaders` is safe to call from a view because the gate
 configures the transport before anything renders.
 
-The base rather than a derived path, in both cases, because the address differs by host: pl8 is
-the same origin for its own pages and another subdomain for st0's, and a package that guessed would
-be wrong for one of them.
+The base rather than a derived path, in both cases, because the address is the host's to know: where
+the media library is mounted is read from the services table, and a package that guessed would hold
+a second copy of that fact.
 
 Both read the SERVER's sentence out of an error body rather than throwing the bare status. Every
 route answers `{error}` with something actionable — "engine binary not found", "is not in this

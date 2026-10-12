@@ -43,8 +43,8 @@ working rather than a limitation:
   the grid does not mark. The furthest it can move the pointer is half a column, and a
   column is capped at `MAX_COLUMN_PX`.
 - **No grid, no snap.** `nearestTick` returns null on an empty list and the caller seeks
-  exactly where the pointer was. This is what keeps a waveform with no musical grid — k7's
-  rehearsal takes, pl8's song player — scrubbing continuously, and it is why the behaviour
+  exactly where the pointer was. This is what keeps a waveform with no musical grid — the
+  rehearsal takes, the médiathèque's song player — scrubbing continuously, and it is why the behaviour
   is not gated behind a prop: the data already says whether snapping means anything here.
 
 ## Both rulers, one rule

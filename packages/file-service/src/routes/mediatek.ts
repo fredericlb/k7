@@ -1,5 +1,5 @@
 // mediatek.ts — the media library as THIS MACHINE holds it. The library itself is hosted
-// now (see apps/pl8/backend); what lives here is a cache the moteur plays from, so
+// now (see apps/st0/backend/src/media); what lives here is a cache the moteur plays from, so
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
@@ -42,7 +42,7 @@ import {
 
 export const mediatekRouter: Router = Router();
 
-/** Analyse one hosted file here, because pl8 cannot decode audio — see docs/mediatekRoutes.md. */
+/** Analyse one hosted file here, because the hosted library cannot decode audio — see docs/mediatekRoutes.md. */
 const analyseBody = z.object({ path: z.string().min(1) });
 mediatekRouter.post(
   "/mediatek/analyse",

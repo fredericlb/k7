@@ -1022,7 +1022,7 @@ export interface ShareSummary {
   comments?: CommentCounts;
 }
 
-/** What an author does with a comment. `active` is where every one lands; see apps/pl8/docs/comments.md. */
+/** What an author does with a comment. `active` is where every one lands; see apps/st0/backend/docs/media/comments.md. */
 export type CommentState = "active" | "resolved" | "ignored";
 
 /** One block of text a visitor left on a frozen snapshot — public, so it carries no identity beyond a chosen name. */

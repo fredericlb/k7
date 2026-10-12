@@ -1,15 +1,15 @@
 // pairing.ts — how a desktop app asks a server for a token and gets it back on its own
 // loopback port. Both halves are here because they are ONE rule seen from two sides: the app
-// builds the return address, pl8 validates it, and a second spelling of "is this loopback"
+// builds the return address, st0's backend validates it, and a second spelling of "is this loopback"
 // would be a hole rather than a drift. See apps/st0-desktop/docs/pairing.md.
 //
 // The shape is RFC 8252's for native apps — the system browser, a loopback redirect, any port,
 // bound to a state nonce — applied to the studio session rather than to the IdP itself.
 
-/** Where the desktop listens for its token. One path, so pl8's rule and the app's agree. */
+/** Where the desktop listens for its token. One path, so the server's rule and the app's agree. */
 export const PAIR_RETURN_PATH = "/desktop/pair";
 
-/** The route on pl8 that hands a token back. */
+/** The route on st0's backend that hands a token back. */
 export const PAIR_ROUTE = "/api/token/pair";
 
 /**
@@ -35,9 +35,9 @@ export function isLoopbackReturn(raw: string): boolean {
 
 /**
  * The URL the desktop opens in the system browser — never in a window of its own
- * (RFC 8252 §8.12). `base` is where **pl8** answers, i.e. `serviceUrl(server, "pl8")`, and the
- * route is appended to its PATH rather than resolved against its origin: pl8 is mounted under
- * `/pl8`, and `new URL("/api/…", base)` would silently drop that and hit st0's backend.
+ * (RFC 8252 §8.12). `base` is where the token route answers, i.e. `serviceUrl(server, "pl8")`,
+ * and the route is appended to its PATH rather than resolved against its origin: a base mounted
+ * under a path prefix keeps it, where `new URL("/api/…", base)` would silently drop it.
  */
 export function pairUrl(
   base: string,

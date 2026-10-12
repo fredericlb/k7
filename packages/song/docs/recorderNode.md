@@ -33,7 +33,7 @@ no knowledge that it records. **It has no params**: its three controls are intri
 |---|---|---|
 | `@rec:record` | start, or stop and keep the take | the ENGINE, down the socket |
 | `@rec:clear` | drop the most recent take, file and all — **stopping it first** if it is still rolling | the ENGINE |
-| `@rec:save` | send the take on top to pl8's `recordings/`, **then clear it** | a VERB, then the engine |
+| `@rec:save` | send the take on top to the médiathèque's `recordings/`, **then clear it** | a VERB, then the engine |
 
 `clear` acts on a take being WRITTEN as readily as on a finished one: one press stops it and drops
 it, which is what a rig wants from a button that means "no, not that". It asked only about

@@ -147,7 +147,7 @@ export function sessionOf(ws: { root: string } | null): string {
   const rel = relative(rootDir(), ws.root);
   // Outside the root is a workspace this service does not own — the bare session, as before.
   if (!rel || rel.startsWith("..")) return SESSIONS.st0;
-  // The bench's workspace plays in a session of its own, beside the song — apps/pl8/docs/banc.md.
+  // The bench's workspace plays in a session of its own, beside the song — apps/st0/backend/docs/media/banc.md.
   if (rel.split(/[\\/]/)[0] === BENCH_WORKSPACE)
     return sessionFor(SESSIONS.bench, owner);
   return sessionFor(SESSIONS.st0, owner);

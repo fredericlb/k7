@@ -1,0 +1,301 @@
+/* publications.css — releases, pages, the songbook list, the CLI token and the singing book. Nested under .rehearsal-root like every sheet here (index.css). */
+
+.rehearsal-root {
+  /* ---- Badges & tags ------------------------------------------------------- */
+
+  /* Badges and tag chips are the shadcn Badge component now
+     (src/components/ui/badge.tsx — variants default/amber/rec/tag). */
+  .tag-chips {
+    gap: 8px;
+  }
+
+  .session-item.validated {
+    box-shadow: inset 3px 0 0 var(--green);
+  }
+  .session-item.validated .session-name {
+    color: var(--green);
+  }
+
+  /* ---- Release form -------------------------------------------------------- */
+
+  /* Form fields, inputs and checkboxes are shadcn components now
+     (src/components/ui/{field,input,textarea,checkbox}.tsx). */
+  .check-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    flex: 1;
+  }
+
+  /* ---- Songbook ------------------------------------------------------------ */
+
+  .song-editor {
+    width: 100%;
+    min-height: 60vh;
+    margin: 12px 0 0;
+    box-sizing: border-box;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    tab-size: 4;
+    white-space: pre;
+    overflow: auto;
+    resize: vertical;
+  }
+
+  /* Read-only rendering of a tab: same monospace box, without the editable feel. */
+  .song-view {
+    background: var(--surface-2);
+    resize: none;
+  }
+
+  /* ---- CLI token ----------------------------------------------------------- */
+
+  .token-field {
+    width: 100%;
+    margin-top: 8px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+
+  /* ---- New-session source chooser & remote mic ---------------------------- */
+
+  .source-choices {
+    display: flex;
+    gap: 10px;
+    margin: 4px 0 10px;
+  }
+  .source-choices > * {
+    flex: 1;
+  }
+
+  .remote-mic {
+    max-width: 520px;
+    margin: 24px auto;
+  }
+
+  .remote-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 12px 0;
+  }
+  .remote-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .remote-field select {
+    width: 100%;
+  }
+
+  /* ---- Metronome (a panel of the song page's rail) ------------------------- */
+
+  /* Each click lights the header — green on a bar's first beat, red on the others — and fades out. */
+  .rail-panel-head {
+    transition: background-color 0.12s ease-out;
+  }
+  .rail-panel-head.metro-bar,
+  .rail-panel-head.metro-beat {
+    transition: none;
+  }
+  .rail-panel-head.metro-bar {
+    background: color-mix(in srgb, var(--green) 65%, var(--surface-2));
+  }
+  .rail-panel-head.metro-beat {
+    background: color-mix(in srgb, var(--red) 65%, var(--surface-2));
+  }
+
+  .metro-bpm-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .metro-bpm {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.05;
+  }
+  .metro-bpm-val {
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .metro-bpm-unit {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--muted, #888);
+  }
+  .metro-slider {
+    width: 100%;
+    margin: 10px 0;
+    accent-color: var(--accent);
+  }
+
+  /* ---- The drawn player (releases, pages) ---------------------------------- */
+
+  .waveform-player-play {
+    width: 100%;
+    margin-top: 6px;
+    gap: 6px;
+  }
+  /* The waveform's own height, so the list does not jump when the shape arrives. */
+  .waveform-player-pending {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 64px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-turn 0.8s linear infinite;
+    opacity: 0.7;
+  }
+
+  /* ---- Versions of a release, and the page's pick of one ------------------- */
+
+  .version-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .version-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+  }
+  .version-hidden {
+    opacity: 0.6;
+  }
+  /* A TrackCard's title row stands apart from its waveform. */
+  .track-card .version-head {
+    margin-bottom: 20px;
+  }
+  /* The version picker stands as tall as the small buttons beside it (28px), not as a form field. */
+  .track-card .version-head select {
+    height: 28px;
+    padding: 0 10px;
+  }
+  /* A link dressed as a small outline button: a plain <a download> needs no fetch and no blob. */
+  .download-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    text-decoration: none;
+    color: inherit;
+    white-space: nowrap;
+  }
+  .download-link:hover {
+    background: var(--surface-2);
+  }
+  .switch-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  /* ---- Singing exercises (the shared practice book) ------------------------ */
+
+  /* The form lives in a popin now, which supplies its own spacing. */
+  .singing-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* A drawn workout: numbered, because the order is part of what was drawn. */
+  .workout-list {
+    margin: 0;
+    padding-left: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* The title and the ＋ that opens that popin, on one line. */
+  .singing-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .singing-head h2 {
+    margin: 0;
+  }
+  .singing-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+
+  /* ---- Publications: pages as collapsible groups of releases ----------------- */
+
+  .pub-group {
+    margin-top: 12px;
+  }
+  .pub-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 4px 6px 4px 10px;
+  }
+  .pub-group-toggle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    cursor: pointer;
+  }
+  /* The releases of an open page step in under its header. */
+  .pub-group-list {
+    margin: 6px 0 0 20px;
+  }
+  .pub-unlinked-title {
+    margin: 20px 0 6px;
+  }
+}

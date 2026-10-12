@@ -107,7 +107,7 @@ as soon as something reaches the sum — and the verb writes it before inserting
 its promise of a single command.
 
 The scaffolds write it — `scaffold.ts`, `scaffoldSet.ts` and `scaffoldLive.ts`, the last of which
-is also what the bench opens on (`apps/pl8/docs/banc.md`).
+is also what the bench opens on (`apps/st0/backend/docs/media/banc.md`).
 
 One detail `validate()` has to carry: `from: MIX` is accepted. The sum is neither a track nor a
 chain, it is where all of them arrive, and refusing it warns **every** project at once about the

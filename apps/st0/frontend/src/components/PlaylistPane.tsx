@@ -39,7 +39,7 @@ import { api, mediatek } from "../api";
 import { desktop } from "../desktop";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
-import { pl8Url } from "../projects/api";
+import { MEDIA_ROUTE, pl8Url } from "../projects/api";
 
 /** How many search hits are drawn at once: three hundred morceaux in one scrolling box is not a list you read, so the field is the way through. */
 const MAX_HITS = 40;
@@ -145,8 +145,7 @@ export function PlaylistPane({
 
   // --- adding ----------------------------------------------------------------------
 
-  // Where the catalogue is, for the link at the foot: the desktop's paired server, or this
-  // origin when hosted. Null on the desktop until paired, and then there is nothing to open.
+  // Where the catalogue's songs open, for the link at the foot: a full page on the desktop's paired server, or on this origin when hosted.
   const [catalogue, setCatalogue] = useState<string | null>(pl8Url());
   useEffect(() => {
     void desktop.state().then((d) => {
@@ -154,8 +153,10 @@ export function PlaylistPane({
       setCatalogue(d ? (d.server ? pl8Url(d.server) : null) : pl8Url());
     });
   }, []);
+  // A full-page load and not the router's: this pane's basename is the project, the media pages are the home's.
+  const songsPage = catalogue ? `${catalogue}${MEDIA_ROUTE}/songs` : null;
 
-  // One act here — SEARCH, over morceaux pl8 already holds; putting a new one on that volume is pl8's own screen, linked at the foot of the list.
+  // One act here — SEARCH, over songs the media library already holds; filing a new one is its own screen, linked at the foot of the list.
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const queryRef = useRef<HTMLInputElement>(null);
@@ -568,12 +569,10 @@ export function PlaylistPane({
             })}
           </ol>
         )}
-        {/* Where a morceau ARRIVES, at the foot of the list rather than as a button: this pane
-            names songs, pl8 is the volume that holds them. On the desktop it is the SERVER's
-            catalogue in the system browser — see Home.tsx's pl8 button for why. */}
-        {catalogue ? (
+        {/* Where a song ARRIVES, at the foot of the list: on the desktop it is the SERVER's media pages, in the system browser. */}
+        {songsPage ? (
           <a
-            href={catalogue}
+            href={songsPage}
             {...(desktop.isDesktop
               ? { target: "_blank", rel: "noreferrer" }
               : {})}

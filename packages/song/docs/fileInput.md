@@ -63,6 +63,6 @@ wants may differ.
 
 The **médiathèque** did not wait on it: `songPreviewDoc` built that document by hand — the song's
 master as the clip, the chain's steps as the track's plugins — which is what auditioning a chain
-and bouncing a variant ran on. It went with pl8's engine half, and no surface has replaced it. See
+and bouncing a variant ran on. It went with the médiathèque's engine half, and no surface has replaced it. See
 `packages/mediatek/docs/variants.md`. What is missing is the *authored* path: a `modules/io/FILE`
 node in a project folder compiling to the same thing.

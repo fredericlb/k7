@@ -66,9 +66,9 @@ interface St0EnginePlugin {
 
 export const St0Engine = registerPlugin<St0EnginePlugin>("St0Engine");
 
-/** The studio apps with a view of their own. */
-export type AppId = "st0" | "pl8" | "k7";
-export const APP_IDS: AppId[] = ["st0", "pl8", "k7"];
+/** The studio apps with a view of their own — the media library and the rehearsal recorder are pages of st0's. */
+export type AppId = "st0";
+export const APP_IDS: AppId[] = ["st0"];
 
 interface AppViewsPlugin {
   /**

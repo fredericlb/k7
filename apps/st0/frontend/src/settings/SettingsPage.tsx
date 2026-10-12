@@ -1,9 +1,13 @@
 // SettingsPage.tsx — `/settings`, a page of its own: what a BROWSER may change — the language,
-// the deploy key, the chains, the AI key, the paired devices — and on the phone, this phone's engine.
+// the deploy key, the chains, the AI key, the paired devices, the registered engines and the
+// hunt's slskd access, the rehearsal pages' token — and on the phone, this phone's engine.
 // A page and not a panel: it is visited on purpose and rarely. See ../../docs/settings.md.
 
+import { EnginesSettings, SlskdSettings } from "@studio/ui-library/settings";
+import { lazy, Suspense } from "react";
 import { m } from "../paraglide/messages.js";
 import { HomeShell } from "../projects/HomeSidebar";
+import { MediaHost } from "../projects/MediaHost";
 import { AiSection } from "./AiSection";
 import { AndroidEngineSection } from "./AndroidEngineSection";
 import { onAndroid } from "./androidEngine";
@@ -11,6 +15,13 @@ import { ChainsSection } from "./ChainsSection";
 import { LanguageSection } from "./LanguageSection";
 import { PairedDevicesSection } from "./PairedDevicesSection";
 import { SyncSection } from "./SyncSection";
+
+/** The rehearsal pages' section, with their stylesheet: a chunk of its own, fetched with this page only. */
+const RehearsalSettings = lazy(() =>
+  import("@studio/ui-rehearsal/settings").then((x) => ({
+    default: x.RehearsalSettings,
+  })),
+);
 
 export function SettingsPage() {
   return (
@@ -30,6 +41,14 @@ export function SettingsPage() {
           <ChainsSection />
           <AiSection />
           <PairedDevicesSection />
+          {/* The media library's two cards, which read its labels and its configured API. */}
+          <MediaHost>
+            <EnginesSettings />
+            <SlskdSettings />
+          </MediaHost>
+          <Suspense fallback={null}>
+            <RehearsalSettings />
+          </Suspense>
         </div>
       </div>
     </HomeShell>

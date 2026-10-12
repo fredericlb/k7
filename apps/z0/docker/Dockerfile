@@ -4,8 +4,8 @@
 # `frediverse-base`: nginx serves the six SPAs and proxies the backend (nginx.conf beside this file).
 # That base image must be built first — commons/dev/docker-runtime/README.md.
 #
-# The first three stages are byte-identical in the four studio Dockerfiles, so the installs are
-# built once per lockfile and shared by all four — docs/images.md. Keep them identical.
+# The first three stages are byte-identical in the two studio Dockerfiles, so the installs are
+# built once per lockfile and shared by both — docs/images.md. Keep them identical.
 #
 # Build from the repo root: docker build -f apps/z0/docker/Dockerfile .
 
@@ -17,7 +17,7 @@ WORKDIR /src
 COPY . .
 RUN mkdir /out && { find . -name package.json -not -path '*/node_modules/*'; echo ./package-lock.json; echo ./.npmrc; } | tar -cf - -T - | tar -xf - -C /out
 
-# ---- toolchain: ssh2 (pl8's sftp) builds its optional crypto binding with it
+# ---- toolchain: ssh2 (st0's media sftp) builds its optional crypto binding
 FROM node:22-alpine AS toolchain
 RUN apk add --no-cache python3 make g++
 WORKDIR /app

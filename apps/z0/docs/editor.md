@@ -13,8 +13,8 @@ everything from elsewhere:
 | what it needs | where it comes from |
 |---|---|
 | who you are | `/auth/*` at the root of the origin — st0 |
-| which machines exist, and which is yours | `/api/engines*` — pl8's registry |
-| the project's files | the account's file service, behind pl8's file hub |
+| which machines exist, and which is yours | `/api/engines*` — the registry, in st0's backend |
+| the project's files | the account's file service, behind st0's backend's file hub |
 
 None of those three questions has an answer on z0's side: the game's backend does not know the
 account's workspaces, has no engine registry — it has one, named by the environment for an
@@ -38,7 +38,7 @@ service, whereas z0 is six SPAs behind a prefix and one of them opens a project.
 `basename` is that whole address, so nothing in the app can rewrite the project away.
 
 Two tables in `@studio/web-protocol` carry the rest: `PROJECT_SUFFIXES` declares `.z0` a project
-suffix, so pl8 lists those folders and the file service agrees to open one; `SERVICE_PATHS`
+suffix, so st0's backend lists those folders and the file service agrees to open one; `SERVICE_PATHS`
 declares where `z0` answers, which is a different question from which cookie it carries.
 
 ## To check in a browser

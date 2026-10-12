@@ -2,7 +2,7 @@
 //   • the hosted backend (same-origin at the ROOT, cookie): the origin's OIDC flow at
 //     /auth/* — st0 is the service with no prefix — and this app's own preferences.
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
-//   • pl8 (its own subdomain, cookie): the ONE engine registry, and the songs a playlist names.
+//   • pl8's routes (this origin now, cookie): the ONE engine registry, and the songs a playlist names.
 // The file service base + the identity/workspace/engine-token headers are set by
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
@@ -47,7 +47,7 @@ import type {
 // The app is mounted at the ORIGIN ROOT, so BASE is the empty string — kept as a derived constant, this app's mount being the one that can still change.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-/** pl8 — its OWN subdomain, reached across the origin and never through `BASE`, which is the empty string. It holds the médiathèque AND the one engine registry. */
+/** Where pl8's routes answer, from the services table — this origin now. It holds the media library AND the one engine registry. */
 const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
 // ── The hosted backend (same-origin): auth + preferences ────────────────────────
@@ -360,7 +360,7 @@ export const mediatek = {
   songUrl: (path: string) =>
     `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
-  /** Separate one song of the library — pl8's, since it holds the master (apps/pl8/docs/stems.md); `engineId` names whose model is borrowed. */
+  /** Separate one song of the library — the backend's, since it holds the master (apps/st0/backend/docs/media/stems.md); `engineId` names whose model is borrowed. */
   prepareStems: async (song: string, engineId: string): Promise<StemsReply> => {
     const res = await fetch(`${PL8}/api/stems`, {
       method: "POST",

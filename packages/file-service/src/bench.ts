@@ -1,7 +1,7 @@
 // bench.ts — the BENCH: one live rig, in a workspace of its own, thrown away and scaffolded again
 // on every open: the bare rig, or one seeded with a library CHAIN, which anyone plays and nobody
 // edits through. A library is not edited here: an admin edits it from any project
-// (libraryEdits.ts). Rationale: apps/pl8/docs/banc.md.
+// (libraryEdits.ts). Rationale: apps/st0/backend/docs/media/banc.md.
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";

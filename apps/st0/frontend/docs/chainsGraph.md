@@ -266,7 +266,7 @@ The 401 ms is spent inside a request the client is already waiting on, and the c
 when the reply lands rather than a fetch and a parse later — a client left to fetch `/graph`
 afterwards sits on the old picture for a round trip plus 401 ms with nothing to explain it.
 Two things fall out of it: `graphDoc()` fills the service's `graphCache`, so a host that
-ignores that field — pl8 — finds a warm cache on its next `GET /graph`; and keying it on the
+ignores that field finds a warm cache on its next `GET /graph`; and keying it on the
 revision keeps non-writing commands (`transport play`) as cheap as they are.
 
 ### The placeholder is a one-shot, and so is the seed

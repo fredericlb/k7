@@ -1,5 +1,5 @@
-// backends.ts — st0's and pl8's own servers, as the shell runs any server: unchanged, under tsx, dying with the app.
-// What is st0's here is only where each lives in the source tree (packages/electron-shell/docs/shell.md).
+// backends.ts — st0's own server, as the shell runs any server: unchanged, under tsx, dying with the app.
+// What is st0's here is only where it lives in the source tree (packages/electron-shell/docs/shell.md).
 
 import { join } from "node:path";
 import { type Server, startServer } from "@studio/electron-shell/servers";
@@ -7,7 +7,7 @@ import { sourceRoot } from "./paths.ts";
 
 /** Start `apps/<app>/backend/src/server.ts` on `port`, with `env` over this process's own. */
 export function startBackend(
-  app: "st0" | "pl8",
+  app: "st0",
   port: number,
   env: Record<string, string>,
   cwd: string,

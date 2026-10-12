@@ -11,7 +11,7 @@ names.
 `AccountWorkspace`, from the working copy it actually holds. Nothing else does. A hosted mirror
 answering the same question from the other side would be a second copy of what the working copy
 already has, and a worse one — a fetch behind, and blind to a project that is committed but not
-yet pushed. No service keeps a register of repositories either (`apps/pl8/docs/projects.md`). See
+yet pushed. No service keeps a register of repositories either (`apps/st0/backend/docs/media/projects.md`). See
 `apps/st0/frontend/docs/projects.md`.
 
 `origin` is `remote.origin.url` as git wrote it, normalized, and null for a workspace that is not

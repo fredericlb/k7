@@ -122,8 +122,8 @@ where one is added — its address typed into the form, and nowhere else.
 
 Each row is one instance as the supervisor's `instances` reports it: the registries this engine
 heartbeats to, keyed by studio family and shown as st0's origin, because to the user those are the
-same thing. Adding sends `weburi.add`, and the engine heartbeats to the family's one registry, pl8's,
-which is where st0's picker reads too. Typing `st0.app` or `play.st0.app` connects the same instance.
+same thing. Adding sends `weburi.add`, and the engine heartbeats to the family's one registry, st0's backend's,
+which is where st0's picker reads too. Typing `st0.app` or its alias `play.st0.app` connects the same instance.
 **Remove** sends `weburi.remove`, which deregisters at once. A registry that came from
 `$STUDIO_REGISTRY_URL` gets no Remove and says why: the environment is not the tray's to edit.
 
@@ -134,7 +134,7 @@ address`, `already connected to …` — and reduced to the origin before it is 
 Then the supervisor **asks** the instance's registry whether it is one, before anything is written:
 an added instance receives this engine's token and the tunnel it dials, so `https://google.com`
 must be refused rather than connected. The form reads the snapshot's
-`instanceCheck` — *Checking https://play.st0.app…*, then nothing on success or the reason in red on a
+`instanceCheck` — *Checking https://st0.app…*, then nothing on success or the reason in red on a
 refusal — and holds its Add button while one is being asked. The line under the form says what adding
 means, because the check proves the software and not the owner
 (`engine/st0-supervisor/docs/supervisorPolicy.md`).

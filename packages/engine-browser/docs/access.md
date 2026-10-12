@@ -5,9 +5,9 @@ The pieces exist separately: `registry.ts` (the routes), `probe.ts` (measuring),
 
 ## The registry's address is given once, to the constructor
 
-`base` is where the registry answers — pl8's, the one registry (`packages/engine-registry/docs/shared.md`):
-`""` for pl8's own pages, pl8's origin (`serviceUrl(…, "pl8")`) for st0 and z0's editor, which keep
-their preferences on their own backend through `prefsBase`. It decides both the registry's routes
+`base` is where the registry answers — st0's backend, the one registry (`packages/engine-registry/docs/shared.md`):
+`serviceUrl(…, "pl8")`, which is st0's origin, for st0 and z0's editor, and the host's `apiBase()` for the
+media library's screens; st0 names the backend holding its preferences through `prefsBase`. It decides both the registry's routes
 and what the probe composes.
 Passed separately to two functions it is two places for one fact, and nothing would force an app
 to keep them in step. The one that drifts most quietly is the probe's, and it is what decides
@@ -50,7 +50,7 @@ Where to wire it differs, and the difference is a choice:
 
 | surface | when |
 |---|---|
-| pl8, `useSongEngine` | **always** — whether the account's engine answers decides where a song plays |
+| the media library, `useSongEngine` | **always** — whether the account's engine answers decides where a song plays |
 | st0 `EngineGate` | **only while `picking`** — re-measuring after the choice takes the screen backwards under someone working |
 
 The probe's timeout is **3 s**. Candidates are measured in parallel, so an absent engine costs
@@ -83,7 +83,7 @@ across origins. `token` stays the engine's own, since the claim is checked again
 `hostedFiles()` answers the same hub with no engine in the ticket, for a page that lists or edits
 files and plays nothing — st0's home page, whose workspaces exist whether or not an engine runs.
 
-st0 and z0's editor opt in: they open a project, and a project is the server's. pl8 does not —
+st0 and z0's editor opt in: they open a project, and a project is the server's. The media library does not —
 its player resolves songs against the engine machine's own médiathèque cache and sends the
 engine a document itself, which the server's files would name in paths the engine cannot open.
 
@@ -95,7 +95,7 @@ engine a document itself, which the server's files would name in paths the engin
 - **The file service**: `fileBase` goes from the probe into `@studio/project-shell/fileApi`, and
   **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
-- **The picker's policy**: pl8 leaves an editor open with no engine, st0's gate does not. A
+- **The picker's policy**: the media library leaves an editor open with no engine, st0's gate does not. A
   product difference, not a plumbing one. st0 never asks: every open takes `bestEngine`
   (`choose.ts`) afresh, and does not store what it took as the preference. The order, each step
   only among the equals of the one before:

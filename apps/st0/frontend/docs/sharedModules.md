@@ -290,7 +290,7 @@ included — the server's copy has moved under it — and the next open clones i
 ## The bench is not where a library is edited
 
 `/@banc/<chain>/live.st0` opens a live rig seeded with a COPY of a library chain, which anyone may
-open and which edits no library (`apps/pl8/docs/banc.md`). To hear a library module no song you
+open and which edits no library (`apps/st0/backend/docs/media/banc.md`). To hear a library module no song you
 have open names, wire it into the song you have open. The bare `/@banc/live.st0`, a bare library
 such as `/@banc/@st0/live.st0`, and every other address under `@banc` is refused with a sentence
 saying where a library is edited.

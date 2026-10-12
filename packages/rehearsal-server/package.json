@@ -1,0 +1,37 @@
+{
+  "name": "@studio/rehearsal-server",
+  "version": "1.0.0",
+  "description": "The rehearsal recorder's server half, mounted inside st0's backend: sessions, releases, public pages, songbook, phone-mic signaling",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/mount.ts"
+    }
+  },
+  "scripts": {
+    "migrate": "tsx src/migrate.ts",
+    "migrate:data": "tsx src/migratePocketbaseData.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@frediverse/db-grist": "*",
+    "@frediverse/env": "*",
+    "@frediverse/http": "*",
+    "@frediverse/oidc": "*",
+    "@studio/rehearsal-shared": "*",
+    "@studio/mediatek": "*",
+    "express": "^4.19.2",
+    "ws": "^8.18.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.12",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

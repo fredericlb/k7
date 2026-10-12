@@ -1,4 +1,4 @@
-# shareOps.ts — the frozen snapshot `project share link` sends to pl8
+# shareOps.ts — the frozen snapshot `project share link` sends to the media library
 
 Rendered on this machine, uploaded by the caller. Nothing here writes to the project: freezing a
 shared copy is a RENDER, not `node freeze` ×N.
@@ -22,18 +22,17 @@ the source itself. A share shows the song, not the folder it was made in.
 
 ## The credential
 
-Not k7's `.settings.json` pair but the machine's own pl8 bearer — `mediatekBase()` /
-`mediatekToken()`, the `service:st0` token `npm run tokens` writes into the supervisor's
-settings for the library pull. Sharing needs no plumbing of its own: this service talks to pl8
-with it already.
-
-A service token has no person of its own, so the user is named on every call (`?user=`) — the
-same arrangement, and the same accepted cost, that `/ssh-key/private` documents.
+Not the k7 publish's `.settings.json` pair but this service's own media-library bearer —
+`mediatekBase()` / `mediatekToken()`, which the file hub hands it, minted for the account it serves
+([mediatekLink.md](mediatekLink.md)). Sharing needs no plumbing of its own: this service talks to
+the media library with it already. The user is still named on every call (`?user=`), which the
+account's own token makes redundant and a `service:` token would need.
 
 The upload streams from the rendered files, so they live until it is over and go whether it ended
 well or not: a share of a long song is half a gigabyte of temp.
 
 ## Publishing to k7 is the other one
 
-An unknown song throws `NEEDS_META`, which the route turns into a prompt for artist and title.
-Its credentials sit at the WORKSPACE root — one k7 login serves every project in it.
+`project share k7` publishes a release to the rehearsal recorder's pages, on st0's origin or its
+`k7.` alias. An unknown song throws `NEEDS_META`, which the route turns into a prompt for artist and
+title. Its credentials sit at the WORKSPACE root — one k7 token serves every project in it.

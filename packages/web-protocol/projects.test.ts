@@ -283,7 +283,7 @@ describe("the bench's address", () => {
   });
 
   it("survives the round trip st0's home page makes it take", () => {
-    // The bench card builds an address; the file service takes it apart again — apps/pl8/docs/banc.md.
+    // The bench card builds an address; the file service takes it apart again — apps/st0/backend/docs/media/banc.md.
     const url = launchUrl(
       "https://studio.example",
       BENCH_REPO,
@@ -367,14 +367,14 @@ describe("a shared snapshot's address", () => {
     expect(await shareKey(`${TOKEN}x`)).not.toBe(key);
   });
 
-  it("addresses pl8 on its OWN subdomain, on the one unauthenticated route", async () => {
-    // The page is st0's, the route is pl8's own origin: serviceUrl resolves the sibling host.
+  it("addresses the share on the family root, on the one unauthenticated route", async () => {
+    // The page and the route are both st0's origin now: serviceUrl gives pl8 the family root.
     const key = await shareKey(TOKEN);
     expect(shareApiBase(`https://st0.app/@shares/x.st0`, key)).toBe(
-      `https://play.st0.app/api/public/share/${key}`,
+      `https://st0.app/api/public/share/${key}`,
     );
     expect(shareApiBase("https://priv.st0.app", key)).toBe(
-      `https://play.priv.st0.app/api/public/share/${key}`,
+      `https://priv.st0.app/api/public/share/${key}`,
     );
   });
 });
@@ -462,7 +462,19 @@ describe("which addresses open a project", () => {
   });
 
   it("says no to the home page and to the chrome", () => {
-    for (const p of ["/", "", "/@tabs", "/external", "/libraries", "/settings"])
+    for (const p of [
+      "/",
+      "",
+      "/@tabs",
+      "/external",
+      "/libraries",
+      "/settings",
+      "/media",
+      "/media/songs/Miles/So-What/song.yaml",
+      "/rehearsal",
+      "/rehearsal/sessions/abc",
+      "/rehearsal/@lemo",
+    ])
       expect(isProjectAddress(O + p), p || "(empty)").toBe(false);
   });
 
@@ -474,6 +486,23 @@ describe("which addresses open a project", () => {
     expect(isHomePage("/settings/x.st0", "/")).toBe(false);
     expect(isHomePage("/external", "/")).toBe(false);
     expect(isHomePage("/", "/")).toBe(false);
+  });
+
+  it("takes `media` as a PREFIX, every address below it included", () => {
+    expect(isHomePage("/media", "/")).toBe(true);
+    expect(isHomePage("/media/songs", "/")).toBe(true);
+    expect(isHomePage("/media/songs/Miles/So-What/song.yaml", "/")).toBe(true);
+    expect(isHomePage("/st0/media/find", "/st0/")).toBe(true);
+    // Only the head: a workspace may hold a project of that name.
+    expect(isHomePage("/songs/media", "/")).toBe(false);
+  });
+
+  it("takes `rehearsal` as a PREFIX, public pages included", () => {
+    expect(isHomePage("/rehearsal", "/")).toBe(true);
+    expect(isHomePage("/rehearsal/sessions/abc", "/")).toBe(true);
+    expect(isHomePage("/rehearsal/@lemo", "/")).toBe(true);
+    expect(isHomePage("/st0/rehearsal/songs", "/st0/")).toBe(true);
+    expect(isHomePage("/songs/rehearsal", "/")).toBe(false);
   });
 
   it("says no to something that is not an address at all", () => {

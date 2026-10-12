@@ -1,5 +1,5 @@
 // preload.ts — tells every page where the app's services answer, before any of its scripts runs.
-// The pages derive pl8's address from st0's synchronously at import time, so this cannot wait for a fetch (packages/web-protocol/services.ts).
+// The pages derive the services' addresses synchronously at import time, so this cannot wait for a fetch (packages/web-protocol/services.ts).
 
 import { contextBridge } from "electron";
 

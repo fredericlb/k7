@@ -41,8 +41,8 @@ What the audio axis assumes, stated plainly:
   the machine of the person playing.
 - **The local network is not**: a device on it drives once the musician has paired it, which is what
   lets a phone drive the transport from the stage without letting the whole room do so.
-- **The real authentication is elsewhere**: the session cookie st0 mints, which pl8, k7 and z0
-  only verify.
+- **The real authentication is elsewhere**: the session cookie st0 mints, which z0 only
+  verifies.
 
 None of that is absurd for a stage tool. What would be absurd is writing it backwards in the file
 somebody reads before adding a surface.

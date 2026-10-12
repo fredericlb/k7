@@ -59,7 +59,7 @@ export function AndroidEngineSection() {
 
       <Section
         title="Studios"
-        hint="Where this phone's engine is listed. st0, pl8 and k7 open on the one marked open."
+        hint="Where this phone's engine is listed. st0 opens on the one marked open."
       >
         {rows.map((row) => {
           const family = studioFamily(row.url);
@@ -75,7 +75,7 @@ export function AndroidEngineSection() {
                   onClick={() =>
                     void engineCall("chooseStudio", { origin: family })
                   }
-                  title="Open st0, pl8 and k7 on this studio"
+                  title="Open st0 on this studio"
                 >
                   Open
                 </Action>
@@ -172,7 +172,7 @@ function PrivateCaSection() {
   return (
     <Section
       title="Private CA"
-      hint="Only for a studio whose HTTPS certificate is signed by a CA of your own. Android keeps the CAs installed in Settings out of an app's reach, so the certificate file (.pem, .crt or .der) is picked here; the engine and st0, pl8 and k7 all trust it."
+      hint="Only for a studio whose HTTPS certificate is signed by a CA of your own. Android keeps the CAs installed in Settings out of an app's reach, so the certificate file (.pem, .crt or .der) is picked here; the engine and st0 both trust it."
     >
       <Row
         label={

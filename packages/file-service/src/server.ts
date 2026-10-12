@@ -342,7 +342,7 @@ app.post(
     if (!hasLibraries(res)) return;
     const project = String(req.body.project);
     try {
-      // A chain's bench is what k7 records through, apps/k7/docs/chainSource.md.
+      // A chain's bench is what k7 records through, ../../ui-rehearsal/docs/chainSource.md.
       res.json(await ensureBench(req.userEmail!, project));
     } catch (e) {
       // A library that will not mount is the USER's problem to read, so it is a 409 and not a fault.

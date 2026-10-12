@@ -1,0 +1,340 @@
+// run.ts — the two fetches, as resumable steps: the TRACK (pl8's library, hunted on Soulseek when it
+// is not there yet) and the INSTRUMENTAL (the same song without its voice, cut on any engine).
+// Two verbs because separating borrows a musician's machine — ../../docs/audio.md.
+
+import { hasTimecodes, timeLyrics } from "@studio/lyrics";
+import type { MediatekEntry } from "@studio/mediatek/types";
+import type { HuntRecord } from "@studio/web-protocol/hunt";
+import { m } from "../paraglide/messages.js";
+import type { FetchStatus, LrcCandidate, Song } from "../types";
+import {
+  findLibrarySong,
+  masterPath,
+  matches,
+  sameSong,
+  songAtPath,
+} from "./match";
+import type { Pl8Client } from "./pl8";
+
+const POLL_MS = 2000;
+
+/** What `onStatus` persists — `fetchStatus`'s own fields, plus the sibling `lyricsMatch`
+ * field the backend's PATCH body carries beside it (see store.ts's updateSong). */
+export interface StatusPatch extends Partial<FetchStatus> {
+  lyricsMatch?: Song["lyricsMatch"];
+}
+
+interface Common {
+  pl8: Pl8Client;
+  /** What the link says it is doing. */
+  onPhase(phase: string): void;
+  /** Persists a piece of status, so a reload finds the pipeline where it left off. */
+  onStatus?(patch: StatusPatch): void;
+  sleep?(ms: number): Promise<void>;
+  /** Aborted when the page that runs the pipeline goes: a poll must not outlive it, PATCHing every 2 s. */
+  signal?: AbortSignal;
+}
+
+export interface FetchSteps extends Common {
+  /** Copy a library master in as the song's track; returns the song as k7 now has it. */
+  copyTrack(path: string): Promise<Song>;
+}
+
+export interface InstrumentalSteps extends Common {
+  /** Mix the instrumental from a library song folder's stems; returns the song as k7 now has it. */
+  mixInstrumental(folder: string): Promise<Song>;
+}
+
+/** How far the instrumental got: made, or why it stopped short. */
+export interface InstrumentalOutcome {
+  instrumental: boolean;
+  note?: string;
+  /** The song as k7 now has it, present when a mix actually happened. */
+  song?: Song;
+}
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** The song in pl8's library, or nothing — this never hunts. */
+async function inLibrary(
+  steps: Common,
+  song: Song,
+): Promise<MediatekEntry | undefined> {
+  steps.onPhase(m["fetch.library"]());
+  return findLibrarySong(await steps.pl8.listSongs(), song.artist, song.title);
+}
+
+/** Poll the hunt list until this hunt ends; pl8 has no route for one hunt. */
+async function huntEnd(steps: Common, id: string): Promise<HuntRecord> {
+  const sleep = steps.sleep ?? wait;
+  for (;;) {
+    steps.signal?.throwIfAborted();
+    const hunt = (await steps.pl8.hunts()).find((h) => h.id === id);
+    if (!hunt) throw new Error(m["fetch.huntRemoved"]());
+    if (hunt.status === "done" || hunt.status === "failed") return hunt;
+    const phase = hunt.status === "downloading" ? "downloading" : "searching";
+    steps.onPhase(
+      phase === "downloading"
+        ? m["fetch.downloading"]()
+        : m["fetch.searching"](),
+    );
+    steps.onStatus?.({ phase, huntId: id });
+    await sleep(POLL_MS);
+  }
+}
+
+/** Hunt the song on Soulseek, then find what pl8 filed. `resumeHuntId` skips straight to
+ * polling an already-running hunt — a reload picking the pipeline back up. */
+async function huntIntoLibrary(
+  steps: Common,
+  song: Song,
+  resumeHuntId?: string,
+): Promise<MediatekEntry> {
+  let hunt: HuntRecord;
+  if (resumeHuntId) {
+    hunt = await huntEnd(steps, resumeHuntId);
+  } else {
+    steps.onPhase(m["fetch.searching"]());
+    steps.onStatus?.({ phase: "searching" });
+    // What the hunt WOULD take is checked before anything downloads: a query can name another song.
+    const query = `${song.artist} ${song.title}`;
+    const tags = await steps.pl8.identify(query);
+    if (!tags) throw new Error(m["fetch.unidentified"]({ query }));
+    if (!sameSong(song.artist, song.title, tags.artist, tags.title))
+      throw new Error(
+        m["fetch.wrongSong"]({ found: `${tags.artist} – ${tags.title}` }),
+      );
+    const started = await steps.pl8.startHunt(query, tags);
+    steps.onStatus?.({ huntId: started.id });
+    hunt =
+      started.status === "done" || started.status === "failed"
+        ? started
+        : await huntEnd(steps, started.id);
+  }
+  if (hunt.status === "failed")
+    throw new Error(hunt.error || m["fetch.notFound"]());
+
+  steps.onPhase(m["fetch.library"]());
+  const entries = await steps.pl8.listSongs();
+  const landed =
+    findLibrarySong(entries, song.artist, song.title) ??
+    (hunt.artist && hunt.title
+      ? findLibrarySong(entries, hunt.artist, hunt.title)
+      : undefined) ??
+    songAtPath(entries, hunt.path);
+  if (!landed) throw new Error(m["fetch.notFiledYet"]());
+  return landed;
+}
+
+/** The song's reference track, out of pl8's library and hunted first if need be. */
+export async function fetchSong(
+  song: Song,
+  steps: FetchSteps,
+  resumeHuntId?: string,
+): Promise<Song> {
+  const entry =
+    (await inLibrary(steps, song)) ??
+    (await huntIntoLibrary(steps, song, resumeHuntId));
+  if (song.audio) return song; // already fetched: the library lookup is the whole of it
+  steps.onPhase(m["fetch.copyTrack"]());
+  return steps.copyTrack(masterPath(entry));
+}
+
+/** Wait for pl8 to hold the instrumental of `master`, cutting it on the first engine online.
+ * `resumeJobId` skips straight to polling an already-running separation. */
+async function instrumentalReady(
+  steps: Common,
+  master: string,
+  resumeJobId?: string,
+): Promise<boolean> {
+  const sleep = steps.sleep ?? wait;
+  steps.onPhase(m["fetch.stemming"]());
+  steps.onStatus?.({ phase: "stemming" });
+  let id = resumeJobId;
+  if (!id) {
+    const engines = await steps.pl8.engines();
+    if (engines.length === 0) return false;
+    const reply = await steps.pl8.prepareStems(
+      master,
+      engines[0].id,
+      "instrumental",
+    );
+    if (reply.ready) return true;
+    id = reply.job?.id;
+    if (!id) throw new Error(m["fetch.noSeparation"]());
+    steps.onStatus?.({ jobId: id });
+  }
+  for (;;) {
+    steps.signal?.throwIfAborted();
+    await sleep(POLL_MS);
+    const job = await steps.pl8.separation(id);
+    // Swept after it finished: the disk says whether it worked.
+    if (!job) {
+      if (await steps.pl8.stemsHeld(master, "instrumental")) return true;
+      throw new Error(m["fetch.noInstrumental"]());
+    }
+    if (job.failed) throw new Error(job.error || m["fetch.separationFailed"]());
+    if (job.done) return true;
+    if (job.percent !== null) {
+      steps.onPhase(
+        m["fetch.stemmingPercent"]({ percent: Math.round(job.percent) }),
+      );
+      steps.onStatus?.({ phase: "stemming", progress: job.percent });
+    }
+  }
+}
+
+/** The same song without the voice: an engine's chain writes it beside the master, and the song links it. */
+export async function makeInstrumental(
+  song: Song,
+  steps: InstrumentalSteps,
+  resumeJobId?: string,
+): Promise<InstrumentalOutcome> {
+  const source = librarySource(song);
+  if (song.instrumental) return { instrumental: true };
+
+  if (!(await instrumentalReady(steps, source.master, resumeJobId)))
+    return {
+      instrumental: false,
+      note: m["fetch.noEngine"](),
+    };
+
+  steps.onPhase(m["fetch.copyInstrumental"]());
+  const updated = await steps.mixInstrumental(source.folder);
+  return { instrumental: true, song: updated };
+}
+
+/** The library master the stems are cut from: the one the song PLAYS, so they are this very recording's. */
+function librarySource(song: Song): { master: string; folder: string } {
+  const master = song.audio?.path ?? "";
+  if (!master) throw new Error(m["fetch.noTrack"]());
+  return { master, folder: master.slice(0, master.lastIndexOf("/")) };
+}
+
+export interface PipelineSteps extends Common {
+  copyTrack(path: string): Promise<Song>;
+  mixInstrumental(folder: string): Promise<Song>;
+  findLrc(duration?: number): Promise<LrcCandidate[]>;
+  /** The sheet with its `{{MM:SS}}` timecodes — the text the song is saved with. */
+  onLrc(lyrics: string): Promise<Song>;
+}
+
+export type LyricsSteps = Pick<
+  PipelineSteps,
+  "onPhase" | "onStatus" | "findLrc" | "onLrc"
+>;
+
+/**
+ * Times the lyrics off LRCLIB: each fetched line's `{{MM:SS.cc}}` goes in front of the closest sheet
+ * line, in order, and not a word of the sheet changes (`timeLyrics`, ../../../lyrics/docs/timecodes.md).
+ * A song with no lyrics gets the fetched ones, timed. A version that is not this song (its artist and
+ * title), or that times nothing, is never applied — that is « unmatched ».
+ * A version of this song LRCLIB lists as instrumental makes it « instrumental »: nothing to time.
+ * The song returned carries its new `lyricsMatch`, which the pipeline's next step reads.
+ */
+export async function syncLyrics(
+  song: Song,
+  steps: LyricsSteps,
+): Promise<Song> {
+  steps.onPhase(m["fetch.lyrics"]());
+  steps.onStatus?.({ phase: "matching-lyrics" });
+  // The nearest version that IS this song: LRCLIB's first answer can be credited « Oasis/oasis ».
+  const best = (await steps.findLrc()).find((c) =>
+    matches(song.artist, song.title, c.artistName, c.trackName),
+  );
+  const ours = best !== undefined;
+  if (ours && best.instrumental) {
+    steps.onStatus?.({ lyricsMatch: "instrumental" });
+    return { ...song, lyricsMatch: "instrumental" };
+  }
+  const found = ours ? timeLyrics(song.lyrics, best.syncedLyrics) : null;
+  if (found?.ok && found.placed > 0) {
+    const timed = await steps.onLrc(found.lyrics);
+    steps.onStatus?.({ lyricsMatch: "matched" });
+    return { ...timed, lyricsMatch: "matched" };
+  }
+  steps.onStatus?.({ lyricsMatch: "unmatched" });
+  return { ...song, lyricsMatch: "unmatched" };
+}
+
+/** A fresh start on `"download"` (the insert's button, or the ⋮ menu's re-run), or picking back
+ * up wherever `song` says the pipeline got to on `"continue"` — a reload, or an upload. */
+export type PipelineMode = "download" | "continue";
+
+/** The two steps after the track, each one the user may turn down — the upload popin asks. */
+export interface PipelineOptions {
+  lyrics?: boolean;
+  instrumental?: boolean;
+}
+
+/** The whole chain a track goes through once it exists: search → download → find lyrics →
+ * stem, unless LRCLIB says the song is instrumental. Every step reads the song its own predecessor returned, so a reload can resume
+ * from `song.fetchStatus`/`song.lyricsMatch` alone rather than losing the thread — see
+ * ../../docs/audio.md. */
+export async function runPipeline(
+  song: Song,
+  mode: PipelineMode,
+  steps: PipelineSteps,
+  { lyrics = true, instrumental = true }: PipelineOptions = {},
+): Promise<Song> {
+  let current = song;
+  // A fresh start never resumes a stored hunt or job: it may be the very one that failed.
+  const resume = mode === "continue";
+  // What went wrong without stopping the chain, left on the song as the run's outcome.
+  let problem = "";
+
+  if (!current.audio) {
+    if (resume && !current.fetchStatus.huntId) return current;
+    current = await fetchSong(
+      current,
+      steps,
+      (resume && current.fetchStatus.huntId) || undefined,
+    );
+  }
+
+  // Lyrics BEFORE stems: a song LRCLIB lists as instrumental has no voice to take out.
+  // Lyrics already timed are left alone: re-timing them is the ⋮ menu's « Resync lyrics ».
+  const untimed =
+    !hasTimecodes(current.lyrics) && !(current.lyricTimings?.length ?? 0);
+  // A run resumed while stemming is past the lyrics: they were timed, or turned down.
+  const pastLyrics = resume && song.fetchStatus.phase === "stemming";
+  if (
+    lyrics &&
+    !pastLyrics &&
+    current.audio &&
+    current.lyricsMatch === "" &&
+    untimed
+  ) {
+    try {
+      current = await syncLyrics(current, steps);
+    } catch (err) {
+      // LRCLIB out of reach does not stop the chain on its way to stems, but it is reported.
+      problem = (err as Error).message;
+    }
+  }
+
+  if (
+    instrumental &&
+    current.audio &&
+    !current.instrumental &&
+    current.lyricsMatch !== "instrumental"
+  ) {
+    const outcome = await makeInstrumental(
+      current,
+      steps,
+      (resume && current.fetchStatus.jobId) || undefined,
+    );
+    // No engine online is reported, like a lyrics failure; the later note wins.
+    if (outcome.song) current = outcome.song;
+    if (outcome.note) problem = outcome.note;
+  }
+
+  steps.onStatus?.({
+    phase: problem ? "failed" : "",
+    error: problem,
+    progress: null,
+    huntId: "",
+    jobId: "",
+  });
+  return current;
+}

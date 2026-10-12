@@ -46,7 +46,7 @@ export function Tray({ state, engineExit }: TrayProps) {
         <h2 className="font-medium">Studios</h2>
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            none connected — connect one to open st0, pl8 and k7 here
+            none connected — connect one to open st0 here
           </p>
         ) : null}
         {rows.map((row) => (
@@ -176,7 +176,7 @@ function PrivateCa() {
             Android does not let apps use the CAs installed in Settings, so a
             private one is added here instead: pick its certificate file (.pem,
             .crt or .der). It is trusted by the engine's connection to the
-            studio and by st0, pl8 and k7 alike.
+            studio and by st0 alike.
           </p>
           <p className="text-sm">{base}</p>
           {said ? <p className="text-sm">{said}</p> : null}

@@ -26,11 +26,11 @@ describe("relayUrls", () => {
 
   it("dials a plain-HTTP relay over ws:", () => {
     const r = relayUrls(
-      "http://localhost:8795",
+      "http://localhost:8789",
       "e1",
       "x",
       "http://localhost:5223/",
     );
-    expect(r.ws).toBe("ws://localhost:8795/api/engine/e1/ws?ticket=x");
+    expect(r.ws).toBe("ws://localhost:8789/api/engine/e1/ws?ticket=x");
   });
 });

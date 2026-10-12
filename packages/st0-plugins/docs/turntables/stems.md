@@ -104,9 +104,9 @@ stems: true              # this desk catches an unprepared record
 ```
 
 It turns "this song has no stems" from a dead end into a job: the record goes onto the deck
-**immediately** and the separation starts behind it, `POST /api/stems` on **pl8** then a poll
-every two seconds. On pl8 and not on the file service: pl8 holds the masters, so pl8 leads the
-split, borrowing the named engine's model (`apps/pl8/docs/stems.md`). `library` is this package's
+**immediately** and the separation starts behind it, `POST /api/stems` on **the media library** then a poll
+every two seconds. On the media library and not on the file service: it holds the masters, so it
+leads the split, borrowing the named engine's model (`apps/st0/backend/docs/media/stems.md`). `library` is this package's
 second seam for that one reason.
 
 The percentage is drawn **over** the dead knobs, not above them: the block borrows the strip's

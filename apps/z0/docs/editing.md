@@ -99,7 +99,7 @@ second view of the same file: it is the check on what the editor is about to com
 - **List sessions and open one.** This editor is opened ON a project by its address, and the
   choice happens on st0's home page. A second picker is exactly what
   `packages/project-shell/docs/launch.md` refuses.
-- **Upload audio** onto a track. Audio lives in the médiathèque, and putting it there is pl8's
+- **Upload audio** onto a track. Audio lives in the médiathèque, and putting it there is the media library's
   job. A track names an address; it carries no bytes.
 - **Reuse a category.** A category is a file, and two rounds on the same one are done with
   `songs:` in order. The picker (`SongPicker`) is therefore over SONGS, over the médiathèque.

@@ -1,4 +1,4 @@
-// `isLoopbackReturn` IS the security of pl8's pairing route: anything it lets through is an
+// `isLoopbackReturn` IS the security of the pairing route: anything it lets through is an
 // address somebody else's token can be sent to. So the cases that matter are the ones that
 // LOOK like loopback and are not.
 
@@ -56,24 +56,24 @@ describe("the URL the desktop opens", () => {
   it("carries the return address and the state nonce", () => {
     const u = new URL(
       pairUrl(
-        "https://studio.frediver.se/pl8",
+        "https://st0.app",
         `http://127.0.0.1:8780${PAIR_RETURN_PATH}`,
         "n0nce",
       ),
     );
-    expect(u.origin).toBe("https://studio.frediver.se");
-    expect(u.pathname).toBe("/pl8/api/token/pair");
+    expect(u.origin).toBe("https://st0.app");
+    expect(u.pathname).toBe("/api/token/pair");
     expect(u.searchParams.get("return")).toBe(
       "http://127.0.0.1:8780/desktop/pair",
     );
     expect(u.searchParams.get("state")).toBe("n0nce");
   });
 
-  it("keeps pl8's path prefix — resolving against the ORIGIN would hit st0's backend", () => {
-    for (const base of ["https://s.test/pl8", "https://s.test/pl8/"]) {
+  it("keeps a base's path prefix — resolving against the ORIGIN would drop it", () => {
+    for (const base of ["https://s.test/studio", "https://s.test/studio/"]) {
       expect(
         new URL(pairUrl(base, "http://127.0.0.1:1/desktop/pair", "s")).pathname,
-      ).toBe("/pl8/api/token/pair");
+      ).toBe("/studio/api/token/pair");
     }
   });
 });

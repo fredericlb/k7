@@ -1,9 +1,9 @@
 // benchChain.ts — a library CHAIN played live on the bench: which chains can be, and putting one
-// between the rig's input and its fader. What k7 records through (apps/k7/docs/chainSource.md).
+// between the rig's input and its fader. What k7 records through (../../ui-rehearsal/docs/chainSource.md).
 //
 // The one thing a reader would get wrong: the chain is COPIED into the bench, never referenced, and
 // as the bench's own segments and node files whichever layout the library keeps it in — a copy dies
-// with the bench, so an edit made while auditioning reaches nothing shared. See apps/pl8/docs/banc.md.
+// with the bench, so an edit made while auditioning reaches nothing shared. See apps/st0/backend/docs/media/banc.md.
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -83,7 +83,7 @@ function benchName(step: TemplateStep, taken: Set<string>): string {
   return name;
 }
 
-/** Every library's chains, by `@<library>/<path>`, each with why it cannot run live against `dir`'s modules — a cold one is listed, not dropped (apps/k7/docs/chainSource.md). */
+/** Every library's chains, by `@<library>/<path>`, each with why it cannot run live against `dir`'s modules — a cold one is listed, not dropped (../../ui-rehearsal/docs/chainSource.md). */
 export function liveChains(dir: string): LiveChain[] {
   const byRef = loadModuleRefs(dir);
   return libraryChainDirs().map((c) => ({
@@ -145,7 +145,7 @@ export function spliceChain(benchDir: string, ref: string): void {
         ],
       },
       `# The bench, with the library chain "${ref}" COPIED between the input and the fader.\n` +
-        `# Nothing here is saved: edit the chain in st0's chains builder. See apps/pl8/docs/banc.md.`,
+        `# Nothing here is saved: edit the chain in st0's chains builder. See apps/st0/backend/docs/media/banc.md.`,
     ),
     "utf8",
   );

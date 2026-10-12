@@ -2,16 +2,17 @@
 
 ```bash
 npm run dev                        # every app + the engine + the tray, under Tilt
-npm run dev -- native pl8-frontend # only the named Tilt resources
+npm run dev -- native st0-frontend # only the named Tilt resources
 npm run dev:native                 # only the engine and the tray, no Tilt
 npm run vscode                     # the browser editor at /dev, on its own
 ```
 
 ## Where it answers
 
-**Three hosts, one per service that has its own** — `priv.st0.app` (st0, and z0 as a path
-under it, unmoved), `play.priv.st0.app` (pl8), `k7.priv.st0.app` (k7) — `scripts/dev-hosts.mjs`
-names all three. The same shape production has under `st0.app` / `play.st0.app` /
+**Three hosts** — `priv.st0.app` (st0 with its media library and its rehearsal pages, and z0 as a
+path under it), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of st0 as `play.st0.app` and
+`k7.st0.app` are in production — `scripts/dev-hosts.mjs` names all three (`DEV_HOST`,
+`ALIAS_DEV_HOST`, `K7_ALIAS_DEV_HOST`). The same shape production has under `st0.app` / `play.st0.app` /
 `k7.st0.app`, which is the point: the two differ by their domain and nothing else.
 
 > **The LAN proxy's host table lives on the other machine.** It is the one piece of this
@@ -22,11 +23,11 @@ names all three. The same shape production has under `st0.app` / `play.st0.app` 
 > | `priv.st0.app` | **5223** | st0's dev server |
 > | `priv.st0.app/z0/*` (six SPAs) | 3001–3006 | z0's own dev servers, prefix kept — see `apps/z0/AGENTS.md` |
 > | `priv.st0.app/z0/api/*`, `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` | 8080 | z0's backend — prefix STRIPPED |
-> | `play.priv.st0.app` | **5224** | pl8's dev server |
-> | `k7.priv.st0.app` | **5173** | k7's dev server |
+> | `play.priv.st0.app` | **5223** | st0's dev server, which answers the alias as the hosted st0 does |
+> | `k7.priv.st0.app` | **5223** | st0's dev server, the same way |
 >
-> That is the WHOLE table for pl8 and k7: each app's own vite dev server already proxies
-> `/api`, `/auth` and (k7's) `/rtc` to its own backend port internally
+> That is the WHOLE table for st0: its vite dev server already proxies
+> `/api`, `/auth` and `/rtc` (the rehearsal pages' phone microphone) to its backend port internally
 > (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
 > `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. z0 is
 > the one exception still living as a path under st0's origin rather than its own subdomain, so
@@ -34,9 +35,7 @@ names all three. The same shape production has under `st0.app` / `play.st0.app` 
 >
 > **`/auth/*` follows st0**, wherever the request lands: the registered `redirect_uri` is
 > `<origin>/auth/callback` with no prefix, so the flow belongs to whichever service answers a
-> bare origin root — st0. pl8's and k7's own vite configs proxy `/auth` to `AUTH_BACKEND_PORT`
-> (8789, `scripts/dev-hosts.mjs`) rather than to their own backend, which is what makes each
-> dev server usable when reached directly on its own port too, same as production.
+> bare origin root — st0.
 >
 > Sending `/auth` to a backend that mounts no auth routes fails silently, and it is worth
 > knowing what that looks like: Express answers its own **404, `Cannot GET /auth/login`**, which
@@ -89,8 +88,8 @@ kinds, each for a reason:
 
 The root `build` and `test` scripts stay outside this list — Tilt only owns the dev session.
 
-The **file service** is not a row: pl8's file hub starts one per account on first use
-(`packages/file-hub/docs/fileHub.md`). `pl8-backend`'s dev script sets `STUDIO_FILES_WATCH=1`,
+The **file service** is not a row: st0's backend's file hub starts one per account on first use
+(`packages/file-hub/docs/fileHub.md`). `st0-backend`'s dev script sets `STUDIO_FILES_WATCH=1`,
 and the hub then watches the file service and every `@studio/*` package it runs: an edit stops
 the account processes and the next request starts them on the new code.
 

@@ -91,7 +91,7 @@ a folder name git would give a clone, so none can collide with a workspace.
 |---|---|---|
 | `/@local/<espace>/<projet>` | a project in a workspace on this machine | `POST /open` on it — no lookup, no clone, **no libraries check** |
 | `/@banc/<chain>/live.st0` | the bench: one live rig, generated, seeded with a copy of a library chain, for anyone. The bare `/@banc/live.st0` and a bare library (`/@banc/@st0/live.st0`) are refused — a library is edited by an admin from any project | the libraries check, then the machine writes the rig again and opens it |
-| `/@shares/<token>.st0` | a frozen snapshot pl8 holds | none of it: no account, no engine, no working copy |
+| `/@shares/<token>.st0` | a frozen snapshot the media library holds | none of it: no account, no engine, no working copy |
 
 **Anything else is refused** with the "missing" screen, which says a project opens from the home
 page and what its address will be: guessing which folder a repository name meant would open the
@@ -142,13 +142,13 @@ There is deliberately no *second* picker: one list, in one app, is the whole poi
 comes back to st0's home rather than growing one of its own, because that list already holds
 `.z0` folders and a second one would be the second thing to keep in step with the first.
 
-> **The screen is st0's, and so is the list.** The catalogue (pl8) is what a project draws ON,
+> **The screen is st0's, and so is the list.** The catalogue (the médiathèque) is what a project draws ON,
 > while "which projects do I have" is the first question of the app that opens one, and the
 > machine that scaffolds a project is st0's side of the wire. The workspaces and the libraries
 > are the machine's, asked of the file service.
 >
 > st0 answers the ORIGIN, so this page is `<origin>/`, and `projectsUrl` asks `serviceUrl` for
-> st0's origin rather than spelling it — a page on pl8's subdomain lands on the right one.
+> st0's origin rather than spelling it, so where the editor answers stays a fact of one table.
 
 `projectsUrl` ends in a slash on purpose — that is `BASE_URL`'s own spelling, so a tab lands on the
 app's mount rather than on a redirect to it. And `serviceUrl` is what keeps the prefix a fact read
@@ -159,7 +159,7 @@ from one table rather than a slash somebody has to remember.
 `GateEngine` declares what the gate needs about the engine it resolved against, **structurally**,
 so it does not care how each app models one. Two of its fields are flat (`fileBase`, `token`) and
 the third is nested: `engine: { id }`, because a call to another service has to name the machine it
-is borrowing (`FileCfg.engineId`, and pl8's `/api/stems` is the first that does). Nested rather
+is borrowing (`FileCfg.engineId`, and the media library's `/api/stems` is the first that does). Nested rather
 than flattened to `id` is the shape `RankedEngine` already has — both hosts pass one of those
 straight through, so asking for the field where it actually lives costs neither of them an edit.
 

@@ -66,7 +66,7 @@ carry. A wav per VST track per edit, committed, is a history that only grows —
 every engine copy and every LFS quota pays for renders nobody will play again.
 
 - **Where.** `<studioHome>/.renders/` (`autoRendersHome`, `AUTO_RENDERS_HOME_DIR`). On the server
-  that is the ACCOUNT's folder on pl8's volume, `$STUDIO_FILES_ROOT/<account>/.renders`, beside its
+  that is the ACCOUNT's folder on st0's workspaces volume, `$STUDIO_FILES_ROOT/<account>/.renders`, beside its
   `workspace/` and never inside it, so no project tree lists it and no commit can pick it up. Per
   account rather than one for the origin: a fingerprint names large files by name and size, and two
   accounts' songs must not be able to hand each other their audio.

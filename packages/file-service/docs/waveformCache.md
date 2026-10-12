@@ -65,7 +65,7 @@ view of that audio agrees from then on; asking for none keeps whatever is there.
 
 ## The tempo
 
-The analysis also estimates a **bpm** in the same pass, and writes it into the sidecar. It is what pl8
+The analysis also estimates a **bpm** in the same pass, and writes it into the sidecar. It is what the media library
 seeds a song's `song.yaml` with; the person edits it afterwards, and nothing overwrites an edited
 value.
 
@@ -124,7 +124,7 @@ file are one decode, and both callers get its answer. A failed one is dropped ra
 the next ask should start a decode again, not inherit the first one's error.
 
 Where there is no engine binary — the hosted file service, whose engine is on the musician's machine
-— the decode goes through ffmpeg, as pl8's does, and the sidecar is the same file. Without that,
+— the decode goes through ffmpeg, as the media library's does, and the sidecar is the same file. Without that,
 every clip whose sidecar is missing or stale on the server — a freeze render just uploaded, a new
 take — would draw no waveform at all.
 

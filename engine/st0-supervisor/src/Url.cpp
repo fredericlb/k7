@@ -11,13 +11,13 @@ namespace st0::url {
 
 namespace {
 
-const std::string kPl8Port = "8795";
+const std::string kSt0Port = "8789";
 
-/** pl8's loopback port: `pl8=` in `$STUDIO_PORTS` when a host moved it (services.ts's `servicePorts`), else 8795. */
-std::string pl8Port()
+/** st0's loopback port: `st0=` in `$STUDIO_PORTS` when a host moved it (services.ts's `servicePorts`), else 8789. */
+std::string st0Port()
 {
     const char* env = std::getenv("STUDIO_PORTS");
-    if (!env) return kPl8Port;
+    if (!env) return kSt0Port;
     const std::string spec(env);
     for (size_t start = 0; start <= spec.size();) {
         const size_t comma = spec.find(',', start);
@@ -27,12 +27,12 @@ std::string pl8Port()
             const std::string value = pair.substr(eq + 1);
             const bool digits = !value.empty() && value.size() <= 5 &&
                                 std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isdigit(c); });
-            if (name == "pl8" && digits && std::stoi(value) > 0 && std::stoi(value) < 65536) return value;
+            if (name == "st0" && digits && std::stoi(value) > 0 && std::stoi(value) < 65536) return value;
         }
         if (comma == std::string::npos) break;
         start = comma + 1;
     }
-    return kPl8Port;
+    return kSt0Port;
 }
 
 std::string lower(std::string s)
@@ -70,7 +70,7 @@ bool forbiddenHostChar(char c)
     return bad.find(c) != std::string::npos || static_cast<unsigned char>(c) < 0x20 || c == 0x7f;
 }
 
-/** `play.` and `k7.` stripped back off, giving st0's own hostname. */
+/** `play.` and `k7.` (the alias hosts) stripped back off, giving st0's own hostname. */
 std::string st0Hostname(const std::string& hostname)
 {
     for (const char* label : {"play.", "k7."}) {
@@ -179,9 +179,9 @@ std::string serviceUrl(const std::string& origin, const std::string& service)
     const auto u = parse(origin);
     if (!u) return "";
     const std::string base = st0Hostname(u->hostname);
-    if (service == "st0") return base == u->hostname ? u->origin() : u->scheme + "://" + base;
-    const std::string label = service == "pl8" ? "play" : service;
-    return u->scheme + "://" + label + "." + base;
+    // pl8 and k7 are served by st0's own process, so every service shares st0's address.
+    const std::string root = base == u->hostname ? u->origin() : u->scheme + "://" + base;
+    return service == "z0" ? root + "/z0" : root;
 }
 
 std::string studioFamily(const std::string& raw)
@@ -196,8 +196,8 @@ std::string engineRegistryUrl(const std::string& raw)
 {
     const auto u = parse(raw);
     if (!u || (u->scheme != "http" && u->scheme != "https")) return "";
-    if (isLoopbackHost(u->hostname)) return u->scheme + "://" + u->hostname + ":" + pl8Port();
-    return serviceUrl(u->origin(), "pl8");
+    if (isLoopbackHost(u->hostname)) return u->scheme + "://" + u->hostname + ":" + st0Port();
+    return serviceUrl(u->origin(), "st0");
 }
 
 std::optional<std::string> normaliseUserOrigin(const std::string& input)

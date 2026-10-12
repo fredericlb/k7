@@ -265,8 +265,8 @@ this is the vocabulary, and a browser has to spell it too — st0's Libraries ta
 row, and `sharedFolders.ts` reads the disk on its first line, so importing it there would drag
 `node:fs` into a bundle.
 
-**`@st0` names the MÉDIATHÈQUE — `apps/pl8` — and not the app called st0.** So the one level that
-reads like an app is the only one that names a different one, and it DELIBERATELY does not follow a
+**`@st0` names the MÉDIATHÈQUE's library — `st0-library/` — and not the editor.** The one level that
+reads like an app names a library, and it DELIBERATELY does not follow a
 rename. A level is written into user files: every `@st0/…` in every chain of every repository would
 have to be rewritten at once, on machines this repo does not have, and the failure is silent enough
 to be nasty (a `?` on a graph node, nothing else). An app is named for where it sits on the origin;

@@ -1,11 +1,11 @@
 # Bulk-uploading a local library
 
-`scripts/uploadLibrary.ts` pushes a local `<artist>/<album>/<title>/` tree into a HOSTED pl8, one
+`scripts/uploadLibrary.ts` pushes a local `<artist>/<album>/<title>/` tree into a HOSTED media library, one
 song per leaf folder holding an audio file:
 
 ```bash
 npm run upload-library --workspace @studio/mediatek -- \
-  --root /path/to/library --url https://play.example.com --token <bearer token>
+  --root /path/to/library --url https://st0.example.com --token <bearer token>
 ```
 
 ## The folder is not required to already be a médiathèque

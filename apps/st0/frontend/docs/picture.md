@@ -105,7 +105,7 @@ which cameras there are — `matchCamera`, the lens's own rule rather than a res
   have to read out of the file.
 - **A fresh WebM has no duration in it**, which makes it unseekable, which makes it a clip the
   frame cannot scrub. `fix-webm-duration` repairs the blob before it is uploaded — the same
-  library and the same fix k7's audio recorder already applies.
+  library and the same fix the rehearsal recorder applies (`packages/recorder/docs/recorder.md`).
 - **The lens is let go** on stop and on unmount. A stream left running keeps the indicator lit and
   the device held until the tab closes.
 

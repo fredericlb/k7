@@ -30,7 +30,7 @@ and the split is deliberate:
 | the **chains slot** in the main view, opened by `sequence edit roll\|tracker <sequence>` and closed by its × | written straight to the file, per edit |
 | the **clip pane's `tracker` mode**, one of the three the header's view switch offers | the same, and the same code: both mount `SeqGridFile` |
 | the **editor popin's tabs** — Text / Roll / Tracker, on a sequence | into the editor's buffer: dirty flag, Save button, one path with the text |
-| pl8 / anywhere else drawing a sequence | its own |
+| the médiathèque / anywhere else drawing a sequence | its own |
 
 The first two share `SeqGridFile` rather than each reading and writing the file themselves:
 "read it, hand it to the grid, write every edit back" is one behaviour, and two copies of it

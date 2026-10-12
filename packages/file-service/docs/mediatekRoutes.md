@@ -1,12 +1,12 @@
 # routes/mediatek.ts — the media library as THIS MACHINE holds it
 
-The library itself is hosted (`apps/pl8/backend`); what lives here is a cache the moteur plays
+The library itself is hosted (`apps/st0/backend/src/media/`); what lives here is a cache the moteur plays
 from, so these routes report what is cached and pull down what is missing. Mounted BEFORE
 `resolveWorkspace`: a cache is per machine, the way `/workspaces` is per user.
 
-## `POST /mediatek/analyse` — because pl8 cannot decode audio
+## `POST /mediatek/analyse` — because the hosted library has no engine
 
-pl8 is a Node + nginx container with no engine, and the engine is what owns decoding — so the
+st0's image holds no engine, and the engine is what owns decoding — so the
 hosted library holds the bytes and this machine, which has one, does the work and hands the
 result back.
 

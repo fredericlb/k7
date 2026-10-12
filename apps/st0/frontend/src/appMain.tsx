@@ -38,15 +38,35 @@ const ExternalIndex = lazy(() =>
 const SharedGate = lazy(() =>
   import("./components/SharedGate").then((m) => ({ default: m.SharedGate })),
 );
+const RehearsalPublicPage = lazy(() =>
+  import("@studio/ui-rehearsal/pages").then((m) => ({
+    default: m.RehearsalPublicPage,
+  })),
+);
+const RehearsalRemote = lazy(() =>
+  import("@studio/ui-rehearsal/pages").then((m) => ({
+    default: m.RehearsalRemote,
+  })),
+);
 
 import { PROFILING } from "@studio/project-shell/profiling";
+import { publicPageAt, RehearsalRecording } from "@studio/ui-rehearsal";
 import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
-import { LIBRARIES_ROUTE, SETTINGS_ROUTE, TASKS_ROUTE } from "./projects/api";
+import { PaneBoundary } from "./PaneBoundary";
+import {
+  LIBRARIES_ROUTE,
+  MEDIA_ROUTE,
+  REHEARSAL_ROUTE,
+  SETTINGS_ROUTE,
+  TASKS_ROUTE,
+} from "./projects/api";
 import { Home } from "./projects/Home";
 import { LibrariesPage } from "./projects/LibrariesPage";
+import { MediaPage } from "./projects/MediaPage";
+import { RehearsalHost } from "./projects/RehearsalHost";
+import { RehearsalPage } from "./projects/RehearsalPage";
 import { TasksPage } from "./projects/TasksPage";
-import { PaneBoundary } from "./PaneBoundary";
 import { SettingsPage } from "./settings/SettingsPage";
 
 import "./index.css";
@@ -62,7 +82,7 @@ setFileApiTally(tally);
 /** The Profiler is here for the freeze watchdog, and OFF unless someone is looking: it bills every commit in a tree that commits per meter frame. */
 const profiling = PROFILING;
 
-/** The pages hanging off the home — `/libraries`, `/settings`, `/tasks` — read FIRST: `parseLaunch` would take the word for a workspace. */
+/** The pages hanging off the home — `/libraries`, `/settings`, `/tasks`, `/media/…` — read FIRST: `parseLaunch` would take the word for a workspace. */
 const homePage = isHomePage(window.location.pathname, import.meta.env.BASE_URL);
 
 /** Which of the three things this address is, read out of the address and nothing else — a branch, a SHARE being the wrong stack rather than a disabled one. */
@@ -70,6 +90,14 @@ const at = homePage
   ? null
   : parseLaunch(window.location.pathname, "st0", import.meta.env.BASE_URL);
 const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
+
+/** …and a rehearsal PUBLIC page, `/rehearsal/@<nametag>`, which nobody signs in to see: read before the AuthGate. */
+const rehearsalNametag = homePage
+  ? publicPageAt(
+      window.location.pathname,
+      `${import.meta.env.BASE_URL.replace(/\/$/, "")}${REHEARSAL_ROUTE}`,
+    )
+  : null;
 
 /** …and the MENU of surfaces, `/external`, read BEFORE any of it: a single segment is a legal project address, so the word is reserved. */
 const externalIndex = isExternalIndex(
@@ -148,47 +176,71 @@ ReactDOM.createRoot(document.getElementById("root")!, {
     <LocaleProvider>
       {/* The last line: a fault that escaped every pane's own boundary draws a card here, not a white page. */}
       <PaneBoundary name="st0">
-      {sharedToken ? (
-        <Suspense fallback={<Booting />}>
-          <SharedGate token={sharedToken}>
-            {(share) => (
-              <App
-                snapshot={share}
-                // No engine to reach, ever — and `null` is the ONE answer EngineClient already understands as that, so it backs off.
-                engineUrl={() => null}
-                engineLatency={null}
-                userEmail=""
-                onQuitWorkspace={() => {}}
-                onChangeEngine={() => {}}
-              />
-            )}
-          </SharedGate>
-        </Suspense>
-      ) : (
-        <AuthGate>
+        {sharedToken ? (
           <Suspense fallback={<Booting />}>
-            {/* No project in the address: the home page, behind the account and nothing else, since listing repositories needs no engine. */}
-            {externalIndex ? (
-              // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
-              <ExternalIndex />
-            ) : !at ? (
-              // The pages with no project are ROUTES, so going between them reloads nothing.
-              <Routes>
-                <Route path={LIBRARIES_ROUTE} element={<LibrariesPage />} />
-                <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
-                <Route path={TASKS_ROUTE} element={<TasksPage />} />
-                <Route path="*" element={<Home />} />
-              </Routes>
-            ) : profiling ? (
-              <Profiler id="app" onRender={reportCommit}>
-                <EngineGate external={external} />
-              </Profiler>
-            ) : (
-              <EngineGate external={external} />
-            )}
+            <SharedGate token={sharedToken}>
+              {(share) => (
+                <App
+                  snapshot={share}
+                  // No engine to reach, ever — and `null` is the ONE answer EngineClient already understands as that, so it backs off.
+                  engineUrl={() => null}
+                  engineLatency={null}
+                  userEmail=""
+                  onQuitWorkspace={() => {}}
+                  onChangeEngine={() => {}}
+                />
+              )}
+            </SharedGate>
           </Suspense>
-        </AuthGate>
-      )}
+        ) : rehearsalNametag ? (
+          <Suspense fallback={<Booting />}>
+            <RehearsalPublicPage nametag={rehearsalNametag} />
+          </Suspense>
+        ) : (
+          <AuthGate>
+            <Suspense fallback={<Booting />}>
+              {/* No project in the address: the home page, behind the account and nothing else, since listing repositories needs no engine. */}
+              {externalIndex ? (
+                // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
+                <ExternalIndex />
+              ) : !at ? (
+                // The pages with no project are ROUTES, so going between them reloads nothing; a take outlives them all.
+                <RehearsalHost>
+                  <RehearsalRecording>
+                    <Routes>
+                      <Route
+                        path={LIBRARIES_ROUTE}
+                        element={<LibrariesPage />}
+                      />
+                      <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
+                      <Route path={TASKS_ROUTE} element={<TasksPage />} />
+                      <Route
+                        path={`${MEDIA_ROUTE}/*`}
+                        element={<MediaPage />}
+                      />
+                      {/* The phone's microphone: a page of its own, outside the frame. */}
+                      <Route
+                        path={`${REHEARSAL_ROUTE}/remote`}
+                        element={<RehearsalRemote />}
+                      />
+                      <Route
+                        path={`${REHEARSAL_ROUTE}/*`}
+                        element={<RehearsalPage />}
+                      />
+                      <Route path="*" element={<Home />} />
+                    </Routes>
+                  </RehearsalRecording>
+                </RehearsalHost>
+              ) : profiling ? (
+                <Profiler id="app" onRender={reportCommit}>
+                  <EngineGate external={external} />
+                </Profiler>
+              ) : (
+                <EngineGate external={external} />
+              )}
+            </Suspense>
+          </AuthGate>
+        )}
       </PaneBoundary>
     </LocaleProvider>
   </BrowserRouter>,

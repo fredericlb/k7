@@ -129,7 +129,7 @@ per component render, with a `detail` object for its DevTools track, and the bro
 entry until somebody clears it — about 140 a second on the editor. Measured after a long dev session:
 the tab at **3.5 GB**, one CC visiting **8.9 million** live objects and freeing 28 000, slices up to
 131 ms, and the cycle collector at **79 %** of the tab's CPU while the app's own JS was 13 %. So every
-studio app's entry — st0's, pl8's, k7's and z0's six — calls `clearDevPerfEntries`
+studio app's entry — st0's and z0's six — calls `clearDevPerfEntries`
 (`packages/project-shell/src/devPerf.ts`) at boot, which clears the measures and marks every few
 seconds in DEV and does nothing in production. Nothing of the apps reads them: the profiler records
 them as markers as they happen, so a recording still shows them.
@@ -167,7 +167,7 @@ until its divider is dragged. It is the wiring and the layout; almost nothing el
 
 ### The header is the shared bar, with st0's contents in it
 
-`@frediverse/ui/app-header` draws it — the same bar pl8 and k7 use — and st0 fills its four slots:
+`@frediverse/ui/app-header` draws it — the bar phare's apps use too — and st0 fills its four slots:
 
 | slot | what st0 puts there |
 |---|---|
@@ -937,7 +937,7 @@ A rolling take **evicts** whatever the slot holds — the one case where somethi
 opens it, and while a take rolls the take is the thing.
 
 The two rows can both show a piano roll, and they are **not the same one**. The grid draws a sequence
-FILE's `notes:` array (`@studio/ui-editor`, shared with pl8, editing the text). The clip view draws a
+FILE's `notes:` array (`@studio/ui-editor`, shared with the media library, editing the text). The clip view draws a
 PLACED clip's compiled notes (st0's own `PianoRoll`, with the transport's playhead on it). Same picture,
 different subject — one is a file, the other is a placement.
 
@@ -1536,7 +1536,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
 | the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |
-| the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | pl8's `POST /api/stems`, see [playlists.md](playlists.md) |
+| the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | the media library's `POST /api/stems`, see [playlists.md](playlists.md) |
 | the settings page's *Separation chains* | `system stems <chaîne>` — the page itself writes through `PUT /account/cold-chains/stems`, since it has no project to run a command in | `@studio/commands` — `<state>/preferences.yaml`, read by every screen that could start one |
 
 Two of those handles exist only for this: `EditorHandle` carries the tree's own verbs, and `FileTreeHandle`
@@ -1572,8 +1572,8 @@ the button already holds an open socket to the engine.
 
 Two of the Playlists panel's gestures take a road of their own, both in [playlists.md](playlists.md):
 adding a song from the SEARCH writes into the OPEN BUFFER rather than the file, because a command writing
-the file underneath a modified buffer would race the autosave; and *Séparer les stems* drives pl8's `POST
-/api/stems` once per line rather than dispatching `playlist stems`, because that verb reports its lines
+the file underneath a modified buffer would race the autosave; and *Séparer les stems* drives the media library's
+`POST /api/stems` once per line rather than dispatching `playlist stems`, because that verb reports its lines
 when it is finished and finishing takes an hour. What must be reachable from the bar is the ACT, and it is
 — the verb does the same work headless. What the button adds is a bar you can watch, which a command's
 reply has no shape for.
@@ -1624,8 +1624,8 @@ already draws.
 
 **The scope is `/`, the whole origin, and it cannot be narrower — this is the part st0 owns alone.** A
 worker's scope is a prefix and st0's own routes ARE the root, `/@local/…`. So this worker also
-controls `/z0`, `/api` and `/auth`, which no other app on this origin has to think about: pl8 and k7
-answer their own subdomains, not a path here, so they are off this list entirely. The only thing
+controls `/z0`, `/api`, `/auth` and `/rtc`, which no other app on this origin has to think about. The
+media library and the rehearsal pages are st0's own routes, so the worker serving them is right. The only thing
 keeping st0's honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation
 to `/z0` is answered with st0's `index.html` and the game becomes a white page with the editor's
 router refusing an address it cannot parse. That list is the same table as

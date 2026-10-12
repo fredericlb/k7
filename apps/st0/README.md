@@ -32,8 +32,9 @@ the engine is unchanged — it only speaks the JSON protocol below.
 ## Where the pieces live
 
 The engine, the tray and the brain packages serve every audio app in the repo —
-pl8, k7, z0 — so they sit beside `apps/st0` rather than inside it. What lives
-here is the web editor: `frontend` and `backend`.
+z0 too — so they sit beside `apps/st0` rather than inside it. What lives
+here is the web editor, its media library and the host of the rehearsal pages: `frontend` and
+`backend`.
 
 The JS packages are **members of the monorepo's npm workspaces**, consumed as raw
 TypeScript source and run via `tsx` — no build step. The engine is a native C++

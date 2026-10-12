@@ -15,7 +15,7 @@ is a private key in flight between two services, a bearer-only route to carry it
 header, a rule never to log it, and a directory mapping a service's token to the person whose key
 it wants: all of it only to make the travel safe.
 
-No service keeps the studio's git identity (`apps/pl8/docs/projects.md`), so there is nothing for a
+No service keeps the studio's git identity (`apps/st0/backend/docs/media/projects.md`), so there is nothing for a
 shared key to be shared *with*: one machine, one key, made where it is used. The private half is
 served by nobody and has no route to travel on. The price is that **a second machine needs its own
 key registered at the git host** — a paste per machine.
@@ -45,7 +45,7 @@ character — a URI must never reach `git` looking like an option.
 `normalizeGitUri` folds those two spellings into one comparison key, `host[:port]/path`, with no
 `.git` and no SSH user, port 22 dropped, host lowercased. It matters because
 `git@host:me/repo.git` and `ssh://git@host/me/repo` are the **same repository**, and the two
-sides of this feature learn about it by different routes: pl8 from what a person pasted, the file
+sides of this feature learn about it by different routes: st0's home page from what a person pasted, the file
 service from a checkout's `remote.origin.url`, which git may have rewritten. Comparing the raw
 strings would clone a repository that is already there
 (`apps/st0/frontend/docs/projects.md`).

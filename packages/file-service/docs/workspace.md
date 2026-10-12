@@ -349,7 +349,7 @@ The rig is scaffolded fresh on every open, so a write into the project folder su
 long as the session: no translation, no promotion, no path out of it. What an admin writes into a
 LIBRARY from the rig — `_libraries/<name>/…`, an ordinary path here as it is in every other
 workspace — lands in the admin's own clone of it, as from any project, until it is pushed or
-discarded (`apps/pl8/docs/banc.md`, `libraries.md`).
+discarded (`apps/st0/backend/docs/media/banc.md`, `libraries.md`).
 
 That workspace holds the rig and nothing else: a `chains/` folder in it is swept on open, because a
 project folder that saves nowhere is worse than no folder at all.

@@ -1,15 +1,9 @@
 // UserMenu.tsx — studio's user menu: @frediverse/ui's, with one link per OTHER studio app of the
-// origin. `serviceUrl` resolves each one's address — st0's own origin, z0's path under it, or
-// pl8/k7's own subdomain; `origin` makes those links resolve against the paired SERVER instead of
-// this tab's origin, which is the desktop app's case. See ../docs/userMenu.md.
+// origin. `serviceUrl` resolves each one's address — st0's own origin or z0's path under it;
+// `origin` makes those links resolve against the paired SERVER instead of this tab's origin,
+// which is the desktop app's case. See ../docs/userMenu.md.
 
-import {
-  FolderGit2,
-  Gamepad2,
-  Library,
-  type LucideIcon,
-  Mic,
-} from "@frediverse/ui/icons";
+import { FolderGit2, Gamepad2, type LucideIcon } from "@frediverse/ui/icons";
 import { UserMenu as BaseUserMenu } from "@frediverse/ui/user-menu";
 import { type StudioService, serviceUrl } from "@studio/web-protocol/services";
 
@@ -24,20 +18,8 @@ const APPS: {
   {
     id: "st0",
     label: "st0",
-    hint: "your projects — the repositories, the songs, the shares",
+    hint: "your projects, the media library, the rehearsals, the shares",
     icon: FolderGit2,
-  },
-  {
-    id: "pl8",
-    label: "pl8",
-    hint: "the media library — songs, samples, takes",
-    icon: Library,
-  },
-  {
-    id: "k7",
-    label: "k7",
-    hint: "the rehearsal recorder — sessions, takes, tablature",
-    icon: Mic,
   },
   {
     id: "z0",

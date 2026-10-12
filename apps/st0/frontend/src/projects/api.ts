@@ -35,21 +35,18 @@ import {
   externalOf,
   LIBRARIES_PAGE,
   localProjectUrl,
+  MEDIA_PAGE,
+  REHEARSAL_PAGE,
   SETTINGS_PAGE,
   shareUrl,
   TASKS_PAGE,
 } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
 
-/** Where pl8 answers — another service on the SAME origin, DERIVED from the services table rather than declared (`globalThis.location`, for node tests). */
+/** Where pl8's routes answer, DERIVED from the services table rather than declared — this origin now (`globalThis.location`, for node tests). */
 const PL8_URL = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
-/**
- * Where the catalogue answers — the header's link out; exported for the two screens that need
- * the address and none of the verbs. Pass the DESKTOP's configured server to get that server's
- * catalogue: on the desktop our own origin holds the offline shim, which answers pl8's API
- * routes and serves none of its screens, so linking there gives a 503 rather than a library.
- */
+/** …and on another server, the desktop's configured one; none names this origin. */
 export const pl8Url = (server?: string | null): string =>
   server ? serviceUrl(server, "pl8") : PL8_URL;
 
@@ -97,6 +94,12 @@ export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
 
 /** …and the TASKS page, the same way. */
 export const TASKS_ROUTE = `/${TASKS_PAGE}`;
+
+/** …and the MEDIA library, a prefix: its sections and open files are routes below it. */
+export const MEDIA_ROUTE = `/${MEDIA_PAGE}`;
+
+/** …and the REHEARSAL pages, a prefix like the media library. */
+export const REHEARSAL_ROUTE = `/${REHEARSAL_PAGE}`;
 
 /** Where ONE SURFACE of that project opens, on its own — through `projectHref`, so the tablet and the laptop claim the same song. */
 export function externalHref(row: SurfacedProject, surface: string): string {

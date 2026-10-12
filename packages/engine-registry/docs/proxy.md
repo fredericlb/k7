@@ -30,11 +30,11 @@ browser, each application holding its own.
 
 ## The way out
 
-The browser composes no LAN address at all. It opens a `wss://` towards **the registry's own backend** — pl8's, on
-its subdomain — and the backend composes towards the engine:
+The browser composes no LAN address at all. It opens a `wss://` towards **the registry's own backend** — st0's, the
+page's own origin — and the backend composes towards the engine:
 
 ```
-browser ──wss://play.priv.st0.app/api/engine/<id>/ws──▶ pl8 backend ──tunnel, or ws://<address>:8765──▶ engine
+browser ──wss://priv.st0.app/api/engine/<id>/ws──▶ st0 backend ──tunnel, or ws://<address>:8765──▶ engine
 ```
 
 The backend is not a secure context: it calls whom it likes. It tries loopback then each LAN
@@ -56,8 +56,8 @@ engine's network.
 and why there is a **ticket**. There is no file half: files are the server's own
 (`packages/file-hub/docs/fileHub.md`), so nothing plain-HTTP crosses to the engine's machine here.
 
-pl8 calls `attachEngineProxy(server, registry)` after its `app.listen`, being the one service
-that holds a registry (see [shared.md](shared.md)); st0's page relays through it.
+st0's backend calls `attachEngineProxy(server, registry)` after its `app.listen`, being the one service
+that holds a registry (see [shared.md](shared.md)); every page of the origin relays through it.
 
 ## The ticket
 

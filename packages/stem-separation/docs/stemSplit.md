@@ -47,7 +47,7 @@ progress worth reporting.
 - **The job carries `files`.** A clone's product is a directory named by `workspace`, so
   there is nothing to list. Four stems are the thing the caller came for, and their names
   come from the model rather than from the request. The list is not a report: over `/process`
-  it is what pl8 COLLECTS, one GET per name, so a file produced but left out of it is written
+  it is what the media library COLLECTS, one GET per name, so a file produced but left out of it is written
   on this machine and never reaches the song's folder -- which is exactly how a fifth file,
   written and not listed, once went missing without a word.
 
@@ -145,8 +145,8 @@ The WAV writer is by hand: a 44-byte header is smaller than the argument for a d
 ## Two callers, one job
 
 A cut is asked for from two places: a project's `clip process`, in the account's file service, and
-pl8's `POST /api/stems`, which holds the masters and drives the cut of a song in the library
-(`apps/pl8/docs/stems.md`). The worker, the job and `stems/` below are the same either way — only
+the media library's `POST /api/stems`, which holds the masters and drives the cut of a song in the library
+(`apps/st0/backend/docs/media/stems.md`). The worker, the job and `stems/` below are the same either way — only
 who is waiting differs.
 
 **The chain is the account's answer.** `stemsChain` in the account's `preferences.yaml`, written
@@ -155,7 +155,7 @@ what a cut falls back to when the caller names none (`packages/file-service/docs
 Which module separates and which model it wants does not vary by set list, by project or by record,
 so a caller made to name one would be asked the same question at every use.
 
-The freshness check is pl8's: **it asks its own disk first**, and a song whose `stems/` already
+The freshness check is the media library's: **it asks its own disk first**, and a song whose `stems/` already
 holds audio never reaches an engine's machine at all.
 
 ## Where it runs: the engine's machine, always
@@ -201,8 +201,8 @@ file instead of three to carry.
 That sum **grazes full scale and is clamped there**, and it is left that way on purpose. Measured
 on one record (The Antlers, *Kettering*): 145 samples of 27 million reach 0 dBFS, against 2 in the
 master, at a mean level 1.2 dB below it. Attenuating the file to clear those would make it quieter
-than the very recording it is switched against — k7's player swaps one for the other on a single
-element — so the overshoot is clamped and SAID in the job's lines rather than mixed away.
+than the very recording it is switched against — the rehearsal songbook's player swaps one for the other on a
+single element — so the overshoot is clamped and SAID in the job's lines rather than mixed away.
 
 **Where it lives** is the one place this departs from
 [moduleAssets.md](../../song/docs/moduleAssets.md). That page argues a module carries its

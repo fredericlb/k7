@@ -165,7 +165,7 @@ a personal `insteadOf` rewrite turns the SSH URI back to https, privilege and al
 A workspace's `remote.origin.url` is filled lazily and dropped whole when a clone adds one, since
 a `git config` per workspace on every lookup would be a subprocess per poll. `workspaceForRepo`
 is what stops st0 re-cloning something already on disk, and it compares NORMALIZED uris because
-the two sides learn the address by different routes: pl8 has what was pasted, this has whatever
+the two sides learn the address by different routes: st0's home page has what was pasted, this has whatever
 git wrote into `remote.origin.url`.
 
 ## Copying a project from one workspace to another
@@ -236,8 +236,8 @@ once. The walk beside it is the same one `workspaceInfo` runs, without its cache
 
 The origins are resolved first and on their own, because addressability is a fact about the SET:
 a short name only identifies a workspace when no other workspace answers to it. A short name
-shared by two clones is reported as NOT unique rather than resolved — pl8 answers 409 for such a
-name, and picking a winner here would send somebody to the other one. Whether pl8 knows the
+shared by two clones is reported as NOT unique rather than resolved — st0's home page answers 409 for such a
+name, and picking a winner here would send somebody to the other one. Whether the server knows the
 repository at all is the OTHER half of that question and is not asked here; see
 `AccountWorkspace`.
 

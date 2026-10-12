@@ -1,6 +1,6 @@
 // MainActivity.kt — the app, on a phone: starts the supervisor (which starts the engine) and hosts the
-// page that draws the engine tray while no studio is connected, and over it the studio apps (st0, pl8,
-// k7) in full-screen views of their own. The page is web/, bundled; the two plugins registered here are
+// page that draws the engine tray while no studio is connected, and over it the studio apps (st0, the
+// media library and the rehearsal recorder among its pages) in full-screen views of their own. The page is web/, bundled; the two plugins registered here are
 // its only way to the native half. FOREGROUND ONLY: there is no service, so leaving this activity quits the
 // supervisor and ends the process, which is also the only way to restart an engine (EngineBridge).
 // See docs/android.md.
