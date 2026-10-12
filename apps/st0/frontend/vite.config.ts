@@ -35,8 +35,8 @@ export default defineAppConfig({
   backendPort,
   // `/auth` alongside the default `/api`, both to THIS app's backend: :8789 runs the origin's OIDC flow, being the service with no prefix.
   proxyPaths: ["/auth"],
-  // The engine relay and the rehearsal pages' remote-mic signalling: only a declared wsPath gets `ws: true` (packages/engine-registry/docs/proxy.md).
-  wsPaths: ["/api/engine", "/rtc"],
+  // The engine relay, live sync's relay and the rehearsal pages' remote-mic signalling: only a declared wsPath gets `ws: true` (packages/engine-registry/docs/proxy.md).
+  wsPaths: ["/api/engine", "/api/sync", "/rtc"],
   // The public dev host, which also pins HMR to :443 — declared ONLY for the fixed-port case, a free port being visited over plain http.
   host: process.env.STUDIO_WEB_PORT ? undefined : DEV_HOST,
   // No `base`: st0 is the front door, so its assets and routes sit at `/`. Polling only when asked for (`$STUDIO_POLL`), for a tree native file events cannot see.

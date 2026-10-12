@@ -1,8 +1,16 @@
 // blobSync.test.ts — binary files between replicas over a real relay and a real blob store on one server:
-// a take written, then replaced; a seed carrying audio; a machine joining with audio of its own.
+// a take written, then replaced; a seed carrying audio; a machine joining with audio of its own; a lost blob put back.
 
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -82,7 +90,7 @@ async function hub() {
     server.closeAllConnections();
   });
   const url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}${SYNC_PATH}`;
-  return { url, tokens };
+  return { url, tokens, dataRoot };
 }
 
 /** A workspace wired as liveSync.ts wires it, blob cache and fetches included. */
@@ -90,9 +98,10 @@ function device(
   url: string,
   auth: RelayAuth,
   files: Record<string, string | Buffer>,
+  again?: { root: string; logDir: string },
 ) {
-  const root = mkdtempSync(join(tmpdir(), "blobsync-dev-"));
-  const logDir = mkdtempSync(join(tmpdir(), "blobsync-log-"));
+  const root = again?.root ?? mkdtempSync(join(tmpdir(), "blobsync-dev-"));
+  const logDir = again?.logDir ?? mkdtempSync(join(tmpdir(), "blobsync-log-"));
   for (const [rel, data] of Object.entries(files)) put(root, rel, data);
   const link = new RelayLink(url, auth, () => {});
   const capture = new LiveCapture({
@@ -126,11 +135,12 @@ function device(
     logDir,
   );
   capture.start(replica.head > 0 ? confirmed : undefined);
-  cleanup.push(() => {
+  const stop = () => {
     link.close();
     capture.stop();
-  });
-  return { root, replica };
+  };
+  cleanup.push(stop);
+  return { root, logDir, replica, stop };
 }
 
 const same = (root: string, rel: string, want: Buffer) => () =>
@@ -179,5 +189,24 @@ describe("binary files over st0fs", () => {
     const { token } = tokens.mint("acct", "laptop");
     device(url, { token }, { "takes/mine.wav": mine });
     await until(same(server.root, "takes/mine.wav", mine));
+  }, 30_000);
+
+  it("puts back on the store, at its next connect, a blob the room names and the store lost", async () => {
+    const { url, dataRoot } = await hub();
+    const amp = randomBytes(60_000);
+    const a = device(
+      url,
+      { secret: "secret-a" },
+      { "mix.yaml": MIX, "irs/room.wav": amp },
+    );
+    await until(() => a.replica.head === 1);
+    const store = join(dataRoot, "acct", ".sync-blobs");
+    await until(() => existsSync(store) && readdirSync(store).length > 0);
+    rmSync(store, { recursive: true, force: true });
+
+    a.stop();
+    device(url, { secret: "secret-a" }, {}, { root: a.root, logDir: a.logDir });
+    const b = device(url, { secret: "secret-b" }, {});
+    await until(same(b.root, "irs/room.wav", amp));
   }, 30_000);
 });

@@ -29,6 +29,12 @@ export interface SyncContext {
   relay: () => ReturnType<typeof attachSyncRelay> | null;
 }
 
+/** The host a browser reached this origin at: a proxy in front rewrites Host, and says the original in x-forwarded-host. */
+const publicHost = (req: Request): string =>
+  String(req.get("x-forwarded-host") ?? req.get("host") ?? "")
+    .split(",")[0]
+    .trim();
+
 export class SyncRoutes {
   constructor(private readonly c: SyncContext) {}
 
@@ -55,7 +61,7 @@ export class SyncRoutes {
         return void res.status(400).json({ error: "a device needs a name" });
       const { device, token } = this.c.devices.mint(slug, name);
       const proto = req.get("x-forwarded-proto") ?? req.protocol;
-      const url = `${proto === "https" ? "wss" : "ws"}://${req.get("host")}${SYNC_PATH}`;
+      const url = `${proto === "https" ? "wss" : "ws"}://${publicHost(req)}${SYNC_PATH}`;
       res.json({ device, token, url });
     });
     r.delete("/:id", (req, res) => {
@@ -116,7 +122,7 @@ export class SyncRoutes {
       target.searchParams.set("device", device.id);
       target.searchParams.set(
         "url",
-        `${proto === "https" ? "wss" : "ws"}://${req.get("host")}${SYNC_PATH}`,
+        `${proto === "https" ? "wss" : "ws"}://${publicHost(req)}${SYNC_PATH}`,
       );
       target.searchParams.set("identity", user);
       if (typeof req.query.state === "string")

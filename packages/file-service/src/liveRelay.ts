@@ -207,6 +207,35 @@ export class RelayLink {
     capture.uploaded(hash);
   }
 
+  /** Put on the store every blob this replica holds the bytes of and the store lacks: a ref the room has but no one can fetch. */
+  private async heal(name: string): Promise<void> {
+    const capture = this.linked.get(name)?.capture;
+    if (!capture) return;
+    const hashes = new Set<string>();
+    for (const file of capture.textFiles()) {
+      const id = parseBlobRef(capture.read(file));
+      if (id) hashes.add(id.hash);
+    }
+    let put = 0;
+    for (const hash of hashes) {
+      if (this.closed) return;
+      try {
+        if (await this.store.has(hash)) continue;
+        const file = capture.blobFile(hash);
+        if (!file) continue;
+        await this.store.put(hash, file);
+        capture.uploaded(hash);
+        put++;
+      } catch (e) {
+        this.log(
+          `${name}: blob ${hash} not put on the store: ${(e as Error).message}`,
+        );
+        return;
+      }
+    }
+    if (put) this.log(`${name}: put ${put} blob(s) the store lacked`);
+  }
+
   private async fetchLoop(name: string, hash: string): Promise<void> {
     const wanted = () =>
       !this.closed && (this.linked.get(name)?.capture.pendingOn(hash) ?? false);
@@ -310,8 +339,11 @@ export class RelayLink {
         `${l.name}: adopted the relay's state at ${msg.head} (${written.length} file(s) rewritten)`,
       );
     }
-    if (!this.following)
+    if (!this.following) {
       for (const batch of l.replica.unconfirmed()) this.enqueue(l.name, batch);
+      // Behind the batches, in the same queue: a blob named by an entry ordered earlier may never have reached the store.
+      this.outbox = this.outbox.then(() => this.heal(l.name)).catch(() => {});
+    }
   }
 
   /** A follower's first state is the room's alone: a file only here goes. */

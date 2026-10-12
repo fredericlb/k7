@@ -18,6 +18,7 @@ import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
+import { SignedOutNotice } from "./SignedOutNotice";
 import { useWorkspaceSync } from "./useWorkspaceSync";
 import {
   type AccountFiles,
@@ -228,6 +229,7 @@ export function ProjectsPane({
         }}
       />
       {/* FIRST when it says anything: nothing else here works until a library is cloned. */}
+      <SignedOutNotice />
       <LibrariesNotice libraries={libraries} />
       {ws ? (
         <RepoTree

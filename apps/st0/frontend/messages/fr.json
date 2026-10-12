@@ -228,6 +228,8 @@
   "engine.instrument.remove": "Retirer",
   "engine.instrument.cancel": "Annuler",
   "engine.instrument.retry": "Réessayer",
+  "home.signedOut": "Déconnecté : c'est l'utilisateur local de cette machine. Les espaces de votre compte continuent de se synchroniser, et réapparaissent quand vous vous reconnectez.",
+  "home.signIn": "Se connecter",
   "ws.needLibraries": "Ajoutez d'abord une bibliothèque — tout ce qu'un espace contient résout @st0/… à travers elle",
   "importDrop.title": "Importer ce projet",
   "importDrop.body": "{file} a été déposé sur {workspace}. Il est traduit en un projet à lui — le fichier lui-même n'est pas conservé. Ce qui n'a pas survécu à la traduction est listé une fois l'import fini.",

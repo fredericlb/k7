@@ -228,6 +228,8 @@
   "engine.instrument.remove": "Remove",
   "engine.instrument.cancel": "Cancel",
   "engine.instrument.retry": "Retry",
+  "home.signedOut": "Signed out: this is the machine's local user. Your account's workspaces keep syncing, and are listed again when you sign in.",
+  "home.signIn": "Sign in",
   "ws.needLibraries": "Add a library first — everything in a workspace resolves @st0/… through it",
   "importDrop.title": "Import this project",
   "importDrop.body": "{file} was dropped on {workspace}. It is translated into a project of its own — the file itself is not kept. What did not survive the translation is listed once it is done.",

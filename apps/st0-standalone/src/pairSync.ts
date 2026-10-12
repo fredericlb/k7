@@ -8,6 +8,7 @@ import { hostname } from "node:os";
 import { line } from "@frediverse/electron-shell/log";
 import {
   SYNC_PAIR_RETURN_PATH,
+  SYNC_RELAY_PATH,
   syncPairUrl,
 } from "@studio/web-protocol/pairing";
 import { session, shell } from "electron";
@@ -24,6 +25,10 @@ const PAGE = (
 
 /** The server this machine syncs with: the one chosen at sign-in (server.ts). */
 export const syncOrigin = (): string => chosenServer();
+
+/** The relay's socket at a server's origin: `https://st0.app` → `wss://st0.app/api/sync`. */
+const relayOf = (origin: string): string =>
+  `${origin.replace(/^http/, "ws")}${SYNC_RELAY_PATH}`;
 
 /** The host a relay or server URL names, for comparing a pairing with the server chosen. */
 const hostOf = (url: string): string => {
@@ -64,14 +69,13 @@ export async function pairIfNeeded(st0: string): Promise<void> {
     "/api/sync/remote",
   );
   if (!remote) return;
-  // Paired with the server chosen: nothing to do; with another one, that pairing goes before the new one.
+  // Paired with the server chosen: nothing to do. With another one, that pairing stays until the new one replaces it.
   if (
     remote.paired &&
     remote.url &&
     hostOf(remote.url) === hostOf(syncOrigin())
   )
     return;
-  if (remote.paired) await local(st0, "/api/sync/remote", { method: "DELETE" });
   asked.add(`${email} ${syncOrigin()}`);
   pending?.close();
   const state = randomBytes(16).toString("base64url");
@@ -107,7 +111,11 @@ export async function pairIfNeeded(st0: string): Promise<void> {
     void local(st0, "/api/sync/remote", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: p.get("url"), token: p.get("token") }),
+      // The relay is reached where the person chose the server, whatever host a proxy showed the origin.
+      body: JSON.stringify({
+        url: relayOf(syncOrigin()),
+        token: p.get("token"),
+      }),
     }).then((done) =>
       line(
         "app",

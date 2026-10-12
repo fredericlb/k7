@@ -53,6 +53,9 @@ export function pairUrl(
 /** Where the desktop listens for its SYNC device token, beside the API token's path. */
 export const SYNC_PAIR_RETURN_PATH = "/desktop/sync-pair";
 
+/** Where live sync's relay answers at an origin, as a WebSocket: the file hub's `SYNC_PATH`. */
+export const SYNC_RELAY_PATH = "/api/sync";
+
 /** The route on the origin that mints a device token for live sync and hands it back. */
 export const SYNC_PAIR_ROUTE = "/api/sync/devices/pair";
 

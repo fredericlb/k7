@@ -26,7 +26,9 @@ listens on, the way sign-in does (`docs/signIn.md`).
 - **Signing out does not unpair.** The account's workspaces keep syncing while the app runs, whoever
   is signed in to the window. Unpairing is a choice of its own, made in Settings, signed in as that
   account (`DELETE /api/sync/remote`, `apps/st0/frontend/docs/settings.md`); the origin can also
-  remove the device, which stops it at its next connection.
+  remove the device, which stops it at its next connection. Signed out, the window is the machine's
+  local user, whose workspaces are its own: the account's are not listed, and the home page says so
+  with a Sign in (`SignedOutNotice.tsx`) rather than looking as if they were gone.
 
 ## The server is the person's choice
 
@@ -37,8 +39,11 @@ still goes through the app's own provider. The address is an origin, https unles
 this machine (`normalizeServer` in `packages/web-protocol/pairing.ts`, one rule for the field and the
 main process): a device token sent in clear across a network would be given away.
 
-Choosing another server re-pairs: an account already paired elsewhere is unpaired first, then paired
-with the new one, at the next sign-in. `ST0_SYNC_ORIGIN` overrides the choice, for testing.
+Choosing another server re-pairs at the next sign-in, and the new pairing REPLACES the old one only
+once it has come back: a pairing closed half-way leaves the account syncing where it did, never
+unpaired. The relay's address is the chosen server's (`wss://<server>/api/sync`), not the one the
+origin reports: a proxy in front of it may show the origin another host, and a pairing stored with
+that host would be redone at every sign-in. `ST0_SYNC_ORIGIN` overrides the choice, for testing.
 
 ## What pairing changes in the local hub
 

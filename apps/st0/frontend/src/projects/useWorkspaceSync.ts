@@ -11,6 +11,7 @@ import { accountFiles } from "./api";
 import type { AccountFiles } from "./workspaceOps";
 
 const EVERY_MS = 30_000;
+const RETRY_MS = 3_000;
 
 export function useWorkspaceSync(
   fileService: AccountFiles | null,
@@ -24,13 +25,19 @@ export function useWorkspaceSync(
   useEffect(() => {
     if (!fileService) return setSync(null);
     let live = true;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     void accountFiles
       .workspaceSync(fileService)
       .then((s) => live && setSync(s.paired ? s : null))
-      // A service that has no such route, or no server to ask: no icons rather than wrong ones.
-      .catch(() => live && setSync(null));
+      // A service restarting (a pairing does that) answers nothing for a moment: ask again shortly, no icons meanwhile.
+      .catch(() => {
+        if (!live) return;
+        setSync(null);
+        retry = setTimeout(reload, RETRY_MS);
+      });
     return () => {
       live = false;
+      clearTimeout(retry);
     };
   }, [fileService, workspaces, tick]);
 

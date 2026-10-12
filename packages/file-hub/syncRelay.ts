@@ -18,6 +18,7 @@ import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import { type FromRelay, parseToRelay } from "@studio/live-sync/protocol";
 import { Room, type RoomState } from "@studio/live-sync/room";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
+import { SYNC_RELAY_PATH } from "@studio/web-protocol/pairing";
 import { WebSocket, WebSocketServer } from "ws";
 import {
   addCheckpoint,
@@ -27,7 +28,7 @@ import {
   rollLog,
 } from "./historyLog.ts";
 
-export const SYNC_PATH = "/api/sync";
+export const SYNC_PATH = SYNC_RELAY_PATH;
 
 /** A saved state is rewritten after this many entries; the entries between live in an append-only log. */
 const SNAPSHOT_EVERY = 200;
