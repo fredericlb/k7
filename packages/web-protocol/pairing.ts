@@ -69,3 +69,22 @@ export function syncPairUrl(
   u.searchParams.set("name", name);
   return u.toString();
 }
+
+/** The st0 server a person typed, as an origin (`https://st0.app`), or null when it cannot be one: no scheme means https. */
+export function normalizeServer(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(
+      /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`,
+    );
+  } catch {
+    return null;
+  }
+  // http only for a server on this machine: a token sent in clear across a network is a token given away.
+  if (url.protocol === "http:" && !isLoopbackReturn(url.origin)) return null;
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.username || url.password) return null;
+  return url.origin;
+}

@@ -3,7 +3,12 @@
 // LOOK like loopback and are not.
 
 import { describe, expect, it } from "vitest";
-import { isLoopbackReturn, PAIR_RETURN_PATH, pairUrl } from "./pairing";
+import {
+  isLoopbackReturn,
+  normalizeServer,
+  PAIR_RETURN_PATH,
+  pairUrl,
+} from "./pairing";
 
 describe("what a token may be returned to", () => {
   it("accepts the three loopback spellings, on any port", () => {
@@ -75,5 +80,36 @@ describe("the URL the desktop opens", () => {
         new URL(pairUrl(base, "http://127.0.0.1:1/desktop/pair", "s")).pathname,
       ).toBe("/studio/api/token/pair");
     }
+  });
+});
+
+describe("the server a person types", () => {
+  it("is an origin, https when no scheme is given", () => {
+    expect(normalizeServer("st0.app")).toBe("https://st0.app");
+    expect(normalizeServer(" https://priv.st0.app/some/path ")).toBe(
+      "https://priv.st0.app",
+    );
+    expect(normalizeServer("https://studio.example:8443")).toBe(
+      "https://studio.example:8443",
+    );
+  });
+
+  it("allows plain http only on this machine", () => {
+    expect(normalizeServer("http://127.0.0.1:8789")).toBe(
+      "http://127.0.0.1:8789",
+    );
+    expect(normalizeServer("http://192.168.1.10")).toBeNull();
+    expect(normalizeServer("http://st0.app")).toBeNull();
+  });
+
+  it("refuses what is not a server address", () => {
+    for (const bad of [
+      "",
+      "   ",
+      "ftp://st0.app",
+      "https://user:pw@st0.app",
+      "https://",
+    ])
+      expect(normalizeServer(bad)).toBeNull();
   });
 });

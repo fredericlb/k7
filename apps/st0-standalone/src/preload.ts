@@ -60,5 +60,6 @@ contextBridge.exposeInMainWorld("studioTabs", {
   },
   select: (id: number) => ipcRenderer.send("studio:tabs:select", id),
   close: (id: number) => ipcRenderer.send("studio:tabs:close", id),
-  signIn: () => ipcRenderer.send("studio:auth:signIn"),
+  signIn: (server?: string) => ipcRenderer.send("studio:auth:signIn", server),
+  server: (): Promise<string> => ipcRenderer.invoke("studio:auth:server"),
 });

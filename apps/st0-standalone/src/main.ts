@@ -28,6 +28,7 @@ import {
   stateDirs,
   supervisorBinary,
 } from "./paths.ts";
+import { chooseServer, chosenServer } from "./server.ts";
 import { signIn } from "./signIn.ts";
 import { startSupervisor } from "./supervisor.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";
@@ -90,11 +91,16 @@ function openWindow(): void {
     homeUrl: LOCAL_HOME,
     webPreferences,
     icon: appIcon(),
-    onSignIn: () =>
+    onSignIn: (server) => {
+      // A server typed in the strip is kept for pairing; one that is no server address leaves the last choice.
+      if (server && !chooseServer(server))
+        return line("app", `not a server address: ${server}`);
       signIn(ST0, (redeemUrl) => {
         win?.reset(redeemUrl);
         win?.focus();
-      }),
+      });
+    },
+    server: chosenServer,
   });
   win.win.on("closed", () => {
     win = null;

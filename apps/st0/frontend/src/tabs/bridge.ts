@@ -21,8 +21,10 @@ interface TabsBridge {
   subscribe: (cb: (rows: TabRow[]) => void) => () => void;
   select: (id: number) => void;
   close: (id: number) => void;
-  /** Sign in through the system browser — apps/st0-standalone/docs/signIn.md. */
-  signIn: () => void;
+  /** Sign in through the system browser, syncing with `server` when given — apps/st0-standalone/docs/signIn.md. */
+  signIn: (server?: string) => void;
+  /** The st0 server the account syncs with: the last one chosen, st0.app until then. */
+  server?: () => Promise<string | null>;
 }
 
 declare global {

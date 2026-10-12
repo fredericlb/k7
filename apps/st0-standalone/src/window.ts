@@ -29,8 +29,10 @@ export interface TabbedWindowSpec {
   homeUrl: string;
   webPreferences: WebPreferences;
   icon?: string;
-  /** The strip's button, or a page's own Sign in: the sign-in runs in the system browser. */
-  onSignIn: () => void;
+  /** The strip's button, or a page's own Sign in: the sign-in runs in the system browser; `server` is the one typed, if any. */
+  onSignIn: (server?: string) => void;
+  /** The st0 server the account syncs with, for the strip's sign-in form. */
+  server: () => string;
 }
 
 export interface TabbedWindow {
@@ -85,12 +87,16 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   const onClose = (e: IpcMainEvent, id: number) => {
     if (fromStrip(e)) tabs.close(id);
   };
-  const onSignIn = (e: IpcMainEvent) => {
-    if (fromStrip(e)) spec.onSignIn();
+  const onSignIn = (e: IpcMainEvent, server?: unknown) => {
+    if (fromStrip(e))
+      spec.onSignIn(typeof server === "string" ? server : undefined);
   };
   ipcMain.on("studio:tabs:select", onSelect);
   ipcMain.on("studio:tabs:close", onClose);
   ipcMain.on("studio:auth:signIn", onSignIn);
+  ipcMain.handle("studio:auth:server", (e) =>
+    e.sender === strip.webContents ? spec.server() : null,
+  );
 
   // The insets ride in the address because the page is the same build on every platform.
   const stripUrl = `${tabsUrl(spec.origin)}?inset=${mac ? MAC_INSET : 0}&right=${mac ? 0 : CAPTION_INSET}`;
@@ -124,6 +130,7 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
     ipcMain.off("studio:tabs:select", onSelect);
     ipcMain.off("studio:tabs:close", onClose);
     ipcMain.off("studio:auth:signIn", onSignIn);
+    ipcMain.removeHandler("studio:auth:server");
     tabs.destroy();
     strip.webContents.close();
   });

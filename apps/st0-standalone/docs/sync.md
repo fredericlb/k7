@@ -20,7 +20,7 @@ listens on, the way sign-in does (`docs/signIn.md`).
 - **The browser must be signed in as the same account.** The origin says whose token it minted
   (`identity`), and a different email is refused: that account's workspaces would otherwise sync
   into this one.
-- **Once per account per run.** A pairing the person closes is not reopened at every session change;
+- **Once per account and server per run.** A pairing the person closes is not reopened at every session change;
   the next start asks again.
 - **The local user never pairs.** It has no account at the origin.
 - **Signing out does not unpair.** The account's workspaces keep syncing while the app runs, whoever
@@ -28,7 +28,17 @@ listens on, the way sign-in does (`docs/signIn.md`).
   account (`DELETE /api/sync/remote`, `apps/st0/frontend/docs/settings.md`); the origin can also
   remove the device, which stops it at its next connection.
 
-`ST0_SYNC_ORIGIN` points pairing at another origin, for testing.
+## The server is the person's choice
+
+Signing in asks which st0 server this machine syncs with — `st0.app`, a private instance, a dev
+origin — in the title bar itself, prefilled with the last one (`src/server.ts`, the strip's
+`AccountButton.tsx`). It is kept in the app's state folder and is where pairing goes; the sign-in
+still goes through the app's own provider. The address is an origin, https unless the server is on
+this machine (`normalizeServer` in `packages/web-protocol/pairing.ts`, one rule for the field and the
+main process): a device token sent in clear across a network would be given away.
+
+Choosing another server re-pairs: an account already paired elsewhere is unpaired first, then paired
+with the new one, at the next sign-in. `ST0_SYNC_ORIGIN` overrides the choice, for testing.
 
 ## What pairing changes in the local hub
 

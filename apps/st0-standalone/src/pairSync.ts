@@ -10,8 +10,8 @@ import {
   SYNC_PAIR_RETURN_PATH,
   syncPairUrl,
 } from "@studio/web-protocol/pairing";
-import { STUDIO_ORIGIN } from "@studio/web-protocol/services";
 import { session, shell } from "electron";
+import { chosenServer } from "./server.ts";
 
 /** A pairing left unfinished in the browser stops listening after this. */
 const WAIT_MS = 10 * 60_000;
@@ -22,12 +22,20 @@ const PAGE = (
 <body style="font:16px system-ui;background:#101114;color:#e4e4e7;display:grid;place-items:center;height:100vh;margin:0">
 <p>${said}</p>`;
 
-/** The origin this machine syncs with; overridable for a test origin. */
-export const syncOrigin = (): string =>
-  process.env.ST0_SYNC_ORIGIN?.trim() || STUDIO_ORIGIN;
+/** The server this machine syncs with: the one chosen at sign-in (server.ts). */
+export const syncOrigin = (): string => chosenServer();
+
+/** The host a relay or server URL names, for comparing a pairing with the server chosen. */
+const hostOf = (url: string): string => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+};
 
 let pending: Server | null = null;
-/** Accounts asked this run: a pairing the person closed is not reopened at every cookie change. */
+/** Account and server pairs asked this run: a pairing the person closed is not reopened at every cookie change. */
 const asked = new Set<string>();
 
 /** Through the app's own session, so the local backend knows which account is asking. */
@@ -49,10 +57,22 @@ export async function pairIfNeeded(st0: string): Promise<void> {
     "/auth/me",
   );
   const email = me?.user?.email;
-  if (!email || me?.user?.local || asked.has(email)) return;
-  const remote = await local<{ paired: boolean }>(st0, "/api/sync/remote");
-  if (!remote || remote.paired) return;
-  asked.add(email);
+  if (!email || me?.user?.local || asked.has(`${email} ${syncOrigin()}`))
+    return;
+  const remote = await local<{ paired: boolean; url: string | null }>(
+    st0,
+    "/api/sync/remote",
+  );
+  if (!remote) return;
+  // Paired with the server chosen: nothing to do; with another one, that pairing goes before the new one.
+  if (
+    remote.paired &&
+    remote.url &&
+    hostOf(remote.url) === hostOf(syncOrigin())
+  )
+    return;
+  if (remote.paired) await local(st0, "/api/sync/remote", { method: "DELETE" });
+  asked.add(`${email} ${syncOrigin()}`);
   pending?.close();
   const state = randomBytes(16).toString("base64url");
   const server = createServer((req, res) => {
