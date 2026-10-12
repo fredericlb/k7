@@ -5,6 +5,10 @@ settings, a row per app on the origin minus the one drawing it, and the logout. 
 header has a settings button of its own**: the host hands `onSettings` its own navigation, so the
 settings are found the same way everywhere.
 
+Other pages of the SAME app go in `items`, as rows under Settings: st0 in the desktop app adds
+**Engine** there (`apps/st0-standalone/docs/engine.md`). They are callbacks into the host's router,
+where the app rows are links to other apps.
+
 The menu itself — the email heading, the rows opening in a new tab, the logout, the notice in
 place of the rows — is `@frediverse/ui/user-menu`, shared with phare
 (`commons/packages/ui/docs/user-menu.md`). This package holds what only studio knows: which apps

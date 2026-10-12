@@ -87,6 +87,9 @@ export const LIBRARIES_ROUTE = `/${LIBRARIES_PAGE}`;
 /** …and the SETTINGS page, the same way. */
 export const SETTINGS_ROUTE = `/${SETTINGS_PAGE}`;
 
+/** …and the desktop app's built-in ENGINE, a page under the settings. */
+export const ENGINE_SETTINGS_ROUTE = `/${SETTINGS_PAGE}/engine`;
+
 /** …and the TASKS page, the same way. */
 export const TASKS_ROUTE = `/${TASKS_PAGE}`;
 

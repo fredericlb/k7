@@ -20,6 +20,11 @@ import { PORTS_ENV } from "@studio/web-protocol/services";
 import { session } from "electron";
 import standalone from "../../st0/backend/standalone.json";
 import { startBackend } from "./backends.ts";
+import {
+  engineDown,
+  engineSnapshot,
+  installEngineBridge,
+} from "./engineBridge.ts";
 import { pairIfNeeded } from "./pairSync.ts";
 import {
   appIcon,
@@ -128,9 +133,14 @@ async function boot(): Promise<void> {
     ...(seed ? { STUDIO_LIBRARY_SEED: `st0=${seed}` } : {}),
   };
 
+  // Before the supervisor: its first snapshot may arrive before any page asks.
+  installEngineBridge(ST0, () => supervisor);
   const sup = supervisorBinary();
   if (sup && existsSync(sup))
-    supervisor = startSupervisor(sup, dirs.engineHome, ST0);
+    supervisor = startSupervisor(sup, dirs.engineHome, ST0, {
+      onSnapshot: (s) => engineSnapshot(ST0, s),
+      onDown: (why) => engineDown(ST0, why),
+    });
   else line("app", "no st0-supervisor build found — running without an engine");
 
   backends = [startBackend(PORTS.st0, env, dirs.root)];

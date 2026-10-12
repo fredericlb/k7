@@ -1,0 +1,35 @@
+# The built-in engine's settings
+
+The desktop app runs a supervisor and its engine of its own (`docs/standalone.md`), and has no tray:
+the tray's settings window is where an engine's machine settings live everywhere else
+(`engine/st0-tray/docs/tray.md`). So st0's own pages reach this engine, through the app: the user
+menu at the foot of the home sidebar has an **Engine** row, under Settings, opening
+`/settings/engine` (`apps/st0/frontend/src/settings/DesktopEnginePage.tsx`).
+
+## Through the main process, never a socket
+
+The supervisor speaks NDJSON on its stdio to the process that started it, and opens no socket on
+purpose (`engine/st0-supervisor/docs/hostProtocol.md`). The page therefore asks the app:
+`src/engineBridge.ts` keeps the supervisor's latest snapshot, pushes it to every page of the app's
+own origin, and forwards a page's command to the supervisor. The preload hands the page
+`window.studioEngine` (`state`, `subscribe`, `send`); its absence is how st0 knows it is not in the
+app, and the menu row is drawn only when it is there.
+
+## Only the app's origin, only a few commands
+
+A page of another origin could be loaded in a tab, so the main process answers only a page of the
+app's own origin, and only `engine.start`, `engine.stop`, `engine.restart`, `audio.priority` and
+`plugins.rescan`. What else the supervisor takes — the studios it is listed at, LAN pairing, plugin
+windows, instruments — is not reachable from a page: the app chooses those itself
+(`STUDIO_INSTRUMENTS=all`, its own st0 as the one studio), and LAN pairing has its section in st0's
+settings.
+
+## What the page sets
+
+- **The engine:** running or why not, start, stop, restart.
+- **Audio interfaces:** the ranking the supervisor keeps (`audioPriority`): the engine takes the
+  first one plugged in. The list on screen IS the ranking, and every move sends it whole, as the
+  tray's window does. A ranked interface that is unplugged keeps its row, since it holds its rank.
+- **Plugins:** the engine's catalogue and a rescan. Read-only otherwise.
+
+Sample rate and buffer size are not settings of the engine or the supervisor, so they are not here.

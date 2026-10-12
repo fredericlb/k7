@@ -49,6 +49,23 @@ contextBridge.exposeInMainWorld("studioTab", {
   },
 });
 
+// The built-in engine, for st0's pages: the main process answers only its own origin (engineBridge.ts).
+const engineSubs = new Set<(s: unknown) => void>();
+ipcRenderer.on("studio:engine", (_e, s: unknown) => {
+  for (const cb of engineSubs) cb(s);
+});
+contextBridge.exposeInMainWorld("studioEngine", {
+  state: (): Promise<unknown> => ipcRenderer.invoke("studio:engine:state"),
+  subscribe(cb: (s: unknown) => void): () => void {
+    engineSubs.add(cb);
+    return () => {
+      engineSubs.delete(cb);
+    };
+  },
+  send: (cmd: string, arg?: string) =>
+    ipcRenderer.send("studio:engine:cmd", cmd, arg),
+});
+
 // Same preload for the strip: one file is one thing to bundle, and the main process ignores these from any other page.
 contextBridge.exposeInMainWorld("studioTabs", {
   list: (): TabRow[] => latest,

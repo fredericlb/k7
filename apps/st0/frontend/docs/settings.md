@@ -172,3 +172,11 @@ Audio, the engine, its sessions, the servers it is listed at and the machine its
 the tray's menu (`engine/st0-tray/docs/tray.md`), and the tray is the thing with a process on the
 machine to send them to. A second screen for one setting is two that disagree the day one is
 changed.
+
+## The desktop app's engine is a page of its own
+
+In the desktop app the user menu has an **Engine** row under Settings, opening `/settings/engine`:
+the built-in engine's state, its audio interface ranking and its plugins, reached through the app's
+main process since the app has no tray (`../../../st0-standalone/docs/engine.md`). A browser has no
+such engine, so the row is drawn only when the app's bridge is there.
+

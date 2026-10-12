@@ -4,7 +4,10 @@
 // which is the desktop app's case. See ../docs/userMenu.md.
 
 import { FolderGit2, Gamepad2, type LucideIcon } from "@frediverse/ui/icons";
-import { UserMenu as BaseUserMenu } from "@frediverse/ui/user-menu";
+import {
+  UserMenu as BaseUserMenu,
+  type UserMenuItem,
+} from "@frediverse/ui/user-menu";
 import { type StudioService, serviceUrl } from "@studio/web-protocol/services";
 
 /** Every app of the origin, in the order they are worth reaching — the host drops its own. */
@@ -40,6 +43,8 @@ export interface UserMenuProps {
   onSettings?: () => void;
   /** That row's name, in the host's language. */
   settingsLabel?: string;
+  /** More of the host's own pages, as rows under Settings — the desktop's engine, say. */
+  items?: UserMenuItem[];
   /** Where the studio answers when it is not this origin: the desktop's paired server. */
   origin?: string | null;
   /** Said in place of the app rows when there is nowhere to go, in the words of the app saying it. */
@@ -52,6 +57,7 @@ export function UserMenu({
   onLogout,
   onSettings,
   settingsLabel,
+  items,
   origin,
   unavailable,
 }: UserMenuProps) {
@@ -68,6 +74,7 @@ export function UserMenu({
       onLogout={onLogout}
       onSettings={onSettings}
       settingsLabel={settingsLabel}
+      items={items}
       links={links}
       notice={unavailable}
     />

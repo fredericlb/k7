@@ -5,6 +5,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import {
+  AudioLines,
   Folders,
   LibraryBig,
   ListChecks,
@@ -19,8 +20,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { desktop } from "../desktop";
 import { m } from "../paraglide/messages.js";
+import { onDesktopEngine } from "../settings/desktopEngine";
 import { VERSION } from "../version";
 import {
+  ENGINE_SETTINGS_ROUTE,
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
   REHEARSAL_ROUTE,
@@ -223,6 +226,19 @@ function HomeSidebar({
           }
           onSettings={() => navigate(SETTINGS_ROUTE)}
           settingsLabel={m["home.settings"]()}
+          // The desktop app runs an engine of its own; its settings are a page, reached from here.
+          items={
+            onDesktopEngine()
+              ? [
+                  {
+                    id: "engine",
+                    label: m["home.engine"](),
+                    icon: AudioLines,
+                    onSelect: () => navigate(ENGINE_SETTINGS_ROUTE),
+                  },
+                ]
+              : undefined
+          }
           origin={server}
           unavailable={
             isDesktop && !server ? m["home.appsUnavailable"]() : undefined

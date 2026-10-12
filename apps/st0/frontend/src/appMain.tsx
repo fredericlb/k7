@@ -55,6 +55,7 @@ import { installFreezeWatchdog, reportCommit, tally } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { PaneBoundary } from "./PaneBoundary";
 import {
+  ENGINE_SETTINGS_ROUTE,
   LIBRARIES_ROUTE,
   MEDIA_ROUTE,
   REHEARSAL_ROUTE,
@@ -67,6 +68,7 @@ import { MediaPage } from "./projects/MediaPage";
 import { RehearsalHost } from "./projects/RehearsalHost";
 import { RehearsalPage } from "./projects/RehearsalPage";
 import { TasksPage } from "./projects/TasksPage";
+import { DesktopEnginePage } from "./settings/DesktopEnginePage";
 import { SettingsPage } from "./settings/SettingsPage";
 
 import "./index.css";
@@ -213,6 +215,10 @@ ReactDOM.createRoot(document.getElementById("root")!, {
                         element={<LibrariesPage />}
                       />
                       <Route path={SETTINGS_ROUTE} element={<SettingsPage />} />
+                      <Route
+                        path={ENGINE_SETTINGS_ROUTE}
+                        element={<DesktopEnginePage />}
+                      />
                       <Route path={TASKS_ROUTE} element={<TasksPage />} />
                       <Route
                         path={`${MEDIA_ROUTE}/*`}
