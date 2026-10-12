@@ -47,6 +47,10 @@ export interface RelayOptions {
   /** The account slug a device token belongs to, or null when it is not one, or its device was removed. */
   deviceOf?: (token: string) => string | null;
   log?: (msg: string) => void;
+  /** Told of every entry ordered, after it is on disk: what pushes a change notice to the account's browsers. */
+  onOrdered?: (slug: string, workspace: string, entry: Sequenced) => void;
+  /** The account whose rooms every authenticated replica may FOLLOW, read-only, as `@lib/<name>`: the libraries. */
+  sharedAccount?: string;
   /** Tests only: the save and history-snapshot cadences, and the idle time before an automatic checkpoint. */
   snapshotEvery?: number;
   historyEvery?: number;
@@ -66,13 +70,18 @@ export type SyncRelay = (() => void) & {
 };
 
 interface Live {
+  slug: string;
   room: Room;
   dir: string;
-  sockets: Set<WebSocket>;
+  /** Each socket in the room, by the name it joined with: `@lib/<name>` for a follower of a shared room. */
+  sockets: Map<WebSocket, string>;
   sinceSnapshot: number;
   /** When the room was last edited, or null once that edit has its automatic checkpoint. */
   editedAt: number | null;
 }
+
+/** The prefix that names a room of the shared account (the libraries) rather than one of the caller's. */
+export const SHARED_PREFIX = "@lib/";
 
 /** A room's folder; the workspace name is a single folder name already (workspaceRoot refuses anything else). */
 export const roomDir = (account: string, workspace: string): string =>
@@ -121,9 +130,10 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
       const dir = roomDir(opts.accountDir(slug), workspace);
       mkdirSync(dir, { recursive: true });
       l = {
+        slug,
         room: load(dir),
         dir,
-        sockets: new Set(),
+        sockets: new Map(),
         sinceSnapshot: 0,
         editedAt: null,
       };
@@ -139,7 +149,9 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
     appendFileSync(join(l.dir, ENTRIES), `${JSON.stringify(entry)}\n`);
     if (++l.sinceSnapshot >= snapshotEvery) snapshot(l, historyEvery);
     l.editedAt = Date.now();
-    for (const peer of l.sockets) send(peer, { t: "seq", workspace, entry });
+    for (const [peer, as] of l.sockets)
+      send(peer, { t: "seq", workspace: as, entry });
+    opts.onOrdered?.(l.slug, workspace, entry);
     return entry;
   };
 
@@ -168,10 +180,18 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
     ws.on("message", (data) => {
       const msg = parseToRelay(data.toString());
       if (!msg) return send(ws, { t: "error", error: "not a sync message" });
-      const l = live(slug, msg.workspace);
+      // `@lib/<name>` is the shared account's room, followed read-only by any replica; anything else is the caller's own.
+      const shared =
+        msg.workspace.startsWith(SHARED_PREFIX) && opts.sharedAccount;
+      const l = shared
+        ? live(
+            opts.sharedAccount as string,
+            msg.workspace.slice(SHARED_PREFIX.length),
+          )
+        : live(slug, msg.workspace);
       if (msg.t === "hello") {
         joined.add(msg.workspace);
-        l.sockets.add(ws);
+        l.sockets.set(ws, msg.workspace);
         const up = l.room.catchUp(msg.since);
         if (up.mode === "seed")
           send(ws, { t: "welcome", workspace: msg.workspace, mode: "seed" });
@@ -202,6 +222,12 @@ export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
           t: "error",
           workspace: msg.workspace,
           error: "hello first",
+        });
+      if (shared)
+        return send(ws, {
+          t: "error",
+          workspace: msg.workspace,
+          error: "a library is followed, never written, through the relay",
         });
       const head = l.room.head;
       const entry = order(l, msg.workspace, msg.batch);

@@ -13,6 +13,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { WebSocket } from "ws";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 
@@ -46,6 +47,8 @@ describe("the libraries' relay", () => {
         return slug === LIBRARIES_ACCOUNT ? home : join(tmp, slug);
       },
       accountOf: async (s) => (s === relay.secret ? LIBRARIES_ACCOUNT : null),
+      deviceOf: (t) => (t === "device" ? "fred-0123456789" : null),
+      sharedAccount: LIBRARIES_ACCOUNT,
       log: () => {},
     });
     cleanup.push(() => {
@@ -64,5 +67,43 @@ describe("the libraries' relay", () => {
     writeFileSync(join(home, "st0", "modules", "mix.yaml"), "gain: 0.9\n");
     await until(() => readFileSync(roomFile, "utf8").includes("0.9"));
     expect(accounts.every((a) => a === LIBRARIES_ACCOUNT)).toBe(true);
+
+    // Any replica follows it as `@lib/st0`, and is refused a write.
+    const ws = new WebSocket(url, {
+      headers: { authorization: "Bearer device" },
+    });
+    const got: {
+      t: string;
+      mode?: string;
+      error?: string;
+      workspace?: string;
+      files?: Record<string, string>;
+    }[] = [];
+    ws.on("message", (d) => got.push(JSON.parse(d.toString())));
+    await new Promise((r) => ws.on("open", r));
+    ws.send(JSON.stringify({ t: "hello", workspace: "@lib/st0", since: 0 }));
+    await until(() => got.some((m) => m.t === "welcome"));
+    const welcome = got.find((m) => m.t === "welcome");
+    expect(welcome).toMatchObject({ workspace: "@lib/st0", mode: "snapshot" });
+    expect(welcome?.files?.["modules/mix.yaml"]).toContain("0.9");
+    ws.send(
+      JSON.stringify({
+        t: "batch",
+        workspace: "@lib/st0",
+        batch: {
+          id: "x",
+          replica: "d",
+          local: 1,
+          ts: 0,
+          label: "edit",
+          ops: [],
+        },
+      }),
+    );
+    await until(() => got.some((m) => m.t === "error"));
+    expect(got.find((m) => m.t === "error")?.error).toMatch(
+      /followed, never written/,
+    );
+    ws.close();
   });
 });

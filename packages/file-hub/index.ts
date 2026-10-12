@@ -37,7 +37,7 @@ import {
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
-import { LibraryRelay } from "./libraryRelay.ts";
+import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import {
   CACHE_SWEEP_EVERY_MS,
@@ -316,6 +316,8 @@ export class FileHub {
       accountDir: (slug) => this.sync.accountDir(slug),
       accountOf: (secret) => this.sync.account({ secret }),
       deviceOf: (token) => this.devices.verify(token)?.slug ?? null,
+      // The libraries are every account's to follow, read-only, as `@lib/<name>`.
+      sharedAccount: LIBRARIES_ACCOUNT,
       log: this.deps.log,
     });
     if (!syncTarget(0).STUDIO_SYNC_TOKEN) {
