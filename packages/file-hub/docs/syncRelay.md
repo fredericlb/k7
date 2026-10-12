@@ -35,9 +35,10 @@ hub and is never stopped for idleness, and pairing restarts it so it dials the n
 
 A file service captures every workspace from its start, not only those a request opens: one never
 opened would otherwise neither send nor receive. On each connect it asks `GET /api/sync/rooms`
-(`../roomsRoute.ts`, the same token or secret as the socket) which workspaces the account has, and
-creates and joins the ones it lacks — how a workspace arrives on a new machine, filled by the relay's
-first answer. A room left with no file — a workspace removed everywhere — is not offered, so the
+(`../roomsRoute.ts`, the same token or secret as the socket) which workspaces the account has. The
+origin's own service creates and joins the ones it lacks at once, since the server holds them all; a
+paired machine only lists them, and joins one when the person downloads it
+(`../../../apps/st0-standalone/docs/sync.md`). Either way the relay's first answer fills it. A room left with no file — a workspace removed everywhere — is not offered, so the
 machine that removed it does not bring it back. `Examples` is never synced: every build stocks its
 own on every replica.
 

@@ -194,6 +194,15 @@ export interface ModelDownloadJob {
   error: string | null;
 }
 
+/** `GET /workspaces/sync` — on a machine paired with a remote server, where each workspace lives: both, here only, or there only. */
+export interface WorkspaceSyncStatus {
+  /** False on the server itself and on a machine never paired: every workspace is simply here. */
+  paired: boolean;
+  /** The server this machine syncs with, as an origin. */
+  server: string | null;
+  workspaces: { name: string; state: "synced" | "local" | "server" }[];
+}
+
 /** One of the origin's libraries: the name its refs use (`@<name>/…`), and whether the server holds its folder. */
 export interface AccountLibrary {
   name: string;

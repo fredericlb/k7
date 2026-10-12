@@ -6,11 +6,13 @@
 import { join } from "node:path";
 import type { Conflict } from "@studio/live-sync/ops";
 import { Replica } from "@studio/live-sync/replica";
+import type { WorkspaceSyncStatus } from "@studio/web-protocol";
 import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { LiveCapture } from "./liveCapture.ts";
 import { ConfirmedDir } from "./liveConfirmed.ts";
 import { type Batch, LiveLog, liveLogFor, replicaId } from "./liveLog.ts";
 import { authHeaders, type Linked, loadHead, RelayLink } from "./liveRelay.ts";
+import { workspaceRoot } from "./slug.ts";
 import { isBinary, skip, type Workspace } from "./workspace.ts";
 
 const attached = new Map<
@@ -44,24 +46,71 @@ function relayLink(): RelayLink | null {
 export const roomsUrl = (syncUrl: string): string =>
   `${syncUrl.replace(/^ws/, "http").replace(/\/+$/, "")}/rooms`;
 
-/** Every room the account has that this replica lacks becomes a workspace here, joined at once: how a workspace arrives. */
+/** The account's workspaces on the relay's side, as last listed, and when: a paired machine downloads them on demand. */
+let remoteRooms: string[] = [];
+let roomsAt = 0;
+
+/** List the account's rooms; on the ORIGIN (no device token) every one is joined at once, since the server holds them all. */
 async function joinRooms(
   syncUrl: string,
   headers: Record<string, string>,
 ): Promise<void> {
   try {
-    const r = await fetch(roomsUrl(syncUrl), { headers });
+    const r = await fetch(roomsUrl(syncUrl), {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
     if (!r.ok) throw new Error(`rooms ${r.status}`);
     const { workspaces } = (await r.json()) as { workspaces: string[] };
+    remoteRooms = workspaces.filter((w) => w !== EXAMPLES_WORKSPACE);
+    roomsAt = Date.now();
+    if (process.env.STUDIO_SYNC_TOKEN) return;
     // Imported late: workspaces.ts loads this module to attach what it opens.
     const { joinWorkspace } = await import("./workspaces.ts");
-    for (const name of workspaces)
-      if (name !== EXAMPLES_WORKSPACE) joinWorkspace(name);
+    for (const name of remoteRooms) joinWorkspace(name);
   } catch (e) {
     console.warn(
       `sync | could not list the account's workspaces: ${(e as Error).message}`,
     );
   }
+}
+
+/** Where each workspace lives, for a machine paired with a remote server: both, here only, or there only. */
+export async function workspaceSyncStatus(
+  local: string[],
+): Promise<WorkspaceSyncStatus> {
+  const url = process.env.STUDIO_SYNC_URL;
+  if (!process.env.STUDIO_SYNC_TOKEN || !url || !liveSyncOn())
+    return { paired: false, server: null, workspaces: [] };
+  // A list older than half a minute is asked again, bounded: the page must not hang on a server that is away.
+  if (Date.now() - roomsAt > 30_000)
+    await joinRooms(url, authHeaders({ token: process.env.STUDIO_SYNC_TOKEN }));
+  const here = new Set(local);
+  const synced = (name: string): boolean =>
+    (attached.get(workspaceRoot(name))?.replica?.head ?? 0) > 0;
+  return {
+    paired: true,
+    server: new URL(url.replace(/^ws/, "http")).origin,
+    workspaces: [
+      ...local
+        .filter((n) => n !== EXAMPLES_WORKSPACE)
+        .map((name) => ({
+          name,
+          state: synced(name) ? ("synced" as const) : ("local" as const),
+        })),
+      ...remoteRooms
+        .filter((n) => !here.has(n))
+        .map((name) => ({ name, state: "server" as const })),
+    ],
+  };
+}
+
+/** Bring a workspace that exists only on the server down to this machine, and keep it synced from then on. */
+export async function downloadWorkspace(name: string): Promise<boolean> {
+  if (!remoteRooms.includes(name)) return false;
+  const { joinWorkspace } = await import("./workspaces.ts");
+  joinWorkspace(name);
+  return true;
 }
 
 /** An edit another replica made landed in `ws`: the caches go, and the engine hears of the open project. */

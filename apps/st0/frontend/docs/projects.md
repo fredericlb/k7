@@ -419,6 +419,12 @@ configure — no key, no remote, no host — and the live-sync relay is what car
 account's other devices (`docs/live-sync-plan.md`). There is no import and no publish: a workspace
 exists on every replica the relay reaches, so there is nothing to bring in or send out by hand.
 
+**On a machine paired with a server, each row says where its workspace lives** (`WorkspaceSyncIcon.tsx`,
+`useWorkspaceSync.ts`): synced with the server, on this machine only, or on the server only — the
+last listed below the others with a Download, since bringing gigabytes of takes down is the
+person's choice. The server itself and an unpaired machine draw no icon: there, every workspace is
+simply here.
+
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,
 before having seen anything. The row of an empty workspace has one link, "Créer le premier

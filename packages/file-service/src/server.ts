@@ -47,6 +47,7 @@ import {
   unloadEngineIfServing,
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
+import { downloadWorkspace, workspaceSyncStatus } from "./liveSync.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -66,6 +67,7 @@ import {
   listWorkspaces,
   removeWorkspace,
   UnknownWorkspaceError,
+  workspaceNames,
 } from "./workspaces.ts";
 
 // First, so every line this process writes from here on is also the Logs panel's (docs/serviceLog.md).
@@ -218,6 +220,27 @@ app.get(
       workspaces: await listMachineWorkspaces(req.userEmail!),
     };
     res.json(reply);
+  }),
+);
+
+/** Where each workspace lives on a machine paired with a remote server: both, here only, or there only. See docs/workspaces.md. */
+app.get(
+  "/workspaces/sync",
+  wrap(async (_req, res) => {
+    res.json(await workspaceSyncStatus(workspaceNames(rootDir())));
+  }),
+);
+
+/** Bring a workspace that exists only on the server down here; it stays synced from then on. */
+const downloadBody = z.object({ name: z.string().min(1) });
+app.post(
+  "/workspaces/sync/download",
+  validate(downloadBody),
+  wrap(async (req, res) => {
+    const { name } = req.body as z.infer<typeof downloadBody>;
+    if (await downloadWorkspace(name)) res.json({ ok: true });
+    else
+      res.status(404).json({ error: `the server has no workspace '${name}'` });
   }),
 );
 

@@ -3,7 +3,10 @@
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
+import { Button } from "@frediverse/ui/button";
 import {
+  Cloud,
+  CloudDownload,
   CornerDownRight,
   Folder,
   FolderPlus,
@@ -16,6 +19,7 @@ import type {
   AccountWorkspace,
   RepoProject,
   ShareSummary,
+  WorkspaceSyncStatus,
 } from "@studio/web-protocol";
 import { projectLabel } from "@studio/web-protocol/projects";
 import { type DragEvent, useState } from "react";
@@ -29,6 +33,7 @@ import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 import { WorkspaceMenu } from "./WorkspaceMenu";
+import { syncStateOf, WorkspaceSyncIcon } from "./WorkspaceSyncIcon";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
@@ -81,6 +86,8 @@ export function RepoList({
   workspaceHref,
   shares,
   onChanged,
+  sync = null,
+  onDownload,
 }: {
   workspaces: AccountWorkspace[];
   busy: boolean;
@@ -136,7 +143,15 @@ export function RepoList({
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
+  /** Where each workspace lives, on a machine paired with a server; null draws no icon. */
+  sync?: WorkspaceSyncStatus | null;
+  /** Bring a workspace that is only on the server down here. */
+  onDownload?: (name: string) => Promise<void>;
 }) {
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const serverOnly = (sync?.workspaces ?? []).filter(
+    (w) => w.state === "server",
+  );
   // Which row the pointer is over, so exactly one lights up — a boolean would light them all.
   const [over, setOver] = useState<string | null>(null);
   return (
@@ -219,6 +234,10 @@ export function RepoList({
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
                       <span className="truncate font-medium">{w.name}</span>
+                      <WorkspaceSyncIcon
+                        state={syncStateOf(sync, w.name)}
+                        server={sync?.server ?? null}
+                      />
                       <Badge variant={w.projects.length ? "tag" : "default"}>
                         {m["repos.projectCount"]({
                           n: w.projects.length,
@@ -316,6 +335,40 @@ export function RepoList({
                   ))}
                 </ul>
               )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {serverOnly.length > 0 && (
+        // Not downloaded on their own: a workspace with big takes is the person's choice to bring down.
+        <ul className="mt-2 flex flex-col gap-2">
+          {serverOnly.map((w) => (
+            <li
+              key={w.name}
+              className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border p-3"
+            >
+              <span className="flex min-w-0 items-center gap-3 text-muted-foreground">
+                <Cloud className="h-4 w-4 shrink-0" />
+                <span className="truncate">{w.name}</span>
+                <span className="text-xs">{m["wsync.serverOnlyHint"]()}</span>
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!onDownload || downloading !== null}
+                onClick={() => {
+                  if (!onDownload) return;
+                  setDownloading(w.name);
+                  void onDownload(w.name).finally(() => setDownloading(null));
+                }}
+              >
+                {downloading === w.name ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CloudDownload className="h-3.5 w-3.5" />
+                )}{" "}
+                {m["wsync.download"]()}
+              </Button>
             </li>
           ))}
         </ul>

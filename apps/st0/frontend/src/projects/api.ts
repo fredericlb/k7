@@ -24,6 +24,7 @@ import {
   type SurfacedProjectList,
   USER_HEADER,
   WORKSPACE_HEADER,
+  type WorkspaceSyncStatus,
 } from "@studio/web-protocol";
 import {
   externalOf,
@@ -249,6 +250,27 @@ export const accountFiles = {
       "workspaces",
     );
     return workspaces;
+  },
+
+  /** On a machine paired with a remote server, where each workspace lives — synced, here only, or there only. */
+  workspaceSync: async (m: AccountFiles): Promise<WorkspaceSyncStatus> =>
+    json<WorkspaceSyncStatus>(
+      await fetch(`${m.fileBase}/workspaces/sync`, {
+        headers: filesHeaders(m),
+      }),
+      "workspace sync",
+    ),
+
+  /** Bring a workspace that is only on the server down to this machine; it stays synced from then on. */
+  downloadWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces/sync/download`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      }),
+      "download",
+    );
   },
 
   /** The same disk, asked what could be put on a SECOND DEVICE — its own route, the home page drawing no surfaces (../../docs/external.md). */

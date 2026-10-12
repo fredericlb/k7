@@ -48,10 +48,12 @@ account's file service, so only that account dials the origin; the local user's 
 hub's own relay. Pairing restarts the account's service, and a paired account's service starts with
 the hub and is never stopped for idleness: a replica that sleeps receives nothing.
 
-Every workspace of a paired account is captured from the service's start, and the service asks the
-origin which workspaces the account has (`GET /api/sync/rooms`): one it lacks is created empty and
-joined, and the relay's first answer fills it. That is how an existing workspace arrives on a new
-machine.
+Every workspace of a paired account is captured from the service's start, so one made here goes up
+to the origin. One the origin has and this machine lacks is NOT brought down on its own: the home
+page lists it with a cloud and a Download (`GET /workspaces/sync`, `POST /workspaces/sync/download`),
+since a workspace of takes is gigabytes a laptop or a phone may not want. Downloaded, it is created
+empty and joined, the relay's first answer fills it, and it stays synced from then on. Each row
+says where its workspace lives: synced, on this machine only, or on the server only.
 
 The origin's LIBRARIES are followed too, read-only, with the paired account's token: the hub's
 library replica joins each library the desktop lists as `@lib/<name>`, so the bundled copy becomes

@@ -18,6 +18,7 @@ import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
+import { useWorkspaceSync } from "./useWorkspaceSync";
 import {
   type AccountFiles,
   copyProject as copyProjectOp,
@@ -55,6 +56,10 @@ export function ProjectsPane({
   const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<FileNode[] | null>(null);
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
+  const { sync, reload: reloadSync } = useWorkspaceSync(
+    fileService,
+    workspaces,
+  );
 
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
   const blocked = fileService ? "" : m["projects.noFilesBlocked"]();
@@ -254,6 +259,16 @@ export function ProjectsPane({
           // Shares COME OUT of a project, so they belong to its row rather than to a card below.
           shares={shares}
           onChanged={onChanged}
+          sync={sync}
+          onDownload={async (name) => {
+            try {
+              await accountFiles.downloadWorkspace(chosen(), name);
+            } catch (e) {
+              setError((e as Error).message);
+            }
+            onChanged();
+            reloadSync();
+          }}
         />
       )}
     </div>
