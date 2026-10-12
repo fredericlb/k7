@@ -288,6 +288,16 @@ inline and a document-wide setting would reflow every other list in the file.
 that says nothing (the rule `type:` follows), and a `status: listed` on every module in a library is
 a line of noise per file a reader has to learn to skip.
 
+## The two shapes are one switch away
+
+The grid edits one layout at a time: the panel (HORIZONTAL) or its `vertical` twin
+(`docs/layouts.md`), picked above the grid. The twin is created from the panel on demand
+(`reflowNarrow`, a first draft packed into 4 columns, frames left to the author) rather than kept in
+step automatically, since a narrow layout is a design and a reflow is only a start. Tabs are edited
+on the panel and `alignTabs` carries the change to the twin, so the two never name different pages.
+What `twinIssues` reports is listed under the switch, while the file still saves: a twin half-done
+is a normal state of an edit, and refusing it would make the work impossible to do in steps.
+
 ## A group frames, it does not hold
 
 A `group` is a tinted box drawn under a section of controls — DRY/WET, an envelope — and in the

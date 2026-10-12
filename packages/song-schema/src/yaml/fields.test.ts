@@ -23,6 +23,7 @@ describe("derived module fields", () => {
       "params",
       "rack",
       // An SFZ drum kit's pads, name → note, drawn as a rack's taps — packages/song/docs/racks.md.
+      "tap_outs",
       "kit",
       // A COLD module works only on audio already on disk — see docs/coldModules.md.
       "cold",
@@ -75,6 +76,7 @@ describe("derived module fields", () => {
       "rows",
       "widgets",
       "tabs",
+      "vertical",
     ]);
     // A tab is a name and its widgets, and a widget in it is a widget like any other.
     expect(fieldsAt("module", ["ui", "tabs", "0"])).toEqual([
@@ -140,6 +142,7 @@ describe("derived lane fields", () => {
       "fadeIn",
       "fadeOut",
       "loop",
+      "gain",
       "disabled",
       // Whether this event plays the material's stretch map — `event status warp` writes it.
       "warp",
@@ -189,12 +192,13 @@ describe("derived values", () => {
 });
 
 describe("chain fields", () => {
-  it("offers the file's four sections, and nothing inside them", () => {
+  it("offers the file's five sections, and nothing inside them", () => {
     // `bus_only:` is NOT a synonym of `bypassed:` — see packages/song/docs/busOnly.md.
     expect(fieldsAt("chains", [])).toEqual([
       "modules",
       "bypassed",
       "bus_only",
+      "tap_feeds",
       "positions",
     ]);
     // Inside a section the keys are node NAMES, a project's own vocabulary the schema cannot know.

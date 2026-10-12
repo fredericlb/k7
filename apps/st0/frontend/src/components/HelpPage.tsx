@@ -7,7 +7,6 @@ import { Button } from "@frediverse/ui/button";
 import { ArrowLeft } from "@frediverse/ui/icons";
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../api";
-import { commandTranslations } from "../commandI18n";
 import type { CommandPrefs } from "../commandPrefs";
 import { DOC_PARTS } from "../docs/pages";
 import { shortcutsByCommand } from "../keys";
@@ -96,7 +95,7 @@ function CommandRow({
   shortcut?: string;
 }) {
   // Every translation on one line, active locale first: each one dispatches, so the row is what you can type.
-  const names = commandTranslations(cmd.command);
+  const names = [cmd.command];
   return (
     <div className="flex items-baseline gap-3 py-0.5">
       <code className="shrink-0 font-mono text-xs">

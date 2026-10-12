@@ -12,14 +12,19 @@ import type {
 } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
+import {
+  barTint,
+  CommandBar,
+  type CommandBarHandle,
+} from "../components/CommandBar";
 import { GitBusyOverlay } from "../components/GitBusy";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
+import { pollWhileVisible } from "../visiblePoll";
 import { accountFiles, shares as sharesApi } from "./api";
-import { HomeHeader } from "./HomeHeader";
+import { HomeShell } from "./HomeSidebar";
 import {
   type ArmedDelete,
   buildHomePalette,
@@ -122,10 +127,10 @@ export function Home() {
       if (!stop) await loadWorkspaces(fileService);
     };
     void tick();
-    const t = setInterval(() => void tick(), POLL_MS);
+    const stopPoll = pollWhileVisible(() => void tick(), POLL_MS);
     return () => {
       stop = true;
-      clearInterval(t);
+      stopPoll();
     };
   }, [fileService, loadWorkspaces]);
 
@@ -142,15 +147,18 @@ export function Home() {
       }
     };
     void tick();
-    const t = setInterval(() => void tick(), POLL_MS);
+    const stopPoll = pollWhileVisible(() => void tick(), POLL_MS);
     return () => {
       stop = true;
-      clearInterval(t);
+      stopPoll();
     };
   }, [loadShares]);
 
   /** This screen's command bar and status line, with its own vocabulary (`homeCommands.ts`) rather than the editor's. */
   const cmdRef = useRef<CommandBarHandle>(null);
+  // Whether the bar is waiting on a command's answers, which tints its strip (CommandBar's `barTint`).
+  const [pending, setPending] = useState(false);
+  const onBarPending = useCallback((p: unknown) => setPending(!!p), []);
   const { locale } = useLocale();
   const palette = useMemo(() => buildHomePalette(locale), [locale]);
   const [said, setSaid] = useState<{ text: string; refused: boolean } | null>(
@@ -223,14 +231,13 @@ export function Home() {
   );
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <HomeShell subtitle={m["home.projects"]()}>
       {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
           button on this page silently does nothing — see @studio/project-shell/ask. */}
       <AskHost />
       {/* Where a workspace's compaction says what it gave back. */}
       <Toaster />
       <GitBusyOverlay />
-      <HomeHeader subtitle={m["home.projects"]()} className="z-20" />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         {error && (
@@ -263,8 +270,9 @@ export function Home() {
             {said.text}
           </p>
         )}
-        <div className="flex items-center px-3 py-2">
+        <div className={`flex items-center px-3 py-2 ${barTint(pending)}`}>
           <CommandBar
+            onPending={onBarPending}
             ref={cmdRef}
             commands={palette}
             // Everything a field can offer is already on screen, so the answer is immediate.
@@ -280,6 +288,6 @@ export function Home() {
           />
         </div>
       </div>
-    </div>
+    </HomeShell>
   );
 }

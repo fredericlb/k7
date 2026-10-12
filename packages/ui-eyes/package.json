@@ -11,6 +11,7 @@
     "./compositor": "./src/compositor.ts",
     "./realtime": "./src/realtime.ts",
     "./export": "./src/export.ts",
+    "./exportSupport": "./src/exportSupport.ts",
     "./camera": "./src/camera.ts",
     ".": "./src/index.ts"
   },

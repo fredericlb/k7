@@ -2,7 +2,7 @@
 // stays 2048 samples — and the paths a ref is looked for at, in the compile's order.
 
 import { describe, expect, it } from "vitest";
-import { decodeWav, soundPaths } from "./lcdSounds";
+import { decodeWav, soundPaths, touchesSounds } from "./lcdSounds";
 
 function wav16(samples: number[], channels = 1): ArrayBuffer {
   const data = samples.length * 2;
@@ -51,5 +51,21 @@ describe("soundPaths", () => {
       "a.st0/samples/t.wav",
     ]);
     expect(soundPaths("wavetables/t.wav", null)).toEqual([]);
+  });
+});
+
+describe("touchesSounds", () => {
+  // A re-rendered sample must be drawn from the new file, and a knob write must not empty the cache.
+  it("is true for a sample or a wavetable, and when nobody said what changed", () => {
+    expect(touchesSounds([{ path: "samples/kick.wav" }])).toBe(true);
+    expect(touchesSounds([{ path: "modules/synth/wavetables/a.wav" }])).toBe(
+      true,
+    );
+    expect(touchesSounds(null)).toBe(true);
+  });
+  it("is false for a graph, a clip or a module file", () => {
+    expect(
+      touchesSounds([{ path: "graph.yaml" }, { path: "clips/a.yaml" }]),
+    ).toBe(false);
   });
 });

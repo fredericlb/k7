@@ -1,10 +1,9 @@
 // lucideIcons.ts — resolve a lucide icon by NAME at runtime, for the ones a person picks.
 //
-// The dynamic import buys deferred EXECUTION, not a smaller bundle: thirty components import
-// lucide statically, so the bundler cannot split it out, and naming the namespace retains all
-// ~1500 exports where tree-shaking kept forty. The build says so, every time
-// (`INEFFECTIVE_DYNAMIC_IMPORT`). Left that way on purpose — a curated subset is a product
-// decision, not a refactor. Measured numbers and the whole argument: docs/shell.md.
+// Through `@frediverse/ui/icons/all`, a module of its own, so the whole set is a chunk loaded on
+// demand while the static `@frediverse/ui/icons` imports keep only the icons the code draws.
+// Reading the `@frediverse/ui/icons` namespace here instead would put every icon on the first
+// screen. See docs/shell.md and commons' docs/icons.md.
 
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
@@ -18,9 +17,9 @@ let pending: Promise<IconSet> | null = null;
 /** The whole set, loaded once. Repeat calls get the cache, or join the flight already in the air. */
 export function loadIcons(): Promise<IconSet> {
   if (cache) return Promise.resolve(cache);
-  pending ??= import("@frediverse/ui/icons").then((mod) => {
+  pending ??= import("@frediverse/ui/icons/all").then((mod) => {
     const out: IconSet = {};
-    // Components only: the module also exports helpers, an `icons` map and an alias per name — a picker offering `createLucideIcon` would be absurd.
+    // Components only, and one name each: a stray helper or a `…Icon` alias in a picker would be absurd.
     for (const [name, v] of Object.entries(mod as Record<string, unknown>))
       if (
         /^[A-Z]/.test(name) &&
@@ -30,6 +29,10 @@ export function loadIcons(): Promise<IconSet> {
         out[name] = v as IconComponent;
     cache = out;
     return out;
+  });
+  // A failed load is not cached: the next caller tries again rather than inheriting the rejection.
+  pending.catch(() => {
+    pending = null;
   });
   return pending;
 }
@@ -43,9 +46,13 @@ export function useIcons(): IconSet | null {
   useEffect(() => {
     if (icons) return;
     let live = true;
-    void loadIcons().then((s) => {
-      if (live) setIcons(s);
-    });
+    // A failure draws labels without icons, as before the chunk lands; the next mount asks again.
+    loadIcons().then(
+      (s) => {
+        if (live) setIcons(s);
+      },
+      () => {},
+    );
     return () => {
       live = false;
     };

@@ -100,7 +100,8 @@ Three consequences worth knowing:
 What has **not** changed is that `out` compiles as a parallel send (below). Four outputs wired
 today are four copies of the same signal as far as the engine is concerned — which is why a
 module that genuinely fans out has to be `offline` and produce files instead. See
-`docs/coldModules.md`.
+`docs/coldModules.md`. The one exception is a rack's TAPS: a tap routed to a subchain really does
+leave the instrument by an output of its own (`docs/racks.md`, "A tap with a chain of its own").
 
 ### The one source whose port IS its identity: a lane
 

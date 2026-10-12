@@ -97,68 +97,45 @@ plugin's, not the intrinsic.
 
 **A module with no bases has no `General` page at all.** A page holds only what got something,
 and this one has one candidate — so a plain effect opens on its own first family. That is
-also what makes `placeGroup`'s "first row alone" rule quiet: the row is the only row.
+also what keeps `@base` first wherever it is: it leads its page in both shapes.
 
 `General` is drawn FIRST, like every other page, so there is no `tail` flag anywhere. The pages
 are named in English like the rest of the table — one language per tab bar, and the other eleven
 are `Reverb`, `Filter`, `Envelope`…
 
-## The module's own blend takes the bottom-right corner of `Mix`
+## The module's own blend closes `Mix`
 
 Where the engine offers `@mix` — on every effect — `@mix` IS the blend, and the plugin's own dry,
 wet or mix is left out altogether: the engine holds those at full wet
 (`engine/st0-engine/docs/mix.md`), so a knob on one would do nothing. What follows is the rule for a
 module the engine offers no `@mix` on.
 
-A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` lands **bottom right of its own page**.
-
-It says how much of this module you hear at all, as against how much of what went into it —
-a question about the module rather than about the shape of its sound, which reads as an argument
-for pulling it onto `General`. It is not pulled: `General` is `@base` alone, and the blend stays
-in `Mix`, where its own family already put it. What the argument buys is the **corner**:
-right-aligned on the bottom row, where an output stage sits on a real panel. `isBlend` decides a
-position, never a page.
+A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` is placed **last on its own page**, after everything
+else, the way an output stage ends a hardware strip. It is not pulled onto `General`, which is
+`@base` alone: `isBlend` decides a position, never a page.
 
 What makes one "the module's own" is the **family, not the word**. `Reverb Dry/Wet`, `Delay Mix`
 and `Chorus Wet` all carry a blend word, and the effect families ask before `Mix` does — so a
 blend word still sitting in `Mix` at the end is one no effect claimed. `isBlend` is that test in
-one line, and there is no second list of effect names to keep in step with the first.
+one line, and there is no second list of effect names to keep in step with the first. Several
+stay together, a `dry` and a `wet` being two halves of one control.
 
-Several are right-**aligned** together, ending at the panel's edge: a `dry` and a `wet` are two
-halves of one control (one crossfade versus two independent gains — the difference is whether the
-sum is locked), and splitting them across the row would say they are unrelated. If the bottom
-row's right-hand end is already occupied, the panel grows a row rather than stacking the blend on
-a knob.
+## What it draws, and where — both shapes at once
 
-## It always ends on an empty row
+The proposal is a panel in its **two shapes** (`layouts.md`), laid out from the same pages:
 
-One slot row of air under the tallest page, whatever that page holds. Two reasons, and the second
-is the one that made it a rule rather than a nicety:
+- **horizontal**, the panel itself: two **slot** rows a page, so four cells tall, as wide as the
+  biggest page needs and at most `AUTO_PER_ROW` (six) slots across. A family with more than twelve
+  parameters is **wrapped** onto `Filter 2`, `Filter 3`… rather than made taller;
+- **vertical**, when the panel is wider than four cells: two slots a row, four cells wide, as tall
+  as the page needs, the same pages in the same order.
 
-- a panel whose bottom control sits flush against its edge reads as **cropped** — as though the
-  next row were there and simply not being drawn;
-- the grid editor needs somewhere to **drop** a parameter that is not already on top of a widget.
-  Without the empty row, adding the first control past the proposal means resizing the panel
-  before you can aim at anything, which is a strange first thing to have to do to a layout that
-  was just made for you.
+The pages are the panel's **tabs**, one per family (or per wrapped part), each laid out from row
+0; a proposal with a single page writes no `tabs:` at all, since one tab is no tab. The proposal
+has no empty row under it: a spare row does not fit in four, and the grid editor resizes as it
+drops.
 
-A **slot** row (`KNOB_SPAN` cells), not a cell row: what has to fit there is a control, and half
-a knob of clearance is a margin rather than a place to put one.
-
-It is counted after the blend is placed, so the air is under the bottom row rather than instead
-of it — `rowsNeeded` stays the height of the content and only the panel's `rows` reads the extra.
-The empty parameter list is the one case with no air, and needs none: it returns a bare grid
-before any of this runs.
-
-## What it draws, and where
-
-The proposal is the panel's **tabs**, one per family, each laid out from row 0 — six parameters
-to a row, `AUTO_PER_ROW`. The tabs are a column beside the grid (`pages.md`), so no row is given
-up to them. A proposal with a single family writes no `tabs:` at all: its widgets are the panel's,
-since one tab is no tab.
-
-A parameter gets a **slot** rather than a cell: `KNOB_SPAN` × `KNOB_SPAN`, which is 2×2. So the
-panel is twelve cells wide (`AUTO_COLS` = six slots) and a row of parameters is two cells tall. A
+A parameter gets a **slot** rather than a cell: `KNOB_SPAN` × `KNOB_SPAN`, which is 2×2. A
 dropdown takes the slot's width and not its height — it is one row of text with nothing to put
 under it, where a knob is a dial with its label beneath.
 
@@ -166,10 +143,6 @@ under it, where a knob is a dial with its label beneath.
 still one cell: those are single deliberate gestures onto a grid whose shape the author already
 has in mind, and making one bigger is a drag. This function places a hundred and fifty at once
 onto a grid it sizes itself, which is the case that needs an opinion about how big a knob is.
-
-Every page shares that grid, so `rows` is sized to the **biggest** page, plus the empty row
-above: a panel tall enough for the reverb page is what makes the oscillator page fit too, and a
-shorter page simply has more air under it than the one that set the height.
 
 Widget kinds are the same three a **dropped** parameter gets in `WidgetGridEditor.createBound` —
 a parameter with named settings becomes a dropdown, everything else a knob — so a panel you

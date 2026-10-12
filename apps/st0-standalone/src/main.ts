@@ -1,19 +1,20 @@
 // main.ts — st0 and pl8 as one desktop app: both backends, the supervisor and its engine, and a window on st0.
 // Sign-in is the OIDC library's dev stub (no issuer configured), so the window opens on /auth/login first. See docs/standalone.md.
 
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createConnection } from "node:net";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PORTS_ENV } from "@studio/web-protocol/services";
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { assertPortsFree, persistentSecret } from "@studio/electron-shell/boot";
+import { runApp } from "@studio/electron-shell/lifecycle";
+import { line, openLog } from "@studio/electron-shell/log";
 import {
-  type Backend,
-  startBackend,
-  stopBackend,
+  type Server,
+  stopServer,
   waitListening,
-} from "./backends.ts";
-import { line, openLog } from "./log.ts";
+} from "@studio/electron-shell/servers";
+import { openAppWindow } from "@studio/electron-shell/window";
+import { PORTS_ENV } from "@studio/web-protocol/services";
+import type { BrowserWindow } from "electron";
+import { startBackend } from "./backends.ts";
 import {
   appIcon,
   engineBinary,
@@ -39,33 +40,9 @@ const webPreferences = {
   additionalArguments: [`--studio-ports=${PORTS_SPEC}`],
 };
 
-let backends: Backend[] = [];
+let backends: Server[] = [];
 let supervisor: Supervisor | null = null;
 let win: BrowserWindow | null = null;
-
-if (!app.requestSingleInstanceLock()) app.exit(0);
-app.on("second-instance", () => win?.show());
-
-/** Whether something already answers on `port` — a dev session, or a second copy of the stack. */
-function portBusy(port: number): Promise<boolean> {
-  return new Promise((res) => {
-    const s = createConnection({ port, host: "127.0.0.1" });
-    s.once("connect", () => {
-      s.destroy();
-      res(true);
-    });
-    s.once("error", () => res(false));
-  });
-}
-
-/** The session secret both backends sign and verify the cookie with, kept so a restart keeps the session. */
-function sessionSecret(dir: string): string {
-  const at = join(dir, "session-secret");
-  if (existsSync(at)) return readFileSync(at, "utf8").trim();
-  const s = randomBytes(32).toString("hex");
-  writeFileSync(at, s, { mode: 0o600 });
-  return s;
-}
 
 /** First run only: the origin's library list names a local clone source, since the dev user can never be an admin. */
 function seedLibraries(filesRoot: string): void {
@@ -81,40 +58,23 @@ function seedLibraries(filesRoot: string): void {
 }
 
 function openWindow(): void {
-  win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
-    title: "st0",
-    backgroundColor: "#101114",
-    // Linux and Windows draw it on the window; macOS takes the bundle's (or the Dock's, below).
-    icon: appIcon(),
+  win = openAppWindow({
+    url: `${ST0}/auth/login?return_to=${encodeURIComponent("/")}`,
+    ours: (url) => url.startsWith(ST0) || url.startsWith(PL8),
     webPreferences,
-  });
-  // Windows a page opens get the same icon.
-  win.webContents.on("did-create-window", (child) => child.setIcon(appIcon()));
-  const ours = (url: string) => url.startsWith(ST0) || url.startsWith(PL8);
-  // A page of ours opens as another window of the app; anything else goes to the system browser.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (ours(url))
-      return {
-        action: "allow",
-        overrideBrowserWindowOptions: { webPreferences },
-      };
-    void shell.openExternal(url);
-    return { action: "deny" };
-  });
-  win.webContents.on("will-navigate", (e, url) => {
-    if (!ours(url)) {
-      e.preventDefault();
-      void shell.openExternal(url);
-    }
+    icon: appIcon(),
+    options: {
+      width: 1440,
+      height: 900,
+      minWidth: 900,
+      minHeight: 600,
+      title: "st0",
+      backgroundColor: "#101114",
+    },
   });
   win.on("closed", () => {
     win = null;
   });
-  void win.loadURL(`${ST0}/auth/login?return_to=${encodeURIComponent("/")}`);
 }
 
 async function boot(): Promise<void> {
@@ -122,17 +82,11 @@ async function boot(): Promise<void> {
   mkdirSync(dirs.root, { recursive: true });
   openLog(dirs.log);
   line("app", `state in ${dirs.root}`);
+  await assertPortsFree([PORTS.st0, PORTS.pl8]);
 
-  for (const port of [PORTS.st0, PORTS.pl8])
-    if (await portBusy(port))
-      throw new Error(
-        `port ${port} is already in use — is another copy of the app still running?`,
-      );
-
-  const secret = sessionSecret(dirs.root);
   const engine = engineBinary();
   const shared: Record<string, string> = {
-    SESSION_SECRET: secret,
+    SESSION_SECRET: persistentSecret(dirs.root),
     // Empty on purpose: no issuer is what selects the dev stub, and no domain keeps the cookie host-only over http.
     OIDC_ISSUER: "",
     OIDC_CLIENT_ID: "",
@@ -172,38 +126,18 @@ async function boot(): Promise<void> {
   openWindow();
 }
 
-app.whenReady().then(() => {
-  // Unpackaged, the bundle is Electron's own, so the Dock would show Electron's icon.
-  if (!app.isPackaged) app.dock?.setIcon(appIcon());
-  return boot().catch((e: unknown) => {
-    const why = e instanceof Error ? e.message : String(e);
-    line("app", `failed to start: ${why}`);
-    dialog.showErrorBox(
-      "st0 could not start",
-      `${why}\n\nLog: ${stateDirs().log}`,
-    );
-    app.quit();
-  });
-});
-
-app.on("activate", () => {
-  if (!win && backends.length) openWindow();
-});
-app.on("window-all-closed", () => app.quit());
-
-let quitting = false;
-app.on("before-quit", (event) => {
-  if (quitting) return;
-  quitting = true;
-  event.preventDefault();
-  void (async () => {
-    line("app", "quitting");
+runApp({
+  title: "st0",
+  logPath: stateDirs().log,
+  boot,
+  stop: async () => {
     // The supervisor first: it deregisters from pl8, which must still be up to hear it.
     await supervisor?.stop();
-    await Promise.all(backends.map((b) => stopBackend(b)));
-    app.exit(0);
-  })();
+    await Promise.all(backends.map((b) => stopServer(b)));
+  },
+  onSecondInstance: () => win?.show(),
+  onActivate: () => {
+    if (!win && backends.length) openWindow();
+  },
+  devIcon: appIcon(),
 });
-
-for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"] as const)
-  process.on(sig, () => app.quit());

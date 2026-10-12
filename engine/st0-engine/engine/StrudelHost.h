@@ -46,14 +46,18 @@ public:
     /** The labels the pattern uses in [from, to) cycles, as written. */
     std::vector<std::string> labels(double from, double to);
 
-    /** Bytes the JS heap holds. */
-    std::size_t memoryBytes();
-
     /** Wall-clock budget for one call into JS; a pattern that loops forever is cut off by it. */
     void setDeadlineMs(double ms) { deadlineMs_ = ms; }
 
+    /** The C stack JS may use on the CALLING thread; a thread that sized its own stack raises it, everyone else keeps the default. */
+    static void setThreadStackBudget(std::size_t bytes);
+    /** What a thread that never called setThreadStackBudget gets: safe on any thread JUCE or Tracktion starts (512 KiB on macOS). */
+    static constexpr std::size_t kDefaultStackBudget = 256 * 1024;
+
 private:
     static int interrupt(JSRuntime*, void* opaque);
+    /** Re-anchor QuickJS's stack check on the calling thread, with that thread's budget. */
+    void enterOnThisThread();
     friend struct JsonCall;
 
     std::mutex lock_;

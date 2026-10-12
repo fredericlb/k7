@@ -52,6 +52,11 @@ widget id is unique across the panel, every tab included. The bind lookups above
 (`panelWidgets` in `@studio/graph-model/panel`), since a control on a closed tab is still the
 module's. A one-page panel writes no `tabs:` (`packages/ui-module-builder/docs/pages.md`).
 
+The panel is the HORIZONTAL layout, at most 4 rows. An optional **`vertical:`** block is the same
+panel at most 4 columns wide — `cols`, `rows`, `widgets` and `tabs`, the tabs the panel's by name
+and in order, which `UISchema` refuses otherwise. It is omitted when the panel fits both limits.
+What each page must offer in both is `packages/ui-module-builder/docs/layouts.md`.
+
 A `group` is a coloured frame — `color` (`#rgb`, `#rrggbb` or `#rrggbbaa`) and an optional `label`
 — drawn UNDER the widgets that lie wholly inside its box: a DRY/WET pair, an envelope's four
 knobs. It CONTAINS nothing in the file. Membership is geometry, and the controls stay at the

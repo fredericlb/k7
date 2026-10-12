@@ -306,6 +306,24 @@ refuses every reopen and retrying it for ever is noise. The log says which way i
 To check by hand: `audio-cost` twice, a second apart. A `runs` that does not move while a device is
 open is exactly the stall this watches for.
 
+### A callback stuck INSIDE is not a stall, and a reopen would hang on it
+
+The counter cannot tell the two apart: a driver that stopped calling and a plugin hung inside
+`processBlock` both leave `runs` where it was. The answers are opposite. Reopening closes the device,
+and closing it takes the lock the running callback holds — so on a hung plugin the reopen blocks the
+MESSAGE thread for ever: no apply, no transport, no state frame, while `whoami`, answered on the
+socket's own thread, tells the supervisor the engine is fine.
+
+So Tracktion's callback records when it entered, and clears it as it returns (a fetch-time patch,
+`engine/patches/tracktion.cmake`, since the callback is Tracktion's). The watchdog reads that first.
+A callback inside for half a second is BUSY, and the check is skipped — not counted towards a stall,
+not reopened. One inside for ten seconds is HUNG, and nothing frees an audio thread a plugin never
+gives back: the engine logs why and leaves with exit code 5, for the supervisor to start a fresh one.
+On Android, where leaving takes the app with it, it warns once instead.
+
+Which plugin hung is not known — the graph runs many — so a project that hangs every time it plays
+hangs every time it is restarted too. The log line is what tells that loop apart from a crash.
+
 ## MIDI devices are rescanned only while nothing plays
 
 When a MIDI device appears or vanishes, Tracktion's `applyNewMidiDeviceList` clears and reloads

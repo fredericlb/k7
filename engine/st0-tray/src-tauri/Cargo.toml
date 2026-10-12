@@ -12,11 +12,8 @@ tauri-build = { version = "2", features = [] }
 # hasher, MAC/hostname/IP enumeration, UUIDs, a process-table walker, URL parsing — went
 # with the supervision. Thirteen crates left in one commit, `reqwest` (hyper + rustls +
 # ring) and `tokio-tungstenite` among them. Adding one back here is a strong signal that
-# logic is drifting into the view; put it in the supervisor instead.
-#
-# NOTE on TLS: dropping `reqwest` took `rustls-tls-native-roots` with it, and Node's
-# `fetch` uses its own bundled roots. That is why the supervisor is launched with
-# `--use-system-ca` — see hostcmd.rs, which explains what breaks without it.
+# logic is drifting into the view; put it in the supervisor instead. The tray speaks
+# no TLS at all: the supervisor's trust roots are the OS's (st0-supervisor/docs/supervisor.md).
 
 [dependencies]
 # tray-icon: TrayIconBuilder; image-png: load PNG tray icons via include_image!

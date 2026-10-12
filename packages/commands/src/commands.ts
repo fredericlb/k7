@@ -115,6 +115,7 @@ import {
   removeTap,
   renameTap,
   setTap,
+  setTapOut,
 } from "@studio/song-edit/rackTaps";
 import {
   addTrackPlacement,
@@ -187,7 +188,21 @@ import {
   moduleFileFor,
   readModuleFile,
 } from "@studio/song/yaml/moduleIO";
+import {
+  EVENT_GAIN_MAX_DB,
+  eventGainValue,
+  setTrackPlacementGain,
+} from "@studio/song-edit/eventGain";
+import {
+  setTrackPlacementLoop,
+  setTrackPlacementLoopPoints,
+} from "@studio/song-edit/eventLoop";
 import { halveLoopsOf } from "@studio/song-edit/sequenceLoops";
+import {
+  addTapChainNode,
+  moveTapChainNode,
+  removeTapChainNode,
+} from "@studio/song-edit/tapChain";
 import { ASPECTS, aspectSize } from "@studio/song-schema/aspect";
 import {
   removeWarpPoint,
@@ -1033,6 +1048,143 @@ async function windowCommand(a: string, h: CommandHost): Promise<void> {
     await h.reload();
   } catch (e) {
     h.refuse([`event window failed: ${(e as Error).message}`]);
+  }
+}
+
+/** `event gain <track> <at> <dB>` — one AUDIO event's own trim; song-edit docs/eventGain.md. */
+async function gainCommand(a: string, h: CommandHost): Promise<void> {
+  const parts = splitWords(a);
+  if (parts.length !== 3) {
+    h.refuse([
+      "usage: event gain <track> <timecode> <dB>   (-6 … +6; 0 is unity)",
+    ]);
+    return;
+  }
+  const [trackArg, atTc, dbArg] = parts;
+  const db = Number(dbArg);
+  if (!Number.isFinite(db) || Math.abs(db) > EVENT_GAIN_MAX_DB) {
+    h.refuse([
+      `'${dbArg}' is not a gain from -${EVENT_GAIN_MAX_DB} to +${EVENT_GAIN_MAX_DB} dB`,
+    ]);
+    return;
+  }
+  const found = resolveEvent(h, trackArg, atTc);
+  if (!found) return;
+  const { track, atBeats, hit, num, den } = found;
+  if (hit.type !== "audio") {
+    h.refuse([
+      `the event at ${atTc} is MIDI: it shares its lane's instrument, so it has no gain of its own`,
+      "its notes' velocities are the way to make it louder or softer",
+    ]);
+    return;
+  }
+  try {
+    if (!setTrackPlacementGain(h.songPath, track.id, atBeats, num, den, db)) {
+      h.refuse([`no event on '${track.id}' at ${atTc}`]);
+      return;
+    }
+    const v = eventGainValue(db);
+    h.log([
+      `${track.id}: ${hit.name || hit.id} at ${atTc} ${v === undefined ? "at unity" : `trimmed ${v > 0 ? "+" : ""}${v} dB`}`,
+    ]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`event gain failed: ${(e as Error).message}`]);
+  }
+}
+
+/** `event loop <track> <at> [on|off|toggle]` — whether one event repeats its window; song-edit docs/eventLoop.md. */
+async function loopCommand(a: string, h: CommandHost): Promise<void> {
+  const m = /^(\S+)\s+(\S+)(?:\s+(\S+))?$/.exec(a.trim());
+  if (!m) {
+    h.refuse(["usage: event loop <track> <timecode> [on|off|toggle]"]);
+    return;
+  }
+  const [, trackArg, atTc, stateArg] = m;
+  const state = (stateArg ?? "toggle").toLowerCase();
+  if (!["on", "off", "toggle"].includes(state)) {
+    h.refuse([`'${stateArg}' is not on, off or toggle`]);
+    return;
+  }
+  const found = resolveEvent(h, trackArg, atTc, true);
+  if (!found) return;
+  const { track, atBeats, hit, num, den, tempo } = found;
+  const on =
+    state === "toggle" ? !((hit.event?.loop ?? 1) > 1) : state === "on";
+  try {
+    const done = setTrackPlacementLoop(
+      h.songPath,
+      track.id,
+      atBeats,
+      num,
+      den,
+      tempo,
+      on,
+      // An audio window with no end gets the file's length as one: a repeat needs to know where it starts over.
+      hit.source ? (wavSeconds(hit.source) ?? undefined) : undefined,
+    );
+    if (!done) {
+      h.refuse([`no event on '${track.id}' at ${atTc}`]);
+      return;
+    }
+    h.log([
+      `${track.id}: ${hit.name || hit.id} at ${atTc} ${done.loops > 1 ? `loops, ${done.loops} passes` : "plays once"}${done.changed ? "" : " (already)"}`,
+    ]);
+    if (done.changed) await h.reload();
+  } catch (e) {
+    h.refuse([`event loop failed: ${(e as Error).message}`]);
+  }
+}
+
+/** `event loop points <track> <at> <from> <to>` — the window an event loops, in its material's unit; song-edit docs/eventLoop.md. */
+async function loopPointsCommand(a: string, h: CommandHost): Promise<void> {
+  const parts = splitWords(a);
+  if (parts.length !== 4) {
+    h.refuse([
+      "usage: event loop points <track> <timecode> <from> <to>",
+      "       (beats into a sequence, seconds into an audio file)",
+    ]);
+    return;
+  }
+  const [trackArg, atTc, fromArg, toArg] = parts;
+  const from = Number(fromArg);
+  const to = Number(toArg);
+  if (
+    !Number.isFinite(from) ||
+    !Number.isFinite(to) ||
+    from < 0 ||
+    !(to > from)
+  ) {
+    h.refuse([
+      `'${fromArg} ${toArg}' are not loop points — two numbers, running forwards, the first not negative`,
+    ]);
+    return;
+  }
+  const found = resolveEvent(h, trackArg, atTc, true);
+  if (!found) return;
+  const { track, atBeats, hit, num, den, tempo } = found;
+  try {
+    const done = setTrackPlacementLoopPoints(
+      h.songPath,
+      track.id,
+      atBeats,
+      num,
+      den,
+      tempo,
+      from,
+      to,
+    );
+    if (!done) {
+      h.refuse([`no event on '${track.id}' at ${atTc}`]);
+      return;
+    }
+    const unit = done.kind === "sequence" ? "b" : "s";
+    h.log([
+      `${track.id}: ${hit.name || hit.id} at ${atTc} loops ${+done.from.toFixed(3)}${unit} → ${+done.to.toFixed(3)}${unit}${done.loops > 1 ? `, ${done.loops} passes` : ""}`,
+    ]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`event loop points failed: ${(e as Error).message}`]);
   }
 }
 
@@ -2146,6 +2298,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "event.statusWarp": (a, h) => statusCommand(a, h, "warp"),
   "event.fadeIn": (a, h) => fadeCommand(a, h, "fadeIn"),
   "event.window": windowCommand,
+  "event.gain": gainCommand,
+  "event.loop": loopCommand,
+  "event.loopPoints": loopPointsCommand,
   "event.fadeOut": (a, h) => fadeCommand(a, h, "fadeOut"),
   "curve.point.add": (a, h) => curvePointCommand(a, h, "add"),
   "curve.point.move": (a, h) => curvePointCommand(a, h, "move"),
@@ -3384,6 +3539,62 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h,
       () => setTap(h.songPath, node, symbol, { mute: on }),
       `${node}: ${symbol} ${on ? "muted" : "unmuted"}`,
+    );
+  },
+  /** node tap out <node> <tap> <subchain|none> — the tap leaves by an output of its own, into that subchain (song docs/racks.md). */
+  "node.tap.out": async (a, h) => {
+    const [node, symbol, sub] = splitArgs(a);
+    if (!node || !symbol || !sub)
+      return h.refuse(["usage: node tap out <node> <tap> <subchain|none>"]);
+    const to = sub === "none" ? null : sub;
+    await tapEdit(
+      h,
+      () => setTapOut(h.songPath, node, symbol, to),
+      `${node}: ${symbol} ${to ? `leaves for ${to}` : "back on the main output"}`,
+    );
+  },
+  /** node tap chain add <node> <tap> <module> — the tap's own chain grows by one, made the first time (song docs/racks.md). */
+  "node.tap.chain.add": async (a, h) => {
+    const [node, symbol, ref] = splitArgs(a);
+    if (!node || !symbol || !ref)
+      return h.refuse(["usage: node tap chain add <node> <tap> <module>"]);
+    await tapEdit(
+      h,
+      () => addTapChainNode(h.songPath, node, symbol, ref).subchain,
+      `${node}: ${symbol} goes through ${ref}`,
+    );
+  },
+  "node.tap.chain.remove": async (a, h) => {
+    const [node, symbol, id] = splitArgs(a);
+    if (!node || !symbol || !id)
+      return h.refuse(["usage: node tap chain remove <node> <tap> <node-id>"]);
+    let emptied = false;
+    await tapEdit(
+      h,
+      () => {
+        emptied = removeTapChainNode(h.songPath, node, symbol, id).emptied;
+        return "";
+      },
+      `${node}: removed from ${symbol}'s chain`,
+    );
+    if (emptied)
+      h.log([
+        `${node}: ${symbol}'s chain is empty — the tap is back on the main output`,
+      ]);
+  },
+  "node.tap.chain.move": async (a, h) => {
+    const [node, symbol, id, way] = splitArgs(a);
+    if (!node || !symbol || !id || (way !== "up" && way !== "down"))
+      return h.refuse([
+        "usage: node tap chain move <node> <tap> <node-id> <up|down>",
+      ]);
+    await tapEdit(
+      h,
+      () => {
+        moveTapChainNode(h.songPath, node, symbol, id, way === "up" ? -1 : 1);
+        return "";
+      },
+      `${node}: ${symbol}'s chain reordered`,
     );
   },
   "node.tap.remove": async (a, h) => {

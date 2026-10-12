@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { useRevision } from "./useRevision";
+import { useQuietWrites, useRevision } from "./useRevision";
 
 /** What to do about a file that has changed underneath the editor — pure, since the branch that matters DISCARDS someone's typing. */
 export type DiskAction =
@@ -23,8 +23,12 @@ export function decideDiskSync(p: {
   dirty: boolean;
   /** The version already dismissed with "keep editing", if any. */
   dismissed: string | null;
+  /** What this editor last wrote or read; disk still holding it means only the typing since is new. */
+  saved?: string;
 }): DiskAction {
   if (p.fresh === p.buffer) return p.dirty ? "clean" : "ignore";
+  // Our own last save, read back while the person keeps typing: nothing changed underneath.
+  if (p.dirty && p.saved !== undefined && p.fresh === p.saved) return "ignore";
   if (!p.dirty) return "adopt";
   return p.fresh === p.dismissed ? "ignore" : "conflict";
 }
@@ -42,6 +46,7 @@ export function useDiskSync({
   path,
   content,
   dirty,
+  saved,
   onAdopt,
   onClean,
   reloadKey,
@@ -49,6 +54,8 @@ export function useDiskSync({
   path: string | null;
   content: string | null;
   dirty: boolean;
+  /** The text last written or read — see decideDiskSync. */
+  saved: string;
   /** Replace the buffer with this text — a silent refresh, or the user choosing "update". */
   onAdopt: (text: string) => void;
   /** The buffer turned out to match disk after all: it is not dirty any more. */
@@ -59,12 +66,14 @@ export function useDiskSync({
   const [conflict, setConflict] = useState<string | null>(null);
 
   // Read by the poll, which must not re-arm every keystroke: an interval that resets on each character never fires.
-  const state = useRef({ path, content, dirty, onAdopt, onClean });
-  state.current = { path, content, dirty, onAdopt, onClean };
+  const state = useRef({ path, content, dirty, saved, onAdopt, onClean });
+  state.current = { path, content, dirty, saved, onAdopt, onClean };
   // The version the user already said 'keep editing' about: dismissing must not re-prompt for the SAME text, but a further change is new.
   const dismissed = useRef<string | null>(null);
 
   const rev = useRevision();
+  // A knob this tab wrote moves no published token, and the file on screen may be the one it wrote.
+  const quietWrites = useQuietWrites();
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a TRIGGER, not a value this body reads — a command just ran and its write must be noticed now, whether or not the token moved.
   useEffect(() => {
     if (rev === null) return; // no token read yet — nothing has changed that we know of
@@ -89,6 +98,7 @@ export function useDiskSync({
           buffer: cur.content ?? "",
           dirty: cur.dirty,
           dismissed: dismissed.current,
+          saved: cur.saved,
         })
       ) {
         case "adopt":
@@ -104,7 +114,9 @@ export function useDiskSync({
         case "conflict":
           setConflict(fresh);
           break;
+        // Nothing to ask any more — a banner raised over a version that is no longer the question goes.
         case "ignore":
+          setConflict(null);
           break;
       }
     };
@@ -114,7 +126,7 @@ export function useDiskSync({
       alive = false;
     };
     // reloadKey is a dependency deliberately: an action can change the answer without changing a source, and waiting for the token is late.
-  }, [rev, reloadKey]);
+  }, [rev, reloadKey, quietWrites]);
 
   // A different file is a different question — never carry a decision across.
   useEffect(() => {

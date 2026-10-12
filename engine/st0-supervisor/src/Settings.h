@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,8 @@ struct Settings {
     std::vector<std::string> audioPriority;
     /** The ONNX execution providers this machine separates on, lowercased; empty is the CPU. */
     std::vector<std::string> onnxProviders;
+    /** The instruments this machine keeps, by name; absent until a first boot settles it (docs/instruments.md). */
+    std::optional<std::vector<std::string>> instruments;
 };
 
 /** Parse a settings document leniently; anything missing or malformed falls back to its default. */

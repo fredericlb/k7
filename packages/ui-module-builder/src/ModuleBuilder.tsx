@@ -74,6 +74,7 @@ import {
   useState,
 } from "react";
 import { InputChannelBar } from "./InputChannelBar";
+import { alignTabs, LAYOUT_MAX, reflowNarrow, twinIssues } from "./layoutTwins";
 import {
   channelOf,
   extendsRefOf,
@@ -376,6 +377,26 @@ export function ModuleScreen({
     setUiFile((f) => (f ? { ...f, content: writeUiFile(f.content, next) } : f));
     setParsable(true);
   }, []);
+
+  /** Which of the panel's two shapes the grid edits — the panel itself, or its `vertical` twin (docs/layouts.md). */
+  const [shape, setShape] = useState<"horizontal" | "vertical">("horizontal");
+  const editsVertical = shape === "vertical" && !!ui?.vertical;
+  const shownUi: ModuleUI | null =
+    ui && editsVertical && ui.vertical ? { ...ui.vertical } : ui;
+  // An edit lands in the shape on screen; the pages stay one list, so the twin's tabs follow the panel's.
+  const onShapeChange = useCallback(
+    (next: ModuleUI) => {
+      if (!ui) return;
+      if (editsVertical) {
+        const { cols, rows, widgets, tabs } = next;
+        onUiChange({
+          ...ui,
+          vertical: { cols, rows, widgets, ...(tabs?.length ? { tabs } : {}) },
+        });
+      } else onUiChange(alignTabs({ ...next, vertical: ui.vertical }));
+    },
+    [ui, editsVertical, onUiChange],
+  );
 
   // A code edit in the PANEL syncs the grid while it still parses, and greys it out rather than misreading it.
   const onPanelChange = useCallback((text: string) => {
@@ -1105,9 +1126,17 @@ export function ModuleScreen({
           </div>
           {/* Right column: the panel's geometry, the whole height. */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {/* Which of the panel's two shapes the grid edits, and what the pair still breaks — docs/layouts.md. */}
+            <ShapeBar
+              ui={ui}
+              shape={shape}
+              onShape={setShape}
+              onSeed={() => onUiChange({ ...ui, vertical: reflowNarrow(ui) })}
+              disabled={!uiFile || !parsable || !!readOnly}
+            />
             <div className="min-h-0 flex-1">
               <WidgetGridEditor
-                ui={ui}
+                ui={shownUi ?? ui}
                 // The params taking a FILE, a fixed list since the choices belong to the module.
                 assetParams={[...FILE_PARAMS]}
                 // …and every param there IS, which is what "Auto organize" proposes from — docs/builder.md.
@@ -1122,7 +1151,7 @@ export function ModuleScreen({
                         ? "locked"
                         : false
                 }
-                onChange={onUiChange}
+                onChange={onShapeChange}
                 onAiOrganize={ai.run}
                 aiBusy={ai.busy}
               />
@@ -1391,3 +1420,65 @@ function ParamsPane({
 }
 
 // Nothing resolves a pick: the catalogue carries the file and both refs — see docs/builder.md.
+
+/** The switch between the panel's two shapes, and what the pair still breaks — the same check the library is held to. */
+function ShapeBar({
+  ui,
+  shape,
+  onShape,
+  onSeed,
+  disabled,
+}: {
+  ui: ModuleUI;
+  shape: "horizontal" | "vertical";
+  onShape: (s: "horizontal" | "vertical") => void;
+  onSeed: () => void;
+  disabled: boolean;
+}) {
+  const issues = twinIssues(ui);
+  const fitsBoth = ui.cols <= LAYOUT_MAX && !ui.vertical;
+  const btn = (s: "horizontal" | "vertical", label: string) => (
+    <button
+      type="button"
+      onClick={() => onShape(s)}
+      className={`rounded px-2 py-0.5 text-xs ${
+        shape === s
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-accent/50"
+      }`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex shrink-0 flex-col gap-1 border-b border-border px-2 py-1">
+      <div className="flex items-center gap-1">
+        {btn("horizontal", `Horizontal · ≤${LAYOUT_MAX} rows`)}
+        {btn("vertical", `Vertical · ≤${LAYOUT_MAX} cols`)}
+        {/* No twin yet: one is proposed from the panel, every control kept, the frames left to draw again. */}
+        {shape === "vertical" && !ui.vertical && !fitsBoth && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onSeed}
+            className="ml-2 rounded border border-border px-2 py-0.5 text-xs hover:bg-accent disabled:opacity-50"
+          >
+            Create the vertical layout
+          </button>
+        )}
+        {shape === "vertical" && fitsBoth && (
+          <span className="ml-2 text-muted-foreground text-xs">
+            This panel is {LAYOUT_MAX} columns or fewer: it serves both shapes.
+          </span>
+        )}
+      </div>
+      {issues.length > 0 && (
+        <ul className="text-amber-500 text-xs">
+          {issues.map((i) => (
+            <li key={i}>{i}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

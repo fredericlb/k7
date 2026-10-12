@@ -106,9 +106,6 @@ private:
     float lastOut_ = -1.0f;
 };
 
-/** Is this one of the pair — plumbing, never a module? */
-bool isMixPlumbing(const tracktion::engine::Plugin* p);
-
 /** The blend after `module`, or null when the module has no `@mix`. */
 MixBlendPlugin* mixBlendOf(tracktion::engine::Plugin& module);
 

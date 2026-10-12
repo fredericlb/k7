@@ -211,8 +211,6 @@ export function DeckSide({
   onToggleDeck?: () => void;
   /** Drive the record by hand — absent for the same reason: a clip cannot be scratched. */
   onScratch?: (rate: number | null) => void;
-  /** …and the sentence the record itself carries when it will not turn. */
-  scratchRefusal?: string;
 }) {
   const fader = (
     // The tempo column, with THIS deck's transport at the foot of it — under KEY, docs/mix.md.

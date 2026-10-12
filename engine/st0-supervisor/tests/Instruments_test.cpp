@@ -7,6 +7,7 @@
 
 #include <miniz.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -84,6 +85,40 @@ void theHashIsTheFilesSha256()
     CHECK(sha256Of(dir / "missing").empty());
 }
 
+// Points root() at a scratch home, so a removal deletes nothing of this machine's.
+fs::path scratchHome(const std::string& name)
+{
+    const auto dir = scratch(name);
+#ifdef _WIN32
+    _putenv_s("STUDIO_HOME", dir.string().c_str());
+#else
+    setenv("STUDIO_HOME", dir.c_str(), 1);
+#endif
+    return dir;
+}
+
+// An older archive's marker is still an install a first boot keeps; a removal leaves nothing, leftovers included.
+void aRemovalTakesTheFolderAndWhatACutInstallLeft()
+{
+    scratchHome("remove");
+    const auto& wurt = *find("nbo-wurt");
+    CHECK(find("no-such-instrument") == nullptr);
+    CHECK(!present(wurt));
+    fs::create_directories(root() / "nbo-wurt");
+    std::ofstream(root() / "nbo-wurt" / ".st0-archive") << "an-older-hash\n";
+    std::ofstream(root() / "nbo-wurt.zip.part") << "half";
+    fs::create_directories(root() / "nbo-wurt.unpack");
+    CHECK(present(wurt));
+    CHECK(!installed(wurt));
+    std::string error;
+    CHECK(remove(wurt, error));
+    CHECK(error.empty());
+    CHECK(!fs::exists(root() / "nbo-wurt"));
+    CHECK(!fs::exists(root() / "nbo-wurt.zip.part"));
+    CHECK(!fs::exists(root() / "nbo-wurt.unpack"));
+    CHECK(!present(wurt));
+}
+
 void everyInstrumentIsPinned()
 {
     for (const auto& i : all()) {
@@ -102,4 +137,5 @@ void runInstrumentsTests()
     RUN(aNameOutsideTheFolderIsRefusedAndNothingIsLeft);
     RUN(theHashIsTheFilesSha256);
     RUN(everyInstrumentIsPinned);
+    RUN(aRemovalTakesTheFolderAndWhatACutInstallLeft);
 }

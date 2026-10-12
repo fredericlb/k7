@@ -89,6 +89,8 @@ describe("the kit the builder writes", () => {
     const doc = parse(text, { version: "1.2" });
     expect(ModuleSchema.safeParse(doc).success).toBe(true);
     expect(doc.extends).toBe(RACK);
+    // The sampler ENGINE, said outright: the module's default is an SFZ kit, which would ignore the taps.
+    expect(doc.engine).toBe("samples");
     expect(Object.keys(doc.rack.symbols)).toEqual(["BD", "SN"]);
     expect(doc.rack.symbols.BD).toEqual({
       note: 36,

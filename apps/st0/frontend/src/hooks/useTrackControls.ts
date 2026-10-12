@@ -4,6 +4,7 @@
 // Apart from App.tsx so the keys and the buttons share one implementation.
 
 import type { TrackControlValues } from "@studio/ui-chains/graph";
+import type { ChangedFile } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DocTrack } from "./useProjectDoc";
 
@@ -15,8 +16,11 @@ export function useTrackControls(opts: {
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
   /** The lanes a midi-in node feeds: they arm in the browser before they hold any sequence. */
   midiLanesRef?: React.RefObject<Set<string>>;
-  quietCommand: (line: string) => Promise<void>;
+  /** May answer with the files it wrote, which scopes the reload a mute or solo needs. */
+  quietCommand: (line: string) => Promise<unknown>;
   bumpReload: () => void;
+  /** The reload scoped to those files; without it, or without a list, the reload is the unscoped one. */
+  reloadWith?: (changed: ChangedFile[]) => void;
   /** Mute and solo are the VIEWER's, not the document's — a shared snapshot has nothing to write to, so they mean which stem sounds. */
   local?: boolean;
 }): {
@@ -36,6 +40,7 @@ export function useTrackControls(opts: {
     midiLanesRef,
     quietCommand,
     bumpReload,
+    reloadWith,
     local = false,
   } = opts;
 
@@ -98,10 +103,22 @@ export function useTrackControls(opts: {
       // Locally the 'optimistic' override IS the value: no command to run, and nothing to reconcile against.
       if (local) return;
       void quietCommand(`track ${control} ${id}`)
-        .then(bumpReload)
+        .then((changed) =>
+          Array.isArray(changed) && reloadWith
+            ? reloadWith(changed as ChangedFile[])
+            : bumpReload(),
+        )
         .catch(bumpReload); // reconcile even if it failed
     },
-    [quietCommand, bumpReload, midiSeqRef, midiLanesRef, setMidiArmed, local],
+    [
+      quietCommand,
+      bumpReload,
+      reloadWith,
+      midiSeqRef,
+      midiLanesRef,
+      setMidiArmed,
+      local,
+    ],
   );
 
   // Commit a volume/pan knob by addressing the MIXER NODE, in the units the widget declares — `volume` in dB, needing no conversion at all.

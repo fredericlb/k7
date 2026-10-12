@@ -1,7 +1,7 @@
 // relay.ts — the address of the desktop app's camera signalling socket and the frames that
 // travel on it. Both ends live in this folder; this file is what stops them disagreeing.
 // Nothing here is needed against a hosted origin: there a second device has https already,
-// so it opens its own lens. See apps/st0-desktop/docs/camera.md.
+// so it opens its own lens. See packages/song/docs/camera.md.
 
 /** The one path the desktop app takes these upgrades on. */
 const PATH = "/camera/rtc";

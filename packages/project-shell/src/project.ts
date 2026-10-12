@@ -199,6 +199,7 @@ export const projectApi = {
       refused?: boolean;
       graph?: WebGraph;
       rev?: string;
+      revBefore?: string;
       changed?: ChangedFile[];
     }>("POST", "/command", {
       line,

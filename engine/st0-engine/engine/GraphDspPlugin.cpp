@@ -1,6 +1,8 @@
 #include "GraphDspPlugin.h"
 #include "Warnings.h"
 
+#include <cmath>
+
 namespace studio {
 
 namespace te = tracktion::engine;
@@ -271,6 +273,15 @@ void GraphDspPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
         scratch_[i] = params_[i]->getCurrentValue();
     graph_->process(*ctx.destBuffer, ctx.bufferStartSample, ctx.bufferNumSamples,
                     scratch_.data(), (int)scratch_.size());
+
+    // A feedback loop with no saturator can run its state to Inf, which never decays: silenced here and the graph cleared next block, as Faust's is.
+    bool poisoned = false;
+    for (int c = 0; c < ctx.destBuffer->getNumChannels(); ++c) {
+        float* v = ctx.destBuffer->getWritePointer(c, ctx.bufferStartSample);
+        for (int i = 0; i < ctx.bufferNumSamples; ++i)
+            if (!std::isfinite(v[i])) { v[i] = 0.0f; poisoned = true; }
+    }
+    if (poisoned) resetPending_ = true;
 }
 
 }  // namespace studio

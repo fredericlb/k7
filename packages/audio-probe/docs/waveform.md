@@ -1,6 +1,6 @@
 # `waveform.ts` — drawing a clip's region of a file
 
-The heavy part of a waveform — decode and downsample — belongs to the C++ engine, which writes a
+The heavy part of a waveform — decode and downsample — belongs to `@studio/audio-analysis`, which writes a
 **placement-independent** `{source}.cache` sidecar per file. This module only reads it: it slices
 that envelope to the region a clip plays and derives the bar/beat grid from the project's tempo,
 so the picture lines up with the arrangement.
@@ -23,14 +23,12 @@ degrade to a plain envelope rather than to a blank one.
 unless all three cover `peak`'s buckets. A half-banded region would colour some columns from
 data that is not there. The drawing side is `packages/ui-waveform/docs/spectrum.md`.
 
-## `detectTransients` is the written spec, not the code that runs
+## `detectTransients` runs once per file, in the analysis
 
-It is mirrored byte-for-byte in `engine/st0-engine/engine/Waveform.cpp`, which is what actually runs:
-the engine already has the decoded audio, so it detects while it is downsampling and writes the
-result into the sidecar. Nothing in production calls the TypeScript; it exists as the written spec,
-and `waveform.test.ts` is the contract both sides are held to — the same arrangement
-`fileFingerprint` has. Changing it means changing both, and bumping the sidecar version so existing
-caches rebuild.
+`@studio/audio-analysis` calls it on the file's own envelope and writes the onsets into the
+sidecar; nothing calls it per clip region. It lives here rather than there because it is plain
+arithmetic over an envelope, which a browser may import. Changing it changes what a sidecar says,
+so it bumps the sidecar version and existing caches rebuild.
 
 ## One mapping, handed out rather than re-derived
 

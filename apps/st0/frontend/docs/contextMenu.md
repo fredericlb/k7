@@ -196,8 +196,8 @@ question about a HANDLER, and the catalogue only describes arguments.
   `clip process` take one second, and a line cannot be pre-written with a hole in the middle.
   So the only offer is about the track the chain carries, which is a different entity.
 
-- **A rack pad.** Its six rows — change note, change sample, rename, remove, add one before, add
-  one after — are `node tap …` lines named by hand: derived, they would read `note`, `sample`,
+- **A rack pad.** Its seven rows — change note, change sample, rename, remove, add one before, add
+  one after, and **Edit chain…**, the popin on its own chain (`docs/shell.md`) — are lines named by hand: derived, they would read `note`, `sample`,
   `insert` twice, and the two inserts would be indistinguishable. They still pass through `menu:`
   (the `tap` entity), so a person can hide one.
 - **The ruler's loop.** `transport loop` takes no argument: it acts on the selection the ruler
@@ -224,3 +224,18 @@ the clip is.)
 
 Ten rows for a track, sixteen for a node. It is capped at 70% of the viewport and scrolls, because
 a menu that runs off the bottom of the screen hides its own tail.
+
+## Tabs, one per kind of thing
+
+A right-click offers rows about more than one thing at once: an event's own verbs, the range verbs
+of the rectangle it sits in, its lane's, and the shell's `ui file`. Listed together they read as one
+long column of verbs with nothing saying which is about what. So the rows are split into TABS by
+their command's first word — `event`, `track`, `node`, `ui`… (`src/menuTabs.ts`) — and a tab exists
+only when at least one row falls in it. The plural `events` (the range verbs) shares the event's.
+
+The tabs are ICONS, not words: the menu is narrow and opened on the spot, and a strip of
+`event track node ui` costs the width the rows need. The word is the tooltip and the accessible
+name. The menu opens on the first tab, which is the thing clicked; `ui` always goes last, being
+about the editor rather than the song. With only one kind of row there is no strip at all — a lone
+tab says nothing. Left and right arrows walk the tabs.
+

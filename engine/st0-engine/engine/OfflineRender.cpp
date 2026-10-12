@@ -323,41 +323,4 @@ int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
     return 0;
 }
 
-// Bounce ONE track to `outFile` — the export's stem path with another destination, and what the caller must neutralise first: docs/cliModes.md.
-int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::string& trackId,
-                const std::string& outFile) {
-    juce::ScopedJuceInitialiser_GUI juceInit;
-    auto enginePtr = makeOfflineEngine();
-    auto& engine = *enginePtr;
-    auto edit = buildRenderEdit(engine, doc, baseDir);
-    const EditTeardown teardown{edit};
-
-    // By the doc ID through the same index map the live engine uses; the NAME is only a fallback, and matching on it alone was the bug — docs/cliModes.md.
-    te::Track* found = trackById(*edit, trackId, doc);
-    if (found == nullptr)
-        for (auto* t : te::getAudioTracks(*edit))
-            if (t->getName().toStdString() == trackId) {
-                found = t;
-                break;
-            }
-    if (found == nullptr) {
-        std::cerr << "[freeze] no track '" << trackId << "' in the project\n";
-        return 1;
-    }
-
-    const juce::File out{juce::String(outFile)};
-    std::error_code ec;
-    fs::create_directories(out.getParentDirectory().getFullPathName().toStdString(), ec);
-
-    juce::Array<te::Track*> one;
-    one.add(found);
-    if (!renderTracks(*edit, out, trackBits(*edit, one), false, fullRange(*edit), renderRate(doc))) {
-        // A silent track is a real answer to "freeze this" and not one worth writing: zeroes would then play in place of a track the user can still fix.
-        std::cerr << "[freeze] track '" << trackId << "' produced no audio - nothing to freeze\n";
-        return 1;
-    }
-    std::cout << jsonString(out.getFullPathName().toStdString()) << std::endl;
-    return 0;
-}
-
 }  // namespace studio

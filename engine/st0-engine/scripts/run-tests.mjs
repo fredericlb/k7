@@ -11,6 +11,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { cappedBuildEnv, takeBuildLock } from "./buildLock.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -53,8 +54,10 @@ const config = multiConfig
 const buildFlags = multiConfig ? ["--config", config] : [];
 const ctestFlags = multiConfig ? ["-C", config] : [];
 
+// The same lock and cap as build.mjs: the dev watcher builds the engine in this very folder, and a second ninja there corrupts it.
+const env = cappedBuildEnv();
 const run = (cmd, args) => {
-  const r = spawnSync(cmd, args, { stdio: "inherit", cwd: ROOT, shell: false });
+  const r = spawnSync(cmd, args, { stdio: "inherit", cwd: ROOT, shell: false, env });
   if (r.error) {
     console.error(`\n  ${cmd} could not be run: ${r.error.message}\n`);
     process.exit(1);
@@ -91,6 +94,7 @@ console.log(
   `\n  st0-engine: ${targets.length} C++ test targets, preset ${PRESET}${all ? "" : " (--all adds the Tracktion-linked ones)"}\n`,
 );
 
+takeBuildLock(buildDir, "run-tests.mjs");
 const built = run("cmake", [
   "--build",
   buildDir,

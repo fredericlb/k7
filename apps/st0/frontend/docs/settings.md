@@ -149,6 +149,12 @@ logged in.
 With no key, the builder draws no AI organize button rather than a dead one. That makes this
 section the one place the feature can be found, and its row says so.
 
+## Paired devices — answered here, asked on the machine
+
+The devices allowed to drive this machine's engine over the LAN, and the requests waiting. A browser
+setting only in the sense that a browser on the machine draws it: anywhere else the engine refuses,
+and the section says so. `pairing.md` is the page.
+
 ## Why there are no machine settings here
 
 Audio, the engine, its sessions, the servers it is listed at and the machine itself are rows in

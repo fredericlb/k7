@@ -7,7 +7,7 @@
 // The gestures themselves are ../hooks/useRollGestures.ts; this file is the layout and the drawing.
 // Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
 
-import { Piano, X } from "@frediverse/ui/icons";
+import { Piano } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
@@ -39,6 +39,7 @@ import {
 import { useGridCaret } from "../hooks/useGridCaret";
 import { useRollGestures } from "../hooks/useRollGestures";
 import { cursorOf, ModeStrip } from "../modeIcons";
+import { isBlack, noteName, pc } from "../noteNames";
 import { m } from "../paraglide/messages.js";
 import { groupOffset, tSpan } from "../rollDrag";
 import { rollFit } from "../rollFit";
@@ -55,20 +56,14 @@ import {
   settledNotes,
 } from "../rollPending";
 import type { WebClip, WebProject } from "../types";
+import { LoopBrace, LoopToggle } from "./LoopBrace";
 import { RollPlayhead } from "./RollPlayhead";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
 import { SeqDoubleButton } from "./SeqDoubleButton";
 import { type PanelTakes, TakesView } from "./TakesView";
 
-const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const pc = (k: number) => ((k % 12) + 12) % 12;
-// Exported for the step sequencer's row labels — one spelling of a key, wherever it is read.
 /** How loud a click on a row's NAME auditions it — half, a check of which sound this is rather than a performance. */
 export const AUDITION_VEL = 0.5;
-
-export const noteName = (k: number) =>
-  `${NAMES[pc(k)]}${Math.floor(k / 12) - 1}`; // MIDI 60 => C4
-const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(pc(k));
 
 const N_NOTES = 128; // every possible MIDI note (0..127)
 const PX_PER_BEAT = 24; // fallback beat width for the first, unmeasured frame only
@@ -86,12 +81,13 @@ export function PianoRoll({
   project,
   clip,
   modes,
-  onClose,
   caretRef,
   active = false,
   setStatus,
   onSelection,
   onSetLoop,
+  onLoop,
+  onLoopPoints,
   onSeek,
   onCreateNote,
   onSetVelocity,
@@ -112,8 +108,6 @@ export function PianoRoll({
   clip: WebClip;
   /** The clip pane's view switch, drawn at the end of the header; absent for a host with no other view of these notes. */
   modes?: ReactNode;
-  /** Absent when the frame around it owns the closing — see GraphSlotPane. */
-  onClose?: () => void;
   /** Where the shell reaches the caret: `v`, `t` and Shift+L are commands, so they arrive from the bar (see ClipView's ClipViewHandle). */
   caretRef?: RefObject<ClipGridHandle | null>;
   /** Whether this pane owns the keys — the arrows must not move two carets at once; a preview passes nothing and gets none. */
@@ -123,6 +117,10 @@ export function PianoRoll({
   onSelection?: OnGridSelection;
   /** Set or clear the transport's loop region, in SONG seconds — Shift+L on the rectangle. */
   onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
+  /** Switch the EVENT's own loop — `event loop`; absent for a sequence file, which no event places. */
+  onLoop?: (on: boolean) => void;
+  /** Move its loop points, in the NOTES' beats — `event loop points`. */
+  onLoopPoints?: (from: number, to: number) => void;
   /** Seek the transport, in SONG seconds — what a click on the arrangement ruler does. */
   onSeek?: (seconds: number) => void;
   // Draw a note via `sequence note new`, ANSWERING the command's promise like the three below (rollPending.ts); absent, the roll is read-only.
@@ -240,6 +238,8 @@ export function PianoRoll({
   const barBeats = Math.max(1, project.timeSigNumerator || 4);
   // The window that repeats, on this roll's own beat axis — null for a clip that states no loop.
   const loop = clipLoop(clip);
+  /** Whether the EVENT repeats — its own `loop`, which the header's switch writes; a window alone is not a loop. */
+  const looped = (clip.event?.loop ?? 1) > 1;
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const laneRef = useRef<HTMLDivElement>(null);
@@ -544,21 +544,13 @@ export function PianoRoll({
         {/* The right end of the bar, whatever it holds: the ✕ then needs no margin rule of its own. */}
         <span className="ml-auto flex items-center gap-1">
           {/* Editable rolls only — `onCreateNote` is what says this one is (docs/clipEditors.md). */}
+          <LoopToggle on={looped} onToggle={onLoop} />
           <SeqDoubleButton
             seqId={seqId}
             command={onCreateNote ? onCommand : undefined}
           />
           {modes}
         </span>
-        {onClose && (
-          <button
-            onClick={onClose}
-            title={m["editor.closeHint"]()}
-            className="rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            close <X className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -633,6 +625,19 @@ export function PianoRoll({
                   className="relative overflow-hidden border-b border-border"
                   style={{ width: laneW }}
                 >
+                  {/* The event's loop, on the axis its points are written in: the notes' own beats. */}
+                  {looped && loop && onLoopPoints && (
+                    <LoopBrace
+                      from={loop.from}
+                      to={loop.to}
+                      toPx={(b) => (b - origin) * ppb}
+                      fromPx={(x) => origin + x / ppb}
+                      min={0}
+                      max={origin + canvasBeats}
+                      snap={(b) => Math.round(b / gridUnit) * gridUnit}
+                      onCommit={onLoopPoints}
+                    />
+                  )}
                   <RulerTicks
                     mode="bars"
                     beatLo={origin}

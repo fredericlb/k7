@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { accountFiles, projectHref, workspaceHref } from "./api";
-import { HomeHeader } from "./HomeHeader";
+import { HomeShell } from "./HomeSidebar";
 import type { AccountFiles } from "./workspaceOps";
 import {
   anchorProject,
@@ -61,23 +61,22 @@ export function TasksPage() {
     .filter((l) => l.tasks.length > 0 || l.error);
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
-      <HomeHeader
-        subtitle={m["home.tasks"]()}
-        actions={
-          fileService ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={lists === null}
-              onClick={() => void load(fileService)}
-              title={m["tasks.refresh"]()}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
-          ) : undefined
-        }
-      />
+    <HomeShell
+      subtitle={m["home.tasks"]()}
+      actions={
+        fileService ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={lists === null}
+            onClick={() => void load(fileService)}
+            title={m["tasks.refresh"]()}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        ) : undefined
+      }
+    >
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6">
           {fileService === null ? (
@@ -176,6 +175,6 @@ export function TasksPage() {
           )}
         </div>
       </div>
-    </div>
+    </HomeShell>
   );
 }

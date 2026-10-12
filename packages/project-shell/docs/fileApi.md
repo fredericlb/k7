@@ -101,7 +101,14 @@ yielding an opaque response nothing can read but whose ARRIVAL proves something 
 | rejects | nothing is listening at that address → `unreachable` |
 
 Both `fget` and `fsend` carry the HTTP `status` onto the thrown `Error`, for the callers that have
-to tell "nothing there" from "it went wrong" — the gate's `missing` screen is the main one.
+to tell "nothing there" from "it went wrong" — the gate's `missing` screen is the main one. A
+status also means the service answered, so the gate runs the origin probe above only when there is
+none: a 401 or a 503 is not a refused origin, and saying so sends the reader to the wrong fix.
+
+**A hub ticket lives twelve hours, and a session can outlive it.** With `renewTicket` configured —
+st0 passes its access's `freshTicket` when the files are hosted — a 401 asks for a new ticket once,
+for every request that met it together, and the request is sent again. A write is safe to resend: a
+401 is the hub refusing before the service saw anything.
 
 ## The routes, and the ones that surprise
 

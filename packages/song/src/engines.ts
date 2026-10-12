@@ -109,6 +109,8 @@ export function asEngine<T extends LoadedModule>(
   const own: Record<string, unknown> = {};
   const src = m as unknown as Record<string, unknown>;
   for (const k of KEPT) if (src[k] !== undefined) own[k] = src[k];
+  // A node's taps are its KIT, kept on a rack engine and set aside on any other, which plays a kit of its own (racks.md).
+  if (face.type === "rack" && src.rack !== undefined) own.rack = src.rack;
   const set = engineParams(m, name) ?? {};
   return {
     ...face,

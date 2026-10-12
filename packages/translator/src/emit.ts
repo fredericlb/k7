@@ -22,7 +22,7 @@ import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./model.js";
 
 /** What a MIDI lane plays when its own instrument could not cross over — a drum rack, and the rest. */
-const STAND_IN_KIT = "@st0/instruments/st0-rack-sfz";
+const STAND_IN_KIT = "@st0/instruments/st0-rack";
 const STAND_IN_SYNTH = "@st0/instruments/synth/surge-xt";
 
 // --- YAML emitters -----------------------------------------------------------

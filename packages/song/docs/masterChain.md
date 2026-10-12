@@ -68,15 +68,15 @@ clip indicator stops seeing the raw sum it exists to catch. Fix still works — 
 downstream of the limiter — but it has little left to catch, and that is worth knowing before
 placing a limiter.
 
-## Changing the master chain STOPS playback
+## Reshaping the master chain STOPS playback
 
-`diff()` compares `masterPlugins` **as a block** and any difference forces a full rebuild — so
-playback stops while the Edit is rebuilt.
+Adding, removing, reordering or reloading a master module forces a full rebuild — so playback
+stops while the Edit is rebuilt. Deliberately coarser than the per-track plugin diff, which adds
+and removes in place: reshaping the mix bus is a decision taken between two takes.
 
-Deliberately coarser than the per-track plugin diff, which adds and removes in place precisely so
-as not to cut the sound. Two reasons: the master list is not on the incremental path (which walks
-*tracks*), and above all setting the mix bus is a decision taken between two takes, where fiddling
-with a track's chain is exactly the opposite.
+Turning a master module's knob or bypassing it does NOT: those are applied in place, like a
+track's, since a rebuild for a knob costs seconds and cuts every tail
+(`engine/st0-engine/docs/projectDiff.md`).
 
 **Order** is part of the comparison: swapping the compressor and the EQ leaves both keys present
 and changes the sound, so an unordered comparison would conclude "nothing moved".
@@ -143,7 +143,7 @@ sound**. It brings the file back in line with what the words mean, before a real
 | decoded | `docFromJson` in `engine/st0-engine/server/DocJson.cpp` (via `pluginFromJson`, shared with tracks) |
 | placed | `populateMasterChain` in `EditBuilder.cpp`, at the head of the master list — followed by the output gain |
 | drawn | the graph's `MIX` and `OUT` cards (`MAIN_OUT_UI` in `@studio/ui-chains`), the second with its fader |
-| diffed | `ChangeKind::MasterChainChanged` — full rebuild |
+| diffed | `ChangeKind::MasterChainChanged` — full rebuild; a knob or a bypass is `PluginParamChanged` / `PluginEnabledChanged`, in place |
 | measured | `engine/st0-engine/scripts/master-chain.ts` |
 
 One nuance on the drawing side: **the graph draws no cable TO `MIX`**. Every track arrives there —

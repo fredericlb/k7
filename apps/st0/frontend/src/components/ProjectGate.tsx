@@ -6,8 +6,14 @@ import { AskHost } from "@studio/project-shell/ask";
 import { ProjectGate as Shared } from "@studio/project-shell/gate";
 import { IDLE_TIMEOUT_MS } from "@studio/project-shell/idle";
 import type { AccountLibrary } from "@studio/web-protocol";
-import { useCallback, useEffect, useState } from "react";
-import App from "../App";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { engines } from "../api";
 import { m } from "../paraglide/messages.js";
 import { FirstProject } from "../projects/FirstProject";
@@ -17,6 +23,10 @@ import { findAccountFiles } from "../settings/accountFiles";
 import { useInFront } from "../tabs/useInFront";
 import type { RankedEngine } from "../types";
 import { ExternalSurface } from "./ExternalSurface";
+
+// The editor is the heaviest chunk there is: loaded, not imported, so the gates above it draw while it downloads.
+const loadApp = () => import("../App");
+const App = lazy(loadApp);
 
 export function ProjectGate({
   engine,
@@ -40,9 +50,21 @@ export function ProjectGate({
 }) {
   // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/st0-desktop/docs/tabs.md.
   const inFront = useInFront();
+  // Started at once, not when the project opens: the download runs beside the gate's own work instead of after it.
+  useEffect(() => {
+    if (!external) void loadApp();
+  }, [external]);
+  // A session open past its twelve-hour ticket asks for a new one rather than failing every read — packages/project-shell/docs/fileApi.md.
+  const gateEngine = useMemo(
+    () =>
+      engine.filesHosted
+        ? { ...engine, renewTicket: () => engines.freshTicket() }
+        : engine,
+    [engine],
+  );
   return (
     <Shared
-      engine={engine}
+      engine={gateEngine}
       app="st0"
       // Twenty minutes untouched and this tab stops being a client of that engine.
       idleTimeoutMs={IDLE_TIMEOUT_MS}
@@ -104,19 +126,21 @@ export function ProjectGate({
           </>
         ) : (
           // key by workspace+project so moving between them remounts the editor cleanly.
-          <App
-            key={`${workspace}/${project}`}
-            // A function, not the address: the editor stays open for hours and the relayed URL carries a one-minute ticket.
-            engineUrl={engines.linkUrl(engine)}
-            // What this link measured, passed down rather than re-probed: a second round trip would report a different number.
-            engineLatency={engine.latency}
-            // The RAW email, not a slug: `sessionFor` does the slugging, so this half and the file service cannot drift.
-            userEmail={userEmail}
-            onQuitWorkspace={quit}
-            onChangeEngine={onChangeEngine}
-            engine={engine}
-            onSwitchEngine={onSwitchEngine}
-          />
+          <Suspense fallback={null}>
+            <App
+              key={`${workspace}/${project}`}
+              // A function, not the address: the editor stays open for hours and the relayed URL carries a one-minute ticket.
+              engineUrl={engines.linkUrl(engine)}
+              // What this link measured, passed down rather than re-probed: a second round trip would report a different number.
+              engineLatency={engine.latency}
+              // The RAW email, not a slug: `sessionFor` does the slugging, so this half and the file service cannot drift.
+              userEmail={userEmail}
+              onQuitWorkspace={quit}
+              onChangeEngine={onChangeEngine}
+              engine={engine}
+              onSwitchEngine={onSwitchEngine}
+            />
+          </Suspense>
         )
       }
     </Shared>

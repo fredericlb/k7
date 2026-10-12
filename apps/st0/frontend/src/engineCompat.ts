@@ -51,6 +51,8 @@ async function askFiles<T>(
           [WORKSPACE_HEADER]: at.workspace,
           [ENGINE_TOKEN_HEADER]: token,
         },
+        // Optional, so short: a cold service compiling a project must not hold the gate's spinner.
+        signal: AbortSignal.timeout(5000),
       },
     );
     return res.ok ? ((await res.json()) as T) : null;

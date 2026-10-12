@@ -200,6 +200,11 @@ Three choices hold it:
 - **Another file is another INSTANCE.** The files are part of the plugin's key (`keyOf`), like the
   source: a swap rebuilds the plugin rather than changing a buffer under the audio thread.
 
+A file whose header is implausible for a table — longer than ten minutes, more than eight channels,
+a rate past 768 kHz — is read as unreadable, which Faust answers with one empty block: the size it
+reserves comes from that header, and a corrupt one would have it allocate gigabytes. Both of the
+reader's calls go through the one check, so the size reserved and the size read cannot disagree.
+
 Our own reader (`JuceSoundReader`) over JUCE's formats: Faust's `JuceReader` includes a Projucer
 `JuceHeader.h` this build has no reason to generate, and `SoundUI.h` picks its default reader by the
 JUCE defines and so pulls that header in too — hence a small `UI` of our own rather than `SoundUI`.

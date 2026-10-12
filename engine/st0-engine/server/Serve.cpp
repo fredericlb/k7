@@ -40,6 +40,8 @@ constexpr int kSendTimeoutSecs = 5;
 
 // A ceiling on a session id, not a shape: naming one creates it, so only a length that attacks the map is worth refusing — real ids are tens of bytes.
 constexpr size_t kMaxSessionIdBytes = 256;
+// How many sessions one engine holds at most: each carries a broadcast ring and is walked by the state tick 20 times a second.
+constexpr size_t kMaxSessions = 64;
 
 studio::EngineHost* g_host = nullptr;   // for requestQuit
 
@@ -89,6 +91,9 @@ int serve(int port) {
 
     ix::initNetSystem();
 
+    // Before anything loads: a plugin or a model the last engine died loading is struck now, and refused at the second strike (docs/crashes.md).
+    studio::enableLoadGuards();
+
     // Constructing the host builds the Tracktion engine and opens NO audio device — that is queued below so the port binds first, since opening one takes seconds and a refused connection reads as an absent engine.
     studio::EngineHost host;
     g_host = &host;
@@ -125,10 +130,29 @@ int serve(int port) {
     const std::string bootId = std::to_string(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
     ServeContext ctx{host, g_work, engineId, engineToken, bootId, {}, {}};
-    ctx.broadcast = [&server, &outbox](const json& j) {
+    // The LAN devices allowed to drive, and the requests waiting for the musician (docs/pairing.md).
+    Pairing pairing(studio::studioStatePath() + "/paired-devices.json");
+    ctx.pairing = &pairing;
+    // A machine-wide reply reaches trusted sockets only: an unpaired LAN peer hears nothing but its own refusals.
+    ctx.broadcast = [&server, &outbox, &ctx](const json& j) {
         const auto payload = std::make_shared<const std::string>(j.dump());
         for (auto& client : server.getClients())
-            outbox.post(client, payload, false);
+            if (ctx.isTrusted(client.get())) outbox.post(client, payload, false);
+    };
+    ctx.broadcastLocal = [&server, &outbox, &ctx](const json& j) {
+        const auto payload = std::make_shared<const std::string>(j.dump());
+        for (auto& client : server.getClients()) {
+            std::lock_guard<std::mutex> lk(ctx.trustMx);
+            if (ctx.local.count(client.get()) != 0) outbox.post(client, payload, false);
+        }
+    };
+    ctx.sendTo = [&server, &outbox](const ix::WebSocket* to, const json& j) {
+        for (auto& client : server.getClients())
+            if (client.get() == to) outbox.post(client, std::make_shared<const std::string>(j.dump()), false);
+    };
+    ctx.closeSocket = [&server](const ix::WebSocket* which) {
+        for (auto& client : server.getClients())
+            if (client.get() == which) client->close();
     };
     ctx.broadcastTo = [&ctx](const std::string& sid, json j) {
         j["session"] = sid;
@@ -146,10 +170,10 @@ int serve(int port) {
     addPluginHandlers(handlers);
     addMachineHandlers(handlers);
 
-    // Read-only queries a short-lived PROBE fires and drops, plus `io-levels`, polled several times a second: announcing them would bury the log, so a connection sending only these stays silent.
+    // Read-only queries a short-lived PROBE fires and drops, plus `io-levels` and `instrument-status`, which are polled: announcing them would bury the log, so a connection sending only these stays silent.
     static const std::unordered_set<std::string> probeQueries = {
         "whoami", "list-audio-devices", "list-plugins", "list-edit-plugins",
-        "list-sessions", "io-levels"};
+        "list-sessions", "io-levels", "instrument-status"};
 
     // Verbs whose `session` names ANOTHER project than the sender's, so they must not bind the socket's once-only subscription (docs/sessions.md).
     static const std::unordered_set<std::string> overrideQueries = {
@@ -196,6 +220,8 @@ int serve(int port) {
                     // And stop addressing state frames to it; the raw-pointer key costs at most one dropped frame if reused (docs/protocol.md).
                     subscribers.erase(&ws);
                 }
+                // Its trust goes with it: a pointer reused by the next connection must earn its own.
+                forgetSocket(ctx, &ws);
                 bool announced;
                 {
                     std::lock_guard<std::mutex> lk(loggedMx);
@@ -222,11 +248,20 @@ int serve(int port) {
 
             const std::string type = j.value("type", std::string{});
 
+            // Who may say it, before anything else: a LAN peer is answered here until it is paired (docs/pairing.md).
+            if (screenMessage(ctx, ws, conn->getRemoteIp(), j, type)) return;
+
             // WHICH project this message is about; absent means the default session, so a client that never heard of sessions keeps working exactly as before.
             const std::string session = j.value("session", std::string{});
             // Naming a session is what creates it, so there is no allowlist — only a ceiling, so a malformed client cannot grow the map without bound.
             if (session.size() > kMaxSessionIdBytes) {
                 ws.send(json{{"type", "error"}, {"message", "session id too long"}}.dump());
+                return;
+            }
+            // …and a ceiling on HOW MANY, which the length does not bound: a NEW one past it is refused, an existing one always answered.
+            if (!session.empty() && probeQueries.count(type) == 0 && !host.hasSession(session) &&
+                host.sessionIds().size() >= kMaxSessions) {
+                ws.send(json{{"type", "error"}, {"message", "this engine holds too many sessions"}}.dump());
                 return;
             }
 
@@ -368,11 +403,7 @@ int serve(int port) {
         });
     });
 
-    // When a plugin's editor closes the engine persists its state to the module — text params where they capture it, else a .vstpreset — and notifies clients, whose watcher reloads.
-    host.onPresetSaved([&broadcastTo](const std::string& session, const std::string& id,
-                                      const std::string& path) {
-        broadcastTo(session, json{{"type", "preset-saved"}, {"id", id}, {"path", path}});
-    });
+    // When a plugin's editor closes the engine persists its state to the module — text params where they capture it, else a .vstpreset the file watcher picks up.
     host.onPluginParams([&broadcastTo](const std::string& session, const std::string& id,
                                        const std::string& paramsJson) {
         json params = json::object();
@@ -441,6 +472,8 @@ int serve(int port) {
     std::signal(SIGTERM, [](int) { g_quitSignalled = 1; });
 
     host.run();          // blocks on the JUCE message loop until quit()
+    // The sink holds this frame's broadcast verbs by reference, and a plugin torn down after it unwinds can still warn.
+    studio::setWarningSink({});
 
     // server.stop() FIRST, then join: a sender can be parked in a send, and closing the socket is what unwedges it.
     audio.stop();

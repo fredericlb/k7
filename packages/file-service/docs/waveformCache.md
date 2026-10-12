@@ -1,36 +1,19 @@
 # waveformCache.ts — extended notes
 
-The on-disk waveform cache is computed BY THE ENGINE. The C++ side decodes an audio file once (any
-format JUCE reads — wav/aiff/flac/ogg/…), downsamples it to a placement-independent peak+RMS
-envelope, **detects its transient onsets**, and writes all of it next to the source as
-`{source}.cache` (JSON), stamped with a cheap content fingerprint.
+The on-disk waveform cache is a `{source}.cache` sidecar beside each audio file: a
+placement-independent peak+RMS envelope, its **transient onsets**, three colour bands and a tempo,
+stamped with a cheap content fingerprint. `@studio/audio-analysis` builds it — the arithmetic, the
+fingerprint, the format — decoding through the engine's `--decode` on a machine that has one and
+through ffmpeg on the hosted service, which has none
+(`packages/audio-analysis/docs/analysis.md`).
 
-This module is the Node side, and only HALF of one: what a sidecar IS — the fingerprint,
-the fields, reading one back — belongs to `@studio/audio-analysis`, because pl8 writes the same
-file with ffmpeg and no engine at all (`packages/audio-analysis/docs/analysis.md`). What stays
-here is the part that is genuinely this service's: spawning the engine, and the memo in front of
-it. Clip region slicing and the tempo grid stay in `@studio/audio-probe/waveform` — this only
-produces the `FileEnvelope` those consume.
+What stays here is the part that is genuinely this service's: WHEN a sidecar is (re)built, and the
+memo in front of it. Clip region slicing and the tempo grid stay in `@studio/audio-probe/waveform` —
+this only produces the `FileEnvelope` those consume.
 
-A machine with an engine keeps using it: it is faster than decoding through ffmpeg, and it is
-already loaded.
-
-Sidecars sit next to the audio rather than in a central store, so they travel with the file and the
-engine can write one during an offline decode. They are hidden from the file tree and gitignored.
-
-## The content fingerprint
-
-**MUST match `engine/st0-engine/engine/Waveform.cpp` byte for byte**, and lives in
-`@studio/audio-analysis/fingerprint` so there is one TypeScript copy rather than one per service.
-
-FNV-1a/64 over the file SIZE (8 little-endian bytes), then up to `HEAD` bytes from the front and up
-to `TAIL` bytes from the end. String form: `"<size>-<hex16>"`.
-
-- At most `HEAD + TAIL` bytes are read whatever the file's length, so it stays fast on large audio.
-- It depends only on file CONTENT, not mtime, so C++ and Node compute the identical value — which
-  is what lets two producers of a sidecar tell whether the other's is still good.
-- For small files the head and tail ranges overlap — both sides read the same overlapping bytes, so
-  the hash still agrees.
+Sidecars sit next to the audio rather than in a central store, so they travel with the file, and the
+fingerprint depends on content rather than mtime, so a sidecar that travelled stays valid. They are
+hidden from the file tree and gitignored.
 
 ## Transients live here too
 
@@ -42,7 +25,7 @@ ways, and neither is a performance problem:
 - the same audio drawn at two sizes — the timeline clip and the slice editor's whole-source view —
   then disagrees about where its onsets are.
 
-Detecting once, on the file's own envelope at its native resolution, fixes both. The engine does it
+Detecting once, on the file's own envelope at its native resolution, fixes both. The analysis does it
 while it is already downsampling, so it costs nothing extra, and `regionWaveform` only shifts them
 by the clip's in-point and drops the ones outside the shown span.
 
@@ -68,21 +51,13 @@ prices its source window 1:1 (`winBeats` in `nodeProject.ts`), so a warped clip 
 `to` — the drawing follows the engine in that rather than correcting it, because changing `length`
 would change what is played.
 
-### The detector MUST match too
-
-`detectTransients` in `@studio/audio-probe/waveform` is the **reference implementation**, and
-`Waveform.cpp` mirrors it. Nothing in production calls the TypeScript one — it is the written spec,
-and `waveform.test.ts` is the contract both are held to. Change one, change the other, and bump the
-version.
-
 ### Sensitivity is per source, and sticky
 
 The threshold (standard deviations above the mean jump, default **2**) is written INTO the sidecar
 beside the onsets it produced. Asking for a different one re-detects and rewrites, so every other
 view of that audio agrees from then on; asking for none keeps whatever is there.
 
-- **`--waveform-batch` takes a per-line sensitivity** (`<path>\t<sensitivity>`), and the Node side
-  sends each file the threshold its previous sidecar carried. Without that, rebuilding a re-recorded
+- **`runWaveformBatch` hands each file the threshold its previous sidecar carried.** Without that, rebuilding a re-recorded
   take's envelope silently resets a threshold somebody tuned.
 - **Clearing the waveform cache resets it to the default.** This is a cache, and that is what a
   cache means. If the setting ever needs to outlive one, it has to move into the project — at which
@@ -90,7 +65,7 @@ view of that audio agrees from then on; asking for none keeps whatever is there.
 
 ## The tempo
 
-The engine also estimates a **bpm** while decoding, and writes it into the sidecar. It is what pl8
+The analysis also estimates a **bpm** in the same pass, and writes it into the sidecar. It is what pl8
 seeds a song's `song.yaml` with; the person edits it afterwards, and nothing overwrites an edited
 value.
 
@@ -104,7 +79,7 @@ Two details measured rather than assumed, on synthetic click tracks:
 
 - **The tempo envelope is not the stored one.** `peak` is capped at 8192 buckets, so a five-minute
   track lands at ~27 Hz and a beat is a dozen samples wide. Tempo needs uniform time resolution, so
-  the decode loop fills a *second* envelope at a fixed hop (~187 Hz at 48k). With it, a five-minute
+  the analysis fills a *second* envelope at a fixed hop (~187 Hz at 48k). With it, a five-minute
   128 bpm track reads 127.89.
 - **The prior is a preference, not a fold.** Hard-folding into an 80–160 window reports 174 as 87
   and 75 as 150 — it breaks both cases it is meant to help. With no weighting at all, raw
@@ -123,7 +98,7 @@ The sidecar carries `"v"`, and `readSidecar` **requires the current version**
 
 Load-bearing rather than tidy: an older sidecar has a perfectly matching fingerprint — the audio has
 not changed — so without the gate every freshness check passes and the file never gets the new field
-at all. Raise it with every field the engine starts writing, at the price of everything already
+at all. Raise it with every field the analysis starts writing, at the price of everything already
 analysed being analysed once more. `waveformCacheVersion.test.ts` pins it.
 
 ## Caching layers
@@ -141,20 +116,20 @@ analysed being analysed once more. `waveformCacheVersion.test.ts` pins it.
 
 Between the memo and the sidecar sits the thing neither of them is: **the decodes running right
 now**. The memo answers a burst that arrives after one finished; a burst that arrives DURING one
-missed it, and each ask spawned its own engine over the same audio. That is the ordinary shape of a
+missed it, and each ask started its own decode of the same audio. That is the ordinary shape of a
 first look at an imported project — several lanes cut from one take, drawn at once, none of them
 with a sidecar yet — and on a 33 MB file each copy is seconds of decode competing with the others.
 So `ensureFileEnvelope` keeps an in-flight map keyed by source AND sensitivity: two asks for one
 file are one decode, and both callers get its answer. A failed one is dropped rather than joined —
-the next ask should reach for the engine again, not inherit the first one's error.
+the next ask should start a decode again, not inherit the first one's error.
 
 Where there is no engine binary — the hosted file service, whose engine is on the musician's machine
-— `ensureFileEnvelope` writes the sidecar with `@studio/audio-analysis` instead, through ffmpeg, as
-pl8 does: the same file, accepted by the engine's reader. Without it, every clip whose sidecar is
-missing or stale on the server — a freeze render just uploaded, a new take — draws no waveform at
-all. `runWaveformBatch` computes every stale sidecar in ONE engine process (`--waveform-batch`),
-paying JUCE's startup cost once instead of per file; with no engine, the prewarm analyses them one
-by one.
+— the decode goes through ffmpeg, as pl8's does, and the sidecar is the same file. Without that,
+every clip whose sidecar is missing or stale on the server — a freeze render just uploaded, a new
+take — would draw no waveform at all.
+
+`runWaveformBatch` rebuilds stale sidecars `WARM_DECODES` at a time rather than all at once: each
+decode holds its file's mono signal until the envelope is built, about 57 MB for five minutes.
 
 ## The three bands
 
@@ -168,7 +143,7 @@ rather than to an empty one, and an optional type is what forces it to.
 
 ## waveformOps.ts — the per-session layer over the sidecars
 
-`waveformOps.ts` slices the engine-computed file envelopes to clip regions, memoises the sliced
+`waveformOps.ts` slices the analysed file envelopes to clip regions, memoises the sliced
 results, and prewarms the whole active project in the background. The durable cache is still the
 sidecars above; everything in that file is in memory and per session.
 
@@ -231,12 +206,12 @@ up.
 
 ### Prewarm, cancel and clear
 
-Prewarm runs in two phases: rebuild every stale sidecar in ONE engine process, so a song of fresh
-clips pays JUCE startup once, then memoise the sliced results on the fast no-spawn path. A newer
-prewarm — or a delete — takes over: on Windows a held `.wav` blocks a rename, so cancelling has to
-kill the child and not merely stop consuming it.
+Prewarm runs in two phases: rebuild every stale sidecar, a few decodes at a time, then memoise the
+sliced results on the fast no-spawn path. A newer prewarm — or a delete — takes over: on Windows a
+held `.wav` blocks a rename, so cancelling aborts the decoders, which kills them rather than merely
+stopping consuming them.
 
 `clear` drops the memo and every `{source}.cache` sidecar, which is a walk since they sit beside
 their audio. The sweep uses the tree's own hidden-name rule, so it never clears where the user does
-not consider their workspace to be, and each unlink has its own catch so one sidecar the engine
+not consider their workspace to be, and each unlink has its own catch so one sidecar a decoder
 still holds open does not abandon the rest.

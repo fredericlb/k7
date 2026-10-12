@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { isAnswer } from "../readFailure";
 import type {
   Diagnostic,
   EngineSyncState,
@@ -10,6 +11,7 @@ import type {
   WaveformStatus,
   WorkspaceInfo,
 } from "../types";
+import { pollWhileVisible } from "../visiblePoll";
 import { useRevision } from "./useRevision";
 
 /** The repo's ahead/behind for the share badge — a network op on the server, so it runs on a 10-minute timer and after a commit or pull. */
@@ -51,8 +53,9 @@ export function useProjectErrors(reloadKey: number): {
         setErrorCount(r.errors.length);
         setDiagnostics(r.diagnostics);
       })
-      .catch(() => {
-        if (!alive) return;
+      // A blip keeps the last count: zero would tell someone a broken project is fine.
+      .catch((e) => {
+        if (!alive || !isAnswer(e)) return;
         setErrorCount(0);
         setDiagnostics([]);
       });
@@ -121,8 +124,14 @@ export function useActiveProjectFollow(opts: {
   // undefined == no answer read yet; null == read, and there was no take — a ref, as it outlives the interval's re-creation.
   const seen = useRef<string | null | undefined>(undefined);
   const eager = !!opts.awaitingTake;
+  // One read at a time: at 200 ms a slow answer would overlap the next, and the older could land last, firing a take twice.
+  const inFlight = useRef(false);
+  // The sync state last handed on, as text: the same state every tick must not re-render the shell every tick.
+  const lastSync = useRef<string | undefined>(undefined);
   useEffect(() => {
     const tick = async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       try {
         const w = await api.workspace();
         if (w.activeProject !== optsRef.current.lastActiveRef.current) {
@@ -133,13 +142,18 @@ export function useActiveProjectFollow(opts: {
         const landed = isNewTake(seen.current, clip);
         seen.current = clip;
         if (landed) optsRef.current.onTake?.(w);
-        optsRef.current.onSync?.(w.engineSync ?? null);
+        const sync = JSON.stringify(w.engineSync ?? null);
+        if (sync !== lastSync.current) {
+          lastSync.current = sync;
+          optsRef.current.onSync?.(w.engineSync ?? null);
+        }
       } catch {
         /* backend momentarily unavailable */
+      } finally {
+        inFlight.current = false;
       }
     };
-    const id = setInterval(tick, eager ? TAKE_POLL_MS : 2000);
-    return () => clearInterval(id);
+    return pollWhileVisible(tick, eager ? TAKE_POLL_MS : 2000);
   }, [eager]);
 }
 

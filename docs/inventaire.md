@@ -83,15 +83,11 @@ without anyone seeing it.
 (`apps/st0/docs/25-syntax-instruments.md`), and the C++ pastes its generated JSON
 (`engine/st0-engine/engine/GraphDspPlugin.cpp`).
 
-### `detectTransients` is called by nobody, and must stay that way
+### `detectTransients` is called once per file, by the analysis
 
-`packages/audio-probe/src/waveform.ts` exports it, and no production code calls it: detection runs in
-the engine, in C++ (`engine/st0-engine/engine/Waveform.cpp`), while it is already downsampling the audio,
-and the result goes into the `{source}.cache` sidecar.
-
-The TypeScript version is the **executable specification** the C++ copies, and `waveform.test.ts` is
-the contract holding the two together — the same arrangement as `fileFingerprint` and its "MUST
-match" comment.
+`packages/audio-probe/src/waveform.ts` exports it and only `@studio/audio-analysis`'s `buildEnvelope`
+calls it, while it builds a file's envelope; the result goes into the `{source}.cache` sidecar.
+Nothing calls it per clip region, and nothing should (`packages/file-service/docs/waveformCache.md`).
 
 ### A deep import bypasses the `exports` maps
 
@@ -221,7 +217,7 @@ Written here so they stop being mistaken for laziness.
 
 | what is doubled | why it stays |
 |---|---|
-| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — st0's clip panel imports it — and `peakPass` calls `node:child_process`. Sharing the constant would bring a process launcher into the browser to save one number. Tried, reverted. The C++ and the generated JSON cannot import at all |
+| The `-100 dBFS` floor: `PEAK_FLOOR_DB` (`audio-analysis/src/peak.ts`), `MIN_DB` (`audio-probe/src/trimGate.ts`), and three times in `@studio/dsp` | `trimGate` is **browser-safe** — st0's clip panel imports it — and `peak.ts` spawns a decoder. Sharing the constant would bring a process launcher into the browser to save one number. Tried, reverted. The generated JSON cannot import at all |
 | `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` does not depend on `@studio/commands`. Both depend on `web-protocol`, which already holds `RegionWaveform` — that is where it would go |
 | `isMouseWheel`: `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Telling a wheel from a trackpad — three signals (`deltaMode`, `wheelDeltaY`'s 120s, the shape of the delta), identical on both sides. Neither package can depend on the other: `ui-timeline` has **no** `@studio/` dependency and the graph would be importing a package named for the arrangement. Defensible here because **both sides are tested**, case by case. The natural home would be a DOM-gesture package that does not exist; creating one for a ten-line function is a decision, not a cleanup |
 

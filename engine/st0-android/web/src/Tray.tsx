@@ -1,11 +1,12 @@
 // Tray.tsx — this page's one screen, seen while no studio app covers it: the supervisor's snapshot
-// and the few commands a phone needs — connect a studio, disconnect one, trust a private CA, quit.
+// and the few commands a phone needs — connect a studio, disconnect one, pair a LAN device, trust a private CA, quit.
 // With a studio open, st0's settings draw the same (apps/st0/frontend/src/settings/AndroidEngineSection.tsx).
 
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
 import { useEffect, useState } from "react";
 import { St0Engine, type SupervisorState } from "./native";
+import { Pairing } from "./Pairing";
 
 export interface TrayProps {
   state: SupervisorState | null;
@@ -89,6 +90,11 @@ export function Tray({ state, engineExit }: TrayProps) {
           <p className="text-sm text-destructive">{check.message}</p>
         ) : null}
       </section>
+
+      <Pairing
+        requests={state?.pairRequests ?? []}
+        devices={state?.pairedDevices ?? []}
+      />
 
       <PrivateCa />
 

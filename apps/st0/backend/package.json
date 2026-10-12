@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
     "@frediverse/env": "*",
+    "@frediverse/http": "*",
     "@frediverse/oidc": "*",
     "@studio/engine-registry": "*",
     "@studio/ui-module-builder": "*",

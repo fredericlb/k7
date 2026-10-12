@@ -2,7 +2,7 @@
 // difference between two users sharing a preference and not, and it is not observable from
 // the outside once it is wrong.
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -62,5 +62,17 @@ describe("prefsStore", () => {
     s.write("alice", { engineId: "e1" });
     s.write("alice", {});
     expect(s.read("alice")).toEqual({});
+  });
+
+  // A merge that started from a corrupt file read as {} would write back without what it held.
+  it("reads for an update: absent is null, unreadable throws", () => {
+    const s = prefsStore<{ apiKey?: string }>(dir);
+    expect(s.readForUpdate("nobody")).toBeNull();
+    expect(
+      prefsStore(join(dir, "not-mounted")).readForUpdate("alice"),
+    ).toBeNull();
+    writeFileSync(join(dir, fileFor("alice")), '{"apiKey": "sk-');
+    expect(s.read("alice")).toBeNull();
+    expect(() => s.readForUpdate("alice")).toThrow();
   });
 });

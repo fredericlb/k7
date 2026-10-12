@@ -15,6 +15,7 @@
     "./decimate": "./src/decimate.ts",
     "./flow": "./src/flow.ts",
     "./graph": "./src/graph.ts",
+    "./gridFit": "./src/gridFit.ts",
     "./groupEdge": "./src/groupEdge.ts",
     "./hang": "./src/hang.ts",
     "./lcdScreen": "./src/lcdScreen.ts",

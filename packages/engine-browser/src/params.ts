@@ -45,6 +45,14 @@ export class PluginParamsStore {
     const s = this.byId.get(id);
     if (s) for (const l of s) l();
   };
+
+  // Forget every value — another project is open, and a same-named `chain:module` there is another plugin.
+  clear = (): void => {
+    if (!Object.keys(this.map).length) return;
+    this.map = {};
+    for (const l of this.listeners) l();
+    for (const s of this.byId.values()) for (const l of s) l();
+  };
 }
 
 // Subscribe to a store's whole param map: re-renders on any watched plugin — which is the graph, and only it.

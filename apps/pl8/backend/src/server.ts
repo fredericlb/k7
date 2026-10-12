@@ -6,6 +6,8 @@
 
 import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
+import { precompressedStatic } from "@frediverse/http/precompressed";
+import { behindProxy } from "@frediverse/http/proxied";
 import { setupAuth } from "@frediverse/oidc";
 import { apiTokenAuth } from "@frediverse/oidc/api-auth";
 import {
@@ -183,7 +185,7 @@ const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
 // The shell is asked again on every load and a hashed asset is kept for good — ../../../../docs/versioning.md.
 const SHELL_CACHE = "no-cache";
 app.use(
-  express.static(FRONTEND_DIST, {
+  precompressedStatic(FRONTEND_DIST, {
     setHeaders: (res, path) =>
       res.setHeader(
         "Cache-Control",
@@ -221,5 +223,6 @@ const server = app.listen(PORT, () => {
   // Advertised so this machine's file service finds the médiathèque; an engine joins this registry only once the user adds it in the tray.
   engine.serve(server, url, () => void fileHub.stop());
 });
+behindProxy(server);
 // Node's default cuts a request at 5 minutes, and a 512 MB upload over a slow link takes longer.
 server.requestTimeout = 30 * 60_000;

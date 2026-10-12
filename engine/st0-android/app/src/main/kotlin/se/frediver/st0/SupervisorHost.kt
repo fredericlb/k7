@@ -41,6 +41,8 @@ object SupervisorHost {
         val p = ProcessBuilder(binary.absolutePath).apply {
             environment()["STUDIO_HOME"] = EngineBridge.stateDir(app).absolutePath
             environment()["STUDIO_MACHINE_NAME"] = deviceName(app)
+            // No Downloads tab on the phone to choose in, so every instrument is fetched (st0-supervisor docs/instruments.md).
+            environment()["STUDIO_INSTRUMENTS"] = "all"
             TrustedCas.file(app).takeIf { it.isFile }?.let { environment()["STUDIO_EXTRA_CA_CERTS"] = it.absolutePath }
         }.start()
         process = p

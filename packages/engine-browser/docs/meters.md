@@ -111,7 +111,8 @@ that pairs its inputs has no device for channel 2 alone, so asking for channel 2
 resolves to nothing and reads as silence. Anything offering a choice of input has to offer these
 sets and not raw numbers.
 
-`setInputStereo(channel, stereo)` is what makes and unmakes a pair. `channel` names the PAIR,
+`set-input-stereo` is what makes and unmakes a pair — sent by the file service
+(`setInputStereo` in `packages/file-service/src/engineLink.ts`), not by this client. `channel` names the PAIR,
 not one side: the interface pairs even/odd hardware channels and nothing else, so 1 and 2 name
 the same pair and 2 can never be paired with 3. Nothing comes back — the device layout rides on
 `ioLevels`, the only message that carries it, so ask for that again to see the result; the

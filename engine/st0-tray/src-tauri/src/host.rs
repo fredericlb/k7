@@ -117,9 +117,43 @@ pub struct Download {
     pub label: String,
     pub received: u64,
     pub total: u64,
-    /// "downloading" | "unpacking" | "failed"
+    /// "queued" | "downloading" | "unpacking" | "failed"
     pub phase: String,
     pub error: Option<String>,
+}
+
+/// One instrument the engine can play, as the Downloads tab lists it: whether the user keeps it and whether it is here.
+#[derive(Clone, Default, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct InstrumentRow {
+    pub name: String,
+    pub label: String,
+    pub bytes: u64,
+    pub wanted: bool,
+    pub installed: bool,
+}
+
+/// A LAN device asking to pair; the musician approves it only if `code` matches what the device shows.
+#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PairRequest {
+    pub request_id: String,
+    pub name: String,
+    pub ip: String,
+    pub code: String,
+    /// Epoch milliseconds.
+    pub since: i64,
+}
+
+/// A LAN device the engine trusts until it is revoked here.
+#[derive(Clone, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PairedDevice {
+    pub device_id: String,
+    pub name: String,
+    /// Epoch milliseconds, like `last_seen`.
+    pub created: i64,
+    pub last_seen: i64,
 }
 
 /// The supervisor's view of the world, as far as the tray consumes it.
@@ -164,6 +198,11 @@ pub struct Snapshot {
     pub paths: Paths,
     /// Instruments being fetched; empty, and absent from the frame, once every one is here.
     pub downloads: Vec<Download>,
+    /// Every instrument the engine can play; its progress, while it is fetched, is in `downloads`.
+    pub instruments: Vec<InstrumentRow>,
+    /// LAN devices waiting for approval; a new id here is what posts the "wants to pair" notification.
+    pub pair_requests: Vec<PairRequest>,
+    pub paired_devices: Vec<PairedDevice>,
 }
 
 // Before the first snapshot the menu must still draw something; these are settings.ts's own defaults, so an
@@ -191,6 +230,9 @@ impl Default for Snapshot {
             sessions: Vec::new(),
             sessions_sig: String::new(),
             downloads: Vec::new(),
+            instruments: Vec::new(),
+            pair_requests: Vec::new(),
+            paired_devices: Vec::new(),
             instances: Vec::new(),
             instance_check: None,
             paths: Paths::default(),

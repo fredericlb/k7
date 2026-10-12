@@ -161,6 +161,10 @@ The dry snapshot is taken **before** any audio node, for the same reason. Whethe
   like a machine rather than a divergence.
 - A delay read is **fractional and interpolated**: an integer-sample tap zippers as soon as the time
   moves, which is precisely a flanger's job.
+- **A graph whose output goes non-finite is silenced and cleared on the next block**, as a Faust
+  program is. A feedback loop with no `atanh` can run its state to Inf, and Tracktion zeroing the
+  plugin's output would keep the track silent for as long as the state stays there — which, for a
+  delay line full of Inf, is for ever.
 
 ## The input ports
 

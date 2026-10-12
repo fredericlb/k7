@@ -8,7 +8,7 @@ import {
   DEFAULT_VIDEO_FORMAT,
   type ExportSupport,
   probeExportSupport,
-} from "@studio/ui-eyes/export";
+} from "@studio/ui-eyes/exportSupport";
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import type { WebVideoProject } from "@studio/web-protocol";
 import { useEffect, useMemo, useState } from "react";

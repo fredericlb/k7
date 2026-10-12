@@ -101,9 +101,13 @@ async function dialDirect(e: EngineEntry): Promise<WebSocket | null> {
         },
         Math.min(ENGINE_DIAL_TIMEOUT_MS, left),
       );
+      // Over the LAN the engine answers nothing until the peer is paired, and the token is the server's proof; the reply is consumed here, never piped to the browser.
       ws.once("open", () => {
-        clearTimeout(timer);
-        resolve(ws);
+        ws.send(JSON.stringify({ type: "pair", key: e.token }));
+        ws.once("message", () => {
+          clearTimeout(timer);
+          resolve(ws);
+        });
       });
       ws.once("error", () => {
         clearTimeout(timer);

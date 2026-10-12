@@ -76,6 +76,17 @@
       { name: tracks, complete: tracks, hint: "track ids, comma-joined" },
       { name: name, optional: true, hint: "the group's id, which is its filename — optional" },
     ]
+# Every lane coloured by its CATEGORY and the whole order stated — vox, drums, basses, guitars,
+# keys, synths, the rest — shades of one colour within a category. Writes over the colours a lane
+# had (an import brings its own), so it is one command and one undo. See
+# packages/song-schema/docs/trackColor.md.
+- command: "track arrange"
+  sid: track.arrange
+  readable:
+    en: "Colour and order the tracks by instrument"
+    fr: "Colorer et ordonner les pistes par instrument"
+  help: "colour every track by its category (vox pink, drums red, basses brown, guitars green, keys blue, synths purple, the rest grey) and order them that way"
+  surfaces: [cli, timeline]
 # The order lanes are DRAWN and mixed in. A project states it or it does not: with no `trackOrder`
 # the names decide (a "3." pin, then the instrument family), and the first reorder writes the whole
 # list — half an order is not an order. See packages/song/docs/trackKind.md.
@@ -2006,6 +2017,61 @@
       { name: symbol, hint: "the tap — BD, SN, T3…" },
       { name: state, optional: true, hint: "on or off — omitted, it toggles" },
     ]
+- command: "node tap out"
+  sid: node.tap.out
+  readable:
+    en: "Route a tap to a subchain of its own"
+    fr: "Envoyer un pad vers une sous-chaine"
+  help: "send one tap of a rack or an SFZ kit to a subchain of the node's chain file, on an output of its own; none brings it back (e.g. node tap out kit SN snare-fx)"
+  surfaces: [cli]
+  menu: [tap]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, Snare…" },
+      { name: subchain, hint: "a subchain of the node's chain file, or none" },
+    ]
+- command: "node tap chain add"
+  sid: node.tap.chain.add
+  readable:
+    en: "Add a module to a tap's chain"
+    fr: "Ajouter un module a la chaine d'un pad"
+  help: "add a module at the end of a tap's own chain, making the chain and routing the tap the first time (e.g. node tap chain add kit Snare @st0/audio/verb)"
+  surfaces: [cli]
+  menu: [tap]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap — BD, SN, Snare…" },
+      { name: module, complete: modules, hint: "the module to add, by ref" },
+    ]
+- command: "node tap chain remove"
+  sid: node.tap.chain.remove
+  readable:
+    en: "Remove a module from a tap's chain"
+    fr: "Retirer un module de la chaine d'un pad"
+  help: "remove one node of a tap's chain; the last one removed sends the tap back to the main output"
+  surfaces: [cli]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap" },
+      { name: id, hint: "the node to remove, by id" },
+    ]
+- command: "node tap chain move"
+  sid: node.tap.chain.move
+  readable:
+    en: "Move a module in a tap's chain"
+    fr: "Deplacer un module dans la chaine d'un pad"
+  help: "move one node of a tap's chain earlier (up) or later (down)"
+  surfaces: [cli]
+  args:
+    [
+      { name: node, complete: nodes },
+      { name: symbol, hint: "the tap" },
+      { name: id, hint: "the node to move, by id" },
+      { name: way, hint: "up or down" },
+    ]
 - command: "node tap remove"
   sid: node.tap.remove
   readable:
@@ -2393,6 +2459,49 @@
         hint: "seconds into the FILE, not a timecode — 0 means its start",
       },
       { name: to, hint: "seconds into the FILE; past its end means its end" },
+    ]
+- command: "event gain"
+  sid: event.gain
+  readable:
+    en: "Set one audio event's gain"
+    fr: "Regler le gain d'un evenement audio"
+  help: "an audio event's own trim, in dB from -6 to +6; 0 is unity (e.g. event gain vox 24:1 -1.5)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: db, hint: "-6 … +6 dB; 0 removes the trim" },
+    ]
+- command: "event loop"
+  sid: event.loop
+  readable:
+    en: "Loop one event, or stop it looping"
+    fr: "Faire boucler un evenement, ou l'arreter"
+  help: "on: the event plays its window twice; off: once; toggle (the default) flips it (e.g. event loop drums 5:1 on)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: state, hint: "on · off · toggle (default)" },
+    ]
+- command: "event loop points"
+  sid: event.loopPoints
+  readable:
+    en: "Move one event's loop points"
+    fr: "Deplacer les points de boucle d'un evenement"
+  help: "the window an event loops, in its MATERIAL's unit: beats into a sequence, seconds into an audio file (e.g. event loop points drums 5:1 4 8)"
+  surfaces: [cli]
+  menu: [event]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: from, hint: "beats into the sequence, or seconds into the file" },
+      { name: to, hint: "the same unit; a looped event keeps its length, its passes recomputed" },
     ]
 - command: "event fadein"
   sid: event.fadeIn

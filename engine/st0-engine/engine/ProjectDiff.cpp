@@ -41,6 +41,19 @@ bool sameSource(const PluginDoc& a, const PluginDoc& b) {
 }
 
 // A pair that shares a key and must STILL be re-created: its program differs, or a file it loaded is gone — nothing unloads one.
+// Which taps leave by which pair, and which tracks those pairs feed: the RackTypes behind them are built whole (docs/tapOutputs.md).
+std::string tapRoutingSignature(const ProjectDoc& d) {
+    std::string s;
+    for (const auto& t : d.tracks) {
+        for (const auto& p : t.plugins)
+            for (const auto& o : p.tapOuts)
+                s += p.id + ":" + std::to_string(o.note) + ">" + std::to_string(o.pair) + ";";
+        if (!t.inputFromPlugin.empty())
+            s += t.id + "<" + t.inputFromPlugin + "#" + std::to_string(t.inputFromPair) + ";";
+    }
+    return s;
+}
+
 bool mustReplace(const PluginDoc& a, const PluginDoc& b) {
     const auto dropped = [&](const std::string PluginDoc::*f) { return !(a.*f).empty() && (b.*f).empty(); };
     return !sameSource(a, b) || dropped(&PluginDoc::path) || dropped(&PluginDoc::namFile) ||
@@ -93,7 +106,7 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.offset != b.offset
         || a.sourceFrom != b.sourceFrom || a.sourceTo != b.sourceTo
         || a.loopStart != b.loopStart || a.loopEnd != b.loopEnd
-        || a.fadeIn != b.fadeIn || a.fadeOut != b.fadeOut
+        || a.fadeIn != b.fadeIn || a.fadeOut != b.fadeOut || a.gainDb != b.gainDb
         || a.crossfadeIn != b.crossfadeIn || a.crossfadeOut != b.crossfadeOut
         || a.warp.algorithm != b.warp.algorithm || a.warp.markers != b.warp.markers
         // The NOTES, for the same reason — without this the whole note vocabulary reached the engine and did nothing.
@@ -102,14 +115,47 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.disabled != b.disabled;
 }
 
-// Is the master chain the same run, IN THE SAME ORDER, set the same way? (docs/projectDiff.md)
-bool sameMasterChain(const std::vector<PluginDoc>& a, const std::vector<PluginDoc>& b) {
+// Is the master chain the same run of the same instances, IN THE SAME ORDER? Bypass and params are left to the in-place path (docs/projectDiff.md).
+bool sameMasterRun(const std::vector<PluginDoc>& a, const std::vector<PluginDoc>& b) {
     if (a.size() != b.size()) return false;
     for (size_t i = 0; i < a.size(); ++i)
-        if (keyOf(a[i]) != keyOf(b[i]) || mustReplace(a[i], b[i]) || filesMoved(a[i], b[i]) || a[i].enabled != b[i].enabled ||
-            a[i].params != b[i].params)
+        if (keyOf(a[i]) != keyOf(b[i]) || mustReplace(a[i], b[i]) || filesMoved(a[i], b[i]) ||
+            a[i].patternSource != b[i].patternSource)
             return false;
     return true;
+}
+
+// A kept instance's bypass and parameters, as in-place changes; shared by a track's chain and the master's.
+void diffPluginSettings(const PluginDoc& was, const PluginDoc& p, const std::string& trackId, ProjectDiff& out) {
+    // Bypass compared here rather than left to a rebuild, which would cut every reverb tail; without it the diff was EMPTY.
+    if (p.enabled != was.enabled) {
+        Change ch{ChangeKind::PluginEnabledChanged, trackId};
+        ch.plugin = p;
+        ch.enabled = p.enabled;
+        out.push_back(std::move(ch));
+    }
+    // Same plugin: emit a param change per differing/added parameter.
+    for (const auto& [name, val] : p.params) {
+        auto old = was.params.find(name);
+        if (old == was.params.end() || old->second != val) {
+            Change ch{ChangeKind::PluginParamChanged, trackId};
+            ch.pluginId = p.id;
+            ch.paramName = name;
+            ch.paramValue = val;
+            out.push_back(std::move(ch));
+        }
+    }
+    // A removed param is left where it was, EXCEPT the engine's own stage, whose absence means neutral (docs/mix.md).
+    for (const auto& [intrinsic, neutral] : {std::pair<const char*, double>{"@mix", 1.0},
+                                             {"@input-volume", 0.0},
+                                             {"@output-volume", 0.0}})
+        if (was.params.count(intrinsic) && !p.params.count(intrinsic)) {
+            Change ch{ChangeKind::PluginParamChanged, trackId};
+            ch.pluginId = p.id;
+            ch.paramName = intrinsic;
+            ch.paramValue = neutral;
+            out.push_back(std::move(ch));
+        }
 }
 
 // Diff the contents of one track (that exists in both docs).
@@ -151,13 +197,6 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
             out.push_back({ChangeKind::PluginAdded, to.id, {}, {}, *p, {}, {}, 0, 0, 0, 0});
             continue;
         }
-        // Bypass compared here rather than left to a rebuild, which would cut every reverb tail; without it the diff was EMPTY.
-        if (p->enabled != it->second->enabled) {
-            Change ch{ChangeKind::PluginEnabledChanged, to.id};
-            ch.plugin = *p;
-            ch.enabled = p->enabled;
-            out.push_back(std::move(ch));
-        }
         // Another preset, model, IR, record or second input, into the SAME instance (docs/projectDiff.md).
         if (filesMoved(*it->second, *p)) {
             Change ch{ChangeKind::PluginReloaded, to.id};
@@ -170,28 +209,7 @@ void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& ou
             ch.plugin = *p;
             out.push_back(std::move(ch));
         }
-        // Same plugin: emit a param change per differing/added parameter.
-        for (const auto& [name, val] : p->params) {
-            auto old = it->second->params.find(name);
-            if (old == it->second->params.end() || old->second != val) {
-                Change ch{ChangeKind::PluginParamChanged, to.id};
-                ch.pluginId = p->id;
-                ch.paramName = name;
-                ch.paramValue = val;
-                out.push_back(std::move(ch));
-            }
-        }
-        // A removed param is left where it was, EXCEPT the engine's own stage, whose absence means neutral (docs/mix.md).
-        for (const auto& [intrinsic, neutral] : {std::pair<const char*, double>{"@mix", 1.0},
-                                                 {"@input-volume", 0.0},
-                                                 {"@output-volume", 0.0}})
-            if (it->second->params.count(intrinsic) && !p->params.count(intrinsic)) {
-                Change ch{ChangeKind::PluginParamChanged, to.id};
-                ch.pluginId = p->id;
-                ch.paramName = intrinsic;
-                ch.paramValue = neutral;
-                out.push_back(std::move(ch));
-            }
+        diffPluginSettings(*it->second, *p, to.id, out);
     }
 
     // --- automation (coarse: replace a lane whenever its points change; a breakpoint-level diff can replace it) ---
@@ -231,9 +249,12 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
         ch.doubleValue = to.masterVolume;
         out.push_back(std::move(ch));
     }
-    // The MASTER CHAIN, compared whole — any difference is one change and a full rebuild, which stops playback (docs/projectDiff.md).
-    if (!sameMasterChain(from.masterPlugins, to.masterPlugins))
+    // The MASTER CHAIN: another run is one change and a full rebuild; the same run is set in place, track-less (docs/projectDiff.md).
+    if (!sameMasterRun(from.masterPlugins, to.masterPlugins))
         out.push_back(Change{ChangeKind::MasterChainChanged});
+    else
+        for (size_t i = 0; i < to.masterPlugins.size(); ++i)
+            diffPluginSettings(from.masterPlugins[i], to.masterPlugins[i], {}, out);
     if (from.timeSigNumerator != to.timeSigNumerator ||
         from.timeSigDenominator != to.timeSigDenominator) {
         Change ch{ChangeKind::TimeSignatureChanged};
@@ -246,7 +267,7 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
     auto toTracks = index(to.tracks, [](const TrackDoc& t) { return keyOf(t); });
 
     // Sends are wired for the whole song in one pass, so a routing that moved anywhere is one change; only a LEVEL can move in place.
-    if (routingSignature(from) != routingSignature(to)) {
+    if (routingSignature(from) != routingSignature(to) || tapRoutingSignature(from) != tapRoutingSignature(to)) {
         out.push_back(Change{ChangeKind::SendsRewired, {}});
     } else {
         for (const auto& [k, t] : toTracks) {
@@ -372,7 +393,7 @@ bool needsFullRebuild(const ProjectDiff& d) {
             // Buses are numbered across the whole song, so a routing change re-plans every send.
             case ChangeKind::SendsRewired:
                 return true;
-            // The master list is not on the incremental path — that one walks TRACKS — so the chain is rebuilt whole.
+            // Another master RUN — a module added, removed, reordered or reloaded — is rebuilt whole; its knobs and bypass are not this change.
             case ChangeKind::MasterChainChanged:
                 return true;
             default:

@@ -6,19 +6,19 @@
 //
 // See ../docs/picture.md.
 
-import { VIDEO_FORMATS, type VideoFormat } from "@studio/ui-eyes/export";
+import { VIDEO_FORMATS, type VideoFormat } from "@studio/ui-eyes/exportSupport";
 
 /** The mixdown formats the file service will render. */
 export const MIX_FORMATS = ["wav", "mp3"] as const;
 export type MixFormat = (typeof MIX_FORMATS)[number];
 
-// The picture's containers live beside the probe that blesses them (@studio/ui-eyes/export);
+// The picture's containers live beside the probe that blesses them (@studio/ui-eyes/exportSupport), which loads no muxer;
 // re-exported so the export command's vocabulary stays spelled in one place.
 export {
   DEFAULT_VIDEO_FORMAT,
   VIDEO_FORMATS,
   type VideoFormat,
-} from "@studio/ui-eyes/export";
+} from "@studio/ui-eyes/exportSupport";
 
 /** What the audio track of an exported video is rendered from when the line names none. WAV: it
  *  is decoded and re-encoded into the container either way, so the lossy step buys nothing. */

@@ -2,8 +2,8 @@
 // the last frame and nothing else (engine/st0-engine/docs/recorder.md), so somebody has to keep the
 // running total — and has to know when to throw it away.
 //
-// Pure, and its own file, because that second half is the whole difficulty: a rule that decides
-// wrong shows a take drawn on top of the last one, which reads as a rendering bug for ever.
+// Its own file, because that second half is the whole difficulty: a rule that decides wrong shows
+// a take drawn on top of the last one. Pure but for one thing: an append grows the view's own array.
 //
 // It lives beside the STORE and not beside the canvas that draws it, which is the fix for a
 // reload showing nothing: the whole picture is resent in ONE frame when the socket connects, and
@@ -78,6 +78,16 @@ export function foldTake(view: TakeView, frame: TakeFrame): TakeView {
     frame.takes.length === view.takeCount
   )
     return view;
+  // The ordinary frame APPENDS, about twelve a second: grown in place, since a copy per frame is the
+  // whole take again — 130k points three hours in. The VIEW is new, which is what a reader compares.
+  if (from === view.points.length && view !== EMPTY_TAKE) {
+    for (const p of frame.envelope) view.points.push(p);
+    return {
+      points: view.points,
+      takeCount: frame.takes.length,
+      recording: frame.recording,
+    };
+  }
   return {
     // `slice` clamps, so a frame starting past the end simply keeps everything and appends.
     points: [...view.points.slice(0, from), ...frame.envelope],

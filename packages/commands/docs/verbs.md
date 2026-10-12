@@ -77,6 +77,15 @@ spellings, so a hand-written musical window is only converted if somebody drags 
 them is the ordinary timecode. An edge that restates the material's own is cleared rather than
 written, the same rule the fades follow.
 
+`event gain <track> <at> <dB>` is an audio event's own trim, −6 to +6, refused on a MIDI event
+(`packages/song-edit/docs/eventGain.md`).
+
+`event loop points <track> <at> <from> <to>` takes the MATERIAL's unit instead — beats into a
+sequence, seconds into an audio file — because it is the clip panels' brace that sends it, and each
+panel's ruler is drawn in its material's unit. One verb for both kinds rather than two, since the
+event names its material and the material names the unit. `event loop` beside it is the switch:
+on, off or toggle (`packages/song-edit/docs/eventLoop.md`).
+
 ## One implementation, two commands
 
 Three families are one function taking the word it writes, because the only thing that differs is
@@ -246,6 +255,16 @@ and the note after the kit's highest, since a new tap with a clashing note would
 that side of the tap's. It never renumbers the kit to make room, because a note is what a sequence
 plays — shifting three pads up one would silently change what the song sounds like. So on a kit
 whose notes are contiguous, "before SN" lands below the lowest of them, not between two pads.
+
+`out <node> <tap> <subchain|none>` sends one tap to a subchain of the node's chain file, on an
+output of its own, and is the one tap verb that also takes an SFZ kit's pad. It checks the
+subchain before writing, so a route to nowhere is refused here rather than at the next compile
+(`packages/song/docs/racks.md`, "A tap with a chain of its own").
+
+`chain add|move|remove` edit that subchain from the tap, writing the chain file directly rather than
+through a graph rewrite: the first `add` makes the subchain and routes the tap, and the `remove` of the
+last module takes both away, since an empty tap-fed subchain is one the next graph edit drops. A module
+is named by its ref; a node by its id, which is what the popin sends (`packages/song-edit/src/tapChain.ts`).
 
 `rename` changes the symbol in place, keeping its note, its sample and its line in the file. Nothing
 else names a symbol but the node's own `rack:` and a hand-made panel's `@rack:<symbol>` bind, which

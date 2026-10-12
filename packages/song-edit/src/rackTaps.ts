@@ -3,6 +3,7 @@
 // sampler, and each node of it is a kit (packages/song/docs/racks.md). On an alternative other than
 // the first, into that set — a knob and a tap follow the same rule.
 
+import { readChainProject } from "@studio/song/chainProject";
 import { loadModuleRefs, loadModules } from "@studio/song/loader";
 import {
   resolvedRack,
@@ -10,6 +11,7 @@ import {
   resolveModule,
 } from "@studio/song/moduleResolve";
 import { currentAlternative } from "@studio/song-schema/alternatives";
+import { calledSubchains } from "@studio/song-schema/yaml/chainSchema";
 import { isMap, isScalar, parseDocument, Scalar } from "yaml";
 import { editModuleFile } from "./projectEdit";
 
@@ -220,5 +222,58 @@ export function setKit(
       doc.setIn([...base, symbol, "note"], tap.note);
       if (tap.sample) doc.setIn([...base, symbol, "sample"], tap.sample);
     }
+  });
+}
+
+/** A node's taps by name: a rack's sounds, or an SFZ kit's pads; none for any other node. */
+export function tapsOf(dir: string, node: string): string[] {
+  const m = loadModules(dir)[node];
+  if (!m) throw new Error(`no node '${node}'`);
+  const resolved = resolveModule(m, loadModuleRefs(dir));
+  return resolvedType(resolved) === "rack"
+    ? Object.keys(resolvedRack(resolved).symbols)
+    : Object.keys((resolved as { kit?: Record<string, number> }).kit ?? {});
+}
+
+/** Route a tap — a rack's sound or a kit's pad — to a subchain of the node's chain file; `null` returns it to the main output. */
+export function setTapOut(
+  dir: string,
+  node: string,
+  tap: string,
+  subchain: string | null,
+): string {
+  const taps = tapsOf(dir, node);
+  if (!taps.length)
+    throw new Error(
+      `'${node}' has no taps — only a rack or an SFZ kit routes one`,
+    );
+  if (!taps.includes(tap)) throw new Error(`'${node}' has no tap '${tap}'`);
+  if (subchain !== null) {
+    // Checked HERE, so a route to nowhere is refused with a reason rather than failing the next compile.
+    const cp = readChainProject(dir);
+    const at = cp.nodes[node];
+    const parent = at ? cp.chains[at.chain] : undefined;
+    if (!parent?.subchains?.some((s) => s.id === subchain))
+      throw new Error(
+        `'${subchain}' is not a subchain of ${at?.chain ?? "the node's"} chain file`,
+      );
+    if (calledSubchains(parent).has(subchain))
+      throw new Error(
+        `'${subchain}' is run in place as a step — a tap cannot feed it`,
+      );
+  }
+  return editModuleFile(dir, node, (text) => {
+    const doc = parseDocument(text, OPTS);
+    if (subchain === null) {
+      doc.deleteIn(["tap_outs", tap]);
+      const left = doc.get("tap_outs");
+      if (isMap(left) && !left.items.length) doc.delete("tap_outs");
+    } else {
+      if (!isMap(doc.get("tap_outs"))) doc.set("tap_outs", doc.createNode({}));
+      doc.setIn(["tap_outs", tap], subchain);
+      const outs = doc.get("tap_outs");
+      if (isMap(outs)) outs.flow = true;
+    }
+    return doc.toString({ lineWidth: 0 });
   });
 }

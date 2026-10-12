@@ -1,18 +1,20 @@
-// CommandParams.tsx — the parameter form, as a small panel in the bottom-right corner.
+// CommandParams.tsx — the parameter form, as ONE row in the bar's own place: the command, then a field per param.
 //
-// A panel and not a step in the bar, so every question is on screen at once and an answer given
-// three fields ago can be changed without unwinding the ones after it. The corner is the one
-// place it can sit while a gesture elsewhere answers one of its fields.
+// Every question is on screen at once, so an answer given three fields ago can be changed without
+// unwinding the ones after it; a field's suggestions open upward from the row, as the command list does.
 //
 // It holds NO state: CommandBar owns the command, the answers and the gesture inlets, and two
 // copies of that would be two commands. See docs/commandBar.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
-import { createPortal } from "react-dom";
 import type { EnterAction } from "../commandFill";
 import type { ArgOption } from "../palette";
 import type { ArgClass } from "../types";
 import type { PaletteArg, PaletteCommand } from "./CommandBar";
+
+/** A field's width in characters: what it holds, else its placeholder, so the row reads like the line it builds. */
+const fieldSize = (value: string, hint: string): number =>
+  Math.max(3, Math.min(32, (value || hint).length + 1));
 
 export function CommandParams({
   command,
@@ -27,6 +29,7 @@ export function CommandParams({
   onPick,
   onHover,
   onKeyDown,
+  onRepick,
   inputRef,
 }: {
   command: PaletteCommand;
@@ -36,81 +39,86 @@ export function CommandParams({
   suggestions: readonly ArgOption[];
   selected: number;
   argColor: Record<ArgClass, string>;
-  /** What Enter will do THIS press, so the footer can name it — see `enterAction`. */
+  /** What Enter will do THIS press, so the row can name it — see `enterAction`. */
   enterDoes: EnterAction["kind"];
   onType: (index: number, value: string) => void;
   onFocusField: (index: number) => void;
   onPick: (value: string) => void;
   onHover: (index: number) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
+  /** The command's name was clicked: drop it and pick another. */
+  onRepick: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const arg: PaletteArg | undefined = command.args[active];
   const picked = suggestions.find((o) => o.value === (values[active] ?? ""));
 
-  return createPortal(
-    <section
-      // Portalled and fixed: the bar it belongs to is a flex row, and a panel this size inside it would be clipped or push the input around.
-      className="fixed bottom-14 right-4 z-40 flex w-80 flex-col rounded-md border border-border bg-popover/95 shadow-lg backdrop-blur"
-      aria-label="command parameters"
-    >
-      <header className="border-b border-border px-3 py-2">
-        {/* The sentence, not the command name: reading back what was chosen is how you know the right row was taken. */}
-        <div className="text-xs font-medium text-foreground">
-          {command.readable}
-        </div>
-        <div className="truncate font-mono text-[10px] text-muted-foreground">
-          {command.canonical}
-        </div>
-      </header>
-
-      <div className="flex flex-col gap-1.5 px-3 py-2">
+  return (
+    <div className="flex h-5 min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+      {/* The NAME, which is the line being built; the sentence is its title, reading back what was chosen. */}
+      <button
+        type="button"
+        onClick={onRepick}
+        className="h-5 shrink-0 font-mono text-sm leading-5 text-foreground hover:text-primary"
+        title={`${command.readable} — click to pick another command`}
+      >
+        {command.canonical}
+      </button>
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
         {command.args.map((a, i) => (
-          <label key={a.name} className="flex flex-col gap-0.5">
-            <span className="flex items-baseline justify-between gap-2">
-              <span
-                className={cn(
-                  "font-mono text-[10px]",
-                  i === active ? argColor[a.kind] : "text-muted-foreground",
-                )}
-              >
-                {a.name}
-                {/* A trailing optional says so: leaving it blank is an ANSWER, and the form would otherwise look unfinished for ever. */}
-                {a.optional && (
-                  <span className="ml-1 opacity-60">· optional</span>
-                )}
-              </span>
-              {/* The field holds what is inserted; a taken labelled value is named beside it, since a uuid says nothing. */}
-              {i === active && picked?.label && (
-                <span className="min-w-0 truncate text-[10px] text-muted-foreground">
-                  {picked.label}
-                </span>
-              )}
-            </span>
-            <input
-              ref={i === active ? inputRef : undefined}
-              value={values[i] ?? ""}
-              onChange={(e) => onType(i, e.target.value)}
-              onFocus={() => onFocusField(i)}
-              onKeyDown={onKeyDown}
-              placeholder={a.hint}
-              spellCheck={false}
-              autoComplete="off"
-              className={cn(
-                "w-full rounded border bg-background/60 px-2 py-1 font-mono text-xs outline-none",
-                i === active
-                  ? `border-primary/60 ${argColor[a.kind]}`
-                  : "border-border text-foreground/80",
-              )}
-            />
-          </label>
+          <input
+            key={a.name}
+            ref={i === active ? inputRef : undefined}
+            value={values[i] ?? ""}
+            onChange={(e) => onType(i, e.target.value)}
+            onFocus={() => onFocusField(i)}
+            onKeyDown={onKeyDown}
+            // The param's name is the placeholder, a trailing optional marked so: leaving it blank is an ANSWER.
+            placeholder={a.optional ? `${a.name}?` : a.name}
+            size={fieldSize(values[i] ?? "", a.name)}
+            title={
+              i === active && picked?.label
+                ? `${a.name}: ${picked.label}`
+                : (a.hint ?? a.name)
+            }
+            spellCheck={false}
+            autoComplete="off"
+            className={cn(
+              // h-5, the bar input's own line: a field any taller makes the whole strip jump when a command is picked.
+              "h-5 shrink-0 rounded border bg-background/60 px-1.5 py-0 font-mono text-xs leading-none outline-none placeholder:text-muted-foreground/60",
+              i === active
+                ? `border-primary/60 ${argColor[a.kind]}`
+                : "border-border text-foreground/80",
+            )}
+          />
         ))}
       </div>
+      {/* What Enter does THIS press, which is not always "run" (see `enterAction`). */}
+      <span
+        className={cn(
+          "shrink-0 font-mono text-[10px] text-muted-foreground",
+          enterDoes === "run" && "text-foreground",
+        )}
+      >
+        {enterDoes === "take"
+          ? "↵ pick"
+          : enterDoes === "run"
+            ? "↵ run"
+            : "↵ next"}
+      </span>
 
       {suggestions.length > 0 && (
-        <ul className="max-h-48 overflow-auto border-t border-border py-1 text-xs">
+        // Opens UPWARD and lists bottom-first, as the command list does, so the best value sits right above the row.
+        <ul className="absolute bottom-full left-0 right-0 z-30 mb-2 flex max-h-72 flex-col-reverse overflow-auto rounded-md border border-border bg-popover py-1 text-xs shadow-md">
           {suggestions.map((o, i) => (
-            <li key={o.value}>
+            <li
+              key={o.value}
+              ref={
+                i === selected
+                  ? (el) => el?.scrollIntoView({ block: "nearest" })
+                  : undefined
+              }
+            >
               <button
                 type="button"
                 // mousedown, and preventDefault: the blur that would close this list must never be the one that was about to pick from it.
@@ -132,20 +140,6 @@ export function CommandParams({
           ))}
         </ul>
       )}
-
-      {/* What the two keys do, naming what Enter will do THIS press, which is not always "run" (see `enterAction`). */}
-      <footer className="flex items-center justify-between gap-2 border-t border-border px-3 py-1 text-[10px] text-muted-foreground">
-        <span>Tab · next</span>
-        <span className={cn(enterDoes === "run" && "text-foreground")}>
-          {enterDoes === "take"
-            ? "Enter · pick"
-            : enterDoes === "run"
-              ? "Enter · run"
-              : "Enter · next missing"}
-        </span>
-        <span>Esc · cancel</span>
-      </footer>
-    </section>,
-    document.body,
+    </div>
   );
 }

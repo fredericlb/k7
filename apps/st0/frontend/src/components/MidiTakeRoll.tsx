@@ -5,8 +5,9 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Music2, Square } from "@frediverse/ui/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LiveMidiTake } from "../hooks/useMidiRecording";
+import { isBlack } from "../noteNames";
 import { m } from "../paraglide/messages.js";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { CapturedNote } from "../webmidi";
@@ -15,13 +16,19 @@ import type { CapturedNote } from "../webmidi";
 const WINDOW_BARS = 8;
 const MIN_KEYS = 24;
 const KEYS_W = 28;
-const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 /** The key range drawn: what was played, padded, never narrower than two octaves — C3..C5 before the first note. */
 export function keyRange(notes: CapturedNote[]): { lo: number; hi: number } {
   if (!notes.length) return { lo: 48, hi: 72 };
-  let lo = Math.min(...notes.map((n) => n.k)) - 2;
-  let hi = Math.max(...notes.map((n) => n.k)) + 2;
+  // A loop, not Math.min(...keys): spread past ~100k arguments throws, and an hour's jam gets there.
+  let lo = 127;
+  let hi = 0;
+  for (const n of notes) {
+    if (n.k < lo) lo = n.k;
+    if (n.k > hi) hi = n.k;
+  }
+  lo -= 2;
+  hi += 2;
   const short = MIN_KEYS - (hi - lo);
   if (short > 0) {
     lo -= Math.floor(short / 2);
@@ -57,11 +64,23 @@ export function MidiTakeRoll({
   const [frame, setFrame] = useState<{ notes: CapturedNote[]; now: number }>(
     () => ({ notes: [], now: take.now() }),
   );
-  // Redrawn every animation frame: a held key grows and the playhead moves even when no message arrives.
+  // The playhead line moves every animation frame through its ref; the notes are re-read each quarter beat.
+  const lineRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef({ lo: 0, hi: 1 });
   useEffect(() => {
     let id = 0;
+    let step = Number.NaN;
     const tick = () => {
-      setFrame({ notes: take.read(), now: take.now() });
+      const now = take.now();
+      const { lo, hi } = viewRef.current;
+      if (lineRef.current)
+        lineRef.current.style.left = `${((now - lo) / (hi - lo)) * 100}%`;
+      // A held key grows and a new note appears within a quarter beat, without a React render per frame.
+      const at = Math.floor(now * 4);
+      if (at !== step) {
+        step = at;
+        setFrame({ notes: take.read(), now });
+      }
       id = requestAnimationFrame(tick);
     };
     id = requestAnimationFrame(tick);
@@ -72,6 +91,7 @@ export function MidiTakeRoll({
   const bar = Math.max(1, beatsPerBar);
   const keys = keyRange(notes);
   const beats = beatWindow(take.from, now, bar);
+  viewRef.current = beats;
   const rows = keys.hi - keys.lo + 1;
   const x = (b: number) => ((b - beats.lo) / (beats.hi - beats.lo)) * 100;
   const y = (k: number) => ((keys.hi - k) / rows) * 100;
@@ -127,7 +147,7 @@ export function MidiTakeRoll({
         <div className="relative h-full shrink-0" style={{ width: KEYS_W }}>
           {Array.from({ length: rows }, (_, i) => {
             const k = keys.hi - i;
-            const black = NAMES[k % 12].includes("#");
+            const black = isBlack(k);
             return (
               <div
                 key={k}
@@ -147,20 +167,24 @@ export function MidiTakeRoll({
               style={{ left: `${x(b)}%` }}
             />
           ))}
-          {notes.map((n) => (
-            <div
-              key={`${n.t}:${n.k}`}
-              className="absolute rounded-sm bg-red-500"
-              style={{
-                left: `${x(n.t)}%`,
-                width: `${Math.max(0.3, x(n.t + n.d) - x(n.t))}%`,
-                top: `${y(n.k)}%`,
-                height: `${100 / rows}%`,
-                opacity: 0.45 + 0.55 * n.v,
-              }}
-            />
-          ))}
+          {/* Only the notes the window shows: an hour's take is thousands, and every one off screen was reconciled each quarter beat. */}
+          {notes
+            .filter((n) => n.t + n.d >= beats.lo && n.t <= beats.hi)
+            .map((n) => (
+              <div
+                key={`${n.t}:${n.k}`}
+                className="absolute rounded-sm bg-red-500"
+                style={{
+                  left: `${x(n.t)}%`,
+                  width: `${Math.max(0.3, x(n.t + n.d) - x(n.t))}%`,
+                  top: `${y(n.k)}%`,
+                  height: `${100 / rows}%`,
+                  opacity: 0.45 + 0.55 * n.v,
+                }}
+              />
+            ))}
           <div
+            ref={lineRef}
             className="absolute top-0 h-full w-px bg-foreground/70"
             style={{ left: `${x(now)}%` }}
           />

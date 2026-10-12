@@ -3,6 +3,7 @@
 // shift+wheel nudge and a dragged selection. SequencerPanel draws the grid; this decides what a
 // pointer on it writes. See ../../docs/clipEditors.md.
 
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
@@ -10,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { clamp } from "../clamp";
 import type { MenuCtx } from "../contextMenu";
 import { type GridBox, type GridCell, inBox } from "../gridCaret";
 import { m } from "../paraglide/messages.js";
@@ -33,8 +35,6 @@ export interface Row {
 
 // A cell's pixel height (h-14), needed as a NUMBER by the velocity line: 0 at the bottom edge, 1 at the top.
 export const CELL_H = 56;
-export const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v));
 // How long the wheel must be still before a nudge is written — one command for a flick, and letting go still ends the gesture.
 const NUDGE_SETTLE_MS = 250;
 
@@ -68,6 +68,8 @@ export function useStepPads({
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
 }) {
   const { box } = grid;
+  // One pointer per gesture, abandoned on a cancel or an unmount — @studio/ui-timeline/drag.
+  const follow = usePointerFollow();
 
   /** Presses the document has not caught up with yet: a press paints at once and the ghost is held until the document AGREES (see `settledEdits`). */
   const [pending, setPending] = useState<ReadonlyMap<string, PadEdit>>(
@@ -225,12 +227,8 @@ export function useStepPads({
           Number.isFinite(r) && Number.isFinite(c) ? { row: r, col: c } : null,
         );
       };
-      const onSelUp = () => {
-        window.removeEventListener("pointermove", onSelMove);
-        window.removeEventListener("pointerup", onSelUp);
-      };
-      window.addEventListener("pointermove", onSelMove);
-      window.addEventListener("pointerup", onSelUp);
+      // The rectangle stays as drawn whichever way the gesture ends.
+      follow(e, { move: onSelMove });
       return;
     }
     // Captured for both cases: the release then lands on the PRESSED cell wherever the pointer went.

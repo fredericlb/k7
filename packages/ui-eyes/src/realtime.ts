@@ -30,6 +30,8 @@ interface Lane {
     el: HTMLVideoElement;
     stream: MediaStream | null;
     problem: string | null;
+    /** The lens's own release, beyond stopping its tracks. */
+    close?: () => void;
   };
 }
 
@@ -63,8 +65,16 @@ async function openCamera(
   label: string,
   live: NonNullable<Lane["live"]>,
   open: LensOpener,
+  gone: () => boolean,
 ) {
   const lens = await open(label);
+  // The driver was destroyed while the lens opened (a permission prompt, a slow device): released here, or the lamp stays lit.
+  if (gone()) {
+    for (const track of lens.stream?.getTracks() ?? []) track.stop();
+    lens.close?.();
+    return;
+  }
+  live.close = lens.close;
   live.problem = lens.problem;
   if (!lens.stream) return;
   live.stream = lens.stream;
@@ -98,12 +108,14 @@ export class RealtimeDriver {
     openLens: LensOpener = localLens,
   ): RealtimeDriver {
     const comp = Compositor.create(host, scene);
+    // Read by a lens still opening: it may land after the driver it was opened for is gone.
+    let driver: RealtimeDriver | null = null;
     const lanes: Lane[] = scene.layers.map((layer) => {
       // A LIVE lane: one element, one stream, and nothing to decode or chase (docs/camera.md).
       if (layer.camera !== undefined) {
         const el = liveElement(host);
         const live: Lane["live"] = { el, stream: null, problem: null };
-        openCamera(layer.camera, live, openLens);
+        openCamera(layer.camera, live, openLens, () => !!driver?.disposed);
         return { layer, els: [], loaded: [], settleUntil: [], live };
       }
       // A shape layer has no media — the compositor draws its fills, so it needs no element and no drift control.
@@ -130,7 +142,8 @@ export class RealtimeDriver {
         settleUntil: els.map(() => 0),
       };
     });
-    const driver = new RealtimeDriver(comp, lanes, clock);
+    driver = new RealtimeDriver(comp, lanes, clock);
+    driver.watchSight(host);
     driver.loop();
     return driver;
   }
@@ -201,9 +214,48 @@ export class RealtimeDriver {
     return true;
   }
 
-  // One rAF tick per lane: pick the frame, keep each element in step, upload into its slot, draw.
+  // Scheduled FIRST: one frame that throws (a closed VideoFrame, a decode fault) must not stop the picture for good.
   private loop = (): void => {
     if (this.disposed) return;
+    this.raf = requestAnimationFrame(this.loop);
+    try {
+      this.frame();
+    } catch (e) {
+      // Said once per driver, not sixty times a second.
+      if (!this.frameFault) console.error("[viewport] a frame failed", e);
+      this.frameFault = true;
+    }
+  };
+  private frameFault = false;
+
+  // Whether the host is on screen: a pane is hidden rather than unmounted, and drawing nobody sees costs a GPU and a decoder.
+  private onScreen = true;
+  private parked = false;
+  private sight: IntersectionObserver | null = null;
+
+  private watchSight(host: HTMLElement): void {
+    if (typeof IntersectionObserver === "undefined") return;
+    this.sight = new IntersectionObserver((entries) => {
+      const seen = entries.some((e) => e.isIntersecting);
+      // Back in sight: every element lands on its frame at once, as after a seek.
+      if (seen && !this.onScreen) this.reseekAll();
+      this.onScreen = seen;
+    });
+    this.sight.observe(host);
+  }
+
+  // One tick per lane: pick the frame, keep each element in step, upload into its slot, draw.
+  private frame(): void {
+    // Out of sight: the elements are paused once and nothing is drawn — the loop itself stays, to notice the return.
+    if (!this.onScreen) {
+      if (!this.parked) {
+        this.debug = [];
+        for (const lane of this.lanes) this.park(lane);
+        this.parked = true;
+      }
+      return;
+    }
+    this.parked = false;
     const t = this.clock.nowSec();
     const playing = this.clock.isPlaying();
     const visible = new Set<string>();
@@ -297,8 +349,7 @@ export class RealtimeDriver {
     // The live half of a shader's uniforms, refreshed per frame rather than per document — see docs/passes.md.
     this.comp.setLive(t, this.audio);
     this.comp.draw(visible, blends);
-    this.raf = requestAnimationFrame(this.loop);
-  };
+  }
 
   /** The audio level each pass is driven by, 0..1 by pass id — PUSHED by the host, and held here since the rates differ. */
   private audio: Record<string, number> = {};
@@ -378,6 +429,7 @@ export class RealtimeDriver {
   destroy(): void {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
+    this.sight?.disconnect();
     this.clock.onSeek = undefined;
     for (const lane of this.lanes) {
       for (const el of lane.els) {
@@ -390,6 +442,7 @@ export class RealtimeDriver {
       // device held until the tab closes, on a surface you merely navigated away from.
       if (lane.live) {
         for (const track of lane.live.stream?.getTracks() ?? []) track.stop();
+        lane.live.close?.();
         lane.live.el.srcObject = null;
         lane.live.el.remove();
       }

@@ -9,6 +9,7 @@ import { Check, Circle, Square, Trash2, X } from "@frediverse/ui/icons";
 import { useEngineState } from "@studio/engine-browser/store";
 import { setCompSpan } from "@studio/song-schema/takes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ModeIcon } from "../modeIcons";
 import {
@@ -104,6 +105,8 @@ export function TakesView({
   // Notes are not swept between takes: a MIDI event plays one take whole, which keeps its roll one sequence.
   const wholeOnly = ev.kind === "midi";
   const [drag, setDrag] = useState<{ a: number; b: number } | null>(null);
+  // One pointer per drag, abandoned on a cancel or an unmount — @studio/ui-timeline/drag.
+  const follow = usePointerFollow();
   const area = useRef<HTMLDivElement>(null);
   const beatAt = (clientX: number): number => {
     const r = area.current?.getBoundingClientRect();
@@ -149,8 +152,6 @@ export function TakesView({
     const move = (m: PointerEvent) =>
       setXfDrag({ seam, length: lenAt(m.clientX) });
     const up = (u: PointerEvent) => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
       setXfDrag(null);
       const length = alt ? 0 : lenAt(u.clientX);
       setLocal((l) => ({
@@ -162,8 +163,8 @@ export function TakesView({
       }));
       void command(compFadeLine(ev, seam, length, num, den));
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    // A cancelled fade drag writes no fade.
+    follow(e, { move, end: up, cancel: () => setXfDrag(null) });
   };
 
   // A press on a row: a drag selects, a click picks the row for the span or, with none, seeks there.
@@ -176,16 +177,14 @@ export function TakesView({
     setDrag({ a: b, b });
     const move = (m: PointerEvent) => setDrag({ a: b, b: beatAt(m.clientX) });
     const up = (u: PointerEvent) => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
       setDrag(null);
       const span = snapSpan(b, beatAt(u.clientX), GRID);
       if (span) return setSel(span);
       if (sel && ref) return pick(ref);
       onSeek?.((b * 60) / tempo);
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    // A cancelled press selects nothing and seeks nowhere.
+    follow(e, { move, end: up, cancel: () => setDrag(null) });
   };
 
   // Escape lets the span go — caught first, so the panel behind the view is not closed by the same key.

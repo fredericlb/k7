@@ -4,6 +4,7 @@
 // docs/access.md.
 
 import type { CataloguePlugin } from "@studio/web-protocol/compat";
+import { pairFrameFor } from "./pairing.ts";
 import { openSocket } from "./rtcSocket.ts";
 
 export {
@@ -42,7 +43,12 @@ export function pluginCatalogue(
       return finish(null);
     }
     // A probe query: the engine answers it without a session, as it does `whoami`.
-    ws.onopen = () => ws.send(JSON.stringify({ type: "list-plugins" }));
+    ws.onopen = () => {
+      // The device's key first, as every socket to an engine over the LAN must (docs/pairing.md).
+      const pair = pairFrameFor(wsUrl);
+      if (pair) ws.send(pair);
+      ws.send(JSON.stringify({ type: "list-plugins" }));
+    };
     ws.onmessage = (ev) => {
       try {
         const m = JSON.parse(String(ev.data)) as {

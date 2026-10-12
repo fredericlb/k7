@@ -54,7 +54,8 @@
     "lint:docs": "node scripts/check-doc-links.mjs",
     "lint:comments": "node scripts/check-comments.mjs",
     "lint:dead": "knip",
-    "lint:panels": "tsx packages/song/scripts/checkPanelBinds.ts"
+    "lint:panels": "tsx packages/song/scripts/checkPanelBinds.ts",
+    "lint:layouts": "tsx packages/ui-module-builder/scripts/checkLayouts.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

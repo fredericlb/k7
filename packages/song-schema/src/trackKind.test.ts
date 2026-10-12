@@ -104,9 +104,14 @@ describe("sortTracksByKind", () => {
     expect(order(["be.z", "ba.a", "bs.m"])).toEqual(["be.z", "ba.a", "bs.m"]);
   });
 
-  it("leaves a project that uses no prefixes exactly as it was", () => {
-    const as_is = ["drums", "bass_3", "vox", "audio_6"];
-    expect(order(as_is)).toEqual(as_is);
+  it("places unprefixed names by what they say, and leaves the rest in their order", () => {
+    expect(order(["drums", "bass_3", "audio_6", "vox", "track-1"])).toEqual([
+      "vox",
+      "drums",
+      "bass_3",
+      "audio_6",
+      "track-1",
+    ]);
   });
 
   it("ranks an unknown code after every family", () => {

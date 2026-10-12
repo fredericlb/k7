@@ -128,6 +128,15 @@ engine the first time Surge renamed one; the generator refuses a bind the engine
 Run it after a Surge bump. The oscillator and effect types that need an audio input are left out of
 the pickers — this instrument takes none — and a patch that uses one still loads.
 
+**Every page is laid out twice, from ONE list of sections** (`packages/ui-module-builder/docs/layouts.md`):
+across 4 rows for the panel, stacked in 4 columns for `vertical:`. A section names each control's box in
+both shapes, and the generator refuses one that lacks either, so a control cannot exist in one shape only.
+Four rows hold a section two knobs high, which is why a scene's page is split where Surge's is not: the
+envelopes and the VCA get a page of their own beside the filters, and each LFO bank is two pages of three,
+each with a screen drawing those three. The macros and the level stay on every page, a frame at the panel's
+right and at the top of the vertical one. The LFO and effect slots keep 1×1 knobs: ten or twelve 2×2
+knobs a slot would cost a page per slot.
+
 **A page per OSCILLATOR, holding its mix channel.** Surge draws an oscillator's controls and its
 mix channel on two different panels. Here each oscillator gets one page with its type, slots, route,
 level, mute and solo, because what a sound is made of and how loud it goes in are adjusted together.

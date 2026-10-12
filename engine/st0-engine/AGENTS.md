@@ -52,8 +52,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   Recording.cpp             arming, takes, transport record listener
   Recorder.cpp              the RECORDER node: free-running capture, its takes, and the state it
                             reports — transport-independent, unlike the file above (docs/recorder.md)
-  FilePeak.cpp              one file's true peak (--peak), what a cold module is measured with
-  Waveform.cpp              waveform peak data
+  Decode.cpp                --decode: a file's frames on stdout, for @studio/audio-analysis to measure
   Warnings.{h,cpp}          the warning channel the UI shows
   MultiEditTest.cpp         N-sessions-on-one-device measurement (docs/multiEdit.md)
 
@@ -105,9 +104,11 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
     patches/eurorack.cmake    the upstream bug fixed at fetch time (Clouds' silent stretch mode)
     patches/stmlib.cmake      …and stmlib's: utils/dsp.h's GCC-only __attribute__, which MSVC rejects
   patches/faust.cmake       Faust's poly-dsp.h prints on the audio thread at every voice steal; silenced at fetch time
-  patches/tracktion.cmake   Tracktion's SamplerPlugin re-decoded every rack sound on any edit, twice, once under the audio lock
+  patches/tracktion.cmake   Tracktion's SamplerPlugin re-decoded every rack sound on any edit, twice, once under the audio lock;
+                            and an output pair per sound, for a tap routed apart (docs/tapOutputs.md)
   patches/sfizz.cmake       sfizz (archived) against today's compilers: its arm64 flag test, and an atomic_queue error clang 19 raises;
-                            and the gain per key a kit's pad is set louder with (docs/sfzPlugin.md)
+                            and the gain per key a kit's pad is set louder with (docs/sfzPlugin.md), and the
+                            output per key a routed pad leaves by (docs/tapOutputs.md)
   patches/surge-fetch.cmake Surge XT at one commit, sparse and with only the submodules its core builds from
   patches/surge.cmake       …and the four fixes being a subproject needs
     <Name>Plugin.{h,cpp}      named mu-<module>: MacroOscillator2 = mu-plaits, MacroOscillator =
@@ -152,6 +153,7 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          `--dump-surge-layout`, and a factory preset per patch in its base/. A GENERATOR,
                          output committed: run it after bumping Surge or changing the patches.
                          `npm run gen:surge-panel --workspace st0-engine`. docs/surgePlugin.md.
+  gen-surge-widgets.mjs  …its widgets.js, the screens' draw functions, as a template the panel generator fills
   sfz-to-rack.ts         turn an SFZ drum kit into a RACK kit: each piece rendered through the SFZ player at one
                          velocity, mics mixed, trimmed, written into a library's samples/ with a rack preset —
                          what the library's naked_drums samples are (packages/song/docs/racks.md)
@@ -196,6 +198,9 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          the only coverage `EurorackPlugin::midiPanic` has (docs/panic.md)
   seek-release.ts        does a SEEK while playing end the notes and the tails, on every non-VST instrument
                          and tail effect? A stop is the control that proves a tail was there (docs/panic.md)
+  tap-outputs.ts         does a rack tap routed to a subchain really LEAVE the instrument? One pad at a time,
+                         on the sampler and an installed SFZ kit: heard on its own track, silent when that
+                         track is muted, the other pads untouched — a RackType no unit test can hear (docs/tapOutputs.md)
   cue-bus.ts             the two facts a CUE bus rests on, neither visible to a unit test: how many
                          destinations a source may have and still be heard only through them, and
                          whether `outputChannels` really takes a track off the mixdown (docs/cueOutput.md)
@@ -228,7 +233,8 @@ force a full rebuild — every rule there exists because leaving it out produced
 the Edit and input ones do not, and why `inputClients` is keyed by device name),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
-`cueOutput.md` (a track routed OFF the mixer's sum onto a second pair — why an absent pair must be
+`tapOutputs.md` (an instrument whose taps leave by outputs of their own — why a RackType, and
+what the sampler and sfizz had to learn), `cueOutput.md` (a track routed OFF the mixer's sum onto a second pair — why an absent pair must be
 silent rather than folded back, and why a mixdown had to learn to exclude it),
 `eurorack.md` (the eight firmware modules: which ones and why not the rest, the fixed block every
 core needs, the resampler and the latency it reports, and each module's choices),
@@ -466,8 +472,10 @@ cmake --build build/<preset> --config RelWithDebInfo --target \
 ctest --test-dir build/<preset> -C RelWithDebInfo -R 'studio_' --output-on-failure
 ```
 
-`npm run test:mac --workspace st0-engine`. Covers the **JUCE-free data layer
-only** — `tests/ProjectDiff_test.cpp` exercises `diff()`/`needsFullRebuild()` (rename
+`npm run test --workspace st0-engine` builds and runs every fast suite, under the build folder's
+lock (`scripts/buildLock.mjs`), so it waits for the dev watcher instead of racing it; `test:all` adds
+the two Tracktion-linked ones. The fast tier covers the **JUCE-free data layer** —
+`tests/ProjectDiff_test.cpp` exercises `diff()`/`needsFullRebuild()` (rename
 not re-add, param drag stays incremental, plugin swap forces rebuild, removals before
 adds, …). Tiny hand-rolled harness (`tests/test_harness.h`, `CHECK`/`RUN`). Anything
 needing a live `te::Edit` is covered by CLI smoke-runs instead.

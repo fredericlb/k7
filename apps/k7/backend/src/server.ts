@@ -1,5 +1,7 @@
 import { createServer } from "node:http";
 import { join } from "node:path";
+import { precompressedStatic } from "@frediverse/http/precompressed";
+import { behindProxy } from "@frediverse/http/proxied";
 import { setupAuth } from "@frediverse/oidc";
 import express from "express";
 import { bearerOrSession } from "./apitoken.ts";
@@ -53,7 +55,7 @@ const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
 // The shell is asked again on every load and a hashed asset is kept for good — ../../../../docs/versioning.md.
 const SHELL_CACHE = "no-cache";
 app.use(
-  express.static(FRONTEND_DIST, {
+  precompressedStatic(FRONTEND_DIST, {
     setHeaders: (res, path) =>
       res.setHeader(
         "Cache-Control",
@@ -108,7 +110,7 @@ if (pocketbaseConfigured()) {
   );
 }
 
-const server = createServer(app);
+const server = behindProxy(createServer(app));
 // Node cuts a request off after 300 s; an hours-long take over a phone's uplink needs longer to arrive (docs/recordings.md).
 server.requestTimeout = 30 * 60_000;
 attachRtc(server);

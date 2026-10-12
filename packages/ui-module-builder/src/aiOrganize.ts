@@ -20,6 +20,7 @@ import {
 } from "@studio/song-schema/yaml/moduleSchema";
 import { parse } from "yaml";
 import { clash, framedBy } from "./groupGeometry";
+import { twinIssues } from "./layoutTwins";
 
 /** One param as the model sees it: its exact name, its range and its current value. */
 export interface AiParam {
@@ -445,6 +446,8 @@ export function checkAiResult(
       ? blendIssues(all)
       : crossfadeIssues(all, bindNames)),
   );
+  // The panel's two shapes — sizes, the vertical one's geometry, the same controls on every page (layouts.md).
+  issues.push(...twinIssues(ui));
   issues.push(...loneGroupIssues(top));
   issues.push(...atControlIssues(all));
   issues.push(...eqBandIssues(all));

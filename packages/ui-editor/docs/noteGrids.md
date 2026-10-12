@@ -33,8 +33,14 @@ and the split is deliberate:
 | pl8 / anywhere else drawing a sequence | its own |
 
 The first two share `SeqGridFile` rather than each reading and writing the file themselves:
-"read it once, hand it to the grid, write every edit back" is one behaviour, and two copies of it
-is how the two homes come to disagree about when a file is re-read. What is NOT shared is the
+"read it, hand it to the grid, write every edit back" is one behaviour, and two copies of it
+is how the two homes come to disagree about when a file is re-read.
+
+It re-reads when the project moves — an undo, a command, a MIDI pass rewriting the same sequence —
+because a grid that kept its first read would write that stale snapshot back over them on the next
+cell edit. Never under a hand, though: not while a write is in flight, and not within a second of
+an edit. And its writes go one at a time, since two whole-file writes in flight can land the older
+one last. What is NOT shared is the
 frame — `SeqGridPane` draws the sequence's own bar, the clip pane draws its view switch. See
 `apps/st0/frontend/docs/clipEditors.md`.
 

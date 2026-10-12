@@ -34,6 +34,8 @@ import type {
 } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
+// The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors.
+import { json } from "./projects/api";
 import type {
   PlaylistInfo,
   PreviewReq,
@@ -52,16 +54,6 @@ const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
 // The registry's five routes are `engines` below — pl8's — and auth is three bare fetches, so there is no `get`/`send` helper here.
 
-/** The reader `@studio/engine-browser` wants: it owns the routes, this app owns the errors. */
-async function json<T>(res: Response, what: string): Promise<T> {
-  if (!res.ok)
-    throw new Error(
-      ((await res.json().catch(() => ({}))) as { error?: string }).error ??
-        `${what} ${res.status}`,
-    );
-  return res.json() as Promise<T>;
-}
-
 /** st0's own preference document — the remembered engine plus the command prefs; widening it is HALF of adding a field, the backend's zod schema deciding the rest. */
 export interface St0Prefs extends EnginePrefs {
   commands?: CommandPrefs;
@@ -75,16 +67,8 @@ export const engines = engineAccess<PublicEngine, St0Prefs>(PL8, json, {
 
 // ── The engine-side file service (cross-origin, header-auth) ─────────────────────
 
-// The transport and the shared routes live in @studio/project-shell, re-exported here so every call site imports from one place.
-export {
-  cfg,
-  configureFileApi,
-  diagnoseFileService,
-  type FileCfg,
-  type FileServiceFault,
-  fileHeaders,
-  mediaUrl,
-} from "@studio/project-shell/fileApi";
+// The transport and the shared routes live in @studio/project-shell; what callers reach through here is the media URL.
+export { mediaUrl } from "@studio/project-shell/fileApi";
 
 import { m } from "./paraglide/messages.js";
 
@@ -204,7 +188,12 @@ export const api = {
       };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          // A 2xx that is not JSON (a proxy's page) must still settle, or the drop's progress stays up for good.
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error(`upload ${name} — the answer was not readable`));
+          }
         } else {
           let msg = `upload ${name} failed`;
           try {
@@ -216,6 +205,8 @@ export const api = {
         }
       };
       xhr.onerror = () => reject(new Error(`upload ${name} — network error`));
+      xhr.onabort = () => reject(new Error(`upload ${name} — cancelled`));
+      xhr.ontimeout = () => reject(new Error(`upload ${name} — timed out`));
       xhr.send(bytes);
     });
   },

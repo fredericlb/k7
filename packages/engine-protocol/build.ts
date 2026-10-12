@@ -104,24 +104,6 @@ export const EXTERNAL_PLUGIN_FORMATS = new Set([
   "aax",
 ]);
 
-/** The `plugin:` block of a module file, without a YAML parser; both spellings are read, and unparseable means `undefined` rather than a throw. */
-export function readPluginBlock(
-  yaml: string,
-): { type?: string; name?: string } | undefined {
-  // The block form: `plugin:` on its own line, then the indented lines under it.
-  const block = /^[ \t]*plugin:[ \t]*\r?\n((?:[ \t]+\S.*\r?\n?)*)/m.exec(yaml);
-  const inline = /^[ \t]*plugin:[ \t]*\{([^}]*)\}/m.exec(yaml);
-  const body = block?.[1] ?? inline?.[1];
-  if (!body) return undefined;
-  const field = (k: string): string | undefined =>
-    new RegExp(`(?:^|[{,\\s])${k}\\s*:\\s*["']?([^"'\\n,}]+)`)
-      .exec(body)?.[1]
-      ?.trim();
-  const type = field("type");
-  const name = field("name");
-  return type === undefined && name === undefined ? undefined : { type, name };
-}
-
 /** What an author writes for a module whose DSP is the `jsdsp.ts` beside it. */
 export const JSDSP_TYPE = "jsdsp";
 /** …and the built-in the engine actually loads for one: a host for a graph it is handed. */

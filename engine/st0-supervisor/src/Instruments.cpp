@@ -91,6 +91,31 @@ fs::path root() { return paths::studioDir() / "instruments"; }
 
 bool installed(const Instrument& i) { return readMarker(root() / i.name) == i.sha256; }
 
+const Instrument* find(const std::string& name)
+{
+    for (const auto& i : all())
+        if (i.name == name) return &i;
+    return nullptr;
+}
+
+bool present(const Instrument& i) { return !readMarker(root() / i.name).empty(); }
+
+bool remove(const Instrument& i, std::string& error)
+{
+    const fs::path folder = root() / i.name;
+    // The marker first: a removal cut short then reads as not installed, never as a whole instrument.
+    std::error_code ec;
+    fs::remove(folder / kMarker, ec);
+    for (const fs::path& p : {folder, fs::path(folder.string() + ".unpack"), root() / (i.name + ".zip.part")}) {
+        fs::remove_all(p, ec);
+        if (ec) {
+            error = "cannot delete " + paths::utf8(p) + ": " + ec.message();
+            return false;
+        }
+    }
+    return true;
+}
+
 std::string sha256Of(const fs::path& file)
 {
     std::ifstream in(file, std::ios::binary);

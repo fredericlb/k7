@@ -66,7 +66,7 @@ so they link the engine. Building those can recompile Tracktion — measured her
 minutes**, and the CMakeLists already called them "opt-in the same way".
 
 So those two carry `LABELS slow`, and the script runs `-LE slow`. The default is the fast tier,
-build included. `npm run test:all --workspace moteur` adds the slow two. The label lives in `tests/CMakeLists.txt` rather than in a list inside
+build included. `npm run test:all --workspace st0-engine` adds the slow two. The label lives in `tests/CMakeLists.txt` rather than in a list inside
 the script, so a new test is fast unless it says otherwise, and the script's target list comes from
 `ctest -N` rather than being spelled out twice.
 

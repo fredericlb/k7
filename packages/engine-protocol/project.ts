@@ -48,6 +48,7 @@ export interface EventDoc {
   fadeIn?: string; // a timecode, as the file writes it
   fadeOut?: string;
   loop?: number; // passes; absent == 1
+  gain?: number; // dB, audio events only; absent == 0
   disabled?: boolean;
   warp?: boolean; // `false` == this event declines the material's stretch map
   takes?: { ref: string; start: string }[]; // the event's other performances, as the file writes them
@@ -68,6 +69,7 @@ export interface ClipDoc {
   sourceTo?: number; // seconds into the file; absent == to its end
   fadeIn: number; // beats
   fadeOut: number; // beats
+  gainDb?: number; // audio only: the event's own trim in dB, ±6; absent == unity
   loopStart: number; // midi (beats)
   loopEnd: number; // midi (beats); 0 == no loop
   notes: NoteDoc[]; // midi only
@@ -130,6 +132,8 @@ export interface PluginDoc {
   enabled: boolean;
   params: Record<string, number>;
   rack?: RackSoundDoc[]; // a rack instrument's sounds — only a `type: "rack"` module compiles to one
+  // Taps that leave by an output pair of their own, pair 0 being the main one: the engine puts the plugin in a RackType (engine docs/tapOutputs.md).
+  tapOuts?: { note: number; pair: number }[];
 }
 
 export interface SendDoc {
@@ -170,6 +174,8 @@ export interface TrackDoc {
   frozenMaterial?: ClipDoc[];
   plugins: PluginDoc[];
   sends: SendDoc[];
+  // Fed by ONE output pair of a multi-output instrument on another track, rather than by clips (engine docs/tapOutputs.md).
+  inputFrom?: { plugin: string; pair: number };
   automation: AutomationDoc[];
 }
 

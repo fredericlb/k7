@@ -167,70 +167,10 @@ int main(int argc, char** argv) {
         return studio::renderOffline(doc, baseDir, outDir, stems);
     }
 
-    // Freeze mode: bounce ONE track through its own plugins to a wav — `track freeze` hands over a doc with that track's gain, pan, mute and every solo already neutralised, since all of those stay live on a frozen track.
-    if (argc >= 2 && std::string(argv[1]) == "--freeze") {
-        std::string input, outFile, baseDir, trackId;
-        for (int i = 2; i < argc; ++i) {
-            const std::string a = argv[i];
-            if (a == "--out" && i + 1 < argc) outFile = argv[++i];
-            else if (a == "--base" && i + 1 < argc) baseDir = argv[++i];
-            else if (a == "--track" && i + 1 < argc) trackId = argv[++i];
-            else if (input.empty()) input = a;
-        }
-        if (input.empty() || outFile.empty() || trackId.empty()) {
-            std::cerr << "usage: st0-engine --freeze <doc.json|-> --track <id> --out <file.wav> "
-                         "[--base <dir>]\n";
-            return 2;
-        }
-        studio::ProjectDoc doc;
-        if (!readDocArg(input, doc)) return 2;
-        return studio::freezeTrack(doc, baseDir, trackId, outFile);
-    }
-
-    // Waveform-cache mode: decode the file, write its `{file}.cache` sidecar, exit — the file service invokes it to rebuild a missing or stale cache.
-
-    // The optional third argument is the transient detector's sensitivity (stddevs above the mean jump), per SOURCE and stored in the sidecar so a later read gets it back.
-    if (argc >= 3 && std::string(argv[1]) == "--waveform")
-        return studio::writeWaveformCache(
-            argv[2], argc >= 4 ? std::atof(argv[3]) : studio::kDefaultTransientSensitivity);
-
-    // Peak mode: one file's true peak, the measuring half of a COLD module — the brain writes the number back into the module's `Peak` before rendering through it.
-    if (argc >= 3 && std::string(argv[1]) == "--peak") return studio::printFilePeak(argv[2]);
+    // Decode mode: the file's frames on stdout for @studio/audio-analysis, which builds the waveform sidecar and measures a true peak from them.
+    if (argc >= 3 && std::string(argv[1]) == "--decode") return studio::decodeToStdout(argv[2]);
 
     // No `--normalize` mode: normalising is a treatment, and a treatment is a chain the brain bounces material through with `--render` (packages/commands/docs/processChain.md).
-
-    // Batch waveform mode: paths from stdin, every `{file}.cache` written in THIS process so JUCE starts once — a flushed ok/err line per file, and one bad file never aborts the batch.
-    if (argc >= 2 && std::string(argv[1]) == "--waveform-batch") {
-        std::string line;
-        bool first = true;
-        while (std::getline(std::cin, line)) {
-            // Strip a leading UTF-8 BOM some stdin encoders prepend to the first line.
-            if (first && line.size() >= 3 &&
-                static_cast<unsigned char>(line[0]) == 0xEF &&
-                static_cast<unsigned char>(line[1]) == 0xBB &&
-                static_cast<unsigned char>(line[2]) == 0xBF)
-                line.erase(0, 3);
-            first = false;
-            if (!line.empty() && line.back() == '\r') line.pop_back();  // tolerate CRLF
-            if (line.empty()) continue;
-            // `<path>` or `<path>\t<sensitivity>` — the caller resends what the PREVIOUS sidecar carried, so a rebuild never resets a tuned threshold.
-            std::string path = line;
-            double sensitivity = studio::kDefaultTransientSensitivity;
-            if (const auto tab = line.find('\t'); tab != std::string::npos) {
-                path = line.substr(0, tab);
-                sensitivity = std::atof(line.c_str() + tab + 1);
-            }
-            // One file's failure is one `err` line, whatever it throws: the batch promises to go on.
-            int rc = 1;
-            try {
-                rc = studio::writeWaveformCache(path, sensitivity);
-            } catch (const std::exception& e) {
-                std::cerr << "[waveform] " << path << ": " << e.what() << "\n";
-            }
-            std::cout << (rc == 0 ? "ok\t" : "err\t") << path << "\n" << std::flush;
-        }
-        return 0;
-    }
 
     return studio::serve(argc > 1 ? std::atoi(argv[1]) : 8765);
 }

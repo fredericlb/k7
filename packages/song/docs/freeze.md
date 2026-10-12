@@ -94,8 +94,7 @@ it ends.
 
 `freezeUpstreamRender` (`@studio/commands`) cuts the compiled `ProjectDoc` down to exactly the plan —
 those lanes, those plugins, the sends between them — and renders that whole, as a **mixdown**. Not a
-per-track bounce: a freeze point may be a bus several lanes meet at, and the engine's `--freeze
---track` renders one track.
+per-track bounce: a freeze point may be a bus several lanes meet at.
 
 Nothing is neutralised by hand. Gain and pan are a `Mixer` **module**: upstream of the point it
 belongs in the render, downstream it is not in the cut doc at all. What a per-track freeze would

@@ -22,8 +22,16 @@ import {
   readAiAnswer,
 } from "./aiOrganize";
 import { aiSystemPrompt, WIDGET_DOCS } from "./aiPrompt";
+import { twinIssues } from "./layoutTwins";
 
 const PARAMS = ["Cutoff", "Resonance", "Attack", "Mode"];
+
+/** The check MINUS its two-layout findings — these fixtures are about binds, screens, frames and racks; the shapes have their own test below. */
+const checkOther = (...a: Parameters<typeof checkAiResult>) => {
+  const r = checkAiResult(...a);
+  const shape = new Set(r.ui ? twinIssues(r.ui) : []);
+  return { ...r, issues: r.issues.filter((i) => !shape.has(i)) };
+};
 
 const result = (uiYaml: string, widgetsJs = ""): AiOrganizeResult => ({
   uiYaml,
@@ -96,7 +104,7 @@ describe("reading the answer", () => {
 
 describe("the check", () => {
   it("passes a sound panel with a drawn screen", () => {
-    const { ui, issues } = checkAiResult(result(GOOD_UI, GOOD_JS), PARAMS);
+    const { ui, issues } = checkOther(result(GOOD_UI, GOOD_JS), PARAMS);
     expect(issues).toEqual([]);
     expect(Object.keys(ui?.widgets ?? {})).toEqual(["screen", "cutoff", "res"]);
   });
@@ -114,15 +122,13 @@ describe("the check", () => {
       mode,
     });
     expect(
-      checkAiResult(result(GOOD_UI, touch), PARAMS, req("tidy it")).issues,
+      checkOther(result(GOOD_UI, touch), PARAMS, req("tidy it")).issues,
     ).toEqual([
       "widgets_js gives a screen a `pointer` handler, and the author did not ask for an interactive screen: make every screen a plain draw function",
     ]);
-    expect(checkAiResult(result(GOOD_UI, touch), PARAMS).issues).toHaveLength(
-      1,
-    );
+    expect(checkOther(result(GOOD_UI, touch), PARAMS).issues).toHaveLength(1);
     expect(
-      checkAiResult(
+      checkOther(
         result(GOOD_UI, touch),
         PARAMS,
         req("let me drag the cutoff on the screen"),
@@ -130,7 +136,7 @@ describe("the check", () => {
     ).toEqual([]);
     // An update keeps an interactive screen that already was one.
     expect(
-      checkAiResult(
+      checkOther(
         result(GOOD_UI, touch),
         PARAMS,
         req("bigger knobs", "update", touch),
@@ -140,16 +146,16 @@ describe("the check", () => {
 
   it("names a bind that is not a parameter", () => {
     const bad = GOOD_UI.replace("bind: Resonance", "bind: Reso");
-    expect(checkAiResult(result(bad, GOOD_JS), PARAMS).issues).toEqual([
+    expect(checkOther(result(bad, GOOD_JS), PARAMS).issues).toEqual([
       "`res` binds `Reso`, which is not a parameter",
     ]);
   });
 
   it("names a screen nothing draws, and a script that does not compile", () => {
-    expect(checkAiResult(result(GOOD_UI, ""), PARAMS).issues).toEqual([
+    expect(checkOther(result(GOOD_UI, ""), PARAMS).issues).toEqual([
       "lcdscreen `screen` has no draw function in widgets_js",
     ]);
-    const broken = checkAiResult(result(GOOD_UI, `${GOOD_JS}{`), PARAMS).issues;
+    const broken = checkOther(result(GOOD_UI, `${GOOD_JS}{`), PARAMS).issues;
     expect(broken[0]).toMatch(/^widgets_js does not compile/);
   });
 
@@ -158,7 +164,7 @@ describe("the check", () => {
       "rows: 5",
       "rows: 3",
     );
-    const issues = checkAiResult(result(bad, GOOD_JS), PARAMS).issues;
+    const issues = checkOther(result(bad, GOOD_JS), PARAMS).issues;
     expect(issues).toContain("panel: `cutoff` runs outside the 8×3 grid");
     expect(issues).toContain("panel: `cutoff` overlaps `res`");
   });
@@ -177,7 +183,7 @@ tabs:
       attack: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, bind: Attack, min: 0, max: 1 }
       cutoff: { type: knob, col: 2, row: 0, bind: Cutoff, min: 0, max: 1 }
 `;
-    const issues = checkAiResult(result(tabs, GOOD_JS), PARAMS).issues;
+    const issues = checkOther(result(tabs, GOOD_JS), PARAMS).issues;
     expect(issues).toContain("tab Env: `screen` overlaps `attack`");
     expect(issues).toContain("widget id `cutoff` is used twice");
     expect(issues.some((i) => i.startsWith("tab Main"))).toBe(false);
@@ -186,12 +192,12 @@ tabs:
   it("lets a group frame the widgets wholly inside it, and names one that straddles its edge", () => {
     const grouped = `${GOOD_UI}  filt: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 2, label: FILTER, color: "#3d7dff26" }
 `;
-    expect(checkAiResult(result(grouped, GOOD_JS), PARAMS).issues).toEqual([]);
+    expect(checkOther(result(grouped, GOOD_JS), PARAMS).issues).toEqual([]);
     const straddling = grouped.replace(
       "colSpan: 4, rowSpan: 2, label: FILTER",
       "colSpan: 3, rowSpan: 2, label: FILTER",
     );
-    expect(checkAiResult(result(straddling, GOOD_JS), PARAMS).issues).toContain(
+    expect(checkOther(result(straddling, GOOD_JS), PARAMS).issues).toContain(
       "panel: `res` and `filt` cross — a widget lies wholly inside a group or wholly outside it, and groups never overlap",
     );
   });
@@ -200,10 +206,8 @@ tabs:
     const xf = (pair: string) =>
       `${GOOD_UI}  mix: { type: knob, col: 4, row: 2, label: MIX, bind: Attack, pair: ${pair} }
 `;
-    expect(checkAiResult(result(xf("Mode"), GOOD_JS), PARAMS).issues).toEqual(
-      [],
-    );
-    expect(checkAiResult(result(xf("Dry"), GOOD_JS), PARAMS).issues).toEqual([
+    expect(checkOther(result(xf("Mode"), GOOD_JS), PARAMS).issues).toEqual([]);
+    expect(checkOther(result(xf("Dry"), GOOD_JS), PARAMS).issues).toEqual([
       "`mix` pairs `Dry`, which is not a parameter",
     ]);
   });
@@ -211,25 +215,25 @@ tabs:
   it("refuses a pair anywhere but on a knob, and one equal to its bind", () => {
     const onSlider = `${GOOD_UI}  s: { type: slider, col: 4, row: 2, bind: Attack, pair: Mode }
 `;
-    expect(checkAiResult(result(onSlider, GOOD_JS), PARAMS).issues[0]).toMatch(
+    expect(checkOther(result(onSlider, GOOD_JS), PARAMS).issues[0]).toMatch(
       /^ui_yaml widgets\.s\.pair/,
     );
     const same = `${GOOD_UI}  k: { type: knob, col: 4, row: 2, bind: Attack, pair: Attack }
 `;
-    expect(checkAiResult(result(same, GOOD_JS), PARAMS).issues[0]).toMatch(
+    expect(checkOther(result(same, GOOD_JS), PARAMS).issues[0]).toMatch(
       /^ui_yaml widgets\.k\.pair/,
     );
   });
 
   it("refuses a colour anywhere but on a group, and takes a group's on/off bind", () => {
     const bad = GOOD_UI.replace("label: Res,", 'label: Res, color: "#fff",');
-    expect(checkAiResult(result(bad, GOOD_JS), PARAMS).issues[0]).toMatch(
+    expect(checkOther(result(bad, GOOD_JS), PARAMS).issues[0]).toMatch(
       /^ui_yaml widgets\.res\.color/,
     );
     const bound = `${GOOD_UI}  g: { type: group, col: 4, row: 2, bind: Cutoff }
 `;
     expect(
-      checkAiResult(result(bound, GOOD_JS), PARAMS).issues.filter((i) =>
+      checkOther(result(bound, GOOD_JS), PARAMS).issues.filter((i) =>
         i.startsWith("ui_yaml widgets.g.bind"),
       ),
     ).toEqual([]);
@@ -237,7 +241,7 @@ tabs:
 
   it("hands the schema's own complaint back, with its path", () => {
     const bad = GOOD_UI.replace("label: Res,", "label: Res, options: [],");
-    const { ui, issues } = checkAiResult(result(bad, GOOD_JS), PARAMS);
+    const { ui, issues } = checkOther(result(bad, GOOD_JS), PARAMS);
     expect(ui).toBeNull();
     expect(issues[0]).toMatch(/^ui_yaml widgets\.res/);
   });
@@ -265,12 +269,12 @@ widgets:
 
   it("may be bound to the sounds the module's rack declares, and to the add tap", () => {
     expect(names).toEqual(["Volume", "@rack:BD", "@rack:SN", "@rack+"]);
-    expect(checkAiResult(result(KIT_UI), names).issues).toEqual([]);
+    expect(checkOther(result(KIT_UI), names).issues).toEqual([]);
   });
 
   it("names a tap on a sound the rack does not have", () => {
     const bad = KIT_UI.replace('"@rack:SN"', '"@rack:HH"');
-    expect(checkAiResult(result(bad), names).issues).toEqual([
+    expect(checkOther(result(bad), names).issues).toEqual([
       "tap `sn` binds `@rack:HH`, which is not a sound of this module's rack",
     ]);
   });
@@ -278,10 +282,10 @@ widgets:
   it("keeps pads on taps, and taps on pads", () => {
     const knobOnPad = KIT_UI.replace("bind: Volume", 'bind: "@rack:BD"');
     const tapOnParam = KIT_UI.replace('"@rack:SN"', "Volume");
-    expect(checkAiResult(result(knobOnPad), names).issues).toEqual([
+    expect(checkOther(result(knobOnPad), names).issues).toEqual([
       "`vol` binds a rack sound, which only a tap may",
     ]);
-    expect(checkAiResult(result(tapOnParam), names).issues).toEqual([
+    expect(checkOther(result(tapOnParam), names).issues).toEqual([
       "tap `sn` must bind a rack sound or `@rack+`",
     ]);
   });
@@ -292,7 +296,7 @@ widgets:
       moduleYaml: "type: fx\n",
     });
     expect(plain).toEqual(["Volume"]);
-    expect(checkAiResult(result(KIT_UI), plain).issues[0]).toBe(
+    expect(checkOther(result(KIT_UI), plain).issues[0]).toBe(
       "tap `bd` binds `@rack:BD`, which is not a sound of this module's rack",
     );
   });
@@ -444,7 +448,7 @@ tabs:
   - name: Env
     widgets: {}
 `;
-    expect(checkAiResult(result(tabs, GOOD_JS), PARAMS).issues).toContain(
+    expect(checkOther(result(tabs, GOOD_JS), PARAMS).issues).toContain(
       "group `g` frames a single widget: a group holds two or more — drop it and leave the widget bare",
     );
   });
@@ -482,7 +486,7 @@ widgets:
   d: { type: knob, col: 0, row: 0, bind: Dry Level }
   w: { type: knob, col: 1, row: 0, bind: Wet Level }
 `;
-    const issues = checkAiResult(result(ui, ""), [
+    const issues = checkOther(result(ui, ""), [
       "Dry Level",
       "Wet Level",
       "@mix",
@@ -568,5 +572,33 @@ describe("an EQ band", () => {
     expect(eqBandIssues([["b", w("fader", "Low")]])).toEqual([]);
     for (const bind of ["Drive", "Low Cut", "High Freq", "Cutoff"])
       expect(eqBandIssues([["b", w("knob", bind)]]), bind).toEqual([]);
+  });
+});
+
+describe("the two layouts", () => {
+  const H = `cols: 8
+rows: 2
+widgets:
+  cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
+  res: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance, min: 0, max: 1 }
+`;
+  it("asks for a vertical layout when the panel is wider than four columns", () => {
+    const r = checkAiResult(result(H), PARAMS);
+    expect(r.issues.join(" ")).toMatch(/no `vertical` layout/);
+  });
+
+  it("takes a vertical layout offering the same controls, and names one that drops a control", () => {
+    const twin = `${H}vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    cutoff: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
+    res: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance, min: 0, max: 1 }
+`;
+    expect(checkAiResult(result(twin), PARAMS).issues).toEqual([]);
+    const short = twin.replace(/\n {4}res: .*\n$/, "\n");
+    expect(checkAiResult(result(short), PARAMS).issues.join(" ")).toMatch(
+      /does not offer the same controls/,
+    );
   });
 });

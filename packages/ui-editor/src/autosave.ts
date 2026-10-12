@@ -60,6 +60,15 @@ export const settleBuffer = (path: string, landed: string): void => {
   if (held.get(path) === landed) held.delete(path);
 };
 
+// Every mounted autosave's "is your text on disk now?", for a host about to replace the files under it.
+const flushers = new Set<() => Promise<boolean>>();
+
+/** Write every pane's pending text now; false when one could not (held, paused on a conflict, or a manual draft) — docs/autosave.md. */
+export async function flushAutosaves(): Promise<boolean> {
+  const all = await Promise.all([...flushers].map((f) => f()));
+  return all.every(Boolean);
+}
+
 export interface Autosave {
   status: AutosaveStatus;
   /** Why it is held, or why the write failed. Null when there is nothing to say. */
@@ -157,7 +166,12 @@ export function useAutosave({
 
   const run = useCallback(
     async (s: Live): Promise<boolean> => {
-      if (!s.path || !s.enabled) return false;
+      if (!s.path) return false;
+      // Paused — a conflict being asked about: nothing is written, and the text is kept rather than dropped on a close.
+      if (!s.enabled) {
+        if (s.text !== s.saved) keepBuffer(s.path, s.text);
+        return false;
+      }
       if (busy.current) {
         // A write is in flight and a second would race it, but this may be the text's last chance, so it is kept.
         if (s.text !== s.saved) keepBuffer(s.path, s.text);
@@ -269,6 +283,19 @@ export function useAutosave({
     if (previous.current.path !== live.current.path) return false; // buffer not settled — see above
     return run(live.current);
   }, [run, disarm]);
+
+  // A MANUAL draft is not written for someone else's sake: it only answers whether it is clean.
+  useEffect(() => {
+    const f = async (): Promise<boolean> => {
+      const s = live.current;
+      if (!s.path || s.text === s.saved) return true;
+      return manual ? false : flush();
+    };
+    flushers.add(f);
+    return () => {
+      flushers.delete(f);
+    };
+  }, [flush, manual]);
 
   // LAST, deliberately, since everything above reads `previous` as the commit before this one.
 

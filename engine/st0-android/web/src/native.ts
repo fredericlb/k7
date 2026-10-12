@@ -10,6 +10,23 @@ export interface StudioInstance {
   removable?: boolean;
 }
 
+/** A LAN device asking to pair with this phone's engine; approve only if `code` is what it shows. */
+export interface PairRequest {
+  requestId: string;
+  name: string;
+  ip: string;
+  code: string;
+  since: number;
+}
+
+/** A LAN device this engine trusts until it is revoked. */
+export interface PairedDevice {
+  deviceId: string;
+  name: string;
+  created: number;
+  lastSeen: number;
+}
+
 /** The supervisor's `state` frame — what the desktop tray draws too. */
 export interface SupervisorState {
   status?: string;
@@ -18,12 +35,14 @@ export interface SupervisorState {
   instances?: StudioInstance[];
   lastHeartbeatOk?: boolean;
   instanceCheck?: { state?: string; url?: string; message?: string };
+  pairRequests?: PairRequest[];
+  pairedDevices?: PairedDevice[];
 }
 
 interface St0EnginePlugin {
   /** The latest snapshot and the engine's exit code, whichever are known yet. */
   getState(): Promise<{ state?: SupervisorState; engineExit?: number }>;
-  /** One tray command: `weburi.add` / `weburi.remove` with a URL. */
+  /** One tray command: `weburi.add` / `weburi.remove` with a URL, `pair.approve` / `pair.deny` / `pair.revoke` with an id. */
   command(options: { cmd: string; arg?: string }): Promise<void>;
   /** The active network's IPv4 — what a browser on the LAN dials. */
   lanAddress(): Promise<{ address?: string }>;

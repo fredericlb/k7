@@ -95,8 +95,22 @@ export function trackKind(
 // Where a track sorts: its family's index, or UNKNOWN_RANK for an unprefixed one.
 export function trackKindRank(name: string): number {
   const kind = trackKind(name);
-  return kind ? TRACK_FAMILIES.indexOf(kind.family) : UNKNOWN_RANK;
+  if (kind) return TRACK_FAMILIES.indexOf(kind.family);
+  // No prefix: what the name SAYS ("basse", "vox") places it among the families; nothing said, after them all.
+  const family = FAMILY_OF[trackCategory(name)];
+  return family ? TRACK_FAMILIES.indexOf(family) : UNKNOWN_RANK;
 }
+
+// A category's place among the families, for a name that declares no prefix; "other" has none.
+const FAMILY_OF: Record<TrackCategory, TrackFamily | null> = {
+  vox: "voice",
+  drums: "drums",
+  bass: "bass",
+  guitar: "guitar",
+  keys: "piano",
+  synth: "synth",
+  other: null,
+};
 
 /** The order `trackOrder` STATES, or the one the names imply — ONE rule, never both at once (docs/trackKind.md). */
 export function orderTracks<T>(
@@ -172,3 +186,76 @@ export function sortTracksByKind<T>(
   }
   return slots as T[];
 }
+
+// --- Categories: the coarser grouping colours and the default order are drawn by (trackColor.ts) ---
+
+/** The categories, in the order their tracks are laid out. */
+export const TRACK_CATEGORIES = [
+  "vox",
+  "drums",
+  "bass",
+  "guitar",
+  "keys",
+  "synth",
+  "other",
+] as const;
+
+export type TrackCategory = (typeof TRACK_CATEGORIES)[number];
+
+// What a declared instrument family is, as a category: a choir is voices, a sax is one of the rest.
+const OF_FAMILY: Record<TrackFamily, TrackCategory> = {
+  voice: "vox",
+  choir: "vox",
+  drums: "drums",
+  bass: "bass",
+  guitar: "guitar",
+  piano: "keys",
+  synth: "synth",
+  sax: "other",
+};
+
+// Words a name or an instrument says itself with; tested in THIS order, since "acoustic drum kit" is drums before it is anything acoustic.
+const WORDS: [TrackCategory, RegExp][] = [
+  [
+    "drums",
+    /drum|batterie|kick|snare|hi-?hat|\bhats?\b|perc|cymbal|\bride\b|crash|\btoms?\b|\bkit\b|\b(505|606|707|808|909)\b|breakbeat/,
+  ],
+  ["vox", /\bvo(x|c|cals?|ice|ix)\b|vocal|chant|choir|ch(o|œ)eur|singer/],
+  ["bass", /bass|basse|\bsub\b/],
+  ["guitar", /guit|\bgtr\b|\bgt\b|strat|\btele\b|\bfolk\b|riff|\bamp\b/],
+  [
+    "keys",
+    /piano|\bkeys?\b|wurli|rhodes|organ|orgue|\bclav|\bep\b|harpsi|celesta|mellotron/,
+  ],
+  [
+    "synth",
+    /synth|\bpoly|\bpad\b|\barp|juno|\bjun\b|moog|pluck|\blead\b|surge|mu-|plaits|braids|tides/,
+  ],
+];
+
+/** The category a text names, or null when it names none. */
+function categoryOfText(text: string): TrackCategory | null {
+  const t = text.toLowerCase().replace(/[_.]+/g, " ");
+  for (const [cat, re] of WORDS) if (re.test(t)) return cat;
+  return null;
+}
+
+/** A track's category: its declared prefix, else words in its name, else what its instrument says (`hints`), else "other". */
+export function trackCategory(
+  name: string,
+  hints: readonly string[] = [],
+): TrackCategory {
+  const { prefix, label } = parseTrackName(name);
+  if (prefix) return OF_FAMILY[TRACK_PREFIXES[prefix][0]];
+  const said = categoryOfText(label);
+  if (said) return said;
+  for (const h of hints) {
+    const c = categoryOfText(h);
+    if (c) return c;
+  }
+  return "other";
+}
+
+/** Where a category's tracks sit: its index in TRACK_CATEGORIES. */
+export const categoryRank = (c: TrackCategory): number =>
+  TRACK_CATEGORIES.indexOf(c);

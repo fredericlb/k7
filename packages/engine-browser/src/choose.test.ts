@@ -173,4 +173,50 @@ describe("bestEngine", () => {
       "full-q1-weak",
     );
   });
+
+  // The bug this pins: a stronger machine elsewhere on the LAN took the tab, and the sound came out of ITS speakers.
+  it("prefers the engine on this machine over a stronger one elsewhere", () => {
+    const here = {
+      ...rated("mac", 12, "Q1", 7000),
+      wsUrl: "ws://127.0.0.1:8765",
+    } as RankedEngine<PublicEngine>;
+    const r = bestEngine([rated("studio-pc", 8, "Q1", 12000), here]);
+    expect(r?.engine.id).toBe("mac");
+  });
+
+  // A person's own pick is a decision, not a measurement: neither this machine nor a stronger one overrules it.
+  it("takes the engine this account last chose over this machine's", () => {
+    const here = {
+      ...rated("mac", 2, "Q1", 7000),
+      wsUrl: "ws://localhost:8765",
+    } as RankedEngine<PublicEngine>;
+    const r = bestEngine([here, rated("studio-pc", 20, "Q2", 3000)], {
+      remembered: "studio-pc",
+    });
+    expect(r?.engine.id).toBe("studio-pc");
+  });
+
+  // …unless it cannot be taken: a remembered engine that is gone or busy is no candidate at all.
+  it("falls back on this machine when the remembered one is unreachable", () => {
+    const here = {
+      ...rated("mac", 12, "Q1", 7000),
+      wsUrl: "ws://127.0.0.1:8765",
+    } as RankedEngine<PublicEngine>;
+    const r = bestEngine([rated("studio-pc", null, "Q1", 12000), here], {
+      remembered: "studio-pc",
+    });
+    expect(r?.engine.id).toBe("mac");
+  });
+
+  // Compatibility still comes first: this machine missing a plugin plays the song wrong.
+  it("still puts compatibility before this machine", () => {
+    const here = {
+      ...rated("mac", 2, "Q1", 7000),
+      wsUrl: "ws://127.0.0.1:8765",
+    } as RankedEngine<PublicEngine>;
+    const r = bestEngine([here, rated("studio-pc", 8, "Q1", 3000)], {
+      compat: (id) => (id === "mac" ? 60 : 100),
+    });
+    expect(r?.engine.id).toBe("studio-pc");
+  });
 });

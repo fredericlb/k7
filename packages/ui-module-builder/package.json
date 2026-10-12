@@ -14,7 +14,8 @@
     "./yaml-pane": "./src/YamlPane.tsx",
     "./param-drag": "./src/paramDrag.ts",
     "./ai-organize": "./src/aiOrganize.ts",
-    "./ai-prompt": "./src/aiPrompt.ts"
+    "./ai-prompt": "./src/aiPrompt.ts",
+    "./layout-twins": "./src/layoutTwins.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

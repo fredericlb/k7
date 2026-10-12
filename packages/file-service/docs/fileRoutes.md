@@ -179,6 +179,11 @@ which a client uses to stop re-asking the questions this reply has already answe
 `noteRevision`). Pairing it with the graph would leave a caller that wanted no picture with no
 token either, which is the one thing every writing caller can use.
 
+`revBefore` comes with it: the token the command STARTED from. A client that adopts `rev` without
+telling anyone needs it, because `rev` also covers whatever another tab, the CLI or a pull wrote just
+before — and adopting that silently would hide it. Only when `revBefore` is the token the client
+already held is `rev` this command's change alone.
+
 `changed` is the third of that family and the finest-grained: WHICH files the command wrote.
 The token says something moved, this says what — so a client can re-ask the questions that
 depend on it and skip the ones that cannot. It comes out of the journal's own diff and costs

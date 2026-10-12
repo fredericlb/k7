@@ -1,6 +1,6 @@
-// settingswin.rs — the tray's one window, in five tabs: the audio ranking as a drag list, the
+// settingswin.rs — the tray's one window, in seven tabs: the audio ranking as a drag list, the
 // installed plugin catalogue, the sessions this engine is holding, the st0 instances this engine
-// is connected to, and the machine itself.
+// is connected to, the instruments it downloads, the LAN devices paired with it, and the machine.
 // Like tray.rs it is a VIEW: it draws the supervisor's snapshot and sends commands back,
 // computing nothing. Closing HIDES it — Tauri asks a windowless app to exit, and this app's
 // exit stops the engine. See docs/tray.md.
@@ -8,7 +8,9 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-use crate::host::{self, EditPlugin, Instance, InstanceCheck, Plugin, Session, Snapshot};
+use crate::host::{
+    self, EditPlugin, Instance, InstanceCheck, PairRequest, PairedDevice, Plugin, Session, Snapshot,
+};
 use crate::logbus;
 use crate::state::SharedState;
 use crate::tray;
@@ -75,6 +77,41 @@ pub struct SystemView {
     can_act: bool,
 }
 
+/// One row of the Downloads tab: the instrument, and its download when one is queued, running or failed.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstrumentView {
+    name: String,
+    label: String,
+    bytes: u64,
+    wanted: bool,
+    installed: bool,
+    /// "queued" | "downloading" | "unpacking" | "failed", or None when nothing is in flight.
+    phase: Option<String>,
+    received: u64,
+    error: Option<String>,
+}
+
+/// The instruments with their downloads folded in, so the page looks nothing up.
+fn instrument_rows(snap: &Snapshot) -> Vec<InstrumentView> {
+    snap.instruments
+        .iter()
+        .map(|i| {
+            let d = snap.downloads.iter().find(|d| d.name == i.name);
+            InstrumentView {
+                name: i.name.clone(),
+                label: i.label.clone(),
+                bytes: i.bytes,
+                wanted: i.wanted,
+                installed: i.installed,
+                phase: d.map(|d| d.phase.clone()),
+                received: d.map(|d| d.received).unwrap_or(0),
+                error: d.and_then(|d| d.error.clone()),
+            }
+        })
+        .collect()
+}
+
 /// What the page draws. An empty list means two different things, and only the engine's state tells them apart.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,6 +128,10 @@ pub struct View {
     /// Openable plugins naming a session the engine did not list — the two are polled apart, and a
     /// row must not vanish because they disagreed for one frame.
     orphan_plugins: Vec<PluginUiRow>,
+    instruments: Vec<InstrumentView>,
+    /// LAN devices asking to pair, and those already paired — drawn verbatim by pairing.js.
+    pair_requests: Vec<PairRequest>,
+    paired_devices: Vec<PairedDevice>,
     engine_running: bool,
     system: SystemView,
 }
@@ -173,6 +214,9 @@ fn view(app: &AppHandle) -> View {
         orphan_plugins,
         instances: snap.instances.clone(),
         instance_check: snap.instance_check.clone(),
+        instruments: instrument_rows(snap),
+        pair_requests: snap.pair_requests.clone(),
+        paired_devices: snap.paired_devices.clone(),
         engine_running: s.running(),
         system: SystemView {
             build: env!("STUDIO_BUILD").to_string(),
@@ -207,6 +251,10 @@ pub fn differs(a: &Snapshot, b: &Snapshot) -> bool {
         || a.engine_port != b.engine_port
         || a.registry_url != b.registry_url
         || a.last_heartbeat_ok != b.last_heartbeat_ok
+        || a.instruments != b.instruments
+        || a.downloads != b.downloads
+        || a.pair_requests != b.pair_requests
+        || a.paired_devices != b.paired_devices
 }
 
 /// What the page asks for once, on load; every change after that arrives as a push.
@@ -232,6 +280,18 @@ pub fn instance_add(app: AppHandle, url: String) {
 #[tauri::command]
 pub fn instance_remove(app: AppHandle, url: String) {
     host::send(&app, "weburi.remove", Some(&url));
+}
+
+/// Keep an instrument: the supervisor queues its download, and the snapshot carries the progress.
+#[tauri::command]
+pub fn instrument_download(app: AppHandle, name: String) {
+    host::send(&app, "instruments.download", Some(&name));
+}
+
+/// Stop keeping one, and delete it from this machine.
+#[tauri::command]
+pub fn instrument_remove(app: AppHandle, name: String) {
+    host::send(&app, "instruments.remove", Some(&name));
 }
 
 /// Rescan the installed plugins. The supervisor clears the count first, so the spinner is in the next snapshot.
@@ -264,6 +324,23 @@ pub fn engine_restart(app: AppHandle) {
 #[tauri::command]
 pub fn session_drop(app: AppHandle, id: String) {
     host::send(&app, "session.drop", Some(&id));
+}
+
+/// Let a LAN device drive this engine. The engine hands the device its key; nothing secret passes through here.
+#[tauri::command]
+pub fn pair_approve(app: AppHandle, request_id: String) {
+    host::send(&app, "pair.approve", Some(&request_id));
+}
+
+#[tauri::command]
+pub fn pair_deny(app: AppHandle, request_id: String) {
+    host::send(&app, "pair.deny", Some(&request_id));
+}
+
+/// Forget a paired device: the engine closes its live connections, and it must ask again.
+#[tauri::command]
+pub fn pair_revoke(app: AppHandle, device_id: String) {
+    host::send(&app, "pair.revoke", Some(&device_id));
 }
 
 /// Open one plugin's own editor window, on the ENGINE's screen. U+001F between the two halves,

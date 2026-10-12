@@ -48,6 +48,23 @@ struct Session {
     int listeners = 0;
 };
 
+/** A LAN device asking to pair: the musician compares `code` with the one the device shows (docs/hostProtocol.md). */
+struct PairRequest {
+    std::string requestId;
+    std::string name;
+    std::string ip;
+    std::string code;
+    std::int64_t since = 0;  // epoch ms
+};
+
+/** A LAN device the engine trusts until it is revoked. */
+struct PairedDevice {
+    std::string deviceId;
+    std::string name;
+    std::int64_t created = 0;  // epoch ms
+    std::int64_t lastSeen = 0;  // epoch ms
+};
+
 struct Instance {
     std::string url;
     bool removable = false;
@@ -65,8 +82,18 @@ struct Download {
     std::string label;
     std::uint64_t received = 0;
     std::uint64_t total = 0;
-    std::string phase;  // "downloading" | "unpacking" | "failed"
+    std::string phase;  // "queued" | "downloading" | "unpacking" | "failed"
     std::string error;
+};
+
+/** One row of the tray's Downloads tab: an instrument this machine can fetch, and where it stands. */
+struct InstrumentRow {
+    std::string name;
+    std::string label;
+    std::uint64_t bytes = 0;
+    /** The user keeps it: fetched when missing, fetched again when the list pins a newer archive. */
+    bool wanted = false;
+    bool installed = false;
 };
 
 /** The whole of what the tray draws. */
@@ -94,6 +121,9 @@ struct Snapshot {
     std::string rootPath;
     std::string mergedLogPath;
     std::vector<Download> downloads;
+    std::vector<InstrumentRow> instruments;
+    std::vector<PairRequest> pairRequests;
+    std::vector<PairedDevice> pairedDevices;
 };
 
 /** One command from the tray; `id` is echoed on its result. */

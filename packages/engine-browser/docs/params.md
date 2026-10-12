@@ -54,8 +54,9 @@ on screen rather than looking broken.
 Only for **externals**. What the engine ships is answered from `@studio/song`'s generated table
 with nothing running at all, which is faster and available with no engine at hand.
 
-`showNativePluginUIOf(format, id)` is the companion, slow for the same reason — it loads the same
-binary — but where the first answers with a list of names, this opens what the plugin itself
+`show-native-plugin-ui-of` is the companion, sent by the file service (`showNativePluginUIOf` in
+`packages/file-service/src/engineLink.ts`) rather than by this client, and slow for the same
+reason — it loads the same binary — but where the first answers with a list of names, this opens what the plugin itself
 draws. It is for the module being authored against a plugin the open project does not load, where
 a list of names is not enough to know what a knob does. The instance is an **orphan**: the engine
 holds it on its offline edit, on no track and no session, so turning a knob there changes no

@@ -31,6 +31,18 @@ export const GraphFileSchema = z
     bypassed: z.array(z.string().min(1)).optional(),
     // BUSES heard through their destinations only, their dry path to the sum removed — docs/busOnly.md.
     bus_only: z.array(z.string().min(1)).optional(),
+    // Runs FED by one tap of a rack node rather than by a link: the tap, and the first node of the run (packages/song/docs/racks.md).
+    tap_feeds: z
+      .array(
+        z
+          .object({
+            node: z.string().min(1),
+            tap: z.string().min(1),
+            to: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
     // Where a node SITS on the graph in world px, cosmetic and absent for whatever dagre still places.
     positions: z
       .record(

@@ -8,6 +8,7 @@ import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { splitTrailingMixer } from "@studio/ui-chains/anchorRight";
 import type { EdgeInsert, TrackControlValues } from "@studio/ui-chains/graph";
 import { moduleRow, trackInputs, trackModules } from "@studio/ui-chains/graph";
+import type { GridFit } from "@studio/ui-chains/gridFit";
 import { rowExit, rowSeams } from "@studio/ui-chains/rowSeams";
 import {
   DomChains,
@@ -27,7 +28,13 @@ import { nodeNameFor } from "../nodeInsert";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
 import type { WebGraph, WebProject } from "../types";
+import { useIsMobile } from "../useIsMobile";
 import { GraphSlotPane } from "./GraphSlotPane";
+import { usePanelInside } from "./PanelClose";
+
+/** A card here is HORIZONTAL on a desktop, at most 4 rows, and VERTICAL on a phone, at most 4 columns — a panel without that shape is folded to it. */
+const TRACK_ROW_FIT: GridFit = { axis: "rows", max: 4 };
+const TRACK_COL_FIT: GridFit = { axis: "cols", max: 4 };
 
 /** The strip's modes: none — the row has no tools, only the toggles under them. */
 const NO_MODES: readonly string[] = [];
@@ -47,6 +54,8 @@ export function TrackModulesPane({
   onPreviewNote,
   project,
   trackId,
+  nodes,
+  lead,
   cameras,
   inputDevices,
   midiDevices,
@@ -88,6 +97,10 @@ export function TrackModulesPane({
   project?: WebProject | null;
   /** The lane whose path this is. */
   trackId: string;
+  /** These nodes alone, in order, instead of the lane's row: no lane card, no inputs and no frame — a popin's cards. */
+  nodes?: string[];
+  /** …led by a node that only says where their signal comes from — a subchain's "input" (moduleRow's `lead`). */
+  lead?: { id: string; label: string; sub?: string };
   /** The cameras and MIDI devices this browser sees — what those nodes' dropdowns offer, as in the full graph. */
   cameras?: readonly string[];
   /** The interface's inputs as the engine groups them — what an audio input's "in" dropdown offers. */
@@ -176,13 +189,22 @@ export function TrackModulesPane({
 
   // The graph alone answers both halves here: a chain's `use` list is the order, and it is in the graph doc.
   const modules = useMemo(
-    () => (graph ? trackModules(graph, trackId) : []),
-    [graph, trackId],
+    () => nodes ?? (graph ? trackModules(graph, trackId) : []),
+    [graph, trackId, nodes],
   );
   // …and what feeds the lane, drawn ahead of it: the signal starts at the input, not at the lane.
   const inputs = useMemo(
-    () => (graph ? trackInputs(graph, trackId) : []),
-    [graph, trackId],
+    () => (graph && !nodes ? trackInputs(graph, trackId) : []),
+    [graph, trackId, nodes],
+  );
+  // The tab each card has open: a folded card is as wide as the page it shows, so a switch reflows the row (ui-chains' `tabW`).
+  const [openTabs, setOpenTabs] = useState<Record<string, number>>({});
+  // The phone's narrow card, its tabs a menu: the panel's `vertical` layout (song-schema's LayoutSchema).
+  const mobile = useIsMobile();
+  const onOpenTab = useCallback(
+    (id: string, tab: number) =>
+      setOpenTabs((prev) => (prev[id] === tab ? prev : { ...prev, [id]: tab })),
+    [],
   );
   const laid = useMemo(
     () =>
@@ -196,13 +218,20 @@ export function TrackModulesPane({
             // The cables ARE the subject here: one lane's signal path, met on the SIDES because the row is read across.
             links: true,
             // …and the lane leads it: the signal starts on the lane, and its fader is the first thing in the path.
-            track: trackId,
+            ...(nodes ? {} : { track: trackId }),
             // …glued: a lane's path is one strip, two cards sharing ONE border (two would draw it twice as thick).
             gap: -1,
             // …and a STACK — a subchain run in place — one column, its cards one under another.
             stack: true,
             // …and, asked for, each card's curves in a column before it, the neighbours spaced to make room.
             curves: showCurves,
+            // …and RESPONSIVE: no card taller than six rows, its overflow folded to the right.
+            fit: mobile ? TRACK_COL_FIT : TRACK_ROW_FIT,
+            layout: mobile ? "vertical" : "horizontal",
+            // …and, in a popin, the input its chain is fed from, named and nothing more.
+            ...(lead ? { lead } : {}),
+            // …and each card as wide as its OPEN tab, not the widest of them.
+            tabOf: openTabs,
           })
         : null,
     [
@@ -214,6 +243,10 @@ export function TrackModulesPane({
       inputDevices,
       midiDevices,
       showCurves,
+      lead,
+      nodes,
+      openTabs,
+      mobile,
     ],
   );
 
@@ -304,14 +337,15 @@ export function TrackModulesPane({
     return rowSeams(row, rowExit(laidShown, row, graph), !!graph.stacks);
   }, [laidShown, split, graph]);
 
+  // In a bottom panel the strip always shows, being where the panel's ✕ goes (PanelClose.tsx); peeked, not claimed — ModeStrip claims.
+  const inPanel = usePanelInside();
   // The History panel's hover, as the per-card test DomChains reads — above the early returns, like every hook.
   const marked = useMemo(() => nodePredicate(mark), [mark]);
 
-  // No bar: the row IS the view, the lane's own card names it, and the ✕ floats top right (GraphSlotPane).
+  // No bar: the row IS the view, the lane's own card names it, and the ✕ is the strip's first item (PanelClose.tsx).
   // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
-  const frame = (body: React.ReactNode, aside?: React.ReactNode) => (
-    <GraphSlotPane aside={aside}>{body}</GraphSlotPane>
-  );
+  const frame = (body: React.ReactNode, aside?: React.ReactNode) =>
+    nodes ? body : <GraphSlotPane aside={aside}>{body}</GraphSlotPane>;
   // What the pane says when there is no row to draw, where the row would be.
   const say = (text: React.ReactNode) =>
     frame(
@@ -323,7 +357,11 @@ export function TrackModulesPane({
   if (error) return say(<span className="text-red-500">{error}</span>);
   if (!laidShown) return say(m["common.loading"]());
   if (!laidShown.nodes.length)
-    return say("this lane reaches no module — nothing to show");
+    return say(
+      nodes
+        ? "no module here yet"
+        : "this lane reaches no module — nothing to show",
+    );
 
   // What both halves share: the same callbacks and stores, so the pinned mixer is a card like any other.
   const shared = {
@@ -332,6 +370,9 @@ export function TrackModulesPane({
     selected,
     onSelect: setSelected,
     trackOrder,
+    // The open tabs, held here since they size the cards; DomChains reports each switch.
+    openTabs,
+    onOpenTab,
     // Re-frame when a card is added, removed or replaced by one of another size — never on a refetch or a param landing.
     fitKey: laidShown.nodes.map((n) => `${n.id}:${n.w}x${n.h}`).join("|"),
     // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
@@ -385,7 +426,7 @@ export function TrackModulesPane({
   return frame(
     <div className="flex h-full min-h-0">
       {/* The view's toggles down its left edge, the timeline's column: no modes here, only what the row SHOWS (docs/shell.md). */}
-      {(onToggleCurves || onTrackInput) && (
+      {(onToggleCurves || onTrackInput || inPanel) && (
         <ModeStrip
           modes={NO_MODES}
           current=""

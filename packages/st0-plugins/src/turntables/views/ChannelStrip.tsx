@@ -23,6 +23,7 @@ import {
   FILTER_RANGE,
   TRIM_DB,
 } from "../deckVocabulary";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import type { StripLayout } from "../deskLayout";
 
 /** What each stem is called under its knob — short, because the label sits under a 36 px dial. */
@@ -122,6 +123,7 @@ function Knob({
   const PIXELS = 160;
   const round = (v: number) =>
     Math.min(hi, Math.max(lo, Math.round(v / step) * step));
+  const follow = usePointerFollow();
   const drag = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -131,12 +133,8 @@ function Knob({
       onChange(
         round(startValue + ((startY - ev.clientY) / PIXELS) * (hi - lo)),
       );
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    // Only the finger that took the knob turns it; a cancel leaves it where the hand had it.
+    follow(e, { move });
   };
 
   const angle = angleOf(value, range);

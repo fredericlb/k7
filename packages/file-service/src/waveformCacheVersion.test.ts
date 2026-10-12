@@ -86,8 +86,8 @@ describe("storedSensitivity", () => {
     expect(storedSensitivity(audio)).toBe(null);
   });
 
-  it("has a default that matches the engine's", () => {
-    // kDefaultTransientSensitivity in engine/st0-engine/engine/EngineHost.h.
+  it("keeps the documented default", () => {
+    // packages/audio-analysis/docs/analysis.md states 2; a sidecar with none stored is read with it.
     expect(DEFAULT_TRANSIENT_SENSITIVITY).toBe(2);
   });
 });

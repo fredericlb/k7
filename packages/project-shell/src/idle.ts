@@ -22,9 +22,36 @@ const EVENTS = [
 /** One tab is one session, so the clock is the MODULE's — see markActive for the other writer. */
 let lastActive = Date.now();
 
+// The engine session is the ACCOUNT's, not the tab's: the other tabs say when they were last used, so a forgotten one does not unload it.
+const tabId = Math.random().toString(36).slice(2);
+const others = new Map<string, number>();
+let lastSaid = 0;
+const channel: BroadcastChannel | null =
+  typeof BroadcastChannel === "undefined"
+    ? null
+    : new BroadcastChannel("studio-idle");
+if (channel)
+  channel.onmessage = (e: MessageEvent<{ id?: string; at?: number }>) => {
+    const { id, at } = e.data ?? {};
+    if (typeof id === "string" && typeof at === "number" && id !== tabId)
+      others.set(id, at);
+  };
+
 /** "Something is happening" — for what no input event reports, such as a track playing. */
 export function markActive(): void {
   lastActive = Date.now();
+  // Told to the other tabs at most every five seconds; a pointermove fires far more often than that.
+  if (channel && lastActive - lastSaid > 5000) {
+    lastSaid = lastActive;
+    channel.postMessage({ id: tabId, at: lastActive });
+  }
+}
+
+/** Whether another tab of this origin was used within `withinMs` — then the shared engine session is still somebody's. */
+export function anotherTabActive(withinMs: number): boolean {
+  const since = Date.now() - withinMs;
+  for (const at of others.values()) if (at > since) return true;
+  return false;
 }
 
 /** How long nothing has happened. Exported for tests and the status bar. */

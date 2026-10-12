@@ -19,6 +19,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { type DeckId, LEVEL_DB, MIX_CENTRE } from "../deckVocabulary";
 import { type DeskLayout, underWave } from "../deskLayout";
+import { useInSight } from "./inSight";
 
 /** `gap-3` between the column's stacked pieces — the same one the deck columns use. */
 const GAP = 12;
@@ -39,8 +40,10 @@ const SILENT = new EngineStore();
 /** One track's output level in dB, off whichever store the host provided. */
 function useLevelDb(trackId: string | null, order: readonly string[]): number {
   const store = useEngineStoreOrNull() ?? SILENT;
+  // Hidden, a meter reads the floor and stays there: the same answer every frame is no re-render.
+  const seen = useInSight();
   return useStoreState(store, (s) => {
-    if (!trackId) return FLOOR_DB;
+    if (!trackId || !seen) return FLOOR_DB;
     const i = order.indexOf(trackId);
     const db = i < 0 ? FLOOR_DB : (s.levels[i] ?? FLOOR_DB);
     // Quantised to the half-decibel HERE, in the selector: a bar eight pixels wide cannot show more,
@@ -75,7 +78,11 @@ function Meter({ db }: { db: number }) {
  * meter here that says anything about the blend — a channel meter is read PRE-fader. */
 export function MasterMeter() {
   const store = useEngineStoreOrNull() ?? SILENT;
-  const db = useStoreState(store, (s) => Math.round(s.master * 2) / 2);
+  // Still while hidden; the clip light below keeps listening, being a latch rather than a reading.
+  const seen = useInSight();
+  const db = useStoreState(store, (s) =>
+    seen ? Math.round(s.master * 2) / 2 : FLOOR_DB,
+  );
   const overload = useStoreState(store, (s) => s.masterClipped);
   const playing = useStoreState(store, (s) => s.playing);
 

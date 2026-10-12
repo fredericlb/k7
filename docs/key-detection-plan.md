@@ -4,12 +4,13 @@
 mixing and no Camelot wheel. The other two points of the desk audit are done — the playlist
 pre-warms ([prewarm.md](../packages/st0-plugins/docs/turntables/prewarm.md)) and the grid is correctable
 ([grid.md](../packages/st0-plugins/docs/turntables/grid.md)). This one is different in kind: it is not a
-missing button, it is a **measurement**, and it is in the C++.
+missing button, it is a **measurement**, and it belongs to the analysis pass.
 
 ## Where it would live
 
-`engine/st0-engine/engine/Waveform.cpp`, the `--waveform <file>` mode: one pass that decodes, builds
-the envelopes, detects the transients, estimates the tempo, and writes `{file}.cache`.
+`@studio/audio-analysis`, `analyseFile`: one pass over a decoded file that builds the envelopes,
+detects the transients, estimates the tempo, and writes `{file}.cache`. It is TypeScript, as the
+prototype detector below is (`@studio/audio-probe/key`), so the two meet without a port.
 
 Three things to have read before proposing anything:
 
@@ -18,25 +19,25 @@ three bands come out of two one-pole followers, and the tempo envelope out of a 
 anywhere.** A chromagram is usually an FFT affair, so that is the first real design choice, not an
 implementation detail.
 
-**The FFT is nevertheless already there.** `juce_dsp` is a declared dependency of
-`tracktion_engine` (`tracktion_engine.h`, line 28), so `juce::dsp::FFT` is already linked and costs
-nothing to reach. Nothing uses it in the engine today, but nothing has to be added to the build.
+**No FFT has to be added to start.** The prototype detector uses Goertzel resonators, one per
+semitone, so the pass gains a chromagram by importing it rather than by taking a dependency.
 
 **The sidecar is VERSIONED**, and that is the heaviest consequence:
 
-```cpp
-// v2 added `transients` + `sensitivity`, v3 `bpm`, v4 the three bands
-out += "{\"v\":4,\"fingerprint\":\"";
+```ts
+/** v2 added `transients` + `sensitivity`, v3 `bpm`, v4 the three bands. */
 ```
 
-`waveformCache.ts` requires `MIN_CACHE_VERSION = 4`. Going to v5 **invalidates every existing
+`readSidecar` requires `MIN_CACHE_VERSION = 4` (`packages/audio-analysis/src/sidecar.ts`). Going to v5 **invalidates every existing
 sidecar**: every song is re-analysed on first opening. Pre-warming absorbs that — it walks the
 playlist by itself as soon as the surface has its list — so the invalidation is paid in the
 background rather than on the first record put on.
 
 ## The cost is a non-issue, and it is measured
 
-What the pass costs today, on six real songs from this machine (`--waveform`, RelWithDebInfo):
+What the pass costs, on six real songs from this machine, measured with the analysis as a C++ loop
+inside the engine (RelWithDebInfo). The TypeScript pass is the same arithmetic per sample: on a 30 s
+stereo file it decodes and analyses in about 60 ms, the same fifth of a per cent of real time:
 
 | song | duration | analysis | of real time |
 |---|---|---|---|
@@ -54,7 +55,7 @@ What the pass costs today, on six real songs from this machine (`--waveform`, Re
 So **there is no budget to defend.** Even an approach ten times more expensive would stay under 2 %
 of real time and a playlist would stay under two minutes in the background. The criterion is not
 speed but ACCURACY and the shape of the code — which removes the resonator bank's main argument and
-leaves the FFT, the usual way, better understood, and already linked.
+leaves the FFT, the usual way and better understood, against the resonator bank's dozen lines.
 
 ## The ground truth it lacks
 
@@ -90,7 +91,7 @@ them — for a new reason: both are wrong.
 ### Two real defects, and the settings they justify
 
 **The frame is a DURATION, not a sample count.** 4096 samples give 5.4 Hz bins at 22 k but
-**11.7 Hz at 48 k**, the rate the engine runs at — so a C++ port would resolve worse than the
+**11.7 Hz at 48 k**, the rate the engine runs at — so a pass at the file's own rate would resolve worse than the
 prototype, silently. `FRAME_SECONDS` is what keeps the resolution independent of the file.
 
 **The bottom of the spectrum does not resolve.** A semitone is 3.9 Hz at C2 against 5.4 Hz of

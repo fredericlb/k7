@@ -14,7 +14,13 @@ import { ASPECTS, aspectOf } from "@studio/song-schema/aspect";
 import { foldAssemblies } from "@studio/ui-chains/assembly";
 import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
-import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
+import {
+  buildGraph,
+  layout,
+  subgraphForTrack,
+  withOpenTabs,
+} from "@studio/ui-chains/graph";
+import type { GridFit } from "@studio/ui-chains/gridFit";
 import type { LaneNotes } from "@studio/ui-chains/noteLoad";
 import { stackLayout } from "@studio/ui-chains/stackLayout";
 import {
@@ -45,6 +51,9 @@ import { type PendingNode, withPendingNode } from "../pendingNode";
 import { useLiveRackLit } from "../rackLit";
 import type { WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
+
+// A card with no authored vertical layout is folded to the same 4 columns (packages/ui-chains/docs/graphBuild.md).
+const GRAPH_FIT: GridFit = { axis: "cols", max: 4 };
 
 export function ChainsTab({
   mark,
@@ -172,8 +181,8 @@ export function ChainsTab({
   ) => void;
   /** The node being created on an arrow right now, or null. Drawn as a placeholder until real data lands. */
   pendingInsert?: PendingNode | null;
-  /** The graph a writing command already came back with, and its id — taken once, so a reload from anywhere else re-fetches. */
-  seedGraph?: { id: number; graph: WebGraph } | null;
+  /** The graph a writing command already came back with, its id, and the `reloadKey` it is the answer FOR — taken once, and only at that key. */
+  seedGraph?: { id: number; graph: WebGraph; at: number } | null;
   /** Whether to DRAW the project's notes: off by default, and filtered here rather than in the renderer, being a question about this graph. */
   showDocs?: boolean;
   /** How many notes the project has, reported up — the shell's button is in the footer. */
@@ -276,11 +285,16 @@ export function ChainsTab({
   const consumedSeed = useRef(0);
   // The seed is just another way of ANSWERING, so it lives INSIDE the load: one document from one place, retry included.
   // Hidden, a reload is REMEMBERED rather than fetched: the graph is asked for when the pane is shown again.
-  const shownKey = useRef(reloadKey);
-  if (active) shownKey.current = reloadKey;
+  // A fresh seed is a trigger of its own: a bypass hands one back with no reload behind it.
+  const trigger = `${reloadKey}:${seedGraph?.at === reloadKey ? seedGraph.id : 0}`;
+  const shownKey = useRef(trigger);
+  if (active) shownKey.current = trigger;
+  const keyRef = useRef(reloadKey);
+  keyRef.current = reloadKey;
   const { doc: graph, error } = useDocument(async () => {
     const seed = seedRef.current;
-    if (seed && seed.id > consumedSeed.current) {
+    // A seed answers the key it was made at; one left over from an earlier key would draw a graph older than the reload.
+    if (seed && seed.id > consumedSeed.current && seed.at === keyRef.current) {
       consumedSeed.current = seed.id;
       return seed.graph;
     }
@@ -402,6 +416,9 @@ export function ChainsTab({
       midiDevices,
       mainOutVolume: masterVolume,
       aspect: aspectRow,
+      // The graph spreads in both directions, so a card is drawn NARROW: its vertical layout, tabs as a menu.
+      layout: "vertical",
+      fit: GRAPH_FIT,
     });
     // …then the assemblies are folded in: a box instead of its members, unless it is open — packages/song/docs/assemblies.md.
     const { nodes, edges } = foldAssemblies(drawn, built, openAssemblies);
@@ -466,18 +483,29 @@ export function ChainsTab({
     void command(`graph pin ${JSON.stringify(at)}`);
   }, [laid, drawn?.positions, onMoveNode, stack]);
 
-  // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
+  // The tab each card has open, held here because it sizes the card: a narrow card is as tall as its page (ui-chains' `tabH`).
+  const [openTabs, setOpenTabs] = useState<Record<string, number>>({});
+  const onOpenTab = useCallback(
+    (id: string, tab: number) =>
+      setOpenTabs((prev) => (prev[id] === tab ? prev : { ...prev, [id]: tab })),
+    [],
+  );
+
+  // The optimistic flag painted on after layout, and each card's open page: how a node READS and how tall, never where it sits.
   const laidShown = useMemo(() => {
-    if (!laid || !Object.keys(pendingBypass).length) return laid;
+    if (!laid) return laid;
+    const sized = withOpenTabs(laid.nodes, openTabs);
+    if (!Object.keys(pendingBypass).length)
+      return sized === laid.nodes ? laid : { ...laid, nodes: [...sized] };
     return {
       ...laid,
-      nodes: laid.nodes.map((n) => {
+      nodes: sized.map((n) => {
         if (n.kind !== "module" || !n.module) return n;
         const b = pendingBypass[n.module];
         return b === undefined ? n : { ...n, bypassed: b, dim: b };
       }),
     };
-  }, [laid, pendingBypass]);
+  }, [laid, pendingBypass, openTabs]);
 
   // The node being created, standing where it will land and wired in: what is drawn is the WAIT, adding one costing ~700 ms of recompiling.
   const withPending = useMemo(
@@ -781,6 +809,8 @@ export function ChainsTab({
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
+            openTabs={openTabs}
+            onOpenTab={onOpenTab}
             onToggleAssembly={toggleAssembly}
             icons={icons}
             graph={shown}

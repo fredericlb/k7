@@ -12,7 +12,8 @@ const decide = (
   buffer: string,
   dirty: boolean,
   dismissed: string | null = null,
-) => decideDiskSync({ fresh, buffer, dirty, dismissed });
+  saved?: string,
+) => decideDiskSync({ fresh, buffer, dirty, dismissed, saved });
 
 describe("a file that changed on disk", () => {
   it("refreshes a clean buffer without asking", () => {
@@ -57,5 +58,12 @@ describe("a file that changed on disk", () => {
     // "" is falsy, and a truthiness test here would skip the warning on the most destructive edit of all.
     expect(decide("", "mine", true)).toBe("conflict");
     expect(decide("", "mine", false)).toBe("adopt");
+  });
+
+  it("does not ask about its own last save while the person keeps typing", () => {
+    // Autosave wrote "v1", typing went on to "v2": disk holding "v1" is our write read back, not someone else's.
+    expect(decide("v1", "v2", true, null, "v1")).toBe("ignore");
+    // …but a disk that moved PAST that save is a real change.
+    expect(decide("theirs", "v2", true, null, "v1")).toBe("conflict");
   });
 });

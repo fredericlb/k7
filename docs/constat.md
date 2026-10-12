@@ -176,7 +176,8 @@ without one, the `set` stops at the map miss and measures the control on both si
 ### The audio callback is at 5 % of its deadline, gesture included
 
 Tracktion already measures every block (`DeviceManager::getCPUStatistics`, mean/min/**max**); the
-`audio-cost` verb exposes it.
+`audio-cost` verb exposes it, and `engine/st0-engine/scripts/callback-cost.ts` drives the scratch and
+reads it either side.
 
 At buffer 512 / 48 kHz — a **10.67 ms deadline per block**:
 

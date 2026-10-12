@@ -339,9 +339,8 @@ widgets around it.
 
 A caption is 6 px, smaller than anything it labels: it names a control that is already drawn, read
 once and then recognised by position, so the two pixels go back to the panel. A `label` widget's own
-text is 8 px and has its own class — it is a heading over a group rather than a reading, and it
-borrowed `.dgx-wval`, so shrinking captions alone would have left it 4 px larger than everything it
-heads.
+text is 8 px and has its own class — it is a heading over a group rather than a reading, sized
+against the 10 px a reading takes.
 
 ## A MIDI device's dropdown carries an LED
 

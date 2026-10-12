@@ -21,9 +21,12 @@
 #include "Url.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <deque>
 #include <future>
 #include <map>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <thread>
 
@@ -38,6 +41,7 @@ constexpr int kBackoffMaxS = 30;
 constexpr Ms kDevicesPoll{10000};
 constexpr Ms kEditPluginsPoll{3000};
 constexpr Ms kSessionsPoll{2000};
+constexpr Ms kPairingPoll{1000};
 constexpr Ms kPluginsPoll{60000};
 constexpr Ms kPluginsPollFast{2000};
 constexpr Ms kDeregisterBound{1500};
@@ -84,6 +88,13 @@ struct Supervisor::Impl {
     };
     std::map<std::string, BeatTrack> beats;
     bool saidNoRegistry = false;
+    /** A pairing poll is in flight: a slow engine call ahead of it must not stack a second one in the queue. */
+    bool pairingPolling = false;
+    /** The instruments waiting for the fetch worker, in order, and the one it holds: one at a time (docs/instruments.md). */
+    std::deque<instruments::Instrument> queue;
+    std::optional<std::string> fetching;
+    /** Instruments whose folder is being deleted: a download of one waits until it is gone. */
+    std::set<std::string> removing;
 
     Impl(Loop& l, std::function<void()> e) : loop(l), exit(std::move(e)) {}
 
@@ -179,6 +190,8 @@ struct Supervisor::Impl {
         snap.editPluginsSig.clear();
         snap.sessions.clear();
         snap.sessionsSig.clear();
+        snap.pairRequests.clear();
+        snap.pairedDevices.clear();
         snap.audioDevices.clear();
         snap.audioMenuSig.clear();
         lastAttempt.reset();
@@ -245,40 +258,150 @@ struct Supervisor::Impl {
         publish();
     }
 
-    /** Fetch every instrument this machine has not got, one at a time on a worker, the tray told as it goes (docs/instruments.md). */
+    // --- instruments ----------------------------------------------------------------------------------
+
+    /** A host with no Downloads tab to choose in — the standalone app, the phone — keeps every instrument. */
+    static bool keepsAll()
+    {
+        const char* v = std::getenv("STUDIO_INSTRUMENTS");
+        return v != nullptr && std::string(v) == "all";
+    }
+
+    bool wanted(const std::string& name) const
+    {
+        if (keepsAll()) return true;
+        const auto& w = settings.instruments;
+        return w && std::find(w->begin(), w->end(), name) != w->end();
+    }
+
+    /** Add or drop `name` from the instruments this machine keeps, and remember it. */
+    void keep(const std::string& name, bool on)
+    {
+        auto list = settings.instruments.value_or(std::vector<std::string>{});
+        auto it = std::find(list.begin(), list.end(), name);
+        if (on && it == list.end()) list.push_back(name);
+        if (!on && it != list.end()) list.erase(it);
+        settings.instruments = list;
+        saveSettings(settings);
+    }
+
+    /** A first boot keeps what this machine already has and fetches nothing new: the rest is the user's to ask for. */
+    void settleInstruments()
+    {
+        if (settings.instruments || keepsAll()) return;
+        std::vector<std::string> kept;
+        for (const auto& i : instruments::all())
+            if (instruments::present(i)) kept.push_back(i.name);
+        settings.instruments = kept;
+        saveSettings(settings);
+        log::host("instruments: keeping the " + std::to_string(kept.size()) + " already on this machine");
+    }
+
+    /** The Downloads tab's rows, re-read from disk: when a choice, an install or a removal changes them, never per frame. */
+    void refreshInstruments()
+    {
+        snap.instruments.clear();
+        for (const auto& i : instruments::all())
+            snap.instruments.push_back({i.name, i.label, i.bytes, wanted(i.name), instruments::installed(i)});
+    }
+
+    /** Queue `i` behind whatever is fetching; a failed attempt's row is replaced, one already queued is left alone. */
+    void enqueue(const instruments::Instrument& i)
+    {
+        if (fetching == i.name || std::any_of(queue.begin(), queue.end(), [&](const auto& q) { return q.name == i.name; }))
+            return;
+        auto& list = snap.downloads;
+        list.erase(std::remove_if(list.begin(), list.end(), [&](const auto& d) { return d.name == i.name; }), list.end());
+        list.push_back({i.name, i.label, 0, i.bytes, "queued", ""});
+        queue.push_back(i);
+    }
+
+    /** Start the next queued fetch when none runs, on a worker; the tray is told as it goes. */
+    void pump()
+    {
+        if (fetching || queue.empty()) return;
+        const auto i = queue.front();
+        queue.pop_front();
+        fetching = i.name;
+        onDownload(i.name, 0, i.bytes, "downloading", "");
+        // Detached: a download outlives no supervisor, and one cut short leaves only a .part to start over from.
+        std::thread([this, i] {
+            log::host("instrument " + i.name + ": downloading " + i.url);
+            int lastPercent = -1;
+            std::string lastPhase;
+            std::string error;
+            const bool ok = instruments::install(
+                i,
+                [&](const instruments::Progress& p) {
+                    // A frame per whole percent at most: a chunk is a few KB, and each frame is a menu rebuilt.
+                    const int percent = p.total ? static_cast<int>(100 * p.received / p.total) : 0;
+                    if (percent == lastPercent && p.phase == lastPhase) return;
+                    lastPercent = percent;
+                    lastPhase = p.phase;
+                    loop.post([this, name = i.name, p] { onDownload(name, p.received, p.total, p.phase, ""); });
+                },
+                error);
+            log::host("instrument " + i.name + (ok ? ": installed" : ": " + error));
+            loop.post([this, name = i.name, ok, error] {
+                fetching.reset();
+                refreshInstruments();
+                if (ok) onDownload(name, 0, 0, "", "");
+                else onDownload(name, 0, 0, "failed", error);
+                pump();
+            });
+        }).detach();
+    }
+
+    /** Queue every instrument this machine keeps and has not got — a newer pinned archive included. */
     void fetchInstruments()
     {
-        std::vector<instruments::Instrument> missing;
         for (const auto& i : instruments::all())
-            if (!instruments::installed(i)) missing.push_back(i);
-        if (missing.empty()) return;
-        for (const auto& i : missing) snap.downloads.push_back({i.name, i.label, 0, i.bytes, "downloading", ""});
+            if (wanted(i.name) && !instruments::installed(i)) enqueue(i);
         publish();
-        // Detached: a download outlives no supervisor, and one cut short leaves only a .part to start over from.
-        std::thread([this, missing] {
-            for (const auto& i : missing) {
-                log::host("instrument " + i.name + ": downloading " + i.url);
-                int lastPercent = -1;
-                std::string lastPhase;
+        pump();
+    }
+
+    void instrumentDownload(const protocol::Command& cmd)
+    {
+        const auto* i = instruments::find(cmd.arg);
+        if (i == nullptr) return reply(cmd.id, false, cmd.arg + " is not an instrument this engine plays");
+        if (removing.count(i->name)) return reply(cmd.id, false, i->label + " is still being deleted");
+        keep(i->name, true);
+        if (!instruments::installed(*i)) enqueue(*i);
+        refreshInstruments();
+        publish();
+        pump();
+        reply(cmd.id, true);
+    }
+
+    void instrumentRemove(const protocol::Command& cmd)
+    {
+        const auto* i = instruments::find(cmd.arg);
+        if (i == nullptr) return reply(cmd.id, false, cmd.arg + " is not an instrument this engine plays");
+        // A download cannot be cut mid-file: the worker would write into a folder being deleted.
+        if (fetching == i->name) return reply(cmd.id, false, i->label + " is downloading — remove it once it has landed");
+        keep(i->name, false);
+        queue.erase(std::remove_if(queue.begin(), queue.end(), [&](const auto& q) { return q.name == i->name; }),
+                    queue.end());
+        auto& list = snap.downloads;
+        list.erase(std::remove_if(list.begin(), list.end(), [&](const auto& d) { return d.name == i->name; }), list.end());
+        removing.insert(i->name);
+        refreshInstruments();
+        publish();
+        const auto inst = *i;
+        loop.work<std::string>(
+            [inst] {
                 std::string error;
-                const bool ok = instruments::install(
-                    i,
-                    [&](const instruments::Progress& p) {
-                        // A frame per whole percent at most: a chunk is a few KB, and each frame is a menu rebuilt.
-                        const int percent = p.total ? static_cast<int>(100 * p.received / p.total) : 0;
-                        if (percent == lastPercent && p.phase == lastPhase) return;
-                        lastPercent = percent;
-                        lastPhase = p.phase;
-                        loop.post([this, name = i.name, p] { onDownload(name, p.received, p.total, p.phase, ""); });
-                    },
-                    error);
-                log::host("instrument " + i.name + (ok ? ": installed" : ": " + error));
-                loop.post([this, name = i.name, ok, error] {
-                    if (ok) onDownload(name, 0, 0, "", "");
-                    else onDownload(name, 0, 0, "failed", error);
-                });
-            }
-        }).detach();
+                instruments::remove(inst, error);
+                return error;
+            },
+            [this, cmd, name = inst.name](std::string error) {
+                removing.erase(name);
+                log::host("instrument " + name + (error.empty() ? ": removed" : ": " + error));
+                refreshInstruments();
+                publish();
+                reply(cmd.id, error.empty(), error);
+            });
     }
 
     /** One download's news, on the loop's thread: an empty phase is a finished one, which leaves the list. */
@@ -374,6 +497,26 @@ struct Supervisor::Impl {
                 }
             }
             if (then) then();
+        });
+    }
+
+    /** Pending requests and paired devices together: both are short, and a request must reach the musician fast. */
+    void pollPairing(std::function<void()> then = nullptr)
+    {
+        if (snap.status != "running" || pairingPolling) {
+            if (then) then();
+            return;
+        }
+        pairingPolling = true;
+        engine->listPairRequests([this, then](auto requests) {
+            if (requests) snap.pairRequests = *requests;
+            engine->listPairedDevices([this, then](auto devices) {
+                pairingPolling = false;
+                if (devices) snap.pairedDevices = *devices;
+                // publish() emits only when the frame's bytes changed, so an idle poll stays silent.
+                publish();
+                if (then) then();
+            });
         });
     }
 
@@ -656,6 +799,14 @@ struct Supervisor::Impl {
         } else if (c == "session.drop") {
             // Polled at once: a row still listed for two seconds reads as a click that missed.
             engine->dropSession(cmd.arg, [this, cmd] { pollSessions([this, cmd] { reply(cmd.id, true); }); });
+        } else if (c == "pair.approve" || c == "pair.deny" || c == "pair.revoke") {
+            const std::string verb = c == "pair.approve" ? "pair-approve" : c == "pair.deny" ? "pair-deny" : "unpair-device";
+            // Polled at once, like a dropped session: the row must leave the window with the click.
+            engine->pairVerb(verb, cmd.arg, [this, cmd] { pollPairing([this, cmd] { reply(cmd.id, true); }); });
+        } else if (c == "instruments.download") {
+            instrumentDownload(cmd);
+        } else if (c == "instruments.remove") {
+            instrumentRemove(cmd);
         } else if (c == "shutdown") {
             shutdown();
         } else {
@@ -701,6 +852,7 @@ struct Supervisor::Impl {
         timers.push_back(loop.every(kDevicesPoll, [this] { pollDevices(); }));
         timers.push_back(loop.every(kEditPluginsPoll, [this] { pollEditPlugins(); }));
         timers.push_back(loop.every(kSessionsPoll, [this] { pollSessions(); }));
+        timers.push_back(loop.every(kPairingPoll, [this] { pollPairing(); }));
         // The undo audio servers asked this machine to keep: a month after its last use, it goes.
         purgeKeptHistoryNow();
         timers.push_back(loop.every(kKeptHistoryPurge, [] { purgeKeptHistoryNow(); }));
@@ -724,6 +876,8 @@ void Supervisor::start()
     s.identity = ensureEngineIdentity();
     s.registryUrls = registry::resolve(s.settings.registryUrls);
     s.engine = std::make_unique<EngineQueries>(s.loop, s.settings.port);
+    s.settleInstruments();
+    s.refreshInstruments();
     // The first snapshot: the tray draws nothing until it arrives.
     s.publish();
     log::host("supervisor started (native), " + std::to_string(tls::rootCount()) + " trusted roots");
@@ -739,7 +893,7 @@ void Supervisor::start()
                   s.performance->dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
         // Started HERE rather than on a tray command: nothing should wait for a menu to be built.
         s.startEngine([&s](bool) { s.beat([&s] { s.installLoops(); }); });
-        // …and the instruments it plays alongside it, whether or not a song names one yet.
+        // …and the instruments this machine keeps, whether or not a song names one yet.
         s.fetchInstruments();
     });
 }

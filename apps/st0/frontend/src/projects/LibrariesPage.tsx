@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { GitBusyOverlay } from "../components/GitBusy";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
-import { HomeHeader } from "./HomeHeader";
+import { HomeShell } from "./HomeSidebar";
 import { LibrariesCard } from "./LibrariesCard";
 import type { AccountFiles } from "./workspaceOps";
 
@@ -28,12 +28,11 @@ export function LibrariesPage() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <HomeShell subtitle={m["home.libraries"]()}>
       <AskHost />
       <Toaster />
       {/* Adding, removing, updating and retrying all clone or pull: the page waits for git. */}
       <GitBusyOverlay />
-      <HomeHeader subtitle={m["home.libraries"]()} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl">
           {fileService === undefined ? (
@@ -46,6 +45,6 @@ export function LibrariesPage() {
           )}
         </div>
       </div>
-    </div>
+    </HomeShell>
   );
 }

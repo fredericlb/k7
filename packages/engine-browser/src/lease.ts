@@ -78,10 +78,17 @@ export function holdEngine(
     if (secret) api.release(id, secret);
   };
   window.addEventListener("pagehide", bye);
+  // A tab coming back renews at once: while hidden, its timer may have been held to one tick a minute.
+  const back = () => {
+    if (document.visibilityState === "visible") renew();
+  };
+  const doc = typeof document === "undefined" ? null : document;
+  doc?.addEventListener("visibilitychange", back);
   return () => {
     done = true;
     clearInterval(timer);
     window.removeEventListener("pagehide", bye);
+    doc?.removeEventListener("visibilitychange", back);
     bye(); // unmounting without pagehide == switching away, so release now
   };
 }

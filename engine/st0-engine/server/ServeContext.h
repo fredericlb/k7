@@ -21,6 +21,9 @@
 
 #include <EngineHost.h>
 
+#include "../engine/Warnings.h"   // warn() — a failed background job has to reach the client
+#include "Pairing.h"
+
 namespace studio {
 
 class AudioSender;
@@ -38,7 +41,14 @@ struct DetachedWork {
             ++running;
         }
         std::thread([this, fn = std::move(fn)]() mutable {
-            fn();
+            // An exception leaving a std::thread is std::terminate, and this work loads plugins and parses what clients send.
+            try {
+                fn();
+            } catch (const std::exception& e) {
+                warn(std::string("background work failed: ") + e.what());
+            } catch (...) {
+                warn("background work failed (unknown exception)");
+            }
             std::lock_guard<std::mutex> lk(m);
             if (--running == 0) idle.notify_all();
         }).detach();
@@ -75,7 +85,28 @@ struct ServeContext {
 
     // The audio stream's sender, set once serve() has built it.
     AudioSender* audio = nullptr;
+
+    // Who may drive: a loopback peer always, a LAN peer once paired (docs/pairing.md); its own lock, since a broadcast reads it from any thread.
+    Pairing* pairing = nullptr;
+    std::mutex trustMx;
+    std::unordered_set<const ix::WebSocket*> trusted;
+    std::unordered_set<const ix::WebSocket*> local;   // …and the loopback ones among them
+    bool isTrusted(const ix::WebSocket* ws) {
+        std::lock_guard<std::mutex> lk(trustMx);
+        return trusted.count(ws) != 0;
+    }
+    // One socket by pointer, if it is still connected: the requester an approval answers.
+    std::function<void(const ix::WebSocket*, const nlohmann::json&)> sendTo;
+    std::function<void(const ix::WebSocket*)> closeSocket;
+    // The machine's own clients only: what a pairing request carries is for the musician's eyes.
+    std::function<void(const nlohmann::json&)> broadcastLocal;
 };
+
+// Every message passes here first: true when it was answered — a pairing verb, or a refusal — and must go no further (docs/pairing.md).
+bool screenMessage(ServeContext&, ix::WebSocket&, const std::string& peerIp, const nlohmann::json&,
+                   const std::string& type);
+// A socket closed: its trust, its pending request and its device binding go.
+void forgetSocket(ServeContext&, const ix::WebSocket*);
 
 // One message kind's answer: the socket it came on, the parsed message, its session and its type.
 using Handler = std::function<void(ServeContext&, ix::WebSocket&, const nlohmann::json&,

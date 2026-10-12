@@ -22,6 +22,9 @@ void aStateFrameCarriesWhatTheTrayReads()
     CHECK(f["instanceCheck"]["state"] == "checking");
     CHECK(!f["instanceCheck"].contains("message"));
     CHECK(f["paths"].contains("mergedLog"));
+    // The Downloads tab's rows are always there, an empty list included, unlike the transient `downloads`.
+    CHECK(f["instruments"].is_array() && f["instruments"].empty());
+    CHECK(!f.contains("downloads"));
     // A frame is ONE line: a newline inside it would end it early.
     CHECK(f.dump().find('\n') == std::string::npos);
 }
@@ -35,6 +38,34 @@ void anErrorAndACountAppearWhenSet()
     const auto f = stateFrame(s);
     CHECK(f["error"] == "engine binary not found (build it)");
     CHECK(f["pluginCount"] == 3);
+}
+
+void anInstrumentRowCarriesWhatTheTabDraws()
+{
+    Snapshot s;
+    s.instruments = {{"nbo-wurt", "Wurlitzer", 7947927, true, false}};
+    s.downloads = {{"nbo-wurt", "Wurlitzer", 0, 7947927, "queued", ""}};
+    const auto f = stateFrame(s);
+    const auto& row = f["instruments"][0];
+    CHECK(row["name"] == "nbo-wurt");
+    CHECK(row["bytes"] == 7947927);
+    CHECK(row["wanted"] == true);
+    CHECK(row["installed"] == false);
+    CHECK(f["downloads"][0]["phase"] == "queued");
+}
+
+void aPairingRowCarriesWhatTheTabDraws()
+{
+    Snapshot s;
+    s.pairRequests = {{"r1", "iPhone · Safari", "192.168.1.20", "482913", 1760000000000}};
+    s.pairedDevices = {{"d1", "iPad", 1760000000000, 1760000600000}};
+    const auto f = stateFrame(s);
+    CHECK(f["pairRequests"][0]["requestId"] == "r1");
+    CHECK(f["pairRequests"][0]["code"] == "482913");
+    CHECK(f["pairRequests"][0]["since"] == 1760000000000);
+    CHECK(f["pairedDevices"][0]["deviceId"] == "d1");
+    CHECK(f["pairedDevices"][0]["lastSeen"] == 1760000600000);
+    CHECK(stateFrame(Snapshot{})["pairRequests"].empty());
 }
 
 void aCommandIsParsedAndAnythingElseIsNot()
@@ -67,6 +98,8 @@ void runHostProtocolTests()
 {
     RUN(aStateFrameCarriesWhatTheTrayReads);
     RUN(anErrorAndACountAppearWhenSet);
+    RUN(anInstrumentRowCarriesWhatTheTabDraws);
+    RUN(aPairingRowCarriesWhatTheTabDraws);
     RUN(aCommandIsParsedAndAnythingElseIsNot);
     RUN(aResultEchoesItsId);
     RUN(anEmptyRankingSplitsToNothing);

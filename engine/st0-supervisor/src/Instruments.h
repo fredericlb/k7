@@ -23,14 +23,23 @@ struct Instrument {
     std::uint64_t bytes = 0;
 };
 
-/** Every instrument the engine ships — what is fetched whether or not a song names it. */
+/** Every instrument the engine can play — what the tray's Downloads tab lists. */
 const std::vector<Instrument>& all();
+
+/** The one named `name`, or null. */
+const Instrument* find(const std::string& name);
 
 /** `<state>/instruments`. */
 fs::path root();
 
 /** Whether `i` is unpacked, AND from the archive this list pins: an older one is fetched again. */
 bool installed(const Instrument& i);
+
+/** Whether ANY archive of `i` was installed here, the pinned one or an older one — what a first boot keeps. */
+bool present(const Instrument& i);
+
+/** Delete `i`'s folder and whatever a cut-short install left beside it. False with `error` when something stays. */
+bool remove(const Instrument& i, std::string& error);
 
 /** Where a download stands; `phase` is "downloading", "unpacking" or "failed". */
 struct Progress {

@@ -13,7 +13,7 @@ import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
 import { isChainFile } from "../libraryTree";
 import { m } from "../paraglide/messages.js";
@@ -159,6 +159,10 @@ export function ChainsBuilder({
   // What was last read or saved, so the pane knows whether it is dirty without a second state.
   const [saved, setSaved] = useState("");
 
+  // The buffer as last rendered, read by the re-read below without making it a dependency.
+  const buf = useRef({ path: null as string | null, text, saved });
+  buf.current = { path: openFile ?? files[0]?.path ?? null, text, saved };
+
   // The chosen file, re-read whenever a verb changed the chain — a `graph move` rewrites the file under the pane showing it.
   useEffect(() => {
     const path = openFile ?? files[0]?.path;
@@ -172,8 +176,12 @@ export function ChainsBuilder({
       .read(path)
       .then((f) => {
         if (!live) return;
-        setText(f.content ?? "");
-        setSaved(f.content ?? "");
+        const fresh = f.content ?? "";
+        const b = buf.current;
+        // Typing not yet saved on this same file wins over the re-read: the autosave writes it next, the person's text intact.
+        if (b.path === path && b.text !== b.saved) return;
+        setText(fresh);
+        setSaved(fresh);
       })
       .catch((e: Error) => live && setError(e.message));
     return () => {

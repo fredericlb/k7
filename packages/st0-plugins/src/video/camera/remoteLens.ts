@@ -2,7 +2,7 @@
 // second device draws with: over the LAN the page is not a secure context, so getUserMedia is
 // not there at all — but RTCPeerConnection is, being gated on nothing, and a peer connection is
 // exempt from the mixed-content rule that stops every other way of reaching this machine.
-// One socket and one peer connection per live lane. See apps/st0-desktop/docs/camera.md.
+// One socket and one peer connection per live lane. See packages/song/docs/camera.md.
 
 import { cfg } from "@studio/project-shell/fileApi";
 import type { Lens, LensOpener } from "@studio/ui-eyes/camera";
@@ -24,18 +24,26 @@ export function canAskForLens(): boolean {
 export const remoteLens: LensOpener = (label) =>
   new Promise<Lens>((resolve) => {
     let settled = false;
+    // Both ends of the link, closed together — on a failure here, and by the driver when the lane goes.
+    const close = () => {
+      pc?.close();
+      if (ws && ws.readyState <= WebSocket.OPEN) ws.close();
+    };
     const done = (l: Lens) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve(l);
+      // No picture: nothing will ever be drawn from this link, so it is not kept open.
+      if (!l.stream) close();
+      resolve(l.stream ? { ...l, close } : l);
     };
     const timer = window.setTimeout(
       () => done({ stream: null, problem: "the machine did not answer" }),
       WAIT_MS,
     );
 
-    let ws: WebSocket;
+    let ws: WebSocket | undefined;
+    let pc: RTCPeerConnection | undefined;
     try {
       const c = cfg();
       ws = new WebSocket(
@@ -45,32 +53,36 @@ export const remoteLens: LensOpener = (label) =>
       return done({ stream: null, problem: (e as Error).message });
     }
 
-    const pc = new RTCPeerConnection(ICE);
+    // Opened above, or this already returned: `sock` and `peer` are the two ends, typed as present.
+    if (!ws) return;
+    const sock = ws;
+    pc = new RTCPeerConnection(ICE);
+    const peer = pc;
     /** The sentence the machine sent with its offer, kept for whichever resolves first. */
     let problem: string | null = null;
-    pc.onicecandidate = (e) => {
+    peer.onicecandidate = (e) => {
       if (e.candidate)
-        sendFrame(ws, { type: "ice", candidate: e.candidate.toJSON() });
+        sendFrame(sock, { type: "ice", candidate: e.candidate.toJSON() });
     };
-    pc.ontrack = (e) =>
+    peer.ontrack = (e) =>
       done({ stream: e.streams[0] ?? new MediaStream([e.track]), problem });
 
     const handle = async (f: Frame) => {
       if (f.type === "problem") return done({ stream: null, problem: f.text });
       if (f.type === "offer") {
         problem = f.problem ?? null;
-        await pc.setRemoteDescription(f.sdp);
-        const sdp = await pc.createAnswer();
-        await pc.setLocalDescription(sdp);
-        sendFrame(ws, { type: "answer", sdp: pc.localDescription ?? sdp });
+        await peer.setRemoteDescription(f.sdp);
+        const sdp = await peer.createAnswer();
+        await peer.setLocalDescription(sdp);
+        sendFrame(sock, { type: "answer", sdp: peer.localDescription ?? sdp });
         return;
       }
       if (f.type === "ice")
-        await pc.addIceCandidate(f.candidate).catch(() => undefined);
+        await peer.addIceCandidate(f.candidate).catch(() => undefined);
     };
 
-    ws.onopen = () => sendFrame(ws, { type: "want", label });
-    ws.onmessage = (e) => {
+    sock.onopen = () => sendFrame(sock, { type: "want", label });
+    sock.onmessage = (e) => {
       const f = readFrame(e.data);
       // A negotiation that throws leaves a lane with no picture, which is a sentence and not a crash.
       if (f)
@@ -79,13 +91,13 @@ export const remoteLens: LensOpener = (label) =>
         );
     };
     // A socket that closes before a track arrived is a lane that will never draw; say so.
-    ws.onclose = () =>
+    sock.onclose = () =>
       done({ stream: null, problem: "the link to the machine closed" });
-    ws.onerror = () =>
+    sock.onerror = () =>
       done({ stream: null, problem: "no camera relay on this machine" });
     // The socket stays open for the connection's life: ICE trickles after the first frame.
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "closed" || pc.connectionState === "failed")
-        ws.close();
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === "closed" || peer.connectionState === "failed")
+        sock.close();
     };
   });

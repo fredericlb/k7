@@ -1,5 +1,5 @@
-// guard.ts — runs one backend and dies with the app: its stdin is a pipe from the main process, and the OS closes it however that process ends.
-// It leads the backend's process group, so stopping takes the file services pl8 spawned along with it. See docs/standalone.md.
+// guard.ts — runs one server and dies with the app: its stdin is a pipe from the main process, and the OS closes it however that process ends.
+// It leads the server's process group, so stopping takes whatever the server spawned along with it. See docs/shell.md.
 
 import { spawn, spawnSync } from "node:child_process";
 

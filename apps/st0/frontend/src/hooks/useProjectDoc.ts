@@ -6,6 +6,7 @@
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { isAnswer } from "../readFailure";
 import { mixerModules } from "../mixerStrips";
 import type { WebProject } from "../types";
 
@@ -114,9 +115,9 @@ export function useProjectDoc(
           })),
         );
       })
-      .catch(() => {
-        // No doc: reset what is derived from it.
-        if (!alive) return;
+      .catch((e) => {
+        // No doc — a project that does not compile — resets what is derived from it; a blip keeps the strips.
+        if (!alive || !isAnswer(e)) return;
         setDocTracks([]);
         setMixerStrips([]);
       });

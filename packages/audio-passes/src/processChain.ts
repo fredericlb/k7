@@ -582,7 +582,7 @@ export async function processWithChain(
             ...chain,
             plugins: withMeasuredPeak(
               chain.plugins,
-              measureFilePeakDb(engine, source),
+              await measureFilePeakDb(engine, source),
             ),
           }
         : chain;

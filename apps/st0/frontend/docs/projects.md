@@ -47,15 +47,16 @@ If the first thing you want at a front door is your own work, then the page list
 the front door, and putting it behind a prefix you have to know how to type would rank it second.
 
 **The user menu — the account, the way out to pl8, k7 and z0, the logout — is in THIS page's
-header, and only here.** Opened on a project, st0 draws the editor's header, where a menu that
+sidebar, and only here.** Opened on a project, st0 draws the editor's header, where a menu that
 leaves the session has no business. It is the menu every app of the origin carries —
 `@studio/ui-user-menu`, the one pl8's and k7's headers mount too, rather than links this app
 spells its own way — so an app row opens a NEW tab and the desktop app can hand it to the system
 browser (`packages/ui-user-menu/docs/userMenu.md`).
 
-**One header for this page and the three that hang off it**, `/tasks`, `/libraries` and `/settings`
-(`HomeHeader.tsx`). Its entries are **Projects**, **Tasks** and **Libraries**, the one for the page you
-are on lit, and its last action is the user menu. The same entries in the same place on all four say
+**One left sidebar for this page and the three that hang off it**, `/tasks`, `/libraries` and
+`/settings` (`HomeSidebar.tsx`), and no header: the page's whole height goes to the list. Its entries
+are **Projects**, **Tasks** and **Libraries**, the one for the page you are on lit, and the user
+menu sits at its foot; below `sm` it folds to an icon rail. The same entries in the same place on all four say
 which of them you are on, so none of the others carries a back button of its own. They are
 routes, so going between them reloads nothing. `/external` is not among them: it is the page a
 SECOND device opens, independent of this one, with a header of its own (`external.md`).

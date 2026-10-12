@@ -283,9 +283,10 @@ model_url: https://models.example.org/htdemucs_fp16weights.onnx
 An instrument made of recordings — a multi-sampled piano, a drum kit with velocity layers — is a
 `.sfz` file and the samples it names, played by the engine's own **SFZ Player**. The module names
 the `.sfz` with `sfz:`, and the instruments st0 ships are named `@instruments/<name>/<file>.sfz`:
-they live on the machine the ENGINE runs on, not in a library or a project. Its supervisor downloads
-every one of them the first time the engine starts — the tray's menu says so while it does — and a
-song opened before that is finished starts to play the instrument as soon as it lands.
+they live on the machine the ENGINE runs on, not in a library or a project. None is downloaded until
+you ask: open the st0 tray's **Settings… → Downloads** and download the ones you play — the tray's
+menu says so while it does. A module whose instrument is not there is marked on its node with the
+name to download, and a song opened before it lands starts to play it as soon as it does.
 
 ```yaml schema=Module
 # _modules/instruments/keys/piano/module.yaml — a sampled concert grand
@@ -297,7 +298,7 @@ params:
 Seven ship today: `salamander-grand-piano` (the library's `@st0/instruments/keys/piano`), the
 Rhodes, the Wurlitzer and the clavinet behind three engines of its `electric-keys`,
 `stereo-rhodes` (the default one), `wurt` and `clavinet`, and two acoustic drum kits, engines of
-`@st0/instruments/st0-rack-sfz`: `naked-drums` (the default, General MIDI notes, ~1.2 GB) and
+`@st0/instruments/st0-rack`: `naked-drums` (the default, General MIDI notes, ~1.2 GB) and
 `big-rusty-drums` (Karoryfer's, CC0, close to General MIDI, ~620 MB). A third engine,
 `naked-drums-room`, plays the same Naked Drums through all its microphones, rooms included — bigger
 and longer — on the kit's own notes for its cymbals and hi-hats rather than General MIDI's. And
@@ -308,9 +309,9 @@ and each machine sits on its own octave of notes (the RZ-1 on 36–47, the CR-80
 part written for one plays silent on another's notes. Each kit is drawn as a pad per piece: click
 one to hear it through the whole kit.
 
-`st0-rack-sfz` is one module for every sampled kit: each **kit is an engine** of it, so a node changes
+`st0-rack` is one module for every drum kit: each **kit is an engine** of it, so a node changes
 kit from its header's dropdown — and keeps its own values per kit — the way `electric-keys` changes
-piano. A kit's engine names its SFZ under `sfz:` and its pads under `kit:`, each a name and the note
+piano. One more engine, `samples`, is the rack whose pads are samples you choose (below). A kit's engine names its SFZ under `sfz:` and its pads under `kit:`, each a name and the note
 the kit plays it on. The node draws them like a rack's pads, but they are the kit's: a pad cannot be
 retargeted, renamed or given another sample. What a pad DOES have is its own level: the dB field under
 it, -24 to +12, drag it or double-click to type a value. It raises or lowers that one piece without
@@ -318,7 +319,7 @@ changing how hard it is hit, so the snare can sit 3 dB over the rest of the kit 
 the same stroke. It is saved on the node as `Key <note>` under `params:`, e.g. `Key 38: 3`.
 
 ```yaml schema=Module
-# _modules/instruments/st0-rack-sfz/engines/my-kit/module.yaml — another kit for the rack
+# _modules/instruments/st0-rack/engines/my-kit/module.yaml — another kit for the rack
 extends: "@engine/sfz-player"
 params:
   sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz"
@@ -330,9 +331,23 @@ kit:
 ```
 
 The same kit also comes as a **rack** — one sample per piece, one hit each, at a single velocity — as
-the `Naked Drums` preset of `@st0/instruments/st0-rack`: lighter, and pads you can swap one by one,
+the `Naked Drums` preset of `@st0/instruments/st0-rack`, which switches the node to its `samples`
+engine: lighter, and pads you can swap one by one,
 but without the full kit's velocity layers, round-robins and hi-hat choke. A `sfz:` that is a path instead plays
 that file, on the engine's machine.
+
+**A pad — or a rack's tap — can have a chain of its own.** Right-click it and pick **Edit chain…**:
+add a module and that one piece leaves the kit through it, the snare through a reverb while the kick
+stays dry. The rest of the kit is untouched and still one instrument, its hi-hat choke included.
+Remove the last module and the pad is back on the kit's main output. On the node it is written
+`tap_outs:`, a pad's name to the subchain it feeds:
+
+```yaml schema=Module
+# a kit node whose snare goes through a chain of its own — the subchain `snare-fx` of its chain file
+extends: "@st0/instruments/st0-rack"
+tap_outs:
+  Snare: snare-fx
+```
 
 ## _modules/<type>/<name>/module.yaml — a synthesizer patch (Surge XT)
 

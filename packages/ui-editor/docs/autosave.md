@@ -120,6 +120,18 @@ would put a half-edit in front of everybody.
 describing one thing, and on a shared one a save is a *publish* — see
 `apps/st0/frontend/docs/sharedModules.md` for why that earns a button.
 
+## Paused, and flushed for someone else
+
+`enabled: false` pauses the timer without dropping anything: a pane asking the person which of two
+versions to keep turns it off, since a write at that moment would answer the question for them.
+Text that is closed while paused is KEPT, like held text, rather than written.
+
+`flushAutosaves()` is for a host about to replace the files under every pane — a git branch switch, a
+pull, a commit that should include the last second of typing. It writes each pane's pending text now
+and answers false when one could not be written: held, paused, or a `manual` draft, which is never
+saved on somebody else's behalf. The host refuses its operation on false rather than run it over
+text that is not on disk.
+
 ## Ctrl+S still exists
 
 `Mod-s` and vim's `:w` mean **now** rather than **at all**. They flush the timer; they do not

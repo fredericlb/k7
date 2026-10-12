@@ -14,8 +14,10 @@ macOS's WindowServer past its watchdog and take the session down.
 
 So `build.mjs` takes `build/<preset>/.build.lock` (the holder's pid) before anything else; a second
 build WAITS for it and says whose it is, and a lock whose process is gone — a crash, a kill — is
-cleared. A bare `cmake --build build/<preset> --target studio_*_tests` does not go through it, so
-build the test suites when no other build is running.
+cleared. `run-tests.mjs` takes the same lock before it builds the test suites, since they build in
+the very folder the watcher builds the engine in; both get it from `scripts/buildLock.mjs`. A bare
+`cmake --build build/<preset>` goes through neither, so it is the one thing never to run beside the
+dev session.
 
 ## A compiler cap where Ninja builds
 

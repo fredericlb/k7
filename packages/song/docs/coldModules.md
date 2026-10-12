@@ -157,8 +157,8 @@ a plugin id. The material is what changes, and the track is where the material i
 
 ## The two passes
 
-**The measuring pass** is `@studio/commands`' `peakPass.ts`, run inside `processWithChain`'s
-per-source loop and filled from the engine's `--peak` mode. See that package's `docs/peakPass.md`,
+**The measuring pass** is `@studio/audio-passes`' `peakPass.ts`, run inside `processWithChain`'s
+per-source loop and filled from `@studio/audio-analysis`'s true-peak measurement. See that package's `docs/peakPass.md`,
 including why the `{file}.cache` envelope is the wrong place to read a peak from.
 
 The `Peak` default attenuates rather than boosts, and should: a chain reaching the engine without

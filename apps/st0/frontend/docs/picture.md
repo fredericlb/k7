@@ -95,7 +95,7 @@ Which camera: the one the lane NAMES if it names one (`camera:`, matched by labe
 live lens is), otherwise the machine's default. A label that matches nothing falls back and says
 which cameras there are — `matchCamera`, the lens's own rule rather than a restatement of it.
 
-### Four things the recording has to get right
+### Five things the recording has to get right
 
 - **The start is the playhead when the CAMERA started**, read in `onstart`, not when the key was
   pressed. Opening a lens takes time — a permission prompt takes much more — and a take placed
@@ -108,6 +108,15 @@ which cameras there are — `matchCamera`, the lens's own rule rather than a res
   library and the same fix k7's audio recorder already applies.
 - **The lens is let go** on stop and on unmount. A stream left running keeps the indicator lit and
   the device held until the tab closes.
+
+- **The bytes are on disk while it records**, not in the tab. Each chunk goes to the origin's
+  private file system as it arrives ([`../src/takeSpool.ts`](../src/takeSpool.ts)); an hour of
+  camera is gigabytes, and held in memory a crash or a killed tab lost all of it. A take an
+  interruption left behind is handed back as a download at the next start — only one untouched for
+  a minute, since a younger file may be another tab's take still recording. The bitrate is capped
+  so an hour is a known size, the tab asks before closing while a take records or files, and each
+  take keeps its recorder, stream and spool in its own closure, so a stop followed at once by a new
+  take cannot hand one take's stream to the other's stop.
 
 A take with no bytes — a camera that never delivered a frame — files nothing and says so, rather
 than placing a clip over an empty file.

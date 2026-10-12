@@ -27,4 +27,7 @@ std::optional<MappedRecord> mapWavRecord(const juce::File& file);
 /** The record as something mappable: the file itself, or its copy in the record cache, decoded on first use. `how` says which. */
 std::optional<MappedRecord> openRecord(const juce::File& file, juce::String& how);
 
+/** Whether a header describes a record rather than a corrupt file; `why` says which bound it broke. Every decode sizes itself from it. */
+bool plausibleRecord(const juce::AudioFormatReader& reader, juce::String& why);
+
 }  // namespace studio

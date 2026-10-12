@@ -11,6 +11,9 @@ import { projectApi } from "./project.ts";
 /** Fast: the screen is all there is, and a copy over a LAN takes seconds. */
 const POLL_MS = 500;
 
+/** Failed asks in a row before the wait is given up and handed to the gate's error screen. */
+const GIVE_UP_AFTER = 8;
+
 export interface EngineLoadStrings {
   copyingTitle: string;
   copyingBody: string;
@@ -33,34 +36,48 @@ const DEFAULTS: EngineLoadStrings = {
 
 const mb = (n: number) => `${(n / (1024 * 1024)).toFixed(1)} MB`;
 
-/** Poll until the project is playable, then call `onReady` once. */
+/** Poll until the project is playable, then call `onReady` once — or `onFail`, when the service stops answering. */
 export function EngineLoadScreen({
   strings,
   onReady,
+  onFail,
 }: {
   strings?: EngineLoadStrings;
   onReady: () => void;
+  /** Asked too many times without an answer, or refused outright (401/403): the wait is over, said in words. */
+  onFail?: (message: string) => void;
 }) {
   const s = strings ?? DEFAULTS;
   const [phase, setPhase] = useState<EngineLoadPhase>("copying");
   const [sync, setSync] = useState<EngineSyncState | null>(null);
   const ready = useRef(onReady);
   ready.current = onReady;
+  const fail = useRef(onFail);
+  fail.current = onFail;
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let misses = 0;
     const tick = async () => {
       try {
         const w = await projectApi.workspace();
         if (cancelled) return;
         if (!w.engineLoad) return ready.current();
+        misses = 0;
         setPhase(w.engineLoad);
         setSync(w.engineSync ?? null);
-      } catch {
-        /* the service blinked; the next tick asks again */
+      } catch (e) {
+        if (cancelled) return;
+        // A refusal is an answer, and so is a service silent for a while: neither is worth a progress bar forever.
+        const status = (e as { status?: number }).status;
+        misses++;
+        if (status === 401 || status === 403 || misses >= GIVE_UP_AFTER)
+          return fail.current?.((e as Error).message);
       }
-      if (!cancelled) timer = setTimeout(tick, POLL_MS);
+      // A blink backs off, doubling to five seconds, so a dead service is not asked twice a second.
+      if (!cancelled)
+        timer = setTimeout(tick, Math.min(5000, POLL_MS * 2 ** misses));
     };
     void tick();
     return () => {

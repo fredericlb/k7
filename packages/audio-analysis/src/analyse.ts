@@ -1,9 +1,9 @@
 // analyse.ts — the one call a service makes: decode, measure, stamp, write the sidecar. The
-// fingerprint is taken from the file on disk, so a sidecar written here is accepted by every
-// reader that checks it, engine/st0-engine's included. See docs/analysis.md.
+// fingerprint is taken from the file on disk, so any reader can tell whether a sidecar still
+// describes the bytes beside it. See docs/analysis.md.
 
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
-import { decodeMono } from "./decode.ts";
+import { type DecodeOptions, decodeMono } from "./decode.ts";
 import { buildEnvelope, DEFAULT_TRANSIENT_SENSITIVITY } from "./envelope.ts";
 import { fileFingerprint } from "./fingerprint.ts";
 import { readSidecar, writeSidecar } from "./sidecar.ts";
@@ -12,9 +12,14 @@ import { readSidecar, writeSidecar } from "./sidecar.ts";
 export async function analyseFile(
   source: string,
   sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
+  options: DecodeOptions = {},
 ): Promise<FileEnvelope> {
   const fingerprint = fileFingerprint(source);
-  const env = buildEnvelope(await decodeMono(source), fingerprint, sensitivity);
+  const env = buildEnvelope(
+    await decodeMono(source, options),
+    fingerprint,
+    sensitivity,
+  );
   writeSidecar(source, env);
   return env;
 }
@@ -36,6 +41,10 @@ export function freshSidecar(
 export async function ensureAnalysed(
   source: string,
   sensitivity: number = DEFAULT_TRANSIENT_SENSITIVITY,
+  options: DecodeOptions = {},
 ): Promise<FileEnvelope> {
-  return freshSidecar(source, sensitivity) ?? analyseFile(source, sensitivity);
+  return (
+    freshSidecar(source, sensitivity) ??
+    analyseFile(source, sensitivity, options)
+  );
 }

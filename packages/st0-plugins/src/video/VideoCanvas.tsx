@@ -9,7 +9,7 @@ import { localLens } from "@studio/ui-eyes/camera";
 import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { canAskForLens, remoteLens } from "./camera/remoteLens";
 import { levelsForPasses, smoothLevels } from "./shaderAudio";
 
@@ -73,20 +73,39 @@ export function VideoCanvas({
   const levelsRef = useRef<Record<string, number>>({});
   // The store itself, not a slice of it: the playhead is fed to a clock, and feeding a clock is not drawing.
   const store = useEngineStore();
+  // Why there is no picture, when the GL side refused to start.
+  const [failed, setFailed] = useState<string | null>(null);
+  // Bumped when the browser gives a lost GL context back: the driver is built again on a fresh one.
+  const [rebuild, setRebuild] = useState(0);
 
-  // Rebuild the driver on a scene change: video content changes rarely, so recreating beats a diff path.
+  // Rebuild the driver on a scene change (useVideoDoc keeps an unchanged picture the same object), and after a lost context.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `rebuild` is a trigger, not a value the body reads.
   useEffect(() => {
     let alive = true;
     const host = hostRef.current;
     if (!host) return;
     const clock = new EngineClock();
     clockRef.current = clock;
-    const driver = RealtimeDriver.create(host, scene, clock, lensOpener());
+    let driver: RealtimeDriver;
+    try {
+      driver = RealtimeDriver.create(host, scene, clock, lensOpener());
+    } catch (e) {
+      // No WebGL2 (a blocklisted GPU, an old tablet, contexts refused): said here, not a blank app.
+      setFailed((e as Error).message);
+      return;
+    }
+    setFailed(null);
     if (!alive) {
       driver.destroy();
       return;
     }
     driverRef.current = driver;
+    // A GPU reset or a sleep LOSES the context: kept restorable, and rebuilt when the browser restores it — not black for good.
+    const canvas = host.querySelector("canvas");
+    const onLost = (e: Event) => e.preventDefault();
+    const onRestored = () => setRebuild((n) => n + 1);
+    canvas?.addEventListener("webglcontextlost", onLost);
+    canvas?.addEventListener("webglcontextrestored", onRestored);
     onFitRef.current?.(letterbox(driver, host, scene));
     // Where the transport is RIGHT NOW: a fresh clock knows nothing, and with the transport stopped the next frame can be 250 ms away.
     const now = store.getSnapshot();
@@ -100,11 +119,13 @@ export function VideoCanvas({
     return () => {
       alive = false;
       if (dbg) clearInterval(dbg);
+      canvas?.removeEventListener("webglcontextlost", onLost);
+      canvas?.removeEventListener("webglcontextrestored", onRestored);
       driver.destroy();
       driverRef.current = null;
       clockRef.current = null;
     };
-  }, [scene, store]);
+  }, [scene, store, rebuild]);
 
   /** Feed the clock every engine state frame, off a RAW subscription that renders nothing — here the right leaf is no component at all. */
   useEffect(() => {
@@ -140,7 +161,13 @@ export function VideoCanvas({
       ref={hostRef}
       className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black"
     >
-      {children}
+      {failed ? (
+        <div className="max-w-sm p-4 text-center text-muted-foreground text-sm">
+          The picture cannot be drawn in this browser: {failed}
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

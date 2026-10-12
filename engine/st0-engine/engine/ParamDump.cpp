@@ -16,6 +16,7 @@
 #include "EditBuilder.h"     // loadVstPreset — the ONE reader of a .vstpreset container
 #include "Warnings.h"       // warn — an orphan belongs to no session, so it warns unstamped
 #include "MessagePump.h"    // pumpMessages — the drain before a CLI returns
+#include "LoadGuard.h"      // a binary that crashes the engine as it loads is pinned on it
 #if STUDIO_SURGE
 #include "surge/SurgeCore.h" // the layout a Surge panel is generated from
 #endif
@@ -242,11 +243,17 @@ te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string
     std::lock_guard<std::mutex> lock(paramQueryMutex);
     const auto key = orphanKey(formatName, identifier);
     if (auto held = orphanPluginIfLoaded(formatName, identifier)) return held;
+    if (std::string why; loadQuarantined(identifier, why)) {
+        warn(why, identifier);
+        return {};
+    }
 
     // Built on the message thread: a plugin made on a worker can run its own main-thread callbacks against a half-built instance.
     bool found = false;
     auto plugin = onMessageThread([&]() -> te::Plugin::Ptr {
         auto& shared = paramQueryEngine();
+        // Describing opens the binary and creating runs it, both in this process.
+        const LoadGuard guard{"plugin", identifier};
         juce::PluginDescription desc;
         found = describeExternal(*shared.engine, formatName, identifier, desc);
         if (!found) return {};
@@ -287,11 +294,17 @@ bool prepareNativePluginUI(const std::string& formatName, const std::string& ide
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& formatName,
                                                            const std::string& identifier) {
     std::lock_guard<std::mutex> lock(paramQueryMutex);
+    if (std::string why; loadQuarantined(identifier, why)) {
+        warn(why, identifier);
+        return std::nullopt;
+    }
 
     // Built, read and dropped on the message thread, and only WAITED for here — docs/plugins.md, "Built on the message thread".
     bool found = false;
     auto plugin = onMessageThread([&]() -> te::Plugin::Ptr {
         auto& shared = paramQueryEngine();
+        // Describing opens the binary and creating runs it, both in this process.
+        const LoadGuard guard{"plugin", identifier};
         juce::PluginDescription desc;
         found = describeExternal(*shared.engine, formatName, identifier, desc);
         if (!found) return {};

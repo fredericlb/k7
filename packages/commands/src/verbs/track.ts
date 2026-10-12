@@ -22,6 +22,7 @@ import {
   createTrackFile,
   loadModules,
   loadProjectRoot,
+  setLaneOrder,
 } from "@studio/song/loader";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";
 import { surfacesNaming } from "@studio/song/surfaces";
@@ -39,6 +40,12 @@ import {
   portRef,
   splitPort,
 } from "@studio/song-schema/moduleTypes";
+import { arrangeByCategory, autoColors } from "@studio/song-schema/trackColor";
+import {
+  TRACK_CATEGORIES,
+  type TrackCategory,
+  trackCategory,
+} from "@studio/song-schema/trackKind";
 import { mergeSegments, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { Placement } from "@studio/song-schema/yaml/placementSchema";
@@ -51,6 +58,7 @@ import type { CommandHost, SidHandler } from "../commands.ts";
 import { duplicateLaneChain } from "./trackChain.ts";
 
 export const TRACK_VERBS: Record<string, SidHandler> = {
+  "track.arrange": (_a, h) => arrangeTracks(h),
   "track.duplicate": (a, h) => duplicateTrack(a, h, true),
   "track.duplicate.empty": (a, h) => duplicateTrack(a, h, false),
   "track.rename": (a, h) => renameTrack(a, h),
@@ -404,4 +412,61 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
   } catch (e) {
     h.refuse([`track rename: ${(e as Error).message}`]);
   }
+}
+
+/** Each lane's category: its name first, then what the chains leaving it are built from — song-schema docs/trackColor.md. */
+function laneCategories(g: GraphDoc): Record<string, TrackCategory> {
+  const hints: Record<string, string[]> = {};
+  for (const c of Object.values(g.chains)) {
+    if (!c.from) continue;
+    const lane = splitPort(c.from).node;
+    for (const step of c.use) {
+      const m = g.modules[step.module];
+      if (m)
+        hints[lane] = [...(hints[lane] ?? []), m.extends ?? "", m.type ?? ""];
+    }
+  }
+  const out: Record<string, TrackCategory> = {};
+  for (const lane of Object.keys(g.tracks))
+    out[lane] = trackCategory(lane, hints[lane] ?? []);
+  return out;
+}
+
+/** `track arrange` — every lane coloured by its category and the whole order stated, vox first; one command, so one undo. */
+async function arrangeTracks(h: CommandHost): Promise<void> {
+  const dir = h.songPath;
+  const g = loadGraph(dir);
+  const cats = laneCategories(g);
+  // The lanes as they are drawn now, so the order within a category is the one the person already had — those with a file to colour.
+  const lanes = [
+    ...new Set(h.project().tracks.map((t) => splitPort(t.id).node)),
+  ].filter((lane) => laneFileFor(dir, lane) !== null);
+  if (!lanes.length) return h.refuse(["track arrange: this song has no lanes"]);
+  const categoryOf = (lane: string) => cats[lane] ?? trackCategory(lane);
+  const ordered = arrangeByCategory(lanes, categoryOf);
+  const colors = autoColors(
+    ordered.map((lane) => ({ id: lane, category: categoryOf(lane) })),
+  );
+  try {
+    for (const lane of ordered) {
+      const color = colors.get(lane);
+      if (color)
+        editTrackStruct(
+          dir,
+          lane,
+          (text) => setTrackField(text, "color", color),
+          "colour a track by its category",
+        );
+    }
+    setLaneOrder(dir, "trackOrder", ordered);
+  } catch (e) {
+    return h.refuse([`track arrange: ${(e as Error).message}`]);
+  }
+  // Said per category, in layout order, so the answer reads like the screen it produced.
+  const said = TRACK_CATEGORIES.map((c) => {
+    const of = ordered.filter((lane) => categoryOf(lane) === c);
+    return of.length ? `${c}: ${of.join(", ")}` : "";
+  }).filter(Boolean);
+  h.log([`arranged ${ordered.length} tracks — ${said.join(" · ")}`]);
+  await h.reload();
 }

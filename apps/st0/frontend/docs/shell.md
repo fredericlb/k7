@@ -867,7 +867,7 @@ a rack": a module's folder name, a node's stem.
 Drop audio files on the pads, name each pad (its TAP) and name the kit, and choose where the samples go:
 this project's `samples/` (the default — `@project/<kit>/…`) or one of the account's libraries'. CREATE
 uploads them there and makes the kit a NODE, `nodes/<kit>.yaml`, of the LIBRARY's
-`instruments/st0-rack` sampler — `@st0`'s when it has one, else any library's (`rackModuleRef`) —
+`instruments/st0-rack`, on its `samples` engine — `@st0`'s when it has one, else any library's (`rackModuleRef`) —
 through `node new <ref>`, so the node lands in the graph, journalled and extending the library module
 as it stands, then its taps in one write rather than a reload per pad. The builder writes no sampler
 of its own: one per workspace would be one copy of the same `type: rack` per workspace, so a library
@@ -898,6 +898,27 @@ keystroke does and one Save writes it whichever way you made the change.
 The tab is chosen per FILE — keyed on the path — so each newly opened one is answered for what it is
 rather than inheriting the last one's tab. It is a layout effect, so the swap lands before the paint
 instead of flashing the text editor for a frame.
+
+### The TAP CHAIN popin — one pad's own chain of effects
+
+`ui tap chain <node> <tap>`, a pad's **Edit chain…**, opens `TapChainEditor.tsx` on the subchain that
+pad feeds (`packages/song/docs/racks.md`, "A tap with a chain of its own"): the modules in order, each
+moved or removed, **Add module…** through the ordinary module picker, and the cards themselves below.
+
+- **Every button is a command** — `node tap chain add|move|remove` — so the popin holds no state of
+  its own and re-reads the graph after each, as every pane here does. The first module added makes the
+  subchain and routes the tap; the last one removed takes both away (`packages/song-edit/src/tapChain.ts`).
+- **The cards are the lane view's.** `TrackModulesPane` draws any list of nodes when handed one, with
+  no lane card, inputs or frame, so a knob here is the same knob, on the same stores, as on the graph.
+- **The chain starts at a node called `input`**, cabled into its first card: a pass-through that says
+  where the sound arrives from and does nothing else — no controls, no menu, no file. Without it the
+  cards float with nothing feeding them, and a reader cannot tell which end the signal enters
+  (`moduleRow`'s `lead`, in `packages/ui-chains/src/graph.ts`).
+- **The picker hands back a ref** rather than placing a node (`onRef` on its state): the chain is
+  written by the verb, not by `node new` and a splice. This project's own modules leave as `@workspace/…`.
+- **Not a modal dialog.** It is a hand-rolled overlay at `z-40`, under the pickers' `z-50`, as the rack
+  builder is: a modal dialog makes everything outside it unclickable — the module picker it opens
+  included — and closes on the click that reaches it. Escape still backs out one layer (`usePopin`).
 
 ### The GRAPH SLOT — what takes the graph's place
 
@@ -1058,8 +1079,11 @@ find the sound behind the symbol, which is `ChainsTab`'s `triggerRack` and has n
 
 `GraphSlotPane` is the shell and the title bar. The occupants supply a body and what to call it, and
 nothing else about the chrome — written per occupant they drift, into title bars at three type scales.
-**No bottom panel carries a ✕**: the footer's panel buttons and Escape close every one of them, and a
-second way per occupant is chrome that takes height from a panel that has only half the window. Three ways
+**Every bottom panel has a ✕ at its top left, and it takes no height** — a panel has only half the
+window, so the ✕ is never a row of its own. A view with a toolbar column (`ModeStrip`: the clip editors,
+a lane's modules) draws it as the column's FIRST item; any other view gets it floating over its corner.
+The view's toolbar CLAIMS it at mount (`components/PanelClose.tsx`), so a panel shows one ✕ whatever it
+holds. It runs `ui close`, as the footer's panel buttons and Escape do. Three ways
 to wear the frame, because the occupants genuinely differ:
 
 - **`title` (+ `note`)** — a name and a detail. The plain case.
@@ -1117,8 +1141,15 @@ overlap:
 Four answers to one question follow from that:
 
 - **`quietCommand`** — the gesture says *I will reload nothing*. A mixer knob, a mute, a warp point. It
-  passes `want: []` so no graph is built either, and whoever must move re-reads its own picture. The
-  `/revision` tick catches the rest within 2 s.
+  passes `want: []` so no graph is built either, and whoever must move re-reads its own picture. Its
+  token is adopted QUIETLY (`noteQuietRevision`): the tick compares against it, so it does not turn a
+  knob into a wave of re-reads — errors, plugins, tasks, the desk, the mastering graph — and `get`
+  never hands it out, so a component that re-renders for another reason does not pick it up either.
+  Only when the reply's `revBefore` is the token this tab already held, though: otherwise something
+  else landed in between — another tab, the CLI, a pull — and the write is announced like any tick.
+  The two that must still follow a knob take `useQuietWrites` as a second trigger: the open file,
+  which may be the one written, and the history, where the write is a row. A knob cannot break the
+  compile, so the errors waiting for the next real change is the accepted cost.
 - **`bypassModule`** — the gesture changes the GRAPH and nothing else. A module's on/off is the
   canvas's to redraw: it asks `want: ["graph"]`, draws the answer, and bumps no reload. The full
   reload was every route above re-asked over the tunnel — the compiled project recompiled — for one
@@ -1157,11 +1188,55 @@ because what they encode is a claim about the SERVICE that is not visible from h
   a note drawn, a stretch point placed or a curve point moved changes nothing the completion source
   carries. Anchored at the project root on purpose — a module may be called `clips`, and
   `modules/audio/clips/module.yaml` must not read as one.
+- **`movedTheChains`** — could the WIRING differ? No when only `tracks/`, `clips/`, `sequences/` or
+  `curves/` were written. Only the MIDI-in lanes key on it (`chainsKey`): `/graph` itself is not
+  arrangement-free, since a track's card lists its clips' extents and an automation label draws its
+  curve, so every view of the graph keeps the raw key.
+- **`movedTheSurfaces`** — only a file under `surfaces/` is read for `/surfaces`.
+- **`movedTheAudio`** — could there be a new waveform to prewarm? A placement, a clip, or any file that is
+  not YAML — an upload, a take, a render. A knob, a cable or a mute decodes nothing.
+
+Each consumer takes a counter of its own, `useScopedKey(reload, predicate)`, which moves only when its
+predicate says so — an effect's dependency rather than a test inside it, so a skipped reload costs no render.
+
+A mute or solo goes through the quiet path and then reloads with the files it wrote, not with `null`: it
+rewrites `graph.yaml` and nothing the surfaces or the prewarm read.
+
+**A graph a command hands back is tagged with the reload key it answers.** The chains pane takes it only
+at that key, and a new one is a trigger of its own, since a bypass returns one with no reload behind it.
+Without the tag, a graph handed back while the pane was hidden would be drawn when it was next shown, over
+a reload that came after it. A tag that turns out wrong costs a fetch, never a stale picture.
 
 **The limit, stated because it is real:** a clip's `source` also decides whether it is listed as an audio
 or a video clip. A command that repointed an *existing* clip from a wav to an mp4 would leave that one
-split stale until the next reload that does ask. What is deliberately still unscoped: `/project-doc`,
-`/graph` and `/project-errors`, which any project write can genuinely change.
+split stale until the next reload that does ask. What is deliberately still unscoped: `/project-doc`, `/graph`,
+`/project-errors` and `/video-doc`, which nearly any project write can genuinely change, and the open
+file's disk check, whose path is workspace-relative where `files` is project-relative.
+
+## A fault stays in its pane
+
+Every pane is mounted at once and hidden rather than unmounted, and in React an uncaught throw
+unmounts the ROOT — so one fault in a pane nobody is looking at would take the whole app with it
+mid-session. Each pane and panel therefore sits in a `PaneBoundary` ([`../src/PaneBoundary.tsx`](../src/PaneBoundary.tsx)):
+it draws a card with the message and a Retry, writes the fault to the Logs panel, and clears itself
+on the next reload, since new data is a new chance. One more wraps the whole tree in `appMain.tsx`,
+the last line before a white page. `createRoot`'s `onCaughtError` / `onUncaughtError` put every
+fault in the console with its component stack, and a promise nobody caught goes to the Logs panel.
+
+**A missing chunk is a deploy.** The open page names hashed files the server no longer has, so the
+first failed dynamic import reloads the page once ([`../src/chunkReload.ts`](../src/chunkReload.ts),
+on Vite's `vite:preloadError`), which fetches the new shell. A second failure within a minute is not
+a deploy and is left to the boundary to say. The backend answers a missing `/assets/*` with a 404
+rather than with `index.html`: served as a script, the page would fail on a MIME type and say
+nothing useful.
+
+**A failed read keeps what the view had.** A 4xx is the service's answer about the project — it
+does not compile, the file is not there — and replaces the view; a 5xx, a timeout or no answer
+says nothing about the project and does not ([`../src/readFailure.ts`](../src/readFailure.ts)). The
+surfaces list matters most: it decides which panes are MOUNTED, and a blip read as "none" would unmount
+the timeline, the viewport, the desk and the master strip, with their state. The DJ
+desk applies the same rule to its cue sheet, and writes no cue until it has read the sheet once —
+the write is the whole file.
 
 ## Live state does not re-render the tree
 
@@ -1303,22 +1378,16 @@ or not there is an icon — a half-decorated menu with a ragged left edge reads 
 
 The icons are **lucide**, already this app's icon set. What this page adds is resolving one BY NAME, which
 cannot be tree-shaken: everywhere else imports the icons it draws, while "whatever the person chose" is not
-known at build time. `lucideIcons.ts` loads the set through a dynamic import and caches it. A menu opened
-before that lands draws its labels and no icons — the honest degradation, since the label is what an entry
-MEANS.
+known at build time. `lucideIcons.ts` loads the set with `import("@frediverse/ui/icons/all")` and caches it.
+A menu opened before that lands draws its labels and no icons — the honest degradation, since the label is
+what an entry MEANS.
 
-**The split does not actually happen, which is worth knowing before trusting the paragraph above.** The
-`import()` buys deferred execution and no deferred download: some thirty components import their icons by
-name from `lucide-react`, so it is reachable statically from the first screen either way, and naming the
-namespace retains all ~1500 exports where tree-shaking keeps the forty this app draws.
-
-Since the entry was split (below) it *is* a chunk of its own — and that only made the price legible.
-Measured on a real build: **`lucide-react` is 621 KB, and the home page loads all of it** to draw about
-thirty icons. It is the largest single item on the first-paint path now that the editor is off it.
-
-The alternative is a curated subset, statically imported: instant, bounded, tree-shakeable, and offering
-two hundred icons where the ask was a complete library — a product decision rather than a refactor, which
-is why it has not been taken unasked.
+**The set is reached through its own module, and that is what makes the split real.** `icons/all` is lucide's
+per-icon index, a module the static imports never touch, so the bundle puts all ~1850 components in a chunk
+of their own, loaded the first time a name has to be resolved, while the static `@frediverse/ui/icons`
+imports tree-shake down to the icons the code draws. Read through the `@frediverse/ui/icons` namespace
+instead, the same lookup kept every icon in the first screen's chunk — about 190 KB gzipped to draw thirty.
+Measured on a build: the icon chunk is ~150 KB gzipped, and the home page carries none of it.
 
 ## The entry is split by ADDRESS, and the home page is what that is for
 
@@ -1329,13 +1398,20 @@ opening the app at `/` parsed and executed the entire editor — CodeMirror, dag
 stays blank for seconds, which reads as the app hanging rather than as a bundle being parsed.
 
 The four screens that are not the home page are therefore `lazy()`: `App`, `EngineGate`, `ExternalIndex`,
-`SharedGate` and `Settings`. One address is ever taken, so one of them is ever fetched.
+`SharedGate` and `Settings`. One address is ever taken, so one of them is ever fetched. `ProjectGate` loads
+`App` the same way and starts its download as it mounts, so the engine picker and the project gate draw while
+the editor arrives; an `import App` there would make every gate wait for the whole editor.
 
-| | before | after |
-|---|---|---|
-| **home page** | 3428 KB | **1186 KB** |
-| the entry chunk itself | 2562 KB | 51 KB |
-| opening a project | (already loaded) | +2175 KB, on demand |
+Inside the editor, what opens on demand loads on demand: the module and assembly builders, the video export
+(its muxer is the largest dependency there is), and the icon set (above). Measured on a production build, in
+gzip:
+
+| what | loads |
+|---|---|
+| **home page** | **~220 KB** |
+| the engine picker | ~245 KB, the editor downloading beside it |
+| opening a project | ~850 KB in all |
+| on demand | icons ~150 KB, video export ~135 KB, builders ~45 KB |
 
 What stays eager is what the home page actually draws: the gates, `Home`, and the shared vendor chunks.
 `Booting` is the one thing on screen while a split-out screen arrives — the window is already painted in

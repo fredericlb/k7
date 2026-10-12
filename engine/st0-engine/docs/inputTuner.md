@@ -36,15 +36,6 @@ instances for the devices that were already enabled when it was built. An input 
 that case, which is the whole point of the panel, so `channelLevelsDb` adds the instance itself. Once per
 device: `addWaveInputDeviceInstance` reallocates the graph, which is not something a 10 Hz poll may do.
 
-### `channelTap` is deliberately not `findWaveInput`
-
-`findWaveInput` matches a device only when its channel list is exactly the one asked for. That is the right
-rule for ROUTING a track — you take a device whole, mono or stereo — and the wrong one for measuring. An
-interface's inputs are usually paired into stereo devices, so asking for channel 2 alone matches nothing at all
-and reads as silence: a meter saying "nothing plugged in" because the rig pairs its inputs. `channelTap`
-instead answers where a 1-based channel actually LIVES — the device carrying it, and its index inside that
-device.
-
 ### A repeated channel must not build an empty ring
 
 `watch()` rebuilds its map of channel → ring, moving each surviving ring across rather than restarting its

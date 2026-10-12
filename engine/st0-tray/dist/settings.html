@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- settings.html — the tray's one window: everything the tray used to hold in submenus and
-     could not draw properly. Five tabs, because they answer five different questions and only
+     could not draw properly. Seven tabs, because they answer six different questions and only
      one of them is ever urgent. See engine/st0-tray/docs/tray.md. -->
 <html lang="en">
   <head>
@@ -14,6 +14,8 @@
       <button role="tab" data-panel="panel-plugins" aria-selected="false">Plugins</button>
       <button role="tab" data-panel="panel-sessions" aria-selected="false">Sessions</button>
       <button role="tab" data-panel="panel-instances" aria-selected="false">st0 instances</button>
+      <button role="tab" data-panel="panel-downloads" aria-selected="false">Downloads</button>
+      <button role="tab" id="tab-pairing" data-panel="panel-pairing" aria-selected="false">Paired devices</button>
       <button role="tab" data-panel="panel-system" aria-selected="false">System</button>
     </nav>
 
@@ -73,6 +75,32 @@
       </p>
     </section>
 
+    <section id="panel-downloads" role="tabpanel" hidden>
+      <p class="hint">
+        The sampled instruments the engine can play. None is downloaded until
+        you ask for it here: a module that names a missing one stays silent, and
+        st0 says which one it needs. Downloads run one at a time, and carry on
+        after a restart. <b>Remove</b> deletes the instrument from this machine.
+      </p>
+      <ul id="instruments"></ul>
+      <p id="instruments-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-pairing" role="tabpanel" hidden>
+      <p class="hint">
+        A phone or another computer on this network drives the engine only once
+        you approve it here. <b>Approve</b> only when the code below is the one
+        the device shows: anyone on the network can ask. A request expires after
+        two minutes. <b>Revoke</b> cuts a paired device off at once.
+      </p>
+      <p class="subhead">Waiting for approval</p>
+      <ul id="pair-requests"></ul>
+      <p id="pair-requests-empty" class="empty" hidden></p>
+      <p class="subhead">Paired</p>
+      <ul id="paired-devices"></ul>
+      <p id="paired-devices-empty" class="empty" hidden></p>
+    </section>
+
     <section id="panel-system" role="tabpanel" hidden>
       <ul id="system"></ul>
       <p id="adopted" class="hint" hidden>
@@ -85,6 +113,8 @@
         <button id="engine-restart" type="button">Restart</button>
       </div>
     </section>
+    <script src="downloads.js"></script>
+    <script src="pairing.js"></script>
     <script src="settings.js"></script>
   </body>
 </html>

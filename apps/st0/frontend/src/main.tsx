@@ -4,6 +4,9 @@
 // See apps/st0-desktop/docs/tabs.md.
 
 import { isTabs, parseLaunch } from "@studio/project-shell/launch";
+import { reloadForChunk, reloadOnChunkError } from "./chunkReload";
+
+reloadOnChunkError();
 
 const at = parseLaunch(
   window.location.pathname,
@@ -12,5 +15,14 @@ const at = parseLaunch(
 );
 
 // Dynamic on BOTH arms: a static import is hoisted, so one would cost the other everything.
-if (at !== null && isTabs(at.repo)) void import("./tabs/mountStrip");
-else void import("./appMain");
+// …and the first chunk has no boundary above it: a failure past the one reload is said in the page itself.
+const boot =
+  at !== null && isTabs(at.repo)
+    ? import("./tabs/mountStrip")
+    : import("./appMain");
+boot.catch((e: unknown) => {
+  if (reloadForChunk()) return;
+  const root = document.getElementById("root");
+  if (root)
+    root.textContent = `st0 could not load (${(e as Error)?.message ?? e}) — reload the page.`;
+});

@@ -72,17 +72,21 @@ Settings settingsFrom(const nlohmann::json& raw)
                 !v.empty() && std::find(s.audioPriority.begin(), s.audioPriority.end(), v) == s.audioPriority.end())
                 s.audioPriority.push_back(v);
     s.onnxProviders = normaliseProviders(raw.value("onnxProviders", nlohmann::json()));
+    // An array, even an empty one, is a choice; anything else is "never chosen", which a boot settles.
+    if (auto it = raw.find("instruments"); it != raw.end() && it->is_array()) s.instruments = uniqueStrings(*it);
     return s;
 }
 
 nlohmann::json settingsJson(const Settings& s)
 {
-    return {
+    nlohmann::json j = {
         {"registryUrls", s.registryUrls},
         {"port", s.port},
         {"audioPriority", s.audioPriority},
         {"onnxProviders", s.onnxProviders},
     };
+    if (s.instruments) j["instruments"] = *s.instruments;
+    return j;
 }
 
 Settings loadSettings()

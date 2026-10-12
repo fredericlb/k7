@@ -78,16 +78,18 @@ rebuilt by the first edit that re-inserted it.
 
 ## The master chain is compared whole
 
-`sameMasterChain` compares **in order**, unlike a track's plugin diff, which indexes by key: the
+`sameMasterRun` compares **in order**, unlike a track's plugin diff, which indexes by key: the
 master list *is* a signal order, and swapping the compressor and the EQ changes the sound while
-leaving both keys present. It compares identity, what each module loads, the bypass and the
-parameter values.
+leaving both keys present. It compares identity, what each module loads and a pattern's source —
+everything that decides WHICH instances sit on the bus, and where.
 
-Any difference at all is one `MasterChainChanged` and a **full rebuild**. Two reasons the
-incremental path does not pay here: the master list is not addressed by it (that one walks
-tracks), and editing the mix bus is a mixing decision taken between passes, not a knob turned
-while the song runs — where a track's plugin list is exactly the opposite. The cost is that
-changing the master chain stops playback. The song side is `packages/song/docs/masterChain.md`.
+Another run is one `MasterChainChanged` and a **full rebuild**, which stops playback: placing a
+module mid-list in the live Edit is not something the incremental path does, and changing the mix
+bus's shape is a decision taken between passes. The SAME run with a knob or a bypass moved is
+not: those are the per-plugin `PluginParamChanged` / `PluginEnabledChanged` a track emits, with an
+empty `trackId`, applied in place — the master modules are in `pluginsById` like any other, and a
+rebuild for a turned knob costs seconds and every tail. The song side is
+`packages/song/docs/masterChain.md`.
 
 ## Sends are planned for the whole song at once
 

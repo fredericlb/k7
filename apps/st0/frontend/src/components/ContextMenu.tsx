@@ -2,13 +2,56 @@
 // each command, reports what the one under the pointer DOES through `onHint`, and on a pick
 // PRE-WRITES its line into the bar (see contextMenu.ts). One instance lives in App; both surfaces
 // open it through openContextMenu. Dismisses on Escape, an outside click, a scroll, or losing
-// focus.
+// focus. Its rows are split into icon TABS, one per kind of thing they act on (menuTabs.ts).
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  AppWindow,
+  AudioWaveform,
+  Box,
+  Ellipsis,
+  Film,
+  FolderOpen,
+  Group,
+  ListMusic,
+  ListTodo,
+  type LucideIcon,
+  Music,
+  Network,
+  Package,
+  Play,
+  RectangleHorizontal,
+  Rows3,
+  Settings,
+  Spline,
+  SquareDashed,
+} from "@frediverse/ui/icons";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type CommandPrefs, labelIn } from "../commandPrefs";
 import type { MenuItem } from "../contextMenu";
 import { useLocale } from "../i18n";
 import { useIcons } from "../lucideIcons";
+import { menuTabs } from "../menuTabs";
+
+/** One drawing per kind of thing a row acts on — the command's first word; an unknown one gets the ellipsis. */
+const TAB_ICONS: Record<string, LucideIcon> = {
+  ui: AppWindow,
+  event: RectangleHorizontal,
+  track: Rows3,
+  node: Box,
+  module: Package,
+  sequence: Music,
+  clip: AudioWaveform,
+  curve: Spline,
+  project: FolderOpen,
+  transport: Play,
+  picture: Film,
+  graph: Network,
+  playlist: ListMusic,
+  task: ListTodo,
+  assembly: Group,
+  selection: SquareDashed,
+  system: Settings,
+};
 
 export function ContextMenu({
   items,
@@ -37,7 +80,15 @@ export function ContextMenu({
   const ref = useRef<HTMLDivElement>(null);
   // Start at the click, then clamp into the viewport once we can measure the menu.
   const [pos, setPos] = useState({ x, y });
+  // The rows by tab, and the tab on show: the first, which is the thing you clicked, on every new menu.
+  const tabs = useMemo(() => menuTabs(items), [items]);
+  const [tab, setTab] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new list of rows is a new menu, opened on its first tab.
+  useEffect(() => setTab(0), [items]);
+  const shown = tabs[Math.min(tab, tabs.length - 1)]?.items ?? [];
 
+  // Clamped into the viewport on opening, and again on a tab switch: another tab is another height.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tab` is a trigger — the new rows are measured from the DOM.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -46,7 +97,7 @@ export function ContextMenu({
       x: Math.max(8, Math.min(x, window.innerWidth - r.width - 8)),
       y: Math.max(8, Math.min(y, window.innerHeight - r.height - 8)),
     });
-  }, [x, y]);
+  }, [x, y, tab]);
 
   useEffect(() => {
     // Capture, so an outside click dismisses before it acts; a pointerdown inside is left to the button's onClick.
@@ -57,6 +108,15 @@ export function ContextMenu({
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
+      }
+      // Left and right walk the tabs, as they do in any tab strip.
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.stopPropagation();
+        e.preventDefault();
+        setTab((t) => {
+          const n = tabCount.current;
+          return n ? (t + (e.key === "ArrowLeft" ? n - 1 : 1)) % n : 0;
+        });
       }
     };
     window.addEventListener("pointerdown", down, true);
@@ -70,6 +130,9 @@ export function ContextMenu({
       window.removeEventListener("scroll", onClose, true);
     };
   }, [onClose]);
+  // Read by the key handler, which is bound once.
+  const tabCount = useRef(tabs.length);
+  tabCount.current = tabs.length;
 
   // The menu going takes its line with it, or the last thing hovered would read as something the app just did.
   useEffect(() => () => onHint?.(""), [onHint]);
@@ -86,7 +149,37 @@ export function ContextMenu({
       // One handler for the whole list: leaving the menu by the gap between two rows should clear the line, and only the container sees that.
       onPointerLeave={() => onHint?.("")}
     >
-      {items.map((it) => {
+      {/* The tabs, as icons, only when the rows act on more than one kind of thing — a lone tab would say nothing. */}
+      {tabs.length > 1 && (
+        <div
+          role="tablist"
+          className="sticky top-0 z-10 -mt-1 mb-1 flex gap-0.5 border-border border-b bg-popover px-1 pt-1"
+        >
+          {tabs.map((t, i) => {
+            const Icon = TAB_ICONS[t.tab] ?? Ellipsis;
+            const on = i === Math.min(tab, tabs.length - 1);
+            return (
+              <button
+                key={t.tab}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-label={t.tab}
+                title={`${t.tab} (${t.items.length})`}
+                onClick={() => setTab(i)}
+                className={`flex h-7 w-8 items-center justify-center rounded-t-sm ${
+                  on
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {shown.map((it) => {
         const pref = prefs[it.verb];
         const Icon = pref?.icon ? icons?.[pref.icon] : undefined;
         return (

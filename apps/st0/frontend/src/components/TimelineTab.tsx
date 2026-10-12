@@ -33,6 +33,7 @@ import {
   parsePosition,
 } from "@studio/song-schema/timecode";
 import { trackLabel } from "@studio/song-schema/trackKind";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import {
   GUTTER_DESKTOP,
   GUTTER_MOBILE,
@@ -49,6 +50,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -143,6 +145,15 @@ const EXPAND_EXTRA = 40;
 // The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4;
+
+/** The part of the lanes that draws its clips, in px: lane x, rows' y — docs/timeline.md, "Only the clips near the screen are drawn". */
+type ClipWindow = { x0: number; x1: number; y0: number; y1: number };
+const WHOLE: ClipWindow = {
+  x0: -Infinity,
+  x1: Infinity,
+  y0: -Infinity,
+  y1: Infinity,
+};
 /** No command in flight: one shared empty list, so the lanes' memo inputs do not change for nothing. */
 const NO_PENDING: readonly PendingEdit[] = []; // beats drawn for a length-0 clip
 const DBLCLICK_MS = 500; // the longest gap the OS default lets a double-click have
@@ -871,6 +882,9 @@ export function TimelineTab({
 
   // Keep the scroll offset across a pane switch — a display:none box has no layout to hold it. See docs/timeline.md.
   const savedScroll = useRef({ left: 0, top: 0 });
+  // Once loaded, not per reload: the scroller exists only after the first document, and on mount there is none to hold.
+  const loaded = !!proj;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `loaded` gates the scroller's existence.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -892,7 +906,43 @@ export function TimelineTab({
       el.removeEventListener("scroll", remember);
       ro.disconnect();
     };
+  }, [loaded]);
+
+  // The viewport plus a screen each way, snapped to half-screens so a scroll re-renders only when it crosses one.
+  const [clipWin, setClipWin] = useState<ClipWindow>(WHOLE);
+  const readClipWin = useCallback(() => {
+    const el = scrollRef.current;
+    // A hidden pane measures 0: keep the window it had, it is what comes back.
+    if (!el?.clientWidth || !el.clientHeight) return;
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    const sx = Math.floor(el.scrollLeft / (w / 2)) * (w / 2);
+    const sy = Math.floor(el.scrollTop / (h / 2)) * (h / 2);
+    const next = { x0: sx - w, x1: sx + 2 * w, y0: sy - h, y1: sy + 2 * h };
+    setClipWin((cur) =>
+      cur.x0 === next.x0 &&
+      cur.x1 === next.x1 &&
+      cur.y0 === next.y0 &&
+      cur.y1 === next.y1
+        ? cur
+        : next,
+    );
   }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `proj` gates the scroller's existence.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", readClipWin, { passive: true });
+    const ro = new ResizeObserver(readClipWin);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", readClipWin);
+      ro.disconnect();
+    };
+  }, [proj, readClipWin]);
+  // Before paint, after useHZoom's own layout effect has moved scrollLeft: a zoom must not draw one frame of missing clips.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are the triggers, the reading is off the DOM.
+  useLayoutEffect(readClipWin, [zoomX, paneW, beatLo, beatHi, readClipWin]);
 
   // Keep the caret somewhere it can actually be: rows come and go, and not every row can hold a beat.
   const clampCaret = useCallback(
@@ -1010,6 +1060,8 @@ export function TimelineTab({
   } | null>(null);
   // Read by the gutter's own onClick: a drag that moved must not also read as the click that selects the row.
   const rowMoved = useRef(false);
+  // Every window-level drag here follows ONE pointer and abandons on a cancel — @studio/ui-timeline/drag.
+  const follow = usePointerFollow();
 
   const beginRowDrag = useCallback(
     (e: React.PointerEvent, row: Row) => {
@@ -1032,18 +1084,16 @@ export function TimelineTab({
         setRowDrag({ family: from.family, lane: from.lane, over });
       };
       const onUp = () => {
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
         setRowDrag((d) => {
           // A drop on nothing, or on the lane's own row, writes nothing: there is no move to journal.
           if (d?.over && d.over !== d.lane) onReorder(d.family, d.lane, d.over);
           return null;
         });
       };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
+      // A cancel drops the lane where it was: the next click elsewhere must not complete the move.
+      follow(e, { move: onMove, end: onUp, cancel: () => setRowDrag(null) });
     },
-    [readOnly, onReorder, rows],
+    [readOnly, onReorder, rows, follow],
   );
 
   // The gutter is the row's handle on all three kinds of row, paired with `select-none`: a double-click would else select the name.
@@ -1236,8 +1286,6 @@ export function TimelineTab({
               `crossfade ${lenAt(m.clientX)} beat(s) — release to set it`,
             );
           const up = (u: PointerEvent) => {
-            window.removeEventListener("pointermove", move);
-            window.removeEventListener("pointerup", up);
             const len = alt ? 0 : lenAt(u.clientX);
             const dur =
               len > 0
@@ -1247,8 +1295,11 @@ export function TimelineTab({
               `event crossfade ${track.id} ${tc(pair.a.start)} ${tc(pair.b.start)} ${dur}`,
             );
           };
-          window.addEventListener("pointermove", move);
-          window.addEventListener("pointerup", up);
+          follow(e, {
+            move,
+            end: up,
+            cancel: () => setStatus("crossfade dropped"),
+          });
           return;
         }
         const act = toolLine(toolRef.current, {
@@ -1289,7 +1340,7 @@ export function TimelineTab({
         dragging: true,
       });
     },
-    [readOnly, onToolLine, setStatus],
+    [readOnly, onToolLine, setStatus, follow],
   );
 
   // Resizing an event by its edge, kept apart from the move drag: a resize changes start AND length and never leaves the lane.
@@ -1429,6 +1480,8 @@ export function TimelineTab({
   vdragRef.current = vdrag;
   // The ruler's drawn ticks (in beats) and the beats-per-second, assigned during render below and read on pointerdown.
   const ticksRef = useRef<number[]>([]);
+  // …and the list itself, kept until what draws it changes (built far below, past an early return no hook may follow).
+  const ticksCache = useRef<{ key: string; beats: number[] } | null>(null);
   const bpsRef = useRef(1);
   const onVideoEditRef = useRef(onVideoEdit);
   onVideoEditRef.current = onVideoEdit;
@@ -1498,6 +1551,11 @@ export function TimelineTab({
     setVDrag({ ...v, pending: true });
     write(v.trackId, videoDragEdits(v));
   }, [setStatus]);
+
+  // The browser took the gesture: the shot goes back where it was, and nothing is written.
+  const cancelVideoDrag = useCallback(() => {
+    setVDrag((v) => (v && !v.pending ? null : v));
+  }, []);
 
   // The reload landed, so the compiler's answer replaces the drag's guess — the same rule the clip move follows.
   useEffect(() => {
@@ -1607,6 +1665,13 @@ export function TimelineTab({
     }
     commitMoveRef.current();
   }, [moveArgs, setStatus, coverClip]);
+
+  /** The browser took the gesture away — a system swipe, palm rejection: the clip goes back, and nothing is written. */
+  const cancelClipDrag = useCallback(() => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setMove(null);
+  }, []);
 
   /** A clip's double-click: its contents in the event panel. */
   const openClip = useCallback(
@@ -2170,17 +2235,22 @@ export function TimelineTab({
     bps,
     lastBeat,
   );
-  // The drawn ticks, for the gestures that SNAP to one — built from the shared helper rather than taken as a prop, which would defeat the memo.
-  const bars = rulerTicks(
-    rulerMode,
-    beatLo,
-    lastBeat,
-    unit,
-    barBeats,
-    bps,
-    secStep,
-  ).map((t) => t.beat);
-  // Read by the picture drag on pointerdown, so a shot snaps to the lines actually on screen (see beginVideoDrag).
+  // The drawn ticks, for the gestures that SNAP to one — cached on what draws them: built whole, they are up to ~190 000 entries a render.
+  const ticksKey = `${rulerMode}|${beatLo}|${lastBeat}|${unit}|${barBeats}|${bps}|${secStep}`;
+  if (ticksCache.current?.key !== ticksKey)
+    ticksCache.current = {
+      key: ticksKey,
+      beats: rulerTicks(
+        rulerMode,
+        beatLo,
+        lastBeat,
+        unit,
+        barBeats,
+        bps,
+        secStep,
+      ).map((t) => t.beat),
+    };
+  const bars = ticksCache.current.beats;
   ticksRef.current = bars;
   bpsRef.current = bps;
   /** …and the step a CLIP drag moves in, in beats: whatever the ruler is drawing, snapping the OFFSET rather than the resulting position. */
@@ -2270,6 +2340,16 @@ export function TimelineTab({
         h + (r.kind === "group" || r.kind === "automation" ? ROW_H : rowH),
       0,
     );
+  // Each row's top under the ruler, the y the clip window is tested against; the ruler's own height sits inside the margin.
+  const rowTops: number[] = [];
+  visRows.reduce((y, r) => {
+    rowTops.push(y);
+    return y + (r.kind === "group" || r.kind === "automation" ? ROW_H : rowH);
+  }, 0);
+  const rowNear = (ri: number, h: number) =>
+    rowTops[ri] + h >= clipWin.y0 && rowTops[ri] <= clipWin.y1;
+  const xNear = (left: number, w: number) =>
+    left + w >= clipWin.x0 && left <= clipWin.x1;
 
   return (
     // min-w-0: without it the fixed-width lane sets this flex child's min width and the fit-to-pane scale ratchets.
@@ -2511,10 +2591,19 @@ export function TimelineTab({
                       // Horizontal drag → selection
                       if (!dragged && Math.abs(dx) <= GESTURE_SLOP) return;
                       dragged = true;
-                      setSel({
-                        anchor: { row: firstRow, beat: startBeat },
-                        head: { row: lastRow, beat: cellAt(ev.clientX) },
-                      });
+                      const headBeat = cellAt(ev.clientX);
+                      setSel((s) =>
+                        s &&
+                        s.anchor.row === firstRow &&
+                        s.anchor.beat === startBeat &&
+                        s.head.row === lastRow &&
+                        s.head.beat === headBeat
+                          ? s
+                          : {
+                              anchor: { row: firstRow, beat: startBeat },
+                              head: { row: lastRow, beat: headBeat },
+                            },
+                      );
                     }
                   };
                   const onUp = () => {
@@ -2856,6 +2945,12 @@ export function TimelineTab({
                           ppb,
                           toBeats(provisional ? V_NATURAL : length) * ppb,
                         );
+                        // Off screen and not in hand: nothing to draw — see ClipWindow.
+                        if (
+                          !live &&
+                          !(rowNear(ri, ROW_H) && xNear(x(toBeats(start)), w))
+                        )
+                          return null;
                         return (
                           <div
                             // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
@@ -2865,7 +2960,7 @@ export function TimelineTab({
                             }
                             onPointerMove={onVideoDragMove}
                             onPointerUp={commitVideoDrag}
-                            onPointerCancel={commitVideoDrag}
+                            onPointerCancel={cancelVideoDrag}
                             onContextMenu={(e) => {
                               // The shot's own start, not the pointer's: that is what the `picture …` verbs address it by.
                               e.preventDefault();
@@ -3212,23 +3307,21 @@ export function TimelineTab({
                             .elementFromPoint(ev.clientX, ev.clientY)
                             ?.closest?.("[data-sel-row]")
                             ?.getAttribute("data-sel-row") as RowKey | null;
-                          setSel(
-                            (s) =>
-                              s && {
-                                ...s,
-                                head: clampCell({
-                                  row: key ?? s.head.row,
-                                  beat: cellAt(ev.clientX),
-                                }),
-                              },
-                          );
+                          // A move that lands in the same cell keeps the same selection, and re-renders nothing.
+                          setSel((s) => {
+                            if (!s) return s;
+                            const head = clampCell({
+                              row: key ?? s.head.row,
+                              beat: cellAt(ev.clientX),
+                            });
+                            return head.row === s.head.row &&
+                              head.beat === s.head.beat
+                              ? s
+                              : { ...s, head };
+                          });
                         };
-                        const onSelUp = () => {
-                          window.removeEventListener("pointermove", onSelMove);
-                          window.removeEventListener("pointerup", onSelUp);
-                        };
-                        window.addEventListener("pointermove", onSelMove);
-                        window.addEventListener("pointerup", onSelUp);
+                        // The rectangle stays as drawn on a release or a cancel alike; only the pointer stops steering it.
+                        follow(e, { move: onSelMove });
                         return;
                       }
                       if (e.target !== e.currentTarget) return;
@@ -3384,6 +3477,16 @@ export function TimelineTab({
                             const drawW = resizing
                               ? (resize.end - resize.start) * ppb
                               : w;
+                            // Off screen and not in hand: nothing to draw — see ClipWindow.
+                            if (
+                              !moving &&
+                              !resizing &&
+                              !(
+                                rowNear(ri, rowH) &&
+                                xNear(x(drawStart), Math.max(ppb, drawW))
+                              )
+                            )
+                              return null;
                             return (
                               <div
                                 // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
@@ -3393,7 +3496,7 @@ export function TimelineTab({
                                 onPointerDown={(e) => beginClipDrag(e, t, c)}
                                 onPointerMove={onClipDragMove}
                                 onPointerUp={endClipDrag}
-                                onPointerCancel={endClipDrag}
+                                onPointerCancel={cancelClipDrag}
                                 // A double-click opens the clip; a RENDER opens the notes it was made from, the authored MIDI clip under the pointer (docs/timeline.md).
                                 onDoubleClick={(e) =>
                                   c.frozen && t.frozenMaterial

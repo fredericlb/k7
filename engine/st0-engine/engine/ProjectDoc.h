@@ -30,6 +30,13 @@ struct RackEntry {
     bool operator!=(const RackEntry& o) const { return !(*this == o); }
 };
 
+/** One tap of a multi-output instrument: the note it plays, and the output pair it leaves by (docs/tapOutputs.md). */
+struct TapOut {
+    int note = 0;
+    int pair = 0;
+    bool operator==(const TapOut& o) const { return note == o.note && pair == o.pair; }
+};
+
 struct PluginDoc {
     std::string id;                                    // stable id; falls back to index if empty
     std::string type;                                  // "vst3", "au", "builtin"... ("sampler" for a rack)
@@ -61,6 +68,8 @@ struct PluginDoc {
     std::string sidechainFrom;
     std::unordered_map<std::string, double> params;    // param name -> normalised value
     std::vector<RackEntry> rack;                        // rack sounds (type "sampler"); empty for a plain plugin
+    // Taps that leave by an OUTPUT PAIR of their own (pair 0 is the main one): the plugin then lives in a RackType (docs/tapOutputs.md).
+    std::vector<TapOut> tapOuts;
 };
 
 // A single MIDI note within a ClipDoc (beats are relative to the clip).
@@ -110,6 +119,8 @@ struct ClipDoc {
     // Which of the two fades is half of a CROSSFADE with a neighbour: those take an equal-power curve (song docs/takes.md).
     bool crossfadeIn = false;
     bool crossfadeOut = false;
+    // AUDIO only: the event's own trim in dB, ±6, on the clip and so before the lane's chain (song-edit docs/eventGain.md).
+    float gainDb = 0.0f;
     Beats loopStart = 0.0;
     Beats loopEnd = 0.0;  // 0 == no loop
     std::vector<NoteDoc> notes;   // midi only
@@ -139,7 +150,6 @@ struct TrackDoc {
     std::string id;       // STABLE identity across edits — never derive from index
     std::string name;
     std::string role;           // "regular" | "effect" | "master"
-    std::string contentType;    // "audio" | "notes" | "audio notes"
     std::string color;
     // No volume and no pan: those are a MIXER MODULE at the end of the chain (MixerPlugin), arriving as plugin params.
     bool mute = false;
@@ -156,6 +166,9 @@ struct TrackDoc {
     std::vector<PluginDoc> plugins;
     std::vector<ClipDoc> clips;
     std::vector<SendDoc> sends;
+    // Fed by ONE output pair of a multi-output instrument on another track, instead of by clips (docs/tapOutputs.md).
+    std::string inputFromPlugin;
+    int inputFromPair = 0;
     std::vector<AutomationDoc> automation;
 };
 

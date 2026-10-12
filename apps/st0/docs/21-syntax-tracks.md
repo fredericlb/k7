@@ -83,6 +83,7 @@ events:
   - { ref: kick, start: "1:1:1" }
   - { ref: snare, start: "2:1:1", loop: 4 }   # four passes of the snare's window, back to back
   - { ref: kick, start: "6:1:1", fadeIn: "0:1:0", fadeOut: "0:1:0" }
+  - { ref: kick, start: "8:1:1", gain: -2 }   # this event alone, 2 dB down
 
 # Timecodes are always written QUOTED. Under YAML 1.2 (what we read) bare
 # 1:1:1 is already a string — but under 1.1 it is the number 3661.
@@ -101,6 +102,18 @@ event fadein  gtr 2:1:1 0:1     # one beat in
 event fadeout gtr 2:1:1 0:2     # two beats out
 event fadeout gtr 2:1:1 0       # …and gone — the field is removed, not written as zero
 ```
+
+`gain` is **this event's own level**, in dB from −6 to +6, applied to the clip before the lane's
+chain: a take that came in hotter than its neighbours is brought down here, not on the lane's fader,
+which would move them all. It is the **gain** slider in the clip panel's header, or:
+
+```
+event gain gtr 2:1:1 -1.5       # a dB and a half down
+event gain gtr 2:1:1 0          # back to unity — the field is removed
+```
+
+Only an audio event has one. A sequence's events all play through the lane's one instrument, so
+there is no level that is one event's alone; its notes' velocities are how it gets louder.
 
 ## nodes/<name>.yaml — sequences
 

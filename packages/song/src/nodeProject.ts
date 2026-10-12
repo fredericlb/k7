@@ -21,7 +21,8 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import { materialRefOf, placementId } from "@studio/song-schema/placementId";
 import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
-import { orderTracks } from "@studio/song-schema/trackKind";
+import { autoColors } from "@studio/song-schema/trackColor";
+import { orderTracks, trackCategory } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
 import { isSurgePatch } from "./basePreset";
@@ -95,6 +96,7 @@ import {
   parseSettings,
 } from "./project";
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
+import { tapFeedsOf, tapOutsFor, tapPairs } from "./tapOuts";
 import { lanesOf, type Material } from "./trackModule";
 
 // Re-exported from @studio/song-schema, and imported too because `export … from` binds no local name (docs/graphModel.md).
@@ -125,6 +127,8 @@ function placementToClip(
   };
   // How many times the material's window is played, back to back. Absent is one pass.
   const loops = Math.max(1, Math.floor(Number(p.loop ?? 1)) || 1);
+  // The event's own trim, clamped as the schema bounds it; 0 is unity and is sent as nothing (song-edit docs/eventGain.md).
+  const gain = Math.max(-6, Math.min(6, Number(p.gain ?? 0) || 0));
   // The placement's own words, kept UNMERGED beside the resolved answer and holding only what the file said (docs/graphModel.md).
   const evWin = (v: unknown): number | string | undefined =>
     typeof v === "number" || (typeof v === "string" && v !== "")
@@ -136,6 +140,7 @@ function placementToClip(
     ...(p.fadeIn ? { fadeIn: String(p.fadeIn) } : {}),
     ...(p.fadeOut ? { fadeOut: String(p.fadeOut) } : {}),
     ...(loops > 1 ? { loop: loops } : {}),
+    ...(gain ? { gain } : {}),
     ...(p.disabled ? { disabled: true } : {}),
     // `false` is the only value that says anything here, exactly as the file spells it.
     ...(p.warp === false ? { warp: false } : {}),
@@ -210,6 +215,7 @@ function placementToClip(
       type: "audio",
       source: resolve(dir, String(cm.source)),
       ...(winBeats > 0 ? { length: winBeats * loops } : {}),
+      ...(gain ? { gainDb: gain } : {}),
       ...(loops > 1 && winBeats > 0
         ? {
             // Beats into the SOURCE, like the window they come from — the in-point is applied separately.
@@ -444,6 +450,8 @@ function compileNodeProjectIn(
   const bypassed = bypassedOf(rawChains);
   // Kept apart from `bypassed` on purpose: one says the module is off, the other where the signal goes.
   const busOnly = busOnlyOf(rawChains);
+  // Taps of a rack node that leave by a pair of their own, each feeding a subchain's run (docs/racks.md).
+  const routedTaps = tapPairs(tapFeedsOf(rawChains));
   // Read WITH their issues: a rejected clip is dropped from the map, and its own complaint is what stops the ref reading as "not found".
   const clipsRead = readYamlEntities(dir, "clips");
   const clipsMap = clipsRead.values as Record<string, RawClip>;
@@ -498,11 +506,16 @@ function compileNodeProjectIn(
         );
       // A sequence's notes are inline — its presence in seqMap is the whole check.
 
-      // Repeating needs a known end, so an audio clip placed with a loop must say `to` — see docs/graphModel.md.
-      const loops = Number(p?.loop ?? 1);
-      if (clip && loops > 1 && clip.to == null)
+      // A trim is a CLIP gain, which only audio has: a MIDI event shares its lane's instrument (song-edit docs/eventGain.md).
+      if (!clip && seq && Number(p?.gain ?? 0) !== 0)
         refErrs.push(
-          `track '${trackId}': clip '${ref}' is placed with loop: ${loops}, but declares no 'to' — a repeat needs the window's end`,
+          `track '${trackId}': sequence '${ref}' is placed with a gain, which only an audio event has — its notes' velocities are the way to change it`,
+        );
+      // Repeating needs a known end — the clip's `to` or the event's own, the window being the two intersected (docs/graphModel.md).
+      const loops = Number(p?.loop ?? 1);
+      if (clip && loops > 1 && clip.to == null && p?.to == null)
+        refErrs.push(
+          `track '${trackId}': clip '${ref}' is placed with loop: ${loops}, but neither it nor the event says 'to' — a repeat needs the window's end`,
         );
     }
   // The pattern file must exist; whether it HAS the named lane needs it evaluated, so the engine reports that.
@@ -524,6 +537,8 @@ function compileNodeProjectIn(
     lanesMap,
     clipsMap,
     seqMap,
+    {},
+    new Set(tapFeedsOf(rawChains).map((f) => f.to)),
   );
   if (inputErrs.length)
     throw new Error(
@@ -570,12 +585,37 @@ function compileNodeProjectIn(
     inputChains.add(name);
   }
 
-  // The track id a chain contributes to: its source track, its own bus track, or its own INPUT
-  // track — all three being the chain's own NAME.
+  // A run fed by a routed tap owns a track too: the instrument's pair is returned at its front (docs/racks.md).
+  const tapChains = new Map<string, { node: string; pair: number }>();
+  for (const list of routedTaps.values())
+    for (const t of list) {
+      const run = Object.entries(chains).find(
+        ([, c]) => !c.from && c.use[0]?.module === t.to,
+      );
+      if (run) tapChains.set(run[0], { node: t.node, pair: t.pair });
+    }
+  // …and every tap a node routes must have reached one: a subchain that does not exist would swallow it silently.
+  for (const [node, m] of Object.entries(modulesMap)) {
+    const outs = (m as { tap_outs?: Record<string, string> } | undefined)
+      ?.tap_outs;
+    for (const [tap, sub] of Object.entries(outs ?? {}))
+      if (!routedTaps.get(node)?.some((t) => t.tap === tap))
+        throw new Error(
+          `node '${node}': tap '${tap}' is routed to '${sub}', which is not a subchain of its chain file`,
+        );
+  }
+  // The plugin each rack node became, for the tracks its taps feed.
+  const pluginOfNode = new Map<string, string>();
+
+  // The track id a chain contributes to: its source track, its own bus track, its own INPUT
+  // track, or the track a tap feeds — all four being the chain's own NAME.
   const ownerOf = (name: string, c: Chain): string =>
     isMasterChain(c)
       ? MASTER_OWNER
-      : isTrackFed(c) || busChains.has(name) || inputChains.has(name)
+      : isTrackFed(c) ||
+          busChains.has(name) ||
+          inputChains.has(name) ||
+          tapChains.has(name)
         ? name
         : "";
 
@@ -621,6 +661,8 @@ function compileNodeProjectIn(
   };
 
   const trackPlugins: Record<string, PluginDoc[]> = {};
+  // Each lane's module refs and types, the last word on its category when its name says none.
+  const laneHints: Record<string, string[]> = {};
   const trackSends: Record<string, SendDoc[]> = {};
   // Collected here, baked into breakpoints below once the song's length (for LFO sampling) is known.
   const rawAutomations: {
@@ -650,6 +692,12 @@ function compileNodeProjectIn(
             trigger: String(a.trigger ?? step.module),
           });
       if (!module) continue; // dangling module ref — already reported by the ref-check loop
+      // What the lane plays, in chain order, for a name that does not say its category itself (trackColor.ts).
+      laneHints[owner] = [
+        ...(laneHints[owner] ?? []),
+        String(module.extends ?? ""),
+        String(resolvedType(module) ?? ""),
+      ];
       if (module.kind !== "plugin") continue; // an io module contributes no track processor
       // A rack compiles to a SamplerPlugin, checked BEFORE plugin.type since a rack module carries no `plugin`.
       if (resolvedType(module) === "rack") {
@@ -681,6 +729,8 @@ function compileNodeProjectIn(
             sounds.push({ symbol, note, clip: clipAbs, start: 0, length: 0 });
           }
         }
+        const routed = routedTaps.get(step.module) ?? [];
+        pluginOfNode.set(step.module, `${name}:${step.module}`);
         (trackPlugins[owner] ??= []).push({
           id: `${name}:${step.module}`,
           type: "sampler", // Tracktion's built-in note->sample instrument
@@ -691,6 +741,15 @@ function compileNodeProjectIn(
           enabled: c.enabled !== false && step.enabled !== false,
           params: {},
           rack: sounds,
+          // Routed taps leave by pairs of their own (engine docs/tapOutputs.md).
+          ...(routed.length
+            ? {
+                tapOuts: tapOutsFor(step.module, routed, (tap) => {
+                  const n = rack.symbols[tap]?.note;
+                  return n === undefined ? undefined : Number(n);
+                }),
+              }
+            : {}),
         });
         continue;
       }
@@ -751,6 +810,19 @@ function compileNodeProjectIn(
         ...(typeof module.params?.sfz === "string" && module.params.sfz
           ? { sfzFile: module.params.sfz }
           : {}),
+        // …and a kit's pads routed to subchains, by the notes its `kit:` names (engine docs/tapOutputs.md).
+        ...(() => {
+          const routed = routedTaps.get(step.module) ?? [];
+          if (!routed.length) return {};
+          pluginOfNode.set(step.module, `${name}:${step.module}`);
+          return {
+            tapOuts: tapOutsFor(
+              step.module,
+              routed,
+              (tap) => module.kit?.[tap],
+            ),
+          };
+        })(),
         // A Surge XT patch is a base like any other, loaded by the synth itself (engine docs/surgePlugin.md).
         ...(isSurgePatch(module.preset)
           ? { surgePatch: String(module.preset) }
@@ -1032,8 +1104,11 @@ function compileNodeProjectIn(
     });
   }
 
-  // A return track per bus: no clips, the bus chain's plugins (its AuxReturn goes ahead of them), and onward sends.
-  for (const name of busChains)
+  // A return track per bus — and per run a routed tap feeds: no clips, the run's plugins after its return, and onward sends.
+  for (const name of [
+    ...busChains,
+    ...[...tapChains.keys()].filter((n) => !busChains.has(n)),
+  ])
     tracks.push({
       id: name,
       name,
@@ -1062,6 +1137,12 @@ function compileNodeProjectIn(
       plugins: trackPlugins[name] ?? [],
       sends: trackSends[name] ?? [],
       automation: [],
+      // Fed by one pair of the rack node's instrument (engine docs/tapOutputs.md).
+      ...(() => {
+        const tap = tapChains.get(name);
+        const plugin = tap ? pluginOfNode.get(tap.node) : undefined;
+        return tap && plugin ? { inputFrom: { plugin, pair: tap.pair } } : {};
+      })(),
     });
 
   // Every note-on a lane plays, in song beats, sorted and deduplicated — see docs/graphModel.md.
@@ -1138,6 +1219,22 @@ function compileNodeProjectIn(
   }
 
   // PICTURE IS NOT HERE: the same folder compiles twice, and this is the pass the C++ engine reads (packages/song-video/docs/picture.md).
+
+  // A lane that states no colour takes its category's shade, by lane so both halves of one share it (song-schema docs/trackColor.md).
+  const laneOrder = [...new Set(tracks.map((t) => t.name))];
+  const hintsOfLane = new Map<string, string[]>();
+  for (const t of tracks)
+    hintsOfLane.set(t.name, [
+      ...(hintsOfLane.get(t.name) ?? []),
+      ...(laneHints[t.id] ?? []),
+    ]);
+  const shades = autoColors(
+    laneOrder.map((lane) => ({
+      id: lane,
+      category: trackCategory(lane, hintsOfLane.get(lane) ?? []),
+    })),
+  );
+  for (const t of tracks) if (!t.color) t.color = shades.get(t.name) ?? "";
 
   // The console's two halves go on LAST, over the finished mix — docs/console.md.
   return withConsole(

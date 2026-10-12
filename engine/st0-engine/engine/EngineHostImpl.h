@@ -42,6 +42,8 @@ struct Session {
     // …and one ring per RECORDER node, by plugin id, for the same reason and one more: a rebuild
     // of the chain around a node must not end the take it is writing (docs/recorder.md).
     std::map<std::string, std::unique_ptr<RecorderNode>> recorders;
+    // …and the nodes whose plugin LEFT, kept until the old playback graph that still writes into their ring has been replaced (docs/recorder.md).
+    std::vector<std::pair<double, std::unique_ptr<RecorderNode>>> retiredRecorders;
 
     std::unique_ptr<te::Edit> edit;
     ProjectDoc current;     // the diff baseline — what this session's engine state IS
@@ -152,6 +154,8 @@ struct EngineHost::Impl {
 
     // Whether the open device still calls back, checked once a second by the state timer — message thread only (docs/audioDevice.md).
     CallbackWatchdog callbackWatchdog;
+    // Android only: the hung-plugin warning was given, where the process cannot leave (docs/audioDevice.md).
+    bool stuckReported = false;
     // The open device's underrun count at the last check, -1 = no baseline yet; and whether the buffer cap was already reported (checkXRuns).
     int xruns = -1;
     bool xrunsAtCap = false;
@@ -220,8 +224,7 @@ struct EngineHost::Impl {
         inputClients.clear();
     }
 
-    // Sinks invoked after a plugin editor closes — presetSavedCb for a .vstpreset write, pluginParamsCb when text params captured it; each leads with its session.
-    std::function<void(const std::string&, const std::string&, const std::string&)> presetSavedCb;
+    // Sink invoked after a plugin editor closes, when text params captured it; leads with its session.
     std::function<void(const std::string&, const std::string&, const std::string&)> pluginParamsCb;
 
     // The live-param and recorded-take sinks stay on Impl, being the SERVER's one per process; they lead with a session because a frame nobody can route is one every client reads.

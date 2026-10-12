@@ -54,13 +54,6 @@ per screen would be safe only while screens replace one another, and a song that
 breaks exactly that: its transport has to outlive the screen that started it, and a second
 socket is a second client on the same session, driving the same project.
 
-`EnginePage` is why `ModuleEngine` exposes `client` and `connected` at all: its questions are
-the MACHINE's — the device list, the session list, the installed catalogue — not a project's,
-and wrapping a dozen verbs to keep the object private would buy nothing. `connected` exists
-because `phase: ready` only says a socket was made and told to connect, while that page has to
-ask its questions once the socket is actually open; `onConnected` does not replay a state it
-already reached, so the queries are issued on mount instead.
-
 ## The play queue
 
 Right-click a song in the tree → "Ajouter à la liste de lecture". A song that ends chains into

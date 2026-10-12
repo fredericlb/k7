@@ -121,6 +121,37 @@ void a_file_that_is_no_model_is_refused_with_a_reason()
     CHECK(!error.empty());
 }
 
+// A truncated or edited file is refused with a reason: RTNeural's loaders index what the header promises, so a short tensor was a read past its end.
+void a_malformed_model_is_refused_not_read_past_its_end()
+{
+    std::string error;
+    auto torch = nlohmann::json::parse(slurp("proteus_lstm_10x1.json"));
+    torch["state_dict"]["rec.weight_ih_l0"].erase(torch["state_dict"]["rec.weight_ih_l0"].size() - 1);
+    CHECK(loadRtNeuralModel(torch.dump(), error) == nullptr);
+    CHECK(error.find("malformed") != std::string::npos);
+
+    torch = nlohmann::json::parse(slurp("proteus_lstm_10x1.json"));
+    torch["state_dict"]["rec.bias_ih_l0"].push_back(0.0);
+    CHECK(loadRtNeuralModel(torch.dump(), error) == nullptr);
+
+    torch = nlohmann::json::parse(slurp("proteus_lstm_10x1.json"));
+    torch["state_dict"]["rec.weight_hh_l0"] = nlohmann::json::array();
+    CHECK(loadRtNeuralModel(torch.dump(), error) == nullptr);
+
+    auto keras = nlohmann::json::parse(slurp("aidax_lstm_12x1.json"));
+    keras["in_shape"] = nlohmann::json::array();
+    CHECK(loadRtNeuralModel(keras.dump(), error) == nullptr);
+
+    keras = nlohmann::json::parse(slurp("aidax_lstm_12x1.json"));
+    keras["layers"][0]["weights"][2].erase(0);
+    CHECK(loadRtNeuralModel(keras.dump(), error) == nullptr);
+    CHECK(error.find("bias") != std::string::npos);
+
+    keras = nlohmann::json::parse(slurp("aidax_lstm_12x1.json"));
+    keras["layers"][0]["shape"] = nlohmann::json::array({nullptr, nullptr, 100000});
+    CHECK(loadRtNeuralModel(keras.dump(), error) == nullptr);
+}
+
 }  // namespace
 
 int main()
@@ -132,5 +163,6 @@ int main()
     RUN(the_rate_is_the_one_the_file_declares_else_the_format_default);
     RUN(moving_a_knob_moves_the_sound);
     RUN(a_file_that_is_no_model_is_refused_with_a_reason);
+    RUN(a_malformed_model_is_refused_not_read_past_its_end);
     TEST_MAIN_END();
 }

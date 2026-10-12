@@ -1,4 +1,7 @@
 #include "SfzPlugin.h"
+#include "InstrumentStatus.h"
+
+#include "LoadGuard.h"   // an instrument that crashes the engine as it loads is pinned on its file
 
 #include <sfizz.hpp>
 
@@ -94,7 +97,7 @@ void SfzPlugin::prepare(sfz::Sfizz& synth) const
 void SfzPlugin::initialise(const tracktion::engine::PluginInitialisationInfo& info)
 {
     sampleRate_ = info.sampleRate;
-    out_.setSize(2, MAX_BLOCK, false, true, false);
+    out_.setSize(2 * pairs_, MAX_BLOCK, false, true, false);
     const juce::SpinLock::ScopedLockType sl(lock_);
     if (synth_ != nullptr) prepare(*synth_);
 }
@@ -111,12 +114,6 @@ void SfzPlugin::midiPanic()
     silencePending_ = true;
 }
 
-juce::String SfzPlugin::instrumentPath() const
-{
-    const juce::SpinLock::ScopedLockType sl(lock_);
-    return path_;
-}
-
 juce::File SfzPlugin::resolve(const juce::String& path)
 {
     if (!path.startsWith(INSTRUMENTS_REF)) return juce::File(path);
@@ -127,14 +124,26 @@ juce::File SfzPlugin::resolve(const juce::String& path)
     return home.getChildFile("instruments").getChildFile(path.substring(juce::String(INSTRUMENTS_REF).length()));
 }
 
+bool SfzPlugin::installed(const juce::String& path)
+{
+    const auto file = resolve(path);
+    if (!path.startsWith(INSTRUMENTS_REF)) return file.existsAsFile();
+    // The marker is written last, once the folder is whole (st0-supervisor docs/instruments.md).
+    const auto name = path.substring(juce::String(INSTRUMENTS_REF).length()).upToFirstOccurrenceOf("/", false, false);
+    const auto marker = resolve(juce::String(INSTRUMENTS_REF) + name).getChildFile(".st0-archive");
+    return name.isNotEmpty() && marker.existsAsFile() && file.existsAsFile();
+}
+
+bool instrumentInstalled(const std::string& ref) { return SfzPlugin::installed(juce::String::fromUTF8(ref.c_str())); }
+
 bool SfzPlugin::loadInstrument(const juce::String& path, juce::String& error)
 {
     const auto file = resolve(path);
     stopTimer();
     waitingFor_ = {};
-    // Not downloaded YET: the supervisor fetches every instrument when the engine starts (st0-supervisor docs/instruments.md).
+    // Not here: downloaded from the tray's Downloads tab, and loaded the moment it lands (st0-supervisor docs/instruments.md).
     if (path.startsWith(INSTRUMENTS_REF) && !file.existsAsFile()) {
-        std::cerr << "[sfz] " << path << " is not on this machine yet — loaded once the supervisor has fetched it\n";
+        std::cerr << "[sfz] " << path << " is not on this machine — loaded once it is downloaded\n";
         waitingFor_ = path;
         startTimer(2000);
         return true;
@@ -158,14 +167,26 @@ bool SfzPlugin::loadNow(const juce::File& file, juce::String& error)
         error = "sfz instrument not found: " + file.getFullPathName();
         return false;
     }
+    const auto path = file.getFullPathName().toStdString();
+    if (std::string why; loadQuarantined(path, why)) {
+        error = juce::String(why);
+        return false;
+    }
     // Built and loaded OFF the lock: preloading reads the head of every sample, which takes seconds.
     auto fresh = std::make_unique<sfz::Sfizz>();
     prepare(*fresh);
-    if (!fresh->loadSfzFile(file.getFullPathName().toStdString()) || fresh->getNumRegions() == 0) {
+    bool loaded = false;
+    {
+        const LoadGuard guard{"instrument", path};
+        loaded = fresh->loadSfzFile(path);
+    }
+    if (!loaded || fresh->getNumRegions() == 0) {
         error = "sfz instrument has no playable region: " + file.getFullPathName();
         return false;
     }
     std::cerr << "[sfz] " << file.getFileName() << ": " << fresh->getNumRegions() << " regions\n";
+    // Each routed key's output, off the lock and before the synth goes live: setting one may add its buses.
+    for (const auto& [key, pair] : keyOuts_) fresh->setKeyOutput(key, pair);
     {
         const juce::SpinLock::ScopedLockType sl(lock_);
         std::swap(synth_, fresh);
@@ -176,12 +197,36 @@ bool SfzPlugin::loadNow(const juce::File& file, juce::String& error)
     return true;
 }
 
+void SfzPlugin::getChannelNames(juce::StringArray* ins, juce::StringArray* outs)
+{
+    if (ins != nullptr) {
+        ins->add("Left");
+        ins->add("Right");
+    }
+    if (outs != nullptr)
+        for (int c = 0; c < 2 * pairs_; ++c)
+            outs->add((c % 2 == 0 ? "Left " : "Right ") + juce::String(c / 2 + 1));
+}
+
+void SfzPlugin::setKeyOutputs(const std::vector<std::pair<int, int>>& noteToPair)
+{
+    keyOuts_.clear();
+    pairs_ = 1;
+    for (const auto& [note, pair] : noteToPair)
+        if (note >= 0 && note < KEYS && pair >= 0 && pair < MAX_PAIRS) {
+            keyOuts_.emplace_back(note, pair);
+            pairs_ = std::max(pairs_, pair + 1);
+        }
+}
+
 void SfzPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
 {
     if (ctx.destBuffer == nullptr) return;
     const int n = ctx.bufferNumSamples;
     const int start = ctx.bufferStartSample;
-    const int chans = juce::jmin(ctx.destBuffer->getNumChannels(), 2);
+    // Every pair the buffer carries: two on a track, all of them in a RackType (docs/tapOutputs.md).
+    const int rendered = juce::jmin(out_.getNumChannels(), 2 * pairs_);
+    const int chans = juce::jmin(ctx.destBuffer->getNumChannels(), rendered);
     // An instrument: whatever the track carried in is replaced, by the synth or by silence.
     for (int c = 0; c < ctx.destBuffer->getNumChannels(); ++c) ctx.destBuffer->clear(c, start, n);
 
@@ -221,8 +266,9 @@ void SfzPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
             else if (m.isChannelPressure()) synth.channelAftertouch(delay, m.getChannelPressureValue());
             else if (m.isAllNotesOff() || m.isAllSoundOff()) synth.allSoundOff();
         }
-        float* bufs[2] = {out_.getWritePointer(0), out_.getWritePointer(1)};
-        synth.renderBlock(bufs, (size_t)len, 1);
+        float* bufs[2 * MAX_PAIRS] = {};
+        for (int c = 0; c < rendered; ++c) bufs[c] = out_.getWritePointer(c);
+        synth.renderBlock(bufs, (size_t)len, rendered / 2);
         for (int c = 0; c < chans; ++c)
             ctx.destBuffer->copyFrom(c, start + done, out_, c, 0, len);
     }

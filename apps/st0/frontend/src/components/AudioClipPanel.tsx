@@ -12,8 +12,9 @@ import {
 import { Check, Loader2, Square, Trash2 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
-import { useEngineState } from "@studio/engine-browser/store";
+import { arrayEq, useEngineState } from "@studio/engine-browser/store";
 import { projectApi } from "@studio/project-shell/project";
+import { followPointer } from "@studio/ui-timeline/drag";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
 import {
@@ -28,6 +29,7 @@ import {
 } from "react";
 import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
+import { clamp } from "../clamp";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipPlayhead } from "../clipPlayhead";
 import { warpLine } from "../clipWarp";
@@ -45,6 +47,8 @@ import {
   type WaveMode,
 } from "../waveMode";
 import { CompStrip } from "./CompStrip";
+import { EventGainSlider } from "./EventGainSlider";
+import { LoopBrace, LoopToggle } from "./LoopBrace";
 import { ArrangementRuler } from "./Ruler";
 import { type PanelTakes, TakesView } from "./TakesView";
 
@@ -64,8 +68,6 @@ const DEFAULT_BARS = 12;
 const NO_TRACKS: string[] = [];
 const NO_NAMES: Record<string, string> = {};
 // The chain token, the filter and the command line live in ../clipOps.ts — two surfaces, one spelling.
-const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v));
 
 /** What the shell drives on the AUDIO leaf — the counterpart of `ClipGridHandle` for the three note grids. */
 export interface AudioClipHandle {
@@ -86,6 +88,8 @@ export function AudioClipPanel({
   placedAt: placedAtProp = null,
   eventAt: eventAtProp = null,
   eventWindow: eventWindowProp = null,
+  loops = 1,
+  gainDb = 0,
   onSeek,
   command,
   quietCommand,
@@ -121,6 +125,10 @@ export function AudioClipPanel({
   eventAt?: string | null;
   /** The window THIS EVENT plays, in seconds of the file, already intersected by the compiler (nodeProject.ts); null outside any placement. */
   eventWindow?: { from?: number; to?: number } | null;
+  /** How many times the event plays that window — more than one is a LOOP, which the switch and the ruler's brace edit. */
+  loops?: number;
+  /** The event's own trim in dB, as its placement states it — the header's slider edits it. */
+  gainDb?: number;
   /** Seek the transport, in SONG seconds — what a click on that ruler does. */
   onSeek?: (seconds: number) => void;
   /** Runs a command line through the shell, which journals it — so every edit here is one Ctrl+Z. */
@@ -236,7 +244,8 @@ export function AudioClipPanel({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onStop, rolling]);
-  const armed = useEngineState((s) => s.armed);
+  // `arrayEq`: `armed` is a new array every frame, and without it the panel re-rendered at frame rate.
+  const armed = useEngineState((s) => s.armed, arrayEq);
   const armedNames = armed.map((id) => trackNames[id] ?? id);
 
   // The transport's position in beats, re-rendering on whole beats only: one that followed every 20 Hz frame would redraw the waveform beside it.
@@ -338,6 +347,9 @@ export function AudioClipPanel({
   }, [wf, framedKey, frameOnEvent]);
   // Beats per second — the whole of the conversion, since there is no tempo map.
   const bps = Math.max(1e-6, tempo / 60);
+  /** The event the loop verbs address, or null: a piece of a comp is no placement, and an unplaced clip has none. */
+  const loopAddr = !piece && eventAt && track ? `${track} ${eventAt}` : null;
+  const looped = loops > 1;
 
   /** Zoom about a point, anchored so the moment under `clientX` stays put — `nextBars` reads the CURRENT window through the updater. */
   const zoomTo = useCallback(
@@ -380,6 +392,8 @@ export function AudioClipPanel({
     const el = waveBox.current;
     if (!el || rolling || !wf) return;
     let from: { x: number; start: number; barPx: number } | null = null;
+    // The pan in progress, abandoned with the effect: the pane can go away mid-drag.
+    let abandon: (() => void) | null = null;
     const onMove = (e: PointerEvent) => {
       const f = from;
       if (!f) return;
@@ -390,10 +404,9 @@ export function AudioClipPanel({
       }));
     };
     const stop = () => {
+      abandon = null;
       if (!from) return;
       from = null;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", stop);
       el.style.cursor = "";
     };
     const onDown = (e: PointerEvent) => {
@@ -405,8 +418,8 @@ export function AudioClipPanel({
       e.stopPropagation();
       from = { x: e.clientX, start: atRef.current.start, barPx: w / bars };
       el.style.cursor = "grabbing";
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", stop);
+      // A release and a cancel end it alike: a pan has nothing to undo.
+      abandon = followPointer(e, { move: onMove, end: stop, cancel: stop });
     };
     const onMouseDown = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();
@@ -416,8 +429,7 @@ export function AudioClipPanel({
     return () => {
       el.removeEventListener("pointerdown", onDown, { capture: true });
       el.removeEventListener("mousedown", onMouseDown, { capture: true });
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", stop);
+      abandon?.();
       el.style.cursor = "";
     };
   }, [rolling, wf]);
@@ -552,8 +564,31 @@ export function AudioClipPanel({
               </span>
             )}
 
+            {/* The event's own loop: its switch, and — when on — its points in the ruler below. */}
+            <span className="ml-auto flex items-center gap-3">
+              <EventGainSlider
+                db={gainDb}
+                onCommit={
+                  loopAddr
+                    ? (db) =>
+                        void command(`event gain ${loopAddr} ${db.toFixed(1)}`)
+                    : undefined
+                }
+              />
+              <LoopToggle
+                on={looped}
+                onToggle={
+                  loopAddr
+                    ? (on) =>
+                        void command(
+                          `event loop ${loopAddr} ${on ? "on" : "off"}`,
+                        )
+                    : undefined
+                }
+              />
+            </span>
             {/* What the picture is for — and the select DISPATCHES the command rather than doubling it (docs/shell.md). */}
-            <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap">
+            <label className="flex items-center gap-1.5 whitespace-nowrap">
               {m["clip.view"]()}
               <select
                 className="rounded border border-input bg-background px-1 py-0.5"
@@ -751,17 +786,42 @@ export function AudioClipPanel({
             placedAt != null &&
             waveW > 0 &&
             win.view.end > win.view.start && (
-              <ArrangementRuler
-                // `placedAt` is the beat the event's window starts playing at, so the song's beat here is measured from `act.from`.
-                startBeat={placedAt + (win.view.start - act.from) * bps}
-                beats={(win.view.end - win.view.start) * bps}
-                ppb={waveW / ((win.view.end - win.view.start) * bps)}
-                barBeats={beatsPerBar}
-                tempo={tempo}
-                height={18}
-                onSeek={onSeek}
-                className="shrink-0 border-b border-border/50 font-mono text-[10px] text-muted-foreground"
-              />
+              <div className="relative shrink-0">
+                <ArrangementRuler
+                  // `placedAt` is the beat the event's window starts playing at, so the song's beat here is measured from `act.from`.
+                  startBeat={placedAt + (win.view.start - act.from) * bps}
+                  beats={(win.view.end - win.view.start) * bps}
+                  ppb={waveW / ((win.view.end - win.view.start) * bps)}
+                  barBeats={beatsPerBar}
+                  tempo={tempo}
+                  height={18}
+                  onSeek={onSeek}
+                  className="shrink-0 border-b border-border/50 font-mono text-[10px] text-muted-foreground"
+                />
+                {/* The loop's points on the FILE's seconds, the axis the event's window is written in. */}
+                {looped && loopAddr && (
+                  <LoopBrace
+                    from={act.from}
+                    to={act.to}
+                    toPx={(sec) =>
+                      ((sec - win.view.start) /
+                        (win.view.end - win.view.start)) *
+                      waveW
+                    }
+                    fromPx={(x) =>
+                      win.view.start +
+                      (x / waveW) * (win.view.end - win.view.start)
+                    }
+                    min={reach.from}
+                    max={reach.to}
+                    onCommit={(f, t) =>
+                      void command(
+                        `event loop points ${loopAddr} ${f.toFixed(4)} ${t.toFixed(4)}`,
+                      )
+                    }
+                  />
+                )}
+              </div>
             )}
           {/* Two pictures, one frame: what the engine is hearing while it rolls, the file the service wrote once it stops. */}
           {/* The wheel zooms the window ANCHORED under the cursor, a trackpad pinch arriving as Ctrl+wheel (@studio/ui-timeline/panZoom). */}
@@ -928,8 +988,9 @@ export function AudioClipPanel({
                       }
                     : eventAt && track
                       ? (w) =>
+                          // A LOOPED event's window is its loop: moved the way the ruler's brace moves it, its length kept.
                           command(
-                            `event window ${track} ${eventAt} ${w.from.toFixed(4)} ${w.to.toFixed(4)}`,
+                            `${looped ? "event loop points" : "event window"} ${track} ${eventAt} ${w.from.toFixed(4)} ${w.to.toFixed(4)}`,
                           )
                       : undefined
                 }

@@ -218,6 +218,9 @@ export interface DeckSet extends DeckLoops {
   fromGraph: (module: string, name: string, value: number) => void;
 }
 
+/** A read that failed: the desk keeps what it had rather than reading the blip as "empty". */
+const KEEP = Symbol("keep");
+
 export function useDeckSet(
   deck: Deck,
   project: string,
@@ -241,27 +244,48 @@ export function useDeckSet(
   const [deskError, setDeskError] = useState<string | null>(null);
   /** mix.yaml as TEXT, because writing a cue edits it in place and keeps its comments (docs/cues.md). */
   const [mixText, setMixText] = useState("");
+  // Which project the desk's reads belong to, and whether its cue sheet was ever read — the guard on writing one.
+  const shownProject = useRef<string | null>(null);
+  const mixReadFor = useRef<string | null>(null);
   /** `undefined` until the read lands, and again for a surface naming no playlist — so the effect sets it. */
   const [playlistText, setPlaylistText] = useState<string | null | undefined>(
     undefined,
   );
   const live = usePluginParams(deck.params);
 
-  // The bindings and the compile, refetched when the project moves — each allowed to fail alone.
+  // The bindings and the compile, refetched when the project moves — each allowed to fail alone, in parallel.
   useEffect(() => {
     let stop = false;
+    // A failed read KEEPS what the desk had (`KEEP`) — on the same project; another project's would be wrong.
+    const sameProject = shownProject.current === project;
+    const kept = <T>(p: Promise<T>): Promise<T | typeof KEEP> =>
+      p.catch(() => KEEP);
     void (async () => {
-      // The host's own map wins and skips the read: an st0 song has no `views/mix.yaml` to ask for.
-      const v = mapping ?? (await readMixView(project));
-      const cues = await readMixText(project);
-      // Not read when the surface names none: a 404 per reload would say "missing" about an unclaimed file.
-      const list = playlist ? await readPlaylistText(playlist) : undefined;
-      const doc = await api.engineDoc().catch(() => null);
+      const [v, cues, list, doc] = await Promise.all([
+        // The host's own map wins and skips the read: an st0 song has no `views/mix.yaml` to ask for.
+        mapping ? Promise.resolve(mapping) : kept(readMixView(project)),
+        kept(readMixText(project)),
+        // Not read when the surface names none: a 404 per reload would say "missing" about an unclaimed file.
+        playlist
+          ? kept(readPlaylistText(playlist))
+          : Promise.resolve(undefined),
+        kept(api.engineDoc()),
+      ]);
       if (stop) return;
-      setView(v);
-      setMixText(cues);
-      setPlaylistText(list);
-      setCompiled(doc);
+      shownProject.current = project;
+      if (v !== KEEP) setView(v);
+      else if (!sameProject) setView({});
+      if (cues !== KEEP) {
+        setMixText(cues);
+        mixReadFor.current = project;
+      } else if (!sameProject) {
+        setMixText("");
+        mixReadFor.current = null;
+      }
+      if (list !== KEEP) setPlaylistText(list);
+      else if (!sameProject) setPlaylistText(null);
+      if (doc !== KEEP) setCompiled(doc);
+      else if (!sameProject) setCompiled(null);
     })();
     return () => {
       stop = true;
@@ -678,6 +702,13 @@ export function useDeckSet(
     setCue: (deckId, slot, at) => {
       const load = loadsRef.current[deckId];
       if (!load) return;
+      // Never written from a sheet this desk has not read: the whole file would go with it.
+      if (mixReadFor.current !== project) {
+        setDeskError(
+          `${MIX_FILE} could not be read yet — the cue was not written`,
+        );
+        return;
+      }
       const ref = `@st0/${load.id}`;
       const next = [...(cues[ref] ?? [])];
       while (next.length <= slot) next.push(null);

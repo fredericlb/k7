@@ -91,6 +91,9 @@ studio::PluginDoc pluginFromJson(const json& p) {
     pl.patternOnly = p.value("patternOnly", true);
     pl.patternBanks = p.value("patternBanks", std::vector<std::string>{});
     pl.sidechainFrom = p.value("sidechainFrom", std::string{});
+    if (p.contains("tapOuts") && p.at("tapOuts").is_array())
+        for (const auto& o : p.at("tapOuts"))
+            pl.tapOuts.push_back({o.value("note", 0), o.value("pair", 0)});
     if (p.contains("params"))
         for (const auto& [k, v] : p.at("params").items())
             pl.params[k] = v.get<double>();
@@ -147,7 +150,6 @@ studio::TrackDoc trackFromJson(const json& t) {
     tr.id = t.value("id", std::string{});
     tr.name = t.value("name", tr.id);
     tr.role = t.value("role", std::string{"regular"});
-    tr.contentType = t.value("contentType", std::string{"audio"});
     tr.color = t.value("color", std::string{});
     tr.mute = t.value("mute", false);
     tr.solo = t.value("solo", false);
@@ -180,6 +182,7 @@ studio::TrackDoc trackFromJson(const json& t) {
             cl.sourceTo = c.value("sourceTo", 0.0);
             cl.fadeIn = c.value("fadeIn", 0.0);
             cl.fadeOut = c.value("fadeOut", 0.0);
+            cl.gainDb = c.value("gainDb", 0.0f);
             if (c.contains("crossfade")) {
                 const auto& x = c.at("crossfade");
                 cl.crossfadeIn = x.value("in", false);
@@ -224,6 +227,11 @@ studio::TrackDoc trackFromJson(const json& t) {
             sd.enabled = s.value("enabled", false);
             tr.sends.push_back(std::move(sd));
         }
+
+    if (t.contains("inputFrom") && t.at("inputFrom").is_object()) {
+        tr.inputFromPlugin = t.at("inputFrom").value("plugin", std::string{});
+        tr.inputFromPair = t.at("inputFrom").value("pair", 0);
+    }
 
     if (t.contains("automation"))
         for (const auto& a : t.at("automation")) {

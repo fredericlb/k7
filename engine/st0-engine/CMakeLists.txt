@@ -245,7 +245,9 @@ FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
     GIT_PROGRESS   ON
     GIT_TAG        v12.0.1
-    GIT_SHALLOW    ON)
+    GIT_SHALLOW    ON
+    # A client message is buffered whole before anything reads it, and IXWebSocket caps none; explained in the script.
+    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/ixwebsocket.cmake")
 set(USE_TLS OFF CACHE BOOL "" FORCE)          # localhost IPC — no TLS needed
 set(USE_ZLIB OFF CACHE BOOL "" FORCE)         # no permessage-deflate; avoids a zlib dep (Windows has no system zlib)
 
@@ -461,7 +463,7 @@ add_subdirectory(server)
 # --- Unit tests (JUCE-free data layer) ----------------------------------------
 # ON by default for local dev; the build presets pin "targets": ["st0-engine"],
 # so the test target isn't built by a normal preset build — build + run it with
-# `npm run test:mac --workspace st0-engine` (or `ctest`). Off with -DSTUDIO_BUILD_TESTS=OFF.
+# `npm run test --workspace st0-engine`, which takes the build folder's lock (or `ctest`). Off with -DSTUDIO_BUILD_TESTS=OFF.
 option(STUDIO_BUILD_TESTS "Build the engine unit tests" ON)
 if(STUDIO_BUILD_TESTS)
     enable_testing()

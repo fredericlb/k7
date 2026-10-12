@@ -1,7 +1,7 @@
 // rackBuilder.ts — the rack builder's arithmetic: which pad fires which note, in which order the
 // taps are written, where the samples go, and the KIT node the CREATE button commits — a node of the
-// library's `st0-rack` sampler carrying its own taps (packages/song/docs/racks.md). Pure, because what lands
-// in the project is exactly what deserves a test; the popin is a grid drawn around these numbers.
+// library's `st0-rack` on its `samples` engine, carrying its own taps (packages/song/docs/racks.md).
+// Pure, because what lands in the project deserves a test; the popin is a grid drawn around these numbers.
 
 import { Document } from "yaml";
 import { m } from "./paraglide/messages.js";
@@ -39,8 +39,10 @@ export interface RackPad {
   note: number;
 }
 
-/** The sampler every kit is a node of — a LIBRARY module, nothing but `type: rack`, the kit being the node's. */
+/** The rack every kit is a node of — a LIBRARY module whose engines are its kits, the kit being the node's. */
 export const RACK_MODULE = "instruments/st0-rack";
+/** …and its SAMPLER engine, the one that plays the node's own taps; the module's default is an SFZ kit. */
+export const RACK_ENGINE = "samples";
 
 /** Which library's sampler a kit extends: `@st0`'s first, else any library's; null when none holds one. */
 export function rackModuleRef(baseModules: readonly string[]): string | null {
@@ -119,7 +121,7 @@ export function buildKitNodeYaml(
       sample: kitSampleRef(dest, name, p.fileName),
     };
   const doc = new Document(
-    { extends: rackRef, rack: { symbols } },
+    { extends: rackRef, engine: RACK_ENGINE, rack: { symbols } },
     { version: "1.2" },
   );
   // `BD: { note: 36, sample: … }` — a kit is read down, the way a drum map is.

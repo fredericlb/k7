@@ -16,6 +16,8 @@ export interface FileCfg {
   engineToken: string; // the hub's ticket, `<ticket>~<engineId>`
   /** WHICH engine this is — not for reaching it, but for naming it to another service, docs/fileApi.md. */
   engineId: string;
+  /** A new hub ticket after a 401, for a session that outlives its twelve hours; absent where there is no hub. */
+  renewTicket?: () => Promise<string | null>;
   /** A FROZEN document — a shared snapshot, and the whole of read-only mode. See docs/fileApi.md. */
   frozen?: {
     /** What to say when something tries to write. Read by whatever catches the throw. */
@@ -42,6 +44,28 @@ let fileCfg: FileCfg | null = null;
 /** Point every file op at a chosen engine + workspace. Called by the gate, once. */
 export function configureFileApi(config: FileCfg): void {
   fileCfg = config;
+}
+
+// One renewal at a time, however many requests met the same expired ticket.
+let renewing: Promise<boolean> | null = null;
+
+/** Swap in a fresh ticket after a 401; true when there is one to retry with. */
+function renewTicket(): Promise<boolean> {
+  const c = fileCfg;
+  if (!c?.renewTicket) return Promise.resolve(false);
+  renewing ??= c
+    .renewTicket()
+    .then((ticket) => {
+      if (!ticket || fileCfg !== c) return false;
+      // The token is `<ticket>~<engineId>`: only the ticket ages.
+      c.engineToken = `${ticket}~${c.engineId}`;
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => {
+      renewing = null;
+    });
+  return renewing;
 }
 
 export function cfg(): FileCfg {
@@ -110,7 +134,11 @@ function route(path: string): string {
 export const READ_MS = 120_000;
 
 /** A read whose answer broke off, asked once more before anyone is told: the service was most likely restarting (docs/fileApi.md). */
-async function getOnce(path: string, retried = false): Promise<string> {
+async function getOnce(
+  path: string,
+  retried = false,
+  renewed = false,
+): Promise<string> {
   let res: Response;
   let text: string;
   try {
@@ -124,11 +152,14 @@ async function getOnce(path: string, retried = false): Promise<string> {
   } catch (e) {
     if ((e as Error).name === "TimeoutError")
       throw new Error(`GET ${path}: no answer after ${READ_MS / 1000} s`);
-    if (!retried) return getOnce(path, true);
+    if (!retried) return getOnce(path, true, renewed);
     throw e;
   }
   // A 2xx with nothing in it is no answer either: every route here answers JSON.
-  if (res.ok && text === "" && !retried) return getOnce(path, true);
+  if (res.ok && text === "" && !retried) return getOnce(path, true, renewed);
+  // An expired ticket, in a session that outlived it: renewed once, and the read asked again.
+  if (res.status === 401 && !renewed && (await renewTicket()))
+    return getOnce(path, retried, true);
   if (!res.ok) {
     let said: string | undefined;
     try {
@@ -159,13 +190,20 @@ export async function fsend<T>(
   if (frozen) throw new ReadOnlyDocument(frozen.why);
   // Both edges, and both matter — see docs/fileApi.md.
   epoch++;
-  const res = await fetch(cfg().base + path, {
-    method,
-    headers: fileHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body),
-  }).finally(() => {
+  const post = () =>
+    fetch(cfg().base + path, {
+      method,
+      headers: fileHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    });
+  let res = await post().finally(() => {
     epoch++;
   });
+  // A 401 is the hub refusing the ticket before the service saw anything, so asking again writes once.
+  if (res.status === 401 && (await renewTicket()))
+    res = await post().finally(() => {
+      epoch++;
+    });
   if (!res.ok) {
     const e: Error & { status?: number } = new Error(
       (await res.json().catch(() => ({}))).error ?? `${method} ${path} failed`,

@@ -36,6 +36,7 @@ import {
   curveTargets,
   rowSortKey,
 } from "./curvePlacement";
+import { fitPanel, type GridFit } from "./gridFit";
 import { hangPoints } from "./hang";
 
 /** What a node carries from its step, declared once instead of copied — see docs/graphBuild.md. */
@@ -208,6 +209,10 @@ export type Kind =
 export interface GraphNode extends Carried, Flags {
   id: string;
   label: string;
+  /** The card's width with each TAB open, when a responsive fold gave the tabs different widths (gridFit.ts). */
+  tabW?: number[];
+  /** …and its height with each tab open, in the vertical layout, whose pages differ in length (`withOpenTabs`). */
+  tabH?: number[];
   sub?: string; // secondary line (the owning chain name on a chain's first module)
   kind: Kind;
   // track only: this lane carries PICTURE. A flag, not a kind — it ranks, links and lays out like an audio lane.
@@ -562,6 +567,8 @@ export const UI_CONTENT_TOP = UI_HEADER + UI_TOP_GAP;
 export const TAB_COL_W = 66;
 /** …and one tab's height in it. */
 export const TAB_H = 20;
+/** A NARROW card's tabs: a menu across its top, under the header, instead of the column (docs/graphBuild.md). */
+export const TAB_MENU_H = 26;
 /** The air between two rows. */
 export const ROW_GAP = 8;
 /** The air below the last row. */
@@ -697,14 +704,21 @@ export function nodeSize(
 
 function panelSize(ui?: WebModuleUI): { w: number; h: number } {
   const colW = columnW(ui);
-  const tabsH = hasTabs(ui) ? (ui?.tabs?.length ?? 0) * TAB_H : 0;
-  if (!ui?.cols || !ui?.rows) return { w: NODE_W + colW, h: NODE_H };
+  // The tab column is as tall as its tabs, up to 4 rows; a tab MENU is one line above the grid instead.
+  const tabsH = colW
+    ? Math.min(
+        (ui?.tabs?.length ?? 0) * TAB_H,
+        Math.max(rowsHeight(ui?.rows ?? 0), rowsHeight(TAB_COL_MAX_ROWS)),
+      )
+    : 0;
+  const menu = menuH(ui);
+  if (!ui?.cols || !ui?.rows) return { w: NODE_W + colW, h: NODE_H + menu };
   return {
     // The grid's width, NOT max(NODE_W, …) — see docs/graphBuild.md.
     w: Math.max(NODE_MIN_W, colW + UI_PAD * 2 + colsWidth(ui.cols)),
     h: Math.max(
       NODE_H,
-      UI_CONTENT_TOP + Math.max(rowsHeight(ui.rows), tabsH) + UI_EDGE,
+      UI_CONTENT_TOP + menu + Math.max(rowsHeight(ui.rows), tabsH) + UI_EDGE,
     ),
   };
 }
@@ -837,8 +851,8 @@ export function rackGrid(n: number): { cols: number; rows: number } {
   return { cols, rows: Math.max(RACK_MIN, Math.ceil(Math.max(1, n) / cols)) };
 }
 
-/** A TAP's footprint in cells: the pad, and under it its note and its sample's name. */
-export const TAP_COLS = 3;
+/** A TAP's footprint in cells, 2×2 like a knob: the pad, and under it its note and its sample's name. */
+export const TAP_COLS = 2;
 export const TAP_ROWS = 2;
 /** An octave's pads, four across and three up: twelve notes, the lowest at the bottom left as on a pad controller. */
 export const PADS_ACROSS = 4;
@@ -1146,14 +1160,22 @@ export const VIDEO_TRACK_UI: WebModuleUI = {
   },
 };
 
-/** The tab column's width: TAB_COL_W when the card draws its tabs, else nothing. */
+/** The tab column's width: TAB_COL_W when the card draws its tabs as a column, else nothing. */
 export const columnW = (ui: WebModuleUI | undefined): number =>
-  hasTabs(ui) ? TAB_COL_W : 0;
+  hasTabs(ui) && ui?.tabsAs !== "dropdown" ? TAB_COL_W : 0;
+
+/** …and the tab MENU's height, when a narrow card offers its tabs across its top instead. */
+export const menuH = (ui: WebModuleUI | undefined): number =>
+  hasTabs(ui) && ui?.tabsAs === "dropdown" ? TAB_MENU_H : 0;
+
+/** How many rows' height the tab column may stretch a card to; past it the column scrolls (docs/nodeCard.md). */
+export const TAB_COL_MAX_ROWS = 4;
 
 // A widget's box in node-local coordinates (origin = the node's top-left), `left` being the tab column's width.
 export function widgetRect(
   w: WebWidget,
   left = 0,
+  top = 0,
 ): {
   x: number;
   y: number;
@@ -1162,7 +1184,7 @@ export function widgetRect(
 } {
   return {
     x: left + UI_PAD + w.col * (CELL + COL_GAP),
-    y: UI_CONTENT_TOP + w.row * (CELL + ROW_GAP),
+    y: top + UI_CONTENT_TOP + w.row * (CELL + ROW_GAP),
     w: colsWidth(Math.max(1, w.colSpan ?? 1)),
     h: rowsHeight(Math.max(1, w.rowSpan ?? 1)),
   };
@@ -1173,8 +1195,9 @@ export function stripWidgetRect(
   n: { strip?: boolean; ui?: WebModuleUI; h: number },
   w: WebWidget,
   left = 0,
+  top = 0,
 ): { x: number; y: number; w: number; h: number } {
-  const r = widgetRect(w, left);
+  const r = widgetRect(w, left, top);
   const fader = n.strip
     ? Object.values(n.ui?.widgets ?? {}).find((x) => x.type === "fader")
     : undefined;
@@ -1281,7 +1304,7 @@ function widgetCenter(
 ): Pt | undefined {
   for (const [, w] of panelWidgets(ui)) {
     if (w.bind === param) {
-      const r = widgetRect(w, columnW(ui));
+      const r = widgetRect(w, columnW(ui), menuH(ui));
       return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
     }
   }
@@ -1318,6 +1341,10 @@ export function buildGraph(
     cameras?: readonly string[];
     /** The MIDI inputs this browser sees, by name — what a midi-in node's dropdown offers. */
     midiDevices?: readonly string[];
+    /** Hold every card's grid to so many rows or columns, the overflow folded onto the other side (gridFit.ts). */
+    fit?: GridFit;
+    /** Which of a panel's two shapes to draw: its own (horizontal, the default) or its narrow twin, tabs as a menu. */
+    layout?: "horizontal" | "vertical";
   } = {},
 ): {
   nodes: RawNode[];
@@ -1705,6 +1732,19 @@ export function buildGraph(
     }
   }
 
+  // A rack's taps routed to subchains: each a cable from an output of its own, named after the tap (song docs/racks.md).
+  for (const f of graph.tapFeeds ?? []) {
+    const src = nodes.get(moduleId(f.node));
+    const dst = isChain(f.to) ? entryId(f.to) : moduleId(f.to);
+    if (!src || !nodes.has(dst)) continue;
+    const outs = src.outputs?.length
+      ? src.outputs
+      : [{ name: "out", type: "audio" as const }];
+    if (!outs.some((o) => o.name === f.tap))
+      src.outputs = [...outs, { name: f.tap, type: "audio" }];
+    link(src.id, dst, f.tap, "audio", undefined, f.tap);
+  }
+
   /** Each sum and the wire out of it, when the file declares no master run. See docs/graphBuild.md. */
   for (const sum of [MIX_OUT, RENDER_OUT] as const) {
     if (!feedsSum[sum] || isChain(sum)) continue;
@@ -1898,7 +1938,82 @@ export function buildGraph(
     }
   }
 
+  // The narrow twin first, then the fold for a panel that has none and is still too wide (docs/graphBuild.md).
+  if (opts.layout === "vertical") for (const n of nodes.values()) narrowNode(n);
+  // Folded LAST, each card grown or shrunk by what its panel changed, so a lane's clip list keeps its height.
+  if (opts.fit) for (const n of nodes.values()) fitNode(n, opts.fit);
+  // A narrow card is as tall as its OPEN page, not its longest: a short tab under 28 rows of grid is mostly empty.
+  if (opts.layout === "vertical") for (const n of nodes.values()) tabHeights(n);
+
   return { nodes: [...nodes.values()], edges: [...edges.values()] };
+}
+
+// A card in its NARROW shape: the panel's `vertical` twin when it has one, its own grid otherwise — tabs as a menu either way.
+function narrowNode(n: RawNode): void {
+  if (!n.ui || n.strip) return;
+  const { vertical, ...own } = n.ui;
+  const narrow: WebModuleUI = vertical
+    ? { ...vertical, script: own.script, tabsAs: "dropdown" }
+    : { ...own, tabsAs: "dropdown" };
+  const before = nodeSize(n.ui);
+  const after = nodeSize(narrow);
+  n.ui = narrow;
+  n.w += after.w - before.w;
+  n.h += after.h - before.h;
+}
+
+// Each tab's card height, from the rows its widgets and the shared ones really reach.
+function tabHeights(n: RawNode): void {
+  const ui = n.ui;
+  if (!ui?.tabs?.length || n.strip) return;
+  const reach = (ws: Record<string, WebWidget>) =>
+    Math.max(
+      0,
+      ...Object.values(ws).map((w) => w.row + Math.max(1, w.rowSpan ?? 1)),
+    );
+  const shared = reach(ui.widgets);
+  const full = nodeSize(ui).h;
+  const hs = ui.tabs.map(
+    (t) =>
+      n.h +
+      nodeSize({ ...ui, rows: Math.max(1, shared, reach(t.widgets)) }).h -
+      full,
+  );
+  if (hs.some((h) => h !== n.h)) n.tabH = hs;
+}
+
+/** The nodes sized to the tab each has OPEN, top edge kept: the layout made room for the longest, a card draws only its page. */
+export function withOpenTabs<
+  N extends { id: string; h: number; tabH?: number[] },
+>(nodes: readonly N[], tabOf: Readonly<Record<string, number>>): readonly N[] {
+  let changed = false;
+  const out = nodes.map((n) => {
+    const h = n.tabH?.[tabOf[n.id] ?? 0];
+    if (h === undefined || h === n.h) return n;
+    changed = true;
+    return { ...n, h };
+  });
+  return changed ? out : nodes;
+}
+
+// A strip is left whole: its fader IS its height, and a fader folded beside itself is no strip.
+function fitNode(n: RawNode, fit: GridFit): void {
+  if (!n.ui || n.strip) return;
+  const fitted = fitPanel(n.ui, fit);
+  if (fitted === n.ui) return;
+  const before = nodeSize(n.ui);
+  const after = nodeSize(fitted);
+  n.ui = fitted;
+  n.w += after.w - before.w;
+  n.h += after.h - before.h;
+  // …and its width per TAB, each by the same difference: the card is as wide as the page it shows.
+  if (fitted.tabs?.some((t) => t.cols !== undefined)) {
+    const w = n.w;
+    n.tabW = fitted.tabs.map(
+      (t) =>
+        w + nodeSize({ ...fitted, cols: t.cols ?? fitted.cols }).w - after.w,
+    );
+  }
 }
 
 /** Nodes overlapping an OPEN frame step aside to make room for it — see docs/graphBuild.md.
@@ -2051,6 +2166,14 @@ export function moduleRow(
       NonNullable<Parameters<typeof buildGraph>[1]>,
       "inputDevices" | "cameras" | "midiDevices"
     >;
+    /** Hold every card's grid to so many rows or columns — the RESPONSIVE mode (gridFit.ts). */
+    fit?: GridFit;
+    /** A node that only SAYS where the signal comes from, drawn first and cabled into the first card — a subchain's "input". */
+    lead?: { id: string; label: string; sub?: string };
+    /** Which of each panel's two shapes to draw — `buildGraph`'s `layout`. */
+    layout?: "horizontal" | "vertical";
+    /** The tab each card has OPEN, by node id: a card is as wide as that tab (`tabW`), and the row reflows. */
+    tabOf?: Record<string, number>;
   } = {},
 ): LaidOutGraph {
   const {
@@ -2063,9 +2186,16 @@ export function moduleRow(
     stack = false,
     curves = false,
     devices,
+    fit,
+    lead,
+    tabOf,
+    layout,
   } = opts;
   // The same lists the full graph is built with, or its cards' dropdowns would offer nothing here.
-  const { nodes, edges } = buildGraph(graph, devices ?? {});
+  const built = buildGraph(graph, { ...devices, fit, layout });
+  // Each card as tall as the page it has open, before the row is laid: a short page must not hold the row's height.
+  const nodes = withOpenTabs(built.nodes, tabOf ?? {});
+  const { edges } = built;
   const byModule = new Map<string, (typeof nodes)[number]>();
   for (const n of nodes)
     if (n.kind === "module" && n.module && !byModule.has(n.module))
@@ -2085,7 +2215,29 @@ export function moduleRow(
       ? nodes.find((n) => n.kind === "track" && n.module === track)
       : undefined;
 
-  const row = lane ? [...feeding, lane, ...picked] : picked;
+  // The signal's origin, as a name and nothing else: a pass-through node, which no menu and no control acts on.
+  const head: (typeof nodes)[number] | null =
+    lead && !lane && picked.length
+      ? {
+          id: lead.id,
+          label: lead.label,
+          sub: lead.sub,
+          kind: "chain",
+          dim: false,
+          missing: false,
+          stub: false,
+          notSupported: false,
+          unknownPlugin: false,
+          hasNativePluginUI: false,
+          w: NODE_W,
+          h: NODE_H,
+        }
+      : null;
+  const row = lane
+    ? [...feeding, lane, ...picked]
+    : head
+      ? [head, ...picked]
+      : picked;
   // A STACK — a subchain run in place — is one column, its cards one under another at its own heights.
   const stackOf = new Map<string, number>();
   if (stack)
@@ -2120,8 +2272,11 @@ export function moduleRow(
   }
   let x = ROW_MARGIN;
   for (const col of columns) {
+    // A card's width with its OPEN tab, when its tabs differ — the first one until the host says otherwise.
+    const own = (n: (typeof row)[number]) =>
+      n.tabW?.[tabOf?.[n.id] ?? 0] ?? n.w;
     const width = (n: (typeof row)[number]) =>
-      asDrawn ? n.w : Math.round(n.w * widthScale);
+      asDrawn ? own(n) : Math.round(own(n) * widthScale);
     const w = col.reduce((m, n) => Math.max(m, width(n)), 0);
     // Where each card of the column sits, before any x: its curves hang off those tops.
     let y = ROW_MARGIN;
@@ -2151,7 +2306,8 @@ export function moduleRow(
     }
     for (const [i, n] of col.entries()) {
       const stacked = col.length > 1;
-      const h = stacked ? n.h : asDrawn ? line : tallest;
+      // The lead keeps its own small height, centred on the row: it is a label, not a card to fill the band.
+      const h = n === head ? n.h : stacked ? n.h : asDrawn ? line : tallest;
       inRow.add(n.id);
       out.push({
         ...n,
@@ -2168,35 +2324,54 @@ export function moduleRow(
           ? { clips: undefined, clipsMore: undefined }
           : {}),
         ...(links ? { flow: "across" as const } : {}),
+        ...(n === head ? { y: ROW_MARGIN + Math.round((line - n.h) / 2) } : {}),
       });
     }
     x += w + gap;
   }
-  return {
-    nodes: out,
-    edges: links
-      ? edges
-          // An automation landing on a card is kept with no curve to start from: its knob glows, and no cable is drawn.
-          .filter(
-            (e) =>
-              inRow.has(e.target) && (inRow.has(e.source) || !!e.automation),
-          )
-          .map((e) => ({
-            id: e.id,
-            source: e.source,
-            target: e.target,
-            label: e.label,
-            automation: e.automation,
-            signal: e.signal,
-            targetPort: e.targetPort,
-            sourcePort: e.sourcePort,
-            // Two points, which `cablePath` replaces with the sockets it computes from the nodes.
-            targetSlot: e.targetSlot, // the same rank, for the path that skips dagre
+  // The lead's cable into the first card, the one edge no chain file states.
+  const first = head ? out.find((n) => n.id !== head.id) : undefined;
+  const leadEdges: LaidOutGraph["edges"] =
+    links && head && first
+      ? [
+          {
+            id: `${head.id}->${first.id}`,
+            source: head.id,
+            target: first.id,
             points: [
               { x: 0, y: 0 },
               { x: 0, y: 0 },
             ],
-          }))
+          },
+        ]
+      : [];
+  return {
+    nodes: out,
+    edges: links
+      ? leadEdges.concat(
+          edges
+            // An automation landing on a card is kept with no curve to start from: its knob glows, and no cable is drawn.
+            .filter(
+              (e) =>
+                inRow.has(e.target) && (inRow.has(e.source) || !!e.automation),
+            )
+            .map((e) => ({
+              id: e.id,
+              source: e.source,
+              target: e.target,
+              label: e.label,
+              automation: e.automation,
+              signal: e.signal,
+              targetPort: e.targetPort,
+              sourcePort: e.sourcePort,
+              // Two points, which `cablePath` replaces with the sockets it computes from the nodes.
+              targetSlot: e.targetSlot, // the same rank, for the path that skips dagre
+              points: [
+                { x: 0, y: 0 },
+                { x: 0, y: 0 },
+              ],
+            })),
+        )
       : [],
     width: out.length ? x - gap + ROW_MARGIN : 0,
     // As drawn, the box is the cards' own height and no more, so a height fit makes the tallest fill the view — or a stack of curves, past it.

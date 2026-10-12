@@ -5,6 +5,7 @@
 
 import { useSyncExternalStore } from "react";
 import { api } from "../api";
+import { pollWhileVisible } from "../visiblePoll";
 
 /** How often the token is asked for. Reading it is a ~2 ms file walk on the service's side. */
 export const REVISION_POLL_MS = 2000;
@@ -16,6 +17,11 @@ export interface RevisionPoller {
   get: () => string | null;
   /** Adopt a token the caller already holds, WITHOUT waking the listeners — only safe for a caller that has already reloaded the shell. */
   note: (rev: string) => void;
+  /** A write nobody reloads for — a knob: silent only when it started from the token already seen, docs/shell.md. */
+  noteQuiet: (rev: string, before?: string) => void;
+  /** Counts quiet writes, for the few who must still see one (the open file, the history); its own listeners. */
+  subscribeQuiet: (listener: () => void) => () => void;
+  getQuiet: () => number;
 }
 
 export function createRevisionPoller(
@@ -23,7 +29,11 @@ export function createRevisionPoller(
   intervalMs: number = REVISION_POLL_MS,
 ): RevisionPoller {
   let token: string | null = null;
-  let timer: ReturnType<typeof setInterval> | null = null;
+  // What the tick compares against: the published token, or a quiet write's, which is never published.
+  let seen: string | null = null;
+  let quiet = 0;
+  const quietListeners = new Set<() => void>();
+  let timer: (() => void) | null = null;
   let inFlight = false;
   // Bumped by `note`, so an answer fetched BEFORE a command landed cannot overwrite the token that command produced.
   let generation = 0;
@@ -37,8 +47,9 @@ export function createRevisionPoller(
     try {
       const rev = await fetchRev();
       if (at !== generation) return; // a note() landed while this was in the air
-      if (rev === token) return;
+      if (rev === seen) return;
       token = rev;
+      seen = rev;
       for (const l of listeners) l();
     } catch {
       // The file service is unreachable: keep the last token — whoever acted on it is not wrong yet — and ask again next tick.
@@ -51,13 +62,14 @@ export function createRevisionPoller(
     subscribe: (listener) => {
       listeners.add(listener);
       if (timer === null) {
-        timer = setInterval(() => void pull(), intervalMs);
+        // Paused while the tab is hidden, and asked once on its return (visiblePoll.ts).
+        timer = pollWhileVisible(() => void pull(), intervalMs);
         void pull(); // the first consumer must not wait a whole period to learn anything
       }
       return () => {
         listeners.delete(listener);
         if (listeners.size === 0 && timer !== null) {
-          clearInterval(timer);
+          timer();
           timer = null;
         }
       };
@@ -66,7 +78,27 @@ export function createRevisionPoller(
     note: (rev) => {
       generation++;
       token = rev;
+      seen = rev;
     },
+    noteQuiet: (rev, before) => {
+      generation++;
+      quiet++;
+      for (const l of quietListeners) l();
+      // Started from somewhere else: something landed in between, and that has to be announced like any tick.
+      if (before === undefined || before !== seen) {
+        seen = rev;
+        if (rev === token) return;
+        token = rev;
+        for (const l of listeners) l();
+        return;
+      }
+      seen = rev;
+    },
+    subscribeQuiet: (listener) => {
+      quietListeners.add(listener);
+      return () => quietListeners.delete(listener);
+    },
+    getQuiet: () => quiet,
   };
 }
 
@@ -75,6 +107,20 @@ const poller = createRevisionPoller(() => api.revision().then((r) => r.rev));
 /** Tell the poller the token a writing command just answered with — only for a caller that has already reloaded the shell. */
 export function noteRevision(rev: string): void {
   poller.note(rev);
+}
+
+/** A quiet command's token: adopted so the tick stays silent, and published to `useQuietWrites` alone. */
+export function noteQuietRevision(rev: string, before?: string): void {
+  poller.noteQuiet(rev, before);
+}
+
+/** A counter of this tab's quiet writes — a trigger beside `useRevision` for what must follow a knob onto disk. */
+export function useQuietWrites(): number {
+  return useSyncExternalStore(
+    poller.subscribeQuiet,
+    poller.getQuiet,
+    poller.getQuiet,
+  );
 }
 
 /** The project's current change token, or null while none has been read — depend on it and an effect runs once per change, not per tick. */

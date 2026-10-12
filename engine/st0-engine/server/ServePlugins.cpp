@@ -272,7 +272,7 @@ void addPluginHandlers(HandlerTable& t) {
 
     t.add({"set-preset"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
         auto& host = ctx.host;
-        // Load a preset into every live instance of `module` and persist it to the module's .vstpreset — `path` picks a file, else `index` a program — broadcasting preset-saved.
+        // Load a preset into every live instance of `module` and persist it to the module's .vstpreset — `path` picks a file, else `index` a program.
         const std::string module = j.value("module", std::string{});
         const int index = j.value("index", -1);
         const std::string path = j.value("path", std::string{});

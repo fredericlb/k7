@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { widgetsJs } from "./gen-surge-widgets.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const moteur = join(here, "..");
@@ -37,12 +38,18 @@ const byName = new Map(layout.params.map((p) => [p.name, p]));
 const NO_INPUT_OSC = new Set(["Audio Input"]);
 const NO_INPUT_FX = new Set(["Vocoder", "Audio Input"]);
 
-const COLS = 24;
-const ROWS = 11;
+// Two layouts (packages/ui-module-builder/docs/layouts.md): the panel HORIZONTAL in 4 rows, `vertical:` in 4 columns.
+const ROWS = 4;
+const VCOLS = 4;
+// Every page's sections fit in PAGE columns; the macros sit beyond them, on every tab.
+const PAGE = 22;
+const COLS = PAGE + 3;
 const BLUE = "#3d7dff26";
 const GREEN = "#3ec96b26";
 const ORANGE = "#ff6a1a26";
 const PURPLE = "#a05cff26";
+const RED = "#ff3b3026";
+const GREY = "#6b6b6b26";
 
 /** The engine parameter a bind names — refused when it does not exist, so the panel never binds a hole. */
 function param(name) {
@@ -68,73 +75,147 @@ function widget(fields) {
   return `{ ${parts.join(", ")} }`;
 }
 
-// The kinds of control, each sized and ranged off the engine's own parameter.
-const knob = (name, col, row, label, size = 2) => {
+// The kinds of control, ranged off the engine's own parameter; WHERE each goes is the section's, once per layout.
+const knob = (name, label) => {
   const p = param(name);
-  return { type: "knob", col, row, colSpan: size, rowSpan: size, label, bind: name, min: p.min, max: p.max, ...(p.discrete ? { step: 1 } : {}) };
+  return { type: "knob", label, bind: name, min: p.min, max: p.max, ...(p.discrete ? { step: 1 } : {}) };
 };
-const toggle = (name, col, row, label, span = 1) => (param(name), { type: "toggle", col, row, colSpan: span, label, bind: name });
-const number = (name, col, row, label, span = 2) => {
+const toggle = (name, label) => (param(name), { type: "toggle", label, bind: name });
+const number = (name, label) => {
   const p = param(name);
-  return { type: "number", col, row, colSpan: span, label, bind: name, min: p.min, max: p.max, step: 1 };
+  return { type: "number", label, bind: name, min: p.min, max: p.max, step: 1 };
 };
-const dropdown = (name, col, row, label, span, skip = new Set()) => {
+const dropdown = (name, label, skip = new Set()) => {
   const p = param(name);
-  const options = p.choices
-    .map((c, i) => ({ label: c, value: p.min + i }))
-    .filter((o) => !skip.has(o.label));
-  return { type: "dropdown", col, row, colSpan: span, label, bind: name, options };
+  const options = p.choices.map((c, i) => ({ label: c, value: p.min + i })).filter((o) => !skip.has(o.label));
+  return { type: "dropdown", label, bind: name, options };
 };
-const group = (col, row, colSpan, rowSpan, label, color) => ({ type: "group", col, row, colSpan, rowSpan, label, color });
-const screen = (col, row, colSpan, rowSpan) => ({ type: "lcdscreen", col, row, colSpan, rowSpan });
+const screen = () => ({ type: "lcdscreen" });
 
-/** A tab's widgets, ids prefixed so they stay unique across the panel. */
-function tab(prefix, entries) {
-  return Object.fromEntries(entries.map(([id, w]) => [`${prefix}_${id}`, w]));
+// Boxes `[col, row, colSpan, rowSpan]` relative to their section, keyed by control id.
+const line = (ids, c, r, w, h) => Object.fromEntries(ids.map((id, k) => [id, [c + k * w, r, w, h]]));
+const stack = (ids, c, r, w, h) => Object.fromEntries(ids.map((id, k) => [id, [c, r + k * h, w, h]]));
+const grid = (ids, per, c, r, s) =>
+  Object.fromEntries(ids.map((id, k) => [id, [c + (k % per) * s, r + Math.floor(k / per) * s, s, s]]));
+
+/** A section: its controls `[[id, widget]]`, framed by a tinted group when labelled, with a box per control in EACH layout. */
+function section(key, label, color, controls, h, v) {
+  for (const [id] of controls)
+    if (!h[id] || !v[id]) throw new Error(`section ${key}: \`${id}\` has no box in ${h[id] ? "the vertical" : "the horizontal"} layout`);
+  return { key, label, color, controls, h, v };
 }
+
+const extent = (boxes) => [
+  Math.max(...Object.values(boxes).map(([c, , w]) => c + w)),
+  Math.max(...Object.values(boxes).map(([, r, , h]) => r + h)),
+];
+
+/** A section's widgets in one layout, shifted to its origin, its group first. */
+function place(sec, prefix, boxes, c0, r0) {
+  const out = [];
+  if (sec.label) {
+    const [w, h] = extent(boxes);
+    out.push([`${prefix}${sec.key}_grp`, { type: "group", col: c0, row: r0, colSpan: w, rowSpan: h, label: sec.label, color: sec.color }]);
+  }
+  for (const [id, wd] of sec.controls) {
+    const [c, r, cs, rs] = boxes[id];
+    out.push([`${prefix}${id}`, { ...wd, col: c0 + c, row: r0 + r, colSpan: cs, rowSpan: rs }]);
+  }
+  return out;
+}
+
+/** A page: sections left to right across ROWS (or at the `at` given), and the same sections stacked in VCOLS from `top`. */
+function page(name, prefix, sections, top) {
+  const h = [];
+  const v = [];
+  let col = 0;
+  let row = top;
+  for (const { sec, at } of sections) {
+    const [hc, hr] = at ?? [col, 0];
+    h.push(...place(sec, prefix, sec.h, hc, hr));
+    if (!at) col += extent(sec.h)[0];
+    v.push(...place(sec, prefix, sec.v, 0, row));
+    row += extent(sec.v)[1];
+  }
+  return { name, h: Object.fromEntries(h), v: Object.fromEntries(v) };
+}
+
+// The level and the eight macros, on every tab: what Surge keeps in view whatever its page (docs/surgePlugin.md).
+const MACROS = [...Array.from({ length: 8 }, (_, i) => `macro${i + 1}`), "volume"];
+const macros = section(
+  "macros",
+  "MACROS",
+  GREY,
+  [
+    ...Array.from({ length: 8 }, (_, i) => [`macro${i + 1}`, knob(`Macro ${i + 1}`, `M${i + 1}`)]),
+    // The engine's own trim, not one of Surge's parameters: the range SurgePlugin declares for it.
+    ["volume", { type: "knob", label: "Vol", bind: "Volume", min: -40, max: 12 }],
+  ],
+  grid(MACROS, 3, 0, 0, 1),
+  grid(MACROS, VCOLS, 0, 0, 1),
+);
+const TOP = extent(macros.v)[1];
+
+/** A mix channel: where it goes, how loud, mute and solo. */
+function channel(key, label, base) {
+  return section(
+    key,
+    label,
+    GREEN,
+    [
+      [`${key}_route`, dropdown(`${base} Route`, "Route")],
+      [`${key}_level`, knob(`${base} Volume`, "Level")],
+      [`${key}_mute`, toggle(`${base} Mute`, "M")],
+      [`${key}_solo`, toggle(`${base} Solo`, "S")],
+    ],
+    { [`${key}_route`]: [0, 0, 2, 1], [`${key}_level`]: [0, 1, 2, 2], [`${key}_mute`]: [0, 3, 1, 1], [`${key}_solo`]: [1, 3, 1, 1] },
+    { [`${key}_route`]: [0, 0, 4, 1], [`${key}_level`]: [0, 1, 2, 2], [`${key}_mute`]: [2, 1, 2, 1], [`${key}_solo`]: [2, 2, 2, 1] },
+  );
+}
+
+/** A bare screen: no frame, its own size in each layout. */
+const screenSec = (key, h, v) => section(key, null, null, [[key, screen()]], { [key]: h }, { [key]: v });
 
 /** One oscillator's page: its own controls, its mix channel, and the effects its sound goes through. */
-function oscTab(S, n) {
+function oscPage(S, n) {
   const o = `${S} Osc ${n}`;
-  return [
-    ["grp", group(0, 1, 19, 4, `OSC ${n}`, BLUE)],
-    ["type", dropdown(`${o} Type`, 0, 1, "Type", 3, NO_INPUT_OSC)],
-    ["oct", number(`${o} Octave`, 0, 2, "Octave", 3)],
-    ["key", toggle(`${o} Keytrack`, 0, 3, "Key")],
-    ["retrig", toggle(`${o} Retrigger`, 1, 3, "Retrig", 2)],
-    ["pitch", knob(`${o} Pitch`, 3, 2, "Pitch")],
-    ...Array.from({ length: 7 }, (_, i) => [`p${i + 1}`, knob(`${o} Param ${i + 1}`, 5 + i * 2, 2, String(i + 1))]),
-    ["screen", screen(19, 1, 5, 4)],
-    ["mix_grp", group(0, 5, 6, 6, "MIX", GREEN)],
-    ["route", dropdown(`${o} Route`, 0, 5, "Route", 6)],
-    ["level", knob(`${o} Volume`, 0, 6, "Level")],
-    ["mute", toggle(`${o} Mute`, 2, 6, "M", 2)],
-    ["solo", toggle(`${o} Solo`, 2, 7, "S", 2)],
-    ["fx", screen(6, 5, 18, 6)],
-  ];
+  const knobs = ["pitch", "p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+  const osc = section(
+    "osc",
+    `OSC ${n}`,
+    BLUE,
+    [
+      ["type", dropdown(`${o} Type`, "Type", NO_INPUT_OSC)],
+      ["oct", number(`${o} Octave`, "Octave")],
+      ["key", toggle(`${o} Keytrack`, "Key")],
+      ["retrig", toggle(`${o} Retrigger`, "Retrig")],
+      ["pitch", knob(`${o} Pitch`, "Pitch")],
+      ...Array.from({ length: 7 }, (_, i) => [`p${i + 1}`, knob(`${o} Param ${i + 1}`, String(i + 1))]),
+    ],
+    { ...stack(["type", "oct", "key", "retrig"], 0, 0, 2, 1), ...grid(knobs, 4, 2, 0, 2) },
+    { ...line(["type", "oct"], 0, 0, 2, 1), ...line(["key", "retrig"], 0, 1, 2, 1), ...grid(knobs, 2, 0, 2, 2) },
+  );
+  return page(
+    `${S} OSC ${n}`,
+    `${S.toLowerCase()}osc${n}_`,
+    [
+      { sec: osc },
+      { sec: screenSec("screen", [0, 0, 4, 4], [0, 0, 4, 3]) },
+      { sec: channel("mix", "MIX", o) },
+      { sec: screenSec("fx", [0, 0, 6, 4], [0, 0, 4, 4]) },
+    ],
+    TOP,
+  );
 }
 
-/** What a scene adds over its oscillators: the ring modulators, the noise, and the scene's own controls. */
-function sceneTab(S) {
-  const out = [];
-  const channels = [
+/** What a scene adds over its oscillators: the ring modulators, the noise, the scene's own controls, its output. */
+function scenePage(S) {
+  const chans = [
     ["r12", "Ring Modulation 1x2", "RING 1×2"],
     ["r23", "Ring Modulation 2x3", "RING 2×3"],
     ["noise", "Noise", "NOISE"],
-  ];
-  channels.forEach(([id, name, label], k) => {
-    const c = k * 4;
-    out.push([`${id}_grp`, group(c, 1, 4, 4, label, GREEN)]);
-    out.push([`${id}_route`, dropdown(`${S} ${name} Route`, c, 1, "Route", 4)]);
-    out.push([`${id}_level`, knob(`${S} ${name} Volume`, c, 2, "Level")]);
-    out.push([`${id}_mute`, toggle(`${S} ${name} Mute`, c + 2, 2, "M", 2)]);
-    out.push([`${id}_solo`, toggle(`${S} ${name} Solo`, c + 2, 3, "S", 2)]);
-  });
-  out.push(["scene_grp", group(0, 5, 24, 6, "SCENE", PURPLE)]);
-  out.push(["playmode", dropdown(`${S} Play Mode`, 0, 5, "Play mode", 4)]);
-  out.push(["fmroute", dropdown(`${S} FM Routing`, 4, 5, "FM routing", 4)]);
-  out.push(["octave", number(`${S} Octave`, 8, 5, "Octave", 2)]);
-  out.push(["ktroot", number(`${S} Keytrack Root Key`, 10, 5, "Key root", 3)]);
+  ].map(([key, name, label]) => channel(key, label, `${S} ${name}`));
+  const sel = ["playmode", "fmroute", "octave", "ktroot"];
   const knobs = [
     ["pitch", "Pitch", "Pitch"],
     ["porta", "Portamento", "Glide"],
@@ -142,58 +223,133 @@ function sceneTab(S) {
     ["drift", "Osc Drift", "Drift"],
     ["noisecol", "Noise Color", "Noise col"],
     ["pfg", "Pre-Filter Gain", "Pre gain"],
-    ["volume", "Volume", "Volume"],
-    ["pan", "Pan", "Pan"],
-    ["width", "Width", "Width"],
-    ["send1", "Send FX 1 Level", "Send 1"],
-    ["send2", "Send FX 2 Level", "Send 2"],
-    ["send3", "Send FX 3 Level", "Send 3"],
   ];
-  knobs.forEach(([id, name, label], k) => out.push([id, knob(`${S} ${name}`, k * 2, 6, label)]));
-  out.push(["send4", knob(`${S} Send FX 4 Level`, 0, 8, "Send 4")]);
-  return out;
+  const kids = knobs.map(([id]) => id);
+  const scene = section(
+    "scene",
+    "SCENE",
+    PURPLE,
+    [
+      ["playmode", dropdown(`${S} Play Mode`, "Play mode")],
+      ["fmroute", dropdown(`${S} FM Routing`, "FM routing")],
+      ["octave", number(`${S} Octave`, "Octave")],
+      ["ktroot", number(`${S} Keytrack Root Key`, "Key root")],
+      ...knobs.map(([id, name, label]) => [id, knob(`${S} ${name}`, label)]),
+    ],
+    { ...stack(sel, 0, 0, 2, 1), ...grid(kids, 3, 2, 0, 2) },
+    { ...line(sel.slice(0, 2), 0, 0, 2, 1), ...line(sel.slice(2), 0, 1, 2, 1), ...grid(kids, 2, 0, 2, 2) },
+  );
+  const outIds = ["volume", "pan", "width"];
+  const out = section(
+    "out",
+    "OUT",
+    GREEN,
+    [
+      ["volume", knob(`${S} Volume`, "Volume")],
+      ["pan", knob(`${S} Pan`, "Pan")],
+      ["width", knob(`${S} Width`, "Width")],
+    ],
+    grid(outIds, 2, 0, 0, 2),
+    grid(outIds, 2, 0, 0, 2),
+  );
+  const sendIds = ["send1", "send2", "send3", "send4"];
+  const sends = section(
+    "sends",
+    "SENDS",
+    RED,
+    sendIds.map((id, k) => [id, knob(`${S} Send FX ${k + 1} Level`, `Send ${k + 1}`)]),
+    grid(sendIds, 2, 0, 0, 2),
+    grid(sendIds, 2, 0, 0, 2),
+  );
+  return page(`${S} SCENE`, `${S.toLowerCase()}scene_`, [...chans, scene, out, sends].map((sec) => ({ sec })), TOP);
 }
 
-function filterTab(S) {
-  const out = [];
-  out.push(["cfg", dropdown(`${S} Filter Configuration`, 0, 1, "Routing", 4)]);
-  out.push(["wstype", dropdown(`${S} Waveshaper Type`, 4, 1, "Waveshaper", 5)]);
-  out.push(["f2off", toggle(`${S} Filter 2 Offset Mode`, 9, 1, "F2 offset", 2)]);
-  out.push(["linkres", toggle(`${S} Link Resonance`, 11, 1, "Link res", 2)]);
-  for (const n of [1, 2]) {
-    const c = (n - 1) * 12;
+/** The filter block in Surge's order: the routing and highpass, filter 1, the waveshaper, filter 2. */
+function filterPage(S) {
+  const rk = ["hp", "fb", "bal"];
+  const routing = section(
+    "routing",
+    "ROUTING",
+    ORANGE,
+    [
+      ["cfg", dropdown(`${S} Filter Configuration`, "Routing")],
+      ["f2off", toggle(`${S} Filter 2 Offset Mode`, "F2 offset")],
+      ["linkres", toggle(`${S} Link Resonance`, "Link res")],
+      ["hp", knob(`${S} Highpass`, "Highpass")],
+      ["fb", knob(`${S} Feedback`, "Feedback")],
+      ["bal", knob(`${S} Filter Balance`, "Balance")],
+    ],
+    { ...stack(["cfg", "f2off", "linkres"], 0, 0, 2, 1), ...grid(rk, 2, 2, 0, 2) },
+    { ...line(["cfg", "f2off"], 0, 0, 2, 1), linkres: [0, 1, 2, 1], ...grid(rk, 2, 0, 2, 2) },
+  );
+  const filter = (n) => {
     const f = `${S} Filter ${n}`;
-    out.push([`f${n}_grp`, group(c, 2, 12, 3, `FILTER ${n}`, ORANGE)]);
-    out.push([`f${n}_type`, dropdown(`${f} Type`, c, 2, "Type", 4)]);
-    out.push([`f${n}_sub`, number(`${f} Subtype`, c, 3, "Subtype", 4)]);
-    out.push([`f${n}_cut`, knob(`${f} Cutoff`, c + 4, 3, "Cutoff")]);
-    out.push([`f${n}_res`, knob(`${f} Resonance`, c + 6, 3, "Reso")]);
-    out.push([`f${n}_env`, knob(`${f} FEG Mod Amount`, c + 8, 3, "Env")]);
-    out.push([`f${n}_key`, knob(`${f} Keytrack`, c + 10, 3, "Key")]);
-  }
-  const knobs = [
-    ["fb", "Feedback", "Feedback"],
-    ["bal", "Filter Balance", "Balance"],
-    ["hp", "Highpass", "Highpass"],
-    ["wsdrive", "Waveshaper Drive", "Drive"],
-    ["vca", "VCA Gain", "VCA"],
-    ["velvca", "Velocity > VCA Gain", "Vel>VCA"],
-  ];
-  knobs.forEach(([id, name, label], k) => out.push([id, knob(`${S} ${name}`, k * 2, 5, label)]));
-  for (const [n, eg, label] of [[1, "Amp EG", "AMP EG"], [2, "Filter EG", "FILTER EG"]]) {
-    const c = (n - 1) * 12;
-    const e = `${S} ${eg}`;
-    out.push([`eg${n}_grp`, group(c, 7, 12, 4, label, PURPLE)]);
-    out.push([`eg${n}_mode`, dropdown(`${e} Envelope Mode`, c, 7, "Mode", 4)]);
-    ["Attack", "Decay", "Sustain", "Release"].forEach((stage, k) =>
-      out.push([`eg${n}_${stage[0].toLowerCase()}`, knob(`${e} ${stage}`, c + k * 2, 8, stage[0])]),
+    const ks = [`f${n}_cut`, `f${n}_res`, `f${n}_env`, `f${n}_key`];
+    return section(
+      `f${n}`,
+      `FILTER ${n}`,
+      ORANGE,
+      [
+        [`f${n}_type`, dropdown(`${f} Type`, "Type")],
+        [`f${n}_sub`, number(`${f} Subtype`, "Subtype")],
+        [ks[0], knob(`${f} Cutoff`, "Cutoff")],
+        [ks[1], knob(`${f} Resonance`, "Reso")],
+        [ks[2], knob(`${f} FEG Mod Amount`, "Env")],
+        [ks[3], knob(`${f} Keytrack`, "Key")],
+      ],
+      { ...stack([`f${n}_type`, `f${n}_sub`], 0, 0, 2, 1), ...grid(ks, 2, 2, 0, 2) },
+      { ...line([`f${n}_type`, `f${n}_sub`], 0, 0, 2, 1), ...grid(ks, 2, 0, 1, 2) },
     );
-    out.push([`eg${n}_ash`, dropdown(`${e} Attack Shape`, c, 10, "A shape", 2)]);
-    out.push([`eg${n}_dsh`, dropdown(`${e} Decay Shape`, c + 2, 10, "D shape", 2)]);
-    out.push([`eg${n}_rsh`, dropdown(`${e} Release Shape`, c + 6, 10, "R shape", 2)]);
-    out.push([`eg${n}_screen`, screen(c + 8, 7, 4, 4)]);
-  }
-  return out;
+  };
+  const shaper = section(
+    "ws",
+    "SHAPER",
+    ORANGE,
+    [
+      ["wstype", dropdown(`${S} Waveshaper Type`, "Type")],
+      ["wsdrive", knob(`${S} Waveshaper Drive`, "Drive")],
+    ],
+    { wstype: [0, 0, 2, 1], wsdrive: [0, 1, 2, 2] },
+    { wstype: [0, 0, 4, 1], wsdrive: [0, 1, 2, 2] },
+  );
+  return page(`${S} FILTER`, `${S.toLowerCase()}flt_`, [routing, filter(1), shaper, filter(2)].map((sec) => ({ sec })), TOP);
+}
+
+/** The two envelopes, each beside the curve it draws, then the VCA they end in. */
+function envPage(S) {
+  const eg = (n, name, label) => {
+    const e = `${S} ${name}`;
+    const p = (id) => `eg${n}_${id}`;
+    const sel = [p("mode"), p("ash"), p("dsh"), p("rsh")];
+    const ks = ["a", "d", "s", "r"].map(p);
+    return section(
+      `eg${n}`,
+      label,
+      PURPLE,
+      [
+        [p("mode"), dropdown(`${e} Envelope Mode`, "Mode")],
+        [p("ash"), dropdown(`${e} Attack Shape`, "A shape")],
+        [p("dsh"), dropdown(`${e} Decay Shape`, "D shape")],
+        [p("rsh"), dropdown(`${e} Release Shape`, "R shape")],
+        ...["Attack", "Decay", "Sustain", "Release"].map((stage, k) => [ks[k], knob(`${e} ${stage}`, stage[0])]),
+        [p("screen"), screen()],
+      ],
+      { ...stack(sel, 0, 0, 2, 1), ...grid(ks, 2, 2, 0, 2), [p("screen")]: [6, 0, 3, 4] },
+      { ...line(sel.slice(0, 2), 0, 0, 2, 1), ...line(sel.slice(2), 0, 1, 2, 1), ...grid(ks, 2, 0, 2, 2), [p("screen")]: [0, 6, 4, 2] },
+    );
+  };
+  const vca = section(
+    "vca",
+    "VCA",
+    GREEN,
+    [
+      ["vca", knob(`${S} VCA Gain`, "VCA")],
+      ["velvca", knob(`${S} Velocity > VCA Gain`, "Vel>VCA")],
+    ],
+    stack(["vca", "velvca"], 0, 0, 2, 2),
+    line(["vca", "velvca"], 0, 0, 2, 2),
+  );
+  return page(`${S} ENV`, `${S.toLowerCase()}env_`, [eg(1, "Amp EG", "AMP EG"), eg(2, "Filter EG", "FILTER EG"), vca].map((sec) => ({ sec })), TOP);
 }
 
 const LFO_KNOBS = [
@@ -208,79 +364,128 @@ const LFO_KNOBS = [
   ["sus", "Sustain", "Sus"],
   ["rel", "Release", "Rel"],
 ];
+// Three modulators a page: six do not fit 4 rows, so each bank is two pages, each with a screen of its own three.
+const LFO_PAGES = [1, 4];
 
-function lfoTab(S, kind) {
-  const out = [];
-  for (let n = 1; n <= 6; n++) {
-    const r = n;
+function lfoPage(S, kind, tag, first) {
+  const lfos = [first, first + 1, first + 2].map((n) => {
     const l = `${S} ${kind} ${n}`;
-    out.push([`l${n}_type`, dropdown(`${l} Type`, 0, r, `${n}`, 3)]);
-    out.push([`l${n}_trig`, dropdown(`${l} Trigger Mode`, 3, r, "Trigger", 3)]);
-    out.push([`l${n}_uni`, toggle(`${l} Unipolar`, 6, r, "Uni")]);
-    LFO_KNOBS.forEach(([id, name, label], k) => out.push([`l${n}_${id}`, knob(`${l} ${name}`, 7 + k, r, label, 1)]));
-  }
-  out.push(["screen", screen(17, 1, 7, 6)]);
-  return out;
+    const p = (id) => `l${n}_${id}`;
+    const ks = LFO_KNOBS.map(([id]) => p(id));
+    return section(
+      `l${n}`,
+      `${tag} ${n}`,
+      BLUE,
+      [
+        [p("type"), dropdown(`${l} Type`, "Type")],
+        [p("uni"), toggle(`${l} Unipolar`, "Uni")],
+        [p("trig"), dropdown(`${l} Trigger Mode`, "Trigger")],
+        ...LFO_KNOBS.map(([id, name, label]) => [p(id), knob(`${l} ${name}`, label)]),
+      ],
+      { [p("type")]: [0, 0, 3, 1], [p("uni")]: [3, 0, 2, 1], [p("trig")]: [0, 1, 3, 1], ...grid(ks, 5, 0, 2, 1) },
+      { [p("type")]: [0, 0, 4, 1], [p("trig")]: [0, 1, 2, 1], [p("uni")]: [2, 1, 2, 1], ...grid(ks, 4, 0, 2, 1) },
+    );
+  });
+  const name = `${S} ${tag.replace("-", "")} ${first}-${first + 2}`;
+  const prefix = `${S.toLowerCase()}${tag === "LFO" ? "lfo" : "slfo"}${first}_`;
+  return page(name, prefix, [...lfos, screenSec("screen", [0, 0, 7, 4], [0, 0, 4, 3])].map((sec) => ({ sec })), TOP);
 }
 
-function fxTab(slots, withGlobals) {
-  const out = [];
-  slots.forEach((slot, k) => {
-    const r = 1 + k;
-    out.push([`${slot}_type`, dropdown(`FX ${slot} Type`, 0, r, slot, 4, NO_INPUT_FX)]);
-    for (let p = 1; p <= 12; p++) out.push([`${slot}_p${p}`, knob(`FX ${slot} Param ${p}`, 3 + p, r, String(p), 1)]);
+/** Four effect slots, one a row, and the screen naming what each slot's numbered knobs do. */
+function fxPage(name, prefix, slots) {
+  const secs = slots.map((slot, k) => {
+    const s = slot.toLowerCase();
+    const ks = Array.from({ length: 12 }, (_, i) => `${s}_p${i + 1}`);
+    const sec = section(
+      s,
+      slot,
+      RED,
+      [
+        [`${s}_type`, dropdown(`FX ${slot} Type`, "Type", NO_INPUT_FX)],
+        ...ks.map((id, i) => [id, knob(`FX ${slot} Param ${i + 1}`, String(i + 1))]),
+      ],
+      { [`${s}_type`]: [0, 0, 3, 1], ...line(ks, 3, 0, 1, 1) },
+      { [`${s}_type`]: [0, 0, 4, 1], ...grid(ks, 4, 0, 1, 1) },
+    );
+    return { sec, at: [0, k] };
   });
-  out.push(["screen", screen(16, 1, 8, 8)]);
-  if (withGlobals) {
-    out.push(["glob_grp", group(0, 9, 24, 2, "GLOBAL", PURPLE)]);
-    for (let s = 1; s <= 4; s++) out.push([`ret${s}`, knob(`Send FX ${s} Return`, (s - 1) * 2, 9, `Return ${s}`)]);
-    out.push(["gvol", knob("Global Volume", 8, 9, "Global")]);
-    out.push(["poly", number("Polyphony Limit", 10, 9, "Voices", 2)]);
-    out.push(["bypass", dropdown("FX Chain Bypass", 12, 9, "FX chain", 4)]);
-    out.push(["character", dropdown("Character", 16, 9, "Character", 3)]);
-  }
-  return out;
+  return page(name, prefix, [...secs, { sec: screenSec("screen", [0, 0, 7, 4], [0, 0, 4, 4]), at: [15, 0] }], TOP);
 }
+
+/** What belongs to no scene: the send returns, the master level, the voices, the chain bypass and the character. */
+function globalPage() {
+  const rets = ["ret1", "ret2", "ret3", "ret4"];
+  const returns = section(
+    "returns",
+    "RETURNS",
+    RED,
+    rets.map((id, k) => [id, knob(`Send FX ${k + 1} Return`, `Return ${k + 1}`)]),
+    grid(rets, 2, 0, 0, 2),
+    grid(rets, 2, 0, 0, 2),
+  );
+  const master = section(
+    "master",
+    "MASTER",
+    PURPLE,
+    [
+      ["gvol", knob("Global Volume", "Global")],
+      ["bypass", dropdown("FX Chain Bypass", "FX chain")],
+      ["character", dropdown("Character", "Character")],
+      ["poly", number("Polyphony Limit", "Voices")],
+    ],
+    { gvol: [0, 0, 2, 2], ...stack(["bypass", "character", "poly"], 2, 0, 3, 1) },
+    { gvol: [0, 0, 2, 2], poly: [2, 0, 2, 1], bypass: [0, 2, 4, 1], character: [0, 3, 4, 1] },
+  );
+  return page("GLOBAL", "glob_", [{ sec: returns }, { sec: master }], TOP);
+}
+
+const FX_PAGES = [
+  ["FX A", "fxa_", ["A1", "A2", "A3", "A4"]],
+  ["FX B", "fxb_", ["B1", "B2", "B3", "B4"]],
+  ["FX SEND", "fxs_", ["S1", "S2", "S3", "S4"]],
+  ["FX GLOBAL", "fxg_", ["G1", "G2", "G3", "G4"]],
+];
 
 const tabs = [];
 for (const S of ["A", "B"]) {
-  const s = S.toLowerCase();
-  for (let n = 1; n <= 3; n++) tabs.push({ name: `${S} OSC ${n}`, widgets: tab(`${s}osc${n}`, oscTab(S, n)) });
-  tabs.push({ name: `${S} SCENE`, widgets: tab(`${s}scene`, sceneTab(S)) });
-  tabs.push({ name: `${S} FILTER`, widgets: tab(`${s}flt`, filterTab(S)) });
-  tabs.push({ name: `${S} LFO`, widgets: tab(`${s}lfo`, lfoTab(S, "LFO")) });
-  tabs.push({ name: `${S} S-LFO`, widgets: tab(`${s}slfo`, lfoTab(S, "Scene LFO")) });
+  for (let n = 1; n <= 3; n++) tabs.push(oscPage(S, n));
+  tabs.push(scenePage(S), filterPage(S), envPage(S));
+  for (const first of LFO_PAGES) tabs.push(lfoPage(S, "LFO", "LFO", first));
+  for (const first of LFO_PAGES) tabs.push(lfoPage(S, "Scene LFO", "S-LFO", first));
 }
-tabs.push({ name: "FX A/B", widgets: tab("fxab", fxTab(["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"], false)) });
-tabs.push({ name: "FX S/G", widgets: tab("fxsg", fxTab(["S1", "S2", "S3", "S4", "G1", "G2", "G3", "G4"], true)) });
+for (const [name, prefix, slots] of FX_PAGES) tabs.push(fxPage(name, prefix, slots));
+tabs.push(globalPage());
 
-// On every tab: the level and the eight macros — what Surge keeps in view whatever its page. No patch picker: a
-// patch is chosen from the node's PRESETS, one per patch, which also drop the values set over the last one.
-const shared = {
-  // The engine's own trim, not one of Surge's parameters: the range SurgePlugin declares for it.
-  volume: { type: "knob", col: 0, row: 0, colSpan: 1, rowSpan: 1, label: "Vol", bind: "Volume", min: -40, max: 12 },
-  ...Object.fromEntries(
-    Array.from({ length: 8 }, (_, i) => [`macro${i + 1}`, knob(`Macro ${i + 1}`, 2 + i, 0, `M${i + 1}`, 1)]),
-  ),
-};
+// No patch picker: a patch is chosen from the node's PRESETS, one per patch, which also drop the values set over the last one.
+const sharedH = Object.fromEntries(place(macros, "", macros.h, PAGE, 0));
+const sharedV = Object.fromEntries(place(macros, "", macros.v, 0, 0));
+const vrows = Math.max(...tabs.flatMap((t) => Object.values(t.v).map((w) => w.row + w.rowSpan)));
+
+const block = (indent, shared, pages) => [
+  `${indent}widgets:`,
+  ...Object.entries(shared).map(([id, w]) => `${indent}  ${id}: ${widget(w)}`),
+  `${indent}tabs:`,
+  ...pages.flatMap(([name, ws]) => [
+    `${indent}  - name: ${q(name)}`,
+    `${indent}    widgets:`,
+    ...Object.entries(ws).map(([id, w]) => `${indent}      ${id}: ${widget(w)}`),
+  ]),
+];
 
 const lines = [
   "# panel for @st0/instruments/synth/surge-xt — GENERATED by engine/st0-engine/scripts/gen-surge-panel.mjs; edit that, not this.",
   "#",
   "# Surge XT's own layout on our widgets: a page per oscillator with its mix and the effects it reaches, then the",
-  "# scene's sections, A then B, and the effects. A slot's knob is",
-  "# numbered because its meaning follows its owner's type — the screen beside it names each one for the type set.",
+  "# scene's sections, A then B, and the effects — horizontal in 4 rows, and stacked in 4 columns under `vertical:`.",
+  "# A slot's knob is numbered because its meaning follows its owner's type — the screen beside it names each one.",
   `cols: ${COLS}`,
   `rows: ${ROWS}`,
-  "widgets:",
-  ...Object.entries(shared).map(([id, w]) => `  ${id}: ${widget(w)}`),
-  "tabs:",
+  ...block("", sharedH, tabs.map((t) => [t.name, t.h])),
+  "vertical:",
+  `  cols: ${VCOLS}`,
+  `  rows: ${vrows}`,
+  ...block("  ", sharedV, tabs.map((t) => [t.name, t.v])),
 ];
-for (const t of tabs) {
-  lines.push(`  - name: ${q(t.name)}`);
-  lines.push("    widgets:");
-  for (const [id, w] of Object.entries(t.widgets)) lines.push(`      ${id}: ${widget(w)}`);
-}
 writeFileSync(join(OUT, "ui.yaml"), `${lines.join("\n")}\n`);
 
 // The screens: the tables they name things from are the same dump, baked in.
@@ -295,200 +500,19 @@ for (const S of ["A", "B"]) {
     screens.push(`  ${s}osc${n}_screen: (lcd) => oscScreen(lcd, "${S} Osc ${n}"),`);
     screens.push(`  ${s}osc${n}_fx: (lcd) => fxReachScreen(lcd, "${S}", ${n}),`);
   }
-  screens.push(`  ${s}flt_eg1_screen: (lcd) => egScreen(lcd, "${S} Amp EG"),`);
-  screens.push(`  ${s}flt_eg2_screen: (lcd) => egScreen(lcd, "${S} Filter EG"),`);
-  screens.push(`  ${s}lfo_screen: (lcd) => lfoScreen(lcd, "${S} LFO"),`);
-  screens.push(`  ${s}slfo_screen: (lcd) => lfoScreen(lcd, "${S} Scene LFO"),`);
-}
-screens.push(`  fxab_screen: (lcd) => fxScreen(lcd, ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"]),`);
-screens.push(`  fxsg_screen: (lcd) => fxScreen(lcd, ["S1", "S2", "S3", "S4", "G1", "G2", "G3", "G4"]),`);
-
-const js = `// Surge XT screens — GENERATED by engine/st0-engine/scripts/gen-surge-panel.mjs from the engine's own dump; edit that.
-// Each names what a slot's numbered knobs do for the type set now, and sketches what the knobs around it shape.
-
-const OSC_TYPES = ${JSON.stringify(oscTypes)};
-const FX_TYPES = ${JSON.stringify(fxTypes)};
-const LFO_SHAPES = ${JSON.stringify(lfoShapes)};
-const ROUTES = ${JSON.stringify(routes)};
-const FONT = "9px ui-monospace, monospace";
-const SMALL = "8px ui-monospace, monospace";
-
-function clear(lcd) {
-  lcd.ctx.fillStyle = lcd.color.bg;
-  lcd.ctx.fillRect(0, 0, lcd.width, lcd.height);
-}
-
-function text(lcd, s, x, y, col, font) {
-  lcd.ctx.fillStyle = col || lcd.color.ink;
-  lcd.ctx.font = font || FONT;
-  lcd.ctx.textAlign = "left";
-  lcd.ctx.fillText(s, x, y);
-}
-
-const at = (lcd, name, fallback) => {
-  const v = lcd.params[name];
-  return typeof v === "number" ? v : fallback;
-};
-
-// Surge's envelope times are 2^x seconds with x from -8 to 5, which the 0..1 knob spans linearly.
-const egSeconds = (v) => Math.pow(2, -8 + 13 * v);
-
-function oscScreen(lcd, osc) {
-  clear(lcd);
-  const t = OSC_TYPES[Math.round(at(lcd, osc + " Type", 0))] || OSC_TYPES[0];
-  text(lcd, t.name.toUpperCase(), 6, 14, lcd.color.glow);
-  t.slots.forEach((slot, k) => {
-    if (!slot) return;
-    const v = at(lcd, osc + " Param " + (k + 1), 0);
-    const y = 28 + k * 11;
-    text(lcd, (k + 1) + " " + slot, 6, y, lcd.color.ink, SMALL);
-    lcd.ctx.fillStyle = lcd.color.dim;
-    lcd.ctx.fillRect(lcd.width - 40, y - 6, 34, 4);
-    lcd.ctx.fillStyle = lcd.color.ink;
-    lcd.ctx.fillRect(lcd.width - 40, y - 6, 34 * Math.max(0, Math.min(1, v)), 4);
-  });
-}
-
-function egScreen(lcd, eg) {
-  clear(lcd);
-  const { ctx, width: W, height: H } = lcd;
-  const a = egSeconds(at(lcd, eg + " Attack", 0)), d = egSeconds(at(lcd, eg + " Decay", 0.5));
-  const s = at(lcd, eg + " Sustain", 1), r = egSeconds(at(lcd, eg + " Release", 0.3));
-  // Seconds on a compressed axis, so a 1 ms attack and a 30 s release both read.
-  const tx = (t) => Math.log10(1 + t * 20);
-  const scale = Math.max(1, tx(a) + tx(d) + 0.6 + tx(r)) * 1.05;
-  const x = (u) => 6 + (u / scale) * (W - 12);
-  const top = 10, bottom = H - 8, ys = bottom - s * (bottom - top);
-  const xa = x(tx(a)), xd = x(tx(a) + tx(d)), xs = x(tx(a) + tx(d) + 0.6), xr = x(tx(a) + tx(d) + 0.6 + tx(r));
-  ctx.strokeStyle = lcd.color.ink;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(x(0), bottom);
-  ctx.lineTo(xa, top);
-  ctx.lineTo(xd, ys);
-  ctx.lineTo(xs, ys);
-  ctx.lineTo(xr, bottom);
-  ctx.stroke();
-}
-
-// One cycle of an LFO shape at phase p, -1..1; the shapes Surge draws from data (step, MSEG, formula) are a flat line.
-function lfoShape(shape, p) {
-  switch (LFO_SHAPES[shape]) {
-    case "Sine": return Math.sin(2 * Math.PI * p);
-    case "Triangle": return p < 0.5 ? 4 * p - 1 : 3 - 4 * p;
-    case "Square": return p < 0.5 ? 1 : -1;
-    case "Sawtooth": return 1 - 2 * p;
-    case "Noise": case "Sample & Hold": { const k = Math.floor(p * 8); const h = Math.sin(k * 12.9898 + shape) * 43758.5453; return 2 * (h - Math.floor(h)) - 1; }
-    case "Envelope": return p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8;
-    default: return 0;
+  screens.push(`  ${s}env_eg1_screen: (lcd) => egScreen(lcd, "${S} Amp EG"),`);
+  screens.push(`  ${s}env_eg2_screen: (lcd) => egScreen(lcd, "${S} Filter EG"),`);
+  for (const first of LFO_PAGES) {
+    screens.push(`  ${s}lfo${first}_screen: (lcd) => lfoScreen(lcd, "${S} LFO", ${first}),`);
+    screens.push(`  ${s}slfo${first}_screen: (lcd) => lfoScreen(lcd, "${S} Scene LFO", ${first}),`);
   }
 }
+for (const [, prefix, slots] of FX_PAGES) screens.push(`  ${prefix}screen: (lcd) => fxScreen(lcd, ${JSON.stringify(slots)}),`);
 
-function lfoScreen(lcd, lfo) {
-  clear(lcd);
-  const { ctx, width: W, height: H } = lcd;
-  const row = H / 6;
-  for (let n = 1; n <= 6; n++) {
-    const shape = Math.round(at(lcd, lfo + " " + n + " Type", 0));
-    const y = (n - 1) * row;
-    text(lcd, n + " " + (LFO_SHAPES[shape] || ""), 4, y + 11, lcd.color.dim, SMALL);
-    const amp = at(lcd, lfo + " " + n + " Amplitude", 1);
-    const x0 = W * 0.45, w = W - x0 - 4, mid = y + row / 2;
-    ctx.strokeStyle = lcd.color.ink;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i <= 64; i++) {
-      const v = lfoShape(shape, (i / 64) * 2 % 1) * amp;
-      const px = x0 + (i / 64) * w, py = mid - v * (row / 2 - 3);
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-  }
-}
-
-function fxScreen(lcd, slots) {
-  clear(lcd);
-  let y = 12;
-  for (const slot of slots) {
-    const t = FX_TYPES[Math.round(at(lcd, "FX " + slot + " Type", 0))] || FX_TYPES[0];
-    if (t.name === "Off") {
-      text(lcd, slot + "  —", 4, y, lcd.color.dim, SMALL);
-      y += 11;
-      continue;
-    }
-    text(lcd, slot + "  " + t.name, 4, y, lcd.color.glow);
-    y += 11;
-    const named = t.slots.map((s, k) => (s ? (k + 1) + " " + s : "")).filter(Boolean).join("  ");
-    // Wrapped by width, so twelve names fit the screen however long they are.
-    lcd.ctx.font = SMALL;
-    let line = "";
-    for (const word of named.split("  ")) {
-      const next = line ? line + "  " + word : word;
-      if (lcd.ctx.measureText(next).width > lcd.width - 12 && line) {
-        text(lcd, line, 10, y, lcd.color.ink, SMALL);
-        y += 10;
-        line = word;
-      } else line = next;
-    }
-    if (line) {
-      text(lcd, line, 10, y, lcd.color.ink, SMALL);
-      y += 12;
-    }
-  }
-}
-
-// How much of an effect a slot applies: its own Mix where its type has one, else all of it.
-function fxMix(lcd, slot, t) {
-  const k = t.slots.indexOf("Mix");
-  return k < 0 ? 1 : Math.max(0, Math.min(1, at(lcd, "FX " + slot + " Param " + (k + 1), 1)));
-}
-
-// The effects one oscillator's sound goes through, in order, each with how much of it applies (docs/surgePlugin.md).
-function fxReachScreen(lcd, S, n) {
-  clear(lcd);
-  const osc = S + " Osc " + n;
-  const muted = at(lcd, osc + " Mute", 0) >= 0.5;
-  const route = ROUTES[Math.round(at(lcd, osc + " Route", 1))] || "";
-  const level = at(lcd, osc + " Volume", 1);
-  text(lcd, "OSC " + n + " → " + route + (muted ? "   MUTED" : "   level " + Math.round(level * 100) + "%"), 6, 12, muted ? lcd.color.dim : lcd.color.glow);
-  // 0 all on, 1 no sends, 2 no sends nor globals, 3 none: Surge's FX Chain Bypass choices in order.
-  const bypass = Math.round(at(lcd, "FX Chain Bypass", 0));
-  const groups = [
-    { label: "SCENE " + S, slots: [1, 2, 3, 4].map((k) => S + k), on: bypass < 3, amount: (slot, t) => fxMix(lcd, slot, t) },
-    { label: "SEND", slots: ["S1", "S2", "S3", "S4"], on: bypass < 1,
-      amount: (slot, t, k) => at(lcd, S + " Send FX " + k + " Level", 0) * at(lcd, "Send FX " + k + " Return", 1) * fxMix(lcd, slot, t) },
-    { label: "GLOBAL", slots: ["G1", "G2", "G3", "G4"], on: bypass < 2, amount: (slot, t) => fxMix(lcd, slot, t) },
-  ];
-  const colW = (lcd.width - 12) / 3;
-  groups.forEach((g, gi) => {
-    const x = 6 + gi * colW;
-    let y = 28;
-    text(lcd, g.label + (g.on ? "" : " · off"), x, y, lcd.color.dim, SMALL);
-    g.slots.forEach((slot, k) => {
-      y += 13;
-      const t = FX_TYPES[Math.round(at(lcd, "FX " + slot + " Type", 0))] || FX_TYPES[0];
-      if (t.name === "Off") {
-        text(lcd, slot + " —", x, y, lcd.color.dim, SMALL);
-        return;
-      }
-      const amount = g.on && !muted ? g.amount(slot, t, k + 1) : 0;
-      text(lcd, slot + " " + t.name, x, y, amount > 0 ? lcd.color.ink : lcd.color.dim, SMALL);
-      const bw = colW - 14;
-      lcd.ctx.fillStyle = lcd.color.dim;
-      lcd.ctx.fillRect(x, y + 3, bw, 3);
-      lcd.ctx.fillStyle = lcd.color.glow;
-      lcd.ctx.fillRect(x, y + 3, bw * amount, 3);
-    });
-  });
-}
-
-export default {
-${screens.join("\n")}
-};
-`;
+const js = widgetsJs({ oscTypes, fxTypes, lfoShapes, routes, screens });
 writeFileSync(join(OUT, "widgets.js"), js);
-const count = Object.keys(shared).length + tabs.reduce((n, t) => n + Object.keys(t.widgets).length, 0);
-console.log(`surge-xt panel: ${tabs.length} tabs, ${count} widgets → ${OUT}`);
+const count = Object.keys(sharedH).length + tabs.reduce((n, t) => n + Object.keys(t.h).length, 0);
+console.log(`surge-xt panel: ${tabs.length} tabs, ${count} widgets, ${COLS}×${ROWS} and ${VCOLS}×${vrows} → ${OUT}`);
 
 // One FACTORY preset per patch in base/: a name and the base it loads, nothing else, so applying one is that patch.
 // Named `<Category> - <Patch>`, which groups the list and keeps two patches of one name in two categories apart.

@@ -60,6 +60,8 @@ export const cameraConstraint = (m: CameraMatch): MediaStreamConstraints => ({
 export interface Lens {
   stream: MediaStream | null;
   problem: string | null;
+  /** Let go of what carries the picture beyond its tracks — a remote lens's peer connection and socket. */
+  close?: () => void;
 }
 
 /** How a live lane gets its picture. Injected, because the browser that DRAWS a surface is not

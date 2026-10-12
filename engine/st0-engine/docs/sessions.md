@@ -59,8 +59,14 @@ Route a `const` accessor through the inserting form and three things follow at o
 
 `Serve.cpp` still reads `session` with no allowlist, deliberately: naming a session is what
 creates it, and a whitelist would mean the engine had to be told about every app in advance.
-What it does have is a **ceiling** — an id longer than 256 bytes is refused, so a malformed
-client cannot grow the map without bound.
+What it does have are two **ceilings**: an id longer than 256 bytes is refused, and so is a
+message naming a NEW session once the engine holds 64. The second is the one that bounds the map —
+a length bounds an id, not how many ids a client can name — and each session carries a broadcast
+ring and is walked by the state tick twenty times a second. A message about a session that exists
+is always answered.
+
+The transport's `stop`, `panic` and `flush` use `find()` too: stopping a project nobody sent has
+an obvious answer, which is to do nothing.
 
 ### `list-edit-plugins` is engine-global
 
@@ -196,6 +202,10 @@ When a session's driver count reaches zero the clock starts, and **45 seconds** 
 is let go: the transport stops, the Edit and its plugins are freed, and the SESSION stays — so a
 tab that comes back re-sends its document into the same slot and every watch keyed on the id
 still means what it meant.
+
+Not while it RECORDS, though — a recorder node's take or a transport take in progress. The clock
+keeps running and the project is let go at the first sweep after the take ends; see
+`docs/recorder.md`.
 
 The grace is the whole design, and it is what answers "a refcount takes a project away on every
 reload": a reload is back in under a second, a redraw in less, and a flaky minute of Wi-Fi is

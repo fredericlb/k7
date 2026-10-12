@@ -24,6 +24,7 @@ import {
   type SessionId,
 } from "@studio/engine-protocol/sessions";
 import {
+  ENGINE_CONNECT_DEADLINE_MS,
   ENGINE_IDLE_PING_MS,
   ENGINE_OUTBOX_MAX,
   ENGINE_OUTBOX_TTL_MS,
@@ -31,6 +32,7 @@ import {
   ENGINE_RECONNECT_MAX_MS,
   ENGINE_RECONNECT_MIN_MS,
 } from "@studio/web-protocol";
+import { pairFrameFor } from "./pairing.ts";
 import { openSocket } from "./rtcSocket.ts";
 
 export type {
@@ -58,25 +60,6 @@ export type EngineUrl = string | (() => string | null | Promise<string | null>);
 
 // The control-query shapes, mirroring engineControl.ts in @studio/engine-client, which a browser cannot import (it opens `ws`).
 
-/** One session the engine holds — a project, not a connection. Engine-global. */
-export interface EngineSessionInfo {
-  id: string;
-  project: string;
-  loaded: boolean;
-  playing: boolean;
-  tracks: number;
-  listeners: number;
-}
-export interface EngineAudioDevice {
-  name: string;
-  type: string; // the driver backend offering it ("ASIO", "Windows Audio", …)
-  inputs: number;
-  outputs: number;
-  current: boolean;
-  /** The device the open setup takes its INPUTS from — another one than `current`'s when the setup is split. */
-  currentInput: boolean;
-  isDefault: boolean;
-}
 /** One plugin the engine's scan knows about — the installed catalogue, not an instance. */
 export interface EnginePluginInfo {
   name: string;
@@ -84,21 +67,12 @@ export interface EnginePluginInfo {
   manufacturer: string;
   id: string;
 }
-// One plugin INSTANCE in a loaded edit; (session, id) addresses it — an id alone can name several.
-export interface EngineEditPlugin {
-  session?: string;
-  id: string;
-  name: string;
-  hasNativePluginUI: boolean;
-}
 
 type StateCb = (s: EngineState) => void;
 type ConnCb = (connected: boolean) => void;
 type ParamsCb = (p: PluginParams) => void;
 type PresetsCb = (module: string, presets: PresetInfo[]) => void;
 type BusyCb = (busy: boolean) => void;
-type SessionsCb = (sessions: EngineSessionInfo[]) => void;
-type DevicesCb = (devices: EngineAudioDevice[]) => void;
 type PluginListCb = (plugins: EnginePluginInfo[]) => void;
 /** One parameter of an installed plugin TYPE, in `@studio/song`'s `BuiltinParam` shape so one panel generator serves both. */
 export interface EnginePluginParam {
@@ -113,11 +87,14 @@ type PluginParamListCb = (p: {
   id: string;
   params: EnginePluginParam[];
 }) => void;
-type EditPluginsCb = (plugins: EngineEditPlugin[]) => void;
+/** Per `@instruments/…` ref asked about: whether it is on the engine's machine — engine docs/protocol.md. */
+export type InstrumentStatusCb = (status: Record<string, boolean>) => void;
 /** An engine-side problem: `subject` is what it is about (a plugin id), "" when general. */
 export interface EngineWarning {
   subject: string;
   message: string;
+  /** An `error` reply's machine-readable reason, e.g. "unpaired" or "local-only" — docs/pairing.md. */
+  code?: string;
 }
 type WarningCb = (w: EngineWarning) => void;
 /** One wave input the engine can route a track FROM; `channels` is 1-based and matched EXACTLY — see docs/meters.md. */
@@ -138,6 +115,22 @@ export interface IoLevels {
   devices: EngineInputDevice[];
 }
 type IoLevelsCb = (l: IoLevels) => void;
+/** A LAN device waiting for the musician, as the engine lists them to the machine's own clients — docs/pairing.md. */
+export interface PairRequest {
+  requestId: string;
+  name: string;
+  ip: string;
+  /** What the device shows; the musician checks the two match before approving. */
+  code: string;
+  since: number;
+}
+/** A device paired with this engine; its key never leaves the engine again after the approval. */
+export interface PairedDevice {
+  deviceId: string;
+  name: string;
+  created: number;
+  lastSeen: number;
+}
 /** One binary audio frame, exactly as it arrived. See @studio/engine-protocol/stream. */
 type StreamCb = (frame: ArrayBuffer) => void;
 
@@ -164,21 +157,32 @@ interface EngineMessage {
   params?: Record<string, number> | EnginePluginParam[];
   module?: string;
   presets?: PresetInfo[];
+  status?: Record<string, boolean>; // `instrument-status` only
   meta?: Record<string, ParamMeta>;
   busy?: boolean;
   subject?: string;
   message?: string;
+  code?: string; // `error` only: why it was refused
   inputs?: number[]; // io-levels: one peak per channel set asked for
   master?: number; // …and the level leaving the master — see the note beside `levels`
   pitches?: number[]; // …the tuner's Hz per input (0 = no confident note)
   clarity?: number[]; // …and how periodic each window was
-  sessions?: EngineSessionInfo[]; // the 'sessions' reply
-  // Two replies carry `devices`, told apart by `type`: the INTERFACES this machine could open, and how the open one groups its inputs.
-  devices?: EngineAudioDevice[] | EngineInputDevice[];
-  plugins?: unknown[]; // 'plugins' (catalogue) AND 'edit-plugins' (instances) both use this field
+  devices?: EngineInputDevice[]; // io-levels: how the open interface groups its inputs
+  plugins?: unknown[]; // 'plugins': the catalogue
   // 'plugin-params': which plugin was asked about, echoed back beside the `id` above so a late reply can be matched.
   format?: string;
   boot?: string; // 'whoami': the engine PROCESS, so a reconnect can tell a restarted engine
+  requests?: PairRequest[]; // 'pair-requests', to the machine's own clients only
+}
+
+/** What lets a sound go: a note-off, a note-on at velocity 0, a sustain pedal released, all notes off. */
+export function endsANote(data: readonly number[]): boolean {
+  const kind = (data[0] ?? 0) & 0xf0;
+  const [, a = 0, b = 0] = data;
+  if (kind === 0x80) return true;
+  if (kind === 0x90) return b === 0;
+  if (kind === 0xb0) return (a === 64 && b < 64) || a === 120 || a === 123;
+  return false;
 }
 
 export class EngineClient {
@@ -193,19 +197,19 @@ export class EngineClient {
   private busyCbs = new Set<BusyCb>();
   private warningCbs = new Set<WarningCb>();
   private restartCbs = new Set<() => void>();
+  private pairRequestsCbs = new Set<(r: PairRequest[]) => void>();
+  private pairedDevicesCbs = new Set<(d: PairedDevice[]) => void>();
   /** The engine PROCESS last met on this link, from `whoami`; another one after a reconnect is a restart. */
   private boot: string | null = null;
   private ioLevelsCbs = new Set<IoLevelsCb>();
-  private sessionsCbs = new Set<SessionsCb>();
-  private devicesCbs = new Set<DevicesCb>();
   private pluginListCbs = new Set<PluginListCb>();
   private pluginParamListCbs = new Set<PluginParamListCb>();
-  private editPluginsCbs = new Set<EditPluginsCb>();
+  private instrumentStatusCbs = new Set<InstrumentStatusCb>();
   // Raw audio frames, handed on undecoded — @studio/engine-browser/stream is what knows how to read them.
   private streamCbs = new Set<StreamCb>();
   private broadcasting = false;
-  // Plugins we asked to follow. The subscription lives in the ENGINE, so it is replayed on every open.
-  private watched = new Set<string>();
+  // Plugins we asked to follow, replayed on every open, and COUNTED: the graph leaving must not silence the mastering strip's.
+  private watched = new Map<string, number>();
   // Active waveform subscriptions, replayed on reconnect like `watched`. Keyed "id:side", COUNTED: two widgets may share a tap.
   private waveformSubs = new Map<
     string,
@@ -248,11 +252,20 @@ export class EngineClient {
 
   private async resolveUrl(): Promise<string | null> {
     if (typeof this.url === "string") return this.url;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await this.url();
+      // A lookup that never answers is no engine too: without a deadline the ladder would stop here for good.
+      return await Promise.race([
+        this.url(),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), ENGINE_CONNECT_DEADLINE_MS);
+        }),
+      ]);
     } catch {
       // The caller's lookup failed — indistinguishable, from here, from no engine.
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -268,18 +281,32 @@ export class EngineClient {
     // Audio frames arrive as binary here; without this they surface as Blobs and die silently in the JSON parse.
     ws.binaryType = "arraybuffer";
     this.ws = ws;
+    // A dial that neither opens nor closes — a half-open path after a sleep — is ended here, so the ladder runs again.
+    const deadline = setTimeout(() => {
+      if (this.gen !== myGen || ws.readyState !== WebSocket.CONNECTING) return;
+      try {
+        ws.close();
+      } catch {
+        // Closing a socket that never opened may throw; it is being abandoned either way.
+      }
+      this.down(myGen);
+    }, ENGINE_CONNECT_DEADLINE_MS);
     ws.onopen = () => {
+      clearTimeout(deadline);
       if (this.gen !== myGen) return void ws.close();
       this.attempt = 0;
       this.lastInbound = Date.now();
       this.pingSentAt = 0;
       this.startKeepalive();
+      // The device's key before anything: over the LAN the engine answers nothing else until it sees one (docs/pairing.md).
+      const pair = pairFrameFor(url);
+      if (pair) ws.send(pair);
       // Say we DRIVE this session first: the engine frees a project whose last driver left — see engine/st0-engine/docs/sessions.md.
       this.sendNow({ type: "hello", role: "driver" });
       // The project FIRST: the subscriptions and the queue below are about a document a restarted engine does not have yet.
       if (this.lastProject)
         this.sendNow({ type: "project", doc: this.lastProject });
-      for (const id of this.watched)
+      for (const id of this.watched.keys())
         this.send({ type: "watch-plugin-params", id, on: true });
       for (const [, sub] of this.waveformSubs)
         this.send({
@@ -293,6 +320,7 @@ export class EngineClient {
       this.emitConn(true);
     };
     ws.onclose = () => {
+      clearTimeout(deadline);
       if (this.gen !== myGen) return;
       this.down(myGen);
     };
@@ -391,7 +419,13 @@ export class EngineClient {
     );
     this.outbox = [];
     for (const e of fresh)
-      if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(e.s);
+      if (this.ws?.readyState === WebSocket.OPEN)
+        try {
+          this.ws.send(e.s);
+        } catch {
+          // The link went again mid-replay: the rest is lost with it, as a blink's would be.
+          break;
+        }
   }
 
   private dispatch(m: EngineMessage): void {
@@ -452,12 +486,6 @@ export class EngineClient {
           clarity: (m.clarity ?? []) as number[],
           devices: (m.devices ?? []) as EngineInputDevice[],
         });
-    else if (m.type === "sessions")
-      for (const cb of this.sessionsCbs) cb(m.sessions ?? []);
-    else if (m.type === "audio-devices")
-      // `devices` is shared with io-levels, which sends a different shape; this branch has already read `type`.
-      for (const cb of this.devicesCbs)
-        cb((m.devices ?? []) as EngineAudioDevice[]);
     else if (m.type === "plugins")
       for (const cb of this.pluginListCbs)
         cb((m.plugins ?? []) as EnginePluginInfo[]);
@@ -469,12 +497,46 @@ export class EngineClient {
           id: m.id ?? "",
           params: (m.params ?? []) as EnginePluginParam[],
         });
-    else if (m.type === "edit-plugins")
-      for (const cb of this.editPluginsCbs)
-        cb((m.plugins ?? []) as EngineEditPlugin[]);
+    else if (m.type === "instrument-status")
+      for (const cb of this.instrumentStatusCbs) cb(m.status ?? {});
+    else if (m.type === "pair-requests")
+      for (const cb of this.pairRequestsCbs) cb(m.requests ?? []);
+    else if (m.type === "paired-devices")
+      // `devices` is io-levels' field too; this branch has read `type`, so the cast is the shape the engine sends.
+      for (const cb of this.pairedDevicesCbs)
+        cb((m.devices ?? []) as unknown as PairedDevice[]);
     else if (m.type === "engine-warning" || m.type === "error")
       for (const cb of this.warningCbs)
-        cb({ subject: m.subject ?? "", message: m.message ?? "" });
+        cb({
+          subject: m.subject ?? "",
+          message: m.message ?? "",
+          code: m.code,
+        });
+  }
+
+  // The machine's own clients only: the engine refuses these over the LAN, a paired phone included (docs/pairing.md).
+  listPairRequests(): void {
+    this.send({ type: "list-pair-requests" });
+  }
+  approvePairing(requestId: string): void {
+    this.send({ type: "pair-approve", requestId });
+  }
+  denyPairing(requestId: string): void {
+    this.send({ type: "pair-deny", requestId });
+  }
+  listPairedDevices(): void {
+    this.send({ type: "list-paired-devices" });
+  }
+  unpairDevice(deviceId: string): void {
+    this.send({ type: "unpair-device", deviceId });
+  }
+  onPairRequests(cb: (r: PairRequest[]) => void): () => void {
+    this.pairRequestsCbs.add(cb);
+    return () => this.pairRequestsCbs.delete(cb);
+  }
+  onPairedDevices(cb: (d: PairedDevice[]) => void): () => void {
+    this.pairedDevicesCbs.add(cb);
+    return () => this.pairedDevicesCbs.delete(cb);
   }
 
   dispose(): void {
@@ -516,7 +578,8 @@ export class EngineClient {
    * sample `preview`: there is no path to resolve, only a track the loaded song already names.
    */
   previewNote(track: string, key: number, vel = 1): void {
-    this.send({
+    // A preview is for now: one heard thirty seconds late, after a reconnect, is not the one that was asked for.
+    this.sendNow({
       type: "note-preview",
       track,
       key: Math.max(0, Math.min(127, Math.round(key))),
@@ -525,7 +588,10 @@ export class EngineClient {
   }
   /** A keyboard PLAYED into a track's chain: one channel message, held until its own note-off — engine/st0-engine/docs/protocol.md. */
   liveMidi(track: string, data: readonly number[]): void {
-    this.send({ type: "midi-live", track, data: [...data] });
+    const msg = { type: "midi-live", track, data: [...data] };
+    // Played notes are for now and are dropped while the link is down; what ENDS a note is kept, or it would hang.
+    if (endsANote(data)) this.send(msg);
+    else this.sendNow(msg);
   }
   /**
    * A RECORDER node's two ENGINE verbs. Free-running: neither consults the transport, which is
@@ -535,20 +601,15 @@ export class EngineClient {
    * See engine/st0-engine/docs/recorder.md.
    */
   recorder(node: string, action: "record" | "clear", on?: boolean): void {
-    this.send({
+    const msg = {
       type: "recorder",
       node,
       action,
       ...(on === undefined ? {} : { on }),
-    });
-  }
-  // `session` overrides this client's own — a status surface opening a window in a project it does not drive.
-  showNativePluginUI(id: string, session?: string): void {
-    this.send({
-      type: "show-native-plugin-ui",
-      id,
-      ...(session === undefined ? {} : { session }),
-    });
+    };
+    // A toggle or a clear replayed late does the opposite of now — a second press, a newer take erased — so only a stated `on` waits.
+    if (action === "record" && on !== undefined) this.send(msg);
+    else this.sendNow(msg);
   }
   /** Apply a project, sent as given and remembered for replay — see docs/reliability.md. */
   sendProject(doc: ProjectDoc): void {
@@ -567,22 +628,6 @@ export class EngineClient {
     this.send({ type: "drop-session", session });
   }
 
-  // Every session this engine holds. Reply arrives on onSessions. Engine-global.
-  listSessions(): void {
-    this.send({ type: "list-sessions" });
-  }
-  // The available audio interfaces. Reply arrives on onAudioDevices.
-  listAudioDevices(): void {
-    this.send({ type: "list-audio-devices" });
-  }
-  // Open a specific interface; without `type` the engine takes the first backend offering that name — a coin toss.
-  setAudioDevice(name: string, type?: string): void {
-    this.send({
-      type: "set-audio-device",
-      name,
-      ...(type ? { deviceType: type } : {}),
-    });
-  }
   // The CACHED plugin catalogue (no scanning). Reply arrives on onPlugins.
   listPlugins(): void {
     this.send({ type: "list-plugins" });
@@ -591,17 +636,14 @@ export class EngineClient {
   listPluginParams(format: string, id: string): void {
     this.send({ type: "list-plugin-params", format, id });
   }
-  /** …and that same installed plugin's OWN WINDOW, on an ORPHAN instance whose knobs save nowhere — see docs/params.md. */
-  showNativePluginUIOf(format: string, id: string): void {
-    this.send({ type: "show-native-plugin-ui-of", format, id });
+
+  /** Whether each sampled instrument `refs` names is on the engine's machine; answered on onInstrumentStatus, to this socket only. */
+  instrumentStatus(refs: string[]): void {
+    this.sendNow({ type: "instrument-status", refs });
   }
-  // An INCREMENTAL rescan; the full one deletes the engine's own exts.json cache first, so it stays with the supervisor.
-  rescanPlugins(): void {
-    this.send({ type: "rescan-plugins", force: true });
-  }
-  // The plugin instances across every session, each row naming its own. Reply on onEditPlugins.
-  listEditPlugins(): void {
-    this.send({ type: "list-edit-plugins" });
+  onInstrumentStatus(cb: InstrumentStatusCb): () => void {
+    this.instrumentStatusCbs.add(cb);
+    return () => this.instrumentStatusCbs.delete(cb);
   }
 
   getPluginParams(id: string): void {
@@ -609,10 +651,17 @@ export class EngineClient {
   }
   // Follow a plugin's values live, idempotent and replayed; unwatch what scrolls away, since each watch costs a read per frame.
   watchPluginParams(id: string, on = true): void {
-    if (on === this.watched.has(id)) return;
-    if (on) this.watched.add(id);
-    else this.watched.delete(id);
-    this.send({ type: "watch-plugin-params", id, on });
+    const n = this.watched.get(id) ?? 0;
+    // Only the first watcher and the last one leaving reach the engine; the ones between are counted here.
+    if (on) {
+      this.watched.set(id, n + 1);
+      if (n === 0) this.send({ type: "watch-plugin-params", id, on: true });
+      return;
+    }
+    if (n === 0) return;
+    if (n > 1) return void this.watched.set(id, n - 1);
+    this.watched.delete(id);
+    this.send({ type: "watch-plugin-params", id, on: false });
   }
   // Set one parameter live WITHOUT persisting — the drag path. Nothing is echoed back, which would fight the drag.
   setPluginParam(id: string, name: string, value: number): void {
@@ -696,19 +745,7 @@ export class EngineClient {
     this.ioLevelsCbs.add(cb);
     return () => this.ioLevelsCbs.delete(cb);
   }
-  /** Group two interface inputs into one stereo device, or split them apart; `channel` is 1-based and names its PAIR — see docs/meters.md. */
-  setInputStereo(channel: number, stereo: boolean): void {
-    this.send({ type: "set-input-stereo", channel, stereo });
-  }
 
-  onSessions(cb: SessionsCb): () => void {
-    this.sessionsCbs.add(cb);
-    return () => this.sessionsCbs.delete(cb);
-  }
-  onAudioDevices(cb: DevicesCb): () => void {
-    this.devicesCbs.add(cb);
-    return () => this.devicesCbs.delete(cb);
-  }
   onPlugins(cb: PluginListCb): () => void {
     this.pluginListCbs.add(cb);
     return () => this.pluginListCbs.delete(cb);
@@ -716,10 +753,6 @@ export class EngineClient {
   onPluginParamList(cb: PluginParamListCb): () => void {
     this.pluginParamListCbs.add(cb);
     return () => this.pluginParamListCbs.delete(cb);
-  }
-  onEditPlugins(cb: EditPluginsCb): () => void {
-    this.editPluginsCbs.add(cb);
-    return () => this.editPluginsCbs.delete(cb);
   }
 
   onPluginParams(cb: ParamsCb): () => void {
@@ -743,8 +776,11 @@ export class EngineClient {
   private send(o: object): void {
     const s = this.frame(o);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(s);
-      return;
+      // A channel closing under us throws rather than refusing; the message waits like any other then.
+      try {
+        this.ws.send(s);
+        return;
+      } catch {}
     }
     this.outbox.push({ at: Date.now(), s });
     // Bounded, and the oldest goes: the newest command is the one that still describes what the person wants.
@@ -753,7 +789,12 @@ export class EngineClient {
 
   /** Send or drop — for what only means something on THIS socket, and must never be queued. */
   private sendNow(o: object): void {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(this.frame(o));
+    if (this.ws?.readyState !== WebSocket.OPEN) return;
+    try {
+      this.ws.send(this.frame(o));
+    } catch {
+      // Dropped, which is what this verb means when the link is not there.
+    }
   }
 
   private frame(o: object): string {

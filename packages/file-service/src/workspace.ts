@@ -181,6 +181,7 @@ import {
   type ClipExtents,
   clipExtentsOf,
   type TrackMixers,
+  trackColorsOf,
   trackMixersOf,
 } from "./graphDoc.ts";
 import {
@@ -480,6 +481,7 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
       id: pl.id,
       type: pl.type,
       name: pl.name,
+      ...(pl.sfzFile ? { sfzFile: pl.sfzFile } : {}),
     })),
     // `docs`/`todos`, `frozen` and the alternatives belong to the graph — packages/song/docs/docModules.md.
   }));
@@ -2377,6 +2379,15 @@ export class Workspace {
     }
   }
 
+  /** …and each lane's colour, off the same compile: a lane that states none takes its category's shade there. */
+  private trackColors(dir: string): Record<string, string> | undefined {
+    try {
+      return trackColorsOf(this.cachedProjectDoc(dir));
+    } catch {
+      return undefined;
+    }
+  }
+
   /** …and which node is each lane's fader, off the same compile: `graph.yaml` does not say what a module IS. */
   private trackMixers(dir: string): TrackMixers | undefined {
     try {
@@ -2399,7 +2410,13 @@ export class Workspace {
     const dir = at ?? this.requireActive();
     // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
     if (dir !== this.activeProject)
-      return buildGraphDoc(dir, this.clipExtents(dir), this.trackMixers(dir));
+      return buildGraphDoc(
+        dir,
+        this.clipExtents(dir),
+        this.trackMixers(dir),
+        undefined,
+        this.trackColors(dir),
+      );
     const { rev } = this.revision();
     const hit = this.graphCache;
     if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
@@ -2408,6 +2425,7 @@ export class Workspace {
       this.clipExtents(dir),
       this.trackMixers(dir),
       this.autoFreezes(),
+      this.trackColors(dir),
     );
     this.graphCache = { dir, rev, graph };
     return graph;

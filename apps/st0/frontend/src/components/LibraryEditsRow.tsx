@@ -16,12 +16,20 @@ import type { LibraryEditsStatus } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
 import { api, engines } from "../api";
 import { m } from "../paraglide/messages.js";
+import { pollWhileVisible } from "../visiblePoll";
 import { LibraryDiffDialog } from "./LibraryDiffDialog";
 
 /** How often to ask again: a library write moves no workspace revision. */
 const POLL_MS = 3000;
 
-export function LibraryEditsRow({ rev }: { rev: string | number | null }) {
+export function LibraryEditsRow({
+  rev,
+  onChanged,
+}: {
+  rev: string | number | null;
+  /** The library's files changed under the open panes — a discard or a commit's rebase; the shell reloads, and an open file is checked. */
+  onChanged: () => void;
+}) {
   const [admin, setAdmin] = useState(false);
   const [edits, setEdits] = useState<LibraryEditsStatus["libraries"]>([]);
   const [busy, setBusy] = useState<"commit" | "discard" | null>(null);
@@ -55,8 +63,7 @@ export function LibraryEditsRow({ rev }: { rev: string | number | null }) {
   // Polled: the first edit of a library is made from any pane, with no revision to say so.
   useEffect(() => {
     if (!admin) return;
-    const t = setInterval(() => void read(), POLL_MS);
-    return () => clearInterval(t);
+    return pollWhileVisible(() => void read(), POLL_MS);
   }, [admin, read]);
 
   if (!edits.length) return null;
@@ -79,6 +86,7 @@ export function LibraryEditsRow({ rev }: { rev: string | number | null }) {
       showToast({ message: (e as Error).message, variant: "error" });
     } finally {
       setBusy(null);
+      onChanged();
       await read();
     }
   };
@@ -98,6 +106,8 @@ export function LibraryEditsRow({ rev }: { rev: string | number | null }) {
       showToast({ message: (e as Error).message, variant: "error" });
     } finally {
       setBusy(null);
+      // Moves no workspace revision, so nothing else would tell an editor showing a discarded file.
+      onChanged();
     }
   };
 

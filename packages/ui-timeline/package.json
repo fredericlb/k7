@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The pieces every arrangement surface needs whatever its unit is: wheel zoom and middle-drag pan for a scroll container, a ruler's tick chooser, and the lane geometry the gutter and the rows are drawn to. One timeline draws a song in bars and its picture in seconds; this is what both readings agree about.",
+  "description": "The pieces every arrangement surface needs whatever its unit is: wheel zoom and middle-drag pan for a scroll container, a drag that follows one pointer and survives a cancel, a ruler's tick chooser, and the lane geometry the gutter and the rows are drawn to. One timeline draws a song in bars and its picture in seconds; this is what both readings agree about.",
   "types": "./src/panZoom.ts",
   "exports": {
     "./panZoom": "./src/panZoom.ts",
     "./ticks": "./src/ticks.ts",
-    "./lanes": "./src/lanes.ts"
+    "./lanes": "./src/lanes.ts",
+    "./drag": "./src/drag.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

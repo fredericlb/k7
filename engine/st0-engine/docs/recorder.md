@@ -80,6 +80,14 @@ reasserts the broadcast tap for the same kind of reason.
 A node that leaves the document takes its ring with it, **unless it is recording**: a rebuild
 mid-take must not lose the file.
 
+And not AT ONCE. An incremental apply removes the plugin from the Edit, but the playback graph the
+audio thread is running still holds it until Tracktion swaps a new one in, and a free-running
+recorder writes into its ring on every block of that window, transport stopped or not. Freeing the
+ring in the same message-thread job is a write into freed memory. So the node is parked in
+`retiredRecorders` and freed by the state tick two seconds later — a graph swap takes a few
+blocks. The parked nodes are declared beside the live ones, before the Edit, so a session that dies
+frees them after the graph.
+
 ## The state tick IS the writer thread
 
 There is no writer thread. `pumpRecorders` runs on the ~20 Hz state tick, drains each recording
@@ -154,9 +162,30 @@ file service check a path a browser hands it (`packages/file-service/src/recorde
 Float, and not converted here: a take is raw capture, and a bit depth is a decision the person
 saving it has not made yet.
 
+A take started in the same second as another one gets a sibling name rather than the same one:
+JUCE opens an existing file for APPENDING, so a second take would land after the first one's bytes
+and neither would read.
+
 A take is closed on stop, and `clear` deletes the file of the one it pops. It pops a take being
 WRITTEN too, stopping it first — the stop files the take, so there is always one to pop, and the
 open writer never outlives the file it points at.
+
+## A take survives a crash, and a full disk says so
+
+A WAV header holds the length, and JUCE writes it only on `flush()` and when the writer closes. A
+take whose header was never rewritten reads as EMPTY after a crash, a kill by the supervisor or the
+fast exit at quit — however long it ran. So `pump` flushes about once a second: the header is
+rewritten and the stream goes back to where it was, and a crash loses at most that last second.
+
+A write the disk refuses — full, or the folder gone — is refused for every later write too. The
+take is then closed where it stood, marked `damaged`, a warning names the file, and the state
+tick stops the node, so the take is filed with what it holds. Counting frames after a refused
+write would show a clock running over a file that stopped growing.
+
+A take also outlives its tab. A session whose last driver left is let go after a grace period
+(`docs/sessions.md`), but never while anything in it records: a locked phone or a dropped network
+must not end a take — what was recorded would stop, and the take would resume later with the gap
+cut out and nothing marking it.
 
 ## Two refusals worth their sentences
 

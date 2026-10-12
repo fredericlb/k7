@@ -63,6 +63,14 @@ and parking the whole lane for it would drop the lane's entire composite for the
 fade. One element going quiet leaves the other's picture — and the blend says which slots carry
 one, so a side that has nothing this frame is simply the transparent texel.
 
+## Out of sight, nothing is drawn
+
+The viewport is a pane, hidden rather than unmounted, and a hidden pane that composites at 60 fps
+spends a GPU and a decoder per lane on nobody. The driver watches its host with an
+`IntersectionObserver` — which reports a `display: none` pane as not intersecting — and while it is
+out of sight every lane is parked once and the frame does nothing. The loop itself keeps running,
+being what notices the return, and coming back reseeks every element as a transport seek does.
+
 ## The clocks
 
 `clock.ts` holds three, and the compositor cannot tell which one it has — that is what keeps the

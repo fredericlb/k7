@@ -2,7 +2,11 @@
 // registry's five routes, the probe, the choice and the lease. The pieces below it already
 // existed; what this adds is that `base` is given ONCE. See docs/access.md.
 
-import { FILE_HUB_HELLO, type FileHubHello } from "@studio/web-protocol";
+import {
+  ENGINE_CONNECT_DEADLINE_MS,
+  FILE_HUB_HELLO,
+  type FileHubHello,
+} from "@studio/web-protocol";
 import { chooseEngine } from "./choose.ts";
 import { type HoldOptions, holdEngine } from "./lease.ts";
 import { type ProbeTarget, probeEngines, type RankedEngine } from "./probe.ts";
@@ -41,6 +45,8 @@ export interface EngineAccess<
   linkUrl(chosen: RankedEngine<E>): () => string | Promise<string | null>;
   /** The account's files on the server with no engine bound, or null when the server hosts none — see docs/access.md. */
   hostedFiles(): Promise<HostedFiles | null>;
+  /** A new hub ticket, asked for now whatever the cache holds — what a 401 on the files means. Null when none can be had. */
+  freshTicket(): Promise<string | null>;
 }
 
 /** Where the server's file service answers, and the ticket its gate takes. */
@@ -74,13 +80,22 @@ export function engineAccess<
   let hello: { at: number; p: Promise<FileHubHello | null> } | null = null;
   /** Whether the registry's server hosts the files, asked once and again when the ticket ages. */
   const hubHello = (): Promise<FileHubHello | null> => {
-    if (!hello || Date.now() - hello.at > HELLO_FRESH_MS)
-      hello = {
+    if (!hello || Date.now() - hello.at > HELLO_FRESH_MS) {
+      const asked = {
         at: Date.now(),
-        p: fetch(`${base}${FILE_HUB_HELLO}`, { credentials: "include" })
+        p: fetch(`${base}${FILE_HUB_HELLO}`, {
+          credentials: "include",
+          signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
+        })
           .then((r) => (r.ok ? (r.json() as Promise<FileHubHello>) : null))
           .catch(() => null),
       };
+      hello = asked;
+      // Only an answer is kept: a failure held for hours would leave every engine unpickable until a reload.
+      void asked.p.then((h) => {
+        if (!h && hello === asked) hello = null;
+      });
+    }
     return hello.p;
   };
   const probe = async (engines: E[]): Promise<RankedEngine<E>[]> => {
@@ -103,6 +118,10 @@ export function engineAccess<
   return {
     ...reg,
     probe,
+    async freshTicket() {
+      hello = null;
+      return (await hubHello())?.ticket ?? null;
+    },
     async find(preferId) {
       // Both at once: a remembered id is only a hint that still has to be probed, so serialising them would cost a round trip per load.
       const [list, prefs] = await Promise.all([

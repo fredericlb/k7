@@ -1,4 +1,4 @@
-# tracktion.cmake — the fix Tracktion's SamplerPlugin needs, applied at fetch time (PATCH_COMMAND), like faust.cmake.
+# tracktion.cmake — the fixes Tracktion needs (its SamplerPlugin, its file-check queue, its NaN-only sanitising), applied at fetch time like faust.cmake.
 # The one thing a reader would get wrong: its update DOES try to reuse decoded audio, but only after decoding every sound anyway.
 
 include("${CMAKE_CURRENT_LIST_DIR}/../eurorack/patches/studio_replace.cmake")
@@ -32,3 +32,57 @@ studio_replace("${cpp}"
 studio_replace("modules/tracktion_engine/audio_files/tracktion_AudioFile.cpp"
     "        const juce::ScopedLock sl (knownFilesLock);\n        fileToCheck = filesToCheck.getUnchecked (filesToCheck.size() - 1);"
     "        const juce::ScopedLock sl (knownFilesLock);\n        if (filesToCheck.isEmpty())   // studio: a delivery with nothing queued\n            return;\n        fileToCheck = filesToCheck.getUnchecked (filesToCheck.size() - 1);")
+
+# Every plugin's output is sanitised for NaN only, so ±Inf passes on and latches the next biquad into NaN: non-finite, not NaN (docs/audit-stabilite.md).
+studio_replace("modules/tracktion_graph/utilities/tracktion_GlueCode.h"
+    "return std::isnan (s) ? typename Buffer::Sample() : s;"
+    "return std::isfinite (s) ? s : typename Buffer::Sample();   // studio: Inf too")
+
+# When the audio callback now running ENTERED, so the engine's watchdog tells a plugin stuck inside it from a driver that stopped calling: reopening the device in the first case blocks for ever on the lock the stuck callback holds (docs/audioDevice.md).
+studio_replace("modules/tracktion_engine/playback/tracktion_DeviceManager.h"
+    "class HostedAudioDeviceInterface;\n\n\n//====="
+    "class HostedAudioDeviceInterface;\n\n// studio: when the audio callback now running entered (Time::getMillisecondCounter, never 0), 0 when none is\nextern std::atomic<juce::uint32> studioCallbackEnteredMs;\n\n//=====")
+studio_replace("modules/tracktion_engine/playback/tracktion_DeviceManager.cpp"
+    "    clearStatsFlag.store (true, std::memory_order_relaxed);\n}\n\nvoid DeviceManager::audioDeviceIOCallbackWithContext"
+    "    clearStatsFlag.store (true, std::memory_order_relaxed);\n}\n\n// studio: set for the length of each callback\nstd::atomic<juce::uint32> studioCallbackEnteredMs { 0 };\n\nstruct StudioCallbackScope\n{\n    StudioCallbackScope()  { studioCallbackEnteredMs.store (juce::Time::getMillisecondCounter() | 1u, std::memory_order_relaxed); }\n    ~StudioCallbackScope() { studioCallbackEnteredMs.store (0, std::memory_order_relaxed); }\n};\n\nvoid DeviceManager::audioDeviceIOCallbackWithContext")
+studio_replace("modules/tracktion_engine/playback/tracktion_DeviceManager.cpp"
+    "    CRASH_TRACER\n    juce::FloatVectorOperations::disableDenormalisedNumberSupport();\n\n   #if JUCE_ANDROID\n    const ScopedSteadyLoad"
+    "    CRASH_TRACER\n    juce::FloatVectorOperations::disableDenormalisedNumberSupport();\n    const StudioCallbackScope studioScope;   // studio\n\n   #if JUCE_ANDROID\n    const ScopedSteadyLoad")
+
+# A sound plays on an OUTPUT PAIR of its own when its state names one (`studioOutPair`), so a rack's tap can be routed
+# apart from the rest; the plugin then reports two channels per pair. Its home is a RackType (engine docs/tapOutputs.md).
+set(h "${dir}/tracktion_SamplerPlugin.h")
+studio_replace("${h}"
+    "    void setSoundGains (int index, float gainDb, float pan);\n    void setSoundOpenEnded"
+    "    void setSoundGains (int index, float gainDb, float pan);\n    void setSoundOutputPair (int index, int pair);   // studio: 0 is the main pair\n    void setSoundOpenEnded")
+studio_replace("${h}"
+    "int getNumOutputChannelsGivenInputs (int numInputChannels) override { return juce::jmin (numInputChannels, 2); }"
+    "int getNumOutputChannelsGivenInputs (int numInputChannels) override;   // studio: two per output pair its sounds name")
+studio_replace("${h}"
+    "        AudioFile audioFile;\n        juce::AudioBuffer<float> audioData { 2, 64 };"
+    "        AudioFile audioFile;\n        int outPair = 0;   // studio: the output pair it plays on\n        juce::AudioBuffer<float> audioData { 2, 64 };")
+studio_replace("${cpp}"
+    "                 bool openEnded_)\n       : note (midiNote),\n"
+    "                 bool openEnded_, int outPair_ = 0)\n       : note (midiNote), outPair (outPair_),   // studio\n")
+studio_replace("${cpp}"
+    "    int note;\n    int offset, samplesLeftToPlay = 0;"
+    "    int note;\n    int outPair = 0;   // studio: the output pair it plays on\n    int offset, samplesLeftToPlay = 0;")
+studio_replace("${cpp}"
+    "ss->openEnded));"
+    "ss->openEnded, ss->outPair));   // studio")
+studio_replace("${cpp}"
+    "            s->openEnded    = v[IDs::openEnded];\n\n            newSounds.add (s);"
+    "            s->openEnded    = v[IDs::openEnded];\n            s->outPair      = juce::jlimit (0, 31, static_cast<int> (v[\"studioOutPair\"]));   // studio\n\n            newSounds.add (s);")
+studio_replace("${cpp}"
+    "            sn->addNextBlock (*fc.destBuffer, fc.bufferStartSample, fc.bufferNumSamples);"
+    "            // studio: a note plays on its sound's pair when the buffer carries it (a RackType's), else on the first\n            const int studioOff = 2 * sn->outPair;\n            if (studioOff > 0 && studioOff + 2 <= fc.destBuffer->getNumChannels())\n            {\n                juce::AudioBuffer<float> studioPair (fc.destBuffer->getArrayOfWritePointers() + studioOff, 2, fc.destBuffer->getNumSamples());\n                sn->addNextBlock (studioPair, fc.bufferStartSample, fc.bufferNumSamples);\n            }\n            else sn->addNextBlock (*fc.destBuffer, fc.bufferStartSample, fc.bufferNumSamples);")
+studio_replace("${cpp}"
+    "}\n\nvoid SamplerPlugin::setSoundGains (int index, float gainDb, float pan)"
+    "}\n\nint SamplerPlugin::getNumOutputChannelsGivenInputs (int numInputChannels)   // studio\n{\n    int pairs = 1;\n    for (auto v : state)\n        if (v.hasType (IDs::SOUND))\n            pairs = std::max (pairs, 1 + juce::jlimit (0, 31, static_cast<int> (v[\"studioOutPair\"])));\n    return std::max (juce::jmin (numInputChannels, 2), 2 * pairs);\n}\n\nvoid SamplerPlugin::setSoundOutputPair (int index, int pair)   // studio\n{\n    getSound (index).setProperty (\"studioOutPair\", juce::jlimit (0, 31, pair), getUndoManager());\n}\n// studio: the two above\n\nvoid SamplerPlugin::setSoundGains (int index, float gainDb, float pan)")
+# …and NAMES for every channel those pairs make: a RackType refuses a connection from a pin past the plugin's names.
+studio_replace("${h}"
+    "two per output pair its sounds name\n    void initialise (const PluginInitialisationInfo&) override;"
+    "two per output pair its sounds name\n    void getChannelNames (juce::StringArray* ins, juce::StringArray* outs) override;   // studio: a name per channel of every pair\n    void initialise (const PluginInitialisationInfo&) override;")
+studio_replace("${cpp}"
+    "}\n\nvoid SamplerPlugin::applyToBuffer (const PluginRenderContext& fc)"
+    "}\n\nvoid SamplerPlugin::getChannelNames (juce::StringArray* ins, juce::StringArray* outs)   // studio\n{\n    if (ins != nullptr) { ins->add (\"Left\"); ins->add (\"Right\"); }\n    if (outs != nullptr)\n        for (int c = 0, n = getNumOutputChannelsGivenInputs (2); c < n; ++c)\n            outs->add ((c % 2 == 0 ? \"Left \" : \"Right \") + juce::String (c / 2 + 1));\n}\n// studio: getChannelNames above\n\nvoid SamplerPlugin::applyToBuffer (const PluginRenderContext& fc)")

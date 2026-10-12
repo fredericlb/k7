@@ -97,6 +97,15 @@ the banks — is fixed at construction and part of `keyOf`.
 One QuickJS runtime per lane, capped at 64 MiB, and every call has a 250 ms deadline: a pattern
 that loops forever or allocates without end fails its load and the lane keeps the previous one.
 
+**And a C stack budget per THREAD.** QuickJS checks recursion against a size it is told, 1 MiB by
+default, measured from where the call entered — and a secondary thread's real stack is 512 KiB on
+macOS. A pattern that recurses without end would run past the end of the stack and SIGSEGV before
+QuickJS ever threw, and the project re-sent after the restart would do it again. So the pattern
+worker is started with an 8 MiB stack and lets JS use half of it, and any other thread that calls
+in — Tracktion's render thread during an offline render — gets 256 KiB, which fits a thread nobody
+sized. Every entry re-applies the calling thread's budget. `aRecursivePatternIsAnErrorNotACrash` is
+the check, on a thread with the default stack.
+
 **A query's window is snapped to an exact fraction before Strudel sees it** (`onGrid` in
 `packages/song-strudel/src/events.ts`, a 1/2²⁰-cycle grid). The worker's windows are
 `playhead / secondsPerCycle`, arbitrary doubles, and Strudel's `TimeSpan` hands a double to

@@ -21,6 +21,7 @@ import {
 import { useEngineState } from "@studio/engine-browser/store";
 import { m } from "./paraglide/messages.js";
 import type { Pane, Panel } from "./routes";
+import { formatAt } from "./shareComments";
 
 // The panes, not tabs: a view is a LAYOUT over the same instances, and which of them a project mounts is `viewPanes` in routes.ts, not this table.
 export const PANES: Pane[] = [
@@ -63,7 +64,7 @@ export function TransportClock({
   beatsPerBar: number;
 }) {
   const s = useEngineState((st) => st.playhead);
-  const clock = `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const clock = formatAt(s);
   // Position as 1-based bar:beat, clamped at 0 so a count-in's negative playhead doesn't read as a negative bar.
   const beat = Math.max(0, (s * tempo) / 60);
   const bpb = Math.max(1, beatsPerBar);

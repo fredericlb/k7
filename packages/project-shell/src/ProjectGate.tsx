@@ -36,7 +36,12 @@ import {
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
-import { sleepMove, useIdleTimeout } from "./idle.ts";
+import {
+  anotherTabActive,
+  IDLE_TIMEOUT_MS,
+  sleepMove,
+  useIdleTimeout,
+} from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
 import { accountLibraries } from "./repoLookup.ts";
@@ -68,6 +73,8 @@ export interface GateEngine {
   fileToken?: string | null;
   /** The engine ITSELF, for its id, nested as `RankedEngine` already has it — docs/launch.md. */
   engine: { id: string };
+  /** A new hub ticket when `fileToken` expires under an open session — the app's `freshTicket`; absent with no hub. */
+  renewTicket?: () => Promise<string | null>;
 }
 
 export interface ProjectGateStrings {
@@ -146,7 +153,6 @@ export function ProjectGate({
   children,
   renderEmpty,
   renderNoLibraries,
-  onQuit,
   idleTimeoutMs = 0,
   asleep = false,
   onIdle,
@@ -177,8 +183,6 @@ export function ProjectGate({
   }) => ReactNode;
   /** What to draw when the account has NO library — st0 puts the card that adds one here; `onAdded` re-runs the resolve. */
   renderNoLibraries?: (ctx: { onAdded: () => void }) => ReactNode;
-  /** Called before leaving, for an app that must let go of something first. */
-  onQuit?: () => void;
   /** Close the session after this long untouched; `0` — the default — is off. See docs/idle.md. */
   idleTimeoutMs?: number;
   /** The project is out of sight — a tab behind another. Same closing, and it reopens by itself. */
@@ -206,19 +210,30 @@ export function ProjectGate({
         engineToken: (engine.fileToken ?? engine.token)!,
         engineId: engine.engine.id,
         workspace,
+        // Only a hub ticket ages; an engine's own token does not.
+        ...(engine.fileToken && engine.renewTicket
+          ? { renewTicket: engine.renewTicket }
+          : {}),
       });
     },
-    [engine.fileBase, engine.token, engine.fileToken, engine.engine.id],
+    [
+      engine.fileBase,
+      engine.token,
+      engine.fileToken,
+      engine.engine.id,
+      engine.renewTicket,
+    ],
   );
 
-  /** Leave: let the app go first, then go back to where projects live. Nothing to forget. */
+  /** Leave: go back to where projects live. Nothing to forget. */
   const quit = useCallback(() => {
-    onQuit?.();
-    void projectApi.unloadEngine().catch(() => {
-      /* engine/file service gone — leaving is still right */
-    });
+    // Not from under another tab of this account still using the session.
+    if (!anotherTabActive(IDLE_TIMEOUT_MS))
+      void projectApi.unloadEngine().catch(() => {
+        /* engine/file service gone — leaving is still right */
+      });
     window.location.href = projectsUrl(window.location.href);
-  }, [onQuit]);
+  }, []);
 
   /** Armed only while the project is OPEN — every other phase idles already. See docs/idle.md. */
   useIdleTimeout(phase.k === "open" ? idleTimeoutMs : 0, () => {
@@ -246,6 +261,8 @@ export function ProjectGate({
   useEffect(() => {
     if (phase.k !== "idle") return;
     idleCallback.current?.();
+    // The session is shared by this account's tabs: another one in use keeps it, and only this tab sleeps.
+    if (anotherTabActive(IDLE_TIMEOUT_MS)) return;
     void projectApi.unloadEngine().catch(() => {
       /* engine or file service gone — the session is over here regardless */
     });
@@ -355,8 +372,12 @@ export function ProjectGate({
         });
       } catch (e) {
         if (cancelled) return;
-        // "NetworkError…" covers a refused origin and a dead service, whose fixes are opposite.
-        const fault = await diagnoseFileService(engine.fileBase);
+        // "NetworkError…" covers a refused origin and a dead service, whose fixes are opposite; an HTTP status is neither — the service answered.
+        const answered =
+          typeof (e as { status?: unknown }).status === "number";
+        const fault = answered
+          ? undefined
+          : await diagnoseFileService(engine.fileBase);
         if (!cancelled)
           setPhase({ k: "error", message: (e as Error).message, fault });
       }
@@ -372,6 +393,7 @@ export function ProjectGate({
       <EngineLoadScreen
         strings={strings.loading}
         onReady={() => setPhase({ k: "open", workspace, project })}
+        onFail={(message) => setPhase({ k: "error", message })}
       />
     );
   }

@@ -128,6 +128,61 @@ room for prose. The height follows the WRAPPED line count. `noteOf` decides a mo
 asking `WebGraph`'s `modules` map, which is keyed by doc modules and nothing else — no second field,
 and no lookup table to keep in step with one.
 
+## Two layouts, and the fold behind them
+
+A panel has two AUTHORED shapes (`packages/ui-module-builder/docs/layouts.md`): itself, the
+HORIZONTAL layout, at most 4 rows, and its `vertical` twin, at most 4 columns. `buildGraph`'s
+`layout` (and `moduleRow`'s, which passes it on) picks one. `"vertical"` swaps the twin in for the
+panel and marks it `tabsAs: "dropdown"`, so its tabs are a menu across the card's top (`menuH`)
+rather than a column down its left (`columnW` is then 0). A panel with no twin keeps its own grid,
+marked the same way, and the fold below narrows it. st0's per-track view draws horizontal on a
+desktop, where the row is read ACROSS, and vertical on a phone, where it is read DOWN. The global
+graph draws vertical, folded to 4 columns: its cards sit in ranks that run left to right, so a narrow
+card keeps the ranks close and the cables short.
+
+The fold is what serves a panel no one authored a shape for — a workspace module, a VST scanned on
+the spot. `buildGraph`'s `fit` holds every card's widget grid to a number of ROWS or of COLUMNS,
+never both: one side is the constraint, the other takes what overflows. Held to four rows, a
+nine-row panel becomes bands side by side, each as wide as what it holds (`gridFit.ts`). Held to
+columns, the bands go below. The per-track view holds 4 rows on a desktop and 4 columns on a phone,
+so an authored panel passes through the fold untouched.
+
+- **A band is as wide as what it holds**, not as the grid it came from: the overflow of a 24-column
+  panel that is two rows of two knobs is a two-column band. Measured on the controls and screens a
+  band places, a frame not counting, and the frame clipped to the band in turn.
+- **A card is as wide as its OPEN tab.** Each tab folds on its own, so each has its own width
+  (`tabs[].cols`, and `tabW` on the node); sized to the widest, a narrow tab would draw beside a wall
+  of empty columns. Which tab is open is then a fact the LAYOUT needs, so a host that folds holds it
+  (`TrackModulesPane`'s `openTabs`, handed to `moduleRow` as `tabOf` and to `DomChains`, which
+  reports each switch), and the row reflows on a switch. A card no host sizes keeps its own state.
+- **A narrow card is as TALL as its open tab.** A vertical layout's pages differ in length — Surge
+  XT's run from 11 rows to 28 — and a card as tall as the longest is mostly empty on every other page.
+  `buildGraph` gives each tab its height (`tabH`) and `withOpenTabs` sizes the cards to the open one,
+  top edge kept. The global graph applies it AFTER its layout, which made room for the longest page:
+  a tab switch then moves no card, and the cables follow the bottom edge, since they hang socket to
+  socket. `moduleRow` applies it before laying its row.
+
+- **A fold never cuts through a CONTROL.** A band ends at the last line no knob, fader or button
+  straddles; a control taller than the cap leaves no such line, and its band runs long rather than
+  split it.
+- **A frame and a screen do not count.** A `group` is a drawing around a section, so it is cut at
+  the band's edge and drawn once per band, the label on the first piece. An `lcdscreen` or a
+  `waveform` draws a picture scaled to its box, so it is shortened to end at its band. Counted as
+  controls, Surge XT's 6- and 8-row screens and section frames would leave no legal cut in any tab,
+  and its 24 × 11 panel would "fit" as 48 × 10 — wider and barely shorter than what it was.
+- **Each tab folds on its own**, with the widgets outside the tabs: only one tab is drawn at a
+  time, so one tab's cuts need not suit another's — pooled, sixteen tabs left no line free. That
+  holds only while the shared widgets land in the same place in every tab's fold, which a header
+  on top always does; when they would not, one fold serves every tab, as a shared widget cannot
+  be in two places.
+- **The card is resized by what its panel changed**, not recomputed, so whatever else made it
+  bigger — a lane's clip list — is kept.
+- **A strip is never folded.** Its fader is its height, and a fader folded beside itself is no
+  longer a strip.
+- **The panel is folded where it is drawn**, not in the module's files: the same module is a
+  tall card in the full graph and a wide one in the per-track view, and the builder edits the
+  grid as written.
+
 ## The `sub` line
 
 Only the **shared** case earns one — "this module is in these chains" — a warning that editing it

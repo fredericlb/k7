@@ -59,9 +59,14 @@ export interface WebModuleUI {
   // Drawn on every tab — and the whole panel when there is one tab or none.
   widgets: Record<string, WebWidget>;
   // The panel's pages in order; two or more are drawn as a column at the card's left (graph-model's panel.ts).
-  tabs?: { name: string; widgets: Record<string, WebWidget> }[];
+  // `cols`: what THIS tab needs once a responsive fold has run (ui-chains' gridFit.ts); absent, the panel's own.
+  tabs?: { name: string; widgets: Record<string, WebWidget>; cols?: number }[];
   // The `widgets.js` source beside the panel, run by the BROWSER to draw its lcdscreen widgets.
   script?: string;
+  // The panel laid out NARROW (at most 4 columns), for a card read down; absent, the panel serves both shapes.
+  vertical?: Omit<WebModuleUI, "script" | "vertical" | "tabsAs">;
+  // How the pages are offered: a column at the card's left (the default), or a menu across its top — a narrow card's.
+  tabsAs?: "column" | "dropdown";
 }
 /** What a wire carries; `event` stays OUT of the signal path and is typed only to colour a socket. */
 export type WebSignal = "audio" | "midi" | "video" | "event";
@@ -346,6 +351,8 @@ export interface WebGraph {
     { alternatives: string[]; alternative: string }
   >;
   /** What is BAKED, by node name: `"at"` the point, `"inside"` what it contains — packages/song/docs/freeze.md. */
+  // A rack node's taps routed to subchains: the tap, and the first node of the run it feeds (packages/song/docs/racks.md).
+  tapFeeds?: { node: string; tap: string; to: string }[];
   frozen?: Record<string, "at" | "inside">;
   /**
    * What an AUTOMATIC freeze bakes, node name → the VST module the render was taken at

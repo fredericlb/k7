@@ -18,7 +18,7 @@
 
 namespace studio {
 
-class NamPlugin : public tracktion::engine::Plugin, private eurorack::RateBridge::Core {
+class NamPlugin : public tracktion::engine::Plugin, private eurorack::RateBridge::Core, private juce::Timer {
 public:
     explicit NamPlugin(tracktion::engine::PluginCreationInfo info);
     ~NamPlugin() override;
@@ -82,9 +82,6 @@ public:
     // Whether the loaded model is a .nam — the only kind that declares a loudness for `Normalize`.
     bool modelIsNam() const;
 
-    // How many `Knob n` params the loaded model reads.
-    int modelKnobs() const { return modelKnobs_.load(std::memory_order_relaxed); }
-
     // --- cabinet -------------------------------------------------------------
 
     // The IR convolved AFTER the model — the cabinet a model without one needs. MESSAGE thread; JUCE loads it off it.
@@ -96,7 +93,6 @@ private:
     std::unique_ptr<AmpModel> dsp_;
     juce::String path_;
     std::atomic<double> modelRate_{0.0};
-    std::atomic<int> modelKnobs_{0};
 
     // Read on the audio thread, written by loadModel — hence atomics, and two of them rather than an optional.
     std::atomic<double> loudnessDb_{0.0};
@@ -116,6 +112,13 @@ private:
     // The cabinet: resampled to the engine's rate by JUCE itself, and skipped whole until an IR is loaded.
     juce::dsp::Convolution cab_;
     std::atomic<bool> hasIr_{false};
+
+    // The model's output went non-finite: zeroed on the audio thread, and the model reloaded on the message thread, since its reset is a prewarm.
+    std::atomic<bool> poisoned_{false};
+    // A model that keeps doing it would reload four times a second, and say so as often: both are spaced out.
+    double lastReloadMs_ = -1.0e9;
+    double lastWarnMs_ = -1.0e9;
+    void timerCallback() override;
 
     // The engine's rate → the model's, one fixed block at a time, and back; idle when the two agree.
     eurorack::RateBridge bridge_;

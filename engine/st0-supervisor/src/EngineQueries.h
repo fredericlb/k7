@@ -45,6 +45,15 @@ public:
     /** Fire-and-forget: the sessions poll shows the result. */
     void dropSession(const std::string& session, std::function<void()> done);
 
+    /** The LAN devices waiting for the musician's approval. */
+    void listPairRequests(Reply<std::vector<protocol::PairRequest>> done);
+
+    /** The LAN devices this engine has paired. */
+    void listPairedDevices(Reply<std::vector<protocol::PairedDevice>> done);
+
+    /** Fire-and-forget `pair-approve`, `pair-deny` (a requestId) or `unpair-device` (a deviceId); the pairing poll shows the result. */
+    void pairVerb(const std::string& verb, const std::string& id, std::function<void()> done);
+
     /** Fire-and-forget: the engine acknowledges by drawing the window. */
     void showNativePluginUI(const std::string& id, const std::optional<std::string>& session, std::function<void()> done);
 

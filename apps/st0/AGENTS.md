@@ -85,6 +85,7 @@ matches before changing it:
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
 | `shared.md` | the OTHER shared: `/@shares/<token>.st0` — this app opened on a frozen snapshot, with no account, no engine and no source |
 | `external.md` | `/@external/<surface>` — one surface alone on a second device, and `/external`, the menu it starts from |
+| `pairing.md` | a LAN device asking an engine to trust it — the card on the device, the prompt and the settings section on the machine |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
@@ -241,7 +242,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 
   **st0 will not open a project without a library.** The origin has ONE list, which the admins
   (pl8's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
-  page's header — the same page that shows them the server's key and each library's **Pull**,
+  page's sidebar — the same page that shows them the server's key and each library's **Pull**,
   and anyone a **Retry** on a library the server failed to clone. `ProjectGate` refuses before it
   clones anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s

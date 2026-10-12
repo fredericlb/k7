@@ -30,22 +30,25 @@ export const ENGINE_GLOBAL_REPLIES = [
   "sessions", // the one question whose answer is about the OTHER sessions
   "edit-plugins", // asked by the supervisor, which drives none; each row names its own session
   "whoami", // the identity of the process
+  // Pairing: about a DEVICE and the machine, never a project — engine/st0-engine/docs/pairing.md.
+  "pair-pending",
+  "paired",
+  "pair-denied",
+  "pair-requests",
+  "paired-devices",
 ] as const;
 
 /** The reply types that describe ONE project and must be stamped; unstamped, every client on the engine reads them. */
 export const PER_SESSION_REPLIES = [
   "state",
-  "session-dropped",
   "busy",
   "applied",
   "flushed",
   "error",
   "armed",
-  "record-enabled",
   "plugin-params",
   "plugin-params-live",
   "presets",
-  "preset-saved",
   "io-levels",
   "recorded",
   "engine-warning",

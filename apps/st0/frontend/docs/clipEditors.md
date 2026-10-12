@@ -695,9 +695,8 @@ the region really is a different one.
 ## The loop marks
 
 `src/clipLoop.ts` is the arithmetic, shared so the panes cannot disagree: the window that
-repeats, how many passes fit the placed length, and where each later pass begins. **The roll draws
-none of it** — its canvas IS the window, so a band would frame everything and mark nothing; only
-its header states the loop and its pass count in words. The waveform strip (`WaveformView`,
+repeats, how many passes fit the placed length, and where each later pass begins. The roll's
+header states the loop and its pass count in words. The waveform strip (`WaveformView`,
 outside `whole` mode) spans the placed length and draws the marks in violet
 — the one hue nothing else there spends (yellow transients, blue warp marks, `primary` slice
 windows) — as a tinted band with its two edges picked out and a fainter line per repeat.
@@ -723,6 +722,35 @@ Two smaller rules:
 - **Nothing is drawn in `whole` mode.** That view spans the source file rather than the placement,
   so the audio window's `0` would mark the head of the file instead of the loop. What that view is
   about is the material's own `from`/`to`, which `sliceRanges` already shades.
+
+## The loop switch, and its points in the ruler
+
+Both clip panels — the roll and the audio clip panel — carry a **loop** switch in their header, for
+the EVENT they show: on, the event repeats its window; off, it plays it once. It is `event loop`,
+dispatched rather than doubled, and a panel showing no placement (a sequence file, a piece of a
+comp) draws no switch. On, the switch's colour is the loop marks' violet.
+
+While it is on, **the loop's two points are a brace in the ruler**, and they drag. The points are
+the event's window — there is no loop range apart from it (`packages/song-edit/docs/eventLoop.md`)
+— so the brace sits on the ruler drawn in the window's own unit:
+
+| panel | ruler | unit | snaps |
+|---|---|---|---|
+| roll | the file's bars and beats, under the song's | the notes' beats | to the ruler's step; Alt drags free |
+| audio clip panel | the song's ruler over the wave | seconds of the file | nowhere, like the window's own edges on the wave |
+
+**The drag is local until release, then one command** (`event loop points`), so the file is
+written once per gesture and the reload lands once. A looped event keeps its length on the lane
+while its points move — the passes give — which is why the wave's own edge drag sends the same
+verb while the event loops, rather than `event window`, which keeps the passes and moves the length.
+
+The audio clip panel's header carries the event's **gain** beside the switch: a slider from −6 to
++6 dB (`src/components/EventGainSlider.tsx`), committed once on release as `event gain`, and put
+back to unity by a double-click. The roll has none: a MIDI event has no level of its own
+(`packages/song-edit/docs/eventGain.md`).
+
+`src/components/LoopBrace.tsx` is both halves, unit-free: each panel hands it its own mapping to
+pixels, and the bounds the event cannot leave (the material's).
 
 ## The material's window — a different thing from the loop
 

@@ -1,12 +1,12 @@
 // waveform.ts — slice a source file's precomputed ENVELOPE to the region a clip plays and
 // derive the bar/beat grid from the project's tempo, so a waveform lines up with the
-// arrangement. The heavy part (decode + downsample) belongs to the C++ engine, which
+// arrangement. The heavy part (decode + downsample) is @studio/audio-analysis's, which
 // writes a placement-independent `{source}.cache` sidecar; this only reads it.
 
 import type { ClipDoc, ProjectDoc } from "@studio/engine-protocol/project";
 import { beatAtSource, sourceAtBeat } from "@studio/song-schema/warpPoints";
 
-// The whole-file envelope the engine computes and caches — placement-independent, docs/waveform.md.
+// The whole-file envelope @studio/audio-analysis computes and caches — placement-independent, docs/waveform.md.
 export interface FileEnvelope {
   fingerprint: string; // cheap content fingerprint (see waveformCache.ts) for invalidation
   sampleRate: number;
@@ -15,9 +15,9 @@ export interface FileEnvelope {
   seconds: number; // frames / sampleRate
   peak: number[]; // per-bucket max |sample|, 0..1
   rms: number[]; // per-bucket RMS, 0..1 (linear)
-  transients: number[]; // onsets in FILE seconds, detected by the engine at this file's own resolution
+  transients: number[]; // onsets in FILE seconds, detected once at this file's own resolution
   sensitivity: number; // the threshold those onsets were found with — per source, and sticky (docs/waveformCache.md)
-  bpm: number; // the engine's tempo estimate, or 0 for "none found". A starting point, not an authority.
+  bpm: number; // the analysis's tempo estimate, or 0 for "none found". A starting point, not an authority.
   /** The same envelope split into three bands for COLOUR, in the same bucket space — docs/waveform.md. */
   low?: number[];
   mid?: number[];
@@ -198,7 +198,7 @@ export function regionWaveform(
           (mk.target >= -1e-6 && mk.target <= seconds + 1e-6)),
     );
 
-  // Transients are detected once per FILE by the engine; this only maps them on — docs/waveform.md.
+  // Transients are detected once per FILE by the analysis; this only maps them on — docs/waveform.md.
   const transients = env.transients
     .map(toDisplay)
     .filter((t) => t >= -1e-6 && t <= seconds + 1e-6);

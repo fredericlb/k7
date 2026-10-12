@@ -19,6 +19,7 @@
     "./stream": "./src/streamPlayer.ts",
     "./stream-sink": "./src/streamSink.ts",
     "./relook": "./src/relook.ts",
+    "./pairing": "./src/pairing.ts",
     "./playhead-clock": "./src/playheadClock.ts"
   },
   "scripts": {

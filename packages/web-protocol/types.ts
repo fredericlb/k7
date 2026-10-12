@@ -372,6 +372,7 @@ export interface WebEvent {
   fadeIn?: string;
   fadeOut?: string;
   loop?: number;
+  gain?: number; // dB, audio events only — the clip panel's slider
   disabled?: boolean;
   warp?: boolean;
   /** The event's other performances and which plays where, song positions as the file writes them (song docs/takes.md). */
@@ -436,6 +437,8 @@ export interface WebPlugin {
   id: string;
   type: string; // xmlTypeName / format
   name: string;
+  // An SFZ instrument's file as the module names it: an `@instruments/…` one is asked of the ENGINE, which alone knows if it is there.
+  sfzFile?: string;
 }
 // One track's strip, read off the mixer module at the end of its chain; the tone bands left it — see docs/document.md.
 export interface WebMixer {
@@ -758,8 +761,8 @@ export interface FileHubHello {
 /** How often the driving tab re-selects to keep its engine assignment alive. */
 export const ENGINE_ASSIGN_RENEW_MS = 5000;
 
-/** No renewal for this long ⇒ the assignment lapses and the engine shows free. */
-export const ENGINE_ASSIGN_TTL_MS = 15000;
+/** No renewal for this long ⇒ the assignment lapses — past a minute, since a background tab's timers fire only once a minute. */
+export const ENGINE_ASSIGN_TTL_MS = 90000;
 
 // ── Reaching an engine, and staying reached ──────────────────────────────────
 
@@ -780,6 +783,9 @@ export const ENGINE_IDLE_PING_MS = 10000;
 
 /** …and no answer to it within this ⇒ the socket is dead however open it claims to be. */
 export const ENGINE_PONG_TIMEOUT_MS = 5000;
+
+/** A socket still CONNECTING after this long is given up on: a half-open dial fires no `close` to retry on. */
+export const ENGINE_CONNECT_DEADLINE_MS = 10000;
 
 /** Reconnect backoff: doubles from here, jittered, and resets on a connection that opened. */
 export const ENGINE_RECONNECT_MIN_MS = 1000;

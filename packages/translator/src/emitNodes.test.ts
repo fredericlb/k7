@@ -565,7 +565,7 @@ describe("a MIDI lane whose instrument stayed behind", () => {
     ).toContain('extends: "@st0/instruments/synth/surge-xt"');
     expect(
       readFileSync(join(dir, "nodes/drums-instrument.yaml"), "utf8"),
-    ).toContain('extends: "@st0/instruments/st0-rack-sfz"');
+    ).toContain('extends: "@st0/instruments/st0-rack"');
   });
 
   it("gets none when an instrument crossed over, nor on an audio lane", () => {

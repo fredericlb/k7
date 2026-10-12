@@ -125,7 +125,8 @@ async function main() {
   const libraryName = arg("name", "st0");
   const samples = join(library, "samples", folder);
   mkdirSync(samples, { recursive: true });
-  const lines = ["# preset for @st0/instruments/st0-rack", "rack:"];
+  // `engine: samples`: the rack's taps are its sampler engine's, its default being an SFZ kit (packages/song/docs/racks.md).
+  const lines = ["# preset for @st0/instruments/st0-rack", "engine: samples", "rack:"];
   for (const p of pieces) {
     const wav = trimmed(await renderPiece(p.note, p.seconds));
     writeFileSync(join(samples, `${p.name}.wav`), wav);

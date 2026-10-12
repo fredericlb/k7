@@ -69,7 +69,16 @@ export function aiSettingsRoutes(
       return void res.status(400).json({
         error: patch.error.issues.map((i) => i.message).join("; "),
       });
-    const next: AiSettings = { ...(store.read(sub) ?? {}) };
+    let current: AiSettings | null;
+    try {
+      current = store.readForUpdate(sub);
+    } catch {
+      // Merged onto {}, a model change would write the file back without its key.
+      return void res.status(500).json({
+        error: "the AI settings could not be read, so nothing was changed",
+      });
+    }
+    const next: AiSettings = { ...(current ?? {}) };
     const { apiKey, model } = patch.data;
     if (apiKey !== undefined) next.apiKey = apiKey || undefined;
     if (model !== undefined) next.model = model || undefined;

@@ -17,10 +17,13 @@ import { fileTokenOf } from "@studio/engine-browser/probe";
 import type { ServedProject, SurfacedProject } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, engines } from "../api";
+import { needingPairing, PairThisDevice } from "../pairing/PairThisDevice";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, externalHref } from "../projects/api";
 import type { AccountFiles } from "../projects/workspaceOps";
 import { PANE_META } from "../shellMeta";
+import type { RankedEngine } from "../types";
+import { pollWhileVisible } from "../visiblePoll";
 
 /** The service memoizes this listing for five seconds; asking faster only burns requests. */
 const POLL_MS = 5000;
@@ -35,13 +38,16 @@ export function ExternalIndex() {
   const [served, setServed] = useState<ServedProject | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
+  // Engines that answered this device and refuse it until paired — the card drawn in place of "no engine".
+  const [pairable, setPairable] = useState<RankedEngine[]>([]);
 
   /** The account, then the machine, and `find()` and never `hold()` — a lease is a claim ON A PROJECT, which this menu has none of. */
   const probe = useCallback(async () => {
     try {
       const me = await api.getMe().catch(() => null);
       const userEmail = me?.email || me?.sub || "unknown";
-      const { chosen } = await engines.find();
+      const { ranked, chosen } = await engines.find();
+      setPairable(chosen ? [] : needingPairing(ranked));
       setFileService(
         chosen?.fileBase && fileTokenOf(chosen)
           ? {
@@ -85,8 +91,7 @@ export function ExternalIndex() {
       return;
     }
     void load(fileService);
-    const t = setInterval(() => void load(fileService), POLL_MS);
-    return () => clearInterval(t);
+    return pollWhileVisible(() => void load(fileService), POLL_MS);
   }, [fileService, load]);
 
   /** The row the engine is holding, if the disk still has it — one project, by construction. */
@@ -145,7 +150,17 @@ export function ExternalIndex() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto p-4">
-        {fileService === null ? (
+        {fileService === null && pairable.length ? (
+          <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
+            {pairable.map((r) => (
+              <PairThisDevice
+                key={r.engine.id}
+                engine={r}
+                onPaired={() => void probe()}
+              />
+            ))}
+          </div>
+        ) : fileService === null ? (
           <Empty icon={<ServerOff className="h-8 w-8" />}>
             <p className="text-sm">{m["ext.noEngine"]()}</p>
             <p className="max-w-xs text-center text-xs opacity-70">

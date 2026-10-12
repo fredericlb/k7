@@ -193,12 +193,3 @@ export function placementOf(
   );
 }
 
-export function placedBeat(
-  project: WebProject | null | undefined,
-  track: string,
-  clip: string,
-): number | null {
-  const lane = project?.tracks.find((t) => t.id === track);
-  const at = lane?.clips.find((c) => c.id === clip);
-  return at ? at.start : null;
-}

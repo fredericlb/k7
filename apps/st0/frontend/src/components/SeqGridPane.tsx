@@ -17,12 +17,15 @@ export function SeqGridPane({
   view,
   onChanged,
   setStatus,
+  reloadKey,
 }: {
   path: string;
   view: SeqView;
   // A write landed: the polls need to pick the notes up (the timeline draws them too).
   onChanged: () => void;
   setStatus: (s: string) => void;
+  /** Handed to the grid, which re-reads its file on it. */
+  reloadKey?: number;
 }) {
   const [racks, setRacks] = useState<Hints["racks"]>({});
 
@@ -54,6 +57,7 @@ export function SeqGridPane({
           racks={racks}
           onChanged={onChanged}
           setStatus={setStatus}
+          reloadKey={reloadKey}
         />
       </div>
     </GraphSlotPane>

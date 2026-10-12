@@ -20,7 +20,8 @@
     "@studio/engine-browser": "*",
     "@studio/graph-model": "*",
     "@studio/song-schema": "*",
-    "@studio/ui-chains": "*"
+    "@studio/ui-chains": "*",
+    "@studio/ui-timeline": "*"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

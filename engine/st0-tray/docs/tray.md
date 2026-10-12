@@ -50,7 +50,7 @@ cloned there, and what this machine plays arrives as files through the tunnel
 ## The settings window
 
 One window, `src-tauri/src/settingswin.rs`, holding what a MACHINE is set to rather than what a
-project is. Five tabs, because they answer five different questions and only one of them is
+project is. Seven tabs, because they answer seven different questions and only one of them is
 ever urgent:
 
 | tab | what it is |
@@ -59,6 +59,8 @@ ever urgent:
 | Plugins | the installed catalogue, filtered, and the rescan that refills it |
 | Sessions | what this engine is holding, and the plugin editors it can open |
 | st0 instances | which st0 instances this engine is connected to, and a form to add one |
+| Downloads | the sampled instruments this machine keeps: download, cancel, retry, remove |
+| Paired devices | the LAN devices asking to drive this engine, and the ones it trusts |
 | System | version, engine, registry — and every button that acts on them |
 
 **The menu bar keeps one line and no buttons.** A status line is what a menu bar is for; a
@@ -66,8 +68,8 @@ ranking, a catalogue of several hundred rows, a list of live sessions and a row 
 buttons are not, and they belong in a window. `Settings…` is the way in, and the only one — the
 tray draws no device, count, session, version or web UI anywhere. The one exception is a
 download in progress (`engine/st0-supervisor/docs/instruments.md`): a second line, there only while
-it lasts, because a machine fetching 750 MB of piano after its first start has to say so where
-someone looks before playing. A blocked origin still raises the icon's attention dot and a
+it lasts, because a machine fetching 750 MB of piano has to say so where someone looks before
+playing. A blocked origin still raises the icon's attention dot and a
 banner; both point at the st0 instances tab.
 
 It is hidden on close, never destroyed: Tauri asks an app to exit when its last window closes,
@@ -75,7 +77,7 @@ and this app's exit stops the engine. `windows` in `tauri.conf.json` stays empty
 reason it always was — nothing is opened until someone asks for it.
 
 The page is hand-written HTML, CSS and JS under `dist/`, served as-is. The tray has no frontend
-build and gains none for five tabs, which is what `withGlobalTauri` buys: a `<script>` tag
+build and gains none for six tabs, which is what `withGlobalTauri` buys: a `<script>` tag
 reaches `invoke` with no bundler in front of it. The window draws only what a snapshot said and
 sends back only commands, so the rule that **the tray computes no policy** holds here too.
 
@@ -161,6 +163,28 @@ to spell the session out on every one of them.
 The two lists are polled apart, so a plugin can name a session the engine has not listed in that
 frame. Those rows are kept under a heading of their own rather than dropped — a plugin window
 that blinks out of existence for one poll is worse than a heading nobody reads.
+
+### Downloads — the instruments this machine keeps
+
+Every instrument the engine can play, each with the one button that fits where it stands:
+Download, Cancel while it waits its turn, Retry after a failure, Remove once it is here. Nothing
+is downloaded until someone asks: the piano alone is 750 MB, and a machine that never plays it
+should not pay for it. The list, the queue and the deletion are the supervisor's
+(`engine/st0-supervisor/docs/instruments.md`); the tab draws the snapshot's `instruments` with
+its `downloads` folded in. A running download has no button: the supervisor cannot cut one
+mid-file, and says so if asked.
+
+### Paired devices — approved on this machine, never from the network
+
+A phone on the LAN drives the engine only once someone at THIS machine approves it; the verbs are
+machine-only in the engine (`engine/st0-engine/docs/pairing.md`), and this tab is where the machine
+says yes. Each request shows its 6-digit code large, because comparing it with the device's screen
+is the whole check: anyone on the network can ask under any name.
+
+A new request posts a PASSIVE notification naming the device and its code, never a modal: asking
+costs a stranger on the LAN nothing, and a dialog per ask would let one lock this screen. The tab's
+label counts the waiting requests, so "open Settings" lands one click away. Revoke takes effect at
+once — the engine closes that device's live connections.
 
 ### System — the machine, and the buttons that act on it
 

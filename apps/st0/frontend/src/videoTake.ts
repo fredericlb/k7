@@ -38,10 +38,6 @@ export function takeId(lane: string, stamp: string): string {
   return `${safe || "lane"}_${stamp}`;
 }
 
-/** Which camera a lane records from: the one it names, or the machine's default — `""` IS the default (packages/song/docs/camera.md). */
-export const takeCamera = (laneCamera: string | undefined): string =>
-  laneCamera ?? "";
-
 /**
  * The `picture add` line a finished take becomes. The length is MEASURED here rather than left to
  * the compiler: `length: 0` means "to the end of the source", and a WebM the browser wrote has no

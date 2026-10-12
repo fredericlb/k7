@@ -1,5 +1,5 @@
 // clipLoop.ts — where a clip's LOOP sits on the axis its editor draws, so its editors read the
-// same arithmetic. The piano roll is CAGED to it (rollFit.ts): the window is the whole view. The
+// same arithmetic. The piano roll is FRAMED on it (rollFit.ts) and its ruler carries the loop brace. The
 // waveform strip still spans the placed length and draws the repeat marks — without them the
 // material stops partway along a pane whose width nothing on screen explains.
 

@@ -174,7 +174,8 @@ export function useClipWaveform(
         wfCache.set(id, { key, data: w });
         if (!cancelled) setWf(w);
       })
-      .catch(() => wfCache.set(id, { key, data: null }));
+      // A failure is NOT cached: during a prewarm or a blip, the clip would stay blank until a reload; its next mount asks again.
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };

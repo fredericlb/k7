@@ -372,8 +372,14 @@ An exception out of a `juce::Thread`, a message callback or a detached `std::thr
   when it is a finite number — nlohmann's `value()` throws on a key that is present but `null`, and
   a NaN in the bundle becomes exactly that through `JSON.stringify`. A one-shot's header is refused
   past a minute at 192 kHz rather than trusted to size a buffer.
+- **The state timer and the turntable loader** catch around their body: neither is a posted job, so
+  `post`'s net does not cover them, and a throw in the loader would also skip the count an offline
+  render waits on.
+- **`warn()` catches around its sink**: it is called from destructors and worker threads, and the
+  sink serialises to JSON, which throws on bytes that are not UTF-8. The sink is cleared as soon as
+  the message loop ends, since it holds `serve()`'s broadcast verbs by reference.
 - **The detached threads a message starts** (a scan, a parameter list, an orphan load, the startup
-  warm-up) go through a counter, and `serve()` waits for them after closing the server: each one
+  warm-up) each run inside a `try`, and go through a counter, and `serve()` waits for them after closing the server: each one
   captures `serve()`'s locals by reference. One still running after the grace — a plugin load can
   hang outright — makes the process leave through `_Exit` rather than free what it holds. On
   Android, where that would take the app with it, the wait is unbounded; nothing there loads a
@@ -406,9 +412,15 @@ thing `damaged` promises (`docs/recorder.md`).
 - **MIDI buffers the audio thread appends to are reserved on the message thread**, and the MIDI
   graph COPIES between its buffer and Tracktion's rather than swapping them, since a swap hands the
   reserve away and takes Tracktion's capacity in return.
-- **A NaN stops at the master**: `QuickMasterPlugin` zeroes non-finite input before its biquads,
-  which would otherwise latch it, and before the limiter, whose `jmax` and `jlimit` both let it
-  through. A Faust program's NaN is zeroed at its output and the instance cleared on the next block.
+- **A NaN stops at `QuickMasterPlugin`, when a project places it**: it zeroes non-finite input
+  before its biquads, which would otherwise latch it, and before the limiter, whose `jmax` and
+  `jlimit` both let it through. A Faust program's NaN is zeroed at its output and the instance
+  cleared on the next block.
+- **±Inf stops at every plugin's output, like NaN.** Tracktion sanitises each plugin's output, but
+  for NaN only, so an Inf from a gain, a feedback loop or an external plugin flowed on and turned
+  the next biquad's state into NaN — a track, or the whole master, then silent until a reset. The
+  fetch-time patch (`engine/patches/tracktion.cmake`) makes the test `isfinite`, which covers our
+  own plugins, the master gain included, as much as anyone's.
 - **NAM prewarms a loaded model before swapping it in**, so the lock covers a pointer swap and the
   bridge's buffers rather than thousands of samples of inference (`docs/namPlugin.md`).
 
@@ -432,8 +444,24 @@ thing `damaged` promises (`docs/recorder.md`).
   all, for the life of the engine. Turning record OFF never creates a session.
 - **The input tuner watches at most `kMaxChannels`** — the numbers come off the wire, and each costs
   a ring.
-- **The waveform CLI refuses a header it cannot trust** — no channel, or longer than twelve hours —
-  and `--waveform-batch` answers `err` for a file that throws rather than ending the batch.
+- **A plugin hung inside `processBlock` ends the process instead of the message thread**: the device
+  watchdog no longer reopens over a callback that is still inside, which would block on the lock it
+  holds; past ten seconds the engine exits for the supervisor to restart it (`docs/audioDevice.md`).
+- **A plugin whose own state goes non-finite recovers by itself**: Faust and a jsdsp graph clear
+  their state on the next block, an amp model is reloaded off the audio thread (`docs/namPlugin.md`).
+- **No file header sizes an allocation unchecked**: a cabinet IR past ten seconds, a Faust soundfile
+  past ten minutes or eight channels, a record past six hours, are each refused before a buffer or a
+  cache file is sized from them.
+- **`--decode` refuses a header it cannot trust** — no channel or more than 32, a rate past
+  768 kHz, longer than twelve hours — before a byte of audio is written.
+- **A client message is capped at 64 MiB** by a fetch-time patch (`engine/patches/ixwebsocket.cmake`):
+  IXWebSocket buffers a whole frame before anything reads it and its own limit is 2^63 bytes, so one
+  message could exhaust memory. A frame past the cap closes that connection.
+- **A plugin, model or instrument that crashes the engine as it loads is refused at its second
+  crash**, by a marker written for the length of each load (`docs/crashes.md`). AIDA-X and Proteus
+  files are checked first, every tensor against the shape the header declares, since RTNeural's
+  loaders index what the header promises; a `.nam` is not, its loader being NAM's own, so the
+  marker is what answers a truncated one.
 - **The waveform tap's reset is a flag** the audio thread consumes, and a lapped drain stops short of
   the slots the writer may be filling.
 - **The rate bridge** reads a plain static zero buffer rather than a `thread_local` (whose first touch
@@ -477,6 +505,20 @@ cannot be written. Every format renders as it did, within the 16-bit rounding th
    needs it (above). They are one-shots — the rack caps at 64 sounds, and a slice rack's excerpts
    partition one file — so the sum is bounded by what the rack plays, and replacing the sampler to
    stream them would buy little memory for a whole instrument's worth of risk.
+
+Open from the stability audit of 2026-10-11, each verified in the code and none yet fixed:
+
+- **A Faust compile that never returns** hangs the message thread: libfaust's timeout does nothing in
+  a library build. A crash while loading is answered (`docs/crashes.md`); a hang is not.
+- **Parameter lists and orphan windows load plugin binaries in the engine**, one thread per request
+  and no cap, including a plugin whose scan failed, from a path the client names.
+- **JUCE's own fallback when an interface is unplugged goes unobserved**: armed tracks record
+  silence and a recorder take continues at the old rate.
+- **A failed apply leaves `current` describing the old document** over a half-built Edit.
+- **A pattern note past 128 sounding at once gets no note-off.**
+- **`io-levels` with thousands of channel sets, and `set-input-stereo` with a huge channel**, each
+  cost the message thread or memory in proportion to one message.
+- **A platter mapped from removable media** faults on the audio thread when the media goes.
 
 ## What a change here should be verified with
 

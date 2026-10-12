@@ -269,7 +269,7 @@ The menu is reachable by its hand-typed address, and by `ui external <surface>` 
 the amp. So the open project's share panel gives its QR code, and the device keeps it from then on —
 installed, it starts here.
 
-It is linked from neither the home page's header nor the editor's: it is an INDEPENDENT page, the
+It is linked from neither the home page's sidebar nor the editor's: it is an INDEPENDENT page, the
 second device's own, and it wears its own header rather than the home page's. Reaching it from the
 laptop would only open on the laptop what belongs on the tablet.
 
@@ -304,6 +304,9 @@ the rest falls back to `@local`. Not cosmetic: the engine identifies a project b
 (`projectClaimKey`), and a tablet arriving on `@local/…` while the editor holds `/<dépôt>/…` would
 make **two claims on one song**, the second evicting the first. That, and nothing else, is why this
 menu queries pl8's registry.
+
+A tablet on the local network that its engine has not paired yet draws the pairing card in place of
+"no engine answers" — `pairing.md`.
 
 ## Looking like an application without being able to be one
 

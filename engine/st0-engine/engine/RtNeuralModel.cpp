@@ -14,6 +14,8 @@
 #include <array>
 #include <cmath>
 #include <exception>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -173,6 +175,72 @@ private:
     std::array<float, MAX_KNOBS> target_{}, knob_{};
 };
 
+// --- the file is checked before RTNeural reads it: its loaders index what the header promises, so a short array is a read past the end ---
+
+// The widest recurrent layer accepted; far past any amp model, and a corrupt header past it would allocate gigabytes.
+constexpr int kMaxHidden = 1024;
+
+[[noreturn]] void malformed(const std::string& what) { throw std::runtime_error("malformed model: " + what); }
+
+// The last entry of a non-empty array of integers — what a Keras `shape` ends with.
+int lastDim(const json& j, const char* key) {
+    const auto& a = j.at(key);
+    if (!a.is_array() || a.empty() || !a.back().is_number_integer()) malformed(std::string(key) + " is not a shape");
+    return a.back().get<int>();
+}
+
+// A vector of exactly `n` numbers.
+void vectorOf(const json& j, const std::string& key, size_t n) {
+    const auto& v = j.at(key);
+    if (!v.is_array() || v.size() != n) malformed(key + " should hold " + std::to_string(n) + " numbers");
+    for (const auto& x : v)
+        if (!x.is_number()) malformed(key + " holds something that is not a number");
+}
+
+// One row of a matrix, addressed by index: exactly `n` numbers.
+void vectorOf(const json& m, size_t r, size_t n, const std::string& key) {
+    const auto& v = m.at(r);
+    if (!v.is_array() || v.size() != n) malformed(key + " should be " + std::to_string(n) + " wide");
+    for (const auto& x : v)
+        if (!x.is_number()) malformed(key + " holds something that is not a number");
+}
+
+// A `rows` x `cols` matrix of numbers, every row the same length.
+void matrixOf(const json& j, const std::string& key, size_t rows, size_t cols) {
+    const auto& m = j.at(key);
+    if (!m.is_array() || m.size() != rows) malformed(key + " should have " + std::to_string(rows) + " rows");
+    for (size_t r = 0; r < rows; ++r) vectorOf(m, r, cols, key);
+}
+
+// AIDA-X: RTNeural's Keras loaders index each bias by the layer's width, so a short one is read past its end.
+void checkKeras(const json& j) {
+    const int inputs = lastDim(j, "in_shape");
+    if (inputs < 1) malformed("no inputs");
+    const auto& layers = j.at("layers");
+    if (!layers.is_array() || layers.empty()) malformed("no layers");
+    for (const auto& l : layers) {
+        const int out = lastDim(l, "shape");
+        if (out < 1 || out > kMaxHidden) malformed("a layer " + std::to_string(out) + " wide");
+        const auto type = l.at("type").get<std::string>();
+        const auto& w = l.value("weights", json::array());
+        if (type == "lstm" && (w.size() < 3 || !w[2].is_array() || w[2].size() < (size_t)(4 * out)))
+            malformed("an lstm layer's bias is short");
+        if (type == "dense" && w.size() >= 2 && (!w[1].is_array() || w[1].size() < (size_t)out))
+            malformed("a dense layer's bias is short");
+    }
+}
+
+// Proteus: every tensor at the exact shape the header declares, since transpose() and the setters index it blindly.
+void checkTorch(const json& sd, bool lstm, int inputs, int hidden) {
+    const size_t gates = (size_t)(lstm ? 4 : 3) * (size_t)hidden;
+    matrixOf(sd, "rec.weight_ih_l0", gates, (size_t)inputs);
+    matrixOf(sd, "rec.weight_hh_l0", gates, (size_t)hidden);
+    vectorOf(sd, "rec.bias_ih_l0", gates);
+    vectorOf(sd, "rec.bias_hh_l0", gates);
+    matrixOf(sd, "lin.weight", 1, (size_t)hidden);
+    vectorOf(sd, "lin.bias", 1);
+}
+
 std::string shapeName(const Shape& s)
 {
     return std::string(s.lstm ? "lstm " : "gru ") + std::to_string(s.hidden) + "x" + std::to_string(s.inputs);
@@ -181,7 +249,8 @@ std::string shapeName(const Shape& s)
 // AIDA-X: RTNeural's own Keras export, plus in_skip, in_gain, out_gain and a metadata block.
 std::unique_ptr<AmpModel> loadKeras(const json& j, std::string& error)
 {
-    const int inputs = j.at("in_shape").back().get<int>();
+    checkKeras(j);
+    const int inputs = lastDim(j, "in_shape");
     if (inputs < 1 || inputs > 1 + AmpModel::MAX_KNOBS) {
         error = "model takes " + std::to_string(inputs) + " inputs; at most " +
                 std::to_string(1 + AmpModel::MAX_KNOBS) + " (the sound and its knobs) are supported";
@@ -190,11 +259,11 @@ std::unique_ptr<AmpModel> loadKeras(const json& j, std::string& error)
     const auto& layers = j.at("layers");
     Shape s{true, inputs, 0};
     std::unique_ptr<Net> net;
-    if (layers.size() == 2 && layers[1].at("type") == "dense" && layers[1].at("shape").back() == 1) {
+    if (layers.size() == 2 && layers[1].at("type") == "dense" && lastDim(layers[1], "shape") == 1) {
         const auto type = layers[0].at("type").get<std::string>();
         if (type == "lstm" || type == "gru") {
             s.lstm = type == "lstm";
-            s.hidden = layers[0].at("shape").back().get<int>();
+            s.hidden = lastDim(layers[0], "shape");
             net = fixedNet(s, [&](auto& model) { model.parseJson(j); });
         }
     }
@@ -234,6 +303,11 @@ std::unique_ptr<AmpModel> loadTorch(const json& j, std::string& error)
                 std::to_string(1 + AmpModel::MAX_KNOBS) + " are supported";
         return nullptr;
     }
+    if (s.hidden > kMaxHidden) {
+        error = "model is " + std::to_string(s.hidden) + " wide; at most " + std::to_string(kMaxHidden) + " is supported";
+        return nullptr;
+    }
+    checkTorch(sd, s.lstm, s.inputs, s.hidden);
     const auto fill = [&](auto& model) {
         auto& rnn = model.template get<0>();
         if constexpr (isLstm<std::decay_t<decltype(rnn)>>)

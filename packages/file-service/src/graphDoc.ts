@@ -263,12 +263,24 @@ export function trackMixersOf(doc: {
   return out;
 }
 
+/** Every lane's colour as the COMPILE gives it — its own, or its category's shade (song-schema docs/trackColor.md). */
+export function trackColorsOf(doc: {
+  tracks: { name: string; color: string }[];
+}): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const t of doc.tracks)
+    if (t.color && !out[t.name]) out[t.name] = t.color;
+  return out;
+}
+
 export function buildGraphDoc(
   dir: string,
   extents?: ClipExtents,
   mixers?: TrackMixers,
   /** The project's automatic freezes, from the caller's memo of the compile — none drawn when absent. */
   autoFreezes?: AutoFreeze[],
+  /** The compiled colours, for a lane whose file states none — `trackColorsOf`. */
+  colors?: Record<string, string>,
 ): WebGraph {
   // loadGraph reads graph.yaml exactly as the compile does.
   const g = loadGraph(dir);
@@ -523,7 +535,8 @@ export function buildGraphDoc(
   // What each lane HOLDS, sorted by position rather than by authored order — docs/graphFlags.md.
   const trackClips: NonNullable<WebGraph["trackClips"]> = {};
   for (const [id, t] of Object.entries(g.tracks)) {
-    if (t.color) trackColors[id] = t.color;
+    const color = t.color || colors?.[id];
+    if (color) trackColors[id] = color;
     // What the lane puts on a wire when a run leaves it BARE — see docs/graphFlags.md.
     trackSignals[id] =
       t.placements.length && t.placements.every((p) => p.kind === "midi")
@@ -606,6 +619,7 @@ export function buildGraphDoc(
     ...(Object.keys(frozen).length ? { frozen } : {}),
     ...(Object.keys(autoFrozen).length ? { autoFrozen } : {}),
     ...(Object.keys(assemblies).length ? { assemblies } : {}),
+    ...(g.tapFeeds?.length ? { tapFeeds: g.tapFeeds } : {}),
     modules,
     // EVERY curve the project has, not only the bound ones — see docs/graphFlags.md.
     curves: (() => {

@@ -25,6 +25,12 @@ namespace {
 // needs, so a late tick catches up in one pass instead of falling further behind every time.
 constexpr size_t kDrainChunk = 24000;
 
+// How long a node whose plugin left keeps its ring, in ms: far longer than Tracktion takes to swap in the graph without it.
+constexpr double kRetiredRingMs = 2000.0;
+
+// How often the WAV header is rewritten mid-take, in seconds: it is only correct after a flush, so a crash keeps the take up to the last one.
+constexpr double kFlushSeconds = 1.0;
+
 // Samples per envelope point on the TAKE's picture — 4096 is ~12 points a second, which draws a
 // five-minute take in 3500 points. The live tap's bucket is 256; this one is not the same picture.
 constexpr int kTakeBucket = 4096;
@@ -60,6 +66,8 @@ void RecorderNode::openTake(const juce::File& file, double sampleRate) {
     }
     path_ = file;
     frames_ = 0;
+    flushedAt_ = 0;
+    writeFailed_ = false;
     rate_ = sampleRate;
     envelope_.clear();
     sent_ = 0;
@@ -88,8 +96,21 @@ void RecorderNode::pump() {
             planes_[(size_t)c][i] = scratch_[i * RecorderTap::CHANNELS + (size_t)c];
         chans[c] = planes_[(size_t)c].data();
     }
-    writer_->writeFromFloatArrays(chans, RecorderTap::CHANNELS, (int)d.frames);
+    // A refused write is a full disk or a vanished directory, and JUCE refuses every later one too: the take ends here, damaged.
+    if (!writer_->writeFromFloatArrays(chans, RecorderTap::CHANNELS, (int)d.frames)) {
+        damaged = true;
+        writeFailed_ = true;
+        warn("recording to " + path_.getFullPathName().toStdString() +
+                 " failed — the disk is full or the folder is gone; the take keeps what was written",
+             "rec");
+        closeTake();
+        return;
+    }
     frames_ += d.frames;
+    if ((double)(frames_ - flushedAt_) >= kFlushSeconds * rate_) {
+        writer_->flush();
+        flushedAt_ = frames_;
+    }
 
     // …and the same samples again as min/max buckets: the card draws THIS, not the file.
     for (size_t i = 0; i < d.frames; ++i) {
@@ -151,6 +172,7 @@ void EngineHost::attachRecorderTaps(const std::string& session) {
         const bool justFiled = std::find(orphaned.begin(), orphaned.end(), it->first) != orphaned.end();
         if (gone && !it->second->recording && !justFiled) {
             it->second->closeTake();
+            s->retiredRecorders.emplace_back(juce::Time::getMillisecondCounterHiRes(), std::move(it->second));
             it = s->recorders.erase(it);
         } else {
             ++it;
@@ -196,7 +218,8 @@ EngineHost::RecorderResult EngineHost::setRecorderRecording(const std::string& s
     dir.createDirectory();
     const auto name = juce::File::createLegalFileName(juce::String(id)) + "-" + stampNow() + ".wav";
     node.damaged = false;
-    node.openTake(dir.getChildFile(name), rate);
+    // The stamp is to the second, and an existing file would be APPENDED to: a second take within it gets its own name.
+    node.openTake(dir.getChildFile(name).getNonexistentSibling(false), rate);
     if (!node.writing()) return { false, "could not open a file for \"" + id + "\"" };
     node.recording = true;
     return { true, "" };
@@ -261,8 +284,13 @@ std::map<std::string, EngineHost::RecorderReport> EngineHost::pumpRecorders(
     // find(), never session(): a state poll must not conjure the session it is reporting on.
     auto* s = impl_->find(session);
     if (s == nullptr) return out;
+    // A retired ring is freed once the graph that held its plugin is surely gone: Tracktion swaps it within a few blocks.
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    std::erase_if(s->retiredRecorders, [now](const auto& r) { return now - r.first > kRetiredRingMs; });
     for (auto& [id, node] : s->recorders) {
-        if (node->recording) node->pump();
+        if (node->recording && node->writing()) node->pump();
+        // A take the disk refused is filed as it stands, damaged, rather than left lit with a clock that stopped.
+        if (node->recording && node->writeFailed()) setRecorderRecording(session, id, false);
         RecorderReport r;
         r.recording = node->recording;
         r.seconds = node->recording ? node->seconds() : 0.0;

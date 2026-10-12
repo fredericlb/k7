@@ -168,3 +168,10 @@ receives the stream over a peer connection. `apps/st0/frontend/docs/external.md`
 
 What matters here is that the file keeps meaning what it says: the label is matched where it was
 written, so `"Logitech BRIO"` names the machine's lens whichever screen is drawing it.
+
+**A lens is held only while something draws from it.** On the machine, each label is opened once
+and counted by the viewers it serves; the last one leaving stops the camera, and the tab stepping
+behind another stops them all. On the device, a received lens carries its own `close`, which the
+driver calls with the lane — a peer connection kept open past its lane keeps the machine encoding.
+And a lens that lands after its driver was destroyed (a permission prompt outlasting the view) is
+released on arrival rather than adopted: otherwise the lamp stays lit until the tab closes.

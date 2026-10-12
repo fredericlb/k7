@@ -222,13 +222,25 @@ export const TabSchema = z
 
 export type Tab = z.infer<typeof TabSchema>;
 
+// The VERTICAL layout: the same controls and tabs laid out narrow (at most 4 columns), for a card read down — docs/moduleFile.md.
+export const LayoutSchema = z
+  .object({
+    cols: z.number().int().positive(),
+    rows: z.number().int().positive(),
+    widgets: z.record(z.string(), WidgetSchema),
+    tabs: z.array(TabSchema).optional(),
+  })
+  .strict();
+
 // `widgets` is drawn on every tab; `tabs`, in order, are the panel's pages — two or more are drawn as a column.
+// The panel itself is the HORIZONTAL layout (at most 4 rows); `vertical` is its narrow twin, absent when the panel already fits both.
 export const UISchema = z
   .object({
     cols: z.number().int().positive(),
     rows: z.number().int().positive(),
     widgets: z.record(z.string(), WidgetSchema),
     tabs: z.array(TabSchema).optional(),
+    vertical: LayoutSchema.optional(),
   })
   .superRefine((ui, ctx) => {
     const seen = new Set<string>();
@@ -241,6 +253,15 @@ export const UISchema = z
         });
       seen.add(t.name);
     });
+    // One panel in two shapes: the same pages, in the same order, or a switch of layout would land on another page.
+    const names = (ui.tabs ?? []).map((t) => t.name).join("\u0000");
+    const twin = (ui.vertical?.tabs ?? []).map((t) => t.name).join("\u0000");
+    if (ui.vertical && names !== twin)
+      ctx.addIssue({
+        code: "custom",
+        path: ["vertical", "tabs"],
+        message: "the vertical layout must have the same tabs as the panel, in the same order",
+      });
   });
 
 /** A module's whole widget grid — what the visual editor reads and writes. */
@@ -328,6 +349,18 @@ const MODULE_FIELDS = {
         ? { ...r, symbols: {} }
         : r;
     }, RackSchema)
+    .optional(),
+  // Taps that leave by an output of their own, each feeding a SUBCHAIN of the node's chain file: tap → subchain id (packages/song/docs/racks.md).
+  tap_outs: z
+    .record(
+      z
+        .string()
+        .regex(
+          /^[A-Za-z0-9_-]+$/,
+          "a tap's name: letters, digits, '_' and '-'",
+        ),
+      z.string().min(1),
+    )
     .optional(),
   // An SFZ drum kit's PADS, each a name and the note the kit plays it on — drawn as taps (packages/song/docs/racks.md).
   kit: z

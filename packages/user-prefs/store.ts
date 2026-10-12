@@ -10,6 +10,8 @@ import { join } from "node:path";
 export interface PrefsStore<T> {
   /** This user's preferences, or null when they have never saved any. */
   read(sub: string): T | null;
+  /** The same, for a caller about to MERGE: absent is null, and a file that cannot be read throws — see docs/store.md. */
+  readForUpdate(sub: string): T | null;
   /** Replace them wholesale. Never throws; answers whether it landed — see docs/store.md. */
   write(sub: string, value: T): boolean;
 }
@@ -23,14 +25,25 @@ export function fileFor(sub: string): string {
 
 /** A store rooted at `dir`, created on first write, whose reads never throw — see docs/store.md. */
 export function prefsStore<T>(dir: string): PrefsStore<T> {
+  const readForUpdate = (sub: string): T | null => {
+    let text: string;
+    try {
+      text = readFileSync(join(dir, fileFor(sub)), "utf8");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw e;
+    }
+    return JSON.parse(text) as T;
+  };
   return {
     read(sub) {
       try {
-        return JSON.parse(readFileSync(join(dir, fileFor(sub)), "utf8")) as T;
+        return readForUpdate(sub);
       } catch {
         return null;
       }
     },
+    readForUpdate,
     write(sub, value) {
       try {
         mkdirSync(dir, { recursive: true });

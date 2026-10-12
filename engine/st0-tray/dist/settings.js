@@ -1,7 +1,8 @@
-// settings.js — the window's five tabs. The audio list IS the ranking: what is on screen, in
+// settings.js — the window's seven tabs. The audio list IS the ranking: what is on screen, in
 // the order it is on screen, is what `audio.priority` gets sent on every move. The plugin list
 // is read-only — the engine's catalogue, and the rescan that refills it. Sessions is what the
-// engine holds right now; st0 instances is who this engine is connected to; System is the machine.
+// engine holds right now; st0 instances is who this engine is connected to; Downloads (downloads.js)
+// is the instruments it fetches; Paired devices (pairing.js) the LAN devices it trusts; System is the machine.
 // The drag is pointer-driven rather than HTML5 dnd: one behaviour across the three webviews,
 // and the dragged node stays alive under its pointer capture.
 
@@ -399,6 +400,8 @@ function render(view) {
   renderPlugins();
   renderSessions(view.sessions, view.orphanPlugins);
   renderInstances(view.instances, view.instanceCheck);
+  renderInstruments(view.instruments);
+  renderPairing(view.pairRequests, view.pairedDevices);
   renderSystem(view.system);
 }
 

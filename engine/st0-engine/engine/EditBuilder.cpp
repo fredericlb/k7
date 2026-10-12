@@ -19,6 +19,7 @@
 #include "PluginParams.h"    // applyPluginParams (via addPlugin)
 #include "PluginScan.h"      // cachedPluginInfos (via makeExternalPlugin)
 #include "SendPlan.h"        // which bus each send lands on, shared with the diff
+#include "LoadGuard.h"       // a plugin that crashes the engine as it loads is pinned on its binary
 
 #include <algorithm>
 #include <cctype>
@@ -164,6 +165,12 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
              p.id);
         return {};
     }
+    if (std::string why; loadQuarantined(info->identifier, why)) {
+        warn(why, p.id);
+        return {};
+    }
+    // Instantiating runs the plugin's own code in this process: a crash there is pinned on its binary (docs/crashes.md).
+    const LoadGuard guard{"plugin", info->identifier};
 
     // Fast path: the cache holds the description as XML, and seeding knownPluginList is what makes the plugin LOAD — docs/plugins.md.
     if (!info->descXml.empty()) {
@@ -233,6 +240,8 @@ bool loadVstPreset(te::Plugin& plugin, const juce::File& file) {
     juce::MemoryBlock bytes;
     if (inst == nullptr || !file.loadFileAsData(bytes))
         return false;
+    // Handing a plugin its state runs its own parser.
+    const LoadGuard guard{"plugin", ext->desc.fileOrIdentifier.toStdString()};
 #if JUCE_PLUGINHOST_VST3
     return juce::VST3PluginFormat::setStateFromVSTPresetFile(inst, bytes);
 #else
@@ -271,6 +280,8 @@ void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
         applyClipLoop(*clip, c);
         applyClipWarp(*clip, edit, c); // imported time-stretch, if any (WarpTimeManager)
         applyClipFades(*clip, edit, c);
+        // The event's own trim, on the clip: its fades and loop are the clip's too, and the lane's chain comes after.
+        if (c.gainDb != 0.0f) clip->setGainDB(c.gainDb);
     }
 }
 
@@ -486,7 +497,8 @@ void wireSidechain(te::Edit& edit, te::Plugin& plugin, const std::string& from, 
         plugin.guessSidechainRouting();
 }
 
-te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index) {
+/** The plugin a doc names, created but placed nowhere — or null, said as a warning. */
+te::Plugin::Ptr makePluginFor(te::Edit& edit, const PluginDoc& p) {
     if (p.type.empty())
         return {};
     // A built-in is created from a STATE tree when the module carries what the plugin must know before its constructor returns.
@@ -536,9 +548,19 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
              p.id);
         return {};
     }
-    list.insertPlugin(plugin, index, nullptr);
+    return plugin;
+}
+
+/** What every plugin gets once it is in the edit — on a track or inside a RackType alike. */
+void setUpPlugin(te::Edit& edit, const te::Plugin::Ptr& plugin, const PluginDoc& p) {
     // Bypass: Tracktion's `enabled` keeps the plugin in the chain and passes its input through, and it is set BEFORE the preset and params.
     plugin->setEnabled(p.enabled);
+    // The keys that leave by a pair of their own, known BEFORE the instrument loads (docs/tapOutputs.md).
+    if (auto* sfz = dynamic_cast<studio::SfzPlugin*>(plugin.get())) {
+        std::vector<std::pair<int, int>> outs;
+        for (const auto& o : p.tapOuts) outs.emplace_back(o.note, o.pair);
+        sfz->setKeyOutputs(outs);
+    }
     loadPluginFiles(edit, *plugin, p, nullptr);
     applyPluginParams(*plugin, p.params);                            // text params override the preset
 
@@ -554,6 +576,53 @@ te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDo
 
     // A rack instrument carries its sounds in p.rack: each is a window of an audio file, loaded pinned to its note.
     if (!p.rack.empty()) reloadRack(edit, *plugin, p);
+}
+
+te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index) {
+    auto plugin = makePluginFor(edit, p);
+    if (plugin == nullptr) return {};
+    list.insertPlugin(plugin, index, nullptr);
+    setUpPlugin(edit, plugin, p);
+    return plugin;
+}
+
+/** A RackInstance of `rack` at `index` on `track`, returning output pair `pair` and fed nothing but MIDI (docs/tapOutputs.md). */
+te::Plugin::Ptr addRackInstance(te::Edit& edit, te::AudioTrack& track, te::RackType& rack, int pair, int index) {
+    auto inst = edit.getPluginCache().createNewPlugin(te::RackInstance::create(rack));
+    auto* ri = dynamic_cast<te::RackInstance*>(inst.get());
+    if (ri == nullptr) return {};
+    track.pluginList.insertPlugin(inst, index, nullptr);
+    // No AUDIO in: the instrument plays from MIDI, and a pair's return must not feed the track's own signal back into the rack.
+    ri->leftInputGoesTo = 0;
+    ri->rightInputGoesTo = 0;
+    ri->leftOutputComesFrom = 2 * pair + 1;
+    ri->rightOutputComesFrom = 2 * pair + 2;
+    return inst;
+}
+
+/** An instrument whose taps leave by pairs of their own: inside a RackType of its own, its main pair returned at `index` on `track`. */
+te::Plugin::Ptr addRackedPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc& p, int index,
+                                te::Plugin::Ptr& instance, te::RackType::Ptr& rackOut) {
+    auto plugin = makePluginFor(edit, p);
+    if (plugin == nullptr) return {};
+    auto rack = edit.getRackList().addNewRack();
+    if (rack == nullptr || !rack->addPlugin(plugin, {0.5f, 0.5f}, false)) {
+        warn("could not put '" + (p.name.empty() ? p.type : p.name) + "' in a rack for its tap outputs", p.id);
+        return {};
+    }
+    setUpPlugin(edit, plugin, p);
+    int pairs = 1;
+    for (const auto& o : p.tapOuts) pairs = std::max(pairs, o.pair + 1);
+    // Pin 0 is MIDI, then the outputs, ALL added before any is wired: a pin past the rack's outputs is refused.
+    rack->addConnection({}, 0, plugin->itemID, 0);
+    for (int c = 0; c < 2 * pairs; ++c) rack->addOutput(-1, "out " + juce::String(c + 1));
+    while (rack->getOutputNames().size() <= 2 * pairs) rack->addOutput(-1, "spare");
+    // Pair N is pins 2N+1 and 2N+2, wired one to one; a refused pin is a tap that would go silently nowhere.
+    for (int c = 0; c < 2 * pairs; ++c)
+        if (!rack->addConnection(plugin->itemID, c + 1, {}, c + 1))
+            warn("could not wire output " + std::to_string(c + 1) + " of its rack — a routed tap on it will be silent", p.id);
+    instance = addRackInstance(edit, track, *rack, 0, index);
+    rackOut = rack;
     return plugin;
 }
 
@@ -643,6 +712,11 @@ void reloadRack(te::Edit& edit, te::Plugin& plugin, const PluginDoc& p) {
         }
         sampler->setSoundParams(slot, e.note, e.note, e.note);   // one sound, one note
         sampler->setSoundOpenEnded(slot, true);                  // one-shot playback
+        // The pair it leaves by, 0 unless the tap is routed apart (docs/tapOutputs.md).
+        int pair = 0;
+        for (const auto& o : p.tapOuts)
+            if (o.note == e.note) pair = o.pair;
+        sampler->setSoundOutputPair(slot, pair);
         ++slot;
     }
     while (sampler->getNumSounds() > slot) sampler->removeSound(sampler->getNumSounds() - 1);
@@ -701,6 +775,8 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
 
     // Plugins whose second input is wired, resolved in a pass of their own below: a track has no EditItemID until it has been made.
     std::vector<std::pair<te::Plugin::Ptr, std::string>> sidechains;
+    // The RackType each multi-output instrument lives in, by its doc id, for the tracks its taps feed (docs/tapOutputs.md).
+    std::map<std::string, te::RackType::Ptr> tapRacks;
 
     for (size_t i = 0; i < doc.tracks.size(); ++i) {
         const auto& tdoc = doc.tracks[i];
@@ -717,10 +793,15 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
         }
         int pluginIndex = 0;
         std::map<std::string, te::Plugin*> pluginsOnTrack;   // by id, for automation below
-        for (const auto& p : tdoc.plugins)
-            if (auto pl = addPlugin(edit, *track, p, pluginIndex)) {
-                // Past the module AND its @mix pair, which addPlugin may have put around it — docs/mix.md.
-                pluginIndex = indexAfterModule(track->pluginList, pl.get());
+        for (const auto& p : tdoc.plugins) {
+            te::Plugin::Ptr slot;
+            te::RackType::Ptr rack;
+            auto pl = p.tapOuts.empty() ? addPlugin(edit, *track, p, pluginIndex)
+                                        : addRackedPlugin(edit, *track, p, pluginIndex, slot, rack);
+            if (rack != nullptr) tapRacks[p.id] = rack;
+            if (pl) {
+                // Past the module AND its @mix pair, which addPlugin may have put around it — docs/mix.md; a racked one, past its instance.
+                pluginIndex = indexAfterModule(track->pluginList, slot != nullptr ? slot.get() : pl.get());
                 pluginsOnTrack[p.id] = pl.get();
                 if (!p.sidechainFrom.empty()) sidechains.emplace_back(pl, p.sidechainFrom);
                 if (pluginsOut) {
@@ -729,6 +810,7 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
                         (*presetSaveOut)[p.id] = p.presetSave;   // where a UI edit saves it
                 }
             }
+        }
         // Automation, once every plugin on this track exists; a lane targeting one that failed to instantiate is skipped.
         for (const auto& lane : tdoc.automation)
             if (auto it = pluginsOnTrack.find(lane.pluginId); it != pluginsOnTrack.end())
@@ -755,6 +837,18 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
         if (p.firstOnBus)
             addAuxReturn(edit, *dest, p.bus);
         addAuxSend(edit, *src, p.bus, p.level);
+    }
+
+    // A track fed by one pair of a multi-output instrument: that pair returned at its FRONT, so its own chain processes it.
+    for (size_t i = 0; i < doc.tracks.size(); ++i) {
+        const auto& tdoc = doc.tracks[i];
+        if (tdoc.inputFromPlugin.empty()) continue;
+        const auto it = tapRacks.find(tdoc.inputFromPlugin);
+        if (it == tapRacks.end()) {
+            warn("track '" + tdoc.id + "' is fed by '" + tdoc.inputFromPlugin + "', which routes no tap", tdoc.id);
+            continue;
+        }
+        addRackInstance(edit, *audioTracks[static_cast<int>(i)], *it->second, tdoc.inputFromPair, 0);
     }
 
     applySoloMute(edit, doc);   // resolve mute across the mixer once every track exists

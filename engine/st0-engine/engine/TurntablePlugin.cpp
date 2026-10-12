@@ -100,8 +100,14 @@ bool TurntablePlugin::loadRecordAsync(const juce::File& file, juce::String& erro
     {
         juce::AudioFormatManager afm;
         afm.registerBasicFormats();
-        if (std::unique_ptr<juce::AudioFormatReader> header{afm.createReaderFor(file)}; header == nullptr) {
+        std::unique_ptr<juce::AudioFormatReader> header{afm.createReaderFor(file)};
+        if (header == nullptr) {
             error = "cannot decode " + file.getFileName();
+            return false;
+        }
+        // Refused HERE, where the caller still gets an answer, rather than on the loader thread.
+        if (juce::String why; !plausibleRecord(*header, why)) {
+            error = "not loading " + file.getFileName() + ": " + why;
             return false;
         }
     }
@@ -109,9 +115,14 @@ bool TurntablePlugin::loadRecordAsync(const juce::File& file, juce::String& erro
     ++loadsPending_;
     loader_.addJob([this, file, gen, subject] {
         // A later request superseded this one before it started: nothing to decode.
-        if (gen == loadGen_.load()) {
-            juce::String err;
-            if (!loadRecord(file, err, gen)) warn(err.toStdString(), subject);
+        // Caught here, or a bad_alloc on a long record decoded into memory skips the count an offline render waits on.
+        try {
+            if (gen == loadGen_.load()) {
+                juce::String err;
+                if (!loadRecord(file, err, gen)) warn(err.toStdString(), subject);
+            }
+        } catch (const std::exception& e) {
+            warn(std::string("could not load the record: ") + e.what(), subject);
         }
         --loadsPending_;
     });
@@ -134,6 +145,10 @@ bool TurntablePlugin::loadRecord(const juce::File& file, juce::String& error, in
     std::unique_ptr<juce::AudioFormatReader> reader{afm.createReaderFor(file)};
     if (reader == nullptr) {
         error = "cannot decode " + file.getFileName();
+        return false;
+    }
+    if (juce::String why; !plausibleRecord(*reader, why)) {
+        error = "not loading " + file.getFileName() + ": " + why;
         return false;
     }
     const double loadT0 = juce::Time::getMillisecondCounterHiRes();

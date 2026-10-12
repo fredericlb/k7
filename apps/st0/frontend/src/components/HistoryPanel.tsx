@@ -10,7 +10,7 @@ import type { HistoryListEntry, ProjectCommit } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { type HistoryMark, historyMarks } from "../historyMarks";
-import { useRevision } from "../hooks/useRevision";
+import { useQuietWrites, useRevision } from "../hooks/useRevision";
 import { m } from "../paraglide/messages.js";
 
 /** One row: a journal step or a commit, on the one time axis. */
@@ -65,6 +65,8 @@ export function HistoryPanel({
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState("");
   const revision = useRevision();
+  // …and this tab's own knob writes, which are journalled rows too but move no published token.
+  const quietWrites = useQuietWrites();
 
   const refresh = useCallback(async () => {
     try {
@@ -86,7 +88,7 @@ export function HistoryPanel({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the trigger, not an input.
   useEffect(() => {
     void refresh();
-  }, [refresh, revision]);
+  }, [refresh, revision, quietWrites]);
   // Nothing stays lit once the panel is gone.
   useEffect(() => () => onMark(null), [onMark]);
 

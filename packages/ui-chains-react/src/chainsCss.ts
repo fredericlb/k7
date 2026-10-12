@@ -14,6 +14,7 @@ import {
   PORT_PLATE,
   UI_CONTENT_TOP,
   UI_HEADER,
+  UI_PAD,
 } from "@studio/ui-chains/graph";
 
 /** The header's on/off block: its width, and the air between it and the glyph — headerNameW counts both. */
@@ -82,9 +83,6 @@ const CSS = `
 .dgx-seam:not(.end):hover > * { opacity:1; }
 .dgx-seam.end:not(:hover) .dgx-ins-btn { opacity:.6; }
 /* An automation cable's delete, on hover — the mauve of the cable it removes. */
-.dgx-del-btn { cursor:pointer; pointer-events:auto; }
-.dgx-del-btn circle { fill:#0d0d0f; stroke:${MAUVE}; stroke-width:2; }
-.dgx-del-btn path { stroke:${MAUVE}; stroke-width:2; stroke-linecap:round; }
 .dgx-clab { fill:#8a8780; font:10px ui-monospace,monospace; pointer-events:none; }
 .dgx-alab { fill:var(--mauve); font:10px ui-monospace,monospace; pointer-events:none; }
 /* Stale while the cards move, so it steps aside for the ~200 ms and comes back; see docs/nodeMotion.md. */
@@ -157,10 +155,15 @@ const CSS = `
 /* The node's own name, on its own line and so cut only by the CARD's width — the bubbles are a row above it. */
 /* A tabbed panel's TABS: a column down the card's left under the header, one name a row, the open one lit. */
 .dgx-tabs { position:absolute; left:0; display:flex; flex-direction:column; box-sizing:border-box;
-  border-right:1px solid #2f2f36; background:rgba(0,0,0,.12); overflow:hidden; }
+  border-right:1px solid #2f2f36; background:rgba(0,0,0,.12); overflow-x:hidden; overflow-y:auto;
+  scrollbar-width:thin; scrollbar-color:#3a3a42 transparent; }
 .dgx-tab { flex:none; display:block; width:100%; padding:0 6px; box-sizing:border-box; text-align:left;
   font:9px/20px ui-monospace,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   color:var(--dim); background:transparent; border:0; border-left:2px solid transparent; cursor:pointer; }
+/* A NARROW card's tabs: one menu across the top, the tab column's type, the open page its value. */
+.dgx-tabmenu { position:absolute; left:${UI_PAD}px; right:${UI_PAD}px; box-sizing:border-box; padding:0 6px;
+  font:9px ui-monospace,monospace; color:#e7e6ea; background:#151519;
+  border:1px solid #2f2f36; border-radius:4px; cursor:pointer; }
 .dgx-tab:hover { color:#e7e6ea; background:rgba(255,255,255,.04); }
 .dgx-tab.on { color:#e7e6ea; border-left-color:var(--sand); background:rgba(255,255,255,.06); }
 /* The header's second line: the node's own name, and the engine select pushed to its right end. */
@@ -416,8 +419,7 @@ const CSS = `
 /* 6px, down from 8: a caption names a control that is already drawn, so it can be the smallest thing here. */
 .dgx-wlab { font-size:6px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
   margin-top:1px; white-space:nowrap; }
-.dgx-wval { font:10px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
-/* A 'label' widget's own text — a heading over a group, not a reading, and 8px since it left .dgx-wval's 10. */
+/* A 'label' widget's own text — a heading over a group, not a reading, so 8px under a reading's 10. */
 .dgx-wtext { font:8px ui-monospace,monospace; color:#e7e6ea; }
 /* A group: a tinted frame under the controls inside it, inert so a click falls through to the card. */
 .dgx-group { pointer-events:none; border-radius:5px; background:#ffffff0d;

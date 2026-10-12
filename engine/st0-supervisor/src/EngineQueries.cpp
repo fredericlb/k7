@@ -31,6 +31,7 @@ constexpr int kPluginsMs = 8000;
 constexpr int kSetDeviceMs = 8000;
 constexpr int kEditPluginsMs = 6000;
 constexpr int kSessionsMs = 6000;
+constexpr int kPairingMs = 4000;
 
 std::string lower(std::string s)
 {
@@ -54,6 +55,12 @@ int number(const json& o, const char* key)
 {
     auto it = o.find(key);
     return it != o.end() && it->is_number() ? it->get<int>() : 0;
+}
+
+std::int64_t millis(const json& o, const char* key)
+{
+    auto it = o.find(key);
+    return it != o.end() && it->is_number() ? it->get<std::int64_t>() : 0;
 }
 
 std::vector<AudioDevice> devicesOf(const json& msg)
@@ -278,6 +285,45 @@ void EngineQueries::listSessions(Reply<std::vector<Session>> done)
             out = std::move(list);
         }
         loop.post([done, out] { done(out); });
+    });
+}
+
+void EngineQueries::listPairRequests(Reply<std::vector<protocol::PairRequest>> done)
+{
+    worker_->enqueue([w = worker_, &loop = loop_, done = std::move(done)] {
+        auto msg = w->request({{"type", "list-pair-requests"}}, "pair-requests", kPairingMs);
+        std::optional<std::vector<protocol::PairRequest>> out;
+        if (msg) {
+            std::vector<protocol::PairRequest> list;
+            for (const auto& r : msg->value("requests", json::array()))
+                list.push_back({str(r, "requestId"), str(r, "name"), str(r, "ip"), str(r, "code"), millis(r, "since")});
+            out = std::move(list);
+        }
+        loop.post([done, out] { done(out); });
+    });
+}
+
+void EngineQueries::listPairedDevices(Reply<std::vector<protocol::PairedDevice>> done)
+{
+    worker_->enqueue([w = worker_, &loop = loop_, done = std::move(done)] {
+        auto msg = w->request({{"type", "list-paired-devices"}}, "paired-devices", kPairingMs);
+        std::optional<std::vector<protocol::PairedDevice>> out;
+        if (msg) {
+            std::vector<protocol::PairedDevice> list;
+            for (const auto& d : msg->value("devices", json::array()))
+                list.push_back({str(d, "deviceId"), str(d, "name"), millis(d, "created"), millis(d, "lastSeen")});
+            out = std::move(list);
+        }
+        loop.post([done, out] { done(out); });
+    });
+}
+
+void EngineQueries::pairVerb(const std::string& verb, const std::string& id, std::function<void()> done)
+{
+    const json frame = {{"type", verb}, {verb == "unpair-device" ? "deviceId" : "requestId", id}};
+    worker_->enqueue([w = worker_, &loop = loop_, frame, done = std::move(done)] {
+        w->send(frame);
+        loop.post(done);
     });
 }
 

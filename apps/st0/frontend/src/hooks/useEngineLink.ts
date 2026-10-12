@@ -103,7 +103,9 @@ export function useEngineLink(
       setEngineBusy(b);
     });
     // Engine trouble goes to the log panel AND the status bar: it is usually the only explanation for something that looks like it worked.
-    const offWarning = engine.onWarning(({ subject, message }) => {
+    const offWarning = engine.onWarning(({ subject, message, code }) => {
+      // The pairing prompt asks every engine for its requests; a LAN one saying "not from here" is an answer, not trouble.
+      if (code === "local-only") return;
       if (subject) setEngineWarnings((w) => ({ ...w, [subject]: message }));
       const text = subject ? `${subject}: ${message}` : message;
       pushLog("error", `engine: ${text}`);

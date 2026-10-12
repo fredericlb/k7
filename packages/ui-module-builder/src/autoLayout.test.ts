@@ -13,6 +13,7 @@ import {
   isBlend,
   isPlumbing,
 } from "./autoLayout";
+import { LAYOUT_MAX, twinIssues } from "./layoutTwins";
 import type { ModuleUI, Widget } from "./moduleUi";
 
 /** Every page as name → widgets: the tabs, or the panel itself when one family made no tabs. */
@@ -197,22 +198,6 @@ describe("the panel it proposes", () => {
     expect(cutoff).toMatchObject({ type: "knob", min: 20, max: 20000 });
   });
 
-  it("lays its knobs out 2×2, six to a row — the one gesture that sizes them", () => {
-    // A slot is two cells, so the page's second parameter starts at column 2 rather than column 1.
-    expect(ui.cols).toBe(12);
-    const filter = pageOf(ui, "Filter");
-    const res = Object.values(filter).find(
-      (w) => w.bind === "Filter Resonance",
-    );
-    expect(res).toMatchObject({ col: 2, row: 0, colSpan: 2, rowSpan: 2 });
-    // A dropdown takes the slot's width and not its height: it is one row of text.
-    const lid = Object.values(pageOf(ui, "Other")).find(
-      (w) => w.bind === "Lid Position",
-    );
-    expect(lid).toMatchObject({ colSpan: 2 });
-    expect(lid?.rowSpan).toBeUndefined();
-  });
-
   it("draws a parameter with named settings as a dropdown, like a dropped one", () => {
     // The same answers `createBound` gives a DRAGGED parameter, so both gestures make the same widgets.
     const other = pageOf(ui, "Other");
@@ -270,84 +255,6 @@ describe("the panel it proposes", () => {
     });
   });
 
-  it("puts the blend in the bottom-right corner, the pair of them together", () => {
-    // Where an output stage sits on a real panel: a `dry` and a `wet` travel together to the edge.
-    const ui = autoOrganize([
-      p("Dry"),
-      p("Wet"),
-      p("Filter Cutoff"),
-      p("Filter Resonance"),
-      p("Filter Drive"),
-    ]);
-    const page = Object.values(pageOf(ui, "Mix"));
-    const at = (bind: string) => page.find((w) => w.bind === bind);
-    // One row of CONTENT plus the trailing empty one, the blend right-aligned in slots 4 and 5 of six.
-    expect(ui.rows).toBe(2 * 2);
-    expect(at("Dry")).toMatchObject({ col: 8, row: 0 });
-    expect(at("Wet")).toMatchObject({ col: 10, row: 0 });
-  });
-
-  it("grows a row rather than dropping the blend on a knob", () => {
-    // Six parameters fill the bottom row to the edge the blend wants, so they must be levels.
-    const ui = autoOrganize([
-      ...Array.from({ length: 6 }, (_, i) => p(`Level ${i}`)),
-      p("Mix"),
-    ]);
-    const page = Object.values(pageOf(ui, "Mix"));
-    // Two rows of content — the six, then the row grown for the blend — plus the trailing one.
-    expect(ui.rows).toBe(3 * 2);
-    expect(page.find((w) => w.bind === "Mix")).toMatchObject({
-      col: 10,
-      row: 2,
-    });
-    // …and nothing else is on that slot.
-    expect(page.filter((w) => w.row === 2)).toHaveLength(1);
-  });
-
-  it("costs nothing on a page with no base", () => {
-    const ui = autoOrganize([p("Filter Cutoff"), p("Filter Resonance")]);
-    const page = Object.values(pageOf(ui, "Filter"));
-    expect(page.map((w) => w.row)).toEqual([0, 0]);
-  });
-
-  it("is tall enough for its biggest page", () => {
-    // Every page shares the panel's grid, so the tallest one is what the grid has to fit.
-    const many = autoOrganize(
-      Array.from({ length: 13 }, (_, i) => p(`Filter ${i}`)),
-    );
-    // 13 knobs six to a row is three rows two cells tall, plus the trailing empty one.
-    expect(many.rows).toBe(4 * 2);
-    // …and a panel whose only page is the base is two rows, the lane control beside it being dropped.
-    const withBase = autoOrganize([
-      p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
-      p("@pan"),
-    ]);
-    expect(withBase.rows).toBe(2 * 2);
-  });
-
-  it("always ends on an empty row, whatever the tallest page holds", () => {
-    // Somewhere to DROP the next parameter, and a SLOT row, since what must fit there is a control.
-    const bottomOf = (u: ReturnType<typeof autoOrganize>) =>
-      Math.max(
-        ...Object.values(pagesOf(u)).flatMap((pg) =>
-          Object.values(pg).map((w) => w.row + (w.rowSpan ?? 1)),
-        ),
-      );
-    for (const params of [
-      [p("Filter Cutoff")],
-      [p("Dry"), p("Wet"), p("Filter Cutoff")],
-      Array.from({ length: 13 }, (_, i) => p(`Filter ${i}`)),
-      [
-        p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
-        p("@volume"),
-        p("Reverb Decay"),
-      ],
-    ]) {
-      const u = autoOrganize(params);
-      expect(u.rows - bottomOf(u)).toBeGreaterThanOrEqual(2);
-    }
-  });
-
   it("still proposes a grid for an empty list, with nothing to leave room under", () => {
     // The one case with no controls above: `autoOrganize` returns before any of the placement runs.
     expect(autoOrganize([]).rows).toBe(1);
@@ -392,5 +299,66 @@ describe("the engine's levels", () => {
     expect(ui).not.toContain('"bind":"@output-volume"');
     expect(ui).not.toContain('"bind":"Input"');
     expect(ui).not.toContain('"bind":"Output"');
+  });
+});
+
+describe("the two shapes it proposes", () => {
+  const knobs = (n: number, family = "Filter") =>
+    Array.from({ length: n }, (_, i) =>
+      p(`${family} ${i}`, { min: 0, max: 1 }),
+    );
+
+  it("lays its knobs out 2×2, a slot two cells — a dropdown the slot's width, one row of text", () => {
+    const ui = autoOrganize([
+      p("Filter Cutoff"),
+      p("Filter Resonance"),
+      p("Lid Position", {
+        min: 0,
+        max: 1,
+        states: [{ label: "Open", value: 1 }],
+      }),
+    ]);
+    const res = Object.values(pageOf(ui, "Filter")).find(
+      (w) => w.bind === "Filter Resonance",
+    );
+    expect(res).toMatchObject({ colSpan: 2, rowSpan: 2 });
+    const lid = Object.values(pageOf(ui, "Other")).find(
+      (w) => w.bind === "Lid Position",
+    );
+    expect(lid).toMatchObject({ colSpan: 2 });
+    expect(lid?.rowSpan).toBeUndefined();
+  });
+
+  it("is never taller than four rows across, and wraps a long page onto a second", () => {
+    const ui = autoOrganize(knobs(30));
+    expect(ui.rows).toBeLessThanOrEqual(LAYOUT_MAX);
+    // Six knobs a row, two rows a page: thirty knobs are three pages of the one family.
+    expect(ui.tabs?.map((t) => t.name)).toEqual([
+      "Filter",
+      "Filter 2",
+      "Filter 3",
+    ]);
+  });
+
+  it("adds a vertical twin, four columns wide, only when the panel is wider than that", () => {
+    const wide = autoOrganize(knobs(9));
+    expect(wide.vertical?.cols).toBeLessThanOrEqual(LAYOUT_MAX);
+    expect(twinIssues(wide)).toEqual([]);
+    const narrow = autoOrganize(knobs(2));
+    expect(narrow.vertical).toBeUndefined();
+    expect(twinIssues(narrow)).toEqual([]);
+  });
+
+  it("puts `@base` first and the blend last, in both shapes", () => {
+    const ui = autoOrganize([
+      p("Dry"),
+      p("Filter Cutoff"),
+      p("Wet"),
+      p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
+      ...knobs(6, "Filter"),
+    ]);
+    const mix = Object.values(pageOf(ui, "Mix"));
+    expect(mix.map((w) => w.bind)).toEqual(["Dry", "Wet"]);
+    expect(twinIssues(ui)).toEqual([]);
   });
 });

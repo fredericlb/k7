@@ -7,7 +7,7 @@
 //   npx tsx engine/st0-engine/scripts/master-chain.ts
 // See packages/song/docs/masterChain.md and docs/masterVolume.md.
 
-import { execFileSync } from "node:child_process";
+import { measureFilePeak } from "../../../packages/audio-analysis/src/peak.ts";
 import { findEngineBinary } from "../../../packages/engine-client/src/engineBinary.ts";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
 
@@ -43,10 +43,9 @@ const base = {
   ],
 };
 
-/** The file's true peak in dBFS, from the engine's own --peak (which answers JSON). */
-function peakDb(bin: string, file: string): number {
-  const out = execFileSync(bin, ["--peak", file], { encoding: "utf8" });
-  return (JSON.parse(out) as { peakDb: number }).peakDb;
+/** The file's true peak in dBFS, decoded by the engine and measured by @studio/audio-analysis. */
+async function peakDb(bin: string, file: string): Promise<number> {
+  return (await measureFilePeak(file, { engineBin: bin })).peakDb;
 }
 
 async function main() {
@@ -77,9 +76,9 @@ async function main() {
     masterPlugins: [],
   });
 
-  const a = peakDb(bin, bare.files[0]);
-  const b = peakDb(bin, withChain.files[0]);
-  const c = peakDb(bin, trimmed.files[0]);
+  const a = await peakDb(bin, bare.files[0]);
+  const b = await peakDb(bin, withChain.files[0]);
+  const c = await peakDb(bin, trimmed.files[0]);
   console.log(`sans chaîne master   : ${a.toFixed(1)} dBFS`);
   console.log(`avec                 : ${b.toFixed(1)} dBFS`);
   console.log(`OUT Volume ${TRIM_DB} dB   : ${c.toFixed(1)} dBFS`);

@@ -3,7 +3,9 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  movedTheAudio,
   movedTheChains,
+  movedTheSurfaces,
   movedTheTree,
   movedTheVocabulary,
   type Reload,
@@ -92,5 +94,35 @@ describe("movedTheChains", () => {
     expect(movedTheChains(r(["chains/gtr.yaml"]))).toBe(true);
     expect(movedTheChains(r(["nodes/amp.yaml"]))).toBe(true);
     expect(movedTheChains(r(null))).toBe(true);
+  });
+});
+
+describe("movedTheSurfaces", () => {
+  it("is true only for a file under surfaces/", () => {
+    expect(movedTheSurfaces(at(["surfaces/timeline.yaml", "edited"]))).toBe(
+      true,
+    );
+    expect(movedTheSurfaces(at(["graph.yaml", "edited"]))).toBe(false);
+    expect(movedTheSurfaces(at(["tracks/a.yaml", "added"]))).toBe(false);
+  });
+  it("is true when nothing is known", () => {
+    expect(movedTheSurfaces({ key: 1, files: null })).toBe(true);
+  });
+});
+
+describe("movedTheAudio", () => {
+  it("is true for a placement, a clip, or a file that is not YAML", () => {
+    expect(movedTheAudio(at(["tracks/gtr.yaml", "edited"]))).toBe(true);
+    expect(movedTheAudio(at(["clips/audio_1.yaml", "added"]))).toBe(true);
+    expect(movedTheAudio(at(["audio/take_3.wav", "added"]))).toBe(true);
+  });
+  // A knob, a cable, a mute: nothing new to decode.
+  it("is false for the graph, a module, a sequence", () => {
+    expect(movedTheAudio(at(["graph.yaml", "edited"]))).toBe(false);
+    expect(movedTheAudio(at(["chains/gtr.yaml", "edited"]))).toBe(false);
+    expect(movedTheAudio(at(["sequences/riff.yaml", "edited"]))).toBe(false);
+  });
+  it("is true when nothing is known", () => {
+    expect(movedTheAudio({ key: 1, files: null })).toBe(true);
   });
 });

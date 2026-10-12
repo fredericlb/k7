@@ -4,6 +4,7 @@
 
 import type { WorkspaceSync } from "@studio/web-protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { pollWhileVisible } from "../visiblePoll";
 import { type AccountFiles, accountFiles } from "./api";
 
 /** Often enough to notice a commit pushed from elsewhere; the service fetches once a minute at most anyway. */
@@ -31,8 +32,7 @@ export function useWorkspaceSync(fileService: AccountFiles | null): {
 
   useEffect(() => {
     void load();
-    const t = setInterval(() => void load(), SYNC_POLL_MS);
-    return () => clearInterval(t);
+    return pollWhileVisible(() => void load(), SYNC_POLL_MS);
   }, [load]);
 
   // Stable, so a caller may list it in its own dependencies.

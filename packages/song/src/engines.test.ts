@@ -165,3 +165,44 @@ describe("running as an engine", () => {
     expect(g.modules.vox?.engine).toBe("vari-mu");
   });
 });
+
+describe("a rack whose engines are its kits", () => {
+  const RACK = "@st0/instruments/drums";
+  const TAPS = { symbols: { BD: { note: 36, sample: "@st0/kit/kick.wav" } } };
+  beforeEach(() => {
+    const at = join(lib, "modules", "instruments", "drums");
+    writeYaml(join(at, "module.yaml"), { engine: "acoustic" });
+    writeYaml(join(at, "engines", "samples", "module.yaml"), { type: "rack" });
+    writeYaml(join(at, "engines", "acoustic", "module.yaml"), {
+      plugin: { type: "internal", name: "sfz" },
+      kit: { Kick: 36, Snare: 38 },
+    });
+    mkdirSync(join(lib, "samples", "kit"), { recursive: true });
+    writeFileSync(join(lib, "samples", "kit", "kick.wav"), "");
+  });
+
+  it("plays the node's own taps on its SAMPLER engine", () => {
+    writeNode(dir, "drums", { extends: RACK, engine: "samples", rack: TAPS });
+    const m = resolved("drums") as {
+      type?: string;
+      rack?: { symbols?: object };
+    };
+    expect(m.type).toBe("rack");
+    expect(Object.keys(m.rack?.symbols ?? {})).toEqual(["BD"]);
+  });
+
+  it("sets the taps aside on a KIT engine, the module's default, which plays its own pads", () => {
+    writeNode(dir, "drums", { extends: RACK, rack: TAPS });
+    const m = resolved("drums") as {
+      type?: string;
+      rack?: unknown;
+      kit?: object;
+    };
+    expect(m.type).not.toBe("rack");
+    // None of the node's taps reach it; the graph reads `rack` only off a rack anyway.
+    expect(
+      Object.keys((m.rack as { symbols?: object })?.symbols ?? {}),
+    ).toEqual([]);
+    expect(Object.keys(m.kit ?? {})).toEqual(["Kick", "Snare"]);
+  });
+});

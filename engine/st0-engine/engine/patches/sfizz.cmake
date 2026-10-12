@@ -49,3 +49,25 @@ studio_replace("src/sfizz.hpp"
 studio_replace("src/sfizz/sfizz.cpp"
     "    synth->synth.setVolume(volume);\n}\n\nvoid sfz::Sfizz::noteOn"
     "    synth->synth.setVolume(volume);\n}\n\nvoid sfz::Sfizz::setKeyGain(int key, float db) noexcept // studio\n{\n    synth->synth.setKeyGain(key, db);\n}\n\nvoid sfz::Sfizz::noteOn")
+
+# An OUTPUT per key: a key routed to output N plays on the synth's Nth stereo pair, whatever its region says, so one
+# pad of a kit can leave apart from the rest (engine docs/tapOutputs.md). Set off the RT thread: it may add buses.
+# Each edit sits OUTSIDE the text the edits above wrote, so a re-run still finds theirs whole.
+studio_replace("src/sfizz/SynthConfig.h"
+    "    }\n\n    bool sustainCancelsRelease"
+    "    }\n\n    unsigned char keyOutputPlus1[128] {}; // studio: a key's own output, plus one; 0 keeps its region's\n    bool sustainCancelsRelease")
+studio_replace("src/sfizz/Synth.h"
+    "     */\n    void setVolume(float volume) noexcept;\n    void setKeyGain(int key, float db) noexcept; // studio\n"
+    "     */\n    void setKeyOutput(int key, int output) noexcept; // studio: a key's own output, -1 its region's\n    void setVolume(float volume) noexcept;\n    void setKeyGain(int key, float db) noexcept; // studio\n")
+studio_replace("src/sfizz/Synth.cpp"
+    "    return impl.volume_;\n}\nvoid Synth::setVolume(float volume) noexcept"
+    "    return impl.volume_;\n}\n\nvoid Synth::setKeyOutput(int key, int output) noexcept // studio: NOT on the RT thread, it may add buses\n{\n    if (key < 0 || key >= 128 || output > 31) return;\n    Impl& impl = *impl_;\n    impl.resources_.getSynthConfig().keyOutputPlus1[key] = static_cast<unsigned char>(output < 0 ? 0 : output + 1);\n    if (output < 0) return;\n    impl.addEffectBusesIfNecessary(static_cast<uint16_t>(output));\n    impl.numOutputs_ = std::max(impl.numOutputs_, output + 1);\n}\n// studio: setKeyOutput above\nvoid Synth::setVolume(float volume) noexcept")
+studio_replace("src/sfizz/Synth.cpp"
+    "            const auto& effectBuses = impl.getEffectBusesForOutput(region->output);"
+    "            // studio: a key routed to an output of its own plays there\n            const auto studioKeyOut = voice.getTriggerEvent().type != TriggerEventType::CC ? impl.resources_.getSynthConfig().keyOutputPlus1[voice.getTriggerEvent().number & 127] : 0;\n            const auto& effectBuses = impl.getEffectBusesForOutput(studioKeyOut ? static_cast<uint16_t>(studioKeyOut - 1) : region->output);")
+studio_replace("src/sfizz.hpp"
+    "     */\n    void setVolume(float volume) noexcept;\n    void setKeyGain(int key, float db) noexcept; // studio: a gain per key, RT thread\n"
+    "     */\n    void setKeyOutput(int key, int output) noexcept; // studio: a key's own output pair, -1 its region's; NOT the RT thread\n    void setVolume(float volume) noexcept;\n    void setKeyGain(int key, float db) noexcept; // studio: a gain per key, RT thread\n")
+studio_replace("src/sfizz/sfizz.cpp"
+    "}\n\nvoid sfz::Sfizz::setVolume(float volume) noexcept"
+    "}\n\nvoid sfz::Sfizz::setKeyOutput(int key, int output) noexcept // studio\n{\n    synth->synth.setKeyOutput(key, output);\n}\n// studio: setKeyOutput above\n\nvoid sfz::Sfizz::setVolume(float volume) noexcept")

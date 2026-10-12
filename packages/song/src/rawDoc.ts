@@ -12,6 +12,7 @@ export interface RawPlacement {
   fadeIn?: string | number;
   fadeOut?: string | number;
   loop?: number; // how many times the material's window is played (see PlacementSchema)
+  gain?: number; // an audio event's own trim in dB, ±6 (see PlacementSchema)
   // The EVENT's own window, intersected with the material's — most restrictive edge wins (PlacementSchema).
   from?: unknown;
   to?: unknown;
@@ -135,6 +136,8 @@ export interface LoadedModule {
   rack?: RawRack;
   // An SFZ kit's pads, name → note: drawn like a rack's taps, played through the kit (docs/racks.md).
   kit?: Record<string, number>;
+  // Taps routed to a subchain of their own, tap → subchain id (docs/racks.md).
+  tap_outs?: Record<string, string>;
   // Needs the WHOLE input before producing any of it, and is inherited — see docs/coldModules.md.
   cold?: boolean;
   // The engine's dry/wet around the effect, 0..1, inherited like any field — engine/st0-engine/docs/mix.md.

@@ -92,6 +92,7 @@ import {
   jackPoint,
   type LaidOutGraph,
   MIX_PARAM,
+  menuH,
   moduleDisplayName,
   OUTPUT_VOLUME_PARAM,
   pairValue,
@@ -102,7 +103,9 @@ import {
   stripWidgetRect,
   TAB_COL_W,
   TAB_H,
+  TAB_MENU_H,
   type TrackControlValues,
+  UI_CONTENT_TOP,
   UI_HEADER,
   widgetDenorm,
   widgetNorm,
@@ -133,6 +136,7 @@ import { patchAct } from "@studio/ui-chains/patchGesture";
 import type { RowSeam } from "@studio/ui-chains/rowSeams";
 import { type TakeReadout, takeReadout } from "@studio/ui-chains/takeClock";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import {
   createContext,
   memo,
@@ -422,6 +426,55 @@ function hasChannel(o: Record<string, number>, prefix: string): boolean {
   return false;
 }
 
+/** The optimistic overrides, held OUTSIDE React state: a drag re-renders the widget it moves, not every card. */
+interface OverrideStore {
+  get: () => Record<string, number>;
+  set: (next: (o: Record<string, number>) => Record<string, number>) => void;
+  subscribe: (cb: () => void) => () => void;
+}
+
+function createOverrideStore(): OverrideStore {
+  let map: Record<string, number> = {};
+  const subs = new Set<() => void>();
+  return {
+    get: () => map,
+    set: (next) => {
+      const out = next(map);
+      if (out === map) return;
+      map = out;
+      for (const cb of subs) cb();
+    },
+    subscribe: (cb) => {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+  };
+}
+
+/** One override, by key — a widget re-renders when ITS value moves; a null key watches nothing. */
+function useOverride(
+  store: OverrideStore,
+  key: string | null,
+): number | undefined {
+  const read = useCallback(
+    () => (key === null ? undefined : store.get()[key]),
+    [store, key],
+  );
+  return useSyncExternalStore(store.subscribe, read, read);
+}
+
+const NO_SUBSCRIBE = () => () => {};
+const EMPTY_OVERRIDES: Record<string, number> = {};
+
+/** The whole map, for the one widget that reads every key of its node — an LCD screen; null watches nothing. */
+function useOverrideMap(store: OverrideStore | null): Record<string, number> {
+  return useSyncExternalStore(
+    store ? store.subscribe : NO_SUBSCRIBE,
+    store ? store.get : () => EMPTY_OVERRIDES,
+    store ? store.get : () => EMPTY_OVERRIDES,
+  );
+}
+
 /** The override map with one channel dropped — the SAME object when it dropped nothing, docs/widgets.md. */
 function dropChannel(
   o: Record<string, number>,
@@ -460,7 +513,8 @@ interface Channels {
   // The STORE, not its map, so one plugin's frame re-renders one control — engine-browser's docs/params.md.
   params: PluginParamsStore;
   trackControls: Record<string, TrackControlValues>;
-  override: Record<string, number>;
+  // A STORE, read per widget by key: the map itself here would re-render every card on every drag step.
+  overrides: OverrideStore;
   // The engine's `levels` arrive by POSITION, so metering anything needs the order to name them.
   trackOrder: string[];
   // A module the compiler emits NO plugin for — see `moduleParams` on the props.
@@ -612,7 +666,8 @@ function widgetValue(
   // A project setting reads off the CARD, which `buildGraph` put the host's answer on.
   if (tgt.kind === "project") return projectFieldValue(n, tgt.field);
   const key = targetKey(tgt);
-  if (key in ch.override) return ch.override[key];
+  const held = ch.overrides.get();
+  if (key in held) return held[key];
   const v =
     tgt.kind === "track"
       ? ch.trackControls[tgt.trackId]?.[tgt.control]
@@ -976,15 +1031,15 @@ function WaveformWidget({
   // …and the take's, which the STORE accumulates rather than this card: the whole picture arrives
   // in ONE frame when the socket connects, a second before this exists (engine-browser's
   // takeEnvelope.ts). Folding it here would miss that frame every time.
-  const takeRef = useRef<WaveformEnvelope[]>(NO_ENVELOPE);
+  const takeRef = useRef<unknown>(null);
   useEffect(() => {
     if (!store || !takeKey) return;
     const read = (): void => {
-      const points = store.takeOf(takeKey)?.points ?? NO_ENVELOPE;
-      // The store hands back the SAME array while nothing moves, which is most frames.
-      if (points === takeRef.current) return;
-      takeRef.current = points;
-      envelopeRef.current = points;
+      const view = store.takeOf(takeKey);
+      // The store hands back the SAME view while nothing moves, which is most frames; an append is a new view over the same, grown array.
+      if (view === takeRef.current) return;
+      takeRef.current = view;
+      envelopeRef.current = view?.points ?? NO_ENVELOPE;
       dirtyRef.current = true;
       wakeRef.current();
     };
@@ -1223,10 +1278,20 @@ function WidgetInner({
   inset?: number;
 }) {
   // Right of the tab column when the panel draws one — `tabColumnW`, the same figure the card is widened by.
-  const r = insetRect(stripWidgetRect(n, w, columnW(n.ui)), inset);
+  const r = insetRect(stripWidgetRect(n, w, columnW(n.ui), menuH(n.ui)), inset);
   styleOverride = styleOverride && insetStyle(styleOverride, inset);
   // Hoisted above the two delegating returns, since the subscription below is a hook.
   const tgt = widgetTarget(n, w, ch.offlineChannel);
+  // This control's own override: a drag elsewhere does not re-render it, its own value does.
+  useOverride(
+    ch.overrides,
+    tgt && tgt.kind !== "rack" && tgt.kind !== "project"
+      ? targetKey(tgt)
+      : null,
+  );
+  const lcdOverride = useOverrideMap(
+    w.type === "lcdscreen" ? ch.overrides : null,
+  );
   // This control's own live value: a plugin frame re-renders this widget, not the graph.
   const live = usePluginParamValue(
     ch.params,
@@ -1302,7 +1367,7 @@ function WidgetInner({
         n={n}
         id={wid}
         params={ch.params}
-        override={ch.override}
+        override={lcdOverride}
         onWatch={onWatchWaveform}
         style={
           styleOverride ?? { left: r.x, top: r.y, width: r.w, height: r.h }
@@ -1890,6 +1955,8 @@ function NodeInner({
   onStartEvent,
   onLandEvent,
   onHeaderDrag,
+  hostTab,
+  onOpenTab,
 }: {
   n: GraphNode;
   selected: string | null;
@@ -1982,6 +2049,10 @@ function NodeInner({
   onLandEvent?: (n: GraphNode) => void;
   /** The header was pressed on a node the host lets you move — absent, the press pans instead. */
   onHeaderDrag?: (n: GraphNode, e: React.PointerEvent) => void;
+  /** The tab a HOST holds open on this card — given, it wins over the card's own state. */
+  hostTab?: number;
+  /** …and told when the card's tab changes, so a host sizing cards by tab can reflow. */
+  onOpenTab?: (nodeId: string, tab: number) => void;
 }) {
   const { ModuleIcon, moduleGlyph, TrackIcon, trackLabel } = useIcons();
   // The category whose glyph this node wears. A sink has none of its own, but it IS io, so it gets io's arrows.
@@ -2117,7 +2188,8 @@ function NodeInner({
     </>
   );
   // The open TAB, the card's own state: which page shows is a view, not a fact about the module (docs/nodeCard.md).
-  const [tabAt, setTabAt] = useState(0);
+  const [ownTab, setTabAt] = useState(0);
+  const tabAt = hostTab ?? ownTab;
   const tabs = n.ui?.tabs ?? [];
   const openTab = tabs.length ? Math.min(tabAt, tabs.length - 1) : -1;
   // What the grid draws: the widgets every tab shows, then the open tab's, less those widgets.js's `visible` hides.
@@ -2761,8 +2833,29 @@ function NodeInner({
           {flagText ?? "No Options"}
         </div>
       )}
+      {/* A NARROW card's tabs: a menu across its top, under the header, since a column would take half its width. */}
+      {hasTabs(n.ui) && showWidgets && n.ui?.tabsAs === "dropdown" && (
+        <select
+          className="dgx-tabmenu"
+          style={{ top: UI_CONTENT_TOP, height: TAB_MENU_H - 4 }}
+          value={openTab}
+          aria-label="page"
+          onPointerDown={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            const i = Number(e.target.value);
+            setTabAt(i);
+            onOpenTab?.(n.id, i);
+          }}
+        >
+          {tabs.map((t, i) => (
+            <option key={t.name} value={i}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      )}
       {/* The panel's TABS, a column down the card's left under the header — only when there are two to choose from. */}
-      {hasTabs(n.ui) && showWidgets && (
+      {hasTabs(n.ui) && showWidgets && n.ui?.tabsAs !== "dropdown" && (
         <div
           className="dgx-tabs"
           // Down to the bottom bar, which a module card carries and a strip does not.
@@ -2777,12 +2870,14 @@ function NodeInner({
             <button
               key={t.name}
               type="button"
+              ref={i === openTab ? keepTabInView : undefined}
               className={`dgx-tab${i === openTab ? " on" : ""}`}
               style={{ height: TAB_H }}
               title={t.name}
               onClick={(e) => {
                 e.stopPropagation();
                 setTabAt(i);
+                onOpenTab?.(n.id, i);
               }}
             >
               {t.name}
@@ -3024,10 +3119,21 @@ export interface FitToOpts {
 
 export type FitToFn = (nodes: GraphNode[], opts?: FitToOpts) => boolean;
 
+// The open tab in its column's view: a column longer than its card scrolls, and a lit tab out of sight says nothing.
+function keepTabInView(el: HTMLButtonElement | null) {
+  const col = el?.parentElement;
+  if (!el || !col) return;
+  if (el.offsetTop < col.scrollTop) col.scrollTop = el.offsetTop;
+  else if (el.offsetTop + el.offsetHeight > col.scrollTop + col.clientHeight)
+    col.scrollTop = el.offsetTop + el.offsetHeight - col.clientHeight;
+}
+
 export function DomChains({
   icons,
   graph: laidOut,
   selected,
+  openTabs,
+  onOpenTab,
   trackOrder,
   videoSpans,
   noteLanes,
@@ -3100,6 +3206,10 @@ export function DomChains({
   selected: string | null;
   /** The engine level index order; the levels themselves never flow through here — docs/liveCables.md. */
   trackOrder?: string[];
+  /** The tab each card has open, by node id, for a host that sizes cards by tab (ui-chains' `moduleRow` `tabOf`); absent, each card keeps its own. */
+  openTabs?: Readonly<Record<string, number>>;
+  /** …and told when a card's tab changes. */
+  onOpenTab?: (nodeId: string, tab: number) => void;
   /** When each VIDEO lane is showing a picture, in seconds — omitted, its cables stay still, docs/liveCables.md. */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
   /** …and the NOTES' half of it: nothing meters MIDI, so a note cable's ripple is the velocities
@@ -3334,7 +3444,8 @@ export function DomChains({
   const [panning, setPanning] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   // Optimistic values the hand set, outranking the incoming frame until it catches up.
-  const [override, setOverride] = useState<Record<string, number>>({});
+  const [overrides] = useState(createOverrideStore);
+  const setOverride = overrides.set;
 
   // Latest callbacks in refs, so the once-bound window listeners read current values without re-subscribing.
   const cb = useRef({
@@ -4077,8 +4188,6 @@ export function DomChains({
       value: number;
     }[];
   } | null>(null);
-  const overrideRef = useRef(override);
-  overrideRef.current = override;
 
   // One live value to the engine, or to the surface that realises an offline module — nothing else sends live.
   const sendLive = useCallback((t: WidgetTarget, value: number) => {
@@ -4111,16 +4220,16 @@ export function DomChains({
   useEffect(() => {
     // A plugin frame landed: drop the overrides it now speaks for, keeping the one under the hand.
     return params.subscribe(() => {
-      if (!hasChannel(overrideRef.current, "p:")) return;
+      if (!hasChannel(overrides.get(), "p:")) return;
       setOverride((o) => dropChannel(o, "p:", drag.current?.key));
     });
-  }, [params]);
+  }, [params, overrides, setOverride]);
   useEffect(() => {
     setOverride((o) => dropChannel(o, "o:", drag.current?.key));
-  }, [moduleParams]);
+  }, [moduleParams, setOverride]);
   useEffect(() => {
     setOverride((o) => dropChannel(o, "t:", drag.current?.key));
-  }, [trackControls]);
+  }, [trackControls, setOverride]);
 
   // Either prop turns the channel on: a host may only SHOW such a value, or only take one.
   const offlineChannel =
@@ -4137,7 +4246,7 @@ export function DomChains({
     () => ({
       params,
       trackControls: trackControls ?? {},
-      override,
+      overrides,
       trackOrder: trackOrder ?? EMPTY_ORDER,
       moduleParams: moduleParams ?? {},
       offlineChannel,
@@ -4154,7 +4263,7 @@ export function DomChains({
     [
       params,
       trackControls,
-      override,
+      overrides,
       trackOrder,
       moduleParams,
       offlineChannel,
@@ -4297,7 +4406,7 @@ export function DomChains({
             ),
           );
     },
-    [sendLive],
+    [sendLive, setOverride],
   );
   // …and the same changes on every LINKED node — multiSelect.ts.
   const lcdSet = useCallback<LcdSet>(
@@ -4326,7 +4435,52 @@ export function DomChains({
   } | null>(null);
   const marqueeRef = useRef(marquee);
   useEffect(() => {
+    /** A gesture taken away — cancelled, focus lost, a release that happened outside: undone, and nothing written. */
+    const cancel = () => {
+      if (marqueeRef.current) {
+        marqueeRef.current = null;
+        setMarquee(null);
+      }
+      const d = drag.current;
+      if (d) {
+        drag.current = null;
+        // The engine heard the drag live, so it is told the value back; the knob then shows the file's again.
+        if (d.tgt.kind === "plugin" || d.tgt.kind === "offline") {
+          sendLive(d.tgt, d.from);
+          if (d.pair) sendLive(d.pair, pairValue(d.w, d.from));
+          for (const l of d.linked) {
+            const v = linkedValue(d.w, l.startT, d.startT, d.startT);
+            sendLive(l.tgt, v);
+            if (l.pair) sendLive(l.pair, pairValue(d.w, v));
+          }
+        }
+        const keys = [
+          d.key,
+          d.pair && targetKey(d.pair),
+          ...d.linked.flatMap((l) => [
+            targetKey(l.tgt),
+            l.pair && targetKey(l.pair),
+          ]),
+        ];
+        setOverride((o) => {
+          const next = { ...o };
+          for (const k of keys) if (k) delete next[k];
+          return next;
+        });
+      }
+      if (pan.current) {
+        pan.current = null;
+        setPanning(false);
+      }
+    };
     const move = (e: PointerEvent) => {
+      // A mouse with no button down while a gesture runs: its release happened where this window could not hear it.
+      if (
+        e.pointerType === "mouse" &&
+        e.buttons === 0 &&
+        (drag.current || marqueeRef.current || pan.current)
+      )
+        return cancel();
       const mq = marqueeRef.current;
       if (mq) {
         const r = hostRef.current?.getBoundingClientRect();
@@ -4444,11 +4598,15 @@ export function DomChains({
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
     };
-  }, []);
+  }, [setOverride]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     // Shift on EMPTY space draws a selection box instead of panning — even where the camera is fixed.
@@ -4543,6 +4701,16 @@ export function DomChains({
     // Non-passive: it must preventDefault, and a React onWheel would allocate an event per notch.
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
+      // A tab column longer than its card scrolls under the wheel, as a list does, instead of moving the camera.
+      const col = (e.target as Element | null)?.closest?.(".dgx-tabs");
+      if (
+        col instanceof HTMLElement &&
+        col.scrollHeight > col.clientHeight &&
+        !e.ctrlKey
+      ) {
+        col.scrollTop += wheelPixels(e.deltaY, e.deltaMode, col.clientHeight);
+        return;
+      }
       if (fixedRef.current) return;
       flight.current = null;
       userMoved.current = true; // either way, the camera is theirs now — stop auto-framing
@@ -4796,7 +4964,7 @@ export function DomChains({
       // so a command that brings no graph back leaves it on the old value. See docs/widgets.md.
       void (cb.current.onModuleField ?? cb.current.command)(line);
     },
-    [rehearsal],
+    [rehearsal, setOverride],
   );
 
   // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
@@ -4840,7 +5008,7 @@ export function DomChains({
       if (pair) sendLive(pair, dry);
       if (n.module && !rehearsal) commitParam(n.module, tgt, value, pair, w);
     },
-    [setModuleField, rehearsal, sendLive, commitParam],
+    [setModuleField, rehearsal, sendLive, commitParam, setOverride],
   );
   // …and on every LINKED node too, with the same value — multiSelect.ts.
   const pickWidget = useCallback(
@@ -4869,7 +5037,7 @@ export function DomChains({
       setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
       cb.current.onTrackSet?.(tgt.trackId, tgt.control, value);
     },
-    [pickWidget],
+    [pickWidget, setOverride],
   );
 
   const tapWidget = useCallback(
@@ -4933,7 +5101,7 @@ export function DomChains({
           `node param ${n.module} ${JSON.stringify(tgt.name)} ${next}`,
         );
     },
-    [setModuleField, rehearsal, linked, pickOne],
+    [setModuleField, rehearsal, linked, pickOne, setOverride],
   );
   const insert = useCallback(
     (info: EdgeInsert, x: number, y: number, at: { x: number; y: number }) => {
@@ -5191,67 +5359,79 @@ export function DomChains({
     new Map<string, { dx: number; dy: number; el: HTMLElement }>(),
   );
 
-  const beginNodeDrag = useCallback((n: GraphNode, e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    // The same press must not also arm a pan — the reason every header control stops it too.
-    e.stopPropagation();
-    const el = (e.currentTarget as HTMLElement).closest(
-      "[data-node-id]",
-    ) as HTMLElement | null;
-    if (!el) return;
-    // A press STARTS a gesture, so it clears the flag itself, exactly as a jack does.
-    suppressClick.current = false;
-    nodeDrag.current = {
-      n,
-      el,
-      sx: e.clientX,
-      sy: e.clientY,
-      dx: 0,
-      dy: 0,
-      moved: false,
-    };
-    const onMove = (ev: PointerEvent) => {
-      const d = nodeDrag.current;
-      if (!d) return;
-      const k = Math.max(cam.current.k, 0.01);
-      d.dx = (ev.clientX - d.sx) / k;
-      d.dy = (ev.clientY - d.sy) / k;
-      if (Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) > 3) d.moved = true;
-      d.el.style.transform = `translate(${d.dx}px, ${d.dy}px)`;
-      // The cables follow live, through the same path a node MOTION takes, springs included.
-      rebuildCables.current();
-      paintRef.current();
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      const d = nodeDrag.current;
-      nodeDrag.current = null;
-      if (!d) return;
-      if (!d.moved) {
-        // A press that never travelled is a click, and the click is the node's own.
+  // One pointer per drag, abandoned on a cancel or an unmount — @studio/ui-timeline/drag.
+  const follow = usePointerFollow();
+  const beginNodeDrag = useCallback(
+    (n: GraphNode, e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      // The same press must not also arm a pan — the reason every header control stops it too.
+      e.stopPropagation();
+      const el = (e.currentTarget as HTMLElement).closest(
+        "[data-node-id]",
+      ) as HTMLElement | null;
+      if (!el) return;
+      // A press STARTS a gesture, so it clears the flag itself, exactly as a jack does.
+      suppressClick.current = false;
+      nodeDrag.current = {
+        n,
+        el,
+        sx: e.clientX,
+        sy: e.clientY,
+        dx: 0,
+        dy: 0,
+        moved: false,
+      };
+      const onMove = (ev: PointerEvent) => {
+        const d = nodeDrag.current;
+        if (!d) return;
+        const k = Math.max(cam.current.k, 0.01);
+        d.dx = (ev.clientX - d.sx) / k;
+        d.dy = (ev.clientY - d.sy) / k;
+        if (Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) > 3)
+          d.moved = true;
+        d.el.style.transform = `translate(${d.dx}px, ${d.dy}px)`;
+        // The cables follow live, through the same path a node MOTION takes, springs included.
+        rebuildCables.current();
+        paintRef.current();
+      };
+      const onUp = () => {
+        const d = nodeDrag.current;
+        nodeDrag.current = null;
+        if (!d) return;
+        if (!d.moved) {
+          // A press that never travelled is a click, and the click is the node's own.
+          d.el.style.transform = "";
+          return;
+        }
+        // It travelled, so the click that follows is the drag's tail rather than a tap: swallow it.
+        suppressClick.current = true;
+        // Wherever it was let go, including ABOVE the first track or left of it — docs/hosting.md.
+        const x = Math.round(d.n.x + d.dx);
+        const y = Math.round(d.n.y + d.dy);
+        droppedNodes.current.set(d.n.id, {
+          dx: x - d.n.x,
+          dy: y - d.n.y,
+          el: d.el,
+        });
+        // Pre-seed the drawn map with the drop, so the layout landing the write plans NO slide.
+        drawn.current.set(d.n.id, { node: d.n, x, y });
+        rebuildCables.current();
+        paintRef.current();
+        cb.current.onMoveNode?.(jackRef(d.n), x, y);
+      };
+      // A cancel, or the graph going away mid-drag, puts the card back and moves nothing.
+      const onCancel = () => {
+        const d = nodeDrag.current;
+        nodeDrag.current = null;
+        if (!d) return;
         d.el.style.transform = "";
-        return;
-      }
-      // It travelled, so the click that follows is the drag's tail rather than a tap: swallow it.
-      suppressClick.current = true;
-      // Wherever it was let go, including ABOVE the first track or left of it — docs/hosting.md.
-      const x = Math.round(d.n.x + d.dx);
-      const y = Math.round(d.n.y + d.dy);
-      droppedNodes.current.set(d.n.id, {
-        dx: x - d.n.x,
-        dy: y - d.n.y,
-        el: d.el,
-      });
-      // Pre-seed the drawn map with the drop, so the layout landing the write plans NO slide.
-      drawn.current.set(d.n.id, { node: d.n, x, y });
-      rebuildCables.current();
-      paintRef.current();
-      cb.current.onMoveNode?.(jackRef(d.n), x, y);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, []);
+        rebuildCables.current();
+        paintRef.current();
+      };
+      follow(e, { move: onMove, end: onUp, cancel: onCancel });
+    },
+    [follow],
+  );
 
   // Esc or ANY right-click puts the cable in hand BACK, in the CAPTURE phase and writing nothing.
   useEffect(() => {
@@ -5392,6 +5572,8 @@ export function DomChains({
                       key={n.id}
                       n={n}
                       selected={selected}
+                      hostTab={openTabs?.[n.id]}
+                      onOpenTab={onOpenTab}
                       inSelection={!!n.module && multi.has(n.module)}
                       marked={marked?.(n) ?? false}
                       automated={automatedOf.get(n.id)}

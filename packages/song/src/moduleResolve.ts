@@ -267,6 +267,21 @@ export function resolvedUI(
       widgets: shown(t.widgets),
     }));
   if (typeof ui.script === "string" && ui.script) out.script = ui.script;
+  // The narrow twin, its hidden widgets dropped the same way; the script is the panel's, shared by both.
+  if (ui.vertical)
+    out.vertical = {
+      cols: ui.vertical.cols,
+      rows: ui.vertical.rows,
+      widgets: shown(ui.vertical.widgets),
+      ...(ui.vertical.tabs?.length
+        ? {
+            tabs: ui.vertical.tabs.map((t) => ({
+              name: t.name,
+              widgets: shown(t.widgets),
+            })),
+          }
+        : {}),
+    };
   return out;
 }
 

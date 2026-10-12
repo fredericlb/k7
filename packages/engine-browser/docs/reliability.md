@@ -75,12 +75,29 @@ still describes what the person wants) and by `ENGINE_OUTBOX_TTL_MS` on replay: 
 is waiting for is not worth sending.
 
 `sendNow()` is for what is only valid on THIS socket — the watchdog's `whoami`, the document
-replayed below: queueing those would make no sense.
+replayed below: queueing those would make no sense. It is also for what is only valid NOW: a note
+played into a lane, a previewed note, a recorder toggled or cleared. Replayed thirty seconds late
+those are worse than lost — a burst of stale notes, a second press that undoes the first, a newer
+take erased. What lets a sound go is the exception and still waits: a note-off, a released sustain
+pedal, all-notes-off (`endsANote`), or a note sent before the blink would hang after it.
+
+## A dial that never ends is ended here
+
+The ladder above runs on `close`, and a half-open path — a laptop waking, a relay that accepted and
+went quiet, a WebRTC signalling POST on a dead connection — never fires one. So every step on the
+way to an open socket has a deadline, `ENGINE_CONNECT_DEADLINE_MS`: the URL lookup, the signalling
+request, and the socket itself, which is closed and counted as down when it is still CONNECTING
+after it. Without them the link reads "retrying" for good and nothing retries.
 
 ## The document, replayed
 
 Subscriptions (`watch-plugin-params`, `subscribe-waveform`, `broadcast`) live in the engine and
 are replayed on every open. So is the **document**, and that is the half easily forgotten.
+
+The first two are **counted** on this side: the graph and the mastering strip watch the same
+plugins, and two widgets share one tap. Only the first watcher and the last one leaving reach the
+engine. With a plain set, leaving the graph would unwatch the strip's plugins too, and its knobs
+would stop following for the rest of the session.
 
 It shows badly and costs a lot: if the engine restarts, it comes back empty and the surface goes
 on driving it. The only symptom is "the engine ignores Play", without a log line tying it to a

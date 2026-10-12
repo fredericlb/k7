@@ -76,7 +76,8 @@ std::optional<juce::File> cachedCopy(const juce::File& src)
     juce::AudioFormatManager afm;
     afm.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> reader{afm.createReaderFor(src)};
-    if (reader == nullptr || reader->numChannels < 1 || reader->lengthInSamples <= 0) return std::nullopt;
+    juce::String why;
+    if (reader == nullptr || reader->lengthInSamples <= 0 || !plausibleRecord(*reader, why)) return std::nullopt;
     const int channels = static_cast<int>(juce::jmin(2u, reader->numChannels));
     const int bits = reader->usesFloatingPointData ? 32 : (reader->bitsPerSample > 16 ? 24 : 16);
 
@@ -115,6 +116,18 @@ std::optional<juce::File> cachedCopy(const juce::File& src)
 }
 
 }  // namespace
+
+bool plausibleRecord(const juce::AudioFormatReader& reader, juce::String& why)
+{
+    // A long DJ mix is three hours; twice that is a corrupt header, which would otherwise write a WAV until the disk is full.
+    constexpr double kMaxSeconds = 6 * 3600.0;
+    const double rate = reader.sampleRate;
+    if (reader.numChannels < 1 || reader.numChannels > 32) why = "its header claims " + juce::String(reader.numChannels) + " channels";
+    else if (!(rate > 0.0) || rate > 768000.0) why = "its header claims a rate of " + juce::String(rate) + " Hz";
+    else if ((double)reader.lengthInSamples > kMaxSeconds * rate) why = "its header claims more than six hours";
+    else return true;
+    return false;
+}
 
 std::optional<MappedRecord> mapWavRecord(const juce::File& file)
 {

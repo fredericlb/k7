@@ -12,6 +12,7 @@ import {
 } from "@studio/web-protocol/performance";
 import type { EngineQuality } from "@studio/web-protocol/quality";
 import { formatLatency } from "@studio/web-protocol/quality";
+import { needingPairing, PairThisDevice } from "../pairing/PairThisDevice";
 import { m } from "../paraglide/messages.js";
 import type { RankedEngine } from "../types";
 
@@ -27,12 +28,17 @@ export function EngineSelect({
   loading,
   onRefresh,
   onPick,
+  onPaired,
 }: {
   ranked: RankedEngine[];
   loading: boolean;
   onRefresh: () => void;
   onPick: (r: RankedEngine) => void;
+  /** This device just paired with that engine: re-probe, and it answers as usable. */
+  onPaired: (engineId: string) => void;
 }) {
+  // The pairing card only while nothing is usable: with an engine to pick, pairing another is the tray's business.
+  const pairable = ranked.some(selectableRow) ? [] : needingPairing(ranked);
   return (
     <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
       <div className="flex w-full max-w-lg flex-col gap-4">
@@ -53,6 +59,14 @@ export function EngineSelect({
           </Button>
         </div>
 
+        {pairable.map((r) => (
+          <PairThisDevice
+            key={r.engine.id}
+            engine={r}
+            onPaired={() => onPaired(r.engine.id)}
+          />
+        ))}
+
         {ranked.length === 0 ? (
           <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
             {loading ? (
@@ -71,7 +85,7 @@ export function EngineSelect({
         ) : (
           <ul className="flex flex-col gap-2">
             {ranked.map((r) => {
-              const selectable = !!r.latency && !r.engine.assigned && !!r.wsUrl;
+              const selectable = selectableRow(r);
               return (
                 <li
                   key={r.engine.id}
@@ -128,4 +142,9 @@ export function EngineSelect({
       </div>
     </div>
   );
+}
+
+/** Answered, free, and not waiting to pair this device. */
+function selectableRow(r: RankedEngine): boolean {
+  return !!r.latency && !r.engine.assigned && !!r.wsUrl && !r.needsPairing;
 }

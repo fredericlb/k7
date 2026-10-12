@@ -172,17 +172,8 @@ export class EngineControl extends EventEmitter {
         case "sessions":
           this.emit("sessions", (msg.sessions ?? []) as SessionInfo[]);
           break;
-        case "session-dropped":
-          this.emit("sessionDropped", String(msg.session ?? ""));
-          break;
         case "edit-plugins":
           this.emit("editPlugins", (msg.plugins ?? []) as EditPluginInfo[]);
-          break;
-        case "preset-saved":
-          this.emit("presetSaved", {
-            id: String(msg.id ?? ""),
-            path: String(msg.path ?? ""),
-          });
           break;
         // A plugin TYPE's whole list, under its own name because `plugin-params` below is an INSTANCE's values, and it rides its format and id back.
         case "plugin-param-list":

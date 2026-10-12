@@ -7,20 +7,11 @@
 // and the panel dispatches those rather than calling their routes a second time.
 
 import { askConfirm, askText } from "@studio/project-shell/ask";
-import { exportScene } from "@studio/ui-eyes";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { shareUrl } from "@studio/web-protocol/projects";
 import { useCallback, useState } from "react";
 import { api } from "../api";
 import { downloadBlob as download } from "../downloadBlob";
-
-// One vocabulary for the formats, shared with the line that names them — ../exportArgs.ts.
-export {
-  MIX_FORMATS,
-  type MixFormat,
-  VIDEO_FORMATS,
-  type VideoFormat,
-} from "../exportArgs";
 
 import type { MixFormat, VideoFormat } from "../exportArgs";
 import { m } from "../paraglide/messages.js";
@@ -89,6 +80,8 @@ export function useShare(onStatus: (s: string) => void): Share {
         }
         const total = Math.max(1, Math.round(scene.durationSec * scene.fps));
         onStatus(`rendering ${total} frames…`);
+        // Loaded here, on the export: the muxer behind it is the heaviest thing the editor could ship and the rarest it runs.
+        const { exportScene } = await import("@studio/ui-eyes/export");
         const file = await exportScene(
           scene,
           { format, ...(track ? { audio: track } : {}) },

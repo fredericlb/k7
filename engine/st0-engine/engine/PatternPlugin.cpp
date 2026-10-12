@@ -49,9 +49,11 @@ void warnLater(std::string message, std::string subject) {
 // The look-ahead: keeps the ring filled a quarter second past the playhead, live only.
 class PatternPlugin::Worker : public juce::Thread {
 public:
-    explicit Worker(PatternPlugin& p) : juce::Thread("st0 pattern"), plugin_(p) {}
+    // Its own stack, sized: QuickJS recurses on it, and the OS default (512 KiB on macOS) is less than it would assume.
+    explicit Worker(PatternPlugin& p) : juce::Thread("st0 pattern", kStackBytes), plugin_(p) {}
 
     void run() override {
+        StrudelHost::setThreadStackBudget(kStackBytes / 2);
         PatternCursor cursor;
         while (!threadShouldExit()) {
             // An offline render queries for itself; anything this pushed then would be discarded anyway.
@@ -73,6 +75,7 @@ public:
     }
 
 private:
+    static constexpr std::size_t kStackBytes = 8 * 1024 * 1024;
     PatternPlugin& plugin_;
 };
 

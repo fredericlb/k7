@@ -8,7 +8,7 @@
 //   npx tsx engine/st0-engine/scripts/cue-bus.ts
 // See packages/song/docs/cue.md.
 
-import { execFileSync } from "node:child_process";
+import { measureFilePeak } from "../../../packages/audio-analysis/src/peak.ts";
 import { findEngineBinary } from "../../../packages/engine-client/src/engineBinary.ts";
 import { renderProject } from "../../../packages/file-service/src/render.ts";
 
@@ -88,16 +88,16 @@ const bus = (
   automation: [],
 });
 
-function peakDb(bin: string, file: string): number {
-  const out = execFileSync(bin, ["--peak", file], { encoding: "utf8" });
-  return (JSON.parse(out) as { peakDb: number }).peakDb;
+/** The file's true peak in dBFS, decoded by the engine and measured by @studio/audio-analysis. */
+async function peakDb(bin: string, file: string): Promise<number> {
+  return (await measureFilePeak(file, { engineBin: bin })).peakDb;
 }
 
 async function main() {
   const bin = findEngineBinary();
   if (!bin) throw new Error("no st0-engine binary on this machine");
   const render = async (tracks: unknown[]) =>
-    peakDb(bin, (await renderProject({ ...base, tracks })).files[0]);
+    await peakDb(bin, (await renderProject({ ...base, tracks })).files[0]);
 
   // --- 1. how many destinations a source may have and still be heard only through them ---
   // ONE send from a muted track is not an aux send at all: `feedsBusOnly` ROUTES the output to the

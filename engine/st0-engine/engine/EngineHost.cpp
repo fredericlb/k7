@@ -126,6 +126,7 @@ void EngineHost::teardownProjectState(const std::string& session) {
 }
 
 void EngineHost::reset(const std::string& session) {
+    if (impl_->find(session) == nullptr) return;   // nothing held, and flushing must not create the session it names
     stop(session);                    // halt the transport before the graph under it goes away
     teardownProjectState(session);
     impl_->session(session).edit.reset();       // destroys the playback context and every plugin in it
@@ -612,27 +613,32 @@ void EngineHost::applyMetronome(const std::string& session) {
 // in it: a note-on delivered before the stop has no note-off coming, and the chord hangs. So every
 // stop lets go — the notes, and not the tails. See docs/panic.md.
 void EngineHost::stop(const std::string& session) {
-    if (auto* tc = impl_->transport(session)) {
+    // find(), never session(): stopping a project nobody sent must not conjure one.
+    auto* s = impl_->find(session);
+    if (s == nullptr) return;
+    if (auto* tc = s->transport()) {
         // A record roll's stop switches record OFF: left on, the next Play would be another take, muting the armed lane.
-        if (tc->isRecording()) impl_->session(session).recordEnabled = false;
+        if (tc->isRecording()) s->recordEnabled = false;
         tc->stop(false, false);
     }
-    if (auto& s = impl_->session(session); s.edit) {
+    if (s->edit) {
         // Any punch-in mute still waiting on its timer belongs to the roll this stop ended.
-        ++s.rollGen;
-        te::midiPanic(*s.edit, false);
+        ++s->rollGen;
+        te::midiPanic(*s->edit, false);
         // A stop ends the take, so restore the mute the record roll applied at the punch-in (docs/engineHost.md).
-        restorePunchMute(s);
+        restorePunchMute(*s);
     }
 }
 
 // …and the one for a stop that did not work: the same, plus reset(), which is what kills a reverb
 // tail and re-seats a plugin whose own state is stuck. Two gestures, one flag apart (docs/panic.md).
 void EngineHost::panic(const std::string& session) {
-    if (auto* tc = impl_->transport(session)) tc->stop(false, false);
-    ++impl_->session(session).rollGen;
-    restorePunchMute(impl_->session(session));
-    if (auto& s = impl_->session(session); s.edit) te::midiPanic(*s.edit, true);
+    auto* s = impl_->find(session);
+    if (s == nullptr) return;
+    if (auto* tc = s->transport()) tc->stop(false, false);
+    ++s->rollGen;
+    restorePunchMute(*s);
+    if (s->edit) te::midiPanic(*s->edit, true);
 }
 // A jump while playing ends what was sounding, tails included; stopped, it leaves a stop's tail alone (docs/panic.md).
 static void releaseIfPlaying(te::TransportControl& tc, te::Edit* edit) {
@@ -777,12 +783,6 @@ float EngineHost::trackLevelDb(const std::string& session, int trackIndex) const
 }
 
 // --- Waveform taps -----------------------------------------------------------
-
-// The id format is "chain:module": extract the module name to find its plugin in the track's chain.
-static std::string moduleNameFromId(const std::string& id) {
-    const auto pos = id.find(':');
-    return pos != std::string::npos ? id.substr(pos + 1) : id;
-}
 
 void EngineHost::enableWaveformTap(const std::string& session, const std::string& id, const std::string& side) {
     const std::string key = id + ":" + side;
@@ -929,6 +929,9 @@ size_t EngineHost::releaseAbandonedProjects(double graceMs) {
     for (const auto& id : impl_->ids()) {
         auto* s = impl_->find(id);
         if (s == nullptr || !s->abandoned(now, graceMs)) continue;
+        // A take in progress outlives its tab: a locked phone or a dropped network must not cut what is being recorded.
+        const auto* tc = impl_->transport(id);
+        if (anyRecording(id) || (tc != nullptr && tc->isRecording())) continue;
         // reset() and not drop(): the SESSION survives, so a tab coming back re-sends into the same slot and anything keyed on the id still means what it meant.
         reset(id);
         s->noDriverSinceMs = 0.0;   // freed once; do not report it again every sweep
@@ -949,6 +952,18 @@ public:
         : host_(h), cb_(std::move(cb)) {}
 
     void timerCallback() override {
+        // Not posted, so post()'s net does not cover it: an exception out of a timer callback is std::terminate.
+        try {
+            tick();
+        } catch (const std::exception& e) {
+            warn(std::string("the state tick failed: ") + e.what());
+        } catch (...) {
+            warn("the state tick failed (unknown exception)");
+        }
+    }
+
+private:
+    void tick() {
         // ONE FRAME PER SESSION, each carrying the id it describes, so Serve.cpp sends a session's state only to the connections driving it.
         const auto ids = host_.sessionIds();
         for (const auto& sid : ids) emit(sid);
@@ -1097,6 +1112,8 @@ std::map<std::string, EngineHost::PluginLoad> EngineHost::pluginLoads(const std:
 }
 
 std::vector<std::string> EngineHost::sessionIds() const { return impl_->ids(); }
+
+bool EngineHost::hasSession(const std::string& id) const { return impl_->find(id) != nullptr; }
 
 std::vector<EngineHost::SessionInfo> EngineHost::sessionInfos() const {
     std::vector<SessionInfo> out;

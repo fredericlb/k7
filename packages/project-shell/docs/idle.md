@@ -27,17 +27,30 @@ compares it against the delay.
    `setTimeout` picks up where it left off and waits again. A date tells the truth at once: two
    hours have passed, the session is over.
 
-### A playing song is not an idle session
+### A session making sound is not an idle one
 
 That is the case with no input events at all, and yet the most obvious use of this application:
-listening. Cutting a forty-minute set at the twentieth, unloading the project and so killing the
-sound, would be the worst bug this page can produce.
+listening, or playing. Cutting a forty-minute set at the twentieth, unloading the project and so
+killing the sound, would be the worst bug this page can produce — and a `live` project has no
+transport at all: a guitar played through the rig for twenty minutes, hands off the laptop, is the
+whole point of that archetype.
 
 `markActive()` is the door, and it is deliberately stupid: an exported function that sets the
-timestamp, with no React state to lift from the bottom of the application. st0 beats it once a
-minute while the transport plays (`App.tsx`, beside `playing`). One minute against twenty: the beat
-cannot miss the window, and it costs nothing. Anything that happens untouched and must count goes
-through it. Nothing else should need to know this module.
+timestamp, with no React state to lift from the bottom of the application. st0 beats it from the
+engine's state frame, at most every ten seconds, whenever the engine is SOUNDING — the transport
+playing, the master above the noise floor, or signal on an input (`apps/st0/frontend/src/sounding.ts`) —
+and on every MIDI message played into a lane. The meters are the only witness that does not depend
+on which archetype is open. Anything that happens untouched and must count goes through it.
+
+### The engine session is the account's, not the tab's
+
+Two tabs on one account drive one session on the engine. A forgotten tab that idles — or leaves —
+would unload the project from under the tab still being played. So `markActive` also says, at most
+every five seconds, on a `BroadcastChannel`, that this tab was used, and a tab going idle (or
+quitting) leaves the engine alone while another one was used within the timeout
+(`anotherTabActive`). It still sleeps itself; only the unload is held back. The channel spans one
+browser profile, which is where the duplicate tab lives; two browsers on one account are two people
+and the registry's own rules apply.
 
 ### A tab moved behind another sleeps at once
 

@@ -32,6 +32,7 @@ import {
 } from "../gridCaret";
 import { useGridCaret } from "../hooks/useGridCaret";
 import { CELL_H, type Row, useStepPads } from "../hooks/useStepPads";
+import { noteName } from "../noteNames";
 import { m } from "../paraglide/messages.js";
 import {
   notesByCell,
@@ -43,7 +44,7 @@ import {
   unknownKeys,
 } from "../stepGrid";
 import type { WebClip, WebNote, WebProject } from "../types";
-import { AUDITION_VEL, noteName } from "./PianoRoll";
+import { AUDITION_VEL } from "./PianoRoll";
 import { SeqDoubleButton } from "./SeqDoubleButton";
 import { StepPlayhead } from "./StepPlayhead";
 

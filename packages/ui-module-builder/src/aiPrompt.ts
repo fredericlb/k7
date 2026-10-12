@@ -51,7 +51,7 @@ ${API_ANSWER}`;
 const API_ANSWER = `# What to return
 
 A JSON object with:
-- \`ui_yaml\`: the complete ui.yaml text — \`cols\`, \`rows\`, \`widgets\` and nothing else, no code fence. Start it with a one-line \`#\` comment naming the module.
+- \`ui_yaml\`: the complete ui.yaml text — \`cols\`, \`rows\`, \`widgets\`, \`tabs\` when the panel has pages, and \`vertical\` whenever \`cols\` is more than 4 — and nothing else, no code fence. Start it with a one-line \`#\` comment naming the module.
 - \`widgets_js\`: the complete widgets.js text with one function per lcdscreen id (\`export default { … }\`), or an empty string when the panel has no lcdscreen.
 - \`notes\`: two or three short sentences for the author: the layout's logic and what each screen shows.
 
@@ -63,14 +63,24 @@ export function aiDesignBrief(): string {
 
 # The panel: ui.yaml
 
-A panel is a grid of cells. On the graph card one cell is 36×36 px, columns are 6 px apart and rows 8 px, so a 12×9 panel is a 498×388 px card: every pixel counts.
+A panel is a grid of cells. On the graph card one cell is 36×36 px, columns are 6 px apart and rows 8 px, so a 12×4 panel is a 498×168 px card: every pixel counts.
+
+**One panel, two shapes.** Cards sit side by side in a row read ACROSS (a track's view on a desktop) and NARROW where space runs down or the cards are many (the graph, a track's view on a phone), so you lay the same panel out twice:
+- the panel itself is the **HORIZONTAL** layout: at most **4 rows**, sections side by side left to right;
+- \`vertical:\` is the **VERTICAL** layout: at most **4 columns**, the same sections STACKED top to bottom in the same order. It has its own \`cols\`, \`rows\`, \`widgets\` and \`tabs\`, and offers on every page exactly the controls the horizontal page offers — the same binds, on the same tab, with the same tabs in the same order. Reuse the horizontal widgets' ids; a screen MUST reuse its id, since its draw function is keyed by it and draws at whatever size its box is. Omit \`vertical\` only when the panel is already at most 4 columns wide.
 
 \`\`\`yaml
-cols: 12          # grid width in cells
-rows: 9           # grid height in cells
+cols: 12          # HORIZONTAL: grid width in cells
+rows: 4           # …at most 4 rows
 widgets:
-  osc_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 3 }
+  osc_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 4 }
   cutoff: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
+vertical:         # VERTICAL: at most 4 columns, the same controls stacked
+  cols: 4
+  rows: 6
+  widgets:
+    osc_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 3 }
+    cutoff: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Cutoff, min: 20, max: 20000, curve: log }
 \`\`\`
 
 Rules the loader enforces — a panel that breaks one is refused whole:
@@ -84,7 +94,7 @@ Rules the loader enforces — a panel that breaks one is refused whole:
 
 ## Tabs
 
-Tabs are the PANEL's, not a widget: a top-level \`tabs:\` list beside \`widgets\`, in order, each \`{ name: <at most 10 characters, unique>, widgets: { <id>: widget, … } }\`. Only the open tab's widgets are drawn, in a column of tab names the card adds at its left — so a tab's widgets use the whole \`cols\` × \`rows\` grid, starting on row 0, with no row given up to a tab bar. The top-level \`widgets\` are drawn on EVERY tab: that is where a screen or a master section that must always be visible goes (leave it \`{}\` otherwise). Use tabs only when one page cannot hold the essentials legibly; a panel of up to ~16 controls has no \`tabs\` at all, and a single tab is never written.
+Tabs are the PANEL's, not a widget: a top-level \`tabs:\` list beside \`widgets\`, in order, each \`{ name: <at most 10 characters, unique>, widgets: { <id>: widget, … } }\`. Only the open tab's widgets are drawn — the horizontal card lists the tab names in a column at its left, the vertical one in a menu across its top — so a tab's widgets use the whole \`cols\` × \`rows\` grid, starting on row 0, with no row given up to a tab bar. The \`vertical\` layout has the same tabs, by name and in the same order. The top-level \`widgets\` are drawn on EVERY tab: that is where a screen or a master section that must always be visible goes (leave it \`{}\` otherwise). Use tabs only when one page cannot hold the essentials legibly; a panel of up to ~16 controls has no \`tabs\` at all, and a single tab is never written.
 
 ## Widgets
 
@@ -122,11 +132,11 @@ Draw a screen when it SHOWS something a knob cannot: the shape of an envelope fr
 
 Think of a modular synthesizer and of teenage engineering's OP-Z and OP-XY:
 
-- **Modular.** Group controls into sections, one per function (OSC, FILTER, ENV, LFO, FX, OUT…), each a compact block. Order sections along the signal flow, left to right then top to bottom. Frame a section of TWO OR MORE widgets with a \`group\` — never a group around a single widget, which is a tint and not a section — one quiet tint per kind of section, reused for the same kind everywhere — and name it with the group's \`label\` rather than a separate \`label\` widget. Align blocks on a shared grid: knobs 2×2, sections sized in whole knobs; no ragged edges.
+- **Modular.** Group controls into sections, one per function (OSC, FILTER, ENV, LFO, FX, OUT…), each a compact block. Order sections along the signal flow: left to right in the horizontal layout, top to bottom in the vertical one. Frame a section of TWO OR MORE widgets with a \`group\` — never a group around a single widget, which is a tint and not a section — one quiet tint per kind of section, reused for the same kind everywhere — and name it with the group's \`label\` rather than a separate \`label\` widget. Align blocks on a shared grid: knobs 2×2, sections sized in whole knobs; no ragged edges.
 - **Few, essential controls in front.** The controls someone turns while playing come first and biggest; set-and-forget params go to a later page or are left out. Leave out plumbing nobody turns on a panel: MIDI/MPE channels, program change, pitch-bend and aftertouch routing, preset browsing, hardware-controller mapping, host-sync bookkeeping. Leave out \`@pan\`, \`@mute\`, \`@solo\`, \`@arm\` — the mixer strip already draws them; \`@base\` (the preset the plugin is built from) may be a dropdown on the first page.
 - **No \`@\` controls.** st0 draws the module's own stage — \`@input-volume\`, \`@mix\`, \`@output-volume\` — in every card's header, and a lane's controls on its strip. Never put a widget on a param starting with \`@\`, a \`@base\` dropdown excepted; and leave off the plugin's own input or output level, mix, dry and wet, which those header sliders replace.
 - **Knobs, and faders for bands.** Every continuous param is a knob — gain, mix, level, time, depth included — EXCEPT an EQ or tone band: \`Low\`, \`Mid\`, \`High\`, \`Bass\`, \`Treble\`, \`Presence\`, a shelf's or a peak's gain. Those are FADERS, 1 column × 3+ rows, side by side low to high so together they draw the curve; the same goes for a graphic EQ's, a filter bank's, a vocoder's or a multiband's per-band gains. A slider is rarely right on a card.
 - **Short labels.** 3 to 8 characters, the way a hardware panel is lettered: "Cutoff", "Res", "Attack", "Mix". Never the raw long param name when it will not fit a 72 px knob.
 - **Screens in the OP-Z / OP-XY idiom.** Pure black glass (\`ctx.fillRect\` the whole screen with #000 first). Thin 1 px white lines and flat solid shapes, no gradients, no shadows, no skeuomorphism. Big simple geometry that reads at a glance: a curve, a few bars, circles, a dot moving along a path. Sparse color with meaning, from the OP palette: blue #3d7dff, green #3ec96b, white #ffffff, orange #ff6a1a, red #ff3b30, grey #6b6b6b for secondary lines — one accent per parameter, reused for the same parameter everywhere. Tiny pixel-like type (\`8px ui-monospace, monospace\`), UPPERCASE labels, big numbers only for the one value that matters. Playful and graphic rather than technical: the picture should make the sound's shape obvious, and it may animate subtly off \`now\` and \`state\` when the audio is moving.
-- **Density.** The whole panel should fit about 12-16 columns and 6-12 rows. Leave one empty row at the bottom (room for the author to drop another control).`;
+- **Density.** Horizontal: at most 4 rows — a 2×2 knob takes two, so a section is at most two lines of knobs — and about 12-20 columns; use tabs rather than a wider grid when a page cannot hold the essentials. Vertical: at most 4 columns — two 2×2 knobs per line, at most four band faders side by side, a screen as wide as the four columns.`;
 }

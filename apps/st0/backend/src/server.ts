@@ -10,6 +10,8 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
+import { precompressedStatic } from "@frediverse/http/precompressed";
+import { behindProxy } from "@frediverse/http/proxied";
 import { setupAuth } from "@frediverse/oidc";
 import { engineErrorHandler } from "@studio/engine-registry";
 import { prefsStore } from "@studio/user-prefs";
@@ -93,7 +95,7 @@ const FRONTEND_DIST = join(import.meta.dirname, "../../frontend/dist");
 // The shell is asked again on every load and a hashed asset is kept for good — ../../../../docs/versioning.md.
 const SHELL_CACHE = "no-cache";
 app.use(
-  express.static(FRONTEND_DIST, {
+  precompressedStatic(FRONTEND_DIST, {
     setHeaders: (res, path) =>
       res.setHeader(
         "Cache-Control",
@@ -103,7 +105,8 @@ app.use(
       ),
   }),
 );
-app.get(/^(?!\/api|\/auth)/, (_req, res) => {
+// Not for /assets/: a hashed chunk that is gone must 404, or the page parses index.html as a script.
+app.get(/^(?!\/api|\/auth|\/assets\/)/, (_req, res) => {
   res.setHeader("Cache-Control", SHELL_CACHE);
   res.sendFile(join(FRONTEND_DIST, "index.html"));
 });
@@ -111,7 +114,16 @@ app.get(/^(?!\/api|\/auth)/, (_req, res) => {
 // Mounted LAST: a body that stops arriving throws inside the parser, where no route can see it.
 app.use(engineErrorHandler);
 
-app.listen(PORT, () => {
-  // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
-  console.log(`🎛  st0-web backend on http://localhost:${PORT}  (auth)`);
+const server = behindProxy(
+  app.listen(PORT, () => {
+    // "auth" and not "verifies auth": this backend MINTS the session (../../AGENTS.md).
+    console.log(`🎛  st0-web backend on http://localhost:${PORT}  (auth)`);
+  }),
+);
+
+// A stop lets the requests in flight finish, within the 10 s Docker allows before its SIGKILL.
+process.on("SIGTERM", () => {
+  console.log("stopping: finishing the requests in flight");
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 8_000).unref();
 });

@@ -92,11 +92,15 @@ export function AssemblyBuilder({
 
   useEffect(() => {
     let live = true;
-    void store.read(path).then((text) => {
-      if (!live) return;
-      setContent(text ?? "");
-      setSaved(text ?? "");
-    });
+    store.read(path).then(
+      (text) => {
+        if (!live) return;
+        setContent(text ?? "");
+        setSaved(text ?? "");
+      },
+      // Said, and nothing loaded: with no content the autosave has no path, so a blank cannot be written over the file.
+      (e: Error) => live && setNote(`could not read ${path}: ${e.message}`),
+    );
     return () => {
       live = false;
     };

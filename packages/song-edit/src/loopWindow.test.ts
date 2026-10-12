@@ -133,7 +133,7 @@ describe("`loop` counts passes of that window", () => {
   });
 
   /** An audio clip with no `to` has no number to multiply, so N passes are refused rather than dropped. */
-  it("is refused on an audio clip whose window has no end", () => {
+  it("is refused on an audio clip whose window has no end, the clip's nor the event's", () => {
     writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
     writeYaml(join(dir, "nodes", "riff.yaml"), {
       extends: "@meta/track",
@@ -146,7 +146,7 @@ describe("`loop` counts passes of that window", () => {
       msg = (e as Error).message;
     }
     expect(msg).toContain("loop: 2");
-    expect(msg).toContain("no 'to'");
+    expect(msg).toContain("says 'to'");
   });
 });
 

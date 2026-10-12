@@ -2,46 +2,27 @@
 // param the module reads it from, immediately before the render. Without it a normaliser applies
 // its default gain instead of normalising. Full rationale: docs/peakPass.md.
 
-import { spawnSync } from "node:child_process";
+import { measureFilePeak } from "@studio/audio-analysis/peak";
 import type { PluginDoc } from "@studio/song/project";
 
 /** The param a MEASURING cold module receives its number in — one name, spelled once. */
 export const PEAK_PARAM = "Peak";
 
-/** The floor a measurement reports for silence, and the `Peak` param's minimum — one number, spelled once. */
-export const PEAK_FLOOR_DB = -100;
+/** The floor a measurement reports for silence, and the `Peak` param's minimum — spelled in @studio/audio-analysis. */
+export { PEAK_FLOOR_DB } from "@studio/audio-analysis/peak";
 
-/** What the engine's `--peak` prints. Only `peakDb` is read here; the rest is for a person. */
-interface PeakReport {
-  peak: number;
-  peakDb: number;
-  frames: number;
-  channels: number;
-  sampleRate: number;
-}
-
-/** One file's true peak in dBFS, measured by the engine and NOT off the sidecar — docs/peakPass.md. */
-export function measureFilePeakDb(engineBin: string, source: string): number {
-  const r = spawnSync(engineBin, ["--peak", source], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  if (r.status !== 0)
-    throw new Error(
-      `could not measure the peak of ${source}${r.error ? `: ${r.error.message}` : ""}`,
-    );
-  const line = (r.stdout ?? "").trim().split("\n").pop() ?? "";
-  let report: PeakReport;
+/** One file's true peak in dBFS, decoded by the engine and NOT read off the sidecar — docs/peakPass.md. */
+export async function measureFilePeakDb(
+  engineBin: string,
+  source: string,
+): Promise<number> {
   try {
-    report = JSON.parse(line) as PeakReport;
-  } catch {
+    return (await measureFilePeak(source, { engineBin })).peakDb;
+  } catch (e) {
     throw new Error(
-      `the engine's peak for ${source} was not readable: ${line}`,
+      `could not measure the peak of ${source}: ${(e as Error).message}`,
     );
   }
-  if (typeof report.peakDb !== "number" || Number.isNaN(report.peakDb))
-    throw new Error(`the engine reported no peak for ${source}`);
-  return report.peakDb;
 }
 
 /** Does anything in this chain want a peak measured? Asked of the COMPILED plugins, docs/peakPass.md. */

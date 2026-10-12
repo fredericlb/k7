@@ -2,7 +2,7 @@
 // that may not. It runs on the LOOPBACK origin only, which is both the secure context that makes
 // getUserMedia possible and the proof we are the machine rather than a guest on its LAN.
 // One peer connection per viewer, one stream per LABEL: two tablets on one lens open it once.
-// See apps/st0-desktop/docs/camera.md.
+// See packages/song/docs/camera.md.
 
 import {
   type Frame,
@@ -27,21 +27,44 @@ export function canServeLenses(): boolean {
   );
 }
 
-/** Open a lens at most once per label, since a second getUserMedia on one device may be refused. */
-function lensCache(): (label: string) => Promise<Lens> {
-  const open = new Map<string, Promise<Lens>>();
-  return (label) => {
-    const held = open.get(label);
-    if (held) return held;
-    const fresh = localLens(label);
-    open.set(label, fresh);
-    // An ended track is not a lens any more, and a refusal must not be cached as one either.
-    void fresh.then((l) => {
-      for (const t of l.stream?.getTracks() ?? [])
-        t.addEventListener("ended", () => open.delete(label));
-      if (!l.stream) open.delete(label);
+/** Open a lens at most once per label (a second getUserMedia on one device may be refused), and
+ *  COUNT who uses it: the camera is stopped when the last viewer goes, not kept lit for the page's life. */
+function lensCache() {
+  const open = new Map<string, { lens: Promise<Lens>; users: number }>();
+  const stop = (lens: Promise<Lens>) =>
+    void lens.then((l) => {
+      for (const t of l.stream?.getTracks() ?? []) t.stop();
     });
-    return fresh;
+  return {
+    acquire(label: string): Promise<Lens> {
+      let held = open.get(label);
+      if (!held) {
+        const entry = { lens: localLens(label), users: 0 };
+        held = entry;
+        open.set(label, entry);
+        // An ended track is not a lens any more, and a refusal must not be cached as one either.
+        void entry.lens.then((l) => {
+          const forget = () => {
+            if (open.get(label) === entry) open.delete(label);
+          };
+          for (const t of l.stream?.getTracks() ?? [])
+            t.addEventListener("ended", forget);
+          if (!l.stream) forget();
+        });
+      }
+      held.users++;
+      return held.lens;
+    },
+    release(label: string): void {
+      const held = open.get(label);
+      if (!held || --held.users > 0) return;
+      open.delete(label);
+      stop(held.lens);
+    },
+    releaseAll(): void {
+      for (const held of open.values()) stop(held.lens);
+      open.clear();
+    },
   };
 }
 
@@ -57,24 +80,34 @@ export function serveLenses(): () => void {
   let wait = RETRY_MS;
   let stopped = false;
   const peers = new Map<string, RTCPeerConnection>();
-  const lensFor = lensCache();
+  // Which lens each viewer holds, so its leaving lets go of its share.
+  const holding = new Map<string, string>();
+  const lenses = lensCache();
 
   const drop = (id: string) => {
     peers.get(id)?.close();
     peers.delete(id);
+    const label = holding.get(id);
+    holding.delete(id);
+    if (label !== undefined) lenses.release(label);
   };
 
   const answer = async (socket: WebSocket, id: string, label: string) => {
     drop(id);
-    const lens = await lensFor(label);
+    holding.set(id, label);
+    const lens = await lenses.acquire(label);
+    // The socket changed or the tab stepped back while the lens opened: this viewer is gone with it.
+    if (socket !== ws || stopped) return drop(id);
     // A sentence and not a negotiation: an offer with no track never fires `ontrack` (docs/camera.md).
     const stream = lens.stream;
-    if (!stream)
+    if (!stream) {
+      drop(id);
       return sendFrame(socket, {
         type: "problem",
         to: id,
         text: lens.problem ?? "this machine opened no camera",
       });
+    }
     const pc = new RTCPeerConnection(ICE);
     peers.set(id, pc);
     for (const t of stream.getTracks()) pc.addTrack(t, stream);
@@ -131,10 +164,15 @@ export function serveLenses(): () => void {
       wait = RETRY_MS;
     };
     socket.onmessage = (e) => {
+      // Only the CURRENT socket speaks: an old one's late frames answer viewers it no longer serves.
+      if (socket !== ws) return;
       const f = readFrame(e.data);
       if (f) onFrame(socket, f);
     };
     socket.onclose = () => {
+      // An old socket's close, landing after a newer one opened, must neither drop its peers nor dial again.
+      if (socket !== ws) return;
+      ws = null;
       for (const id of [...peers.keys()]) drop(id);
       if (stopped) return;
       timer = window.setTimeout(connect, wait);
@@ -155,7 +193,13 @@ export function serveLenses(): () => void {
     }
     clearTimeout(timer);
     for (const id of [...peers.keys()]) drop(id);
-    ws?.close();
+    // Forgotten BEFORE it closes: its close event then finds itself stale and dials nothing.
+    const closing = ws;
+    ws = null;
+    closing?.close();
+    // Behind, this tab serves no one: the cameras go dark with it.
+    lenses.releaseAll();
+    holding.clear();
   };
 
   const bridge = tabBridge();

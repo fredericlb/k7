@@ -27,13 +27,13 @@ bounces are not normalisations.
 The `{file}.cache` envelope already holds a `peak[]` array, and taking `max()` of it looks like the
 whole job for free. It is wrong, and quietly:
 
-| file | `--peak` (true) | envelope (mono sum) | error |
+| file | true peak | envelope (mono sum) | error |
 |---|---|---|---|
 | mono, peak 0.5 | −6.02 dB | −6.02 dB | 0.00 |
 | stereo, peak on ONE channel | −6.02 dB | −12.04 dB | **−6.02** |
 | stereo, channels in anti-phase | −6.02 dB | −100.00 dB | **−93.98** |
 
-`Waveform.cpp` averages the channels into one signal before taking its per-bucket maximum — it is
+The sidecar's envelope averages the channels into one signal before taking its per-bucket maximum — it is
 drawing a waveform, and one line is what a waveform is. A peak living on one side reads 6 dB low;
 two channels in anti-phase sum to nothing at all, and the envelope reports **silence** for a file
 that is plainly audible. Normalising that asks for +99 dB of gain, and the only thing standing
@@ -42,9 +42,9 @@ accident.
 
 The envelope is also written at `%.4f`, which is fine for drawing and not for a gain.
 
-So the measurement is its own CLI mode, `--peak`, streaming the file in blocks and taking
-`getMagnitude` across **all** channels. The engine owns it for the reason it owns every decode: it
-owns the formats.
+So the measurement is its own, `measureFilePeak` in `@studio/audio-analysis`, streaming the
+file's frames and keeping the largest magnitude across **all** channels. The engine decodes them
+(`--decode`), since it owns the formats on the machine that renders.
 
 ## The 3 dB a bounce must not lose
 

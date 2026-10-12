@@ -183,6 +183,38 @@ export function toSegments(
       const k = resolveLink(cp.chains, u, l.chain);
       if (k) linked.add(k);
     }
+  // A rack node's taps routed to subchains of its own file: each such subchain is FED by that tap (docs/racks.md).
+  const tapFeeds: { node: string; tap: string; to: string }[] = [];
+  for (const u of units)
+    for (const s of u.chain.steps)
+      for (const item of itemsOf(s)) {
+        const outs = (item as { tap_outs?: unknown }).tap_outs;
+        if (!outs || typeof outs !== "object") continue;
+        for (const [tap, sub] of Object.entries(
+          outs as Record<string, unknown>,
+        )) {
+          const key =
+            typeof sub === "string"
+              ? resolveLink(cp.chains, u, sub)
+              : undefined;
+          const target = key ? byKey.get(key) : undefined;
+          // Only a subchain that is not run in place: one called as a step has no run of its own to be fed.
+          if (
+            !key ||
+            !target?.sub ||
+            calledSubchains(cp.chains[target.parent]).has(target.sub)
+          )
+            continue;
+          const first = target.chain.steps.find((x) => !isEndStep(x));
+          if (!first) continue;
+          tapFeeds.push({
+            node: nameOfItem(item),
+            tap,
+            to: nameOfItem(itemsOf(first)[0]),
+          });
+          linked.add(key);
+        }
+      }
 
   // Where a link LANDS: a chain's first node (`#port` when named), a built-in end, or nothing.
   const targetsOf = (from: ChainUnit, l: Link, seen: Set<string>): string[] => {
@@ -237,6 +269,7 @@ export function toSegments(
   const graph: GraphFile = { modules };
   if (bypassed.length) graph.bypassed = bypassed;
   if (busOnly.length) graph.bus_only = busOnly;
+  if (tapFeeds.length) graph.tap_feeds = tapFeeds;
   if (Object.keys(positions).length) graph.positions = positions;
   return { graph, levels };
 }

@@ -37,12 +37,13 @@ still load: they are how racks were written, and `scripts/migrateRacks.ts` conve
 rack's windows cut into one file each, byte for byte, the kit moved into the nodes that play the
 module, and a module no node plays converted in place so nothing is lost.
 
-## …or a KIT's pads: `st0-rack-sfz`
+## …or a KIT's pads: `st0-rack`'s other engines
 
 A sampled drum kit is better played whole — its velocity layers, round-robins and hi-hat choke are
-the point of it — so it can be drawn as a rack without becoming one. `@st0/instruments/st0-rack-sfz`
-is ONE module for every such kit, each kit an ENGINE of it (`engines.md`): an SFZ player
-(`params: sfz:`) naming its pads under `kit:`, `<name>: <note>`. A node changes kit the way it changes
+the point of it — so it can be drawn as a rack without becoming one. `@st0/instruments/st0-rack`
+is ONE module for every kit, each an ENGINE of it (`engines.md`): `samples`, the rack whose taps are
+the node's, and every other engine an SFZ player (`params: sfz:`) naming its pads under `kit:`,
+`<name>: <note>`. A node changes kit the way it changes
 any engine — the header's dropdown, its values kept per kit — and a preset can name the kit it was
 taken on. Engines rather than a module per kit, because a kit is a choice made on the node, not a
 different instrument to go and find; and rather than bases, because a kit's file lives on the
@@ -50,6 +51,13 @@ ENGINE's machine (`@instruments/…`), not in a module's folder. The node draws 
 order, exactly as a rack's. A pad is its NOTE:
 clicking it plays the note through the node's own lane — the whole kit and the node's chain after it,
 the piano roll's `note-preview` — not a file played dry.
+
+**The default engine is a KIT, `naked-drums`**: a rack node made from the picker sounds at once,
+where a `samples` rack is silent until somebody gives it samples. So everything that writes taps says
+`engine: samples` outright — the rack builder's node, a rack preset (`sfz-to-rack.ts` writes it) —
+since on the default a node's taps would not be what plays. **A node's taps survive a kit**: they stay
+in its file and are set aside while a kit plays, which draws its own pads (`asEngine` in
+`engines.ts`), so switching back to `samples` finds them as they were.
 
 **A kit's level is set per kit, and drawn in a column beside its pads.** A rack's samples are normalised
 one-shots, each near 0 dBFS; a sampled kit keeps the balance it was recorded with, its kick 10 dB and
@@ -77,7 +85,7 @@ second keymap over the first, which a drum part written for General MIDI would t
 kit from other notes, change the kit.
 
 ```yaml
-# st0-rack-sfz/engines/naked-drums/module.yaml
+# st0-rack/engines/naked-drums/module.yaml
 extends: "@engine/sfz-player"
 params:
   sfz: "@instruments/naked-drums/Wilkinson Audio/Naked Drums/User/Naked Drums GM.sfz"
@@ -96,6 +104,43 @@ sampled kit plays several microphones per hit — a close mic and the overheads 
 sample has to be what the player sounds for that hit, not one of its microphones. What a rack cannot
 keep is the rest of the kit: its velocity layers, its round-robins and its hi-hat choke, which is why
 the full kit stays an SFZ instrument and the rack is the light, editable copy.
+
+## A tap with a chain of its own
+
+**A tap can leave by an output of its own, into a SUBCHAIN of the node's chain file**: the snare
+through a reverb, the kick dry. The node says so in `tap_outs:`, a tap's name to a subchain's id,
+on a rack's sounds and a kit's pads alike, and `node tap out <node> <tap> <subchain|none>` writes it.
+
+```yaml
+# chains/drums.yaml
+steps:
+  - { id: lane-drums, track: drums }
+  - { id: kit-1, extends: "@st0/instruments/st0-rack", tap_outs: { Snare: snare-fx } }
+  - to: [ { chain: MIX } ]
+subchains:
+  - id: snare-fx
+    steps:
+      - { id: snare-verb, extends: "@st0/audio/verb" }
+      - to: [ { chain: MIX } ]
+```
+
+- **On the node, not in the subchain.** Which pad goes where is a choice made on the instrument,
+  like its gain and its mute; and a node's item survives a graph edit as written, where a chain
+  file is rebuilt from the graph on every one.
+- **A subchain of the same file, and only one fed that way.** It is the parent's own, the scope
+  every subchain has (`chainFiles.md`); a subchain RUN in place is a stretch of its parent, with no
+  run of its own to be fed, and is refused. A route to anything else is refused by name, at the
+  command and at the compile, rather than swallowing the tap.
+- **A real output, not a copy.** The engine runs the instrument in a rack of its own and returns
+  the tap's pair on the subchain's track (`engine/st0-engine/docs/tapOutputs.md`): the routed tap
+  leaves the main output, and the kit stays one instrument, its hi-hat choke included. Pairs are
+  numbered in the order of the taps' names (`src/tapOuts.ts`), so a rebuild lands every tap where it was.
+- **Drawn as a jack.** The node grows an output named after the tap, with a cable to the subchain
+  (`packages/ui-chains/src/graph.ts`).
+- **Edited from the tap.** A pad's **Edit chain…** opens a popin on its chain (st0's `docs/shell.md`),
+  whose buttons are `node tap chain add|move|remove`: the first module makes the subchain and routes
+  the tap, and the last one removed takes both away — a tap-fed subchain with no node feeds nothing,
+  and the next graph edit would drop it and leave the route dangling (`packages/song-edit/src/tapChain.ts`).
 
 ## The node draws a TAP per sound
 

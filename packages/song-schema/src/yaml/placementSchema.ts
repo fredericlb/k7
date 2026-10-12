@@ -29,6 +29,8 @@ export const PlacementSchema = z
     fadeOut: Timecode.optional(),
     // How many times the window is played, back to back. 1 (the default) is one pass.
     loop: z.number().int().min(1).optional(),
+    // AUDIO events only: this event's own trim in dB, ±6 — 0 (the default) is unity (packages/song-edit/docs/eventGain.md).
+    gain: z.number().min(-6).max(6).optional(),
     // Silences THIS placement without removing it — the event-level counterpart of bypassing the lane.
     disabled: z.boolean().optional(),
     // Whether THIS event plays the material's stretch map, absent meaning yes (docs/moduleFile.md).

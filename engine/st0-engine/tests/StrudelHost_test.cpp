@@ -89,6 +89,19 @@ void aRunawayPatternIsCutOff() {
     CHECK(h.laneEvents(0, 1, "x", true, {}, err).size() == 2);
 }
 
+// On a thread whose stack nobody sized, a recursion must come back as an error: past the stack's real end it is a SIGSEGV.
+void aRecursivePatternIsAnErrorNotACrash() {
+    StrudelHost h;
+    std::string err;
+    bool loaded = true;
+    std::thread t([&] { loaded = h.loadPattern("const f = (n) => f(n + 1) + 1; f(0)\ns(\"bd\")", err); });
+    t.join();
+    CHECK(!loaded);
+    CHECK(!err.empty());
+    CHECK(h.loadPattern("s(\"bd sn\")", err));
+    CHECK(h.laneEvents(0, 1, "x", true, {}, err).size() == 2);
+}
+
 void anotherThreadCanQueryIt() {
     StrudelHost h;
     std::string err;
@@ -111,6 +124,7 @@ int main() {
     RUN(theLabelsAreListed);
     RUN(aBadSaveKeepsThePreviousPattern);
     RUN(aRunawayPatternIsCutOff);
+    RUN(aRecursivePatternIsAnErrorNotACrash);
     RUN(anotherThreadCanQueryIt);
     TEST_MAIN_END();
 }

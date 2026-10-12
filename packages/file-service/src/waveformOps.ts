@@ -283,40 +283,29 @@ export class WaveformOps {
       for (const c of t.clips) if (c.type === "audio") clips.push(c);
 
     const engineBin = findEngineBinary();
-    // Phase 1: rebuild every stale sidecar in ONE engine process, so a song of fresh clips pays JUCE startup once.
+    // Phase 1: rebuild every stale sidecar, a few decodes at a time, before anything is sliced.
     const stale = staleWaveformSources(clips.map((c) => c.source));
     this.warmState = {
       warming: stale.length > 0,
       done: 0,
       total: stale.length,
     };
-    if (stale.length && engineBin) {
+    if (stale.length) {
       let done = 0;
-      try {
-        await runWaveformBatch(
-          engineBin,
-          stale,
-          () => {
-            if (run !== this.warmRun) return; // a newer prewarm took over
-            this.warmState = {
-              warming: true,
-              done: ++done,
-              total: stale.length,
-            };
-          },
-          ac.signal,
-        );
-      } catch {
-        /* engine unavailable mid-batch — the on-demand path surfaces it */
-      }
-    } else if (stale.length) {
-      // No engine here: ffmpeg, one file at a time, each decode its own process anyway.
-      let done = 0;
-      for (const s of stale) {
-        if (run !== this.warmRun || ac.signal.aborted) break;
-        await ensureFileEnvelope(s, null).catch(() => {});
-        this.warmState = { warming: true, done: ++done, total: stale.length };
-      }
+      // A file that fails is counted and skipped; the on-demand path is what surfaces its error.
+      await runWaveformBatch(
+        engineBin,
+        stale,
+        () => {
+          if (run !== this.warmRun) return; // a newer prewarm took over
+          this.warmState = {
+            warming: true,
+            done: ++done,
+            total: stale.length,
+          };
+        },
+        ac.signal,
+      );
     }
     if (run !== this.warmRun) return;
 

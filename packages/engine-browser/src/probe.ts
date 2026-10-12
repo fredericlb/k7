@@ -12,6 +12,7 @@ import {
   type EngineLatency,
   engineLatency,
 } from "@studio/web-protocol/quality";
+import { forgetPairKey, noteEngineAt, pairKeyFor } from "./pairing.ts";
 import { openSocket, RTC_SCHEME } from "./rtcSocket.ts";
 
 /** The least an engine must tell us to be probed, structural rather than imported so no auth or git types come with it. */
@@ -40,12 +41,18 @@ export interface RankedEngine<E extends ProbeTarget = ProbeTarget> {
   fileToken?: string | null;
   /** Whether `fileBase` is the server's file hub rather than the engine machine's own service. */
   filesHosted?: boolean;
+  /** It answered over the LAN but this device is not paired with it: reachable, and not usable until paired — docs/pairing.md. */
+  needsPairing?: boolean;
 }
 
 /** The token to show the file service at `fileBase` — the engine's own, unless the server hosts the files. */
 export function fileTokenOf(r: RankedEngine): string | null {
   return r.fileToken ?? r.token;
 }
+
+/** Answered over LOOPBACK: the engine on the machine this page runs on — the one whose speakers you are in front of. */
+export const onThisMachine = (r: { wsUrl: string | null }): boolean =>
+  !!r.wsUrl && /^wss?:\/\/(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(r.wsUrl);
 
 /** Reachable, and therefore measured. Narrows the three nullable fields the engine answered, in one test. */
 export function isReachable<E extends ProbeTarget>(
@@ -55,7 +62,7 @@ export function isReachable<E extends ProbeTarget>(
   wsUrl: string;
   token: string;
 } {
-  return r.latency !== null && r.wsUrl !== null;
+  return r.latency !== null && r.wsUrl !== null && r.token !== null;
 }
 
 /** How long an address has to answer `whoami` — three seconds, and the reason it is not one and a half is in docs/access.md. */
@@ -67,6 +74,7 @@ interface Reply {
   rttMs: number;
   bufferFrames: number;
   sampleRate: number;
+  needsPairing: boolean;
 }
 
 // Try one address. Resolves the whoami reply on a matching id, else null.
@@ -96,7 +104,11 @@ function probeOne(
     } catch {
       return finish(null); // malformed url / blocked scheme
     }
+    noteEngineAt(url, expectId);
     ws.onopen = () => {
+      // The key first, when this device holds one: over the LAN the engine answers nothing else until it is shown (docs/pairing.md).
+      const key = pairKeyFor(expectId);
+      if (key) ws.send(JSON.stringify({ type: "pair", key }));
       // Timed from the SEND, not the connect: what we want is what one message costs on an established socket, which is what playing uses.
       sentAt = performance.now();
       ws.send(JSON.stringify({ type: "whoami" }));
@@ -109,7 +121,12 @@ function probeOne(
           token?: string;
           bufferSize?: number;
           sampleRate?: number;
+          code?: string;
+          needsPairing?: boolean;
         };
+        // The key was refused: this device was unpaired on the machine, and keeping it would refuse every reconnect.
+        if (m.type === "error" && m.code === "unpaired")
+          forgetPairKey(expectId);
         if (m.type === "whoami" && m.id === expectId)
           finish({
             token: typeof m.token === "string" ? m.token : "",
@@ -117,6 +134,7 @@ function probeOne(
             // Absent from an older engine, or one whose device has not opened; zero reads as "not measured" downstream, never as "instant".
             bufferFrames: Number(m.bufferSize ?? 0),
             sampleRate: Number(m.sampleRate ?? 0),
+            needsPairing: m.needsPairing === true,
           });
       } catch {
         /* ignore non-JSON frames */
@@ -182,7 +200,12 @@ async function rank<E extends ProbeTarget>(
   const hits = results.flatMap((r) =>
     r.reply ? [{ c: r.c, reply: r.reply }] : [],
   );
-  hits.sort((a, b) => a.reply.rttMs - b.reply.rttMs);
+  // An address this device may USE beats a faster one it would first have to pair on.
+  hits.sort(
+    (a, b) =>
+      Number(a.reply.needsPairing) - Number(b.reply.needsPairing) ||
+      a.reply.rttMs - b.reply.rttMs,
+  );
   if (!hits.length)
     return {
       engine: e,
@@ -202,7 +225,9 @@ async function rank<E extends ProbeTarget>(
     wsUrl: best.c.url,
     // The files are the server's hub's, set by `engineAccess` when it hosts them — never the engine machine's.
     fileBase: null,
-    token: best.reply.token,
+    // No token until paired: every chooser filters on it, so an engine to pair is never picked by itself.
+    token: best.reply.needsPairing ? null : best.reply.token,
+    needsPairing: best.reply.needsPairing,
   };
 }
 

@@ -91,6 +91,8 @@ export const UI_HEADS: readonly string[] = [
   "curve ",
   // …and on the curve a control follows, or a new one bound to it — a widget's right-click.
   "automate ",
+  // A tap's own chain, in a popin — a pad's right-click (docs/shell.md).
+  "tap chain ",
 ];
 
 // The tree's verbs are `fs file new` … and share a head with nothing, so no list of bare names is needed here.

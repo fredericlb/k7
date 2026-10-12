@@ -276,18 +276,30 @@ fn open_root(app: &AppHandle) {
 /// supervisor that crashed and relaunched resyncs us in one message with nothing to replay. The window is
 /// redrawn only when what it displays actually moved, since this runs on every reported change.
 pub fn apply_snapshot(app: &AppHandle, snapshot: crate::host::Snapshot) {
-    let settings_changed = {
+    let (settings_changed, asking) = {
         let shared = app.state::<SharedState>();
         let mut s = shared.lock().unwrap();
         // Gated on the SUPERVISOR's signatures, not on comparing arrays: redrawing a list the user may be reading,
         // because a heartbeat flipped, is visible churn. Field by field, and only the fields the WINDOW draws — see
         // settingswin::differs.
         let settings_changed = crate::settingswin::differs(&s.snapshot, &snapshot);
+        let asking: Vec<_> = snapshot
+            .pair_requests
+            .iter()
+            .filter(|r| !s.snapshot.pair_requests.iter().any(|o| o.request_id == r.request_id))
+            .cloned()
+            .collect();
         s.snapshot = snapshot;
         // A snapshot arriving IS the supervisor working, so whatever we last complained about is over.
         s.host_error = None;
-        settings_changed
+        (settings_changed, asking)
     };
+    // Passive, not modal: anyone on the LAN can ask, and a dialog per ask would let them lock this screen.
+    for r in &asking {
+        let who = if r.name.is_empty() { &r.ip } else { &r.name };
+        let body = format!("Code {}. Open Settings → Paired devices to approve.", r.code);
+        notify_passive(app, &format!("‘{who}’ wants to pair"), &body);
+    }
     if settings_changed {
         crate::settingswin::push(app);
     }

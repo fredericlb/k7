@@ -158,3 +158,14 @@ Three others lived here and went with the clip they measured (`tempo-drag.ts`, `
 measured from the engine side now, in `engine/st0-engine/scripts/`.
 
 It lives here rather than in a host, beside the maths it exercises and the pages that explain it.
+
+## Hidden, the desk goes still
+
+A host keeps the desk mounted and hides it, as st0 does every pane, so the desk works out for
+itself whether it is on screen: its root is watched by an `IntersectionObserver`, which reads a
+`display: none` pane as out of sight, and the answer is shared through a context
+(`src/turntables/views/inSight.ts`). While hidden the channel and master meters read the floor —
+the same value every frame, so no re-render per engine frame — and the records keep their angle
+without writing it to the page. The master's clip light is the exception: it is a latch, and an
+overload while nobody looked is still worth seeing on the way back. Nothing here stops the SOUND:
+the decks play on, it is only the drawing that rests.

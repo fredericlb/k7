@@ -110,12 +110,15 @@ still driving.
 
 Everything. The secret does not change that a holder is a browser tab, which can be closed,
 crash, or be put to sleep, and cannot be relied on to say goodbye. `ENGINE_ASSIGN_TTL_MS`
-(15 s, renewed every 5 s) is what forgets a holder nobody heard from — see
+(90 s, renewed every 5 s) is what forgets a holder nobody heard from — see
 [lease.md](../../engine-browser/docs/lease.md) for the bug that shape exists to prevent.
 
-Which means a crashed tab costs the next person fifteen seconds, and never a lockout. That is
+Which means a crashed tab costs the next person a minute and a half, and never a lockout. That is
 deliberate: a claim that needed clearing by hand would be a worse failure than the one it
-prevents.
+prevents. The length is forced from below: a browser holds a background tab's timers to one tick
+a minute, so anything shorter lets the lease of someone listening with the tab behind another
+lapse, and the next person's gate takes the engine out from under the music. A tab that closes
+normally releases at once on `pagehide`; only a crash waits the full TTL.
 
 ## Where each surface stands
 

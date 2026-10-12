@@ -135,6 +135,48 @@ describe("createRevisionPoller", () => {
     expect(seen).toHaveLength(0); // and announces nothing, or the second pass is back
   });
 
+  it("keeps a quiet write off the token and off the tick, and tells its own listeners", async () => {
+    let rev = "a";
+    const seen: number[] = [];
+    const quiet: number[] = [];
+    const p = createRevisionPoller(async () => rev, 2000);
+    p.subscribe(() => seen.push(1));
+    p.subscribeQuiet(() => quiet.push(p.getQuiet()));
+    await settle();
+    expect(seen).toHaveLength(1); // null -> "a"
+
+    // A knob was written: "b", with no reload behind it.
+    rev = "b";
+    p.noteQuiet("b", "a");
+    expect(quiet).toEqual([1]);
+    expect(p.get()).toBe("a"); // not handed out, so a re-render cannot pick it up
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(seen).toHaveLength(1); // and the tick that reads "b" says nothing
+
+    rev = "c"; // somebody else's edit still gets through
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(seen).toHaveLength(2);
+    expect(p.get()).toBe("c");
+  });
+
+  it("announces a quiet write that started from a token this tab never saw", async () => {
+    let rev = "a";
+    const seen: number[] = [];
+    const p = createRevisionPoller(async () => rev, 2000);
+    p.subscribe(() => seen.push(1));
+    await settle();
+    expect(seen).toHaveLength(1); // null -> "a"
+
+    // Another tab wrote "b" between two ticks; this tab's knob then ran from "b" to "c".
+    rev = "c";
+    p.noteQuiet("c", "b");
+    expect(seen).toHaveLength(2); // the other tab's change is not swallowed
+    expect(p.get()).toBe("c");
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(seen).toHaveLength(2); // and the tick has nothing more to say
+  });
+
   it("keeps the last token, and notifies nobody, when the service is unreachable", async () => {
     let ok = true;
     const seen: number[] = [];

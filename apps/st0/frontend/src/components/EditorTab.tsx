@@ -6,6 +6,7 @@
 // canonical YAML, and reflowing a hand-edited file is what this format was chosen to avoid.
 
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
+import { Transaction } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { Button } from "@frediverse/ui/button";
 import {
@@ -691,8 +692,11 @@ export function EditorTab({
     void refreshLibraries();
   }, [refreshLibraries]);
 
+  // Which open is the latest: two quick clicks race, and the older answer must not land over the newer file.
+  const openSeq = useRef(0);
   const open = useCallback(
     async (path: string): Promise<boolean> => {
+      const seq = ++openSeq.current;
       const posix = path.replace(/\\/g, "/").toLowerCase();
       // A .dawproject and an Ableton project's .zip are ZIPs, a .als gzip — offer to import rather than decode bytes as text.
       if (
@@ -705,6 +709,7 @@ export function EditorTab({
       }
       try {
         const f = await api.read(path);
+        if (seq !== openSeq.current) return false;
         // Never open a binary: the tree disables them, but the breadcrumb reaches here too, so guard centrally.
         if (f.binary) {
           setStatus(`${path} — binary file, not shown`);
@@ -992,7 +997,15 @@ export function EditorTab({
     path: file && !file.binary ? file.path : null,
     content: file && !file.binary ? file.content : null,
     dirty,
+    saved,
     onAdopt: useCallback((text: string) => {
+      // Into the view OUTSIDE its undo history first: Ctrl+Z must not take back a write that was not this buffer's.
+      const v = cmViewRef.current;
+      if (v?.dom.isConnected && v.state.doc.toString() !== text)
+        v.dispatch({
+          changes: { from: 0, to: v.state.doc.length, insert: text },
+          annotations: Transaction.addToHistory.of(false),
+        });
       setFile((f) => (f ? { ...f, content: text } : f));
       setSaved(text);
     }, []),
@@ -1029,8 +1042,8 @@ export function EditorTab({
         return;
       }
       setStatus(`saved ${path}`);
-      await refresh(); // a new/edited entity updates the tree + completions
-      onChanged(); // the arrangement / graph may have changed
+      // The reload re-reads the tree and the completions too: a second `refresh()` here fetched both twice per save.
+      onChanged();
     },
     [file?.path, refresh, open, onChanged, setStatus],
   );
@@ -1040,6 +1053,8 @@ export function EditorTab({
     text: file?.content ?? "",
     saved,
     write,
+    // Not while the disk's version is being asked about: a write now would answer the question for the person.
+    enabled: diskSync.conflict === null,
   });
   // The bar is where this pane already says what it did, and a failed write is what the badge is too small to explain.
   useEffect(() => {

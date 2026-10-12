@@ -46,6 +46,7 @@ import { LIBRARIES_ROUTE, SETTINGS_ROUTE, TASKS_ROUTE } from "./projects/api";
 import { Home } from "./projects/Home";
 import { LibrariesPage } from "./projects/LibrariesPage";
 import { TasksPage } from "./projects/TasksPage";
+import { PaneBoundary } from "./PaneBoundary";
 import { SettingsPage } from "./settings/SettingsPage";
 
 import "./index.css";
@@ -125,7 +126,13 @@ function Booting() {
 clearDevPerfEntries(import.meta.env.DEV);
 
 // The gates before the editor, the router outside them, and NO React.StrictMode — its double-mount freezes Firefox's WebGL context (docs/shell.md).
-ReactDOM.createRoot(document.getElementById("root")!).render(
+ReactDOM.createRoot(document.getElementById("root")!, {
+  // What the boundaries catch, and what nothing did, both reach the console with their component stack.
+  onCaughtError: (error, info) =>
+    console.error("[caught]", error, info.componentStack),
+  onUncaughtError: (error, info) =>
+    console.error("[uncaught]", error, info.componentStack),
+}).render(
   // The basename is the app's mount AND the project it was opened on: React Router only writes BELOW it, so the project cannot be rewritten out.
   <BrowserRouter
     basename={
@@ -139,6 +146,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     }
   >
     <LocaleProvider>
+      {/* The last line: a fault that escaped every pane's own boundary draws a card here, not a white page. */}
+      <PaneBoundary name="st0">
       {sharedToken ? (
         <Suspense fallback={<Booting />}>
           <SharedGate token={sharedToken}>
@@ -180,6 +189,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           </Suspense>
         </AuthGate>
       )}
+      </PaneBoundary>
     </LocaleProvider>
   </BrowserRouter>,
 );

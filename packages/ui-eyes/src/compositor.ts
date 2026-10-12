@@ -587,6 +587,8 @@ export class Compositor {
     this.frameTarget?.destroy();
     this.frameTarget = null;
     gl.deleteProgram(this.prog);
+    // Handed back NOW rather than at garbage collection: a browser keeps ~16 live contexts and drops the oldest past that.
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
     if (this.canvas instanceof HTMLCanvasElement) this.canvas.remove();
   }
 }

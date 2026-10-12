@@ -64,33 +64,52 @@ export function soundPaths(ref: string, project: string | null): string[] {
   return base ? [`${base}/wavetables/${rest}`, `${base}/samples/${rest}`] : [];
 }
 
+/** How long a sound found nowhere waits before it is looked for again. */
+const RETRY_MS = 30_000;
+
 /** One decoder for the shell: each file fetched once, its result kept, every screen told when one lands. */
-export function createLcdSounds(project: () => string | null): LcdSounds {
+export function createLcdSounds(
+  project: () => string | null,
+): LcdSounds & { clear: () => void } {
+  // Keyed by project AND ref: a ref resolves against the open project, so another one's same name is another sound.
   const cache = new Map<string, Float32Array | null>();
   const listeners = new Set<() => void>();
-  const load = async (ref: string): Promise<void> => {
-    for (const path of soundPaths(ref, project())) {
+  const load = async (key: string, ref: string, at: string | null) => {
+    for (const path of soundPaths(ref, at)) {
       try {
         const res = await fetch(mediaUrl(path));
         if (!res.ok) continue;
         const pcm = decodeWav(await res.arrayBuffer());
         if (!pcm) continue;
-        cache.set(ref, pcm);
+        if (!cache.has(key)) return; // cleared while it loaded: another project now
+        cache.set(key, pcm);
         for (const l of listeners) l();
         return;
       } catch {
         /* the next candidate, or nothing to draw */
       }
     }
+    // Found nowhere: asked again later rather than blank for the session — the file may not exist YET.
+    setTimeout(() => {
+      if (cache.get(key) === null) cache.delete(key);
+    }, RETRY_MS);
   };
   return {
     get(ref) {
-      if (!cache.has(ref)) {
+      const at = project();
+      const key = `${at ?? ""}\n${ref}`;
+      if (!cache.has(key)) {
         // Marked at once, so a screen repainting while it loads does not start a second fetch.
-        cache.set(ref, null);
-        void load(ref);
+        cache.set(key, null);
+        void load(key, ref, at);
       }
-      return cache.get(ref) ?? null;
+      return cache.get(key) ?? null;
+    },
+    // Emptied, and every screen told: what it draws is asked for again, so a re-rendered sample shows.
+    clear: () => {
+      if (!cache.size) return;
+      cache.clear();
+      for (const l of listeners) l();
     },
     subscribe(onLoaded) {
       listeners.add(onLoaded);
@@ -101,7 +120,18 @@ export function createLcdSounds(project: () => string | null): LcdSounds {
 
 // The shell's ONE decoder, shared by every graph it mounts; App keeps it told which project is open.
 let openProject: string | null = null;
+const shared = createLcdSounds(() => openProject);
 export const setLcdSoundsProject = (p: string | null): void => {
+  // Another project's sounds are not drawn here again: let their PCM go.
+  if (p !== openProject) shared.clear();
   openProject = p;
 };
-export const shellSounds: LcdSounds = createLcdSounds(() => openProject);
+export const shellSounds: LcdSounds = shared;
+
+/** A write that may have changed a sound the screens draw — a sample, a wavetable, or nobody said which. */
+export const touchesSounds = (files: { path: string }[] | null): boolean =>
+  files === null ||
+  files.some((f) => /(^|\/)(samples|wavetables)\//.test(f.path));
+
+/** Forget the decoded sounds after such a write; the screens ask again for what they draw. */
+export const refreshLcdSounds = (): void => shared.clear();

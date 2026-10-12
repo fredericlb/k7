@@ -65,13 +65,24 @@ JSValue apiFunction(JSContext* ctx, const char* name, JSValue& api) {
     return JS_GetPropertyStr(ctx, api, name);
 }
 
+// QuickJS's own default assumes a 1 MiB stack, past a secondary thread's real end: a recursive pattern would SIGSEGV instead of throwing.
+thread_local std::size_t tStackBudget = StrudelHost::kDefaultStackBudget;
+
 }  // namespace
+
+void StrudelHost::setThreadStackBudget(std::size_t bytes) { tStackBudget = bytes; }
+
+void StrudelHost::enterOnThisThread() {
+    JS_SetMaxStackSize(rt_, tStackBudget);
+    JS_UpdateStackTop(rt_);
+}
 
 StrudelHost::StrudelHost() {
     rt_ = JS_NewRuntime();
     // A pattern is a few MiB of closures at most; the cap only stops a runaway one from eating the machine.
     JS_SetMemoryLimit(rt_, 64 * 1024 * 1024);
     JS_SetInterruptHandler(rt_, &StrudelHost::interrupt, this);
+    enterOnThisThread();
     ctx_ = JS_NewContext(rt_);
 
     JSValue global = JS_GetGlobalObject(ctx_);
@@ -90,7 +101,7 @@ StrudelHost::StrudelHost() {
 
 StrudelHost::~StrudelHost() {
     std::lock_guard<std::mutex> g(lock_);
-    JS_UpdateStackTop(rt_);
+    enterOnThisThread();
     JS_FreeContext(ctx_);
     JS_FreeRuntime(rt_);
 }
@@ -107,7 +118,7 @@ bool StrudelHost::loadPattern(const std::string& code, std::string& error) {
         return false;
     }
     // The caller's thread may not be the one that created the runtime, and QuickJS measures stack depth from there.
-    JS_UpdateStackTop(rt_);
+    enterOnThisThread();
     deadlineAt_ = nowMs() + deadlineMs_;
 
     JSValue api;
@@ -144,7 +155,7 @@ bool StrudelHost::loadPattern(const std::string& code, std::string& error) {
 // One call into the bundle's JSON API, the lock already held: st0Strudel.<fn>(args…) parsed, or null with `error` set.
 struct JsonCall {
     static nlohmann::json run(StrudelHost& h, const char* fn, std::vector<JSValue> args, std::string& error) {
-        JS_UpdateStackTop(h.rt_);
+        h.enterOnThisThread();
         h.deadlineAt_ = nowMs() + h.deadlineMs_;
         JSValue api;
         JSValue f = apiFunction(h.ctx_, fn, api);
@@ -202,13 +213,6 @@ std::vector<std::string> StrudelHost::labels(double from, double to) {
         for (const auto& l : parsed)
             if (l.is_string()) out.push_back(l.get<std::string>());
     return out;
-}
-
-std::size_t StrudelHost::memoryBytes() {
-    std::lock_guard<std::mutex> g(lock_);
-    JSMemoryUsage usage{};
-    JS_ComputeMemoryUsage(rt_, &usage);
-    return static_cast<std::size_t>(usage.memory_used_size);
 }
 
 }  // namespace studio

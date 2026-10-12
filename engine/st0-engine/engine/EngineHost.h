@@ -375,6 +375,8 @@ public:
 
     /** The sessions that exist, in id order. The state timer walks this; the broadcast sender does too, so ANY THREAD — the registry copies them out under its lock. */
     std::vector<std::string> sessionIds() const;
+    // Whether a session by that id exists, without creating it; any thread, like sessionIds().
+    bool hasSession(const std::string& id) const;
 
     /** What one session holds — a summary and not a `ProjectDoc`, since the tray draws a menu line and the document would be a megabyte per poll. */
     struct SessionInfo {
@@ -399,9 +401,7 @@ public:
     // Invoke `cb` with a fresh snapshot every intervalMs, on the engine thread.
     void onState(std::function<void(const EngineState&)> cb, int intervalMs = 50);
 
-    // Sinks invoked on the message thread once a plugin's editor closes — a .vstpreset path written, or text params as JSON; each leads with its session.
-    void onPresetSaved(std::function<void(const std::string& session, const std::string& id,
-                                          const std::string& path)> cb);
+    // Sink invoked on the message thread once a plugin's editor closes and text params captured it, as JSON; leads with its session.
     void onPluginParams(std::function<void(const std::string& session, const std::string& id,
                                            const std::string& paramsJson)> cb);
 
@@ -525,20 +525,15 @@ int runMultiEditTest(const std::vector<ProjectDoc>& docs,
                      const std::string& deviceName = {},
                      const std::string& deviceType = {});
 
-// Bounce ONE track through its own plugins, no master — the render a FROZEN track plays in place of computing itself; prints the written path as a JSON string.
-int freezeTrack(const ProjectDoc& doc, const std::string& baseDir, const std::string& trackId,
-                const std::string& outFile);
+// `<state>` as a path, for the server, which sees no JUCE: the one spelling, LoadGuard.cpp's studioStateDir().
+std::string studioStatePath();
 
-// The transient detector's default threshold, in standard deviations above the mean jump; mirrors detectTransients' default in packages/audio-probe/src/waveform.ts.
-constexpr double kDefaultTransientSensitivity = 2.0;
+// Judge what a previous engine left loading, then mark every risky load from here on — the server's, before anything loads (LoadGuard.h).
+void enableLoadGuards();
 
-// Write a peak+RMS envelope, the transient onsets and a fingerprint beside the file as `{audioPath}.cache`; both MUST match waveformCache.ts and audio-probe. docs/cliModes.md.
-int writeWaveformCache(const std::string& audioPath,
-                       double transientSensitivity = kDefaultTransientSensitivity);
+// Decode one file to stdout — a JSON header line, then interleaved float32 frames; what is measured from them is @studio/audio-analysis's. docs/cliModes.md.
+int decodeToStdout(const std::string& audioPath);
 
 // `NormalizeItem`, `normalizeClips` and `--normalize` are gone: normalising is a treatment now, a chain naming the library's `normalize` module, bounced by `--render`.
-
-// The TRUE peak of one file — the loudest sample on ANY channel — as JSON on stdout; never the `{file}.cache` mono sum, up to 6 dB wrong for a gain. docs/cliModes.md.
-int printFilePeak(const std::string& audioPath);
 
 }  // namespace studio

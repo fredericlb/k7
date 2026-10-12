@@ -19,7 +19,8 @@ add_library(studio_engine STATIC
     EditBuilder.cpp
     OfflineRender.cpp
     MultiEditTest.cpp
-    Waveform.cpp
+    Decode.cpp
+    LoadGuard.cpp
     WaveformTapPlugin.cpp
     BroadcastTapPlugin.cpp
     RecorderPlugin.cpp
@@ -37,7 +38,6 @@ add_library(studio_engine STATIC
     RecordSource.cpp
     MidiGraphPlugin.cpp
     ArpeggiatorPlugin.cpp
-    FilePeak.cpp
     ProcessMemory.cpp
     MixBlend.cpp
     SeekRelease.cpp

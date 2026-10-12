@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <iostream>
 #include <list>
 
 // LAST: it #defines BUFFER_SIZE, MAX_CHAN and friends as bare macros.
@@ -59,8 +60,19 @@ struct JuceSoundReader : public SoundfileReader {
     juce::AudioFormatManager formats;
     JuceSoundReader() { formats.registerBasicFormats(); }
 
+    // A table the program reads, not a record: ten minutes and eight channels bound it, and a header past them is treated as unreadable.
+    static constexpr double kMaxSeconds = 600.0;
+    static constexpr unsigned kMaxChannels = 8;
+
     std::unique_ptr<juce::AudioFormatReader> open(const std::string& path) {
-        return std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(juce::File(juce::String(path))));
+        std::unique_ptr<juce::AudioFormatReader> r(formats.createReaderFor(juce::File(juce::String(path))));
+        // Both calls below go through here, so the size Faust reserves and the size read always agree.
+        if (r != nullptr && (r->numChannels < 1 || r->numChannels > kMaxChannels || !(r->sampleRate > 0.0) ||
+                             r->sampleRate > 768000.0 || (double)r->lengthInSamples > kMaxSeconds * r->sampleRate)) {
+            std::cerr << "[faust] soundfile ignored, its header is implausible: " << path << '\n';
+            return nullptr;
+        }
+        return r;
     }
     bool checkFile(const std::string& path) override { return juce::File(juce::String(path)).existsAsFile(); }
     void getParamsFile(const std::string& path, int& channels, int& length) override {

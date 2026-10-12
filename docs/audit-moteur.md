@@ -43,8 +43,12 @@ stays local to the surface that suffered** as long as no package carries it.
 
 ## B. Security — to be decided, not mechanically corrected
 
-**The engine token leaks by design.** `server/ServeMachine.cpp`, the `whoami` handler: `whoami` returns the token to any
-socket that asks for it, with no prior authentication.
+**Settled for the LAN by pairing** (`engine/st0-engine/docs/pairing.md`): a LAN peer drives, and
+reads the token, only once the musician has paired it; the machine and the server's relay need
+nothing. What follows is the situation pairing answered, kept for the reasoning.
+
+**The engine token leaked by design.** `server/ServeMachine.cpp`, the `whoami` handler: `whoami` returned the token to any
+socket that asked for it, with no prior authentication.
 
 Consequences: anyone reaching `ws://<engine>:8765` — loopback, or the whole LAN when the supervisor
 binds `0.0.0.0` — obtains in one message enough to claim the lease and deregister the engine. The

@@ -7,9 +7,11 @@
 import type { EngineStore } from "@studio/engine-browser/store";
 import { cameraConstraint, matchCamera } from "@studio/ui-eyes/camera";
 import fixWebmDuration from "fix-webm-duration";
+import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fileClip } from "../clipFiles";
 import { downloadBlob } from "../downloadBlob";
+import { dropSpool, openSpool, recoverSpools, type Spool } from "../takeSpool";
 import {
   extForMime,
   fileStamp,
@@ -49,10 +51,9 @@ export function useVideoRecording(opts: {
   const activeRef = useRef(false);
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const takeRef = useRef<{ lane: string; at: number; from: number } | null>(
-    null,
-  );
+  // Takes stopped but not yet filed: the page must not be left while one is, or it is lost with the tab.
+  const [filing, setFiling] = useState(0);
+  useUnsavedGuard(recording || filing > 0);
   // Read inside the async start, which must not re-bind the whole effect on a status change.
   const live = useRef({ store, project, runCommand, setStatus, bumpReload });
   live.current = { store, project, runCommand, setStatus, bumpReload };
@@ -65,7 +66,11 @@ export function useVideoRecording(opts: {
   }, []);
 
   const finish = useCallback(
-    async (blob: Blob, take: { lane: string; at: number; from: number }) => {
+    async (
+      blob: Blob,
+      take: { lane: string; at: number; from: number },
+      spool: Spool,
+    ) => {
       const { project: dir, runCommand: run, setStatus: say } = live.current;
       const seconds = (performance.now() - take.from) / 1000;
       let bytes: Blob = blob;
@@ -81,11 +86,13 @@ export function useVideoRecording(opts: {
       } catch (e) {
         // A camera take cannot be played again: unfiled, it goes to the disk rather than nowhere (../../docs/audit.md).
         downloadBlob(bytes, upload);
+        spool.discard();
         say(
           `take not filed: ${(e as Error).message} — saved to your downloads as ${upload}, drop it on the lane to file it`,
         );
         return;
       }
+      spool.discard();
       live.current.bumpReload();
       await run(placeLine(take.lane, id, take.at, seconds));
     },
@@ -114,40 +121,48 @@ export function useVideoRecording(opts: {
         return;
       }
       streamRef.current = stream;
-      chunksRef.current = [];
       const mimeType = pickVideoMime((m) => MediaRecorder.isTypeSupported(m));
-      const rec = new MediaRecorder(
-        stream,
-        mimeType ? { mimeType } : undefined,
-      );
+      // Chunks go to disk as they come (../takeSpool.ts): an hour of camera is gigabytes the tab need not hold.
+      const spool = await openSpool(extForMime(mimeType || undefined));
+      // This take's own state, in this closure: a stop and a quick re-record must not share a buffer or a stream.
+      let take: { lane: string; at: number; from: number } | null = null;
+      const rec = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        // Capped, so an hour is a known size rather than whatever the encoder fancies.
+        videoBitsPerSecond: 4_000_000,
+      });
       recRef.current = rec;
       rec.ondataavailable = (e) => {
-        if (e.data.size) chunksRef.current.push(e.data);
+        if (e.data.size) spool.add(e.data);
       };
       rec.onstop = () => {
-        const take = takeRef.current;
-        takeRef.current = null;
-        const blob = new Blob(chunksRef.current, {
-          type: rec.mimeType || "video/webm",
-        });
-        chunksRef.current = [];
-        release();
+        for (const t of stream.getTracks()) t.stop();
+        if (streamRef.current === stream) streamRef.current = null;
+        if (recRef.current === rec) recRef.current = null;
         setRecording(false);
-        // A take with no bytes is a camera that never delivered a frame — nothing to file and nothing to place.
-        if (take && blob.size) void finish(blob, take);
-        else if (take)
-          live.current.setStatus("take was empty — no frames came");
+        const landed = take;
+        if (!landed) return spool.discard();
+        setFiling((n) => n + 1);
+        void spool
+          .finish(rec.mimeType || "video/webm")
+          .then((blob) => {
+            // A take with no bytes is a camera that never delivered a frame — nothing to file and nothing to place.
+            if (blob.size) return finish(blob, landed, spool);
+            spool.discard();
+            live.current.setStatus("take was empty — no frames came");
+          })
+          .finally(() => setFiling((n) => n - 1));
       };
       rec.onstart = () => {
         // The playhead at the moment the CAMERA started, not when the key was pressed: opening a lens takes time.
-        takeRef.current = {
+        take = {
           lane,
           at: live.current.store.getSnapshot().playhead,
           from: performance.now(),
         };
         setRecording(true);
       };
-      rec.start(1000); // a chunk a second, so a crash leaves something rather than nothing
+      rec.start(1000); // a chunk a second, each on disk as it comes
     },
     [finish, release],
   );
@@ -171,6 +186,20 @@ export function useVideoRecording(opts: {
 
   // Leaving the app mid-take must not leave the lamp on.
   useEffect(() => release, [release]);
+
+  // What a crash or a closed tab left mid-take is on disk: handed back once, as a download, then removed.
+  useEffect(() => {
+    void recoverSpools().then(async (left) => {
+      for (const { name, blob } of left) {
+        const file = name.replace(/^st0-take-/, "recovered-take-");
+        downloadBlob(blob, file);
+        await dropSpool(name);
+        live.current.setStatus(
+          `an interrupted camera take was recovered — saved to your downloads as ${file}`,
+        );
+      }
+    });
+  }, []);
 
   return { recording };
 }

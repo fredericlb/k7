@@ -30,8 +30,10 @@ Two layers, because they answer different questions:
   slots the pins left
 
 The family sort is STABLE, so tracks of one family keep the order they came in (the
-loader's filename order). A project that uses neither pins nor prefixes therefore comes
-out exactly as it went in — nothing is reshuffled until a name asks for it.
+loader's filename order). A name with no prefix is placed by what it SAYS — `basse`
+among the basses, `acoustic_drums_kit` among the drums (`trackCategory`, and its colour
+in [trackColor.md](../../song-schema/docs/trackColor.md)); one that says nothing
+recognisable sorts after every family, in the order it came.
 
 Two names claiming the same slot is not an error: the lower-numbered (then earlier) one
 takes it and the other moves DOWN to the next free slot, so a duplicated number costs

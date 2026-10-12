@@ -236,3 +236,17 @@ button:disabled {
   margin: 0;
   color: var(--dim);
 }
+
+/* A download's progress, under its row's detail line. */
+#instruments progress {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* The code a pairing request shows, set large: the musician compares it digit by digit with the device's. */
+.pair-code {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.15em;
+}

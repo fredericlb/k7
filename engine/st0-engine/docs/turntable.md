@@ -25,7 +25,10 @@ Three details are load-bearing:
   AAC, a big-endian AIFF — is decoded ONCE into a WAV in the record cache
   (`~/Library/Caches/st0-engine/st0-record-cache` on macOS, JUCE's temp folder elsewhere), keyed by
   path, size and date, capped at 4 GB oldest-first, and mapped from there; a second load is a cache
-  hit under a millisecond. Decoding into memory is left only for a cache that cannot be written. The TIME is not the message thread's either: `loadRecordAsync` checks the header
+  hit under a millisecond. Decoding into memory is left only for a cache that cannot be written.
+  Every decode sizes itself from the file's header, so a header claiming more than six hours, more
+  than 32 channels or an absurd rate is refused (`plausibleRecord`) before anything is written: the
+  cache copy of a corrupt FLAC would otherwise grow until the disk is full. The TIME is not the message thread's either: `loadRecordAsync` checks the header
   where it is called, so a bad file still answers at once, and decodes on the plugin's own loader
   thread, publishing the record whole under the lock the audio thread only tries. The latest request
   wins, so a record picked twice in a row never plays the first. An offline render waits for the

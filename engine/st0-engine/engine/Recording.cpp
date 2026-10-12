@@ -87,7 +87,9 @@ struct RecordListener : public te::TransportControl::Listener {
             if (take != host.impl_->session(session).pendingTakes.end() && file.existsAsFile()) {
                 auto dest = file.getParentDirectory()
                                 .getChildFile(juce::String(take->second) + file.getFileExtension());
-                if (dest != file && (!dest.existsAsFile() || dest.deleteFile())) {
+                // Never over another take: two tracks whose names sanitise alike share a stamp, and the reported path is the real one.
+                if (dest != file && dest.existsAsFile()) dest = dest.getNonexistentSibling(false);
+                if (dest != file) {
                     if (file.moveFileTo(dest)) file = dest;
                     else std::cerr << "[rec] could not rename take to "
                                    << dest.getFullPathName() << " — keeping "
@@ -277,17 +279,6 @@ std::vector<std::string> EngineHost::armedTracks(const std::string& session) con
             out.push_back(t.id);
     }
     return out;
-}
-
-// The device carrying one 1-based interface channel, and its index inside it — not findWaveInput, whose exact match reads a paired rig as silence (docs/inputTuner.md).
-static std::pair<te::WaveInputDevice*, int> channelTap(te::Engine& engine, int channel) {
-    for (auto* dev : engine.getDeviceManager().getWaveInputDevices()) {
-        if (dev == nullptr) continue;
-        const auto& ch = dev->getChannels();
-        for (int i = 0; i < static_cast<int>(ch.size()); ++i)
-            if (ch[i].indexInDevice == channel - 1) return {dev, i};
-    }
-    return {nullptr, 0};
 }
 
 std::vector<EngineHost::ChannelPitch>

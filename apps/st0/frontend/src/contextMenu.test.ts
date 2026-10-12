@@ -967,7 +967,7 @@ describe("a rack pad", () => {
     menu: ["tap"],
   }));
 
-  it("offers the six edits by name, in the order a kit is edited", () => {
+  it("offers the seven edits by name, in the order a kit is edited", () => {
     const items = contextMenu(
       { kind: "tap", id: "kit", symbol: "BD" },
       TAP_VERBS,
@@ -979,6 +979,7 @@ describe("a rack pad", () => {
       "Remove",
       "Add one before",
       "Add one after",
+      "Edit chain…",
     ]);
   });
 

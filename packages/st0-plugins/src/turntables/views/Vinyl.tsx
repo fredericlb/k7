@@ -2,9 +2,11 @@
 // progress filling the disc, the cues around it, and the label carrying what is loaded.
 // See ../../docs/vinyl.md.
 
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { useEffect, useRef } from "react";
 import { CUE_COLOURS } from "../deckVocabulary";
 import { CENTRE, pointOnDial, progressOf, wedgePath } from "../dial";
+import { useInSight } from "./inSight";
 
 /** Where the grooves sit, as fractions of the radius — dense at the rim, sparse toward the label. */
 const GROOVES = [0.97, 0.93, 0.89, 0.85, 0.8, 0.75, 0.69, 0.63, 0.57];
@@ -79,6 +81,10 @@ export function Vinyl({
   wanted.current = spinning ? ratio : 0;
   /** While a hand holds the record, the drawing follows the FINGER and not the integrated speed. */
   const held = useRef<number | null>(null);
+  const follow = usePointerFollow();
+  // Read by the frame loop: hidden, the record keeps its angle but nothing is written to a page nobody sees.
+  const seen = useRef(true);
+  seen.current = useInSight();
 
   /** Take hold of the record: the rate becomes the hand's, and the drawing sticks to the pointer. */
   const grab = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -102,14 +108,12 @@ export function Vinyl({
       onScratch(Math.max(-MAX_RATE, Math.min(MAX_RATE, rate)));
     };
     const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
       held.current = null;
       // Null and not 0: letting go hands the record back to whatever it was doing, docs/scratch.md.
       onScratch(null);
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    // One finger per record, and a cancelled touch lets go like a lifted one — a held rate would keep playing.
+    follow(e, { move, end: up, cancel: up });
   };
 
   // The progress AND the rotation, per frame and never through React — `length` changes what a position MEANS.
@@ -124,7 +128,8 @@ export function Vinyl({
       const dt = Math.min(now - last, 100); // a backgrounded tab must not spin the record a full turn
       last = now;
       const el = wedge.current;
-      if (el) el.setAttribute("d", wedgePath(progressOf(at(), length), FILL_R));
+      if (el && seen.current)
+        el.setAttribute("d", wedgePath(progressOf(at(), length), FILL_R));
       if (!still) {
         // A HELD record follows the finger outright; nothing is eased, because nothing is coasting.
         if (held.current !== null) {
@@ -136,7 +141,7 @@ export function Vinyl({
           speed += (wanted.current - speed) * k;
           angle = (angle + (360 * (dt / 1000) * speed) / TURN_SECONDS) % 360;
         }
-        if (disc.current)
+        if (disc.current && seen.current)
           disc.current.style.transform = `rotate(${angle.toFixed(2)}deg)`;
       }
       frame = requestAnimationFrame(tick);

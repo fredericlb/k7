@@ -9,6 +9,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Headphones, Link2, Repeat, Undo2 } from "@frediverse/ui/icons";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 
 /** A deck's two MOMENTARY effects — held, never toggled. See ../../docs/fx.md.
  *
@@ -31,11 +32,15 @@ export function FxButtons({
   echoingOut: boolean;
   onEchoOut: (on: boolean) => void;
 }) {
+  const follow = usePointerFollow();
+  // The release is followed on the window: a button disabled mid-hold loses its own handlers, and the effect would stay on.
   const held = (on: (down: boolean) => void, enabled: boolean) =>
     enabled
       ? {
-          onPointerDown: () => on(true),
-          onPointerUp: () => on(false),
+          onPointerDown: (e: React.PointerEvent) => {
+            on(true);
+            follow(e, { end: () => on(false), cancel: () => on(false) });
+          },
           onPointerLeave: () => on(false),
         }
       : {};

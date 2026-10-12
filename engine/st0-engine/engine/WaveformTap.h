@@ -23,10 +23,7 @@ public:
     explicit WaveformTap(int bucketSize = 256)
         : bucketSize_(bucketSize > 0 ? bucketSize : 256) {}
 
-    // Called per-FRAME from the audio thread: min/max across the current bucket, flushed as one envelope point when the bucket fills.
-    void pushSample(float sample) { pushFrame(sample, sample); }
-
-    // A stereo frame, both sides folded into ONE bucket: the drain is a single chronological stream — docs/engineHost.md.
+    // Called per-FRAME from the audio thread, both sides folded into ONE bucket: the drain is a single chronological stream — docs/engineHost.md.
     void pushFrame(float left, float right) {
         const float lo = left < right ? left : right;
         const float hi = left < right ? right : left;

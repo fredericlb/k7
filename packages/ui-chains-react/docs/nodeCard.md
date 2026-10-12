@@ -151,8 +151,11 @@ A panel with two or more tabs (`packages/ui-module-builder/docs/pages.md`) draws
 down the card's LEFT, under the header — `TAB_COL_W` wide, one `TAB_H` row per name, the open one lit
 by a sand rule on its left edge. The card is widened by the column rather than the grid narrowed,
 and `widgetRect` takes the column's width as its left offset, so a tab's widgets sit exactly where
-the builder's grid shows them. A card is at least tall enough to list every tab: a twelve-tab panel
-on a short grid grows rather than cutting its last names.
+the builder's grid shows them. The column stretches a card to list its tabs up to 4 rows' height
+(`TAB_COL_MAX_ROWS`), and past it the column SCROLLS under the wheel, the open tab kept in view: the
+horizontal layout promises a card at most 4 rows tall, and a 25-tab synth listing every name would
+be 500 px of card for its tabs alone. The wheel over a column that can scroll scrolls it rather
+than moving the camera.
 
 The open tab is the card's own STATE, not a field of the document: which page shows is a view, and
 two cards of the same module may show different ones. What the grid draws is the shared `widgets`
@@ -161,6 +164,12 @@ library choices — walks every tab through `panelWidgets` (`@studio/graph-model
 on a closed tab is still the module's.
 
 A single tab draws no column: one tab is no tab, and the builder never writes one.
+
+**In the vertical layout, and only there, the tabs are a MENU across the top** (`tabsAs: "dropdown"`, a `<select>`
+of class `dgx-tabmenu`, `TAB_MENU_H` tall). That layout is at most 4 columns wide
+(`packages/ui-module-builder/docs/layouts.md`), so a column at its left would take a third of the
+card's width for names. `menuH` pushes the grid down by the menu as `columnW` pushes it right by
+the column; one of the two is always 0.
 
 ## One corner list
 

@@ -2,6 +2,7 @@
 // the middle, with the beats in yellow and the transients in grey. Canvas, driven by its own
 // animation frame off the deck's STEERED reader — never by React state. See ../../docs/waveform.md.
 
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { interpolated, spectrumColumns } from "@studio/ui-waveform/spectrum";
 import { useCallback, useEffect, useRef } from "react";
 import type { DeckTempo } from "../deckVocabulary";
@@ -36,6 +37,7 @@ const HOLD_EPS = 0.08;
  * seeked while the hand is down — the offset is integrated here and drawn, and ONE seek goes out
  * on release. See ../../docs/waveform.md. */
 function shuttle(
+  follow: ReturnType<typeof usePointerFollow>,
   e: React.PointerEvent<HTMLDivElement>,
   onShove: (seconds: number) => void,
   /** Draw at the live needle plus this many seconds; `null` hands the drawing back. */
@@ -62,8 +64,6 @@ function shuttle(
   };
   const up = () => {
     cancelAnimationFrame(frame);
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
     preview(null);
     if (offset === 0) return;
     // The one seek of the whole gesture — and the position is HELD until it lands, or the band
@@ -71,8 +71,15 @@ function shuttle(
     hold(offset);
     onShove(offset);
   };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up);
+  // A cancel, or the view going away, stops the run and seeks nothing: the loop would otherwise run for good.
+  follow(e, {
+    move,
+    end: up,
+    cancel: () => {
+      cancelAnimationFrame(frame);
+      preview(null);
+    },
+  });
 }
 
 export function Waveform({
@@ -102,6 +109,7 @@ export function Waveform({
   onShove?: (seconds: number) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
+  const follow = usePointerFollow();
   /** What the hand has run up while it is down — REFS, like the needle, so a shuttle at 60 fps
    *  re-renders nothing: the canvas reads them in its own loop (../../docs/waveform.md). */
   const drag = useRef<number | null>(null);
@@ -125,6 +133,8 @@ export function Waveform({
     const ctx = el.getContext("2d");
     if (!ctx) return;
     let frame = 0;
+    // What the canvas shows now, as size and position: equal next frame, there is nothing to paint.
+    let drawn = "";
 
     const draw = () => {
       frame = requestAnimationFrame(draw);
@@ -133,16 +143,6 @@ export function Waveform({
       const w = el.clientWidth;
       const h = el.clientHeight;
       if (!w || !h) return;
-      if (
-        el.width !== Math.round(w * ratio) ||
-        el.height !== Math.round(h * ratio)
-      ) {
-        el.width = Math.round(w * ratio);
-        el.height = Math.round(h * ratio);
-      }
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-
       // Where we are NOW: a stopped deck's needle simply does not move, whichever clock it is on.
       // …unless a hand is on the band. A DRAG draws the live needle plus what the shuttle has run
       // up, and a RELEASE holds the position it landed on until the engine's needle arrives there
@@ -158,6 +158,19 @@ export function Waveform({
           hold.current = null;
         else at = held.at;
       }
+      // A stopped deck draws the same picture every frame: drawn once, then left until something moves.
+      const key = `${w}|${h}|${ratio}|${at}`;
+      if (key === drawn) return;
+      drawn = key;
+      if (
+        el.width !== Math.round(w * ratio) ||
+        el.height !== Math.round(h * ratio)
+      ) {
+        el.width = Math.round(w * ratio);
+        el.height = Math.round(h * ratio);
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, w, h);
 
       const mid = Math.round(h / 2) + 0.5;
       if (!envelope) {
@@ -230,7 +243,7 @@ export function Waveform({
       }`}
       style={{ height: `${height}px` }}
       onPointerDown={
-        onShove ? (e) => shuttle(e, onShove, preview, land) : undefined
+        onShove ? (e) => shuttle(follow, e, onShove, preview, land) : undefined
       }
       title={
         onShove

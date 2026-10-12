@@ -4,6 +4,7 @@
 // (@studio/web-protocol/rtc-frames). An address `rtc:<signal url>` is how a caller asks for one.
 // See packages/engine-tunnel/docs/rtc.md.
 
+import { ENGINE_CONNECT_DEADLINE_MS } from "@studio/web-protocol";
 import { FragmentJoiner, toFragments } from "@studio/web-protocol/rtc-frames";
 
 export const RTC_SCHEME = "rtc:";
@@ -70,6 +71,8 @@ class RtcSocket {
     const r = await fetch(this.signalUrl, {
       method: "POST",
       credentials: "include",
+      // A signalling answer that never comes is no path: the client's connect deadline is the same length.
+      signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sdp: pc.localDescription?.sdp ?? "" }),
     });

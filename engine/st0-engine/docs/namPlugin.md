@@ -108,6 +108,20 @@ SHAPE and never the level.
 Picking another model or another IR is a REPLACE in the diff (`projectDiff.md`), since both are
 loaded when the plugin is created.
 
+An IR longer than ten seconds is refused. A cabinet's response dies within one, and a file past ten
+is either not an IR or a corrupt header — sizing a buffer from it, and a convolution whose cost grows
+with it, is the failure to avoid.
+
+## A model that goes non-finite is reloaded
+
+A model's state can run to NaN or Inf, and it never decays back: Tracktion zeroes the output, and the
+amp is then silent until something resets it. Faust and the jsdsp graph clear themselves on the next
+block; a model cannot, because NAM's reset is a PREWARM, far too costly for the audio thread. So the
+audio thread zeroes the bad samples and raises a flag, and a 4 Hz timer on the message thread reloads
+the model from its file — prewarmed off the audio thread, swapped under the lock like any load — and
+clears the cabinet, whose tail held the same values. A model that keeps doing it is reloaded at most
+every two seconds and reported at most once a minute.
+
 ## Mono, deliberately
 
 Every NAM model is one-in/one-out, so a stereo track is summed to the amp's input and the

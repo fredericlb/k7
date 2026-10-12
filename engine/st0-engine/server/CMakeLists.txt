@@ -12,6 +12,8 @@ set(STUDIO_SERVER_SOURCES
     ServeProject.cpp
     ServePlugins.cpp
     ServeMachine.cpp
+    ServePairing.cpp
+    Pairing.cpp
     AudioSender.cpp
     DocJson.cpp
     # The NAM core's objects, on the FINAL link line rather than only inside

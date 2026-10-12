@@ -1,6 +1,6 @@
 // CommandBar.tsx — the command palette. It asks ONE question: what do you want done. You
 // answer in your own words, it lists SENTENCES, and the command's parameters are asked
-// afterwards in their own panel (CommandParams). See docs/commandBar.md.
+// afterwards on the bar's own row (CommandParams). See docs/commandBar.md.
 //
 // Both halves match the same way, with the shell's one fuzzy matcher: the command list against
 // each command's readable description AND its name, a field's list against that param's whole
@@ -105,6 +105,14 @@ function splitArgs(s: string): string[] {
 
 // A param value as a token: quoted when it contains whitespace, so the dispatcher reads it as one argument.
 const quoteArg = (v: string) => (/\s/.test(v) ? JSON.stringify(v) : v);
+
+/** The HOST's look while a command waits for its answers: orange, its edge glowing blue, padding included, faded in and out. */
+export const barTint = (pending: boolean): string =>
+  `transition-[background-color,box-shadow] duration-300 ${
+    pending
+      ? "bg-orange-500/35 ring-2 ring-inset ring-blue-500 shadow-[0_0_14px_3px_rgba(59,130,246,0.65)]"
+      : "bg-popover ring-0 ring-inset ring-blue-500/0 shadow-none"
+  }`;
 
 export const CommandBar = forwardRef<
   CommandBarHandle,
@@ -370,7 +378,8 @@ export const CommandBar = forwardRef<
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
       if (suggestions.length) {
         e.preventDefault();
-        setSel((i) => (e.key === "ArrowDown" ? i + 1 : i - 1));
+        // The list renders bottom-first (it opens upward), so ↑ walks FORWARD through it.
+        setSel((i) => (e.key === "ArrowUp" ? i + 1 : i - 1));
       }
       return;
     }
@@ -389,21 +398,37 @@ export const CommandBar = forwardRef<
     <div className="relative flex flex-1 items-center">
       <ChevronRight className="mr-1 h-4 w-4 text-primary" />
       {command ? (
-        // While the form is open the bar shows WHAT is being filled and takes no typing: a second input would compete for the keys.
-        <button
-          type="button"
-          onClick={() => {
+        // While a command is being filled the row IS its form: the name, then a field per param, on one line.
+        <CommandParams
+          command={command}
+          values={values}
+          active={active}
+          suggestions={suggestions}
+          selected={selIdx}
+          argColor={ARG_COLOR}
+          // What Enter will do right now — the same decision the key itself takes.
+          enterDoes={
+            enterAction(
+              command.args,
+              values,
+              active,
+              suggestions.length ? suggestions[selIdx].value : undefined,
+            ).kind
+          }
+          onType={setField}
+          onFocusField={(i) => {
+            setActive(i);
+            setSel(0);
+          }}
+          onPick={takeSuggestion}
+          onHover={setSel}
+          onKeyDown={onFormKey}
+          onRepick={() => {
             reset();
             inputRef.current?.focus();
           }}
-          className="min-w-0 flex-1 truncate text-left text-sm text-muted-foreground hover:text-foreground"
-          title="click to pick another command"
-        >
-          {command.readable}
-          <span className="ml-2 font-mono text-xs opacity-60">
-            {command.canonical}
-          </span>
-        </button>
+          inputRef={argRef}
+        />
       ) : (
         <input
           ref={inputRef}
@@ -467,35 +492,6 @@ export const CommandBar = forwardRef<
             </li>
           ))}
         </ul>
-      )}
-
-      {command && (
-        <CommandParams
-          command={command}
-          values={values}
-          active={active}
-          suggestions={suggestions}
-          selected={selIdx}
-          argColor={ARG_COLOR}
-          // What Enter will do right now — the same decision the key itself takes.
-          enterDoes={
-            enterAction(
-              command.args,
-              values,
-              active,
-              suggestions.length ? suggestions[selIdx].value : undefined,
-            ).kind
-          }
-          onType={setField}
-          onFocusField={(i) => {
-            setActive(i);
-            setSel(0);
-          }}
-          onPick={takeSuggestion}
-          onHover={setSel}
-          onKeyDown={onFormKey}
-          inputRef={argRef}
-        />
       )}
     </div>
   );

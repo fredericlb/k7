@@ -321,6 +321,15 @@ export function ClipView({
     target.kind !== "seq" && target.clip.type === "midi"
       ? target.track || trackPlacing(target.project, target.clip.id)
       : "";
+  /** The event as the `event …` verbs address it — lane and start — or null for a roll that shows no placement. */
+  const eventAddr =
+    clip && midiTrack && clip.length > 0 && target.kind !== "seq"
+      ? `${midiTrack} ${beatsToPosition(
+          clip.start,
+          (project ?? target.project).timeSigNumerator,
+          (project ?? target.project).timeSigDenominator,
+        )}`
+      : null;
   const [graph, setGraph] = useState<WebGraph | null | undefined>(undefined);
   const [graphError, setGraphError] = useState<string | null>(null);
   /** WHICH view of these notes, reset per clip: every clip opens on the roll, and the header's dropdown moves it from there. */
@@ -439,6 +448,7 @@ export function ClipView({
                   racks={hints?.racks ?? {}}
                   onChanged={onChanged ?? (() => {})}
                   setStatus={setStatus ?? (() => {})}
+                  reloadKey={reloadKey}
                 />
               ) : (
                 <div className="p-3 text-muted-foreground text-sm">
@@ -470,6 +480,23 @@ export function ClipView({
                 setStatus={setStatus}
                 onSelection={onSelection}
                 onSetLoop={onSetLoop}
+                // The EVENT's own loop, which only a placement has: the switch, and its two points in the notes' beats.
+                onLoop={
+                  eventAddr
+                    ? (on) =>
+                        void command(
+                          `event loop ${eventAddr} ${on ? "on" : "off"}`,
+                        )
+                    : undefined
+                }
+                onLoopPoints={
+                  eventAddr
+                    ? (f, t) =>
+                        void command(
+                          `event loop points ${eventAddr} ${f.toFixed(4)} ${t.toFixed(4)}`,
+                        )
+                    : undefined
+                }
                 onSeek={onSeek}
                 onCreateNote={
                   onCreateNote
@@ -541,6 +568,10 @@ export function ClipView({
             )}
             // …and the slice of the file it plays, already the intersection the compiler made (nodeProject.ts).
             eventWindow={{ from: clip.sourceFrom, to: clip.sourceTo }}
+            // …and how many times it plays it: more than one is a loop, which the panel's switch and ruler edit.
+            loops={clip.event?.loop ?? 1}
+            // …and its own trim, which only an audio event has.
+            gainDb={clip.event?.gain ?? 0}
             onSeek={onSeek}
             command={command}
             onClose={onClose}

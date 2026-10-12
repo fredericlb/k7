@@ -1,11 +1,9 @@
-// waveformCache.ts — spawning the ENGINE to build a `{source}.cache` sidecar, and the memo in
-// front of it. The sidecar's FORMAT — its fingerprint, its fields, reading one back — is
-// @studio/audio-analysis's, because pl8 writes the same file with no engine at all. Clip-region
-// slicing and the tempo grid stay in @studio/audio-probe/waveform. See docs/waveformCache.md.
+// waveformCache.ts — when a `{source}.cache` sidecar gets (re)built, and the memo in front of it.
+// Building one is @studio/audio-analysis's, decoding through the engine where there is one and
+// through ffmpeg where there is not. Clip-region slicing and the tempo grid stay in
+// @studio/audio-probe/waveform. See docs/waveformCache.md.
 
-import { execFile, spawn } from "node:child_process";
 import { statSync } from "node:fs";
-import { promisify } from "node:util";
 import { analyseFile } from "@studio/audio-analysis/analyse";
 import { DEFAULT_TRANSIENT_SENSITIVITY } from "@studio/audio-analysis/envelope";
 import { fileFingerprint } from "@studio/audio-analysis/fingerprint";
@@ -17,8 +15,6 @@ import {
 } from "@studio/audio-analysis/sidecar";
 import type { FileEnvelope } from "@studio/audio-probe/waveform";
 
-const execFileAsync = promisify(execFile);
-
 // Re-exported so this module's importers keep resolving them; they are the sidecar's, not ours.
 export {
   CACHE_EXT,
@@ -28,7 +24,7 @@ export {
   storedSensitivity,
 };
 
-// --- (re)generation through the engine -------------------------------------------
+// --- (re)generation ----------------------------------------------------------------
 
 // So a burst for one source doesn't re-read the sidecar: mtime is the cheap gate, the fingerprint stays the truth.
 interface Memo {
@@ -45,7 +41,7 @@ const memo = new Map<string, Memo>();
  */
 const inFlight = new Map<string, Promise<FileEnvelope>>();
 
-/** A fresh envelope: the memo, a matching sidecar, else the engine decodes it — see docs/waveformCache.md. */
+/** A fresh envelope: the memo, a matching sidecar, else a decode — see docs/waveformCache.md. */
 export async function ensureFileEnvelope(
   source: string,
   engineBin: string | null,
@@ -72,27 +68,14 @@ export async function ensureFileEnvelope(
   if (running) return running;
 
   const decode = (async (): Promise<FileEnvelope> => {
-    // No engine here — the hosted service: ffmpeg writes the same sidecar, as pl8 does (docs/waveformCache.md).
-    if (!engineBin) {
-      const env = await analyseFile(
-        source,
-        wanted ?? DEFAULT_TRANSIENT_SENSITIVITY,
-      );
-      memo.set(source, { mtimeMs, env });
-      return env;
-    }
-    // The engine writes `{source}.cache` itself; we just read it back.
-    await execFileAsync(
-      engineBin,
-      wanted == null
-        ? ["--waveform", source]
-        : ["--waveform", source, String(wanted)],
-      { maxBuffer: 1 << 20 },
+    // A null engineBin is the hosted service: ffmpeg decodes, as in pl8 (docs/waveformCache.md).
+    const env = await analyseFile(
+      source,
+      wanted ?? DEFAULT_TRANSIENT_SENSITIVITY,
+      { engineBin },
     );
-    const fresh = readSidecar(source);
-    if (!fresh) throw new Error("engine did not produce a waveform cache");
-    memo.set(source, { mtimeMs, env: fresh });
-    return fresh;
+    memo.set(source, { mtimeMs, env });
+    return env;
   })();
   inFlight.set(key, decode);
   try {
@@ -155,61 +138,34 @@ export function staleWaveformSources(sources: string[]): string[] {
   return out;
 }
 
-// Compute every stale sidecar in ONE process, paying startup once; `onResult` fires per file for a live count.
-export function runWaveformBatch(
-  engineBin: string,
+/** How many files a prewarm decodes at once: each holds a mono copy of its file, ~57 MB for five minutes. */
+export const WARM_DECODES = 2;
+
+// Rebuild every stale sidecar, a few at a time; `onResult` fires per file for a live count.
+export async function runWaveformBatch(
+  engineBin: string | null,
   sources: string[],
   onResult?: (source: string, ok: boolean) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const child = spawn(engineBin, ["--waveform-batch"], {
-      stdio: ["pipe", "pipe", "inherit"], // stderr → our log; stdout is the progress stream
-    });
-    // Aborting kills the child so it releases the .wav mid-decode — Windows can't rename a folder it holds open.
-    const onAbort = () => child.kill();
-    if (signal) {
-      if (signal.aborted) child.kill();
-      else signal.addEventListener("abort", onAbort, { once: true });
+  const queue = [...sources];
+  const worker = async (): Promise<void> => {
+    for (let s = queue.shift(); s !== undefined; s = queue.shift()) {
+      if (signal?.aborted) return;
+      // The threshold the PREVIOUS sidecar carried, so a prewarm never quietly resets a tuned one.
+      const ok = await analyseFile(
+        s,
+        storedSensitivity(s) ?? DEFAULT_TRANSIENT_SENSITIVITY,
+        { engineBin, signal },
+      ).then(
+        () => true,
+        () => false,
+      );
+      invalidateEnvelope(s); // re-read the freshly-written sidecar next time
+      if (!signal?.aborted) onResult?.(s, ok);
     }
-    const cleanup = () => signal?.removeEventListener("abort", onAbort);
-    let buf = "";
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      buf += chunk;
-      let nl: number;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl).trim();
-        buf = buf.slice(nl + 1);
-        if (!line) continue;
-        const tab = line.indexOf("\t");
-        if (tab < 0) continue;
-        const ok = line.slice(0, tab) === "ok";
-        const src = line.slice(tab + 1);
-        invalidateEnvelope(src); // re-read the freshly-written sidecar next time
-        onResult?.(src, ok);
-      }
-    });
-    child.on("error", (e) => {
-      cleanup();
-      reject(e);
-    });
-    child.on("close", () => {
-      cleanup();
-      resolve();
-    });
-    child.stdin.on("error", () => {}); // a dead child racing our write — surfaced via close/error
-    // `<path>` or `<path>\t<sensitivity>`, so a prewarm never quietly resets a tuned threshold.
-    child.stdin.write(
-      sources
-        .map((s) => {
-          const sens = storedSensitivity(s);
-          return sens == null || sens === DEFAULT_TRANSIENT_SENSITIVITY
-            ? s
-            : `${s}\t${sens}`;
-        })
-        .join("\n") + "\n",
-    );
-    child.stdin.end();
-  });
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(WARM_DECODES, queue.length) }, worker),
+  );
 }

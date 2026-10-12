@@ -4,7 +4,6 @@
 // A row is drawn as the command's NAME minus the word naming what was clicked; what it does is a
 // sentence for the status bar. See docs/contextMenu.md.
 
-import { localizeCommand, localizeCommandLine } from "./commandI18n";
 import { type CommandPrefs, inMenu } from "./commandPrefs";
 import type { ArgClass, ArgProvider, CommandInfo, MenuEntity } from "./types";
 
@@ -208,7 +207,7 @@ const build = (
   prefs: CommandPrefs = {},
   /** The head to drop off the names — `CLICKED_HEAD` for this context. "" drops nothing. */
   head = "",
-  /** Which language the DESCRIPTION is read in. The names stay the CLI's — see commandI18n.ts. */
+  /** Which language the DESCRIPTION is read in. The names stay the CLI's, which are English. */
   locale = "en",
   /** What was clicked, for the catalogue's `menu:` — undefined asks nothing of it. */
   entity?: MenuEntity,
@@ -221,7 +220,7 @@ const build = (
       commands.find((c) => c.command === e.verb)?.menu,
     ),
   );
-  const full = kept.map((e) => e.name ?? localizeCommand(e.verb));
+  const full = kept.map((e) => e.name ?? e.verb);
   const short = full.map((n, i) => (kept[i].name ? n : shortName(n, head)));
   // All or nothing: the list is DERIVED, so when shortening would make a pair indistinguishable nothing is dropped.
   const distinct = new Set(short).size === short.length;
@@ -236,7 +235,7 @@ const build = (
         ? readable(e.help)
         : (c?.readable as Record<string, string> | undefined)?.[locale] ||
           readable(c?.help ?? ""),
-      command: localizeCommandLine(line) + (e.needsMore ? " " : ""),
+      command: line.trim() + (e.needsMore ? " " : ""),
       complete: !e.needsMore,
       // Only when it asks: a row that does not carries no word saying so.
       ...(c?.confirm ? { confirm: true } : {}),
@@ -364,6 +363,13 @@ export function contextMenu(
           verb: "node tap insert",
           arg: `${quoteArg(ctx.id)} after ${quoteArg(ctx.symbol)}`,
           name: "Add one after",
+        },
+        // …and its OWN chain of effects, in a popin: a rack's tap or a kit's pad alike (song docs/racks.md).
+        {
+          verb: "ui tap chain",
+          arg: at,
+          name: "Edit chain…",
+          help: "this tap's own chain of effects — add, remove, reorder",
         },
       ]);
     }

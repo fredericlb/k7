@@ -39,7 +39,13 @@ public:
     bool producesAudioWhenNoAudioInput() override { return true; }
     // A struck string rings on past its note-off, and its release samples are part of the sound.
     bool noTail() override { return false; }
-    int getNumOutputChannelsGivenInputs(int) override { return 2; }
+    // Two per output pair: one unless some key leaves by a pair of its own (docs/tapOutputs.md).
+    int getNumOutputChannelsGivenInputs(int) override { return 2 * pairs_; }
+    // …and a name per channel of them: a RackType refuses a connection from a pin past the plugin's names.
+    void getChannelNames(juce::StringArray* ins, juce::StringArray* outs) override;
+
+    /** Which keys leave by which output pair, as `{note, pair}`; set BEFORE the instrument loads and the graph is built. */
+    void setKeyOutputs(const std::vector<std::pair<int, int>>& noteToPair);
 
     void initialise(const tracktion::engine::PluginInitialisationInfo& info) override;
     void deinitialise() override;
@@ -70,8 +76,8 @@ public:
     /** Where `path` is on this machine: an `@instruments/…` ref under `<state>/instruments`, anything else as written. */
     static juce::File resolve(const juce::String& path);
 
-    /** The instrument currently loaded (empty when none). */
-    juce::String instrumentPath() const;
+    /** Whether `path` can load here: an `@instruments/…` ref needs its file AND its folder's install marker. */
+    static bool installed(const juce::String& path);
 
 private:
     // The live synth, swapped under `lock_` — which the audio thread only TRIES, since blocking is a dropout.
@@ -87,8 +93,13 @@ private:
     // Whether the live synth is free-wheeling, flipped only when a render starts or stops.
     bool freeWheeling_ = false;
 
-    // The rendered pair, sized once in initialise() and never in applyToBuffer.
+    // The rendered pairs, sized once in initialise() and never in applyToBuffer.
     juce::AudioBuffer<float> out_;
+
+    // The keys routed to a pair of their own, and how many pairs that makes (docs/tapOutputs.md).
+    static constexpr int MAX_PAIRS = 16;
+    std::vector<std::pair<int, int>> keyOuts_;
+    int pairs_ = 1;
 
     void prepare(sfz::Sfizz& synth) const;
     bool loadNow(const juce::File& file, juce::String& error);

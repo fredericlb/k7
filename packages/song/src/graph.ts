@@ -61,6 +61,7 @@ import type {
   RawSequence,
   RawVideoTrack,
 } from "./rawDoc";
+import { type TapFeed, tapFeedsOf } from "./tapOuts";
 import { type Lane, laneMaterials, laneSignal, lanesOf } from "./trackModule";
 
 // Where an unnamed node sits, for whatever SHOWS one — this package exports no chainProject subpath.
@@ -178,6 +179,8 @@ export interface ModuleUI {
   tabs?: UiTab[];
   // The source of the `widgets.js` beside the panel, which draws its lcdscreen widgets.
   script?: string;
+  // The panel laid out NARROW, at most 4 columns — absent, the panel serves both shapes (song-schema's LayoutSchema).
+  vertical?: Omit<ModuleUI, "script" | "vertical">;
 }
 
 // One rack sound triggered by a MIDI note: its own `clip` in a "samples" rack, a [from, to) second window in a "slice" one.
@@ -302,6 +305,8 @@ export interface GraphDoc {
   positions?: Record<string, { x: number; y: number }>;
   // The `assemblies/` folder, RESOLVED — a drawing fact the compiler never reads, see docs/assemblies.md.
   assemblies: Record<string, Assembly>;
+  // A rack node's taps routed to subchains, each with the first node of the run it feeds (docs/racks.md).
+  tapFeeds?: TapFeed[];
   warnings: string[];
 }
 
@@ -387,6 +392,8 @@ export function checkChainInputs(
   seqs: Record<string, RawSequence>,
   // Video tracks (video_tracks/<id>.yaml): a chain sourced from one types as "video".
   videoTracks: Record<string, RawVideoTrack> = {},
+  // The first nodes of runs a rack's TAP feeds: fed with audio, though no edge says so (docs/racks.md).
+  tapFed: ReadonlySet<string> = new Set(),
 ): string[] {
   const errs: string[] = [];
 
@@ -412,8 +419,10 @@ export function checkChainInputs(
       if (!inputs.length) return; // opts out of input checking
 
       // Sources feeding this step in port order, each with its resolved type or undefined when unknowable.
+      const tapped = idx === 0 && tapFed.has(step.module);
       const hasFlow =
-        idx > 0 || (idx === 0 && (!!c.from || routedInto.has(chainName)));
+        idx > 0 ||
+        (idx === 0 && (!!c.from || routedInto.has(chainName) || tapped));
       const sources: {
         id: string;
         type: "audio" | "midi" | "video" | undefined;
@@ -436,7 +445,9 @@ export function checkChainInputs(
                   videoTracks,
                 ),
               }
-            : { id: "(flow)", type: undefined },
+            : tapped
+              ? { id: "(tap)", type: "audio" }
+              : { id: "(flow)", type: undefined },
         );
       for (const s of Array.isArray(step.in) ? step.in : [])
         sources.push({
@@ -1244,6 +1255,7 @@ function loadGraphIn(dir: string): GraphDoc {
     clipsMap,
     seqMap,
     videoTracksMap,
+    new Set(tapFeedsOf(rootChains).map((f) => f.to)),
   );
   if (inputErrs.length)
     throw new Error(
@@ -1260,6 +1272,9 @@ function loadGraphIn(dir: string): GraphDoc {
     videoTracksMap,
     resolveAssemblies(dir),
   );
+  // The taps routed to subchains, which a cable on the graph draws from the tap's own output (docs/racks.md).
+  const feeds = tapFeedsOf(rootChains);
+  if (feeds.length) g.tapFeeds = feeds;
   // A chain project's link levels, laid on as the compile lays them, and named where none is played (docs/chainFiles.md).
   applyLinkLevels(g.chains, loadLinkLevels(dir));
   g.warnings.push(

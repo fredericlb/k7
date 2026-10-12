@@ -4,19 +4,39 @@ The engine plays SFZ instruments (`engine/st0-engine/docs/sfzPlugin.md`) whose s
 8 MB to 750 MB. `src/Instruments.cpp` lists them and installs them under `<state>/instruments/<name>/`,
 and a module names one as `@instruments/<name>/<file>.sfz`.
 
-## The supervisor fetches them, when the engine starts
+## The machine keeps what its musician chose
 
-**Every instrument on the list, whether or not a song names one.** Fetching on first use would put
-a download between opening a song and hearing it — minutes for the piano — and a machine that is
-about to play a gig has to have everything before it leaves a network, not when a note asks.
+**Nothing is downloaded until it is asked for**, in the tray's Downloads tab
+(`engine/st0-tray/docs/tray.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
+kits more — and a machine that never plays a piano should not pay for one. What is chosen is
+remembered in `engine-host.json` as `instruments`, the names this machine keeps:
+
+- **A kept instrument is fetched whenever it is missing**: at each supervisor start, and again
+  when the list pins a newer archive, so a machine that leaves a network has what it chose.
+- **Absent is not empty.** A home that has never chosen is settled on its first boot to the
+  instruments already installed there, so an update keeps what an older supervisor fetched and
+  downloads nothing new. An empty list is a choice to keep nothing, and stays one.
+- **A host with no Downloads tab keeps them all**: the standalone app and the phone start the
+  supervisor with `STUDIO_INSTRUMENTS=all`, which outranks the setting. They have nowhere to
+  choose, and a module that stays silent with no way to fix it is worse than the download.
+
+**One at a time, in the order asked.** The queue runs on a thread of its own; the engine plays
+while it runs, and a song that names an instrument still missing loads it the moment it lands.
+A queued one can be cancelled. A running one cannot — the worker would write into a folder being
+deleted — and the supervisor refuses the removal with a reason rather than guessing.
+
+**Remove deletes the marker first**, then the folder and whatever a cut-short install left
+beside it, so a removal that stops halfway reads as not installed, never as a whole instrument.
+An engine still playing it keeps what it already loaded until its next load.
+
+**st0 asks the ENGINE, not the supervisor**, whether an instrument is here
+(`engine/st0-engine/docs/protocol.md`, `instrument-status`): the engine is the one a browser
+already talks to, and the files are where the engine reads them.
 
 **The supervisor, not a server.** The files come from their origin straight onto the machine that
 plays them: through a server they would be stored once per account and copied again across the
 tunnel to every engine. The supervisor already owns this machine's network and outlives every
 session, which is what a download of that size needs.
-
-They run after the engine is started, one at a time, on a thread of their own; the engine plays
-while they run, and a song that names an instrument still missing loads it the moment it lands.
 
 ## Pinned by the archive's hash
 
@@ -30,16 +50,17 @@ the list is updated.
 
 The archive is downloaded beside the folder (`<name>.zip.part`), unpacked into a sibling, renamed
 into place, and the marker `.st0-archive` — the hash it came from — written last. `installed` reads
-that marker: a download cut short leaves no marker and is started over at the next engine start,
+that marker: a download cut short leaves no marker and is started over at the next supervisor start,
 and a list that pins a NEW archive replaces an older install. A name in the archive that would land
 outside the folder is refused. One folder and nothing else at the top — what GitHub serves — is
 dropped, so `<file>.sfz` sits directly under `<name>/`.
 
 ## What the tray shows
 
-The snapshot carries `downloads`, absent when nothing is downloading (`docs/hostProtocol.md`), and
-the tray draws ONE menu line from it: the first one's label and percentage, how many more wait, and
-a failure that stays until the next start; and the icon keeps its spinner, not the green dot, until
+The snapshot carries `instruments`, every row of the Downloads tab, and `downloads`, absent when
+nothing is queued or fetching (`docs/hostProtocol.md`). The tray draws ONE menu line from the
+latter: the first one's label and percentage, how many more wait, and a failure that stays until
+it is retried or the next start; and the icon keeps its spinner, not the green dot, until
 none is left to fetch, since a song naming a missing one would play silent. A frame is emitted per
 whole percent at most, since each one rebuilds the menu.
 

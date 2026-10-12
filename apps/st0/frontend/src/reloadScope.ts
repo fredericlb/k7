@@ -5,6 +5,7 @@
 // The rationale, the measurements and the one named limit are in docs/shell.md.
 
 import type { ChangedFile } from "@studio/web-protocol";
+import { useRef } from "react";
 
 /** The shell's reload signal: still a COUNTER, with `files` beside it — `null` means 'I do not know', which every predicate reads as re-ask. */
 export interface Reload {
@@ -33,3 +34,28 @@ const ARRANGEMENT_ONLY = /^(tracks|clips|sequences|curves)\/[^/]+\.ya?ml$/;
 /** Could this have changed the CHAINS — a node, a cable, an input? No when it only rewrote the arrangement. */
 export const movedTheChains = (r: Reload): boolean =>
   r.files === null || r.files.some((f) => !ARRANGEMENT_ONLY.test(f.path));
+
+/** Could this have changed `/surfaces`? Only a file under `surfaces/` is read for it. */
+export const movedTheSurfaces = (r: Reload): boolean =>
+  r.files === null || r.files.some((f) => f.path.startsWith("surfaces/"));
+
+/** Could this have brought audio to prewarm? A placement, a clip, or a file that is not YAML — an upload, a take, a render. */
+export const movedTheAudio = (r: Reload): boolean =>
+  r.files === null ||
+  r.files.some(
+    (f) => /^(tracks|clips)\//.test(f.path) || !/\.ya?ml$/.test(f.path),
+  );
+
+/** A counter that moves only when `moved` says this reload concerns it — the dependency to give an effect in place of `reload.key`. */
+export function useScopedKey(
+  reload: Reload,
+  moved: (r: Reload) => boolean,
+): number {
+  const seen = useRef({ key: -1, n: 0 });
+  if (reload.key !== seen.current.key)
+    seen.current = {
+      key: reload.key,
+      n: seen.current.n + (moved(reload) ? 1 : 0),
+    };
+  return seen.current.n;
+}

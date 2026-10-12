@@ -275,15 +275,12 @@ void addProjectHandlers(HandlerTable& t) {
 
     t.add({"record-enable"}, [](ServeContext& ctx, ix::WebSocket&, const json& j, const std::string& session, const std::string&) {
         auto& host = ctx.host;
-        auto& broadcastTo = ctx.broadcastTo;
-        // This session's record enable — whether play() records its armed tracks; omitting "enabled" toggles, and the value is echoed at once so the button lights.
+        // This session's record enable — whether play() records its armed tracks; omitting "enabled" toggles, and the state frame's recordEnabled carries the result.
         const bool has = j.contains("enabled") && j.at("enabled").is_boolean();
         const std::optional<bool> want =
             has ? std::optional<bool>(j.at("enabled").get<bool>()) : std::nullopt;
-        host.post([session, &host, &broadcastTo, want] {
-            const bool on = want.value_or(!host.recordEnabled(session));
-            host.setRecordEnabled(session, on);
-            broadcastTo(session, json{{"type", "record-enabled"}, {"enabled", on}});
+        host.post([session, &host, want] {
+            host.setRecordEnabled(session, want.value_or(!host.recordEnabled(session)));
         });
     });
 }

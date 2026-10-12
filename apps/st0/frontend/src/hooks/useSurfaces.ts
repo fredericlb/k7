@@ -1,10 +1,11 @@
-// useSurfaces.ts — the project's `surfaces/` folder, refetched on reloadKey. A surface is a
+// useSurfaces.ts — the project's `surfaces/` folder, refetched on reloadKey and kept through a failed read. A surface is a
 // special view the PROJECT asks for, so the shell cannot know its list until the project is
 // open. See packages/song/docs/surfaces.md.
 
 import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { api } from "../api";
+import { useDocument } from "./useDocument";
 
 export interface SurfacesState {
   /** In filename order. Empty for almost every project — the folder is optional. */
@@ -15,31 +16,21 @@ export interface SurfacesState {
 
 const NONE: SurfacesState = { surfaces: [], diagnostics: [] };
 
-/** Read the project's surfaces — parsed by the FILE SERVICE, and a failure answers the empty list, being indistinguishable from having none. */
+/** Read the project's surfaces — parsed by the FILE SERVICE; a failed read keeps the last list and retries, since an empty one unmounts four panes. */
 export function useSurfaces(reloadKey: number): SurfacesState {
-  const [state, setState] = useState<SurfacesState>(NONE);
-
-  useEffect(() => {
-    let alive = true;
-    api
-      .surfaces()
-      .then((s) => {
-        if (!alive) return;
-        setState({
-          surfaces: s.surfaces,
-          diagnostics: s.diagnostics.map((d) => ({
-            file: d.file,
-            message: d.message,
-          })),
-        });
-      })
-      .catch(() => {
-        if (alive) setState(NONE);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [reloadKey]);
-
-  return state;
+  // useDocument keeps the last answer through a failure and asks again on a backoff.
+  const { doc } = useDocument(() => api.surfaces(), reloadKey);
+  return useMemo(
+    () =>
+      doc
+        ? {
+            surfaces: doc.surfaces,
+            diagnostics: doc.diagnostics.map((d) => ({
+              file: d.file,
+              message: d.message,
+            })),
+          }
+        : NONE,
+    [doc],
+  );
 }

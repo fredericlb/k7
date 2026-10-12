@@ -24,6 +24,7 @@ import type { ProjectApp } from "@studio/web-protocol/projects";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { pollWhileVisible } from "../visiblePoll";
 import type { AccountFiles } from "./api";
 import { type Changed, changedOf, slash, withChanges } from "./changedTree";
 import { FileViewer } from "./FileViewer";
@@ -143,10 +144,10 @@ function useChanges(source: TreeSource | null): GitChange[] {
         // A source git cannot read is drawn uncoloured rather than as an error.
         .catch(() => undefined);
     void read();
-    const t = setInterval(read, CHANGES_MS);
+    const stopPoll = pollWhileVisible(() => void read(), CHANGES_MS);
     return () => {
       stop = true;
-      clearInterval(t);
+      stopPoll();
     };
   }, [source?.key]);
   return changes;

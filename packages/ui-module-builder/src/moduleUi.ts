@@ -158,6 +158,20 @@ function uiToPlain(ui: ModuleUI): Record<string, unknown> {
     tabs: ui.tabs?.length
       ? ui.tabs.map((t) => ({ name: t.name, widgets: plainWidgets(t.widgets) }))
       : undefined,
+    // The narrow twin, written the same way (layouts.md).
+    vertical: ui.vertical
+      ? {
+          cols: ui.vertical.cols,
+          rows: ui.vertical.rows,
+          widgets: plainWidgets(ui.vertical.widgets),
+          tabs: ui.vertical.tabs?.length
+            ? ui.vertical.tabs.map((t) => ({
+                name: t.name,
+                widgets: plainWidgets(t.widgets),
+              }))
+            : undefined,
+        }
+      : undefined,
   }) as Record<string, unknown>;
 }
 
@@ -203,6 +217,7 @@ function parseUiFileText(text: string): ModuleUI | null {
     rows: raw.rows,
     widgets: raw.widgets,
     ...(raw.tabs !== undefined ? { tabs: raw.tabs } : {}),
+    ...(raw.vertical !== undefined ? { vertical: raw.vertical } : {}),
   });
   return r.success ? r.data : null;
 }
@@ -235,6 +250,12 @@ export function writeUiFile(text: string, ui: ModuleUI): string {
     doc.setIn(["tabs"], tabs);
     flowPanel(doc);
   } else doc.delete("tabs");
+  // The vertical layout as a block of its own, its widgets one a line like the panel's.
+  if (plain.vertical) {
+    const vertical = doc.createNode(plain.vertical);
+    flowPanel(vertical);
+    doc.setIn(["vertical"], vertical);
+  } else doc.delete("vertical");
   return doc.toString({ lineWidth: 0 });
 }
 

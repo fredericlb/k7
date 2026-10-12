@@ -45,6 +45,12 @@ comes back the day the second rule moves. A subject reads perfectly well without
 *this user has no preferences* — the ordinary first-login state the caller already handles.
 A hosted service must not 500 because a volume is missing.
 
+**Except before a merge.** `readForUpdate` answers null only when the file is absent, and throws
+when it is there and cannot be read. A caller that merges a change onto what it read, like st0's
+AI settings, would otherwise start from `{}` and write the file back without everything the
+unreadable one held: the account's Claude key lost to a model change. It refuses instead, and
+nothing is changed. `read` stays forgiving because a read that only displays loses nothing.
+
 **A write that fails never throws, and says so.** `write` answers a boolean rather than
 raising: the choice the person just made still stands for this session, because taking it away
 *as well* would be strictly worse from where they are standing. What is lost is only that it

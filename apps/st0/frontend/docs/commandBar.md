@@ -9,9 +9,8 @@
 ## `CommandBar.tsx` — one question, then a form
 
 The bar asks ONE thing: **what do you want done**. You answer in your own words, it lists
-SENTENCES, and the parameters that command needs are asked afterwards, in their own small panel
-(`CommandParams.tsx`) in the bottom-right corner. A command with no parameters runs as soon as
-it is picked.
+SENTENCES, and the parameters that command needs are asked afterwards, on the bar's own row
+(`CommandParams.tsx`). A command with no parameters runs as soon as it is picked.
 
 ### It lists what a command DOES, not what it is called
 
@@ -28,8 +27,8 @@ there, and every line that ran past sixty was carrying a caveat or a consequence
 
 The command's NAME is not translated and never will be: a name is an identifier, the CLI's, and
 one spelling everywhere is what lets a menu pre-write a line, a key binding dispatch one, and a
-person read the same thing in the docs (see `commandI18n.ts`). What is translated is the
-explanation. So each row shows the sentence on the left and the name on the right, where a
+person read the same thing in the docs. So nothing maps a name at all: a line is dispatched as typed,
+trimmed, and no message key carries a command's name. What is translated is the explanation. So each row shows the sentence on the left and the name on the right, where a
 palette you have used before puts the keybinding — and typing either finds the row.
 
 That is the whole reason the sentence is what the row leads with. Reaching "mute a track" by
@@ -86,9 +85,13 @@ opens, because you cannot type the first letter of a track you have not been sho
 difference is that one is a vocabulary you are being offered and the other is a catalogue you
 are searching.
 
-### The parameters, in the corner
+### The parameters, on the bar's row
 
-`CommandParams` is a panel, not a step: **every question is on screen at once**, and an answer
+`CommandParams` replaces the input with ONE row: the command's name, then a field per parameter,
+named by its placeholder, then what Enter does this press. The bar's whole STRIP turns orange while it waits, its edge glowing blue,
+padding included, faded in and out — the host's background, from `barTint` and the bar's
+`onPending`, since only the host knows its own padding: a command half-given is the shell waiting on you, and a bottom strip that looks the same
+asking or idle is one nobody looks at. **Every question is on screen at once**, and an answer
 given three fields ago can be changed without unwinding the ones after it. It holds no state —
 the command, the answers and the gesture inlets all live in `CommandBar`, because two
 components with two copies of that would be two commands.
@@ -102,13 +105,15 @@ components with two copies of that would be two commands.
   stays on screen after a pick, and taking it again is a no-op. Without the clause Enter is
   eaten for ever, and a command whose LAST field has a vocabulary (`node replace <node>
   <extends-ref>`) can never be submitted at all. The three answers live in one place,
-  `enterAction` in `commandFill.ts`, which is also what the footer names — so the panel cannot
+  `enterAction` in `commandFill.ts`, which is also what the row's `↵` names — so the row cannot
   promise "run" while the key would pick.
 - **Escape** drops the list, and a second Escape abandons the command and gives the bar back.
 
-Bottom-right, small, and over nothing you would be pointing at: the bar is the bottom strip,
-the timeline and the graph fill the middle, and the corner is the one place a panel can sit
-while a gesture elsewhere answers one of its fields.
+On the row and not in a panel: a command being completed IS a line being typed, so it is drawn
+where the line was, reading as the CLI line it builds. The row is the bottom strip, so a gesture
+in the timeline or the graph can answer a field while every field stays in view. A field's
+suggestions open UPWARD from the row, best value nearest it, as the command list does — so ↑ walks
+forward through either.
 
 A command may declare trailing params it runs without (`optional: true` in `commands.yaml` —
 see [that package's page](../../../../packages/commands/docs/optionalArgs.md)). `requiredCount`
@@ -169,7 +174,7 @@ could not be typed into.
 A popin over a phone screen is most of the screen: leaving it up after you have tapped past it
 costs the pane you tapped *into*. The docked bar has no reason to do this and does not.
 
-**Unless the parameter panel is open.** While the bar is asking a command's questions it is not
+**Unless a command is being completed.** While the bar is asking a command's questions it is not
 idle, whatever the command field's focus says — so the dismissal reads `barPending`, the same
 signal the shell already uses to route a gesture to the field that is waiting.
 
@@ -288,9 +293,9 @@ The bar sits at the bottom of the window, so the command list opens UPWARD and i
 bottom-first: the best match sits right above the input (where the eye already is) and ↑ walks
 away from it, the way a shell completion list reads.
 
-Both the list and the parameter panel are PORTALLED to the body. The bar is a flex row in the
-shell's bottom strip; a panel that size inside it would be clipped or would push the input
-around, which is the same clipping the timeline's lane menu meets in its gutter.
+Both lists, the commands and a field's values, are positioned ABOVE the row rather than in it:
+the bar is a flex row in the shell's bottom strip, and a list in its flow would push the fields
+around under the caret.
 
 ## `ModulePicker.tsx` — "which module?"
 

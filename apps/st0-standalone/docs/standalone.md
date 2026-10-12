@@ -12,29 +12,17 @@ network unless a page asks for something remote.
 
 ## What it runs, and from where
 
-**The backends run UNCHANGED, as children, under tsx — the way their Docker images run them.**
-Nothing is bundled, so the packaged app carries source plus `node_modules` (`scripts/stage.mjs`),
-and a backend behaves here exactly as it does in production. The cost is size (~580 MB on macOS)
-and that tsx compiles on every start.
+st0's and pl8's backends, run the way `@studio/electron-shell` runs any server: unchanged, under
+tsx with Electron as their node, each in a process group that dies with the app. The reasons are
+that package's (`packages/electron-shell/docs/shell.md`); what is particular to this app:
 
-**Electron is their node**, through `ELECTRON_RUN_AS_NODE=1`. It is inherited, and that is
-load-bearing: pl8's file hub starts each file service with `process.execPath`, and so does the
-song compiler's DSP runner — both are Electron here, and only that variable keeps them node.
-VS Code's terminals export the same variable, which is why `scripts/start.mjs` clears it for the
-app itself: with it set, Electron opens no window.
-
-**The backends' cwd is the app's state folder, never the checkout.** `@frediverse/env` reads the
-nearest `env.yaml` above the cwd and lets it outrank the environment, so a dev checkout's OIDC
-settings would otherwise win. `TSX_TSCONFIG_PATH` keeps each backend on its own tsconfig.
-
-**Each backend is a process group led by a guard** (`src/guard.ts`), stopped as one: pl8 handles
-no signal, and its file services would outlive it. The guard's stdin is a pipe from the main
-process that nothing writes; the OS closes it however that process ends — Quit, a crash, Force
-Quit, SIGKILL — and the guard then stops its group. Stopping from the main process alone is not
-enough: a main process that dies never runs its shutdown, and its detached children keep the
-ports, which the next launch reports as already in use. A backend that exits on its own takes its
-group with it for the same reason. The supervisor needs no guard: its stdin closing is already
-what stops it.
+- **The inherited `ELECTRON_RUN_AS_NODE` is what keeps pl8's children node.** pl8's file hub
+  starts each file service with `process.execPath`, and so does the song compiler's DSP runner.
+- **pl8 handles no signal**, so its file services would outlive it without the guard's process
+  group.
+- **The supervisor needs no guard**: its stdin closing is already what stops it.
+- The packaged app is ~580 MB on macOS, since it carries source plus `node_modules`
+  (`scripts/stage.mjs`).
 
 ## Addresses
 
@@ -95,12 +83,10 @@ on macOS): `workspaces/` (`$STUDIO_FILES_ROOT`), `mediatek/`, `prefs/`, `server-
 
 ## Packaging
 
-`scripts/stage.mjs` builds `staging/`, and `electron-builder.cjs` copies it into Resources from
-`afterPack`: electron-builder's `extraResources` drops every directory named `node_modules`.
+`scripts/stage.mjs` builds `staging/`, which the shell's builder config copies into Resources.
 The backends' deps are installed with `--ignore-scripts` — the one native addon (ssh2's crypto)
 would target the system node's ABI rather than Electron's, and falls back to JS. The build is
-unsigned: partially signed, Gatekeeper kills the unsigned children. Where the Electron download
-fails, `ELECTRON_DIST=<unpacked dist>` points electron-builder at one already on disk.
+unsigned: partially signed, Gatekeeper kills the unsigned children.
 
 External tools stay external, as in pl8's image: `git` (libraries, workspaces), `ffmpeg`,
 `yt-dlp`, `mpv` — found on `PATH` or through their `*_BIN` variables.

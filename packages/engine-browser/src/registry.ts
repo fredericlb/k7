@@ -4,6 +4,8 @@
 // routes are spelled once here rather than per app: a copy per app drifts, and it drifts in the
 // return types first.
 
+import { ENGINE_CONNECT_DEADLINE_MS } from "@studio/web-protocol";
+
 /** What one account has this service remember; `engineId` is the only field EVERY service keeps, and a host widens `P` below. */
 export interface EnginePrefs {
   engineId?: string;
@@ -73,7 +75,11 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   return {
     list: async () =>
       json<E[]>(
-        await fetch(`${base}/api/engines`, { credentials: "include" }),
+        await fetch(`${base}/api/engines`, {
+          credentials: "include",
+          // A registry that accepts and never answers would hold every gate behind it on a spinner.
+          signal: AbortSignal.timeout(ENGINE_CONNECT_DEADLINE_MS),
+        }),
         "engines",
       ),
 

@@ -568,7 +568,7 @@ filesRouter.post(
     res.json({
       output,
       ...(output.refused ? { refused: true } : {}),
-      ...(moved ? { rev } : {}),
+      ...(moved ? { rev, revBefore: before } : {}),
       ...(files ? { changed: files } : {}),
       ...(graph ? { graph } : {}),
     });

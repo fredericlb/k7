@@ -1,7 +1,7 @@
 // RackBuilder.tsx — build a KIT on a 4×4 pad grid: drop audio files on the pads, click one to hear
 // it, name each pad (its tap) and the kit, choose where the samples go — this project's samples/
 // or a library's — then CREATE: the samples are uploaded there, and the kit becomes a NODE of the
-// library's `st0-rack` sampler, placed in the graph with its taps. Notes run 36 upward, bottom-left first —
+// library's `st0-rack` on its `samples` engine, placed with its taps. Notes run 36 upward, bottom-left first —
 // the drum-machine reading rackBuilder.ts pins. Opened by `module create rack` (packages/song/docs/racks.md).
 
 import { Button } from "@frediverse/ui/button";

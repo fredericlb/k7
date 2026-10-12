@@ -182,8 +182,8 @@ like a normaliser on `@studio/dsp`'s `normalize()` graph — is legal here: the 
 which is the condition `coldPlacementError` enforces.
 
 The pass that measures that file and feeds the value back is `peakPass.ts`, inside the per-source
-loop: offline, on a file, immediately before the render. It reads the number from the engine's
-`--peak` mode rather than from the waveform sidecar — see `docs/peakPass.md` for why that
+loop: offline, on a file, immediately before the render. It reads the number from a true-peak
+measurement rather than from the waveform sidecar — see `docs/peakPass.md` for why that
 distinction is not a detail.
 
 `Peak: 0` is the default, attenuating rather than boosting, for a chain that reaches the engine

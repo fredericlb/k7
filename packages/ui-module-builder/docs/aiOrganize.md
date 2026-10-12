@@ -128,6 +128,12 @@ the request is an UPDATE whose current script already had one. A word list is a 
 intent, and it errs on the side of drawing only: a refusal costs one repair round, where a screen
 that steals the pointer costs the author a surprise.
 
+**Two shapes, both checked.** The panel answered is the HORIZONTAL layout, at most 4 rows, and a
+panel wider than 4 columns also carries its `vertical` twin, at most 4 columns
+(`docs/layouts.md`). A model asked for one shape and left to derive the other gets the second wrong
+in ways a reader would not spot — a knob missing on a phone — so `checkAiResult` holds the answer
+to `twinIssues`: the sizes, the twin's geometry, and the same controls on every page of both.
+
 ## The answer is checked, twice, against the loader's own rules
 
 The model answers JSON (`AI_RESULT_SCHEMA`, enforced by structured outputs) and `checkAiResult`

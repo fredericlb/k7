@@ -3,7 +3,9 @@
 // right-click menu. PianoRoll draws the notes and the ghosts this hands back; the arithmetic each
 // gesture writes is ../rollDrag.ts. See ../../docs/clipEditors.md.
 
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { type RefObject, useRef, useState } from "react";
+import { clamp } from "../clamp";
 import type { MenuCtx } from "../contextMenu";
 import { selBox } from "../gridCaret";
 import { m } from "../paraglide/messages.js";
@@ -22,9 +24,6 @@ import { laneDraws, type RollMode } from "../rollMode";
 import { noteAddr, type RollNote } from "../rollPending";
 import { freeSnap, snapMode, snapPosition } from "../snap";
 import type { GridCaret } from "./useGridCaret";
-
-const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v));
 
 /** The roll's scale and grid, as the gestures read a pointer through them. */
 export interface RollGeometry {
@@ -131,6 +130,8 @@ export function useRollGestures({
     t1: number;
   } | null>(null);
   const drag = useRef<{ k: number; t0: number } | null>(null);
+  // One pointer per gesture, abandoned on a cancel or an unmount — @studio/ui-timeline/drag.
+  const follow = usePointerFollow();
 
   /** The step a gesture moves in: the grid the roll is drawing, or none while Ctrl is held (packages/ui-waveform/docs/ticks.md). */
   const stepAt = (e: PointerEvent | React.PointerEvent): number =>
@@ -165,13 +166,8 @@ export function useRollGestures({
       e.preventDefault();
       grid.placeCaret(cellAtEvent(e));
       const feed = grid.beginDrag(cellAtEvent(e));
-      const move = (ev: PointerEvent) => feed(cellAtEvent(ev));
-      const up = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-      };
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
+      // The rectangle stays as drawn whichever way the gesture ends.
+      follow(e, { move: (ev) => feed(cellAtEvent(ev)) });
       return;
     }
     // A press is where you are: the caret follows it, before the draw and whether or not the roll can write.
@@ -193,8 +189,6 @@ export function useRollGestures({
       setDraft({ k: d.k, t0: from, t1: to });
     };
     const up = (ev: PointerEvent) => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
       const d = drag.current;
       drag.current = null;
       setDraft(null);
@@ -207,8 +201,12 @@ export function useRollGestures({
         () => onCreateNote(d.k, from, to),
       );
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    // A cancelled draw drops its draft and writes no note.
+    const cancel = () => {
+      drag.current = null;
+      setDraft(null);
+    };
+    follow(e, { move, end: up, cancel });
   };
 
   /** --- drag a note's VELOCITY: the WHITE LINE is the handle, 0 at the bottom edge and 1 at the top, taken with pointer CAPTURE. */

@@ -12,7 +12,7 @@ export function retryDelay(attempt: number): number {
 /** Ask for a document, keep asking until it answers, and re-ask on `reloadKey` — the last error stays visible while the retries run. */
 export function useDocument<T>(
   load: () => Promise<T>,
-  reloadKey: number,
+  reloadKey: number | string,
 ): { doc: T | null; error: string | null } {
   const [doc, setDoc] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);

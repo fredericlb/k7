@@ -50,11 +50,8 @@ Where to wire it differs, and the difference is a choice:
 
 | surface | when |
 |---|---|
-| pl8, `useEngineChoice` | **always** — a permanent picker in the header |
+| pl8, `useSongEngine` | **always** — whether the account's engine answers decides where a song plays |
 | st0 `EngineGate` | **only while `picking`** — re-measuring after the choice takes the screen backwards under someone working |
-
-In pl8 the re-measure passes the current choice to `find(preferId)`, or an optimistic `choose()`
-whose save has not landed is overwritten by the server's value and the picker drifts back.
 
 The probe's timeout is **3 s**. Candidates are measured in parallel, so an absent engine costs
 one timeout rather than one per address; and on any machine but the engine's the only workable
@@ -99,18 +96,23 @@ engine a document itself, which the server's files would name in paths the engin
   **travels with the address that answered**. A relayed socket beside a direct `http://` rebuilds
   the mixed-content wall on the other half (`@studio/engine-registry/docs/proxy.md`).
 - **The picker's policy**: pl8 leaves an editor open with no engine, st0's gate does not. A
-  product difference, not a plumbing one. st0 never asks, and never reuses the remembered
-  engine either: every open takes `bestEngine` (`choose.ts`) afresh, and does not store it as
-  the preference. The order, each step only among the equals of the one before:
+  product difference, not a plumbing one. st0 never asks: every open takes `bestEngine`
+  (`choose.ts`) afresh, and does not store what it took as the preference. The order, each step
+  only among the equals of the one before:
   1. **compatibility** with the project (`compat.ts`): the share of the plugins the project
      needs its engine to host — internal and VST alike — that the engine's catalogue has,
      `available / required × 100`, floored so only a full house reads 100. An engine whose
      catalogue did not arrive in time ranks below any score;
-  2. the **latency class** (Q1, Q2, Q3);
-  3. the **performance** score.
+  2. the engine this account last **chose** — saved only by the header's engine menu, an explicit
+     pick, which a faster machine elsewhere does not overrule;
+  3. the engine on **this machine**, the one that answered over loopback (`onThisMachine`): its
+     sound comes out where you sit, and a stronger machine elsewhere on the LAN would otherwise
+     take the tab and play out of speakers in another room;
+  4. the **latency class** (Q1, Q2, Q3);
+  5. the **performance** score.
 
-  The latency in ms only breaks a tie left after all three. The remembered engine is used only
-  when no candidate qualifies at all.
+  The latency in ms only breaks a tie left after all of them. A remembered engine that is gone
+  or busy is no candidate, so the choice falls to this machine's.
 
   The formula is `@studio/web-protocol/compat`, and it is applied on one of two roads, by where
   the project's files live (`apps/st0/frontend/src/engineCompat.ts`):
@@ -124,4 +126,4 @@ engine a document itself, which the server's files would name in paths the engin
   compatibility is left out and the order starts at 2.
 
   The header's engine menu (st0's `EngineSwitch`) is an explicit choice, and it saves the
-  preference; the gate does not read that preference first.
+  preference — step 2 above.

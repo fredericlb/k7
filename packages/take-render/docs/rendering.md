@@ -7,7 +7,7 @@ in two, reading a wav's length. This page holds the reasoning behind those funct
 
 `freezeUpstreamRender` bounces everything a freeze covers — the upstream closure of one module,
 at that module's output — and it is a mixdown of the closure rather than a per-track bounce. A
-freeze point may be a bus several lanes meet at, and `--freeze --track` renders one track. So the
+freeze point may be a bus several lanes meet at, so the
 document is cut down to exactly the plan (those lanes, those plugins, the sends between them) and
 rendered whole. What comes out is precisely what that part of the song was contributing, which is
 what the render has to stand in for.

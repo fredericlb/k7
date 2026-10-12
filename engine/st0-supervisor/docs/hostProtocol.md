@@ -35,8 +35,22 @@ request/response channel for one list that changes only on a rescan, and `plugin
 it off the wire between scans.
 
 `downloads` is the one key that is ABSENT rather than empty: it exists only while an instrument is
-being fetched (`docs/instruments.md`), and a snapshot without it is the common case on every frame.
-It moves once per whole percent, which is as often as the menu line it feeds can show a change.
+queued or being fetched (`docs/instruments.md`), and a snapshot without it is the common case on
+every frame. It moves once per whole percent, which is as often as the menu line it feeds can show
+a change. `instruments`, the Downloads tab's rows, is always there: a handful of rows that move
+only when a choice, an install or a removal does — `installed` is read from disk then, never per
+frame. `instruments.download <name>` and `instruments.remove <name>` are the two commands that act
+on it; the second is refused, with a reason, for the instrument being fetched right now.
+
+`pairRequests` and `pairedDevices` are the engine's LAN pairing lists, relayed verbatim
+(`engine/st0-engine/docs/pairing.md`). They are POLLED every second rather than taken from the
+engine's own pushes: the musician must see a request within the two minutes it lives, and the
+engine drops an expired one without saying so, so only asking again shows it gone. The two lists are
+a handful of rows that move only when a device asks, is answered or reconnects, so the second-long
+poll costs a loopback round trip and no frame. `pair.approve <requestId>`, `pair.deny <requestId>`
+and `pair.revoke <deviceId>` are the commands that act on them; each is followed by a poll at once,
+so the row leaves the window with the click. The supervisor sees only names, addresses and codes —
+the key an approved device receives goes from the engine to that device and nowhere else.
 
 `owns` is always both-true: every subsystem it names is the supervisor's. It stays on the wire
 because the tray still reads it, and removing a field the other side reads is a two-sided change.

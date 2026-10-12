@@ -7,6 +7,13 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 `Serve.cpp` includes **no** JUCE or Tracktion headers: all engine threading sits behind
 `EngineHost`'s `post()` / `onState()` / `run()` API.
 
+## A LAN peer is paired before anything else
+
+Every message passes one gate first (`server/ServePairing.cpp`): a loopback peer — the machine, or the
+server's relay — goes through; a LAN peer is answered there until it is paired, and only `whoami`,
+`pair-request` and `pair` get anything but an `unpaired` error. Machine-wide replies skip untrusted
+sockets. The flow and its choices are [pairing.md](pairing.md).
+
 ## Every message carries a session
 
 `{ "session": "st0:fred", … }` on any message names **which project on this engine** it is
@@ -72,15 +79,20 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 | `{ type: "set-preset", module: "synth", index: 3, path: "" }` | pick a preset |
 | `{ type: "list-edit-plugins" }` | → an `edit-plugins` reply. Engine-global: it answers for EVERY session, each row naming its own, because a supervisor asking drives none of them |
 | `{ type: "arm", track, armed }` | arm a track for recording → `armed`, or an `error` |
-| `{ type: "record-enable", enabled: true }` | whether rolling this session records → `record-enabled` |
+| `{ type: "record-enable", enabled: true }` | whether rolling this session records; the state frame's `recordEnabled` carries it |
 | `{ type: "get-plugin-params", id }` / `{ type: "set-plugin-param", id, name, value }` | read / move one plugin's values |
 | `{ type: "io-levels", channels: [[1,2]] }` | input meters + tuner, plus THIS session's master level |
 | `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue |
-| `{ type: "whoami" }` | identity probe, answered to the asking socket alone |
+| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing` |
+| `{ type: "pair-request", name }` | a LAN device asks to be paired → `pair-pending` with the code it shows; later `paired` with its key, or `pair-denied`. See [pairing.md](pairing.md) |
+| `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
+| `{ type: "list-pair-requests" }` / `{ type: "list-paired-devices" }` | the machine's own clients only → `pair-requests` / `paired-devices`, both also pushed to them on every change |
+| `{ type: "pair-approve", requestId }` / `{ type: "pair-deny", requestId }` / `{ type: "unpair-device", deviceId }` | the machine's own clients only; refused over the LAN with code `local-only` |
+| `{ type: "instrument-status", refs: ["@instruments/nbo-wurt/wurly.sfz"] }` | → `{ type: "instrument-status", status: { ref: true/false } }`, to the asking socket alone: whether each sampled instrument a project names is on THIS machine. st0 draws the missing ones as errors on their nodes; the tray's Downloads tab is where they are fetched ([sfzPlugin.md](sfzPlugin.md)) |
 | `{ type: "hello", role: "driver" }` | the same probe, **and** "a person is looking at this session" — the engine frees a project 45 s after its last driver goes. Omit `role` and nothing is counted, which is how the file service and every prober stay out of it. See [sessions.md](sessions.md). |
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
-| `{ type: "drop-session", session: "st0:fred" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
+| `{ type: "drop-session", session: "st0:fred" }` | forget a session outright — edit, plugins, meters and tap |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "show-native-plugin-ui-of", format, id }` | the same window for a plugin in NO project — an ORPHAN instance on the offline engine, saved nowhere. `format`+`id` name a binary, as `list-plugin-params` does |
 | `{ type: "snapshot-plugin-base", format, id, path }` | keep what that orphan is holding: its state written to `path` as a `.vstpreset`. Refuses when no window was opened — see `plugin-base-saved` |
@@ -169,7 +181,6 @@ frame is skipped for a socket already behind, a reply never is.
 | `{ type: "applied", changes: ["tempo -> 124 bpm", …] }` | the diff that ran |
 | `{ type: "flushed" }` | flush completed |
 | `{ type: "sessions", sessions: [{ id, project, loaded, playing, tracks, listeners }] }` | every session held. `listeners` is counted in `server/ServeMachine.cpp` — who is subscribed to audio is a property of the SOCKETS, which the engine layer never sees |
-| `{ type: "session-dropped", session }` | a session was forgotten |
 | `{ type: "state", playing, playhead, loop, levels, inputLevels, waveform }` | the ~20 Hz state frame; `loop` is `{ on, start, end }` in seconds, the transport's own, so a client that reconnects draws the loop that is playing rather than none |
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
 | `{ type: "plugin-params", id, params, meta }` | the state to persist; `meta` only on the get- reply |

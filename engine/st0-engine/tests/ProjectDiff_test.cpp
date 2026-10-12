@@ -666,6 +666,34 @@ void diff_muting_a_sending_track_rewires() {
     CHECK(!needsFullRebuild(diff(a, b)));
 }
 
+// A tap routed to a pair, or a track fed by one, is a RackType built whole: any change there is a rebuild (docs/tapOutputs.md).
+ProjectDoc tapSong(int pair, bool fed) {
+    ProjectDoc d;
+    auto kit = mkTrack("kit", "Kit");
+    PluginDoc p;
+    p.id = "kit:drums";
+    p.type = "sampler";
+    p.name = "drums";
+    if (pair > 0) p.tapOuts.push_back(TapOut{38, pair});
+    kit.plugins.push_back(p);
+    d.tracks.push_back(kit);
+    auto fx = mkTrack("snare-fx", "Snare FX");
+    if (fed) {
+        fx.inputFromPlugin = "kit:drums";
+        fx.inputFromPair = pair;
+    }
+    d.tracks.push_back(fx);
+    return d;
+}
+
+void diff_tap_routing_forces_rebuild() {
+    CHECK(needsFullRebuild(diff(tapSong(0, false), tapSong(1, false))));
+    CHECK(needsFullRebuild(diff(tapSong(1, false), tapSong(1, true))));
+    CHECK(needsFullRebuild(diff(tapSong(1, true), tapSong(2, true))));
+    // …and an unchanged routing is no change at all.
+    CHECK(!needsFullRebuild(diff(tapSong(1, true), tapSong(1, true))));
+}
+
 // The plan numbers buses per DESTINATION in document order, and the first sender wires the return.
 void sendplan_buses_and_routing() {
     ProjectDoc d = sendingSong(0.5, true);
@@ -786,8 +814,8 @@ void diff_master_chain_unchanged_is_silent() {
     CHECK(!hasKind(d, ChangeKind::MasterChainChanged));
 }
 
-// A parameter on a master plugin is part of the comparison — identity alone would miss it.
-void diff_master_chain_param_change_is_seen() {
+// A knob on a master plugin is seen, and set IN PLACE: a rebuild for it would stop the song.
+void diff_master_chain_param_change_is_in_place() {
     ProjectDoc a;
     auto p = mkPlugin("m1", "4osc", "Comp");
     p.params["Threshold"] = -12.0;
@@ -796,7 +824,15 @@ void diff_master_chain_param_change_is_seen() {
     ProjectDoc b = a;
     b.masterPlugins[0].params["Threshold"] = -6.0;
 
-    CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
+    const auto d = diff(a, b);
+    CHECK(!hasKind(d, ChangeKind::MasterChainChanged));
+    CHECK(!needsFullRebuild(d));
+    CHECK(d.size() == 1);
+    CHECK(d[0].kind == ChangeKind::PluginParamChanged);
+    CHECK(d[0].pluginId == "m1");
+    CHECK(d[0].paramName == "Threshold");
+    CHECK(d[0].paramValue == -6.0);
+    CHECK(d[0].trackId.empty());
 }
 
 // ORDER is the sound: both plugins are still there, so a comparison by key alone calls this unchanged — and an EQ before a compressor is not an EQ after one.
@@ -812,14 +848,17 @@ void diff_master_chain_reorder_is_seen() {
     CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
 }
 
-// Bypassing one is a change you can hear, and it is not part of the identity key.
-void diff_master_chain_bypass_is_seen() {
+// Bypassing one is a change you can hear, not part of the identity key, and applied in place.
+void diff_master_chain_bypass_is_in_place() {
     ProjectDoc a;
     a.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
     ProjectDoc b = a;
     b.masterPlugins[0].enabled = false;
 
-    CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
+    const auto d = diff(a, b);
+    CHECK(!needsFullRebuild(d));
+    CHECK(hasKind(d, ChangeKind::PluginEnabledChanged));
+    CHECK(d.size() == 1 && d[0].plugin && d[0].plugin->id == "m1" && !d[0].enabled);
 }
 
 }  // namespace
@@ -830,9 +869,9 @@ int main() {
     RUN(diff_master_chain_added_rebuilds);
     RUN(diff_master_chain_removed_rebuilds);
     RUN(diff_master_chain_unchanged_is_silent);
-    RUN(diff_master_chain_param_change_is_seen);
+    RUN(diff_master_chain_param_change_is_in_place);
     RUN(diff_master_chain_reorder_is_seen);
-    RUN(diff_master_chain_bypass_is_seen);
+    RUN(diff_master_chain_bypass_is_in_place);
     RUN(diff_tempo_change);
     RUN(diff_samplerate_forces_rebuild);
     RUN(diff_track_rename_is_not_readd);
@@ -865,6 +904,7 @@ int main() {
     RUN(diff_faust_source_edit_is_replace);
     RUN(diff_send_added_forces_rebuild);
     RUN(diff_send_level_is_in_place);
+    RUN(diff_tap_routing_forces_rebuild);
     RUN(diff_muting_a_sending_track_rewires);
     RUN(sendplan_buses_and_routing);
     RUN(diff_plugins_added_in_chain_order);

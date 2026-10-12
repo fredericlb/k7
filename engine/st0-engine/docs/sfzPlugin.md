@@ -48,15 +48,17 @@ whether the phone's storage streams the rest fast enough, are the two questions 
 An instrument's samples run to hundreds of megabytes, so they are in no library and no project:
 `@instruments/<name>/<file>.sfz` names a folder under THIS machine's `<state>/instruments`, the same
 state directory the scan cache uses (`$STUDIO_HOME`, else `~/.st0`), and `SfzPlugin::resolve` is the
-one place that reads it. The supervisor fills that folder when the engine starts, every instrument
-it ships whether or not a song names one, pinned by hash (`engine/st0-supervisor/docs/instruments.md`).
+one place that reads it. The supervisor fills that folder with the instruments this machine keeps,
+chosen in the tray's Downloads tab and pinned by hash (`engine/st0-supervisor/docs/instruments.md`).
 So the files come from their origin straight onto the machine that plays them — never through a
 server, and never once per account through a tunnel. Any other `sfz:` is a path, played as written.
 
-**One not downloaded yet is waited for, not refused.** A song can be opened during the first
-download; the plugin says so once, checks every two seconds on the message thread, and loads the
-instrument the moment its `.sfz` is there. Until then the node is silent. An offline render cannot
-wait — it runs no message loop — so it renders the silence.
+**One not downloaded is waited for, not refused.** A song can be opened before its instrument is
+here; the plugin says so once, checks every two seconds on the message thread, and loads the
+instrument the moment its `.sfz` is there. Until then the node is silent, and st0 says which
+instrument it needs: it asks with `instrument-status` (`docs/protocol.md`), which answers from the
+same files, an install's marker included, since a folder without one is still being unpacked.
+An offline render cannot wait — it runs no message loop — so it renders the silence.
 
 ## Loading off the audio thread
 

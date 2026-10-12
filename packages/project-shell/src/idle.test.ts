@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { IDLE_TIMEOUT_MS, idleForMs, markActive, sleepMove } from "./idle.ts";
+import {
+  anotherTabActive,
+  IDLE_TIMEOUT_MS,
+  idleForMs,
+  markActive,
+  sleepMove,
+} from "./idle.ts";
 
 // A clock held by hand: the hook mounts a component, which no suite here does.
 beforeEach(() => {
@@ -58,5 +64,20 @@ describe("s'endormir parce qu'on est passé derrière", () => {
   it("rester devant un projet ouvert ne fait rien, et rester derrière non plus", () => {
     expect(sleepMove(false, { k: "open" })).toBe(null);
     expect(sleepMove(true, { k: "idle", why: "hidden" })).toBe(null);
+  });
+});
+
+describe("anotherTabActive", () => {
+  // The engine session is the account's: a tab going idle must not unload it from under one still in use.
+  it("hears another tab say it was used, and forgets it past the window", async () => {
+    vi.useRealTimers(); // a channel delivers on the real event loop
+    const other = new BroadcastChannel("studio-idle");
+    other.postMessage({ id: "other-tab", at: Date.now() });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(anotherTabActive(60_000)).toBe(true);
+    other.postMessage({ id: "other-tab", at: Date.now() - 120_000 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(anotherTabActive(60_000)).toBe(false);
+    other.close();
   });
 });

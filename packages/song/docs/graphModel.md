@@ -284,8 +284,10 @@ this compiler cannot know without opening the wav, and which the ENGINE fills in
 holds. That 0 is why an untrimmed clip draws as a single bar on the timeline. Passing the window
 through cannot make the engine play MORE than it does today — `clipPositionFor` caps an unlooped
 clip's end at the window regardless. Repeating is the one case the engine cannot do alone, since
-it has no count, so a loop needs a `to`; the compiler refuses a looped audio clip without one
-rather than play the first pass and drop the rest.
+it has no count, so a loop needs a `to` — the clip's or the event's own, since the window is the
+two intersected; the compiler refuses a looped audio clip with neither rather than play the first
+pass and drop the rest. The clip panels' loop switch writes the event's `to` itself when neither
+states one (`packages/song-edit/docs/eventLoop.md`).
 
 A sequence's `from`/`to` are POSITIONS in the notes, read like the `start:` on the placement.
 Unwritten, the window is everything the notes cover, rounded UP TO THE BAR — not the bare extent,

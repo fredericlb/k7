@@ -24,6 +24,7 @@
     "./takes": "./src/takes.ts",
     "./timecode": "./src/timecode.ts",
     "./trackKind": "./src/trackKind.ts",
+    "./trackColor": "./src/trackColor.ts",
     "./warpPoints": "./src/warpPoints.ts",
     "./yaml/alternativeFile": "./src/yaml/alternativeFile.ts",
     "./yaml/assemblyFile": "./src/yaml/assemblyFile.ts",

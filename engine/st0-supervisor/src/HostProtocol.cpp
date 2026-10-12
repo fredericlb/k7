@@ -73,6 +73,19 @@ ojson stateFrame(const Snapshot& s)
         }
         f["downloads"] = downloads;
     }
+    ojson instruments = ojson::array();
+    for (const auto& i : s.instruments)
+        instruments.push_back(
+            {{"name", i.name}, {"label", i.label}, {"bytes", i.bytes}, {"wanted", i.wanted}, {"installed", i.installed}});
+    f["instruments"] = instruments;
+    ojson requests = ojson::array();
+    for (const auto& r : s.pairRequests)
+        requests.push_back({{"requestId", r.requestId}, {"name", r.name}, {"ip", r.ip}, {"code", r.code}, {"since", r.since}});
+    f["pairRequests"] = requests;
+    ojson paired = ojson::array();
+    for (const auto& d : s.pairedDevices)
+        paired.push_back({{"deviceId", d.deviceId}, {"name", d.name}, {"created", d.created}, {"lastSeen", d.lastSeen}});
+    f["pairedDevices"] = paired;
     return f;
 }
 

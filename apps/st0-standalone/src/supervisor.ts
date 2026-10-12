@@ -5,7 +5,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { line, relay } from "./log.ts";
+import { line, relay } from "@studio/electron-shell/log";
 
 /** Not the tray's 8765: the supervisor adopts whatever engine already listens on its port. */
 export const ENGINE_PORT = 8766;
@@ -39,6 +39,8 @@ export class Supervisor {
       env: {
         ...process.env,
         STUDIO_HOME: this.home,
+        // No Downloads tab here to choose in, so every instrument is fetched (engine/st0-supervisor/docs/instruments.md).
+        STUDIO_INSTRUMENTS: "all",
         STUDIO_REGISTRY_URL: this.registryUrl,
       },
       stdio: ["pipe", "pipe", "pipe"],

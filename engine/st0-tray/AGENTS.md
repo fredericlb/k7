@@ -1,9 +1,9 @@
 # AGENTS.md — capot
 
 The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust.
-It starts with no window and opens exactly one on demand: the settings window, in five tabs —
+It starts with no window and opens exactly one on demand: the settings window, in six tabs —
 the audio ranking dragged into order, the plugin catalogue, the sessions this engine holds, the st0
-instances this engine is connected to, and the machine itself. The menu bar keeps one status line and the way in.
+instances this engine is connected to, the instruments it downloads, and the machine itself. The menu bar keeps one status line and the way in.
 
 It is not itself a supervisor. It spawns **`st0-supervisor`** (engine/st0-supervisor, native) as a
 child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
@@ -66,7 +66,7 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
   started.
 - **`settingswin.rs`** — the one window, opened from `Settings…`: audio ranking, plugin catalogue,
   sessions with the plugin editors they can open, the st0 instances
-  (connected ones and a form to add one by URL), and System (version, engine, registry, and the
+  (connected ones and a form to add one by URL), Downloads (the instruments to fetch or remove), and System (version, engine, registry, and the
   buttons). It draws the snapshot and sends commands back, like every other click
   here. Closing HIDES it — a destroyed last window makes Tauri ask the app to exit. See
   `docs/tray.md`.
@@ -90,13 +90,6 @@ tray (Tauri, windowless)      ← the process the user kills; creates the Job Ob
 
 **The tray spawns no process** but the supervisor. There is no `engine.rs`: the supervisor
 owns starting the engine, and the tray only asks it to. Anything that needs a process started belongs there, not here.
-
-## reqwest and trust roots
-
-`reqwest` uses **NATIVE OS trust roots**, not the bundled webpki set. A st0 instance added from
-the tray is routinely fronted by a local proxy with a private CA, which lives in the OS store and
-nowhere else. The supervisor makes the same choice for its own TLS
-(`engine/st0-supervisor/docs/supervisor.md`), so the two cannot disagree about a studio.
 
 ## Build / run
 

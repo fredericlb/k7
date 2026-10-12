@@ -109,7 +109,7 @@ pitch-preserving stretch breaks as soon as the tempo moves.
 
 **The mp3 encoder delay is real.** An mp3 carries it in its Xing/LAME `Info` tag — 1105 samples on
 the record measured — and **ffmpeg trims it while JUCE does not**: `juce_MP3AudioFormat.cpp`
-contains no gapless handling at all, and the engine's own `--peak` counts 11 526 192 frames in a
+contains no gapless handling at all, and the engine's own `--decode` counts 11 526 192 frames in a
 file ffmpeg decodes to 11 455 983. So **a song nobody separated starts 25 ms late in this engine**,
 which is inaudible alone and matters only between two lanes — named here because the next person
 to measure an mp3 against a wav will find it. And `stemsComplete()` asks the whole folder rather

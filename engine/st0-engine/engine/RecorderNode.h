@@ -45,6 +45,8 @@ public:
 
     double seconds() const;
     bool writing() const { return writer_ != nullptr; }
+    /** The disk refused a write: the take is closed where it stood, and stays recording until stopped. */
+    bool writeFailed() const { return writeFailed_; }
     const juce::File& path() const { return path_; }
 
 private:
@@ -52,6 +54,8 @@ private:
     juce::File path_;
     double rate_ = 0.0;
     size_t frames_ = 0;
+    size_t flushedAt_ = 0;     // frames_ when the header last went to disk
+    bool writeFailed_ = false;
 
     std::vector<float> scratch_;                  // interleaved, straight out of the ring
     std::vector<float> planes_[RecorderTap::CHANNELS];   // …and deinterleaved for the writer

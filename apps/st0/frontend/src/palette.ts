@@ -6,11 +6,6 @@
 import type { Completion } from "@studio/project-shell/project";
 import { api } from "./api";
 import { type ArgOption, optionsFromCompletions } from "./argOptions";
-import {
-  canonicalizeCommand,
-  commandLabel,
-  commandTranslations,
-} from "./commandI18n";
 import type { PaletteArg, PaletteCommand } from "./components/CommandBar";
 // Everything whose ONLY effect is on the shell lives under `ui` — not 'writes no file': a pin and a language are remembered, which is not editing a song.
 import { MIX_FORMATS, VIDEO_FORMATS } from "./exportArgs";
@@ -74,6 +69,7 @@ export const LOCAL_COMMANDS = [
   "ui surface", // a screen this PROJECT declares — surfaces/, layout: view
   "ui builder", // the shared module builder, over the shell
   "ui curve", // the curve editor: a new curve, or the one named
+  "ui tap chain", // the popin on one tap's own chain of effects
   "ui automate", // the curve editor on a control: the curve it follows, or a new one bound to it
   "ui review", // reopen the take review on a clip — waveform, onsets, level
   "ui ruler", // the timeline's ruler: bars or seconds
@@ -276,6 +272,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Edit a module in the builder",
     fr: "Modifier un module dans le constructeur",
   },
+  "ui tap chain": {
+    en: "Edit a tap's own chain of effects",
+    fr: "Modifier la chaîne d'effets d'un pad",
+  },
   "ui curve": {
     en: "Create or edit an automation curve",
     fr: "Créer ou modifier une courbe d'automation",
@@ -466,6 +466,10 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
     { name: "module", kind: "module", hint: "a module of this project" },
     { name: "param", kind: "text", hint: "the name its widget binds" },
   ],
+  "ui tap chain": [
+    { name: "node", kind: "module", hint: "a rack node of this project" },
+    { name: "tap", kind: "text", hint: "one of its taps — BD, Snare…" },
+  ],
   "ui automate": [
     { name: "node", kind: "module", hint: "a node of this project" },
     { name: "param", kind: "text", hint: "the name its widget binds" },
@@ -598,8 +602,8 @@ export function buildPaletteCommands(
     menu?: MenuEntity[],
   ): PaletteCommand => ({
     canonical,
-    label: commandLabel(canonical),
-    names: commandTranslations(canonical),
+    label: canonical,
+    names: [canonical],
     readable: readable?.[lang] || canonical,
     // The whole table too, for the one screen that offers a field per language; everything else reads `readable` above.
     ...(readable ? { readableBy: { ...readable } } : {}),
@@ -689,7 +693,7 @@ export function makeListArg(shell: {
     command: string,
     priorArgs: string[],
   ): Promise<(string | ArgOption)[]> => {
-    const canonical = canonicalizeCommand(command);
+    const canonical = command.trim();
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     const first = priorArgs.length === 0;
     // The shell's other fixed sets, each the shell's OWN vocabulary — asking the backend would be a round trip for a literal.

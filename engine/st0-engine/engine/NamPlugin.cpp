@@ -1,5 +1,8 @@
 #include "NamPlugin.h"
 
+#include "LoadGuard.h"   // a model that crashes the engine as it loads is pinned on its file
+#include "Warnings.h"    // a model reloaded for its own invalid output says so
+
 #include <cmath>
 #include <iostream>
 
@@ -52,10 +55,13 @@ NamPlugin::NamPlugin(tracktion::engine::PluginCreationInfo info)
         knob[k] = addParam(id, "Knob " + juce::String(k + 1), {0.0f, 1.0f}, knobToText, textToKnob);
         knob[k]->attachToCurrentValue(knobValue[k]);
     }
+    // Four times a second is soon enough for a model to come back from silence, and costs one atomic read.
+    startTimerHz(4);
 }
 
 NamPlugin::~NamPlugin()
 {
+    stopTimer();
     notifyListenersOfDeletion();
     inputDb->detachFromCurrentValue();
     outputDb->detachFromCurrentValue();
@@ -153,6 +159,13 @@ bool NamPlugin::loadImpulseResponse(const juce::File& file, juce::String& error)
         error = "not a readable IR: " + file.getFullPathName();
         return false;
     }
+    // A cabinet's response dies within a second; ten is generous, and past it the header is corrupt or the file is not an IR, at a convolution cost that grows with it.
+    constexpr double kMaxIrSeconds = 10.0;
+    if (!(reader->sampleRate > 0.0) || reader->sampleRate > 768000.0 ||
+        (double)reader->lengthInSamples > kMaxIrSeconds * reader->sampleRate) {
+        error = "not an IR: " + file.getFileName() + " is longer than ten seconds, or its header is corrupt";
+        return false;
+    }
     // Mono like the model: the first channel.
     juce::AudioBuffer<float> ir(1, (int)reader->lengthInSamples);
     reader->read(&ir, 0, ir.getNumSamples(), 0, true, false);
@@ -202,9 +215,17 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         return false;
     }
 
+    const auto path = file.getFullPathName().toStdString();
+    if (std::string why; loadQuarantined(path, why)) {
+        error = juce::String(why);
+        return false;
+    }
+    // A .nam's loader trusts its array lengths, so a truncated file reads past them; the guard covers the load AND the prewarm, both its code.
+    const LoadGuard guard{"model", path};
+
     // Built OUTSIDE the lock, so the audio thread waits for a pointer assignment and never for a model load.
     std::string why;
-    std::unique_ptr<AmpModel> loaded = loadAmpModel(file.getFullPathName().toStdString(), why);
+    std::unique_ptr<AmpModel> loaded = loadAmpModel(path, why);
     if (loaded == nullptr) {
         error = juce::String(why);
         return false;
@@ -231,7 +252,6 @@ bool NamPlugin::loadModel(const juce::File& file, juce::String& error)
         std::swap(dsp_, loaded);
         path_ = file.getFullPathName();
         modelRate_.store(rate, std::memory_order_relaxed);
-        modelKnobs_.store(knobs, std::memory_order_relaxed);
         if (bridge) bridge_.prepare(sampleRate_, rate, BRIDGE_BLOCK, 1, 1, *this);
         bridged_.store(bridge, std::memory_order_relaxed);
     }
@@ -312,6 +332,12 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
         mono_.applyGainRamp(0, 0, n, slice(lastOutGain_, outGain, done),
                             slice(lastOutGain_, outGain, done + n));
 
+        // A model whose state went non-finite never decays back: silenced here, reloaded by the timer.
+        bool poisoned = false;
+        for (int i = 0; i < n; ++i)
+            if (!std::isfinite(out[i])) { out[i] = 0.0f; poisoned = true; }
+        if (poisoned) poisoned_.store(true, std::memory_order_relaxed);
+
         for (int ch = 0; ch < juce::jmin(numChans, 2); ++ch)
             juce::FloatVectorOperations::copy(
                 ctx.destBuffer->getWritePointer(ch, at), out, n);
@@ -319,6 +345,30 @@ void NamPlugin::applyToBuffer(const tracktion::engine::PluginRenderContext& ctx)
 
     lastInGain_ = inGain;
     lastOutGain_ = outGain;
+}
+
+void NamPlugin::timerCallback()
+{
+    if (!poisoned_.load(std::memory_order_relaxed)) return;
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (now - lastReloadMs_ < 2000.0) return;   // still flagged; the next tick past the spacing takes it
+    poisoned_.store(false, std::memory_order_relaxed);
+    lastReloadMs_ = now;
+    // A fresh model, prewarmed off the audio thread like any load; the cabinet's tail held the same values, so it is cleared too.
+    {
+        const juce::SpinLock::ScopedLockType sl(lock_);
+        cab_.reset();
+    }
+    if (path_.isEmpty()) return;
+    juce::String err;
+    const bool reloaded = loadModel(juce::File(path_), err);
+    if (now - lastWarnMs_ < 60000.0) return;
+    lastWarnMs_ = now;
+    if (reloaded)
+        warn("the amp model " + juce::File(path_).getFileName().toStdString() +
+             " produced invalid output and was reloaded");
+    else
+        warn("the amp model produced invalid output and could not be reloaded: " + err.toStdString());
 }
 
 }  // namespace studio

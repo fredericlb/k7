@@ -99,11 +99,6 @@ void MixBlendPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     lastOut_ = g;
 }
 
-bool isMixPlumbing(const te::Plugin* p)
-{
-    return dynamic_cast<const MixSplitPlugin*>(p) != nullptr || dynamic_cast<const MixBlendPlugin*>(p) != nullptr;
-}
-
 MixBlendPlugin* mixBlendOf(te::Plugin& module)
 {
     auto* list = module.getOwnerList();

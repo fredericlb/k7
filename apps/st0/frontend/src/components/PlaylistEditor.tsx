@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, mediatek } from "../api";
 import { m } from "../paraglide/messages.js";
 import { playlistVocabulary } from "../playlistVocabulary";
+import { pollWhileVisible } from "../visiblePoll";
 import { PlaylistPane } from "./PlaylistPane";
 
 /** Is this text a playlist? `parsePlaylist` is what knows, and a failure is reported as a SCHEMA one, so the escape hatch applies. */
@@ -91,8 +92,7 @@ export function PlaylistEditor({
   );
   useEffect(() => {
     void refreshSongs();
-    const t = setInterval(() => void refreshSongs(), SONGS_POLL_MS);
-    return () => clearInterval(t);
+    return pollWhileVisible(() => void refreshSongs(), SONGS_POLL_MS);
   }, [refreshSongs]);
 
   // Memoised on the listing itself: the poll hands back a fresh array every time, and rebuilding the ref lists per tick is work for nothing.

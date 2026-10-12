@@ -541,6 +541,23 @@ within; the drawing may be wider. Live pattern lanes deliberately do **not** ext
 their clips are the scheduler's look-ahead, so following them would grow the timeline a bar
 at a time as playback runs.
 
+## Only the clips near the screen are drawn
+
+A clip is a heavy element — its activity layer, loop rules, fades and handles — and a zoomed-in
+song or a long list of lanes puts most of them off screen. So a clip is rendered only when it
+falls inside the viewport **plus one screen of margin on every side**; the lane, its gutter and
+everything else on the row are always drawn, so the scroll extent and the row geometry never
+depend on the window.
+
+- The window is **snapped to half-screens**. Scrolling re-renders the timeline when it crosses
+  one, not on every scroll event, and the margin is what keeps a clip drawn before it arrives.
+- It is re-read **before paint** on a zoom, after `useHZoom` has moved `scrollLeft`: a window
+  measured on the old scale would leave a frame with clips missing at the edges.
+- A clip being **moved or resized** is always drawn, wherever it is — the drag owns it.
+- A hidden pane measures 0 and keeps the window it had, which is the one it comes back to.
+- At zoom 1 horizontally nothing is cut — the lane is the pane — so what the window saves there
+  is the rows scrolled out of view.
+
 ## The same material, placed twice
 
 A material placed more than once wears a **ghost** on every occurrence but the first, and the

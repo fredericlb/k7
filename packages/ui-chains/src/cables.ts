@@ -8,6 +8,7 @@ import { flowOf, type NodeFlow, STILL } from "./flow";
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
 import {
   columnW,
+  menuH,
   curveOutPoint,
   MIX_OUT,
   RENDER_OUT,
@@ -357,7 +358,7 @@ export function widgetBorderPoint(
 ): Pt | undefined {
   const w = panelWidgets(n.ui).find(([, v]) => v.bind === param)?.[1];
   if (!w) return undefined;
-  const r = stripWidgetRect(n, w, columnW(n.ui));
+  const r = stripWidgetRect(n, w, columnW(n.ui), menuH(n.ui));
   const c = { x: n.x + r.x + r.w / 2, y: n.y + r.y + r.h / 2 };
   const dx = from.x - c.x;
   const dy = from.y - c.y;

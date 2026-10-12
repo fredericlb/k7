@@ -3,6 +3,7 @@
 // child process (runPluginScanChild), so a crashy plugin only kills its own child.
 
 #include "EngineHost.h"
+#include "LoadGuard.h"   // studioStateDir — `<state>` has one spelling
 
 #include "EngineTypes.h"    // Tracktion/JUCE + the te/tt/fs aliases
 #include "ArpeggiatorPlugin.h"
@@ -67,13 +68,7 @@ constexpr const char* kScanEnd = "STUDIO_SCAN_END";
 
 // `<state>` must be the one studioHome.ts computes, never a second spelling — docs/plugins.md.
 juce::File extsCacheFile() {
-    const auto env = juce::SystemStats::getEnvironmentVariable("STUDIO_HOME", {});
-    auto dir = env.isNotEmpty()
-        ? juce::File(env)
-        : juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-              .getChildFile(".st0");
-    dir.createDirectory();
-    return dir.getChildFile("exts.json");
+    return studioStateDir().getChildFile("exts.json");
 }
 
 juce::var pluginToVar(const PluginInfo& p) {

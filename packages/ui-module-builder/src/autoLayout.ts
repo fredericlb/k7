@@ -15,6 +15,7 @@ import {
 /** The engine's stage around any plugin: what the mix corner holds. */
 const STAGE = new Set([INPUT_VOLUME_PARAM, MIX_PARAM, OUTPUT_VOLUME_PARAM]);
 
+import { LAYOUT_MAX } from "./layoutTwins";
 import {
   KNOB_SPAN,
   type ModuleUI,
@@ -166,10 +167,7 @@ export function groupParams(
     .map((page) => ({ page, params: byPage.get(page) ?? [] }));
 }
 
-/** Six knobs a row is what the drawn panels in this repo use. */
-export const AUTO_PER_ROW = 6;
-
-/** The one parameter that gets a row to itself. See `placeGroup`. */
+/** The preset a plugin is built from, which leads its page. */
 const BASE_BIND = "@base";
 
 /** One placement: a parameter and its slot, before either coordinate is multiplied into cells. */
@@ -179,83 +177,47 @@ interface Slot {
   sr: number;
 }
 
-/** How many slot rows a set of placements needs. Zero for none — `Math.max` of nothing is -Infinity. */
-const rowsOf = (at: readonly Slot[]): number =>
-  at.length ? Math.max(...at.map((x) => x.sr)) + 1 : 0;
-
-/** Where a page's parameters go in SLOTS: row-major, six to a row, `@base` alone — docs/autoLayout.md. */
-function placeGroup(params: readonly AutoParam[]): Slot[] {
-  const base = params.find((p) => p.name === BASE_BIND);
-  const rest = base ? params.filter((p) => p !== base) : params;
-  const top = base ? 1 : 0; // which slot row the rest starts on
-  return [
-    ...(base ? [{ p: base, sc: 0, sr: 0 }] : []),
-    ...rest.map((p, i) => ({
-      p,
-      sc: i % AUTO_PER_ROW,
-      sr: top + Math.floor(i / AUTO_PER_ROW),
-    })),
-  ];
+/** One page to lay out: its name, and its parameters in order — `@base` first, the blend last (docs/autoLayout.md). */
+interface Page {
+  page: string;
+  params: AutoParam[];
 }
 
-/** How wide the proposed panel is: six SLOTS, each `KNOB_SPAN` cells across, since a knob is 2×2. */
-export const AUTO_COLS = AUTO_PER_ROW * KNOB_SPAN;
+/** A page's parameters row-major, `perRow` slots to a row: the one placement both shapes use. */
+const flow = (params: readonly AutoParam[], perRow: number): Slot[] =>
+  params.map((p, i) => ({
+    p,
+    sc: i % perRow,
+    sr: Math.floor(i / perRow),
+  }));
 
-/** A whole panel proposed from a parameter list, sized to the BIGGEST page — see docs/autoLayout.md. */
-export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
-  // What the engine's stage offers REPLACES the plugin's own: its dry/wet under `@mix`, its levels under the volumes — engine docs/mix.md.
-  const has = (n: string) => params.some((p) => p.name === n);
-  const held = (n: string) =>
-    (has(MIX_PARAM) && !!ownMixSide(n)) ||
-    (has(INPUT_VOLUME_PARAM) && ownLevelSide(n) === "input") ||
-    (has(OUTPUT_VOLUME_PARAM) && ownLevelSide(n) === "output");
-  // …and the stage itself is the card's FOOTER, never a control on the panel.
-  const groups = groupParams(
-    params.filter((p) => !held(p.name) && !STAGE.has(p.name)),
-  );
-  if (!groups.length) return { cols: AUTO_COLS, rows: 1, widgets: {} };
+/** The horizontal shape's height in SLOT rows: two, so the panel is four cells tall (layouts.md). */
+const HORIZONTAL_SLOT_ROWS = LAYOUT_MAX / KNOB_SPAN;
 
-  // Laid out first, since a page's height is not its parameter count — see docs/autoLayout.md.
-  const placed = groups.map((g) => {
-    const blend = g.params.filter((x) => isBlend(x.name));
-    return {
-      page: g.page,
-      blend,
-      at: placeGroup(g.params.filter((x) => !blend.includes(x))),
-    };
-  });
-  // The tallest page, never under one row: a page holding only a blend still needs the blend's row.
-  let rowsNeeded = Math.max(1, ...placed.map((g) => rowsOf(g.at)));
-  // …and one more when that row's right-hand end is taken, rather than stacking the blend on a knob.
-  if (
-    placed.some(
-      (g) =>
-        g.blend.length &&
-        g.at.some(
-          (x) =>
-            x.sr === rowsNeeded - 1 && x.sc >= AUTO_PER_ROW - g.blend.length,
-        ),
-    )
-  )
-    rowsNeeded += 1;
-  // The corner, right-aligned and at the far end from `@base` — see docs/autoLayout.md.
-  for (const g of placed)
-    g.at.push(
-      ...g.blend.map((p, i) => ({
-        p,
-        sc: AUTO_PER_ROW - g.blend.length + i,
-        sr: rowsNeeded - 1,
-      })),
-    );
-  // One SLOT row of air under the tallest page, always, and counted last — see docs/autoLayout.md.
-  const rowsDrawn = rowsNeeded + 1;
-  const pages: { name: string; widgets: Record<string, Widget> }[] = [];
-  // Numbered across the WHOLE panel, so `w40` names one widget without also naming its page.
+/** The vertical shape's width in slots: two knobs, four cells (layouts.md). */
+const VERTICAL_PER_ROW = LAYOUT_MAX / KNOB_SPAN;
+
+/** The widest a horizontal page runs before it is wrapped — six knobs, twelve cells, as a hardware strip. */
+export const AUTO_PER_ROW = 6;
+
+/** One shape of the panel: every page placed `perRow` to a row, numbered across the whole panel. */
+function shape(
+  pages: readonly Page[],
+  perRow: number,
+): {
+  cols: number;
+  rows: number;
+  pages: { name: string; widgets: Record<string, Widget> }[];
+} {
   let n = 0;
-  for (const g of placed) {
+  let width = 1;
+  let height = 1;
+  const out = pages.map((g) => {
     const widgets: Record<string, Widget> = {};
-    for (const { p, sc, sr } of g.at) {
+    for (const { p, sc, sr } of flow(g.params, perRow)) {
       const type = widgetTypeFor(p);
+      width = Math.max(width, (sc + 1) * KNOB_SPAN);
+      height = Math.max(height, (sr + 1) * KNOB_SPAN);
       widgets[`w${++n}`] = {
         type,
         col: sc * KNOB_SPAN,
@@ -273,10 +235,62 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
           : { options: p.meta?.states ?? [] }),
       };
     }
-    pages.push({ name: g.page, widgets });
-  }
-  const grid = { cols: AUTO_COLS, rows: rowsDrawn * KNOB_SPAN };
+    return { name: g.page, widgets };
+  });
+  return { cols: width, rows: height, pages: out };
+}
+
+/** A whole panel proposed from a parameter list, in both its shapes — see docs/autoLayout.md and layouts.md. */
+export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
+  // What the engine's stage offers REPLACES the plugin's own: its dry/wet under `@mix`, its levels under the volumes — engine docs/mix.md.
+  const has = (n: string) => params.some((p) => p.name === n);
+  const held = (n: string) =>
+    (has(MIX_PARAM) && !!ownMixSide(n)) ||
+    (has(INPUT_VOLUME_PARAM) && ownLevelSide(n) === "input") ||
+    (has(OUTPUT_VOLUME_PARAM) && ownLevelSide(n) === "output");
+  // …and the stage itself is the card's FOOTER, never a control on the panel.
+  const groups = groupParams(
+    params.filter((p) => !held(p.name) && !STAGE.has(p.name)),
+  );
+  if (!groups.length) return { cols: KNOB_SPAN, rows: 1, widgets: {} };
+
+  // `@base` leads its page and a blend closes it, so both shapes read the same way round.
+  const pages: Page[] = groups.map((g) => {
+    const base = g.params.filter((x) => x.name === BASE_BIND);
+    const blend = g.params.filter((x) => isBlend(x.name));
+    const rest = g.params.filter(
+      (x) => !base.includes(x) && !blend.includes(x),
+    );
+    return { page: g.page, params: [...base, ...rest, ...blend] };
+  });
+  // Horizontal: two slot rows a page, as wide as the biggest page needs — wrapped onto a second page past six.
+  const longest = Math.max(...pages.map((g) => g.params.length));
+  const perRow = Math.min(
+    Math.max(1, Math.ceil(longest / HORIZONTAL_SLOT_ROWS)),
+    AUTO_PER_ROW,
+  );
+  const wrapped = pages.flatMap((g) => {
+    const per = perRow * HORIZONTAL_SLOT_ROWS;
+    if (g.params.length <= per) return [g];
+    const parts: Page[] = [];
+    for (let i = 0; i < g.params.length; i += per)
+      parts.push({
+        page: i ? `${g.page} ${i / per + 1}` : g.page,
+        params: g.params.slice(i, i + per),
+      });
+    return parts;
+  });
+  const across = shape(wrapped, perRow);
+  const down = shape(wrapped, VERTICAL_PER_ROW);
   // One family is a panel, not a tab: the second is what makes the list (docs/autoLayout.md).
-  if (pages.length <= 1) return { ...grid, widgets: pages[0]?.widgets ?? {} };
-  return { ...grid, widgets: {}, tabs: pages };
+  const single = across.pages.length <= 1;
+  const panel = (s: typeof across) =>
+    single
+      ? { cols: s.cols, rows: s.rows, widgets: s.pages[0]?.widgets ?? {} }
+      : { cols: s.cols, rows: s.rows, widgets: {}, tabs: s.pages };
+  const horizontal = panel(across);
+  // The vertical twin only where the panel is too wide to serve both shapes (layouts.md).
+  return horizontal.cols > LAYOUT_MAX
+    ? { ...horizontal, vertical: panel(down) }
+    : horizontal;
 }

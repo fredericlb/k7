@@ -44,6 +44,20 @@ void aRoundTripIsExact()
     CHECK(out.port == 9001);
     CHECK(out.audioPriority == in.audioPriority);
     CHECK(out.onnxProviders == in.onnxProviders);
+    CHECK(!out.instruments.has_value());
+}
+
+// Absent is "never chosen", which a boot settles; an empty list is a choice to keep nothing, and stays one.
+void theInstrumentsKeptTellAbsentFromEmpty()
+{
+    CHECK(!settingsFrom(json::parse(R"({"port":9001})")).instruments.has_value());
+    CHECK(!settingsFrom(json::parse(R"({"instruments":"nbo-wurt"})")).instruments.has_value());
+    const auto none = settingsFrom(json::parse(R"({"instruments":[]})"));
+    CHECK(none.instruments.has_value() && none.instruments->empty());
+    Settings in;
+    in.instruments = std::vector<std::string>{"nbo-wurt", "naked-drums"};
+    CHECK(settingsFrom(st0::settingsJson(in)).instruments == in.instruments);
+    CHECK(!st0::settingsJson(Settings{}).contains("instruments"));
 }
 
 void aPortOutOfRangeIsTheDefault()
@@ -61,4 +75,5 @@ void runSettingsTests()
     RUN(providersAreLowercasedAndDeduplicated);
     RUN(aRoundTripIsExact);
     RUN(aPortOutOfRangeIsTheDefault);
+    RUN(theInstrumentsKeptTellAbsentFromEmpty);
 }

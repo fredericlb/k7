@@ -22,25 +22,17 @@ import { Compositor } from "./compositor";
 import { type ExportFormat, probeExportSupport } from "./exportSupport";
 
 export {
+  DEFAULT_VIDEO_FORMAT,
   EXPORT_FORMATS,
   type ExportFormat,
   type ExportSupport,
   probeExportSupport,
+  VIDEO_FORMATS,
+  type VideoFormat,
 } from "./exportSupport";
 
 import type { VideoScene } from "./scene";
 import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
-
-/** The containers the picture leaves in, the default first — the ones `exportSupport` blessed,
- *  here beside the probe so a container cannot be listed without being supported (docs/passes.md). */
-export const VIDEO_FORMATS = [
-  "webm",
-  "mp4",
-] as const satisfies readonly ExportFormat[];
-export type VideoFormat = (typeof VIDEO_FORMATS)[number];
-
-/** What the button and the viewport's strip mean when no line names a container. */
-export const DEFAULT_VIDEO_FORMAT: VideoFormat = "webm";
 
 export interface ExportOptions {
   /**

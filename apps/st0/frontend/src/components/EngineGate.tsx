@@ -98,6 +98,22 @@ export function EngineGate({
     [],
   );
 
+  // Paired just now: probe again with the new key, and go straight to that engine when it answers as usable.
+  const afterPairing = useCallback(
+    async (engineId: string): Promise<void> => {
+      setBusy(true);
+      try {
+        const { ranked: r } = await engines.find(engineId);
+        setRanked(r);
+        const paired = r.find((x) => x.engine.id === engineId);
+        if (paired && !paired.engine.assigned) await pick(paired);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pick],
+  );
+
   // The claim is a LEASE this tab keeps alive ON THIS PROJECT (@studio/engine-browser/docs/lease.md); asleep, the cleanup releases it.
 
   /** The engine held, by id: a switch from one engine to another keeps `phase.k` and must still move the lease. */
@@ -122,9 +138,9 @@ export function EngineGate({
   useEffect(() => {
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
     let cancelled = false;
-    void (async () => {
+    (async () => {
       // List, preference, probe and policy in one call — the same four steps in the same order as pl8 — beside what the project needs.
-      const { ranked: r, chosen } = await engines.find();
+      const { ranked: r, chosen, rememberedId } = await engines.find();
       if (cancelled) return;
       setRanked(r);
       // Compatibility, then latency class, then performance — compatibility left out where it could not be told. Not remembered, so every open ranks afresh.
@@ -132,7 +148,9 @@ export function EngineGate({
       if (cancelled) return;
       // The BENCH plays beside the account's song, on its engine: the account's files drive one at a time.
       if (claimProject && claimSlot(claimProject) === "bench") {
-        const me = await fetch("/auth/me")
+        const me = await fetch("/auth/me", {
+          signal: AbortSignal.timeout(5000),
+        })
           .then((res) =>
             res.ok
               ? (res.json() as Promise<{
@@ -146,15 +164,20 @@ export function EngineGate({
         if (cancelled) return;
         if (mine && (await pick(mine, false))) return;
       }
+      // The engine this account chose last, then this machine's, before any faster machine elsewhere (engine-browser docs/access.md).
       const best = bestEngine(r, {
         compat: compat.size ? (id) => compat.get(id)?.score ?? null : undefined,
+        remembered: rememberedId,
       });
       if (best && (await pick(best, false))) return;
       // No candidate qualified (all in use, say): the policy's own answer, if it has one.
       if (chosen && (await pick(chosen))) return;
       // Nothing usable at all: the picker says so, and offers Refresh.
       if (!cancelled) setPhase({ k: "picking" });
-    })();
+    })().catch(() => {
+      // A step that threw is the same answer as none qualifying: the picker, with Refresh, rather than a spinner forever.
+      if (!cancelled) setPhase({ k: "picking" });
+    });
     return () => {
       cancelled = true;
     };
@@ -218,6 +241,7 @@ export function EngineGate({
       loading={busy}
       onRefresh={() => void refresh()}
       onPick={(r) => void pick(r)}
+      onPaired={(id) => void afterPairing(id)}
     />
   );
 }

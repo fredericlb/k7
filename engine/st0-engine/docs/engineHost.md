@@ -357,7 +357,7 @@ second reader can empty a tap the state timer is about to read.
 and then the whole right one would draw every block **twice** at twice the documented rate, and
 since a 256-sample bucket does not divide an arbitrary block, the bucket straddling the L→R seam
 would mix two channels into one point — hidden by a correlated mix, a flicker on anything
-hard-panned. `pushSample` is `pushFrame(s, s)`, for the mono case.
+hard-panned.
 
 The broadcast section of the header is the one place that is **not** uniformly message-thread.
 `enableBroadcast` and the tap's insertion are; `drainBroadcast` and `skipBroadcastToLive` belong
@@ -482,8 +482,7 @@ These are static and wire up from `main()`:
 | `dumpPluginParams` | `--dump-params <type>` — a built-in, always complete |
 | `dumpPluginParamsExternal` | `--dump-params-ext <format> <identifier> <statefile>` — an external restored from its `.vstpreset`, complete iff it round-trips |
 | `renderDocument` | `--render <doc.json\|-> --out <dir> [--stems]`: offline bounce with no audio device, so MIDI and instrument tracks are rendered (unlike an ffmpeg mixdown) |
-| `writeWaveformCache` | `--waveform <audiofile>` — see [cliModes.md](cliModes.md) |
-| `printFilePeak` | `--peak <audiofile>` — the measuring half of a cold module, see [cliModes.md](cliModes.md) |
+| `decodeToStdout` | `--decode <audiofile>` — the samples `@studio/audio-analysis` measures, see [cliModes.md](cliModes.md) |
 
 The param dumps are st0's text alternative to an opaque `.vstpreset`: the payload is
 `{ "params": {paramID: value}, "complete": bool }`, where `complete` means the params fully

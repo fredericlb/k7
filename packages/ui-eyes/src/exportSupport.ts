@@ -12,6 +12,17 @@ import type { AudioCodec, VideoCodec } from "mediabunny";
 export const EXPORT_FORMATS = ["webm", "mp4"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
+/** The containers the picture leaves in, the default first — beside the probe, so a container cannot
+ *  be listed without being supported, and in a file that loads no muxer (docs/passes.md). */
+export const VIDEO_FORMATS = [
+  "webm",
+  "mp4",
+] as const satisfies readonly ExportFormat[];
+export type VideoFormat = (typeof VIDEO_FORMATS)[number];
+
+/** What the button and the viewport's strip mean when no line names a container. */
+export const DEFAULT_VIDEO_FORMAT: VideoFormat = "webm";
+
 /** Either the codecs to encode with, or why this build cannot — in the user's words, not the API's. */
 export type ExportSupport =
   | { ok: true; video: VideoCodec; audio?: AudioCodec }

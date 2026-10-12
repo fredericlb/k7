@@ -49,6 +49,14 @@ mixer's sum is removed. It is not `bypassed`, and the difference is a real name 
 chain is named after its first module, so `bypassed: [ eqA ]` would mute the bus **and switch the
 EQ off with it**, silently. See `@studio/song`'s `docs/busOnly.md` for the whole argument.
 
+`tap_feeds` says which runs are fed by one TAP of a rack rather than by a cable — the compiler writes
+it from a node's `tap_outs:` (see the instruments page), and a `graph.yaml` may state it by hand:
+
+```yaml schema=GraphFile
+tap_feeds:
+  - { node: kit, tap: Snare, to: snare-verb }
+```
+
 `positions` is where you PUT a node on the graph, if you did — dragging a module's header
 writes one, and the layout only ever places the nodes that have no entry here:
 

@@ -4,13 +4,6 @@
 
 import type { CommentState, ShareComment } from "@studio/web-protocol";
 
-/** The three, in the order the author's tabs stand — `active` first, being where every one lands. */
-export const COMMENT_STATES: readonly CommentState[] = [
-  "active",
-  "resolved",
-  "ignored",
-];
-
 /** A position in the song, as the transport clock writes it — the hour only when there is one. */
 export function formatAt(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

@@ -187,8 +187,13 @@ export function aiOrganizeRouter(
     }
     res.setHeader("Content-Type", "application/x-ndjson");
     res.setHeader("Cache-Control", "no-cache");
-    const say = (e: AiOrganizeEvent) =>
+    let lastStatus: AiOrganizeEvent | null = null;
+    const say = (e: AiOrganizeEvent) => {
+      if (e.type === "status") lastStatus = e;
       void (res.destroyed || res.write(`${JSON.stringify(e)}\n`));
+    };
+    // Thinking writes nothing for minutes; the last status again keeps an idle-timing proxy from cutting the stream.
+    const heartbeat = setInterval(() => lastStatus && say(lastStatus), 15_000);
     // A closed tab stops the request rather than paying for a panel nobody will see.
     const abort = new AbortController();
     res.on("close", () => res.writableEnded || abort.abort());
@@ -207,6 +212,8 @@ export function aiOrganizeRouter(
           ? `Claude API: ${e.message}`
           : (e as Error).message;
       say({ type: "error", error });
+    } finally {
+      clearInterval(heartbeat);
     }
     res.end();
   });

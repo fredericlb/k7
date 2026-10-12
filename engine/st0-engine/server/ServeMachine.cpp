@@ -5,6 +5,7 @@
 #include "DocJson.h"
 #include "AudioSender.h"
 
+#include "../engine/InstrumentStatus.h"
 #include "../engine/Warnings.h"
 
 #include <nlohmann/json.hpp>
@@ -64,8 +65,15 @@ void addMachineHandlers(HandlerTable& t) {
             // FIRST for THIS session, counted rather than tested on emptiness: another service already listening does not make this one mid-stream.
             first = on && std::none_of(listeners.begin(), listeners.end(),
                                        [&](const auto& kv) { return kv.second == target; });
+            // A socket moving to another session leaves its old one: that one's tap goes off when nobody else hears it.
+            std::string left;
+            if (on)
+                if (auto it = listeners.find(&ws); it != listeners.end() && it->second != target) left = it->second;
             if (on) listeners[&ws] = target;
             else listeners.erase(&ws);
+            if (!left.empty() && std::none_of(listeners.begin(), listeners.end(),
+                                              [&](const auto& kv) { return kv.second == left; }))
+                host.post([left, &host] { host.enableBroadcast(left, false); });
             // THIS session's ears, exactly as the Close handler counts them: the engine-wide total
             // would leave the tap on a session nobody hears whenever another one still has a listener.
             remaining = static_cast<size_t>(
@@ -109,12 +117,10 @@ void addMachineHandlers(HandlerTable& t) {
 
     t.add({"drop-session"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string& session, const std::string&) {
         auto& host = ctx.host;
-        auto& broadcast = ctx.broadcast;
         // Forget a session outright — the tray's way of clearing one an app left behind, addressed by `session` like every other message rather than by an `id` field.
-        host.post([&host, session, &broadcast] {
+        host.post([&host, session] {
             std::cerr << "[session] dropped '" << session << "'\n";
             host.dropSession(session);
-            broadcast(json{{"type", "session-dropped"}, {"session", session}});
         });
     });
 
@@ -212,6 +218,16 @@ void addMachineHandlers(HandlerTable& t) {
             else
                 broadcastTo(session, json{{"type", "error"}, {"message", "audio device not available: " + name}});
         });
+    });
+
+    t.add({"instrument-status"}, [](ServeContext&, ix::WebSocket& ws, const json& j, const std::string&, const std::string&) {
+        // Whether each `@instruments/` ref a project names is on this machine, for the asking socket alone; file stats only, so off the message thread (docs/protocol.md).
+        json status = json::object();
+        if (auto it = j.find("refs"); it != j.end() && it->is_array())
+            for (const auto& r : *it)
+                if (r.is_string() && status.size() < 256)
+                    status[r.get<std::string>()] = instrumentInstalled(r.get<std::string>());
+        ws.send(json{{"type", "instrument-status"}, {"status", status}}.dump());
     });
 
     t.add({"whoami", "hello"}, [](ServeContext& ctx, ix::WebSocket& ws, const json& j, const std::string& session, const std::string&) {
