@@ -8,9 +8,9 @@ import { flowOf, type NodeFlow, STILL } from "./flow";
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
 import {
   columnW,
-  menuH,
   curveOutPoint,
   MIX_OUT,
+  menuH,
   RENDER_OUT,
   stripWidgetRect,
 } from "./graph";

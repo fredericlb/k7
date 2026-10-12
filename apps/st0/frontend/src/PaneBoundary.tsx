@@ -27,7 +27,10 @@ export class PaneBoundary extends Component<Props, State> {
     return { error: error instanceof Error ? error : new Error(String(error)) };
   }
 
-  static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
+  static getDerivedStateFromProps(
+    props: Props,
+    state: State,
+  ): Partial<State> | null {
     // A new reload key is a new chance: the data that broke the pane may be gone.
     return props.resetKey !== state.key
       ? { key: props.resetKey, error: null }

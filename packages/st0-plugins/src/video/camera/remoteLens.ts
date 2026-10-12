@@ -97,7 +97,10 @@ export const remoteLens: LensOpener = (label) =>
       done({ stream: null, problem: "no camera relay on this machine" });
     // The socket stays open for the connection's life: ICE trickles after the first frame.
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "closed" || peer.connectionState === "failed")
+      if (
+        peer.connectionState === "closed" ||
+        peer.connectionState === "failed"
+      )
         sock.close();
     };
   });

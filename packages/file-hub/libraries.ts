@@ -61,7 +61,8 @@ export function parseSeed(value: string | undefined): Map<string, string> {
   const v = value?.trim();
   if (!v) return seed;
   if (!v.includes("=")) {
-    for (const name of libraryFolders(resolve(v))) seed.set(name, join(resolve(v), name));
+    for (const name of libraryFolders(resolve(v)))
+      seed.set(name, join(resolve(v), name));
     return seed;
   }
   for (const pair of v.split(",")) {

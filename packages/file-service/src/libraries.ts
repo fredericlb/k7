@@ -3,6 +3,7 @@
 // IN PLACE, and the hub relays what changed (st0fs); anyone else reads it only.
 // Rationale: packages/song/docs/sharedFolders.md, mechanics: docs/libraries.md.
 
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   isLibraryName,
@@ -10,7 +11,6 @@ import {
   setLibraryOverlays,
 } from "@studio/song/sharedFolders";
 import { HUB_SECRET_HEADER, type LibraryNote } from "@studio/web-protocol";
-import { readdirSync } from "node:fs";
 
 /** Ask the hub to give the listed libraries (or `name`) their folders; without a hub, the folders are what is there. */
 export async function askHubSync(

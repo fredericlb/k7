@@ -20,6 +20,7 @@ import { PORTS_ENV } from "@studio/web-protocol/services";
 import { session } from "electron";
 import standalone from "../../st0/backend/standalone.json";
 import { startBackend } from "./backends.ts";
+import { pairIfNeeded } from "./pairSync.ts";
 import {
   appIcon,
   engineBinary,
@@ -27,7 +28,6 @@ import {
   stateDirs,
   supervisorBinary,
 } from "./paths.ts";
-import { pairIfNeeded } from "./pairSync.ts";
 import { signIn } from "./signIn.ts";
 import { startSupervisor } from "./supervisor.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";

@@ -6,8 +6,8 @@
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { isAnswer } from "../readFailure";
 import { mixerModules } from "../mixerStrips";
+import { isAnswer } from "../readFailure";
 import type { WebProject } from "../types";
 
 export interface RecInfo {

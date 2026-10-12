@@ -107,7 +107,9 @@ describe("parseSurface", () => {
   });
 
   it("reads the FRAME, which is a surface like any other", () => {
-    const { value, issues } = parseSurface("type: viewport\nlayout: floating\n");
+    const { value, issues } = parseSurface(
+      "type: viewport\nlayout: floating\n",
+    );
     expect(issues).toEqual([]);
     expect(value?.type).toBe("viewport");
     expect(value?.layout).toBe("floating");

@@ -222,9 +222,8 @@ import {
 import { foldComps } from "./webComp.ts";
 import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
 
-export { isBinary, skip };
-
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
+export { isBinary, skip };
 
 // Turn a compiler error into editor diagnostics; a line with no "<file>: " prefix yields none but still counts.
 function parseCompileError(msg: string): Diagnostic[] {
@@ -277,13 +276,11 @@ export function projectDirsUnder(
   return out;
 }
 
-
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.ya?ml$/i;
 // What moves the revision: the YAML, and a VST's .vstpreset — its params, rewritten IN PLACE by its
 // own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
 const REVISION_FILE = /\.(ya?ml|vstpreset)$/i;
-
 
 /** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
 interface WalkedFile {

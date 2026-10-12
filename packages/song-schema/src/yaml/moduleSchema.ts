@@ -260,7 +260,8 @@ export const UISchema = z
       ctx.addIssue({
         code: "custom",
         path: ["vertical", "tabs"],
-        message: "the vertical layout must have the same tabs as the panel, in the same order",
+        message:
+          "the vertical layout must have the same tabs as the panel, in the same order",
       });
   });
 

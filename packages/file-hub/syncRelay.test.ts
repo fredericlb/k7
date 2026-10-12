@@ -17,8 +17,8 @@ import { LiveCapture } from "@studio/file-service/src/liveCapture.ts";
 import { ConfirmedDir } from "@studio/file-service/src/liveConfirmed.ts";
 import {
   loadHead,
-  RelayLink,
   type RelayAuth,
+  RelayLink,
 } from "@studio/file-service/src/liveRelay.ts";
 import { isBinary, skip } from "@studio/file-service/src/workspace.ts";
 import { Replica } from "@studio/live-sync/replica";

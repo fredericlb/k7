@@ -5,9 +5,9 @@
 // The MIDI capture beside it is the same shape — see useMidiRecording.ts.
 
 import type { EngineStore } from "@studio/engine-browser/store";
+import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import { cameraConstraint, matchCamera } from "@studio/ui-eyes/camera";
 import fixWebmDuration from "fix-webm-duration";
-import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fileClip } from "../clipFiles";
 import { downloadBlob } from "../downloadBlob";

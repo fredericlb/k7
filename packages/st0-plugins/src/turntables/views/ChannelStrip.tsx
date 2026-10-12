@@ -16,6 +16,7 @@ import {
   Waves,
 } from "@frediverse/ui/icons";
 import { STEM_NEUTRAL, STEM_RANGE, type Stem } from "@studio/song-schema/stems";
+import { usePointerFollow } from "@studio/ui-timeline/drag";
 import {
   ECHO_RANGE,
   EQ_BANDS,
@@ -23,7 +24,6 @@ import {
   FILTER_RANGE,
   TRIM_DB,
 } from "../deckVocabulary";
-import { usePointerFollow } from "@studio/ui-timeline/drag";
 import type { StripLayout } from "../deskLayout";
 
 /** What each stem is called under its knob — short, because the label sits under a 36 px dial. */

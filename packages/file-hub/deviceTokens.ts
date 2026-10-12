@@ -13,7 +13,8 @@ export interface Device {
   lastSeen?: number;
 }
 
-const b64 = (b: Buffer | string): string => Buffer.from(b).toString("base64url");
+const b64 = (b: Buffer | string): string =>
+  Buffer.from(b).toString("base64url");
 
 export class DeviceTokens {
   constructor(
@@ -32,7 +33,9 @@ export class DeviceTokens {
 
   list(slug: string): Device[] {
     const f = this.file(slug);
-    return existsSync(f) ? (JSON.parse(readFileSync(f, "utf8")) as Device[]) : [];
+    return existsSync(f)
+      ? (JSON.parse(readFileSync(f, "utf8")) as Device[])
+      : [];
   }
 
   private save(slug: string, devices: Device[]): void {

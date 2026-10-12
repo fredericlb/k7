@@ -11,9 +11,9 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { claimRoot } from "./owner.ts";
 // STATIC, not `await import(...)`: paying this module's load in the first test body blew the 5 s timeout.
 import { rootDir } from "./slug.ts";
-import { claimRoot } from "./owner.ts";
 import {
   createWorkspace,
   joinWorkspace,

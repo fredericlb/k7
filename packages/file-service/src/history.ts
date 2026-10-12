@@ -16,12 +16,12 @@ import {
 import { basename, dirname, join, resolve } from "node:path";
 import { studioHome } from "@studio/song/studioHome";
 import { HISTORY_HOME_DIR } from "@studio/song-schema/moduleTypes";
-import { HISTORY_DIR } from "./workspaceFilter.ts";
 import type {
   HistoryListEntry,
   HistoryPeek,
   HistoryState,
 } from "@studio/web-protocol";
+import { HISTORY_DIR } from "./workspaceFilter.ts";
 
 /** A journal folder inside a project: nothing writes one, and the tree and the walks still hide it. */
 const MAX_ENTRIES = 1000;
@@ -370,6 +370,5 @@ export class ProjectHistory {
     });
   }
 }
-
 
 export { HISTORY_DIR };
