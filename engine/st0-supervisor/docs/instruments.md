@@ -7,7 +7,7 @@ and a module names one as `@instruments/<name>/<file>.sfz`.
 ## The machine keeps what its musician chose
 
 **Nothing is downloaded until it is asked for**, in the tray's Downloads tab
-(`engine/st0-tray/docs/tray.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
+(`engine/st0-tray/docs/tray.md`) or the desktop app's Engine page (`apps/st0-standalone/docs/engine.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
 kits more — and a machine that never plays a piano should not pay for one. What is chosen is
 remembered in `engine-host.json` as `instruments`, the names this machine keeps:
 
@@ -16,8 +16,8 @@ remembered in `engine-host.json` as `instruments`, the names this machine keeps:
 - **Absent is not empty.** A home that has never chosen is settled on its first boot to the
   instruments already installed there, so an update keeps what an older supervisor fetched and
   downloads nothing new. An empty list is a choice to keep nothing, and stays one.
-- **A host with no Downloads tab keeps them all**: the standalone app and the phone start the
-  supervisor with `STUDIO_INSTRUMENTS=all`, which outranks the setting. They have nowhere to
+- **A host with nowhere to choose keeps them all**: the phone starts the supervisor with
+  `STUDIO_INSTRUMENTS=all`, which outranks the setting. They have nowhere to
   choose, and a module that stays silent with no way to fix it is worse than the download.
 
 **One at a time, in the order asked.** The queue runs on a thread of its own; the engine plays

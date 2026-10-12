@@ -1,5 +1,5 @@
 // DesktopEnginePage.tsx — `/settings/engine`, the desktop app's built-in engine: whether it runs, which
-// audio interface it takes first, and its plugins. What the tray's settings window held for its engine;
+// audio interface it takes first, its plugins, and the instruments it downloads. What the tray's settings window held for its engine;
 // the desktop app has no tray, so its own menu leads here. See ../../docs/settings.md.
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
@@ -8,9 +8,13 @@ import { HomeShell } from "../projects/HomeSidebar";
 import {
   type DesktopEngineSnapshot,
   engineCommand,
+  type InstrumentRow,
+  instrumentAction,
+  instrumentRows,
   moveDevice,
   onDesktopEngine,
   rankedDevices,
+  sizeOf,
   useDesktopEngine,
 } from "./desktopEngine";
 import { Action, Row, Section } from "./Section";
@@ -30,11 +34,24 @@ function statusLine(
   return s.userStopped ? m["engine.stoppedByYou"]() : m["engine.stopped"]();
 }
 
+/** What an instrument's row says under its name. */
+function instrumentDetail(i: InstrumentRow): string {
+  const of = sizeOf(i.bytes);
+  if (i.phase === "queued") return m["engine.instrument.queued"]({ size: of });
+  if (i.phase === "unpacking")
+    return m["engine.instrument.unpacking"]({ size: of });
+  if (i.phase === "failed")
+    return m["engine.instrument.failed"]({ error: i.error ?? "" });
+  if (i.installed) return m["engine.instrument.installed"]({ size: of });
+  return i.wanted ? m["engine.instrument.missing"]({ size: of }) : of;
+}
+
 export function DesktopEnginePage() {
   const state = useDesktopEngine();
   const s = state?.snapshot ?? null;
   const running = s?.status === "running";
   const devices = s ? rankedDevices(s) : [];
+  const instruments = s ? instrumentRows(s) : [];
   const names = devices.map((d) => d.name);
   const move = (from: number, to: number) =>
     engineCommand("audio.priority", moveDevice(names, from, to).join(SEP));
@@ -115,6 +132,45 @@ export function DesktopEnginePage() {
                       </Action>
                     </Row>
                   ))
+                )}
+              </Section>
+
+              <Section
+                title={m["engine.downloadsTitle"]()}
+                hint={m["engine.downloadsHint"]()}
+              >
+                {instruments.length === 0 ? (
+                  <Row label={m["engine.noInstruments"]()} />
+                ) : (
+                  instruments.map((i) => {
+                    const action = instrumentAction(i);
+                    return (
+                      <Row
+                        key={i.name}
+                        label={i.label}
+                        detail={
+                          i.phase === "downloading" ? (
+                            <progress
+                              className="h-1.5 w-full"
+                              max={i.bytes || 1}
+                              value={i.received}
+                            />
+                          ) : (
+                            instrumentDetail(i)
+                          )
+                        }
+                      >
+                        {action && (
+                          <Action
+                            danger={action.label === "remove"}
+                            onClick={() => engineCommand(action.cmd, i.name)}
+                          >
+                            {m[`engine.instrument.${action.label}`]()}
+                          </Action>
+                        )}
+                      </Row>
+                    );
+                  })
                 )}
               </Section>
 

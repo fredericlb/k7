@@ -36,8 +36,6 @@ export function startSupervisor(
     bin,
     env: {
       STUDIO_HOME: home,
-      // No Downloads tab here to choose in, so every instrument is fetched (engine/st0-supervisor/docs/instruments.md).
-      STUDIO_INSTRUMENTS: "all",
       STUDIO_REGISTRY_URL: registryUrl,
     },
     enginePidFile: join(home, "engine.pid"),

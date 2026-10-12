@@ -21,6 +21,67 @@ export interface DesktopEngineSnapshot {
     currentInput: boolean;
   }[];
   audioPriority?: string[];
+  instruments?: {
+    name: string;
+    label: string;
+    bytes: number;
+    wanted: boolean;
+    installed: boolean;
+  }[];
+  downloads?: {
+    name: string;
+    received: number;
+    total: number;
+    phase: "queued" | "downloading" | "unpacking" | "failed";
+    error?: string;
+  }[];
+}
+
+/** One instrument as the Downloads section draws it: the catalogue row and where its download stands. */
+export interface InstrumentRow {
+  name: string;
+  label: string;
+  bytes: number;
+  installed: boolean;
+  wanted: boolean;
+  phase: "queued" | "downloading" | "unpacking" | "failed" | null;
+  received: number;
+  error: string | null;
+}
+
+/** Every instrument the engine can play, each with its download's phase when one is queued or running. */
+export function instrumentRows(s: DesktopEngineSnapshot): InstrumentRow[] {
+  const downloads = s.downloads ?? [];
+  return (s.instruments ?? []).map((i) => {
+    const d = downloads.find((x) => x.name === i.name);
+    return {
+      ...i,
+      phase: d?.phase ?? null,
+      received: d?.received ?? 0,
+      error: d?.error ?? null,
+    };
+  });
+}
+
+/** The row's one action, or none while a download runs: the supervisor cannot cut one mid-file. */
+export function instrumentAction(
+  i: InstrumentRow,
+): { label: "cancel" | "retry" | "remove" | "download"; cmd: string } | null {
+  if (i.phase === "downloading" || i.phase === "unpacking") return null;
+  if (i.phase === "queued")
+    return { label: "cancel", cmd: "instruments.remove" };
+  if (i.phase === "failed")
+    return { label: "retry", cmd: "instruments.download" };
+  if (i.installed) return { label: "remove", cmd: "instruments.remove" };
+  return { label: "download", cmd: "instruments.download" };
+}
+
+/** "748 MB", "1.3 GB": the size the list pins, which is what the download costs. */
+export function sizeOf(bytes: number): string {
+  const mb = bytes / 1e6;
+  return mb >= 1000
+    ? `${(mb / 1000).toFixed(1)} GB`
+    : `${Math.max(1, Math.round(mb))} MB`;
 }
 
 export interface DesktopEngineState {
@@ -45,7 +106,7 @@ declare global {
 export const onDesktopEngine = (): boolean =>
   typeof window !== "undefined" && !!window.studioEngine;
 
-/** Ask the supervisor: only `engine.start|stop|restart`, `audio.priority` and `plugins.rescan` are taken. */
+/** Ask the supervisor: only `engine.start|stop|restart`, `audio.priority`, `plugins.rescan` and `instruments.download|remove` are taken. */
 export const engineCommand = (cmd: string, arg?: string): void =>
   window.studioEngine?.send(cmd, arg);
 

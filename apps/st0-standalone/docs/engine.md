@@ -18,11 +18,10 @@ app, and the menu row is drawn only when it is there.
 ## Only the app's origin, only a few commands
 
 A page of another origin could be loaded in a tab, so the main process answers only a page of the
-app's own origin, and only `engine.start`, `engine.stop`, `engine.restart`, `audio.priority` and
-`plugins.rescan`. What else the supervisor takes — the studios it is listed at, LAN pairing, plugin
-windows, instruments — is not reachable from a page: the app chooses those itself
-(`STUDIO_INSTRUMENTS=all`, its own st0 as the one studio), and LAN pairing has its section in st0's
-settings.
+app's own origin, and only `engine.start`, `engine.stop`, `engine.restart`, `audio.priority`,
+`plugins.rescan` and `instruments.download` / `instruments.remove`. What else the supervisor takes —
+the studios it is listed at, LAN pairing, plugin windows — is not reachable from a page: the app
+chooses the studio itself (its own st0), and LAN pairing has its section in st0's settings.
 
 ## What the page sets
 
@@ -31,5 +30,9 @@ settings.
   first one plugged in. The list on screen IS the ranking, and every move sends it whole, as the
   tray's window does. A ranked interface that is unplugged keeps its row, since it holds its rank.
 - **Plugins:** the engine's catalogue and a rescan. Read-only otherwise.
+- **Downloads:** the sampled instruments the engine can play, each with the one action that fits —
+  download, cancel while queued, retry after a failure, remove — and a progress bar while it runs.
+  Nothing is fetched until asked for here, as on the tray (`engine/st0-supervisor/docs/instruments.md`):
+  the list runs to gigabytes.
 
 Sample rate and buffer size are not settings of the engine or the supervisor, so they are not here.

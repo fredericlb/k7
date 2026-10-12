@@ -13,13 +13,15 @@ import {
   webContents,
 } from "electron";
 
-/** What a page may ask of the supervisor: the engine's life, the interfaces' order, a plugin rescan. */
+/** What a page may ask of the supervisor: the engine's life, the interfaces' order, a plugin rescan, the instruments it keeps. */
 const ALLOWED = new Set([
   "engine.start",
   "engine.stop",
   "engine.restart",
   "audio.priority",
   "plugins.rescan",
+  "instruments.download",
+  "instruments.remove",
 ]);
 
 let latest: Snapshot | null = null;
