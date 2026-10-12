@@ -20,6 +20,7 @@ import { projectApp } from "@studio/web-protocol/projects";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { attachLiveCapture, detachLiveCapture } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
+import { rootOwner } from "./owner.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import {
   activeMarkerOf,
@@ -59,6 +60,29 @@ export function getWorkspace(userEmail: string, workspace: string): Workspace {
     attachLiveCapture(ws, workspace);
   }
   return ws;
+}
+
+/** Make sure `name` exists here and is synced, as the relay's rooms ask; nothing when no account has claimed this root. */
+export function joinWorkspace(name: string): void {
+  const owner = rootOwner();
+  if (!owner) return;
+  try {
+    const root = workspaceRoot(name);
+    if (!existsSync(root)) {
+      mkdirSync(root, { recursive: true });
+      forgetListing(slugify(owner));
+    }
+    getWorkspace(owner, name);
+  } catch (e) {
+    console.warn(
+      `sync | cannot join workspace '${name}': ${(e as Error).message}`,
+    );
+  }
+}
+
+/** Sync every workspace on this machine from the start, not only those a request opens: a replica holds them all. */
+export function attachAllWorkspaces(): void {
+  for (const name of workspaceNames(rootDir())) joinWorkspace(name);
 }
 
 /** Every workspace currently open, for the machine-wide jobs that have no request to hang off. */

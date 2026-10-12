@@ -27,6 +27,7 @@ import {
   stateDirs,
   supervisorBinary,
 } from "./paths.ts";
+import { pairIfNeeded } from "./pairSync.ts";
 import { signIn } from "./signIn.ts";
 import { startSupervisor } from "./supervisor.ts";
 import { openTabbedWindow, type TabbedWindow } from "./window.ts";
@@ -73,9 +74,11 @@ async function noServiceWorker(): Promise<void> {
 /** Any sign-out — the strip's, the user menu's, an expired session — falls back to the local user. */
 function watchSignOut(): void {
   session.defaultSession.cookies.on("changed", (_e, cookie, cause, removed) => {
+    if (cookie.name !== "studio.sid") return;
+    // A new session may be a newly signed-in account: pair it with the origin's relay if it is not yet.
+    if (!removed) return void pairIfNeeded(ST0).catch(() => undefined);
     // An overwrite is a new session replacing the old one, not a sign-out.
-    if (!removed || cookie.name !== "studio.sid" || cause === "overwrite")
-      return;
+    if (cause === "overwrite") return;
     line("app", `signed out (${cause})`);
     win?.reset(LOCAL_HOME);
   });

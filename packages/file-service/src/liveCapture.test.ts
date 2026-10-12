@@ -1,5 +1,6 @@
 // liveCapture.test.ts — real folders, the real watcher: what a change becomes, and two replicas converging.
 
+import { randomBytes } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
@@ -10,12 +11,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { type BlobId, blobRef } from "@studio/live-sync/blob";
 import { textHash } from "@studio/live-sync/file-op";
 import type { Sequenced } from "@studio/live-sync/ops";
 import { MemoryConfirmed, Replica } from "@studio/live-sync/replica";
 import { Room } from "@studio/live-sync/room";
 import { afterEach, describe, expect, it } from "vitest";
-import { LiveCapture } from "./liveCapture.ts";
+import { sha256Buffer } from "./liveBlobs.ts";
+import { type CaptureOptions, LiveCapture } from "./liveCapture.ts";
 import type { Batch } from "./liveLog.ts";
 import { isBinary, skip } from "./workspace.ts";
 
@@ -43,6 +46,7 @@ const read = (root: string, rel: string): string =>
 function replica(
   name: string,
   files: Record<string, string> = { "song.st0/nodes/mix.yaml": MIX },
+  more: Partial<CaptureOptions> = {},
 ): Cap {
   const root = mkdtempSync(join(tmpdir(), `live-${name}-`));
   for (const [rel, text] of Object.entries(files)) put(root, rel, text);
@@ -55,6 +59,7 @@ function replica(
     onBatch: (b) => batches.push(b),
     quietMs: 50,
     reconcileMs: 0,
+    ...more,
   });
   capture.start();
   open.push(capture);
@@ -127,24 +132,25 @@ describe("LiveCapture", () => {
     });
   });
 
-  it("ignores what the workspace hides, and binaries for now", async () => {
+  it("ignores what the workspace hides", async () => {
     const a = replica("hidden");
     put(a.root, ".git/HEAD", "ref: x\n");
     put(a.root, "song.st0/clips/take.wav.cache", "x");
     put(a.root, "_recycle_bin/old.yaml", "a: 1\n");
-    put(a.root, "song.st0/clips/take.wav", "RIFF");
     await settle();
     expect(a.batches).toEqual([]);
   });
 
-  it("never sends a binary as text, whatever its extension", async () => {
+  it("never sends a binary as text, whatever its extension: it travels as its blob ref", async () => {
     const a = replica("fxp");
-    writeFileSync(
-      join(a.root, "song.st0/preset.fxp"),
-      Buffer.from([0x43, 0x63, 0x6e, 0x4b, 0, 0, 1, 2]),
-    );
-    await settle();
-    expect(a.batches).toEqual([]);
+    const bytes = Buffer.from([0x43, 0x63, 0x6e, 0x4b, 0, 0, 1, 2]);
+    writeFileSync(join(a.root, "song.st0/preset.fxp"), bytes);
+    const [b] = await batches(a, 1);
+    const ref = refOf(bytes);
+    expect(b.ops).toEqual([
+      { kind: "text", file: "song.st0/preset.fxp", text: ref, was: null },
+    ]);
+    expect(a.capture.read("song.st0/preset.fxp")).toBe(ref);
   });
 
   it("sends nothing for a text file rewritten with the same content", async () => {
@@ -180,6 +186,99 @@ describe("LiveCapture", () => {
       kind: "yaml",
       file: "song.st0/nodes/mix.yaml",
     });
+  });
+});
+
+const refOf = (bytes: Buffer): string => {
+  const id = sha256Buffer(bytes);
+  return blobRef(id.hash, id.size);
+};
+
+/** A capture with a blob cache, binaries settling fast, and the fetches it asks for. */
+function withBlobs(name: string, files: Record<string, string> = {}) {
+  const missing: BlobId[] = [];
+  const blobDir = mkdtempSync(join(tmpdir(), `blobs-${name}-`));
+  const c = replica(name, files, {
+    blobDir,
+    binarySettleMs: 50,
+    onMissingBlob: (b) => missing.push(b),
+  });
+  return Object.assign(c, { missing, blobDir });
+}
+
+describe("LiveCapture with binaries", () => {
+  it("sends a written audio file once it has settled, keeps its bytes, and names them on removal", async () => {
+    const a = withBlobs("wav");
+    const bytes = randomBytes(4096);
+    writeFileSync(join(a.root, "take.wav"), bytes);
+    const [b] = await batches(a, 1);
+    const ref = refOf(bytes);
+    expect(b.ops).toEqual([
+      { kind: "text", file: "take.wav", text: ref, was: null },
+    ]);
+    const path = a.capture.blobFile(sha256Buffer(bytes).hash);
+    expect(path && readFileSync(path).equals(bytes)).toBe(true);
+    rmSync(join(a.root, "take.wav"));
+    const all = await batches(a, 2);
+    expect(all[1].ops).toEqual([
+      { kind: "remove", file: "take.wav", was: textHash(ref) },
+    ]);
+  });
+
+  it("writes a ref whose bytes it holds, and echoes nothing", async () => {
+    const a = withBlobs("place");
+    const bytes = randomBytes(2048);
+    writeFileSync(join(a.root, "one.wav"), bytes);
+    await batches(a, 1);
+    a.capture.writeKnown("two.wav", refOf(bytes));
+    expect(readFileSync(join(a.root, "two.wav")).equals(bytes)).toBe(true);
+    expect(a.capture.read("two.wav")).toBe(refOf(bytes));
+    expect(a.missing).toEqual([]);
+    await settle();
+    expect(a.batches).toHaveLength(1);
+  });
+
+  it("keeps a ref it lacks the bytes of as pending: asked for, never reported removed, written once fetched", async () => {
+    const a = withBlobs("pending");
+    const bytes = randomBytes(1024);
+    const id = sha256Buffer(bytes);
+    a.capture.writeKnown("far.wav", refOf(bytes));
+    expect(a.missing).toEqual([id]);
+    expect(a.capture.read("far.wav")).toBe(refOf(bytes));
+    expect(a.capture.pendingOn(id.hash)).toBe(true);
+    expect(a.capture.flushNow({ full: true })).toBeNull();
+    writeFileSync(join(a.blobDir, id.hash), bytes);
+    expect(a.capture.fetched(id.hash)).toEqual(["far.wav"]);
+    expect(readFileSync(join(a.root, "far.wav")).equals(bytes)).toBe(true);
+    expect(a.capture.pendingOn(id.hash)).toBe(false);
+    await settle();
+    expect(a.batches).toEqual([]);
+  });
+
+  it("still waits for the bytes after a restart, rather than read their absence as a removal", async () => {
+    const a = withBlobs("restart");
+    const ref = refOf(randomBytes(512));
+    a.capture.writeKnown("far.wav", ref);
+    a.capture.stop();
+    const confirmed = new MemoryConfirmed();
+    confirmed.set("far.wav", ref);
+    const again: Batch[] = [];
+    const missing: BlobId[] = [];
+    const c = new LiveCapture({
+      root: a.root,
+      replica: "restart",
+      skip,
+      isBinary,
+      onBatch: (b) => again.push(b),
+      reconcileMs: 0,
+      blobDir: a.blobDir,
+      onMissingBlob: (b) => missing.push(b),
+    });
+    open.push(c);
+    c.start(confirmed);
+    expect(again).toEqual([]);
+    expect(missing).toHaveLength(1);
+    expect(c.read("far.wav")).toBe(ref);
   });
 });
 

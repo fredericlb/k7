@@ -6,10 +6,11 @@
 import { join } from "node:path";
 import type { Conflict } from "@studio/live-sync/ops";
 import { Replica } from "@studio/live-sync/replica";
+import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { LiveCapture } from "./liveCapture.ts";
 import { ConfirmedDir } from "./liveConfirmed.ts";
 import { type Batch, LiveLog, liveLogFor, replicaId } from "./liveLog.ts";
-import { type Linked, loadHead, RelayLink } from "./liveRelay.ts";
+import { authHeaders, type Linked, loadHead, RelayLink } from "./liveRelay.ts";
 import { isBinary, skip, type Workspace } from "./workspace.ts";
 
 const attached = new Map<
@@ -26,8 +27,41 @@ function relayLink(): RelayLink | null {
   const token = process.env.STUDIO_SYNC_TOKEN;
   const secret = process.env.STUDIO_HUB_SECRET;
   if (!url || !(token || secret)) return null;
-  relay ??= new RelayLink(url, token ? { token } : { secret: secret ?? "" });
+  relay ??= new RelayLink(
+    url,
+    token ? { token } : { secret: secret ?? "" },
+    undefined,
+    () =>
+      void joinRooms(
+        url,
+        authHeaders(token ? { token } : { secret: secret ?? "" }),
+      ),
+  );
   return relay;
+}
+
+/** The relay's HTTP twin of its socket URL: `ws(s)://host/api/sync` → `http(s)://host/api/sync/rooms`. */
+export const roomsUrl = (syncUrl: string): string =>
+  `${syncUrl.replace(/^ws/, "http").replace(/\/+$/, "")}/rooms`;
+
+/** Every room the account has that this replica lacks becomes a workspace here, joined at once: how a workspace arrives. */
+async function joinRooms(
+  syncUrl: string,
+  headers: Record<string, string>,
+): Promise<void> {
+  try {
+    const r = await fetch(roomsUrl(syncUrl), { headers });
+    if (!r.ok) throw new Error(`rooms ${r.status}`);
+    const { workspaces } = (await r.json()) as { workspaces: string[] };
+    // Imported late: workspaces.ts loads this module to attach what it opens.
+    const { joinWorkspace } = await import("./workspaces.ts");
+    for (const name of workspaces)
+      if (name !== EXAMPLES_WORKSPACE) joinWorkspace(name);
+  } catch (e) {
+    console.warn(
+      `sync | could not list the account's workspaces: ${(e as Error).message}`,
+    );
+  }
 }
 
 /** An edit another replica made landed in `ws`: the caches go, and the engine hears of the open project. */
@@ -46,7 +80,9 @@ function remoteLanded(ws: Workspace, files: string[]): void {
 
 /** Start capturing `ws` (named `name` in its account) once; a no-op when live sync is off or it is already captured. */
 export function attachLiveCapture(ws: Workspace, name: string): void {
-  if (!liveSyncOn() || attached.has(ws.root)) return;
+  // Examples is each build's own, stocked on every replica: syncing it would make every build a conflict.
+  if (!liveSyncOn() || attached.has(ws.root) || name === EXAMPLES_WORKSPACE)
+    return;
   const logDir = liveLogFor(ws.root);
   const log = new LiveLog(logDir);
   const link = relayLink();
@@ -59,6 +95,8 @@ export function attachLiveCapture(ws: Workspace, name: string): void {
       log.append(b);
       link?.local(name, b);
     },
+    blobDir: join(logDir, "blobs"),
+    onMissingBlob: (blob) => link?.fetch(name, blob),
   });
   ws.liveCapture = capture;
   attached.set(ws.root, { capture, log, name });

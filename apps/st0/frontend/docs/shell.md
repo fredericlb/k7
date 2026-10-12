@@ -721,6 +721,14 @@ step's command line names in it. A file that is the whole song's (`project.yaml`
 since lighting everything says nothing. Undone steps stay in the list, dimmed: they are what Ctrl+Y
 brings back, until the next edit drops them.
 
+Under the journal, the same panel lists the WORKSPACE's sync history (`syncHistory.ts`): its
+checkpoints and latest edits from every device, read from the relay's log
+(`packages/file-hub/docs/history.md`). The two stay apart because they answer different questions:
+the journal is this project's undo, local and offline; the sync history is what every replica
+agreed on. A row opens on what it changed as plain text before and after, with no diff library, and
+"Restore to here" asks first, because a restore reaches every device at once. It is the panel's one
+write, and it is an edit like any other, so it is itself in the list.
+
 `rightPanel` in `App` is one value and not one boolean each, because there is **one column**: two panels
 open at once would be two columns, and the panes have already given up the width for one.
 

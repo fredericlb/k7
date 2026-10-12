@@ -3,7 +3,6 @@
 // Only this hub holds that account's secret, so no account's replica can write a library: admins
 // write the folder itself, and the hub's capture is what sends it. See docs/fileHub.md.
 
-import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { LiveCapture } from "@studio/file-service/src/liveCapture.ts";
@@ -18,14 +17,14 @@ export const LIBRARIES_ACCOUNT = "_libraries";
 const REPLICA_ID = "hub-libraries";
 
 export class LibraryRelay {
-  /** What the relay recognises as LIBRARIES_ACCOUNT; made per process, never written anywhere. */
-  readonly secret = randomBytes(24).toString("hex");
   private link: RelayLink | null = null;
   private readonly live = new Map<string, () => void>();
 
   constructor(
     private readonly home: string,
     private readonly url: string,
+    /** What the relay recognises as LIBRARIES_ACCOUNT; made per process, never written anywhere. */
+    readonly secret: string,
     private readonly log: (msg: string) => void,
   ) {}
 
@@ -62,6 +61,9 @@ export class LibraryRelay {
       skip,
       isBinary,
       onBatch: (b) => link.local(name, b),
+      // Its bytes go to LIBRARIES_ACCOUNT's blob store, beside the rooms (docs/blobs.md).
+      blobDir: join(logDir, "blobs"),
+      onMissingBlob: (blob) => link.fetch(name, blob),
     });
     const written: string[] = [];
     const confirmed = new ConfirmedDir(join(logDir, "confirmed"));

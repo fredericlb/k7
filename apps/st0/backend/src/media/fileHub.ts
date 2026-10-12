@@ -12,6 +12,7 @@ import {
   FileHub,
 } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
+import { SYNC_PAIR_ROUTE } from "@studio/web-protocol/pairing";
 import type { Express, RequestHandler } from "express";
 
 /** `$STUDIO_FILES_ROOT`, or the process exits with what to set — called before anything listens. */
@@ -64,7 +65,29 @@ export function mountFileHub(
   });
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
   // The machines that sync this account's workspaces: a device token is minted here, behind the session.
-  app.use("/api/sync/devices", requireAuth, hub.devicesRouter());
+  // A desktop pairing with this origin: its browser lands here, signs in if it must, and is sent home with a device token.
+  app.get(
+    SYNC_PAIR_ROUTE,
+    (req, res, next) => {
+      const user = req.session?.user as SessionUser | undefined;
+      if (!user || user.local)
+        return res.redirect(
+          `/auth/login?return_to=${encodeURIComponent(req.originalUrl)}`,
+        );
+      (req as { user?: SessionUser }).user = user;
+      next();
+    },
+    hub.sync.syncPairHandler(),
+  );
+  app.use("/api/sync/devices", requireAuth, hub.sync.devicesRouter());
+  // The LOCAL backend's own account, paired with a remote origin: the desktop stores what pairing brought back.
+  app.use("/api/sync/remote", requireAuth, hub.sync.remoteRouter());
+  // A binary file's bytes, by hash: a device token or a hub secret is the gate, not a session.
+  app.use("/api/sync/blobs", hub.sync.blobsRouter());
+  // The workspaces an account syncs, for a replica that has not seen them all; same gate as the blobs.
+  app.use("/api/sync/rooms", hub.sync.roomsRouter());
+  // The account's sync history, for its own browser.
+  app.use("/api/sync/history", requireAuth, hub.sync.historyRouter());
   // Called only by this hub's own file services, over loopback: their secret is the gate, not a session.
   app.use(FILE_HUB_INTERNAL, hub.internalHandler());
   // No session guard: a page on another origin carries a ticket, not a cookie — the hub checks it.

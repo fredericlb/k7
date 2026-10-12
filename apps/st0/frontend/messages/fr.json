@@ -795,5 +795,22 @@
   "media.slskd.forget": "Oublier",
   "media.slskd.save": "Enregistrer",
   "media.slskd.test": "Tester la connexion",
-  "libs.notPresent": "pas encore sur le serveur"
+  "libs.notPresent": "pas encore sur le serveur",
+  "synchist.title": "Historique de l'espace",
+  "synchist.name": "Nommer ce point",
+  "synchist.namePrompt": "Nommer ce point de l'espace de travail",
+  "synchist.namePlaceholder": "avant le mixage",
+  "synchist.nameConfirm": "Nommer",
+  "synchist.nameEmpty": "Un point a besoin d'un nom.",
+  "synchist.auto": "point automatique",
+  "synchist.empty": "Rien de synchronisé pour l'instant : chaque modification de cet espace, sur n'importe quel appareil, apparaîtra ici.",
+  "synchist.restore": "Revenir ici",
+  "synchist.restoreTitle": "Ramener l'espace de travail à {point} ?",
+  "synchist.restoreBody": "Chaque fichier redevient ce qu'il était à ce point, sur tous les appareils. Le retour est une modification comme une autre : ce qu'il remplace reste dans cet historique.",
+  "synchist.restoreConfirm": "Revenir",
+  "synchist.binary": "fichier binaire modifié",
+  "synchist.before": "Avant",
+  "synchist.after": "Après",
+  "synchist.noChange": "Aucune différence.",
+  "synchist.parked": "{count} mis de côté"
 }

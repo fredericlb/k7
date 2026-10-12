@@ -13,7 +13,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // STATIC, not `await import(...)`: paying this module's load in the first test body blew the 5 s timeout.
 import { rootDir } from "./slug.ts";
-import { createWorkspace, listMachineWorkspaces } from "./workspaces.ts";
+import { claimRoot } from "./owner.ts";
+import {
+  createWorkspace,
+  joinWorkspace,
+  listMachineWorkspaces,
+} from "./workspaces.ts";
 
 let home: string;
 /** A DIFFERENT user per test, so "nothing on this machine" holds wherever another file's env juggling lands. */
@@ -85,5 +90,24 @@ describe("createWorkspace", () => {
     mkdirSync(join(root, "hiver", "a.st0"), { recursive: true });
     expect(await createWorkspace(USER, "hiver")).toBe(false);
     expect(existsSync(join(root, "hiver", "a.st0"))).toBe(true);
+  });
+});
+
+describe("joinWorkspace", () => {
+  it("does nothing before an account has claimed this root", () => {
+    const root = myRoot();
+    joinWorkspace("band");
+    expect(existsSync(join(root, "band"))).toBe(false);
+  });
+
+  it("makes a workspace the relay names and this machine lacks, and leaves one already here alone", () => {
+    const root = myRoot();
+    claimRoot(USER);
+    process.env.STUDIO_LIVE_SYNC = "0";
+    joinWorkspace("band");
+    expect(existsSync(join(root, "band"))).toBe(true);
+    joinWorkspace("band");
+    expect(readdirSync(root)).toContain("band");
+    delete process.env.STUDIO_LIVE_SYNC;
   });
 });

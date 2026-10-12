@@ -49,3 +49,23 @@ export function pairUrl(
   u.searchParams.set("state", state);
   return u.toString();
 }
+
+/** Where the desktop listens for its SYNC device token, beside the API token's path. */
+export const SYNC_PAIR_RETURN_PATH = "/desktop/sync-pair";
+
+/** The route on the origin that mints a device token for live sync and hands it back. */
+export const SYNC_PAIR_ROUTE = "/api/sync/devices/pair";
+
+/** The URL the desktop opens in the system browser to pair this machine with the origin's relay; `name` labels the device. */
+export function syncPairUrl(
+  base: string,
+  returnUrl: string,
+  state: string,
+  name: string,
+): string {
+  const u = new URL(base.replace(/\/+$/, "") + SYNC_PAIR_ROUTE);
+  u.searchParams.set("return", returnUrl);
+  u.searchParams.set("state", state);
+  u.searchParams.set("name", name);
+  return u.toString();
+}

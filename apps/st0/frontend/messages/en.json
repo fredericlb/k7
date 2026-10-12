@@ -795,5 +795,22 @@
   "media.slskd.forget": "Forget",
   "media.slskd.save": "Save",
   "media.slskd.test": "Test the connection",
-  "libs.notPresent": "not on the server yet"
+  "libs.notPresent": "not on the server yet",
+  "synchist.title": "Workspace history",
+  "synchist.name": "Name this point",
+  "synchist.namePrompt": "Name this point of the workspace",
+  "synchist.namePlaceholder": "before the mix",
+  "synchist.nameConfirm": "Name it",
+  "synchist.nameEmpty": "A point needs a name.",
+  "synchist.auto": "auto checkpoint",
+  "synchist.empty": "Nothing synced yet: every edit of this workspace, on any device, will be listed here.",
+  "synchist.restore": "Restore to here",
+  "synchist.restoreTitle": "Restore the workspace to {point}?",
+  "synchist.restoreBody": "Every file goes back to what it was at that point, on every device. The restore is an edit like any other: what it replaces stays in this history.",
+  "synchist.restoreConfirm": "Restore",
+  "synchist.binary": "binary file changed",
+  "synchist.before": "Before",
+  "synchist.after": "After",
+  "synchist.noChange": "Nothing differs.",
+  "synchist.parked": "{count} set aside"
 }

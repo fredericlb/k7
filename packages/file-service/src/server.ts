@@ -58,6 +58,7 @@ import { renderRouter } from "./routes/render.ts";
 import { installServiceLog } from "./serviceLog.ts";
 import { rootDir } from "./slug.ts";
 import {
+  attachAllWorkspaces,
   createWorkspace,
   getWorkspace,
   listMachineWorkspaces,
@@ -448,6 +449,8 @@ app.listen(FILE_PORT, HOST, () => {
   console.log(`   root: ${rootDir()}`);
   // Examples stocked with this build's demos: a new account's first sight of st0, an old one's fixes.
   syncExamples();
+  // Every workspace is a replica from the start, so one never opened here still sends and receives.
+  attachAllWorkspaces();
   // The songs the open projects name, onto the bound engine's machine ahead of the gig.
   startPrefetch(boundJobsUrl);
   // Reap engine sockets nobody has used in minutes — an abandoned link re-dials forever, see pruneIdleLinks.

@@ -14,16 +14,27 @@ import {
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { join } from "node:path";
-import type { Sequenced } from "@studio/live-sync/ops";
+import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import { type FromRelay, parseToRelay } from "@studio/live-sync/protocol";
 import { Room, type RoomState } from "@studio/live-sync/room";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { WebSocket, WebSocketServer } from "ws";
+import {
+  addCheckpoint,
+  adoptLegacy,
+  ENTRIES,
+  readCheckpoints,
+  rollLog,
+} from "./historyLog.ts";
 
 export const SYNC_PATH = "/api/sync";
 
 /** A saved state is rewritten after this many entries; the entries between live in an append-only log. */
 const SNAPSHOT_EVERY = 200;
+/** A full copy of the files is kept for history after this many entries, so a rebuild never replays from seq 1. */
+const HISTORY_EVERY = 1000;
+/** A room edited and then left alone this long gets an automatic checkpoint. */
+const CHECKPOINT_IDLE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 20_000;
 const MAX_FRAME = 64 * 1024 * 1024;
 
@@ -36,36 +47,57 @@ export interface RelayOptions {
   /** The account slug a device token belongs to, or null when it is not one, or its device was removed. */
   deviceOf?: (token: string) => string | null;
   log?: (msg: string) => void;
+  /** Tests only: the save and history-snapshot cadences, and the idle time before an automatic checkpoint. */
+  snapshotEvery?: number;
+  historyEvery?: number;
+  checkpointIdleMs?: number;
 }
+
+/** One live room as the history routes reach it: `submit` orders a batch exactly as a replica's is. */
+export interface LiveRoom {
+  room: Room;
+  dir: string;
+  submit: (batch: Batch) => Sequenced;
+}
+
+/** The relay's stop, which saves every room, and its live rooms, loaded on demand. */
+export type SyncRelay = (() => void) & {
+  room: (slug: string, workspace: string) => LiveRoom;
+};
 
 interface Live {
   room: Room;
   dir: string;
   sockets: Set<WebSocket>;
   sinceSnapshot: number;
+  /** When the room was last edited, or null once that edit has its automatic checkpoint. */
+  editedAt: number | null;
 }
 
 /** A room's folder; the workspace name is a single folder name already (workspaceRoot refuses anything else). */
-const roomDir = (account: string, workspace: string): string =>
+export const roomDir = (account: string, workspace: string): string =>
   join(account, ".sync-relay", encodeURIComponent(workspace));
 
 function load(dir: string): Room {
-  const state = join(dir, "room.json");
-  const room = existsSync(state)
-    ? Room.from(JSON.parse(readFileSync(state, "utf8")) as RoomState)
-    : new Room();
-  const entries = join(dir, "entries.jsonl");
+  const file = join(dir, "room.json");
+  const state = existsSync(file)
+    ? (JSON.parse(readFileSync(file, "utf8")) as RoomState)
+    : null;
+  adoptLegacy(dir, state);
+  const room = state ? Room.from(state) : new Room();
+  const entries = join(dir, ENTRIES);
   if (existsSync(entries))
     for (const line of readFileSync(entries, "utf8").split("\n"))
       if (line) room.replay(JSON.parse(line) as Sequenced);
   return room;
 }
 
-function snapshot(live: Live): void {
+function snapshot(live: Live, historyEvery: number): void {
   const tmp = join(live.dir, "room.json.tmp");
-  writeFileSync(tmp, JSON.stringify(live.room.state()));
+  const state = live.room.state();
+  writeFileSync(tmp, JSON.stringify(state));
   renameSync(tmp, join(live.dir, "room.json"));
-  writeFileSync(join(live.dir, "entries.jsonl"), "");
+  rollLog(live.dir, state.head, state.files, historyEvery);
   live.sinceSnapshot = 0;
 }
 
@@ -74,11 +106,11 @@ const send = (ws: WebSocket, msg: FromRelay): void => {
 };
 
 /** The relay on the shared HTTP server, at SYNC_PATH; returns the stop, which saves every room. */
-export function attachSyncRelay(
-  server: Server,
-  opts: RelayOptions,
-): () => void {
+export function attachSyncRelay(server: Server, opts: RelayOptions): SyncRelay {
   const log = opts.log ?? ((m: string) => console.log(`sync | ${m}`));
+  const snapshotEvery = opts.snapshotEvery ?? SNAPSHOT_EVERY;
+  const historyEvery = opts.historyEvery ?? HISTORY_EVERY;
+  const idleMs = opts.checkpointIdleMs ?? CHECKPOINT_IDLE_MS;
   const rooms = new Map<string, Live>();
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME });
 
@@ -88,11 +120,48 @@ export function attachSyncRelay(
     if (!l) {
       const dir = roomDir(opts.accountDir(slug), workspace);
       mkdirSync(dir, { recursive: true });
-      l = { room: load(dir), dir, sockets: new Set(), sinceSnapshot: 0 };
+      l = {
+        room: load(dir),
+        dir,
+        sockets: new Set(),
+        sinceSnapshot: 0,
+        editedAt: null,
+      };
       rooms.set(key, l);
     }
     return l;
   };
+
+  /** Order a batch: on disk first, then relayed to every replica in the room, the sender included. */
+  const order = (l: Live, workspace: string, batch: Batch): Sequenced => {
+    const { entry, fresh } = l.room.submit(batch);
+    if (!fresh) return entry;
+    appendFileSync(join(l.dir, ENTRIES), `${JSON.stringify(entry)}\n`);
+    if (++l.sinceSnapshot >= snapshotEvery) snapshot(l, historyEvery);
+    l.editedAt = Date.now();
+    for (const peer of l.sockets) send(peer, { t: "seq", workspace, entry });
+    return entry;
+  };
+
+  // At most one automatic checkpoint per idle period: `editedAt` is cleared once it is taken.
+  const idleCheck = setInterval(
+    () => {
+      const now = Date.now();
+      for (const l of rooms.values()) {
+        if (l.editedAt === null || now - l.editedAt < idleMs) continue;
+        l.editedAt = null;
+        if (readCheckpoints(l.dir).at(-1)?.seq === l.room.head) continue;
+        addCheckpoint(l.dir, {
+          seq: l.room.head,
+          name: "auto",
+          ts: now,
+          by: "auto",
+        });
+      }
+    },
+    Math.max(10, Math.min(60_000, idleMs / 4)),
+  );
+  idleCheck.unref();
 
   const serve = (ws: WebSocket, slug: string): void => {
     const joined = new Set<string>();
@@ -134,16 +203,11 @@ export function attachSyncRelay(
           workspace: msg.workspace,
           error: "hello first",
         });
-      const { entry, fresh } = l.room.submit(msg.batch);
-      if (!fresh)
-        return send(ws, { t: "seq", workspace: msg.workspace, entry });
-      appendFileSync(
-        join(l.dir, "entries.jsonl"),
-        `${JSON.stringify(entry)}\n`,
-      );
-      if (++l.sinceSnapshot >= SNAPSHOT_EVERY) snapshot(l);
-      for (const peer of l.sockets)
-        send(peer, { t: "seq", workspace: msg.workspace, entry });
+      const head = l.room.head;
+      const entry = order(l, msg.workspace, msg.batch);
+      // A batch seen before is answered to its sender alone.
+      if (entry.seq <= head)
+        send(ws, { t: "seq", workspace: msg.workspace, entry });
     });
     ws.on("close", () => {
       for (const l of rooms.values()) l.sockets.delete(ws);
@@ -203,10 +267,22 @@ export function attachSyncRelay(
   });
   log(`relay on ${SYNC_PATH}`);
 
-  return () => {
+  const stop = () => {
     clearInterval(beat);
-    for (const l of rooms.values()) if (l.sinceSnapshot) snapshot(l);
+    clearInterval(idleCheck);
+    for (const l of rooms.values())
+      if (l.sinceSnapshot) snapshot(l, historyEvery);
     for (const ws of wss.clients) ws.terminate();
     wss.close();
   };
+  return Object.assign(stop, {
+    room: (slug: string, workspace: string): LiveRoom => {
+      const l = live(slug, workspace);
+      return {
+        room: l.room,
+        dir: l.dir,
+        submit: (batch: Batch) => order(l, workspace, batch),
+      };
+    },
+  });
 }

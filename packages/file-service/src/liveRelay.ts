@@ -1,16 +1,20 @@
 // liveRelay.ts — a file service's link to live sync's relay: one socket for every workspace it captures.
 // It reconnects on its own, says hello at the last seq each workspace applied, and re-sends what is unconfirmed.
-// See docs/liveCapture.md and ../../file-hub/docs/syncRelay.md.
+// A batch leaves only once every blob it names is on the store, and batches leave in the order they were made.
+// See docs/liveCapture.md, ../../file-hub/docs/syncRelay.md and ../../file-hub/docs/blobs.md.
 
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { type BlobId, blobsOf, parseBlobRef } from "@studio/live-sync/blob";
 import { applyFileOp, fileOpFor } from "@studio/live-sync/file-op";
 import type { Batch, Sequenced } from "@studio/live-sync/ops";
 import type { FromRelay, ToRelay } from "@studio/live-sync/protocol";
 import type { Replica } from "@studio/live-sync/replica";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import { WebSocket } from "ws";
+import { cloneFile } from "./liveBlobs.ts";
+import { BlobTransfer, blobsUrl } from "./liveBlobTransfer.ts";
 import type { LiveCapture } from "./liveCapture.ts";
 
 /** One workspace's side of the link. */
@@ -29,6 +33,16 @@ export type RelayAuth = { secret: string } | { token: string };
 
 const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 30_000;
+/** Downloads running at once, per link. */
+const FETCH_AT_ONCE = 3;
+
+/** The headers that prove a link's account, on its socket and on the blob store alike. */
+export const authHeaders = (auth: RelayAuth): Record<string, string> =>
+  "token" in auth
+    ? { authorization: `Bearer ${auth.token}` }
+    : { [HUB_SECRET_HEADER]: auth.secret };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms).unref());
 
 /** The last seq a workspace applied, kept beside its log so a restart says hello where it left off. */
 export function loadHead(logDir: string): number {
@@ -46,13 +60,24 @@ export class RelayLink {
   private readonly linked = new Map<string, Linked & { logDir: string }>();
   private retryMs = RETRY_MIN_MS;
   private closed = false;
+  private readonly store: BlobTransfer;
+  /** Batches leave one at a time, each once its blobs are on the store. */
+  private outbox: Promise<void> = Promise.resolve();
+  private readonly queued = new Set<string>();
+  private readonly fetching = new Set<string>();
+  private fetchSlots = FETCH_AT_ONCE;
+  private readonly fetchWaiting: (() => void)[] = [];
 
   constructor(
     private readonly url: string,
     private readonly auth: RelayAuth,
     private readonly log: (msg: string) => void = (m) =>
       console.log(`sync | ${m}`),
-  ) {}
+    /** Told each time the socket opens: a reconnect may have missed a workspace another replica made. */
+    private readonly onOpen: () => void = () => {},
+  ) {
+    this.store = new BlobTransfer(blobsUrl(url), authHeaders(auth));
+  }
 
   /** Start relaying `l`; says hello at once when the socket is up. */
   add(l: Linked, logDir: string): void {
@@ -70,7 +95,15 @@ export class RelayLink {
     const l = this.linked.get(name);
     if (!l) return;
     l.replica.local(batch);
-    this.send({ t: "batch", workspace: name, batch });
+    this.enqueue(name, batch);
+  }
+
+  /** Bring blob `id` of workspace `name` from the store, then let its capture write the files waiting for it. */
+  fetch(name: string, id: BlobId): void {
+    const key = `${name}\n${id.hash}`;
+    if (this.fetching.has(key)) return;
+    this.fetching.add(key);
+    void this.fetchLoop(name, id.hash).finally(() => this.fetching.delete(key));
   }
 
   /** Settle conflict `id`: `take` writes its alternative over the value in place; answers the batch sent, or null. */
@@ -102,17 +135,95 @@ export class RelayLink {
     this.ws?.close();
   }
 
+  /** Queue `batch` behind every batch before it; one already queued is not queued twice. */
+  private enqueue(name: string, batch: Batch): void {
+    if (this.queued.has(batch.id)) return;
+    this.queued.add(batch.id);
+    this.outbox = this.outbox
+      .then(() => this.deliver(name, batch))
+      .catch((e: Error) => this.log(`${name}: batch not sent: ${e.message}`));
+  }
+
+  private async deliver(name: string, batch: Batch): Promise<void> {
+    const live = () =>
+      !this.closed &&
+      (this.linked
+        .get(name)
+        ?.replica.unconfirmed()
+        .some((b) => b.id === batch.id) ??
+        false);
+    try {
+      for (const id of blobsOf(batch.ops))
+        await this.retrying(live, () => this.upload(name, id.hash));
+    } finally {
+      this.queued.delete(batch.id);
+    }
+    if (live()) this.send({ t: "batch", workspace: name, batch });
+  }
+
+  /** Put blob `hash` on the store unless it is there; bytes no longer held anywhere are logged and skipped. */
+  private async upload(name: string, hash: string): Promise<void> {
+    const capture = this.linked.get(name)?.capture;
+    if (!capture) return;
+    if (!(await this.store.has(hash))) {
+      const file = capture.blobFile(hash);
+      if (!file) {
+        this.log(
+          `${name}: the bytes of blob ${hash} are gone; sent without them`,
+        );
+        return;
+      }
+      await this.store.put(hash, file);
+    }
+    capture.uploaded(hash);
+  }
+
+  private async fetchLoop(name: string, hash: string): Promise<void> {
+    const wanted = () =>
+      !this.closed && (this.linked.get(name)?.capture.pendingOn(hash) ?? false);
+    if (this.fetchSlots > 0) this.fetchSlots--;
+    else await new Promise<void>((r) => this.fetchWaiting.push(r));
+    try {
+      await this.retrying(wanted, async () => {
+        const l = this.linked.get(name);
+        const cache = l?.capture.blobs;
+        if (!l || !cache) return;
+        await this.store.get(hash, cache);
+        const placed = l.capture.fetched(hash);
+        if (placed.length) l.onRemote(placed);
+      });
+    } finally {
+      // A slot freed goes straight to the oldest waiter, so no newcomer slips in between.
+      const next = this.fetchWaiting.shift();
+      if (next) next();
+      else this.fetchSlots++;
+    }
+  }
+
+  /** Run `f` until it succeeds, waiting longer after each failure, for as long as `wanted` holds. */
+  private async retrying(
+    wanted: () => boolean,
+    f: () => Promise<void>,
+  ): Promise<void> {
+    let wait = RETRY_MIN_MS;
+    while (wanted())
+      try {
+        await f();
+        return;
+      } catch (e) {
+        this.log(`blob store: ${(e as Error).message}; retrying`);
+        await sleep(wait);
+        wait = Math.min(wait * 2, RETRY_MAX_MS);
+      }
+  }
+
   private connect(): void {
-    const ws = new WebSocket(this.url, {
-      headers:
-        "token" in this.auth
-          ? { authorization: `Bearer ${this.auth.token}` }
-          : { [HUB_SECRET_HEADER]: this.auth.secret },
-    });
+    const ws = new WebSocket(this.url, { headers: authHeaders(this.auth) });
     this.ws = ws;
     ws.on("open", () => {
       this.retryMs = RETRY_MIN_MS;
       for (const name of this.linked.keys()) this.hello(name);
+      this.onOpen();
     });
     ws.on("message", (data) =>
       this.receive(JSON.parse(data.toString()) as FromRelay),
@@ -166,8 +277,7 @@ export class RelayLink {
         `${l.name}: adopted the relay's state at ${msg.head} (${written.length} file(s) rewritten)`,
       );
     }
-    for (const batch of l.replica.unconfirmed())
-      this.send({ t: "batch", workspace: l.name, batch });
+    for (const batch of l.replica.unconfirmed()) this.enqueue(l.name, batch);
   }
 
   /** The room is empty: everything this replica holds as text becomes its first batch. */
@@ -206,7 +316,11 @@ export class RelayLink {
       }
       const to = join(backup, ...file.split("/"));
       mkdirSync(dirname(to), { recursive: true });
-      writeFileSync(to, mine);
+      const abs = l.capture.pathOf(file);
+      // A binary's text is its ref: what is kept aside is its bytes.
+      if (parseBlobRef(mine)) {
+        if (existsSync(abs)) cloneFile(abs, to);
+      } else writeFileSync(to, mine);
       displaced++;
     }
     if (ops.length)

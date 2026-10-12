@@ -47,8 +47,10 @@ export interface InstancesOptions {
   command?: () => { cmd: string; args: string[]; cwd: string };
   readyTimeoutMs?: number;
   log?: (msg: string) => void;
-  /** What the hub adds to every instance's environment: where the libraries are, and how to call it back. */
-  env?: () => Record<string, string>;
+  /** What the hub adds to an account's instance environment: where the libraries are, how to call it back, where it syncs. */
+  env?: (slug: string) => Record<string, string>;
+  /** An account whose instance must keep running however idle: it is a replica syncing with a remote relay. */
+  keep?: (slug: string) => boolean;
   /** Told when an instance is gone, for the binding it held. */
   onExit?: (inst: Instance) => void;
 }
@@ -134,7 +136,7 @@ export class Instances {
       STUDIO_HOME: home,
       STUDIO_FILE_PORT: String(port),
       STUDIO_HUB_SECRET: secret,
-      ...this.opts.env?.(),
+      ...this.opts.env?.(slug),
     };
     delete env.STUDIO_ENGINE_TOKEN;
     if (this.opts.mediatekRoot) env.STUDIO_MEDIATEK = this.opts.mediatekRoot;
@@ -204,8 +206,22 @@ export class Instances {
   async reap(idleMs: number, now = Date.now()): Promise<void> {
     for (const p of [...this.byUser.values()]) {
       const inst = await p.catch(() => null);
-      if (inst && now - inst.lastUsed >= idleMs) inst.child.kill();
+      if (inst && now - inst.lastUsed >= idleMs && !this.opts.keep?.(inst.slug))
+        inst.child.kill();
     }
+  }
+
+  /** Stop the account's instance and start it again, so it reads a changed environment. */
+  async restart(user: string): Promise<Instance> {
+    const p = this.byUser.get(user);
+    this.byUser.delete(user);
+    const old = await p?.catch(() => null);
+    if (old && old.child.exitCode === null) {
+      const gone = new Promise((r) => old.child.once("exit", r));
+      old.child.kill();
+      await gone;
+    }
+    return this.get(user);
   }
 
   async stopAll(): Promise<void> {

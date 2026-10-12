@@ -69,7 +69,9 @@ The app sets `STUDIO_LIBRARY_SEED=st0=<folder>`: the `st0-library` submodule fro
 bundle's copy of it in the packaged app. With no list written, the hub lists the seed's `st0` and
 copies it into `workspaces/libraries/st0` on first ask; no network. Delete that folder to reseed.
 A desktop's hub syncs to a remote relay when it is signed in, so it keeps this copy rather than
-following the origin's library, until st0fs carries binary files (`docs/live-sync-plan.md`).
+following the origin's library. Binary files travel through st0fs, but a device joins only its own
+account's rooms, and the libraries' are not reachable with a device token
+(`packages/file-hub/docs/blobs.md`).
 
 ## The engine
 

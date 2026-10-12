@@ -38,7 +38,7 @@ describe("the libraries' relay", () => {
     const server = createServer();
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
     const url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}${SYNC_PATH}`;
-    const relay = new LibraryRelay(home, url, () => {});
+    const relay = new LibraryRelay(home, url, "library-secret", () => {});
     const accounts: string[] = [];
     const stop = attachSyncRelay(server, {
       accountDir: (slug) => {

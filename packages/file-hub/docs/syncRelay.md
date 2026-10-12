@@ -2,7 +2,7 @@
 
 `syncRelay.ts` orders the batches of every replica of an account's workspace and relays them, at
 `/api/sync` on st0's backend. The ordering itself is `@studio/live-sync`'s Room
-(`../../live-sync/docs/sync.md`). The plan is `../../../docs/live-sync-plan.md`, phase 3.
+(`../../live-sync/docs/sync.md`). The plan is `../../../docs/live-sync-plan.md`, phases 3 and 5.
 
 ## In the hub, and authenticated by the hub's own secret
 
@@ -17,11 +17,41 @@ service dials it unless `STUDIO_LIVE_SYNC=0`. A machine proves its account with 
 A file service serves all of an account's workspaces, so one socket carries them and each message
 names its workspace. The relay keeps one Room per account and workspace, loaded on its first hello.
 
+## A machine pairs with the origin, per account
+
+A machine's hub serves several accounts at once — a desktop's local user beside the signed-in one —
+so where an account syncs is the ACCOUNT's, never the process's: `<account folder>/.sync-remote.json`
+(`../syncRemote.ts`) holds the origin's relay URL and the device token, and the hub hands them to that
+account's service alone. The local user's workspaces would otherwise land in the signed-in
+account's rooms.
+
+The token comes from the origin's `GET /api/sync/devices/pair`, which a desktop opens in the system
+browser: it signs the browser in when it must, mints a device token named after the machine, and
+redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the API token's pairing).
+The desktop's side is `apps/st0-standalone/docs/sync.md`. A paired account's service starts with the
+hub and is never stopped for idleness, and pairing restarts it so it dials the new relay.
+
+## Every workspace a replica, and the rooms say which exist
+
+A file service captures every workspace from its start, not only those a request opens: one never
+opened would otherwise neither send nor receive. On each connect it asks `GET /api/sync/rooms`
+(`../roomsRoute.ts`, the same token or secret as the socket) which workspaces the account has, and
+creates and joins the ones it lacks — how a workspace arrives on a new machine, filled by the relay's
+first answer. A room left with no file — a workspace removed everywhere — is not offered, so the
+machine that removed it does not bring it back. `Examples` is never synced: every build stocks its
+own on every replica.
+
 ## On disk BEFORE it is relayed
 
 Each ordered entry is appended to `entries.jsonl` before any replica hears of it. Every 200 entries
-the room is saved whole to `room.json`, its open conflicts with it, and the log starts over. Loading a room is the saved state
-plus the log replayed.
+the room is saved whole to `room.json`, its open conflicts with it, and `entries.jsonl` is rolled
+into a segment of the room's permanent log, `log/<firstSeq>.jsonl`; every 1,000 the files are also
+kept whole under `snapshots/`. Loading a room is the saved state plus `entries.jsonl` replayed; the
+segments, the snapshots and `checkpoints.json` are the workspace's history (`history.md`), never
+read to catch up.
+
+A restore from the history is submitted to the same live room the sockets feed, through the same
+path as a replica's batch, so it is on disk before it is relayed like any other entry.
 
 The order matters because of what a replica does on reconnecting. It says hello at the last `seq` it
 applied. A room that forgot entries it had already relayed would be BEHIND that replica, and would

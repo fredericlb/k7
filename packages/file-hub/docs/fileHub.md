@@ -85,8 +85,10 @@ two copies would compile a song two ways.
   each: it watches the folder and relays every change to the room `<name>` of the account
   `_libraries`, kept beside the folders in `libraries/.sync-relay/`. Only the hub holds that
   account's secret, so no replica can write a library through the relay: a write reaches a library
-  only through an admin's file service, on this disk. A machine's hub, which syncs to a remote
-  relay, keeps its bundled copy instead.
+  only through an admin's file service, on this disk. Their binaries reach the account's blob store
+  like any workspace's (`blobs.md`). A machine's hub, which syncs to a remote relay, keeps its
+  bundled copy instead: a device joins only its own account's rooms, and a device token does not
+  reach the libraries'.
 
 `/account/libraries` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET` the
 list, for anyone, giving every listed library its folder first; `PUT` the list (`{ libraries:

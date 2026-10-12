@@ -22,7 +22,8 @@ ledger of the workspace and diffs a change against it, whoever made the change.
 - **Any other text file** keeps a content hash. It travels whole anyway, and the hash is what stops a
   file rewritten with the same content from sending anything. It is live-sync's `textHash`, not a
   sha1, because the same hash is the `was` its op carries and the room must compute it without `node:`.
-- **An opaque file** — binary, or text past 5 MB — keeps only its stamp.
+- **An opaque file** — binary, or text past 5 MB — keeps its blob ref: the sha256 of its bytes and
+  their length, which is the text its ops carry (`../../file-hub/docs/blobs.md`).
 
 On the library checkout (2,142 files) the ledger holds 1.4 MB of text. Keeping every text file's
 content instead held 37 MB.
@@ -88,7 +89,14 @@ same reason: inside the workspace it would be captured and synced with the songs
 line per batch. Past 20 MB the log is rotated once, since the server's ordered log is the one that
 counts (phase 3). The replica's id is `<studioHome>/.sync/replica-id`, made once.
 
+## Binaries travel as refs
+
+An opaque file's op is a whole text whose text is its ref, and `read` answers the ref, so the Replica
+treats it as any other file. The bytes go through the blob store before the batch does, and a ref
+written for another replica waits, PENDING, until its bytes are here (`../../file-hub/docs/blobs.md`).
+The cache of bytes in flight is `<log folder>/blobs/`, beside the confirmed texts.
+
 ## Not yet
 
-Opaque files are watched but produce no op: they travel by content hash in phase 6. Renames arrive as
-removals plus whole-text creations.
+Renames arrive as removals plus creations; a renamed binary costs no upload, since the store already
+holds its bytes.

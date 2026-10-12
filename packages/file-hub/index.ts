@@ -17,12 +17,7 @@ import {
   HUB_SECRET_HEADER,
   USER_HEADER,
 } from "@studio/web-protocol";
-import express, {
-  type Request,
-  type RequestHandler,
-  type Response,
-  Router,
-} from "express";
+import type { Request, RequestHandler, Response } from "express";
 import {
   type BindingDeps,
   bindEngine,
@@ -36,14 +31,13 @@ import {
   Instances,
   type InstancesOptions,
 } from "./instances.ts";
-import { accountKey } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
-import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import {
   isLibrariesPath,
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
+import { LibraryRelay } from "./libraryRelay.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import {
   CACHE_SWEEP_EVERY_MS,
@@ -51,6 +45,8 @@ import {
   purgeStaleRenders,
 } from "./staleCaches.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
+import { pairedAccounts, readRemote, type SyncRemote } from "./syncRemote.ts";
+import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
@@ -94,7 +90,9 @@ export class FileHub {
   private readonly instances: Instances;
   private readonly deps: BindingDeps;
   private readonly reaper: NodeJS.Timeout;
-  private stopSync: (() => void) | null = null;
+  private stopSync: ReturnType<typeof attachSyncRelay> | null = null;
+  /** What the relay and the blob store recognise as LIBRARIES_ACCOUNT; made per process, never written anywhere. */
+  private readonly librarySecret = randomBytes(24).toString("hex");
   /** The server's replica of each library, on the origin only: a machine's hub keeps its bundled copy. */
   private libraryRelay: LibraryRelay | null = null;
   private readonly devices: DeviceTokens;
@@ -102,6 +100,8 @@ export class FileHub {
   private readonly key: Buffer;
   /** The origin's libraries: the list and the one folder of each. */
   readonly libraries: LibraryStore;
+  /** The live-sync routes beside the relay: devices, pairing, rooms, blobs, history — syncRoutes.ts. */
+  readonly sync: SyncRoutes;
 
   constructor(private readonly opts: FileHubOptions) {
     this.key = opts.ticketKey ? Buffer.from(opts.ticketKey) : randomBytes(32);
@@ -117,14 +117,29 @@ export class FileHub {
       ...opts,
       log,
       onExit: (inst) => unbindAll(opts, inst),
-      env: () => ({
-        ...opts.env?.(),
+      env: (slug) => ({
+        ...opts.env?.(slug),
         STUDIO_LIBRARIES_HOME: this.libraries.home,
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
         // Live sync's relay, which every service dials unless STUDIO_LIVE_SYNC=0 (docs/syncRelay.md).
-        ...syncTarget(opts.selfPort()),
+        ...syncTarget(opts.selfPort(), readRemote(this.sync.accountDir(slug))),
       }),
+      keep: (slug) => readRemote(this.sync.accountDir(slug)) !== null,
     });
+    this.sync = new SyncRoutes({
+      dataRoot: resolve(opts.dataRoot),
+      librariesHome: this.libraries.home,
+      librarySecret: this.librarySecret,
+      devices: this.devices,
+      instances: this.instances,
+      userOf: opts.userOf,
+      relay: () => this.stopSync,
+    });
+    // A paired account syncs whether or not anyone opens it, so its service starts with the hub.
+    for (const r of pairedAccounts(resolve(opts.dataRoot)))
+      void this.instances
+        .get(r.user)
+        .catch((e: Error) => log(`paired ${r.user}: ${e.message}`));
     const idle = opts.idleMs ?? 30 * 60_000;
     this.reaper = setInterval(
       () => void this.instances.reap(idle),
@@ -289,57 +304,17 @@ export class FileHub {
     };
   }
 
-  /** The account's sync devices: list, add (answering the token once), remove — mounted behind the session guard. */
-  devicesRouter(): Router {
-    const r = Router();
-    r.use(express.json());
-    const slugOf = (req: Request): string | null => {
-      const user = this.opts.userOf(req);
-      return user ? accountKey(user) : null;
-    };
-    r.get("/", (req, res) => {
-      const slug = slugOf(req);
-      if (!slug) res.status(401).json({ error: "no user on the session" });
-      else res.json({ devices: this.devices.list(slug) });
-    });
-    r.post("/", (req, res) => {
-      const slug = slugOf(req);
-      const name =
-        typeof req.body?.name === "string" ? req.body.name.trim() : "";
-      if (!slug)
-        return void res.status(401).json({ error: "no user on the session" });
-      if (!name)
-        return void res.status(400).json({ error: "a device needs a name" });
-      const { device, token } = this.devices.mint(slug, name);
-      const proto = req.get("x-forwarded-proto") ?? req.protocol;
-      const url = `${proto === "https" ? "wss" : "ws"}://${req.get("host")}${SYNC_PATH}`;
-      res.json({ device, token, url });
-    });
-    r.delete("/:id", (req, res) => {
-      const slug = slugOf(req);
-      if (!slug)
-        return void res.status(401).json({ error: "no user on the session" });
-      res.json({ removed: this.devices.revoke(slug, req.params.id) });
-    });
-    return r;
-  }
-
   /** Live sync's relay on the shared HTTP server; its rooms are saved on `stop`. */
   serveSync(server: Server): void {
-    const dataRoot = resolve(this.opts.dataRoot);
     const relay = new LibraryRelay(
       this.libraries.home,
       `ws://127.0.0.1:${this.opts.selfPort()}${SYNC_PATH}`,
+      this.librarySecret,
       this.deps.log,
     );
     this.stopSync = attachSyncRelay(server, {
-      // The libraries' rooms live beside the folders they replicate.
-      accountDir: (slug) =>
-        slug === LIBRARIES_ACCOUNT ? this.libraries.home : join(dataRoot, slug),
-      accountOf: async (secret) =>
-        secret === relay.secret
-          ? LIBRARIES_ACCOUNT
-          : ((await this.instances.bySecret(secret))?.slug ?? null),
+      accountDir: (slug) => this.sync.accountDir(slug),
+      accountOf: (secret) => this.sync.account({ secret }),
       deviceOf: (token) => this.devices.verify(token)?.slug ?? null,
       log: this.deps.log,
     });
@@ -359,11 +334,13 @@ export class FileHub {
   }
 }
 
-/** Where this hub's services sync: a REMOTE relay with a device token when this hub is a machine's, else its own. */
-function syncTarget(port: number): Record<string, string> {
-  const url = process.env.STUDIO_SYNC_REMOTE_URL?.trim();
-  const token = process.env.STUDIO_SYNC_REMOTE_TOKEN?.trim();
-  if (url && token) return { STUDIO_SYNC_URL: url, STUDIO_SYNC_TOKEN: token };
+/** Where an account's service syncs: the remote origin it is paired with, by its device token, else this hub's own relay. */
+function syncTarget(
+  port: number,
+  remote: SyncRemote | null = null,
+): Record<string, string> {
+  if (remote)
+    return { STUDIO_SYNC_URL: remote.url, STUDIO_SYNC_TOKEN: remote.token };
   return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
 }
 

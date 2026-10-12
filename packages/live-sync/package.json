@@ -11,7 +11,8 @@
     "./room": "./src/room.ts",
     "./conflicts": "./src/conflicts.ts",
     "./replica": "./src/replica.ts",
-    "./protocol": "./src/protocol.ts"
+    "./protocol": "./src/protocol.ts",
+    "./blob": "./src/blob.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

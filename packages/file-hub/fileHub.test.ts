@@ -32,6 +32,7 @@ createServer((req, res) => {
       secret: process.env.STUDIO_HUB_SECRET,
       libraries: process.env.STUDIO_LIBRARIES_HOME,
       hubUrl: process.env.STUDIO_HUB_URL,
+      sync: [process.env.STUDIO_SYNC_URL, process.env.STUDIO_SYNC_TOKEN ?? null],
       mediatek: [process.env.MEDIATEK_URL, process.env.MEDIATEK_TOKEN] }));
   });
 }).listen(Number(process.env.STUDIO_FILE_PORT), "127.0.0.1");
@@ -47,6 +48,7 @@ interface Echo {
   secret: string;
   libraries: string;
   hubUrl: string;
+  sync: [string, string | null];
   mediatek: [string, string];
 }
 
@@ -105,6 +107,9 @@ describe("the file hub", () => {
     app.get("/api/files-hub", hub.helloHandler());
     app.use("/api/files-hub/internal", hub.internalHandler());
     app.use("/api/files", hub.handler());
+    app.get("/api/sync/devices/pair", hub.sync.syncPairHandler());
+    app.use("/api/sync/remote", hub.sync.remoteRouter());
+    app.use("/api/sync/rooms", hub.sync.roomsRouter());
     server = createServer(app);
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/files`;
@@ -369,5 +374,73 @@ describe("the file hub", () => {
     });
     expect(engineBinds().map((b) => b.id)).toEqual(["e9"]);
     expect(echo.engine).toContain("/api/engine-tunnel/local/");
+  });
+
+  describe("pairing a machine with this origin", () => {
+    const origin = () => base.replace("/api/files", "");
+
+    it("mints a device token for the session's account and sends it to a loopback return only", async () => {
+      const pair = (back: string) =>
+        fetch(
+          `${origin()}/api/sync/devices/pair?return=${encodeURIComponent(back)}&state=s1&name=laptop`,
+          {
+            headers: { "x-test-session": "fred@example.com" },
+            redirect: "manual",
+          },
+        );
+      expect((await pair("https://evil.example/x")).status).toBe(400);
+      const r = await pair("http://127.0.0.1:9/desktop/sync-pair");
+      expect(r.status).toBe(302);
+      const to = new URL(r.headers.get("location") ?? "");
+      expect(to.searchParams.get("state")).toBe("s1");
+      expect(to.searchParams.get("identity")).toBe("fred@example.com");
+      expect(to.searchParams.get("url")).toMatch(
+        /^ws:\/\/127\.0\.0\.1:\d+\/api\/sync$/,
+      );
+      // The token it brought back proves the account to the relay's other routes.
+      const rooms = await fetch(`${origin()}/api/sync/rooms`, {
+        headers: { authorization: `Bearer ${to.searchParams.get("token")}` },
+      });
+      expect(await rooms.json()).toEqual({ workspaces: [] });
+      const forged = await fetch(`${origin()}/api/sync/rooms`, {
+        headers: { authorization: "Bearer nope" },
+      });
+      expect(forged.status).toBe(401);
+    });
+
+    it("syncs ONE paired account with the remote, its service restarted; every other with this hub's relay", async () => {
+      const remote = (method: string, user: string, body?: unknown) =>
+        fetch(`${origin()}/api/sync/remote`, {
+          method,
+          headers: {
+            "x-test-session": user,
+            "content-type": "application/json",
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      expect(
+        (await remote("PUT", "fred@example.com", { url: "https", token: "t" }))
+          .status,
+      ).toBe(400);
+      expect(
+        (
+          await remote("PUT", "fred@example.com", {
+            url: "wss://origin.test/api/sync",
+            token: "tok",
+          })
+        ).status,
+      ).toBe(200);
+      expect(await (await remote("GET", "fred@example.com")).json()).toEqual({
+        paired: true,
+        url: "wss://origin.test/api/sync",
+      });
+      const fred = await call("/x", { session: "fred@example.com" });
+      expect(fred.echo.sync).toEqual(["wss://origin.test/api/sync", "tok"]);
+      const local = await call("/x", { session: "dev@example.com" });
+      expect(local.echo.sync).toEqual(["ws://127.0.0.1:4242/api/sync", null]);
+      expect((await remote("DELETE", "fred@example.com")).status).toBe(200);
+      const after = await call("/x", { session: "fred@example.com" });
+      expect(after.echo.sync).toEqual(["ws://127.0.0.1:4242/api/sync", null]);
+    });
   });
 });

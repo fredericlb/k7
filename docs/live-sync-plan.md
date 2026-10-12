@@ -84,9 +84,11 @@ An op that touches the active project pushes the project to the engine, as an un
 
 ## Audio
 
-A binary file travels as its content hash and size. The bytes go to the server once and are fetched
-by a replica when it needs them, the way the engine's machine already prefetches. A rename is a
-removal plus a creation that names a hash the store already holds.
+A binary file travels as a blob ref, its content hash and size, in place of its text: ordering,
+conflicts, snapshots and history carry it unchanged. The bytes go to the server's content-addressed
+store before the batch that names them, and a replica fetches them when it writes the ref. A rename is
+a removal plus a creation that names a hash the store already holds
+(`../packages/file-hub/docs/blobs.md`).
 
 ## History
 
@@ -94,9 +96,13 @@ The server's ordered log IS the history. Every replica already sends it every ed
 every platform because it is only this repository's own code, where git would need a binary that iOS
 does not allow.
 
-- The room keeps every entry, not only the recent ones it needs for catching up.
-- A checkpoint is a named sequence number; a diff is the entries between two; going back is the files
-  rebuilt to a number and sent as one batch.
+- The room keeps every entry, not only the recent ones it needs for catching up: its log is rolled
+  into segments that are never rewritten, with the files snapshotted every 1,000 entries so any
+  point is rebuilt from nearby.
+- A checkpoint is a named sequence number, named by a person or taken automatically after ten quiet
+  minutes; a diff is the files at two numbers; going back is the files rebuilt to a number and sent
+  as one batch, whose ops name what they replace so a value that moved is set aside, not
+  overwritten (`../packages/file-hub/docs/history.md`).
 - A conflict's alternative stays in that log after it is settled, so no value anyone wrote is lost.
 - No git: a workspace has no repository, and no export to one is planned.
 
@@ -114,10 +120,14 @@ reconnects. Undo stays local and works offline.
 4. **Conflicts** — done: every op names what it replaced, the room sets aside one made against a
    value that moved, and a batch settles it; the file service lists and settles them
    (`GET`/`POST /sync/conflicts`).
-5. **A machine replica**, the standalone app first: two replicas of one account converging.
+5. **A machine replica** — done for the desktop: pairing through the system browser, the pairing kept
+   per account, every workspace a replica from the start, and the rooms naming which workspaces
+   exist (`../apps/st0-standalone/docs/sync.md`, `../packages/file-hub/docs/syncRelay.md`).
 6. **Browser push**, replacing the polls, and the conflicts shown where the value is edited.
-7. **Audio:** content-addressed blobs.
-8. **History:** the room's whole log, checkpoints, diff and restore.
+7. **Audio** — done: a binary file is a whole-text op whose text is a blob ref, its bytes uploaded to
+   `/api/sync/blobs` before the batch and fetched by each replica (`../packages/file-hub/docs/blobs.md`).
+8. **History** — done: the room's whole log, checkpoints, diff and restore, at `/api/sync/history`
+   and in st0's History panel (`../packages/file-hub/docs/history.md`).
 9. **The phone:** the file service in the Android app; on iOS, the editing code off `node:` first.
 10. **Merging inside a list:** items matched by a natural key (a placement's start and lane, a note's
     time and pitch), so two additions to one list are two additions.

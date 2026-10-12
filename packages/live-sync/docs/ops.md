@@ -56,5 +56,6 @@ The sender pays one parse of each side and the replay check. On the library: 0.6
 
 ## Not here
 
-Binary files, renames (a removal and a creation), list merges, ordering, and the relay are the plan's
-later phases.
+Renames (a removal and a creation) and list merges are the plan's later phases. Ordering is
+`sync.md`. A binary file is not an op of its own: it is a whole text whose text is a blob ref
+(`src/blob.ts`, `../../file-hub/docs/blobs.md`).
