@@ -1,8 +1,8 @@
 # st0-standalone — st0 and its media library as one desktop app
 
 ```bash
-npm run build:frontends --workspace st0-standalone   # once, and after a frontend change
-npm start --workspace st0-standalone                 # run from the checkout
+npm run desktop:build                                # once, and after a frontend change
+npm run desktop:dev                                  # run from the checkout
 npm run package --workspace st0-standalone           # out/ — a .dmg on macOS
 ```
 

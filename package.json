@@ -18,6 +18,8 @@
     "prepare": "git config core.hooksPath .githooks || exit 0",
     "dev": "node scripts/dev.mjs",
     "dev:native": "node scripts/dev-native.mjs",
+    "desktop:build": "npm run build:frontends --workspace st0-standalone",
+    "desktop:dev": "npm start --workspace st0-standalone",
     "clean": "rm -rf node_modules commons/packages/*/node_modules commons/dev/*/node_modules packages/*/node_modules apps/*/node_modules apps/*/*/node_modules apps/*/*/*/node_modules",
     "tokens": "node scripts/tokens.mjs",
     "commons:sync": "git submodule update --remote --merge commons",
