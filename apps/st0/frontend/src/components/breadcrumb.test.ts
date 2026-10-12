@@ -19,7 +19,7 @@ const file = (name: string, path: string): FileNode => ({
   kind: "text",
 });
 
-// A project at `songs/first.st0`: the tree's TOP is the song's own children, and their paths still carry the repository in front.
+// A project at `songs/first.st0`: the tree's TOP is the song's own children, and their paths still carry the workspace in front.
 const ROOT = "songs/first.st0";
 const TREE: FileNode[] = [
   dir("modules", `${ROOT}/modules`, [

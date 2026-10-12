@@ -1,14 +1,14 @@
 // bench.ts — the BENCH: one live rig, in a workspace of its own, thrown away and scaffolded again
 // on every open: the bare rig, or one seeded with a library CHAIN, which anyone plays and nobody
 // edits through. A library is not edited here: an admin edits it from any project
-// (libraryEdits.ts). Rationale: apps/st0/backend/docs/media/banc.md.
+// (libraries.ts). Rationale: apps/st0/backend/docs/media/banc.md.
 
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { scaffoldLive } from "@studio/song/scaffoldLive";
 import { BENCH_PROJECT, benchChainOf } from "@studio/web-protocol/projects";
 import { spliceChain } from "./benchChain.ts";
-import { refreshLibraries, retireWorkspaceLibraries } from "./libraries.ts";
+import { refreshLibraries } from "./libraries.ts";
 import { workspaceRoot } from "./slug.ts";
 
 /** The workspace the bench lives in — reserved by convention, capitalised as `Examples` is. */
@@ -24,7 +24,7 @@ export const benchDir = (): string =>
 
 /** The bench `project` names, made fresh: the folder is REMOVED and written again. */
 export async function ensureBench(
-  userEmail: string,
+  _userEmail: string,
   project: string,
 ): Promise<{ workspace: string; project: string }> {
   const chain = benchChainOf(project);
@@ -36,15 +36,8 @@ export async function ensureBench(
     );
   const root = workspaceRoot(BENCH_WORKSPACE);
   mkdirSync(root, { recursive: true });
-  // The hub's clones fetched, so a chain just published is the one the rig gets — docs/libraries.md.
+  // The libraries given their folders, so the rig resolves its chain — docs/libraries.md.
   await refreshLibraries();
-  // The bench held the account's clone once; the hub holds it now.
-  const retired = await retireWorkspaceLibraries(userEmail, root).catch(
-    (e: Error) => ({ retired: false, note: e.message }),
-  );
-  if (retired && !retired.retired)
-    console.warn(`[libraries] ${root}: ${retired.note}`);
-
   // A bench per CHAIN is an address that no longer exists; left there it would be a project saving nowhere.
   rmSync(join(root, "chains"), { recursive: true, force: true });
 

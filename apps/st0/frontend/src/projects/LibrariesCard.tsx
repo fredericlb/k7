@@ -1,37 +1,26 @@
-// LibrariesCard.tsx — the origin's libraries: the named repositories of modules and chains EVERY
-// project inherits, one list for all accounts, cloned ONCE by the server with its own key. Only an
-// admin sees the add, remove and pull controls and the server's key — and edits a library from
-// any project; the hub refuses anyone else's write anyway, so hiding them is courtesy, not the
-// gate. Adding one CLONES it, which is what says the URI is a repository.
-// See packages/song/docs/sharedFolders.md and packages/file-service/docs/libraries.md.
+// LibrariesCard.tsx — the origin's libraries: the named folders of modules and chains EVERY project
+// inherits, one list for all accounts, one folder of each on the server. Only an admin sees the add
+// and remove controls — and edits a library from any project; the hub refuses anyone else's change
+// anyway, so hiding them is courtesy, not the gate. A library added is copied from the server's seed
+// when it holds one, else starts empty. See packages/file-hub/docs/fileHub.md.
 
 import { Button } from "@frediverse/ui/button";
-import {
-  ArrowDownToLine,
-  LibraryBig,
-  Loader2,
-  RefreshCw,
-  RotateCw,
-  TriangleAlert,
-  X,
-} from "@frediverse/ui/icons";
+import { LibraryBig, Loader2, TriangleAlert, X } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
-import { askConfirm } from "@studio/project-shell/ask";
 import type {
   AccountLibrariesReply,
   AccountLibrary,
 } from "@studio/web-protocol";
 import { useEffect, useState } from "react";
-import { runGit } from "../components/GitBusy";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
 import { accountFiles } from "./api";
 import type { AccountFiles } from "./workspaceOps";
 
-/** What a call did to a library, when it is worth reading: kept work, a failure — never "up to date". */
+/** What a call did to a library, when it is worth reading: a failure, never "here". */
 const worthSaying = (r: AccountLibrariesReply): string[] =>
   (r.notes ?? [])
-    .filter((n) => n.state === "kept" || n.state === "failed")
+    .filter((n) => n.state === "failed")
     .map((n) => `${n.name}: ${n.note}`);
 
 export function LibrariesCard({
@@ -46,38 +35,18 @@ export function LibrariesCard({
   const [libraries, setLibraries] = useState<AccountLibrary[] | undefined>(
     undefined,
   );
-  const [uri, setUri] = useState("");
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState<"add" | "check" | string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
-  const [serverKey, setServerKey] = useState<string | null>(null);
-
-  // The key each library repository must accept, read-only: an admin cannot add one without it.
-  useEffect(() => {
-    if (!fileService?.admin) return;
-    void accountFiles
-      .librariesKey(fileService)
-      .then((r) => setServerKey(r.publicKey))
-      .catch(() => setServerKey(null));
-  }, [fileService]);
 
   useEffect(() => {
-    // The file service holds them, so there is nothing to read until it answers.
+    // The file hub holds them, so there is nothing to read until it answers.
     if (!fileService) return setLibraries([]);
     let live = true;
     void accountFiles
       .libraries(fileService)
-      .then((r) => {
-        if (!live) return;
-        setLibraries(r.libraries);
-        // The list draws at once; what is to pull follows a fetch, quietly, with no overlay.
-        if (r.libraries.length)
-          void accountFiles
-            .checkLibraries(fileService)
-            .then((c) => live && setLibraries(c.libraries))
-            .catch(() => undefined);
-      })
+      .then((r) => live && setLibraries(r.libraries))
       .catch((e: Error) => {
         setError(e.message);
         setLibraries([]);
@@ -92,72 +61,35 @@ export function LibrariesCard({
     if (libraries !== undefined) onLibraries?.(libraries);
   }, [libraries, onLibraries]);
 
-  /** Run one call, and take the list and anything worth reading from its answer. */
-  const run = (what: string, call: () => Promise<AccountLibrariesReply>) => {
+  /** Set the whole list, and take the list and anything worth reading from the answer. */
+  const save = (what: string, list: { name: string }[]) => {
+    if (!fileService) return setError(m["libs.noFiles"]());
     setBusy(what);
     setError(null);
     setNotes([]);
-    // Adding, removing and updating a library all clone or pull: the page waits for git.
-    void runGit(m["git.libraries"](), call)
+    void accountFiles
+      .setLibraries(fileService, list)
       .then((r) => {
         setLibraries(r.libraries);
         setNotes(worthSaying(r));
-        if (what === "add") {
-          setUri("");
-          setName("");
-        }
+        if (what === "add") setName("");
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(null));
   };
 
-  const listed = (libraries ?? []).map(({ name, uri }) => ({ name, uri }));
+  const listed = (libraries ?? []).map(({ name }) => ({ name }));
 
   const add = () => {
-    const v = uri.trim();
-    if (!v) return;
-    if (!fileService) return setError(m["libs.noFiles"]());
     const n = name.trim();
-    run("add", () =>
-      accountFiles.setLibraries(fileService, [
-        ...listed,
-        n ? { name: n, uri: v } : { uri: v },
-      ]),
+    if (n) save("add", [...listed, { name: n }]);
+  };
+
+  const remove = (gone: string) =>
+    save(
+      gone,
+      listed.filter((l) => l.name !== gone),
     );
-  };
-
-  const remove = (gone: string) => {
-    if (!fileService) return setError(m["libs.noFiles"]());
-    run(gone, () =>
-      accountFiles.setLibraries(
-        fileService,
-        listed.filter((l) => l.name !== gone),
-      ),
-    );
-  };
-
-  const check = () => {
-    if (!fileService) return setError(m["libs.noFiles"]());
-    run("check", () => accountFiles.checkLibraries(fileService));
-  };
-
-  const pull = async (name: string) => {
-    if (!fileService) return setError(m["libs.noFiles"]());
-    // The sentence says what goes: every admin's own copy of it, unpushed work included.
-    const agreed = await askConfirm({
-      title: m["libs.pullTitle"]({ name }),
-      body: m["libs.pullBody"](),
-      confirmLabel: m["libs.pull"](),
-      danger: true,
-    });
-    if (agreed)
-      run(`pull:${name}`, () => accountFiles.pullLibrary(fileService, name));
-  };
-
-  const retry = (name: string) => {
-    if (!fileService) return setError(m["libs.noFiles"]());
-    run(`retry:${name}`, () => accountFiles.retryLibrary(fileService, name));
-  };
 
   if (libraries === undefined)
     return (
@@ -184,22 +116,6 @@ export function LibrariesCard({
           <LibraryBig className="h-4 w-4" />
         )}
         {m["libs.title"]()}
-        {!missing && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={check}
-            disabled={busy !== null}
-          >
-            {busy === "check" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}{" "}
-            {busy === "check" ? m["libs.checking"]() : m["libs.check"]()}
-          </Button>
-        )}
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -218,79 +134,27 @@ export function LibrariesCard({
       )}
 
       {libraries.map((l) => (
-        <div key={l.name} className="flex flex-col gap-1 text-xs">
-          <div className="flex items-center gap-2">
-            <code className="shrink-0 font-semibold">@{l.name}</code>
-            <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1">
-              {l.uri}
-            </code>
-            {!l.cloned && (
-              <span className="shrink-0 text-amber-500">
-                {l.error ? m["libs.failed"]() : m["libs.notCloned"]()}
-              </span>
-            )}
-            {/* Anyone may ask again: a deploy key added at the host a minute ago is the usual reason it failed. */}
-            {(!l.cloned || l.error) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                title={m["libs.retryHint"]()}
-                onClick={() => retry(l.name)}
-                disabled={busy !== null}
-              >
-                {busy === `retry:${l.name}` ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RotateCw className="h-3.5 w-3.5" />
-                )}{" "}
-                {m["libs.retry"]()}
-              </Button>
-            )}
-            {canEdit && (
-              <Button
-                variant="ghost"
-                size="sm"
-                title={m["libs.remove"]()}
-                onClick={() => remove(l.name)}
-                disabled={busy !== null}
-              >
-                {busy === l.name ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <X className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            )}
-          </div>
-          {l.error && (
-            <code className="overflow-x-auto rounded bg-muted px-2 py-1 text-red-400">
-              {l.error}
-            </code>
+        <div key={l.name} className="flex items-center gap-2 text-xs">
+          <code className="flex-1 font-semibold">@{l.name}</code>
+          {!l.present && (
+            <span className="shrink-0 text-amber-500">
+              {m["libs.notPresent"]()}
+            </span>
           )}
-          {/* Nothing pulls on its own: the server's copy moves when an admin says so, here. */}
-          {l.cloned && !!l.behind && (
-            <div className="flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/5 px-2 py-1">
-              <ArrowDownToLine className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-              <span className="flex-1 text-amber-500">
-                {m["libs.behind"]({ count: l.behind })}
-              </span>
-              {canEdit && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title={m["libs.pullHint"]()}
-                  onClick={() => void pull(l.name)}
-                  disabled={busy !== null}
-                >
-                  {busy === `pull:${l.name}` ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <ArrowDownToLine className="h-3.5 w-3.5" />
-                  )}{" "}
-                  {m["libs.pull"]()}
-                </Button>
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              title={m["libs.remove"]()}
+              onClick={() => remove(l.name)}
+              disabled={busy !== null}
+            >
+              {busy === l.name ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <X className="h-3.5 w-3.5" />
               )}
-            </div>
+            </Button>
           )}
         </div>
       ))}
@@ -298,39 +162,22 @@ export function LibrariesCard({
       {canEdit && (
         <div className="flex items-center gap-2">
           <input
-            className="w-32 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
+            className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
             placeholder={m["libs.namePlaceholder"]()}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
-          <input
-            className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
-            placeholder={m["libs.placeholder"]()}
-            value={uri}
-            onChange={(e) => setUri(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && add()}
-          />
           <Button
             size="sm"
             onClick={add}
-            disabled={busy !== null || !uri.trim()}
+            disabled={busy !== null || !name.trim()}
           >
             {busy === "add" && (
               <Loader2 className="mr-1 h-4 w-4 animate-spin" />
             )}
-            {/* The wait is a CLONE, so the button says so rather than looking stuck on 'Add'. */}
-            {busy === "add" ? m["libs.cloning"]() : m["libs.add"]()}
+            {m["libs.add"]()}
           </Button>
-        </div>
-      )}
-
-      {canEdit && serverKey && (
-        <div className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">{m["libs.serverKey"]()}</span>
-          <code className="select-all break-all rounded bg-muted px-2 py-1">
-            {serverKey}
-          </code>
         </div>
       )}
 

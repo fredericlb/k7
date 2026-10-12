@@ -2,7 +2,7 @@
 
 st0 is a folder of text, a service that reads it, and an engine that plays it.
 
-The **folder** is the song: YAML files under a project directory, one entity per file. Nothing is hidden in a binary — a song diffs, merges and greps like source, because it is. Projects live in **workspaces**, each one git repository (or none yet), on the server.
+The **folder** is the song: YAML files under a project directory, one entity per file. Nothing is hidden in a binary — a song diffs and greps like source, because it is. Projects live in **workspaces**, folders on the server that st0 keeps in step, live, on every device you open them on.
 
 The **file service** (`packages/file-service`) runs on the server, one per account, started by st0's server. It owns the account's workspaces, reads and writes their files, compiles them, and answers the web app over HTTP.
 

@@ -218,8 +218,7 @@ export function ExternalIndex() {
 
 /** What these rows are surfaces OF: the project, by the name a person reads. */
 function label(p: SurfacedProject): string {
-  const where = p.repoName ?? p.workspace;
-  return p.path === "." ? where : `${where} / ${p.path}`;
+  return p.path === "." ? p.workspace : `${p.workspace} / ${p.path}`;
 }
 
 /** A surface's type as a glyph and as a word, out of the shell's own pane table — an unknown type is drawn as itself, not dropped. */

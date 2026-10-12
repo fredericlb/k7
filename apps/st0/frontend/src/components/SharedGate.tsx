@@ -7,8 +7,6 @@ import { Button } from "@frediverse/ui/button";
 import { Download, Loader2, Lock } from "@frediverse/ui/icons";
 import { configureFileApi } from "@studio/project-shell/fileApi";
 import type {
-  Alternatives,
-  GitStatus,
   Hints,
   HistoryState,
   ProjectErrors,
@@ -81,13 +79,6 @@ function cannedFor(manifest: ShareManifest): Record<string, unknown> {
   // Clean, and TRUE rather than a stand-in: a snapshot is built from a project that compiled, by the machine that compiled it.
   const clean: ProjectErrors = { errors: [], diagnostics: [] };
   const history: HistoryState = { canUndo: false, canRedo: false };
-  const git: GitStatus = {
-    tracked: false,
-    ahead: 0,
-    behind: 0,
-    conflicted: false,
-  };
-  const alternatives: Alternatives = { current: "", parent: "", branches: [] };
   const preferences: WebPreferences = {
     audioDevice: null,
     channels: { in: "", out: "" },
@@ -110,8 +101,6 @@ function cannedFor(manifest: ShareManifest): Record<string, unknown> {
     "/library-chains": { chains: [] },
     "/project-errors": clean,
     "/video-errors": clean,
-    "/git/status": git,
-    "/git/alternatives": alternatives,
     "/history": history,
     "/preferences": preferences,
   };

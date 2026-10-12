@@ -7,7 +7,6 @@
   "exports": {
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",
-    "./git": "./src/git.ts",
     "./share-bundle": "./src/shareBundle.ts"
   },
   "scripts": {

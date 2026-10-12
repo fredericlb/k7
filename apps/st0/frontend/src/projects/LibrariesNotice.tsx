@@ -1,5 +1,5 @@
 // LibrariesNotice.tsx — what the home page says about the libraries, which it no longer edits: one
-// line when there is none or the server failed to clone one, and nothing when all is well.
+// line when there is none or the server holds no folder for one, and nothing when all is well.
 // The list itself is a page of its own, `/libraries` (LibrariesPage.tsx), the admins' to change.
 
 import { Button } from "@frediverse/ui/button";
@@ -18,7 +18,7 @@ export function LibrariesNotice({
   if (!libraries) return null;
   const said = !libraries.length
     ? m["libs.noticeMissing"]()
-    : libraries.some((l) => l.error)
+    : libraries.some((l) => !l.present)
       ? m["libs.noticeFailed"]()
       : null;
   if (!said) return null;

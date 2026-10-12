@@ -39,8 +39,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --workspace st0-backend --omit=d
 
 # ---- final image --------------------------------------------------------------
 FROM node:22-alpine AS runtime
-# yt-dlp/ffmpeg: media imports and a take's envelope and instrumental; mpv: packages/mpv-player/docs/mpvPlayer.md; git/git-lfs/ssh: packages/file-hub/docs/fileHub.md.
-RUN apk add --no-cache yt-dlp ffmpeg mpv git git-lfs openssh-client
+# yt-dlp/ffmpeg: media imports and a take's envelope and instrumental; mpv: packages/mpv-player/docs/mpvPlayer.md.
+RUN apk add --no-cache yt-dlp ffmpeg mpv
 WORKDIR /app
 COPY --from=backend-deps /app ./
 # The whole repo: @studio/* are symlinks to raw TypeScript source, so a missing package is a crash on import.

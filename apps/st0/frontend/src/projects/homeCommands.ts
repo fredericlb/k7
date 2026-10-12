@@ -9,16 +9,14 @@ import type { AccountWorkspace, RepoProject } from "@studio/web-protocol";
 import type { PaletteArg, PaletteCommand } from "../components/CommandBar";
 // `m` is the file service in these branches, so the catalogue comes in under its own name.
 import { m as msg } from "../paraglide/messages.js";
-import { type AccountFiles, accountFiles } from "./api";
+import type { AccountFiles } from "./api";
 import { projectFolderName, workspaceFolderName } from "./projectName";
 import {
-  copyProjectAndCommit,
-  createLocalWorkspace,
-  createProjectAndCommit,
-  deleteProjectAndCommit,
-  ensureWorkspace,
-  publishWorkspace,
-  renameProjectAndCommit,
+  copyProject,
+  createProject,
+  createWorkspace,
+  deleteProject,
+  renameProject,
 } from "./workspaceOps";
 
 /** The catalogue, in the same shape the editor's is — imperative, no example, no full stop, 60 characters at most in each language. */
@@ -30,8 +28,8 @@ export const HOME_COMMANDS: {
   {
     canonical: "project new",
     readable: {
-      en: "Create a project in the open repository",
-      fr: "Créer un projet dans le dépôt ouvert",
+      en: "Create a project in the open workspace",
+      fr: "Créer un projet dans l'espace de travail ouvert",
     },
     args: [
       {
@@ -53,7 +51,7 @@ export const HOME_COMMANDS: {
       fr: "Copier un projet vers un autre espace de travail",
     },
     args: [
-      { name: "name", kind: "file", hint: "a project of the open repository" },
+      { name: "name", kind: "file", hint: "a project of the open workspace" },
       { name: "workspace", kind: "choice", hint: "where the copy lands" },
       {
         name: "new_name",
@@ -66,11 +64,11 @@ export const HOME_COMMANDS: {
   {
     canonical: "project rename",
     readable: {
-      en: "Rename a project, commit and push",
-      fr: "Renommer un projet, committer et pousser",
+      en: "Rename a project",
+      fr: "Renommer un projet",
     },
     args: [
-      { name: "name", kind: "file", hint: "a project of the open repository" },
+      { name: "name", kind: "file", hint: "a project of the open workspace" },
       {
         name: "new_name",
         kind: "text",
@@ -86,71 +84,28 @@ export const HOME_COMMANDS: {
       fr: "Désigner le projet à supprimer, et dire ce que ça fait",
     },
     args: [
-      { name: "name", kind: "file", hint: "a project of the open repository" },
+      { name: "name", kind: "file", hint: "a project of the open workspace" },
     ],
   },
   {
     canonical: "project delete confirm",
     readable: {
-      en: "Delete the project just named, and push it",
-      fr: "Supprimer le projet désigné, et pousser",
+      en: "Delete the project just named",
+      fr: "Supprimer le projet désigné",
     },
     args: [{ name: "name", kind: "file", hint: "the same project again" }],
   },
   {
     canonical: "system workspace new",
     readable: {
-      en: "Make an empty workspace here, with no repository behind it",
-      fr: "Créer un espace de travail vide ici, sans dépôt derrière",
+      en: "Make an empty workspace",
+      fr: "Créer un espace de travail vide",
     },
     args: [
       {
         name: "name",
         kind: "text",
         hint: "its name — the folder takes it, and it starts empty",
-      },
-    ],
-  },
-  {
-    canonical: "system workspace publish",
-    readable: {
-      en: "Give a local workspace its first repository, and push",
-      fr: "Donner son premier dépôt à un espace local, et pousser",
-    },
-    args: [
-      { name: "workspace", kind: "choice", hint: "one with no repository yet" },
-      {
-        name: "repo_url",
-        kind: "text",
-        hint: "an SSH URI — the repository must exist and be empty",
-      },
-    ],
-  },
-  {
-    canonical: "system repo add",
-    readable: {
-      en: "Clone a repository onto the server",
-      fr: "Cloner un dépôt sur le serveur",
-    },
-    args: [
-      {
-        name: "repo_url",
-        kind: "text",
-        hint: "an SSH URI — git@host:user/repo.git",
-      },
-    ],
-  },
-  {
-    canonical: "system repo sync",
-    readable: {
-      en: "Commit, push and pull a repository",
-      fr: "Committer, pousser et tirer un dépôt",
-    },
-    args: [
-      {
-        name: "repo_name",
-        kind: "choice",
-        hint: "one of your workspaces",
       },
     ],
   },
@@ -243,12 +198,6 @@ export function homeArgValues(
         )
         .map((w) => w.name);
   }
-  // Only the ones that HAVE none: offering the rest would offer an act that is refused by definition.
-  if (canonical === "system workspace publish" && argIndex === 0)
-    return ctx.workspaces.filter((w) => !w.origin).map((w) => w.name);
-  // SYNC offers every workspace the account holds: a clone added by hand is one you can push like any other.
-  if (canonical === "system repo sync" && argIndex === 0)
-    return ctx.workspaces.map((w) => w.repoName || w.name);
   return [];
 }
 
@@ -260,25 +209,19 @@ export interface ArmedDelete {
 
 /** What a line DOES, injected — so the dispatcher below is testable without a file service, and the bar and the buttons cannot diverge. */
 export interface HomeActs {
-  create: typeof createProjectAndCommit;
-  copy: typeof copyProjectAndCommit;
-  rename: typeof renameProjectAndCommit;
-  remove: typeof deleteProjectAndCommit;
-  clone: typeof ensureWorkspace;
-  newWorkspace: typeof createLocalWorkspace;
-  publish: typeof publishWorkspace;
-  command: typeof accountFiles.command;
+  create: typeof createProject;
+  copy: typeof copyProject;
+  rename: typeof renameProject;
+  remove: typeof deleteProject;
+  newWorkspace: typeof createWorkspace;
 }
 
 export const HOME_ACTS: HomeActs = {
-  create: createProjectAndCommit,
-  copy: copyProjectAndCommit,
-  rename: renameProjectAndCommit,
-  remove: deleteProjectAndCommit,
-  clone: ensureWorkspace,
-  newWorkspace: createLocalWorkspace,
-  publish: publishWorkspace,
-  command: accountFiles.command,
+  create: createProject,
+  copy: copyProject,
+  rename: renameProject,
+  remove: deleteProject,
+  newWorkspace: createWorkspace,
 };
 
 export interface HomeDeps extends HomeContext {
@@ -335,7 +278,7 @@ export async function runHomeCommand(
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       try {
-        const { project, gripe } = await d.acts.create(
+        const project = await d.acts.create(
           m,
           found.ws.name,
           folder,
@@ -343,10 +286,7 @@ export async function runHomeCommand(
           type as ProjectShape,
         );
         d.changed();
-        // The folder EXISTS whatever the push did, so a failed push is said beside the success rather than instead of it.
-        if (gripe)
-          d.refuse(msg["projects.createdBut"]({ folder: project, gripe }));
-        else d.say(`+ ${found.ws.name}/${project}`);
+        d.say(`+ ${found.ws.name}/${project}`);
       } catch (e) {
         d.refuse(`project new: ${(e as Error).message}`);
       }
@@ -378,19 +318,9 @@ export async function runHomeCommand(
       const m = machineOf(d);
       if (!m) return true;
       try {
-        const { gripe } = await d.acts.copy(
-          m,
-          found.ws.name,
-          p.path,
-          dest.name,
-          folder,
-          d.say,
-          !dest.origin,
-        );
+        await d.acts.copy(m, found.ws.name, p.path, dest.name, folder, d.say);
         d.changed();
-        // The copy IS there whatever the push did, as with a creation.
-        if (gripe) d.refuse(msg["projects.copiedBut"]({ folder, to, gripe }));
-        else d.say(`+ ${to}/${folder}`);
+        d.say(`+ ${to}/${folder}`);
       } catch (e) {
         d.refuse(`project copy: ${(e as Error).message}`);
       }
@@ -414,19 +344,9 @@ export async function runHomeCommand(
       const m = machineOf(d);
       if (!m) return true;
       try {
-        const { gripe } = await d.acts.rename(
-          m,
-          found.ws.name,
-          p.path,
-          folder,
-          d.say,
-          !found.ws.origin,
-        );
+        await d.acts.rename(m, found.ws.name, p.path, folder, d.say);
         d.changed();
-        // Renamed whatever the push did, as with a creation and a copy.
-        if (gripe)
-          d.refuse(msg["projects.renamedBut"]({ path: p.path, folder, gripe }));
-        else d.say(`${p.path} → ${folder}`);
+        d.say(`${p.path} → ${folder}`);
       } catch (e) {
         d.refuse(`project rename: ${(e as Error).message}`);
       }
@@ -463,16 +383,9 @@ export async function runHomeCommand(
       const m = machineOf(d);
       if (!m) return true;
       try {
-        const { gripe } = await d.acts.remove(
-          m,
-          armed.workspace,
-          p.path,
-          d.say,
-        );
+        await d.acts.remove(m, armed.workspace, p.path, d.say);
         d.changed();
-        if (gripe)
-          d.refuse(msg["projects.deletedBut"]({ path: p.path, gripe }));
-        else d.say(`− ${armed.workspace}/${p.path}`);
+        d.say(`− ${armed.workspace}/${p.path}`);
       } catch (e) {
         d.refuse(`project delete: ${(e as Error).message}`);
       }
@@ -492,80 +405,6 @@ export async function runHomeCommand(
         d.say(msg["hc.workspaceMade"]({ workspace }));
       } catch (e) {
         d.refuse(`system workspace new: ${(e as Error).message}`);
-      }
-      return true;
-    }
-
-    case "system workspace publish": {
-      const [name, uri] = rest.split(/\s+/).filter(Boolean);
-      if (!name || !uri)
-        return use(
-          d.refuse,
-          "usage: system workspace publish <workspace> <ssh uri>",
-        );
-      const ws = d.workspaces.find((w) => w.name === name);
-      if (!ws) return use(d.refuse, msg["hc.noWorkspaceNamed"]({ name }));
-      // Said rather than attempted: the file service would refuse it too, and later.
-      if (ws.origin)
-        return use(
-          d.refuse,
-          msg["hc.alreadyPublished"]({ name, origin: ws.origin }),
-        );
-      const m = machineOf(d);
-      if (!m) return true;
-      try {
-        await d.acts.publish(m, name, uri, d.say);
-        d.changed();
-        d.say(msg["hc.published"]({ name }));
-      } catch (e) {
-        d.refuse(`system workspace publish: ${(e as Error).message}`);
-      }
-      return true;
-    }
-
-    case "system repo add": {
-      const uri = rest;
-      if (!uri) return use(d.refuse, "usage: system repo add <ssh uri>");
-      const m = machineOf(d);
-      if (!m) return true;
-      try {
-        const ws = await d.acts.clone(m, uri, d.say);
-        d.say(`+ ${ws}`);
-      } catch (e) {
-        d.refuse(`system repo add: ${(e as Error).message}`);
-      } finally {
-        d.changed();
-      }
-      return true;
-    }
-
-    case "system repo sync": {
-      if (!rest) return use(d.refuse, "usage: system repo sync <repository>");
-      const ws = d.workspaces.find(
-        (w) => w.repoName === rest || w.name === rest,
-      );
-      if (!ws)
-        return use(
-          d.refuse,
-          msg["hc.noWorkspaceHere"]({
-            name: rest,
-            list: d.workspaces.length
-              ? ` — ${d.workspaces.map((w) => w.name).join(", ")}`
-              : "",
-          }),
-        );
-      const m = machineOf(d);
-      if (!m) return true;
-      /** PULL, then commit and push — that order because a push is refused when the remote has moved, and the commit runs even after a failed pull. */
-      try {
-        for (const verb of ["project pull", "project commit sync"]) {
-          d.say(`${ws.name}: ${verb}…`);
-          const out = await d.acts.command(m, ws.name, verb);
-          if (out.length) d.say(`${ws.name}: ${out.join("  ·  ")}`);
-        }
-        d.changed();
-      } catch (e) {
-        d.refuse(`system repo sync: ${(e as Error).message}`);
       }
       return true;
     }

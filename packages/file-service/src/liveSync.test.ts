@@ -1,4 +1,4 @@
-// liveSync.test.ts — with the flag on, a write through the Workspace lands in the log under its label.
+// liveSync.test.ts — on by default, a write through the Workspace lands in the log under its label.
 
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,7 +40,8 @@ async function until<T>(f: () => T | null | undefined, ms = 3000): Promise<T> {
 }
 
 describe("live sync in the file service", () => {
-  it("is off unless STUDIO_LIVE_SYNC=1", () => {
+  it("is off with STUDIO_LIVE_SYNC=0", () => {
+    process.env.STUDIO_LIVE_SYNC = "0";
     const ws = workspace();
     attachLiveCapture(ws, "band");
     expect(ws.liveCapture).toBeNull();
@@ -48,7 +49,6 @@ describe("live sync in the file service", () => {
   });
 
   it("logs a write made inside recordChange under the window's label", async () => {
-    process.env.STUDIO_LIVE_SYNC = "1";
     const ws = workspace();
     attachLiveCapture(ws, "band");
     await ws.recordChange("édition song.st0/song.yaml", () =>

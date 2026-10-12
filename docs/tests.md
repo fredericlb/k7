@@ -133,16 +133,10 @@ error.
 
 ## The default timeout was smaller than the tests
 
-Vitest defaults to **5 000 ms** per test. No package here overrode it, and 160 of this repo's
-test files shell out to `git` or scaffold a real project on disk.
-
-Measured on an idle machine, `packages/commands/src/git.test.ts` — which clones, branches and
-merges for real — runs seven tests in **4.13 s**. That is 83 % of the budget with nothing else
-happening. Under thirty concurrent workspaces on Windows it goes over, and the suite fails on a
-different test every run:
-
-- one run: `@studio/song` — `migrateSetPlatter › is idempotent`, `jsdspModule`
-- next run: `@studio/commands` — `git › lands you back on the alternative when the merge conflicts`
+Vitest defaults to **5 000 ms** per test, and many of this repo's test files scaffold a real
+project on disk. Passing alone, such a suite goes over that budget under thirty concurrent
+workspaces on Windows, where it fails on a different test every run —
+`@studio/song`'s `migrateSetPlatter › is idempotent` and `jsdspModule` among them.
 
 Every one of them passes alone. **The tests were never wrong; the budget was.** A red that moves
 is worse than a red that stays, because it teaches you to re-run instead of read.
@@ -151,7 +145,7 @@ So `testTimeout` and `hookTimeout` are **30 000 ms**. That is not a guess at how
 should take — it is a ceiling high enough that only a genuine hang reaches it. A test that is
 actually stuck still fails, just later, and later is cheap compared to a suite nobody trusts.
 
-`hookTimeout` matters as much as `testTimeout`: the git-backed suites clone their fixture in
+`hookTimeout` matters as much as `testTimeout`: the disk-backed suites scaffold their fixture in
 `beforeEach`, and a hook that times out fails the whole file rather than one case.
 
 ### It has to be repeated in four files

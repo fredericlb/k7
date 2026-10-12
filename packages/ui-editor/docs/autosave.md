@@ -33,7 +33,7 @@ underlines the line the complaint is about.
 ## The escape hatch, and why it exists
 
 A rule that only ever refuses is a trap. A file can already be invalid **on disk** — a key this
-build does not know, a project written by a newer one, something a human typed into git — and
+build does not know, a project written by a newer one, something a human typed by hand — and
 if the schema gated every write, nothing you typed could make it valid, and there is no button to
 overrule the check with. That file would be uneditable, forever.
 
@@ -112,9 +112,9 @@ through `recallBuffer`. Nothing is lost either way; what differs is who decided.
 
 `flush()` resolves to **whether the buffer is on disk afterwards** — false when it is held back
 or the write fails. That is not decoration: a screen saving several files at once needs the
-answer before doing anything that assumes they all landed. The module builder commits and pushes
-a repository on that answer, and committing a module whose `module.yaml` is still yesterday's
-would put a half-edit in front of everybody.
+answer before doing anything that assumes they all landed. The module builder publishes on that
+answer, and publishing a module whose `module.yaml` is still yesterday's would put a half-edit in
+front of everybody.
 
 **One caller: the module builder** (`@studio/ui-module-builder`). A module is four files
 describing one thing, and on a shared one a save is a *publish* — see
@@ -126,8 +126,8 @@ describing one thing, and on a shared one a save is a *publish* — see
 versions to keep turns it off, since a write at that moment would answer the question for them.
 Text that is closed while paused is KEPT, like held text, rather than written.
 
-`flushAutosaves()` is for a host about to replace the files under every pane — a git branch switch, a
-pull, a commit that should include the last second of typing. It writes each pane's pending text now
+`flushAutosaves()` is for a host about to replace or record the files under every pane, which must
+include the last second of typing. It writes each pane's pending text now
 and answers false when one could not be written: held, paused, or a `manual` draft, which is never
 saved on somebody else's behalf. The host refuses its operation on false rather than run it over
 text that is not on disk.

@@ -69,36 +69,6 @@ export interface EngineSyncState {
   error?: string;
 }
 
-// Where the workspace's repo stands vs upstream, for the share badge (mirrors @studio/commands/git).
-export interface GitStatus {
-  tracked: boolean;
-  ahead: number;
-  behind: number;
-  conflicted: boolean;
-}
-
-// The workspace repo's branches (mirrors @studio/commands/git); `parent` is "" for one st0 did not start.
-export interface Alternatives {
-  current: string;
-  parent: string;
-  branches: { name: string; parent: string; current: boolean }[];
-}
-
-// Result of POST /git/commit — mirrors @studio/commands/git's CommitOutcome.
-export interface GitCommitResult {
-  nothingToCommit: boolean;
-  sha?: string;
-  changed?: number;
-  pushed: boolean;
-  pushError?: string;
-}
-
-// Result of POST /git/pull — mirrors @studio/commands/git's PullOutcome.
-export interface GitPullResult {
-  upToDate: boolean;
-  summary: string;
-}
-
 // A file's contents. `binary` files return no `content` (not editable here).
 export interface FileContent {
   path: string;
@@ -128,14 +98,6 @@ export interface HistoryListEntry {
   label: string;
   paths: string[];
   undone: boolean;
-}
-/** One commit that touched the open project, for the same list — `paths` PROJECT-relative. */
-export interface ProjectCommit {
-  hash: string;
-  ts: number; // ms since the epoch
-  subject: string;
-  author: string;
-  paths: string[];
 }
 // The POST /undo | /redo reply: applied, refused pending confirmation, or nothing to do.
 export interface UndoResult {
@@ -232,41 +194,20 @@ export interface ModelDownloadJob {
   error: string | null;
 }
 
-/** One of the account's libraries: the name its refs use (`@<name>/…`), its repository, and whether this machine holds a clone yet. */
+/** One of the origin's libraries: the name its refs use (`@<name>/…`), and whether the server holds its folder. */
 export interface AccountLibrary {
   name: string;
-  uri: string;
-  cloned: boolean;
-  /** Why this account's last clone or pull of it failed, when it did. */
-  error?: string;
-  /** Commits its remote has that the server's clone does not, as of the last fetch — an admin's pull brings them. */
-  behind?: number;
+  present: boolean;
 }
 
-/** What a sync or a prune did to one library, said as the file service would say it. */
+/** What giving a library its folder did, said as the hub would say it. */
 export interface LibraryNote {
   name: string;
-  state: "cloned" | "updated" | "behind" | "current" | "kept" | "failed";
+  state: "seeded" | "created" | "current" | "failed";
   note: string;
 }
 
-/** `GET /account/libraries/key` — the server's key, which each library repository must accept READ-ONLY. */
-export interface LibrariesKeyReply {
-  publicKey: string;
-}
-
-/** `GET /account/library-edits` — each library an admin changed, and what their clone of it holds that its remote does not. */
-export interface LibraryEditsStatus {
-  libraries: {
-    library: string;
-    /** Files changed and not committed. */
-    changed: number;
-    /** Commits not pushed. */
-    ahead: number;
-  }[];
-}
-
-/** `GET`/`PUT /account/libraries`, `POST /account/libraries/check` and `/pull` — the list, and what the call did to each. */
+/** `GET`/`PUT /account/libraries` — the list, and what the call did to each. */
 export interface AccountLibrariesReply {
   libraries: AccountLibrary[];
   notes?: LibraryNote[];
@@ -579,7 +520,6 @@ export type ArgClass =
   | "text";
 // The PRECISE type of thing an argument names, where `kind` is only its colour — see docs/document.md.
 export type ArgProvider =
-  | "alternatives"
   // A BOX this project declares — `assemblies/<name>.yaml`, see packages/song/docs/assemblies.md.
   | "assemblies"
   // …and a TEMPLATE the library holds, which is what a new one is made from.
@@ -827,9 +767,6 @@ export interface WorkspaceList {
 /** One workspace on the machine with the projects it holds — the only side that can answer; see docs/machine.md. */
 export interface AccountWorkspace {
   name: string;
-  origin: string | null;
-  repoName: string | null;
-  uniqueName: boolean;
   isSingleProject: boolean;
   projects: RepoProject[];
 }
@@ -837,53 +774,6 @@ export interface AccountWorkspace {
 /** Reply to GET /workspaces/projects on the file service. */
 export interface AccountWorkspaceList {
   workspaces: AccountWorkspace[];
-}
-
-/** Reply to POST /workspaces/compact — packages/file-service/docs/workspaces.md § Compacting. */
-export interface CompactWorkspaceReply {
-  /** Bytes the recycle bin and `.git` gave back. */
-  freed: number;
-  /** Whether the new history reached `origin`; false when there is none. */
-  pushed: boolean;
-  /** git's words when the force-push was refused; the local repository is compacted anyway. */
-  pushError?: string;
-}
-
-/** Where one workspace stands against its repository — packages/file-service/docs/workspaces.md § Sync state. */
-export interface WorkspaceSync {
-  name: string;
-  /** Paths `git status` lists: changed, added or deleted and not committed, ignored files aside. */
-  dirty: number;
-  /** Local commits the upstream lacks, or null when the branch has no upstream. */
-  ahead: number | null;
-  /** Upstream commits not pulled yet, as of the last fetch, or null when there is no upstream. */
-  behind: number | null;
-  /** git's words when the last fetch failed: `behind` is then as old as the fetch before it. */
-  fetchError?: string;
-}
-
-/** Reply to GET /workspaces/sync on the file service. */
-export interface WorkspaceSyncList {
-  workspaces: WorkspaceSync[];
-}
-
-/** One uncommitted path, as `git status --porcelain` names it. */
-export interface GitChange {
-  /** Relative to the workspace root, `/`-separated. */
-  path: string;
-  /** git's two status letters: index then working tree, `??` for untracked. */
-  code: string;
-  /** A rename's or copy's original path. */
-  from?: string;
-}
-
-export interface GitChangeList {
-  changes: GitChange[];
-}
-
-export interface GitDiffReply {
-  path: string;
-  diff: string;
 }
 
 /** One surface a project declares, named and typed — enough to build its address and to gate a device. */
@@ -895,8 +785,6 @@ export interface SurfaceRef {
 /** One project declaring at least one surface, identity fields flattened onto it — see docs/machine.md. */
 export interface SurfacedProject {
   workspace: string;
-  repoName: string | null;
-  uniqueName: boolean;
   path: string;
   app: ProjectApp;
   active: boolean;
@@ -911,7 +799,7 @@ export interface SurfacedProjectList {
 /** GET /engine/served — what the session actually LOADED, which is not `SurfacedProject.active`; see docs/machine.md. */
 export interface ServedProject {
   workspace: string;
-  /** Workspace-relative, `.` for a lone-project clone — `SurfacedProject.path`'s spelling. */
+  /** Workspace-relative, `.` for a lone-project workspace — `SurfacedProject.path`'s spelling. */
   path: string;
 }
 
@@ -920,37 +808,7 @@ export interface ServedProjectReply {
   project: ServedProject | null;
 }
 
-/** The user's PUBLIC deploy key, pl8 owning the private half — see packages/git-repos/docs/keys.md. */
-export interface SshKeyInfo {
-  publicKey: string | null;
-}
-
-/** Reply to GET /workspaces/by-repo — which workspace already holds a repository, if any. */
-export interface WorkspaceForRepo {
-  workspace: string | null;
-}
-
-/** The steps of an import, in order: the clone, the account's libraries, the media through LFS. */
-export const CLONE_STEPS = ["clone", "libraries", "media"] as const;
-export type CloneStep = (typeof CLONE_STEPS)[number];
-
-/** A `git clone` in flight: started, then polled, because the wait is worth showing — packages/file-service/docs/cloneJobs.md. */
-export interface CloneJob {
-  id: string;
-  workspace: string; // the folder it is cloning into, chosen from the repository's name
-  step: CloneStep; // which of the import's steps `phase` and `percent` belong to
-  done: boolean;
-  failed: boolean;
-  error: string | null;
-  phase: string; // git's own words: "Receiving objects", "Resolving deltas", …
-  percent: number | null; // null while git is doing something it cannot measure
-  lines: string[]; // the tail of git's output, for a failure that needs reading
-  /** How many lines have been emitted ALTOGETHER — `lines` is the last few, so a reader that
-   *  wants the log needs this to know what it missed. Only ever grows. */
-  emitted: number;
-}
-
-/** How a stem separation is doing — CloneJob's shape plus the `files` it produced; see docs/machine.md. */
+/** How a stem separation is doing, and the `files` it produced; see docs/machine.md. */
 export interface SeparateJob {
   id: string;
   source: string; // the mix being split, absolute on the engine's machine
@@ -994,12 +852,6 @@ export interface ModuleLibrary {
   wavetables?: FileNode[];
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
-}
-
-export interface RepoRef {
-  id: string;
-  name: string;
-  uri: string;
 }
 
 /** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */

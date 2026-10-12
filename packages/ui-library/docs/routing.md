@@ -144,9 +144,9 @@ prefix opens it. The front door for one's own work is st0's home page, the origi
 ## What is not here, and the backend that is
 
 - **`modules` and `chains`** belong with the AUTHORING: a module is written against a project
-  where the plugin it names is actually LOADED, and pushed to a library repository by an
+  where the plugin it names is actually LOADED, and written into a library folder by an
   admin, from any project open in the editor. That is the editor's job, not a catalogue's.
-- **The level above a project** — the workspaces, the libraries, the deploy key and the
+- **The level above a project** — the workspaces, the libraries and the
   shares — belongs to the editor that opens one, so it is the other pages of st0's home.
 
 **Playlists**, on the other hand, ARE here — `playlists/` on the volume, its own section, beside

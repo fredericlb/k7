@@ -14,5 +14,5 @@
     "STUDIO_PREFS_DIR": "prefs/st0",
     "STUDIO_HOME": "server-home"
   },
-  "library": "st0-library.git"
+  "library": "st0-library"
 }

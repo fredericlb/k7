@@ -17,7 +17,6 @@
     "@studio/engine-registry": "*",
     "@studio/engine-tunnel": "*",
     "@studio/file-service": "*",
-    "@studio/git-repos": "*",
     "@studio/live-sync": "*",
     "@studio/song-schema": "*",
     "@studio/web-protocol": "*",

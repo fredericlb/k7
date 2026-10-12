@@ -73,8 +73,3 @@ export function rootDir(): string {
 export function mediatekDir(): string {
   return mediatekRoot();
 }
-
-/** Per-person SSH keys, `<state>/ssh/<slug>`, written by the file service so a workspace can talk to a git remote as itself. */
-export function sshDir(slug: string): string {
-  return join(studioDir(), "ssh", slug);
-}

@@ -41,7 +41,7 @@ each copy is a place the trap can be forgotten.
 the engine would eventually write into.
 
 One document builder, then, and it is the degenerate case: what the médiathèque plays is always a
-file. A chain is written in st0 and pushed to a library repository by an admin, from whatever project
+file. A chain is written in st0 into a library folder by an admin, from whatever project
 they have open — the engine playing the song already loads it.
 
 ## One session, one sound

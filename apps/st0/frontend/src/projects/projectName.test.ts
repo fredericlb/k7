@@ -41,7 +41,7 @@ describe("projectFolderName", () => {
   });
 
   it("refuse un nom qui commencerait par un point", () => {
-    // The project would exist unseen, here and in the repository's tree alike.
+    // The project would exist unseen, here and in the workspace's tree alike.
     expect(projectFolderName(".caché", "st0").error).toMatch(/dot/);
   });
 

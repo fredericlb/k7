@@ -4,12 +4,6 @@
 
 import { resolve, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
-import {
-  alternatives,
-  commitAndPush,
-  gitStatus,
-  pull,
-} from "@studio/commands/git";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
@@ -24,7 +18,6 @@ import {
   enginePreview,
   engineSyncOf,
   prewarmEngineForActive,
-  reloadActiveProject,
   retryEngineSync,
   runWebCommand,
   snapshotPluginBase,
@@ -35,17 +28,14 @@ import {
   unloadEngineIfServing,
   webCommandList,
   webCompletions,
-  webGitEnv,
 } from "../engineLink.ts";
-import { refreshLibraries, retireWorkspaceLibraries } from "../libraries.ts";
-import { refreshLibraryEdits } from "../libraryEdits.ts";
+import { refreshLibraries } from "../libraries.ts";
 import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
-import { workspaceChanges, workspaceDiff } from "../workspaceChanges.ts";
 
 export const filesRouter = Router();
 
@@ -239,24 +229,8 @@ filesRouter.post(
   validate(openBody),
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
-    // The hub's clones fetched — at most once a minute, however many opens. A
-    // library that will not sync is not a project that refuses: its refs resolve to what is here.
-    await refreshLibraries();
-    // An admin reads and writes the libraries through clones of their own, brought to their remote here.
-    await refreshLibraryEdits(req.userEmail!, req.get(ADMIN_HEADER) === "1");
-    // …and what this workspace held of them before, taken out now that nothing reads it.
-    try {
-      const retired = await retireWorkspaceLibraries(
-        req.userEmail!,
-        req.ws!.root,
-      );
-      if (retired)
-        (retired.retired ? console.log : console.warn)(
-          `[libraries] ${req.ws!.root}: ${retired.note}`,
-        );
-    } catch (e) {
-      console.warn(`[libraries] ${(e as Error).message}`);
-    }
+    // The libraries given their folders, and writable in place for an admin — docs/libraries.md.
+    await refreshLibraries(req.get(ADMIN_HEADER) === "1");
     try {
       // `.` is the WORKSPACE, which now holds several projects: it names one only when the
       // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.
@@ -583,14 +557,10 @@ filesRouter.get(
   "/history",
   wrap((req, res) => res.json(req.ws!.historyState())),
 );
-// The History panel's two lists: the journal oldest first, the commits newest first — docs/history.md.
+// The History panel's list: the journal, oldest first — docs/history.md.
 filesRouter.get(
   "/history/entries",
   wrap((req, res) => res.json(req.ws!.historyList())),
-);
-filesRouter.get(
-  "/history/commits",
-  wrap(async (req, res) => res.json(await req.ws!.historyCommits())),
 );
 // Without `confirm` a process step reports `needsConfirm` and is NOT applied, since it restores a bounced file.
 const undoBody = z.object({ confirm: z.boolean().optional() });
@@ -620,72 +590,6 @@ for (const dir of ["undo", "redo"] as const) {
     }),
   );
 }
-
-// Where the repo stands vs upstream, polled by the share badge: a bounded best-effort fetch, then ahead/behind.
-filesRouter.get(
-  "/git/status",
-  wrap((req, res) => {
-    res.json(gitStatus(req.ws!.root, webGitEnv(req.userEmail)));
-  }),
-);
-
-// Every uncommitted path, for the home page's read-only tree; local only, no fetch.
-filesRouter.get(
-  "/git/changes",
-  wrap(async (req, res) => {
-    res.json({ changes: await workspaceChanges(req.ws!.root) });
-  }),
-);
-
-// One path's diff against HEAD, for the same tree's viewer.
-filesRouter.get(
-  "/git/diff",
-  wrap(async (req, res) => {
-    const path = String(req.query.path ?? "");
-    try {
-      res.json({ path, diff: await workspaceDiff(req.ws!.root, path) });
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-// The alternatives the header dropdown lists; local reads only, so it is cheap enough to poll beside the badge.
-filesRouter.get(
-  "/git/alternatives",
-  wrap((req, res) => {
-    res.json(alternatives(req.ws!.root, webGitEnv(req.userEmail)));
-  }),
-);
-
-// Commit + push the WHOLE workspace repo, pinned to the user's deploy key; needs no active project.
-const gitCommitBody = z.object({ message: z.string().min(1) });
-filesRouter.post(
-  "/git/commit",
-  validate(gitCommitBody),
-  wrap((req, res) => {
-    const { message } = req.body as z.infer<typeof gitCommitBody>;
-    try {
-      res.json(commitAndPush(req.ws!.root, message, webGitEnv(req.userEmail)));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-// Fast-forward the WHOLE repo. A pull may have rewritten the active project, so reload it (a no-op when none).
-filesRouter.post(
-  "/git/pull",
-  wrap((req, res) => {
-    try {
-      const r = pull(req.ws!.root, webGitEnv(req.userEmail));
-      if (!r.upToDate) reloadActiveProject(req.ws!);
-      res.json(r);
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
 
 // Render the mixdown and stream it. A throw before any bytes becomes a clean 400; after headers, only a log.
 filesRouter.get(
@@ -856,12 +760,9 @@ filesRouter.post(
     );
     if (out === "ok") res.json({ ok: true });
     else
-      res
-        .status(404)
-        .json({
-          error:
-            out === "unknown" ? "no such conflict" : "not linked to a relay",
-        });
+      res.status(404).json({
+        error: out === "unknown" ? "no such conflict" : "not linked to a relay",
+      });
   }),
 );
 filesRouter.get(

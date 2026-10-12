@@ -1,6 +1,6 @@
 // sharedFolders.ts — the shared module folders a project sees, found by WHERE they are and
 // nothing else: the workspace's own `_modules/` beside the project, then every library the file
-// hub cloned. For an admin, a library is OVERLAID by their own edit clone, and is read there.
+// hub holds. For an admin, a library is OVERLAID: marked writable, at the folder it is read from.
 // No project field declares them. Full rationale: docs/sharedFolders.md.
 
 import { existsSync, readdirSync } from "node:fs";
@@ -39,17 +39,17 @@ export type LibraryFamily =
   | "wavetables"
   | "models";
 
-/** Where the libraries are read from: the file hub's ONE clone of each (`$STUDIO_LIBRARIES_HOME`), else `<studioHome>/libraries` — docs/sharedFolders.md. */
+/** Where the libraries are read from: the file hub's ONE folder of each (`$STUDIO_LIBRARIES_HOME`), else `<studioHome>/libraries` — docs/sharedFolders.md. */
 export function librariesHome(): string {
   // biome-ignore lint/suspicious/noUndeclaredEnvVars: set by the file hub, never under turbo
   const shared = process.env.STUDIO_LIBRARIES_HOME;
   return shared ? resolve(shared) : join(studioHome(), LIBRARIES_HOME_DIR);
 }
 
-/** The libraries read from elsewhere — an admin's own edit clones, by name. */
+/** The libraries this account may write, by name, and the folder each is read from. */
 const overlays = new Map<string, string>();
 
-/** Read each listed library from its `root` instead of the shared clone, and every other from the shared clone — docs/sharedFolders.md. */
+/** Make each listed library writable, read from its `root`; every other is read-only from the shared folder — docs/sharedFolders.md. */
 export function setLibraryOverlays(
   list: { name: string; root: string }[],
 ): void {
@@ -61,10 +61,10 @@ export function setLibraryOverlays(
 export const libraryOverlays = (): { name: string; root: string }[] =>
   [...overlays].map(([name, root]) => ({ name, root }));
 
-/** Whether library `name` is read from, and written to, an edit clone of this account's. */
+/** Whether this account may write library `name`. */
 export const isLibraryEditable = (name: string): boolean => overlays.has(name);
 
-/** Where library `name` is read from: this account's edit clone of it when there is one, else the shared clone. */
+/** Where library `name` is read from: its overlay's root when it has one, else the shared folder. */
 export function libraryRoot(name: string): string {
   return overlays.get(name) ?? join(librariesHome(), name);
 }
@@ -75,7 +75,7 @@ export interface AccountLibrary {
   root: string;
 }
 
-/** Every library cloned on this machine, by NAME order — found by where they are, never declared (docs/sharedFolders.md). */
+/** Every library on this machine, by NAME order — found by where they are, never declared (docs/sharedFolders.md). */
 export function accountLibraries(): AccountLibrary[] {
   let names: string[];
   try {
@@ -108,7 +108,7 @@ export function libraryOf(path: string): AccountLibrary | null {
   const rel = relative(librariesHome(), abs);
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
   const name = rel.split(/[\\/]+/)[0];
-  // The shared clone of an overlaid library is not where that library is read from.
+  // An overlaid library is answered by the loop above, wherever its overlay points.
   if (!isLibraryName(name) || overlays.has(name)) return null;
   return { name, root: join(librariesHome(), name) };
 }

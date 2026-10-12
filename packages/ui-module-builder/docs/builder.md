@@ -18,9 +18,9 @@ Each holds its own text back and says so on its own tab.
 
 **Save writes all four**, not the pane on screen. A module
 is four files describing one thing, and saving the one you happen to be looking at leaves the other
-three behind, which on a shared module means committing a panel for a plugin nobody else has yet.
-They are edited together, so they land together. `publish` runs only if every one landed: `flush`
-answers that, and a file held back because it would not compile reports false, so committing a
+three behind, which on a shared module means handing everybody a panel for a plugin nobody else has
+yet. They are edited together, so they land together. `publish` runs only if every one landed: `flush`
+answers that, and a file held back because it would not compile reports false, so publishing a
 module whose `module.yaml` is still yesterday's cannot put a half-edit in front of everybody.
 
 The parameters pane is the one pane with no CodeMirror in it, so it wires Ctrl+S itself — otherwise
@@ -58,7 +58,7 @@ read a shade loosely.
 ### Refresh reads them all again, from disk
 
 The files are read once per module, so an edit made OUTSIDE the builder — a Claude Code session
-given AI organize's copied prompt, a text editor, a `git pull` — is not on screen until something
+given AI organize's copied prompt, a text editor, another device through the relay — is not on screen until something
 reads them again. The ↻ button beside Save does: every file of the module, the hints and the bases,
 the effects' own `reloadKey` being the trigger rather than a second loading path that could drift
 from the first.
@@ -255,7 +255,7 @@ guessing.
 ### `plugin:` is read shallowly, and `io:` from three sources
 
 `readPlugin` reads the FILE rather than resolving through the project, which is the whole point: a
-module in the libraries repository is not a base of the open song, so nothing in `paramsByBase`
+module in a library is not a base of the open song, so nothing in `paramsByBase`
 describes it and the builder had no way to learn what plugin it is. The file says so in two words.
 It is shallow on purpose — a module that only `extends` another states no plugin, and inheriting
 one would mean resolving a ref this component cannot resolve. That case still has the two learned
@@ -393,7 +393,7 @@ the alpha, which only the text beside it sets.
   may name. Deduped, since a project that has already scanned holds some of the same refs.
 - **The generated built-in table is the source that needs no project.** `paramsByBase` is keyed by a
   base ref of the OPEN song, and st0 passes `paramRef={null}` when it opens a module from the file
-  tree — so a module in the libraries repository had nothing at all: not a base of this project, not
+  tree — so a module in a library had nothing at all: not a base of this project, not
   instantiated, no engine behind the overlay. That is
   `_libraries/st0/modules/instruments/4osc/module.yaml`, where a shared module is authored, which makes
   it the case that mattered most. There are TWO ways a file names a built-in, and the second is the

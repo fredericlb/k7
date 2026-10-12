@@ -5,17 +5,17 @@
 `liveSync.ts` attaches a capture to each workspace the service opens, and `liveRelay.ts` links it to
 the relay (`../../file-hub/docs/syncRelay.md`). Phases 2 and 3 of `../../../docs/live-sync-plan.md`.
 
-## Off unless `STUDIO_LIVE_SYNC=1`
+## On by default, off with `STUDIO_LIVE_SYNC=0`
 
-A watcher and a ledger per open workspace is a cost worth paying only when someone edits from
-another replica, and only one replica per account exists until phase 4. So the flag stays off by
-default. With it on and `STUDIO_SYNC_URL` set (the hub sets it), every batch also goes to the relay.
-`GET /sync/log` shows what this service captured; it answers 404 while the flag is off.
+Live sync is the only way a workspace reaches another replica, so capture runs for every open
+workspace. `STUDIO_LIVE_SYNC=0` turns it off, for a process that must leave no watcher and no ledger
+behind. With `STUDIO_SYNC_URL` set (the hub sets it), every batch also goes to the relay.
+`GET /sync/log` shows what this service captured; it answers 404 while capture is off.
 
 ## The ledger, not the writers
 
 The file service writes through about a hundred call sites, and most bypass `recordChange`. A
-take arriving, a tunnel upload or a `git pull` writes without any verb at all. So capture keeps a
+take arriving or a tunnel upload writes without any verb at all. So capture keeps a
 ledger of the workspace and diffs a change against it, whoever made the change.
 
 - **A YAML file** keeps its last text in the ledger: it is the only kind diffed into path ops.
@@ -59,7 +59,7 @@ enough to split one window into two batches. A sweep costs a walk, about 20 ms o
 paid after the request has been answered.
 
 A periodic sweep that falls inside a window waits for it, so it never emits half of one. Writes from
-outside any window (a take, a pull) close a batch after the same quiet period, labelled `edit`.
+outside any window (a take, a tunnel upload) close a batch after the same quiet period, labelled `edit`.
 
 ## Applying another replica's batch
 
@@ -84,7 +84,7 @@ the log and every replica closes it.
 ## The log lives in the account's state
 
 `<studioHome>/.sync/<workspace>-<hash>/batches.jsonl`, beside the undo journal's folder and for the
-same reason: inside the workspace it would be captured, committed and pushed with the songs. One JSON
+same reason: inside the workspace it would be captured and synced with the songs. One JSON
 line per batch. Past 20 MB the log is rotated once, since the server's ordered log is the one that
 counts (phase 3). The replica's id is `<studioHome>/.sync/replica-id`, made once.
 

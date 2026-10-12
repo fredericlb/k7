@@ -97,24 +97,6 @@ built: the same rule the module builder's store follows, and what keeps a librar
 `_libraries/<name>/modules` and a project's own `modules/` from being told apart by string surgery
 here.
 
-## `/account/library-edits` — publishing what an admin changed
-
-`GET` answers every library whose edit clone holds work unpublished, `{ libraries: [{library,
-changed, ahead}] }` — empty for a non-admin; `POST …/commit` `{message}` commits every changed
-library with the admin's message and pushes each, `POST …/discard` resets every clone to its
-remote, `POST …/drop` `{name}` removes one clone and is called only by the hub after a pull — all
-three for admins only, 403 otherwise. Nothing else in this service publishes a library: a Save, a
-rename and a verb all end at the disk. See `docs/libraries.md`.
-
-A refused push is answered rather than thrown: "committed but not pushed" is a real outcome with
-work safely on disk behind it, and the editor's bar says so.
-
-`GET …/files?library=`, `…/diff?library=&path=` and `…/file?library=&path=` READ one edit clone
-for the bar's "show diff" — its tree with its uncommitted paths, one path's diff against HEAD, one
-file — the same three answers `/tree`, `/git/changes`, `/git/diff` and `/file` give the home
-page of a workspace, so one viewer draws both (`../src/libraryEditsFiles.ts`). A library with no
-edit clone here, which is every library for a non-admin, is a 404.
-
 ## `POST /open` asks for the libraries first
 
 The libraries are the file hub's, so the open asks the hub to bring them to their latest
@@ -180,7 +162,7 @@ which a client uses to stop re-asking the questions this reply has already answe
 token either, which is the one thing every writing caller can use.
 
 `revBefore` comes with it: the token the command STARTED from. A client that adopts `rev` without
-telling anyone needs it, because `rev` also covers whatever another tab, the CLI or a pull wrote just
+telling anyone needs it, because `rev` also covers whatever another tab, the CLI or another replica wrote just
 before — and adopting that silently would hide it. Only when `revBefore` is the token the client
 already held is `rev` this command's change alone.
 
@@ -202,7 +184,7 @@ after — they would be two more walks of the tree the run already crosses four 
 to diff what the mutation did, so it names both instants off walks it was doing anyway. `Workspace.Recorded` is the shape, and
 `withRevision` seeds the graph build with that same token rather than a fresh walk: `graphDoc`
 asks for the revision several times over (its own memo, then `clipExtents` through the compiled
-doc). `req.userEmail` lets commit/pull pin git to this user's deploy key — see `makeHost`.
+doc).
 
 The graph is built INSIDE the run (`runWebCommand(…, { graph })`), not by the route after it: the
 verb's held reload compiles in the same module-stamp scope, so a writing command rebuilds the
@@ -240,8 +222,7 @@ the editor walking the tree and reading each file itself: the parse and its diag
 surface valid". Always 200 — a project with no surfaces has none, which is not an error.
 
 `/workspace-tree` is separate from `/tree` for the reason `Workspace.workspaceTree` is its own
-method: two questions, and only one of them is the editor's. The same tree's git colours come
-from `/git/changes` and `/git/diff` (`docs/workspaces.md` § Sync state).
+method: two questions, and only one of them is the editor's.
 
 ## `POST /module-base/snapshot` — keeping a plugin's opaque state
 

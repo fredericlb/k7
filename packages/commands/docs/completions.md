@@ -15,7 +15,7 @@ too — so `PROVIDER_CLASS` checks nothing and the wire cannot name a provider a
 
 **A failed read costs the completion, never the command.** Every provider that touches the disk
 swallows its own error and answers with an empty list or an unranked one: a broken curve file, an
-unreadable module folder, a repository that is not there. A provider that threw would take the
+unreadable module folder, a workspace that is not there. A provider that threw would take the
 whole command bar down with it, and the command itself already has the refusal it needs.
 
 ## `modules` and `nodes` are not the same list
@@ -75,10 +75,8 @@ the uuid, and names the label beside it.
   know which module was just named. The handler checks against the real module, which is where a
   wrong name has to be caught. Read off `loadModules` rather than `loadGraph`, which would also
   read every clip, sequence and curve to answer a question about names.
-- **`alternatives`** offers every local branch EXCEPT the one you are on, which is not a
-  destination.
 - **`playlists`** walks `_playlists/` off `repoDir` and never `songPath`: a playlist belongs to
-  the repository, so a project folder is the one place it cannot be. Names are the extension
+  the workspace, so a project folder is the one place it cannot be. Names are the extension
   stripped, subfolders kept — `live/repet` is one name.
 - **`clipTargets`** is the audio clips this project places, then its audio files, for material no
   clip has claimed. Tracks are deliberately absent and the handler refuses one by name:
@@ -105,9 +103,9 @@ the uuid, and names the label beside it.
 `argClass` answers provider, else literal set, else scalar type, else `text`. `PROVIDER_CLASS` is
 exhaustive over `PROVIDERS`, so a new provider must say what it names before it compiles.
 
-- `alternatives`, `moduleAlternatives`, `chains`, `curves` → **choice**. A named thing picked from
-  a closed list. Not `file`: an alternative is a branch and nothing on disk, and a chain is
-  neither a module nor a path.
+- `moduleAlternatives`, `chains`, `curves` → **choice**. A named thing picked from a closed
+  list. Not `file`: an alternative is a set inside a module's file, and a chain is neither a
+  module nor a path.
 - `surfaceTypes` → **choice** as well, and for a sharper reason: the surface's file does not exist
   yet. Naming its type is what creates it.
 - `clipTargets` → **file**. A clip id and an audio path are both material, and the palette colours

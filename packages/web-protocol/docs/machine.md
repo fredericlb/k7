@@ -8,28 +8,18 @@ names.
 ## The machine answers what it holds
 
 **The machine** — the account's file service — answers what is INSIDE a workspace:
-`AccountWorkspace`, from the working copy it actually holds. Nothing else does. A hosted mirror
-answering the same question from the other side would be a second copy of what the working copy
-already has, and a worse one — a fetch behind, and blind to a project that is committed but not
-yet pushed. No service keeps a register of repositories either (`apps/st0/backend/docs/media/projects.md`). See
+`AccountWorkspace`, from the folders it actually holds. Nothing else does: a second answer from
+another service would be a copy of what the folders already say, and a worse one. No service keeps
+a register of workspaces either (`apps/st0/backend/docs/media/projects.md`). A workspace is
+addressed by its folder name, under `@local` (`packages/web-protocol/docs/addresses.md`). See
 `apps/st0/frontend/docs/projects.md`.
-
-`origin` is `remote.origin.url` as git wrote it, normalized, and null for a workspace that is not
-a clone at all. `repoName` is its last path segment without `.git`, derived here because deriving
-it costs nothing the `origin` has not already paid for; it is what a person reads on the row, and
-never what addresses the workspace — that is its folder name, under `@local`
-(`packages/web-protocol/docs/addresses.md`). The URI itself never reaches the address bar, because
-it carries a host, a port and a user, none of which belong in a bookmark.
-
-`uniqueName: false` says two workspaces on this machine have origins ending in the same short name
-— worth saying on the rows, since the name alone would not tell them apart.
 
 ## `active` is not the same as `served`
 
 `SurfacedProject` is one project on this machine that declares at least one surface, with those
 surfaces. Its identity fields are `AccountWorkspace`'s, repeated per project rather than nested,
 because the list is read as a flat one: the caller is looking for a SURFACE and the workspace it
-lives in is a detail of the address. `path` is workspace-relative, `.` for a lone-project clone.
+lives in is a detail of the address. `path` is workspace-relative, `.` for a workspace that is itself a project.
 
 `active` is the workspace's active-project marker — the project this workspace currently has
 open. One per workspace at a time, which is why it is a flag and not a filter: a caller that wants
@@ -48,13 +38,11 @@ else's business.
 project's surfaces with the diagnostics from reading them, and this is the machine's list of the
 projects that have any. Projects declaring none are absent rather than present and empty.
 
-## Jobs: clone, and separation
+## Jobs: separation
 
-`CloneJob` and `SeparateJob` are the same shape — start, poll, 404 when swept — with one field the
-first has no use for. A clone's product is a DIRECTORY, named by `workspace`, so there is nothing
-to list. A separation's product is four files, and the caller needs their paths: they are what it
-came for, and they are not derivable from the request, since the stems' names come from the model.
-See `packages/file-service/docs/cloneJobs.md`.
+`SeparateJob` is a job — start, poll, 404 when swept. Its product is four files, and the caller
+needs their paths: they are what it came for, and they are not derivable from the request, since
+the stems' names come from the model.
 
 `StemsReply` is what `POST /stems` answers — the desk asking for ONE record to be prepared. Two
 fields rather than one job, because a record already separated must start nothing: the desk asks

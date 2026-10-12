@@ -3,7 +3,6 @@
 // its ORIGINAL path under that tree, so a bundle reads `../meta` or `frontend/dist` as the source did.
 // Usage: node bundle.mjs <outDir>, after the frontend's build. See ../docs/standalone.md.
 
-import { execFileSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
@@ -12,7 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
@@ -123,17 +122,11 @@ for (const rel of DATA) {
   cpSync(from, join(out, rel), { recursive: true });
 }
 
-// The library a fresh desktop or phone seeds its list with: one commit, no network.
-execFileSync("git", [
-  "clone",
-  "-q",
-  "--bare",
-  "--depth",
-  "1",
-  "--",
-  `file://${join(repo, "st0-library")}`,
-  join(out, "st0-library.git"),
-]);
+// The library a fresh desktop or phone copies its `st0` from (`$STUDIO_LIBRARY_SEED`), without the submodule's git.
+cpSync(join(repo, "st0-library"), join(out, "st0-library"), {
+  recursive: true,
+  filter: (src) => basename(src) !== ".git",
+});
 
 writeFileSync(join(out, "STAMP"), `${new Date().toISOString()}\n`);
 console.log(`backend bundled in ${out}`);

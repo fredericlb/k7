@@ -88,8 +88,8 @@ export const LOCAL_COMMANDS = [
   "ui playlists", // the workspace's set lists — docs/playlists.md
   "ui references", // the workspace's reference tracks — docs/references.md
   "ui tasks", // the workspace's task list, TODOS.md — docs/tasks.md
-  "ui history", // the song's undo journal and commits, one list — docs/shell.md
-  "ui share", // commit, pull, export, publish — docs/shell.md
+  "ui history", // the song's undo journal — docs/shell.md
+  "ui share", // export, publish — docs/shell.md
   // The LINK to a surface, for another device to open it on (docs/external.md) — `ui`, since it copies an address and changes nothing.
   "ui external",
   "ui vim", // the editor's modality — the toggle on the settings screen
@@ -346,12 +346,12 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Ouvrir les réglages du projet — sa console de mix",
   },
   "ui playlists": {
-    en: "Open or close this repository's playlists",
-    fr: "Ouvrir ou fermer les playlists de ce dépôt",
+    en: "Open or close this workspace's playlists",
+    fr: "Ouvrir ou fermer les playlists de cet espace",
   },
   "ui references": {
-    en: "Open or close this repository's reference tracks",
-    fr: "Ouvrir ou fermer les morceaux de référence de ce dépôt",
+    en: "Open or close this workspace's reference tracks",
+    fr: "Ouvrir ou fermer les morceaux de référence de cet espace",
   },
   "ui tasks": {
     en: "Open or close this workspace's task list",

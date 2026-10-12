@@ -5,7 +5,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import {
-  FolderGit2,
+  Folders,
   LibraryBig,
   ListChecks,
   type LucideIcon,
@@ -152,7 +152,7 @@ function HomeSidebar({
   }, []);
 
   const items: Entry[] = [
-    { label: m["home.projects"](), icon: FolderGit2, route: "/" },
+    { label: m["home.projects"](), icon: Folders, route: "/" },
     { label: m["home.tasks"](), icon: ListChecks, route: TASKS_ROUTE },
     { label: m["home.libraries"](), icon: LibraryBig, route: LIBRARIES_ROUTE },
   ].map((e) => ({ ...e, active: pathname === e.route }));

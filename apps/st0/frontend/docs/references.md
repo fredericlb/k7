@@ -54,17 +54,16 @@ destinations and an app playing one file in a tab.
 ## The listing is the disk, re-read
 
 Upload, delete, and the panel asks `/references` again rather than patching the array it holds.
-The folder is an ordinary folder: git pulls into it, somebody drops a file in from the OS, a
-clone brings twelve. A local list that "knows better" would be wrong within the day, and there is
+The folder is an ordinary folder: the live-sync relay writes into it from another device,
+somebody drops a file in from the OS, a replica joining brings twelve. A local list that "knows better" would be wrong within the day, and there is
 nothing here worth optimising — the route stats a folder.
 
 Uploads go through the same `/upload` every other file uses, into `_references`. There is no
 route of its own, no import step and no sidecar to write.
 
-## They travel with the repository
+## They travel with the workspace
 
-`_references/` is inside the workspace, so a `project commit` takes it, and the audio goes
-through git LFS like the song's own (`packages/file-service/docs/workspaces.md`). That is the
-point of the folder being where it is: clone the repository on the machine at the venue and what
-you were mixing against is there. It is also worth knowing before you drop somebody's whole
+`_references/` is inside the workspace, so the live-sync relay carries it to every replica like the
+song's own files (`docs/live-sync-plan.md`). That is the point of the folder being where it is:
+open the workspace on the machine at the venue and what you were mixing against is there. It is also worth knowing before you drop somebody's whole
 discography in.

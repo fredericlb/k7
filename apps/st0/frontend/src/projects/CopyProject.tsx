@@ -1,8 +1,6 @@
-// CopyProject.tsx — the dialog that picks where a copy lands, opened from the row's ⋮ menu. The
-// DESTINATION is what decides whether anything is pushed, so each row says which of the two it is
-// before the click rather than after. See ../../docs/projects.md.
+// CopyProject.tsx — the dialog that picks where a copy lands, opened from the row's ⋮ menu.
+// See ../../docs/projects.md.
 
-import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
   Dialog,
@@ -12,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
-import { Copy, FolderGit2, HardDrive, Loader2 } from "@frediverse/ui/icons";
+import { Copy, Folder, Loader2 } from "@frediverse/ui/icons";
 import { Input } from "@frediverse/ui/input";
 import type { AccountWorkspace } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
@@ -87,18 +85,8 @@ export function CopyProject({
               }`}
               onClick={() => setTo(w)}
             >
-              {w.origin ? (
-                <FolderGit2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-              ) : (
-                <HardDrive className="h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
+              <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="truncate">{w.name}</span>
-              {/* The one thing that changes what the copy DOES, said per row. */}
-              <Badge variant={w.origin ? "tag" : "default"}>
-                {w.origin
-                  ? m["project.copyCommitPush"]()
-                  : m["project.copyCommitOnly"]()}
-              </Badge>
             </button>
           ))}
         </div>

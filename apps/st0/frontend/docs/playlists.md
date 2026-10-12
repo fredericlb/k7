@@ -1,6 +1,6 @@
 # Playlists — the one screen holding both catalogues
 
-The format, and why a playlist lives in the repository rather than on the hosted volume, are in
+The format, and why a playlist lives in the workspace rather than on the hosted volume, are in
 [`packages/song/docs/playlists.md`](../../../../packages/song/docs/playlists.md). This page is the
 screen.
 
@@ -21,7 +21,7 @@ to look at it. So it is a panel **stuck to the right**, in the same row as the p
 rather than covering them, and it can be left open.
 
 The playlist is chosen in a **searchable dropdown** — the `TreePicker`, the module picker's. Same
-reason as everywhere else: the list is as long as the repository is old, and typing three letters is
+reason as everywhere else: the list is as long as the workspace is old, and typing three letters is
 this shell's gesture throughout. The search scores the title AND the path, because a set list is
 looked for by either (`live/repet`).
 
@@ -53,7 +53,7 @@ autosave, same resolved list. Two components would be two documents to keep in s
 
 This shell's panes are the **open song** — editor, timeline, graph, viewport — and what they draw is
 what the project DECLARES (`docs/shell.md`, `packages/song/docs/surfaces.md`). A playlist is
-declared by no project and belongs to none: it is at the root of the repository and it is the same
+declared by no project and belongs to none: it is at the root of the workspace and it is the same
 whichever song you are working on. So it is not a pane, even now that it has a column — and it is
 not in the URL either.
 
@@ -75,7 +75,7 @@ for it in the palette is the wrong shape for the one thing you look for during t
 
 On a song there is no button — the bar is only so wide, and set lists are not what you came for.
 `ui playlists` still opens them: same line, so one behaviour and one journal entry. Never on a
-shared snapshot — a share has no repository, so no `_playlists/`.
+shared snapshot — a share has no workspace, so no `_playlists/`.
 
 ## Two servers, one origin
 
@@ -118,7 +118,7 @@ verb's, with its tests.
 | "New playlist" | `playlist new <nom>` — subfolders included (`live/repet`) |
 | add a song, by name | `playlist song add <playlist> <morceau> [variante]` |
 
-Both act on the **repository** (`repoDir`) and not on the project: they are the only verbs in the
+Both act on the **workspace** (`repoDir`) and not on the project: they are the only verbs in the
 catalogue that work with no project open, which is exactly what a playlist is. The song is **all the
 rest of the line**, spaces included, because a reference is a path through the médiathèque's folders
 (`AC-DC/Back in Black/Hells Bells`); **in quotes**, a variant may follow it. One rule, and the only
@@ -311,7 +311,7 @@ diverge at the first case learned on one side only.
 The médiathèque has set lists of its own, under `playlists/` on its volume (`packages/ui-library/docs/playlists.md`), in
 this same format. What it cannot do is write into **this** one: the workspace's `_playlists/` is on
 the file service's disk, and giving its routes the means to write there would make the code that
-holds the session and the single deploy key a writer into everyone's repository, which
+holds the session a writer into everyone's workspace, which
 `apps/st0/backend/docs/media/projects.md` explicitly refuses.
 
 Its hunt therefore targets no playlist at all — it files the song into the médiathèque, and adding

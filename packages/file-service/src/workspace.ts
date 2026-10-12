@@ -157,7 +157,6 @@ import type {
   Hints,
   ModuleLibrary,
   PreviewReq,
-  ProjectCommit,
   ProjectInfo,
   WaveformStatus,
   WebMixer,
@@ -190,7 +189,6 @@ import {
   type HistoryPeek,
   type HistoryState,
   historyStoreFor,
-  isHistoryDir,
   ProjectHistory,
 } from "./history.ts";
 import { engineKeeper } from "./historyKeeper.ts";
@@ -201,7 +199,6 @@ import {
   pluginNeedsOf,
   projectCompatOf,
 } from "./pluginNeeds.ts";
-import { projectCommits } from "./projectCommits.ts";
 import {
   copyProjectInto,
   createProjectIn,
@@ -223,6 +220,9 @@ import {
   WaveformOps,
 } from "./waveformOps.ts";
 import { foldComps } from "./webComp.ts";
+import { isBinary, RECYCLE_DIR, skip } from "./workspaceFilter.ts";
+
+export { isBinary, skip };
 
 export { DEFAULT_WF_BUCKETS } from "./waveformOps.ts";
 
@@ -277,28 +277,6 @@ export function projectDirsUnder(
   return out;
 }
 
-// Files shown in the tree but not editable as text.
-const BINARY_EXT = new Set([
-  ".wav",
-  ".mp3",
-  ".ogg",
-  ".flac",
-  ".vstpreset",
-  ".png",
-  ".ico",
-  ".jpg",
-  ".jpeg",
-  ".mp4",
-  ".mov",
-  ".m4v",
-  ".webm",
-  ".mkv",
-]);
-export const isBinary = (name: string): boolean =>
-  BINARY_EXT.has(extname(name).toLowerCase());
-
-// Where deleted projects go — hidden by skip(), so "deleting" is a reversible move.
-const RECYCLE_DIR = "_recycle_bin";
 
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.ya?ml$/i;
@@ -306,13 +284,6 @@ const PROJECT_FILE = /\.ya?ml$/i;
 // own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
 const REVISION_FILE = /\.(ya?ml|vstpreset)$/i;
 
-// Hidden files and deps are never shown, edited or WATCHED — the strudel watcher prunes this same list.
-export const skip = (name: string): boolean =>
-  name.startsWith(".") ||
-  name === "node_modules" ||
-  name === RECYCLE_DIR ||
-  isHistoryDir(name) || // the undo/redo journal, never listed or diffed
-  name.endsWith(".cache"); // engine-written waveform sidecars ({source}.cache)
 
 /** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
 interface WalkedFile {
@@ -515,7 +486,7 @@ export function setAudioDevicePref(name: string, type?: string): string | null {
   return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
 }
 
-// Where each workspace's active-project marker lives: a folder BESIDE the workspaces, so no commit, push or diff of one ever sees it.
+// Where each workspace's active-project marker lives: a folder BESIDE the workspaces, so no sync of one ever sees it.
 export const ACTIVE_MARKERS_DIR = ".active-projects";
 // The marker a workspace kept INSIDE itself, moved out at its first read.
 const LEGACY_MARKER = ".studio-active";
@@ -753,12 +724,12 @@ export class Workspace {
   /** Resolve `rel` inside the workspace, or throw — TWO gates, both needed, docs/workspace.md.
    *
    * `_libraries/<name>/…` is the one path that is not IN the workspace: it names the account's
-   * library `<name>`, cloned under `<studioHome>/libraries`, and is confined THERE by the same two
+   * library `<name>`, the hub's folder of it, and is confined THERE by the same two
    * gates — docs/sharedFolders.md. */
   private safePath(rel: string): string {
     const segs = rel.split(/[\\/]+/).filter((s) => s && s !== ".");
     if (segs[0] === LIBRARIES_DIR) {
-      // Each library is confined to its OWN root, which is the bench's clone for the one being edited.
+      // Each library is confined to its OWN root, wherever an overlay points it.
       if (segs[1] && isLibraryName(segs[1])) {
         const root = libraryRoot(segs[1]);
         return confined(
@@ -780,7 +751,7 @@ export class Workspace {
     );
   }
   private toRel(abs: string): string {
-    // A library file answers to the virtual folder it is reached through, never to where it is cloned.
+    // A library file answers to the virtual folder it is reached through, never to where it lies on disk.
     const lib = libraryOf(abs);
     if (lib)
       return [LIBRARIES_DIR, lib.name, relative(lib.root, abs)]
@@ -1293,11 +1264,6 @@ export class Workspace {
         ),
       }));
   }
-  /** The commits that touched the open project, newest first — none without a repository. */
-  async historyCommits(): Promise<ProjectCommit[]> {
-    const dir = this.activeProject;
-    return dir ? projectCommits(this.root, this.toRel(dir)) : [];
-  }
   peekUndo(): HistoryPeek | null {
     const dir = this.activeProject;
     return dir ? this.history(dir).peekUndo() : null;
@@ -1397,7 +1363,7 @@ export class Workspace {
       ns: moduleNamespaceOf(abs),
       abs,
     }));
-    // Every cloned library is a row, one with no `modules/` yet included: its chains are listed under it.
+    // Every library is a row, one with no `modules/` yet included: its chains are listed under it.
     for (const lib of accountLibraries())
       if (!roots.some((r) => r.ns === lib.name))
         roots.push({ ns: lib.name, abs: join(lib.root, "modules") });
@@ -1689,7 +1655,7 @@ export class Workspace {
   }
 
   /** `_modules`'s own STRUCTURE is fixed to every route — its files are edited in place, never renamed, moved or deleted this way — see docs/workspace.md. */
-  /** A library is written only through an admin's own edit clone of it: every other copy is the hub's, read-only. */
+  /** A library is written only by an admin, whose account overlays it writable — docs/libraries.md. */
   assertLibraryWritable(abs: string, verb = "change"): void {
     const lib = libraryOf(abs);
     if (lib && !isLibraryEditable(lib.name))
@@ -1836,14 +1802,9 @@ export class Workspace {
   async deleteEntry(rel: string): Promise<{ recycled: string }> {
     const abs = this.safePath(rel);
     this.guardMutable(abs, "delete");
-    // A library's recycle bin is its git history, and its clone may sit on another disk than the workspace's bin.
-    if (libraryOf(abs)) {
-      this.cancelPrewarm();
-      rmSync(abs, { recursive: true, force: true });
-      this.invalidateProjectDoc();
-      return { recycled: "" };
-    }
-    const bin = join(this.root, RECYCLE_DIR);
+    // A library keeps its own bin at its root: it may sit on another disk than the workspace's.
+    const lib = libraryOf(abs);
+    const bin = join(lib ? lib.root : this.root, RECYCLE_DIR);
     mkdirSync(bin, { recursive: true });
     // Don't clobber an earlier deletion of the same name — suffix a counter.
     const base = basename(abs);

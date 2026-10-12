@@ -797,7 +797,7 @@ export function EditorTab({
     [file?.path, refresh, onChanged, onEditTarget, setStatus],
   );
 
-  // A library change is published from the commit row at the bottom (LibraryEditsRow.tsx), not here: this only redraws the tab.
+  // A library change is live as soon as it is written: this only redraws the tab.
   const afterLibraryChange = useCallback(async () => {
     await refreshLibraries();
   }, [refreshLibraries]);

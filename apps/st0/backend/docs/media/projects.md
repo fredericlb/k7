@@ -7,8 +7,7 @@ key and no libraries pointer: all three belong to the machine that holds the wor
 |---|---|
 | which projects does this account have | the file service, from the workspaces on its machine — a project is a folder there |
 | how is a project addressed | `/@local/<espace de travail>/<projet>`, naming that folder (`packages/project-shell/docs/launch.md`) |
-| the deploy key | the file service makes its own: `GET`/`POST /ssh-key` (`packages/file-service/src/sshKeys.ts`) |
-| the origin's libraries | the file service: `GET`/`PUT /account/libraries`, one list beside the account folders, `PUT` for admins only (`AUTH_ADMIN_GROUPS`) |
+| the origin's libraries | the file hub: `GET`/`PUT /account/libraries`, one list beside the account folders, `PUT` for admins only (`AUTH_ADMIN_GROUPS`) |
 
 ## Why the file service, and not the library
 

@@ -196,7 +196,6 @@ function AccountTab({ onRun }: { onRun: (line: string) => Promise<void> }) {
         </Button>
       </div>
       <div className="my-1 border-t border-border" />
-      {/* The SSH key is NOT here: it belongs to pl8, which generates the one deploy key (packages/git-repos/docs/keys.md). */}
       {/* The engine is remembered on the ACCOUNT, so this is the one way back to the picker. */}
       <button
         type="button"

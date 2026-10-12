@@ -1,16 +1,14 @@
-// RepoList.tsx — the account's workspaces, each with its projects indented: add one by SSH URI
-// (which registers it with pl8 AND clones it), or open a project straight into a new tab.
+// RepoList.tsx — the account's workspaces, each with its projects indented: make a new one, or
+// open a project straight into this tab.
 // Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import {
   CornerDownRight,
-  FolderGit2,
+  Folder,
   FolderPlus,
-  HardDrive,
   Loader2,
   ServerOff,
-  TriangleAlert,
 } from "@frediverse/ui/icons";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
@@ -18,7 +16,6 @@ import type {
   AccountWorkspace,
   RepoProject,
   ShareSummary,
-  WorkspaceSync,
 } from "@studio/web-protocol";
 import { projectLabel } from "@studio/web-protocol/projects";
 import { type DragEvent, useState } from "react";
@@ -26,15 +23,12 @@ import { Link } from "react-router-dom";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
 import { SETTINGS_ROUTE } from "./api";
-import { ImportWorkspace } from "./ImportWorkspace";
 import { NewProject } from "./NewProject";
 import { NewWorkspace } from "./NewWorkspace";
 import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 import { WorkspaceMenu } from "./WorkspaceMenu";
-import { WorkspaceSyncButtons, WorkspaceSyncLine } from "./WorkspaceSyncLine";
-import type { ImportProgress } from "./workspaceOps";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
@@ -72,12 +66,8 @@ export function RepoList({
   workspaces,
   busy,
   error,
-  adding,
-  progress,
   hasFileService,
-  onImport,
   onCreateWorkspace,
-  onPublish,
   onOpen,
   blocked,
   blockedWorkspace,
@@ -85,10 +75,6 @@ export function RepoList({
   onCreate,
   onDelete,
   onRemoveWorkspace,
-  onCompactWorkspace,
-  sync,
-  onPush,
-  onPull,
   onCopy,
   onRename,
   projectHref,
@@ -99,28 +85,16 @@ export function RepoList({
   workspaces: AccountWorkspace[];
   busy: boolean;
   error: string | null;
-  /** Where the running clone is, in git's own words, or null. */
-  adding: string | null;
-  /** …and which of the import's steps it is on, for the dialog's bar. */
-  progress: ImportProgress | null;
   hasFileService: boolean;
-  /** Clone a repository onto the server — the Import button's act. */
-  onImport: (uri: string) => Promise<void>;
-  /** A workspace of one's own, git-initialised here with no repository behind it and nothing in it. */
+  /** A workspace of one's own, made on the server with nothing in it. */
   onCreateWorkspace: (
     workspace: string,
-    onStep: (s: string) => void,
-  ) => Promise<void>;
-  /** Its first repository: the remote and the push — offered on a local workspace only. */
-  onPublish: (
-    ws: AccountWorkspace,
-    uri: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
   onOpen: (ws: AccountWorkspace) => void;
   /** Why create and delete are impossible, or "" — both go through the file service, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
-  /** What stops a workspace being MADE or IMPORTED, on top of `blocked` — the account's library, which everything in one resolves through. */
+  /** What stops a workspace being MADE, on top of `blocked` — the account's library, which everything in one resolves through. */
   blockedWorkspace: string;
   /** Files dropped ON a row: everything dropped, since which one is importable — and what to say
    *  when none is — belongs with the state that can report it (packages/translator/docs/import.md). */
@@ -137,14 +111,14 @@ export function RepoList({
     project: RepoProject,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** Rename a project's folder in place — the SAME workspace commits, and pushes if it has a repository. */
+  /** Rename a project's folder in place. */
   onRename: (
     ws: AccountWorkspace,
     project: RepoProject,
     folder: string,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** Copy a project into ANOTHER workspace — the destination commits, and pushes if it has a repository. */
+  /** Copy a project into ANOTHER workspace. */
   onCopy: (
     ws: AccountWorkspace,
     project: RepoProject,
@@ -158,14 +132,6 @@ export function RepoList({
   workspaceHref: (ws: AccountWorkspace) => string;
   /** Delete a whole workspace — the folder and everything in it. */
   onRemoveWorkspace: (ws: AccountWorkspace) => Promise<void>;
-  /** Each workspace's standing against its repository, by name — absent until the first answer. */
-  sync: Record<string, WorkspaceSync>;
-  /** Commit every change and push it — the act on an amber sync line. */
-  onPush: (ws: AccountWorkspace) => Promise<void>;
-  /** Fast-forward from the host — the act on a blue one. */
-  onPull: (ws: AccountWorkspace) => Promise<void>;
-  /** Shrink its repository to the working tree: bin emptied, history reset to one commit. */
-  onCompactWorkspace: (ws: AccountWorkspace) => Promise<void>;
   /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
@@ -175,15 +141,8 @@ export function RepoList({
   const [over, setOver] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-4 p-6">
-      {/* The two ways one appears, side by side: made here, or brought back from a repository. */}
       <div className="flex items-center gap-2">
         <NewWorkspace blocked={blockedWorkspace} onCreate={onCreateWorkspace} />
-        <ImportWorkspace
-          blocked={blockedWorkspace}
-          step={adding}
-          progress={progress}
-          onImport={onImport}
-        />
       </div>
 
       {error && (
@@ -217,12 +176,6 @@ export function RepoList({
           ) : (
             parts((h) => m["repos.empty"](h), {
               new: <strong>{m["repos.newWord"]()}</strong>,
-              import: <strong>{m["repos.importWord"]()}</strong>,
-              key: (
-                <Link to={SETTINGS_ROUTE} className="underline">
-                  {m["repos.deployKeyWord"]()}
-                </Link>
-              ),
             })
           )}
         </div>
@@ -262,12 +215,7 @@ export function RepoList({
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   onClick={() => onOpen(w)}
                 >
-                  {/* A clone and a hand-made folder are not the same thing, and the icon says so before the URI below is read. */}
-                  {w.origin ? (
-                    <FolderGit2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <HardDrive className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  )}
+                  <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
                       <span className="truncate font-medium">{w.name}</span>
@@ -278,23 +226,9 @@ export function RepoList({
                         })}
                       </Badge>
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {w.origin ?? m["repos.hereOnly"]()}
-                    </span>
-                    <WorkspaceSyncLine
-                      sync={sync[w.name]}
-                      command={w.repoName || w.name}
-                    />
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
-                  <WorkspaceSyncButtons
-                    sync={sync[w.name]}
-                    published={Boolean(w.origin)}
-                    blocked={blocked}
-                    onPush={() => onPush(w)}
-                    onPull={() => onPull(w)}
-                  />
                   {/* Inside the workspace's block, beside its contents: creating a project acts ON it, not on the list. */}
                   <NewProject
                     blocked={blocked}
@@ -305,10 +239,7 @@ export function RepoList({
                   {/* The rare acts on the whole workspace, behind one ⋮ as on a project's row. */}
                   <WorkspaceMenu
                     workspace={w.name}
-                    origin={w.origin ?? null}
                     blocked={blocked}
-                    onPublish={(uri, onStep) => onPublish(w, uri, onStep)}
-                    onCompact={() => onCompactWorkspace(w)}
                     onRemove={() => onRemoveWorkspace(w)}
                   />
                 </div>
@@ -384,16 +315,6 @@ export function RepoList({
                     </li>
                   ))}
                 </ul>
-              )}
-
-              {/* A workspace whose portable address does not resolve opens through `@local`, which names the workspace's own folder. */}
-              {w.origin && !w.uniqueName && (
-                <span className="mt-2 flex items-start gap-1 text-xs text-amber-500">
-                  <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                  <span>
-                    {m["repos.nameClash"]({ name: w.repoName ?? w.name })}
-                  </span>
-                </span>
               )}
             </li>
           ))}

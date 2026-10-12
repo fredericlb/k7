@@ -31,7 +31,6 @@ import {
   SID_HANDLERS,
   type SidHandler,
 } from "./commands";
-import { alternatives } from "./git";
 
 // One surface — the web backend dispatches under "cli" too — but it stays a type.
 export type Surface = "cli";
@@ -140,18 +139,6 @@ const PROVIDERS = {
       ].sort();
     } catch {
       return []; // an unreadable module folder costs the completion, not the command
-    }
-  },
-  // The branches you can switch to — every local one EXCEPT the one you are on.
-  alternatives: (h) => {
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) return [];
-    try {
-      return alternatives(dir, h.gitEnv)
-        .branches.filter((b) => !b.current)
-        .map((b) => b.name);
-    } catch {
-      return [];
     }
   },
   // Marker names for `project marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
@@ -429,8 +416,6 @@ const MENU_NAMES: ReadonlySet<string> = new Set(MENU_ENTITIES);
 // Which class each provider serves. Exhaustive over PROVIDERS, so a new one must say what it names to compile.
 const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   tracks: "track",
-  // Not "file": an alternative is a branch, and nothing on disk. See docs/completions.md.
-  alternatives: "choice",
   moduleAlternatives: "choice",
   moduleEngines: "choice",
   // A clip id and an audio path are both material, which the palette colours as a file.
@@ -469,7 +454,6 @@ export function argClass(a: ArgSpec): ArgClass {
 
 // What each provider offers, at PROVIDER level: "a sequence" and "an audio file" are different answers.
 const PROVIDER_HINT: Record<ProviderName, string> = {
-  alternatives: "an existing alternative — the one you are on is not offered",
   moduleAlternatives:
     "one of this module's alternatives — unnamed ones answer to their number",
   moduleEngines:

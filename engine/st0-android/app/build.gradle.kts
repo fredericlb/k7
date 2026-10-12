@@ -133,7 +133,7 @@ val stageShell by tasks.registering(Sync::class) {
 
 android.sourceSets["main"].assets.srcDir(shellOut)
 
-// The standalone half (BackendHost.kt): Termux's node, git and git-lfs as lib*.so files beside the engine,
+// The standalone half (BackendHost.kt): Termux's node as lib*.so files beside the engine,
 // and st0's backend bundled for that node, with the files it reads, as one zip the app unpacks.
 val termuxCache = layout.buildDirectory.dir("termux-cache")
 val termuxJni = layout.buildDirectory.dir("termux-jni")

@@ -138,7 +138,7 @@ params:
 
 ## _modules/<type>/<name>/module.yaml — jsdsp: a module whose DSP is written in JS
 
-A module of type `jsdsp` gets its audio from a **description** rather than from code compiled into the engine. There is nothing to name: the type says the DSP is in **`jsdsp.ts`, in the module's own folder**, and that is the whole rule. A module is a directory you can copy, clone or share, and the source travels with it.
+A module of type `jsdsp` gets its audio from a **description** rather than from code compiled into the engine. There is nothing to name: the type says the DSP is in **`jsdsp.ts`, in the module's own folder**, and that is the whole rule. A module is a directory you can copy or share, and the source travels with it.
 
 The file default-exports a function taking a graph builder. It imports nothing at runtime — the builder arrives as the argument — so a song folder needs no `node_modules`:
 
@@ -166,7 +166,7 @@ params:
 
 The parameters come from the description, so two modules with different sources are two different-looking devices of the same plugin type — knobs, dropdowns and drag-to-bind all work without the engine knowing anything about them.
 
-The source is **run**, in a child process, and the result cached as a sibling `.json` regenerated only when the source is newer. A first compile after an edit costs ~200 ms of Node startup; every one after that is a file read. That `.json` is worth committing: it is what actually ran, it diffs, and a checkout without Node still plays the song. Nothing here is fatal — a source that throws leaves the last good build in place, and failing that the module falls back to the plugin's default graph and the engine says so.
+The source is **run**, in a child process, and the result cached as a sibling `.json` regenerated only when the source is newer. A first compile after an edit costs ~200 ms of Node startup; every one after that is a file read. That `.json` is worth keeping: it is what actually ran, it diffs, and a machine without Node still plays the song. Nothing here is fatal — a source that throws leaves the last good build in place, and failing that the module falls back to the plugin's default graph and the engine says so.
 
 Nodes run in four phases per block: `envelope` follows the input per sample; `todb`/`lerp`/`linmap`/`geolerp`/`clamp`/`select`/arithmetic/`glide` are once-per-block scalar maths; `biquad`/`gain`/`mix` transform the audio a block at a time; and `ain`/`aout`/`adelay`/`alfo`/`amul`/`aadd`/`atanh` run in a per-sample loop, where reading a wire written later in the list yields the previous sample — the unit delay a feedback loop is built on.
 
@@ -259,7 +259,7 @@ params:
 ## _modules/<type>/<name>/module.yaml — a module that needs a MODEL
 
 A separating module names its neural model like any file-valued param (`onnx:`), but 166 MB does
-not travel through a library repository: the machine keeps it in `~/.st0/models`. `model_url:` says
+not travel with a library: the machine keeps it in `~/.st0/models`. `model_url:` says
 where that file can be **downloaded** from, so a machine that has not got it can fetch it rather
 than be told to go and find it.
 
@@ -621,7 +621,7 @@ in the render *and* still playing, heard twice at a level nothing on screen expl
 says where to freeze instead: the point the two paths meet.
 
 The render is a generated file (`renders/<module>.wav`). Delete it and the song simply plays live
-again, which is what makes a project safe to clone without it.
+again, which is what makes a project safe to copy without it.
 
 ```yaml schema=Module
 extends: "@workspace/audio/amp"

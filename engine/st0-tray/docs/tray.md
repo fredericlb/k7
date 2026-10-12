@@ -51,8 +51,8 @@ refusal. The grant is keyed on the bundle identifier, the other reason that iden
 
 ## Nothing to install beside it
 
-The tray probes for no CLI at startup. `git` and `git-lfs` are the server's business: workspaces are
-cloned there, and what this machine plays arrives as files through the tunnel
+The tray probes for no CLI at startup. Workspaces live on the server and reach a device through the
+live-sync relay, and what this machine plays arrives as files through the tunnel
 (`packages/engine-tunnel/docs/tunnel.md`). A probe here would refuse a machine for a tool it never runs.
 
 ## The settings window

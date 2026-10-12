@@ -51,7 +51,7 @@ builder and this app's backend call the same `bindableNames`.
 ## Already sound — do not re-suspect
 
 - **The polls do not stack.** One refcounted `/revision` poller answers every consumer and skips a
-  tick while its last ask is in the air; the git badge runs on ten minutes.
+  tick while its last ask is in the air.
 - **The playhead does not render the shell.** Engine state lives in an external store read by
   slice, the arrangement's playhead is drawn per animation frame without a render
   (`usePlayheadFrames`), and no selector builds a fresh object per frame.

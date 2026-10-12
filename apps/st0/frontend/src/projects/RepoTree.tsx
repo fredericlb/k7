@@ -1,8 +1,6 @@
 // RepoTree.tsx — a workspace's tree as the file service holds it, with an "Ouvrir dans st0" button on
-// every folder that is a project, and the file a click picks drawn read-only beside it. What git has
-// not committed is blue, and drawn as its diff. Read-only: what is written in a project is written
-// once it is open. `ChangedTree` is that body alone, which the editor's library "show diff" reuses
-// over another source. See ../../docs/projects.md.
+// every folder that is a project, and the file a click picks drawn read-only beside it.
+// Read-only: what is written in a project is written once it is open. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -12,28 +10,20 @@ import {
   ChevronRight,
   File,
   Folder,
-  FolderGit2,
+  FolderOpen,
   Loader2,
 } from "@frediverse/ui/icons";
-import type {
-  AccountWorkspace,
-  FileNode,
-  GitChange,
-} from "@studio/web-protocol";
+import type { AccountWorkspace, FileNode } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { sortNodes } from "@studio/web-protocol/tree";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { pollWhileVisible } from "../visiblePoll";
 import type { AccountFiles } from "./api";
-import { type Changed, changedOf, slash, withChanges } from "./changedTree";
 import { FileViewer } from "./FileViewer";
 import { type TreeSource, workspaceSource } from "./workspaceFiles";
 
-/** `git status` is local and cheap: often enough that a save elsewhere turns its file blue. */
-const CHANGES_MS = 5000;
-
-const CHANGED = "text-sky-500";
+/** A path with forward slashes, whatever separator the far side used. */
+const slash = (p: string): string => p.replace(/\\/g, "/");
 
 interface RowProps {
   node: FileNode;
@@ -41,58 +31,35 @@ interface RowProps {
   open: Set<string>;
   onToggle: (path: string) => void;
   projectHref?: (path: string, app: ProjectApp) => string;
-  changed: Changed;
   selected: string | null;
   onSelect: (path: string) => void;
 }
 
 function Row(props: RowProps) {
-  const {
-    node,
-    depth,
-    open,
-    onToggle,
-    projectHref,
-    changed,
-    selected,
-    onSelect,
-  } = props;
+  const { node, depth, open, onToggle, projectHref, selected, onSelect } =
+    props;
   const isOpen = open.has(node.path);
   const pad = { paddingLeft: `${depth * 14 + 8}px` };
   const key = slash(node.path);
   if (!node.dir) {
-    const code = changed.codes.get(key);
-    const gone = code?.includes("D");
     return (
       <button
         type="button"
-        className={`flex w-full items-center gap-2 py-0.5 pr-2 text-left text-sm hover:bg-accent/50 ${
+        className={`flex w-full items-center gap-2 py-0.5 pr-2 text-left text-sm text-muted-foreground hover:bg-accent/50 ${
           key === selected ? "bg-accent" : ""
-        } ${code ? CHANGED : "text-muted-foreground"}`}
+        }`}
         style={pad}
         onClick={() => onSelect(key)}
-        title={code ? `${node.path} — ${code.trim()}` : node.path}
+        title={node.path}
       >
         <File className="h-3.5 w-3.5 shrink-0 opacity-60" />
-        <span
-          className={`min-w-0 flex-1 truncate ${gone ? "line-through" : ""}`}
-        >
-          {node.name}
-        </span>
-        {code && (
-          <span className="shrink-0 font-mono text-xs">{code.trim()}</span>
-        )}
+        <span className="min-w-0 flex-1 truncate">{node.name}</span>
       </button>
     );
   }
   return (
     <>
-      <div
-        className={`flex items-center gap-2 py-0.5 pr-2 text-sm ${
-          changed.dirs.has(key) ? CHANGED : ""
-        }`}
-        style={pad}
-      >
+      <div className="flex items-center gap-2 py-0.5 pr-2 text-sm" style={pad}>
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-foreground"
@@ -104,7 +71,7 @@ function Row(props: RowProps) {
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />
           )}
           {node.project ? (
-            <FolderGit2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
           ) : (
             <Folder className="h-3.5 w-3.5 shrink-0 opacity-60" />
           )}
@@ -127,30 +94,6 @@ function Row(props: RowProps) {
         ))}
     </>
   );
-}
-
-/** The uncommitted paths of one source, re-read on a timer while the tree is shown. */
-function useChanges(source: TreeSource | null): GitChange[] {
-  const [changes, setChanges] = useState<GitChange[]>([]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `source.key` is its identity; the object is rebuilt per render.
-  useEffect(() => {
-    setChanges([]);
-    if (!source) return;
-    let stop = false;
-    const read = () =>
-      source
-        .changes()
-        .then((c) => !stop && setChanges(c))
-        // A source git cannot read is drawn uncoloured rather than as an error.
-        .catch(() => undefined);
-    void read();
-    const stopPoll = pollWhileVisible(() => void read(), CHANGES_MS);
-    return () => {
-      stop = true;
-      stopPoll();
-    };
-  }, [source?.key]);
-  return changes;
 }
 
 export function RepoTree({
@@ -177,34 +120,26 @@ export function RepoTree({
           <ArrowLeft className="h-4 w-4" /> Projets
         </Button>
         <span className="truncate font-medium">{workspace.name}</span>
-        <span className="truncate text-xs text-muted-foreground">
-          {workspace.origin ?? m["repos.hereOnly"]()}
-        </span>
       </div>
-      <ChangedTree source={source} nodes={nodes} projectHref={projectHref} />
+      <FilesTree source={source} nodes={nodes} projectHref={projectHref} />
     </div>
   );
 }
 
-/** The tree with what git has not committed in blue, and the picked file read-only beside it. */
-export function ChangedTree({
+/** The tree, and the picked file read-only beside it. */
+function FilesTree({
   source,
   nodes,
   projectHref,
 }: {
-  /** What the tree's colours and the viewer read through; null draws the tree with nothing to open. */
+  /** What the viewer reads through; null draws the tree with nothing to open. */
   source: TreeSource | null;
   /** null until the file service has answered — that is not an empty tree. */
   nodes: FileNode[] | null;
   projectHref?: (path: string, app: ProjectApp) => string;
 }) {
-  const changes = useChanges(source);
-  const changed = useMemo(() => changedOf(changes), [changes]);
   // Reading order, at every level: folders first, then by name.
-  const rows = useMemo(
-    () => (nodes ? sortNodes(withChanges(nodes, changes)) : null),
-    [nodes, changes],
-  );
+  const rows = useMemo(() => (nodes ? sortNodes(nodes) : null), [nodes]);
   const [selected, setSelected] = useState<string | null>(null);
   // The folders open at the start: the first level is enough, and a workspace opening fully collapsed hides what anybody comes here for.
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -245,7 +180,6 @@ export function ChangedTree({
               open={open}
               onToggle={toggle}
               projectHref={projectHref}
-              changed={changed}
               selected={selected}
               onSelect={setSelected}
             />
@@ -254,11 +188,7 @@ export function ChangedTree({
       </div>
       <div className="min-h-0 min-w-0 flex-1">
         {selected && source ? (
-          <FileViewer
-            source={source}
-            path={selected}
-            code={changed.codes.get(selected)}
-          />
+          <FileViewer source={source} path={selected} />
         ) : (
           <div className="p-8 text-center text-sm text-muted-foreground">
             {m["repos.pickFile"]()}

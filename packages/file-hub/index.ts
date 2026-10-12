@@ -17,7 +17,12 @@ import {
   HUB_SECRET_HEADER,
   USER_HEADER,
 } from "@studio/web-protocol";
-import express, { type Request, type RequestHandler, type Response, Router } from "express";
+import express, {
+  type Request,
+  type RequestHandler,
+  type Response,
+  Router,
+} from "express";
 import {
   type BindingDeps,
   bindEngine,
@@ -26,7 +31,6 @@ import {
   unbindAll,
 } from "./binding.ts";
 import { DeviceTokens } from "./deviceTokens.ts";
-import { dropEditClones } from "./editsDrop.ts";
 import {
   type Instance,
   Instances,
@@ -34,6 +38,7 @@ import {
 } from "./instances.ts";
 import { accountKey } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
+import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import {
   isLibrariesPath,
   jsonBody,
@@ -90,10 +95,12 @@ export class FileHub {
   private readonly deps: BindingDeps;
   private readonly reaper: NodeJS.Timeout;
   private stopSync: (() => void) | null = null;
+  /** The server's replica of each library, on the origin only: a machine's hub keeps its bundled copy. */
+  private libraryRelay: LibraryRelay | null = null;
   private readonly devices: DeviceTokens;
   private readonly renderSweep: NodeJS.Timeout;
   private readonly key: Buffer;
-  /** The origin's libraries: the list, the server's key and the one clone of each. */
+  /** The origin's libraries: the list and the one folder of each. */
   readonly libraries: LibraryStore;
 
   constructor(private readonly opts: FileHubOptions) {
@@ -114,7 +121,7 @@ export class FileHub {
         ...opts.env?.(),
         STUDIO_LIBRARIES_HOME: this.libraries.home,
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
-        // Live sync's relay, which a service dials only when STUDIO_LIVE_SYNC=1 (docs/syncRelay.md).
+        // Live sync's relay, which every service dials unless STUDIO_LIVE_SYNC=0 (docs/syncRelay.md).
         ...syncTarget(opts.selfPort()),
       }),
     });
@@ -176,14 +183,9 @@ export class FileHub {
       }
       const admin = ticket ? ticket.admin : (this.opts.isAdmin?.(req) ?? false);
       if (isLibrariesPath(req.path)) {
-        const drop = async (name: string) =>
-          dropEditClones(
-            resolve(this.opts.dataRoot),
-            await this.instances.running(),
-            name,
-            this.deps.log,
-          );
-        void librariesRoute(this.libraries, req, res, admin, drop).catch(
+        const changed = () =>
+          this.libraryRelay?.follow(this.libraries.settings());
+        void librariesRoute(this.libraries, req, res, admin, changed).catch(
           (e: Error) => {
             if (!res.headersSent) res.status(500).json({ error: e.message });
           },
@@ -201,7 +203,7 @@ export class FileHub {
     };
   }
 
-  /** The route the INSTANCES call back, at FILE_HUB_INTERNAL: their own secret is their gate, and a bench's push asks for a pull here. */
+  /** The route the INSTANCES call back, at FILE_HUB_INTERNAL: their own secret is their gate; it gives the libraries their folders. */
   internalHandler(): RequestHandler {
     return (req, res) => {
       void (async () => {
@@ -218,15 +220,9 @@ export class FileHub {
           res.status(404).json({ error: `no ${req.method} ${req.path}` });
           return;
         }
-        const body = (await jsonBody(req)) as {
-          name?: unknown;
-          force?: unknown;
-          pull?: unknown;
-        };
-        const notes = await this.libraries.sync({
+        const body = (await jsonBody(req)) as { name?: unknown };
+        const notes = this.libraries.ensure({
           name: typeof body.name === "string" ? body.name : undefined,
-          force: body.force === true,
-          pull: body.pull === true,
         });
         res.json({ notes });
       })().catch((e: Error) => {
@@ -308,9 +304,12 @@ export class FileHub {
     });
     r.post("/", (req, res) => {
       const slug = slugOf(req);
-      const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-      if (!slug) return void res.status(401).json({ error: "no user on the session" });
-      if (!name) return void res.status(400).json({ error: "a device needs a name" });
+      const name =
+        typeof req.body?.name === "string" ? req.body.name.trim() : "";
+      if (!slug)
+        return void res.status(401).json({ error: "no user on the session" });
+      if (!name)
+        return void res.status(400).json({ error: "a device needs a name" });
       const { device, token } = this.devices.mint(slug, name);
       const proto = req.get("x-forwarded-proto") ?? req.protocol;
       const url = `${proto === "https" ? "wss" : "ws"}://${req.get("host")}${SYNC_PATH}`;
@@ -318,7 +317,8 @@ export class FileHub {
     });
     r.delete("/:id", (req, res) => {
       const slug = slugOf(req);
-      if (!slug) return void res.status(401).json({ error: "no user on the session" });
+      if (!slug)
+        return void res.status(401).json({ error: "no user on the session" });
       res.json({ removed: this.devices.revoke(slug, req.params.id) });
     });
     return r;
@@ -327,18 +327,33 @@ export class FileHub {
   /** Live sync's relay on the shared HTTP server; its rooms are saved on `stop`. */
   serveSync(server: Server): void {
     const dataRoot = resolve(this.opts.dataRoot);
+    const relay = new LibraryRelay(
+      this.libraries.home,
+      `ws://127.0.0.1:${this.opts.selfPort()}${SYNC_PATH}`,
+      this.deps.log,
+    );
     this.stopSync = attachSyncRelay(server, {
-      accountDir: (slug) => join(dataRoot, slug),
+      // The libraries' rooms live beside the folders they replicate.
+      accountDir: (slug) =>
+        slug === LIBRARIES_ACCOUNT ? this.libraries.home : join(dataRoot, slug),
       accountOf: async (secret) =>
-        (await this.instances.bySecret(secret))?.slug ?? null,
+        secret === relay.secret
+          ? LIBRARIES_ACCOUNT
+          : ((await this.instances.bySecret(secret))?.slug ?? null),
       deviceOf: (token) => this.devices.verify(token)?.slug ?? null,
       log: this.deps.log,
     });
+    if (!syncTarget(0).STUDIO_SYNC_TOKEN) {
+      this.libraries.ensure();
+      relay.follow(this.libraries.settings());
+      this.libraryRelay = relay;
+    }
   }
 
   async stop(): Promise<void> {
     clearInterval(this.reaper);
     clearInterval(this.renderSweep);
+    this.libraryRelay?.stop();
     this.stopSync?.();
     await this.instances.stopAll();
   }

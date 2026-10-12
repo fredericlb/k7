@@ -206,29 +206,26 @@ describe("the file hub", () => {
     expect(
       roots[0].remote.endsWith(join(roots[0].name.slice(3), "workspace")),
     ).toBe(true);
-    // The hub's ONE clone of the libraries, READ-ONLY and every account's alike…
+    // The hub's ONE folder of each library, READ-ONLY to the engine and every account's alike.
     expect(roots[1]).toMatchObject({ name: "libs", writable: false });
     expect(roots[1].remote).toBe(
       join(dirname(roots[0].remote), "..", "libraries"),
     );
-    // …and the account's own edit clones beside it, read-only to the engine too.
-    expect(roots[2].name).toBe(`edits-${roots[0].name.slice(3)}`);
+    expect(roots[2].name).toBe(`models-${roots[0].name.slice(3)}`);
     expect(roots[2].writable).toBe(false);
-    expect(roots[3].name).toBe(`models-${roots[0].name.slice(3)}`);
-    expect(roots[3].writable).toBe(false);
     // The automatic VST renders, writable: the machine makes them and the tunnel brings them up.
-    expect(roots[4]).toMatchObject({
+    expect(roots[3]).toMatchObject({
       name: `renders-${roots[0].name.slice(3)}`,
       writable: true,
     });
-    expect(roots[4].remote).toBe(join(dirname(roots[0].remote), ".renders"));
+    expect(roots[3].remote).toBe(join(dirname(roots[0].remote), ".renders"));
     // The undo journal's cache, writable: the machine keeps its audio and sends a file back for an undo.
-    expect(roots[5]).toMatchObject({
+    expect(roots[4]).toMatchObject({
       name: `history-${roots[0].name.slice(3)}`,
       writable: true,
     });
-    expect(roots[5].remote).toBe(join(dirname(roots[0].remote), ".history"));
-    expect(roots[6]).toEqual({
+    expect(roots[4].remote).toBe(join(dirname(roots[0].remote), ".history"));
+    expect(roots[5]).toEqual({
       remote: "/library",
       name: "mediatek",
       writable: false,
@@ -291,20 +288,9 @@ describe("the file hub", () => {
           "content-type": "application/json",
           ...(admin ? { "x-test-admin": "1" } : {}),
         },
-        body: JSON.stringify({ libraries: [{ name: "Bad Name", uri: "x" }] }),
+        body: JSON.stringify({ libraries: [{ name: "Bad Name" }] }),
       });
     expect((await put(false)).status).toBe(403);
-    // A retry changes nothing anybody wrote, so it is anyone's.
-    const retry = await fetch(`${base}/account/libraries/retry`, {
-      method: "POST",
-      headers: {
-        "x-test-session": "fred@example.com",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ name: "st0" }),
-    });
-    expect(retry.status).toBe(200);
-    expect(await retry.json()).toEqual({ libraries: [] });
     // An admin gets as far as the list's own validation.
     const refused = await put(true);
     expect(refused.status).toBe(400);

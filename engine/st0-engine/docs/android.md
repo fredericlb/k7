@@ -11,7 +11,7 @@ deregisters the engine, stops it and ends the process.
 ## Standalone: the phone runs its own studio
 
 Like the desktop app (`apps/st0-standalone/docs/standalone.md`), the phone needs no server: it runs
-**st0's backend itself**, with the file services that backend starts, git, and the engine. A studio
+**st0's backend itself**, with the file services that backend starts, and the engine. A studio
 elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is the desktop's
 `main.ts` on a phone.
 
@@ -20,10 +20,9 @@ elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is
 | the desktop's port, environment and folders, read from `apps/st0/backend/standalone.json` | one table for both, whose values `apps/st0/backend/docs/standalone.md` explains; the port is a `BuildConfig` constant, since the views compare origins before anything is unpacked |
 | the local user when signed out | a view opens on `/auth/local`, and falls back to it whenever `/auth/me` says nobody — the cookie watch the desktop does, with the signal the views already had |
 | the phone's own studio pinned FIRST in the supervisor's list, before it starts | the supervisor's saved list overrides `$STUDIO_REGISTRY_URL`, so a phone that already listed a studio would never see its own otherwise |
-| Termux's arm64 node, git, git-lfs, ssh and ssh-keygen, as `lib*.so` (`engine/st0-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is checked against the digest in Termux's index, which keeps only current versions, so the build takes whatever is current and records it in `termux-versions.json` |
+| Termux's arm64 node, as `lib*.so` (`engine/st0-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is checked against the digest in Termux's index, which keeps only current versions, so the build takes whatever is current and records it in `termux-versions.json` |
 | the backend BUNDLED (`apps/st0/backend/scripts/bundle.mjs`), the packaged desktop's bundle | tsx needs esbuild's native binary, which Termux's node cannot load (`apps/st0/backend/docs/standalone.md`) |
 | one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
-| `core.hooksPath=/dev/null` in the backend's `$HOME/.gitconfig` | Android refuses to execute anything under app data, and a hook is exactly that |
 | cleartext allowed for `127.0.0.1` only (`engine/st0-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
 | the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
 
@@ -262,8 +261,8 @@ also catches the GL driver's chatter, which is noise.
 
 ## What it does not have yet
 
-- **The standalone app has not been built and run as one APK yet.** Its backend, file service, git and
-  ssh were run on the emulator as an app, with `BackendHost.kt`'s layout and environment (below); the
+- **The standalone app has not been built and run as one APK yet.** Its backend and file service
+  were run on the emulator as an app, with `BackendHost.kt`'s layout and environment (below); the
   APK itself, the view on the local studio and a sign-in through the browser are still to drive.
 - **No ffmpeg, yt-dlp or mpv on the phone**: what needs them — transcoding, the hunt, the server-side
   player — answers as it does on a machine without them.
@@ -306,10 +305,8 @@ tools the scripts produce:
 | backend answering, from launch | 270–300 ms |
 | local sign-in, `/auth/me`, the frontend's index | the local user, `local: true`; 200 |
 | first `/workspaces`, which starts the account's file service | 450 ms |
-| the seeded library cloned, then a workspace created from it | created in 170 ms |
 | resident memory | backend 81 MB, file service 100 MB |
-| `ssh -V`, `ssh-keygen -t ed25519` (as the shell user) | OpenSSH 10.6p1; a key written, mode 600 |
-| APK payload | `backend.zip` 50 MB (68 MB unpacked); tools 118 MB unpacked |
+| APK payload | `backend.zip` 50 MB (68 MB unpacked) |
 
 The realtime ratio is the emulator's audio device consuming 12 % less than wall-clock time at a
 nominal 48 kHz: steady from 8 s to 25 s, with nothing dropped, so the engine keeps up with the

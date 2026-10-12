@@ -17,7 +17,7 @@ Git cannot be that channel. Commit, push, fetch and merge every few seconds on e
 - hooks that Android refuses to run, and no git binary at all on iOS, where an app cannot start
   another program.
 
-Git stays as an EXPORT of the history, for sharing and for the git command line.
+st0 has no git at all: the relay is the only channel, and its log is where history comes from.
 
 ## An edit travels as an operation
 
@@ -35,9 +35,8 @@ replica:
 
 A browser is not a replica; it talks to one.
 
-The server keeps a full replica rather than a shallow clone. Browsing, the home page and an account
-with no machine online all need the CURRENT files, and a replica is within 100 ms of them where a
-clone is a fetch behind. It runs no git.
+The server keeps a full replica. Browsing, the home page and an account with no machine online all
+need the CURRENT files, and a replica is within 100 ms of them.
 
 ## The server orders
 
@@ -99,9 +98,7 @@ does not allow.
 - A checkpoint is a named sequence number; a diff is the entries between two; going back is the files
   rebuilt to a number and sent as one batch.
 - A conflict's alternative stays in that log after it is settled, so no value anyone wrote is lost.
-- Git is an export: the server writes a commit per checkpoint into the workspace's repository, with
-  LFS for audio, for whoever wants the git command line or a remote. A repository is imported once to
-  bring a workspace in.
+- No git: a workspace has no repository, and no export to one is planned.
 
 History is made where edits are ordered, so a replica offline has no checkpoints of its own until it
 reconnects. Undo stays local and works offline.
@@ -109,7 +106,7 @@ reconnects. Undo stays local and works offline.
 ## Phases
 
 1. **Ops** — done: `@studio/live-sync`, with the exact-replay rule and the library corpus as its test.
-2. **Capture** — done, behind `STUDIO_LIVE_SYNC=1`: the watcher, the ledger, batches per mutation
+2. **Capture** — done, on unless `STUDIO_LIVE_SYNC=0`: the watcher, the ledger, batches per mutation
    window and a local log (`../packages/file-service/docs/liveCapture.md`).
 3. **The sequencer and relay** — done: `/api/sync` on st0's backend, rooms on disk, replicas that
    replay their own pending edits over the order (`../packages/live-sync/docs/sync.md`,
@@ -120,7 +117,7 @@ reconnects. Undo stays local and works offline.
 5. **A machine replica**, the standalone app first: two replicas of one account converging.
 6. **Browser push**, replacing the polls, and the conflicts shown where the value is edited.
 7. **Audio:** content-addressed blobs.
-8. **History:** the room's whole log, checkpoints, diff and restore, and git as an export.
+8. **History:** the room's whole log, checkpoints, diff and restore.
 9. **The phone:** the file service in the Android app; on iOS, the editing code off `node:` first.
 10. **Merging inside a list:** items matched by a natural key (a placement's start and lane, a note's
     time and pitch), so two additions to one list are two additions.

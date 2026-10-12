@@ -111,19 +111,17 @@ read-only screen.
 ## `publish` — a save that leaves the machine
 
 This screen has a **Save button** (`useAutosave({ manual: true })`), unlike every text pane in
-st0, and `publish` is why the distinction earns one: on a SHARED module a save is not a write,
-it is a publish onto a repository other people read.
+st0, because on a SHARED module a save is not a private write: it lands in front of other people.
 
-It is optional, and no host implements it: the save ends at the disk. st0 does not publish from
-the builder, because a library is edited by an admin from any project and published in one gesture for
-everything changed in every library — the editor's bottom bar, which commits and pushes
-(`apps/st0/frontend/docs/sharedModules.md`). The hook stays for a host whose save must leave the
-machine with the module itself.
+`publish` is optional, and no host implements it: the save ends at the disk. In st0 that is
+already everybody's: a library module is written into the library's folder on the server, which
+every account there reads at once (`apps/st0/frontend/docs/sharedModules.md`). The hook stays for a
+host whose save must leave the machine with the module itself.
 
 Called **once, after every dirty file has landed**, and never per file. The four files of a
-module are one edit, and four commits for one edit is a history nobody can read. It runs only
+module are one edit, and four publishes for one edit is a history nobody can read. It runs only
 if every file landed — `flush()` reports that, and a file held back because it would not
-compile reports false, since committing a module whose `module.yaml` is still yesterday's would
+compile reports false, since publishing a module whose `module.yaml` is still yesterday's would
 put a half-edit in front of everybody.
 
 `hints()` is allowed to be nearly empty. A library's is: most of `Hints` describes a SONG — its

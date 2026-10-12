@@ -1,5 +1,5 @@
 // Home.tsx — what st0 draws when its address names NO project: the account's workspaces and the
-// projects in them, the libraries, the shares, the key. It holds the async — identity, the file
+// projects in them, the libraries, the shares. It holds the async — identity, the file
 // service, and the two polls — for the presentational body beside it. The list is the SERVER's
 // files and needs no engine. See ../../docs/projects.md.
 
@@ -17,7 +17,6 @@ import {
   CommandBar,
   type CommandBarHandle,
 } from "../components/CommandBar";
-import { GitBusyOverlay } from "../components/GitBusy";
 import { useLocale } from "../i18n";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
@@ -35,7 +34,7 @@ import {
 import { ProjectsPane } from "./ProjectsPane";
 import type { AccountFiles } from "./workspaceOps";
 
-/** The médiathèque's own: brisk enough that a finishing `git fetch` shows, slow enough to cost nothing on a ten-row list. */
+/** The médiathèque's own: brisk enough that a change from another replica shows, slow enough to cost nothing on a ten-row list. */
 const POLL_MS = 3000;
 
 /** The open workspace travels in the QUERY, not in the path: the path belongs to launching, and a query bookmarks and answers Back. */
@@ -235,9 +234,8 @@ export function Home() {
       {/* Without this, `askConfirm` answers NO with no host to draw on and every destructive
           button on this page silently does nothing — see @studio/project-shell/ask. */}
       <AskHost />
-      {/* Where a workspace's compaction says what it gave back. */}
+      {/* Where the page's passing notices are drawn. */}
       <Toaster />
-      <GitBusyOverlay />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         {error && (

@@ -38,14 +38,6 @@ export function FirstProject({
     void (async () => {
       setStep(m["project.creating"]({ folder }));
       await projectApi.createProject(shape, folder);
-      setStep("premier commit…");
-      // `/git/commit` and not `project commit`: it acts on the whole repo and needs no active
-      // project, which there still is not. A push has nowhere to go on a workspace with no
-      // repository and that is not a failure — only a commit that did not happen is worth a
-      // line, and the editor opens either way.
-      const r = await projectApi.gitCommit(`new project ${folder}`);
-      if (r.nothingToCommit)
-        console.warn(`[first project] ${folder}: nothing to commit`);
       onCreated();
     })().catch((e: Error) => {
       setError(e.message);

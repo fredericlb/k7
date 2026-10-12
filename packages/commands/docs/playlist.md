@@ -1,7 +1,7 @@
-# The `playlist …` verbs — a repository's set lists
+# The `playlist …` verbs — a workspace's set lists
 
 `_playlists/` sits at the workspace root, beside `_modules`, so these verbs act on `repoDir` and
-never on `songPath`: a playlist belongs to the repository and stays the same whatever project is
+never on `songPath`: a playlist belongs to the workspace and stays the same whatever project is
 open. They are the only verbs in the catalogue that work **without a project** — except
 `playlist stems`, which needs one to resolve its chain and says so.
 
@@ -14,7 +14,7 @@ Both writing verbs go through it, so "where does `live/repet` live" is answered 
 have to be true and each is refused by name: there is a **workspace** to hold it, and the name stays
 **inside** `_playlists/`.
 
-The verbs act on `repoDir` and never fall back to `songPath` the way the git verbs do. `_playlists/`
+The verbs act on `repoDir` and never fall back to `songPath`. `_playlists/`
 at a project root would be a second, invisible set of set lists — one per song, which is exactly the
 shape they exist to avoid.
 

@@ -23,13 +23,11 @@ import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import {
   type AccountLibrariesReply,
   type AccountWorkspaceList,
-  ADMIN_HEADER,
   type ColdChainsReply,
   HUB_SECRET_HEADER,
   type ServedProjectReply,
   type SurfacedProjectList,
   type WorkspaceList,
-  type WorkspaceSyncList,
 } from "@studio/web-protocol";
 import { isBenchProject } from "@studio/web-protocol/projects";
 import express, { type Response } from "express";
@@ -38,8 +36,6 @@ import { installProcessNet } from "./background.ts";
 import { benchDir, ensureBench } from "./bench.ts";
 import { liveChains } from "./benchChain.ts";
 import { boundJobsUrl } from "./boundMachine.ts";
-import { cloneJob, startClone } from "./cloneJobs.ts";
-import { compactWorkspace } from "./compactWorkspace.ts";
 import { resolveUser, resolveWorkspace } from "./context.ts";
 import { copyProjectBetween } from "./copyProject.ts";
 import { syncExamples } from "./demos.ts";
@@ -51,18 +47,6 @@ import {
   unloadEngineIfServing,
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
-import {
-  commitLibraryEdits,
-  discardLibraryEdits,
-  dropLibraryEdits,
-  libraryEditsStatus,
-  restoreLibraryEdits,
-} from "./libraryEdits.ts";
-import {
-  libraryEditDiff,
-  libraryEditFiles,
-  libraryEditRead,
-} from "./libraryEditsFiles.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -73,20 +57,14 @@ import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
 import { installServiceLog } from "./serviceLog.ts";
 import { rootDir } from "./slug.ts";
-import { createKeyFor, publicKeyFor } from "./sshKeys.ts";
-import { workspaceSync } from "./workspaceSync.ts";
 import {
-  assertSshGitUri,
   createWorkspace,
   getWorkspace,
   listMachineWorkspaces,
   listSurfacedProjects,
   listWorkspaces,
   removeWorkspace,
-  setWorkspaceRemote,
   UnknownWorkspaceError,
-  workspaceForRepo,
-  workspaceNameFor,
 } from "./workspaces.ts";
 
 // First, so every line this process writes from here on is also the Logs panel's (docs/serviceLog.md).
@@ -147,10 +125,7 @@ app.use(requireHubSecret);
 app.use(hubRouter());
 app.use(resolveUser);
 // Workspaces are ONE account's, recorded on first use — docs/owner.md.
-app.use(
-  ["/workspaces", "/engine/served", "/account", "/ssh-key"],
-  workspaceGate,
-);
+app.use(["/workspaces", "/engine/served", "/account"], workspaceGate);
 
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
@@ -161,12 +136,12 @@ app.get(
   }),
 );
 /**
- * A workspace is not made or cloned before the account HAS a library. Every `@<library>/…` a
+ * A workspace is not made before the account HAS a library. Every `@<library>/…` a
  * project extends resolves through one, and a workspace made without any opens onto references
- * that resolve to nothing — see docs/libraries.md. A URI is validated by CLONING when it is added.
+ * that resolve to nothing — see docs/libraries.md.
  */
 const NO_LIBRARIES =
-  "no libraries — an admin adds them in st0's Libraries page, and the server clones them";
+  "no libraries — an admin adds them in st0's Libraries page";
 const hasLibraries = (res: Response): boolean => {
   if (accountLibraries().length) return true;
   res.status(400).json({ error: NO_LIBRARIES });
@@ -189,27 +164,6 @@ app.post(
   }),
 );
 
-/** A local workspace's FIRST repository: the remote, and the push onto it — docs/workspaces.md. */
-const remoteBody = z.object({
-  name: z.string().min(1),
-  uri: z.string().min(1),
-});
-app.post(
-  "/workspaces/remote",
-  validate(remoteBody),
-  wrap(async (req, res) => {
-    const { name, uri } = req.body as z.infer<typeof remoteBody>;
-    try {
-      await setWorkspaceRemote(req.userEmail!, name, uri);
-      res.json({ ok: true });
-    } catch (e) {
-      // A refused URI, a workspace that already has one, and a push git turned down are all
-      // things the caller can act on — and the last one is git's own words. See docs/workspaces.md.
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
 /** Remove a workspace: it names the one it destroys, so it sits before the workspace gate. */
 const removeWorkspaceBody = z.object({ name: z.string().min(1) });
 app.post(
@@ -226,22 +180,6 @@ app.post(
       res.json({ ok: true });
     } catch (e) {
       // A bad name and an absent workspace are both the caller's to fix.
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-/** Compact a workspace's repository to its working tree — docs/workspaces.md § Compacting. */
-const compactWorkspaceBody = z.object({ name: z.string().min(1) });
-app.post(
-  "/workspaces/compact",
-  validate(compactWorkspaceBody),
-  wrap(async (req, res) => {
-    const { name } = req.body as z.infer<typeof compactWorkspaceBody>;
-    try {
-      res.json(await compactWorkspace(req.userEmail!, name));
-    } catch (e) {
-      // A refused git state (detached, mid-merge, on an alternative) is the caller's to fix.
       res.status(400).json({ error: (e as Error).message });
     }
   }),
@@ -282,17 +220,6 @@ app.get(
   }),
 );
 
-/** …and where each one stands against its repository, apart: it fetches, the list must not wait on a host. */
-app.get(
-  "/workspaces/sync",
-  wrap(async (req, res) => {
-    const reply: WorkspaceSyncList = {
-      workspaces: await workspaceSync(req.userEmail!),
-    };
-    res.json(reply);
-  }),
-);
-
 /** …the same list narrowed to what a SECOND DEVICE could open — st0's `/external`, in one call. */
 app.get(
   "/workspaces/surfaces",
@@ -315,20 +242,6 @@ app.get(
   }),
 );
 
-/** Which workspace already holds a repository, if any — what st0 asks before cloning anything. */
-app.get(
-  "/workspaces/by-repo",
-  wrap(async (req, res) => {
-    const uri = String(req.query.uri ?? "");
-    try {
-      res.json({ workspace: await workspaceForRepo(req.userEmail!, uri) });
-    } catch (e) {
-      // The only throw is a uri we refuse to hand git — caller-fixable, so 400.
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
 /** The BENCH, made fresh — one live rig, no repository and nothing kept, see docs/workspace.md. */
 app.post(
   "/workspaces/bench",
@@ -348,39 +261,6 @@ app.post(
       // A library that will not mount is the USER's problem to read, so it is a 409 and not a fault.
       res.status(409).json({ error: (e as Error).message });
     }
-  }),
-);
-
-// Cloning runs HERE, and it STARTS a job to poll rather than holding the request — docs/cloneJobs.md.
-const cloneBody = z.object({
-  uri: z.string().min(1),
-  // Optional: the caller usually has a URI and no opinion about the folder's name.
-  name: z.string().min(1).optional(),
-});
-app.post(
-  "/workspaces/clone",
-  validate(cloneBody),
-  wrap((req, res) => {
-    const { name, uri } = req.body as z.infer<typeof cloneBody>;
-    if (!hasLibraries(res)) return;
-    try {
-      assertSshGitUri(uri);
-      const workspace = name || workspaceNameFor(uri);
-      res.json(startClone(req.userEmail!, workspace, uri));
-    } catch (e) {
-      // Everything thrown here is caller-fixable — bad URI, no free name — so 400, not 500.
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-app.get(
-  "/workspaces/clone/:id",
-  wrap((req, res) => {
-    const job = cloneJob(req.params.id);
-    // 404 rather than a synthetic "done": a job this service has forgotten cannot be waited on.
-    if (!job) return res.status(404).json({ error: "unknown clone job" });
-    res.json(job);
   }),
 );
 
@@ -451,120 +331,6 @@ app.get(
       return;
     }
     res.json({ opened: found.id });
-  }),
-);
-
-/**
- * The deploy key, which is THIS machine's — pl8 knows nothing about git any more. The public
- * half is what gets pasted at a git host; the private half is never served, by anyone, ever.
- *
- * `null` with a 200 and not a 404: "no key yet" is the ordinary state of a machine that has
- * cloned nothing, and the screen has a button for it rather than an error.
- */
-/**
- * The LIBRARIES' list and the hub's clones are the hub's own routes (`/account/libraries*`, never
- * forwarded here). What THIS service holds is an admin's own clone of each library: what they
- * hold that their remote does not, their commit and push, and throwing it away — docs/libraries.md.
- */
-app.get(
-  "/account/library-edits",
-  wrap(async (req, res) => {
-    res.json(await libraryEditsStatus(req.userEmail!));
-  }),
-);
-
-// What the bottom bar's "show diff" draws: one edited library's tree, its uncommitted paths, a diff, a file.
-const libraryParam = (req: express.Request): string =>
-  String(req.query.library ?? "");
-const failed = (res: express.Response, e: unknown) =>
-  res
-    .status((e as { status?: number }).status ?? 400)
-    .json({ error: (e as Error).message });
-app.get(
-  "/account/library-edits/files",
-  wrap(async (req, res) => {
-    try {
-      res.json(await libraryEditFiles(libraryParam(req)));
-    } catch (e) {
-      failed(res, e);
-    }
-  }),
-);
-app.get(
-  "/account/library-edits/diff",
-  wrap(async (req, res) => {
-    const path = String(req.query.path ?? "");
-    try {
-      res.json({ path, diff: await libraryEditDiff(libraryParam(req), path) });
-    } catch (e) {
-      failed(res, e);
-    }
-  }),
-);
-app.get(
-  "/account/library-edits/file",
-  wrap((req, res) => {
-    try {
-      res.json(
-        libraryEditRead(libraryParam(req), String(req.query.path ?? "")),
-      );
-    } catch (e) {
-      failed(res, e);
-    }
-  }),
-);
-
-const editsCommitBody = z.object({
-  message: z.string().trim().min(1).max(500),
-});
-app.post(
-  "/account/library-edits/commit",
-  validate(editsCommitBody),
-  wrap(async (req, res) => {
-    // A push reaches every account through the hub's clone, so it is the admins' alone.
-    if (req.get(ADMIN_HEADER) !== "1")
-      return res
-        .status(403)
-        .json({ error: "only the origin's admins publish a library" });
-    const { message } = req.body as z.infer<typeof editsCommitBody>;
-    try {
-      res.json(await commitLibraryEdits(req.userEmail!, message));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-// The hub calls this after a pull of that library: no edit clone outlives what it was cloned before.
-app.post(
-  "/account/library-edits/drop",
-  wrap(async (req, res) => {
-    if (req.get(ADMIN_HEADER) !== "1")
-      return res
-        .status(403)
-        .json({ error: "only the origin's admins edit a library" });
-    try {
-      await dropLibraryEdits(String(req.body?.name ?? ""));
-      res.json({ ok: true });
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
-
-app.post(
-  "/account/library-edits/discard",
-  wrap(async (req, res) => {
-    if (req.get(ADMIN_HEADER) !== "1")
-      return res
-        .status(403)
-        .json({ error: "only the origin's admins edit a library" });
-    try {
-      await discardLibraryEdits(req.userEmail!);
-      res.json(await libraryEditsStatus(req.userEmail!));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
   }),
 );
 
@@ -659,22 +425,6 @@ app.get(
   }),
 );
 
-app.get(
-  "/ssh-key",
-  wrap((req, res) => {
-    res.json({ publicKey: publicKeyFor(req.userEmail!) });
-  }),
-);
-
-app.post(
-  "/ssh-key",
-  wrap(async (req, res) => {
-    // Idempotent in `generateKey`: an existing key is answered rather than replaced, or every
-    // press would orphan the half already pasted at a git host.
-    res.json({ publicKey: await createKeyFor(req.userEmail!) });
-  }),
-);
-
 // No cut route here: pl8 drives a separation and posts the bytes — see docs/processChain.md.
 
 // Everything else needs a resolved workspace on req.ws, and is its owner's alone.
@@ -686,8 +436,6 @@ app.listen(FILE_PORT, HOST, () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.st0/root exists
   // The engine session is the recorded owner's from the first frame, not from the first request.
   adoptRecordedOwner();
-  // An admin's edit clones are read again, as they were before the restart.
-  restoreLibraryEdits();
   // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
   // Same for the media library, tolerated rather than required: its root may be an unmounted drive.

@@ -4,7 +4,7 @@
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
 //   • pl8's routes (this origin now, cookie): the ONE engine registry, and the songs a playlist names.
 // The file service base + the identity/workspace/engine-token headers are set by
-// configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
+// configureFileApi once an engine is chosen and the workspace is resolved (see ProjectGate).
 
 import { engineAccess } from "@studio/engine-browser/access";
 import type { Compatibility, PluginNeed } from "@studio/engine-browser/compat";
@@ -24,10 +24,6 @@ import type {
 } from "@studio/ui-module-builder/ai-organize";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type {
-  FileContent,
-  FileNode,
-  GitChange,
-  LibraryEditsStatus,
   ModelDownloadJob,
   SeparateJob,
   StemsReply,
@@ -306,41 +302,6 @@ export const api = {
   // A node's presets, files under a presets tree; applying and saving are `node preset` verbs — @studio/song/docs/userPresets.md.
   nodePresets: (node: string) =>
     fget<NodePresets>(`/presets?node=${encodeURIComponent(node)}`),
-
-  /** The libraries an admin changed and what their clones hold unpublished — packages/file-service/docs/libraries.md. */
-  libraryEdits: () => fget<LibraryEditsStatus>("/account/library-edits"),
-
-  /** Commit what changed in every library and push it; the server's clones follow. */
-  commitLibraryEdits: (message: string) =>
-    fsend<{ pushed: boolean; note: string }>(
-      "POST",
-      "/account/library-edits/commit",
-      { message },
-    ),
-
-  /** One edited library's tree and what git has not committed in it — the bar's "show diff". */
-  libraryEditFiles: (library: string) =>
-    fget<{ nodes: FileNode[]; changes: GitChange[] }>(
-      `/account/library-edits/files?library=${encodeURIComponent(library)}`,
-    ),
-
-  /** …one path of it against HEAD. */
-  libraryEditDiff: async (library: string, path: string) =>
-    (
-      await fget<{ path: string; diff: string }>(
-        `/account/library-edits/diff?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}`,
-      )
-    ).diff,
-
-  /** …and one file of it, read-only. */
-  libraryEditRead: (library: string, path: string) =>
-    fget<FileContent>(
-      `/account/library-edits/file?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}`,
-    ),
-
-  /** Throw away what changed in every library. */
-  discardLibraryEdits: () =>
-    fsend<LibraryEditsStatus>("POST", "/account/library-edits/discard", {}),
 };
 
 /** The MÉDIATHÈQUE — pl8's hosted catalogue, reached through `PL8` (declared at the top) — and pl8's API root, for the one caller outside this file: the DESK, a package with three hosts, which takes its base as a prop. */

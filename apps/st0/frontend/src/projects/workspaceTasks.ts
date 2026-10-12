@@ -24,7 +24,7 @@ export function anchorProject(
   return ws.projects.find((p) => p.path.replace(/\\/g, "/") === want);
 }
 
-/** Read every workspace's file at once: one slow repository must not hold the others back. */
+/** Read every workspace's file at once: one slow workspace must not hold the others back. */
 export async function readAllTasks(
   m: AccountFiles,
   workspaces: AccountWorkspace[],

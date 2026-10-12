@@ -251,15 +251,6 @@ third, and the detached threads a message starts are counted and waited for at s
 still ends the process, but no longer without a word: `serve()` installs a `set_terminate` that
 logs what was thrown before it aborts.
 
-### git blocks the process holding the engine
-
-`packages/commands/src/git.ts` does everything with `execFileSync`, and so do the routes. That
-process holds the socket to the engine, the pattern clock and the watcher. The commands are bounded,
-but the substance remains: `gitStatus` does a blocking `fetch` of up to 30 s, and **there is no lock
-anywhere**. `commitAndPush` does `add -A`, then `status`, then `commit` in three subprocesses: an
-autosave write landing between the first and the third is outside the commit. And
-`cancelAlternative` does `reset --hard` then `clean -fd` with no exclusion.
-
 ### The engine token goes out on any socket
 
 The engine returns its token to **any socket** sending `whoami`, with no authentication, and the
@@ -325,11 +316,10 @@ Each is a design decision, which is why none is taken in passing.
 1. `Change`, a fat value type.
 2. `Waveform`'s overlay layer, to take the playhead out of the full redraw.
 3. `App.tsx` — **re-measure before touching**: the only profile predates lots C/D.
-4. `git` out of the service's process, or serialised behind a lock.
-5. The token handed to any socket, and `STUDIO_ENGINE_HOST` at `0.0.0.0` by default.
-6. The exception net on the C++ side.
-7. The missing tests: `engine.ts`, the first inter-process test, the first C++ ↔ TS contract.
-8. `ui-eyes`' WebCodecs block, which has no host.
+4. The token handed to any socket, and `STUDIO_ENGINE_HOST` at `0.0.0.0` by default.
+5. The exception net on the C++ side.
+6. The missing tests: `engine.ts`, the first inter-process test, the first C++ ↔ TS contract.
+7. `ui-eyes`' WebCodecs block, which has no host.
 9. **The 64-track bench, which no longer measures anything usable** (±14.7 %). Either give it enough
     samples and an idle machine, or stop publishing its figures.
 
@@ -368,8 +358,8 @@ done
 ```
 
 Four measurement traps already paid for here: read the **number of tests** and not the exit code
-(`docs.test.ts`'s empty glob passes on nothing); distrust tests driving real git that time out under
-load — question them a second time before blaming a change, they have lied twice in one session on
+(`docs.test.ts`'s empty glob passes on nothing); distrust tests scaffolding real projects on disk that time out
+under load — question them a second time before blaming a change, they have lied twice in one session on
 two different tests; **a command piped into `tail` returns `tail`'s exit code**, that is zero, which
 had "exit 0" read off a `biome check` reporting four errors; and on this machine `.claude/` holds a
 score of worktrees, so a root glob that does not exclude them reports results from other branches —

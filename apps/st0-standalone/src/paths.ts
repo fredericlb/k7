@@ -74,7 +74,7 @@ export function engineBinary(): string | null {
   return newestBuild("st0-engine", "st0-engine");
 }
 
-/** The git repository the `st0` library is cloned from: the bundle's one-commit copy when packaged, the submodule otherwise. */
+/** The folder the `st0` library is first copied from: the bundle's copy when packaged, the submodule otherwise. */
 export function librarySource(): string | null {
   const bundle = backendBundle();
   const at = bundle

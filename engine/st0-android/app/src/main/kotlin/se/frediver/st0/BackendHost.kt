@@ -1,6 +1,6 @@
 // BackendHost.kt — st0's own backend on the phone, so the app is standalone like the desktop one: the
 // bundle the packaged desktop app runs too (apps/st0/backend/scripts/bundle.mjs) under Termux's node
-// (scripts/termux-tools.mjs), with the file services it starts and git and ssh beside it. Port, environment
+// (scripts/termux-tools.mjs), with the file services it starts. Port, environment
 // and folders are the desktop's, from apps/st0/backend/standalone.json. The tools are lib*.so files run
 // from the native library directory; every name a program looks up is a symlink to one. See docs/android.md.
 
@@ -78,12 +78,8 @@ object BackendHost {
         val bundle = unpack(context, File(root, "backend"))
         val tools = layOutTools(context, File(root, "tools"))
         val cacert = File(bundle, "cacert.pem")
-        val home = File(root, "home").apply { mkdirs() }
-        // Git hooks cannot run from app data, and git-lfs's filters are set here since `git lfs install` would write the same.
-        File(home, ".gitconfig").writeText(GITCONFIG)
+        File(root, "home").mkdirs()
         val table = JSONObject(File(bundle, TABLE).readText())
-        val filesRoot = table.getJSONObject("dirs").getString("STUDIO_FILES_ROOT")
-        seedLibraries(File(root, filesRoot), File(bundle, table.getString("library")))
         return Dirs(root, bundle, tools, cacert, table)
     }
 
@@ -116,39 +112,19 @@ object BackendHost {
         return dir
     }
 
-    /** `bin/` and `git-core/` of symlinks into the native library directory, which moves on every update, so redone each start. */
+    /** `bin/` of symlinks into the native library directory, which moves on every update, so redone each start. */
     private fun layOutTools(context: Context, dir: File): File {
         val lib = context.applicationInfo.nativeLibraryDir
         dir.deleteRecursively()
         val links = mapOf(
             "bin/node" to "libst0node.so",
-            "bin/git" to "libst0git.so",
-            "bin/git-lfs" to "libst0gitlfs.so",
-            "bin/ssh" to "libst0ssh.so",
-            "bin/ssh-keygen" to "libst0sshkeygen.so",
-            "git-core/git" to "libst0git.so",
-            "git-core/git-upload-pack" to "libst0git.so",
-            "git-core/git-receive-pack" to "libst0git.so",
-            "git-core/git-upload-archive" to "libst0git.so",
-            "git-core/git-lfs" to "libst0gitlfs.so",
-            "git-core/git-remote-http" to "libst0gitremotehttp.so",
-            "git-core/git-remote-https" to "libst0gitremotehttp.so",
         )
         for ((name, target) in links) {
             val at = File(dir, name)
             at.parentFile?.mkdirs()
             Os.symlink("$lib/$target", at.absolutePath)
         }
-        File(dir, "templates").mkdirs()
         return dir
-    }
-
-    /** First run only: the origin's library list names the bundled clone, since the local user can never be an admin. */
-    private fun seedLibraries(filesRoot: File, source: File) {
-        val list = File(filesRoot, "libraries.json")
-        if (list.exists()) return
-        filesRoot.mkdirs()
-        list.writeText("""{"libraries":[{"name":"st0","uri":"${source.absolutePath}"}]}""")
     }
 
     /** Generated once and kept, so a session survives a restart. */
@@ -170,15 +146,11 @@ object BackendHost {
             redirectErrorStream(true)
             environment().apply {
                 put("LD_LIBRARY_PATH", lib)
-                put("PATH", "$tools/bin:$tools/git-core:/system/bin")
+                put("PATH", "$tools/bin:/system/bin")
                 put("HOME", File(dirs.root, "home").absolutePath)
                 put("TMPDIR", context.cacheDir.absolutePath)
                 put("NODE_OPTIONS", "--experimental-sqlite")
                 put("SSL_CERT_FILE", cacert)
-                put("GIT_SSL_CAINFO", cacert)
-                put("GIT_EXEC_PATH", "$tools/git-core")
-                put("GIT_CONFIG_NOSYSTEM", "1")
-                put("GIT_TEMPLATE_DIR", "$tools/templates")
                 TrustedCas.file(context).takeIf { it.isFile }?.let { put("NODE_EXTRA_CA_CERTS", it.absolutePath) }
                 put("PORT", PORT.toString())
                 put("STUDIO_PORTS", PORTS_SPEC)
@@ -189,6 +161,8 @@ object BackendHost {
                 val folders = dirs.table.getJSONObject("dirs")
                 folders.keys().forEach { put(it, File(dirs.root, folders.getString(it)).absolutePath) }
                 put("STUDIO_FILE_SERVICE_ENTRY", File(dirs.bundle, "bin/file-service.mjs").absolutePath)
+                // The hub copies `st0` from the bundle the first time it has no folder for it.
+                put("STUDIO_LIBRARY_SEED", "st0=" + File(dirs.bundle, dirs.table.getString("library")).absolutePath)
             }
         }.start()
         process = p
@@ -231,13 +205,4 @@ object BackendHost {
     private const val TOOLS_ASSETS = "termux"
     private const val READY_MS = 60_000L
     private const val RELAUNCH_MS = 2_000L
-    private val GITCONFIG = """
-        [core]
-        	hooksPath = /dev/null
-        [filter "lfs"]
-        	clean = git-lfs clean -- %f
-        	smudge = git-lfs smudge -- %f
-        	process = git-lfs filter-process
-        	required = true
-    """.trimIndent() + "\n"
 }

@@ -13,7 +13,7 @@ ws/song/                      a project
 ```
 
 `<libraries>` is `librariesHome()`: `$STUDIO_LIBRARIES_HOME` where the file hub runs the service
-— its ONE clone of each library, shared by every account — else `<studioHome>/libraries`.
+— its ONE folder of each library, shared by every account — else `<studioHome>/libraries`.
 
 A preset tree is keyed by the MODULE a preset is for, namespace included, and kept wherever the
 person chose: a workspace may hold presets for an `@st0` module, and a library for an `@engine` one.
@@ -26,29 +26,24 @@ modules under its own name.
 
 ## Libraries are the ORIGIN's, and the file hub keeps them
 
-The origin has one list of named library repositories, edited by its admins from st0's Libraries
-panel. The file hub clones each one once and keeps it at its latest commit
-(`packages/file-hub/docs/fileHub.md`). **Every workspace of every account sees every library;
-none holds a copy.** Mounting a library INTO each workspace — at `_libraries`, as a git submodule
-pinned by its gitlink — makes the workspace the wrong owner, three ways:
+The origin has one list of named libraries, edited by its admins from st0's Libraries panel. The
+file hub keeps ONE folder of each (`packages/file-hub/docs/fileHub.md`). **Every workspace of every
+account sees every library; none holds a copy.** A copy mounted INTO each workspace would make the
+workspace the wrong owner: each copy drifting from the others with nothing to reconcile them, a song
+carrying somebody else's catalogue, and one library per account, since a fixed folder name is what
+makes `@st0` mean it.
 
-- **The same repository, cloned once per workspace**, each copy drifting from the others and from
-  its own gitlink — a `git pull` never moves a submodule, and nothing reconciles them.
-- **A song repository carrying somebody else's version pointer**, which means commits made to it
-  on the song author's behalf (the gitlink bumps) and a `.git/info/exclude` guard against `git add
-  -A` sweeping the whole catalogue into the song.
-- **One library per account**, because a fixed folder name is what makes `@st0` mean it.
-
-**What that costs, and it is deliberate: no version is pinned.** A library is at its remote's
-latest commit, and a song opened tomorrow hears the modules as they are tomorrow. A module is the
+**What that costs, and it is deliberate: no version is pinned.** A library is as its admins last
+left it, and a song opened tomorrow hears the modules as they are tomorrow. A module is the
 library's to change, the way a plugin update is the vendor's; a song that must not move bounces
 what it needs (`packages/audio-passes/docs/processChain.md`).
 
 **Still found by location, never declared.** `accountLibraries()` is the folders under
-`librariesHome()` whose name a library could have (`isLibraryName`); the SETTING that says
-which ones to clone is the hub's, and resolution never reads it. A folder there is a root,
+`librariesHome()` whose name a library could have (`isLibraryName`); the SETTING that lists
+them is the hub's, and resolution never reads it. A folder there is a root,
 a folder not there is not one, and nothing can fail — the same bargain `_modules` has always had.
-A clone still filling is `.cloning-…`, a dot-name no library can take, so it is never read half-way.
+A library still being copied from the seed is `.seeding-…`, a dot-name no library can take, so it is
+never read half-way.
 
 **The name IS the namespace.** `moduleNamespaceOf(root)` is the library a root sits in, by path, or
 `workspace`. A library cannot be called `engine`, `workspace` or `meta` (`RESERVED_LIBRARY_NAMES`),
@@ -60,28 +55,27 @@ libraries had names meant — songs, chains, the four refs a scaffolded set writ
 none of them needs a line changed. `DEFAULT_LIBRARY` is that name, and a BARE chain ref (`bass/di`,
 as a bench address or a machine setting written earlier may hold one) is read as `@st0/bass/di`.
 
-**Nothing is put IN a library, and this repo ships no modules to put.** The repository is the
+**Nothing is put IN a library, and this repo ships no modules to put.** The library is the
 reference: what is in it is what its projects inherit. Modules written with `@studio/dsp` are
 authored straight into a library; what the library gains is argued in
 [packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md). A new library is empty, every ref
 into it resolves to nothing until modules are put there, and an unresolved ref is **not** a compile
 error, so such a project reads as one whose modules are bypassed.
 
-**A module root is a git checkout, never the médiathèque cache.** `<state>/mediatek/modules` is not
-one: a mirror of the médiathèque deletes whatever the owner's manifest does not list, and over a
-git checkout that would delete files somebody committed. So `mediatekPrefetch` carries `songs` and
+**A module root is a library folder, never the médiathèque cache.** `<state>/mediatek/modules` is
+not one: a mirror of the médiathèque deletes whatever the owner's manifest does not list, and over a
+library that would delete files somebody wrote. So `mediatekPrefetch` carries `songs` and
 nothing else.
 
 **A shared module is edited by an admin, from any project, and by nobody else.** In a workspace's
 file API a library answers at the VIRTUAL folder `_libraries/<name>/…` — confined to that library's
-root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's clone is
-every account's and is reset to its remote at every sync, so nothing may write into it. Libraries
-may be OVERLAID instead, any number at once (`setLibraryOverlays`): an admin's account gets its own
-clone of each, read in place of the hub's by everything that asks `libraryRoot(name)` — the
-compile, the file tree, the engine's paths. `isLibraryEditable(name)` is true for an overlaid
-library and only for one; writes are refused anywhere else, and a push from the clone is what
-publishes (`packages/file-service/docs/libraries.md`, `apps/st0/frontend/docs/sharedModules.md`).
-No song repository gets a commit: none records a version.
+root, never on the workspace's disk (`packages/file-service/docs/workspace.md`). The hub's folder is
+every account's, so only an admin may write it. A library is OVERLAID to say so
+(`setLibraryOverlays`): an admin's account overlays each onto its own folder, and everything that
+asks `libraryRoot(name)` — the compile, the file tree, the engine's paths — reads the overlay's
+root. `isLibraryEditable(name)` is true for an overlaid library and only for one; writes are refused
+anywhere else, and the write is what publishes (`packages/file-service/docs/libraries.md`,
+`apps/st0/frontend/docs/sharedModules.md`). No song records a version.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
 project beside it, and it forks on write (`docs/moduleFork.md`).
@@ -94,8 +88,7 @@ the module travels whole. See `docs/moduleAssets.md`.
 A chain template lives in a library, and its nodes name `@<name>/…` modules of the same library or
 another. `moduleLibraryDirs(dir)` needs no second arm for that: the libraries are the
 origin's, so a folder inside one sees them exactly as a project does. `libraryOf(dir)` says which
-library a path is in — an overlay's clone counting as its library, the hub's clone of an
-overlaid library as none — which is what the write guard asks and what the file API maps back to
+library a path is in — through its overlay's root when it has one — which is what the write guard asks and what the file API maps back to
 `_libraries/<name>/…`.
 
 ## A chain template is ONE file
@@ -123,9 +116,9 @@ steps:
   `<id>.vstpreset`): the library stands where a project stands, its `vstpresets/` beside its
   `chains/`. Ids are uuids, so every template shares the one folder without colliding.
 
-`libraryChains.ts` also reads the FOLDER a clone may still hold — `chains/<path>/graph.yaml`, ends
+`libraryChains.ts` also reads the FOLDER a library may still hold — `chains/<path>/graph.yaml`, ends
 `@in`/`@out`, a `nodes/` beside it — and answers the file when a ref is held both ways, so a live
-clone keeps working until it is migrated. `scripts/migrateLibraryChains.ts` converts a library: it
+library keeps working until it is migrated. `scripts/migrateLibraryChains.ts` converts a library: it
 takes the run a graph declares from `@in` to `@out`, refuses anything else and any file a chain
 file has no place for, and reads every conversion back through the same reader, step by step,
 before writing it. The run is what it trusts, not the folder reader: a graph that still keys its

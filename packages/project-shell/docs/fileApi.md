@@ -113,8 +113,8 @@ for every request that met it together, and the request is sent again. A write i
 ## The routes, and the ones that surprise
 
 **Two route tables, split by what their TYPES reach.** `files.ts` (`fileRoutes`, exported as
-`./files`) holds the routes that need only `@studio/web-protocol`: the repository → workspace
-lookups, opening a project, the tree and its files, and git. The gate runs on it, and z0's editor
+`./files`) holds the routes that need only `@studio/web-protocol`: opening a project, the bench, the
+tree and its files. The gate runs on it, and z0's editor
 uses nothing else. `project.ts` spreads it and adds the compiled views, the modules, the CLI's
 verbs and the undo journal, whose types live in `@studio/song-schema`, `@studio/graph-model` and
 `@studio/engine-protocol`. Those three are therefore OPTIONAL peers of this package: an app that
@@ -124,13 +124,8 @@ the repository — installs none of them.
 `project.ts` is the shared client. st0 spreads it into its own and adds what only it has — timeline,
 waveforms, video; z0's editor uses it as it stands.
 
-- **Resolving what the media library named.** It knows a REPOSITORY; this machine knows folders.
-  `workspaceByRepo` / `startClone` / `cloneStatus` bridge that, cloning when the machine has never
-  seen one (`packages/file-service/docs/cloneJobs.md`).
-- **`openBench`** replaces those three rather than sitting beside them: the bench has no
-  repository, so there is no name to resolve and nothing to clone. `@banc` in the address routes
-  here. It can be slow the first time — a library that is not yet mounted — which is why it takes
-  over the clone's progress screen rather than being asked for silently
+- **`openBench`**: `@banc` in the address routes here. It can be slow the first time — a library
+  that is not yet on disk — which is why it has a progress screen rather than being asked for silently
   (`apps/st0/backend/docs/media/banc.md`). It is handed the project part of the address verbatim, because the
   MACHINE is what builds the bench and therefore what decides which address it answers; the
   libraries are the machine's already.
@@ -155,8 +150,6 @@ waveforms, video; z0's editor uses it as it stands.
   into the project and repoints the chains at the copy, and `forked` says where the edit actually
   landed. There is no opt-out — the catalogue is edited in the médiathèque.
 - **`deleteFile`** recycles rather than erases: reversible, but no longer listed or startable.
-- **`gitStatus`** fetches, so callers poll it rarely — st0 uses ten minutes. A workspace IS one
-  clone, so none of the git routes needs a project.
 - **`historyState`** enables the undo shortcuts. `confirm` applies a process step (restoring a
   bounced file); without it, a process step comes back `needsConfirm` for the client to gate.
 

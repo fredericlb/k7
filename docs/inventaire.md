@@ -73,7 +73,7 @@ without anyone seeing it.
 | what | how it lives |
 |---|---|
 | `packages/song/src/dspRunner.mjs` | launched as a **child process** by `nodeProject.ts`. It does `import { graph } from "@studio/dsp"`, and the `song → dsp` dependency exists precisely so that import resolves: a song folder has no `node_modules`. |
-| a library module's `jsdsp.ts` | MODULE DSPs, in the account's library repository rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import — so nothing here can see them and knip cannot either. |
+| a library module's `jsdsp.ts` | MODULE DSPs, in a library folder rather than this tree. The compiler finds them by filename (`JSDSP_FILE = "jsdsp.ts"`), never by import — so nothing here can see them and knip cannot either. |
 | `songs/**/jsdsp.ts` | same mechanism: a demo song's DSP is data loaded at runtime. |
 | `packages/file-service/src/server.ts` | **spawned** by `packages/file-hub/instances.ts` through `tsx`, one process per account. Zero imports is not zero callers. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | picked up by `.storybook/main.ts`'s glob. |
@@ -135,7 +135,6 @@ declaring it. From pass 4; the three already described elsewhere on this page
 |---|---|---|
 | `FrameClock` | `packages/ui-eyes/src/clock.ts` | the clock the **exporter** advances — and `export.ts` is already dead two lines above. The WebCodecs path is dead whole: the barrel, `exportScene`, and the clock driving it. To be cut in one block. |
 | `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | a type guard nothing interrogates. |
-| `installKey` | `packages/git-repos/src/keys.ts` | writes a received private key; no key is received — the file service makes its own (`packages/git-repos/docs/keys.md`). |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
 | `knownPrefs` | `packages/ui-library/src/prefs.ts` | |

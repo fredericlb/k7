@@ -10,9 +10,9 @@ engine opens, whether the engine is running, the web UIs it trusts, autostart �
 menu (`engine/st0-tray/docs/tray.md`), and not because moving it here would be hard: those
 settings need a process on that machine, and this page is served to any machine that asks.
 
-So the split is not desktop-versus-web. It is **whose disk answers**. Two sections today, and they
-sit at the two ends of that line: the LANGUAGE, which no disk answers for and which lives in this
-browser alone, and the DEPLOY KEY, which only a machine can have made.
+So the split is not desktop-versus-web. It is **whose disk answers**. The LANGUAGE sits at one end
+of that line: no disk answers for it, and it lives in this browser alone. The separation chains
+sit at the other: they are the machine's, read from the account's file service.
 
 ## On the phone, the machine IS this page's
 
@@ -28,14 +28,10 @@ answers for st0's origin alone; a browser never sees them.
 
 ## Why a page and not a panel
 
-Everything here is set once and left: the language, the deploy key pasted at a git host the day a
-workspace is first pushed, the separation chains, the AI key. Visited on purpose and rarely — the
-reasoning that made the libraries a page — it does not earn a column beside the repositories, and
-a page gives it an ADDRESS. The two sentences in `RepoList.tsx` that name the deploy key are
-therefore links to `/settings`.
-
-The cost is that the list of repositories that need the key is not on screen while it is pasted.
-It is one Back away, and the key is pasted once per machine.
+Everything here is set once and left: the language, the separation chains, the AI key. Visited on
+purpose and rarely — the reasoning that made the libraries a page — it does not earn a column
+beside the workspaces, and a page gives it an ADDRESS. The sentence in `RepoList.tsx` that points
+at the account's settings is therefore a link to `/settings`.
 
 ## The language
 
@@ -61,8 +57,8 @@ that changes nothing is a button that looks broken.
 
 The editor's own settings panel reaches the same value through `ui language <en|fr>`, and there is
 no second store behind it — both doors call the runtime's `setLocale`, which writes that one key.
-The page is not itself a command, for the reason the deploy key's buttons are not: the home page
-has no command bar, the palette being the project shell's.
+The page is not itself a command: the home page's command bar carries only its own verbs, the
+palette being the project shell's.
 
 ### Where the words themselves live
 
@@ -90,19 +86,6 @@ is a French string in every host. What crosses that line is a `noun`-shaped hint
 in, not a sentence. The same rule covers text a package writes into a FILE — the
 `SURFACE_MAPPING_SKELETON` notes that end up as comments in `surfaces/<id>.yaml` are English
 because the file is read where the code is.
-
-## The deploy key
-
-`SyncSection.tsx`. The key is what lets a repository be cloned or pushed at all, and nothing on
-the home page works without it.
-
-**It is made on the machine and never leaves it** (`packages/git-repos/docs/keys.md`), so there
-is one per MACHINE and not one per account, and this page asks a machine for it exactly as the
-home page does. With no machine answering there is no key to read, and it says so instead of
-offering a Generate button that would write nowhere.
-
-The key is shown outside its row, in a block of its own: a `Row` truncates its label, and a
-public key you can only see the start of is one you cannot check against what you pasted.
 
 ## Separation chains — the machine's, not a project's
 

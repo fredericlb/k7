@@ -1,6 +1,6 @@
-// Renaming and deleting inside a LIBRARY from the Libraries tab: both act on the library's clone, a
-// delete removes in place (the library's history is its bin, and the workspace's bin may be on
-// another disk), the library itself stays out of reach, and a module's refs follow a rename.
+// Renaming and deleting inside a LIBRARY from the Libraries tab: both act on the library's folder, a
+// delete lands in the library's OWN bin (the workspace's may be on another disk), the library itself
+// stays out of reach, and a module's refs follow a rename.
 
 import {
   existsSync,
@@ -63,9 +63,15 @@ it("renames a module inside the library's clone", async () => {
   );
 });
 
-it("deletes a module in place, putting nothing in the workspace's recycle bin", async () => {
-  await ws.deleteEntry("_libraries/st0/modules/audio/verb");
+it("recycles a module into the library's own bin, never the workspace's", async () => {
+  const { recycled } = await ws.deleteEntry(
+    "_libraries/st0/modules/audio/verb",
+  );
   expect(existsSync(join(lib, "modules", "audio", "verb"))).toBe(false);
+  expect(existsSync(join(lib, "_recycle_bin", "verb", "module.yaml"))).toBe(
+    true,
+  );
+  expect(recycled).toBe("_libraries/st0/_recycle_bin/verb");
   expect(existsSync(join(root, "_recycle_bin"))).toBe(false);
 });
 

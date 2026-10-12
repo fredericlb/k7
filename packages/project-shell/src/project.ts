@@ -16,7 +16,6 @@ import type {
   IoPort,
   ModuleLibrary,
   ModuleUiFile,
-  ProjectCommit,
   ProjectErrors,
   ProjectInfo,
   UndoResult,
@@ -150,8 +149,6 @@ export const projectApi = {
   historyState: () => fget<HistoryState>("/history"),
   /** Every step of the open project's journal, oldest first — the History panel (docs/history.md). */
   historyEntries: () => fget<HistoryListEntry[]>("/history/entries"),
-  /** The commits that touched the open project, newest first. */
-  historyCommits: () => fget<ProjectCommit[]>("/history/commits"),
   // `confirm` applies a process step; without it one comes back `needsConfirm` for the client to gate.
   undo: (confirm?: boolean) => fsend<UndoResult>("POST", "/undo", { confirm }),
   redo: (confirm?: boolean) => fsend<UndoResult>("POST", "/redo", { confirm }),

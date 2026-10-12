@@ -176,10 +176,10 @@ export function FileTree({
   onOpenAssembly?: (file: string, folder: string) => void;
   /** Make an empty module in a library: `root` is the level's path as GIVEN here, `rel` the module's path under it, never built from a name. */
   onCreateModule?: (root: string, rel: string) => void;
-  /** Rename or delete an entry of a LIBRARY — the host publishes that library after, as a Save does. */
+  /** Rename or delete an entry of a LIBRARY — live for every account at once, as a Save is. */
   onRenameLibraryEntry?: (path: string, name: string) => void;
   onDeleteLibraryEntry?: (path: string, isDir: boolean) => void;
-  /** A module dragged onto another folder of its library; the host moves it, repoints its refs and publishes. */
+  /** A module dragged onto another folder of its library; the host moves it and repoints its refs, live for every account. */
   onMoveLibraryModule?: (path: string, toDir: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {

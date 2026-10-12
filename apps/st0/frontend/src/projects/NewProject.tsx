@@ -1,4 +1,4 @@
-// NewProject.tsx — "Nouveau projet" inside a repository's block: the archetype, the name, and the
+// NewProject.tsx — "Nouveau projet" inside a workspace's block: the archetype, the name, and the
 // derived folder shown BEFORE creating — as AddSong shows the tree before uploading, because here
 // too the name decides everything. See ../../docs/projects.md.
 

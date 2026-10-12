@@ -1,4 +1,4 @@
-// usePolls.ts — the shell's background polls, one hook each: the git badge, the project
+// usePolls.ts — the shell's background polls, one hook each: the project
 // errors, the waveform prewarm, and the follow of a project switch made under us. Apart from App.tsx so each cadence is one readable hook.
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,32 +7,11 @@ import { isAnswer } from "../readFailure";
 import type {
   Diagnostic,
   EngineSyncState,
-  GitStatus,
   WaveformStatus,
   WorkspaceInfo,
 } from "../types";
 import { pollWhileVisible } from "../visiblePoll";
 import { useRevision } from "./useRevision";
-
-/** The repo's ahead/behind for the share badge — a network op on the server, so it runs on a 10-minute timer and after a commit or pull. */
-export function useGitStatus(): {
-  gitStatus: GitStatus | null;
-  refreshGitStatus: () => void;
-} {
-  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
-  const refreshGitStatus = useCallback(() => {
-    void api
-      .gitStatus()
-      .then(setGitStatus)
-      .catch(() => {});
-  }, []);
-  useEffect(() => {
-    refreshGitStatus();
-    const id = setInterval(refreshGitStatus, 10 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [refreshGitStatus]);
-  return { gitStatus, refreshGitStatus };
-}
 
 /** The project's errors, gated on the change token rather than a timer — `/project-errors` compiles the project, `/revision` is a 2 ms file walk. */
 export function useProjectErrors(reloadKey: number): {

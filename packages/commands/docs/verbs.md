@@ -218,7 +218,7 @@ is not one names the sound file of the program's `soundfile` slot of that name
 
 The four task verbs write `TODOS.md` at the WORKSPACE root (`h.repoDir`), never the song's folder,
 and refuse with no workspace rather than fall back — the playlist verbs' rule, for the same reason:
-the list belongs to the repository. A task is named by its number in the list, as the panel and a
+the list belongs to the workspace. A task is named by its number in the list, as the panel and a
 reader see it, and `task mark` stores the project beside the timecode, one file serving every song
 (`verbs/tasks.ts`; the format is `apps/st0/frontend/docs/tasks.md`'s).
 
@@ -708,7 +708,7 @@ not asked for, and until this verb the only way to ask was to write the file by 
 `surfaceIssues` warnings tell you to do while naming a file you then have to create in the editor of
 the project that is missing it.
 
-Under `project`, beside the markers and the alternatives: a surface is a property of the PROJECT —
+Under `project`, beside the markers: a surface is a property of the PROJECT —
 what it draws — rather than of a track, a node or a clip inside it.
 
 NO layout argument. `SURFACE_LAYOUTS_BY_TYPE` already says which one each type is drawn in and every

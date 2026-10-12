@@ -11,7 +11,7 @@ The song header: tempo, rate, meter — plus what the song borrows from outside 
 # The folder's own suffix (`.st0`) is what decides which app opens it, and it
 # wins if the two disagree — st0 reports the contradiction rather than picking a side.
 # This line is here so the file says it too, which is the only signal there is when
-# the repository IS the project and there is no suffix to read.
+# the workspace IS the project and there is no suffix to read.
 type: st0
 
 # What this project DRAWS is not written here at all: it is the `surfaces/`
@@ -104,7 +104,7 @@ type: turntables
 layout: split
 
 # Which songs its browser lists — the PLAYLIST this set draws on. A name under
-# `_playlists/` at the root of the repository, not a path: the folder is fixed.
+# `_playlists/` at the root of the workspace, not a path: the folder is fixed.
 # Subfolders are kept, so `live/repet` is a playlist filed under `live/`.
 #
 # This is what puts the twelve songs to hand tonight in front of you rather than
@@ -153,7 +153,7 @@ mapping:
 ```
 
 A `turntables` surface plays a **set**, and its `playlist:` says which one — a playlist in
-`_playlists/` at the root of your repository, written on the Playlists screen under the cog.
+`_playlists/` at the root of your workspace, written on the Playlists screen under the cog.
 That surface is the whole of what makes a project a set: there is no other kind of folder for
 one, and no other app that opens it.
 
@@ -203,7 +203,7 @@ The strip is for when you are working ON the master and want the three parts sid
 
 ## settings.yaml
 
-Session preferences that belong to the SONG rather than to the machine — what should follow the folder into git. Open-ended: unknown keys are kept, not rejected.
+Session preferences that belong to the SONG rather than to the machine — what should follow the folder to every device it is synced to. Open-ended: unknown keys are kept, not rejected.
 
 ```yaml schema=Settings
 metronome: false

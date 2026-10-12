@@ -33,19 +33,16 @@ the graph draws a jack per stem. See `@studio/song`'s [ports.md](../../song/docs
 
 [../../file-service/docs/render.md](../../file-service/docs/render.md) argues against a job registry, and it is right about a render: one
 streamable file, seconds, a caller that can simply wait. A separation is the case that turns
-every one of those over, and it scores "job" on every row of
-[../../file-service/docs/cloneJobs.md](../../file-service/docs/cloneJobs.md)'s table: **minutes** rather than seconds, a **person** waiting
-rather than a server, **four files** rather than one streamable body, and a subprocess with
-progress worth reporting.
+every one of those over: **minutes** rather than seconds, a **person** waiting rather than a
+server, **four files** rather than one streamable body, and a subprocess with progress worth
+reporting.
 
-`separateJobs.ts` is `cloneJobs.ts` with two deliberate differences:
+`separateJobs.ts` makes two choices of its own:
 
-- **The id hashes the WORK** — `(user, source, model)` — not the destination. A clone
-  collides over the directory it writes; a separation collides over the *inference*, and a
-  retry, a second tab or a remount would otherwise start another hour of arithmetic
-  producing byte-identical files.
-- **The job carries `files`.** A clone's product is a directory named by `workspace`, so
-  there is nothing to list. Four stems are the thing the caller came for, and their names
+- **The id hashes the WORK** — `(user, source, model)` — not the destination. A separation
+  collides over the *inference*, and a retry, a second tab or a remount would otherwise start
+  another hour of arithmetic producing byte-identical files.
+- **The job carries `files`.** Four stems are the thing the caller came for, and their names
   come from the model rather than from the request. The list is not a report: over `/process`
   it is what the media library COLLECTS, one GET per name, so a file produced but left out of it is written
   on this machine and never reaches the song's folder -- which is exactly how a fifth file,

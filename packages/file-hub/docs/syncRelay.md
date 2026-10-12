@@ -10,7 +10,7 @@ The replicas today are this hub's file services. Each already holds a secret the
 and the hub knows the account behind each secret (`instances.bySecret`). So a file service dials the
 relay with the same `x-studio-hub-secret` it answers the hub with, and the relay knows its account
 without a new credential. The hub hands every service the relay's address as `STUDIO_SYNC_URL`. A
-service dials it only when `STUDIO_LIVE_SYNC=1`. Machines will need device tokens; that is phase 4.
+service dials it unless `STUDIO_LIVE_SYNC=0`. A machine proves its account with a device token.
 
 ## One socket per file service, every workspace on it
 

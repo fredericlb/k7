@@ -16,6 +16,7 @@ import {
 import { basename, dirname, join, resolve } from "node:path";
 import { studioHome } from "@studio/song/studioHome";
 import { HISTORY_HOME_DIR } from "@studio/song-schema/moduleTypes";
+import { HISTORY_DIR } from "./workspaceFilter.ts";
 import type {
   HistoryListEntry,
   HistoryPeek,
@@ -23,7 +24,6 @@ import type {
 } from "@studio/web-protocol";
 
 /** A journal folder inside a project: nothing writes one, and the tree and the walks still hide it. */
-const HISTORY_DIR = "_history";
 const MAX_ENTRIES = 1000;
 
 // A text file's content before and after the change; null means the file was absent.
@@ -371,7 +371,5 @@ export class ProjectHistory {
   }
 }
 
-// Whether a directory entry name is an in-project journal folder — Workspace's skip() hides it.
-export const isHistoryDir = (name: string): boolean => name === HISTORY_DIR;
 
 export { HISTORY_DIR };

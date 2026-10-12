@@ -77,4 +77,4 @@ export function useProjectImport(opts: {
   };
 }
 
-// No delete hook here: st0 shows no workspace to pick a project out of, and pl8 owns the repositories.
+// No delete hook here: st0 shows no workspace to pick a project out of, and the home page owns the workspaces.

@@ -2,9 +2,6 @@
 // through the engine, and publish to k7. Held here rather than in `SharePanel` so the panel and
 // the command bar run one implementation — `project export` and `project share k7` are those
 // same entries, and a second copy behind the palette is how the two come to differ.
-//
-// Commit and pull are NOT here: they are `project commit` / `project pull` in the catalogue,
-// and the panel dispatches those rather than calling their routes a second time.
 
 import { askConfirm, askText } from "@studio/project-shell/ask";
 import type { VideoScene } from "@studio/ui-eyes/scene";

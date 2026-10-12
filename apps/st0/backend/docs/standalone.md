@@ -19,7 +19,7 @@ service's entry.
 | `STUDIO_LOCAL_USER=1` | signed out is a local user, never a dead end: nothing needs a network to start |
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
 | `dirs` | the folders under the host's state root, named once so a backup or a support answer reads the same on both |
-| `library` | the one-commit clone the bundle carries, which a first run seeds the library list with: the local user is never an admin and could not add one |
+| `library` | the `st0-library` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one |
 
 The desktop still lets `ST0_OIDC_ISSUER` and `ST0_OIDC_CLIENT_ID` override the provider, for testing
 against another one.

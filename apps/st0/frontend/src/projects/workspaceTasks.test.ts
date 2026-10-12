@@ -4,9 +4,6 @@ import { anchorProject } from "./workspaceTasks";
 
 const ws = (paths: string[]): AccountWorkspace => ({
   name: "band",
-  origin: null,
-  repoName: null,
-  uniqueName: true,
   isSingleProject: paths.length === 1 && paths[0] === ".",
   projects: paths.map((path) => ({ path, app: "st0" })),
 });

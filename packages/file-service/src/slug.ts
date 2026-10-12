@@ -1,6 +1,6 @@
 // slug.ts — the workspace root, `<state>/workspace/<workspace>`. There is no per-user level:
 // one machine holds one person's workspaces (packages/engine-client/docs/paths.md). The slug
-// survives for the SSH keys and the engine session, which are not directories here.
+// survives for the engine session, which is not a directory here.
 
 import { join } from "node:path";
 import { rootDir, slugify } from "@studio/engine-client/paths";

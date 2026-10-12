@@ -70,7 +70,7 @@ Measured on the real workstation, on `lemo_mante/01.danse.st0` — a 15-track so
 The service is **one process**: all of that queues.
 
 `/workspace`'s trade-off is written down and tested: a folder appearing behind the service's back (a
-`git pull`, a hand `mkdir`) shows on the next scan and not the next poll. `cachedProjectDoc` refuses
+hand `mkdir`) shows on the next scan and not the next poll. `cachedProjectDoc` refuses
 that bargain, and must — a stale COMPILE is confidently wrong about a song. A project list five
 seconds behind is a picker that has not yet seen a folder: a wait, not a lie.
 

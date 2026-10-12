@@ -49,7 +49,7 @@ short-circuits both: `/external`, the menu of surfaces a second device can drive
 of the project the ENGINE is holding, which `GET /engine/served` answers and which is not the same
 question as each workspace's active-project marker. It is `AuthGate` → `ExternalIndex` and probes
 for a machine without claiming one (`frontend/docs/external.md`). It is read BEFORE `parseLaunch`, since a single segment is
-otherwise a repository — so `external` is a reserved short name. The engine
+otherwise a workspace — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
@@ -76,8 +76,8 @@ matches before changing it:
 
 | page | covers |
 |---|---|
-| `projects.md` | the HOME page — `/` with no project in it: the repositories, the libraries, the shares, the key |
-| `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over the media library's song catalogue |
+| `projects.md` | the HOME page — `/` with no project in it: the workspaces, the libraries, the shares |
+| `playlists.md` | the cog's Playlists screen — `_playlists/` in the workspace, over the media library's song catalogue |
 | `references.md` | `_references/` — what you listen against, played by the browser beside whatever the engine is doing |
 | `tasks.md` | `TODOS.md` at the workspace root — the task list panel, a Markdown checklist written through `task` commands |
 | `shell.md` | `App.tsx`/`main.tsx`, the gate stack, the palette |
@@ -241,21 +241,19 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   `@engine` is read-only and has no folder at all (it is the plugin scan, synthesised); the
   others offer **New folder…** and **New module…**. A library module opens the same builder,
   but **a library is written only by an admin**, from any project; for anyone else the file
-  service refuses the write. For an admin, Save writes into `_libraries/<name>/…`, which is the
-  admin's own clone of THAT library, and nothing is published until the editor's bottom bar
-  (`frontend/src/components/LibraryEditsRow.tsx`) commits and pushes every changed library — or
-  discards them. Nothing forks, because the library is the only copy, and no song
-  repository is touched. One store and one path space: the file hub clones each library ONCE
-  for the whole origin, with the server's own read-only key, and the file service answers it at
+  service refuses the write. For an admin, Save writes into `_libraries/<name>/…`, which is THE
+  library's folder on the server: the write is the publication, every account reads it at once, and
+  the hub relays it to the library's st0fs room. Nothing forks, because the library is the only
+  copy, and no song is touched. One store and one path space: the file hub keeps ONE folder of each
+  library for the whole origin, seeded from `st0-library`, and the file service answers it at
   the virtual `_libraries/<name>/…` in every workspace (`packages/song/docs/sharedFolders.md`,
   `packages/file-hub/docs/fileHub.md`). `frontend/docs/sharedModules.md` is the page to read; a
   chain's bench, `/@banc/<chain>/live.st0`, is a live RIG kept nowhere that edits no library.
 
   **st0 will not open a project without a library.** The origin has ONE list, which the admins
   (this backend's `AUTH_ADMIN_GROUPS`) edit on the **Libraries** page, `/libraries`, linked from the home
-  page's sidebar — the same page that shows them the server's key and each library's **Pull**,
-  and anyone a **Retry** on a library the server failed to clone. `ProjectGate` refuses before it
-  clones anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
+  page's sidebar, by name: a new library is copied from the seed when the seed holds it, else
+  starts empty. `ProjectGate` refuses before it opens anything. See `frontend/docs/projects.md` and `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
   `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer
   between them for the labels, the automation arrows and the hit paths. **Never hand-roll
@@ -314,26 +312,25 @@ in from.
 
 ## st0 is opened ON a workspace, and plays ONE of the projects in it
 
-A workspace is one git repository and holds **several projects**. The editor's tree is the whole
+A workspace is one folder and holds **several projects**. The editor's tree is the whole
 workspace, and the ▶ on a project row is what hands that one to the engine — `POST /open`, which
 writes its active-project marker and switches the session, with no navigation and no remount
 (`packages/file-service/docs/activeProject.md`). The address may still name a project, and that
 is what it opens ON; a bare `/@local/<workspace>` opens the one last played.
 
-**A workspace does not need a repository, and starts EMPTY.** `Nouveau` on the home page git-inits
-one here with no remote and no project; opening it draws the first-project wizard, since the
-archetype decides what the screen shows and that is a question better asked where the answer will
-be looked at. Everything works in it but pushing; `Publier` is the day it gets an `origin`, and
-`Importer` is the clone of one that already exists (`packages/file-service/docs/workspaces.md`).
+**A workspace is no git repository, and starts EMPTY.** `Nouveau` on the home page creates one
+with no project; opening it draws the first-project wizard, since the archetype decides what the
+screen shows and that is a question better asked where the answer will be looked at. There is
+nothing to publish or import: a workspace reaches every replica through the live-sync relay, and a
+device joining the relay is how an existing one arrives (`docs/live-sync-plan.md`).
 
 ## the HOME page is where a workspace is chosen
 
 **This app does not own workspaces**, and never will: the account's file service on the server
 holds every working copy, and the media library keeps no register of them (`apps/st0/backend/docs/media/projects.md`). What
 this app owns is the SCREEN above a project, at `/` with nothing after it — the workspaces, the
-projects inside them, the libraries and the published shares. The deploy key is not on it but in
-the Sync section of `/settings`, which the hosted origin draws too, since the key is the account's
-rather than the app's. `frontend/docs/projects.md` is the page that says why.
+projects inside them, the libraries and the published shares. `frontend/docs/projects.md` is the
+page that says why.
 
 A project is named by an ADDRESS — the workspace, then the project folder inside it:
 
@@ -342,9 +339,8 @@ A project is named by an ADDRESS — the workspace, then the project folder insi
 /@local/band/albums/winter.st0/timeline      …with the app's own route following it
 ```
 
-`ProjectGate` opens that folder on the machine: no lookup and no clone — a repository reaches a
-workspace on the home page, through **Importer**, which clones it with a visible progress bar.
-Arriving with no project in the address is the home page rather
+`ProjectGate` opens that folder on the machine: no lookup and no download — the relay is what
+keeps the folder there. Arriving with no project in the address is the home page rather
 than an error to redirect away from, and `main.tsx` branches on `parseLaunch` before mounting
 anything. There is deliberately no SECOND picker — z0's editor comes back to this one.
 
@@ -360,7 +356,7 @@ is a wrapper holding this app's wording and what to render once the project is o
 
 **There is no workspace picker anywhere in this app**, and a folder under
 `<state>/workspace/<you>/` is the wrong level to offer a choice at. The home page lists
-REPOSITORIES, which belong to a person, and a workspace is what the gate resolves one INTO. The deploy key is the file service's — one key per person (`packages/git-repos/docs/keys.md`); this app draws the card that shows it.
+WORKSPACES, which belong to a person, and the gate resolves an address INTO one.
 
 Identity is the OIDC email, which names the engine SESSION rather than a folder — the workspaces are `<state>/workspace/<workspace>` with nobody underneath (`packages/engine-client/docs/paths.md`) — and the active
 project is remembered per-workspace in an active-project marker. There is **no global session

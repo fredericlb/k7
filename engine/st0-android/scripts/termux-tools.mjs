@@ -1,4 +1,4 @@
-// termux-tools.mjs — node, git, git-lfs and ssh for the phone's backend: Termux's arm64 builds, laid out as
+// termux-tools.mjs — node for the phone's backend: Termux's arm64 builds, laid out as
 // lib*.so files, since the native library directory is the only place Android lets an app execute a file.
 // Names and the Termux prefix are patched IN PLACE, same length, so no binary is relinked.
 // Usage: ANDROID_NDK_HOME=… node termux-tools.mjs <jniOut> <assetOut> <cacheDir>. See engine/st0-engine/docs/android.md.
@@ -27,7 +27,7 @@ const REPO = "https://packages-cf.termux.dev/apt/termux-main";
 const PREFIX = "data/data/com.termux/files/usr";
 const TERMUX_SH = "/data/data/com.termux/files/usr/bin/sh";
 
-// The programs and every package their libraries come from; the closure below keeps only what they load.
+// The program and every package its libraries come from (Termux's nodejs Depends, plus the CA bundle).
 const PACKAGES = [
   "nodejs",
   "libc++",
@@ -37,38 +37,12 @@ const PACKAGES = [
   "libsqlite",
   "zlib",
   "libffi",
-  "git",
-  "libcurl",
-  "libexpat",
-  "libiconv",
-  "pcre2",
-  "libnghttp2",
-  "libnghttp3",
-  "libngtcp2",
-  "libssh2",
-  "git-lfs",
   "ca-certificates",
-  // ssh and ssh-keygen: a workspace is cloned and published over SSH, with a key made on the machine.
-  "openssh",
-  "krb5",
-  "ldns",
-  "libedit",
-  "ncurses",
-  "libandroid-support",
-  "libandroid-glob",
-  "libresolv-wrapper",
-  "readline",
-  "libdb",
 ];
 
 // Each program and the library name it ships as.
 const PROGRAMS = {
   "bin/node": "libst0node.so",
-  "bin/git": "libst0git.so",
-  "bin/git-lfs": "libst0gitlfs.so",
-  "libexec/git-core/git-remote-http": "libst0gitremotehttp.so",
-  "bin/ssh": "libst0ssh.so",
-  "bin/ssh-keygen": "libst0sshkeygen.so",
 };
 
 /** The index's stanza for each package: where it is and its digest, which every download is checked against. */
@@ -228,7 +202,7 @@ for (const [from, to] of files) {
   chmodSync(at, 0o755);
 }
 
-// The CA bundle node and git trust: Termux's, since Android's store is a folder of files neither reads.
+// The CA bundle node trusts: Termux's, since Android's store is a folder of files it does not read.
 mkdirSync(assetOut, { recursive: true });
 copyFileSync(join(usr, "etc", "tls", "cert.pem"), join(assetOut, "cacert.pem"));
 writeFileSync(
@@ -236,5 +210,5 @@ writeFileSync(
   `${JSON.stringify(versions, null, 2)}\n`,
 );
 console.log(
-  `termux tools: ${files.length} files in ${jniOut} (node ${versions.nodejs}, git ${versions.git})`,
+  `termux tools: ${files.length} files in ${jniOut} (node ${versions.nodejs})`,
 );

@@ -1,15 +1,15 @@
 # The active project — what the ENGINE is holding
 
-A workspace is **one git repository**, made here or cloned, and it holds **several projects**.
+A workspace is **one folder**, and it holds **several projects**.
 The editor draws the whole of it; the *active* project is the one folder the engine is playing,
 and choosing it is a gesture on screen. An app is still opened by an address rather than through
 a picker (`packages/project-shell/docs/launch.md`), and that address may name the project — but
 it does not decide alone, and it is not the only thing that can change it.
 
-## The tree is the clone's, not the project's
+## The tree is the workspace's, not the project's
 
 `tree()` walks the **workspace root**, not the active project, because what the tree shows is what
-you can choose from. A real repository holds far more than the song you opened — other projects, a
+you can choose from. A real workspace holds far more than the song you opened — other projects, a
 `_modules` library shared between them, mixdowns, an `orig/` full of `.dawproject` and `.als`
 sessions — and showing all of it invites you to open a file belonging to a project that is not the
 one playing. That is the point: a workspace is several songs, and the one the engine takes is
@@ -45,7 +45,7 @@ question is answered in places where no file can be opened at all
 that does not exist.
 
 That is not hypothetical. The name a caller sends and the folders on this disk are learned at
-different moments: rename a project folder, push, and whatever listed it can go on offering
+different moments: rename a project folder, and whatever listed it can go on offering
 the old name until it refreshes. A race is still a race, and a listing can be a fetch behind
 at exactly the wrong second.
 
@@ -462,13 +462,11 @@ answers.
 
 ## `GLOBAL_COMMAND` is a copy, and it drifts
 
-The verbs that need no active project — the rig preferences, the workspace's set lists, and the whole-repo
-git ones — are matched by one regular expression, and it is a copy of names that live in `commands.yaml`.
+The verbs that need no active project — the rig preferences and the workspace's set lists — are matched by one regular expression, and it is a copy of names that live in `commands.yaml`.
 Check the catalogue before adding to it.
 
-Two ways it falls out of step, both silent. A bare `commit|pull` matches NEITHER `project commit` nor
-`project pull`, so both are refused with "no project" whenever none is open — invisible from st0's command
-bar, which always has one, and met by a caller that creates a project it never opens. And a rig verb
+It falls out of step silently, and is invisible from st0's command bar, which always has a project
+open: a verb missing from it is met by a caller that creates a project it never opens. A rig verb
 listed under a head it no longer carries (`channel` or `audio`, where the verb is `system channel …`) is
 refused from a workspace with no project open, which is the one place a rig setting is most likely to be
 changed.

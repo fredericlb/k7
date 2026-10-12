@@ -1,6 +1,6 @@
-// RenameProject.tsx — the dialog behind the row's ⋮ menu: a project's folder renamed in place,
-// then committed and pushed. The SUFFIX is not part of the question — it says which app opens the
-// folder, so it is kept whatever is typed. See ../../docs/projects.md.
+// RenameProject.tsx — the dialog behind the row's ⋮ menu: a project's folder renamed in place.
+// The SUFFIX is not part of the question — it says which app opens the folder, so it is kept
+// whatever is typed. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {

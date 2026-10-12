@@ -38,8 +38,8 @@ account would cost more than it buys:
   from `noteOwner`, fed by the header every request carries, and both halves go through
   `sessionFor` (`packages/engine-protocol/docs/sessions.md`), so they cannot spell it differently.
 
-`slugify` still has two users, neither of them a directory here: the SSH key folder
-(`<state>/ssh/<slug>`) and the engine session.
+`slugify` still has users, none of them a directory here: an account's folder name on the server
+(`accountKey`) and the engine session.
 
 ## Every path through `paths.ts`
 

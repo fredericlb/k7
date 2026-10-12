@@ -62,58 +62,39 @@ the session's OIDC `groups` against `AUTH_ADMIN_GROUPS`, and an empty list admit
 answers `admin`, the ticket signs it, and the hub stamps `x-studio-admin: 1` on what it forwards,
 having dropped any copy the client sent. The file service trusts that header for the same reason
 it trusts `x-studio-user`: only the hub's secret reaches it. It guards what reaches every account
-at once: the libraries list, the server's key and a forced update (all answered by the hub
-itself — below), and in the file service every write into a library and its commit and
-discard (`packages/file-service/docs/libraries.md`). A ticket outlives a group change by up to twelve
+at once: the libraries list (answered by the hub itself — below), and in the file service every
+write into a library (`packages/file-service/docs/libraries.md`). A ticket outlives a group change by up to twelve
 hours, the same as it outlives the session.
 
 ## The libraries are the hub's
 
-The origin has ONE list of libraries, `<dataRoot>/libraries.json` (`../libraries.ts`), and the
-hub clones each library ONCE, under `<dataRoot>/libraries/<name>`, which every account's file
-service gets as `$STUDIO_LIBRARIES_HOME` and reads without writing. One list because a library is
-the reference every song resolves `@<name>/…` against; one clone because nothing in it is anyone's
-work — an admin edits in a clone of their own, from any project, and the edit reaches this one by a
-push.
+The origin has ONE list of libraries, `<dataRoot>/libraries.json` (`../libraries.ts`), and ONE
+folder per library, `<dataRoot>/libraries/<name>`, which every account's file service gets as
+`$STUDIO_LIBRARIES_HOME`. One list because a library is the reference every song resolves
+`@<name>/…` against; one folder because a library edited is edited for every account at once, and
+two copies would compile a song two ways.
 
-- **The server's own key** clones them, `<dataRoot>/.libraries-key`, made on first ask. Admins see
-  its public half in the Libraries page and add it to each library repository as a READ-ONLY
-  deploy key. Not each account's key: every account would then need access to every library, and
-  a library one account could not read would compile differently for it.
-- **A sync only FETCHES; a PULL makes a clone EXACTLY its remote** — `reset --hard @{u}`,
-  `clean -fd`. There is nothing to keep, so nothing to merge. What the clone lacks is counted and
-  answered on the row as `behind`. A pull is an admin's gesture on the Libraries page or follows an
-  admin's push, never a side effect of a read or an open: it changes what every account's songs compile
-  against. A clone is made in a dot-named sibling and renamed into place, so no reader sees half a
-  library.
-- **An admin's pull destroys every account's edit clone of that library** (`../editsDrop.ts`),
-  unpushed work included: a running file service is told, so it stops reading the clone; an idle
-  account's clone is removed on disk, where its next start would read it again. The next open
-  clones it afresh. The pull that follows an admin's **Commit & push** drops nothing, since the
-  clone pushed from IS the remote.
-- **A library is validated by CLONING it.** A `PUT` clones what is new or moved before writing the
-  list, and a clone that fails answers git's words and stores nothing: a setting kept after a
-  refused clone reads as done and breaks at the next thing that needs it. A later failure is
-  remembered and answered on the row as `error`. A library dropped from the list has its clone
-  deleted.
-- **The hub is one process**, so its in-memory serialisation is the only lock the clones need.
-- **With no list written yet**, the hub reads every account's own `<dataRoot>/<account>/libraries.json`,
-  merged, so a server whose accounts each kept a list keeps working until an admin saves one. A list
-  holding a single `{ "uri" }` reads as a library called `st0`, and the first library added without a
-  name is called `st0` too (`defaultLibraryName`): the scaffolds write `@st0/…` refs for a set's
-  decks.
+- **The folder IS the library.** An admin's file service writes into it in place; everyone else's
+  reads it. Dropping a library from the list keeps its folder, unlisted: it is the only copy.
+- **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
+  empty. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
+  and the phone name the `st0-library` they bundle. It is copied into a dot-named sibling and renamed
+  into place, so no reader sees half a library, and without any `.git` it carries.
+- **With no list written yet**, the list is the library folders already on disk, else the seed's.
+- **The libraries are st0fs workspaces** (`../libraryRelay.ts`). The hub is the server's replica of
+  each: it watches the folder and relays every change to the room `<name>` of the account
+  `_libraries`, kept beside the folders in `libraries/.sync-relay/`. Only the hub holds that
+  account's secret, so no replica can write a library through the relay: a write reaches a library
+  only through an admin's file service, on this disk. A machine's hub, which syncs to a remote
+  relay, keeps its bundled copy instead.
 
-`/account/libraries*` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET`
-the list, for anyone, starting a fetch behind the answer at most once a minute; `POST /retry`
-(`{ name? }`, a forced clone of what failed) and `POST /check` (a forced fetch), for anyone too,
-since they change nothing anybody wrote; `PUT` the list, `POST /pull` (`{ name? }`) and `GET /key`,
-for admins, 403 otherwise.
+`/account/libraries` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET` the
+list, for anyone, giving every listed library its folder first; `PUT` the list (`{ libraries:
+[{ name }] }`), for admins, 403 otherwise.
 
 The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves one
-route, `POST /libraries/sync`. Its gate is the hub secret of one of the hub's own instances —
-the secret that already proves the other direction — so nothing outside the hub's children can
-make it fetch. On an ordinary call the hub fetches at most once a minute and waits only for a clone
-that is missing; `force` (the verb) fetches now and waits, and `pull` (an admin's push) moves the clone.
+route, `POST /libraries/sync`: the folders made sure of before an open. Its gate is the hub secret
+of one of the hub's own instances — the secret that already proves the other direction.
 
 ## An engine is bound by a CLAIM
 
@@ -128,8 +109,7 @@ comes back; its render cache `.renders/`, writable, so an automatic VST render c
 an undo's audio and sends it back up for an undo (`packages/file-service/docs/history.md`); its
 `models/`, read-only; and the médiathèque, read-only.
 **Never the rest of `$STUDIO_HOME`**, which holds the
-account's SSH deploy key: an engine's machine may be a shared studio box, and the key is what
-pushes to the account's repositories.
+account's own state: an engine's machine may be a shared studio box.
 
 A binding is two loopback paths to the same machine: the engine's, and its **jobs** — where every
 separation the account asks for runs, since cutting stems belongs to the engine's machine
@@ -147,9 +127,7 @@ moves on, the previous account's file service **lets go** of the engine at its n
 anything else, so a tab left open cannot push its project into an engine someone else is playing.
 Each account's copy on the engine's machine stays in its own folder, `ws-<accountKey>`, and is
 simply there again when that account comes back. The libraries travel beside it, read-only, as
-two roots (`../binding.ts`): `libs`, the hub's clones, the same for every account, and
-`edits-<accountKey>`, that account's edit clones, which an admin's account reads every library
-from. A module's files the engine loads — a Faust source, an amp's model, its
+one root (`../binding.ts`), `libs`: the hub's folders, the same for every account. A module's files the engine loads — a Faust source, an amp's model, its
 samples — live in one, and no workspace holds a copy (`packages/file-service/docs/libraries.md`).
 
 ## What stays on the engine's machine

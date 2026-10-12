@@ -1,13 +1,12 @@
-// LibrariesPage.tsx — `/libraries`, a page of its own: the origin's libraries, each row's clone
-// state, Retry and Pull, and for an admin the list's edits and the server's key.
-// A page and not a panel: it is visited on purpose, rarely, and an admin reads the key off it.
+// LibrariesPage.tsx — `/libraries`, a page of its own: the origin's libraries, whether the server
+// holds each, and for an admin the list's edits.
+// A page and not a panel: it is visited on purpose, rarely.
 // See ../../docs/projects.md.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { AskHost } from "@studio/project-shell/ask";
 import { Toaster } from "@studio/project-shell/toast";
 import { useEffect, useState } from "react";
-import { GitBusyOverlay } from "../components/GitBusy";
 import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { HomeShell } from "./HomeSidebar";
@@ -31,8 +30,6 @@ export function LibrariesPage() {
     <HomeShell subtitle={m["home.libraries"]()}>
       <AskHost />
       <Toaster />
-      {/* Adding, removing, updating and retrying all clone or pull: the page waits for git. */}
-      <GitBusyOverlay />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl">
           {fileService === undefined ? (

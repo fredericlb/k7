@@ -1,6 +1,6 @@
 # How a song is written
 
-A song is a folder of YAML. One entity per file, and **the filename is the id** — `clips/kick.yaml` declares the clip `kick`; there is no `name:` inside repeating it. That is what makes a rename a `git mv`.
+A song is a folder of YAML. One entity per file, and **the filename is the id** — `clips/kick.yaml` declares the clip `kick`; there is no `name:` inside repeating it. That is what makes a rename nothing more than moving a file.
 
 Files are **flat**: no wrapper key, no package clause. A track file starts at `type:`, a clip file at `source:`.
 

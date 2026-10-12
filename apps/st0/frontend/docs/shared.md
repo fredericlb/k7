@@ -70,8 +70,8 @@ idle, `connected` is false, and transport verbs go into a client with no socket.
 
 ## The canned routes
 
-A share is a folder of JSON and renders. `/tree`, `/hints`, `/commands`, `/io-ports`,
-`/git/status` name **nothing** — there is no file service behind it. Left to fail, every hook asking
+A share is a folder of JSON and renders. `/tree`, `/hints`, `/commands`, `/io-ports`
+name **nothing** — there is no file service behind it. Left to fail, every hook asking
 for them would show an error saying a service is down, which is **false**: it is absent by
 construction, and a viewer announcing a broken server while everything does what it should is worse
 than a silent one.

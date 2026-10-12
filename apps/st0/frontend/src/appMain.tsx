@@ -199,7 +199,7 @@ ReactDOM.createRoot(document.getElementById("root")!, {
         ) : (
           <AuthGate>
             <Suspense fallback={<Booting />}>
-              {/* No project in the address: the home page, behind the account and nothing else, since listing repositories needs no engine. */}
+              {/* No project in the address: the home page, behind the account and nothing else, since listing workspaces needs no engine. */}
               {externalIndex ? (
                 // The second device's front door: every surface this account can drive, holding no engine — a lease would evict the person playing.
                 <ExternalIndex />

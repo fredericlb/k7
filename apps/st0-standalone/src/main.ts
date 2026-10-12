@@ -1,7 +1,7 @@
 // main.ts — st0 (its media library included) as one desktop app: its backend, the supervisor and its engine, and a window on st0.
 // Signed out it runs as a local user; signing in to st0's IdP happens in the system browser. See docs/signIn.md.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   assertPortsFree,
@@ -58,19 +58,6 @@ let backends: Server[] = [];
 let supervisor: SupervisorHost | null = null;
 let win: TabbedWindow | null = null;
 
-/** First run only: the origin's library list names a local clone source, since the local user can never be an admin. */
-function seedLibraries(filesRoot: string): void {
-  const list = join(filesRoot, "libraries.json");
-  const source = librarySource();
-  if (existsSync(list) || !source) return;
-  mkdirSync(filesRoot, { recursive: true });
-  writeFileSync(
-    list,
-    JSON.stringify({ libraries: [{ name: "st0", uri: source }] }, null, 2),
-  );
-  line("app", `libraries: st0 ← ${source}`);
-}
-
 /** No service worker here: one left by an earlier run hangs the first navigation, and a local origin has nothing to precache — docs/standalone.md. */
 async function noServiceWorker(): Promise<void> {
   await session.defaultSession.clearStorageData({
@@ -119,6 +106,7 @@ async function boot(): Promise<void> {
   await assertPortsFree([PORTS.st0]);
 
   const engine = engineBinary();
+  const seed = librarySource();
   // The table the phone starts its backend with too: apps/st0/backend/docs/standalone.md says why each value.
   const env: Record<string, string> = {
     ...standalone.env,
@@ -127,8 +115,9 @@ async function boot(): Promise<void> {
     OIDC_ISSUER: OIDC.issuer,
     OIDC_CLIENT_ID: OIDC.clientId,
     ...(engine ? { STUDIO_ENGINE: engine } : {}),
+    // The hub copies `st0` from here the first time it has no folder for it.
+    ...(seed ? { STUDIO_LIBRARY_SEED: `st0=${seed}` } : {}),
   };
-  seedLibraries(dirs.files);
 
   const sup = supervisorBinary();
   if (sup && existsSync(sup))

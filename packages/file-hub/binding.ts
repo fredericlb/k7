@@ -11,7 +11,6 @@ import {
   AUTO_RENDERS_HOME_DIR,
   HISTORY_HOME_DIR,
   LIBRARIES_HOME_DIR,
-  LIBRARY_EDITS_DIR,
 } from "@studio/song-schema/moduleTypes";
 import { HUB_SECRET_HEADER } from "@studio/web-protocol";
 import type { Instance } from "./instances.ts";
@@ -28,17 +27,11 @@ export interface BindingDeps {
 /** How long the engine gets to list its plugins; a cold scan is slow, and nothing waits on this. */
 const PLUGINS_TIMEOUT_MS = 30_000;
 
-/** The libraries, read-only: the hub's ONE clone of each, every account's alike, and an admin account's own edit clones beside it. */
+/** The libraries, read-only: the hub's ONE folder of each, every account's alike. */
 const librariesRoots = (inst: Instance): TunnelRoot[] => [
   {
     remote: join(dirname(inst.home), LIBRARIES_HOME_DIR),
     name: "libs",
-    writable: false,
-    perChild: true,
-  },
-  {
-    remote: join(inst.home, LIBRARY_EDITS_DIR),
-    name: `edits-${inst.slug}`,
     writable: false,
     perChild: true,
   },

@@ -30,7 +30,7 @@ import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 
 /** What an export needs of the workspace: six members instead of a class, so `safePath` stays private. */
 export interface ShareHost {
-  /** The workspace root — a cloned repository. Named in a share's origin. */
+  /** The workspace root. Named in a share's origin. */
   root: string;
   /** The active project's folder, or a named exception when there is none. */
   requireActive(): string;

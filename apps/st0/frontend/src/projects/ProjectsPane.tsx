@@ -2,7 +2,6 @@
 // is unfolded. It holds the async for the two presentational views beside it. Which one is open
 // comes from the address (Home.tsx), not from local state. See ../../docs/projects.md.
 
-import { showToast } from "@studio/project-shell/toast";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   AccountLibrary,
@@ -13,36 +12,20 @@ import type {
 } from "@studio/web-protocol";
 import { isDroppableProject } from "@studio/web-protocol/projects";
 import { useCallback, useEffect, useState } from "react";
-import { type GitReport, runGit } from "../components/GitBusy";
-import { formatBytes } from "../components/UploadProgress";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, projectHref, workspaceHref } from "./api";
 import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
-import { useWorkspaceSync } from "./useWorkspaceSync";
 import {
   type AccountFiles,
-  copyProjectAndCommit,
-  createLocalWorkspace,
-  createProjectAndCommit,
-  deleteProjectAndCommit,
-  ensureWorkspace,
-  type ImportProgress,
-  publishWorkspace,
-  pullWorkspace,
-  pushWorkspace,
-  renameProjectAndCommit,
+  copyProject as copyProjectOp,
+  createProject as createProjectOp,
+  createWorkspace as createWorkspaceOp,
+  deleteProject as deleteProjectOp,
+  renameProject as renameProjectOp,
 } from "./workspaceOps";
-
-/** A step callback that also feeds the git overlay's detail line. */
-const narrate =
-  (onStep: (s: string) => void, report: GitReport) =>
-  (s: string): void => {
-    onStep(s);
-    report({ detail: s });
-  };
 
 export function ProjectsPane({
   workspaces,
@@ -71,18 +54,12 @@ export function ProjectsPane({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<FileNode[] | null>(null);
-  const [adding, setAdding] = useState<string | null>(null);
-  const [progress, setProgress] = useState<ImportProgress | null>(null);
   const ws = workspaces.find((w) => w.name === openWs) ?? null;
-  const { sync, refresh: refreshSync } = useWorkspaceSync(fileService);
-  // A list that moved is a repository that moved: a project created, copied or deleted commits.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `workspaces` is the trigger, not an input.
-  useEffect(() => refreshSync(), [workspaces]);
 
   /** What stops a write, in one sentence, or "". Said on the button rather than found on click. */
   const blocked = fileService ? "" : m["projects.noFilesBlocked"]();
 
-  /** What the libraries cost the two workspace buttons. Still reading is not yet a refusal: the file service says no anyway. */
+  /** What the libraries cost the New workspace button. Still reading is not yet a refusal: the file service says no anyway. */
   const blockedWorkspace =
     blocked || (libraries?.length === 0 ? m["ws.needLibraries"]() : "");
 
@@ -91,29 +68,6 @@ export function ProjectsPane({
     if (!fileService) throw new Error(blocked);
     return fileService;
   }, [fileService, blocked]);
-
-  /** Importing means registering it with pl8 AND THEN cloning it here — the clone is what makes it APPEAR. */
-  const importRepo = useCallback(
-    async (uri: string) => {
-      setError(null);
-      try {
-        // Importing IS the clone: the workspace lands on this disk and opens by its
-        // `@local` address, which the row then says in words — ../../docs/projects.md.
-        await runGit(m["git.cloning"](), (report) =>
-          ensureWorkspace(chosen(), uri, setAdding, (p) => {
-            setProgress(p);
-            report({ detail: p.detail, percent: p.percent });
-          }),
-        );
-      } finally {
-        // The dialog reports its own failure and stays open; this only stops the row's narration.
-        setAdding(null);
-        setProgress(null);
-        onChanged();
-      }
-    },
-    [chosen, onChanged],
-  );
 
   /** Delete a workspace. Final: there is no bin a whole workspace fits in. */
   const removeWorkspace = useCallback(
@@ -130,82 +84,14 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /** Compact a workspace's repository, and say what it gave back — or that origin refused the force-push. */
-  const compactWorkspace = useCallback(
-    async (w: AccountWorkspace) => {
-      setError(null);
-      try {
-        const r = await runGit(m["git.compacting"]({ workspace: w.name }), () =>
-          accountFiles.compactWorkspace(chosen(), w.name),
-        );
-        const freed = formatBytes(r.freed);
-        showToast(
-          r.pushError
-            ? {
-                message: m["ws.compactedNoPush"]({ freed, error: r.pushError }),
-                variant: "error",
-                duration: 15_000,
-              }
-            : { message: m["ws.compacted"]({ workspace: w.name, freed }) },
-        );
-      } catch (e) {
-        setError((e as Error).message);
-      } finally {
-        onChanged();
-        refreshSync();
-      }
-    },
-    [chosen, onChanged, refreshSync],
-  );
-
-  /** The sync line's two buttons: what git said goes to the page's error line, the counts are asked again either way. */
-  const pushOrPull = useCallback(
-    async (message: string, act: () => Promise<string | null>) => {
-      setError(null);
-      try {
-        const gripe = await runGit(message, act);
-        if (gripe) setError(gripe);
-      } catch (e) {
-        setError((e as Error).message);
-      } finally {
-        onChanged();
-        refreshSync();
-      }
-    },
-    [onChanged, refreshSync],
-  );
-  const push = useCallback(
-    (w: AccountWorkspace) =>
-      pushOrPull(m["git.commit"](), () =>
-        pushWorkspace(chosen(), w.name, !w.origin),
-      ),
-    [pushOrPull, chosen],
-  );
-  const pull = useCallback(
-    (w: AccountWorkspace) =>
-      pushOrPull(m["git.pull"](), () => pullWorkspace(chosen(), w.name)),
-    [pushOrPull, chosen],
-  );
-
-  /** A workspace made HERE: git, no repository, and EMPTY — the editor asks for the first project. */
+  /** A workspace made HERE, and EMPTY — the editor asks for the first project. */
   const createWorkspace = useCallback(
     async (workspace: string, onStep: (s: string) => void) => {
       setError(null);
-      await createLocalWorkspace(chosen(), workspace, onStep);
+      await createWorkspaceOp(chosen(), workspace, onStep);
       onChanged();
     },
     [chosen, onChanged],
-  );
-
-  /** …and its first repository, which is the remote and the push. */
-  const publish = useCallback(
-    (w: AccountWorkspace, uri: string, onStep: (s: string) => void) => {
-      setError(null);
-      return runGit(m["git.publishing"]({ workspace: w.name }), (report) =>
-        publishWorkspace(chosen(), w.name, uri, narrate(onStep, report)),
-      ).finally(refreshSync);
-    },
-    [chosen, refreshSync],
   );
 
   const create = useCallback(
@@ -215,21 +101,8 @@ export function ProjectsPane({
       onStep: (s: string) => void,
       shape: ProjectShape,
     ) => {
-      const { gripe } = await runGit(
-        m["git.creatingProject"]({ name: folder }),
-        (report) =>
-          createProjectAndCommit(
-            chosen(),
-            w.name,
-            folder,
-            narrate(onStep, report),
-            shape,
-            !w.origin,
-          ),
-      );
+      await createProjectOp(chosen(), w.name, folder, onStep, shape);
       onChanged();
-      // The project EXISTS; only the push failed. Throwing would invite a retry.
-      if (gripe) setError(m["projects.createdBut"]({ folder, gripe }));
     },
     [chosen, onChanged],
   );
@@ -240,19 +113,8 @@ export function ProjectsPane({
       p: RepoProject,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await runGit(
-        m["git.deletingProject"]({ path: p.path }),
-        (report) =>
-          deleteProjectAndCommit(
-            chosen(),
-            w.name,
-            p.path,
-            narrate(onStep, report),
-            !w.origin,
-          ),
-      );
+      await deleteProjectOp(chosen(), w.name, p.path, onStep);
       onChanged();
-      if (gripe) setError(m["projects.deletedBut"]({ path: p.path, gripe }));
     },
     [chosen, onChanged],
   );
@@ -298,7 +160,7 @@ export function ProjectsPane({
     setImported(null);
   }, [workspaces, dropped, imported]);
 
-  /** …and copying one across: the DESTINATION is what commits, so it is its repository that decides the push. */
+  /** …and copying one across, into another workspace of the account. */
   const copyProject = useCallback(
     async (
       w: AccountWorkspace,
@@ -307,28 +169,13 @@ export function ProjectsPane({
       folder: string,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await runGit(
-        m["git.copyingProject"]({ path: p.path, to: to.name }),
-        (report) =>
-          copyProjectAndCommit(
-            chosen(),
-            w.name,
-            p.path,
-            to.name,
-            folder,
-            narrate(onStep, report),
-            !to.origin,
-          ),
-      );
+      await copyProjectOp(chosen(), w.name, p.path, to.name, folder, onStep);
       onChanged();
-      // The copy IS there; only its push failed. Throwing would invite a retry that clobbers.
-      if (gripe)
-        setError(m["projects.copiedBut"]({ folder, to: to.name, gripe }));
     },
     [chosen, onChanged],
   );
 
-  /** …and renaming one in place: the folder moves, and the SAME workspace commits and pushes it. */
+  /** …and renaming one in place. */
   const renameProject = useCallback(
     async (
       w: AccountWorkspace,
@@ -336,22 +183,8 @@ export function ProjectsPane({
       folder: string,
       onStep: (s: string) => void,
     ) => {
-      const { gripe } = await runGit(
-        m["git.renamingProject"]({ path: p.path, name: folder }),
-        (report) =>
-          renameProjectAndCommit(
-            chosen(),
-            w.name,
-            p.path,
-            folder,
-            narrate(onStep, report),
-            !w.origin,
-          ),
-      );
+      await renameProjectOp(chosen(), w.name, p.path, folder, onStep);
       onChanged();
-      // Renamed, unpushed: the same rule the other three follow — say it, do not throw.
-      if (gripe)
-        setError(m["projects.renamedBut"]({ path: p.path, folder, gripe }));
     },
     [chosen, onChanged],
   );
@@ -404,12 +237,8 @@ export function ProjectsPane({
           workspaces={workspaces}
           busy={busy}
           error={error}
-          adding={adding}
-          progress={progress}
           hasFileService={fileService !== null}
-          onImport={importRepo}
           onCreateWorkspace={createWorkspace}
-          onPublish={publish}
           onOpen={(w) => onOpen(w.name)}
           blocked={blocked}
           blockedWorkspace={blockedWorkspace}
@@ -417,10 +246,6 @@ export function ProjectsPane({
           onCreate={create}
           onDelete={removeProject}
           onRemoveWorkspace={removeWorkspace}
-          onCompactWorkspace={compactWorkspace}
-          sync={sync}
-          onPush={push}
-          onPull={pull}
           onCopy={copyProject}
           onRename={renameProject}
           // Same departure as from the tree: the app's address, not a view local to here.

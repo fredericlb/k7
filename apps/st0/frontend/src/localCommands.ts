@@ -34,15 +34,15 @@ export const UI_EXACT: readonly string[] = [
   "curves",
   // The RIGHT-HAND panels: each bare line TOGGLES its own, and one column means opening any closes the others.
   "settings",
-  // The workspace's set lists — its own panel, since what it opens belongs to the REPOSITORY (docs/playlists.md).
+  // The workspace's set lists — its own panel, since what it opens belongs to the WORKSPACE (docs/playlists.md).
   "playlists",
-  // …and what you listen AGAINST, which belongs to the repository the same way (docs/references.md).
+  // …and what you listen AGAINST, which belongs to the workspace the same way (docs/references.md).
   "references",
   // …and the workspace's task list, TODOS.md at its root (docs/tasks.md).
   "tasks",
-  // …and the open song's history, the undo journal and its commits as one list (docs/shell.md).
+  // …and the open song's history, its undo journal (docs/shell.md).
   "history",
-  // Commit, pull, export, publish. `ui` because the PANEL is a view; every verb inside it is a `project` one and writes.
+  // Export and publish. `ui` because the PANEL is a view; every verb inside it is a `project` one and writes.
   "share",
   // …and the settings panel's tabs.
   "settings editor",

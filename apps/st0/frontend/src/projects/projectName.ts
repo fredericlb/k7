@@ -42,7 +42,7 @@ export function workspaceFolderName(raw: string): ProjectName {
       folder: "",
       error: m["name.noSlash"](),
     };
-  // A name starting with a dot is a hidden folder: it would exist unseen, here and in the repository's tree alike.
+  // A name starting with a dot is a hidden folder: it would exist unseen, here and in the workspace's tree alike.
   if (name.startsWith(".")) return { folder: "", error: m["name.noDot"]() };
   const stem = SUFFIXES.reduce(
     (s, suffix) =>

@@ -9,9 +9,9 @@ and answers a secret. The link opens **st0 itself, read-only**: no account, no e
 copy. Anyone who has it can listen and look; nobody can change anything, because there is nothing
 on the other end that could be changed.
 
-It is the fourth way a project leaves this machine, and the only one that shows the PROJECT:
-`project export audio` downloads a mixdown and `project export video` the picture, `project share k7` publishes a release, `project commit`
-pushes a repository only another studio can open.
+It is one more way a project leaves this machine, and the only one that shows the PROJECT:
+`project export audio` downloads a mixdown, `project export video` the picture, and `project share k7`
+publishes a release.
 
 ## "Every module is frozen" is one render, not N freezes
 
@@ -90,7 +90,7 @@ still names the user (`?user=`): three requests, none of which remembers the oth
 
 `<origin>/@shares/<token>.st0`
 
-`@` cannot begin a git short name, so `@shares` can never collide with a repository — the same
+`@` cannot begin a workspace name, so `@shares` can never collide with a workspace — the same
 sentinel, for the same reason, as `@banc`. The `.st0` on the end is what makes the whole thing
 work: `parseLaunch` ends a project at the last segment claiming the app's suffix, so the token
 becomes the PROJECT part of an ordinary address and `parseLaunch`, `projectBasename` and every

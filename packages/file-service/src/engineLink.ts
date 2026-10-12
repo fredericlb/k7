@@ -14,7 +14,6 @@ import {
   runCommand,
 } from "@studio/commands/commandSpec";
 import type { CommandHost, TransportAction } from "@studio/commands/commands";
-import type { GitEnv } from "@studio/commands/git";
 import {
   type AudioDeviceInfo,
   EngineClient,
@@ -60,7 +59,6 @@ import {
   isHeldBack,
   sendWhenSynced,
 } from "./engineSync.ts";
-import { askHubSync } from "./libraries.ts";
 import { namedSongFiles } from "./mediatekPrefetch.ts";
 import {
   closeModuleWatch,
@@ -69,7 +67,6 @@ import {
 } from "./moduleWatch.ts";
 import { saveTake } from "./recorderSave.ts";
 import { rootDir, slugify } from "./slug.ts";
-import { sshCommand } from "./sshKeys.ts";
 import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
 import { skip, type Workspace } from "./workspace.ts";
 
@@ -165,7 +162,7 @@ export function servedProject(
   // Anything but a single `<workspace>` is one this machine cannot name in an address.
   if (!ws[0] || ws[0].startsWith("..")) return null;
   const rel = relative(s.ws.root, s.project).replace(/\\/g, "/");
-  // `.` for a lone-project clone, which is how the surface listing spells it too.
+  // `.` for a lone-project workspace, which is how the surface listing spells it too.
   return { workspace: ws[0], path: rel === "" ? "." : rel };
 }
 
@@ -871,20 +868,6 @@ function onRecorded(session: string, take: RecordedTake): void {
   }
 }
 
-// Pin git to this user's deploy key, fail rather than hang, and author as the person editing (docs/workspaces.md).
-export function webGitEnv(userEmail?: string): GitEnv {
-  if (!userEmail) return undefined;
-  const name = userEmail.split("@")[0] || "studio";
-  return {
-    GIT_SSH_COMMAND: sshCommand(userEmail),
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_AUTHOR_NAME: name,
-    GIT_AUTHOR_EMAIL: userEmail,
-    GIT_COMMITTER_NAME: name,
-    GIT_COMMITTER_EMAIL: userEmail,
-  };
-}
-
 /** How long the engine gets to answer an arm. A local socket answers in single-digit ms. */
 export const ARM_TIMEOUT_MS = 2000;
 
@@ -1129,19 +1112,15 @@ function makeHost(
         });
         c.listAudioDevices();
       }),
-    gitEnv: webGitEnv(userEmail),
-    // Whole-repo git runs at the workspace root — a workspace is one cloned repo — so it works with no project open.
+    // The workspace root, so the workspace-wide verbs work with no project open.
     repoDir: ws.root,
-    // The libraries are the hub's to keep, not the workspace's — docs/libraries.md.
-    updateLibraries: () => askHubSync({ force: true }),
     // A process backs up each render here before overwriting it, feeding the recordChange journal.
     snapshot,
   };
 }
 
 /** Verbs that need no active project — a copy of `commands.yaml` names, see docs/activeProject.md. */
-const GLOBAL_COMMAND =
-  /^(system channel|playlist|project (commit|pull|push|libraries))\b/;
+const GLOBAL_COMMAND = /^(system channel|playlist)\b/;
 
 /** The lines a command produced, plus whether it REFUSED — see docs/activeProject.md. */
 export type CommandOutput = string[] & { refused?: boolean };

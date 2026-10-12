@@ -72,7 +72,6 @@ lines produces a symptom that would otherwise be taken for a bug:
 | per-service preferences (`<state>/prefs/<service>/`) | directory renamed |
 | a blank `%APPDATA%/Studio/Settings.xml` | JUCE application name renamed — the supervisor switches back to the right device on the first poll cycle |
 | Tracktion's channel aliases and MIDI defaults | same cause; input labels come from `preferences.yaml` and are intact |
-| `branch.<b>.studioParent` | local git key — branches in flight lose their remembered parent |
 | the tray seen as a new application | bundle identifier renamed: a startup item points at the old one and has to be redone |
 
 ## What does not rename

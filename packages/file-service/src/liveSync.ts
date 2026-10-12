@@ -1,4 +1,4 @@
-// liveSync.ts — turns live capture on for each open workspace, when `STUDIO_LIVE_SYNC=1`.
+// liveSync.ts — turns live capture on for each open workspace, unless `STUDIO_LIVE_SYNC=0`.
 // With `STUDIO_SYNC_URL` every batch also goes to the relay, which orders it for all replicas: the hub's own
 // relay with the hub's secret, or a remote one with a device token (`STUDIO_SYNC_TOKEN`).
 // See docs/liveCapture.md.
@@ -18,7 +18,7 @@ const attached = new Map<
 >();
 let relay: RelayLink | null = null;
 
-export const liveSyncOn = (): boolean => process.env.STUDIO_LIVE_SYNC === "1";
+export const liveSyncOn = (): boolean => process.env.STUDIO_LIVE_SYNC !== "0";
 
 /** The relay link, made once, when this service was told where the relay is and how to prove its account. */
 function relayLink(): RelayLink | null {

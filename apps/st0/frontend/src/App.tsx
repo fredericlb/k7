@@ -71,7 +71,6 @@ import {
   type TapAction,
 } from "@studio/ui-chains-react";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
-import { flushAutosaves } from "@studio/ui-editor/autosave";
 import type { BuilderPane } from "@studio/ui-module-builder";
 import { usePointerFollow } from "@studio/ui-timeline/drag";
 import { projectLabel } from "@studio/web-protocol/projects";
@@ -89,7 +88,6 @@ import { aiOrganize, api, engines, moduleStore, PL8_API } from "./api";
 import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
-import { AlternativePicker } from "./components/AlternativePicker";
 import { AssetPicker } from "./components/AssetPicker";
 import type { AudioClipHandle } from "./components/AudioClipPanel";
 import { AudioClipPanel } from "./components/AudioClipPanel";
@@ -117,12 +115,10 @@ import {
 } from "./components/EngineSyncProgress";
 import { FloatingWindow } from "./components/FloatingWindow";
 import { FooterTab, FooterTabs } from "./components/FooterTab";
-import { GitBusyOverlay, runGit } from "./components/GitBusy";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { ImportDialog } from "./components/ImportDialog";
-import { LibraryEditsRow } from "./components/LibraryEditsRow";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
@@ -149,7 +145,7 @@ import {
   type SettingsTab,
 } from "./components/SettingsPanel";
 import { type OpenShare, ShareDownload } from "./components/SharedGate";
-import { SharePanel, shareBadge } from "./components/SharePanel";
+import { SharePanel } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
 import type { PanelTakes } from "./components/TakesView";
 import { TapChainEditor } from "./components/TapChainEditor";
@@ -182,7 +178,6 @@ import { useMidiRecording } from "./hooks/useMidiRecording";
 import { useNodePresets } from "./hooks/useNodePresets";
 import {
   useActiveProjectFollow,
-  useGitStatus,
   useProjectErrors,
   useWarmWaveforms,
 } from "./hooks/usePolls";
@@ -1658,20 +1653,9 @@ export default function App({
     [midiInputs],
   );
 
-  // Background polls: the git badge, the project errors, the waveform prewarm.
-  const { gitStatus, refreshGitStatus } = useGitStatus();
+  // Background polls: the project errors, the waveform prewarm.
   const { projectErrors, diagnostics } = useProjectErrors(reloadKey);
   const warm = useWarmWaveforms(audioKey, playing);
-
-  // After a commit/pull: refresh the badge, repaint the view, and refetch the workspace — a pull can add projects.
-  const onRepoChanged = useCallback(() => {
-    refreshGitStatus();
-    bumpReload();
-    void api
-      .workspace()
-      .then(askWs())
-      .catch(() => {});
-  }, [refreshGitStatus, bumpReload, askWs]);
 
   const openProject = useCallback(
     async (path: string) => {
@@ -2653,24 +2637,7 @@ export default function App({
         // The graph only when a view of it is on screen: a hidden ChainsTab asks for it when it is shown again.
         const send = () =>
           api.command(s, { want: graphOnScreenRef.current ? ["graph"] : [] });
-        const gitVerb = /^project (commit|pull|alternative)\b/.exec(s)?.[1];
-        // A repo verb replaces or records the files under every pane: their pending text is written first, or the verb waits.
-        if (gitVerb && !(await flushAutosaves())) {
-          setRefusal(m["git.unsaved"]());
-          settle(false);
-          return;
-        }
-        // A repo verb locks the page until git is done — docs/projects.md § Git is blocking.
-        const { output, refused, graph, rev, changed } = gitVerb
-          ? await runGit(
-              gitVerb === "commit"
-                ? m["git.commit"]()
-                : gitVerb === "pull"
-                  ? m["git.pull"]()
-                  : m["git.alternative"](),
-              send,
-            )
-          : await send();
+        const { output, refused, graph, rev, changed } = await send();
         // A refusal is neither a success nor a failure, so it gets its own channel rather than being recorded as the first.
         const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
         if (refused) setRefusal(said);
@@ -2697,8 +2664,6 @@ export default function App({
             ? wireCommand(madeRef, wire.at, wire.spawn)
             : null;
         if (after) await runCommandRef.current(after);
-        // The repo verbs move the badge, the view AND the workspace — a pull can add projects.
-        if (/^project (commit|pull|alternative)\b/.test(s)) onRepoChanged();
         // The one reorganizing verb: the graph hosts drop their held positions with the same reload that drops the pins.
         if (s === "graph organize") setOrganizeKey((k) => k + 1);
         if (outcome) outcome.ok = !refused;
@@ -2710,7 +2675,7 @@ export default function App({
         if (willInsert) setInsertingAt(null);
       }
     },
-    [pushLog, runLocalCommand, onRepoChanged],
+    [pushLog, runLocalCommand],
   );
   runCommandRef.current = runCommand;
   // The bottom panel's ✕ runs the command the footer and Escape do, as every button here does (docs/shell.md).
@@ -3367,7 +3332,6 @@ export default function App({
   const historyKey = keyForCommand("ui history", commandPrefs);
   const shareKey = keyForCommand("ui share", commandPrefs);
   const settingsKey = keyForCommand("ui settings", commandPrefs);
-  const { behind, conflicted, badge } = shareBadge(gitStatus);
 
   /** The bar's height IS its tallest control (docs/shell.md), so the desktop one is 24 px; a phone keeps a thumb-sized button. */
   const toolSize = isMobile ? "icon" : "icon-xs";
@@ -3401,7 +3365,7 @@ export default function App({
           <ListMusic className="h-4 w-4" />
         </FooterTab>
       )}
-      {/* What you listen AGAINST — always offered, a reference belonging to the repository and not to a surface (docs/references.md). */}
+      {/* What you listen AGAINST — always offered, a reference belonging to the workspace and not to a surface (docs/references.md). */}
       <FooterTab
         plain={isMobile}
         active={rightPanel === "references"}
@@ -3423,7 +3387,7 @@ export default function App({
       >
         <ListChecks className="h-4 w-4" />
       </FooterTab>
-      {/* HISTORY. The journal and the commits, one list; a hovered row lights what it touched (docs/history.md). */}
+      {/* HISTORY. The journal; a hovered row lights what it touched (docs/history.md). */}
       <FooterTab
         plain={isMobile}
         active={rightPanel === "history"}
@@ -3434,36 +3398,17 @@ export default function App({
       >
         <History className="h-4 w-4" />
       </FooterTab>
-      {/* SHARE. The badge stays on the button: it says the repository is behind BEFORE you open anything. */}
+      {/* SHARE. */}
       <FooterTab
         plain={isMobile}
         active={rightPanel === "share"}
-        className="relative"
         disabled={share.busy}
-        title={
-          conflicted
-            ? m["share.conflicted"]()
-            : behind > 0
-              ? m["share.behind"]({
-                  n: behind,
-                  s: behind === 1 ? "" : "s",
-                })
-              : `${m["share.button"]()}${shareKey ? ` (${shareKey})` : ""}`
-        }
+        title={`${m["share.button"]()}${shareKey ? ` (${shareKey})` : ""}`}
         aria-label={m["share.button"]()}
         aria-keyshortcuts={shareKey}
         onClick={() => void runCommand("ui share")}
       >
         <Share2 className="h-4 w-4" />
-        {badge && (
-          <span
-            className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white ${
-              conflicted ? "bg-amber-500" : "bg-primary"
-            }`}
-          >
-            {badge}
-          </span>
-        )}
       </FooterTab>
       {/* The COG opens the settings panel — one surface with a tab per entry, where a dropdown used to be. */}
       <FooterTab
@@ -3648,15 +3593,6 @@ export default function App({
                   <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                     <Lock className="h-3 w-3" /> {m["share.readOnly"]()}
                   </span>
-                )}
-                {/* The workspace repo's alternatives, right after the project's name; a snapshot has no repository to switch between. */}
-                {!frozen && (
-                  <AlternativePicker
-                    reloadKey={reloadKey}
-                    onSwitch={(name) =>
-                      void runCommand(`project alternative switch ${name}`)
-                    }
-                  />
                 )}
                 {ws && !ws.activeProject && (
                   <span className="truncate rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
@@ -3856,7 +3792,7 @@ export default function App({
                                 onDirtyChange={noteBuilderDirty}
                                 onSaved={() => {
                                   bumpReload();
-                                  // A save here PUBLISHES — four files committed and pushed onto the library repository, so the act says so.
+                                  // A library module saved here is live at once, so the Libraries tab is re-read.
                                   editorRef.current?.refreshLibraries();
                                 }}
                                 setStatus={setStatus}
@@ -4414,7 +4350,6 @@ export default function App({
                   )}
                   {rightPanel === "share" && (
                     <SharePanel
-                      gitStatus={gitStatus}
                       busy={share.busy}
                       externals={externals}
                       lanUrls={lanUrls}
@@ -4964,9 +4899,6 @@ export default function App({
               </div>
             </footer>
 
-            {/* What an admin changed in the libraries and has not published — the one place a library is committed. */}
-            <LibraryEditsRow rev={rev} onChanged={bumpReload} />
-
             {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
             {docked && (
               <>
@@ -5346,7 +5278,6 @@ export default function App({
               engine={engineRef.current}
               connected={connected}
             />
-            <GitBusyOverlay />
             {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
             <AskHost />
           </div>

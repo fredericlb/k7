@@ -60,15 +60,16 @@ at the right of the title bar does both, and `docs/signIn.md` is the page.
 
 The session secret is generated once and kept in the state folder. The local user has no
 groups, so **it is never an admin** — it cannot edit the origin's libraries. The app therefore
-seeds `libraries.json` itself on first run.
+hands the hub its own seed.
 
 ## The library
 
 A project opens only once the origin has a library (`packages/project-shell/docs/launch.md`).
-The hub's settings form accepts only SSH git URIs, but the list it READS takes any URI git can
-clone, so the app seeds a LOCAL one: the `st0-library` submodule from a checkout, the bundle's
-one-commit clone in the packaged app. No network, no deploy key. Delete `workspaces/libraries.json` to
-reseed.
+The app sets `STUDIO_LIBRARY_SEED=st0=<folder>`: the `st0-library` submodule from a checkout, the
+bundle's copy of it in the packaged app. With no list written, the hub lists the seed's `st0` and
+copies it into `workspaces/libraries/st0` on first ask; no network. Delete that folder to reseed.
+A desktop's hub syncs to a remote relay when it is signed in, so it keeps this copy rather than
+following the origin's library, until st0fs carries binary files (`docs/live-sync-plan.md`).
 
 ## The engine
 
@@ -94,8 +95,8 @@ on macOS): `workspaces/` (`$STUDIO_FILES_ROOT`), `mediatek/`, `prefs/`, `server-
 the supervisor — which the shell's builder config copies into Resources. The build is unsigned:
 partially signed, Gatekeeper kills the unsigned children.
 
-External tools stay external, as in st0's image: `git` (libraries, workspaces), `ffmpeg`,
-`yt-dlp`, `mpv` — found on `PATH` or through their `*_BIN` variables.
+External tools stay external, as in st0's image: `ffmpeg`, `yt-dlp`, `mpv` — found on `PATH` or
+through their `*_BIN` variables.
 
 ## Why Electron
 

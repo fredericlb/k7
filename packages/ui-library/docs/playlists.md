@@ -114,8 +114,8 @@ What differs is **where it is filed and what that costs**:
 
 | | here | a workspace's `_playlists/` |
 |---|---|---|
-| lives on | this volume, beside the songs it names | the git repository the songs were played for |
-| versioned | no — the volume is not a repository | with the project, branch and clone included |
+| lives on | this volume, beside the songs it names | the workspace the songs were played for |
+| synced | no — the volume is the one copy | with the project, through the live-sync relay |
 | reachable | any browser with the session | the machine whose file service is up |
 | names a surface's `playlist:` | no | yes — `surfaces/desk.yaml` resolves against the workspace |
 

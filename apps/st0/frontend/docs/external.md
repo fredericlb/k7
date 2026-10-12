@@ -25,7 +25,7 @@ already the app's route. So:
 | `routes.ts` | nothing: `main.tsx` reads the address before the router |
 
 Same shape as `@shares/<token>.st0`, for the inverse reason (a share slips into the PROJECT's place,
-an external surface into the ROUTE's), and the same `@` sentinel: it cannot start a repository short
+an external surface into the ROUTE's), and the same `@` sentinel: it cannot start a workspace's
 name, and it cannot be a surface id either — `createSurfaceFile` accepts only letters, digits, `_`
 and `-`. Collision is impossible on both sides.
 
@@ -36,8 +36,8 @@ an address only one of them understands is a 404 nobody can attribute.
 
 ## The same gates, a different render
 
-An external surface needs exactly what the editor needs: the account, an engine, and the repository
-resolved into a working copy on that engine's machine. So it borrows the same stack —
+An external surface needs exactly what the editor needs: the account, an engine, and the workspace
+resolved into a folder on that engine's machine. So it borrows the same stack —
 `AuthGate → EngineGate → ProjectGate` — and changes only what is rendered at the end:
 
 ```
@@ -299,11 +299,11 @@ navigating in place there would replace exactly the screen you are looking at.
 
 ### The same address on both sides
 
-`externalHref` goes through `projectHref`, so a repository registered on the account gives `/<dépôt>/…` and
-the rest falls back to `@local`. Not cosmetic: the engine identifies a project by its address
-(`projectClaimKey`), and a tablet arriving on `@local/…` while the editor holds `/<dépôt>/…` would
-make **two claims on one song**, the second evicting the first. That, and nothing else, is why this
-menu queries the account's file service for its repositories.
+`externalHref` goes through `projectHref`, so the tablet and the editor spell a project's
+`@local/…` address alike. Not cosmetic: the engine identifies a project by its address
+(`projectClaimKey`), and two spellings of one song would make **two claims on it**, the second
+evicting the first. That, and nothing else, is why this menu builds its links with the editor's
+own function.
 
 A tablet on the local network that its engine has not paired yet draws the pairing card in place of
 "no engine answers" — `pairing.md`.

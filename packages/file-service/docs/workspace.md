@@ -8,12 +8,11 @@ module state, and the path-traversal guards (`safePath`/`toRel`) read `this.root
 
 The active project is remembered per-workspace in a marker file BESIDE the root, never in it:
 `<the workspaces' folder>/.active-projects/<workspace>` (`activeMarkerOf`). Which project is open
-here is this machine's state, not the band's, so it must not appear in a commit, a push or a diff
-of the workspace — and a `.gitignore` entry would not hold that for a clone whose author wrote their
-own. A `.studio-active` file found INSIDE a workspace is read once, moved beside it and deleted. Global machine preferences stay global (`preferences.yaml`).
+here is this machine's state, not the band's, so it must not travel with the workspace to another
+replica. A `.studio-active` file found INSIDE a workspace is read once, moved beside it and deleted. Global machine preferences stay global (`preferences.yaml`).
 
 It is also what `tree()` walks, and what `setActiveProject` has to be strict about, since a
-project can be named out of a listing this machine's clone is ahead of — both in
+project can be named out of a listing this machine is ahead of — both in
 [activeProject.md](activeProject.md).
 
 ## `revision()` — the change token
@@ -30,7 +29,7 @@ in front of it turns a constant cost into one paid per edit.
 - `mutations` — our own writes, so an edit through the API is reflected instantly, even
   inside a single filesystem-timestamp tick.
 - the files — count + newest mtime over the project's files, so an edit made OUT of
-  process (a `git pull`, another tab, an external editor) moves it too. There is no
+  process (another replica's edit, another tab, an external editor) moves it too. There is no
   watcher here; this walk is what stands in for one.
 - **two files outside the project**, folded into the same "newest mtime": the engine's scan
   cache (`<state>/exts.json`) and the machine's preferences (`<state>/preferences.yaml`).
@@ -52,7 +51,7 @@ invalidation story — there is nothing else to remember to call.
 
 Invalidating the compiled doc on our OWN writes alone — through `invalidateProjectDoc()` —
 is correct for every edit that arrives through the API, and silently wrong for every edit
-that doesn't. A `git pull`, an editor on the same disk, a tool writing the folder directly:
+that doesn't. Another replica's edit, an editor on the same disk, a tool writing the folder directly:
 none of them touch the mutation counter, so the service would serve a compile of a project
 that no longer exists, for the lifetime of the process. The symptom is the worst kind
 available: the graph, the document sent to the engine and the error list all agree with each
@@ -191,7 +190,7 @@ not move it; and every file write bumps the mutation counter, which would throw 
 thirty times while you type to re-find the same five folders.
 
 The window covers what those three cannot see: a folder created on disk by a hand outside this
-process, or arriving in a `git pull`. `cachedProjectDoc` refuses that trade and has to — a stale
+process, or arriving from another replica. `cachedProjectDoc` refuses that trade and has to — a stale
 COMPILE is confidently wrong about a song. A project list five seconds behind is a picker that has
 not noticed a folder yet, which is a wait, not a lie.
 
@@ -201,7 +200,7 @@ not noticed a folder yet, which is a wait, not a lie.
 
 1. the **lexical** one — `resolve` + prefix — which catches `../` without a syscall;
 2. a **realpath** check, because `resolve` does not follow symlinks. A symlink planted in the
-   workspace (by an unzip, a git checkout, a CLI run) pointing at `~/.ssh` passes gate 1 happily,
+   workspace (by an unzip, a sync, a CLI run) pointing at `~/.ssh` passes gate 1 happily,
    and `GET /file?path=link/id_rsa` would read straight through it.
 
 The trap in gate 2 is that `realpathSync` throws ENOENT for a path being CREATED, which would break
@@ -216,6 +215,10 @@ silently repoint every ref naming it. Content writes are ordinary; `module popul
 catalogue from the plugin scan the same way any other writer would. It is enforced here rather
 than in the UI because the routes are reachable without one. `guardMutable` adds the root, the
 recycle bin and the active project's own folder; anything INSIDE that folder is fair game.
+
+A deletion is a move into a recycle bin, never an erase. A workspace's bin is `_recycle_bin/` at
+its root; a LIBRARY's is `_recycle_bin/` at the library's own root, since a library may sit on
+another disk than the workspace and a move cannot cross disks. `skip` hides both.
 
 ## What the browser is handed
 
@@ -326,13 +329,12 @@ own answer: none of them can be read out of that tree.
   ENGINE writes the absolute one (it is a different process), the browser is told the relative one
   (it has no idea where the workspace lives).
 
-## The bench is not a repository
+## The bench is generated, not kept
 
 `POST /workspaces/bench` makes the bench — one live rig — and answers a workspace + project.
 
-Its own route rather than a clone, because there is no repository: the folder is generated, and
-deleted and generated again every time it is opened, so putting it under version control would
-version something with a lifetime of one session. `ProjectGate` calls this when the address names
+Its own route rather than `POST /open`, because the folder is generated, and deleted and generated
+again every time it is opened: there is nothing in it worth keeping past one session. `ProjectGate` calls this when the address names
 `@banc`, in place of the `POST /open` a `@local` address gets. `isBenchProject` is the one
 place either end spells which address the bench answers; anything else under `@banc` names nothing
 and is a 404 saying where a chain and a module are edited instead. A bench names the library
@@ -348,16 +350,16 @@ is nothing to try.
 The rig is scaffolded fresh on every open, so a write into the project folder survives exactly as
 long as the session: no translation, no promotion, no path out of it. What an admin writes into a
 LIBRARY from the rig — `_libraries/<name>/…`, an ordinary path here as it is in every other
-workspace — lands in the admin's own clone of it, as from any project, until it is pushed or
-discarded (`apps/st0/backend/docs/media/banc.md`, `libraries.md`).
+workspace — lands where a library write from any project lands (`apps/st0/backend/docs/media/banc.md`,
+`libraries.md`).
 
 That workspace holds the rig and nothing else: a `chains/` folder in it is swept on open, because a
 project folder that saves nowhere is worse than no folder at all.
 
 ### `_libraries/<name>/…` is a VIRTUAL folder
 
-No workspace holds the libraries: the file hub clones them once for the origin, and an admin's
-account reads each from a clone of its own (`libraries.md`). `safePath` maps a path whose first
+No workspace holds the libraries: the file hub keeps one folder of each for the origin
+(`libraries.md`). `safePath` maps a path whose first
 segment is `_libraries` to that library's root (`libraryRoot`), and confines it
 THERE by the same two gates the workspace has — lexical, then on the real path — so
 `_libraries/../..` escapes nothing, and neither does a symlink a library carries. `toRel` maps back,
@@ -365,11 +367,10 @@ so every path this API hands out for a library file is a `_libraries/<name>/…`
 folder, and `_libraries` itself, cannot be renamed, moved or deleted from a workspace: which
 libraries the origin has is its admins' business.
 
-A library write is refused unless the library is read from an admin's own clone
-(`assertLibraryWritable`, `isLibraryEditable`): the hub's clone is every account's and is reset to
-its remote at every sync. For an admin it is a plain write into their clone, from any project, and
-nothing is pushed anywhere by the write itself. What publishes it is the admin's commit
-(`POST /account/library-edits/commit`), which is somebody's decision rather than a side effect of typing. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
+A library write is refused unless this account is an admin's (`assertLibraryWritable`,
+`isLibraryEditable`): the hub's folder is every account's. For an admin it is a plain write into
+that folder, from any project, and the write is the publication. A deletion inside a library moves
+into that library's own `_recycle_bin/`, since a library may sit on another disk than the workspace. `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
 one copy backing every project beside it, and nothing has given it a way back. The one exception
 either way is a module's `ui.yaml` — a panel is drawn for the plugin, not for the song, so it is
 written where the module is, and forking a whole module to move a knob is precisely the copy nobody

@@ -7,8 +7,8 @@ The gates, outermost first: **AuthGate** (you must be signed in — hosted backe
 with the project — it has the plugins the project uses, `engineCompat.ts` — then the best latency
 class, then the strongest machine by performance score; the picker shows only when no engine
 is usable, or when you ask to change — `@studio/engine-browser/docs/access.md`), and **ProjectGate** (rendered by
-EngineGate: resolve the repository this editor was opened on into a folder on that engine's
-machine — cloning it if it has never been there — then mount the editor). Several tabs may open
+EngineGate: resolve the workspace this editor was opened on into a folder on that engine's
+machine, then mount the editor). Several tabs may open
 one project at once; there is no single-tab lease.
 
 **ProjectGate picks nothing.** The home page links here with an address —
@@ -18,7 +18,7 @@ own routes are written below it and cannot rewrite it away. The gate is `@studio
 — z0's editor mounts the same one — and `components/ProjectGate.tsx` supplies this app's wording
 alone. Read
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md)
-before touching any of it, in particular why the address is a path and the repository is named
+before touching any of it, in particular why the address is a path and the workspace is named
 rather than spelled out.
 
 **ProjectGate also closes the session again.** Twenty minutes untouched and it stops rendering the
@@ -172,7 +172,7 @@ until its divider is dragged. It is the wiring and the layout; almost nothing el
 | slot | what st0 puts there |
 |---|---|
 | `title` / `subtitle` | **nothing**, inside a project — see below |
-| `children` | the project's name, the engine playing it, its alternatives picker, the workspace warning, and the **transport** centred over them |
+| `children` | the project's name, the engine playing it, the workspace warning, and the **transport** centred over them |
 | `items` | **empty** — see below |
 | `actions` | the **master meter**, then the pane row — or, on a phone, the one menu that also holds the side panels' buttons |
 
@@ -226,8 +226,8 @@ the bar's edge: below that the row reads as a strip of buttons rather than as a 
 
 **A bar's height IS its tallest child**, which is the rule to keep: padding alone buys nothing while
 a 36-pixel button is still in the row, and one control left at the default puts the whole bar back
-where it was. Anything added here is 24 px or under — `AlternativePicker` and the share's download
-button are both `h-6` for that reason, and the badges are `text-xs py-0.5`.
+where it was. Anything added here is 24 px or under — the share's download
+button is `h-6` for that reason, and the badges are `text-xs py-0.5`.
 
 **A phone keeps `icon` and `py-1`.** The one button up there is the menu everything else collapses
 into, and a 24-pixel target under a thumb is a miss; the pixels are cheaper than the tap. That is
@@ -655,7 +655,7 @@ let `full` decide whether it is `hidden`.
 
 The ladder only works if each rung is **exclusive**, and that is the whole reason
 [`src/popins.ts`](../src/popins.ts) exists. Several overlays answer Escape themselves with a plain
-bubble-phase `window` listener and no `stopPropagation` — the header's alternative menu, the phone's
+bubble-phase `window` listener and no `stopPropagation` — the phone's
 hamburger, the help page, Radix's dialogs — and the shell's own listener is on `window` too. Both fire
 on the one keypress, and since the shell's fallback closes the graph slot, dismissing a dropdown would
 otherwise throw away the clip or the take open behind it.
@@ -699,11 +699,11 @@ The buttons:
 
 | button | panel | what it is |
 |---|---|---|
-| ♪ (a SET only) | Playlists | the repository's set lists: a searchable dropdown, its songs under it |
-| ⌾ | Références | the repository's reference tracks — what you listen AGAINST ([references.md](references.md)) |
+| ♪ (a SET only) | Playlists | the workspace's set lists: a searchable dropdown, its songs under it |
+| ⌾ | Références | the workspace's reference tracks — what you listen AGAINST ([references.md](references.md)) |
 | ☑ | Tâches | the workspace's task list, `TODOS.md` at its root ([tasks.md](tasks.md)) |
-| ⟲ | Historique | the open song's undo steps and the commits that touched it, one list by time |
-| ⇪ | Partager | commit, pull, export, publish — and the badge saying how far behind the repo is |
+| ⟲ | Historique | the open song's undo steps, newest first |
+| ⇪ | Partager | export, publish |
 | ⚙ | Réglages | tabs: Éditeur, I/O, Compte |
 
 **The I/O tab lists the INTERFACE's inputs, not the song's** (`components/IoPanel.tsx`): every
@@ -713,8 +713,8 @@ interface would otherwise hide the fifteen you are trying to find a signal on. U
 answered, the rows are the song's declared inputs.
 
 **The History panel LIGHTS, it does not travel** (`components/HistoryPanel.tsx`). Hovering a step
-or a commit rings what it touched on the graph and the timeline — the live ones, as they are now —
-rather than swapping them for the project as it was. A commit carries nothing but the files it
+rings what it touched on the graph and the timeline — the live ones, as they are now —
+rather than swapping them for the project as it was. A step carries the files it
 changed, so the marks are read off PATHS (`historyMarks.ts`): a track file is its lane, a sequence
 or clip file every placement of that material, a chain file its chain — or only the node a journal
 step's command line names in it. A file that is the whole song's (`project.yaml`) lights nothing,
@@ -734,8 +734,8 @@ being drawn on the way OUT is the last one open — by then the caller has stopp
 
 Panels rather than one set of tabs, because they are different verbs — what you **set**, what you
 **play from**, what you **listen against**, what you **send**. Settings are things you set and leave, a
-set list is a thing you work from, and a reference is a thing you put on beside what you are doing. Nor is the share a dropdown, which is the wrong shape for a surface that *reports* — a pull
-says how far behind you were, an export takes a minute and says where the file went.
+set list is a thing you work from, and a reference is a thing you put on beside what you are doing. Nor is the share a dropdown, which is the wrong shape for a surface that *reports* — an export
+takes a minute and says where the file went.
 
 None of them is a **pane**. A pane is what the project DECLARES ([shellRouting.md](shellRouting.md),
 `packages/song/docs/surfaces.md`); none of this is the project's, which is why none of it is in the URL
@@ -754,7 +754,7 @@ data-loss bug, not a cosmetic one.**
 | **dirty** | ask, and do nothing until told | two versions of one file exist and only the person knows which matters |
 
 Gated on `/revision`, the same ~2 ms change token the diagnostics poll reads, rather than re-reading the
-file on a timer. The token moves for OUR writes **and** for edits made outside the app — a `git pull`,
+file on a timer. The token moves for OUR writes **and** for edits made outside the app — a change the live-sync relay brought in,
 another editor — which is exactly the set of events worth reacting to. It is polled once for the whole
 app; see `hooks/useRevision.ts`.
 
@@ -1147,7 +1147,7 @@ Four answers to one question follow from that:
   knob into a wave of re-reads — errors, plugins, tasks, the desk, the mastering graph — and `get`
   never hands it out, so a component that re-renders for another reason does not pick it up either.
   Only when the reply's `revBefore` is the token this tab already held, though: otherwise something
-  else landed in between — another tab, the CLI, a pull — and the write is announced like any tick.
+  else landed in between — another tab, the CLI, another replica — and the write is announced like any tick.
   The two that must still follow a knob take `useQuietWrites` as a second trigger: the open file,
   which may be the one written, and the history, where the write is a row. A knob cannot break the
   compile, so the errors waiting for the next real change is the accepted cost.
@@ -1176,7 +1176,7 @@ mutation and compares the two images anyway, so naming them is free. `App` holds
 is still a counter, because "the same file twice" has to fire twice and a list cannot say that.
 
 **`files: null` means nobody said, and every predicate reads that as *re-ask*.** That is what lets a
-project opened, an undo, a repository pulled and a poll that noticed something name no files at all, and
+project opened, an undo, a relayed change and a poll that noticed something name no files at all, and
 what makes a service too old or too broken to answer degrade to a plain counter.
 
 The predicates are [`../src/reloadScope.ts`](../src/reloadScope.ts), pure functions with a test each,
@@ -1395,7 +1395,7 @@ Measured on a build: the icon chunk is ~150 KB gzipped, and the home page carrie
 `main.tsx` already branched before importing anything heavy, so a 36-pixel tab strip would not load the
 whole of st0. `appMain.tsx` did not, and the home page paid for it: it statically imported `App`, so
 opening the app at `/` parsed and executed the entire editor — CodeMirror, dagre, `@studio/ui-eyes`,
-`@studio/ui-turntables` — before drawing a single repository row. The symptom is a window that opens and
+`@studio/ui-turntables` — before drawing a single workspace row. The symptom is a window that opens and
 stays blank for seconds, which reads as the app hanging rather than as a bundle being parsed.
 
 The four screens that are not the home page are therefore `lazy()`: `App`, `EngineGate`, `ExternalIndex`,
@@ -1525,7 +1525,7 @@ Keeping it costs one habit — **the button runs the command, it does not call t
 | the settings panel's tabs | `ui settings editor\|io\|account` | `App` |
 | the settings panel's *Commandes* | `ui settings commands` — the one that is still a page | `App` |
 | the account tab's rows | `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
-| the share panel's rows | `project commit`, `project pull`, `project export`, `project share k7\|link` | `@studio/commands` and `hooks/useShare.ts` |
+| the share panel's rows | `project export`, `project share k7\|link` | `@studio/commands` and `hooks/useShare.ts` |
 | `ui external <surface>` | the palette's way to the same address, the panel now drawing codes rather than links | `App` |
 | the editor tab's one toggle | `ui vim` | `toggleVim` in `App` |
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |

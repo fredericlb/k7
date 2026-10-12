@@ -23,7 +23,6 @@
     "@studio/audio-probe": "*",
     "@studio/engine-browser": "*",
     "@studio/engine-protocol": "*",
-    "@studio/git-repos": "*",
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",

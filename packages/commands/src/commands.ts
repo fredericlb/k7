@@ -243,16 +243,6 @@ import {
 } from "@studio/take-render/materialRender";
 import { freezeUpstreamRender } from "@studio/take-render/render";
 import { wavSeconds } from "@studio/take-render/wavLength";
-import {
-  applyAlternative,
-  cancelAlternative,
-  commitAndPush,
-  type GitEnv,
-  newAlternative,
-  pull,
-  push,
-  switchAlternative,
-} from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
 import { CONSOLE_VERBS } from "./verbs/console.ts";
 import { CROSSFADE_VERBS } from "./verbs/crossfade.ts";
@@ -325,18 +315,8 @@ export interface CommandHost {
   stemsChain?: string;
   /** …and the one it makes an instrumental with, as `system instrumental` wrote it. */
   instrumentalChain?: string;
-  // Transport config for git, merged over the env: the web host pins GIT_SSH_COMMAND to the deploy key.
-  gitEnv?: GitEnv;
-  // Where the whole-repo git commands run — the workspace ROOT on the web, since a workspace is one cloned repo.
+  // The workspace ROOT, where the workspace-wide files (set lists, tasks) live.
   repoDir?: string;
-  /** Fetch the account's libraries and say what is to pull — the FILE SERVICE keeps them, so it is handed in; docs/verbs.md. */
-  updateLibraries?(): Promise<
-    {
-      name: string;
-      state: "cloned" | "updated" | "behind" | "current" | "kept" | "failed";
-      note: string;
-    }[]
-  >;
   // Back up a file the command is about to overwrite, so undo can restore it — docs/verbs.md.
   snapshot?(absPath: string): void;
   /** Send one recorder take to the médiathèque. Handed in, because the bytes are on the ENGINE's
@@ -3622,7 +3602,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const isLane = (n: string) => !!g.tracks[n];
     const current = g.modules[module]?.frozen;
     if (typeof current === "string" && current) {
-      // Unfreeze: the attribute goes and so does the render, which the next `project commit` would stage.
+      // Unfreeze: the attribute goes and so does the render it pointed at.
       setModuleFrozen(h.songPath, module, null);
       rmSync(join(h.songPath, current), { force: true });
       h.log([`${module}: unfrozen — everything upstream is live again`]);
@@ -4555,150 +4535,6 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   "project.reload": async (_a, h) => {
     await h.reload();
-  },
-
-  // commit <message> — stage, commit and push the whole repo. The message is the trailing line, so no quoting.
-  "project.commit": async (a, h) => {
-    const message = a.trim();
-    if (!message) {
-      h.refuse(["usage: commit <message>"]);
-      return;
-    }
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) {
-      h.refuse(["no repository"]);
-      return;
-    }
-    try {
-      const r = commitAndPush(dir, message, h.gitEnv);
-      if (r.nothingToCommit) {
-        h.refuse(["nothing to commit — the project is clean"]);
-        return;
-      }
-      const files = `${r.changed} file${r.changed === 1 ? "" : "s"}`;
-      const head = `committed ${r.sha} (${files}) — ${message}`;
-      // A failed push is not a failed commit: say it landed locally and why it didn't reach the remote.
-      h.log(
-        r.pushed
-          ? [head, "pushed"]
-          : [head, `push failed (commit is local): ${r.pushError}`],
-      );
-    } catch (e) {
-      h.refuse([`commit failed: ${(e as Error).message}`]);
-    }
-  },
-
-  // pull — `--ff-only`, so a diverged branch fails with git's own message instead of a half-merged tree.
-  "project.pull": async (_a, h) => {
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) {
-      h.refuse(["no repository"]);
-      return;
-    }
-    try {
-      const r = pull(dir, h.gitEnv);
-      h.log([r.upToDate ? "already up to date" : `pulled — ${r.summary}`]);
-      if (!r.upToDate && h.songPath) await h.reload();
-    } catch (e) {
-      h.refuse([`pull failed: ${(e as Error).message}`]);
-    }
-  },
-
-  // push — what `project commit` cannot reach: commits already made, on a clean tree.
-  "project.push": async (_a, h) => {
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) {
-      h.refuse(["no repository"]);
-      return;
-    }
-    try {
-      push(dir, h.gitEnv);
-      h.log(["pushed"]);
-    } catch (e) {
-      h.refuse([`push failed: ${(e as Error).message}`]);
-    }
-  },
-
-  // project libraries update — the ACCOUNT's libraries, not the workspace: the file service keeps them.
-  "project.libraries.update": async (_a, h) => {
-    if (!h.updateLibraries) {
-      h.refuse([
-        "the libraries are kept by the file service — update them from st0",
-      ]);
-      return;
-    }
-    const results = await h.updateLibraries();
-    if (!results.length) {
-      h.refuse(["this account has no libraries — add one on st0's home page"]);
-      return;
-    }
-    h.log(results.map((r) => `${r.name}: ${r.note}`));
-    // The modules a song resolves through `@<library>/…` just moved, so what is open is out of date.
-    if (
-      results.some((r) => r.state === "updated" || r.state === "cloned") &&
-      h.songPath
-    )
-      await h.reload();
-  },
-
-  // --- alternatives: all four act on the REPO, since an alternative is a branch of the whole clone
-  "project.alt.new": async (a, h) => {
-    const name = a.trim().split(/\s+/)[0] ?? "";
-    if (!name) return h.refuse(["usage: project alternative new <name>"]);
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.refuse(["no repository"]);
-    try {
-      const from = newAlternative(dir, name, h.gitEnv);
-      h.log([`alternative '${name}' started from '${from}' — you are on it`]);
-      await h.reload();
-    } catch (e) {
-      h.refuse([`alternative new failed: ${(e as Error).message}`]);
-    }
-  },
-  "project.alt.apply": async (_a, h) => {
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.refuse(["no repository"]);
-    try {
-      const { alt, parent, wip } = applyAlternative(dir, h.gitEnv);
-      h.log(
-        [
-          // The wip commit is named, like `switch` names it: nobody asked for it, so its name is the way back.
-          wip ? `committed work in progress as "${wip}"` : null,
-          `applied '${alt}' into '${parent}' — you are on '${parent}'`,
-        ].filter(Boolean) as string[],
-      );
-      await h.reload();
-    } catch (e) {
-      h.refuse([`alternative apply failed: ${(e as Error).message}`]);
-    }
-  },
-  "project.alt.cancel": async (_a, h) => {
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.refuse(["no repository"]);
-    try {
-      const { alt, parent } = cancelAlternative(dir, h.gitEnv);
-      h.log([`dropped '${alt}'s changes — you are on '${parent}'`]);
-      await h.reload();
-    } catch (e) {
-      h.refuse([`alternative cancel failed: ${(e as Error).message}`]);
-    }
-  },
-  "project.alt.switch": async (a, h) => {
-    const name = a.trim().split(/\s+/)[0] ?? "";
-    if (!name) return h.refuse(["usage: project alternative switch <name>"]);
-    const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.refuse(["no repository"]);
-    try {
-      const { from, wip } = switchAlternative(dir, name, h.gitEnv);
-      h.log([
-        wip
-          ? `committed work in progress on '${from}' as "${wip}", now on '${name}'`
-          : `now on '${name}'`,
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.refuse([`alternative switch failed: ${(e as Error).message}`]);
-    }
   },
 };
 

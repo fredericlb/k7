@@ -320,45 +320,6 @@
   readable:
     en: "Reload the song from disk"
     fr: "Recharger le morceau depuis le disque"
-# Stages all of the project's changes, commits with the given message, and pushes.
-# The message is the whole rest of the line — no quotes needed (e.g. commit fix melody).
-- command: "project commit"
-  sid: project.commit
-  readable:
-    en: "Commit and push every change"
-    fr: "Valider et pousser toutes les modifications"
-  help: "stage all project changes, commit them, and push (e.g. commit fix the melody)"
-  surfaces: [cli]
-  args: [{ name: message, hint: "the commit message — the rest of the line" }]
-# Fast-forward the repo the project lives in from its remote (git pull --ff-only). Fails
-# cleanly (no half-merge) if the branch has diverged or a dirty file would be clobbered.
-- command: "project pull"
-  sid: project.pull
-  help: "pull the latest changes from git (fast-forward only)"
-  surfaces: [cli]
-  readable:
-    en: "Pull the latest changes"
-    fr: "Récupérer les dernières modifications"
-# Push the commits the remote lacks. `project commit` pushes too, but refuses a clean tree, which
-# leaves commits made earlier (a failed push, an offline commit) with no way out.
-- command: "project push"
-  sid: project.push
-  help: "push the commits the remote does not have yet"
-  surfaces: [cli]
-  readable:
-    en: "Push the local commits"
-    fr: "Pousser les commits locaux"
-# The account's libraries are repositories of their own, which the file service clones and keeps
-# at their latest: this fetches every one of them now, instead of at the next open. The other
-# direction — publishing a module you edited — is the builder's Save. See
-# packages/file-service/docs/libraries.md.
-- command: "project libraries update"
-  sid: project.libraries.update
-  help: "update the shared libraries to their latest version"
-  surfaces: [cli]
-  readable:
-    en: "Update the shared libraries"
-    fr: "Mettre à jour les bibliothèques partagées"
 
 # --- tasks (TODOS.md at the workspace root, a Markdown checklist) ---
 # What is left to do, for the whole workspace rather than one song: a task may still name the song
@@ -400,50 +361,6 @@
   help: "remove a task from the list (e.g. task remove 2)"
   surfaces: [cli]
   args: [{ name: number, hint: "the task's place in the list, from 1" }]
-
-# --- alternatives (try a direction, keep it or drop it) ---
-# An alternative is a git branch you try a version of the song on, with the branch you
-# left remembered (branch.<name>.studioParent) so `apply` and `cancel` know where to go
-# back to. The vocabulary is deliberately not git's: you are not branching, you are trying
-# another version and either keeping it or dropping it. The header dropdown lists them.
-- command: "project alternative new"
-  sid: project.alt.new
-  readable:
-    en: "Start an alternative of the song"
-    fr: "Démarrer une alternative du morceau"
-  help: "start an alternative from here and switch to it (e.g. project alternative new faster)"
-  surfaces: [cli]
-  args: [{ name: name, hint: "the alternative's name — a git branch name" }]
-# Merges the alternative into the branch it came from and lands you there. The
-# alternative is KEPT: a direction worth reading again costs nothing to leave behind.
-# Work in progress is committed first, as `switch` does — the last edits are usually the
-# ones being applied, and refusing would only send you off to make this same commit by hand.
-- command: "project alternative apply"
-  sid: project.alt.apply
-  help: "merge this alternative into the branch it came from"
-  surfaces: [cli]
-  readable:
-    en: "Merge this alternative into the song"
-    fr: "Fusionner cette alternative dans le morceau"
-# Throws away everything the alternative changed — tracked edits AND untracked files —
-# and returns to its parent. Destructive; that is what "cancel" means here.
-- command: "project alternative cancel"
-  sid: project.alt.cancel
-  help: "discard this alternative's changes and go back"
-  surfaces: [cli]
-  readable:
-    en: "Discard this alternative and go back"
-    fr: "Abandonner cette alternative et revenir"
-# Work in progress is committed under a generated name rather than stashed: a stash is
-# invisible from the branch you left it on, and switching is how you come back to it.
-- command: "project alternative switch"
-  sid: project.alt.switch
-  readable:
-    en: "Switch to another alternative"
-    fr: "Basculer sur une autre alternative"
-  help: "move to another alternative, committing any work in progress"
-  surfaces: [cli]
-  args: [{ name: name, complete: alternatives }]
 
 # --- mixer ---
 # `track mute|solo` flip a flag; `gain`/`pan` SET a value. The verbs say which they
@@ -1011,8 +928,7 @@
 
 # --- surfaces (the special views a project asks for) ---
 # A project draws nothing it has not declared: the arrangement, the frame, the desk and the
-# mastering strip are all files in surfaces/. Under `project` with the markers and the
-# alternatives, because a surface is a property of the PROJECT rather than of anything in it.
+# mastering strip are all files in surfaces/. Under `project` with the markers, because a surface is a property of the PROJECT rather than of anything in it.
 # There is no layout argument — every type is drawn in exactly one, and the schema refuses the
 # other, so it is derived. See packages/song/docs/surfaces.md.
 - command: "project surface new"
@@ -1799,7 +1715,7 @@
   menu: [node]
   args: [{ name: node, complete: nodes }, { name: state, values: [on, off] }]
 # --- a module's ALTERNATIVES (its other attribute sets) ---
-# NOT `project alternative`, which is a git branch, and not a PRESET, which is a starting point
+# Not a PRESET, which is a starting point
 # you stamp into the module's params. This is a set of attributes the module can be switched
 # BETWEEN: both survive, one is on, and switching is one line of its own file. Any field a
 # module has may differ — params, a lane's clips, even the plugin. See

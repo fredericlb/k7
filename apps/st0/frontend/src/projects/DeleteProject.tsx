@@ -18,7 +18,7 @@ import { m } from "../paraglide/messages.js";
 export function DeleteProject({
   open,
   onClose,
-  /** The project's path in the repository — what is deleted, and what the question names. */
+  /** The project's path in the workspace — what is deleted, and what the question names. */
   path,
   label,
   onDelete,
@@ -55,7 +55,7 @@ export function DeleteProject({
         </DialogHeader>
 
         <p className="rounded bg-muted px-3 py-2 font-mono text-xs">{path}</p>
-        {/* What git makes recoverable, said without overselling it: history keeps the content, which is not an undo button. */}
+        {/* Where the contents go, said without overselling it: the recycle bin keeps them, which is not an undo button. */}
         <p className="text-xs text-muted-foreground">
           {m["project.deleteKept"]()}
         </p>

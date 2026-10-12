@@ -1,44 +1,17 @@
-// HistoryPanel.tsx — the open project's history as one list on the right: the undo journal's steps
-// and the commits that touched the project, interleaved by time, newest first. Hovering a row lights
-// what it touched on the graph and the timeline (historyMarks.ts); the panel itself changes nothing.
+// HistoryPanel.tsx — the open project's history as one list on the right: the undo journal's
+// steps, newest first. Hovering a row lights what it touched on the graph and the timeline
+// (historyMarks.ts); the panel itself changes nothing.
 // The journal's undone steps stay listed, dimmed: they are what Ctrl+Y would bring back.
 
 import { Button } from "@frediverse/ui/button";
-import { GitCommitHorizontal, History, Undo2, X } from "@frediverse/ui/icons";
+import { History, Undo2, X } from "@frediverse/ui/icons";
 import type { WebGraph } from "@studio/graph-model";
-import type { HistoryListEntry, ProjectCommit } from "@studio/web-protocol";
+import type { HistoryListEntry } from "@studio/web-protocol";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { type HistoryMark, historyMarks } from "../historyMarks";
 import { useQuietWrites, useRevision } from "../hooks/useRevision";
 import { m } from "../paraglide/messages.js";
-
-/** One row: a journal step or a commit, on the one time axis. */
-type Row =
-  | { kind: "step"; ts: number; key: string; step: HistoryListEntry }
-  | { kind: "commit"; ts: number; key: string; commit: ProjectCommit };
-
-/** Both lists as one, newest first — exported for its test. */
-export function historyRows(
-  steps: readonly HistoryListEntry[],
-  commits: readonly ProjectCommit[],
-): Row[] {
-  const rows: Row[] = [
-    ...steps.map((step) => ({
-      kind: "step" as const,
-      ts: step.ts,
-      key: `s${step.id}`,
-      step,
-    })),
-    ...commits.map((commit) => ({
-      kind: "commit" as const,
-      ts: commit.ts,
-      key: `c${commit.hash}`,
-      commit,
-    })),
-  ];
-  return rows.sort((a, b) => b.ts - a.ts);
-}
 
 const time = (ts: number) =>
   new Date(ts).toLocaleTimeString(undefined, {
@@ -61,7 +34,6 @@ export function HistoryPanel({
   onClose: () => void;
 }) {
   const [steps, setSteps] = useState<HistoryListEntry[]>([]);
-  const [commits, setCommits] = useState<ProjectCommit[]>([]);
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [error, setError] = useState("");
   const revision = useRevision();
@@ -70,14 +42,12 @@ export function HistoryPanel({
 
   const refresh = useCallback(async () => {
     try {
-      const [s, c, g] = await Promise.all([
+      const [s, g] = await Promise.all([
         api.historyEntries(),
-        api.historyCommits(),
         // Only to tell which node of a touched chain a step's label names; a graph that will not build lights the chain.
         api.graph().catch(() => null),
       ]);
       setSteps(s);
-      setCommits(c);
       setGraph(g);
       setError("");
     } catch (e) {
@@ -92,7 +62,8 @@ export function HistoryPanel({
   // Nothing stays lit once the panel is gone.
   useEffect(() => () => onMark(null), [onMark]);
 
-  const rows = useMemo(() => historyRows(steps, commits), [steps, commits]);
+  // Newest first, whatever order the journal answers in.
+  const rows = useMemo(() => [...steps].sort((a, b) => b.ts - a.ts), [steps]);
 
   return (
     <aside className="flex w-[24rem] min-w-0 shrink-0 flex-col border-border border-l bg-background">
@@ -126,11 +97,9 @@ export function HistoryPanel({
         )}
         {rows.map((r, i) => {
           const newDay = i === 0 || day(rows[i - 1].ts) !== day(r.ts);
-          const paths = r.kind === "step" ? r.step.paths : r.commit.paths;
-          const label = r.kind === "step" ? r.step.label : r.commit.subject;
-          const undone = r.kind === "step" && r.step.undone;
+          const { paths, label, undone } = r;
           return (
-            <li key={r.key}>
+            <li key={r.id}>
               {newDay && (
                 <div className="px-3 pt-2 pb-1 text-[10px] text-muted-foreground uppercase tracking-wide">
                   {day(r.ts)}
@@ -139,38 +108,18 @@ export function HistoryPanel({
               <div
                 className={`flex cursor-default items-start gap-2 px-3 py-1 hover:bg-accent ${undone ? "opacity-50" : ""}`}
                 title={`${label}\n${paths.join("\n")}`}
-                onMouseEnter={() =>
-                  onMark(
-                    historyMarks(
-                      paths,
-                      r.kind === "step" ? r.step.label : "",
-                      graph,
-                    ),
-                  )
-                }
+                onMouseEnter={() => onMark(historyMarks(paths, label, graph))}
               >
                 <span className="w-10 shrink-0 pt-px font-mono text-[10px] text-muted-foreground">
                   {time(r.ts)}
                 </span>
-                {r.kind === "commit" ? (
-                  <GitCommitHorizontal className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500" />
-                ) : undone ? (
+                {undone ? (
                   <Undo2 className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 ) : (
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/60" />
                 )}
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate ${r.kind === "commit" ? "font-medium" : "font-mono"}`}
-                  >
-                    {label}
-                  </span>
-                  {r.kind === "commit" && (
-                    <span className="block truncate text-[10px] text-muted-foreground">
-                      {r.commit.hash.slice(0, 7)} · {r.commit.author} ·{" "}
-                      {m["history.files"]({ n: r.commit.paths.length })}
-                    </span>
-                  )}
+                <span className="min-w-0 flex-1 truncate font-mono">
+                  {label}
                 </span>
               </div>
             </li>

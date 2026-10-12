@@ -12,15 +12,13 @@ So a shared module is edited from inside a project, against the engine already p
 | tab | what it lists |
 |---|---|
 | **Project** | the song's own files — a project has no modules of its own to hold back |
-| **Libraries** | one row per LEVEL — `@workspace`, `@engine` — with the modules under it, and one per LIBRARY of the origin (`@st0`, `@drums`…), each a repository with its `modules`, `chains` and `assemblies` |
+| **Libraries** | one row per LEVEL — `@workspace`, `@engine` — with the modules under it, and one per LIBRARY of the origin (`@st0`, `@drums`…), each a folder with its `modules`, `chains` and `assemblies` |
 
-**They are two different answers, and the difference is worth writing down.** Looking for
-`_modules` *inside the file tree* finds nothing, because `/tree` is deliberately rooted at the
-ACTIVE PROJECT: *"the rest of the clone is the REPOSITORY, not the song"*
-(`packages/file-service/docs/activeProject.md`, and a test that says so). `_modules` sits BESIDE
-the project, and the libraries are not in the workspace at all — the file hub clones them once for
-the origin and the file service answers them at the virtual `_libraries/<name>/…` — so no amount
-of searching the song's own tree can find either.
+**They are two different answers, and the difference is worth writing down.** `/tree` walks the
+workspace (`packages/file-service/docs/activeProject.md`), and the libraries are not in the
+workspace at all — the file hub holds one folder of each for the origin and the file service
+answers them at the virtual `_libraries/<name>/…` — so no walk of the workspace can find them, nor
+say which level wins when two hold the same name.
 
 So they have a route of their own, `GET /module-libraries`, whose roots come from
 `@studio/song`'s `moduleLibraryDirs`. It therefore lists what the LOADER resolves against and
@@ -28,7 +26,7 @@ cannot drift from it, which searching a tree cannot guarantee.
 
 ```
 @workspace    _modules/                  shared by every project beside it
-@st0          _libraries/st0/modules/    one of the origin's libraries, cloned by the file hub
+@st0          _libraries/st0/modules/    one of the origin's libraries, held by the file hub
 @drums        _libraries/drums/modules/  …another, each under its own name
 @engine       — no folder —              this machine's plugin scan, READ-ONLY
 ```
@@ -44,7 +42,7 @@ so hiding it would leave nowhere to start on a workspace whose `_modules` does n
 which is every fresh one. `exists: false` and "empty" are kept apart in the answer for the
 same reason: only one of them is fixed by adding a module.
 
-A library is listed when the server has cloned it, whether or not it has a `modules/` yet — its
+A library is listed when the server holds its folder, whether or not it has a `modules/` yet — its
 chains still have to go somewhere. Which libraries the origin has is set by its admins in the home
 page's Libraries page, never from this tab: a library's own row cannot be renamed, moved or
 deleted from here.
@@ -54,15 +52,12 @@ deleted from here.
 Everything inside a library — making, renaming, deleting, moving, a builder's Save, a chain's verb,
 a preset saved into it — is refused by the file service unless the account is one of the origin's
 admins. The refusal says so; the tab still offers the entries, since the service is the gate. What
-forced it: the server's clone of a library is every account's and is reset to its remote at every
-sync, so a write into it would be read by everyone before anyone published it and then lost. An
-admin's account keeps a clone of its own of EVERY library, made with the admin's key, and a push is
-what reaches the others (`packages/file-service/docs/libraries.md`).
+forced it: a library is ONE folder on the server that every account reads, so a write into it is
+everybody's at once. An admin's file service writes into that folder in place
+(`packages/file-service/docs/libraries.md`), from whichever project is open.
 
-Those clones belong to the account, not to a project: every project an admin opens reads every
-library from them. That is what lets the song that names a module be the place to hear an edit
-before it is pushed — there is no special place to go to. A clone holding nothing unpushed is made
-exactly its remote again at the next open, so a push from anywhere else is never hidden behind it.
+That is what lets the song that names a module be the place to hear an edit — there is no special
+place to go to, and no second copy of a library to keep in step with the one everyone reads.
 
 ## `@engine`, which is not a folder
 
@@ -120,7 +115,7 @@ all rather than opening with everything greyed out. A scanned plugin has no fold
 nothing to make one in (`packages/song/docs/moduleNamespaces.md`).
 
 Note the two shapes: a workspace library holds its type folders **directly**, where each of the
-account's repositories holds three FAMILIES and `modules` is one of them. That difference is why the
+origin's libraries holds three FAMILIES and `modules` is one of them. That difference is why the
 rows are found from a list rather than a pattern.
 
 **The Project tab has no `modules/` to drop.** A module lives at `@workspace` or in a library now,
@@ -130,7 +125,7 @@ here choosing to leave one out.
 
 The Libraries root rows are **namespaces** — the `@` prefix a chain writes in a ref — and under
 each, the catalogue exactly as a ref spells it. A library is drawn one level deeper, because it is
-a REPOSITORY holding three families side by side, and the row shows it as it is on disk:
+a FOLDER holding three families side by side, and the row shows it as it is on disk:
 
 ```
 @st0                      _libraries/st0/
@@ -148,7 +143,7 @@ drawn without that prefix — the row it sits under already says it.
 Drawing `modules/` AS `@st0`, with the chains in a row labelled `@st0/chains`, would show two
 sibling folders as a folder and its child, under a label that is not even a ref prefix (a chain is
 `@st0/tools/stems`, never `@st0/chains/tools/stems`). The `modules` row keeps the level's own path,
-so creating a module resolves as any `@st0/…` ref does; the repository row and its `chains` and
+so creating a module resolves as any `@st0/…` ref does; the library row and its `chains` and
 `assemblies` rows belong to no level and offer no create.
 
 A module is one row, as it is on the Project tab and by the same code (`foldModules`): the
@@ -162,18 +157,16 @@ to it — make, rename, delete — refreshes it itself.
 ## Renaming and deleting
 
 **Rename…** and **Delete** sit on every row INSIDE a library's families — a module, a folder, a
-chain, a template — and never on the repository row nor on `modules`, `chains` and `assemblies`
+chain, a template — and never on the library row nor on `modules`, `chains` and `assemblies`
 themselves, which are the library's shape rather than its content. `@engine` gets neither, for the
 reason it gets no create.
 
-Neither publishes: like every edit to a library, they wait in the admin's clone for **Commit & push**
-(below), so a rename and the edit that motivated it go out as one commit under a message somebody
-wrote.
+Both are live at once, like every edit to a library: the folder they change is the one every
+account reads.
 
-A delete does not go to the workspace's recycle bin. The library's HISTORY is its bin — **Discard**
-before the push, the commit that removes a module after it — and the library's clone may sit on
-another disk than the workspace, where a move would fail. The confirmation says so rather than
-promising a bin.
+A delete goes to the LIBRARY's own `_recycle_bin/`, never the workspace's: the library is not in
+the workspace and may sit on another disk, where a move would fail, and what an admin deletes from
+a library belongs with that library rather than with whichever project was open.
 
 A rename changes a module's REF, and a folder's rename changes the ref of every module inside it.
 So it repoints them as a move does, in the library and in this workspace's projects; other
@@ -185,22 +178,22 @@ renamed: nodes pick an engine by that name.
 A **module** row drags onto another folder of its own library and type: the type folder, or one
 category below it. Only module rows drag; a folder, a chain and anything at the `@workspace` or
 `@engine` level do not. Unlike a rename, a move **takes its refs with it**: every `extends:` naming
-the old ref, in the library and in this workspace's projects, is repointed; the library's part waits
-for the admin's push. What the move cannot reach is any other workspace. The rules and the reasons are in
+the old ref, in the library and in this workspace's projects, is repointed; the library's part is
+live at once. What the move cannot reach is any other workspace. The rules and the reasons are in
 `packages/song/docs/moduleMove.md`.
 
-## Editable at once — Save writes, the push publishes
+## Editable at once — Save writes, and the write is the publication
 
 Every module opens in the builder **editable**, a library's as readily as `@workspace`'s: no lock,
 no Edit button, no dialog. The builder never writes on its own — each pane holds its edits until
-**Save** — and on a library module, for an admin, Save writes the four files into the admin's
-clone of that library and nothing more. Publishing is a second decision, taken once for everything
-changed in every library, from the bar at the bottom of the editor (§ Publishing). A module somebody opened to read
-costs nothing: closing it unsaved leaves the library untouched.
+**Save** — and on a library module, for an admin, Save writes the four files straight into the
+server's folder of that library. There is no second step: no publish, no discard, nothing pending.
+A module somebody opened to read costs nothing: closing it unsaved leaves the library untouched.
 
-What publishing a library module means is still worth knowing: the library's copy is the only copy,
-nothing forks, and every song of every account that names this module will sound different the
-next time it is opened.
+So Save on a library module is worth knowing for what it is: the library's copy is the only copy,
+nothing forks, and every song of every account that names this module sounds different the next
+time it is opened. Its history is the library's st0fs log, which the file hub keeps
+(`packages/file-hub/docs/fileHub.md`).
 
 A module's presets are not in its folder at all: they are files of a presets tree, saved from a
 graph node into the workspace or into a library, so keeping one never edits the module every song
@@ -236,7 +229,7 @@ a library's            _libraries/st0/modules/audio/reverb/module.yaml
 ```
 
 Both are workspace paths, both served by the file service, both written by the same route — the
-second one lands in the admin's clone of `st0`, since `_libraries/<name>/` is a VIRTUAL folder
+second one lands in the server's folder of `st0`, since `_libraries/<name>/` is a VIRTUAL folder
 the file service maps to that library's root and confines there
 (`packages/file-service/docs/workspace.md`). The builder gets `moduleStore` either way, and what
 tells them apart is a folder name rather than which tab you clicked — `isLibraryPath` reads it off
@@ -260,32 +253,8 @@ So Save writes all four files. Ctrl+S and vim's `:w` are that button — all fou
 pane you happen to be looking at. The machinery underneath is the ordinary one: `useAutosave`'s
 `manual` mode keeps the validation and the held-back buffers and only turns the timer off
 (`packages/ui-editor/docs/autosave.md`). A Save writes with `PUT /file`, the route a project file
-takes, and nothing else: no song repository is touched, since none records which version of a
+takes, and nothing else: nothing in the song changes, since no song records which version of a
 library it uses (`packages/song/docs/sharedFolders.md`).
-
-## Publishing — the bar at the bottom of the editor
-
-While any of the admin's library clones holds changed files or commits not pushed, a bar sits above
-the command bar (`src/components/LibraryEditsRow.tsx`) listing each such library and how much —
-*Libraries changed: @st0: 2 file(s) changed, 1 commit(s) not pushed* — with three buttons:
-
-- **Show diff** opens a popin (`src/components/LibraryDiffDialog.tsx`) drawing each changed
-  library's clone with the SAME tree and diff viewer the home page draws a workspace with
-  (`ChangedTree` in `src/projects/RepoTree.tsx`): what a commit would publish is read before it is
-  published, in the one viewer the app already has rather than a second one to keep in step.
-- **Commit & push** asks for ONE message, commits everything changed in every library with the
-  admin as author, pushes each with the admin's key, and asks the server to pull its own clone of
-  each, so every account reads it at its next open. A refused push says "committed, not pushed" and
-  keeps the work in the clone; the next one pushes it.
-- **Discard** resets every clone to its remote, after a confirmation.
-
-One gesture for everything rather than one per Save: a commit on a history everyone reads is worth
-a sentence, and a module, its rename and the chain that uses it are one change. It is the
-ACCOUNT's state, not a project's, so the bar shows in any project an admin has open while something
-is unpublished. A non-admin never sees it: there is nothing of theirs to publish.
-
-An admin's **Pull** on the Libraries page drops every account's clone of that library, unpushed work
-included — the server's copy has moved under it — and the next open clones it again.
 
 ## The bench is not where a library is edited
 
@@ -299,12 +268,11 @@ saying where a library is edited.
 
 The suites here mount nothing, so none of this is covered by a green run:
 
-- with **no library** on the origin, open any project → st0 refuses with "no libraries" before it
-  clones anything — adding one opens the project;
-- as an admin, add an **empty** repository from the home page's Libraries page, leaving the name
-  blank → it is listed as `@st0`, cloned under `<dataRoot>/libraries/st0`, and no workspace gains a
-  `_libraries/` folder;
-- add a SECOND repository named `drums` → switch the tree to **Libraries** → `@workspace`, `@drums`,
+- with **no library** on the origin, open any project → st0 refuses with "no libraries" — adding
+  one opens the project;
+- as an admin, add a library named `st0` from the home page's Libraries page → it is listed as
+  `@st0`, its folder is `<dataRoot>/libraries/st0`, and no workspace gains a `_libraries/` folder;
+- add a SECOND one named `drums` → switch the tree to **Libraries** → `@workspace`, `@drums`,
   `@st0`, `@engine`, each library with `modules`, `chains` and `assemblies`;
 - open a workspace with no `_modules` → `@workspace` is there and empty. Right-click it →
   **New module…** → type `audio/test` → the folder is made, the builder opens on it, writable
@@ -314,24 +282,18 @@ The suites here mount nothing, so none of this is covered by a green run:
 - right-click a type folder inside `@workspace` → **New folder…** and **New module…**, the second
   taking just a name there and `<type>/<name>` on the level's own row;
 - as a NON-admin, edit an `@st0` module and press Save → refused, with a sentence saying only the
-  origin's admins edit a library; no bar appears at the bottom;
+  origin's admins edit a library;
 - as an admin, in any project, click an `@st0` module → the builder opens editable, with no Edit
   button and no dialog; typing writes NOTHING: the Save button lights up instead. Close it unsaved
   → the library is untouched;
-- edit two of the four files, press **Save** once → both land in
-  `<dataRoot>/<account>/library-edits/st0`, nothing is committed, and the bottom bar says what
-  changed. **Commit & push** → one commit appears in THAT library's repository, pushed, none in the
-  song's repository, and the bar goes away;
-- edit modules of two libraries, **Commit & push** once → one commit in each, both pushed;
-- edit again and **Discard** → the module is back as pushed;
-- with nothing unpushed, push a change to `@st0` from elsewhere (the `st0-library` submodule), then
-  open a project a minute later → the module is the new one;
+- edit two of the four files, press **Save** once → both land in `<dataRoot>/libraries/st0` at
+  once, and nothing in the song's own files changes;
+- delete a module from `@st0` in the Libraries tab → it is in `<dataRoot>/libraries/st0/_recycle_bin/`,
+  not in the workspace's bin;
 - type something that will not parse and press Save → it is held back with the reason;
 - edit a module the open song NAMES → its parameter list is the plugin's, and turning a knob
   changes the sound;
-- push a change to a library from ANOTHER admin's account, then open a project here as a
-  non-admin → the module is the new one, in every workspace at once;
-- open a workspace that still has the old `_libraries` submodule → it is gone after the open, with
-  one unpushed commit "libraries: no longer a submodule…" in that workspace;
+- save a library module from ANOTHER admin's account, then open a project here as a non-admin → the
+  module is the new one, in every workspace at once;
 - open `/@banc/modules.st0`, `/@banc/live.st0` or `/@banc/@st0/live.st0` → a refusal that says
   where a library is edited.

@@ -1,0 +1,38 @@
+// workspaceFilter.ts — which names a workspace hides, and which files it never reads as text.
+// Its own module so a process that only WATCHES a folder (the hub's library replicas) need not load workspace.ts.
+
+import { extname } from "node:path";
+
+// Files shown in the tree but not editable as text.
+const BINARY_EXT = new Set([
+  ".wav",
+  ".mp3",
+  ".ogg",
+  ".flac",
+  ".vstpreset",
+  ".png",
+  ".ico",
+  ".jpg",
+  ".jpeg",
+  ".mp4",
+  ".mov",
+  ".m4v",
+  ".webm",
+  ".mkv",
+]);
+export const isBinary = (name: string): boolean =>
+  BINARY_EXT.has(extname(name).toLowerCase());
+
+// Where deleted entries go — hidden by skip(), so "deleting" is a reversible move.
+export const RECYCLE_DIR = "_recycle_bin";
+
+// The undo/redo journal folder inside a project; history.ts holds the journal itself.
+export const HISTORY_DIR = "_history";
+
+// Hidden files and deps are never shown, edited or WATCHED — the strudel watcher prunes this same list.
+export const skip = (name: string): boolean =>
+  name.startsWith(".") ||
+  name === "node_modules" ||
+  name === RECYCLE_DIR ||
+  name === HISTORY_DIR || // the undo/redo journal, never listed or diffed
+  name.endsWith(".cache"); // engine-written waveform sidecars ({source}.cache)

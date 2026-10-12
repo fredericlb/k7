@@ -4,29 +4,23 @@
 projects inside them, the libraries and the published shares. It is where you
 start, and where you come back to on leaving a song.
 
-The **deploy key is not here**: it is in the Sync section of the settings page (`/settings`,
-`settings.md`). It is pasted into the git host once and never looked
-at again, and keeping it at the foot of a screen opened for every song is paying every day for an
-installation gesture. The two sentences here that mention it point there, because the day it is
-missing, this is where you notice.
-
 ## Who draws, who holds
 
-**st0's pages draw; the file service and the media library hold.** The workspaces and the deploy
-key are the account's file service's, on the server; the libraries are the file hub's, one list
-and one clone each for the whole origin; the shares are the media library's (`/api/shares`),
+**st0's pages draw; the file service and the media library hold.** The workspaces are the
+account's file service's, on the server; the libraries are the file hub's, one list
+and one folder each for the whole origin; the shares are the media library's (`/api/shares`),
 because a share's bytes and its comments live on its volume. All of them answer on this origin,
-from st0's own backend. The media library keeps no register of repositories —
+from st0's own backend. The media library keeps no register of workspaces —
 [apps/st0/backend/docs/media/projects.md](../../backend/docs/media/projects.md) says why.
 
 **The SOURCE of the list is the file service.** What lists the projects is the account's file
 service on the server, over its workspaces (`packages/file-hub/docs/fileHub.md`). A separate index
-would be a second copy of what that service already holds, and a worse one: one `git fetch` behind, and blind to a project created and committed
-whose push did not go through — the exact case `commitOutcome` treats as recoverable.
+would be a second copy of what that service already holds, and a worse one: always one change
+behind the folders it describes.
 
 Two underlying reasons, in the order they weigh:
 
-1. **The level above a project belongs to what opens a project.** "Which repositories does this
+1. **The level above a project belongs to what opens a project.** "Which workspaces does this
    person own, and what is in them" is not a catalogue question; it is the editor's first
    question, the one that has to be answered before there is anything to edit. Modules and chains
    follow the same rule: they are WRITTEN, and writing happens here.
@@ -37,7 +31,7 @@ Two underlying reasons, in the order they weigh:
 The corollary is that the médiathèque opens on its **songs**: exactly what you do not write in a
 text editor. Projects are here, modules and chains too, playlists next
 (`playlists.md`) — the last by a different argument, worth distinguishing: a playlist carries no
-bytes, only names of songs that stay in the catalogue, so the file belongs to the repository it
+bytes, only names of songs that stay in the catalogue, so the file belongs to the workspace it
 was written for.
 
 ## The address follows
@@ -105,7 +99,7 @@ the other way — and it bookmarks, copies, and answers the back button.
 
 `?ws=` is set with `replace`: browsing three workspaces to see what is in them is not a navigation
 you want three history entries for. What is unfolded is a folder on the machine, and its NAME
-designates it, not a repository id: readable in the address bar, and true on the machine that
+designates it: readable in the address bar, and true on the machine that
 answers.
 
 `main.tsx` reads the address once and picks a stack, rather than mounting one with pieces
@@ -125,18 +119,15 @@ ones, and this page has no bursts of commits to measure.
 
 ### The list needs the server's files, and no engine
 
-The list of projects, and importing a repository (which clones it), need the account's file service
-on the server and nothing else: the workspaces are there whether or not an engine is running, so
+The list of projects needs the account's file service on the server and nothing else: the workspaces are there whether or not an engine is running, so
 the page does not wait on an engine probe to draw them (`settings/accountFiles.ts`'s `findAccountFiles`,
 asked with `bindEngine` off). If that service does not answer, the list is replaced by the
 sentence that says so, rather than by an empty screen that would look like a new account; the
 header says nothing about the server, the list being where its absence shows.
 
-What can be read and set **without an engine** is what saves installation day: the libraries here,
-and the deploy key in the settings, both asked of the server. A page an engine
-picker would strike out entirely would be a page where nothing can be set until there is an
-engine. On the hosted studio, where the settings' other three tabs have nothing to show, the Sync
-tab draws alone.
+What can be read and set **without an engine** is what saves installation day: the libraries here
+are asked of the server. A page an engine picker would strike out entirely would be a page where
+nothing can be set until there is an engine.
 
 Shares are behind a button on a project's row, so behind a list that needs the file service (§ Shares).
 That does not touch the installation argument — a new account has published nothing — but it is
@@ -149,7 +140,7 @@ the price noted there.
 even if it contains a `project.yaml`.
 
 Two suffixes, because two applications open a project — and that is why this page keeps
-`launchUrl` on each row rather than building its own addresses: a `.z0` in the same repository
+`launchUrl` on each row rather than building its own addresses: a `.z0` in the same workspace
 opens elsewhere, and the one line of the screen that would be entitled to guess does not.
 
 Everything an st0 project can BE is in the **surfaces** it declares inside the `.st0`, rather than
@@ -167,35 +158,33 @@ follows is what sets it apart here.
 **Its vocabulary is its own** (`src/projects/homeCommands.ts`), and not `LOCAL_COMMANDS`. This
 screen has no open project, no engine session and no file: the editor's catalogue here would be a
 list of things you cannot do, and the half that comes from the file service would not even answer
-— `/complete` and `/command` want an active project. Eight verbs, and they are the page's buttons:
+— `/complete` and `/command` want an active project. Seven verbs, and they are the page's buttons:
 
 | the line | what it does, and through what |
 |---|---|
-| `project new <type> <name>` | the three archetypes, then `projectFolderName` adds the `.st0` — scaffold on the machine, then commit and push |
-| `project copy <name> <workspace> [new name]` | copies it there and commits in the DESTINATION — the name is optional, and is the source's without it |
+| `project new <type> <name>` | the archetypes, then `projectFolderName` adds the `.st0` — scaffold on the server |
+| `project copy <name> <workspace> [new name]` | copies it into that workspace — the name is optional, and is the source's without it |
+| `project rename <name> <new name>` | renames the folder in place, suffix kept |
 | `project delete init <name>` | **names** the project and says what confirming will do. Writes nothing |
 | `project delete confirm <name>` | deletes that one, if it is the one that was named |
-| `system workspace new <name>` | an empty workspace here, no repository behind it |
-| `system workspace publish <workspace> <repo_url>` | gives a local workspace its first repository, and pushes |
-| `system repo add <repo_url>` | clones it into a new workspace on the server |
-| `system repo sync <repo_name>` | `project pull`, then `project commit sync` in that workspace |
+| `system workspace new <name>` | an empty workspace on the server |
 
 **Deleting is two verbs, and that is the confirmation.** A palette can fire a destructive line on
 an Enter landing on a fuzzy match; the bar has no dialog to ask a second question with, so it asks
 a second verb. Naming the project twice is what makes the second keystroke a decision, and `init`
-is the only place you READ what deletion does — the folder recycled, the commit pushed, the
-content that stays in git history. The confirm demands the same name, or the second line would be
+is the only place you READ what deletion does — the folder moved to the workspace's recycle bin.
+The confirm demands the same name, or the second line would be
 a formality. The arming is **consumed by any command**, not only by its confirm — the rule the
 graph's pending insertion already follows (`docs/shell.md`) — so a destructive verb cannot stay
 armed behind three unrelated lines.
 
-**Which repository a line lands in.** The `project …` verbs name no workspace: it is the one the
+**Which workspace a line lands in.** The `project …` verbs name no workspace: it is the one the
 address unfolded (`?ws=`), or failing that the only one there is. Between several, the line is
-**refused by naming them** rather than choosing one — creating a project in the wrong repository
-is a commit pushed where nobody was looking.
+**refused by naming them** rather than choosing one — creating a project in the wrong workspace
+is a change made where nobody was looking.
 
-**Buttons and bar go through the same functions** — `createProjectAndCommit`,
-`copyProjectAndCommit`, `deleteProjectAndCommit`, `ensureWorkspace`, the clone: one implementation, two doors, as the
+**Buttons and bar go through the same functions** — `createProject`, `copyProject`,
+`renameProject`, `deleteProject`, `createWorkspace` in `workspaceOps.ts`: one implementation, two doors, as the
 file tree's menu and the `fs …` verbs already have (`docs/shell.md`). What the bar adds is doing
 it without the mouse, and saying so in a status line above it: refusals in amber, because a silent "that did nothing" is
 avoided everywhere else. A line this
@@ -204,69 +193,49 @@ editor's bar, whose lines end at `/command`.
 
 ## The LIBRARIES, a page of their own and the admins'
 
-The libraries are named repositories of the modules and chains every project inherits, and there
-is **one list for the whole origin**, not one per account. It is a PAGE, `/libraries`
+The libraries are named folders of the modules and chains every project inherits, and there is
+**one list for the whole origin**, not one per account. It is a PAGE, `/libraries`
 (`LibrariesPage.tsx`, drawing `LibrariesCard.tsx`), which the header's **Libraries** entry links
 to — reserved like `/external`, and read before `parseLaunch`. Not a panel beside the projects: the
-list changes rarely, only an admin changes it, and an admin goes there on purpose to read the
-server's key off it. Without a library st0 refuses to open anything — not on principle, but
-because no `@st0/…` reference would resolve, and a song opened with all its shared modules missing
-reads as a broken song rather than as a server somebody has not finished setting up.
+list changes rarely, only an admin changes it, and an admin goes there on purpose. Without a
+library st0 refuses to open anything — not on principle, but because no `@st0/…` reference would
+resolve, and a song opened with all its shared modules missing reads as a broken song rather than
+as a server somebody has not finished setting up.
 
 **Only an admin edits it.** An admin is a member of one of the backend's `AUTH_ADMIN_GROUPS` (the OIDC
 `groups` claim), and the file hub says so in its hello, in the ticket and on every request it
 forwards. The hub answers the libraries routes itself and refuses a change without that
 ([packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md)). Anyone else
-sees the same page read-only: no add, no remove, no **Pull** and no key. Hiding them is
-courtesy; the 403 is the gate.
+sees the same page read-only: no add and no remove. Hiding them is courtesy; the 403 is the gate.
 
-**Nothing pulls on its own; a row says when there is something to pull.** The server fetches each
-library and counts the commits its copy lacks (`behind`); a row with any shows them in amber, with
-a **Pull** for an admin. **Check for updates** fetches now rather than within the minute, and is
-anyone's, since it moves nothing. A pull moves every account's library at once, so it is a gesture
-somebody makes on purpose rather than a side effect of a page or a song being opened.
+**A list of NAMES, and one folder each on the server.** The name is the level its refs use —
+`@drums/audio/kick` — and the first library is called `st0`, which is what every `@st0/…` means.
+The list holds nothing but the names; each library is ONE folder on the server, which every account
+reads ([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). An
+admin adds a library by typing its name; the hub gives it a folder at once, copied from the
+server's seed when the seed holds that name, else EMPTY. A row whose folder the server does not
+hold says *not on the server yet*. A row's ✕ unlists the library and keeps its folder: that folder
+is the only copy, and a name typed again finds it where it was.
 
-**A pull destroys every admin's edit clone of that library**, on every account, unpushed work
-included, and the confirmation says so. An edit clone is the library edited ahead of the server's
-copy; once that copy moves, it is cloned again from it at the admin's next open rather than left to
-publish over what was just pulled.
-
-**Retry is anyone's.** A row the server could not clone — or could not pull — carries a **Retry**
-that asks the hub to clone it again (`POST /account/libraries/retry`). The usual cause is a deploy
-key not yet added at the git host, which is fixed elsewhere and then retried here; it changes
-nothing anybody wrote, so it needs no admin.
+> **Nothing but the seed fills a library, deliberately.** The library folder is the reference, so
+> a new library is **empty** and a scaffolded set's `@st0/…` refs resolve to nothing until
+> something is put there (`packages/song/docs/sharedFolders.md`). Copying a catalogue in from
+> elsewhere — the media library's volume, the build — would make that elsewhere a second source of
+> truth about somebody else's modules. The seed is the one exception, and it is the server's own
+> configuration, not a gesture of this page.
 
 **The page itself says something only when something is wrong** (`LibrariesNotice.tsx`): no library
-yet, or one the server could not clone. In that case it shows one amber line at the top, with a
-link to the Libraries page. A healthy list costs the page nothing.
+yet, or a listed one the server holds no folder for. In that case it shows one amber line at the
+top, with a link to the Libraries page. A healthy list costs the page nothing.
 
-**A list, each one named.** The name is the level its refs use — `@drums/audio/kick` — and it is
-optional in the form: the first library is called `st0`, which is what every `@st0/…` written before
-libraries had names means, and any other takes its repository's name. **The server clones each one
-once**, with a key of its own, and every account reads that clone
-([packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)). So the
-page shows admins the SERVER's public key, which each library repository must accept as a
-read-only deploy key: no account's key is involved in reading a library. A clone that fails later
-is shown on its row with git's words. A row's ✕ removes a library and its clone.
-
-**An admin edits a library from any project; nobody else edits it.** The server's clone is
-everyone's and is reset to its remote at every sync, so nothing is written into it; an admin's edit
-lives in the admin's own clone of that library until it is pushed from the editor's bottom bar
+**An admin edits a library from any project; nobody else edits it.** An admin's save writes
+straight into the server's folder, and that write IS the publication: every account has it at once
 ([sharedModules.md](sharedModules.md)). This page has no button for it: the place to change a
 module is the project you hear it in.
 
-**An empty repository gets one empty commit, once**, when an admin's clone of it is first made
-(`initIfEmpty`): a repository just created in a web interface has no branch for the server to fetch.
-
-> **Nothing SEEDS modules into it, deliberately.** `initIfEmpty` lays the commit and nothing else:
-> the libraries repository is the reference, so a new library is **empty** and a scaffolded set's
-> `@st0/…` refs resolve to nothing until something is put there
-> (`packages/song/docs/sharedFolders.md`). Copying a catalogue in from elsewhere — the media library's volume, or
-> the build — would make that elsewhere a second source of truth about somebody else's modules.
-
 ### The debt is said at creation, not discovered at opening
 
-The card checks the DECLARATION of the repository, never its contents, so a `mix` scaffolded on a
+The card checks the DECLARATION of the library, never its contents, so a `mix` scaffolded on a
 new account would otherwise open with **all** its shared modules missing — exactly the "broken
 song rather than unfinished account" reading the card exists to prevent.
 
@@ -277,28 +246,22 @@ scaffold has just written and the workspace does not resolve
 - **The list is read out of the text the scaffold writes**, not kept beside it. An archetype whose
   nodes change module cannot make the list lie.
 - **Only `@st0/` counts.** `@workspace/` is the workspace's `_modules`, `@engine/` the plugin scan
-  and `@meta/` the built-in modules: none of those three waits on a repository. That is why
+  and `@meta/` the built-in modules: none of those three waits on a library. That is why
   `arrangement` and `video` owe nothing and `mix` is the only one of the three that opens broken
   on a new account. The asymmetry is pinned by a test.
 - **The sentence promises no catalogue.** It names the modules owed and says you write them
   yourself, so as not to suggest something is going to fetch them.
 
 **Changing the list changes every workspace of every account at once**, since none holds a copy:
-that is the point. A library pointed at another repository is re-cloned.
+that is the point.
 
-### Adding one CLONES it, and nothing is made before it is there
+### No workspace is made before a library is there
 
-The card's button waits, and says *Cloning…* while it does: a paste that looks like an SSH URI is
-not yet a repository the server's key can read, and a clone is the only thing that answers that
-question. A refusal names what git said and stores nothing. Where the clone lands and how it is
-kept current is
-[packages/file-hub/docs/fileHub.md](../../../../packages/file-hub/docs/fileHub.md).
-
-**Nouveau** and **Importer** are greyed until the origin lists a library, saying so on the button rather
-than on the click, and the file service refuses the same two calls on its own side. A workspace
-made before the library exists is a folder whose every `@st0/…` resolves to nothing — the same
-half-set-up account the libraries notice exists to prevent, one level down and harder to read, since by then
-there is a workspace and a project in it to blame instead.
+**Nouveau** is greyed until the origin lists a library, saying so on the button rather than on the
+click, and the file service refuses the same call on its own side. A workspace made before the
+library exists is a folder whose every `@st0/…` resolves to nothing — the same half-set-up account
+the libraries notice exists to prevent, one level down and harder to read, since by then there is a
+workspace and a project in it to blame instead.
 
 ## Dropping a foreign project on a workspace
 
@@ -310,7 +273,7 @@ own name, shows the folder that will be created under it (the same `projectFolde
 
 The bytes are POSTed to `/import-upload`, which translates them and writes the project. **The
 dropped file is not kept**: a `.dawproject` is a zip carrying its own audio, and keeping it beside
-the project it produced would put every sample in the repository twice.
+the project it produced would put every sample in the workspace twice.
 
 What comes back is the **import log** — what was read, and every warning the mapper raised — shown
 in the popin before anything opens, because a translation is lossy and finding that out inside the
@@ -338,8 +301,8 @@ admin does that from any project — so a bench that names nothing, or names a b
 refused.
 
 **The bench is in no list of workspaces.** Its `Banc` folder is a workspace on disk, but it is
-reached by an address and rebuilt on every open; a row for it on this page would offer to open,
-publish or delete a rig that is thrown away anyway. `workspaceNames` drops it with the hidden ones.
+reached by an address and rebuilt on every open; a row for it on this page would offer to open
+or delete a rig that is thrown away anyway. `workspaceNames` drops it with the hidden ones.
 
 ## A project opens in THIS tab, and a back arrow returns
 
@@ -365,13 +328,13 @@ would answer the same thing to all of them.
 
 ## The tree is not the normal path
 
-What you come here for is a project, not a repository. `GET /workspaces/projects` returns, per
+What you come here for is a project, not a workspace. `GET /workspaces/projects` returns, per
 workspace, the list of its projects, and the screen draws them **indented under their own**, each
 leading straight to its application. There is no `projectCount` field beside it: it is
 `projects.length`, and two sources for one number always diverge.
 
 There is no `null` in that response, and that is the clearest gain: "not known yet" would be a
-third state to tell apart from "no projects", and a repository shown without projects when it has
+third state to tell apart from "no projects", and a workspace shown without projects when it has
 not been read yet is a lie that corrects itself ten seconds later, so one nobody reports.
 
 Projects are found **at any depth**, `songs/hiver.st0` included, and a project inside a project is
@@ -380,17 +343,11 @@ descended into and reported — a `.z0` filed inside a `.st0` folder is a real a
 tree keeps its button: it is for looking at what is inside, including folders that are not
 projects.
 
-### One row per WORKSPACE, not per repository
+### One row per WORKSPACE
 
-The list shows the account's folders under its `workspace/` on the server. Two consequences, and
-both are needed:
-
-**A repository that is not cloned has no row**: the list is what the machine holds, and
-**Importer** is how to bring one in.
-
-**A workspace with NO repository has one too.** `Examples`, seeded with the demos on first
-contact, is a clone of nothing — and it is what a new account has on the day it has nothing else.
-Every row is addressed the same way, `@local`, whether its workspace has an `origin` or not.
+The list shows the account's folders under its `workspace/` on the server, every one addressed the
+same way, `@local`. `Examples`, seeded with the demos on first contact, is what a new account has
+on the day it has nothing else.
 
 ## `@local` — every project's address
 
@@ -399,17 +356,16 @@ Every row is addressed the same way, `@local`, whether its workspace has an `ori
 /@local/hiver.st0                   a workspace that IS the project
 ```
 
-`@` cannot start a folder name git gives a clone, so the sentinel can never collide with a
-workspace, and the gate opens the folder that is already there: nothing to look up, nothing to
-clone.
+`@` cannot start a workspace's folder name, so the sentinel can never collide with a workspace,
+and the gate opens the folder that is already there: nothing to look up, nothing to download.
 
 **`parseLaunch` has nothing special to do.** `/@local/Examples/synth-demo.st0` reads as repository
-`@local`, project `Examples/synth-demo.st0` — the project part stops at the last segment claiming
+slot `@local`, project `Examples/synth-demo.st0` — the project part stops at the last segment claiming
 the app's suffix, the ordinary rule. `localTarget` detaches the workspace from the front, and that
 is the only rule specific to `@local`. A workspace that IS a project has nothing after its name
 and the project is `"."`, so nothing downstream changes.
 
-**It is the ONLY address.** No register maps a short name to a repository URI, so `projectHref`,
+**It is the ONLY address.** No register maps a short name to anything else, so `projectHref`,
 `workspaceHref` and `externalHref` take no set of registered names and choose nothing: a project
 is a folder in the account's workspaces, and its folder name is what addresses it.
 
@@ -419,12 +375,12 @@ second-device case free rather than delicate — `projectClaimKey` is computed f
 where there is one address both ends compute it alike, which is the failure
 [external.md](external.md) spends a section warning about.
 
-**It is also the starting point.** A workspace is created HERE — `git init`, no remote — and
-everything works in it except pushing until the day it is published
-(`packages/file-service/docs/workspaces.md`). Publishing gives it an `origin`; its address does not
+**It is also the starting point.** A workspace is created HERE, as a plain folder on the server,
+and the live-sync relay carries it to the account's other replicas
+(`packages/file-service/docs/workspaces.md`, `docs/live-sync-plan.md`); its address does not
 change.
 
-**`@local` does NOT require a libraries repository.** The bench raises `no-libraries` first,
+**`@local` does NOT require a library.** The bench raises `no-libraries` first,
 because an unresolved `@st0/…` reference makes a rig read as broken rather than as an unfinished
 account. But a demo on this machine needs none, and no library is what a NEW account has: demanding
 one would put the demos behind the one thing they exist to precede. A reference that does not
@@ -453,23 +409,15 @@ A file in the tree opens **read-only** beside it (`src/projects/FileViewer.tsx`)
 writes nothing: what changes a project is the editor, where autosave and the compiler's checks
 hold, and a second place to type into would be a second set of rules.
 
-**What git has not committed is blue**, and so is every folder above it, so a change three
-levels down still shows on a folded tree. Such a file opens on its **diff against HEAD** rather
-than on its content, since "what is about to be pushed" is the question this screen is asked.
-An untracked file has no HEAD version and is drawn as all added; a deleted one is not on disk, so
-the walk misses it, and the tree adds it back, struck through, from the list of changes.
+The viewer draws the file's content as it is on the server, with line numbers, and a binary file
+as a sentence. The tree is read once per open: it is a look inside, not a monitor.
 
-The list comes from `GET /git/changes` and the diff from `GET /git/diff`. Both are local reads
-with no fetch, so the changes are re-read every five seconds while the tree is shown: an edit
-saved in another tab turns its file blue without a reload. The diff is git's own unified text,
-parsed in `src/projects/unifiedDiff.ts`. It is not recomputed in the browser, so there is no diff
-library to add and no second opinion on what changed.
+## Getting a workspace: one gesture
 
-## Getting a workspace: three gestures, and only one talks to a server
-
-**Nouveau** talks to nobody: `POST /workspaces` creates the folder and initialises it with git,
-with no remote. No server, no key, no account — the one thing on this screen that works entirely
-offline, and the one you start with.
+**Nouveau** asks the file service for `POST /workspaces`, which creates the folder. Nothing to
+configure — no key, no remote, no host — and the live-sync relay is what carries it to the
+account's other devices (`docs/live-sync-plan.md`). There is no import and no publish: a workspace
+exists on every replica the relay reaches, so there is nothing to bring in or send out by hand.
 
 **And it is EMPTY.** No default project: the archetype decides what the screen shows — a timeline,
 two decks, a rig with no surface — and that is a question badly answered from a popin on a list,
@@ -480,76 +428,11 @@ is also the only way in while the workspace is empty, since rows link PROJECTS a
 `.`, which the machine resolves
 (`packages/file-service/docs/workspaces.md`).
 
-**Importer** takes a URI and asks the file service for `POST /workspaces/clone`, with the deploy key
-the machine made for itself (`packages/file-service/src/sshKeys.ts`), then follows the job.
-The clone is not an extra: this list shows only what the machine holds, so without it adding would
-be a form that changes nothing on screen.
-
-**The dialog says which STEP the import is on.** An import is three waits, not one — the clone,
-the account's libraries brought up to date, the media fetched through LFS — and the last can take
-far longer than the first. A single bar that reached 100% at the end of the clone and then sat
-there for ten minutes reads as a hang. So `ImportBar` draws one segment per step (`CLONE_STEPS`,
-reported by the job as `step`), "Step 3 of 3 · Fetching the media", the current segment filled by
-its percentage, pulsing when the step cannot be measured.
-
-**A percentage is on screen; git's own words are in the console.** Every line git writes, as the
-dialog's one status line, would be a log flickering past too fast to read and gone the moment it
-works. So the screen keeps only what is progress — the step, git's phase (`Receiving objects`) and
-its percentage — and each line goes to `console.debug` as `git: …`, where it can be scrolled after
-the fact. A FAILURE is the exception: git's last words
-are the error, on screen, because that is the one time they are the answer.
-
-The machine keeps the last 50 lines (`cloneJobs.ts`) and counts them all in `emitted`, so the page
-logs each line exactly once and says `…(N lines the machine no longer holds)` when a clone outran
-the 800 ms poll. Matching on the text instead would have skipped whole runs — git repeats its
-counter lines verbatim.
-
-**A FAILED clone is where this matters most.** `gitClone` rejects with `stderr.join("\n")` —
-everything git said, up to two hundred lines — and drawn in one block the answer would be buried:
-it is at the END of that, `Permission denied (publickey).` and then the
-`fatal:` that followed from it, and either alone is half the story. `gitReason` keeps the last two
-non-empty lines for the screen and puts the whole of it in the console, saying so when there was
-more.
-
-And the workspace really does go: a clone that failed leaves no workspace, by design — see
-`cloneWorkspace`. Under a wall of log, with the reason somewhere in the middle, that removal would
-read as a bug.
-
-**A workspace's row carries a ⋮** (`WorkspaceMenu.tsx`) holding the three acts on the whole
-workspace: **Publish**, **Compact** and **Delete**. They sit behind one button for the reason a
-project's do: they are rare, and three buttons beside the row's own link would compete with it.
-Delete comes last, in red, after a separator. Compact and Delete each go through `askConfirm`, and
-each confirmation says what is lost. For Compact, that is the bin, every past version, every
-other branch and alternative, and, when there is an `origin`, the history at the host too, through
-a force-push (`packages/file-service/docs/workspaces.md` § Compacting). Compacting rewrites history
-and touches no file in use, so its result is a toast with the bytes freed, which also says when
-the force-push was refused.
-
-**A row says when its workspace and its repository differ** (`WorkspaceSyncLine.tsx`), under the
-origin and in two colours:
-
-- **amber, cloud-up**, *Has changes*: work here that the host does not have, i.e. uncommitted
-  files and commits not pushed;
-- **blue, cloud-down**, *Missing changes*: commits on the host that this copy lacks.
-
-Both lines can show at once, on a diverged workspace, and a level workspace shows neither. Silence
-is the normal state, so a line is something to act on rather than noise read past every day.
-
-**Each line has its button, left of New project** (`WorkspaceSyncButtons`). **Push** commits
-everything (`project commit sync`) and pushes; on a clean tree that is only ahead it runs
-`project push`, since `project commit` refuses a clean tree. On a workspace with no `origin` it is
-labelled **Commit**, which is all it can do. **Pull changes** is `project pull`, and it is greyed
-out while the amber line shows: the pull is `--ff-only`, and fast-forwarding over work of this
-copy's own is what it refuses. When both lines show, Push commits and then has its push refused,
-the host having moved; the tooltip names the bar's `system repo sync`, which pulls BEFORE it
-commits and so settles the case where only uncommitted files stood in the way. The counts come from
-their own route and timer (`useWorkspaceSync.ts`), since answering "behind" costs a fetch, and the
-reason is in `packages/file-service/docs/workspaces.md` § Sync state.
-
-**Publier** is in that menu and not at the top, because it acts on ONE workspace, and it is
-offered only when `origin` is null. It asks for a repository URI — which must exist and be empty —,
-sets it as `origin` and pushes (`POST /workspaces/remote`). The push is the half that can fail
-loudly, and git speaks for itself ("Permission denied (publickey)").
+**A workspace's row carries a ⋮** (`WorkspaceMenu.tsx`) holding the one act on the whole
+workspace: **Delete**, in red. It sits behind a button for the reason a project's acts do: it is
+rare, and a button beside the row's own link would compete with it. It goes through `askConfirm`,
+which says what is lost: the folder and everything in it, for good — there is no bin a whole
+workspace fits in.
 
 Clicking a project goes straight into its application, in this tab, at
 `/@local/<workspace>/<dossier>` — an ADDRESS, naming the folder on the machine, which the gate
@@ -560,7 +443,7 @@ on its side would be the second thing to keep in step that this package exists t
 
 ## Creating, copying and deleting a project — on the machine, not here
 
-Each repository's block carries a **"New project"** (the archetype, and a name), and each project
+Each workspace's block carries a **"New project"** (the archetype, and a name), and each project
 a **⋮** holding the three acts on one: copy, rename, delete. Neither is done by the media library: what this page
 calls is the file service the whole app uses as soon as a project is open, not a seam that would
 serve only here.
@@ -577,22 +460,18 @@ inside one goes down with it the instant it is chosen.
 
 They are **explicit calls**, with `fileBase` and the token on each one (`projects/api.ts`), and not
 the editor's global `configureFileApi`. That one is set ONCE, on the workspace of the single
-project a tab has opened; this page touches a different repository on every row.
+project a tab has opened; this page touches a different workspace on every row.
 
 | piece | where |
 |---|---|
 | scaffold at default settings | `POST <fileBase>/project/create` → `createProjectIn` |
-| deletion (the folder is recycled) | `POST <fileBase>/project/delete` |
+| deletion (the folder goes to the recycle bin) | `POST <fileBase>/project/delete` |
 | a copy into another workspace | `POST <fileBase>/workspaces/copy-project` |
 | a rename in place | `POST <fileBase>/project/rename` |
-| index, commit, push | the `commit` command → `packages/commands/src/git.ts` |
-| clone the repository if it is not there | `POST /workspaces/clone` + the jobs to poll |
 
-`ensureWorkspace` clones if the machine does not know the repository yet. Without it you would
-have to have a project already in order to open one, and therefore to create one — a chicken and
-egg that would make the function useless on precisely the new repositories. The progress shown is
-git's, in its own words ("Receiving objects"), because a thirty-second wait that says nothing
-looks like a frozen screen.
+Each is ONE call and nothing after it: the write lands in the workspace on the server, and the
+live-sync relay is what carries it to the other replicas (`docs/live-sync-plan.md`). There is no
+second step to fail after the first has succeeded, so the dialogs report one outcome.
 
 ### A row shows the project's tags
 
@@ -643,48 +522,19 @@ contents another, and nothing complaining until z0 tried to open it. `HAS_SCAFFO
 app, in a `Record` and not a list — which is why the menu offers an st0 project's archetypes
 rather than a list of applications.
 
-### The verb is `project commit`, and a success has to be proven
-
-Two traps hide each other here. **The verb**: `commands.yaml` declares `project commit`, not
-`commit`, and a line matching no command does not throw — `runCommand` answers "unknown command",
-so nothing is committed and nothing says so. **Reading the answer**: looking for known failure
-words and concluding success for everything else announces that all is well for a command that
-does not exist. `commitOutcome` demands **positive proof** — a `committed …` line — and returns
-the raw output for everything else, including what it does not recognise. That output is what will
-name the next drift between this code and `commands.yaml`. It is pure and in its own module, with
-not one import: that is what makes it loadable by a test, `workspaceOps.ts` touching `./api` — hence
-`window` — as soon as it loads.
-
-**A failed push does not cancel the creation.** The folder is there and only the push failed; the
-dialog closes and the page shows "créé, mais : …". Deleting the project to be tidy would be
-throwing away somebody's work over a network fault, and throwing would invite starting over a
-creation that has happened. There is nothing to ask for afterwards: the machine answers the list,
-so the project appears at the next tick.
-
-### Copying a project — the DESTINATION is what commits
+### Copying a project
 
 "Copier" takes a project into another workspace on the same machine: pick where it lands, name the
-copy, and the original is not touched. One call does the copy (`CopyProject.tsx` → `workspaceOps.ts`'s
-`copyProjectAndCommit`), and the commit that follows is run **in the workspace that received it**,
-because that is the repository whose history gained a project. Which also settles the push: it
-happens when the destination has an `origin` and does not when it has none, exactly as creating a
-project does — so the picker says which of the two each row is, before the click rather than in
-the error afterwards.
+copy, and the original is not touched (`CopyProject.tsx` → `workspaceOps.ts`'s `copyProject`).
 
 The destination list leaves out two workspaces. Its own, since a copy needs somewhere else to be
 useful and the same-workspace duplicate is a different gesture; and any workspace that IS a single
 project, where nothing under the root is listed and the copy would exist without ever showing up.
 
-**A failed push does not undo the copy**, for the reason the creation states above — with one more
-edge: retrying would hit a name that is now taken, so the page says "copié dans …, mais : …" and
-leaves the fix to be a push rather than a second copy.
+### Renaming a project
 
-### Renaming a project — the SAME workspace commits
-
-`project rename <project> <new name>`, and the ⋮'s "Rename". The folder moves on the machine
-(`RenameProject.tsx` → `workspaceOps.ts`'s `renameProjectAndCommit`), and the commit runs in the
-workspace it is already in — a rename is a delete and an add to git, so it is that repository's
-history that gains it, and the push follows the same `origin`-or-not rule creating and copying do.
+`project rename <project> <new name>`, and the ⋮'s "Rename". The folder moves on the machine, in
+the workspace it is already in (`RenameProject.tsx` → `workspaceOps.ts`'s `renameProject`).
 
 Three things it does not do, each for its own reason:
 
@@ -707,9 +557,6 @@ Three things it does not do, each for its own reason:
 ended; a rename leaves the same project under another folder, so the active-project marker is re-pointed at
 it and reopening the workspace lands where it was. The engine is stopped either way, and starting
 it again is opening the project — the gesture that starts one anywhere else.
-
-**A failed push does not undo the rename**, as with the other three: the folder IS renamed, and
-the page says so rather than throwing, since a retry would find the old name gone.
 
 ## Shares, on the row of the project they came out of
 
@@ -774,8 +621,8 @@ would make withdrawing one a choice nobody should have to make.
 origin: { repo: basename(this.root), project: basename(dir) }   // file-service/src/workspace.ts
 ```
 
-So `origin.repo` is the **workspace's** name — `AccountWorkspace.name`, not the repository's short
-name — and `origin.project` is the **last segment with its suffix**, not the path.
+So `origin.repo` is the **workspace's** name — `AccountWorkspace.name` — and `origin.project` is
+the **last segment with its suffix**, not the path.
 `sharesForProject.ts` crosses that gap, alone and tested, because it is the kind of rule nobody
 re-reads inside a JSX — named out in full rather than "projectShares", which would collide with
 `ProjectShares.tsx` on a case-insensitive disk. Two consequences:
@@ -796,24 +643,6 @@ and therefore invisible most of the time.
 A second, quieter price: **this popin is behind the project list, which needs a machine.** Shares
 are not in the "settable with the engine off" column, where the libraries are.
 
-## Git is blocking
-
-Every git operation this app STARTS locks the page until it is done: one overlay in the centre of
-the screen, saying in words what git is doing, over a bar that is measured when git reports a
-percentage (a clone) and slides otherwise. Keys are swallowed while it is up. That covers the home
-page's clone, publish, compact, and the project create / copy / rename / delete that commit, the
-Libraries page's add / remove / update, and the editor's `project commit`, `project pull` and
-`project alternative` — all through `runGit` in `src/components/GitBusy.tsx`, and
-`<GitBusyOverlay/>` mounted once in `Home.tsx` and once in `App.tsx`.
-
-What forced it: a write that rewrites a repository (a compaction force-pushes, a pull moves the
-working tree, an alternative switches branch) races any edit made under it, and a second git
-command on the same repository fails on git's index lock with a message nobody can act on.
-Locking the page is cheaper than explaining either.
-
-What is NOT behind it: the background polls (`useWorkspaceSync`, the share badge's status). They
-read and fetch on a timer, and a lock every twenty seconds would make the page unusable.
-
 ## Two polls, because there are two services
 
 The project list is asked of the **machine**, the shares of the **media library**: two services, two timers, and
@@ -827,7 +656,7 @@ to save an already-memoised scan.
 
 A list five seconds behind is a row that has not appeared yet, i.e. a wait. The compiled document
 cache refuses that trade and has to — a stale compile is confidently wrong about a song — and that
-is the difference worth noting. A clone or a workspace made here empties the window immediately
+is the difference worth noting. A workspace made here empties the window immediately
 (`forgetListing`), so the only possible lag comes from a hand outside the process.
 
 `seen` remembers the revision of what was last loaded. It answers "has the service moved since?" —
@@ -838,33 +667,27 @@ next tick rather than waiting for a revision to move after a write just made.
 
 ## What to check in a browser
 
-The suites here run in node and mount nothing: `commitOutcome`, `projectName`, `sharesForProject`
+The suites here run in node and mount nothing: `projectName`, `sharesForProject`
 and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
 
 - open `/` while logged out → the login screen, then the home page;
 - **with no engine machine**: the project list is replaced by the sentence that says why, the add
-  field and "Nouveau projet" are greyed, and the libraries can still be set. The "réglages" link in
-  that sentence leads to the key, which also generates with no engine;
-- **with a machine and NO libraries repository**: `Examples` is there, and one of its demos opens
-  at `/@local/Examples/<démo>.st0` — the installation-day check. **Nouveau** and **Importer** are
-  greyed, and hovering one says to add the repository first;
-- **add a libraries repository** (as an admin, the server's key added to it as a read-only deploy
-  key): the button says *Clonage…* and waits — a clone, not a spelling check. Give it a URI whose
-  host is wrong → the refusal carries git's own words, the page still reads as empty, and the two
-  workspace buttons are still greyed. Give it a real one → the page lists `@st0`, both buttons come
-  back, and `<dataRoot>/libraries/st0` is on disk;
-- **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ removes it and its clone;
-- **as a non-admin**: the page lists the libraries with no add, ✕, Pull or key;
-- **push a commit to a library from elsewhere**, then **Check for updates** → its row reads *1 new
-  commit(s) to pull*; as an admin, open any project first, then **Pull** and confirm → the row is
-  clean, `<dataRoot>/<account>/library-edits/<name>` is gone, and the next project open clones it
-  again;
-- **a library the server cannot clone** (its key not yet a deploy key there): the row says *clone
-  failed* with git's words and a **Retry**; add the key at the host, Retry → the row is cloned;
+  field and "Nouveau projet" are greyed, and the libraries can still be set;
+- **with a machine and NO library**: `Examples` is there, and one of its demos opens
+  at `/@local/Examples/<démo>.st0` — the installation-day check. **Nouveau** is greyed, and
+  hovering it says to add a library first;
+- **add a library named `st0`** (as an admin): the page lists `@st0`, **Nouveau** comes back, and
+  `<dataRoot>/libraries/st0` is on disk — the seed's copy when the server has one, else empty;
+- **add a second one, named `drums`** → it is listed beside `@st0`; its ✕ unlists it, and
+  `<dataRoot>/libraries/drums` is still on disk. Add `drums` again → it comes back with what it held;
+- **delete a listed library's folder on the server**, reload the home page → the amber line says the
+  server holds no folder for some libraries, and the row reads *not on the server yet* until the
+  page is read again and the hub gives it one;
+- **as a non-admin**: the page lists the libraries with no add and no ✕;
 - **open a chain's bench, then go home** → `Banc` is not in the list of workspaces;
-- **as an admin, in any project**: edit a module of `@st0` → the bottom bar says what changed;
-  **Discard** puts it back, **Commit & push** publishes it and the bar goes away. As a non-admin,
-  the same save is refused;
+- **as an admin, in any project**: edit a module of `@st0` → the save lands in
+  `<dataRoot>/libraries/st0` at once, and another account opening a project hears it. As a
+  non-admin, the same save is refused;
 - **drag a `.dawproject` onto a workspace row**: that row alone lights up, the popin opens on the
   file's name, and the folder under the field follows what you type. Import → the log, with its
   warnings in amber, then **L'ouvrir** opens the project in this tab, and Back shows the row's
@@ -877,8 +700,7 @@ and the bar's verbs (`homeCommands.test.ts`) are covered, the screen is not.
 - open a project → it opens in THIS tab; the back arrow at the left of the header (and the
   project's name beside it) comes back here, and ctrl-click still opens a new tab;
 - leave a project from the editor, and lose its engine to somebody else → both come back here;
-- create a project in an **empty** repository this machine has never seen → the clone with git's
-  progress, then the folder, then the commit;
+- delete a project → it leaves the list, and its folder is in the workspace's `_recycle_bin/`;
 - **"Partages" on a project row that has some** → the count on the button, the popin listing its own
   and not the neighbour's; on one that has none → the popin says so;
 - the button must **not** open the project: the whole row is a link, and `preventDefault` stops it;

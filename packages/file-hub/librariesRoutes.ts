@@ -1,7 +1,6 @@
-// librariesRoutes.ts — `/account/libraries*`, answered by the HUB and never forwarded: the list and
-// the clones are the origin's, not an account's, so no account's file service holds them. Reading,
-// checking and retrying a clone are everyone's; changing the list, a pull and the server's key are
-// the admins'. A pull also DESTROYS every admin's edit clone of that library. See docs/fileHub.md.
+// librariesRoutes.ts — `/account/libraries`, answered by the HUB and never forwarded: the list and
+// the folders are the origin's, not an account's, so no account's file service holds them. Reading
+// is everyone's; changing the list is the admins'. See docs/fileHub.md.
 
 import type { Request, Response } from "express";
 import type { LibraryStore } from "./libraries.ts";
@@ -18,11 +17,6 @@ export async function jsonBody(req: Request): Promise<unknown> {
   }
 }
 
-const refuse = (res: Response) =>
-  res
-    .status(403)
-    .json({ error: "only the origin's admins may change the libraries" });
-
 /** Whether this request is one of these routes, by its path under the hub. */
 export const isLibrariesPath = (path: string): boolean =>
   path === "/account/libraries" || path.startsWith("/account/libraries/");
@@ -32,69 +26,33 @@ export async function librariesRoute(
   req: Request,
   res: Response,
   admin: boolean,
-  dropEditClones: (name: string) => Promise<void>,
+  onChange: () => void,
 ): Promise<void> {
   const sub = req.path.slice("/account/libraries".length) || "/";
   if (req.method === "GET" && sub === "/") {
-    // A library added a minute ago is cloned behind the answer, at most once a minute.
-    void store.sync().catch(() => undefined);
-    res.json(store.view());
-    return;
-  }
-  // Clone again what failed — a deploy key just added at the host, say. Anyone may: it changes nothing anybody wrote.
-  if (req.method === "POST" && sub === "/retry") {
-    const body = (await jsonBody(req)) as { name?: unknown };
-    const name = typeof body.name === "string" ? body.name : undefined;
-    res.json(store.view(await store.sync({ name, force: true })));
-    return;
-  }
-  // Fetch now rather than within the minute: what is to pull, never pulled.
-  if (req.method === "POST" && sub === "/check") {
-    res.json(store.view(await store.sync({ force: true })));
-    return;
-  }
-  if (!admin) {
-    refuse(res);
-    return;
-  }
-  if (req.method === "GET" && sub === "/key") {
-    res.json({ publicKey: await store.key() });
-    return;
-  }
-  if (req.method === "POST" && sub === "/pull") {
-    const body = (await jsonBody(req)) as { name?: unknown };
-    const name = typeof body.name === "string" ? body.name : undefined;
-    const notes = await store.sync({ name, pull: true });
-    // Every admin's edit clone of that library starts again from what was pulled, unpushed work included.
-    for (const n of notes)
-      if (n.state !== "failed") await dropEditClones(n.name);
-    res.json(store.view(notes));
+    res.json(store.view(store.ensure()));
     return;
   }
   if (req.method === "PUT" && sub === "/") {
-    const body = (await jsonBody(req)) as {
-      libraries?: { name?: unknown; uri?: unknown }[];
-      uri?: unknown;
-      name?: unknown;
-    };
-    const entries = Array.isArray(body.libraries)
-      ? body.libraries
-      : typeof body.uri === "string"
-        ? [...store.settings(), { name: body.name, uri: body.uri }]
-        : null;
-    if (!entries) {
+    if (!admin) {
       res
-        .status(400)
-        .json({ error: "expected { libraries: [...] } or { uri }" });
+        .status(403)
+        .json({ error: "only the origin's admins may change the libraries" });
       return;
     }
-    const asked = entries.map((l) => ({
-      name: typeof l.name === "string" ? l.name.trim() : undefined,
-      uri: String(l.uri ?? "").trim(),
-    }));
-    const r = await store.set(asked);
+    const body = (await jsonBody(req)) as { libraries?: { name?: unknown }[] };
+    if (!Array.isArray(body.libraries)) {
+      res.status(400).json({ error: "expected { libraries: [{ name }] }" });
+      return;
+    }
+    const r = store.set(
+      body.libraries.map((l) => ({ name: String(l?.name ?? "").trim() })),
+    );
     if ("error" in r) res.status(400).json({ error: r.error });
-    else res.json(r.reply);
+    else {
+      onChange();
+      res.json(r.reply);
+    }
     return;
   }
   res.status(404).json({ error: `no ${req.method} ${req.path}` });

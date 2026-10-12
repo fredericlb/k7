@@ -25,7 +25,7 @@ boot and by the gate — never by whoever made the last request.
 ## On an engine's machine: no workspace routes
 
 Every workspace- and account-shaped route answers **404** there, whoever asks: `/workspaces*`,
-`/engine/served`, `/account/*`, `/ssh-key`, and every route that resolves a workspace. There is
+`/engine/served`, `/account/*`, and every route that resolves a workspace. There is
 nothing to own, so nothing is recorded.
 
 What stays on an engine's machine is what belongs to the **machine**, for every account alike: its

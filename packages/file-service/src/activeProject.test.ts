@@ -25,7 +25,7 @@ let ws: Workspace;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-active-"));
   cpSync(SONG, join(root, "song.st0"), { recursive: true });
-  // The rest of a real clone: another song, the shared library, and a foreign session.
+  // The rest of a real workspace: another song, the shared library, and a foreign session.
   cpSync(SONG, join(root, "other.st0"), { recursive: true });
   mkdirSync(join(root, "_modules", "audio"), { recursive: true });
   writeFileSync(
@@ -152,7 +152,7 @@ describe("the project list is scanned, not re-walked on every poll", () => {
   });
 
   it("reuses the answer for a folder that appeared behind its back", () => {
-    // The trade: a `git pull` or a hand-made folder is seen on the next rescan, not on the next poll.
+    // The trade: a relayed edit or a hand-made folder is seen on the next rescan, not on the next poll.
     ws.workspaceInfo();
     mkdirSync(join(root, "outside.st0"), { recursive: true });
     expect(ws.workspaceInfo().projects).not.toContain("outside.st0");
@@ -183,7 +183,7 @@ describe("opening a project pl8 named out of a stale mirror", () => {
     expect(new Workspace(root).workspaceInfo().activeProject).toBe(null);
   });
 
-  it("keeps its marker BESIDE the workspace, where no commit or diff of it sees it", () => {
+  it("keeps its marker BESIDE the workspace, where no sync of it sees it", () => {
     ws.setActiveProject("song.st0");
     expect(readdirSync(root)).not.toContain(".studio-active");
     expect(readFileSync(activeMarkerOf(root), "utf8").trim()).toBe("song.st0");

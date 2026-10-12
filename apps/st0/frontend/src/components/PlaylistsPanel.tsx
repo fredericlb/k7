@@ -149,7 +149,7 @@ export function PlaylistsPanel({
       <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
         <ListMusic className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-        {/* The dropdown is a BUTTON opening the module picker's searchable popup, not a <select>: the list is as long as the repository is old. */}
+        {/* The dropdown is a BUTTON opening the module picker's searchable popup, not a <select>: the list is as long as the workspace is old. */}
         <button
           ref={pickRef}
           type="button"
