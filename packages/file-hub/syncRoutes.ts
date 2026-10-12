@@ -12,6 +12,7 @@ import { historyRouter } from "./historyRoutes.ts";
 import { accountKey, type Instances } from "./instances.ts";
 import { LIBRARIES_ACCOUNT } from "./libraryRelay.ts";
 import { roomsRouter } from "./roomsRoute.ts";
+import { eventsRouter } from "./syncEvents.ts";
 import type { attachSyncRelay } from "./syncRelay.ts";
 import { SYNC_PATH } from "./syncRelay.ts";
 import { forgetRemote, readRemote, writeRemote } from "./syncRemote.ts";
@@ -193,6 +194,14 @@ export class SyncRoutes {
       userOf: (req) => this.c.userOf(req),
       // The relay's own rooms, so a restore is ordered and relayed like any replica's batch.
       live: (slug, workspace) => this.c.relay()?.room(slug, workspace) ?? null,
+    });
+  }
+
+  /** Change notices for the session's browsers, pushed as the relay orders entries — behind the session. */
+  eventsRouter(): Router {
+    return eventsRouter((req) => {
+      const user = this.c.userOf(req);
+      return user ? accountKey(user) : null;
     });
   }
 }

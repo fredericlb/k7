@@ -88,6 +88,8 @@ export function mountFileHub(
   app.use("/api/sync/rooms", hub.sync.roomsRouter());
   // The account's sync history, for its own browser.
   app.use("/api/sync/history", requireAuth, hub.sync.historyRouter());
+  // Change notices for the account's open pages, pushed as the relay orders entries.
+  app.use("/api/sync/events", requireAuth, hub.sync.eventsRouter());
   // Called only by this hub's own file services, over loopback: their secret is the gate, not a session.
   app.use(FILE_HUB_INTERNAL, hub.internalHandler());
   // No session guard: a page on another origin carries a ticket, not a cookie — the hub checks it.

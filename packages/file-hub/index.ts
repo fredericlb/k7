@@ -46,6 +46,7 @@ import {
 } from "./staleCaches.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 import { pairedAccounts, readRemote, type SyncRemote } from "./syncRemote.ts";
+import { publishSyncEvent } from "./syncEvents.ts";
 import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -318,6 +319,7 @@ export class FileHub {
       deviceOf: (token) => this.devices.verify(token)?.slug ?? null,
       // The libraries are every account's to follow, read-only, as `@lib/<name>`.
       sharedAccount: LIBRARIES_ACCOUNT,
+      onOrdered: publishSyncEvent,
       log: this.deps.log,
     });
     if (!syncTarget(0).STUDIO_SYNC_TOKEN) {
