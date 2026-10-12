@@ -6,7 +6,7 @@
 import { HardDriveDownload } from "@frediverse/ui/icons";
 import type { EngineLoadPhase, EngineSyncState } from "@studio/web-protocol";
 import { useEffect, useRef, useState } from "react";
-import { projectApi } from "./project.ts";
+import { fileRoutes } from "./files.ts";
 
 /** Fast: the screen is all there is, and a copy over a LAN takes seconds. */
 const POLL_MS = 500;
@@ -61,7 +61,7 @@ export function EngineLoadScreen({
     let misses = 0;
     const tick = async () => {
       try {
-        const w = await projectApi.workspace();
+        const w = await fileRoutes.workspace();
         if (cancelled) return;
         if (!w.engineLoad) return ready.current();
         misses = 0;

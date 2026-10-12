@@ -1,9 +1,0 @@
-{
-  "name": "z0",
-  "private": true,
-  "version": "1.0.0",
-  "description": "The z0 app. A workspace package so the app owns its own dev script; its services live in the sibling sub-packages.",
-  "scripts": {
-    "dev": "concurrently -n backend,online,buzzer,remote,editor,presenter,monitor -c auto \"npm run dev --workspace=z0-backend\" \"npm run dev --workspace=z0-online\" \"npm run dev --workspace=z0-buzzer\" \"npm run dev --workspace=z0-remote\" \"npm run dev --workspace=z0-editor\" \"npm run dev --workspace=z0-presenter\" \"npm run dev --workspace=z0-monitor\""
-  }
-}

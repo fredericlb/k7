@@ -30,6 +30,7 @@ export const LOCAL_COMMANDS = [
   "ui assembly", // open an assembly TEMPLATE in the builder, by the ref a box names
   "ui global", // the home page — the timeline, or the first pane a project without one declares
   ...PANES.map((p) => `ui ${p}`), // fullscreen one pane
+  "ui viewport", // show or hide the picture's floating window
   "ui focus next", // move the keys to the next pane (tab)
   "ui close", // close the bottom panel
   "ui popin close", // close the topmost overlay (what Esc reaches for first)
@@ -140,8 +141,8 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     fr: "Passer la timeline en plein écran",
   },
   "ui viewport": {
-    en: "Fullscreen the picture",
-    fr: "Passer l'image en plein écran",
+    en: "Show or hide the picture window",
+    fr: "Afficher ou masquer la fenêtre de l'image",
   },
   "ui turntables": {
     en: "Fullscreen the DJ desk",

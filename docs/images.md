@@ -1,9 +1,11 @@
-# The two images — why their Dockerfiles open the same way
+# The st0 image — why its Dockerfile is staged the way it is
 
-The OneDev job `build studio images` builds st0 — the editor, the media library and the rehearsal
-recorder — and z0 one after the other, as two `BuildImageStep`s (`.onedev-buildspec.yml`). Each
-Dockerfile builds from the repo root (`apps/st0/docker/Dockerfile` and `apps/z0/docker/Dockerfile`), and each needs the same two expensive
-things: an `npm ci` over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with.
+The OneDev job `build studio images` builds one image, st0 — the editor, the media library and the
+rehearsal recorder — in a single `BuildImageStep` (`.onedev-buildspec.yml`). Its Dockerfile builds
+from the repo root (`apps/st0/docker/Dockerfile`) and pays for two expensive things: an `npm ci`
+over the workspace, and the C toolchain `ssh2` builds its optional crypto binding with. z0 is
+deployed beside it but built by its own repository, which keeps the same stage layout by
+convention only: nothing here checks the two against each other.
 
 ## An install depends on the manifests, never on the sources
 
@@ -13,18 +15,15 @@ else: the `manifests` stage cuts the build context down to those files. BuildKit
 layer in the cache, and only the frontend build and the final `COPY . .` run.
 
 The hazard this avoids: with `COPY . .` before `npm ci`, any edit to any file invalidates
-the install, and every deploy pays for 1,200 packages and their native builds, once per image.
+the install, and every deploy pays for 1,200 packages and their native builds.
 
-## The first three stages are byte-identical across the two files
+## `deps` installs the whole workspace
 
-`manifests`, `toolchain` and `deps` are spelled identically in both Dockerfiles. Identical
-instructions over identical inputs make identical cache keys, so the full install is built by
-whichever image goes first and reused by the other, even within one cold run. That is
-why `deps` installs the WHOLE workspace rather than one app's frontend: one shared layer is
-worth more than two smaller ones. An edit to one of those stages has to be made in both,
-or that image stops sharing and pays the install alone.
+`manifests`, `toolchain` and `deps` are the first three stages, and `deps` installs the WHOLE
+workspace rather than the frontend's closure: one install layer serves the frontend build and
+stays valid whatever the frontend imports next.
 
-The production install (`backend-deps`) is per app, because the runtime image ships only its
+The production install (`backend-deps`) is separate, because the runtime image ships only its
 backend's closure (see `commons/scripts/check-image-closure.cjs` for what that closure must
 hold). It still sees only the manifests, so it is cached across deploys like the others.
 
@@ -35,7 +34,7 @@ between builds, so `npm ci` reinstalls from the local cache instead of the regis
 
 ## The layers are kept in the registry, not only in the builder
 
-Each `BuildImageStep` exports its cache to `studio/cache:<app>` (`mode=max`, so the install
+The `BuildImageStep` exports its cache to `studio/cache:st0` (`mode=max`, so the install
 stages are in it, not only the final image) and imports it on the next run. A builder that
 starts empty, or one whose cache was pruned, still finds the installs. `image-manifest=true`
 stores the cache as an ordinary OCI image, which a registry that refuses BuildKit's own cache
@@ -50,8 +49,8 @@ error is still red; the image job just doesn't find it a second time.
 ## Built beside the tests, published after them
 
 `build studio images` has no trigger. `publish studio images` does, and depends on it and on
-`lint and test`, which therefore run at the same time. The build pushes each image under the
+`lint and test`, which therefore run at the same time. The build pushes the image under the
 commit hash only, which nothing deploys. The publish job moves `:latest` and the version stamp
-onto those manifests with `docker buildx imagetools create`, a copy inside the registry, once both
+onto that manifest with `docker buildx imagetools create`, a copy inside the registry, once both
 have passed. The stamp travels from the build job as an artifact, because it is baked into the
 SPAs and a second clock reading could disagree with it.

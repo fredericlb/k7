@@ -262,7 +262,7 @@ export function localProjectUrl(
   );
 }
 
-/** The desktop app's TAB STRIP: a sentinel, and chrome rather than a screen — apps/st0-desktop/docs/tabs.md. */
+/** The desktop app's TAB STRIP: a sentinel, and chrome rather than a screen — apps/st0-standalone/docs/tabs.md. */
 export const TABS_REPO = "@tabs";
 
 export function isTabs(repo: string): boolean {

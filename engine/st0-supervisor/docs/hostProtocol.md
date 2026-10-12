@@ -1,7 +1,7 @@
 # The supervisor ⇄ tray contract
 
 `src/HostProtocol.h` is the written definition of what moves between the supervisor and the tray
-that drives it, and `engine/st0-tray/src-tauri/src/host.rs` mirrors it by hand — the arrangement
+that drives it, and `packages/supervisor-host/src/hostProtocol.ts` mirrors it by hand — the arrangement
 `@studio/engine-protocol` has with the C++ engine. Two spellings of one shape, so a field added on
 one side is a field the other side must be told about: `HostProtocol_test.cpp` pins what the tray
 reads.
@@ -76,6 +76,25 @@ force-killed tray is a ghost engine in the picker with no UI left to stop it. Ov
 covers it with the job object and Unix gets it for free — when the tray dies the OS closes the
 pipe, stdin ends, and the supervisor tears down. A loopback port would also be one any page can
 `fetch()`.
+
+## The Windows job is the supervisor's, and the host holds it
+
+A pipe ends only the supervisor. What has to die with a force-killed host is the engine too, and
+on Windows only a kill-on-close job reaches a grandchild. A host that sets `$STUDIO_HOST_PID` to
+its own pid gets one without writing any Win32: before spawning anything, the supervisor creates
+the job, duplicates its handle INTO the host, joins it, and closes its own copy
+(`process::joinHostJob`). Two constraints decide that shape:
+
+- **The host must be the only holder.** A job the supervisor kept open would end the engine with a
+  supervisor crash, and the engine is meant to survive one and be re-adopted. Held by the host
+  alone, the job lives exactly as long as the host.
+- **Node's own job does not cover it.** libuv puts every child it spawns in a kill-on-close job
+  that allows SILENT breakaway, so the supervisor dies with the host but the engine it starts
+  escapes. A Node host therefore spawns the supervisor `detached` on Windows (no libuv job),
+  and the supervisor's job replaces it.
+
+A failure only logs `[host] no kill-on-close job` and goes on: the closing pipe still ends the
+supervisor, and its teardown still stops the engine.
 
 ## One supervisor per machine
 

@@ -1,8 +1,12 @@
 {
   "name": "@studio/engine-protocol",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
+  "files": [
+    "*.ts",
+    "!*.test.ts",
+    "docs"
+  ],
   "description": "The engine wire protocol: the state frames (.) and the compiled project document (./project), both types-only and erased at runtime, plus the two subpaths that emit code — constructors for that document (./build) and the binary audio-broadcast frame (./stream).",
   "types": "./types.ts",
   "exports": {
@@ -18,5 +22,8 @@
   },
   "devDependencies": {
     "vitest": "^4.1.10"
+  },
+  "publishConfig": {
+    "access": "restricted"
   }
 }

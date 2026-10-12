@@ -6,4 +6,3 @@ export declare const DEV_HOST: string;
 export declare const ALIAS_DEV_HOST: string;
 export declare const K7_ALIAS_DEV_HOST: string;
 export declare const LEGACY_DEV_HOSTS: string[];
-export declare const AUTH_BACKEND_PORT: number;

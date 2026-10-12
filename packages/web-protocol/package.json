@@ -1,9 +1,13 @@
 {
   "name": "@studio/web-protocol",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
-  "description": "The shapes the browser and the services agree on — the engine registry, the workspace and project listings, the quality vocabulary. Types and constants only, no runtime dependency, which is what lets both clients read the same numbers.",
+  "files": [
+    "*.ts",
+    "!*.test.ts",
+    "docs"
+  ],
+  "description": "The shapes the browser and the services agree on \u2014 the engine registry, the workspace and project listings, the quality vocabulary. Types and constants only, no runtime dependency, which is what lets both clients read the same numbers.",
   "types": "./types.ts",
   "exports": {
     ".": "./types.ts",
@@ -16,7 +20,8 @@
     "./compat": "./compat.ts",
     "./hunt": "./hunt.ts",
     "./pairing": "./pairing.ts",
-    "./settings": "./settings.ts"
+    "./settings": "./settings.ts",
+    "./handoff": "./handoff.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -24,5 +29,11 @@
   },
   "devDependencies": {
     "vitest": "^4.1.10"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "dependencies": {
+    "@studio/engine-protocol": "^0.1.0"
   }
 }

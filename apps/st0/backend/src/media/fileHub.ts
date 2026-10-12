@@ -63,6 +63,8 @@ export function mountFileHub(
       : undefined,
   });
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
+  // The machines that sync this account's workspaces: a device token is minted here, behind the session.
+  app.use("/api/sync/devices", requireAuth, hub.devicesRouter());
   // Called only by this hub's own file services, over loopback: their secret is the gate, not a session.
   app.use(FILE_HUB_INTERNAL, hub.internalHandler());
   // No session guard: a page on another origin carries a ticket, not a cookie — the hub checks it.

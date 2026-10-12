@@ -84,7 +84,8 @@ markers:
 
 **Optional, and most projects have none.** A surface is a special view the project asks the
 editor to draw — a desk of controls wired to the modules in your chains. One file per surface;
-the filename names it, and it becomes a pane in the layout with a button at the top right.
+the filename names it, and it becomes a pane in the layout with a button at the top right —
+except the viewport, which is a window floating over the panes.
 
 ```yaml schema=Surface
 # What draws it. `turntables` is the DJ desk: two decks meeting at a crossfade,
@@ -96,9 +97,10 @@ type: turntables
 
 # Where it goes. `split` means a PANE — a slot in the layout, stacked with the
 # others, so the desk sits over your chains rather than covering them. Press its
-# number key, or fullscreen it, exactly as you would the timeline. It is a
-# separate line from `type` because where a surface goes and what it is are two
-# questions.
+# number key, or fullscreen it, exactly as you would the timeline. A `viewport`
+# says `floating` instead: a window over whichever page is up, which you move by
+# its title bar and size by any edge. It is a separate line from `type` because
+# where a surface goes and what it is are two questions.
 layout: split
 
 # Which songs its browser lists — the PLAYLIST this set draws on. A name under

@@ -1,4 +1,4 @@
-// MainActivity.kt — the app, on a phone: starts the supervisor (which starts the engine) and hosts the
+// MainActivity.kt — the app, on a phone: starts st0's backend (BackendHost) and the supervisor (which starts the engine), and hosts the
 // page that draws the engine tray while no studio is connected, and over it the studio apps (st0, the
 // media library and the rehearsal recorder among its pages) in full-screen views of their own. The page is web/, bundled; the two plugins registered here are
 // its only way to the native half. FOREGROUND ONLY: there is no service, so leaving this activity quits the
@@ -21,6 +21,8 @@ class MainActivity : BridgeActivity() {
         registerPlugin(AppViewsPlugin::class.java)
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // The studio the views open, before the engine that lists itself there (BackendHost.kt).
+        BackendHost.start(this)
 
         // The engine opens its device WITH inputs, so ask first; a refusal still starts it, output only.
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
@@ -42,6 +44,7 @@ class MainActivity : BridgeActivity() {
         // Supervisor FIRST: it deregisters while the engine still answers, then asks the engine to stop.
         SupervisorHost.stop(SUPERVISOR_STOP_MS)
         EngineBridge.stop(ENGINE_STOP_MS)
+        BackendHost.stop(BACKEND_STOP_MS)
         exitProcess(0)
     }
 
@@ -49,5 +52,6 @@ class MainActivity : BridgeActivity() {
         private const val REQUEST_AUDIO = 1
         const val SUPERVISOR_STOP_MS = 4000L
         private const val ENGINE_STOP_MS = 3000L
+        private const val BACKEND_STOP_MS = 3000L
     }
 }

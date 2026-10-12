@@ -115,6 +115,7 @@ import {
   EngineSyncProgress,
   syncRunning,
 } from "./components/EngineSyncProgress";
+import { FloatingWindow } from "./components/FloatingWindow";
 import { FooterTab, FooterTabs } from "./components/FooterTab";
 import { GitBusyOverlay, runGit } from "./components/GitBusy";
 import { GraphPanel } from "./components/GraphPanel";
@@ -248,6 +249,7 @@ import { eventIdOf, takesEventOf } from "./takes";
 // here, before the shell renders any surface — see packages/st0-sdk/docs/sdk.md.
 import "./plugins";
 import { PanelCloseFrame } from "./components/PanelClose";
+import { type FloatState, loadFloat, saveFloat } from "./floatingRect";
 import { latestAnswer } from "./latestAnswer";
 import { guardSwipeBack } from "./noSwipeBack";
 import { PaneBoundary } from "./PaneBoundary";
@@ -284,6 +286,7 @@ import {
   PANEL_META,
   PANES,
   TransportClock,
+  VIEWPORT_META,
 } from "./shellMeta";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import { isTool, TOOLS, type Tool } from "./timelineTools";
@@ -313,6 +316,8 @@ const EMPTY_PRESETS: PresetInfo[] = [];
 
 /** The same, for a song with no picture — which is most of them. Keeps the timeline's row memo cold. */
 const EMPTY_VIDEO_TRACKS: WebVideoTrack[] = [];
+// One key for every song: where the picture's window sits is a habit of this screen (floatingRect.ts).
+const VIEWPORT_FLOAT_KEY = "st0.viewportWindow";
 
 /** Why Play is refused in record mode with nothing armed — said on the button and on the status line. */
 const NO_ARM_HINT =
@@ -965,11 +970,25 @@ export default function App({
   const viewportSurface = useMemo(
     () =>
       surfaces.find(
-        (s) => s.surface.type === "viewport" && s.surface.layout === "split",
+        (s) => s.surface.type === "viewport" && s.surface.layout === "floating",
       ) ?? null,
     [surfaces],
   );
   const hasViewport = !!viewportSurface;
+  // The frame's WINDOW — where it sits and whether it is up, per browser rather than per song (floatingRect.ts).
+  const [viewportFloat, setViewportFloat] = useState(() =>
+    loadFloat(VIEWPORT_FLOAT_KEY),
+  );
+  const viewportOpen = hasViewport && viewportFloat.open;
+  const setViewportWindow = useCallback(
+    (next: (cur: FloatState) => Partial<FloatState>) =>
+      setViewportFloat((cur) => {
+        const merged = { ...cur, ...next(cur) };
+        saveFloat(VIEWPORT_FLOAT_KEY, merged);
+        return merged;
+      }),
+    [],
+  );
   // The song's picture — fetched ONCE here, since the timeline draws its lanes and the viewport composites them.
   const { doc: videoDoc, error: videoError } = useVideoDoc(reloadKey);
   const videoTracks = videoDoc?.videoTracks ?? EMPTY_VIDEO_TRACKS;
@@ -1079,7 +1098,6 @@ export default function App({
     }, []),
     {
       timeline: hasTimeline,
-      viewport: hasViewport,
       turntables: hasTurntables,
       frozen,
     },
@@ -1113,12 +1131,11 @@ export default function App({
     () =>
       viewPanes({
         timeline: hasTimeline,
-        viewport: hasViewport,
         turntables: hasTurntables,
         mastering: hasMastering,
         frozen,
       }),
-    [hasTimeline, hasViewport, hasTurntables, hasMastering, frozen],
+    [hasTimeline, hasTurntables, hasMastering, frozen],
   );
   const ringPanes = layout.ring;
   /** The page a project opens on: its arrangement when it declares one, else the first pane it does (docs/shell.md). */
@@ -1149,8 +1166,7 @@ export default function App({
 
   const timelineVisible = visible("timeline");
   /** The DESK alone on screen: the transport then drives nothing visible — docs/shell.md. */
-  const deskOnly =
-    visible("turntables") && !timelineVisible && !visible("viewport");
+  const deskOnly = visible("turntables") && !timelineVisible && !viewportOpen;
   // Never without an ARRANGEMENT: the minimap is a second view of one, and floats over the popin the docked strip cannot serve (docs/shell.md).
   const minimapFloating = docked && !noArrangement && editorPopin;
   const minimapDocked =
@@ -1920,6 +1936,15 @@ export default function App({
         setFull(null);
         return true;
       }
+      // The frame is a WINDOW over the layout, so its command shows or hides it rather than fullscreening anything.
+      if (line === "viewport") {
+        if (!hasViewport)
+          setStatus(
+            "this project declares no viewport surface, so there is no picture to show.",
+          );
+        else setViewportWindow((cur) => ({ open: !cur.open }));
+        return true;
+      }
       if ((PANES as string[]).includes(line)) {
         // …and likewise for a pane this layout cannot fullscreen — `fullscreen` decides, as it does for the buttons and the number keys.
         fullscreen(line as Pane);
@@ -2578,6 +2603,8 @@ export default function App({
       fixClipping,
       openModuleBuilder,
       setRefusal,
+      hasViewport,
+      setViewportWindow,
     ],
   );
 
@@ -3485,6 +3512,18 @@ export default function App({
                 }}
               />
             ))}
+            {/* The frame is not a destination but a window over one: the item shows or hides it. */}
+            {hasViewport && (
+              <MobileMenuItem
+                icon={VIEWPORT_META.icon}
+                label={VIEWPORT_META.label}
+                current={viewportOpen}
+                onSelect={() => {
+                  setMobileMenu(false);
+                  void runCommand("ui viewport");
+                }}
+              />
+            )}
             {/* No double-Shift on a phone, so the command bar needs a control of its own and this is the only place left. */}
             <MobileMenuItem
               icon={Terminal}
@@ -3520,6 +3559,19 @@ export default function App({
                 </Button>
               );
             })}
+            {/* …and the frame's window, lit while it is up — a toggle over the pages rather than one of them. */}
+            {hasViewport && (
+              <Button
+                size={toolSize}
+                variant={viewportOpen ? "secondary" : "ghost"}
+                aria-pressed={viewportOpen}
+                onClick={() => void runCommand("ui viewport")}
+                title={VIEWPORT_META.label}
+                aria-label={VIEWPORT_META.label}
+              >
+                <VIEWPORT_META.icon className="h-4 w-4" />
+              </Button>
+            )}
           </nav>
         </>
       )}
@@ -3926,48 +3978,11 @@ export default function App({
 
                 <div
                   className={cn(
-                    // A ROW: the frame sits BESIDE the rest rather than over it — a picture is wide,
-                    // and stacking it took a third of the height off every pane below (docs/picture.md).
                     "flex min-h-0 min-w-0 flex-1",
                     full === "editor" && "hidden",
                   )}
                 >
-                  {/* The FRAME: a `split` surface the project declares, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
-                  {hasViewport && (
-                    <div
-                      {...paneProps("viewport")}
-                      className={cn(
-                        "flex min-h-0 min-w-0",
-                        full === "viewport" ? "flex-1" : "hidden",
-                      )}
-                    >
-                      {/* `trackOrder` is what makes a shader's audio input mean anything: `levels` is indexed, not named — see src/shaderAudio.ts. */}
-                      <PaneBoundary
-                        name="viewport"
-                        resetKey={reloadKey}
-                        onError={paneError}
-                      >
-                        <ViewportTab
-                          doc={videoDoc}
-                          error={videoError}
-                          trackIds={trackOrder}
-                          readOnly={frozen}
-                          // An armed lane opens the lens a `monitor: auto` camera wired to it names.
-                          armed={videoArmed}
-                          // A layer moved or resized in the frame — a command, so one journal entry and one Ctrl+Z.
-                          onRect={
-                            frozen
-                              ? undefined
-                              : (lane, r) =>
-                                  void runCommand(
-                                    `picture rect ${lane} ${r.x} ${r.y} ${r.w} ${r.h}`,
-                                  )
-                          }
-                        />
-                      </PaneBoundary>
-                    </div>
-                  )}
-                  {/* …and the other pages, one of them on screen at a time. */}
+                  {/* The pages, one of them on screen at a time; the frame floats over them (FloatingWindow below). */}
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                     {/* The ARRANGEMENT, only when the project declares a `timeline` surface — absent means not mounted (docs/shell.md). */}
                     {hasTimeline && (
@@ -4979,6 +4994,42 @@ export default function App({
                   />
                 </div>
               </>
+            )}
+
+            {/* The FRAME: a WINDOW over every page, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
+            {hasViewport && (
+              <FloatingWindow
+                title={VIEWPORT_META.label}
+                open={viewportOpen}
+                onClose={() => void runCommand("ui viewport")}
+                rect={viewportFloat.rect}
+                onRect={(rect) => setViewportWindow(() => ({ rect }))}
+              >
+                {/* `trackOrder` is what makes a shader's audio input mean anything: `levels` is indexed, not named — see src/shaderAudio.ts. */}
+                <PaneBoundary
+                  name="viewport"
+                  resetKey={reloadKey}
+                  onError={paneError}
+                >
+                  <ViewportTab
+                    doc={videoDoc}
+                    error={videoError}
+                    trackIds={trackOrder}
+                    readOnly={frozen}
+                    // An armed lane opens the lens a `monitor: auto` camera wired to it names.
+                    armed={videoArmed}
+                    // A layer moved or resized in the frame — a command, so one journal entry and one Ctrl+Z.
+                    onRect={
+                      frozen
+                        ? undefined
+                        : (lane, r) =>
+                            void runCommand(
+                              `picture rect ${lane} ${r.x} ${r.y} ${r.w} ${r.h}`,
+                            )
+                    }
+                  />
+                </PaneBoundary>
+              </FloatingWindow>
             )}
 
             {/* The minimap again, full width over the popin that hid the timeline, last in the tree for painting order (docs/shell.md). */}

@@ -9,6 +9,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// The table the desktop app starts its backend with too (apps/st0/backend/docs/standalone.md): its port is a constant here.
+val standalone = groovy.json.JsonSlurper().parse(rootDir.resolve("../../apps/st0/backend/standalone.json")) as Map<*, *>
+
 android {
     namespace = "se.frediver.st0"
     compileSdk = 36
@@ -21,7 +24,10 @@ android {
         versionCode = 1
         versionName = "0.0.1"
         ndk { abiFilters += "arm64-v8a" }
+        buildConfigField("int", "STANDALONE_PORT", standalone["port"].toString())
     }
+
+    buildFeatures { buildConfig = true }
 
     // 21: Capacitor's runtime is built for it, and the app's own Java and Kotlin must agree with each other.
     compileOptions {
@@ -127,4 +133,55 @@ val stageShell by tasks.registering(Sync::class) {
 
 android.sourceSets["main"].assets.srcDir(shellOut)
 
-tasks.named("preBuild") { dependsOn(stageEngine, stageFaustLibs, stageShell) }
+// The standalone half (BackendHost.kt): Termux's node, git and git-lfs as lib*.so files beside the engine,
+// and st0's backend bundled for that node, with the files it reads, as one zip the app unpacks.
+val termuxCache = layout.buildDirectory.dir("termux-cache")
+val termuxJni = layout.buildDirectory.dir("termux-jni")
+val termuxAssets = layout.buildDirectory.dir("termux-assets")
+
+val stageTermuxTools by tasks.registering(Exec::class) {
+    inputs.file(rootDir.resolve("scripts/termux-tools.mjs"))
+    outputs.dirs(termuxJni, termuxAssets)
+    environment("ANDROID_NDK_HOME", android.ndkDirectory.absolutePath)
+    commandLine(
+        "node", rootDir.resolve("scripts/termux-tools.mjs").absolutePath,
+        termuxJni.get().dir("arm64-v8a").asFile.absolutePath,
+        termuxAssets.get().dir("termux").asFile.absolutePath,
+        termuxCache.get().asFile.absolutePath,
+    )
+}
+
+android.sourceSets["main"].jniLibs.srcDir(termuxJni)
+android.sourceSets["main"].assets.srcDir(termuxAssets)
+
+val repoDir = rootDir.resolve("../..")
+
+// The frontend the backend serves, as the desktop app's staging builds it.
+val buildFrontend by tasks.registering(Exec::class) {
+    workingDir = repoDir
+    commandLine("npm", "exec", "--workspace", "st0-frontend", "--", "vite", "build")
+}
+
+val backendTree = layout.buildDirectory.dir("backend-tree")
+
+val bundleBackend by tasks.registering(Exec::class) {
+    dependsOn(buildFrontend)
+    workingDir = repoDir
+    commandLine("node", repoDir.resolve("apps/st0/backend/scripts/bundle.mjs").absolutePath, backendTree.get().asFile.absolutePath)
+}
+
+val backendAssets = layout.buildDirectory.dir("backend-assets")
+
+val stageBackend by tasks.registering(Zip::class) {
+    dependsOn(bundleBackend)
+    from(backendTree)
+    from(repoDir.resolve("apps/st0/backend/standalone.json"))
+    archiveFileName.set("backend.zip")
+    destinationDirectory.set(backendAssets)
+}
+
+android.sourceSets["main"].assets.srcDir(backendAssets)
+// The zip is already compressed: aapt must not deflate it again, and the app streams it out as it is.
+android.androidResources.noCompress += "zip"
+
+tasks.named("preBuild") { dependsOn(stageEngine, stageFaustLibs, stageShell, stageTermuxTools, stageBackend) }

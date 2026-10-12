@@ -19,8 +19,8 @@ export type SurfaceType = (typeof SURFACE_TYPES)[number];
 export const isSurfaceType = (s: string): s is SurfaceType =>
   (SURFACE_TYPES as readonly string[]).includes(s);
 
-/** Where a surface goes — its own screen (`view`) or a slot beside the graph (`split`); nothing draws in `view` today. */
-export const SURFACE_LAYOUTS = ["view", "split"] as const;
+/** Where a surface goes — its own screen (`view`), a page of the layout (`split`) or a window over it (`floating`); nothing draws in `view` today. */
+export const SURFACE_LAYOUTS = ["view", "split", "floating"] as const;
 export type SurfaceLayout = (typeof SURFACE_LAYOUTS)[number];
 
 /** Which layouts each type can be DRAWN in today — a `split` is not a `view` drawn smaller, see docs/surfaceFiles.md. */
@@ -30,7 +30,8 @@ export const SURFACE_LAYOUTS_BY_TYPE: Record<
 > = {
   turntables: ["split"],
   timeline: ["split"],
-  viewport: ["split"],
+  // A window over every page, moved and sized by hand: a picture is watched WHILE you edit, never instead of it.
+  viewport: ["floating"],
   // `split` and one reason of its own: this desk is a picture of ONE node, checked against the graph beside it.
   mastering: ["split"],
 };

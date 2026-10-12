@@ -39,6 +39,7 @@ import {
 } from "../engineLink.ts";
 import { refreshLibraries, retireWorkspaceLibraries } from "../libraries.ts";
 import { refreshLibraryEdits } from "../libraryEdits.ts";
+import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -824,6 +825,44 @@ filesRouter.get(
 filesRouter.get(
   "/revision",
   wrap((req, res) => res.json(req.ws!.revision())),
+);
+// What live sync captured in this workspace, newest last; 404 while it is off (docs/liveCapture.md).
+filesRouter.get(
+  "/sync/log",
+  wrap((req, res) => {
+    const n = Math.min(Number(req.query.n) || 50, 500);
+    const batches = liveLogTail(req.ws!, n);
+    if (!batches) res.status(404).json({ error: "live sync is off" });
+    else res.json({ batches });
+  }),
+);
+// Edits the relay set aside because the value had moved meanwhile, each with the value kept (docs/liveCapture.md).
+filesRouter.get(
+  "/sync/conflicts",
+  wrap((req, res) => {
+    const conflicts = liveConflicts(req.ws!);
+    if (!conflicts) res.status(404).json({ error: "not linked to a relay" });
+    else res.json({ conflicts });
+  }),
+);
+// Settle one: `take: true` writes the alternative over the value in place; either way it closes everywhere.
+filesRouter.post(
+  "/sync/conflicts/:id",
+  wrap((req, res) => {
+    const out = resolveConflict(
+      req.ws!,
+      String(req.params.id),
+      req.body?.take === true,
+    );
+    if (out === "ok") res.json({ ok: true });
+    else
+      res
+        .status(404)
+        .json({
+          error:
+            out === "unknown" ? "no such conflict" : "not linked to a relay",
+        });
+  }),
 );
 filesRouter.get(
   "/tree",

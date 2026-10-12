@@ -13,8 +13,8 @@ end of the page.
 
 Two services really talk to the engine: **st0's editor** and its **media library** (the `pl8` session), each by its two halves (browser +
 backend), plus the **supervisor** (`engine/st0-supervisor`), which announces it to the registries. At the
-margin: **z0** links to it at one point only, a 74-line offline render
-(`apps/z0/backend/src/render.ts`) that goes through the file service over HTTP and never the
+margin: **z0**, in its own repository, links to it at one point only, a 74-line offline render
+in its backend that goes through the file service over HTTP and never the
 socket; the **rehearsal pages** only listen, subscribing to the bench's master broadcast to record
 a chain (`packages/ui-rehearsal/docs/chainSource.md`).
 
@@ -115,14 +115,8 @@ path is rewritten by hand on the browser side (`probe.ts:170`).
 ### C5 — dead code
 
 `probeLocalEngine()`, `isReachable()`, `EngineLookup.ambiguous`, `RELOOK_MS`,
-`StreamPlayer.snapshot()`: zero callers outside tests. `packages/player-web/src/moteurPlayer.ts`
-(~300 lines, drives the engine through `EngineClient`) is instantiated by nobody — a seam taken on
-purpose, see `docs/inventaire.md` §3. The streaming instrumentation described in `streaming.md`
+`StreamPlayer.snapshot()`: zero callers outside tests. The streaming instrumentation described in `streaming.md`
 (jitter, drift, `dropped`) is exposed by no screen.
-
-Outside the engine scope but the same family: `apps/z0/buzzer/src/lib/ws.ts` and
-`apps/z0/remote/src/lib/ws.ts` are identical to the byte (74 lines), `presenter` is a third copy of
-69 lines. None of the three reconnects.
 
 ## D. The supervisor
 

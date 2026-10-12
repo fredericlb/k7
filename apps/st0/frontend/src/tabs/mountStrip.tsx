@@ -1,8 +1,8 @@
 // mountStrip.tsx — the strip's own entry. Everything it may import has to stay small: this
 // module and its closure are what a 36-pixel bar costs, and it is mounted in a view of its own
-// beside a full editor. See apps/st0-desktop/docs/tabs.md.
+// beside a full editor. See apps/st0-standalone/docs/tabs.md.
 
-import { clearDevPerfEntries } from "@studio/project-shell/devPerf";
+import { clearDevPerfEntries } from "@frediverse/ui/dev-perf";
 import ReactDOM from "react-dom/client";
 import { TabStrip } from "./TabStrip";
 import "../index.css";

@@ -1,7 +1,7 @@
 // pairing.ts — how a desktop app asks a server for a token and gets it back on its own
 // loopback port. Both halves are here because they are ONE rule seen from two sides: the app
 // builds the return address, st0's backend validates it, and a second spelling of "is this loopback"
-// would be a hole rather than a drift. See apps/st0-desktop/docs/pairing.md.
+// would be a hole rather than a drift. See apps/st0/backend/docs/handoff.md.
 //
 // The shape is RFC 8252's for native apps — the system browser, a loopback redirect, any port,
 // bound to a state nonce — applied to the studio session rather than to the IdP itself.

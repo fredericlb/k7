@@ -107,10 +107,17 @@ describe("parseSurface", () => {
   });
 
   it("reads the FRAME, which is a surface like any other", () => {
-    const { value, issues } = parseSurface("type: viewport\nlayout: split\n");
+    const { value, issues } = parseSurface("type: viewport\nlayout: floating\n");
     expect(issues).toEqual([]);
     expect(value?.type).toBe("viewport");
-    expect(value?.layout).toBe("split");
+    expect(value?.layout).toBe("floating");
+  });
+
+  it("refuses a viewport declared as a page, naming the layout it draws in", () => {
+    // A window over the layout, never a page of it: the pair check names the one-word fix.
+    const asPage = parseSurface("type: viewport\nlayout: split\n");
+    expect(asPage.value).toBeNull();
+    expect(asPage.issues[0].message).toContain("'floating'");
   });
 
   it("refuses a PAIR the editor has no component for", () => {
@@ -250,7 +257,7 @@ describe("a song with video lanes and no viewport", () => {
     const dir = withPicture("timeline", TIMELINE);
     writeFileSync(
       join(dir, "surfaces", "viewport.yaml"),
-      "type: viewport\nlayout: split\n",
+      "type: viewport\nlayout: floating\n",
     );
     expect(surfaceIssues(dir)).toEqual([]);
   });
@@ -283,7 +290,7 @@ describe("createSurfaceFile", () => {
     const dir = project();
     for (const [type, layout] of [
       ["timeline", "split"],
-      ["viewport", "split"],
+      ["viewport", "floating"],
       ["turntables", "split"],
     ] as const) {
       const rel = createSurfaceFile(dir, type);

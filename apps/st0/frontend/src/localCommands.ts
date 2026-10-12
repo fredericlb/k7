@@ -9,6 +9,8 @@ import { PANES } from "./shellMeta";
 export const UI_EXACT: readonly string[] = [
   "global",
   ...PANES,
+  // Shows or hides the picture's window — a window over the layout, so not one of the PANES.
+  "viewport",
   "focus next",
   "close",
   "popin close",

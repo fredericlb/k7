@@ -26,7 +26,6 @@ import { formatAt } from "./shareComments";
 // The panes, not tabs: a view is a LAYOUT over the same instances, and which of them a project mounts is `viewPanes` in routes.ts, not this table.
 export const PANES: Pane[] = [
   "editor",
-  "viewport",
   "timeline",
   "turntables",
   "mastering",
@@ -38,11 +37,16 @@ export const DOUBLE_SHIFT_MS = 400;
 
 export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   editor: { icon: FileCode, label: "Editor" },
-  viewport: { icon: MonitorPlay, label: "Viewport" },
   timeline: { icon: AudioWaveform, label: "Timeline" },
   turntables: { icon: Disc3, label: "Turntables" },
   mastering: { icon: Gauge, label: "Mastering" },
   chains: { icon: Workflow, label: "Chains" },
+};
+
+// The picture's window — not a pane, so not in the table above, but drawn with the same glyph wherever a surface is listed.
+export const VIEWPORT_META: { icon: LucideIcon; label: string } = {
+  icon: MonitorPlay,
+  label: "Viewport",
 };
 
 // No metadata for a layout: there is one, and which panes it holds is what the project declares (routes.ts).

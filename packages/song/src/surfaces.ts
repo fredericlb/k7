@@ -89,9 +89,9 @@ export function createSurfaceFile(
   const rel = `${SURFACES_DIR}/${id}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`surface '${id}' already exists (${rel})`);
-  if (layout === "split") {
+  if (layout !== "view") {
     const taken = projectSurfaces(dir).surfaces.find(
-      (s) => s.surface.type === type && s.surface.layout === "split",
+      (s) => s.surface.type === type && s.surface.layout === layout,
     );
     if (taken)
       throw new Error(

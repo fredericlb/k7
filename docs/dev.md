@@ -9,8 +9,7 @@ npm run vscode                     # the browser editor at /dev, on its own
 
 ## Where it answers
 
-**Three hosts** — `priv.st0.app` (st0 with its media library and its rehearsal pages, and z0 as a
-path under it), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of st0 as `play.st0.app` and
+**Three hosts** — `priv.st0.app` (st0 with its media library and its rehearsal pages), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of st0 as `play.st0.app` and
 `k7.st0.app` are in production — `scripts/dev-hosts.mjs` names all three (`DEV_HOST`,
 `ALIAS_DEV_HOST`, `K7_ALIAS_DEV_HOST`). The same shape production has under `st0.app` / `play.st0.app` /
 `k7.st0.app`, which is the point: the two differ by their domain and nothing else.
@@ -21,17 +20,15 @@ path under it), and `play.priv.st0.app` and `k7.priv.st0.app`, aliases of st0 as
 > | host | goes to | |
 > |---|---|---|
 > | `priv.st0.app` | **5223** | st0's dev server |
-> | `priv.st0.app/z0/*` (six SPAs) | 3001–3006 | z0's own dev servers, prefix kept — see `apps/z0/AGENTS.md` |
-> | `priv.st0.app/z0/api/*`, `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` | 8080 | z0's backend — prefix STRIPPED |
 > | `play.priv.st0.app` | **5223** | st0's dev server, which answers the alias as the hosted st0 does |
 > | `k7.priv.st0.app` | **5223** | st0's dev server, the same way |
 >
 > That is the WHOLE table for st0: its vite dev server already proxies
 > `/api`, `/auth` and `/rtc` (the rehearsal pages' phone microphone) to its backend port internally
 > (`commons/dev/vite-config/src/index.ts`'s `defineAppConfig` — `backendPort` +
-> `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. z0 is
-> the one exception still living as a path under st0's origin rather than its own subdomain, so
-> it still needs the old per-path rules.
+> `proxyPaths`/`wsPaths`), so the LAN proxy only has to get a request to the right HOST. `/z0` on
+> `priv.st0.app` belongs to z0's own repository, whose dev servers `npm run dev` here does not start;
+> its per-path rules are that repository's to document.
 >
 > **`/auth/*` follows st0**, wherever the request lands: the registered `redirect_uri` is
 > `<origin>/auth/callback` with no prefix, so the flow belongs to whichever service answers a
@@ -77,9 +74,8 @@ read by the `Tiltfile`) instead of spelling out seventeen entries, so a new app 
 existing. It runs over every workspace package that has a `dev` script and drops three
 kinds, each for a reason:
 
-- **`st0-tray`**, whose `dev` is `tauri dev` — the tool for a human watching a terminal.
-  Here it would fight the native monitor for the same single-instance tray, and its
-  `predev` stages a sidecar the monitor has not built yet.
+- **`st0-tray`**, which the native monitor builds and launches with the engine. A tray of
+  its own would fight that one for the single-instance lock.
 - **the `apps/<x>` aggregators**, whose `dev` is itself a `concurrently` command over
   their own children. Running the parent *and* the children would start every server
   twice.
@@ -189,17 +185,18 @@ servers. That it also rebuilds the tray is not a mis-filing: the engine is the r
 monitor exists — it is the half with no watch mode — and the desktop app is simply how the
 engine is run in dev, since the supervisor inside it is what spawns the binary.
 
-The engine is C++ and the tray is Rust, so neither has a watch mode that means anything:
-there is nothing to hot-reload, only a binary to relink and a process to restart. That is
-what the monitor does — watch the sources, rebuild, restart.
+The engine is C++, so it has no watch mode that means anything: there is nothing to
+hot-reload, only a binary to relink and a process to restart — and the tray has to be stopped
+for that relink, so it is restarted in the same cycle. That is what the monitor does — watch
+the sources, rebuild, restart.
 
 | target | watched | rebuilt with |
 |---|---|---|
 | `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
-| `capot` | `src-tauri/src/**.rs`, `Cargo.toml`, `build.rs`, `tauri.conf.json`, `dist/*.{html,css,js}` | `buildDevApp` — `tauri build --debug --no-bundle` into `dist/dev` |
+| `st0-tray` | `src/**.ts`, `settings/*.{html,css,js}` | `buildDevApp` — `build-main.mjs`, the esbuild bundle into `dist/` |
 
-The tray's `dist/` is in that list because `tauri build` **embeds** the settings window's page
-in the binary: nothing serves it from disk, so editing it is a relink like editing a `.rs`.
+The settings page is in that list though it has no build: it is read from disk when its window
+opens, so an edit takes effect at the restart the cycle ends with.
 
 A failed build of either half leaves the tray down, and says so — `✖ … the tray is stopped, fix
 and save again`. The cycle stops the tray BEFORE building, since a running image cannot be
@@ -234,8 +231,7 @@ retrying until the cycle in flight frees the tray.
 
 A failed build puts its target back in the dirty set and stops there, leaving the app
 down. It is **not** retried on a timer: a broken build retried every 500 ms is a fan, not
-a signal. Save again and it tries again. Only the ENGINE can fail this way now — the app's
-build is the `capot` Tilt resource and never leaves anything stopped.
+a signal. Save again and it tries again.
 
 At startup the monitor launches the app unconditionally, and rebuilds the engine only if
 there is no binary, or if the sources are newer than the one in `engine/st0-engine/build`. A
@@ -257,8 +253,8 @@ bug being guarded.
 The watch roots filter by BASE name, because a recursive `fs.watch` reports a path relative to the
 root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output — and
 every editor swap file — from triggering a rebuild. The rebuild order is engine first: the tray's
-`--dev` build stages nothing from the engine, but building the slow one first means a broken C++
-never costs a native build.
+bundle needs nothing from the engine, but building the slow one first means a broken C++ never
+costs a tray restart.
 
 ### On exit
 

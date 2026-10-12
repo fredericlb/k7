@@ -2,6 +2,6 @@
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startElectron } from "@studio/electron-shell/start";
+import { startElectron } from "@frediverse/electron-shell/start";
 
 startElectron(join(dirname(fileURLToPath(import.meta.url)), ".."));

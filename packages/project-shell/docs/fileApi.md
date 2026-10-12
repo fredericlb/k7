@@ -4,7 +4,7 @@ Two files, and the line between them is which MACHINE answers.
 
 | | who answers | where |
 |---|---|---|
-| `src/fileApi.ts` + `src/project.ts` | the **file service**, on the engine's machine, cross-origin and header-authenticated | `base` from the engine probe |
+| `src/fileApi.ts` + `src/files.ts` + `src/project.ts` | the **file service**, on the engine's machine, cross-origin and header-authenticated | `base` from the engine probe |
 | `src/repoLookup.ts` | **the media library**, st0's backend, at a fixed path on the page's own origin, with the session cookie | `serviceUrl(origin, "pl8")` |
 
 `apps/st0/AGENTS.md` lists the three servers a project app talks to and which is which.
@@ -111,6 +111,15 @@ for every request that met it together, and the request is sent again. A write i
 401 is the hub refusing before the service saw anything.
 
 ## The routes, and the ones that surprise
+
+**Two route tables, split by what their TYPES reach.** `files.ts` (`fileRoutes`, exported as
+`./files`) holds the routes that need only `@studio/web-protocol`: the repository → workspace
+lookups, opening a project, the tree and its files, and git. The gate runs on it, and z0's editor
+uses nothing else. `project.ts` spreads it and adds the compiled views, the modules, the CLI's
+verbs and the undo journal, whose types live in `@studio/song-schema`, `@studio/graph-model` and
+`@studio/engine-protocol`. Those three are therefore OPTIONAL peers of this package: an app that
+imports `./project` brings them, and an app that does not — z0, consuming this package from outside
+the repository — installs none of them.
 
 `project.ts` is the shared client. st0 spreads it into its own and adds what only it has — timeline,
 waveforms, video; z0's editor uses it as it stands.

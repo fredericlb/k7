@@ -1,5 +1,5 @@
 // ViewportTab.tsx — the frame: the song's video lanes composited with WebGL, drawn against the
-// engine's playhead. A `type: viewport` surface in the layout, so it is mounted for as long as
+// engine's playhead. A `type: viewport` surface floating over the layout, mounted for as long as
 // the project is open — a GL context and one <video> per layer are exactly the state that must
 // not be rebuilt every time you look elsewhere. See packages/song/docs/surfaces.md.
 

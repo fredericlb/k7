@@ -1,0 +1,120 @@
+<!doctype html>
+<!-- settings.html — the tray's one window: everything the tray used to hold in submenus and
+     could not draw properly. Seven tabs, because they answer six different questions and only
+     one of them is ever urgent. See engine/st0-tray/docs/tray.md. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>st0 engine</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-panel="panel-audio" aria-selected="true">Audio</button>
+      <button type="button" role="tab" data-panel="panel-plugins" aria-selected="false">Plugins</button>
+      <button type="button" role="tab" data-panel="panel-sessions" aria-selected="false">Sessions</button>
+      <button type="button" role="tab" data-panel="panel-instances" aria-selected="false">st0 instances</button>
+      <button type="button" role="tab" data-panel="panel-downloads" aria-selected="false">Downloads</button>
+      <button type="button" role="tab" id="tab-pairing" data-panel="panel-pairing" aria-selected="false">Paired devices</button>
+      <button type="button" role="tab" data-panel="panel-system" aria-selected="false">System</button>
+    </div>
+
+    <section id="panel-audio" role="tabpanel">
+      <p class="hint">
+        Best first. The engine takes the highest one that is plugged in — so a
+        rehearsal interface above the built-in output needs nothing said twice.
+        Drag to reorder, or move a selected row with ↑ and ↓. A row in red is
+        ranked but not connected: it holds its place until you say otherwise.
+      </p>
+      <ol id="audio"></ol>
+      <p id="audio-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-plugins" role="tabpanel" hidden>
+      <p class="hint">
+        What the engine found installed. Rescanning asks it to walk the plugin
+        folders again — it can take a while, and it happens inside the engine.
+      </p>
+      <div class="bar">
+        <input id="filter" type="search" placeholder="Filter by name, maker or format" />
+        <button id="rescan" type="button">Rescan</button>
+      </div>
+      <p id="plugin-count" class="empty"></p>
+      <ul id="plugins"></ul>
+    </section>
+
+    <section id="panel-sessions" role="tabpanel" hidden>
+      <p class="hint">
+        What this one engine is holding, and for whom — one row per app driving
+        it. <b>Drop</b> throws away whatever that app had loaded; it is not told,
+        and will simply find an empty project. Under each session are the plugins
+        whose own editor can be opened, on the engine's screen.
+      </p>
+      <ul id="sessions"></ul>
+      <p id="sessions-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-instances" role="tabpanel" hidden>
+      <p class="hint">
+        The st0 instances this engine is connected to. Each one lists this
+        engine in its picker, and reaches it through a tunnel this machine
+        opens. None is assumed: add one by its address.
+      </p>
+      <ul id="instances"></ul>
+      <p id="instances-empty" class="empty" hidden></p>
+      <form id="instance-form" class="bar">
+        <input id="instance-url" type="text" inputmode="url" autocomplete="off"
+          spellcheck="false" placeholder="Address of a st0 instance" />
+        <button id="instance-add" type="submit">Add</button>
+      </form>
+      <p id="instance-error" class="empty" hidden></p>
+      <p class="hint">
+        Only add an instance you trust: it receives this engine's access
+        token, and drives this engine and its copies of that instance's files.
+        The address is checked first — one that is not a st0 instance is refused.
+      </p>
+    </section>
+
+    <section id="panel-downloads" role="tabpanel" hidden>
+      <p class="hint">
+        The sampled instruments the engine can play. None is downloaded until
+        you ask for it here: a module that names a missing one stays silent, and
+        st0 says which one it needs. Downloads run one at a time, and carry on
+        after a restart. <b>Remove</b> deletes the instrument from this machine.
+      </p>
+      <ul id="instruments"></ul>
+      <p id="instruments-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-pairing" role="tabpanel" hidden>
+      <p class="hint">
+        A phone or another computer on this network drives the engine only once
+        you approve it here. <b>Approve</b> only when the code below is the one
+        the device shows: anyone on the network can ask. A request expires after
+        two minutes. <b>Revoke</b> cuts a paired device off at once.
+      </p>
+      <p class="subhead">Waiting for approval</p>
+      <ul id="pair-requests"></ul>
+      <p id="pair-requests-empty" class="empty" hidden></p>
+      <p class="subhead">Paired</p>
+      <ul id="paired-devices"></ul>
+      <p id="paired-devices-empty" class="empty" hidden></p>
+    </section>
+
+    <section id="panel-system" role="tabpanel" hidden>
+      <ul id="system"></ul>
+      <p id="adopted" class="hint" hidden>
+        This engine was started by another supervisor. It can be neither stopped
+        nor restarted from here.
+      </p>
+      <div class="bar">
+        <button id="engine-start" type="button">Start engine</button>
+        <button id="engine-stop" type="button">Stop</button>
+        <button id="engine-restart" type="button">Restart</button>
+      </div>
+    </section>
+    <script src="downloads.js"></script>
+    <script src="pairing.js"></script>
+    <script src="settings.js"></script>
+  </body>
+</html>

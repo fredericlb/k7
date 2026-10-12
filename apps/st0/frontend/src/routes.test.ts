@@ -88,7 +88,7 @@ describe("fromLocation", () => {
   });
 
   it("round-trips the desk once the project declares it", () => {
-    // Not in the loop above: `turntables` needs the flag, exactly as `/viewport` does — the default is pessimistic for both.
+    // Not in the loop above: `turntables` needs the flag — the default is pessimistic for a desk.
     const s = st({ full: "turntables" });
     expect(fromLocation("/turntables", "", { turntables: true })).toEqual(s);
   });
@@ -144,17 +144,14 @@ describe("viewPanes", () => {
     expect(fromLocation("/timeline", "", { timeline: false })).toEqual(st());
   });
 
-  it("puts the FRAME above the arrangement when the project declares one", () => {
-    // The ring is read by the number keys and the mobile tabs, so its order is the stacking order — frame, arrangement, desk, graph.
-    expect(viewPanes({ timeline: true, viewport: true })).toEqual({
-      ring: ["viewport", "timeline", "chains"],
-      fullscreen: ["editor", "viewport", "timeline", "chains"],
+  it("keeps the FRAME out of the ring, being a window over it", () => {
+    // The picture floats over whichever page is up, so no layout lists it — and no address parses into it.
+    expect(viewPanes({ timeline: true })).toEqual({
+      ring: ["timeline", "chains"],
+      fullscreen: ["editor", "timeline", "chains"],
     });
-    // Picture with no arrangement: a cut that is all shots and no lanes is a real song folder.
-    expect(viewPanes({ timeline: false, viewport: true })).toEqual({
-      ring: ["viewport", "chains"],
-      fullscreen: ["editor", "viewport", "chains"],
-    });
+    expect(fromLocation("/viewport", "")).toEqual(st());
+    expect(fromLocation("/video", "")).toEqual(st());
   });
 
   it("puts the DESK directly over the graph", () => {
@@ -164,9 +161,11 @@ describe("viewPanes", () => {
       fullscreen: ["editor", "turntables", "chains"],
     });
     // …and under the arrangement when a project declares both, the ring being the stacking order.
-    expect(
-      viewPanes({ timeline: true, viewport: true, turntables: true }).ring,
-    ).toEqual(["viewport", "timeline", "turntables", "chains"]);
+    expect(viewPanes({ timeline: true, turntables: true }).ring).toEqual([
+      "timeline",
+      "turntables",
+      "chains",
+    ]);
   });
 
   it("refuses `/turntables` as an address when there is no desk", () => {
@@ -194,21 +193,6 @@ describe("viewPanes", () => {
     expect(
       fromLocation("/timeline", "", { timeline: true, frozen: true }).full,
     ).toBe("timeline");
-  });
-
-  it("refuses `/viewport` as an address when there is no picture", () => {
-    expect(fromLocation("/viewport", "", { viewport: true }).full).toBe(
-      "viewport",
-    );
-    expect(fromLocation("/viewport", "", { viewport: false })).toEqual(st());
-  });
-
-  it("lands a `/video` bookmark on the frame", () => {
-    // `/video` is an alias of the picture pane, subject to the same declared-surface check as any other address.
-    expect(fromLocation("/video", "", { viewport: true }).full).toBe(
-      "viewport",
-    );
-    expect(fromLocation("/video", "", { viewport: false })).toEqual(st());
   });
 });
 

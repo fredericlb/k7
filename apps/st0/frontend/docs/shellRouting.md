@@ -15,7 +15,8 @@ rather than a component tree:
 There is no third field for a surface, and that is the point: a surface is *in* the layout rather
 than over it, so it has no address of its own beyond the pane's. It can be a `Pane` — a closed
 union the shell declares — because there is exactly one surface per type, so the type IS the name.
-There are four: the timeline, the viewport, the turntables and the mastering strip. What they
+There are three: the timeline, the turntables and the mastering strip. The viewport is not one — a
+window over the layout rather than a page in it, with no address. What the three
 reach is the pane list below, which is a function of what the project declares rather than a
 constant. See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
@@ -26,7 +27,6 @@ There is ONE layout, and which panes it holds is a function of what the project 
 
 ```ts
 viewPanes({ timeline: true })                     // ring: ["timeline", "chains"]
-viewPanes({ timeline: true, viewport: true })     // ring: ["viewport", "timeline", "chains"]
 viewPanes({ timeline: false })                    // ring: ["chains"]
 viewPanes({ timeline: false, turntables: true })  // ring: ["turntables", "chains"]   ← a SET
 // fullscreen is ["editor", ...ring], or just the ring when `frozen`.

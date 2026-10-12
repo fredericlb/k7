@@ -1,6 +1,6 @@
 // HostProtocol.h — the wire contract with the tray: NDJSON on stdio, a whole SNAPSHOT per frame and
 // only when its bytes changed, commands back with one string argument. The tray mirrors these shapes
-// by hand in Rust (host.rs) and computes no policy of its own. Stdout carries frames and nothing else:
+// by hand in TypeScript (electron-shell's hostProtocol.ts) and computes no policy of its own. Stdout carries frames and nothing else:
 // one stray line and the tray parses garbage. See docs/supervisor.md.
 
 #pragma once

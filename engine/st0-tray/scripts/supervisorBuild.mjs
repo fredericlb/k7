@@ -1,9 +1,8 @@
-// supervisorBuild.mjs — building and finding the native supervisor (engine/st0-supervisor), and the
-// ONNX Runtime files its build leaves beside it. Shared by build-engine.mjs and the dev session, so
-// "which binary is the supervisor" has one answer. See docs/buildEngine.md.
+// supervisorBuild.mjs — building and finding the native supervisor (engine/st0-supervisor).
+// Shared by build-engine.mjs and the dev session, so "which binary is the supervisor" has one answer. See docs/buildEngine.md.
 
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { join } from "node:path";
 import { run } from "./buildTools.mjs";
 
 /** The supervisor's CMake preset for this host; `$STUDIO_SUPERVISOR_PRESET` for a runner's older toolchain. */
@@ -42,17 +41,4 @@ export function findSupervisor(repo) {
       statSync(b.path).mtimeMs - statSync(a.path).mtimeMs,
   );
   return found[0]?.path ?? null;
-}
-
-/** The ONNX Runtime files the build copied beside `bin` — what the packaged app must carry with it. */
-export function onnxRuntimeFiles(bin) {
-  const dir = dirname(bin);
-  return readdirSync(dir)
-    .filter((n) =>
-      /^(libonnxruntime.*\.(dylib|so.*)|onnxruntime.*\.dll|DirectML\.dll)$/.test(
-        n,
-      ),
-    )
-    .map((n) => join(dir, n))
-    .filter((p) => statSync(p).isFile() && !basename(p).endsWith(".dSYM"));
 }

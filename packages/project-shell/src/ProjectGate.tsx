@@ -36,6 +36,7 @@ import {
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
+import { fileRoutes } from "./files.ts";
 import {
   anotherTabActive,
   IDLE_TIMEOUT_MS,
@@ -43,7 +44,6 @@ import {
   useIdleTimeout,
 } from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
-import { projectApi } from "./project.ts";
 import { accountLibraries } from "./repoLookup.ts";
 
 /** How often the clone is asked how far it has got. Fast: it is the only thing on screen. */
@@ -229,7 +229,7 @@ export function ProjectGate({
   const quit = useCallback(() => {
     // Not from under another tab of this account still using the session.
     if (!anotherTabActive(IDLE_TIMEOUT_MS))
-      void projectApi.unloadEngine().catch(() => {
+      void fileRoutes.unloadEngine().catch(() => {
         /* engine/file service gone — leaving is still right */
       });
     window.location.href = projectsUrl(window.location.href);
@@ -263,7 +263,7 @@ export function ProjectGate({
     idleCallback.current?.();
     // The session is shared by this account's tabs: another one in use keeps it, and only this tab sleeps.
     if (anotherTabActive(IDLE_TIMEOUT_MS)) return;
-    void projectApi.unloadEngine().catch(() => {
+    void fileRoutes.unloadEngine().catch(() => {
       /* engine or file service gone — the session is over here regardless */
     });
   }, [phase.k]);
@@ -304,7 +304,7 @@ export function ProjectGate({
           // No library is not a refusal here: a song started on this machine may extend nothing
           // shared, and the project's own "unresolved reference" is the better complaint.
           try {
-            await projectApi.open(local.project);
+            await fileRoutes.open(local.project);
           } catch (e) {
             if (cancelled) return;
             const status = (e as { status?: number }).status;
@@ -337,7 +337,7 @@ export function ProjectGate({
           // The project part goes with it: the machine is the side that says which address it answers.
           let bench: { workspace: string; project: string };
           try {
-            bench = await projectApi.openBench(project);
+            bench = await fileRoutes.openBench(project);
           } catch (e) {
             if (cancelled) return;
             // 404 is an address under `@banc` that names nothing; 409 a library that will not mount.
@@ -350,7 +350,7 @@ export function ProjectGate({
           }
           if (cancelled) return;
           configure(userEmail, bench.workspace);
-          await projectApi.open(bench.project);
+          await fileRoutes.open(bench.project);
           if (cancelled) return;
           return setPhase({
             k: "loading",
@@ -373,8 +373,7 @@ export function ProjectGate({
       } catch (e) {
         if (cancelled) return;
         // "NetworkError…" covers a refused origin and a dead service, whose fixes are opposite; an HTTP status is neither — the service answered.
-        const answered =
-          typeof (e as { status?: unknown }).status === "number";
+        const answered = typeof (e as { status?: unknown }).status === "number";
         const fault = answered
           ? undefined
           : await diagnoseFileService(engine.fileBase);

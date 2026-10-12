@@ -21,6 +21,10 @@ once, browser-safe, and nowhere else. See `apps/st0/frontend/docs/projects.md` a
 strips first — so a page never spells a host, and a deployment on a domain of its own needs nothing
 configured. On a bare loopback host (`localhost`, a dev run) services are told apart by PORT instead.
 
+z0 is DEPLOYED on this origin and developed elsewhere: its code is in its own repository, which
+reads this table through the published package (`docs/publishing.md`). Its row stays here because
+the origin is st0's, and so is the list of paths no other app may claim.
+
 **One session across them** is the shared `COOKIE_DOMAIN`: every `setupAuth` sets the cookie on the
 parent domain and trusts the sibling origins (`TRUSTED_ORIGINS`), both from the same environment
 (`docker/docker-compose.yml`).
@@ -103,7 +107,7 @@ only one of them is a 404 nobody can attribute.
 
 The name is `/z0/editor`, with nothing beside it: `/z0/editor` is a literal prefix of any
 `/z0/editor-*`, and a proxy comparing raw prefixes would send the project to the wrong SPA. One
-name, no overlap. See `apps/z0/docs/editor.md`.
+name, no overlap. z0's own repository documents the editor's side of it.
 
 ## Parsing one back
 

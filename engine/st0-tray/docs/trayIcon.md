@@ -1,6 +1,6 @@
 # The tray icon is drawn, not loaded
 
-`trayicon.rs` rasterizes the menu-bar icon in code rather than shipping PNGs.
+`src/trayIcon.ts` rasterizes the menu-bar icon in code rather than shipping PNGs.
 
 The icon has to say four different things (running, stopped, can't start, loading), the
 loading one has to **animate**, and on macOS the glyph has to flip dark-on-light for a
@@ -14,3 +14,6 @@ turn to mush at 22pt, and the badge needs the bottom-right corner cleared.
 
 Everything is described in a 0..1 unit square, rasterized 3× oversampled and box-filtered
 down — which is where the antialiasing comes from.
+
+The pixels leave as a PNG, encoded with `node:zlib` alone — no image library for one 44-pixel
+square — and handed to Electron at scale factor 2, the menu bar's 22pt.

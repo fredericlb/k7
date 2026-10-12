@@ -2,19 +2,29 @@
 // the ones the supervisor is connected to (the engine tray's list); each app's address comes from
 // serviceUrl, the one mapping UserMenu and the apps themselves use (docs/addresses.md).
 
-import { serviceUrl, studioFamily } from "@studio/web-protocol/services";
+import {
+  isLoopbackHost,
+  localServiceUrl,
+  serviceUrl,
+  studioFamily,
+} from "@studio/web-protocol/services";
 import { APP_IDS, type AppId, type StudioInstance } from "./native";
 
-/** st0's origin for each connected studio, once each, in the supervisor's order. */
+/** A family as the origin its st0 answers on: a loopback one is this phone's own backend, at its port. */
+const st0Origin = (family: string): string =>
+  isLoopbackHost(new URL(family).hostname) ? localServiceUrl("st0") : family;
+
+/** st0's origin for each connected studio, once each: the phone's own first, then the supervisor's order. */
 export function studioOrigins(
   instances: StudioInstance[] | undefined,
 ): string[] {
   const seen = new Set<string>();
   for (const { url } of instances ?? []) {
-    const origin = studioFamily(url);
-    if (origin) seen.add(origin);
+    const family = studioFamily(url);
+    if (family) seen.add(st0Origin(family));
   }
-  return [...seen];
+  const local = localServiceUrl("st0");
+  return [...seen].sort((a, b) => Number(b === local) - Number(a === local));
 }
 
 /** Every tab's address on the studio at `origin`. */

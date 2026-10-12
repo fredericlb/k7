@@ -3,9 +3,9 @@
 // browser sends about identity is forwarded. The engine a request names is bound only on a claim.
 // See docs/fileHub.md.
 
-import { randomBytes } from "node:crypto";
-import { request as httpRequest } from "node:http";
-import { resolve } from "node:path";
+import { createHmac, randomBytes } from "node:crypto";
+import { request as httpRequest, type Server } from "node:http";
+import { join, resolve } from "node:path";
 import { replayBody } from "@studio/engine-registry";
 import type { TunnelRoot } from "@studio/engine-tunnel/frames";
 import {
@@ -17,7 +17,7 @@ import {
   HUB_SECRET_HEADER,
   USER_HEADER,
 } from "@studio/web-protocol";
-import type { Request, RequestHandler, Response } from "express";
+import express, { type Request, type RequestHandler, type Response, Router } from "express";
 import {
   type BindingDeps,
   bindEngine,
@@ -25,12 +25,14 @@ import {
   releaseIfUnclaimed,
   unbindAll,
 } from "./binding.ts";
+import { DeviceTokens } from "./deviceTokens.ts";
 import { dropEditClones } from "./editsDrop.ts";
 import {
   type Instance,
   Instances,
   type InstancesOptions,
 } from "./instances.ts";
+import { accountKey } from "./instances.ts";
 import { LibraryStore } from "./libraries.ts";
 import {
   isLibrariesPath,
@@ -43,6 +45,7 @@ import {
   purgeStaleHistory,
   purgeStaleRenders,
 } from "./staleCaches.ts";
+import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
 export { holdsClaim, rootsFor } from "./binding.ts";
@@ -86,6 +89,8 @@ export class FileHub {
   private readonly instances: Instances;
   private readonly deps: BindingDeps;
   private readonly reaper: NodeJS.Timeout;
+  private stopSync: (() => void) | null = null;
+  private readonly devices: DeviceTokens;
   private readonly renderSweep: NodeJS.Timeout;
   private readonly key: Buffer;
   /** The origin's libraries: the list, the server's key and the one clone of each. */
@@ -93,6 +98,11 @@ export class FileHub {
 
   constructor(private readonly opts: FileHubOptions) {
     this.key = opts.ticketKey ? Buffer.from(opts.ticketKey) : randomBytes(32);
+    // Its own key, derived: a device token must not double as a file ticket, and must survive a restart as one does.
+    this.devices = new DeviceTokens(
+      createHmac("sha256", this.key).update("sync-devices").digest(),
+      (slug) => join(resolve(opts.dataRoot), slug),
+    );
     const log = opts.log ?? ((m: string) => console.log(`files | ${m}`));
     this.deps = { ...opts, log };
     this.libraries = new LibraryStore(resolve(opts.dataRoot));
@@ -104,6 +114,8 @@ export class FileHub {
         ...opts.env?.(),
         STUDIO_LIBRARIES_HOME: this.libraries.home,
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
+        // Live sync's relay, which a service dials only when STUDIO_LIVE_SYNC=1 (docs/syncRelay.md).
+        ...syncTarget(opts.selfPort()),
       }),
     });
     const idle = opts.idleMs ?? 30 * 60_000;
@@ -281,11 +293,63 @@ export class FileHub {
     };
   }
 
+  /** The account's sync devices: list, add (answering the token once), remove — mounted behind the session guard. */
+  devicesRouter(): Router {
+    const r = Router();
+    r.use(express.json());
+    const slugOf = (req: Request): string | null => {
+      const user = this.opts.userOf(req);
+      return user ? accountKey(user) : null;
+    };
+    r.get("/", (req, res) => {
+      const slug = slugOf(req);
+      if (!slug) res.status(401).json({ error: "no user on the session" });
+      else res.json({ devices: this.devices.list(slug) });
+    });
+    r.post("/", (req, res) => {
+      const slug = slugOf(req);
+      const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+      if (!slug) return void res.status(401).json({ error: "no user on the session" });
+      if (!name) return void res.status(400).json({ error: "a device needs a name" });
+      const { device, token } = this.devices.mint(slug, name);
+      const proto = req.get("x-forwarded-proto") ?? req.protocol;
+      const url = `${proto === "https" ? "wss" : "ws"}://${req.get("host")}${SYNC_PATH}`;
+      res.json({ device, token, url });
+    });
+    r.delete("/:id", (req, res) => {
+      const slug = slugOf(req);
+      if (!slug) return void res.status(401).json({ error: "no user on the session" });
+      res.json({ removed: this.devices.revoke(slug, req.params.id) });
+    });
+    return r;
+  }
+
+  /** Live sync's relay on the shared HTTP server; its rooms are saved on `stop`. */
+  serveSync(server: Server): void {
+    const dataRoot = resolve(this.opts.dataRoot);
+    this.stopSync = attachSyncRelay(server, {
+      accountDir: (slug) => join(dataRoot, slug),
+      accountOf: async (secret) =>
+        (await this.instances.bySecret(secret))?.slug ?? null,
+      deviceOf: (token) => this.devices.verify(token)?.slug ?? null,
+      log: this.deps.log,
+    });
+  }
+
   async stop(): Promise<void> {
     clearInterval(this.reaper);
     clearInterval(this.renderSweep);
+    this.stopSync?.();
     await this.instances.stopAll();
   }
+}
+
+/** Where this hub's services sync: a REMOTE relay with a device token when this hub is a machine's, else its own. */
+function syncTarget(port: number): Record<string, string> {
+  const url = process.env.STUDIO_SYNC_REMOTE_URL?.trim();
+  const token = process.env.STUDIO_SYNC_REMOTE_TOKEN?.trim();
+  if (url && token) return { STUDIO_SYNC_URL: url, STUDIO_SYNC_TOKEN: token };
+  return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
 }
 
 /** One request to the instance, the session's user, its admin flag and the hub's secret stamped on it. */

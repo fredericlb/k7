@@ -215,14 +215,14 @@ export function videoProjectFiles(name: string): Record<string, string> {
     "surfaces/viewport.yaml":
       `# The FRAME — the video lanes composited with WebGL, drawn against the playhead.\n` +
       `#\n` +
-      `# \`split\` is the only layout it draws in, and that is deliberate: it owns a GL context\n` +
-      `# and one <video> per layer, which a screen you opened and closed would rebuild every\n` +
-      `# time. Press its number key or \`ui viewport\` to give it the window instead.\n` +
+      `# \`floating\` is the only layout it draws in: a window over whichever page is on screen,\n` +
+      `# moved by its title bar and sized by its corner. \`ui viewport\` shows or hides it; hidden,\n` +
+      `# it keeps its GL context and its <video> per layer, so showing it again costs nothing.\n` +
       `#\n` +
       `# Delete this file and the lanes still compile and still draw on the timeline — nothing\n` +
       `# composites them. See packages/song/docs/surfaces.md.\n` +
       `type: viewport\n` +
-      `layout: split\n`,
+      `layout: floating\n`,
 
     "clips/sample.yaml":
       `# A SOURCE, not a placement: this says which file, and video_tracks/ says where it goes.\n` +

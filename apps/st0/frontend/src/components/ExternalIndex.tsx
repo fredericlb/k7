@@ -21,7 +21,7 @@ import { needingPairing, PairThisDevice } from "../pairing/PairThisDevice";
 import { m } from "../paraglide/messages.js";
 import { accountFiles, externalHref } from "../projects/api";
 import type { AccountFiles } from "../projects/workspaceOps";
-import { PANE_META } from "../shellMeta";
+import { PANE_META, VIEWPORT_META } from "../shellMeta";
 import type { RankedEngine } from "../types";
 import { pollWhileVisible } from "../visiblePoll";
 
@@ -224,9 +224,11 @@ function label(p: SurfacedProject): string {
 
 /** A surface's type as a glyph and as a word, out of the shell's own pane table — an unknown type is drawn as itself, not dropped. */
 const paneMeta = (type: string) =>
-  (PANE_META as Partial<Record<string, { icon: LucideIcon; label: string }>>)[
-    type
-  ];
+  (
+    ({ ...PANE_META, viewport: VIEWPORT_META }) as Partial<
+      Record<string, { icon: LucideIcon; label: string }>
+    >
+  )[type];
 
 function SurfaceIcon({ type }: { type: string }) {
   const Icon = paneMeta(type)?.icon ?? Disc3;

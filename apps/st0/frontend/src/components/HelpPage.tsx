@@ -33,7 +33,7 @@ const VIEW_COMMANDS: { command: string; help: string }[] = [
   },
   {
     command: "ui viewport",
-    help: "fullscreen the video viewport (video songs only)",
+    help: "show or hide the floating video viewport (video songs only)",
   },
   {
     command: "ui focus next",

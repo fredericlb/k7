@@ -1,24 +1,15 @@
-// project.ts — the file-service routes every project app needs: resolving a repository to a
-// workspace on this machine, the tree and the files in it, the compiled views the engine and
-// the graph are drawn from, and the repository's git. st0 spreads this into its own client and
-// adds what only it has (timeline, waveforms, video); z0's editor uses it as it stands.
+// project.ts — every file-service route a project app needs: files.ts's, plus the compiled views
+// the engine and the graph are drawn from, the modules, the CLI's verbs and the undo journal.
+// st0 spreads this into its own client and adds what only it has (timeline, waveforms, video).
 
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 // The wire shape only, type-only, so nothing of the parser that walks a disk ships here.
 import type { ProjectSurfaces } from "@studio/song-schema/yaml/surfaceFile";
 import type {
-  Alternatives,
   CatalogueModule,
   ChangedFile,
-  CloneJob,
   CommandInfo,
-  FileContent,
-  FileNode,
-  ForkedModule,
-  GitCommitResult,
-  GitPullResult,
-  GitStatus,
   Hints,
   HistoryListEntry,
   HistoryState,
@@ -32,10 +23,9 @@ import type {
   WebPreferences,
   WebProject,
   WebVideoProject,
-  WorkspaceForRepo,
-  WorkspaceInfo,
 } from "@studio/web-protocol";
 import { fget, fsend } from "./fileApi.ts";
+import { fileRoutes } from "./files.ts";
 
 /** One `/complete` candidate: the line it completes to, and what a list shows for its value instead. */
 export interface Completion {
@@ -47,23 +37,9 @@ export interface Completion {
 export type CommandWant = "graph";
 
 export const projectApi = {
-  // --- pl8 knows a REPOSITORY, this machine knows folders (file-service/docs/cloneJobs.md) ---
-  workspaceByRepo: (uri: string) =>
-    fget<WorkspaceForRepo>(
-      `/workspaces/by-repo?uri=${encodeURIComponent(uri)}`,
-    ),
-  startClone: (uri: string) =>
-    fsend<CloneJob>("POST", "/workspaces/clone", { uri }),
-  cloneStatus: (id: string) => fget<CloneJob>(`/workspaces/clone/${id}`),
-  /** The BENCH, INSTEAD of the three calls above — see docs/fileApi.md. */
-  openBench: (project: string | undefined) =>
-    fsend<{ workspace: string; project: string }>("POST", "/workspaces/bench", {
-      // What the address named, verbatim: the machine builds the bench, so the machine decides.
-      project,
-    }),
+  ...fileRoutes,
 
-  // --- The open project ---------------------------------------------------------
-  workspace: () => fget<WorkspaceInfo>("/workspace"),
+  // --- The open project's libraries, modules and scaffolding --------------------
   /** The module libraries this project can reach, nearest first — see docs/fileApi.md. */
   moduleLibraries: () =>
     fget<{ libraries: ModuleLibrary[] }>("/module-libraries"),
@@ -84,11 +60,6 @@ export const projectApi = {
   /** Scaffold a project in the OPEN workspace: `name` carries its suffix, `shape` is the archetype. */
   createProject: (shape: string, name: string) =>
     fsend<{ project: string }>("POST", "/project/create", { shape, name }),
-  /** Open the project, and say which library repository to mount — see docs/fileApi.md. */
-  /** Open a project; the machine brings the account's libraries up to date on the way — docs/fileApi.md. */
-  open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
-  unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
-
   /** Play a document this browser built, through the service so ONE thing writes to the engine. */
   sendEngineProject: (doc: ProjectDoc) =>
     fsend<{ ok: true }>("POST", "/engine/project", { doc }),
@@ -109,27 +80,6 @@ export const projectApi = {
   surfaces: () => fget<ProjectSurfaces>("/surfaces"),
   projectErrors: () => fget<ProjectErrors>("/project-errors"),
 
-  // --- The tree and the files in it ---------------------------------------------
-  tree: () => fget<FileNode[]>("/tree"),
-  read: (path: string) =>
-    fget<FileContent>(`/file?path=${encodeURIComponent(path)}`),
-  // Saving into the shared `_modules` library forks instead; `forked` says where — docs/fileApi.md.
-  write: (path: string, content: string) =>
-    fsend<{ ok: true; forked?: ForkedModule }>("PUT", "/file", {
-      path,
-      content,
-    }),
-  fmt: (path: string) => fsend<FileContent>("POST", "/fmt", { path }),
-  createFolder: (dir: string, name: string) =>
-    fsend<{ path: string }>("POST", "/folder", { dir, name }),
-  // A library module's refs follow a rename, and `repointed` lists the files that changed — song docs/moduleMove.md.
-  renameFile: (path: string, name: string) =>
-    fsend<{ path: string; repointed?: string[] }>("POST", "/rename", {
-      path,
-      name,
-    }),
-  moveFile: (path: string, toDir: string) =>
-    fsend<{ path: string }>("POST", "/move", { path, toDir }),
   /** Move a library module to another folder of its library, its refs repointed — packages/song/docs/moduleMove.md. */
   moveLibraryModule: (path: string, toDir: string) =>
     fsend<{ path: string; from: string; to: string; repointed: string[] }>(
@@ -137,10 +87,6 @@ export const projectApi = {
       "/library/move",
       { path, toDir },
     ),
-  // Recycled, not erased — reversible, but no longer listed or startable.
-  deleteFile: (path: string) =>
-    fsend<{ recycled: string }>("POST", "/entry/delete", { path }),
-
   // --- Modules, as a project sees them ------------------------------------------
   hints: () => fget<Hints>("/hints"),
   /** The refs a node may be an instance of, each with its panel size when it draws one. */
@@ -170,13 +116,6 @@ export const projectApi = {
       path,
       ...(node ? { node } : {}),
     }),
-
-  // --- The repository's git. A workspace IS one clone, so none of this needs a project. ---
-  gitStatus: () => fget<GitStatus>("/git/status"), // fetches, so callers poll it rarely
-  alternatives: () => fget<Alternatives>("/git/alternatives"),
-  gitCommit: (message: string) =>
-    fsend<GitCommitResult>("POST", "/git/commit", { message }),
-  gitPull: () => fsend<GitPullResult>("POST", "/git/pull", {}),
 
   // --- The CLI's own verbs, which the command bar dispatches through ------------
   commands: () => fget<CommandInfo[]>("/commands"),

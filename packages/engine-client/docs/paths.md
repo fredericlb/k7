@@ -12,18 +12,18 @@ Throughout the docs it is written `<state>`.
 `$STUDIO_HOME` overrides it, and that is not a debug hatch: it is how every test that touches this
 gets a directory of its own.
 
-## One path, because THREE languages compute it
+## One path, because two languages compute it
 
 The per-platform location each OS prefers would be the tidier answer if one program owned this
-directory. Four do, in three languages: `packages/song/src/studioHome.ts`,
-`scripts/stateDir.mjs` for the plain-node scripts, `engine/st0-tray/src-tauri/src/paths.rs`, and
+directory. Four do, in two languages: `packages/song/src/studioHome.ts`,
+`scripts/stateDir.mjs` for the plain-node scripts, `engine/st0-tray/src/paths.ts`, and
 `engine/st0-engine/engine/PluginScan.cpp`.
 
 Each language's idea of "where application data goes" is subtly its own, and they do not line up:
 JUCE's `userApplicationDataDirectory` is `~/Library` on macOS where node's equivalent is
 `~/Library/Application Support`. Two of the four disagreeing is not a build error — it is an
 engine writing its plugin cache where nothing reads it, which surfaces as a médiathèque that is
-simply empty. A home dotfile is one rule, mirrorable in three languages by inspection.
+simply empty. A home dotfile is one rule, mirrorable in both languages by inspection.
 
 ## `workspace/`, with nobody underneath it
 

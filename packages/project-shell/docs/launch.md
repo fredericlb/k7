@@ -207,7 +207,9 @@ The address vocabulary itself lives one level lower still, in
 `@studio/web-protocol/projects`, beside the suffix rule it depends on: st0's home page
 **writes** these addresses and both editors **read** them back, which makes it a wire contract
 rather than an app's habit. Neither end of the contract is where the vocabulary lives, and that
-is the point. `launch.ts` here is what the apps import.
+is the point. `launch.ts` here is what the apps import — st0 from this tree, z0's editor from its
+own repository through the published package (`docs/publishing.md`), which is why a change to an
+export here is a versioned change.
 
 Each app keeps what is genuinely its own: st0 adds waveforms, video, export, the timeline's
 tracks; z0's editor adds nothing at all. The wording is each app's too — st0 has paraglide,

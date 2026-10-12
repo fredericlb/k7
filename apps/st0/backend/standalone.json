@@ -1,0 +1,18 @@
+{
+  "port": 18789,
+  "env": {
+    "OIDC_ISSUER": "https://login.frediver.se",
+    "OIDC_CLIENT_ID": "st0-desktop",
+    "OIDC_CLIENT_SECRET": "",
+    "OIDC_SCOPES": "openid profile email groups",
+    "STUDIO_LOCAL_USER": "1",
+    "COOKIE_DOMAIN": ""
+  },
+  "dirs": {
+    "STUDIO_FILES_ROOT": "workspaces",
+    "STUDIO_MEDIATEK": "mediatek",
+    "STUDIO_PREFS_DIR": "prefs/st0",
+    "STUDIO_HOME": "server-home"
+  },
+  "library": "st0-library.git"
+}

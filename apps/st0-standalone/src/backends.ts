@@ -1,27 +1,35 @@
-// backends.ts — st0's own server, as the shell runs any server: unchanged, under tsx, dying with the app.
-// What is st0's here is only where it lives in the source tree (packages/electron-shell/docs/shell.md).
+// backends.ts — st0's own server, as the shell runs any server: under Electron as node, dying with the app.
+// Packaged it is the bundle the phone runs too (apps/st0/backend/docs/standalone.md); unpackaged, the checkout's source under tsx.
 
 import { join } from "node:path";
-import { type Server, startServer } from "@studio/electron-shell/servers";
-import { sourceRoot } from "./paths.ts";
+import { type Server, startServer } from "@frediverse/electron-shell/servers";
+import { backendBundle, sourceRoot } from "./paths.ts";
 
-/** Start `apps/<app>/backend/src/server.ts` on `port`, with `env` over this process's own. */
+/** Start st0's backend on `port`, with `env` over this process's own. */
 export function startBackend(
-  app: "st0",
   port: number,
   env: Record<string, string>,
   cwd: string,
 ): Server {
+  const common = { name: "st0", port, cwd, unset: ["TRUSTED_ORIGINS"] };
+  const bundle = backendBundle();
+  if (bundle)
+    return startServer({
+      ...common,
+      entry: join(bundle, "bin", "backend.mjs"),
+      // The hub would otherwise start the file service with tsx over a source that is not shipped.
+      env: {
+        ...env,
+        STUDIO_FILE_SERVICE_ENTRY: join(bundle, "bin", "file-service.mjs"),
+      },
+    });
   const root = sourceRoot();
-  const dir = join(root, "apps", app, "backend");
+  const dir = join(root, "apps", "st0", "backend");
   return startServer({
-    name: app,
-    port,
+    ...common,
     entry: join(dir, "src", "server.ts"),
     tsx: join(root, "node_modules", "tsx", "dist", "cli.mjs"),
     tsconfig: join(dir, "tsconfig.json"),
     env,
-    unset: ["TRUSTED_ORIGINS"],
-    cwd,
   });
 }

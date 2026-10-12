@@ -1,19 +1,22 @@
 // TabStrip.tsx — the tabs in the title bar, drawn by st0 because the settings screen already
 // set that precedent: desktop chrome is a page on the app's own origin, not a second build.
-// It is loaded in a view of its own and outlives every project below it — docs/tabs.md.
+// It is loaded in a view of its own and outlives every project below it — apps/st0-standalone/docs/tabs.md.
 
 import { House, Music, X } from "@frediverse/ui/icons";
 import { isProjectAddress } from "@studio/web-protocol/projects";
 import { type CSSProperties, useEffect, useState } from "react";
+import { AccountButton } from "./AccountButton";
 import { type TabRow, tabsBridge } from "./bridge";
 
 // `-webkit-app-region` is Electron's, and React's CSSProperties has never carried it.
 const DRAG = { WebkitAppRegion: "drag" } as CSSProperties;
 const NO_DRAG = { WebkitAppRegion: "no-drag" } as CSSProperties;
 
-/** The macOS traffic lights sit ON the strip, so the first tab starts after them. */
-function inset(): number {
-  return Number(new URLSearchParams(window.location.search).get("inset")) || 0;
+/** Room the window's own controls take on the strip: macOS's traffic lights on the left, the caption buttons on the right. */
+function inset(side: "inset" | "right"): number | undefined {
+  return (
+    Number(new URLSearchParams(window.location.search).get(side)) || undefined
+  );
 }
 
 /** A tab's label: what the page calls itself, else the last segment of its address. */
@@ -41,7 +44,11 @@ export function TabStrip() {
     // The whole bar drags the window; every control below takes itself back out.
     <div
       className="flex h-screen items-stretch gap-1 overflow-hidden bg-background px-1 text-foreground"
-      style={{ ...DRAG, paddingLeft: inset() || undefined }}
+      style={{
+        ...DRAG,
+        paddingLeft: inset("inset"),
+        paddingRight: inset("right"),
+      }}
     >
       {rows.map((row) => (
         <div
@@ -92,6 +99,10 @@ export function TabStrip() {
           )}
         </div>
       ))}
+      {/* Pushed to the right end, just short of the window's own buttons. */}
+      <div className="ml-auto flex shrink-0 items-center" style={NO_DRAG}>
+        <AccountButton rows={rows} />
+      </div>
     </div>
   );
 }

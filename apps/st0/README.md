@@ -32,7 +32,7 @@ the engine is unchanged — it only speaks the JSON protocol below.
 ## Where the pieces live
 
 The engine, the tray and the brain packages serve every audio app in the repo —
-z0 too — so they sit beside `apps/st0` rather than inside it. What lives
+and z0, from its own repository — so they sit beside `apps/st0` rather than inside it. What lives
 here is the web editor, its media library and the host of the rehearsal pages: `frontend` and
 `backend`.
 

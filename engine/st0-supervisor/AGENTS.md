@@ -22,7 +22,7 @@ build is seconds. `npm run dev` rebuilds it on save and restarts the tray (`scri
 The unit tests need no device, no network and no engine. The tunnel is tested by
 `packages/engine-tunnel`'s suites, which pick up the built `tunnel_harness` and run every case
 against it: after touching the tunnel code, run `npx vitest run` there. A change to
-`HostProtocol.h` is a change to `engine/st0-tray/src-tauri/src/host.rs` too.
+`HostProtocol.h` is a change to `packages/supervisor-host/src/hostProtocol.ts` too.
 
 ## Rules this code keeps
 

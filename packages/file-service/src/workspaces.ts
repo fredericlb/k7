@@ -31,6 +31,7 @@ import { projectApp } from "@studio/web-protocol/projects";
 import { BENCH_WORKSPACE } from "./bench.ts";
 import { pullLfs, setUpLfs } from "./gitLfs.ts";
 import { refreshLibraries, retireWorkspaceLibraries } from "./libraries.ts";
+import { attachLiveCapture, detachLiveCapture } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
@@ -64,12 +65,14 @@ export function getWorkspace(userEmail: string, workspace: string): Workspace {
   // Before the memo, every call: a folder deleted from Finder would else be served from cache and 500 deep in fs.
   if (!existsSync(root)) {
     live.delete(key);
+    detachLiveCapture(root);
     throw new UnknownWorkspaceError(workspace);
   }
   let ws = live.get(key);
   if (!ws) {
     ws = new Workspace(root);
     live.set(key, ws);
+    attachLiveCapture(ws, workspace);
   }
   return ws;
 }

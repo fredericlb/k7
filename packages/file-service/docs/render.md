@@ -55,7 +55,7 @@ Both come back as 422 with the sentence; anything else is 500.
 
 ## z0's side, and why it is the exception
 
-`apps/z0/backend/src/render.ts` picks the machine from **`Z0_RENDER_ENGINE`**, an
+z0's backend, in z0's own repository, picks the machine from **`Z0_RENDER_ENGINE`**, an
 environment variable holding that machine's file-service base URL.
 
 Configured, not chosen, and not per user. Every other service in studio asks a person which

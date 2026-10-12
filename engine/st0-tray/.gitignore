@@ -1,18 +1,12 @@
-# Rust build output
-src-tauri/target/
-# Tauri-generated schemas/capabilities cache
-src-tauri/gen/
-# The engine sidecar staged by `npm run engine:build` (a copy of the built engine,
-# named with the host target triple so Tauri bundles it into the app).
-src-tauri/binaries/
-# The file-service bundle produced by `npm run engine:build` (esbuild output).
-src-tauri/resources/
-
-# Vendored downloads for `npm run engine:build` (the pinned Node used to run the
-# bundled file service inside the app). Re-downloaded on demand.
+# The main process and preload as esbuild writes them (scripts/build-main.mjs).
+dist/
+# What scripts/stage.mjs lays out for electron-builder, and what electron-builder writes.
+staging/
+out/
+# The dev tray's stdout and pid (scripts/start-engine.mjs).
 .cache/
 
-# Collected build artifacts go to the monorepo's own dist/, which the root .gitignore covers.
+# Collected release artifacts go to the monorepo's own dist/, which the root .gitignore covers.
 
 # Engine-computed waveform sidecars ({audio}.cache) — a derived cache the engine
 # rebuilds on demand from the audio + a content fingerprint. Never committed.

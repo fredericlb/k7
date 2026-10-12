@@ -25,7 +25,8 @@ session cookie is shared by everything on the origin, so logging out of one app 
 
 **st0** and **z0** — every app on the origin that has a home page worth landing on, and the
 host's own row is dropped by `self` rather than by a table per host. The médiathèque and the
-rehearsal recorder have no row: they are parts of st0, reached from st0's sidebar.
+rehearsal recorder have no row: they are parts of st0, reached from st0's sidebar. z0's row links to the z0 deployed at `/z0` on this origin, whose code lives in its own
+repository; the menu only needs the path, which `SERVICE_PATHS` holds.
 
 The st0 row goes first, and is worth a link because it lands on something: st0's home page lists
 the account's repositories and the projects in them (`apps/st0/frontend/docs/projects.md`), and

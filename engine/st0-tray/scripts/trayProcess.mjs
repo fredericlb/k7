@@ -1,5 +1,5 @@
 // trayProcess.mjs — the tray's edit→run loop as reusable steps: list every running tray,
-// stop them, build the dev app, and launch it waiting for the merged log to say the
+// stop them, bundle the main process, and launch it waiting for the merged log to say the
 // supervisor came up. Every step THROWS instead of exiting, so a long-lived watcher can
 // survive a failed build. Shared by restart-tray.mjs and scripts/dev-native.mjs.
 // See docs/restartTray.md.
@@ -12,10 +12,10 @@ import { stateDir } from "../../../scripts/stateDir.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url)); // engine/st0-tray/scripts
 export const trayDir = dirname(here); //                engine/st0-tray
-// `<state>/.studio.log`, mirroring paths.rs's merged_log_path — and through stateDir.mjs rather than
-// a hand-joined home, so $STUDIO_HOME moves it too.
-export const MERGED = join(stateDir(), ".studio.log"); // truncated by logbus::init on every launch
+// `<state>/.studio.log`, as src/paths.ts names it — through stateDir.mjs rather than a hand-joined home, so $STUDIO_HOME moves it too.
+export const MERGED = join(stateDir(), ".studio.log"); // truncated by the tray on every launch
 export const TRAY_LOG = join(trayDir, ".cache", "dev", "tray.log"); // where start-engine.mjs puts its stdout
+/** An INSTALLED tray; a dev one runs as Electron and is found by its command line instead. */
 export const EXE_NAME =
   process.platform === "win32" ? "st0-tray.exe" : "st0-tray";
 /** The engine. Stopped here too — see stopAll for why the tray's job object is not enough. */
@@ -83,9 +83,34 @@ function processesNamed(exe) {
   });
 }
 
-/** Every tray process and not just ours, since they share one identifier (docs/restartTray.md). */
+/** Electron main processes running THIS checkout's tray; helpers carry `--type=` and are left to die with them. */
+function devTrays() {
+  let out = null;
+  for (let attempt = 0; attempt < 3 && out === null; attempt++)
+    if (process.platform === "win32") {
+      const q = `Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'electron.exe' -and $_.CommandLine -like '*${trayDir}*' -and $_.CommandLine -notlike '*--type=*' } | ForEach-Object { "$($_.ProcessId)|$($_.ExecutablePath)" }`;
+      out = capture("powershell", [
+        "-NoProfile",
+        "-NonInteractive",
+        "-EncodedCommand",
+        Buffer.from(q, "utf16le").toString("base64"),
+      ]);
+    } else {
+      const escaped = trayDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out = capture("pgrep", ["-f", `[Ee]lectron ${escaped}$`], [0, 1]);
+    }
+  if (out === null) throw new StepError("could not list dev tray processes");
+  return out.split(/\r?\n/).flatMap((l) => {
+    const [pid, path] = l.trim().split("|");
+    return pid
+      ? [{ pid: Number(pid), path: path || `electron ${trayDir}` }]
+      : [];
+  });
+}
+
+/** Every tray, installed or dev: they share one single-instance lock, so a survivor makes the next launch a no-op. */
 export function running() {
-  return processesNamed(EXE_NAME);
+  return [...processesNamed(EXE_NAME), ...devTrays()];
 }
 
 /** Every engine process, whoever started it — and the same reasoning applies. See stopAll. */
@@ -136,9 +161,9 @@ export async function stopAll() {
   return found.length;
 }
 
-/** Rebuild the debug tray app into dist/dev. The caller must have stopped it first. */
+/** Bundle the main process and preload into dist/: a dev tray runs that, on the repo's supervisor build. */
 export function buildDevApp() {
-  node("build-engine.mjs", ["--dev"]);
+  node("build-main.mjs");
 }
 
 /** The merged log as of now, but only once THIS launch has truncated and rewritten it. */
@@ -170,8 +195,9 @@ export async function launch() {
   let text = null;
   for (let waited = 0; waited < 20_000; waited += 250) {
     text = freshLog(since) ?? text;
-    if (/supervisor (up|not found|won't start)/.test(text ?? "")) break;
-    // Nothing reaches the merged log if the tray dies before logbus::init, so watch the process too.
+    if (/supervisor (up|not found)|could not start supervisor/.test(text ?? ""))
+      break;
+    // Nothing reaches the merged log if the tray dies before opening it, so watch the process too.
     if (waited && waited % 2000 === 0 && !running().length) {
       throw new StepError(
         `the tray exited during startup. Its output:\n${tail(TRAY_LOG)}`,

@@ -108,7 +108,7 @@ The parent repo's `git ls-files` does not list it. `OIDC_ISSUER`, `GRIST_API_KEY
 relative import.
 
 Shrinking the map therefore deletes almost nothing: it documents the real surface. The widest
-publisher is `song` (5), then four tied at 3 — `engine-browser`, `player-web`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
+publisher is `song` (5), then three tied at 3 — `engine-browser`, `ui-editor`, `ui-eyes`. The "publish all of `src/`"
 reflex.
 
 `ui-turntables` publishes **4** — `.`, `/surface`, `/engine`, `/deck-set`. Its other internal
@@ -123,7 +123,7 @@ plumbing stays reachable by relative import inside the package.
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | the registry does this work. Deleting a loopback probe nothing replays is to be decided, not left to rot. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, not one reference left in the whole repo. |
 | `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | the two CodeMirror extensions that replace `notes:` **in place**, in the text. The grids' only host (st0, `SeqGrid.tsx`) goes through `mountSeqGrid`, which renders the same grid in a separate container. They keep one property `mountSeqGrid` has not — the YAML envelope stays visible around the grid. |
-| export `AuthUser` | `packages/ui-library/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. **And there is a second in the same case**: `apps/z0/editor/src/api.ts`. |
+| export `AuthUser` | `packages/ui-library/src/api.ts` | used in its own file, imported by nobody: it is the `export` that is surplus. |
 
 ### SYMBOLS, not files
 
@@ -139,8 +139,6 @@ declaring it. From pass 4; the three already described elsewhere on this page
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/mpv-player/src/player.ts` | |
 | `knownPrefs` | `packages/ui-library/src/prefs.ts` | |
-| `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
-| `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | four of the file's six drawing primitives; the presenter draws neither button nor player box. |
 
 **A further 232 symbols are pronounced only by their own test.** That is not dead code — it is the
 choice, taken everywhere here, of testing a constant or a computation step rather than the single
@@ -156,14 +154,6 @@ public function wrapping them. Counted so the figure does not surprise the next 
   (`../packages/st0-plugins/docs/turntables/hosting.md`); it measures a SOUND, which no unit test does.
 
 ## 3. Built ahead — not to be confused with an oversight
-
-`packages/player-web/src/moteurPlayer.ts` and `moteurEffects.ts` have no production importer. That is
-**not** an oversight: they are deliberately documented
-(`packages/player-web/docs/moteurPlayer.md`) and `AGENTS.md` presents them as the seam
-`@studio/player-web` carries.
-
-Deleting them would take `@studio/engine-browser` and `@studio/engine-protocol` out of
-`player-web`'s dependencies with them — they serve only those two files.
 
 ### Asking a plugin what it has
 
@@ -229,15 +219,14 @@ what the copies above have when they defend themselves.
 - **The `piano-16` glyph**, SVG body identical byte for byte:
   `apps/st0/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
   (The rest of the glyph-table duplication is argued and accepted — see `moduleIcons.tsx`.)
-- **The full-screen spinner**, four copies of the same block:
-  `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx`,
-  `packages/project-shell/src/ProjectGate.tsx` and
-  `apps/z0/editor/src/Gate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
+- **The full-screen spinner**, three copies of the same block here:
+  `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx` and
+  `packages/project-shell/src/ProjectGate.tsx`. Left as is: short presentation blocks, no risk of silent drift — but
   one grows per gate, which makes this count a thing to re-check.
 
 ### Left on purpose
 
-`where()` (`apps/z0/editor/src/Gate.tsx`) is two
+`where()` (z0's editor gate, in z0's repository) is two
 identical lines whose only natural home would be `packages/web-protocol/quality.ts`, beside
 `formatLatency` — but that package contains **no** French UI string, and "hors de portée" would bring
 the UI's language into a protocol package. Two lines are not worth that property. Same reasoning for

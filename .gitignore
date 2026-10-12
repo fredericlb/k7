@@ -1,10 +1,6 @@
 node_modules/
 .turbo/
 dist/
-# The tray's dist/ is hand-written source, not build output: Tauri only requires a
-# frontendDist to exist, and the audio window's page is the one thing served from it.
-!engine/st0-tray/dist/
-
 # What the packaged app carries, assembled flat by engine/st0-tray/scripts/stage.mjs.
 engine/st0-tray/staging/
 # One-shot codemods written during a change and kept only until it lands. Excluded from

@@ -1,6 +1,6 @@
 # The hosted half only: st0 (the editor, the media library AND the rehearsal recorder) in its OWN
-# image and container — no nginx, see apps/st0/docker/Dockerfile. z0 is one image sharing
-# nginx internally (apps/z0/docker/), on st0's own hostname. No engine and no tray: those run
+# image and container — no nginx, see apps/st0/docker/Dockerfile. z0, the blind-test game, is
+# built and tagged by its own repository and only DEPLOYED here, on st0's own hostname. No engine and no tray: those run
 # on the musician's own machine, and reach this stack through the tunnel their supervisor dials
 # (packages/engine-tunnel/docs/tunnel.md). The accounts' WORKSPACES live here, in st0, one file
 # service per account (packages/file-hub/docs/fileHub.md).
@@ -90,8 +90,9 @@ services:
       # trusted interface/VPN or firewall it off in a real deployment.
       - "${POCKETBASE_PORT:-8090}:8090"
 
+  # Built by z0's own repository, so it ships on its own version rather than on APP_VERSION.
   z0:
-    image: dev.frediver.se/frediverse/studio/z0:${APP_VERSION:-latest}
+    image: dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}
     restart: unless-stopped
     environment:
       <<: *shared-auth

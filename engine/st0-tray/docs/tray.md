@@ -3,15 +3,14 @@
 ## Names, and the ones a rename may not touch
 
 The binary and the displayed name are `st0-tray`; the engine it supervises is
-`st0-engine`. That covers the Cargo package, Tauri's `productName`, the tray tooltip,
-the Quit item and the AppleScript dialog titles — all build artifacts, which the next build
-replaces, so they rename in one commit.
+`st0-engine`. That covers the npm package, electron-builder's `productName`, the tray tooltip,
+the Quit item and the dialog titles — all build artifacts, which the next build replaces, so
+they rename in one commit.
 
 **`org.parapluie.studio.engine-tray`, the bundle identifier, does not.** On macOS this is the
 app's *identity*: changing it makes the OS treat the build as a different application, dropping
 its microphone and automation (TCC) grants and its login item while leaving the old one
-registered. It is also what Tauri keys single-instance on, so a mid-flight change means two
-trays can run at once. It is frozen, and its own migration if it ever moves.
+registered. It is frozen in `electron-builder.cjs`, and its own migration if it ever moves.
 
 Neither does anything the user's DISK remembers: `<state>` and what is under it, the `STUDIO_*`
 environment variables, and `x-studio-engine-token`. Renaming one of those without a migration
@@ -23,21 +22,30 @@ remembers cannot.
 
 ---
 
-`st0-tray` is a tray Tauri app that starts with no window. It is the **VIEW** over the
+`st0-tray` is an Electron tray app that starts with no window. It is the **VIEW** over the
 supervisor (`engine/st0-supervisor`), which it spawns as a child and drives over NDJSON on
 stdio: the supervisor owns the `~/.st0` contract, the registry and the engine. No file service
 runs on this machine — workspaces live on the server (`packages/file-hub/docs/fileHub.md`). The tray renders its snapshots and sends its clicks back.
 
-Nothing in `tray.rs` opens a socket, spawns a process or reads a state file. What to allow,
-which engine is running, what the ports are, where to heartbeat: all of it comes down in a
-snapshot (`host.rs`), and a click goes back up as a command.
+Nothing in `src/` opens a socket or reads a state file, and the one process it spawns is the
+supervisor. What to allow, which engine is running, what the ports are, where to heartbeat: all of
+it comes down in a snapshot, and a click goes back up as a command.
+
+## Why Electron
+
+Every desktop surface of studio renders in one engine, Chromium, and this one shares its shell
+with `apps/st0-standalone` (`commons/packages/electron-shell/docs/shell.md`) — the supervisor driver
+included (`packages/supervisor-host/docs/supervisorHost.md`). A tray in the system's web view would be a second engine to test the settings page
+against: WebKit on macOS, WebKitGTK on Linux. The cost is size: Electron adds about 300 MB unpacked
+to the ~100 MB of engine, supervisor and libraries, and a windowless Electron sits around
+60–100 MB of memory all day.
 
 ## The microphone is the tray's to ask for
 
 On macOS the microphone grant belongs to the RESPONSIBLE app: the engine records through the
 supervisor the tray launched, so it is the tray that asks, and the tray that `System Settings ›
-Privacy › Microphone` lists. `src-tauri/Info.plist` carries `NSMicrophoneUsageDescription` for
-that reason. An app without one is never asked: macOS hands it silence, the take is written, its
+Privacy › Microphone` lists. Its Info.plist carries `NSMicrophoneUsageDescription` for that
+reason, set in `electron-builder.cjs`. An app without one is never asked: macOS hands it silence, the take is written, its
 file is all zeros and the input meter reads -100 dB, which looks like a dead cable rather than a
 refusal. The grant is keyed on the bundle identifier, the other reason that identifier is frozen.
 
@@ -49,7 +57,7 @@ cloned there, and what this machine plays arrives as files through the tunnel
 
 ## The settings window
 
-One window, `src-tauri/src/settingswin.rs`, holding what a MACHINE is set to rather than what a
+One window, `src/settingsWindow.ts`, holding what a MACHINE is set to rather than what a
 project is. Seven tabs, because they answer seven different questions and only one of them is
 ever urgent:
 
@@ -72,14 +80,13 @@ it lasts, because a machine fetching 750 MB of piano has to say so where someone
 playing. A blocked origin still raises the icon's attention dot and a
 banner; both point at the st0 instances tab.
 
-It is hidden on close, never destroyed: Tauri asks an app to exit when its last window closes,
-and this app's exit stops the engine. `windows` in `tauri.conf.json` stays empty for the same
-reason it always was — nothing is opened until someone asks for it.
+It is hidden on close, never destroyed, and nothing opens it until someone asks.
 
-The page is hand-written HTML, CSS and JS under `dist/`, served as-is. The tray has no frontend
-build and gains none for six tabs, which is what `withGlobalTauri` buys: a `<script>` tag
-reaches `invoke` with no bundler in front of it. The window draws only what a snapshot said and
-sends back only commands, so the rule that **the tray computes no policy** holds here too.
+The page is hand-written HTML, CSS and JS under `settings/`, loaded from disk. The tray has no
+frontend build and gains none for seven tabs: three classic scripts, and `window.st0Tray` — an
+`invoke` and a `listen` — is all they reach the main process through. The main process answers
+only the settings window's own `webContents`. The window draws only what a snapshot said and sends
+back only commands, so the rule that **the tray computes no policy** holds here too.
 
 On macOS the app stays an accessory — no Dock icon and no app-switcher entry — so the window
 comes forward on focus and leaves nothing behind when it hides.
@@ -199,23 +206,15 @@ is the supervisor's to enforce, and it does — a view is the wrong place for it
 Stop and Restart are offered **only** when the supervisor OWNS the running engine. An adopted
 (foreign) engine shows as Running in the System tab with those buttons greyed out and the reason
 written beside them, so this app can never kill a process another owner manages — see
-`AppState::owns_running`.
+`ownsRunning` in `src/view.ts`.
 
-## The Windows job object (`job.rs`)
+## The Windows job object
 
-The graceful path (`cleanup_async`) stops the engine when the user picks Quit, but nothing
-runs when the tray is force-killed or crashes — and its children would then orphan and keep
-the engine's port bound.
-
-A job object closes that gap. Every process the tray spawns is assigned to one job whose
-`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag terminates all members when the last handle to
-the job closes, and the OS closes our handles when the tray ends however it ends. It also
-subsumes the grandchild problem for free: a process created *by* a job member joins the job
-automatically, so a separation worker the supervisor starts is covered with no tree walking.
-
-This is why the job is created in `main.rs` **before anything is spawned** — membership is
-inherited, so a force-killed tray takes the whole stack with it. Off Windows the closing
-stdin pipe plays the same role.
+What stops a force-killed tray from orphaning the supervisor and the engine holding its port is a
+kill-on-close job. Node cannot create one, and libuv's own lets a grandchild break away, so the
+supervisor makes it and hands the tray the only handle
+(`engine/st0-supervisor/docs/hostProtocol.md`). Off Windows the closing stdin pipe plays the
+same role.
 
 ## Quitting
 
@@ -223,103 +222,51 @@ On quit the supervisor does the actual work: deregister from the registry (while
 is still up and the entry still means something), then stop the engine, foreign or not —
 closing the app is terminal, and an engine left listening holds the audio device and its port.
 
-`pidkill.rs` is the second half of that sentence, and runs after the supervisor on the way
-out for the case where it never got there: it hung on an unresponsive registry and was
-killed past its deadline, or it had already crashed when the user quit. An engine that
-survives the app is not just untidy — the NEXT launch adopts a process nobody is
-supervising. The pidfile is the contract both sides already agree on (see
-`engineDaemon.ts`), which is why this needs nothing else to work.
+`SupervisorHost.stop` is the second half of that sentence, for the case where the supervisor never
+got there: it hung on an unresponsive registry and was killed past its deadline, or it had already
+crashed when the user quit. It kills the engine the pidfile names, tree and all. An engine that
+survives the app is not just untidy — the NEXT launch adopts a process nobody is supervising.
 
-Signals get the same treatment as menu Quit: launchd sends SIGTERM to stop a LaunchAgent
-(autostart), and a Ctrl-C in dev should deregister and stop the owned engine too.
+Signals get the same treatment as menu Quit: launchd sends SIGTERM to stop a login item, and a
+Ctrl-C in dev should deregister and stop the owned engine too.
 
-## State (`state.rs`)
+## Death is read from the process, not the pipe
 
-Two halves, and the split is the whole point:
+The supervisor's stdout is a pipe whose write end any surviving descendant can hold, and the
+engine is built to outlive the supervisor. One inherited copy inside it means EOF never arrives.
+The supervisor keeps its stdio out of its children (`engine/st0-supervisor/docs/supervisor.md`),
+but the tray does not take that on trust: Node's `exit` event is the process's own, and a pipe
+held open cannot delay it.
 
-- **`snapshot`** is what the SUPERVISOR reported. The engine, the identity, the ports, the
-  registry, the audio picks — none of it is
-  computed or written here. It arrives whole and replaces what was.
-- **everything else** is view state the tray genuinely owns, and there is very little left:
-  the spinner frame, the menu-bar darkness, the menu handles, and the two signatures
-  recording what the submenus were last *drawn* from (the supervisor computes the
-  signatures; these are the tray's memory of which one it rendered).
+## The icon
 
-## The remaining loops (`supervisor.rs`)
+Drawn in code (`docs/trayIcon.md`). On macOS its ink follows the system appearance, which Electron
+pushes through `nativeTheme`; Windows and Linux trays are conventionally dark. It is not a
+template image, which macOS would turn monochrome, badge and all. The spinner runs on the view
+side, 8 frames a second while the engine is up but not ready: putting it on the pipe would turn an
+idle app into a stream of messages to redraw one glyph.
 
-The name is a misnomer — the supervisor is `engine/st0-supervisor`. The registry heartbeat,
-the crash watch and all three engine-query polls belong to it: it owns those files, those processes, and the one connection to the
-engine.
+## Launch at login
 
-Two loops live here, and both are genuinely view work:
+Electron's login items on macOS and Windows. Electron has none on Linux, so there the tray writes
+the XDG autostart entry itself, naming `$APPIMAGE` when it runs from one: an AppImage's own path
+is a temporary mount.
 
-- `spinner_loop` runs at 8 frames per second. Putting that on the pipe would turn an idle
-  app into a constant stream of messages to redraw one glyph — exactly the cost the
-  snapshot design exists to avoid.
-- `appearance_loop` re-reads the menu bar's light/dark, which nothing pushes to us.
+## Finding the supervisor (`src/paths.ts`)
 
-Every loop snapshots the state under a short lock and **drops the guard before any
-`.await`**: a std `Mutex` must never be held across an await point.
+Three tiers, and a LOUD answer when it is "nothing", because a tray that silently supervises
+nothing looks exactly like a healthy one:
 
-## Paths (`paths.rs`)
-
-The layout is defined by `packages/engine-client/src/paths.ts`, not here. The three paths the
-tray opens for the user (workspaces root, merged log, origins file) arrive in the supervisor's
-snapshot rather than being recomputed. What is left belongs to subsystems the tray has not
-handed over yet, and goes with them.
-
-## Finding the supervisor (`hostcmd.rs`)
-
-The tray answers one question — "what do I exec?" — in three tiers, and says clearly when
-the answer is "nothing", because a tray that silently supervises nothing looks exactly like
-a healthy one:
-
-1. **`$STUDIO_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch
-   for testing a custom supervisor build.
-2. **Packaged** — the `st0-supervisor` sidecar beside our executable. Nothing on PATH, no repo
-   needed.
+1. **`$STUDIO_ENGINE_HOST_CMD`** — an executable run with no arguments. The escape hatch for
+   testing a custom supervisor build.
+2. **Packaged** — `st0-supervisor` in the app's `Resources/bin`. Nothing on PATH, no repo needed.
 3. **Dev** — the newest `st0-supervisor` under the repo's `engine/st0-supervisor/build`, Release
    before Debug, which `npm run dev` rebuilds on save.
 
-Tier 3 exists only because `buildDevApp()` deliberately ships an app with no sidecars; that is
-what makes a dev build take this path rather than a stale copy.
+## The merged log (`src/mergedLog.ts`)
 
-## The link itself (`host.rs`)
-
-One JSON object per line: snapshots and notifications come up on the supervisor's stdout,
-commands go down its stdin. The written definition of the format is
-`engine/st0-supervisor/src/HostProtocol.h`; the structs in `host.rs` are its hand-written
-Rust mirror — the same arrangement `engine-protocol` has with the C++ engine.
-
-It is deliberately **partial**: only the fields the tray consumes are mirrored. serde
-ignores the rest, so a snapshot field belonging to a subsystem the tray does not own simply
-does not appear — and adding one is how a later stage takes it over.
-
-The supervisor is spawned into the kill-on-close job, which makes it (and everything it
-comes to own) die with the tray on Windows however the tray ends; on Unix the pipe does the
-same. A supervisor that crashes is relaunched with 1s→30s backoff, and the engine survives
-that because the pidfile lets the fresh supervisor re-adopt it.
-
-### A closed pipe is not how we learn it died
-
-Reading until EOF is the obvious way to watch a child, and it is not sufficient here: the
-supervisor's stdout is a pipe whose write end any surviving descendant can hold, and the engine
-is built to outlive the supervisor. One inherited copy inside it means EOF never arrives, the
-read blocks for good, and nothing relaunches — a machine whose engine plays on while no studio
-lists it, because the half that heartbeats is gone and unnoticed. The supervisor keeps its stdio
-out of its children for this reason (`engine/st0-supervisor/docs/supervisor.md`), but the tray
-does not take that on trust.
-
-So frames are read on a thread of their own and handed over a channel, and a second of silence
-is answered by asking the PROCESS — `try_wait` — rather than the pipe. A closed channel still
-means death, the ordinary way; an exited process means death even with the pipe wedged open, and
-that case says so in the log. The reader thread is then left parked on a pipe only the orphan can
-close, which costs one thread and is the whole price of never waiting forever.
-
-## The merged log (`logbus.rs`)
-
-`~/.st0/.studio.log` is written by the supervisor, which owns the engine and pumps its
-output into it. Two jobs are left on the tray side:
+`<state>/.studio.log` is written by the supervisor, which owns the engine and pumps its output
+into it. Two jobs are left on the tray side:
 
 1. **Truncate it once, at startup.** The tray's lifetime is what "a session" means, and it
    is the only process that knows a session began: the supervisor can be relaunched
@@ -329,5 +276,6 @@ output into it. Two jobs are left on the tray side:
    starting and losing it. These are what remain when the supervisor is the thing that
    broke, so they cannot live in the supervisor.
 
-Both writers open in APPEND mode after the truncate. A single append-mode write is atomic
-on both platforms, so whole lines interleave rather than tearing.
+The lines are in the supervisor's format, `HH:MM:SS [tag] text`, not electron-shell's: the web
+Logs panel parses this file. Both writers append, and a single append-mode write is atomic on
+every platform, so whole lines interleave rather than tearing.

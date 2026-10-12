@@ -3,9 +3,9 @@
 // parameter. There is one LAYOUT and it is not addressable: which panes it holds is what the
 // project declares. See docs/shellRouting.md.
 
+// No `viewport`: the picture is a WINDOW over the layout, not a page of it (packages/song/docs/surfaces.md).
 export type Pane =
   | "editor"
-  | "viewport"
   | "timeline"
   | "turntables"
   | "mastering"
@@ -24,7 +24,6 @@ export interface RouteState {
 
 const PANES: Pane[] = [
   "editor",
-  "viewport",
   "timeline",
   "turntables",
   "mastering",
@@ -38,12 +37,10 @@ export interface Layout {
   fullscreen: Pane[];
 }
 
-/** What the open project DECLARES, which is the whole of what decides the layout — an object, three booleans saying nothing positionally. */
+/** What the open project DECLARES, which is the whole of what decides the layout — an object, booleans saying nothing positionally. */
 export interface Declared {
   /** A `split` surface of type `timeline` — the arrangement. */
   timeline?: boolean;
-  /** A `split` surface of type `viewport` — the frame. */
-  viewport?: boolean;
   /** A `split` surface of type `turntables` — the desk. */
   turntables?: boolean;
   /** A `split` surface of type `mastering` — the master strip over one quick-master node. */
@@ -52,26 +49,18 @@ export interface Declared {
   frozen?: boolean;
 }
 
-/** What the layout does with the panes, given what the PROJECT declares — a FUNCTION, four of the six panes not being the shell's to assume (docs/shellRouting.md). */
+/** What the layout does with the panes, given what the PROJECT declares — a FUNCTION, three of the five panes not being the shell's to assume (docs/shellRouting.md). */
 export function viewPanes({
   timeline = false,
-  viewport = false,
   turntables = false,
   mastering = false,
   frozen = false,
 }: Declared): Layout {
-  const picture: Pane[] = viewport ? ["viewport"] : [];
   const arrangement: Pane[] = timeline ? ["timeline"] : [];
   const desk: Pane[] = turntables ? ["turntables"] : [];
   // Directly over the graph and below everything else: the master strip is the LAST thing the signal meets.
   const master: Pane[] = mastering ? ["mastering"] : [];
-  const ring: Pane[] = [
-    ...picture,
-    ...arrangement,
-    ...desk,
-    ...master,
-    "chains",
-  ];
+  const ring: Pane[] = [...arrangement, ...desk, ...master, "chains"];
   return { ring, fullscreen: frozen ? ring : ["editor", ...ring] };
 }
 
@@ -139,9 +128,6 @@ export function fromLocation(
   // A pane the layout cannot fullscreen is not an address here; it falls through to the layout's own screen rather than 404ing.
   if (isPane(seg) && layout.fullscreen.includes(seg))
     return { ...base, full: seg };
-  // `/video` is an alias for `/viewport`, subject to the same check as any other address.
-  if (seg === "video" && layout.fullscreen.includes("viewport"))
-    return { ...base, full: "viewport" };
   return base;
 }
 

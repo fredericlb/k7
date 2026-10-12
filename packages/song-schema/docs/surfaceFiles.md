@@ -18,10 +18,10 @@ draws none of them opens on its graph and is told why.
 
 ## The two axes, and the pair check
 
-Where a surface goes is its own screen off the header (`view`) or a slot in the layout that shares
-the window with the graph (`split`). Two axes rather than one, deliberately — the same turntables
-could be a screen or a band under the arrangement, and that is a layout rather than a kind. What each
-TYPE can actually be drawn in is `SURFACE_LAYOUTS_BY_TYPE`: the axes stay independent, and which
+Where a surface goes is its own screen off the header (`view`), a slot in the layout that shares
+the window with the graph (`split`), or a window over the layout (`floating`). Two axes rather than
+one, deliberately — the same turntables could be a screen or a band under the arrangement, and
+that is a layout rather than a kind. What each TYPE can actually be drawn in is `SURFACE_LAYOUTS_BY_TYPE`: the axes stay independent, and which
 pairs the editor has a component for is a separate, checkable fact. The pair is checked for the
 reason `type` is an enum at all — a `turntables` asking for `view` names something the editor has no
 component for, and the result is a blank screen. The issue is raised on `layout`, so the squiggle
@@ -36,10 +36,12 @@ A `split` surface is not a `view` surface drawn smaller. It takes a slot in the 
 for as long as the project is open (its caret and its zoom stack outlive being hidden), and joins the
 pane ring — which is the whole of why the two are separate words.
 
-- `viewport` is `split` for the sharpest version of that reason: it owns a WebGL context and one
-  `<video>` element per layer. As a `view` it would tear both down whenever you looked at something
-  else and rebuild them — with a decoder flush and a visible hitch — whenever you came back. `full`
-  is how the picture gets big, which is the pane ring doing its job.
+- `viewport` is `floating`: a window over whichever page is on screen, which you move and size
+  yourself. A picture is something you watch WHILE you edit the lanes, the graph or a shader that
+  draws it, and a page would make it something you look at INSTEAD. It is mounted for as long as the
+  project is open, like a `split` surface and for the sharpest version of the reason: it owns a
+  WebGL context and one `<video>` element per layer, and rebuilding those costs a decoder flush and
+  a visible hitch.
 - `turntables` is `split` for the plainest reason: a desk is something you work THE GRAPH against,
   and a screen off the header, over the whole window, makes "which module is this fader on" a round
   trip.

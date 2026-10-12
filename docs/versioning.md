@@ -8,7 +8,7 @@ is that?** There is no version endpoint and no `/healthz` — phare has none eit
 stamp is visible in exactly two places, the SPA chrome and the image tag, and they are
 the same string.
 
-## TWO images, and why st0 does not share phare's shape
+## One image built here, and why st0 does not share phare's shape
 
 `apps/st0/docker/Dockerfile` builds st0's image — the editor, the media library and the rehearsal
 recorder: one process, no nginx — the backend serves its own built frontend directly
@@ -19,36 +19,33 @@ process (nginx) to supervise alongside the backend. Traefik reaches it directly 
 media library and the rehearsal recorder it serves keep answering
 (`packages/web-protocol/docs/addresses.md`).
 
-`apps/z0/docker/Dockerfile` is the one exception, shaped like phare's monolith: it serves six
-SPAs behind one nginx (`apps/z0/docker/nginx.conf`) reverse-proxying its own backend, and lives on
-st0's hostname — Traefik reaches it by a `PathPrefix(/z0)` rule layered on st0's domain, its own
-container. `engine/st0-engine`, `engine/st0-supervisor` and `engine/st0-tray` are in neither
-image: they run on the musician's own machine, beside the audio interface. PocketBase, the
-rehearsal recorder's store, is a third container built from an upstream image, not by this repo.
+z0 is deployed beside it from the same `docker/docker-compose.yml` — Traefik reaches it by a
+`PathPrefix(/z0)` rule layered on st0's domain, its own container — but its image is built, tagged
+and stamped by z0's own repository, and the compose file pulls it by its own `Z0_VERSION`.
+`engine/st0-engine`, `engine/st0-supervisor` and `engine/st0-tray` are in no image: they run on
+the musician's own machine, beside the audio interface. PocketBase, the rehearsal recorder's
+store, is a third container built from an upstream image, not by this repo.
 
-What two images cost is paid per-app instead of once: each image ships and restarts on its own,
-so a crash in one does not recycle the other — the opposite of phare's/z0's shared-lifecycle trade,
-and worth naming since it's the reason z0 alone still pays it. Inside st0's image the trade is
-phare's: the editor, the library and the rehearsal recorder are one process and restart together.
+Two containers on one hostname each ship and restart on their own, so a crash in one does not
+recycle the other. Inside st0's image the trade is phare's: the editor, the library and the
+rehearsal recorder are one process and restart together.
 
 ## The chain
 
 ```
 OneDev CommandStep (node -e, Europe/Paris)  →  ./build_version   e.g. "26.08031412"
   ├─ SetBuildVersionStep  ─────────────────→  the OneDev build version
-  ├─ RegistryOutput tags  ─────────────────→  …/studio/<app>:26.08031412   (one per image)
-  └─ --build-arg APP_VERSION=@build_version@   (passed to both BuildImageSteps)
+  ├─ RegistryOutput tags  ─────────────────→  …/studio/st0:26.08031412
+  └─ --build-arg APP_VERSION=@build_version@   (passed to the BuildImageStep)
        → Dockerfile frontend-build stage:  ARG APP_VERSION=dev
                                            ENV VITE_APP_VERSION=$APP_VERSION
          → vite inlines import.meta.env.VITE_APP_VERSION as a literal
-           → dist/ → COPY into the runtime stage (each app's own frontend/dist; z0's six
-             land in /usr/share/nginx/html, the one image that still has an nginx)
-             → <span>{VERSION}</span> in every app's chrome
+           → dist/ → COPY into the runtime stage (st0's frontend/dist)
+             → the stamp in st0's chrome
 ```
 
-One stamp covers every SPA that renders one, because the two `BuildImageStep`s both get the
-SAME `@build_version@` from ONE `compute build version` step — they ship from one CI run, so
-the two images are not separately versioned in practice.
+The image tag and the stamp in the SPA come from ONE `compute build version` step, so they
+cannot disagree. z0's stamp is its own repository's and is not comparable with this one.
 
 `YY.MMDDHHmm` in Europe/Paris — `26.08031412` is 3 August 2026, 14:12. Sortable,
 readable at a glance, and short enough to sit in a header without crowding it. The
@@ -61,20 +58,18 @@ before the tests pass; the other two follow once they have ([images.md](images.m
 
 ## Why `ENV` and not phare's `RUN VITE_APP_VERSION=… npm run build`
 
-**This is the one place studio deliberately does not copy phare**, and it still matters for
-`apps/z0/docker/Dockerfile`, which builds several SPAs (st0 builds one, and a command-prefix
-`RUN` would be harmless there, but there's no reason to write the one image that still needs the
-safer form differently from the other).
+**This is the one place studio deliberately does not copy phare.**
 
 Phare writes the variable as a command prefix on the `RUN` line. That works there because
 its monolith builds each SPA on its own `RUN`… and would not survive being written as a
-chain, which is the shape any one `RUN` building several SPAs takes.
+chain, which is the shape any one `RUN` building several SPAs takes. st0 builds one SPA today, so
+a command prefix would be harmless here; `ENV` is kept because it stays right when a second build
+joins the `RUN`, and the prefix does not.
 
-`apps/z0/docker/Dockerfile` builds **six** SPAs in one `RUN`. Written as a chain, a shell
-command-prefix assignment applies to the first command only, so
-`VITE_APP_VERSION=x npm run build -w a && npm run build -w b` stamps `a` and silently
-ships the other five as `dev`. Nothing fails; you just get five wrong SPAs in a
-correctly tagged image — the worst combination, because the tag says the stamp is right.
+Written as a chain, a shell command-prefix assignment applies to the first command only, so
+`VITE_APP_VERSION=x npm run build -w a && npm run build -w b` stamps `a` and silently ships `b`
+as `dev`. Nothing fails; you just get a wrong SPA in a correctly tagged image — the worst
+combination, because the tag says the stamp is right.
 
 `ENV` in the `frontend-build` stage covers whatever that `RUN` runs. That stage is a throwaway
 whose only export is `dist/`, so the variable reaches no runtime image.
@@ -85,28 +80,27 @@ Both produce a working build that ships the wrong stamp — no error, no warning
 
 1. **Moving `ARG APP_VERSION` before the first `FROM`.** A build arg declared in the
    global scope is not visible inside a stage unless re-declared there; it would expand
-   to empty. `ARG BASE_IMAGE` sits before the first `FROM` on purpose — it feeds
-   `FROM ${BASE_IMAGE}` — and is the exception, not the pattern to copy.
+   to empty.
 
 2. **Renaming the variable to something without the `VITE_` prefix.** There is no
    `define` block anywhere; the mechanism is Vite's default `envPrefix`. A
    `BUILD_VERSION` would simply not be inlined.
 
-Neither the Dockerfiles' `npm run build --workspace <x>` nor the root `npm run build`
+Neither the Dockerfile's `npm run build --workspace <x>` nor the root `npm run build`
 (`npm run build --workspaces --if-present`) caches anything, so there is no cache key to
 strip the variable from and no stale bundle to worry about: every build reads it fresh.
 
 ## The fallback is `dev`, twice
 
-`ARG APP_VERSION=dev` in each Dockerfile covers a plain `docker build` — including
-`npm run images`, whose `commons/scripts/build-images.sh` passes only `BASE_IMAGE` (unused by
-st0's own Dockerfile, only consumed by z0's). So locally built images read `dev`, and
+`ARG APP_VERSION=dev` in the Dockerfile covers a plain `docker build` — including
+`npm run images`, whose `commons/scripts/build-images.sh` passes only `BASE_IMAGE`, which st0's
+Dockerfile does not read. So locally built images read `dev`, and
 their `rN` tag scheme is unrelated to CI's.
 
 That script finds its apps by globbing `apps/*/docker/Dockerfile` and names the image
 after the folder, so nothing is named by hand: `apps/st0/docker/Dockerfile` becomes
-`dev.frediver.se/frediverse/studio/st0`, and the same for `z0` — the same
-`<repo>/<app>` shape phare's `phare/phare` has, twice over instead of once.
+`dev.frediver.se/frediverse/studio/st0` — the same `<repo>/<app>` shape phare's `phare/phare`
+has.
 
 `?? "dev"` at each render site covers `vite dev` and a bare `vite build`, where the
 variable is absent entirely. `??` and not `||`: an explicitly empty
@@ -117,50 +111,20 @@ Both layers exist so the stamp can never render `undefined`.
 
 ## Where it shows
 
-Six of the seven SPAs, across two images — all built from the SAME `@build_version@` (see "The
-chain" above), so the six stamps read as one string though the images ship apart. `VERSION` is read at module scope in each so it
-constant-folds into the bundle.
+One SPA, one image:
 
 | image | where it answers | SPA | render site |
 |---|---|---|---|
 | st0 | `/` (root of its own subdomain), the media library under `/media`, the rehearsal pages under `/rehearsal` | `st0-frontend` | `apps/st0/frontend/src/projects/HomeSidebar.tsx` — tooltip on the sidebar's title, on every home page including the media library's and the rehearsal pages' |
-| z0 | `/z0` | `z0-online` | `src/App.tsx` — header |
-| z0 | `/z0/monitor` | `z0-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
-| z0 | `/z0/remote` | `z0-remote` | `src/views/RemoteView.tsx` — the status row above the tabs |
-| z0 | `/z0/buzzer` | `z0-buzzer` | `src/views/BuzzerView.tsx` — fixed bottom-left |
-| z0 | `/z0/presenter` | `z0-presenter` | `src/components/Game2D.tsx` — overlay, bottom-left |
-| z0 | `/z0/editor` | `z0-editor` | **nowhere** — it ships in the image and renders no stamp |
+
+`VERSION` is read at module scope so it constant-folds into the bundle.
 
 In st0's home sidebar the stamp is a
 tooltip on the app's name and never visible text: nobody needs it in the moment, and it is one hover
 away for whoever asks which image this is.
 
-`z0-editor` is the one gap, and it is listed rather than left out so the table still answers
-"what is in the image". Its chrome is `@frediverse/ui` like st0's rather
-than z0's own CSS, so when the stamp is added the placement is st0's idiom and not the
-`.topbar` class its z0 siblings share.
-
-For z0's six, the "where it answers" column is also the folder each `dist/` lands in under
-`/usr/share/nginx/html`, and the `base` its vite config declares. Those three have to
-agree or the SPA loads and its assets 404 — which is why `apps/z0/docker/Dockerfile`'s COPY
-block and `apps/z0/docker/nginx.conf`'s `location` list read in the same order as this table.
-st0 has no such table to keep in sync: its backend serves its own `frontend/dist`
-directly (`express.static` in `src/server.ts`), no nginx and no location list involved.
-
-Styling follows each app's own idiom — Tailwind utilities where the surrounding chrome
-is Tailwind (st0, z0-online), a small class in the app's CSS file
-everywhere else. There is deliberately **no** shared version component: putting it in
-`z0-shared`'s auth badge would land it in every game SPA at once, and that badge is a
-fixed top-right overlay that knows nothing of each app's layout.
-
-Two placements are constrained by things already on screen, and both constraints are
-recorded next to the markup or the CSS rule:
-
-- **buzzer** — the stamp is `pointer-events: none`. The buzz handler is on the page
-  container, not the circle, so a span that swallowed taps would carve a dead zone out
-  of the buzz surface. Do not "fix" this with `stopPropagation`.
-- **remote** — the stamp is left-aligned in `.status-bar` flow, *not* `margin-left: auto`.
-  The shared auth badge is fixed at the top right and would cover it.
+st0 serves its own `frontend/dist` directly (`express.static` in `src/server.ts`), with no nginx
+and no location list to keep in step with the SPA's `base`.
 
 ## The submodule, and why CI needs a credential
 

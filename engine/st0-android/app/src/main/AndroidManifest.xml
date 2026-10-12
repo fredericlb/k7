@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foreground only for now: no service, so the engine lives exactly as long as MainActivity (docs/android.md). -->
+<!-- Foreground only for now: no service, so the backend and the engine live exactly as long as MainActivity (docs/android.md). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- The engine's WebSocket server, which browsers on the LAN dial; and the studio apps, loaded from the studio. -->
+    <!-- The engine's WebSocket server, which browsers on the LAN dial; and the studio apps, loaded from the studio — this phone's own, or another. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- The IPv4 the activity shows, so a browser knows what to dial. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -14,15 +14,24 @@
     <application
         android:allowBackup="false"
         android:label="st0"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/AppTheme.NoActionBar">
         <!-- configChanges: a rotation must not recreate the activity, which would stop the engine. -->
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
+            android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- The browser's answer to a sign-in (AuthHandoff.kt); singleTask, so it reaches the running activity. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="se.frediver.st0" android:host="auth" />
             </intent-filter>
         </activity>
     </application>

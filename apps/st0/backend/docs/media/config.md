@@ -60,6 +60,5 @@ set by `apps/st0/backend/scripts/with-env.mjs`, which `dev` and `test` go throug
 ## One side effect
 
 `loadServiceEnv` merges `common` with the service's section, by design. Real `OIDC_*` values in
-`common` therefore swing the whole origin in dev — this backend, which mints the session and
-hosts the rehearsal routes, and `z0-backend`, which verifies it — from the "Dev User" stub to a real identity
-provider. Keeping the stub means keeping those keys out of `common`.
+`common` therefore swing this whole backend in dev — the session it mints and the rehearsal
+routes it hosts — from the "Dev User" stub to a real identity provider. Keeping the stub means keeping those keys out of `common`.

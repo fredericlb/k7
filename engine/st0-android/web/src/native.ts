@@ -3,6 +3,10 @@
 // load in over this page (AppViewsPlugin.kt). Typed here once; nothing else calls registerPlugin.
 
 import { type PluginListenerHandle, registerPlugin } from "@capacitor/core";
+import standalone from "../../../../apps/st0/backend/standalone.json";
+
+/** The phone's own backend's ports, as BackendHost.kt starts it: the desktop app's, from the table both share. */
+export const LOCAL_PORTS = `st0=${standalone.port}`;
 
 /** One connected studio, as the supervisor lists it. */
 export interface StudioInstance {

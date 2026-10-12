@@ -713,6 +713,8 @@ export class Workspace {
     doc: VideoProjectDoc;
   } | null = null;
   private historyCache: { dir: string; h: ProjectHistory } | null = null;
+  /** Live sync's capture, when on: a mutation window holds its batch open — docs/liveCapture.md. */
+  liveCapture: { hold(): void; release(label: string): void } | null = null;
   private mutations = 0; // half the change token — the half reacting to our own writes with no clock tick
   // The waveform machinery (slice + memo + prewarm) — see waveformOps.ts.
   private readonly wf: WaveformOps;
@@ -1157,6 +1159,18 @@ export class Workspace {
 
   /** Run a project mutation and journal what it changed, so Ctrl+Z can undo it — docs/workspace.md. */
   async recordChange<T>(
+    label: string,
+    mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
+  ): Promise<Recorded<T>> {
+    this.liveCapture?.hold();
+    try {
+      return await this.recordChangeHeld(label, mutate);
+    } finally {
+      this.liveCapture?.release(label);
+    }
+  }
+
+  private async recordChangeHeld<T>(
     label: string,
     mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
   ): Promise<Recorded<T>> {

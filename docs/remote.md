@@ -128,8 +128,8 @@ image — would otherwise compile it from C++ for a console that runs on this Wi
 
 ## The name, and the one accepted beside it
 
-`scripts/dev-hosts.mjs` holds all three. `priv.st0.app` is st0's own origin, with z0 still a
-path under it (`/z0`, unmoved); `play.priv.st0.app` and `k7.priv.st0.app` are st0's alias hosts, which its dev
+`scripts/dev-hosts.mjs` holds all three. `priv.st0.app` is st0's own origin, whose `/z0` path
+belongs to z0's own repository and is not served by this one's dev session; `play.priv.st0.app` and `k7.priv.st0.app` are st0's alias hosts, which its dev
 server answers like the origin, exactly as production is under `st0.app` / `play.st0.app` /
 `k7.st0.app`. Each resolves to the LAN server, which reverse-proxies to the matching dev server on
 the workstation — see `docs/dev.md`'s table. A hostname lives in a router and in everyone's

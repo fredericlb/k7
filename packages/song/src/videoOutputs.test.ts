@@ -40,7 +40,7 @@ function project(graph: string, viewport = true): string {
     mkdirSync(join(dir, "surfaces"), { recursive: true });
     writeFileSync(
       join(dir, "surfaces", "viewport.yaml"),
-      "type: viewport\nlayout: split\n",
+      "type: viewport\nlayout: floating\n",
     );
   }
   return dir;

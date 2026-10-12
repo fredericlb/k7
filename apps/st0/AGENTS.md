@@ -116,8 +116,8 @@ matches before changing it:
 
 ### Layout: panes, not tabs
 
-`App.tsx` shows **one pane at a time, as a full page** — the frame, the timeline, the desk, the
-strip, the graph or the editor — and **never splits two of them**. `full` is that page, and it is
+`App.tsx` shows **one pane at a time, as a full page** — the timeline, the desk, the strip, the
+graph or the editor, with the frame floating over them — and **never splits two of them**. `full` is that page, and it is
 never empty: with nothing chosen it is the project's home page, the timeline when declared and
 otherwise the first pane the project does declare. The header's pane buttons pick the page and
 light the one on screen; the one way to see a second view at the same time is the footer's bottom
@@ -142,12 +142,14 @@ PAIR is validated:
 | type | layout | what it is |
 |---|---|---|
 | `timeline` | `split` | the arrangement — a pane, and the reason a song draws one at all |
-| `viewport` | `split` | the frame: the song's video lanes composited by `@studio/ui-eyes` |
+| `viewport` | `floating` | the frame: the song's video lanes composited by `@studio/ui-eyes`, in a window over the pages |
 | `turntables` | `split` | the DJ desk, from `@studio/ui-turntables` — what makes a project a SET |
 | `mastering` | `split` | the master strip: ONE `quick-master` node drawn as its three parts (`frontend/docs/mastering.md`) |
 
-**Every surface is a PANE**, in the layout and in the pane ring. Which for the viewport is
-load-bearing (it owns a GL context and a `<video>` per layer). A set, declaring no timeline, opens
+**Every `split` surface is a PANE**, in the layout and in the pane ring. The viewport is the
+exception: a WINDOW over whichever page is up, moved and sized by hand, its place kept per browser
+— a picture is watched while you edit what draws it. Hidden, never unmounted, since it owns a GL
+context and a `<video>` per layer. A set, declaring no timeline, opens
 on its desk, and a fader there is a param on a module in the graph — which the bottom panel's
 `graph` shows under it.
 
@@ -176,10 +178,9 @@ question and is the only thing that answers it, so two sources cannot contradict
 `packages/song/docs/surfaces.md` before touching any of it.
 
 The vocabulary is two words, and `src/routes.ts` is where they are declared —
-read it before changing layout. A **pane** is one of six (`editor | viewport | timeline |
-turntables | mastering | chains`) and is what `full` fullscreens; four of them — `timeline`,
-`viewport`, `turntables` and `mastering` — are mounted only when the project declares the
-matching surface. A **panel** is one of four (`event | graph | mix | logs`) and is what
+read it before changing layout. A **pane** is one of five (`editor | timeline | turntables |
+mastering | chains`) and is what `full` fullscreens; three of them — `timeline`, `turntables` and
+`mastering` — are mounted only when the project declares the matching surface. A **panel** is one of four (`event | graph | mix | logs`) and is what
 the bottom of the window shows, under the page, opening on half its height; `mix` is the graph with
 every mixer strip lined up on one rank. While a panel is open the timeline's lanes are folded and
 Expand is dead. A clip's CONTENTS are the `event` panel's, opened by a double-click on it. Both are URL state (`src/useViewRoute.ts`); see
@@ -286,9 +287,9 @@ the hunt, the stems, the host's player, THE engine registry (`@studio/engine-reg
 mounted with `exitOnSignal: false`, and the stop says its goodbye, stops the account file services,
 then drains the requests in flight.
 - The Vite dev server proxies BOTH `/api` and `/auth` to this backend (`proxyPaths`), which is
-  what makes the dev server usable when visited directly on its port. Every other SPA on the
-  origin has to point its own `/auth` proxy back here — `AUTH_BACKEND_PORT` in
-  `scripts/dev-hosts.mjs` is where that port is named once.
+  what makes the dev server usable when visited directly on its port. No other dev server in this
+  repository proxies `/auth`; an app developed elsewhere that shares the origin points its own
+  proxy back at this port.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.
 
@@ -354,7 +355,7 @@ address. Hold it in a query string and a session instead, and a tab handed a pro
 not exist can never get out of it. Read
 `packages/project-shell/docs/launch.md` before touching any of this.
 
-The gate itself is that package's too, and z0's editor mounts the same one; `components/ProjectGate.tsx`
+The gate itself is that package's too, and z0's editor mounts the same one, published (`docs/publishing.md`); `components/ProjectGate.tsx`
 is a wrapper holding this app's wording and what to render once the project is open.
 
 **There is no workspace picker anywhere in this app**, and a folder under

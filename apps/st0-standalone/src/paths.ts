@@ -1,9 +1,10 @@
 // paths.ts — where the app finds its code and binaries, and where it keeps its state.
-// Unpackaged, everything comes from the checkout; packaged, from what scripts/stage.mjs put in Resources.
+// Unpackaged, everything comes from the checkout; packaged, from what scripts/stage.mjs put in Resources — the backend as a BUNDLE.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { app } from "electron";
+import standalone from "../../st0/backend/standalone.json";
 
 const exe = (name: string): string =>
   process.platform === "win32" ? `${name}.exe` : name;
@@ -25,21 +26,27 @@ function repoRoot(): string {
   }
 }
 
-/** The tree holding apps/, packages/ and node_modules: the checkout, or the staged copy of it. */
+/** The checkout this unpackaged run lives in, whose source the backend runs from under tsx. */
 export function sourceRoot(): string {
-  return app.isPackaged ? join(process.resourcesPath, "app-src") : repoRoot();
+  return repoRoot();
+}
+
+/** The bundled backend's tree (apps/st0/backend/scripts/bundle.mjs) when packaged; null runs the checkout's source. */
+export function backendBundle(): string | null {
+  return app.isPackaged ? join(process.resourcesPath, "backend") : null;
 }
 
 /** st0's own mark, the same file electron-builder turns into the bundle's icon. */
 export function appIcon(): string {
-  return join(
-    sourceRoot(),
+  const frontend = join(
+    backendBundle() ?? repoRoot(),
     "apps",
     "st0",
     "frontend",
-    "public",
-    "icon-512.png",
   );
+  return app.isPackaged
+    ? join(frontend, "dist", "icon-512.png")
+    : join(frontend, "public", "icon-512.png");
 }
 
 /** The newest build of a CMake target under `<project>/build/<preset>/`, or null. */
@@ -67,10 +74,11 @@ export function engineBinary(): string | null {
   return newestBuild("st0-engine", "st0-engine");
 }
 
-/** The git repository the `st0` library is cloned from: a bare copy when packaged, the submodule otherwise. */
+/** The git repository the `st0` library is cloned from: the bundle's one-commit copy when packaged, the submodule otherwise. */
 export function librarySource(): string | null {
-  const at = app.isPackaged
-    ? join(process.resourcesPath, "st0-library.git")
+  const bundle = backendBundle();
+  const at = bundle
+    ? join(bundle, standalone.library)
     : join(repoRoot(), "st0-library");
   return existsSync(at) ? at : null;
 }
@@ -80,10 +88,11 @@ export function stateDirs() {
   const root = app.getPath("userData");
   return {
     root,
-    files: join(root, "workspaces"),
-    mediatek: join(root, "mediatek"),
-    prefs: join(root, "prefs"),
-    serverHome: join(root, "server-home"),
+    // The backend's folders, named once for the desktop and the phone (apps/st0/backend/standalone.json).
+    backend: Object.fromEntries(
+      Object.entries(standalone.dirs).map(([k, rel]) => [k, join(root, rel)]),
+    ),
+    files: join(root, standalone.dirs.STUDIO_FILES_ROOT),
     engineHome: join(root, "engine-home"),
     log: join(root, "standalone.log"),
   };

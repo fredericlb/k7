@@ -1,7 +1,7 @@
 // main.tsx — one branch, taken before anything heavy is imported. The tab strip and the editor
 // share this origin and almost nothing else, and a static import of the editor would make a
 // 36-pixel bar load the whole of st0 — which, in a window that draws both, is st0 twice.
-// See apps/st0-desktop/docs/tabs.md.
+// See apps/st0-standalone/docs/tabs.md.
 
 import { isTabs, parseLaunch } from "@studio/project-shell/launch";
 import { reloadForChunk, reloadOnChunkError } from "./chunkReload";

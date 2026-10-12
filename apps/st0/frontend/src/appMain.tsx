@@ -1,10 +1,10 @@
 // appMain.tsx — st0 itself: the gates, the router and the editor. It was `main.tsx` until the
 // tab strip needed an address on this origin without paying for any of it — main.tsx is now a
-// dispatcher that imports one of us, and this is the heavy branch. See apps/st0-desktop/docs/tabs.md.
+// dispatcher that imports one of us, and this is the heavy branch. See apps/st0-standalone/docs/tabs.md.
 
 import { Loader2 } from "@frediverse/ui/icons";
 import { registerWorker } from "@frediverse/vite-config/register";
-import { clearDevPerfEntries } from "@studio/project-shell/devPerf";
+import { clearDevPerfEntries } from "@frediverse/ui/dev-perf";
 import { setFileApiTally } from "@studio/project-shell/fileApi";
 import {
   isExternalIndex,

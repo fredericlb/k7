@@ -20,15 +20,14 @@ This page is the reason the numbers in `vitest.config.ts` are what they are.
 that has none is not reported as skipped — it is not reported at all. The run says *42
 successful* and means *42 of the packages that opted in*.
 
-Three had opted out by accident:
+Two had opted out by accident:
 
 | package | test files | tests | why |
 |---|---|---|---|
 | `packages/ui-eyes` | 3 | 37 | no `test` script, no `vitest` devDependency |
-| `apps/z0/editor` | 2 | 49 | no `test` script |
 | `engine/st0-engine` | 6 (C++) | — | only `test:mac`; nothing ran on Windows or Linux |
 
-All three are fixed, and all three were green the moment they were wired in — tests that had been
+Both are fixed, and both were green the moment they were wired in — tests that had been
 written, committed, and then protected nothing. `ui-eyes` is the one that stings: `compositor.test.ts`
 and `timeline.test.ts` cover the video transitions, and they were added in the same branch that
 shipped them.

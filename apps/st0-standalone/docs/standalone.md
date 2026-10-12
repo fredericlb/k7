@@ -12,17 +12,19 @@ network unless a page asks for something remote.
 
 ## What it runs, and from where
 
-st0's backend, run the way `@studio/electron-shell` runs any server: unchanged, under tsx with
-Electron as its node, in a process group that dies with the app. The reasons are
-that package's (`packages/electron-shell/docs/shell.md`); what is particular to this app:
+st0's backend, run the way `@frediverse/electron-shell` runs any server: with Electron as its node,
+in a process group that dies with the app (`commons/packages/electron-shell/docs/shell.md`).
+**Packaged, it is the BUNDLE the phone runs too**, started from the same table of port, environment
+and folders (`apps/st0/backend/docs/standalone.md`); unpackaged, the checkout's source under tsx, so
+an edit needs no bundling. What is particular to this app:
 
 - **The inherited `ELECTRON_RUN_AS_NODE` is what keeps the backend's children node.** Its file hub
   starts each file service with `process.execPath`, and so does the song compiler's DSP runner.
 - **The file services are the backend's children**: its signal handler stops them, and the guard's
   process group is what takes them down when the backend dies without running it.
 - **The supervisor needs no guard**: its stdin closing is already what stops it.
-- The packaged app is ~580 MB on macOS, since it carries source plus `node_modules`
-  (`scripts/stage.mjs`).
+- The packaged app carries a 67 MB backend — bundle, frontend, demos and library — and the engine
+  and supervisor beside it (`scripts/stage.mjs`).
 
 ## Addresses
 
@@ -53,25 +55,26 @@ host-only and `Lax`. `COOKIE_DOMAIN` is therefore forced empty — set, it would
 
 ## Sign-in
 
-No OIDC issuer is configured, which is what selects `@frediverse/oidc`'s DEV AUTH stub: the
-window opens on `/auth/login`, which signs in "Dev User" and comes back. The session secret is
-generated once and kept in the state folder.
+Optional: signed out, the app runs as a **local user**; signed in, as an st0 account. The button
+at the right of the title bar does both, and `docs/signIn.md` is the page.
 
-The stub user has no groups, so **it is never an admin** — it cannot edit the origin's
-libraries. The app therefore seeds `libraries.json` itself on first run.
+The session secret is generated once and kept in the state folder. The local user has no
+groups, so **it is never an admin** — it cannot edit the origin's libraries. The app therefore
+seeds `libraries.json` itself on first run.
 
 ## The library
 
 A project opens only once the origin has a library (`packages/project-shell/docs/launch.md`).
 The hub's settings form accepts only SSH git URIs, but the list it READS takes any URI git can
-clone, so the app seeds a LOCAL one: the `st0-library` submodule from a checkout, a bare clone of
-it inside the packaged app. No network, no deploy key. Delete `workspaces/libraries.json` to
+clone, so the app seeds a LOCAL one: the `st0-library` submodule from a checkout, the bundle's
+one-commit clone in the packaged app. No network, no deploy key. Delete `workspaces/libraries.json` to
 reseed.
 
 ## The engine
 
-The supervisor is run the way the tray runs it — no arguments, NDJSON on stdio, stdin held open
-for the app's life (`engine/st0-supervisor/docs/hostProtocol.md`). It gets a home of its own and
+The supervisor is run by `@studio/supervisor-host`'s `SupervisorHost`, the way the tray runs it —
+no arguments, NDJSON on stdio, stdin held open for the app's life, relaunched when it crashes
+(`packages/supervisor-host/docs/supervisorHost.md`). It gets a home of its own and
 engine port **8766**, not the tray's `~/.st0` and 8765: the supervisor adopts whatever engine
 already listens on its port, and its lock is per home, so the two coexist. Its first run
 downloads its sample packs into that home, like any fresh supervisor home.
@@ -87,10 +90,23 @@ on macOS): `workspaces/` (`$STUDIO_FILES_ROOT`), `mediatek/`, `prefs/`, `server-
 
 ## Packaging
 
-`scripts/stage.mjs` builds `staging/`, which the shell's builder config copies into Resources.
-The backends' deps are installed with `--ignore-scripts` — the one native addon (ssh2's crypto)
-would target the system node's ABI rather than Electron's, and falls back to JS. The build is
-unsigned: partially signed, Gatekeeper kills the unsigned children.
+`scripts/stage.mjs` builds `staging/` — the frontend, then the backend bundle, then the engine and
+the supervisor — which the shell's builder config copies into Resources. The build is unsigned:
+partially signed, Gatekeeper kills the unsigned children.
 
 External tools stay external, as in st0's image: `git` (libraries, workspaces), `ffmpeg`,
 `yt-dlp`, `mpv` — found on `PATH` or through their `*_BIN` variables.
+
+## Why Electron
+
+The shell has to be a browser engine st0 already runs on, and to run node beside it.
+
+- **Not Tauri.** It draws in the OS's web view — WebKit on macOS and Linux — and st0 depends on
+  what that engine lags on or lacks: WebGL (the viewport, `@studio/ui-eyes`, and the chains
+  canvas) and the modern web protocols the studio is built on — WebRTC to the engine's machine,
+  WebSockets on loopback, the audio and media APIs. Electron ships Chromium, the browser st0 is
+  developed and tested in, at a version the app pins. Tauri would also need node as a sidecar for the
+  backend, which Electron already is.
+- **Not Capacitor.** It has no desktop target of its own: its desktop platform is a community one
+  running on Electron, so it would add a layer and remove nothing. The phone uses it only for its
+  page's two plugins (`engine/st0-engine/docs/android.md`).

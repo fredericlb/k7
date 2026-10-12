@@ -3,12 +3,17 @@
 A song carries video lanes ([packages/song-video/docs/picture.md](../../../../packages/song-video/docs/picture.md)).
 This page is the st0 half: where they are drawn, how they are edited, and what the ruler does.
 
-Two surfaces are involved, both `split` (`packages/song/docs/surfaces.md`):
+Two surfaces are involved (`packages/song/docs/surfaces.md`):
 
-| surface | draws |
-|---|---|
-| `timeline` | the lanes — audio and picture, one grid, in the pane ring |
-| `viewport` | the composited frame, WebGL, against the engine's playhead |
+| surface | layout | draws |
+|---|---|---|
+| `timeline` | `split` | the lanes — audio and picture, one grid, in the pane ring |
+| `viewport` | `floating` | the composited frame, WebGL, against the engine's playhead |
+
+The frame is a WINDOW over the pages rather than one of them, so the lanes, the graph and the
+shader that draw it stay on screen while you watch it (`components/FloatingWindow.tsx`). Its place
+and size are kept per browser (`src/floatingRect.ts`) rather than in the project: where a window sits
+is a habit of one screen, and in the song it would be a diff on every drag.
 
 There is **no separate picture timeline**. One grid draws both, and the ruler is what makes that
 readable.

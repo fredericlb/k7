@@ -2,7 +2,7 @@
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildMain } from "@studio/electron-shell/build";
+import { buildMain } from "@frediverse/electron-shell/build";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 

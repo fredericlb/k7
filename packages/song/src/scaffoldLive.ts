@@ -204,11 +204,10 @@ export function liveVideoProjectFiles(name: string): Record<string, string> {
       `# The FRAME — where the lens is composited with WebGL. The one surface this shape has:\n` +
       `# an arrangement can be left undrawn, but a picture nothing composites is not shown at all.\n` +
       `#\n` +
-      `# \`split\` is the only layout it draws in, and that is deliberate: it owns a GL context and\n` +
-      `# one <video> per layer, which a screen you opened and closed would rebuild every time.\n` +
-      `# Press its number key or \`ui viewport\` to give it the window instead.\n` +
+      `# \`floating\` is the only layout it draws in: a window over whichever page is on screen,\n` +
+      `# moved by its title bar and sized by its corner. \`ui viewport\` shows or hides it.\n` +
       `type: viewport\n` +
-      `layout: split\n`,
+      `layout: floating\n`,
   };
 }
 

@@ -1,6 +1,6 @@
 // StudioBridge.kt — what the studio apps in AppViewsPlugin's views may ask of this app, over one
 // WebMessageListener (`window.st0Android`). Every app reports the colour at the top of its page
-// (assets/top-color.js), which paints the status bar above it; ONLY st0, checked by origin, reaches
+// (assets/top-color.js), which paints the status bar above it, and who is signed in (assets/account.js); ONLY st0, checked by origin, reaches
 // the engine: its settings panel is this phone's tray (apps/st0/frontend/src/settings/androidEngine.ts).
 // The object is offered to every origin, since the studio can change; each message is checked instead.
 // See docs/android.md.
@@ -24,6 +24,8 @@ class StudioBridge(
     /** Which app an origin is, or null for anywhere else. */
     private val appOf: (Uri) -> String?,
     private val onColor: (id: String, color: Int) -> Unit,
+    /** Who the studio says is signed in, null for nobody (assets/account.js). */
+    private val onAccount: (name: String?) -> Unit,
     private val onChooseStudio: (origin: String) -> Unit,
 ) : SupervisorHost.Listener {
     // The st0 page listening now: a reload hands over a new one with its `listen`.
@@ -61,6 +63,7 @@ class StudioBridge(
             val msg = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
             when (msg.optString("t")) {
                 "color" -> runCatching { Color.parseColor(msg.getString("value")) }.onSuccess { onColor(id, it) }
+                "account" -> onAccount(if (msg.isNull("name")) null else msg.optString("name"))
                 "listen" -> if (id == "st0") {
                     st0 = reply
                     push()

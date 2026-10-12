@@ -10,13 +10,16 @@
     "build:frontends": "npm exec --workspace st0-frontend -- vite build",
     "start": "node scripts/build-main.mjs && node scripts/start.mjs",
     "stage": "node scripts/stage.mjs",
-    "package": "node scripts/build-main.mjs && node scripts/stage.mjs && electron-builder --config electron-builder.cjs",
-    "typecheck": "tsc --noEmit"
+    "package": "node scripts/build-main.mjs && node scripts/stage.mjs && electron-builder --config electron-builder.cjs --publish never",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@studio/electron-shell": "*",
+    "@frediverse/electron-shell": "*",
+    "@studio/supervisor-host": "*",
     "electron": "44.7.0",
     "electron-builder": "^26.0.12",
-    "esbuild": "*"
+    "esbuild": "*",
+    "vitest": "^4.1.10"
   }
 }

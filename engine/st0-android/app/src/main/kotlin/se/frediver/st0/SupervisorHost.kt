@@ -1,4 +1,4 @@
-// SupervisorHost.kt — the app's half of the supervisor's NDJSON channel: what engine/st0-tray's host.rs
+// SupervisorHost.kt — the app's half of the supervisor's NDJSON channel: what electron-shell's supervisorHost.ts
 // is on desktop. It runs st0-supervisor from the native library directory, the one place Android lets an
 // app execute its own binary, and adds the one Android duty: the supervisor's `engine` requests, since
 // the engine is a library in THIS process rather than a program it could spawn. See docs/android.md.
@@ -36,6 +36,7 @@ object SupervisorHost {
     fun start(context: Context) {
         if (process != null) return
         val app = context.applicationContext
+        pinLocalStudio(EngineBridge.stateDir(app))
         // Packaged as a lib*.so so the installer extracts it, executable, beside the engine's library.
         val binary = File(app.applicationInfo.nativeLibraryDir, "libst0supervisor.so")
         val p = ProcessBuilder(binary.absolutePath).apply {
@@ -43,6 +44,8 @@ object SupervisorHost {
             environment()["STUDIO_MACHINE_NAME"] = deviceName(app)
             // No Downloads tab on the phone to choose in, so every instrument is fetched (st0-supervisor docs/instruments.md).
             environment()["STUDIO_INSTRUMENTS"] = "all"
+            // The local backend's port, which the supervisor reads to reach a loopback registry.
+            environment()["STUDIO_PORTS"] = BackendHost.PORTS_SPEC
             TrustedCas.file(app).takeIf { it.isFile }?.let { environment()["STUDIO_EXTRA_CA_CERTS"] = it.absolutePath }
         }.start()
         process = p
@@ -132,6 +135,19 @@ object SupervisorHost {
             // Off this reader thread: the join would hold up every frame behind it.
             "stop" -> Thread({ EngineBridge.stop(ENGINE_STOP_MS) }, "st0-engine-stop").start()
         }
+    }
+
+    /** The phone's own backend in the studio list, before the supervisor reads it: the app is standalone, other studios come in addition. */
+    private fun pinLocalStudio(home: File) {
+        home.mkdirs()
+        val file = File(home, "engine-host.json")
+        val settings = runCatching { JSONObject(file.readText()) }.getOrNull() ?: JSONObject()
+        val urls = settings.optJSONArray("registryUrls") ?: org.json.JSONArray()
+        if ((0 until urls.length()).any { urls.optString(it) == BackendHost.ORIGIN }) return
+        // First, so a phone with nothing chosen yet opens its own studio.
+        val pinned = org.json.JSONArray().put(BackendHost.ORIGIN)
+        for (i in 0 until urls.length()) pinned.put(urls.get(i))
+        file.writeText(settings.put("registryUrls", pinned).toString(2))
     }
 
     // What the picker shows for this engine: the name the user gave the phone, else its model.

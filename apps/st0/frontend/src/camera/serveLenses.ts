@@ -73,7 +73,7 @@ function lensCache() {
  * Only while this tab is IN FRONT. Every project tab runs this file, the relay holds one host
  * slot, and a second offer closes the first — whose reconnect then closes the second, once a
  * second for ever. Following the front tab is the same rule the rest of the app already obeys
- * (apps/st0-desktop/docs/tabs.md), and off the desktop there are no tabs and it is always true. */
+ * (apps/st0-standalone/docs/tabs.md), and off the desktop there are no tabs and it is always true. */
 export function serveLenses(): () => void {
   let ws: WebSocket | null = null;
   let timer = 0;

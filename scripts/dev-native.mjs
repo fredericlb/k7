@@ -61,26 +61,16 @@ const TARGETS = {
     ],
     build: () => buildSupervisor(repo),
   },
-  // The tray; build.rs and tauri.conf.json are in because cargo re-runs on both.
+  // The tray: its main process is bundled from src/, and its settings page is read from disk when the window opens.
   "st0-tray": {
     dirs: [
       {
-        path: join(repo, "engine", "st0-tray", "src-tauri", "src"),
+        path: join(repo, "engine", "st0-tray", "src"),
         recursive: true,
-        match: (base) => base.endsWith(".rs"),
+        match: (base) => base.endsWith(".ts") && !base.endsWith(".test.ts"),
       },
       {
-        path: join(repo, "engine", "st0-tray", "src-tauri"),
-        recursive: false,
-        match: (base) =>
-          base === "Cargo.toml" ||
-          base === "build.rs" ||
-          base === "tauri.conf.json",
-      },
-      // The settings window's page. `tauri build` EMBEDS it in the binary, so editing it is a
-      // relink like any .rs — there is no dev server serving it from disk.
-      {
-        path: join(repo, "engine", "st0-tray", "dist"),
+        path: join(repo, "engine", "st0-tray", "settings"),
         recursive: false,
         match: (base) => /\.(html|css|js)$/.test(base),
       },
@@ -89,7 +79,7 @@ const TARGETS = {
   },
 };
 
-// Rebuild order: the slow one first, so a broken C++ never costs a cargo run (../docs/dev.md).
+// Rebuild order: the slow one first, so a broken C++ never costs a tray restart (../docs/dev.md).
 const ORDER = ["st0-engine", "st0-supervisor", "st0-tray"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
@@ -247,7 +237,7 @@ if (!sup || statSync(sup).mtimeMs < newestSource("st0-supervisor")) {
   log("the supervisor is missing or older than its sources — building it");
   dirty.add("st0-supervisor");
 }
-dirty.add("st0-tray"); // always: a cargo no-op is seconds, and it is what guarantees out/dev matches src
+dirty.add("st0-tray"); // always: the bundle takes a second, and it is what guarantees dist/ matches src
 
 await cycle();
 

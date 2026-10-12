@@ -1,5 +1,5 @@
 // AppViewsPlugin.kt — the studio apps, each in a full-screen WebView of its own over the shell page (web/src/App.tsx,
-// AppViews), under a status-bar strip painted the colour of the app's own header (StudioBridge.kt). They load from
+// AppViews), under a status-bar strip and an account bar (AccountBar.kt) painted the colour of the app's own header. They load from
 // the connected studio rather than from this APK: each app is same-origin with its backend (`/api`, `/auth`, cookie
 // sessions), so a bundled copy would be an app with no server. A view is made the first time it is shown and then
 // only hidden, so an app keeps its state — a rehearsal take, a track playing in st0's media library — while another is on screen.
@@ -36,6 +36,8 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -47,10 +49,15 @@ class AppViewsPlugin : Plugin() {
     private lateinit var frame: FrameLayout
     // Under the status bar, in the visible app's top colour.
     private lateinit var strip: View
+    // Under the strip: the studio, who is signed in, and the button that signs in or out.
+    private lateinit var bar: AccountBar
+    private var barPx = 0
+    private var studio: String? = null
     private lateinit var appBridge: StudioBridge
     private val colors = mutableMapOf<String, Int>()
     private var lightBarsBefore = false
     private lateinit var topColorJs: String
+    private lateinit var accountJs: String
     private val views = mutableMapOf<String, WebView>()
     // The address each view was last pointed at by `apps`: a changed studio reloads it, a tab switch does not.
     private val loaded = mutableMapOf<String, String>()
@@ -61,6 +68,7 @@ class AppViewsPlugin : Plugin() {
     private lateinit var back: OnBackPressedCallback
     private lateinit var pickFiles: ActivityResultLauncher<Intent>
     private var chooser: ValueCallback<Array<Uri>>? = null
+    private var localSignInAt = 0L
 
     override fun load() {
         // Over the page's WebView, in the same layout, the whole screen: the shell page is only seen with no studio.
@@ -71,6 +79,9 @@ class AppViewsPlugin : Plugin() {
         )
         strip = View(context)
         frame.addView(strip, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 0))
+        barPx = (AccountBar.HEIGHT_DP * context.resources.displayMetrics.density).toInt()
+        bar = AccountBar(context, onSignIn = ::signIn, onSignOut = ::signOut)
+        frame.addView(bar, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, barPx))
         // The views start below the status bar and the cutout, and stop short of the navigation bar and the keyboard.
         ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
             topPx = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()).top
@@ -80,6 +91,7 @@ class AppViewsPlugin : Plugin() {
         }
         lightBarsBefore = barIcons().isAppearanceLightStatusBars
         topColorJs = context.assets.open("top-color.js").bufferedReader().use { it.readText() }
+        accountJs = context.assets.open("account.js").bufferedReader().use { it.readText() }
         appBridge = StudioBridge(
             activity,
             ::appOf,
@@ -87,6 +99,7 @@ class AppViewsPlugin : Plugin() {
                 colors[id] = color
                 if (id == visible) paint()
             },
+            onAccount = { name -> activity.runOnUiThread { onAccount(name) } },
             onChooseStudio = { notifyListeners("studio", JSObject().put("origin", it)) },
         )
 
@@ -123,27 +136,35 @@ class AppViewsPlugin : Plugin() {
         val given = call.getObject("apps") ?: return call.reject("no apps")
         val url = call.getString("url")
         val studio = call.getString("studio")
-        bridge.executeOnMainThread {
-            apps = given.keys().asSequence().associateWith { Uri.parse(given.getString(it)) }
-            val home = apps[id]?.toString() ?: return@executeOnMainThread call.reject("no address for $id")
-            appBridge.setStudio(studio)
-            val view = views.getOrPut(id) { create(id) }
-            when {
-                url != null -> view.loadUrl(url)
-                loaded[id] != home -> view.loadUrl(home)
-            }
-            loaded[id] = home
-            views.forEach { (key, v) -> v.visibility = if (key == id) View.VISIBLE else View.GONE }
-            visible = id
-            frame.visibility = View.VISIBLE
-            // A frame that was gone may never have been given the insets.
-            ViewCompat.requestApplyInsets(frame)
-            place()
-            paint()
-            view.requestFocus()
-            syncBack()
-            call.resolve()
+        // The phone's own studio is not up yet on a first run, which is still unpacking: wait rather than fail.
+        if (studio == BackendHost.ORIGIN) BackendHost.whenReady { bridge.executeOnMainThread { show(call, id, given, url, studio) } }
+        else bridge.executeOnMainThread { show(call, id, given, url, studio) }
+    }
+
+    private fun show(call: PluginCall, id: String, given: JSObject, url: String?, studio: String?) {
+        apps = given.keys().asSequence().associateWith { Uri.parse(given.getString(it)) }
+        val address = apps[id]?.toString() ?: return call.reject("no address for $id")
+        // On the phone's own studio a view opens as the local user, as the desktop window does.
+        val home = if (studio == BackendHost.ORIGIN && id == "st0") BackendHost.LOCAL_HOME else address
+        appBridge.setStudio(studio)
+        if (studio != this.studio) bar.setStudio(studio?.let { if (it == BackendHost.ORIGIN) "this phone" else Uri.parse(it).host })
+        this.studio = studio
+        val view = views.getOrPut(id) { create(id) }
+        when {
+            url != null -> view.loadUrl(url)
+            loaded[id] != home -> view.loadUrl(home)
         }
+        loaded[id] = home
+        views.forEach { (key, v) -> v.visibility = if (key == id) View.VISIBLE else View.GONE }
+        visible = id
+        frame.visibility = View.VISIBLE
+        // A frame that was gone may never have been given the insets.
+        ViewCompat.requestApplyInsets(frame)
+        place()
+        paint()
+        view.requestFocus()
+        syncBack()
+        call.resolve()
     }
 
     @PluginMethod
@@ -165,9 +186,44 @@ class AppViewsPlugin : Plugin() {
         }
     }
 
+    override fun handleOnNewIntent(intent: Intent) {
+        super.handleOnNewIntent(intent)
+        val answer = intent.data ?: return
+        // Back where st0 was: the sign-in is carried into its view, which stays on the page it showed.
+        val returnTo = views["st0"]?.url?.let(Uri::parse)?.let { u -> (u.path ?: "/") + (u.query?.let { "?$it" } ?: "") } ?: "/"
+        val redeem = AuthHandoff.redeemUrl(context, answer, returnTo) ?: return
+        navigate("st0", Uri.parse(redeem))
+    }
+
+    /** In the system browser, never in a view: identity providers refuse WebViews (RFC 8252 §8.12). */
+    private fun signIn() {
+        studio?.let { AuthHandoff.start(activity, it) }
+    }
+
+    /** Who the studio says is signed in; on the phone's own studio nobody means back to the local user, as on desktop. */
+    private fun onAccount(name: String?) {
+        bar.show(name)
+        if (name != null || studio != BackendHost.ORIGIN) return
+        val now = System.currentTimeMillis()
+        // Once in a while at most: a local sign-in that keeps failing must not reload forever.
+        if (now - localSignInAt < LOCAL_SIGN_IN_GAP_MS) return
+        localSignInAt = now
+        views["st0"]?.loadUrl(BackendHost.LOCAL_HOME)
+    }
+
+    /** The studio's own logout, from the view in front; the reload lands on its sign-in screen. */
+    private fun signOut() {
+        views[visible]?.evaluateJavascript(
+            "fetch('/auth/logout',{method:'POST'}).finally(()=>location.reload())",
+            null,
+        )
+        bar.show(null)
+    }
+
     private fun place() {
         strip.layoutParams = strip.layoutParams.apply { height = topPx }
-        views.values.forEach { v -> v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx } }
+        bar.layoutParams = (bar.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx }
+        views.values.forEach { v -> v.layoutParams = (v.layoutParams as FrameLayout.LayoutParams).apply { topMargin = topPx + barPx } }
         frame.setPadding(0, 0, 0, bottomPx)
     }
 
@@ -175,6 +231,7 @@ class AppViewsPlugin : Plugin() {
     private fun paint() {
         val color = colors[visible] ?: Color.TRANSPARENT
         strip.setBackgroundColor(color)
+        bar.paint(color)
         if (color != Color.TRANSPARENT) barIcons().isAppearanceLightStatusBars = ColorUtils.calculateLuminance(color) > 0.5
     }
 
@@ -198,9 +255,12 @@ class AppViewsPlugin : Plugin() {
         webChromeClient = AppChrome()
         setDownloadListener { url, _, _, _, _ -> openOutside(Uri.parse(url)) }
         appBridge.attach(this, id)
+        // The phone's own studio is a loopback one, whose pages derive each service's address from this table, as the desktop's preload gives it.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))
+            WebViewCompat.addDocumentStartJavaScript(this, "window.$PORTS_GLOBAL='${BackendHost.PORTS_SPEC}';", setOf(BackendHost.ORIGIN))
         frame.addView(
             this,
-            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx },
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply { topMargin = topPx + barPx },
         )
     }
 
@@ -238,8 +298,13 @@ class AppViewsPlugin : Plugin() {
                 openOutside(url)
                 return true
             }
+            // The studio's sign-in, however it was reached — a click, a script, a redirect: it goes to the browser.
+            if (appOf(url) != null && url.path == "/auth/login") {
+                signIn()
+                return true
+            }
             // Only a link the user followed moves tabs. A redirect or a script's navigation stays put: the
-            // sign-in flow bounces a view through st0's /auth and back, and must not be torn out of it.
+            // handoff's redeem bounces a view through st0's /auth and back, and must not be torn out of it.
             if (!request.isForMainFrame || !request.hasGesture() || request.isRedirect) return false
             val to = appOf(url) ?: return false
             if (to == id) return false
@@ -249,7 +314,10 @@ class AppViewsPlugin : Plugin() {
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) = syncBack()
 
-        override fun onPageFinished(view: WebView, url: String?) = view.evaluateJavascript(topColorJs, null)
+        override fun onPageFinished(view: WebView, url: String?) {
+            view.evaluateJavascript(topColorJs, null)
+            view.evaluateJavascript(accountJs, null)
+        }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (request.isForMainFrame) loadFailed(id, error.description.toString())
@@ -321,5 +389,11 @@ class AppViewsPlugin : Plugin() {
             resultMsg.sendToTarget()
             return true
         }
+    }
+
+    companion object {
+        private const val LOCAL_SIGN_IN_GAP_MS = 5_000L
+        // web-protocol's PORTS_GLOBAL, the name every page reads the loopback ports from.
+        private const val PORTS_GLOBAL = "__STUDIO_PORTS__"
     }
 }

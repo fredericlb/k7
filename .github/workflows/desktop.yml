@@ -1,8 +1,8 @@
 # The desktop release — the half of the repo the hosted image never carries.
 #
-# `docker/` ships the four web apps; these two ship to a musician's machine, and they are
-# native: engine/st0-engine (C++, CMake) and engine/st0-tray (Rust, Tauri). One job per
-# desktop, each producing ONE archive — the engine binary beside the tray's installer.
+# `docker/` ships the four web apps; these ship to a musician's machine: engine/st0-engine and
+# engine/st0-supervisor (C++, CMake) and the tray that runs them, engine/st0-tray (Electron). One
+# job per desktop, each producing ONE archive — the engine binary beside the tray's installer.
 #
 # It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not:
 # a cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM, so this is tens of minutes
@@ -64,8 +64,8 @@ jobs:
           if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
-            # packages/ in full: both bundled .mjs are esbuilt out of most of that tier.
-            grep -qE '^(engine/|packages/|package-lock\.json|\.github/workflows/desktop\.yml)' \
+            # packages/ in full: both bundled .mjs are esbuilt out of most of that tier; commons, for the Electron shell in it.
+            grep -qE '^(engine/|packages/|commons$|package-lock\.json|\.github/workflows/desktop\.yml)' \
               changed.txt || build=no
           fi
 
@@ -111,23 +111,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: engine/st0-tray/src-tauri
-          key: ${{ matrix.label }}
-
-      # Two sets in one: what Tauri needs to link a GTK tray app, and what JUCE needs for
-      # ALSA/JACK audio and X11. Both are absent from the runner image.
+      # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image. Electron
+      # brings its own GTK at run time and needs none of it to package.
       - name: linux build deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ninja-build \
-            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf \
-            libayatana-appindicator3-dev libssl-dev \
+            libssl-dev \
             libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
             libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
@@ -141,17 +133,15 @@ jobs:
             brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
           done
 
-      # The Tauri CLI is a workspace devDependency of the tray, and the build scripts are Node.
+      # Electron and electron-builder are workspace devDependencies of the tray, and the build scripts are Node.
       - run: npm ci
 
-      # The engine, the supervisor, the sidecars and the Tauri bundle, in one script — the same
-      # one a developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
+      # The engine, the supervisor and the tray's installer, in one script — the same one a
+      # developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
       - name: engine + supervisor + tray
         env:
           STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
           STUDIO_SUPERVISOR_PRESET: ${{ matrix.preset }}
-          # linuxdeploy cannot strip inside the AppImage staging tree on this image.
-          NO_STRIP: "true"
         run: node engine/st0-tray/scripts/build-engine.mjs
 
       - name: archive

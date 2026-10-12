@@ -19,6 +19,7 @@ import { promisify } from "node:util";
 import { generateKey, gitEnv } from "@studio/git-repos/keys";
 import {
   assertSshGitUri,
+  isSshGitUri,
   normalizeGitUri,
   repoName,
 } from "@studio/git-repos/uri";
@@ -251,7 +252,8 @@ export class LibraryStore {
       )
         return { name: lib.name, state: "current", note: "up to date" };
       try {
-        await this.key();
+        // Only SSH needs the key: a local clone source (the desktop and phone apps) runs where no ssh-keygen may exist.
+        if (isSshGitUri(lib.uri)) await this.key();
         const env = gitEnv(this.keyDir);
         let note: LibraryNote;
         if (

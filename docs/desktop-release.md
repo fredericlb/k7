@@ -1,9 +1,10 @@
 # The desktop release
 
-`docker/` ships the four web apps. This is the other half: the two native pieces that run on
-the musician's machine and are in no image — `engine/st0-engine` (C++, CMake) and
-`engine/st0-tray` (Rust, Tauri). `.github/workflows/desktop.yml` builds them for the three
-desktops and publishes **one archive per platform**.
+`docker/` ships the four web apps. This is the other half: what runs on the musician's machine
+and is in no image — `engine/st0-engine` and `engine/st0-supervisor` (C++, CMake), and the tray
+that runs them, `engine/st0-tray` (Electron, `engine/st0-tray/docs/tray.md`).
+`.github/workflows/desktop.yml` builds them for the three desktops and publishes **one archive
+per platform**.
 
 | platform | what is in the archive |
 |---|---|
@@ -23,8 +24,8 @@ would keep advertising the commit it was first cut from.
 
 The archive is named for that channel — `st0-desktop_v1.4.0_macos-arm64.zip`,
 `st0-desktop_snapshot-9f2c1ab_linux-x64.tar.gz` — and **not** for
-`engine/st0-tray/src-tauri/tauri.conf.json`'s version, which has not moved in the life of the
-app. Two builds named from it would be indistinguishable in a downloads folder.
+`engine/st0-tray/package.json`'s version, which does not move with each build. Two builds named
+from it would be indistinguishable in a downloads folder.
 
 ## Why the gate job, and not a `paths:` filter
 
@@ -37,8 +38,10 @@ too, and a tag push carries no commit list for it to match against — the relea
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
 tags through untested.
 
-Its filter is `packages/` **whole**, not a list of audio packages: the supervisor and the file
-service are esbuilt out of most of that tier, so almost anything in it changes a shipped byte.
+Its filter is `packages/` **whole**, not a list of audio packages: the tray is esbuilt out of
+`@studio/supervisor-host` and whatever it imports, and the tier moves together. `commons` counts too: the
+Electron shell under both apps, `@frediverse/electron-shell`, lives there, and a change to it reaches
+this tree as a bump of that one path.
 
 ## The presets a runner can actually use
 
@@ -52,14 +55,15 @@ changes the generator alone, so the two stay in step.
 macOS and Linux take their host default (`macos-clang`, `release-gcc`) and name it anyway, so
 the matrix says out loud what each leg builds.
 
-## The bundle each platform asks for
+## The installer each platform gets
 
-`tauri.conf.json` asks for `app`, which is the macOS wrapper and exists nowhere else. Windows
-overrides to `nsis` and Linux to `deb` + `appimage`, through a config file rather than a flag —
-`--config` takes a path, and a path is quoting-proof on every shell.
+electron-builder makes them, from `engine/st0-tray/electron-builder.cjs`: NSIS on Windows, `.deb` +
+`.AppImage` on Linux. It runs with `--publish never`: on a tagged CI run it would otherwise try to
+publish to GitHub itself, and the release is the `publish` job's alone.
 
-macOS keeps `app` and gets its `.dmg` from `build-engine.mjs`'s own `hdiutil` call; the reason
-Tauri's dmg target is not used is in `engine/st0-tray/scripts/docs/buildEngine.md`.
+macOS is asked for the `.app` only (`--mac dir`), and `build-engine.mjs`'s own `makeDmg` wraps it
+— the retried `hdiutil create` that `engine/st0-tray/scripts/docs/buildEngine.md` explains — so
+the release does not depend on whichever `hdiutil` path a bundler happens to drive.
 
 `.zip` on Windows and macOS, `.tar.gz` on Linux — a `.deb` and an `.AppImage` are only useful
 with their executable bit, and tar is what carries one. `engine/st0-tray/scripts/package-release.mjs`
@@ -79,10 +83,9 @@ is a certificate nobody has bought. The ONNX Runtime note in
 **macOS is arm64 only.** An Intel build is one more entry in the matrix (`macos-13`, same
 preset) and no other change; it is absent because nobody has asked for it, not because it is hard.
 
-**Linux is the least walked of the three legs.** The apt list — Tauri's GTK and
-appindicator set, and JUCE's ALSA/JACK/X11 set — is the part most likely to need a name added.
-`NO_STRIP=true` is set for the same family of reason: `linuxdeploy` cannot strip inside its own
-AppImage staging tree on the runner image.
+**Linux is the least walked of the three legs.** The apt list — JUCE's ALSA/JACK/X11 set — is
+the part most likely to need a name added. Electron needs none of it to package: it carries its
+own GTK at run time.
 
 ## Running one leg by hand
 
@@ -115,12 +118,12 @@ commons`, authenticated with the same `submodule-token` secret the checkout uses
 The Linux one runs in
 a `node:22-bookworm` container and installs its toolchain on every run, and publishes the same
 `.tar.gz` as the release — the tray's `.deb` and `.AppImage`, and the headless `st0-engine`. It keeps
-a ccache, the tray's Rust `target/` and the dependency SOURCES between runs — the last through
+a ccache, Electron's downloads and the dependency SOURCES between runs — the last through
 `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set — since the
 third-party code is the bulk of the download and of the compile, and does not change from one night
 to the next. That cache holds sources only: what CMake builds inside it depends on the preset, and
 the job deletes it on its way out, failed or not. The Windows one runs on a
-Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, Rust (rustup), CMake, Ninja
+Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, CMake, Ninja
 and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
 container would buy isolation at the price of MSVC in a Windows container, which is heavier than
 the machine it would run on. The dependency sources stay on that disk too, in `$STUDIO_FETCHCONTENT_DIR`

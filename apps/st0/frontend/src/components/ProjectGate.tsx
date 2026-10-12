@@ -48,7 +48,7 @@ export function ProjectGate({
   /** …and taking it back. */
   onResume: () => void;
 }) {
-  // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/st0-desktop/docs/tabs.md.
+  // A tab behind another stops being that engine's client too, and does not wait twenty minutes — apps/st0-standalone/docs/tabs.md.
   const inFront = useInFront();
   // Started at once, not when the project opens: the download runs beside the gate's own work instead of after it.
   useEffect(() => {

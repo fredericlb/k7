@@ -9,8 +9,10 @@
    what a CI runner is (`docs/desktop-release.md`).
 2. the **supervisor** — `engine/st0-supervisor`, its own CMake project, through
    `supervisorBuild.mjs`; `STUDIO_SUPERVISOR_PRESET` is its preset override;
-3. the **tray app** — a Tauri release bundle: `nsis` on Windows, `deb` + `appimage` on Linux,
-   and on macOS the `app` wrapper `tauri.conf.json` names, which `makeDmg` then packages.
+3. the **tray app** — `engine/st0-tray` itself, packaged by electron-builder: NSIS on Windows, `.deb` +
+   `.AppImage` on Linux, and on macOS the `.app`, which `makeDmg` then packages.
+
+
 
 ## `dist/` is the repo's, not the tray's
 
@@ -20,7 +22,7 @@ and gitignored by the rule that was already there for every package's `dist/`. `
 holds the one definition of where it is.
 
 Its **top level is deliverables only**, and the directories beside them are working space —
-`dev/`, `portable/`, `release/`, named once in `buildTools.mjs` as `WORK_DIRS`. Two things read
+`portable/`, `release/`, named once in `buildTools.mjs` as `WORK_DIRS`. Two things read
 that list rather than repeating it: a release build wipes the deliverables and leaves the
 working dirs alone, and `package-release.mjs` archives the deliverables and leaves the working
 dirs out. A list written twice is how a 400 MB staging tree ends up inside a release archive.
@@ -30,40 +32,37 @@ platform ships, into `dist/release/` — `npm run engine:package`. It is the rel
 and `docs/desktop-release.md` is its page.
 
 `build-portable.mjs` is the other Windows deliverable — `npm run engine:portable`, one
-self-extracting `.exe` instead of an installer, staged through this script so both carry the
+self-extracting `.exe` instead of an installer, staged by the same `stage.mjs` so both carry the
 same thing. [buildPortable.md](buildPortable.md) is its page.
 
 ## What the app carries
 
-Everything needed to run with no repo and nothing on `PATH`:
+Everything needed to run with no repo and nothing on `PATH`, all in the app's `Resources/bin/`
+(`engine/st0-tray/scripts/stage.mjs`, through `packages/supervisor-host/scripts/stageEngine.mjs`,
+which the standalone app shares):
 
-| staged as | what |
+| file | what |
 |---|---|
-| `externalBin` sidecar | `st0-engine` — the audio engine |
-| `externalBin` sidecar | `st0-supervisor` — the supervisor the tray spawns |
-| resource `onnxruntime/` | ONNX Runtime, which the supervisor loads for a stem cut |
-| resource `faust-libs/` | the Faust standard libraries the engine compiles against |
+| `st0-engine` | the audio engine |
+| `st0-supervisor` | the supervisor the tray spawns |
+| ONNX Runtime, beside it | the library the supervisor loads for a stem cut |
+| `faust-libs/` | the Faust standard libraries the engine compiles against |
 
-Tauri copies `externalBin` into the bundle beside the tray executable
-(`Contents/MacOS/` on macOS), which is what makes the `.app` self-contained — the tray finds the
-supervisor there, and the supervisor finds the engine beside itself. Tauri resolves a sidecar as
-`<name>-<triple>` **plus** the platform's executable extension, so on Windows the `.exe`-suffixed
-file is the one it looks for and bundles.
+One flat folder because each binary looks for the next beside itself: the supervisor for the
+engine and ONNX Runtime, the engine for `faust-libs/`.
 
 No file service and no demo songs are in it: workspaces live on the server
 (`packages/file-hub/docs/fileHub.md`), and what the machine needs of them the tunnel brings down.
 
-### ONNX Runtime, as a resource and not beside the supervisor
+### ONNX Runtime, beside the supervisor
 
 The supervisor LOADS ONNX Runtime rather than linking it
-(`engine/st0-supervisor/docs/supervisor.md`), and looks for it in the resources as well as beside
-itself. It goes in the resources because a sidecar must be an executable Tauri names by triple, and
-a shared library is not one. Its build copies the library beside the supervisor binary, and
-`onnxRuntimeFiles` takes it from there — `libonnxruntime.*.dylib`, `.so.*`, or `onnxruntime.dll`
+(`engine/st0-supervisor/docs/supervisor.md`), and looks for it beside itself first. Its build
+copies the library beside the supervisor binary, and the staging takes it from there — `libonnxruntime.*.dylib`, `.so.*`, or `onnxruntime.dll`
 with `DirectML.dll` on Windows. Missing is a warning, not a failure: the app runs, and says it
 cannot cut stems.
 
-**macOS is not covered by signing.** `makeDmg` signs nothing, and a third-party dylib inside a
+**macOS is not covered by signing.** Nothing in the release signs, and a third-party dylib inside a
 `.app` is a notarisation problem this repo has not solved.
 
 ### The Faust standard libraries
@@ -72,7 +71,7 @@ cannot cut stems.
 musician's machine — so `libraries/` has to travel with the app. Its only other copy is
 the folder the engine's CMake fetched, which is not part of any package.
 
-`stageFaustLibs` finds it by walking the build presets rather than naming one: which preset was
+The staging finds it by walking the build presets rather than naming one: which preset was
 used is the caller's business, and `findEngineBinary` already answers the same question the same
 way. Each preset's `CMakeCache.txt` NAMES the folder (`STUDIO_FAUST_LIBS`) rather than the script
 guessing `_deps/faust-src`: with `$STUDIO_FETCHCONTENT_DIR` set, as CI sets it, the sources live
@@ -86,53 +85,22 @@ installed app, one warning at a time, from a build that reported nothing wrong �
 this repo goes out of its way to avoid, and one `cmake --build` away from being impossible to
 reproduce on the machine that made the bundle.
 
-## The flags
+## The build stamp
 
-### `--sidecar-only`
-
-Skips the builds and just stages the sidecars. Any cargo/tauri command on the tray needs
-them present (`tauri_build` validates `externalBin`), so this is the one-shot fix for a
-plain `cargo check` / `tauri dev` workflow.
-
-### `--dev`
-
-Builds a **debug tray app that carries nothing**: the config override empties `externalBin`
-and `resources`, so the tray finds no supervisor beside itself and takes its dev fallback — the
-repo's `engine/st0-supervisor/build` — and that supervisor finds the engine in
-`engine/st0-engine/build` the same way.
-
-So editing engine or supervisor code needs no rebuild of this app. Fast to produce, not
-distributable. Dev mode builds neither — it points at whatever is already built, which is what
-makes the loop fast; `npm run dev` is what rebuilds them on save.
-
-The build number the tray displays is local wall-clock `YYYYMMDD.HHMM`, stamped into the
-binary via `build.rs` (`STUDIO_BUILD`), so it records when *this binary* was produced
-rather than when it happens to run.
+The build number the tray displays is local wall-clock `YYYYMMDD.HHMM`, baked into its bundle by
+`build-main.mjs` (`STUDIO_BUILD`), so it records when *this build* was produced rather than when it
+happens to run. A bundle made without one says `dev`.
 
 ## Platform traps
 
-### `--config` takes a file path, not inline JSON
-
-`run()` spawns through `cmd.exe` on Windows (`shell: true`, for the `.cmd` shims), which
-strips the JSON's double quotes and leaves Tauri parsing `{bundle:...}`. A file is
-quoting-proof everywhere.
-
-### Only macOS has an "app" bundle format
-
-That is the `.app` wrapper. Asking for it on Windows or Linux just builds the executable and
-produces no `bundle/` directory at all — the debug executable *is* the dev artifact there, so
-`--dev` passes `--no-bundle` and collects it directly. A release build names its own targets
-instead: the NSIS installer on Windows, `.deb` + `.AppImage` on Linux.
-
 ### macOS: we build the `.dmg` ourselves
 
-Tauri's `dmg` bundle target drives `hdiutil convert` through `bundle_dmg.sh`, which fails
-on this machine with errno 35 (`EAGAIN`) out of `CUDIFFileAccess::updateHeader`. It fails
-on a trivial 5 MB image too, so it is not about our bundle. `hdiutil create -srcfolder`
-takes a different code path and works, so that is what `makeDmg` uses: stage the `.app`
-next to an `/Applications` symlink (the drag-to-install affordance) and compress in one
-step. What we give up is the styled Finder window — background art, icon positions — that
-`bundle_dmg.sh`'s AppleScript adds.
+electron-builder is asked for the `.app` alone, and `makeDmg` makes the image. `hdiutil convert`,
+the path a bundler's dmg target drives, fails on this machine with errno 35 (`EAGAIN`) out of
+`CUDIFFileAccess::updateHeader` — on a trivial 5 MB image too, so it is not about our bundle.
+`hdiutil create -srcfolder` takes a different code path and works, so that is what `makeDmg`
+uses: stage the `.app` next to an `/Applications` symlink (the drag-to-install affordance) and
+compress in one step. What we give up is a styled Finder window — background art, icon positions.
 
 `hdiutil` is intermittently flaky here in the same `EAGAIN` family (seen failing right
 after another image was detached), so `makeDmg` retries rather than silently shipping
@@ -140,10 +108,8 @@ without a dmg; `-ov` makes a retry safe. EAGAIN means "try again *later*" — re
 instantly just fails again (observed: three back-to-back failures, then success moments
 later), so it backs off between attempts.
 
-`CI=true` makes Tauri's `bundle_dmg.sh` skip the Finder/AppleScript styling, which needs an
-interactive GUI session. A dmg failure is deliberately non-fatal: the bundler builds the
-`.app` first and the `.dmg` second, so a dmg-only failure should not throw away a good
-`.app`. We collect it, then exit non-zero.
+A dmg failure is deliberately non-fatal: the `.app` is already collected, and an archive holding
+it is still a release. A packaging failure is fatal, after collecting whatever it did produce.
 
 ## Still repo-dependent
 

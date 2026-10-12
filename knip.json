@@ -39,9 +39,6 @@
     "packages/rehearsal-server": {
       "ignoreDependencies": ["@types/multer"]
     },
-    "apps/z0/backend": {
-      "entry": ["src/render.ts"]
-    },
     "packages/song": {
       "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
     },
@@ -68,7 +65,7 @@
     },
     "packages/ui-chains-react": {},
     "engine/st0-tray": {
-      "entry": ["scripts/*.mjs", "songs/**/jsdsp.ts"]
+      "entry": ["src/main.ts", "src/preload.ts", "scripts/*.mjs", "songs/**/jsdsp.ts"]
     }
   }
 }

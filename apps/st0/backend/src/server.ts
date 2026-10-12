@@ -20,6 +20,7 @@ import { serviceUrl } from "@studio/web-protocol/services";
 import express from "express";
 import { z } from "zod";
 import { aiOrganizeBody, aiOrganizeRouter } from "./aiOrganize";
+import { mountHandoff } from "./handoff.ts";
 import { openCors } from "./media/cors.ts";
 import { mediaTokens, mountMedia } from "./media/mount.ts";
 
@@ -57,6 +58,11 @@ const { requireAuth } = await setupAuth(app, {
   service: "st0-backend",
   // Dropping `groups` would 403 every z0 admin surface — see ../../AGENTS.md, § The backend in detail.
   ...(scopes.length > 0 ? { scopes } : {}),
+});
+// An app's system-browser sign-in, and the desktop's signed-out local user (../docs/handoff.md).
+mountHandoff(app, {
+  secret: process.env.SESSION_SECRET || "dev-insecure-secret-change-me",
+  localUser: process.env.STUDIO_LOCAL_USER === "1",
 });
 
 // The library's tokens first, so the rehearsal server, mounted ahead of it, can call it with one.

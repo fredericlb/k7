@@ -8,6 +8,7 @@
 #include "HostProtocol.h"
 #include "Log.h"
 #include "Loop.h"
+#include "Processes.h"
 #include "Registry.h"
 #include "Separation.h"
 #include "Supervisor.h"
@@ -102,6 +103,8 @@ int main(int argc, char** argv)
     for (const DWORD id : {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE})
         SetHandleInformation(GetStdHandle(id), HANDLE_FLAG_INHERIT, 0);
 #endif
+    // Before the engine is spawned, so it is born inside the job (docs/supervisor.md).
+    if (const auto why = st0::process::joinHostJob(); !why.empty()) st0::log::stderrOnly("[host] no kill-on-close job: " + why);
     st0::Loop loop;
     int code = 0;
     st0::Supervisor supervisor(loop, [&] { loop.stop(); });

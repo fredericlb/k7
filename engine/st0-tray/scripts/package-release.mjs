@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // package-release.mjs — turn the monorepo's dist/ into ONE archive for the platform that
 // produced it. Runs after `npm run engine:build`; the release workflow is its other caller.
-// The archive is named for a STAMP, not for tauri.conf.json's version: that version has not
-// moved in the life of the app, so two builds would otherwise overwrite each other.
+// The archive is named for a STAMP, not for the tray's package version: that version does not
+// move with each build, so two builds would otherwise overwrite each other.
 // See docs/desktop-release.md.
 
 import { spawnSync } from "node:child_process";
@@ -38,9 +38,7 @@ function run(cmd, args, cwd) {
 }
 
 const argIndex = process.argv.indexOf("--stamp");
-const conf = JSON.parse(
-  readFileSync(join(trayDir, "src-tauri", "tauri.conf.json"), "utf8"),
-);
+const conf = JSON.parse(readFileSync(join(trayDir, "package.json"), "utf8"));
 const stamp = (
   (argIndex > 0 ? process.argv[argIndex + 1] : undefined) ??
   process.env.STUDIO_RELEASE_STAMP ??

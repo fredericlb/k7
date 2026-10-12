@@ -1,119 +1,91 @@
-# AGENTS.md — capot
+# AGENTS.md — the tray
 
-The **menu-bar / system-tray view** for the engine supervisor — Tauri v2, native Rust.
-It starts with no window and opens exactly one on demand: the settings window, in six tabs —
-the audio ranking dragged into order, the plugin catalogue, the sessions this engine holds, the st0
-instances this engine is connected to, the instruments it downloads, and the machine itself. The menu bar keeps one status line and the way in.
+The **menu-bar / system-tray view** for the engine supervisor — Electron, on
+`@frediverse/electron-shell` and `@studio/supervisor-host`. It starts with no window and opens exactly one on demand: the settings
+window, in seven tabs — the audio ranking dragged into order, the plugin catalogue, the sessions
+this engine holds, the st0 instances this engine is connected to, the instruments it downloads,
+the paired devices, and the machine itself. The menu bar keeps one status line and the way in.
 
 It is not itself a supervisor. It spawns **`st0-supervisor`** (engine/st0-supervisor, native) as a
-child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0`
-contract, the registry and the engine. There is no file service on this machine: workspaces live
-on the server, and the supervisor runs the jobs the server hands it over the tunnel. The tray
-draws what the supervisor reports and sends clicks back.
+child and drives it over NDJSON on stdio: the supervisor owns the `~/.st0` contract, the registry
+and the engine. There is no file service on this machine: workspaces live on the server, and the
+supervisor runs the jobs the server hands it over the tunnel. The tray draws what the supervisor
+reports and sends clicks back.
 
 There is exactly ONE implementation of the contract, and it is the supervisor's. If you find
 yourself about to add a second, that is the thing this arrangement exists to prevent.
 
-All Rust source lives under `src-tauri/src/`.
+This workspace also holds the scripts that build and release the native pieces —
+`scripts/build-engine.mjs` and its siblings, documented in `scripts/docs/`.
 
 ## The protocol
 
-`engine/st0-supervisor/src/HostProtocol.h` is the written definition; `host.rs` is its
-hand-written Rust mirror, the same arrangement `engine-protocol` has with the C++
-engine. Three rules, all load-bearing:
+`engine/st0-supervisor/src/HostProtocol.h` is the written definition;
+`packages/supervisor-host/src/hostProtocol.ts` is its hand-written mirror, the same arrangement
+`engine-protocol` has with the C++ engine. Three rules, all load-bearing:
 
-- **stdout is the protocol.** Only the supervisor's `protocol::emit` writes there, and every
-  child it spawns is piped, never `inherit`. One stray line corrupts the frame stream. The tray pumps the supervisor's stderr into the merged
-  log like any other child.
+- **stdout is the protocol.** Only the supervisor's `protocol::emit` writes there. The tray files
+  the supervisor's stderr in the merged log.
 - **Snapshots, not deltas.** A `state` frame is the whole picture, emitted only when its
-  serialisation changes — so a supervisor that crashed and relaunched resyncs the tray in
-  one message, and an idle app is silent on the wire.
-- **The tray computes no policy.** Ports, identity, the registry URL and the audio picks
-  all arrive in the snapshot. A click goes back up as a `cmd`.
+  serialisation changes — so a supervisor that crashed and relaunched resyncs the tray in one
+  message, and an idle app is silent on the wire.
+- **The tray computes no policy.** Ports, identity, the registry URL and the audio picks all
+  arrive in the snapshot. A click goes back up as a `cmd`.
 
-`host.rs`'s `Snapshot` is deliberately PARTIAL: it mirrors only the fields the tray
-consumes today. serde ignores the rest, and adding a field is how a later stage takes a
-subsystem over.
+The mirror is PARTIAL: a field is added when the tray first reads it, and a frame's missing lists
+are filled by `snapshotOf`.
 
 ## Lifetime
 
 ```
-tray (Tauri, windowless)      ← the process the user kills; creates the Job Object
- └─ st0-supervisor           ← job::assign() — the ONLY assign call
-     └─ st0-engine       ← joins the job automatically (created by a job member)
+tray (Electron, windowless)   ← the process the user kills
+ └─ st0-supervisor            ← spawned `detached` on Windows; makes the job and hands the tray its only handle
+     └─ st0-engine            ← born inside that job
 ```
 
-- **Windows**: `job::init()` runs in `main.rs` setup before anything spawns. Job
-  membership is inherited, so a force-killed tray takes the whole tree with it.
-- **Unix**: the pipe does the same job. When the tray dies the OS closes the
-  supervisor's stdin, its stdin reader ends, and it tears down.
+- **Windows**: the kill-on-close job is the supervisor's, held by the tray alone
+  (`engine/st0-supervisor/docs/hostProtocol.md`), so a force-killed tray takes the stack with it.
+- **Unix**: the pipe does the same job. When the tray dies the OS closes the supervisor's stdin,
+  its reader ends, and it tears down.
 - **Supervisor crash**: relaunched with 1s→30s backoff; the status line reads
-  `⚠ supervisor restarting…`. The engine survives it — the pidfile lets the fresh
-  supervisor re-adopt.
-- **Quit**: `host::shutdown_and_wait` first (its exit is what deregisters, and that wants
-  to happen while the engine is still up), then the tray stops what it still owns, then
-  `pidkill::backstop` catches anything a hung supervisor never got to.
+  `⚠ supervisor restarting…`. The engine survives it — the pidfile lets the fresh supervisor
+  re-adopt.
+- **Quit**: `shutdown` first (its exit is what deregisters, and that wants the engine still up),
+  then the engine named by the pidfile is killed, tree and all, if it outlived the teardown.
 
 ## Key modules
 
-- **`host.rs`** — spawn + `job::assign`, the read thread, `send`, the relaunch backoff.
-- **`hostcmd.rs`** — where the supervisor lives: `$STUDIO_ENGINE_HOST_CMD`, else the
-  `st0-supervisor` sidecar beside the tray, else the repo's newest build under
-  `engine/st0-supervisor/build`. A miss must be LOUD (`⚠ supervisor not found`) — a tray supervising nothing
-  looks identical to a healthy one.
-- **`tray.rs`** — the icon and menu: one status line and `Settings…`.
-  Quit stops the engine **only if THIS app owns it**; it won't kill an engine another supervisor
-  started.
-- **`settingswin.rs`** — the one window, opened from `Settings…`: audio ranking, plugin catalogue,
-  sessions with the plugin editors they can open, the st0 instances
-  (connected ones and a form to add one by URL), Downloads (the instruments to fetch or remove), and System (version, engine, registry, and the
-  buttons). It draws the snapshot and sends commands back, like every other click
-  here. Closing HIDES it — a destroyed last window makes Tauri ask the app to exit. See
-  `docs/tray.md`.
-- **`supervisor.rs`** — the loops the tray still runs: the spinner and the menu-bar
-  appearance re-read (view work that stays), plus crash-watch and the engine query polls (not yet
-  migrated). Rule: snapshot state under the std `Mutex`
-  and **drop the guard before any `.await`** — a std mutex must never be held across an
-  await point, and never across a blocking call either.
-- **`logbus.rs`** — the tray's end of the merged log. The supervisor writes it; the tray
-  truncates it once per session and adds the `[host]` lines, which are what remain when the
-  supervisor itself broke. See `docs/tray.md`.
-- **`state.rs`** — the tray's state behind `Arc<Mutex<>>`. Two halves, and the split is the
-  point: `snapshot` is what the SUPERVISOR reported and is never computed here, the rest is
-  the little view state the tray genuinely owns.
-- **`paths.rs`** — the few `~/.st0/` paths the tray still touches itself. The layout
-  belongs to `packages/engine-client/src/paths.ts`; what is left here is subsystems not handed
-  over yet.
-- **`trayicon.rs`** — the icon drawn in code rather than loaded from PNGs: four states, one
-  animated, described in a unit square and 3× oversampled. See `docs/trayIcon.md`.
-- **`job.rs` / `pidkill.rs`** — the two backstops that stop a supervisor outliving the tray.
+- **`src/main.ts`** — the tray, its menu, the commands the settings page sends, quit.
+- **`@studio/supervisor-host/supervisorHost`** — spawn, the relaunch backoff, `send`, the stop and
+  its backstop; shared with `apps/st0-standalone`.
+- **`src/paths.ts`** — where the supervisor lives: `$STUDIO_ENGINE_HOST_CMD`, else the copy in the
+  app's `Resources/bin`, else the repo's newest build. A miss must be LOUD (`⚠ supervisor not
+  found`) — a tray supervising nothing looks identical to a healthy one.
+- **`src/status.ts`** / **`src/view.ts`** — what the menu bar and the settings page draw, as plain
+  functions of the snapshot. Tested.
+- **`src/settingsWindow.ts`** + **`src/preload.ts`** — the one window over `settings/`, and its
+  `window.st0Tray` bridge. Closing HIDES it.
+- **`src/trayIcon.ts`** — the icon drawn in code: four states, one animated. See `docs/trayIcon.md`.
+- **`src/mergedLog.ts`** — the tray's end of `<state>/.studio.log`: truncated once per session,
+  `[host]` lines in the supervisor's format.
 
-**The tray spawns no process** but the supervisor. There is no `engine.rs`: the supervisor
-owns starting the engine, and the tray only asks it to. Anything that needs a process started belongs there, not here.
+**The tray spawns no process** but the supervisor. Anything that needs a process started belongs
+there, not here.
 
 ## Build / run
 
-Needs the MSVC Rust toolchain on Windows, not `-gnu`.
-
-- `npm run dev` (`tauri dev`) — a debug tray app that carries nothing: no sidecars and an
-  empty `resources` list. The Rust finds the supervisor in the repo's
-  `engine/st0-supervisor/build/`, and the supervisor finds the engine in `engine/st0-engine/build/`.
-- `npm run build` (`tauri build`) — full release bundle. Both run `predev`/`prebuild` =
-  `node ../scripts/build-engine.mjs --sidecar-only`, which stages the two sidecars and the
-  resources — Tauri errors on a resource glob matching nothing, so even `cargo check` needs them
-  present.
-- `npm run tray:restart` — stop → `engine:dev` → `engine:start` → wait for the merged log
-  to say `supervisor up`, exit non-zero if it didn't. The loop to use when nobody is
-  watching a terminal: `tauri dev` never returns, so it can't report. It stops **every**
-  running tray first, whatever build it came from — single-instance is keyed on the
-  identifier, so a survivor would silently win — and it builds the dev app rather than
-  raw `cargo`, because only the `dist/dev` copy makes `hostcmd.rs` take its dev tier. See
-  `scripts/docs/restartTray.md`.
+- `npm start` — bundle the main process and run Electron on this checkout, in the foreground. It
+  finds the supervisor in `engine/st0-supervisor/build/`, which finds the engine in
+  `engine/st0-engine/build/`.
+- `npm run tray:restart` — stop every tray and engine → bundle → start detached → wait for the
+  merged log to say `supervisor up`, exit non-zero if it didn't. The loop to use when nobody is
+  watching a terminal. See `scripts/docs/restartTray.md`.
+- `npm run package` — the installer for this platform into `out/`, from what is already built.
+  `npm run engine:build` builds the native pieces first; see `scripts/docs/buildEngine.md`.
 
 ## Verify
 
-`cargo check` under `src-tauri/`. Behavioural check: launch the tray, confirm the engine
-registers and appears in a web picker, then quit and confirm the engine stops (only if
-the tray owns it). Force-kill the tray and confirm nothing survives — on Windows check
-Task Manager for `st0-supervisor.exe`/`st0-engine.exe` and that 8765 is free. A Windows
-build requires the MSVC toolchain — make the edit, explain it, and have the user build.
+`npm test` and `npx tsc --noEmit` here. Behavioural check: launch the tray, confirm the engine
+registers and appears in a web picker, then quit and confirm the engine stops. Force-kill the tray
+and confirm nothing survives — on Windows check Task Manager for
+`st0-supervisor.exe`/`st0-engine.exe` and that 8765 is free.

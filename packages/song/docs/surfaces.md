@@ -11,7 +11,7 @@ layout: split
 ```yaml
 # surfaces/viewport.yaml — the frame its video lanes composite onto
 type: viewport
-layout: split
+layout: floating
 ```
 
 ```yaml
@@ -127,7 +127,7 @@ cannot understand is not evidence that a name is free.
 | type | layouts |
 |---|---|
 | `timeline` | `split` |
-| `viewport` | `split` |
+| `viewport` | `floating` |
 | `turntables` | `split` |
 | `mastering` | `split` |
 
@@ -205,15 +205,20 @@ down straight away and which opening a project catches up if it is not there. A 
 composites a picture with no way for the picture to get out would be a half-made declaration. See
 [videoOutputs.md](videoOutputs.md).
 
-### Why `viewport` is `split`-only
+### Why `viewport` is `floating`-only
 
-The sharpest version of the argument below. A viewport owns a **WebGL context and one `<video>`
-element per layer**, and neither is state a host can hold for it the way it holds a desk's document:
-they belong to the DOM the screen draws. As a `view` it would tear both down whenever you looked at
-something else and rebuild them — with a decoder flush and a visible hitch — whenever you came back.
+A picture is something you watch WHILE you work on what draws it — the lanes on the timeline, the
+shader node on the graph, the YAML of a layer. As a page it would be what you look at INSTEAD, and
+every edit would be a trip to another page to see what it did. So it is a window over the layout,
+moved by its title bar and sized by any edge, over whichever page is on screen.
 
-Getting the picture big is `full` (its number key, or `ui viewport`), which is the pane ring doing
-its job rather than a second mounting rule.
+It is mounted for as long as the project declares it, like every `split` surface and for the
+sharpest version of the reason: a viewport owns a **WebGL context and one `<video>` element per
+layer**, and neither is state a host can hold for it the way it holds a desk's document. Closing
+the window hides it; showing it again (`ui viewport`, or its button beside the pages) costs nothing.
+
+Where the window sits is the BROWSER's, in localStorage, and not the project's: it is a habit of
+one screen, and in the project it would be a diff on every drag and wrong on every other screen.
 
 ### It is the frame ALONE
 
@@ -317,11 +322,12 @@ rather than falling off the end. Malformed files are reported through the same a
 `projectTypeIssues` and the dead-field warnings, so a surface that will not parse is a squiggle in
 the editor rather than a blank screen, and one bad surface does not take the good ones down with it.
 
-## In st0's shell: every surface is a pane
+## In st0's shell: every `split` surface is a pane
 
-Each `split` surface is a member of `Pane` — `timeline`, `viewport`, `turntables`, `mastering` —
-beside the `editor` and `chains` the shell owns outright. So a surface is reached the way any pane
-is: its number key, `ui <pane>`, `full`, the mobile tabs, `/<pane>`.
+Each `split` surface is a member of `Pane` — `timeline`, `turntables`, `mastering` — beside the
+`editor` and `chains` the shell owns outright. So a surface is reached the way any pane is: its
+number key, `ui <pane>`, `full`, the mobile tabs, `/<pane>`. The `floating` viewport is in none of
+them: it has no address, and `ui viewport` shows or hides it over whichever page is up.
 
 `RouteState` needs no field of its own for the open surface. Holding one by FILENAME is what a
 project-defined list of `view` surfaces would force, since a union cannot name it — but there is
@@ -329,10 +335,10 @@ exactly one surface per type, so the type IS the name and the pane union carries
 
 ### The layout table is a function
 
-`viewPanes({ timeline, viewport, turntables, mastering, frozen })`, not a constant, because four of
-the panes are the project's to declare: one that declares no timeline surface has no arrangement,
-and a list naming one would name a pane that will not be mounted. An object rather than positional
-flags — there are five and they are all booleans, so `viewPanes(true, false, true)` would say nothing
+`viewPanes({ timeline, turntables, mastering, frozen })`, not a constant, because three of the
+panes are the project's to declare: one that declares no timeline surface has no arrangement, and a
+list naming one would name a pane that will not be mounted. An object rather than positional
+flags — there are four and they are all booleans, so `viewPanes(true, false, true)` would say nothing
 about which pane was which.
 
 The same flags reach `fromLocation`, so `/timeline` typed at such a project falls through to the
@@ -340,13 +346,13 @@ layout instead of parsing into a screen that cannot be drawn.
 
 `timeline` defaults **true** there and false in `viewPanes`, and that asymmetry is deliberate: the
 surface list lands a moment after the shell, so there is one frame in which the address has to be
-read against a guess, and almost every project has an arrangement. The other three get no such
-optimism — each is the exception, so the same default would make `/viewport`, `/turntables` and
-`/mastering` briefly parse for every ordinary song.
+read against a guess, and almost every project has an arrangement. The other two get no such
+optimism — each is the exception, so the same default would make `/turntables` and `/mastering`
+briefly parse for every ordinary song.
 
 ### Where the desk goes in the ring
 
-The shell shows one pane at a time, and the ring is their order — frame, arrangement, desk, master,
+The shell shows one pane at a time, and the ring is their order — arrangement, desk, master,
 chains — which is the order Tab walks and the header lists. A set declares no timeline, so its desk
 comes first among what it declares and is the page it opens on. A fader on the desk is a param on a
 module in the graph; the bottom panel's `graph` is how both are read at once.

@@ -1,7 +1,7 @@
 // electron-builder.cjs — packaging for the standalone app; scripts/stage.mjs must have run first.
-// What every app on the shell shares — the staging copy, the unpacked guard — is @studio/electron-shell/builder's.
+// What every app on the shell shares — the staging copy, the unpacked guard — is @frediverse/electron-shell/builder's.
 
-const { baseConfig } = require("@studio/electron-shell/builder");
+const { baseConfig } = require("@frediverse/electron-shell/builder");
 
 module.exports = {
   ...baseConfig({ appDir: __dirname }),

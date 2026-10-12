@@ -55,6 +55,10 @@ export interface InstancesOptions {
 
 /** tsx over `@studio/file-service`'s entry, resolved from here so the image needs no path configured. */
 function defaultCommand(): { cmd: string; args: string[]; cwd: string } {
+  // A bundled backend (the Android app) names its bundled file service: there is no tsx and no source.
+  const bundled = process.env.STUDIO_FILE_SERVICE_ENTRY;
+  if (bundled)
+    return { cmd: process.execPath, args: [bundled], cwd: dirname(bundled) };
   const req = createRequire(import.meta.url);
   const pkg = dirname(req.resolve("@studio/file-service/package.json"));
   return {

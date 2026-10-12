@@ -20,23 +20,25 @@
     "@studio/audio-analysis": "*",
     "@studio/audio-passes": "*",
     "@studio/audio-probe": "*",
-    "@studio/engine-tunnel": "*",
     "@studio/commands": "*",
     "@studio/engine-client": "*",
+    "@studio/engine-tunnel": "*",
     "@studio/git-repos": "*",
     "@studio/graph-model": "*",
+    "@studio/live-sync": "*",
     "@studio/mediatek": "*",
     "@studio/song": "*",
     "@studio/song-edit": "*",
     "@studio/song-schema": "*",
     "@studio/song-video": "*",
-    "@studio/stem-separation": "*",
     "@studio/st0-plugins": "*",
+    "@studio/stem-separation": "*",
     "@studio/take-render": "*",
     "@studio/translator": "*",
     "@studio/web-protocol": "*",
     "chokidar": "^3.6.0",
     "express": "^4.19.2",
+    "ws": "^8.18.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -44,6 +46,7 @@
     "@types/node": "^22.10.0",
     "tsx": "^4.16.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "@types/ws": "^8.5.12"
   }
 }

@@ -279,6 +279,37 @@ RunResult run(const std::filesystem::path& program, const std::vector<std::strin
     return r;
 }
 
+std::string joinHostJob()
+{
+    const char* env = std::getenv("STUDIO_HOST_PID");
+    if (!env || !*env) return {};
+    const DWORD hostPid = static_cast<DWORD>(std::strtoul(env, nullptr, 10));
+    if (hostPid == 0) return "STUDIO_HOST_PID is not a pid";
+    HANDLE host = OpenProcess(PROCESS_DUP_HANDLE, FALSE, hostPid);
+    if (!host) return "cannot open the host process: " + std::to_string(GetLastError());
+    HANDLE job = CreateJobObjectW(nullptr, nullptr);
+    if (!job) {
+        CloseHandle(host);
+        return "CreateJobObject failed with " + std::to_string(GetLastError());
+    }
+    // Kill-on-close and no breakaway: every process we start joins it, the engine included.
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    SetInformationJobObject(job, JobObjectExtendedLimitInformation, &info, sizeof info);
+    // The host's copy FIRST: closing ours before it exists would end the job, and us with it.
+    HANDLE inHost = nullptr;
+    const BOOL duplicated = DuplicateHandle(GetCurrentProcess(), job, host, &inHost, 0, FALSE, DUPLICATE_SAME_ACCESS);
+    CloseHandle(host);
+    std::string error;
+    if (!duplicated)
+        error = "cannot hand the job to the host: " + std::to_string(GetLastError());
+    else if (!AssignProcessToJobObject(job, GetCurrentProcess()))
+        error = "cannot join the job: " + std::to_string(GetLastError());
+    // Only the host's handle remains, so the job lives exactly as long as the host.
+    CloseHandle(job);
+    return error;
+}
+
 #else
 
 namespace {
@@ -504,6 +535,11 @@ RunResult run(const std::filesystem::path& program, const std::vector<std::strin
     while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
     r.code = WIFEXITED(status) ? WEXITSTATUS(status) : 128;
     return r;
+}
+
+std::string joinHostJob()
+{
+    return {};
 }
 
 #endif

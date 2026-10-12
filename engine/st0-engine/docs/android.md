@@ -5,8 +5,30 @@ and run by the app in `engine/st0-android`, which plays the tray's part. The sup
 phone at the studios it is connected to, exactly as on desktop, and the engine serves the same
 WebSocket protocol on port 8765, bound to every interface.
 
-**Foreground only.** There is no service: both live as long as `MainActivity`, and leaving it
+**Foreground only.** There is no service: all of it lives as long as `MainActivity`, and leaving it
 deregisters the engine, stops it and ends the process.
+
+## Standalone: the phone runs its own studio
+
+Like the desktop app (`apps/st0-standalone/docs/standalone.md`), the phone needs no server: it runs
+**st0's backend itself**, with the file services that backend starts, git, and the engine. A studio
+elsewhere is something it can ADD, never something it needs. `BackendHost.kt` is the desktop's
+`main.ts` on a phone.
+
+| choice | why |
+|---|---|
+| the desktop's port, environment and folders, read from `apps/st0/backend/standalone.json` | one table for both, whose values `apps/st0/backend/docs/standalone.md` explains; the port is a `BuildConfig` constant, since the views compare origins before anything is unpacked |
+| the local user when signed out | a view opens on `/auth/local`, and falls back to it whenever `/auth/me` says nobody — the cookie watch the desktop does, with the signal the views already had |
+| the phone's own studio pinned FIRST in the supervisor's list, before it starts | the supervisor's saved list overrides `$STUDIO_REGISTRY_URL`, so a phone that already listed a studio would never see its own otherwise |
+| Termux's arm64 node, git, git-lfs, ssh and ssh-keygen, as `lib*.so` (`engine/st0-android/scripts/termux-tools.mjs`) | no other build of node runs as an Android app; the native library directory is the only place an app may execute a file, and only `lib*.so` names reach it. Library names and the Termux prefix are patched in place, same length, so nothing is relinked. Each `.deb` is checked against the digest in Termux's index, which keeps only current versions, so the build takes whatever is current and records it in `termux-versions.json` |
+| the backend BUNDLED (`apps/st0/backend/scripts/bundle.mjs`), the packaged desktop's bundle | tsx needs esbuild's native binary, which Termux's node cannot load (`apps/st0/backend/docs/standalone.md`) |
+| one `backend.zip` asset, unpacked once per install | node reads files, not assets; the APK's `lastUpdateTime` marks the copy, as for Faust's libraries |
+| `core.hooksPath=/dev/null` in the backend's `$HOME/.gitconfig` | Android refuses to execute anything under app data, and a hook is exactly that |
+| cleartext allowed for `127.0.0.1` only (`engine/st0-android/app/src/main/res/xml/network_security_config.xml`) | the local studio is plain http, as on desktop, and every other host stays https |
+| the views wait for the backend before loading it | a first run spends a few seconds unpacking, and a load that fails then would put the error screen up for nothing |
+
+A crashed backend is relaunched once after two seconds; a dead origin under the views is otherwise
+only fixed by restarting the app.
 
 ## The app is also where the studio is used: st0, full screen
 
@@ -42,11 +64,13 @@ Two ways from the page to the native half:
   exists, and a listener's origin rules are fixed when it is added; the check is per message
   instead.
 
-**The apps load from the studio, not from the APK.** Each app is same-origin with its backend
-(relative `/api` and `/auth`, cookie sessions), so a bundled copy would be an app with no server.
-The page takes the studio from the supervisor's own list and gives the view
-`serviceUrl(origin, "st0")`, the mapping `UserMenu` uses. With several studios
-connected, st0's settings pick which one the apps open.
+**The apps load from a studio, never from the shell page.** Each app is same-origin with its backend
+(relative `/api` and `/auth`, cookie sessions), so it is served by one: this phone's own by default.
+The page takes the studios from the supervisor's own list, the phone's own first, and gives the view
+`serviceUrl(origin, "st0")`, the mapping `UserMenu` uses — or, for the loopback one, `localServiceUrl`,
+which is why the shell page and every view on the phone's own studio get `__STUDIO_PORTS__` (a
+document-start script, the desktop's preload). With several studios connected, st0's settings pick
+which one the apps open.
 
 What the app views do that a browser would do on its own:
 
@@ -73,6 +97,27 @@ under TypeScript 7.
 `ws://`. The WebView, like any browser, lets an https page open `ws://127.0.0.1` but blocks
 `ws://<LAN IP>` as mixed content. The engine picker probes each address an engine announces and
 keeps one that answers, so a blocked one is simply not chosen. Mixed content stays off.
+
+## Signing in happens in the browser
+
+An identity provider refuses a WebView, and RFC 8252 §8.12 says it should: a page inside an app
+can read what is typed into it. So the views never show one. A navigation to the studio's
+`/auth/login` — st0's Sign in button, a redirect, a script — is cancelled in `AppViewsPlugin.kt` and
+the sign-in opens in the system browser instead, through the studio's handoff
+(`apps/st0/backend/docs/handoff.md`). The browser comes back to `se.frediver.st0://auth` with a
+one-use code, `MainActivity` (`singleTask`, so the intent reaches the running one) hands it to the
+plugin, and `AuthHandoff.kt` turns it into a session in st0's view with the verifier only this app
+holds. The verifier is kept on disk: the process may be killed while the browser is in front.
+
+The studio's own OIDC client is the one used, with its registered `redirect_uri`: nothing new to
+register at the identity provider for the phone.
+
+**A bar over the views** (`AccountBar.kt`) is where a desktop window has its title: the studio's
+host, the name of whoever is signed in, and one button — lucide's log-in or log-out, the icons the
+desktop draws. Who is signed in is the page's answer to `/auth/me` (`assets/account.js`), asked on
+every load and whenever the page comes back to the front, so a logout in st0's own user menu shows
+in the bar without the bar knowing about it. Sign out is the studio's logout, run from the view in
+front. The bar takes the app's top colour, like the status bar above it.
 
 ## A library in the app, not a process it spawns
 
@@ -119,7 +164,7 @@ The supervisor needs no Java — no JUCE, no audio — and is built to be a chil
 stdio, so it stays exactly that. The app packages it as `libst0supervisor.so`: only files named like
 a library reach the native library directory, the one place Android lets an app execute its own
 binary, and `useLegacyPackaging` has the installer extract them as real files. `SupervisorHost.kt`
-is then what `host.rs` is to the tray — it starts the program, reads its frames, sends its commands,
+is then what `SupervisorHost` (`packages/supervisor-host/src/supervisorHost.ts`) is to the tray — it starts the program, reads its frames, sends its commands,
 and closes stdin to quit it.
 
 Only the ENGINE changes hands. On desktop the supervisor spawns it and kills its process tree; here
@@ -217,13 +262,19 @@ also catches the GL driver's chatter, which is noise.
 
 ## What it does not have yet
 
+- **The standalone app has not been built and run as one APK yet.** Its backend, file service, git and
+  ssh were run on the emulator as an app, with `BackendHost.kt`'s layout and environment (below); the
+  APK itself, the view on the local studio and a sign-in through the browser are still to drive.
+- **No ffmpeg, yt-dlp or mpv on the phone**: what needs them — transcoding, the hunt, the server-side
+  player — answers as it does on a machine without them.
+- **No PocketBase**, as on desktop: the rehearsal recorder's rows are unavailable.
 - **The tunnel and WebRTC are untested on a phone.** They are the desktop code, built unchanged; no
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
 - **No foreground service**, so the screen is kept on and the engine stops with the activity.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
-  the status-bar colour and st0's engine section above are the design; each needs checking against
-  a live studio.
+  the browser handoff, the account bar, the status-bar colour and st0's engine section above are
+  the design; each needs checking against a live studio.
 
 ## What was measured
 
@@ -246,6 +297,19 @@ through `adb forward`:
 | an HTTPS studio whose certificate a private CA signed | refused; after importing that CA (DER) 146 roots, the engine adopted, connected and heartbeating; after forgetting it 145 and refused again — one engine start throughout |
 | importing a file that is not a certificate | refused with a message; nothing stored, nothing restarted |
 | `--probe https://priv.st0.app` with Android's CAs only | an st0 registry: nothing to import for a publicly certified studio |
+
+The standalone backend, on the same emulator, run as an app (`run-as`) from the bundle and the
+tools the scripts produce:
+
+| | measured |
+|---|---|
+| backend answering, from launch | 270–300 ms |
+| local sign-in, `/auth/me`, the frontend's index | the local user, `local: true`; 200 |
+| first `/workspaces`, which starts the account's file service | 450 ms |
+| the seeded library cloned, then a workspace created from it | created in 170 ms |
+| resident memory | backend 81 MB, file service 100 MB |
+| `ssh -V`, `ssh-keygen -t ed25519` (as the shell user) | OpenSSH 10.6p1; a key written, mode 600 |
+| APK payload | `backend.zip` 50 MB (68 MB unpacked); tools 118 MB unpacked |
 
 The realtime ratio is the emulator's audio device consuming 12 % less than wall-clock time at a
 nominal 48 kHz: steady from 8 s to 25 s, with nothing dropped, so the engine keeps up with the

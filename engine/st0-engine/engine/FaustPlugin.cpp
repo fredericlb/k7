@@ -141,7 +141,7 @@ juce::File FaustPlugin::faustLibrariesDir()
         return juce::File{named};
     const auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
                          .getParentDirectory();
-    // The four layouts a packaged app may use, PROBED rather than assumed, as hostcmd.rs does.
+    // The layouts a packaged app may use, PROBED rather than assumed, as the tray probes for the supervisor.
     for (const char* rel : {"faust-libs", "resources/faust-libs", "../Resources/faust-libs",
                             "../Resources/resources/faust-libs"}) {
         const auto candidate = dir.getChildFile(rel);

@@ -1,19 +1,24 @@
 // main.ts — st0 (its media library included) as one desktop app: its backend, the supervisor and its engine, and a window on st0.
-// Sign-in is the OIDC library's dev stub (no issuer configured), so the window opens on /auth/login first. See docs/standalone.md.
+// Signed out it runs as a local user; signing in to st0's IdP happens in the system browser. See docs/signIn.md.
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assertPortsFree, persistentSecret } from "@studio/electron-shell/boot";
-import { runApp } from "@studio/electron-shell/lifecycle";
-import { line, openLog } from "@studio/electron-shell/log";
+import {
+  assertPortsFree,
+  persistentSecret,
+} from "@frediverse/electron-shell/boot";
+import { runApp } from "@frediverse/electron-shell/lifecycle";
+import { line, openLog } from "@frediverse/electron-shell/log";
 import {
   type Server,
   stopServer,
   waitListening,
-} from "@studio/electron-shell/servers";
-import { openAppWindow } from "@studio/electron-shell/window";
+} from "@frediverse/electron-shell/servers";
+import type { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
+import { LOCAL_SIGN_IN } from "@studio/web-protocol/handoff";
 import { PORTS_ENV } from "@studio/web-protocol/services";
-import { type BrowserWindow, session } from "electron";
+import { session } from "electron";
+import standalone from "../../st0/backend/standalone.json";
 import { startBackend } from "./backends.ts";
 import {
   appIcon,
@@ -22,14 +27,24 @@ import {
   stateDirs,
   supervisorBinary,
 } from "./paths.ts";
-import { Supervisor } from "./supervisor.ts";
+import { signIn } from "./signIn.ts";
+import { startSupervisor } from "./supervisor.ts";
+import { openTabbedWindow, type TabbedWindow } from "./window.ts";
 
 // Not the dev session's 8789, so the two run side by side; every process is told through PORTS_ENV.
-const PORTS = { st0: 18789 };
+const PORTS = { st0: standalone.port };
 const PORTS_SPEC = `st0=${PORTS.st0}`;
 // Inherited by the backend, the file services it starts and the supervisor.
 process.env[PORTS_ENV] = PORTS_SPEC;
 const ST0 = `http://127.0.0.1:${PORTS.st0}`;
+/** Where a signed-out window lands: the local user, unless a session is already there. */
+const LOCAL_HOME = `${ST0}${LOCAL_SIGN_IN}?return_to=${encodeURIComponent("/")}`;
+
+/** st0's own IdP, as a PUBLIC client: the app cannot keep a secret. Overridable, and an empty issuer means local only. */
+const OIDC = {
+  issuer: process.env.ST0_OIDC_ISSUER ?? standalone.env.OIDC_ISSUER,
+  clientId: process.env.ST0_OIDC_CLIENT_ID ?? standalone.env.OIDC_CLIENT_ID,
+};
 
 /** What every window gets, the ones a page opens included: the preload publishes the ports to the page. */
 const webPreferences = {
@@ -40,10 +55,10 @@ const webPreferences = {
 };
 
 let backends: Server[] = [];
-let supervisor: Supervisor | null = null;
-let win: BrowserWindow | null = null;
+let supervisor: SupervisorHost | null = null;
+let win: TabbedWindow | null = null;
 
-/** First run only: the origin's library list names a local clone source, since the dev user can never be an admin. */
+/** First run only: the origin's library list names a local clone source, since the local user can never be an admin. */
 function seedLibraries(filesRoot: string): void {
   const list = join(filesRoot, "libraries.json");
   const source = librarySource();
@@ -68,22 +83,30 @@ async function noServiceWorker(): Promise<void> {
   );
 }
 
+/** Any sign-out — the strip's, the user menu's, an expired session — falls back to the local user. */
+function watchSignOut(): void {
+  session.defaultSession.cookies.on("changed", (_e, cookie, cause, removed) => {
+    // An overwrite is a new session replacing the old one, not a sign-out.
+    if (!removed || cookie.name !== "studio.sid" || cause === "overwrite")
+      return;
+    line("app", `signed out (${cause})`);
+    win?.reset(LOCAL_HOME);
+  });
+}
+
 function openWindow(): void {
-  win = openAppWindow({
-    url: `${ST0}/auth/login?return_to=${encodeURIComponent("/")}`,
-    ours: (url) => url.startsWith(ST0),
+  win = openTabbedWindow({
+    origin: ST0,
+    homeUrl: LOCAL_HOME,
     webPreferences,
     icon: appIcon(),
-    options: {
-      width: 1440,
-      height: 900,
-      minWidth: 900,
-      minHeight: 600,
-      title: "st0",
-      backgroundColor: "#101114",
-    },
+    onSignIn: () =>
+      signIn(ST0, (redeemUrl) => {
+        win?.reset(redeemUrl);
+        win?.focus();
+      }),
   });
-  win.on("closed", () => {
+  win.win.on("closed", () => {
     win = null;
   });
 }
@@ -96,40 +119,27 @@ async function boot(): Promise<void> {
   await assertPortsFree([PORTS.st0]);
 
   const engine = engineBinary();
-  const shared: Record<string, string> = {
+  // The table the phone starts its backend with too: apps/st0/backend/docs/standalone.md says why each value.
+  const env: Record<string, string> = {
+    ...standalone.env,
+    ...dirs.backend,
     SESSION_SECRET: persistentSecret(dirs.root),
-    // Empty on purpose: no issuer is what selects the dev stub, and no domain keeps the cookie host-only over http.
-    OIDC_ISSUER: "",
-    OIDC_CLIENT_ID: "",
-    COOKIE_DOMAIN: "",
-    STUDIO_HOME: dirs.serverHome,
+    OIDC_ISSUER: OIDC.issuer,
+    OIDC_CLIENT_ID: OIDC.clientId,
     ...(engine ? { STUDIO_ENGINE: engine } : {}),
   };
   seedLibraries(dirs.files);
 
   const sup = supervisorBinary();
-  if (sup && existsSync(sup)) {
-    supervisor = new Supervisor(sup, dirs.engineHome, ST0);
-    supervisor.start();
-  } else
-    line("app", "no st0-supervisor build found — running without an engine");
+  if (sup && existsSync(sup))
+    supervisor = startSupervisor(sup, dirs.engineHome, ST0);
+  else line("app", "no st0-supervisor build found — running without an engine");
 
-  backends = [
-    startBackend(
-      "st0",
-      PORTS.st0,
-      {
-        ...shared,
-        STUDIO_PREFS_DIR: join(dirs.prefs, "st0"),
-        STUDIO_FILES_ROOT: dirs.files,
-        STUDIO_MEDIATEK: dirs.mediatek,
-      },
-      dirs.root,
-    ),
-  ];
+  backends = [startBackend(PORTS.st0, env, dirs.root)];
   await Promise.all(backends.map((b) => waitListening(b)));
   line("app", "backend up");
   await noServiceWorker();
+  watchSignOut();
   openWindow();
 }
 
@@ -142,7 +152,7 @@ runApp({
     await supervisor?.stop();
     await Promise.all(backends.map((b) => stopServer(b)));
   },
-  onSecondInstance: () => win?.show(),
+  onSecondInstance: () => win?.focus(),
   onActivate: () => {
     if (!win && backends.length) openWindow();
   },

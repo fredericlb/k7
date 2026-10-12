@@ -6,7 +6,6 @@
 apps/k7/backend/data
 apps/k7/backend/.env.example
 apps/k7/frontend/.storybook
-apps/z0/data
 storybook-static
 .git
 .gitignore
@@ -18,15 +17,12 @@ ds-bundle
 .docker-revision
 env.yaml
 
-# The moteur's and the capot's NATIVE build outputs. None of it belongs in an image — the audio engine
-# and the Tauri tray are per-machine binaries, and the web image builds from the
-# workspace sources only. All are gitignored, so CI's fresh checkout never has
-# them; this is what stops a LOCAL image build from shipping ~30GB of CMake and
-# Cargo artifacts to the daemon as build context.
+# The engine's and the tray's build outputs. None of it belongs in an image — the audio engine
+# and the tray are per-machine binaries, and the web image builds from the workspace sources
+# only. All are gitignored, so CI's fresh checkout never has them; this is what stops a LOCAL
+# image build from shipping ~30GB of CMake output and Electron packages to the daemon as build
+# context.
 engine/st0-engine/build
 engine/st0-tray/out
 engine/st0-tray/.cache
-engine/st0-tray/src-tauri/target
-engine/st0-tray/src-tauri/binaries
-engine/st0-tray/src-tauri/resources
-engine/st0-tray/src-tauri/gen
+engine/st0-tray/staging

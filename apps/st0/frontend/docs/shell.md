@@ -130,7 +130,7 @@ entry until somebody clears it — about 140 a second on the editor. Measured af
 the tab at **3.5 GB**, one CC visiting **8.9 million** live objects and freeing 28 000, slices up to
 131 ms, and the cycle collector at **79 %** of the tab's CPU while the app's own JS was 13 %. So every
 studio app's entry — st0's and z0's six — calls `clearDevPerfEntries`
-(`packages/project-shell/src/devPerf.ts`) at boot, which clears the measures and marks every few
+(`commons/packages/ui/src/dev-perf.ts`) at boot, which clears the measures and marks every few
 seconds in DEV and does nothing in production. Nothing of the apps reads them: the profiler records
 them as markers as they happen, so a recording still shows them.
 
@@ -299,7 +299,7 @@ each deck has its own PLAY, at the foot of its tempo column
 ([../../../../packages/st0-plugins/docs/turntables/mix.md](../../../../packages/st0-plugins/docs/turntables/mix.md)). Buttons that
 look like they start the music without starting it are worse than none. The test is the SCREEN and
 not the project: a project that declares a desk *and* a timeline keeps its transport the moment
-either the timeline or the viewport is showing, because there it moves something you can see.
+the timeline is showing or the viewport's window is up, because there it moves something you can see.
 
 A set that still shows the cluster gets the two that mean something and not the other two, **in the
 same place**: this is the bar you reach for whichever project is open, so play and stop must not
@@ -340,9 +340,10 @@ about in its diagnostics. `noArrangement` is what the transport and the minimap 
 that has not declared its arrangement look alike on screen and are not the same fact. See
 [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
-**The VIEWPORT is the second**, `surfaces/viewport.yaml`, a page of its own. It owns a WebGL context
-and one `<video>` per layer, which is the most expensive thing the never-unmount rule below protects.
-See [picture.md](picture.md).
+**The VIEWPORT is the second**, `surfaces/viewport.yaml` — and NOT a page: a floating window over
+whichever page is up, moved and sized by hand, shown and hidden by `ui viewport` or its button beside
+the pages. It owns a WebGL context and one `<video>` per layer, which is the most expensive thing the
+never-unmount rule below protects: hiding the window keeps both. See [picture.md](picture.md).
 
 **The DESK is the third**, `surfaces/turntables.yaml` (usually named `desk.yaml`). A set declares no
 timeline, so the desk is its home page. A fader on the desk is a param on a module in the graph, and
@@ -1629,8 +1630,8 @@ media library and the rehearsal pages are st0's own routes, so the worker servin
 keeping st0's honest is the `pwaDenylist` it passes to `defineAppConfig`: without it, a navigation
 to `/z0` is answered with st0's `index.html` and the game becomes a white page with the editor's
 router refusing an address it cannot parse. That list is the same table as
-`apps/z0/docker/nginx.conf`'s locations — two copies of one fact, and this is the one a browser
-enforces. **Check it first if z0 ever serves the editor's shell instead of the game.**
+the locations of z0's nginx config, in z0's own repository — two copies of one fact in two
+repositories, and this is the one a browser enforces. **Check it first if z0 ever serves the editor's shell instead of the game.**
 
 **Mixed content is what makes an install fail.** A page over HTTPS that loads one resource in the clear is
 flagged "includes resources that are not secure", and that alone makes it uninstallable — the certificate

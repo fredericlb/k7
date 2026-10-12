@@ -1,0 +1,33 @@
+{
+  "name": "@studio/live-sync",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A workspace edit as a small operation: a YAML file's change as values set or deleted at key paths, replayed without touching the rest of the file, with the whole text as the fallback. No node:, so a browser may have it. Consumed as source.",
+  "exports": {
+    "./ops": "./src/ops.ts",
+    "./yaml-ops": "./src/yamlOps.ts",
+    "./file-op": "./src/fileOp.ts",
+    "./room": "./src/room.ts",
+    "./conflicts": "./src/conflicts.ts",
+    "./replica": "./src/replica.ts",
+    "./protocol": "./src/protocol.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
