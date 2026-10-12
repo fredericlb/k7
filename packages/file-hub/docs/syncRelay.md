@@ -2,7 +2,7 @@
 
 `syncRelay.ts` orders the batches of every replica of an account's workspace and relays them, at
 `/api/sync` on st0's backend. The ordering itself is `@studio/live-sync`'s Room
-(`../../live-sync/docs/sync.md`). The plan is `../../../docs/live-sync-plan.md`, phases 3 and 5.
+(`../../live-sync/docs/sync.md`). The plan is `../../../docs/live-sync-plan.md`, phases 3, 5 and 6.
 
 ## In the hub, and authenticated by the hub's own secret
 
@@ -65,3 +65,22 @@ the account's file-service state and outside every workspace.
 It installs itself in front of the existing `upgrade` listeners, as the rehearsal room does
 (`../../rehearsal-server/src/rtc.ts`). The engine registry's listener closes an upgrade it does not
 recognise when it is the only listener.
+
+## Change notices for the browsers
+
+Every entry the relay orders is announced to the account's open pages over Server-Sent Events, at
+`/api/sync/events` behind the session (`../syncEvents.ts`). A page then rereads what it shows at once,
+where it would otherwise wait for its next `/revision` poll.
+
+- **SSE, not the sync WebSocket.** The page only listens: it has nothing to send. An EventSource rides
+  the session cookie with no ticket, passes the proxies a plain response passes, and reconnects by
+  itself. A browser is not a replica, so it is kept off the socket that carries ops.
+- **A notice names what moved, never what it became**: the workspace, the entry's `seq`, the files it
+  touched, how many ops it set aside (`parked`) and how many conflicts it settled (`settled`). The page
+  reads the files through the file hub as it always does, so the stream adds no second path to a
+  file's contents and no second permission check.
+- **Per account, in this process.** The relay and the browsers' streams are both st0's backend, so the
+  fan-out is a set of open responses per account; a comment every 20 s keeps an idle stream through a
+  proxy's timeout, and an account may hold 32 streams at most, one per tab.
+- **A lost notice costs speed, not correctness.** Nothing is replayed to a page that reconnects: the
+  page asks `/revision` on reconnecting and keeps a slow poll, which is the source of truth.

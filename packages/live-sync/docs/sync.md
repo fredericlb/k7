@@ -25,8 +25,25 @@ the other's edit, so no rule is fairer. Nothing is lost: the alternative stays o
 names it in `resolves`. Taking it is that batch with the op that writes it; dismissing it is the id
 alone. Both are ordinary entries, so the choice is in the log and every replica closes it at once.
 
-Two edits to different values of one file never collide: that is what path ops are for. A list is
-still one value (`ops.md`), so two edits to one list do.
+Two edits to different values of one file never collide: that is what path ops are for. In a keyed
+list (`ops.md`) two added items both land, in the room's order, and edits to two items merge; an edit
+inside an item someone removed is set aside. A list with no key is one value, so two edits to it
+collide.
+
+## Two whole texts made from one version are merged line by line
+
+A file that is not YAML travels whole, so two edits to it name the same `was`. When the later one
+arrives, the room merges it with what is in place against the text both were made from: a line-level
+three-way merge (`node-diff3`, `src/textMerge.ts`). A clean merge is applied as a whole text holding
+the merged result, so every replica, its author included, ends on the room's text. When the two
+changed the same lines, or neighbouring ones, the op is set aside as any other: no conflict marker is
+ever written into a file, since an engine or a renderer would read it as content.
+
+The room needs that base, and the op carries only its hash. So the room keeps, per file, the last 20
+versions it wrote (a megabyte at most), and finds the base by hash; a base it no longer has means set
+aside. The versions are part of the saved state, and written only by applying entries, so replaying
+the log after a restart rebuilds them. YAML is not merged as lines: its own merge is by path, and a
+line merge could leave two keys that parse into one. A blob ref is not text.
 
 `src/conflicts.ts` is the set of open conflicts, kept the same way by the room and by each replica.
 A newer alternative from the same replica for the same value replaces the older one: a knob dragged
@@ -46,8 +63,9 @@ ops are replayed on top. That is exactly the room's order: the other batch first
 it arrives. When its own batch comes back, the pending ops leave the replay. If the room set some of
 them aside, the file falls back to what the room confirmed.
 
-Only YAML files keep a confirmed text. Any other op is a whole-file text or a removal, and replaying
-one does not need what came before it.
+Every file keeps a confirmed text, whatever its kind: a whole text or a removal replays without what
+came before it, but the room may have merged or set it aside, and the confirmed text is what the
+replica falls back to.
 
 ## A batch can be sent twice
 

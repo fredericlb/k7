@@ -5,6 +5,7 @@
 import { ConflictSet } from "./conflicts.ts";
 import { applyFileOp, settleFileOp } from "./fileOp.ts";
 import type { Batch, Conflict, FileOp, Sequenced } from "./ops.ts";
+import { TextBases } from "./textMerge.ts";
 
 /** How many sequenced batches a room keeps for catch-up; a replica further behind gets the whole state. */
 const LOG_KEEP = 2000;
@@ -26,6 +27,8 @@ export interface RoomState {
   files: Record<string, string>;
   log: Sequenced[];
   conflicts?: Conflict[];
+  /** Recent versions of each non-YAML text, the bases a late whole text merges against. */
+  bases?: Record<string, string[]>;
 }
 
 export class Room {
@@ -33,6 +36,7 @@ export class Room {
   readonly files = new Map<string, string>();
   private log: Sequenced[] = [];
   readonly conflicts = new ConflictSet();
+  private bases = new TextBases();
 
   /** A room restored from what `state()` saved. */
   static from(saved: RoomState): Room {
@@ -41,6 +45,7 @@ export class Room {
     for (const [f, t] of Object.entries(saved.files)) room.files.set(f, t);
     room.log = saved.log;
     room.conflicts.reset(saved.conflicts ?? []);
+    room.bases = TextBases.from(saved.bases);
     return room;
   }
 
@@ -50,6 +55,7 @@ export class Room {
       files: Object.fromEntries(this.files),
       log: this.log,
       conflicts: this.conflicts.list(),
+      bases: this.bases.toJSON(),
     };
   }
 
@@ -72,7 +78,9 @@ export class Room {
       });
     for (const op of batch.ops) {
       const current = this.files.get(op.file) ?? null;
-      const { apply, aside } = settleFileOp(current, op);
+      const { apply, aside } = settleFileOp(current, op, (f, h) =>
+        this.bases.find(f, h),
+      );
       for (const a of aside) park(a.op, a.kept);
       if (!apply) continue;
       try {
@@ -98,6 +106,7 @@ export class Room {
   private write(file: string, text: string | null): void {
     if (text === null) this.files.delete(file);
     else this.files.set(file, text);
+    this.bases.record(file, text);
   }
 
   private record(entry: Sequenced): void {

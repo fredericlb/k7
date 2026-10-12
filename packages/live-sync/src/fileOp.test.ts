@@ -49,15 +49,15 @@ describe("fileOpFor", () => {
     expect(applyFileOp(MODULE, must(op))).toBe(after);
   });
 
-  it("treats a list as one value: no index ever appears in a path", () => {
+  it("treats a list with no natural key as one value: no index ever appears in a path", () => {
     const ops = diffYaml(
-      "events:\n  - start: 1\n  - start: 2\n",
-      "events:\n  - start: 1\n  - start: 3\n",
+      "steps:\n  - start: 1\n  - start: 2\n",
+      "steps:\n  - start: 1\n  - start: 3\n",
     );
     expect(ops).toEqual([
       {
         op: "set",
-        path: ["events"],
+        path: ["steps"],
         yaml: "- start: 1\n- start: 3\n",
         was: "- start: 1\n- start: 2\n",
       },

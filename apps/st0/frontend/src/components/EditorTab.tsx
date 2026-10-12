@@ -90,6 +90,7 @@ import type {
 import { useIsMobile } from "../useIsMobile";
 import { Breadcrumb } from "./Breadcrumb";
 import type { EditTarget } from "./ClipView";
+import { ConflictBanner } from "./ConflictsPanel";
 import { EditorPane } from "./EditorPane";
 import { FileTree, type FileTreeHandle } from "./FileTree";
 import type { MinimapItem } from "./Minimap";
@@ -1465,6 +1466,8 @@ export function EditorTab({
               {moduleBuilder}
             </div>
           ) : null}
+          {/* The open file's sync conflicts, named over the text they are about (docs/conflicts.md). */}
+          <ConflictBanner file={file?.path ?? null} />
           <div className="min-h-0 flex-1">
             {/* A grid edit lands in the SAME buffer a keystroke does, so switching tabs mid-edit shows the text you just drew. */}
             {grid && file ? (

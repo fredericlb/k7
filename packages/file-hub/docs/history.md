@@ -18,8 +18,12 @@ until it reconnects; undo stays local and works offline.
 
 The relay saves a room whole every 200 entries and starts its working log again. The entries are
 not dropped at that point: the working log is ROLLED into `log/<firstSeq>.jsonl`, a segment that is
-never rewritten or deleted. A segment is named by its first `seq`, so a range is read from the
-segments that can hold it and no index is needed.
+never rewritten or deleted. A segment is named by its first `seq`.
+
+`log/index.json` knows each segment's first and last `seq` and its entry count, so a page of the
+listing and a rebuild read only the segments that can hold them, and the working log only when the
+range reaches past the last segment. It is a cache: a segment it lacks, or whose length differs
+from the one it recorded, is read again and the index rewritten, and a missing index is rebuilt.
 
 Loading a room on restart reads the saved state and the working log only, as it would without any
 history: the segments are for reading the past, never for catching up.
@@ -50,8 +54,12 @@ applies it at once, one offline gets it on catching up, and it lands in the hist
 restore can be undone by restoring to the point before it.
 
 Every op names the text it replaces (`was`), so a value that moved between the rebuild and the
-order is set aside as a conflict rather than overwritten (`../../live-sync/docs/sync.md`). Open
-conflicts are left as they are: a restore is not a resolution.
+order is set aside as a conflict rather than overwritten (`../../live-sync/docs/sync.md`).
+
+The batch also settles every open conflict on a file it rewrites, by naming it in `resolves`: an
+alternative to a value the restore just replaced would otherwise be offered over the restored
+one. A conflict on a file the restore leaves alone stays open. Settling loses nothing, since the
+alternative stays in the log.
 
 ## What is not kept here
 

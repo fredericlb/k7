@@ -1,5 +1,5 @@
 // SettingsPage.tsx — `/settings`, a page of its own: what a BROWSER may change — the language,
-// the chains, the AI key, the paired devices, the registered engines and the
+// the chains, the AI key, the paired devices, live sync's pairings, the registered engines and the
 // hunt's slskd access, the rehearsal pages' token — and on the phone, this phone's engine.
 // A page and not a panel: it is visited on purpose and rarely. See ../../docs/settings.md.
 
@@ -14,6 +14,7 @@ import { onAndroid } from "./androidEngine";
 import { ChainsSection } from "./ChainsSection";
 import { LanguageSection } from "./LanguageSection";
 import { PairedDevicesSection } from "./PairedDevicesSection";
+import { SyncDevicesSection } from "./SyncDevicesSection";
 
 /** The rehearsal pages' section, with their stylesheet: a chunk of its own, fetched with this page only. */
 const RehearsalSettings = lazy(() =>
@@ -39,6 +40,7 @@ export function SettingsPage() {
           <ChainsSection />
           <AiSection />
           <PairedDevicesSection />
+          <SyncDevicesSection />
           {/* The media library's two cards, which read its labels and its configured API. */}
           <MediaHost>
             <EnginesSettings />

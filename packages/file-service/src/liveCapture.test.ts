@@ -7,6 +7,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -197,7 +198,7 @@ const refOf = (bytes: Buffer): string => {
 /** A capture with a blob cache, binaries settling fast, and the fetches it asks for. */
 function withBlobs(name: string, files: Record<string, string> = {}) {
   const missing: BlobId[] = [];
-  const blobDir = mkdtempSync(join(tmpdir(), `blobs-${name}-`));
+  const blobDir = join(mkdtempSync(join(tmpdir(), `blobs-${name}-`)), "blobs");
   const c = replica(name, files, {
     blobDir,
     binarySettleMs: 50,
@@ -279,6 +280,42 @@ describe("LiveCapture with binaries", () => {
     expect(again).toEqual([]);
     expect(missing).toHaveLength(1);
     expect(c.read("far.wav")).toBe(ref);
+  });
+
+  it("knows an unchanged binary at the next start by the hash it kept, without reading it", async () => {
+    const a = withBlobs("index", {});
+    a.capture.stop();
+    const bytes = randomBytes(4096);
+    writeFileSync(join(a.root, "old.wav"), bytes);
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(join(a.root, "old.wav"), past, past);
+    const indexFile = join(a.blobDir, "..", "blob-index.json");
+    const start = () => {
+      const c = new LiveCapture({
+        root: a.root,
+        replica: "index",
+        skip,
+        isBinary,
+        onBatch: () => {},
+        reconcileMs: 0,
+        blobDir: a.blobDir,
+      });
+      open.push(c);
+      c.start();
+      return c;
+    };
+    start().stop();
+    const saved = JSON.parse(readFileSync(indexFile, "utf8"));
+    expect(saved.files["old.wav"]).toMatchObject(sha256Buffer(bytes));
+    // A hash only the index could have given proves the file was not hashed again.
+    const fake = "f".repeat(64);
+    saved.files["old.wav"].hash = fake;
+    writeFileSync(indexFile, JSON.stringify(saved));
+    expect(start().read("old.wav")).toBe(blobRef(fake, bytes.length));
+    // A file whose stamp moved is hashed afresh.
+    const now = new Date(Date.now() - 30_000);
+    utimesSync(join(a.root, "old.wav"), now, now);
+    expect(start().read("old.wav")).toBe(refOf(bytes));
   });
 });
 

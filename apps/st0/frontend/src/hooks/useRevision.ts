@@ -1,14 +1,24 @@
 // useRevision — ONE poll of the file service's change token for the whole app: a 2s timer per
 // consumer over /revision would be the same request several times over. A refcounted poller
-// answers them all, and consumers react to the token rather than to a timer. It takes its fetch
-// as an argument so the refcount and de-duplication are testable.
+// answers them all, and consumers react to the token rather than to a timer. A sync notice pushed
+// for this workspace asks at once, and while that push is live the timer slows to a fallback
+// (docs/conflicts.md). It takes its fetch and its push as arguments so all of it is testable.
 
 import { useSyncExternalStore } from "react";
 import { api } from "../api";
+import { subscribeWorkspace } from "../syncFeed";
 import { pollWhileVisible } from "../visiblePoll";
 
 /** How often the token is asked for. Reading it is a ~2 ms file walk on the service's side. */
 export const REVISION_POLL_MS = 2000;
+/** The same ask while change notices are pushed: only a safety net for a notice lost on the way. */
+export const REVISION_FALLBACK_MS = 30_000;
+
+/** A source of change notices: `notice` for an edit to this workspace, `live` when the push starts or stops. */
+export type RevisionPush = (
+  notice: () => void,
+  live: (live: boolean) => void,
+) => () => void;
 
 export interface RevisionPoller {
   /** Register a listener; the returned function unregisters it. The timer runs only while ≥1 is registered. */
@@ -27,6 +37,8 @@ export interface RevisionPoller {
 export function createRevisionPoller(
   fetchRev: () => Promise<string>,
   intervalMs: number = REVISION_POLL_MS,
+  push?: RevisionPush,
+  fallbackMs: number = REVISION_FALLBACK_MS,
 ): RevisionPoller {
   let token: string | null = null;
   // What the tick compares against: the published token, or a quiet write's, which is never published.
@@ -35,6 +47,10 @@ export function createRevisionPoller(
   const quietListeners = new Set<() => void>();
   let timer: (() => void) | null = null;
   let inFlight = false;
+  // A notice that came while an ask was in the air: that answer may predate it, so ask once more.
+  let again = false;
+  let pushLive = false;
+  let unpush: (() => void) | null = null;
   // Bumped by `note`, so an answer fetched BEFORE a command landed cannot overwrite the token that command produced.
   let generation = 0;
   const listeners = new Set<() => void>();
@@ -55,15 +71,38 @@ export function createRevisionPoller(
       // The file service is unreachable: keep the last token — whoever acted on it is not wrong yet — and ask again next tick.
     } finally {
       inFlight = false;
+      if (again) {
+        again = false;
+        void pull();
+      }
     }
+  };
+  const startTimer = () => {
+    timer?.();
+    // Paused while the tab is hidden, and asked once on its return (visiblePoll.ts).
+    timer = pollWhileVisible(
+      () => void pull(),
+      pushLive ? fallbackMs : intervalMs,
+    );
+  };
+  const onNotice = () => {
+    if (inFlight) again = true;
+    else void pull();
+  };
+  const onLive = (live: boolean) => {
+    pushLive = live;
+    if (timer === null) return;
+    startTimer();
+    // Up again: a notice may have been missed while the stream was down.
+    if (live) onNotice();
   };
 
   return {
     subscribe: (listener) => {
       listeners.add(listener);
       if (timer === null) {
-        // Paused while the tab is hidden, and asked once on its return (visiblePoll.ts).
-        timer = pollWhileVisible(() => void pull(), intervalMs);
+        startTimer();
+        unpush = push?.(onNotice, onLive) ?? null;
         void pull(); // the first consumer must not wait a whole period to learn anything
       }
       return () => {
@@ -71,6 +110,9 @@ export function createRevisionPoller(
         if (listeners.size === 0 && timer !== null) {
           timer();
           timer = null;
+          unpush?.();
+          unpush = null;
+          pushLive = false;
         }
       };
     },
@@ -102,7 +144,11 @@ export function createRevisionPoller(
   };
 }
 
-const poller = createRevisionPoller(() => api.revision().then((r) => r.rev));
+const poller = createRevisionPoller(
+  () => api.revision().then((r) => r.rev),
+  REVISION_POLL_MS,
+  (notice, live) => subscribeWorkspace(() => notice(), live),
+);
 
 /** Tell the poller the token a writing command just answered with — only for a caller that has already reloaded the shell. */
 export function noteRevision(rev: string): void {

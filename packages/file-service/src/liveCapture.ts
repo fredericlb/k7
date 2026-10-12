@@ -21,27 +21,16 @@ import { fileOpFor, textHash } from "@studio/live-sync/file-op";
 import type { FileOp } from "@studio/live-sync/ops";
 import { SETTLE_MS } from "@studio/song/moduleCache";
 import { BlobCache, cloneFile, sha256Buffer, sha256File } from "./liveBlobs.ts";
+import {
+  BlobIndex,
+  isYaml,
+  type Known,
+  looksBinary,
+  stampOf,
+  TEXT_CEILING,
+} from "./liveLedger.ts";
 import type { Batch } from "./liveLog.ts";
 import { filesUnder } from "./workspaceFilter.ts";
-
-/** What the ledger knows of one file: its stamp, the `textHash` of its text or ref, the text of a YAML file. */
-interface Known {
-  stamp: string;
-  hash: string;
-  text: string | null;
-  /** An opaque file's blob ref. */
-  ref?: string;
-  /** Known by its ref but not on disk yet: its bytes are being fetched, and its absence is no removal. */
-  pending?: true;
-}
-
-/** A text file past this travels as an opaque file, like audio. */
-const TEXT_CEILING = 5 * 1024 * 1024;
-
-const isYaml = (rel: string): boolean => /\.ya?ml$/i.test(rel);
-
-/** Git's own test: a NUL byte in the first 8000 bytes makes a file binary, whatever its extension. */
-const looksBinary = (buf: Buffer): boolean => buf.subarray(0, 8000).includes(0);
 
 export interface CaptureOptions {
   root: string;
@@ -53,6 +42,8 @@ export interface CaptureOptions {
   onBatch: (batch: Batch) => void;
   /** The local blob cache; without one a binary still has a ref, but no bytes are kept to send or write. */
   blobDir?: string;
+  /** Where the binaries' hashes are kept across restarts; beside the blob cache's folder by default. */
+  indexFile?: string;
   /** A ref was written whose bytes this replica lacks: fetch them, then call `fetched`. */
   onMissingBlob?: (blob: BlobId) => void;
   /** A binary modified more recently than this is still being written: it waits rather than travel half-written. */
@@ -62,8 +53,6 @@ export interface CaptureOptions {
   /** Full re-scan every so often, the safety net for events a watcher dropped; 0 disables it. */
   reconcileMs?: number;
 }
-
-const stampOf = (size: number, mtimeMs: number): string => `${size}:${mtimeMs}`;
 
 export class LiveCapture {
   private readonly ledger = new Map<string, Known>();
@@ -79,6 +68,7 @@ export class LiveCapture {
   private local = 0;
   private readonly quietMs: number;
   private readonly cache: BlobCache | null;
+  private readonly index: BlobIndex | null;
   /** Binaries still being written, looked at again once they have settled. */
   private readonly young = new Set<string>();
   private youngTimer: NodeJS.Timeout | null = null;
@@ -86,6 +76,10 @@ export class LiveCapture {
   constructor(private readonly o: CaptureOptions) {
     this.quietMs = o.quietMs ?? 100;
     this.cache = o.blobDir ? new BlobCache(o.blobDir) : null;
+    const indexFile =
+      o.indexFile ??
+      (o.blobDir ? join(dirname(o.blobDir), "blob-index.json") : null);
+    this.index = indexFile ? new BlobIndex(indexFile) : null;
   }
 
   /** Read the workspace into the ledger WITHOUT emitting, or from `baseline` and emit what differs; then watch it. */
@@ -113,6 +107,7 @@ export class LiveCapture {
     }
     // Against a baseline, everything that moved while this service was down is a batch NOW.
     if (baseline) this.flushNow({ full: true });
+    this.index?.save(this.ledger);
     // A watcher misses writes made while it starts beside another (measured on macOS): sweep once it is up.
     this.startup = setTimeout(() => this.sweepUnlessHeld(), 1000);
     this.startup.unref();
@@ -124,6 +119,7 @@ export class LiveCapture {
   }
 
   stop(): void {
+    this.index?.save(this.ledger);
     this.closeWatcher();
     if (this.timer) clearTimeout(this.timer);
     if (this.sweep) clearInterval(this.sweep);
@@ -240,7 +236,9 @@ export class LiveCapture {
     if (opts.full) this.windowClosed = false;
     for (const scope of scopes) this.diffScope(scope, ops, seen);
     this.recheckYoung();
-    return ops.length ? this.emit(ops) : null;
+    if (!ops.length) return null;
+    this.index?.save(this.ledger);
+    return this.emit(ops);
   }
 
   /** Binaries left waiting are reported again once they had time to settle. */
@@ -436,6 +434,9 @@ export class LiveCapture {
         : buf
           ? sha256Buffer(buf)
           : sha256File(abs);
+    // An unchanged binary is known by the hash it had: only one about to be sent is read.
+    const indexed = keep ? null : this.index?.get(rel, stamp);
+    if (indexed) return opaque(indexed);
     if (this.opaqueByName(rel, st.size)) return opaque(id());
     const buf = readFileSync(abs);
     if (looksBinary(buf)) return opaque(id(buf));

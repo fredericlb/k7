@@ -214,6 +214,12 @@ export function historyRouter(opts: HistoryOptions): Router {
       const named = readCheckpoints(room.dir).findLast((c) => c.seq === seq);
       const ops = restoreOps(room.live.room.files, target);
       if (!ops.length) return void res.json({ entry: null });
+      const restored = new Set(ops.map((op) => op.file));
+      // An alternative to a value the restore replaces is stale: the restore settles it too.
+      const resolves = room.live.room.conflicts
+        .list()
+        .filter((c) => restored.has(c.op.file))
+        .map((c) => c.id);
       const entry = room.live.submit({
         id: `history-${randomUUID()}`,
         replica: "history",
@@ -221,6 +227,7 @@ export function historyRouter(opts: HistoryOptions): Router {
         ts: Date.now(),
         label: `restore to ${named && named.name !== "auto" ? named.name : seq}`,
         ops,
+        ...(resolves.length ? { resolves } : {}),
       });
       res.json({ entry: summary(entry) });
     } catch (e) {

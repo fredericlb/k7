@@ -24,7 +24,9 @@ listens on, the way sign-in does (`docs/signIn.md`).
   the next start asks again.
 - **The local user never pairs.** It has no account at the origin.
 - **Signing out does not unpair.** The account's workspaces keep syncing while the app runs, whoever
-  is signed in to the window; `DELETE /api/sync/remote`, signed in as that account, unpairs it.
+  is signed in to the window. Unpairing is a choice of its own, made in Settings, signed in as that
+  account (`DELETE /api/sync/remote`, `apps/st0/frontend/docs/settings.md`); the origin can also
+  remove the device, which stops it at its next connection.
 
 `ST0_SYNC_ORIGIN` points pairing at another origin, for testing.
 
@@ -41,5 +43,6 @@ origin which workspaces the account has (`GET /api/sync/rooms`): one it lacks is
 joined, and the relay's first answer fills it. That is how an existing workspace arrives on a new
 machine.
 
-A device token reaches only its own account's rooms, so the origin's LIBRARIES are not synced here:
-the desktop keeps the library it bundles (`docs/standalone.md`).
+The origin's LIBRARIES are followed too, read-only, with the paired account's token: the hub's
+library replica joins each library the desktop lists as `@lib/<name>`, so the bundled copy becomes
+the origin's and an edit made here is put back (`packages/file-hub/docs/fileHub.md`).

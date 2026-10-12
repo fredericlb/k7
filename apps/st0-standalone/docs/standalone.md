@@ -68,10 +68,9 @@ A project opens only once the origin has a library (`packages/project-shell/docs
 The app sets `STUDIO_LIBRARY_SEED=st0=<folder>`: the `st0-library` submodule from a checkout, the
 bundle's copy of it in the packaged app. With no list written, the hub lists the seed's `st0` and
 copies it into `workspaces/libraries/st0` on first ask; no network. Delete that folder to reseed.
-A desktop's hub syncs to a remote relay when it is signed in, so it keeps this copy rather than
-following the origin's library. Binary files travel through st0fs, but a device joins only its own
-account's rooms, and the libraries' are not reachable with a device token
-(`packages/file-hub/docs/blobs.md`).
+Once an account is paired (`docs/sync.md`), the copy FOLLOWS the origin's library, read-only: it
+is rewritten to the origin's text, binaries included, and an edit made here is put back
+(`packages/file-hub/docs/fileHub.md`). Never paired, the seed's copy is the library.
 
 ## The engine
 

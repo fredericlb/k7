@@ -1,5 +1,6 @@
 // historyLog.ts — a room's whole log on disk: append-only segments, full snapshots of the files, checkpoints.
 // `entries.jsonl` holds the entries since the room's last save; a save ROLLS it into `log/<firstSeq>.jsonl`, never empties it.
+// `log/index.json` knows each segment's first and last seq, so a page reads only the segments it needs.
 // See docs/history.md.
 
 import {
@@ -9,6 +10,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -20,6 +22,7 @@ export const ENTRIES = "entries.jsonl";
 const SEGMENTS = "log";
 const SNAPSHOTS = "snapshots";
 const CHECKPOINTS = "checkpoints.json";
+const SEGMENT_INDEX = "index.json";
 
 /** A named point in a room's order. */
 export interface Checkpoint {
@@ -101,24 +104,65 @@ export function rollLog(
     else renameSync(entries, segment);
   }
   writeFileSync(entries, "");
+  segmentIndex(dir);
   const last = snapshotSeqs(dir).at(-1) ?? 0;
   if (head - last >= every) writeSnapshot(dir, head, files);
 }
 
-/** Entries with `after < seq <= upto`, oldest first, read only from the segments that can hold them. */
+/** One segment as the index knows it; `bytes` tells a segment appended to since it was indexed. */
+export interface SegmentInfo {
+  start: number;
+  first: number;
+  last: number;
+  count: number;
+  bytes: number;
+}
+
+/** The segments, oldest first, from the index; one it lacks or whose length moved is read, and the index rewritten. */
+export function segmentIndex(dir: string): SegmentInfo[] {
+  const logDir = join(dir, SEGMENTS);
+  let saved: Record<string, SegmentInfo> = {};
+  try {
+    saved = JSON.parse(readFileSync(join(logDir, SEGMENT_INDEX), "utf8"));
+  } catch {
+    // Missing or torn: rebuilt below from the segments themselves.
+  }
+  let changed = false;
+  const out: SegmentInfo[] = [];
+  for (const start of segmentSeqs(dir)) {
+    const file = join(logDir, `${start}.jsonl`);
+    const bytes = statSync(file).size;
+    let info = saved[start];
+    if (info?.bytes !== bytes) {
+      info = { start, first: start, last: start - 1, count: 0, bytes };
+      for (const e of readLines(file)) {
+        if (info.count++ === 0 || e.seq < info.first) info.first = e.seq;
+        info.last = Math.max(info.last, e.seq);
+      }
+      changed = true;
+    }
+    out.push(info);
+  }
+  if (changed || Object.keys(saved).length !== out.length)
+    writeAtomic(
+      join(logDir, SEGMENT_INDEX),
+      JSON.stringify(Object.fromEntries(out.map((i) => [i.start, i]))),
+    );
+  return out;
+}
+
+/** Entries with `after < seq <= upto`, oldest first, read only from the files that can hold them. */
 export function entriesBetween(
   dir: string,
   after: number,
   upto: number,
 ): Sequenced[] {
-  const starts = segmentSeqs(dir);
-  const files: string[] = [];
-  starts.forEach((s, i) => {
-    const next = starts[i + 1];
-    if (s <= upto && (next === undefined || next - 1 > after))
-      files.push(join(dir, SEGMENTS, `${s}.jsonl`));
-  });
-  files.push(join(dir, ENTRIES));
+  const segs = segmentIndex(dir);
+  const files = segs
+    .filter((s) => s.last > after && s.first <= upto)
+    .map((s) => join(dir, SEGMENTS, `${s.start}.jsonl`));
+  // The working log holds what follows the last segment.
+  if (upto > (segs.at(-1)?.last ?? 0)) files.push(join(dir, ENTRIES));
   const out: Sequenced[] = [];
   let seen = after;
   for (const f of files)
@@ -130,20 +174,18 @@ export function entriesBetween(
   return out;
 }
 
-/** Up to `limit` entries before `before`, newest first, reading segments from the last back. */
+/** Up to `limit` entries before `before`, newest first, reading files from the last back until the page is full. */
 export function entriesBefore(
   dir: string,
   before: number,
   limit: number,
 ): Sequenced[] {
-  const starts = segmentSeqs(dir);
-  const files = [
-    join(dir, ENTRIES),
-    ...starts
-      .filter((s) => s < before)
-      .reverse()
-      .map((s) => join(dir, SEGMENTS, `${s}.jsonl`)),
-  ];
+  const segs = segmentIndex(dir);
+  const files = segs
+    .filter((s) => s.first < before)
+    .reverse()
+    .map((s) => join(dir, SEGMENTS, `${s.start}.jsonl`));
+  if (before > (segs.at(-1)?.last ?? 0) + 1) files.unshift(join(dir, ENTRIES));
   const bySeq = new Map<number, Sequenced>();
   for (const f of files) {
     for (const e of readLines(f)) if (e.seq < before) bySeq.set(e.seq, e);
@@ -155,11 +197,7 @@ export function entriesBefore(
 /** The last seq the disk holds, without reading the room's saved state. */
 export function headOnDisk(dir: string): number {
   const tail = readLines(join(dir, ENTRIES)).at(-1)?.seq ?? 0;
-  const last = segmentSeqs(dir).at(-1);
-  const seg =
-    last === undefined
-      ? 0
-      : (readLines(join(dir, SEGMENTS, `${last}.jsonl`)).at(-1)?.seq ?? 0);
+  const seg = segmentIndex(dir).at(-1)?.last ?? 0;
   return Math.max(tail, seg, snapshotSeqs(dir).at(-1) ?? 0);
 }
 

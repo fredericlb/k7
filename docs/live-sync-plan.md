@@ -23,7 +23,9 @@ st0 has no git at all: the relay is the only channel, and its log is where histo
 
 An edit is one file's change: values set or deleted at YAML key paths, or the whole text (`FileOp`,
 `../packages/live-sync/src/ops.ts`). It is derived from the file's text before and after, so no writer
-has to know about sync. Only a list is ever replaced whole, since its items have no identity.
+has to know about sync. A list whose items carry a natural key (a note's time and pitch, a placement's
+material and start) is edited item by item; any other list is replaced whole, since its items have
+no identity. Two whole texts made from one version merge line by line when their lines do not meet.
 
 ## Replicas
 
@@ -44,7 +46,8 @@ The server assigns each batch of ops a sequence number per workspace, and every 
 batches in that order. One order is what lets "last writer wins" mean the same thing everywhere, and
 every device already reaches the server.
 
-- **Different values, same file:** two edits merge.
+- **Different values, same file:** two edits merge — in a list too, when its items carry a natural
+  key, and in a plain-text file line by line (`../packages/live-sync/docs/ops.md`, `sync.md`).
 - **One value, edited by someone who had not seen its current one:** the value in place stays, and
   the edit is kept as an open conflict, with who made it and when. Taking it or dismissing it is an
   ordinary batch, so the choice is in the log (`../packages/live-sync/docs/sync.md`). Every op names
@@ -77,8 +80,9 @@ A WebSocket on st0's backend, `/api/sync`, in the same upgrade chain as the rehe
   Node and dials out by itself, so the tunnel's rule that only the server opens a channel
   (`../packages/engine-tunnel/docs/tunnel.md`) does not get in the way.
 - **A device authenticates with a token** issued to it for one account.
-- **Browsers subscribe to the same feed** for change notices. That retires the two-second `/revision`
-  poll (`../apps/st0/frontend/src/hooks/useRevision.ts`).
+- **Browsers get change notices pushed** as Server-Sent Events (`/api/sync/events`), not the replicas'
+  socket: one-way, carried by the session cookie, reconnecting by itself. The `/revision` poll
+  (`../apps/st0/frontend/src/hooks/useRevision.ts`) stays as a slow fallback.
 
 An op that touches the active project pushes the project to the engine, as an undo does.
 
@@ -123,13 +127,18 @@ reconnects. Undo stays local and works offline.
 5. **A machine replica** — done for the desktop: pairing through the system browser, the pairing kept
    per account, every workspace a replica from the start, and the rooms naming which workspaces
    exist (`../apps/st0-standalone/docs/sync.md`, `../packages/file-hub/docs/syncRelay.md`).
-6. **Browser push**, replacing the polls, and the conflicts shown where the value is edited.
+6. **Browser push** — done: each ordered entry is a Server-Sent Event to the account's pages, the
+   `/revision` poll a 30 s fallback, and the open conflicts settled from st0's footer and named over
+   the file's editor (`../packages/file-hub/docs/syncRelay.md`, `../apps/st0/frontend/docs/conflicts.md`).
 7. **Audio** — done: a binary file is a whole-text op whose text is a blob ref, its bytes uploaded to
    `/api/sync/blobs` before the batch and fetched by each replica (`../packages/file-hub/docs/blobs.md`).
 8. **History** — done: the room's whole log, checkpoints, diff and restore, at `/api/sync/history`
    and in st0's History panel (`../packages/file-hub/docs/history.md`).
-9. **The phone:** the file service in the Android app; on iOS, the editing code off `node:` first.
-10. **Merging inside a list:** items matched by a natural key (a placement's start and lane, a note's
-    time and pitch), so two additions to one list are two additions.
-11. **A three-way merge for whole texts:** the room holds the base, so two edits to different lines of
-    a non-YAML file both land.
+9. **The phone** — done for Android: the app runs the same backend and hub, pairs through the
+   system browser like the desktop, and its libraries follow the origin's read-only
+   (`../engine/st0-engine/docs/android.md`). iOS is not started: it needs the editing code off `node:`.
+10. **Merging inside a list** — done: an item of a keyed list is named by its natural key, so two
+    additions to one list are two additions and edits to two items merge
+    (`../packages/live-sync/docs/ops.md`).
+11. **A three-way merge for whole texts** — done: the room keeps each text's recent versions, so two
+    edits to different lines of a non-YAML file both land (`../packages/live-sync/docs/sync.md`).

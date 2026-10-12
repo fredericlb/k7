@@ -118,6 +118,29 @@ every load and whenever the page comes back to the front, so a logout in st0's o
 in the bar without the bar knowing about it. Sign out is the studio's logout, run from the view in
 front. The bar takes the app's top colour, like the status bar above it.
 
+## Pairing with the origin, as the desktop does
+
+The phone runs the desktop's backend and hub, so it is a live-sync replica the same way
+(`apps/st0-standalone/docs/sync.md`): an account PAIRED with the origin has its workspaces kept in
+step with the origin's, and the phone's libraries follow the origin's read-only
+(`packages/file-hub/docs/fileHub.md`). `SyncPairing.kt` is `pairSync.ts` in Kotlin, with the same
+rules — once per account per run, never for the local user, refused when the browser is signed in
+to the origin as someone else.
+
+- **The token comes back on loopback, not through the app's scheme.** The origin hands a device
+  token only to an http loopback return (`isLoopbackReturn`, `packages/web-protocol/pairing.ts`), so
+  the app listens on `127.0.0.1` on a port of its own while the browser is in front; a second rule
+  for phones would be a second hole to keep shut.
+- **It starts when st0's view says who is signed in** (`assets/account.js`) on the phone's own
+  studio, and the backend says that account is unpaired (`GET /api/sync/remote`). The pairing is
+  stored with the view's session cookie, read from the `CookieManager`, so the backend knows which
+  account it is for. The device is named after the phone's maker and model.
+- **The listener lives in the app's process.** Android may freeze or kill a process whose activity
+  is behind the browser: frozen, the browser's redirect waits until the app is back in front;
+  killed, the answer is lost, and the next start asks again since the account is still unpaired.
+- **The origin is `st0.app`**, web-protocol's `STUDIO_ORIGIN`: a phone connected to another studio
+  uses that studio's own session and has nothing to pair.
+
 ## A library in the app, not a process it spawns
 
 JUCE's Oboe backend asks Android's `AudioManager` for the device's rate and buffer through JNI, and
@@ -271,6 +294,9 @@ also catches the GL driver's chatter, which is noise.
   studio has driven a phone through them yet.
 - **No external plugins, no plugin scan, no offline render or freeze.**
 - **No foreground service**, so the screen is kept on and the engine stops with the activity.
+- **Pairing has not been run on a phone.** `SyncPairing.kt` was written against the desktop's flow
+  and has not been compiled or driven; the browser reaching the app's loopback port while the app
+  is behind it is the part to check first.
 - **The app views have not been driven through a real sign-in on a phone yet.** The routing rules,
   the browser handoff, the account bar, the status-bar colour and st0's engine section above are
   the design; each needs checking against a live studio.

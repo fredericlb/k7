@@ -1,6 +1,8 @@
 // libraryRelay.test.ts — the hub as the server's replica of a library: a write to its folder reaches
-// the library's room, which the relay files under LIBRARIES_ACCOUNT and nothing else.
+// the library's room, which the relay files under LIBRARIES_ACCOUNT and nothing else; and a paired
+// machine's hub following that room read-only, a local edit undone and never sent.
 
+import { randomBytes } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -12,8 +14,10 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
+import { blobsRouter } from "./blobStore.ts";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 
@@ -105,5 +109,96 @@ describe("the libraries' relay", () => {
       /followed, never written/,
     );
     ws.close();
+  });
+
+  it("follows the origin's library read-only on a paired machine: a local edit is undone, nothing is sent", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "lib-follow-"));
+    const originHome = join(tmp, "origin", "libraries");
+    mkdirSync(join(originHome, "st0", "modules"), { recursive: true });
+    mkdirSync(join(originHome, "st0", "samples"), { recursive: true });
+    writeFileSync(
+      join(originHome, "st0", "modules", "mix.yaml"),
+      "gain: 0.5\n",
+    );
+    // A library binary: it reaches the machine from the libraries' blob store, read with the device's token.
+    const kick = randomBytes(64 * 1024);
+    writeFileSync(join(originHome, "st0", "samples", "kick.wav"), kick);
+    const app = express();
+    const server = createServer(app);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    const url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}${SYNC_PATH}`;
+    const origin = new LibraryRelay(
+      originHome,
+      url,
+      "library-secret",
+      () => {},
+    );
+    const accountDir = (slug: string) =>
+      slug === LIBRARIES_ACCOUNT ? originHome : join(tmp, "origin", slug);
+    app.use(
+      "/api/sync/blobs",
+      blobsRouter({
+        accountDir,
+        accountOf: async (c) =>
+          c.secret === origin.secret
+            ? LIBRARIES_ACCOUNT
+            : c.token === "device"
+              ? "fred-0123456789"
+              : null,
+        sweepEveryMs: 0,
+      }),
+    );
+    const stop = attachSyncRelay(server, {
+      accountDir,
+      accountOf: async (s) => (s === origin.secret ? LIBRARIES_ACCOUNT : null),
+      deviceOf: (t) => (t === "device" ? "fred-0123456789" : null),
+      sharedAccount: LIBRARIES_ACCOUNT,
+      log: () => {},
+    });
+    // The machine's bundled copy is stale, and holds a file the origin does not.
+    const home = join(tmp, "machine", "libraries");
+    mkdirSync(join(home, "st0", "modules"), { recursive: true });
+    writeFileSync(join(home, "st0", "modules", "mix.yaml"), "gain: 0.1\n");
+    writeFileSync(join(home, "st0", "modules", "old.yaml"), "x: 1\n");
+    const machine = new LibraryRelay(home, "ws://unused", "other", () => {});
+    cleanup.push(() => {
+      machine.stop();
+      origin.stop();
+      stop();
+      server.close();
+      server.closeAllConnections();
+    });
+    origin.follow([{ name: "st0" }]);
+    const roomFile = join(originHome, ".sync-relay", "st0", "entries.jsonl");
+    const room = () =>
+      existsSync(roomFile) ? readFileSync(roomFile, "utf8") : "";
+    await until(() => room().includes("0.5"));
+
+    machine.followRemote(url, "device");
+    machine.follow([{ name: "st0" }]);
+    const mix = join(home, "st0", "modules", "mix.yaml");
+    const text = () => (existsSync(mix) ? readFileSync(mix, "utf8") : "");
+    await until(() => text() === "gain: 0.5\n");
+    expect(existsSync(join(home, "st0", "modules", "old.yaml"))).toBe(false);
+    const machineKick = join(home, "st0", "samples", "kick.wav");
+    await until(
+      () => existsSync(machineKick) && readFileSync(machineKick).equals(kick),
+      10_000,
+    );
+
+    // The origin's edit reaches the machine.
+    writeFileSync(
+      join(originHome, "st0", "modules", "mix.yaml"),
+      "gain: 0.7\n",
+    );
+    await until(() => text() === "gain: 0.7\n");
+
+    // The machine's edit is put back, and the room never hears of it.
+    const before = room();
+    writeFileSync(mix, "gain: 0.99\n");
+    await until(() => text() === "gain: 0.7\n");
+    await new Promise((r) => setTimeout(r, 300));
+    expect(room()).toBe(before);
+    expect(room()).not.toContain("0.99");
   });
 });

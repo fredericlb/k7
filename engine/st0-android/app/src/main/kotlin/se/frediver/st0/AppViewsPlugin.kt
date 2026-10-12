@@ -200,9 +200,11 @@ class AppViewsPlugin : Plugin() {
         studio?.let { AuthHandoff.start(activity, it) }
     }
 
-    /** Who the studio says is signed in; on the phone's own studio nobody means back to the local user, as on desktop. */
+    /** Who the studio says is signed in; on the phone's own studio nobody means back to the local user, as on desktop, and an account pairs. */
     private fun onAccount(name: String?) {
         bar.show(name)
+        // A real account on the phone's own studio is paired with the origin, once (SyncPairing.kt).
+        if (name != null && studio == BackendHost.ORIGIN) SyncPairing.pairIfNeeded(context, CookieManager.getInstance().getCookie(BackendHost.ORIGIN))
         if (name != null || studio != BackendHost.ORIGIN) return
         val now = System.currentTimeMillis()
         // Once in a while at most: a local sign-in that keeps failing must not reload forever.

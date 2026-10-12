@@ -103,6 +103,7 @@ import {
 } from "./components/CommandBar";
 import { CommandsSettings } from "./components/CommandsSettings";
 import { CommentsPanel } from "./components/CommentsPanel";
+import { ConflictsPanel, ConflictsTab } from "./components/ConflictsPanel";
 import { ContextMenu } from "./components/ContextMenu";
 import { CurveEditor } from "./components/CurveEditor";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
@@ -239,6 +240,7 @@ import { m } from "./paraglide/messages.js";
 import { type PendingEdit, pendingOf } from "./pendingEdits";
 import { type PendingNode, spawnBox } from "./pendingNode";
 import { soundingNow } from "./sounding";
+import { onOpenConflictsPanel } from "./syncConflicts";
 import { eventIdOf, takesEventOf } from "./takes";
 // The shell's BROWSER composition point: st0's builtin plugins register their pane drawers
 // here, before the shell renders any surface — see packages/st0-sdk/docs/sdk.md.
@@ -687,6 +689,7 @@ export default function App({
     | "history"
     | "share"
     | "comments"
+    | "conflicts"
     | null
   >(null);
   /** What the History panel's hovered row touched — lit on the graph and the timeline (historyMarks.ts). */
@@ -710,10 +713,13 @@ export default function App({
         | "tasks"
         | "history"
         | "share"
-        | "comments",
+        | "comments"
+        | "conflicts",
     ) => setRightPanel((cur) => (cur === which ? null : which)),
     [],
   );
+  // A conflict banner over the editor opens the conflicts panel (components/ConflictsPanel.tsx).
+  useEffect(() => onOpenConflictsPanel(() => setRightPanel("conflicts")), []);
   // Vim mode is a global user preference (~/.st0/preferences.yaml). Starts ON to match the brain's default.
   const [vimMode, setVimMode] = useState(true);
   useEffect(() => {
@@ -3398,6 +3404,12 @@ export default function App({
       >
         <History className="h-4 w-4" />
       </FooterTab>
+      {/* Open sync conflicts, drawn only while there are some (docs/conflicts.md). */}
+      <ConflictsTab
+        plain={isMobile}
+        active={rightPanel === "conflicts"}
+        onClick={() => toggleRight("conflicts")}
+      />
       {/* SHARE. */}
       <FooterTab
         plain={isMobile}
@@ -4339,6 +4351,9 @@ export default function App({
                         onClose={() => setRightPanel(null)}
                       />
                     </PaneBoundary>
+                  )}
+                  {rightPanel === "conflicts" && (
+                    <ConflictsPanel onClose={() => setRightPanel(null)} />
                   )}
                   {rightPanel === "comments" && snapshot && (
                     <CommentsPanel

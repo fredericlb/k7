@@ -86,9 +86,21 @@ two copies would compile a song two ways.
   `_libraries`, kept beside the folders in `libraries/.sync-relay/`. Only the hub holds that
   account's secret, so no replica can write a library through the relay: a write reaches a library
   only through an admin's file service, on this disk. Their binaries reach the account's blob store
-  like any workspace's (`blobs.md`). A machine's hub, which syncs to a remote relay, keeps its
-  bundled copy instead: a device joins only its own account's rooms, and a device token does not
-  reach the libraries'.
+  like any workspace's (`blobs.md`).
+- **A paired machine's libraries FOLLOW the origin's, read-only.** As soon as one of its accounts is
+  paired (`../syncRemote.ts`), the hub's library replica dials the origin's relay with that
+  account's device token and joins each library as `@lib/<name>` (`syncRelay.md`): the room's text
+  is written into `libraries/<name>`, binaries come from the origin's store, a file only here goes,
+  and a local edit is put back to the room's text and never sent. A library must be written on the
+  origin, by an admin: a write anywhere else would be a fork nobody else sees.
+- **The machine follows the names on ITS list**, which the seed provides (`st0`): the origin's relay
+  does not list library rooms, so a library the origin adds reaches a machine only once that
+  machine lists it. The first paired account found is the one whose token is used: every pairing
+  names the same origin.
+- **Pairing is noticed by polling**, every 30 s: pairing restarts only the account's own service,
+  and the libraries are the hub's. An unpaired hub — the origin, a desktop never paired — relays
+  its folders to its own relay as above, with a head of its own (`.sync-replica/`, beside
+  `.sync-follow/` for the origin's), since the two relays' seqs are different numbers.
 
 `/account/libraries` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET` the
 list, for anyone, giving every listed library its folder first; `PUT` the list (`{ libraries:

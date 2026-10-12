@@ -197,4 +197,63 @@ describe("createRevisionPoller", () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(seen).toHaveLength(1); // same token as before the outage: still nothing to say
   });
+
+  it("asks at once on a pushed notice, and slows to the fallback while the push is live", async () => {
+    let calls = 0;
+    let notice = () => {};
+    let live = (_: boolean) => {};
+    const p = createRevisionPoller(
+      async () => `r${calls++}`,
+      2000,
+      (n, l) => {
+        notice = n;
+        live = l;
+        return () => {};
+      },
+      30000,
+    );
+    p.subscribe(() => {});
+    await settle();
+    expect(calls).toBe(1);
+
+    live(true); // up: one catch-up ask, then the slow timer
+    await settle();
+    expect(calls).toBe(2);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(calls).toBe(2);
+
+    notice();
+    await settle();
+    expect(calls).toBe(3);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(calls).toBe(4);
+
+    live(false); // down: back to the fast poll
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(calls).toBe(5);
+  });
+
+  it("asks once more for a notice that came while an ask was in the air", async () => {
+    let calls = 0;
+    let release = () => {};
+    let notice = () => {};
+    const p = createRevisionPoller(
+      () =>
+        new Promise<string>((r) => {
+          calls++;
+          release = () => r(`r${calls}`);
+        }),
+      2000,
+      (n) => {
+        notice = n;
+        return () => {};
+      },
+    );
+    p.subscribe(() => {});
+    expect(calls).toBe(1);
+    notice(); // the answer in the air may predate this edit
+    release();
+    await settle();
+    expect(calls).toBe(2);
+  });
 });

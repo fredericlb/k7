@@ -61,6 +61,12 @@ export class BlobCache {
     return existsSync(this.path(hash));
   }
 
+  /** Where a download of `hash` keeps the bytes that arrived, so a failed one resumes rather than restart. */
+  partial(hash: string): string {
+    mkdirSync(this.dir, { recursive: true });
+    return join(this.dir, `part-${hash}`);
+  }
+
   /** A fresh file name in the cache, for a copy or a download that is not verified yet. */
   tmp(): string {
     mkdirSync(this.dir, { recursive: true });
@@ -87,6 +93,7 @@ export class BlobCache {
 
   evict(hash: string): void {
     rmSync(this.path(hash), { force: true });
+    rmSync(join(this.dir, `part-${hash}`), { force: true });
   }
 
   /** The files waiting for bytes, by workspace path, each with the ref it waits for. */

@@ -44,9 +44,9 @@ import {
   purgeStaleHistory,
   purgeStaleRenders,
 } from "./staleCaches.ts";
+import { publishSyncEvent } from "./syncEvents.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
 import { pairedAccounts, readRemote, type SyncRemote } from "./syncRemote.ts";
-import { publishSyncEvent } from "./syncEvents.ts";
 import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -76,6 +76,9 @@ export interface FileHubOptions
   log?: (msg: string) => void;
 }
 
+/** How often the libraries look for a pairing made or removed: a readdir, cheap enough. */
+const PAIR_POLL_MS = 30_000;
+
 /** Headers a client may not choose: identity and the hub's own secret are the hub's to set. */
 const DROPPED = new Set([
   "cookie",
@@ -94,8 +97,9 @@ export class FileHub {
   private stopSync: ReturnType<typeof attachSyncRelay> | null = null;
   /** What the relay and the blob store recognise as LIBRARIES_ACCOUNT; made per process, never written anywhere. */
   private readonly librarySecret = randomBytes(24).toString("hex");
-  /** The server's replica of each library, on the origin only: a machine's hub keeps its bundled copy. */
+  /** The hub's replica of each library: relayed here on the origin, following the origin on a paired machine. */
   private libraryRelay: LibraryRelay | null = null;
+  private pairPoll: NodeJS.Timeout | null = null;
   private readonly devices: DeviceTokens;
   private readonly renderSweep: NodeJS.Timeout;
   private readonly key: Buffer;
@@ -322,16 +326,24 @@ export class FileHub {
       onOrdered: publishSyncEvent,
       log: this.deps.log,
     });
-    if (!syncTarget(0).STUDIO_SYNC_TOKEN) {
-      this.libraries.ensure();
-      relay.follow(this.libraries.settings());
-      this.libraryRelay = relay;
-    }
+    this.libraries.ensure();
+    // A pairing comes and goes through syncRoutes.ts, which restarts the account's service alone: the libraries look for themselves.
+    const source = () => {
+      const r = pairedAccounts(resolve(this.opts.dataRoot))[0];
+      if (r) relay.followRemote(r.url, r.token);
+      else relay.followLocal();
+    };
+    source();
+    relay.follow(this.libraries.settings());
+    this.libraryRelay = relay;
+    this.pairPoll = setInterval(source, PAIR_POLL_MS);
+    this.pairPoll.unref();
   }
 
   async stop(): Promise<void> {
     clearInterval(this.reaper);
     clearInterval(this.renderSweep);
+    if (this.pairPoll) clearInterval(this.pairPoll);
     this.libraryRelay?.stop();
     this.stopSync?.();
     await this.instances.stopAll();

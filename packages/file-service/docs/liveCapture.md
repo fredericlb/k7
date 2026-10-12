@@ -96,6 +96,18 @@ treats it as any other file. The bytes go through the blob store before the batc
 written for another replica waits, PENDING, until its bytes are here (`../../file-hub/docs/blobs.md`).
 The cache of bytes in flight is `<log folder>/blobs/`, beside the confirmed texts.
 
+## A binary's hash outlives the process
+
+A ledger is built at every start, and an opaque file is known by its sha256, so a start would read
+every take again: about 0.4 s per gigabyte from the page cache, more from a cold disk. The hashes
+are kept in `<log folder>/blob-index.json` (`../src/liveLedger.ts`), by workspace path and stamp
+(size and `mtimeMs`), rewritten atomically after a start and after each batch. A file whose stamp
+matches is known by the hash recorded; any other is hashed. On the library checkout the ledger
+build went from about 95 ms to 60 ms warm, and four 256 MB takes from 360 ms to under 1 ms.
+
+A stamp whose mtime has not settled is never recorded, for the same-size-rewrite hazard above. A
+file about to be SENT is still copied and hashed whole, since the ref must name the bytes uploaded.
+
 ## Not yet
 
 Renames arrive as removals plus creations; a renamed binary costs no upload, since the store already

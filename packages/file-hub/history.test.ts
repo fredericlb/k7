@@ -1,17 +1,21 @@
 // history.test.ts — the relay's whole log over a real socket: segments and snapshots, an older room,
-// checkpoints, the HTTP routes, and a restore every connected replica hears.
+// checkpoints, the HTTP routes, a restore every connected replica hears and that settles the conflicts
+// on what it restores, and a page that reads only the segments it needs.
 
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { textHash } from "@studio/live-sync/file-op";
 import type { Batch, FileOp, Sequenced } from "@studio/live-sync/ops";
 import type { FromRelay } from "@studio/live-sync/protocol";
 import express from "express";
@@ -67,7 +71,7 @@ async function relayOn(
     server.closeAllConnections();
   };
   cleanup.push(stop);
-  return { port, stop, http: `http://127.0.0.1:${port}/h` };
+  return { port, stop, relay, http: `http://127.0.0.1:${port}/h` };
 }
 
 /** A bare replica: says hello, sends batches, and keeps every entry it hears. */
@@ -263,4 +267,69 @@ describe("the sync history", () => {
     expect((await get(`${relay.http}/a%2Fb`)).status).toBe(400);
     expect((await get(`${relay.http}/nope`)).status).toBe(404);
   });
+
+  it("settles the open conflicts on the files a restore rewrites, and only those", async () => {
+    const data = mkdtempSync(join(tmpdir(), "hist-"));
+    const relay = await relayOn(data);
+    const a = await client(relay.port);
+    const b = await client(relay.port);
+    const stale = textHash("not what is there");
+    a.send([text("song.yaml", "gain: 1\n"), text("notes.md", "n")]);
+    a.send([text("song.yaml", "gain: 2\n")]);
+    a.send([
+      { kind: "text", file: "song.yaml", text: "gain: 3\n", was: stale },
+      { kind: "text", file: "notes.md", text: "m", was: stale },
+    ]);
+    await until(() => b.heard.length === 3);
+    const live = relay.relay.room("acct", WS).room;
+    expect(live.conflicts.list().map((c) => c.id)).toEqual(["3.0", "3.1"]);
+
+    const res = await post(`${relay.http}/${WS}/restore`, { seq: 1 });
+    expect(res.status).toBe(200);
+    await until(() => b.heard.length === 4);
+    expect(b.heard[3].batch.resolves).toEqual(["3.0"]);
+    expect(live.conflicts.list().map((c) => c.id)).toEqual(["3.1"]);
+    expect(live.files.get("song.yaml")).toBe("gain: 1\n");
+  });
+
+  it("pages through many segments reading only the ones a page needs, and rebuilds a missing index", async () => {
+    const data = mkdtempSync(join(tmpdir(), "hist-"));
+    const relay = await relayOn(data);
+    const a = await client(relay.port);
+    for (let i = 1; i <= 60; i++) a.send([text("a.md", `v${i}`)]);
+    await until(() => a.heard.length === 60);
+    const dir = roomDir(join(data, "acct"), WS);
+    const segments = readdirSync(join(dir, "log"))
+      .filter((f) => f.endsWith(".jsonl"))
+      .sort((x, y) => Number.parseInt(x, 10) - Number.parseInt(y, 10));
+    expect(segments.length).toBe(20);
+    const seqs = async (q: string) => {
+      const r = await get(`${relay.http}/${WS}?${q}`);
+      if (!r.body.entries) throw new Error(JSON.stringify(r));
+      return r.body.entries.map((e) => e.seq);
+    };
+    // Build the index, then make every segment but the last two unreadable: the newest page must not open them.
+    expect(await seqs("limit=3")).toEqual([60, 59, 58]);
+    const locked = segments.slice(0, -2).map((f) => join(dir, "log", f));
+    for (const f of locked) chmodSync(f, 0);
+    try {
+      expect(await seqs("before=58&limit=3")).toEqual([57, 56, 55]);
+    } finally {
+      for (const f of locked) chmodSync(f, 0o644);
+    }
+    // An old page reads neither the working log nor the later segments.
+    const late = [
+      join(dir, "entries.jsonl"),
+      ...segments.slice(4).map((f) => join(dir, "log", f)),
+    ];
+    for (const f of late) chmodSync(f, 0);
+    try {
+      expect(await seqs("before=10&limit=3")).toEqual([9, 8, 7]);
+    } finally {
+      for (const f of late) chmodSync(f, 0o644);
+    }
+    rmSync(join(dir, "log", "index.json"));
+    expect(await seqs("before=31&limit=2")).toEqual([30, 29]);
+    expect(existsSync(join(dir, "log", "index.json"))).toBe(true);
+  }, 20_000);
 });

@@ -24,6 +24,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "node-diff3": "^3.2.1",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

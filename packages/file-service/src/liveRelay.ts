@@ -1,6 +1,7 @@
 // liveRelay.ts — a file service's link to live sync's relay: one socket for every workspace it captures.
 // It reconnects on its own, says hello at the last seq each workspace applied, and re-sends what is unconfirmed.
 // A batch leaves only once every blob it names is on the store, and batches leave in the order they were made.
+// A FOLLOWING link never sends: a local edit is put back to the room's text (a library on a paired machine).
 // See docs/liveCapture.md, ../../file-hub/docs/syncRelay.md and ../../file-hub/docs/blobs.md.
 
 import { randomUUID } from "node:crypto";
@@ -75,6 +76,8 @@ export class RelayLink {
       console.log(`sync | ${m}`),
     /** Told each time the socket opens: a reconnect may have missed a workspace another replica made. */
     private readonly onOpen: () => void = () => {},
+    /** Read-only: adopt the room's state, never seed, join or send a batch. */
+    private readonly following = false,
   ) {
     this.store = new BlobTransfer(blobsUrl(url), authHeaders(auth));
   }
@@ -94,8 +97,33 @@ export class RelayLink {
   local(name: string, batch: Batch): void {
     const l = this.linked.get(name);
     if (!l) return;
+    if (this.following) {
+      this.restore(
+        l,
+        batch.ops.map((o) => o.file),
+      );
+      return;
+    }
     l.replica.local(batch);
     this.enqueue(name, batch);
+  }
+
+  /** A followed workspace's local edit is undone: each file goes back to the room's text it last applied. */
+  private restore(l: Linked, files: string[]): void {
+    // Nothing applied yet: the welcome's state is what decides.
+    if (l.replica.head === 0) return;
+    const put: string[] = [];
+    for (const file of new Set(files)) {
+      const text = l.replica.confirmed.get(file);
+      if (l.capture.read(file) === text) continue;
+      l.capture.writeKnown(file, text);
+      put.push(file);
+    }
+    if (!put.length) return;
+    this.log(
+      `${l.name}: followed read-only, ${put.length} local edit(s) undone`,
+    );
+    l.onRemote(put);
   }
 
   /** Bring blob `id` of workspace `name` from the store, then let its capture write the files waiting for it. */
@@ -108,6 +136,7 @@ export class RelayLink {
 
   /** Settle conflict `id`: `take` writes its alternative over the value in place; answers the batch sent, or null. */
   resolve(name: string, id: string, take: boolean): Batch | null {
+    if (this.following) return null;
     const l = this.linked.get(name);
     const c = l?.replica.conflicts.get(id);
     if (!l || !c) return null;
@@ -188,7 +217,7 @@ export class RelayLink {
         const l = this.linked.get(name);
         const cache = l?.capture.blobs;
         if (!l || !cache) return;
-        await this.store.get(hash, cache);
+        await this.store.get(hash, cache, name);
         const placed = l.capture.fetched(hash);
         if (placed.length) l.onRemote(placed);
       });
@@ -263,11 +292,15 @@ export class RelayLink {
       this.sequenced(l, msg.entry);
       return;
     }
-    if (msg.mode === "seed") this.seed(l);
-    else l.replica.conflicts.reset(msg.conflicts ?? []);
+    // An empty room followed is left empty: a follower has nothing to give it.
+    if (msg.mode === "seed") {
+      if (!this.following) this.seed(l);
+    } else l.replica.conflicts.reset(msg.conflicts ?? []);
     if (msg.mode === "snapshot") {
-      if (l.replica.head === 0 && l.replica.confirmed.files().length === 0)
-        this.firstJoin(l, msg.files);
+      if (l.replica.head === 0 && l.replica.confirmed.files().length === 0) {
+        if (this.following) this.dropUnknown(l, msg.files);
+        else this.firstJoin(l, msg.files);
+      }
       const written = this.tracking(l, () =>
         l.replica.adopt(msg.head, msg.files),
       );
@@ -277,7 +310,18 @@ export class RelayLink {
         `${l.name}: adopted the relay's state at ${msg.head} (${written.length} file(s) rewritten)`,
       );
     }
-    for (const batch of l.replica.unconfirmed()) this.enqueue(l.name, batch);
+    if (!this.following)
+      for (const batch of l.replica.unconfirmed()) this.enqueue(l.name, batch);
+  }
+
+  /** A follower's first state is the room's alone: a file only here goes. */
+  private dropUnknown(l: Linked, files: Record<string, string>): void {
+    const gone = l.capture.textFiles().filter((f) => !(f in files));
+    for (const file of gone) l.capture.writeKnown(file, null);
+    if (gone.length)
+      this.log(
+        `${l.name}: ${gone.length} file(s) not in the followed room removed`,
+      );
   }
 
   /** The room is empty: everything this replica holds as text becomes its first batch. */
@@ -339,7 +383,7 @@ export class RelayLink {
 
   private sequenced(l: Linked & { logDir: string }, entry: Sequenced): void {
     // A local edit the watcher has not reported would be absorbed by what this entry writes: send it first.
-    if (entry.batch.replica !== l.replica.id)
+    if (!this.following && entry.batch.replica !== l.replica.id)
       l.capture.captureFiles(entry.batch.ops.map((o) => o.file));
     let failed: string[] = [];
     const written = this.tracking(l, () => {

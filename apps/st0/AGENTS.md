@@ -93,6 +93,7 @@ matches before changing it:
 | `curveEditor.md` | `ui curve` — the popin that creates and edits an automation curve |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
+| `conflicts.md` | the sync relay's change notices, the `/revision` fallback, and the open conflicts settled from the footer |
 | `shared.md` | the OTHER shared: `/@shares/<token>.st0` — this app opened on a frozen snapshot, with no account, no engine and no source |
 | `external.md` | `/@external/<surface>` — one surface alone on a second device, and `/external`, the menu it starts from |
 | `pairing.md` | a LAN device asking an engine to trust it — the card on the device, the prompt and the settings section on the machine |
@@ -368,8 +369,9 @@ Any number of tabs may drive the same workspace concurrently. Last write wins; e
 tab's polls (`workspace`/`project`/`tree` on 2s/700ms intervals) reconcile the view.
 
 Anything gated on "has a file changed" reads the `/revision` token through
-`hooks/useRevision.ts`, which polls it **once per tab** however many consumers there are —
-never on a timer of its own. Two hooks each running their own 2s timer over one route is the same
+`hooks/useRevision.ts`, which asks it **once per tab** however many consumers there are —
+never on a timer of its own. A change notice pushed by the sync relay makes it ask at once, and the
+timer drops to a 30 s fallback while notices flow (`frontend/docs/conflicts.md`). Two hooks each running their own 2s timer over one route is the same
 request twice a second, and every request is real work for whatever sits between the browser and
 the service.
 

@@ -763,8 +763,9 @@ data-loss bug, not a cosmetic one.**
 
 Gated on `/revision`, the same ~2 ms change token the diagnostics poll reads, rather than re-reading the
 file on a timer. The token moves for OUR writes **and** for edits made outside the app — a change the live-sync relay brought in,
-another editor — which is exactly the set of events worth reacting to. It is polled once for the whole
-app; see `hooks/useRevision.ts`.
+another editor — which is exactly the set of events worth reacting to. It is asked once for the whole
+app, at once when the relay pushes a change notice and on a slow poll otherwise; see
+`hooks/useRevision.ts` and `conflicts.md`.
 
 ### Space is the transport, wherever the last click landed
 

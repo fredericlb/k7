@@ -138,6 +138,25 @@ The devices allowed to drive this machine's engine over the LAN, and the request
 setting only in the sense that a browser on the machine draws it: anywhere else the engine refuses,
 and the section says so. `pairing.md` is the page.
 
+## Sync — the pairing, from either end
+
+`SyncDevicesSection.tsx`. Live sync pairs a MACHINE with the origin for one account
+(`apps/st0-standalone/docs/sync.md`), and a pairing has two ends, each answered by the hub that
+serves this page:
+
+- **On the desktop or the phone**, which run their own backend, the section says which account
+  this machine syncs and with which origin, and offers Unpair. It is here because signing out does
+  NOT unpair: the window's sign-in is not the machine's sync, and an Unpair hidden behind the
+  sign-out would stop a phone syncing every time someone handed it over. Unpaired, it says that
+  pairing follows a sign-in, which is where it happens.
+- **On the origin**, the account's devices, each with Remove: a lost phone is stopped from the
+  machine you still have.
+
+Which end this page is on is not a route's answer, since every hub answers both routes: it is the
+app it runs in, the desktop's tab bridge or the Android bridge (`tabs/bridge.ts`,
+`androidEngine.ts`). A local backend lists its devices too, and the list is shown there only when
+it holds one.
+
 ## Rehearsal — the recorder's own section
 
 `RehearsalSettings`, from `@studio/ui-rehearsal/settings`, loaded as a chunk of its own with this

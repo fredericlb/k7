@@ -1,13 +1,20 @@
 // ops.ts — the vocabulary of live sync: what one edit to one workspace file looks like on the wire.
-// A list is always a LEAF: its items have no stable id, so an index path would merge wrongly.
+// A path never holds a list INDEX: an item is named by its natural key (listKeys.ts), or its list is a leaf.
 // See ../docs/ops.md.
 
-/** A key path through MAPS only; no list index ever appears in it. */
+/** A key path through maps, and through keyed lists by an item segment like `[t=1,k=60]`. */
 export type KeyPath = string[];
 
 /** One value set or removed in a YAML document; `yaml` is the value's own source, `was` the one it replaced (null: absent). */
 export type YamlOp =
-  | { op: "set"; path: KeyPath; yaml: string; was?: string | null }
+  | {
+      op: "set";
+      path: KeyPath;
+      yaml: string;
+      was?: string | null;
+      /** A new list item goes after the item this segment names; null: first. */
+      after?: string | null;
+    }
   | { op: "delete"; path: KeyPath; was?: string | null };
 
 /** One file's change, workspace-relative; `was` is the replaced text's `textHash` (null: absent, missing: unchecked). */
