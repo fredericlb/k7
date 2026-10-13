@@ -86,7 +86,7 @@ function benchName(step: TemplateStep, taken: Set<string>): string {
 /** Every library's chains, by `@<library>/<path>`, each with why it cannot run live against `dir`'s modules — a cold one is listed, not dropped (../../ui-rehearsal/docs/chainSource.md). */
 export function liveChains(dir: string): LiveChain[] {
   const byRef = loadModuleRefs(dir);
-  return libraryChainDirs().map((c) => ({
+  return libraryChainDirs(dir).map((c) => ({
     ref: c.ref,
     unavailable: refusal(c, byRef),
   }));
@@ -95,7 +95,7 @@ export function liveChains(dir: string): LiveChain[] {
 /** Put the chain `ref` of the library between the bench's input and its fader; throws with the reason. */
 export function spliceChain(benchDir: string, ref: string): void {
   // A BARE ref is the default library's: bench addresses minted before libraries had names say one.
-  const chain = findLibraryChain(ref);
+  const chain = findLibraryChain(ref, benchDir);
   if (!chain) throw new Error(`no chain "${ref}" in the library`);
   const why = refusal(chain, loadModuleRefs(benchDir));
   if (why) throw new Error(`the chain "${ref}" cannot run live: ${why}`);

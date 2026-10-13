@@ -107,6 +107,11 @@ A sync that fails is not a project that refuses: the song opens, and every `@st0
 does not resolve reports itself missing, which is what the graph already draws a `?` for. The
 failure is logged and swallowed, and the Libraries page shows it on the library's row.
 
+The open then writes the workspace's `_library-pins.yaml` if it has none (`ensureLibraryPins`):
+version 1 of each library, which is what a workspace from before versions already hears, or the
+draft for an admin. `POST /workspaces` writes it too, at the newest version this st0 runs. After
+that, only an upgrade rewrites it (`../../../docs/library-versions-plan.md`).
+
 ## `POST /project/create` takes an ARCHETYPE, not a mode
 
 `arrangement`, `mix` or `video` — each named after the surface it opens on. One field, because

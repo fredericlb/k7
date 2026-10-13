@@ -1,8 +1,9 @@
 // libraries.ts — the origin's LIBRARIES, held by the hub: the one list (`<dataRoot>/libraries.json`)
-// and one FOLDER per library under `<dataRoot>/libraries/<name>`, which every account's file service
-// reads and only admins write. A listed library missing on disk is copied from the seed
-// (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) or made empty. Its edits reach other replicas through st0fs
-// (libraryRelay.ts). See docs/fileHub.md.
+// and one FOLDER per library under `<dataRoot>/libraries/<name>`: its frozen versions `1/`, `2/`…
+// and the `draft/` only admins write. A listed library missing on disk is copied from the seed
+// (`$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…`) as its version 1, or made empty.
+// Its edits reach other replicas through st0fs (libraryRelay.ts). See docs/fileHub.md and
+// ../../docs/library-versions-plan.md.
 
 import {
   cpSync,
@@ -15,6 +16,17 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { RECYCLE_DIR } from "@studio/file-service/src/workspaceFilter.ts";
+import {
+  DRAFT_VERSION,
+  LIBRARY_LEVEL,
+  LIBRARY_MANIFEST,
+  type LibraryManifest,
+  parseLibraryManifest,
+  stringifyLibraryManifest,
+  UNPINNED_VERSION,
+  versionOfDir,
+} from "@studio/song-schema/libraryVersions";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
 import type { AccountLibrariesReply, LibraryNote } from "@studio/web-protocol";
 
@@ -125,6 +137,10 @@ export class LibraryStore {
       libraries: this.settings().map((l) => ({
         name: l.name,
         present: existsSync(join(this.home, l.name)),
+        versions: this.versions(l.name).map(({ version, requires, notes }) =>
+          notes ? { version, requires, notes } : { version, requires },
+        ),
+        draft: existsSync(join(this.home, l.name, DRAFT_VERSION)),
       })),
     };
     if (notes?.length) reply.notes = notes;
@@ -145,34 +161,206 @@ export class LibraryStore {
     return { ok: true, reply: this.view(notes) };
   }
 
-  /** Give every listed library (or only `name`) its folder; answers what was done to each. */
-  ensure(opts: { name?: string } = {}): LibraryNote[] {
+  /** Give every listed library (or only `name`) its folder, and its draft when asked; answers what was done to each. */
+  ensure(opts: { name?: string; draft?: boolean } = {}): LibraryNote[] {
     return this.settings()
       .filter((l) => !opts.name || l.name === opts.name)
-      .map((l) => this.ensureOne(l.name));
+      .map((l) => {
+        const note = this.ensureOne(l.name);
+        if (!opts.draft || note.state === "failed") return note;
+        const drafted = this.ensureDraft(l.name);
+        return drafted ?? note;
+      });
+  }
+
+  /** The published versions of library `name`, oldest first, each as its `library.yaml` says. */
+  versions(name: string): LibraryManifest[] {
+    return versionNumbers(join(this.home, name)).map(
+      (v) =>
+        readManifest(join(this.home, name, String(v))) ?? {
+          name,
+          version: v,
+          requires: 1,
+        },
+    );
+  }
+
+  /** Freeze library `name`'s draft as its next version; a version is never written again — docs/library-versions-plan.md. */
+  publish(
+    name: string,
+    opts: { requires?: number; notes?: string } = {},
+  ): { ok: true; manifest: LibraryManifest } | { error: string } {
+    if (!isLibraryName(name)) return { error: `'${name}' names no library` };
+    const at = join(this.home, name);
+    const draft = join(at, DRAFT_VERSION);
+    if (!existsSync(draft))
+      return { error: `'${name}' has no draft to publish` };
+    // Unsaid, the previous version's: publishing must not raise the floor by accident and lock old desktops out.
+    const requires = opts.requires ?? this.versions(name).at(-1)?.requires ?? 1;
+    if (!Number.isInteger(requires) || requires < 1 || requires > LIBRARY_LEVEL)
+      return {
+        error: `'${name}' cannot require level ${requires}: this st0 runs level ${LIBRARY_LEVEL}`,
+      };
+    const version = Math.max(0, ...versionNumbers(at)) + 1;
+    const manifest: LibraryManifest = { name, version, requires };
+    if (opts.notes?.trim()) manifest.notes = opts.notes.trim();
+    const partial = join(this.home, `.publishing-${Date.now()}-${process.pid}`);
+    try {
+      cpSync(draft, partial, { recursive: true, filter: publishable });
+      writeFileSync(
+        join(partial, LIBRARY_MANIFEST),
+        stringifyLibraryManifest(manifest),
+      );
+      renameSync(partial, join(at, String(version)));
+      return { ok: true, manifest };
+    } catch (e) {
+      rmSync(partial, { recursive: true, force: true });
+      return { error: (e as Error).message.trim() };
+    }
   }
 
   /** Copy into a SIBLING and rename it into place: a dot-name is never a library, so no reader sees half of one. */
   private ensureOne(name: string): LibraryNote {
     const at = join(this.home, name);
-    if (existsSync(at)) return { name, state: "current", note: "here" };
+    if (existsSync(at)) {
+      const note = this.migrate(name);
+      return note.state === "failed"
+        ? note
+        : (this.addSeedVersion(name) ?? note);
+    }
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
       mkdirSync(this.home, { recursive: true });
       const from = this.seed.get(name);
+      // A published seed (an installer's) installs under its own number; a bare folder is version 1.
+      const first = join(partial, String(this.seedVersion(name)));
       if (from && existsSync(from)) {
-        cpSync(from, partial, {
-          recursive: true,
-          filter: (src) => !src.split(/[\\/]/).includes(".git"),
-        });
+        cpSync(from, first, { recursive: true, filter: publishable });
+        writeFirstManifest(name, first);
         renameSync(partial, at);
         return { name, state: "seeded", note: `copied from ${from}` };
       }
-      mkdirSync(at);
+      mkdirSync(first, { recursive: true });
+      writeFirstManifest(name, first);
+      renameSync(partial, at);
       return { name, state: "created", note: "empty" };
     } catch (e) {
       rmSync(partial, { recursive: true, force: true });
       return { name, state: "failed", note: (e as Error).message.trim() };
     }
   }
+
+  /** The version the seed of `name` is: its manifest's when it is a published one, else UNPINNED_VERSION. */
+  private seedVersion(name: string): number {
+    const from = this.seed.get(name);
+    return (from && readManifest(from)?.version) || UNPINNED_VERSION;
+  }
+
+  /** An app update brings a newer published seed: added as one more frozen version, no pin moved. */
+  private addSeedVersion(name: string): LibraryNote | null {
+    const from = this.seed.get(name);
+    const manifest = from ? readManifest(from) : null;
+    if (!from || !manifest) return null;
+    const dest = join(this.home, name, String(manifest.version));
+    if (existsSync(dest)) return null;
+    const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
+    try {
+      cpSync(from, partial, { recursive: true, filter: publishable });
+      renameSync(partial, dest);
+      return {
+        name,
+        state: "seeded",
+        note: `version ${manifest.version} added from ${from}`,
+      };
+    } catch (e) {
+      rmSync(partial, { recursive: true, force: true });
+      return { name, state: "failed", note: (e as Error).message.trim() };
+    }
+  }
+
+  /** A library still in one folder becomes its own version 1, moved whole — the songs that read it hear the same files. */
+  private migrate(name: string): LibraryNote {
+    const at = join(this.home, name);
+    if (versionNumbers(at).length || existsSync(join(at, DRAFT_VERSION)))
+      return { name, state: "current", note: "here" };
+    const moving = join(this.home, `.migrating-${Date.now()}-${process.pid}`);
+    try {
+      renameSync(at, moving);
+      mkdirSync(at);
+      const first = join(at, String(UNPINNED_VERSION));
+      renameSync(moving, first);
+      writeFirstManifest(name, first);
+      return { name, state: "current", note: "moved into version 1" };
+    } catch (e) {
+      // Put the folder back where it was, whatever step failed.
+      if (existsSync(moving) && !existsSync(join(at, "1"))) {
+        rmSync(at, { recursive: true, force: true });
+        renameSync(moving, at);
+      }
+      return { name, state: "failed", note: (e as Error).message.trim() };
+    }
+  }
+
+  /** Give library `name` the draft its admins edit, copied from its newest version; null when it already has one. */
+  private ensureDraft(name: string): LibraryNote | null {
+    const at = join(this.home, name);
+    const draft = join(at, DRAFT_VERSION);
+    if (existsSync(draft)) return null;
+    const newest = Math.max(0, ...versionNumbers(at));
+    const partial = join(this.home, `.drafting-${Date.now()}-${process.pid}`);
+    const manifest = join(at, String(newest), LIBRARY_MANIFEST);
+    try {
+      if (newest)
+        cpSync(join(at, String(newest)), partial, {
+          recursive: true,
+          filter: (src) => resolve(src) !== manifest,
+        });
+      else mkdirSync(partial, { recursive: true });
+      renameSync(partial, draft);
+      return {
+        name,
+        state: "current",
+        note: newest ? `draft copied from version ${newest}` : "empty draft",
+      };
+    } catch (e) {
+      rmSync(partial, { recursive: true, force: true });
+      return { name, state: "failed", note: (e as Error).message.trim() };
+    }
+  }
+}
+
+/** What a published version carries: never a `.git`, never a recycle bin. */
+const publishable = (src: string): boolean =>
+  !src.split(/[\\/]/).some((s) => s === ".git" || s === RECYCLE_DIR);
+
+/** The published version numbers under a library's folder, ascending. */
+function versionNumbers(at: string): number[] {
+  try {
+    return readdirSync(at, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => versionOfDir(d.name))
+      .filter((v): v is number => typeof v === "number")
+      .sort((a, b) => a - b);
+  } catch {
+    return [];
+  }
+}
+
+function readManifest(dir: string): LibraryManifest | null {
+  try {
+    return parseLibraryManifest(
+      readFileSync(join(dir, LIBRARY_MANIFEST), "utf8"),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Version 1 of a library written before versions: it asks for nothing past the first level. */
+function writeFirstManifest(name: string, dir: string): void {
+  if (existsSync(join(dir, LIBRARY_MANIFEST))) return;
+  writeFileSync(
+    join(dir, LIBRARY_MANIFEST),
+    stringifyLibraryManifest({ name, version: UNPINNED_VERSION, requires: 1 }),
+  );
 }

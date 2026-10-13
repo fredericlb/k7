@@ -35,6 +35,8 @@ export interface EngineEntry {
   machineFingerprint: string;
   addresses: EngineAddresses;
   performance?: EnginePerformance;
+  /** The library level its machine runs — absent from an older supervisor. */
+  libraryLevel?: number;
   publicIpHint?: string; // the source IP the heartbeat arrived from
   // Live holders by their secret, expiring on their own because a holder is a browser tab that may never say goodbye.
   holders: Map<string, EngineHolder>;
@@ -48,6 +50,7 @@ export interface HeartbeatInput {
   machineFingerprint: string;
   addresses: EngineAddresses;
   performance?: EnginePerformance;
+  libraryLevel?: number;
   publicIpHint?: string;
 }
 
@@ -150,6 +153,7 @@ export function createRegistry(): EngineRegistry {
         machineFingerprint: input.machineFingerprint,
         addresses: input.addresses,
         performance: input.performance,
+        libraryLevel: input.libraryLevel,
         publicIpHint: input.publicIpHint,
         holders: existing?.holders ?? new Map(),
         seen: Date.now(),
@@ -274,6 +278,7 @@ export function createRegistry(): EngineRegistry {
           hostname: e.hostname,
           addresses: e.addresses,
           performance: e.performance,
+          ...(e.libraryLevel ? { libraryLevel: e.libraryLevel } : {}),
           assigned: holders.length > 0,
           // Who and what, so a picker can say "busy with X's winter.st0" rather than just "busy".
           heldBy: owner?.holder,

@@ -63,10 +63,10 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
 }
 
 /** The folder a ref names, or null — `@st0/turntable` is the `st0` library's `assemblies/turntable`. */
-export function assemblyFolder(_dir: string, ref: string): string | null {
+export function assemblyFolder(dir: string, ref: string): string | null {
   const parts = libraryRefParts(ref);
   if (!parts) return null;
-  const root = libraryFamilyRoot(parts.library, ASSEMBLIES_DIR);
+  const root = libraryFamilyRoot(parts.library, ASSEMBLIES_DIR, dir);
   if (!root) return null;
   // A ref is a path under the family folder, so a `..` in it would reach out of the library.
   const segs = parts.rest.split(/[\\/]+/);
@@ -95,10 +95,13 @@ export function loadAssemblyTemplate(
 
 /** Every assembly template the libraries hold, by ref — what a picker and the builder list. */
 export function libraryAssemblies(
-  _dir: string,
+  dir: string,
 ): { ref: string; path: string }[] {
   const out: { ref: string; path: string }[] = [];
-  for (const { name: library, root } of libraryFamilyRoots(ASSEMBLIES_DIR)) {
+  for (const { name: library, root } of libraryFamilyRoots(
+    ASSEMBLIES_DIR,
+    dir,
+  )) {
     // A folder holding an `assembly.yaml` IS one, and nothing inside one is another.
     const walk = (folder: string, rel: string[]): void => {
       if (existsSync(join(folder, ASSEMBLY_FILE))) {

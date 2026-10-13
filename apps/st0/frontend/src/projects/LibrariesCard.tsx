@@ -1,8 +1,8 @@
 // LibrariesCard.tsx — the origin's libraries: the named folders of modules and chains EVERY project
 // inherits, one list for all accounts, one folder of each on the server. Only an admin sees the add
-// and remove controls — and edits a library from any project; the hub refuses anyone else's change
-// anyway, so hiding them is courtesy, not the gate. A library added is copied from the server's seed
-// when it holds one, else starts empty. See packages/file-hub/docs/fileHub.md.
+// and remove controls and the Publish of a draft — and edits a library's draft from any project; the
+// hub refuses anyone else's change anyway, so hiding them is courtesy, not the gate. A library added is
+// copied from the server's seed when it holds one, else starts empty. See packages/file-hub/docs/fileHub.md.
 
 import { Button } from "@frediverse/ui/button";
 import { LibraryBig, Loader2, TriangleAlert, X } from "@frediverse/ui/icons";
@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { parts } from "../i18nParts";
 import { m } from "../paraglide/messages.js";
 import { accountFiles } from "./api";
+import { LibraryVersions } from "./LibraryVersions";
 import type { AccountFiles } from "./workspaceOps";
 
 /** What a call did to a library, when it is worth reading: a failure, never "here". */
@@ -134,28 +135,41 @@ export function LibrariesCard({
       )}
 
       {libraries.map((l) => (
-        <div key={l.name} className="flex items-center gap-2 text-xs">
-          <code className="flex-1 font-semibold">@{l.name}</code>
-          {!l.present && (
-            <span className="shrink-0 text-amber-500">
-              {m["libs.notPresent"]()}
-            </span>
-          )}
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              title={m["libs.remove"]()}
-              onClick={() => remove(l.name)}
-              disabled={busy !== null}
-            >
-              {busy === l.name ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <X className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          )}
+        <div key={l.name} className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-xs">
+            <code className="flex-1 font-semibold">@{l.name}</code>
+            {!l.present && (
+              <span className="shrink-0 text-amber-500">
+                {m["libs.notPresent"]()}
+              </span>
+            )}
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title={m["libs.remove"]()}
+                onClick={() => remove(l.name)}
+                disabled={busy !== null}
+              >
+                {busy === l.name ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            )}
+          </div>
+          <LibraryVersions
+            library={l}
+            fileService={fileService}
+            canEdit={canEdit}
+            onReply={(r, note) => {
+              setLibraries(r.libraries);
+              setError(null);
+              setNotes([note]);
+            }}
+            onError={setError}
+          />
         </div>
       ))}
 

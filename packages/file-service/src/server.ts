@@ -23,6 +23,7 @@ import { installBuiltinPlugins } from "@studio/st0-plugins/server";
 import {
   type AccountLibrariesReply,
   type AccountWorkspaceList,
+  ADMIN_HEADER,
   type ColdChainsReply,
   HUB_SECRET_HEADER,
   type ServedProjectReply,
@@ -47,6 +48,7 @@ import {
   unloadEngineIfServing,
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
+import { ensureLibraryPins } from "./libraryPins.ts";
 import { downloadWorkspace, workspaceSyncStatus } from "./liveSync.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
@@ -57,7 +59,7 @@ import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { renderRouter } from "./routes/render.ts";
 import { installServiceLog } from "./serviceLog.ts";
-import { rootDir } from "./slug.ts";
+import { rootDir, workspaceRoot } from "./slug.ts";
 import {
   attachAllWorkspaces,
   createWorkspace,
@@ -160,7 +162,14 @@ app.post(
     if (!hasLibraries(res)) return;
     // The ONE place a workspace is created on request — getWorkspace deliberately refuses to (Examples aside).
     try {
-      res.json({ created: await createWorkspace(req.userEmail!, name) });
+      const created = await createWorkspace(req.userEmail!, name);
+      // A new workspace pins the newest version of each library this st0 runs.
+      if (created)
+        ensureLibraryPins(workspaceRoot(name), {
+          fresh: true,
+          admin: req.get(ADMIN_HEADER) === "1",
+        });
+      res.json({ created });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

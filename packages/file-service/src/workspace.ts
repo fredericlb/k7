@@ -114,9 +114,9 @@ import {
   isInSharedModules,
   isLibraryEditable,
   isLibraryName,
+  isLibraryRootEditable,
   LIBRARIES_DIR,
   librariesHome,
-  libraryFamilyRoots,
   libraryOf,
   libraryRoot,
   moduleLibraryDirs,
@@ -130,6 +130,7 @@ import {
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
 import {
+  ACCOUNT_LIBRARY,
   ENGINE_NS,
   type ModuleNamespace,
 } from "@studio/song-schema/moduleTypes";
@@ -293,9 +294,10 @@ interface WalkedFile {
 
 /** Is `abs` inside one of the account libraries' `samples/`, `irs/` or `wavetables/` — and nowhere else of theirs? */
 function inLibrarySounds(abs: string): boolean {
-  return (["samples", "irs", "wavetables"] as const).some((family) =>
-    libraryFamilyRoots(family).some((l) => abs.startsWith(l.root + sep)),
-  );
+  const lib = libraryOf(abs);
+  if (!lib) return false;
+  const family = relative(lib.root, abs).split(sep)[0];
+  return family === "samples" || family === "irs" || family === "wavetables";
 }
 
 /** What a journalled mutation answers, tokens included — see docs/workspace.md. */
@@ -727,8 +729,8 @@ export class Workspace {
     const segs = rel.split(/[\\/]+/).filter((s) => s && s !== ".");
     if (segs[0] === LIBRARIES_DIR) {
       // Each library is confined to its OWN root, wherever an overlay points it.
-      if (segs[1] && isLibraryName(segs[1])) {
-        const root = libraryRoot(segs[1]);
+      if (segs[1] && (isLibraryName(segs[1]) || segs[1] === ACCOUNT_LIBRARY)) {
+        const root = libraryRoot(segs[1], this.activeProject ?? this.root);
         return confined(
           resolve(root, ...segs.slice(2)),
           root,
@@ -1361,13 +1363,13 @@ export class Workspace {
       abs,
     }));
     // Every library is a row, one with no `modules/` yet included: its chains are listed under it.
-    for (const lib of accountLibraries())
+    for (const lib of accountLibraries(dir))
       if (!roots.some((r) => r.ns === lib.name))
         roots.push({ ns: lib.name, abs: join(lib.root, "modules") });
     const out: ModuleLibrary[] = roots.map(({ ns, abs }) => {
       const exists = existsSync(abs);
       // A library REPOSITORY's sound folders too, walked like its modules: the tab draws them and takes drops on them.
-      const lib = accountLibraries().find((l) => l.name === ns);
+      const lib = accountLibraries(dir).find((l) => l.name === ns);
       const sounds = (family: "samples" | "irs" | "wavetables" | "models") => {
         const at = lib ? join(lib.root, family) : null;
         return at && existsSync(at) ? this.walk(at) : [];
@@ -1395,7 +1397,7 @@ export class Workspace {
   /** The CHAINS the account's libraries hold, by `@<library>/<path>`: `path` is the chain's file, or a folder chain's folder. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
     // The walk is shared with the ACCOUNT's own listing, which has no workspace to be relative to.
-    return libraryChainDirs().map((c) => ({
+    return libraryChainDirs(this.activeProject ?? this.root).map((c) => ({
       ref: c.ref,
       path: this.toRel(c.at),
       nodes: c.nodes,
@@ -1655,9 +1657,11 @@ export class Workspace {
   /** A library is written only by an admin, whose account overlays it writable — docs/libraries.md. */
   assertLibraryWritable(abs: string, verb = "change"): void {
     const lib = libraryOf(abs);
-    if (lib && !isLibraryEditable(lib.name))
+    if (lib && !isLibraryRootEditable(lib))
       throw new Error(
-        `can't ${verb} '${this.toRel(abs)}': only the origin's admins edit a library`,
+        isLibraryEditable(lib.name)
+          ? `can't ${verb} '${this.toRel(abs)}': a published version never changes — edit the draft`
+          : `can't ${verb} '${this.toRel(abs)}': only the origin's admins edit a library`,
       );
   }
 

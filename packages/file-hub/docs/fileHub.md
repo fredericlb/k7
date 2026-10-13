@@ -74,10 +74,17 @@ folder per library, `<dataRoot>/libraries/<name>`, which every account's file se
 `@<name>/…` against; one folder because a library edited is edited for every account at once, and
 two copies would compile a song two ways.
 
-- **The folder IS the library.** An admin's file service writes into it in place; everyone else's
-  reads it. Dropping a library from the list keeps its folder, unlisted: it is the only copy.
+- **The folder IS the library**: its published versions `1/`, `2/`… each with a `library.yaml`
+  saying what level of st0 it `requires`, and the `draft/` an admin's file service writes. The draft
+  is made, from the newest version, only when an admin's service asks (`/libraries/sync` with
+  `draft: true`), so a machine with no admin carries no second copy. `publish` freezes the draft as
+  the next version. A folder from before versions is moved whole into `1/` on the next `ensure`.
+  Dropping a library from the list keeps its folder, unlisted: it is the only copy.
 - **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
-  empty. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
+  an empty version 1. A seed carrying a `library.yaml` is a PUBLISHED version — what the desktop and
+  the phone bundle — and installs under its own number; a bare folder is version 1. A machine that
+  already has the library and is handed a newer published seed (an app update) gets it as one more
+  frozen version. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
   and the phone name the `st0-library` they bundle. It is copied into a dot-named sibling and renamed
   into place, so no reader sees half a library, and without any `.git` it carries.
 - **With no list written yet**, the list is the library folders already on disk, else the seed's.
@@ -103,11 +110,18 @@ two copies would compile a song two ways.
   `.sync-follow/` for the origin's), since the two relays' seqs are different numbers.
 
 `/account/libraries` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET` the
-list, for anyone, giving every listed library its folder first; `PUT` the list (`{ libraries:
-[{ name }] }`), for admins, 403 otherwise.
+list, for anyone, giving every listed library its folder first, each with its published versions
+and whether it has a draft; `PUT` the list (`{ libraries: [{ name }] }`), for admins, 403
+otherwise; `POST /account/libraries/<name>/publish` (`{ requires?, notes? }`), for admins, freezes
+the draft as the next version.
 
-The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves one
-route, `POST /libraries/sync`: the folders made sure of before an open. Its gate is the hub secret
+The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves two
+routes: `POST /libraries/sync`, the folders made sure of before an open — and, given a `version`,
+that version brought down from the origin (`../libraryFetch.ts`); and `POST /libraries/remote`, the
+versions the origin publishes, which only a hub naming `$STUDIO_LIBRARY_ORIGIN` asks for.
+
+`/api/public/libraries` (`../publicLibraries.ts`) is the origin's side of that: the published
+versions of `st0`, their files and digests, with no session, never the draft. Its gate is the hub secret
 of one of the hub's own instances — the secret that already proves the other direction.
 
 ## An engine is bound by a CLAIM

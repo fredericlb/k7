@@ -15,6 +15,7 @@ import {
   ENGINE_TOKEN_HEADER,
   type FileNode,
   type ModelDownloadJob,
+  type PublishLibraryBody,
   type RepoProject,
   type ServedProject,
   type ServedProjectReply,
@@ -189,6 +190,24 @@ export const accountFiles = {
         headers: { ...filesHeaders(m), "content-type": "application/json" },
         body: JSON.stringify({ libraries }),
       }),
+      "libraries",
+    ),
+
+  /** Freeze a library's draft as its next version — the hub refuses anyone but an admin (docs/library-versions-plan.md). */
+  publishLibrary: async (
+    m: AccountFiles,
+    name: string,
+    body: PublishLibraryBody,
+  ): Promise<AccountLibrariesReply> =>
+    json<AccountLibrariesReply>(
+      await fetch(
+        `${m.fileBase}/account/libraries/${encodeURIComponent(name)}/publish`,
+        {
+          method: "POST",
+          headers: { ...filesHeaders(m), "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      ),
       "libraries",
     ),
 

@@ -155,7 +155,7 @@ describe("node preset", () => {
         { scope: "workspace", name: "a-ws" },
         { scope: "st0", name: "b-lib" },
       ],
-      scopes: ["workspace", "st0"],
+      scopes: ["workspace", "account", "st0"],
     });
   });
 

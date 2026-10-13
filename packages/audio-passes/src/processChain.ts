@@ -97,14 +97,14 @@ function dspGraphOf(m: LoadedModule): string | undefined {
 }
 
 /** The chains this command can name: the project's own, then every library's under its `@<library>/` ref. */
-export function chainNames(_dir: string, project: ProjectDoc): string[] {
+export function chainNames(dir: string, project: ProjectDoc): string[] {
   const own = new Set<string>();
   for (const t of project.tracks)
     for (const p of t.plugins) {
       const at = p.id.indexOf(":");
       if (at > 0) own.add(p.id.slice(0, at));
     }
-  return [...[...own].sort(), ...libraryChainDirs().map((c) => c.ref)];
+  return [...[...own].sort(), ...libraryChainDirs(dir).map((c) => c.ref)];
 }
 
 /** A chain of the PROJECT, taken off the compiled document under its `<chain>:` prefix — docs/processChain.md. */
@@ -123,8 +123,9 @@ function projectChain(
 function findLibraryChainBy(
   library: string | null,
   want: string,
+  dir: string,
 ): LibraryChainDir | null {
-  const chains = libraryChainDirs()
+  const chains = libraryChainDirs(dir)
     .filter((c) => library === null || c.library === library)
     .sort(
       (a, b) =>
@@ -238,7 +239,7 @@ export interface ColdChain {
  */
 export function coldChains(dir: string): ColdChain[] {
   const out: ColdChain[] = [];
-  for (const c of libraryChainDirs()) {
+  for (const c of libraryChainDirs(dir)) {
     let chain: ReturnType<typeof mediatekChain>;
     try {
       chain = mediatekChain(dir, c);
@@ -297,12 +298,12 @@ export function resolveChain(
     }
   }
 
-  const found = findLibraryChainBy(named?.library ?? null, want);
+  const found = findLibraryChainBy(named?.library ?? null, want, dir);
   if (!found) {
     const known = chainNames(dir, project);
     throw new Error(
       `no chain '${trimmed}' — known here: ${known.join(", ") || "none"}` +
-        (libraryChainDirs().length
+        (libraryChainDirs(dir).length
           ? ""
           : " (this machine has cloned no library holding chains)"),
     );

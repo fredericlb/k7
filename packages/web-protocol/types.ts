@@ -207,6 +207,23 @@ export interface WorkspaceSyncStatus {
 export interface AccountLibrary {
   name: string;
   present: boolean;
+  /** Its published versions, oldest first — docs/library-versions-plan.md. */
+  versions?: LibraryVersionInfo[];
+  /** Whether it has the draft its admins edit. */
+  draft?: boolean;
+}
+
+/** One published version of a library: the lowest LIBRARY_LEVEL that runs it, and what changed. */
+export interface LibraryVersionInfo {
+  version: number;
+  requires: number;
+  notes?: string;
+}
+
+/** `POST /account/libraries/<name>/publish` — the draft frozen as the next version; `requires` unsaid is the previous one's. */
+export interface PublishLibraryBody {
+  requires?: number;
+  notes?: string;
 }
 
 /** What giving a library its folder did, said as the hub would say it. */
@@ -539,6 +556,8 @@ export type ArgProvider =
   | "categories"
   | "chains"
   | "clipTargets"
+  // One of the origin's libraries, by name — what `library upgrade` moves the pin of.
+  | "libraries"
   // An automation CURVE of this project, by id — what `node automate` points a param at.
   | "curves"
   | "markerNames"
@@ -549,7 +568,7 @@ export type ArgProvider =
   | "nodes"
   // A PICTURE lane of this song — video_tracks/<id>.yaml, read off the folder rather than the compile.
   | "pictureLanes"
-  // A set list of the REPOSITORY — the one provider that reads nothing of the open project.
+  // A set list of the REPOSITORY — with `libraries`, a provider that reads nothing of the open project.
   | "playlists"
   // A sample a rack tap may play — a library's or this project's `samples/`, packages/song/docs/libraryFiles.md.
   | "samples"
@@ -861,6 +880,8 @@ export interface ModuleLibrary {
   wavetables?: FileNode[];
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
+  /** For one of the origin's libraries: the version this workspace plays, and the newest this st0 could move to. */
+  version?: { pinned: number | "draft"; requires?: number; upgrade?: number };
 }
 
 /** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
@@ -914,6 +935,8 @@ export interface PublicEngine {
   addresses: EngineAddresses;
   /** How capable the machine is, as the supervisor measured it; absent from an older supervisor — docs/performance.md. */
   performance?: EnginePerformance;
+  /** The library level its machine runs — docs/library-versions-plan.md; absent from an older supervisor, which runs level 1. */
+  libraryLevel?: number;
   assigned: boolean; // already selected by someone; hidden from the pick list
   /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
   heldBy?: string;

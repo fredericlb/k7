@@ -144,7 +144,7 @@ function engineFiles(
     if ((FILE_PARAMS as readonly string[]).includes(k))
       out[k] = resolveFileParamIn(k, v, folders);
     else if (isLibraryFileParam(k))
-      out[k] = libraryFile(LIBRARY_FILE_PARAMS[k], v);
+      out[k] = libraryFile(LIBRARY_FILE_PARAMS[k], v, folders.find(Boolean));
     else continue;
     assets[k] = v;
   }

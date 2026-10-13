@@ -30,6 +30,7 @@ import {
   webCompletions,
 } from "../engineLink.ts";
 import { refreshLibraries } from "../libraries.ts";
+import { ensureLibraryPins, libraryVersionsAt } from "../libraryPins.ts";
 import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
@@ -136,8 +137,16 @@ filesRouter.post(
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(
   "/module-libraries",
-  wrap((req, res) => {
-    res.json({ libraries: req.ws!.moduleLibraries() });
+  wrap(async (req, res) => {
+    const ws = req.ws!;
+    // A library row carries its version too: what this workspace plays, and what it could move to.
+    const versions = await libraryVersionsAt(ws.activeProjectPath() ?? ws.root);
+    res.json({
+      libraries: ws.moduleLibraries().map((l) => {
+        const version = versions.get(l.ns);
+        return version ? { ...l, version } : l;
+      }),
+    });
   }),
 );
 
@@ -230,7 +239,10 @@ filesRouter.post(
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
     // The libraries given their folders, and writable in place for an admin — docs/libraries.md.
-    await refreshLibraries(req.get(ADMIN_HEADER) === "1");
+    const admin = req.get(ADMIN_HEADER) === "1";
+    await refreshLibraries(admin);
+    // A workspace from before versions pins what it already hears, once.
+    ensureLibraryPins(req.ws!.root, { fresh: false, admin });
     try {
       // `.` is the WORKSPACE, which now holds several projects: it names one only when the
       // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.

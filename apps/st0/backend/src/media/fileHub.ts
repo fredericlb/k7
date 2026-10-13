@@ -10,6 +10,7 @@ import {
   FILE_HUB_INTERNAL,
   FILE_HUB_PATH,
   FileHub,
+  PUBLIC_LIBRARIES_PATH,
 } from "@studio/file-hub";
 import { mediatekDir } from "@studio/mediatek/layout";
 import { SYNC_PAIR_ROUTE } from "@studio/web-protocol/pairing";
@@ -64,6 +65,8 @@ export function mountFileHub(
       : undefined,
   });
   app.get(FILE_HUB_HELLO, requireAuth, hub.helloHandler());
+  // The published versions of the seed's library, for a desktop never paired: no session, read-only.
+  app.use(PUBLIC_LIBRARIES_PATH, hub.publicLibrariesHandler());
   // The machines that sync this account's workspaces: a device token is minted here, behind the session.
   // A desktop pairing with this origin: its browser lands here, signs in if it must, and is sent home with a device token.
   app.get(

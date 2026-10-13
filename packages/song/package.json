@@ -37,6 +37,8 @@
     "./scaffoldNeeds": "./src/scaffoldNeeds.ts",
     "./sharedFolders": "./src/sharedFolders.ts",
     "./libraryChains": "./src/libraryChains.ts",
+    "./libraryForks": "./src/libraryForks.ts",
+    "./accountFork": "./src/accountFork.ts",
     "./graph": "./src/graph.ts",
     "./nodeProject": "./src/nodeProject.ts",
     "./enginePattern": "./src/enginePattern.ts",

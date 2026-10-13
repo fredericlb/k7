@@ -11,6 +11,7 @@
     "./builtinParams": "./src/builtinParams.ts",
     "./curveMath": "./src/curveMath.ts",
     "./instanceName": "./src/instanceName.ts",
+    "./libraryVersions": "./src/libraryVersions.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
     "./placementId": "./src/placementId.ts",
     "./playlist": "./src/playlist.ts",
