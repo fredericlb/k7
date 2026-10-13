@@ -58,9 +58,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit st0 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
         with:
-          submodules: true
-          # commons is private: the run's own token reads st0 alone, so COMMONS_TOKEN (read access to it) is used when set.
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
 
       - uses: actions/setup-node@v4
@@ -104,9 +110,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit st0 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
         with:
-          submodules: true
-          # commons is private: the run's own token reads st0 alone, so COMMONS_TOKEN (read access to it) is used when set.
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
 
       - run: sudo apt-get update && sudo apt-get install -y ninja-build
@@ -138,9 +150,15 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit st0 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
         with:
-          submodules: true
-          # commons is private: the run's own token reads st0 alone, so COMMONS_TOKEN (read access to it) is used when set.
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:

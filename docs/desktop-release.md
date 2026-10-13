@@ -109,8 +109,9 @@ a short green build rather than a red one, since a skipped night is not a failur
 cannot answer builds anyway rather than skipping silently. Either can still be run by hand, and a
 hand-run on a day without commits skips the same way.
 
-**On GitHub, `commons` comes with the checkout** (`submodules: true`), read with the `COMMONS_TOKEN`
-secret: `commons` is a private repository of its own, and a run's built-in token reads only `st0`.
+**On GitHub, `commons` is a checkout of its own**, at the commit `st0` pins (`git rev-parse
+HEAD:commons`) and read with the `COMMONS_TOKEN` secret: `commons` is a private repository, a run's
+built-in token reads only `st0`, and the token for one must not be the one `st0` is fetched with.
 The secret is a fine-grained token with read access to `fredericlb/commons`'s contents; without it
 the run falls back to the built-in token, which works only if `commons` is public.
 
