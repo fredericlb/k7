@@ -1,5 +1,5 @@
-// corpus.test.ts — every YAML file of demos/ and the library, converted: same data, every comment kept, and every edit local.
-// The library is a folder CI may not have, so it joins the corpus only where it is present.
+// corpus.test.ts — every file of demos/ and the library, as k7x: same data as its YAML, every comment kept, every edit local.
+// A YAML file is converted, a .k7x one read as is; the library joins only where CI has it.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -9,6 +9,7 @@ import { type K7Node, type K7Path, toJS } from "./ast.ts";
 import { parse, parseDocument } from "./edit.ts";
 import { fromYaml } from "./fromYaml.ts";
 import { stringify } from "./print.ts";
+import { toYaml } from "./yamlBridge.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const CORPORA = ["demos", "st0-library"]
@@ -20,7 +21,7 @@ function yamlFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const abs = join(dir, name);
     if (statSync(abs).isDirectory()) return yamlFiles(abs);
-    return /\.ya?ml$/.test(name) ? [abs] : [];
+    return /\.(ya?ml|k7x)$/.test(name) ? [abs] : [];
   });
 }
 
@@ -86,56 +87,59 @@ function setAt(obj: unknown, path: K7Path, value: unknown): unknown {
   return copy;
 }
 
-describe.runIf(files.length > 0)(
-  `the YAML corpus (${files.length} files)`,
-  () => {
-    it.each(files.map((f) => [relative(ROOT, f), f]))("%s", (_, file) => {
-      const yaml = readFileSync(file, "utf8");
-      const data = parseYaml(yaml).toJS();
-      const text = fromYaml(yaml);
+describe.runIf(CORPORA.length > 0)(`the corpus (${files.length} files)`, () => {
+  it("has files to test", () => {
+    expect(files.length).toBeGreaterThan(20);
+  });
 
-      expect(parse(text)).toEqual(data);
-      expect(parse(stringify(data))).toEqual(data);
-      const outLines = text.split("\n").map((l) => l.trimEnd());
-      const expected = yamlComments(yaml);
-      for (const c of new Set(expected)) {
-        const tail = `//${c}`.trimEnd();
-        expect(outLines.filter((l) => l.endsWith(tail)).length, tail).toBe(
-          expected.filter((x) => x === c).length,
-        );
-      }
+  it.each(files.map((f) => [relative(ROOT, f), f]))("%s", (_, file) => {
+    const raw = readFileSync(file, "utf8");
+    const k7xFile = file.endsWith(".k7x");
+    const yaml = k7xFile ? toYaml(raw) : raw;
+    const data = parseYaml(yaml).toJS();
+    const text = k7xFile ? raw : fromYaml(yaml);
 
-      const doc = parseDocument(text);
-      const root = doc.contents;
-      if (!root) throw doc.errors[0];
-      const { scalars, entries, maps } = paths(root);
+    expect(parse(text)).toEqual(data);
+    expect(parse(stringify(data))).toEqual(data);
+    const outLines = text.split("\n").map((l) => l.trimEnd());
+    const expected = yamlComments(yaml);
+    for (const c of new Set(expected)) {
+      const tail = `//${c}`.trimEnd();
+      expect(outLines.filter((l) => l.endsWith(tail)).length, tail).toBe(
+        expected.filter((x) => x === c).length,
+      );
+    }
 
-      for (const path of scalars.slice(0, PER_FILE)) {
-        const node = doc.getNode(path) as K7Node;
-        const value = changed(toJS(node));
-        const d = parseDocument(text);
-        d.setIn(path, value);
-        const out = d.toString();
-        expect(d.toJS()).toEqual(setAt(data, path, value));
-        expect(out.slice(0, node.start)).toBe(text.slice(0, node.start));
-        expect(out.slice(out.length - (text.length - node.end))).toBe(
-          text.slice(node.end),
-        );
-      }
+    const doc = parseDocument(text);
+    const root = doc.contents;
+    if (!root) throw doc.errors[0];
+    const { scalars, entries, maps } = paths(root);
 
-      for (const path of entries.slice(0, PER_FILE)) {
-        const d = parseDocument(text);
-        d.deleteIn(path);
-        expect(d.toJS()).toEqual(setAt(data, path, undefined));
-      }
+    for (const path of scalars.slice(0, PER_FILE)) {
+      const node = doc.getNode(path) as K7Node;
+      const value = changed(toJS(node));
+      const d = parseDocument(text);
+      d.setIn(path, value);
+      const out = d.toString();
+      expect(d.toJS()).toEqual(setAt(data, path, value));
+      expect(out.slice(0, node.start)).toBe(text.slice(0, node.start));
+      expect(out.slice(out.length - (text.length - node.end))).toBe(
+        text.slice(node.end),
+      );
+    }
 
-      for (const path of maps.slice(0, PER_FILE)) {
-        const d = parseDocument(text);
-        d.setIn([...path, "k7xProbe"], { a: [1, "two"] });
-        expect(d.toJS()).toEqual(
-          setAt(data, [...path, "k7xProbe"], { a: [1, "two"] }),
-        );
-      }
-    });
-  },
-);
+    for (const path of entries.slice(0, PER_FILE)) {
+      const d = parseDocument(text);
+      d.deleteIn(path);
+      expect(d.toJS()).toEqual(setAt(data, path, undefined));
+    }
+
+    for (const path of maps.slice(0, PER_FILE)) {
+      const d = parseDocument(text);
+      d.setIn([...path, "k7xProbe"], { a: [1, "two"] });
+      expect(d.toJS()).toEqual(
+        setAt(data, [...path, "k7xProbe"], { a: [1, "two"] }),
+      );
+    }
+  });
+});

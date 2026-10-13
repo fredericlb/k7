@@ -2,9 +2,10 @@
 // resolveWorkspace, so `req.ws` is always a Workspace here. Every former store call
 // is now a method on that workspace; the command layer takes it explicitly.
 
-import { resolve, sep } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
+import { K7X_BACKUP_DIR, migrateToK7x } from "@studio/song/k7xMigrate";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import { NEEDS_META } from "@studio/take-render/render";
@@ -36,6 +37,7 @@ import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
 import { serviceLogSince } from "../serviceLog.ts";
 import { preferences, setAudioDevicePref, setVim } from "../workspace.ts";
+import { skip } from "../workspaceFilter.ts";
 
 export const filesRouter = Router();
 
@@ -1100,6 +1102,40 @@ filesRouter.post(
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
+  }),
+);
+
+// The workspace's YAML files as .k7x, refused unless the operator says every device reads k7x (packages/song/docs/k7xFiles.md).
+const k7xBody = z.object({ dryRun: z.boolean().optional() });
+filesRouter.post(
+  "/migrate-k7x",
+  validate(k7xBody),
+  wrap(async (req, res) => {
+    const dryRun = (req.body as z.infer<typeof k7xBody>).dryRun === true;
+    if (!dryRun && process.env.STUDIO_K7X_MIGRATE !== "1") {
+      res.status(409).json({
+        error:
+          "k7x conversion is off: set STUDIO_K7X_MIGRATE=1 once every desktop and phone build reads .k7x",
+      });
+      return;
+    }
+    const ws = req.ws!;
+    const backup = join(
+      ws.root,
+      K7X_BACKUP_DIR,
+      new Date().toISOString().replace(/[:.]/g, "-"),
+    );
+    const run = () =>
+      migrateToK7x(ws.root, {
+        backup,
+        dryRun,
+        skip: (rel) => rel.split("/").some(skip),
+      });
+    const report = dryRun
+      ? run()
+      : (await ws.recordChange("conversion en k7x", run)).value;
+    if (!dryRun) ws.invalidateProjectDoc();
+    res.json({ dryRun, backup: dryRun ? null : backup, ...report });
   }),
 );
 

@@ -70,7 +70,7 @@ const yamlFiles = (dir: string): string[] =>
     const abs = join(dir, n);
     return statSync(abs).isDirectory()
       ? yamlFiles(abs)
-      : /\.ya?ml$/.test(n)
+      : /\.(ya?ml|k7x)$/.test(n)
         ? [abs]
         : [];
   });
@@ -84,7 +84,8 @@ describe.runIf(files.length > 0)(
   `the bridge over the corpus (${files.length} files)`,
   () => {
     it.each(files.map((f) => [relative(ROOT, f), f]))("%s", (_, file) => {
-      const k7x = fromYaml(readFileSync(file, "utf8"));
+      const raw = readFileSync(file, "utf8");
+      const k7x = file.endsWith(".k7x") ? raw : fromYaml(raw);
       const data = parse(k7x);
       expect(parseYaml(toYaml(k7x))).toEqual(data);
 

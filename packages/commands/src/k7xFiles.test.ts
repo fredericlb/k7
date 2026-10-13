@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fromYaml } from "@studio/k7x/from-yaml";
+import { toYaml } from "@studio/k7x/yaml-bridge";
 import { loadProject } from "@studio/song/project";
 import { afterAll, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
@@ -36,14 +37,22 @@ function copyDemos(k7x: boolean): string {
   const root = mkdtempSync(join(tmpdir(), k7x ? "k7x-demos-" : "yaml-demos-"));
   roots.push(root);
   cpSync(DEMOS, root, { recursive: true });
-  if (k7x)
-    for (const f of walk(root).filter((f) => /\.ya?ml$/.test(f))) {
+  // Whichever format demos/ is in, one copy is made all YAML and the other all k7x.
+  for (const f of walk(root)) {
+    if (k7x && /\.ya?ml$/.test(f)) {
       writeFileSync(
         f.replace(/\.ya?ml$/, ".k7x"),
         fromYaml(readFileSync(f, "utf8")),
       );
       rmSync(f);
+    } else if (!k7x && /\.k7x$/.test(f)) {
+      writeFileSync(
+        f.replace(/\.k7x$/, ".yaml"),
+        toYaml(readFileSync(f, "utf8")),
+      );
+      rmSync(f);
     }
+  }
   return root;
 }
 

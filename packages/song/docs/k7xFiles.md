@@ -43,6 +43,26 @@ opens from the tree. A YAML name is served through this module: a screen that re
 `sequences/melody.yaml` gets YAML whichever format is on disk, and its write lands in the k7x file
 as edits.
 
+## Converting a folder
+
+`src/k7xMigrate.ts` converts a folder's YAML files, and its rules are the safety of the whole move:
+
+- **A file converts only when its k7x reads back to the same data.** Anything else — an anchor, a
+  root that is not a map, a YAML error — stays YAML and is reported, never guessed at.
+- **A YAML file beside a `.k7x` one is left alone**: the `.k7x` already wins, so touching the YAML
+  could only lose something.
+- **An original is moved, never deleted**: to the backup a caller names, under its own relative
+  path. Only a folder in git (`demos/`, `st0-library/`) passes no backup, its history being one.
+
+Two callers: `scripts/migrateK7x.ts` for the repository's folders, dry by default; and the file
+service's `POST /migrate-k7x` for an account's workspace, which keeps the originals in the
+workspace's hidden `.k7x-backup/<time>/` — never shown, never synced, never converted again.
+
+**The route refuses a real run unless `STUDIO_K7X_MIGRATE=1`.** A converted file reaches every
+replica through the relay, and a desktop or phone on a build older than k7x cannot read it. Only
+whoever deploys knows when every shipped build reads `.k7x`, so the switch is theirs; a dry run is
+always allowed, to see what would happen.
+
 ## Known limits
 
 - **A finding's line is computed from its key path.** A parser runs on the YAML view, so the

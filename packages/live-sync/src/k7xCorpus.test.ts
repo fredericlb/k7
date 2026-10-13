@@ -20,7 +20,7 @@ function yamlFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const abs = join(dir, name);
     if (statSync(abs).isDirectory()) return yamlFiles(abs);
-    return /\.ya?ml$/.test(name) ? [abs] : [];
+    return /\.(ya?ml|k7x)$/.test(name) ? [abs] : [];
   });
 }
 
@@ -52,10 +52,13 @@ const changed = (v: unknown): unknown =>
       ? !v
       : `${String(v)}-edited`;
 
-const k7xCorpus = CORPORA.flatMap(yamlFiles).map((abs) => ({
-  file: relative(ROOT, abs).replace(/\.ya?ml$/, ".k7x"),
-  text: fromYaml(readFileSync(abs, "utf8")),
-}));
+const k7xCorpus = CORPORA.flatMap(yamlFiles).map((abs) => {
+  const raw = readFileSync(abs, "utf8");
+  return {
+    file: relative(ROOT, abs).replace(/\.ya?ml$/, ".k7x"),
+    text: abs.endsWith(".k7x") ? raw : fromYaml(raw),
+  };
+});
 
 describe.runIf(k7xCorpus.length > 0)(
   `the corpus as k7x (${k7xCorpus.length} files)`,
