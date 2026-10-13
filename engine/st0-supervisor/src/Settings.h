@@ -7,8 +7,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace st0 {
@@ -37,6 +39,12 @@ Settings loadSettings();
 
 /** Write it; an unwritable home keeps the value for this session only rather than failing the click. */
 void saveSettings(const Settings& s);
+
+/** `--config`: settings come from `file` instead, and are never written back — the file is the user's. */
+void useConfigFile(const std::filesystem::path& file);
+
+/** The config file's keys that the supervisor otherwise reads from the environment, as (variable, value). */
+std::vector<std::pair<std::string, std::string>> configEnvironment(const nlohmann::json& raw);
 
 /** Lowercased, trimmed and deduplicated, since ORT's provider names are lowercase. */
 std::vector<std::string> normaliseProviders(const nlohmann::json& v);

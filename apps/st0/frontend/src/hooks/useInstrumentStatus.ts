@@ -7,7 +7,7 @@ import type { WebProject } from "@studio/web-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 
-/** Asked again this often while one is missing: the tray's download lands without anyone telling st0. */
+/** Asked again this often while one is missing: a download lands without anyone telling st0. */
 const RECHECK_MS = 5_000;
 
 const INSTRUMENTS_REF = "@instruments/";
@@ -25,7 +25,7 @@ export function instrumentNeeds(
   return needs;
 }
 
-/** `nbo-wurt` for `@instruments/nbo-wurt/wurly.sfz`: the name the tray's Downloads tab lists it by. */
+/** `nbo-wurt` for `@instruments/nbo-wurt/wurly.sfz`: the name the engine's Downloads list shows it by. */
 export function instrumentName(ref: string): string {
   return ref.slice(INSTRUMENTS_REF.length).split("/")[0] ?? ref;
 }

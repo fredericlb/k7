@@ -13,7 +13,7 @@ it is not broken again — or a numbered lot still open, and why.
 An invariant rather than a lot, and it is here because a diagnostic nobody reads is the same
 failure as a diagnostic nobody writes.
 
-Stderr is invisible in the normal case: the tray **adopts** an engine it did not spawn, so nothing
+Stderr is invisible in the normal case: the supervisor **adopts** an engine it did not spawn, so nothing
 captures its output. That is how a Neural Amp Modeler silently refusing its model — *"unsupported
 version 0.7.0"*, the one line that explained why the plugin passed audio through untouched — cost
 an afternoon. The plugin was in the chain, the module looked healthy, and the only evidence was on
@@ -133,7 +133,7 @@ full ring of stale points. `BroadcastTapPlugin` carries a comment saying precise
 **`whoami` must not touch the live audio device.** The handler answers on the asking socket's own
 thread on purpose — posting it would turn a latency probe into a measurement of the engine's queue
 — and `getCurrentAudioDevice()` is what `setAudioDevice` destroys and recreates. The browser's
-keepalive sends `whoami` every few seconds on every socket and the tray probes it several times a
+keepalive sends `whoami` every few seconds on every socket and the supervisor probes it several times a
 second, so any interface switch overlapping one takes the process down. The message thread
 *publishes* `{bufferFrames, sampleRate}` into two atomics whenever a device opens or changes, and
 `audioTiming()` reads only those. The fast off-thread reply is unaffected.
@@ -358,7 +358,7 @@ listener and no compression CPU — so that is not where to look for the sender 
 `getText` takes a `MessageManagerLock` — so that detached thread waits for the message thread while
 holding the lock. The orphan map (`orphanPluginIfLoaded`, which the message thread reads to open an
 orphan's window or snapshot it) therefore has its own mutex, held for a lookup and nothing else.
-Sharing the query lock was a deadlock between a tray opening a window and anyone listing a
+Sharing the query lock was a deadlock between a client opening a window and anyone listing a
 plugin's parameters.
 
 ## Every thread that can throw has a net, and every thread is waited for

@@ -57,7 +57,7 @@ channel?.addEventListener("message", (e) => {
   }
 });
 
-/** One of the tray's methods, answered by the app. */
+/** One of the engine methods the Android app answers. */
 export function engineCall<T = Record<string, never>>(
   method:
     | "command"

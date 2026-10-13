@@ -1,13 +1,12 @@
 # The desktop release — the half of the repo the hosted image never carries.
 #
-# `docker/` ships the four web apps; these ship to a musician's machine: engine/st0-engine and
-# engine/st0-supervisor (C++, CMake) and the tray that runs them, engine/st0-tray (Electron). One
-# job per desktop, each producing ONE archive — the engine binary beside the tray's installer.
+# `docker/` ships the hosted apps; these ship to a musician's machine, in two stages. `engines` compiles
+# engine/st0-engine and engine/st0-supervisor (C++, CMake) per desktop and publishes them as the
+# command-line engine; `desktop` then packages apps/st0-standalone around THOSE binaries, compiling nothing.
 #
-# It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not:
-# a cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM, so this is tens of minutes
-# per platform and belongs on a release cadence, not on every push. Hence the `decide` gate
-# below — a main push that touched only apps/ or docs/ does not pay for three native builds.
+# It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not: a cold
+# build is tens of minutes per platform, a cached one several. Hence the `decide` gate below — a main
+# push that touched only docs/ does not pay for three native builds.
 #
 # What it does NOT do is SIGN anything. The macOS .dmg is unsigned and unnotarised, the
 # Windows installer unsigned; both warn on first launch. See docs/desktop-release.md.
@@ -64,8 +63,8 @@ jobs:
           if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
-            # packages/ in full: both bundled .mjs are esbuilt out of most of that tier; commons, for the Electron shell in it.
-            grep -qE '^(engine/|packages/|commons$|package-lock\.json|\.github/workflows/desktop\.yml)' \
+            # apps/ and packages/ in full: the desktop app bundles st0 and most of that tier; commons, for its Electron shell.
+            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/desktop\.yml)' \
               changed.txt || build=no
           fi
 
@@ -78,8 +77,8 @@ jobs:
           printf '%s\n' "build=$build" "publish=$publish" "channel=$channel" \
                         "tag=$tag" "stamp=$stamp" | tee -a "$GITHUB_OUTPUT"
 
-  build:
-    name: ${{ matrix.label }}
+  engines:
+    name: engine ${{ matrix.label }}
     needs: decide
     if: needs.decide.outputs.build == 'yes'
     runs-on: ${{ matrix.os }}
@@ -172,15 +171,15 @@ jobs:
           key: engine-${{ matrix.label }}
           max-size: 2G
 
-      # The engine, the supervisor and the tray's installer, in one script — the same one a
-      # developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
-      - name: engine + supervisor + tray
+      # The engine and the supervisor, staged as the command-line engine — the script a developer runs.
+      # See engine/scripts/docs/buildEngine.md.
+      - name: engine + supervisor
         env:
           STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
           STUDIO_SUPERVISOR_PRESET: ${{ matrix.preset }}
           # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
           STUDIO_COMPILER_LAUNCHER: sccache
-        run: node engine/st0-tray/scripts/build-engine.mjs
+        run: node engine/scripts/build-engine.mjs
 
       - name: compiler cache stats
         if: always()
@@ -189,29 +188,89 @@ jobs:
 
       - name: archive
         run: >
-          node engine/st0-tray/scripts/package-release.mjs
+          node engine/scripts/package-release.mjs --kind engine
           --stamp ${{ needs.decide.outputs.stamp }}
 
-      # Uploaded whether or not this run publishes: a dispatch on a side branch is how a
-      # toolchain change gets tested, and the archive is the only thing worth looking at.
+      # An archive, not the folder: an artifact keeps no executable bit, and the desktop job unpacks this one.
       - uses: actions/upload-artifact@v4
         with:
-          name: st0-desktop-${{ matrix.label }}
+          name: st0-engine-${{ matrix.label }}
           path: |
             dist/release/*.zip
             dist/release/*.tar.gz
           if-no-files-found: error
 
+  desktop:
+    name: desktop ${{ matrix.label }}
+    needs: [decide, engines]
+    # Not skipped when one engine leg failed: each platform waits for its own archive, and fails at its download.
+    if: ${{ !cancelled() && needs.decide.outputs.build == 'yes' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, label: windows-x64 }
+          - { os: macos-latest, label: macos-arm64 }
+          - { os: ubuntu-latest, label: linux-x64 }
+    steps:
+      - uses: actions/checkout@v4
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - uses: ./.github/actions/node
+
+      # The engines job's binaries for this platform, unpacked where stageEngine takes them from.
+      - uses: actions/download-artifact@v4
+        with:
+          name: st0-engine-${{ matrix.label }}
+          path: ${{ runner.temp }}/engine-archive
+      - name: unpack the engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/engine"
+          for a in "$RUNNER_TEMP"/engine-archive/*; do
+            case "$a" in
+              *.zip) 7z x -y -o"$RUNNER_TEMP/engine" "$a" > /dev/null ;;
+              *) tar -xzf "$a" -C "$RUNNER_TEMP/engine" ;;
+            esac
+          done
+          echo "STUDIO_PREBUILT_BIN=$RUNNER_TEMP/engine/st0-engine" >> "$GITHUB_ENV"
+
+      # The standalone app: st0's frontend and backend bundled, the engine beside them (apps/st0-standalone/docs/standalone.md).
+      - name: desktop app
+        run: npm run package --workspace st0-standalone
+
+      - name: installer
+        run: >
+          node engine/scripts/package-release.mjs --kind desktop
+          --stamp ${{ needs.decide.outputs.stamp }}
+
+      # Uploaded whether or not this run publishes: a dispatch on a side branch is how a change gets tested.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: st0-desktop-${{ matrix.label }}
+          path: dist/release/st0_*
+          if-no-files-found: error
+
   publish:
     name: publish
-    needs: [decide, build]
+    needs: [decide, engines, desktop]
     if: needs.decide.outputs.publish == 'yes'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true # one flat directory, three archives
+          merge-multiple: true # one flat directory: three engine archives, three installers
 
       # `gh` rather than an action: no checkout is needed and nothing third-party signs off
       # on what reaches the release page.

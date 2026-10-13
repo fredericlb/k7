@@ -24,7 +24,7 @@ z0 is deployed beside it from the same `docker/docker-compose.yml` — Traefik r
 and stamped by z0's own repository, and the compose file pulls it by its own `Z0_VERSION`.
 `engine/st0-engine` and `engine/st0-supervisor` are not in st0's image. The server's own engine is
 an image of its own, `st0-engine`, which is tagged with st0's stamp and has no SPA to show it
-([server-engine.md](server-engine.md)). `engine/st0-tray` is in no image. PocketBase, the rehearsal recorder's
+([server-engine.md](server-engine.md)). The desktop app, `apps/st0-standalone`, is in no image. PocketBase, the rehearsal recorder's
 store, is a third container built from an upstream image, not by this repo.
 
 Two containers on one hostname each ship and restart on their own, so a crash in one does not

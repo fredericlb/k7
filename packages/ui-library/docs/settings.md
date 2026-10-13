@@ -17,8 +17,8 @@ just listed: registered and reachable-from-here are two different facts, and "un
 browser" is the one that explains an empty player. An engine in use says by whom and on what,
 rather than just "busy". A refresh button looks again.
 
-It is read-only. An engine is connected from its OWN machine — the tray's **st0 instances** tab,
-with this instance's address — because that is where its token lives; the empty card says exactly
+It is read-only. An engine is connected from its OWN machine — the instance's address in the command-line
+engine's `registryUrls`, or the app's list of studios — because that is where its token lives; the empty card says exactly
 that, with the address to type. Nothing here can register, drop or pick an engine for anyone.
 
 ## slskd — a form whose secrets never come back

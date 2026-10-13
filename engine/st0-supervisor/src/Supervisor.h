@@ -1,5 +1,5 @@
 // Supervisor.h — the engine machine's supervisor proper: owns the `~/.st0` contract, keeps the
-// engine up, the registry entry and the tunnels live, and answers the tray's commands. One state,
+// engine up, the registry entry and the tunnels live, and answers the app's commands. One state,
 // mutated only on the Loop's thread, and a snapshot emitted only when its bytes changed — which is
 // what keeps an idle app quiet on the wire. See docs/supervisor.md.
 
@@ -25,7 +25,7 @@ public:
     /** Take the lock and start every loop; throws when another supervisor holds the lock. */
     void start();
 
-    /** A command off the tray's channel. */
+    /** A command off the app's channel. */
     void onCommand(const protocol::Command& cmd);
 
     /** Tear down: deregister (bounded), stop the engine, release the lock, then `exit`. Idempotent. */

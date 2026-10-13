@@ -21,7 +21,7 @@ struct Payload {
     int sentinel = 0;
 };
 
-// Asking about a session must never conjure it — the invariant that stopped a plugin poll creating a phantom "" session in the tray's menu.
+// Asking about a session must never conjure it — the invariant that stopped a plugin poll creating a phantom "" session in the supervisor's session list.
 void find_does_not_create() {
     SessionRegistry<Payload> reg;
     CHECK(reg.find("st0") == nullptr);

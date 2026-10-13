@@ -69,7 +69,7 @@ Three drifts the base removes by construction:
 - **Leaving.** A service that leaves its advertisement file behind points the file service at a
   dead port for ever (`~/.st0/web-endpoints/pl8.json` — the service is still named `pl8` — is how
   a machine's file service finds the médiathèque). The supervisor does not heartbeat to these
-  files — an engine joins an instance only when the user adds it in the tray. By default the base
+  files — an engine joins an instance only when its `registryUrls` names it. By default the base
   installs SIGINT and SIGTERM and exits inside them, with `alsoOnStop` for what a service has of
   its own. A host that has more to stop passes `exitOnSignal: false` and calls the goodbye `serve`
   returns itself: st0's backend does, so the account file services stop and the requests in flight

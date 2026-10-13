@@ -56,9 +56,16 @@ function faustLibs(repo) {
   return found[0];
 }
 
-/** Fill `bin` (created) from the checkout at `repo`. */
+/** Fill `bin` (created) from the checkout at `repo`, or from `$STUDIO_PREBUILT_BIN`, a bin/ staged elsewhere (CI's engines job). */
 export function stageEngine({ repo, bin }) {
   mkdirSync(bin, { recursive: true });
+  const prebuilt = process.env.STUDIO_PREBUILT_BIN;
+  if (prebuilt) {
+    if (!existsSync(join(prebuilt, exe("st0-supervisor"))))
+      throw new Error(`no st0-supervisor in STUDIO_PREBUILT_BIN=${prebuilt}`);
+    cpSync(prebuilt, bin, { recursive: true, verbatimSymlinks: true });
+    return;
+  }
   const supervisor = newestBuild(repo, "st0-supervisor", "st0-supervisor");
   copyFileSync(
     newestBuild(repo, "st0-engine", "st0-engine"),

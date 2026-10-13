@@ -59,7 +59,7 @@ RunResult run(const std::filesystem::path& program, const std::vector<std::strin
 /** Windows: when `$STUDIO_HOST_PID` names our host, join a kill-on-close job only the host holds; elsewhere a no-op. Returns why it failed, empty on success. */
 std::string joinHostJob();
 
-/** A tool by name: on PATH, then where a package manager puts it — a tray's PATH is not a shell's. */
+/** A tool by name: on PATH, then where a package manager puts it — an app's PATH is not a shell's. */
 std::filesystem::path findTool(const std::string& name);
 
 }  // namespace st0::process

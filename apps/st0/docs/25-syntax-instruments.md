@@ -284,8 +284,9 @@ An instrument made of recordings — a multi-sampled piano, a drum kit with velo
 `.sfz` file and the samples it names, played by the engine's own **SFZ Player**. The module names
 the `.sfz` with `sfz:`, and the instruments st0 ships are named `@instruments/<name>/<file>.sfz`:
 they live on the machine the ENGINE runs on, not in a library or a project. None is downloaded until
-you ask: open the st0 tray's **Settings… → Downloads** and download the ones you play — the tray's
-menu says so while it does. A module whose instrument is not there is marked on its node with the
+you ask: in the desktop app, open **Settings → Engine → Downloads** and download the ones you play;
+the command-line engine downloads the ones its config file lists under `instruments` (`["all"]` for
+every one). A module whose instrument is not there is marked on its node with the
 name to download, and a song opened before it lands starts to play it as soon as it does.
 
 ```yaml schema=Module

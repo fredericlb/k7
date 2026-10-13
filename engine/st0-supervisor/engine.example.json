@@ -1,0 +1,7 @@
+{
+  "registryUrls": ["https://st0.app"],
+  "port": 8765,
+  "audioPriority": [],
+  "instruments": ["all"],
+  "machineName": ""
+}

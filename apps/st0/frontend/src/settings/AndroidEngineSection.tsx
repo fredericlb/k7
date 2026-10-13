@@ -1,6 +1,6 @@
 // AndroidEngineSection.tsx — this phone's engine, drawn only inside the Android app: there the app IS the
-// engine's machine, so what the desktop keeps in the tray's menu — the studios it is listed at, a private
-// CA, quitting — belongs on this panel. The app shows its own tray only while no studio is open.
+// engine's machine, so what the command-line engine keeps in its config file — the studios it is listed at,
+// a private CA — and quitting belong on this panel. The app shows its own tray only while no studio is open.
 // See ../../docs/settings.md and engine/st0-engine/docs/android.md.
 
 import { studioFamily } from "@studio/web-protocol/services";

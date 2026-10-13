@@ -6,9 +6,10 @@ The editor keeps its own settings as a panel (`components/SettingsPanel.tsx`), b
 set while you look at the song they affect; these are not.
 
 It holds what a **browser** may change. Everything about a machine — which audio interface the
-engine opens, whether the engine is running, the web UIs it trusts, autostart — is the tray's
-menu (`engine/st0-tray/docs/tray.md`), and not because moving it here would be hard: those
-settings need a process on that machine, and this page is served to any machine that asks.
+engine opens, whether the engine is running, the studios it is listed at — is set on that machine:
+in the command-line engine's config file (`engine/st0-supervisor/engine.example.json`), or by the
+app that runs the engine. Not because moving it here would be hard: those settings need a process
+on that machine, and this page is served to any machine that asks.
 
 So the split is not desktop-versus-web. It is **whose disk answers**. The LANGUAGE sits at one end
 of that line: no disk answers for it, and it lives in this browser alone. The separation chains
@@ -18,10 +19,10 @@ sit at the other: they are the machine's, read from the account's file service.
 
 Inside the Android app (`engine/st0-engine/docs/android.md`) the line above moves, and for the
 reason it was drawn: the process on the machine is the app st0 is running in, and the phone has no
-tray to hold its menu. So the page's first sections are **this phone's engine** —
+config file to hand its user. So the page's first sections are **this phone's engine** —
 `settings/AndroidEngineSection.tsx`: the engine's state and Quit, the studios it is listed at and
-which one the apps open, the private CA. The tray's hint is not drawn there, since it would point
-at a menu that does not exist.
+which one the apps open, the private CA. The hint that sends a browser to the engine's machine is not drawn there, since
+that machine is this one.
 
 They are drawn only when `window.st0Android` is there (`settings/androidEngine.ts`), which the app
 answers for st0's origin alone; a browser never sees them.
@@ -168,15 +169,15 @@ the same user-menu row. The language is not repeated there: the rehearsal pages 
 
 ## Why there are no machine settings here
 
-Audio, the engine, its sessions, the servers it is listed at and the machine itself are rows in
-the tray's menu (`engine/st0-tray/docs/tray.md`), and the tray is the thing with a process on the
-machine to send them to. A second screen for one setting is two that disagree the day one is
+Audio, the engine, its sessions, the servers it is listed at and the machine itself are set where a
+process on the machine can apply them: the command-line engine's config file, or the app running
+the engine. A second screen for one setting is two that disagree the day one is
 changed.
 
 ## The desktop app's engine is a page of its own
 
 In the desktop app the user menu has an **Engine** row under Settings, opening `/settings/engine`:
 the built-in engine's state, its audio interface ranking and its plugins, reached through the app's
-main process since the app has no tray (`../../../st0-standalone/docs/engine.md`). A browser has no
+main process, since the supervisor opens no socket (`../../../st0-standalone/docs/engine.md`). A browser has no
 such engine, so the row is drawn only when the app's bridge is there.
 

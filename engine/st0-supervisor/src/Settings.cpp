@@ -13,6 +13,9 @@ namespace st0 {
 
 namespace {
 
+// Set by `--config`; empty means `<state>/engine-host.json`, the file an app's commands save.
+std::filesystem::path gConfigFile;
+
 std::string trim(const std::string& s)
 {
     size_t a = 0, b = s.size();
@@ -89,9 +92,26 @@ nlohmann::json settingsJson(const Settings& s)
     return j;
 }
 
+void useConfigFile(const std::filesystem::path& file) { gConfigFile = file; }
+
+std::vector<std::pair<std::string, std::string>> configEnvironment(const nlohmann::json& raw)
+{
+    std::vector<std::pair<std::string, std::string>> out;
+    if (!raw.is_object()) return out;
+    for (const auto& [key, var] : {std::pair{"machineName", "STUDIO_MACHINE_NAME"},
+                                   std::pair{"extraCaCerts", "STUDIO_EXTRA_CA_CERTS"},
+                                   std::pair{"renderKey", "STUDIO_RENDER_KEY"}})
+        if (auto v = trim(str(raw, key)); !v.empty()) out.emplace_back(var, v);
+    // "all" keeps every instrument, as `$STUDIO_INSTRUMENTS=all` does (docs/instruments.md).
+    if (auto it = raw.find("instruments"); it != raw.end() && it->is_array())
+        for (const auto& e : *it)
+            if (e.is_string() && e.get<std::string>() == "all") out.emplace_back("STUDIO_INSTRUMENTS", "all");
+    return out;
+}
+
 Settings loadSettings()
 {
-    std::ifstream in(paths::settings(), std::ios::binary);
+    std::ifstream in(gConfigFile.empty() ? paths::settings() : gConfigFile, std::ios::binary);
     if (!in) return {};
     std::stringstream buf;
     buf << in.rdbuf();
@@ -101,6 +121,7 @@ Settings loadSettings()
 
 void saveSettings(const Settings& s)
 {
+    if (!gConfigFile.empty()) return;
     std::error_code ec;
     std::filesystem::create_directories(paths::studioDir(), ec);
     std::ofstream out(paths::settings(), std::ios::binary | std::ios::trunc);

@@ -14,7 +14,7 @@ namespace st0::instruments {
 
 namespace fs = std::filesystem;
 
-/** One instrument: its folder name, what the tray calls it, the archive it unpacks from, and that archive's identity. */
+/** One instrument: its folder name, what an app calls it, the archive it unpacks from, and that archive's identity. */
 struct Instrument {
     std::string name;
     std::string label;
@@ -23,7 +23,7 @@ struct Instrument {
     std::uint64_t bytes = 0;
 };
 
-/** Every instrument the engine can play — what the tray's Downloads tab lists. */
+/** Every instrument the engine can play — what an app's Downloads list shows. */
 const std::vector<Instrument>& all();
 
 /** The one named `name`, or null. */

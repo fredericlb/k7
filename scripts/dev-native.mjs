@@ -1,22 +1,18 @@
 #!/usr/bin/env node
-// dev-native.mjs — the native half of the dev session: builds the C++ engine, the native
-// supervisor and the tray, launches the tray, then watches the three source trees and
-// rebuilds+restarts on save. One process owns every watch because every rebuild needs the SAME
-// tray stopped first — a running image cannot be relinked on Windows. See docs/dev.md.
+// dev-native.mjs — the native half of the dev session: builds the C++ engine and the native supervisor,
+// runs the supervisor as the command-line engine (`--config <state>/engine-host.json`), then watches both
+// source trees and rebuilds+restarts on save. One process owns every watch because every rebuild needs the
+// SAME engine stopped first — a running image cannot be relinked on Windows. See docs/dev.md.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync, watch } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { launch, stopAll } from "../engine/scripts/devEngine.mjs";
 import {
   buildSupervisor,
   findSupervisor,
-} from "../engine/st0-tray/scripts/supervisorBuild.mjs";
-import {
-  buildDevApp,
-  launch,
-  stopAll,
-} from "../engine/st0-tray/scripts/trayProcess.mjs";
+} from "../engine/scripts/supervisorBuild.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const engineDir = join(repo, "engine", "st0-engine");
@@ -48,7 +44,7 @@ const TARGETS = {
     ],
     build: buildEngine,
   },
-  // The supervisor the tray spawns: a separate CMake project, so its build never touches the engine's.
+  // The supervisor that runs the engine: a separate CMake project, so its build never touches the engine's.
   "st0-supervisor": {
     dirs: [
       { path: join(supervisorDir, "src"), recursive: true, match: isCxx },
@@ -61,26 +57,10 @@ const TARGETS = {
     ],
     build: () => buildSupervisor(repo),
   },
-  // The tray: its main process is bundled from src/, and its settings page is read from disk when the window opens.
-  "st0-tray": {
-    dirs: [
-      {
-        path: join(repo, "engine", "st0-tray", "src"),
-        recursive: true,
-        match: (base) => base.endsWith(".ts") && !base.endsWith(".test.ts"),
-      },
-      {
-        path: join(repo, "engine", "st0-tray", "settings"),
-        recursive: false,
-        match: (base) => /\.(html|css|js)$/.test(base),
-      },
-    ],
-    build: buildDevApp,
-  },
 };
 
-// Rebuild order: the slow one first, so a broken C++ never costs a tray restart (../docs/dev.md).
-const ORDER = ["st0-engine", "st0-supervisor", "st0-tray"];
+// Rebuild order: the slow one first, so a broken engine never costs a supervisor rebuild (../docs/dev.md).
+const ORDER = ["st0-engine", "st0-supervisor"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
 function buildEngine() {
@@ -194,12 +174,14 @@ async function cycle() {
       TARGETS[name].build();
     }
     current = null;
-    console.log(await launch());
+    const supervisor = findSupervisor(repo);
+    if (!supervisor) throw new Error("no supervisor build to run");
+    console.log(await launch(supervisor));
     log("up");
   } catch (err) {
     if (current) dirty.add(current); // failed — retried on the next save, never in a loop
     console.error(`\nnative | ✖ ${err.message}`);
-    console.error("native | the tray is stopped — fix and save again.");
+    console.error("native | the engine is stopped — fix and save again.");
   } finally {
     busy = false;
   }
@@ -212,7 +194,7 @@ async function shutdown() {
   if (stopping) return;
   stopping = true;
   clearTimeout(timer);
-  log("stopping the tray…");
+  log("stopping the engine…");
   try {
     await stopAll();
   } catch (err) {
@@ -222,7 +204,7 @@ async function shutdown() {
 }
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => void shutdown());
 
-await stopAll(); // whatever a previous session or an installed bundle left behind
+await stopAll(); // whatever a previous session or an installed app left behind
 
 const bin = engineBinary();
 if (!bin) {
@@ -237,7 +219,7 @@ if (!sup || statSync(sup).mtimeMs < newestSource("st0-supervisor")) {
   log("the supervisor is missing or older than its sources — building it");
   dirty.add("st0-supervisor");
 }
-dirty.add("st0-tray"); // always: the bundle takes a second, and it is what guarantees dist/ matches src
+if (!dirty.size) dirty.add("st0-supervisor"); // nothing stale: still one cycle, which is what starts the engine
 
 await cycle();
 
@@ -256,6 +238,6 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
   }
 
 log(
-  "watching engine/st0-engine, engine/st0-supervisor and engine/st0-tray — save to rebuild and restart",
+  "watching engine/st0-engine and engine/st0-supervisor — save to rebuild and restart",
 );
 setInterval(() => {}, 1 << 30); // the watchers are unref'd, so hold the process open ourselves

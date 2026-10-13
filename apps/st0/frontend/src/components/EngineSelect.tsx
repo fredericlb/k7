@@ -37,7 +37,7 @@ export function EngineSelect({
   /** This device just paired with that engine: re-probe, and it answers as usable. */
   onPaired: (engineId: string) => void;
 }) {
-  // The pairing card only while nothing is usable: with an engine to pick, pairing another is the tray's business.
+  // The pairing card only while nothing is usable: with an engine to pick, pairing another is not this screen's business.
   const pairable = ranked.some(selectableRow) ? [] : needingPairing(ranked);
   return (
     <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
@@ -76,9 +76,11 @@ export function EngineSelect({
               </span>
             ) : (
               <>
-                No engines found. Start the{" "}
-                <code className="rounded bg-secondary px-1">st0 engine</code>{" "}
-                tray app, then Refresh.
+                No engines found. Start the st0 desktop app or{" "}
+                <code className="rounded bg-secondary px-1">
+                  st0-supervisor
+                </code>
+                , then Refresh.
               </>
             )}
           </div>

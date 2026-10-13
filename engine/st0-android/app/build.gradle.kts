@@ -67,14 +67,14 @@ val buildEngine by tasks.registering(Exec::class) {
     commandLine("node", "scripts/build.mjs", "android-arm64")
 }
 
-// The supervisor through supervisorBuild.mjs, the tray's own entry, told which preset to use.
+// The supervisor through engine/scripts/supervisorBuild.mjs, the desktop build's own entry, told which preset to use.
 val buildSupervisor by tasks.registering(Exec::class) {
     workingDir = rootDir.resolve("../..")
     environment("ANDROID_NDK_HOME", android.ndkDirectory.absolutePath)
     environment("STUDIO_SUPERVISOR_PRESET", "android-arm64")
     commandLine(
         "node", "-e",
-        "import('./engine/st0-tray/scripts/supervisorBuild.mjs').then((m) => m.buildSupervisor(process.cwd()))",
+        "import('./engine/scripts/supervisorBuild.mjs').then((m) => m.buildSupervisor(process.cwd()))",
     )
 }
 

@@ -1,8 +1,6 @@
 node_modules/
 .turbo/
 dist/
-# What the packaged app carries, assembled flat by engine/st0-tray/scripts/stage.mjs.
-engine/st0-tray/staging/
 # One-shot codemods written during a change and kept only until it lands. Excluded from
 # biome too, for the same reason: they are not source.
 .tmp-*

@@ -74,10 +74,10 @@ is rewritten to the origin's text, binaries included, and an edit made here is p
 
 ## The engine
 
-The supervisor is run by `@studio/supervisor-host`'s `SupervisorHost`, the way the tray runs it —
+The supervisor is run by `@studio/supervisor-host`'s `SupervisorHost`, the way the phone runs it —
 no arguments, NDJSON on stdio, stdin held open for the app's life, relaunched when it crashes
 (`packages/supervisor-host/docs/supervisorHost.md`). It gets a home of its own and
-engine port **8766**, not the tray's `~/.st0` and 8765: the supervisor adopts whatever engine
+engine port **8766**, not the command-line engine's `~/.st0` and 8765: the supervisor adopts whatever engine
 already listens on its port, and its lock is per home, so the two coexist. Its first run
 downloads its sample packs into that home, like any fresh supervisor home.
 

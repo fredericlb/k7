@@ -7,7 +7,7 @@ import { m } from "../paraglide/messages.js";
 
 export interface LogLine {
   t: number; // epoch ms
-  // cmd/info/refused/error/engine are in-app activity; `engine` and `file` also carry the tray's merged process log.
+  // cmd/info/refused/error/engine are in-app activity; `engine` and `file` also carry the engine machine's merged process log.
   kind: "cmd" | "engine" | "file" | "info" | "refused" | "error";
   text: string;
 }

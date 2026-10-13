@@ -107,7 +107,7 @@ struct Supervisor::Impl {
         snap.audioPriority = settings.audioPriority;
         std::string joined;
         for (size_t i = 0; i < registryUrls.size(); ++i) joined += (i ? ", " : "") + registryUrls[i];
-        // Joined for display: the tray draws ONE registry line.
+        // Joined for display: the snapshot carries ONE registry line.
         snap.registryUrl = joined;
         snap.instances = instances();
         snap.rootPath = paths::utf8(paths::rootDir());
@@ -168,7 +168,7 @@ struct Supervisor::Impl {
                                                    snap.error = "spawn failed: " + r.message;
                                                    break;
                                            }
-                                           // The tray shows the error; the log is what is still there tomorrow.
+                                           // The app shows the error; the log is what is still there tomorrow.
                                            if (snap.status == "error") log::host("engine did not start: " + snap.error);
                                            publish();
                                            if (done) done(snap.status == "running");
@@ -316,7 +316,7 @@ struct Supervisor::Impl {
         queue.push_back(i);
     }
 
-    /** Start the next queued fetch when none runs, on a worker; the tray is told as it goes. */
+    /** Start the next queued fetch when none runs, on a worker; the app is told as it goes. */
     void pump()
     {
         if (fetching || queue.empty()) return;
@@ -599,7 +599,7 @@ struct Supervisor::Impl {
         }
         auto urls = registryUrls;
         if (urls.empty()) {
-            // Said once: an engine no studio lists is a setup question, and the tray has the field for it.
+            // Said once: an engine no studio lists is a setup question, and `registryUrls` is the field for it.
             if (!saidNoRegistry) log::host("no registry configured — this engine is listed at no studio");
             saidNoRegistry = true;
             snap.lastHeartbeatOk = false;
@@ -880,7 +880,7 @@ void Supervisor::start()
     s.engine = std::make_unique<EngineQueries>(s.loop, s.settings.port);
     s.settleInstruments();
     s.refreshInstruments();
-    // The first snapshot: the tray draws nothing until it arrives.
+    // The first snapshot: the app draws nothing until it arrives.
     s.publish();
     log::host("supervisor started (native), " + std::to_string(tls::rootCount()) + " trusted roots");
     // What every heartbeat will carry, said once: when a registry refuses one, the reason names a field of this.
@@ -893,7 +893,7 @@ void Supervisor::start()
         s.performance = performance::toJson(m);
         log::host("performance " + std::to_string(performance::score(m)) + " " +
                   s.performance->dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
-        // Started HERE rather than on a tray command: nothing should wait for a menu to be built.
+        // Started HERE rather than on an app's command: nothing should wait for a screen to be built.
         s.startEngine([&s](bool) { s.beat([&s] { s.installLoops(); }); });
         // …and the instruments this machine keeps, whether or not a song names one yet.
         s.fetchInstruments();

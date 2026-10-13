@@ -31,7 +31,7 @@ export interface PairedDevice {
   lastSeen: number;
 }
 
-/** The supervisor's `state` frame — what the desktop tray draws too. */
+/** The supervisor's `state` frame — what the desktop app reads too. */
 export interface SupervisorState {
   status?: string;
   enginePort?: number;

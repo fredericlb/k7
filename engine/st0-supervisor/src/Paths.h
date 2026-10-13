@@ -35,7 +35,7 @@ fs::path engineLog();
 /** The merged log — the engine's and the supervisor's lines, tagged. */
 fs::path mergedLog();
 
-/** `<state>/workspace`, which the tray still names in its snapshot. */
+/** `<state>/workspace`, which the snapshot still names. */
 fs::path rootDir();
 
 /** `<state>/remote/<host>` — one server's files as this machine holds them. */

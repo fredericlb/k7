@@ -100,7 +100,7 @@ async function main() {
   const q = new Supervisor(PORT);
   await q.open();
 
-  // Ask everything the tray polls BEFORE listing: a read must never CREATE (../docs/sessions.md).
+  // Ask everything the supervisor polls BEFORE listing: a read must never CREATE (../docs/sessions.md).
   const plugins = await q.listEditPlugins();
   await q.listPlugins();
   await q.listAudioDevices();

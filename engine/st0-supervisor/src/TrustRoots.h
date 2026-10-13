@@ -1,5 +1,5 @@
 // TrustRoots.h — the certificates the OS trusts, as one PEM string for mbedTLS. Not a preference: a
-// studio added from the tray is routinely behind a local proxy with a private CA, which exists in
+// studio added from the app is routinely behind a local proxy with a private CA, which exists in
 // the OS store and nowhere else, and without it every heartbeat fails the handshake SILENTLY — a
 // registry that is down is not an error — so the engine never appears in that studio's picker.
 // `$STUDIO_EXTRA_CA_CERTS` names a PEM file appended to the set. See docs/supervisor.md.

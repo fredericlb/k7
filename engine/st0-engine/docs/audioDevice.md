@@ -52,7 +52,7 @@ wrong when a preference exists and is not applied.
 | where | who writes it | who applies it | when |
 |---|---|---|---|
 | `<state>/preferences.yaml` (`audioDevice`) | the machine's file service — `PUT /preferences/audio-device` | `engineLink.wireEngine`, on the socket's `open` | the first socket any session opens, and every reconnect after — so every engine restart, before anything plays |
-| `<state>/engine-host.json` (`audioPriority`) | the tray's Audio tab | the supervisor's `AudioPolicy.cpp` | continuously — it also RE-selects the device when it is replugged |
+| `<state>/engine-host.json` (`audioPriority`) | the command-line engine's config file, or the desktop app's Engine page | the supervisor's `AudioPolicy.cpp` | continuously — it also RE-selects the device when it is replugged |
 | `%APPDATA%/Studio/Settings.xml` | Tracktion, by itself | nobody | never — inert on purpose, see AGENTS.md |
 
 The first row is the one a browser can reach, and it is the one that is easy to leave half
@@ -66,7 +66,7 @@ That second row is an ordered LIST, best first, and no longer a pick plus a fall
 engine goes to the highest-ranked interface actually plugged in
 (`engine/st0-supervisor/docs/supervisorPolicy.md`).
 
-It does not cover for the first: its setting is written from the tray's settings window, on the
+It does not cover for the first: its setting is written on the
 engine's own machine, so a hosted browser cannot reach it.
 
 So a picker must do both halves: tell the engine to switch NOW, and ask the account's file service
@@ -271,8 +271,8 @@ device carries the OUTPUT's name, so a row keyed on that name alone shows the in
 `current` with the built-in mic's input count, and the input card offers one mono channel on
 an eight-input interface with nothing to say why. A row therefore carries two flags: `current`
 for the output side with the output count, `currentInput` for the device named by the setup's
-`inputDeviceName` with the input count. On an unsplit setup both land on the same row. The
-tray's settings window says "output only" or "input only" when they do not.
+`inputDeviceName` with the input count. On an unsplit setup both land on the same row; a list of
+interfaces says "output only" or "input only" when they do not.
 
 The engine also undoes such a split when it opens: `keepInputsOnOutputDevice` moves the inputs
 onto the output device whenever that device has inputs of its own. A split survives only where

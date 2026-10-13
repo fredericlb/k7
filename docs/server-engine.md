@@ -69,13 +69,14 @@ Three costs come with it:
 - **The first sound waits for a click.** A browser lets an AudioContext built without a gesture stay
   silent, so the context resumes on the page's next pointer or key press. Pressing play is one.
 
-## The supervisor's stdin never ends
+## The supervisor runs as the command-line engine
 
-The supervisor stops when its stdin closes; that is how the tray's death reaches it
-(`engine/st0-supervisor/docs/hostProtocol.md`). In the container nobody holds a pipe, so the entrypoint
-gives it a FIFO opened read-write, which never reaches end-of-file. `docker stop` sends SIGTERM through
-tini, and the supervisor deregisters on it. Its stdout, the host protocol's snapshots, goes to
-`/dev/null`; its diagnostics go to stderr, which is the container's log.
+The entrypoint runs `st0-supervisor --config $STUDIO_HOME/engine.json`, the same mode a musician runs
+from a terminal (`engine/st0-supervisor/docs/supervisor.md`): no app holds its stdin, so it must not
+be the mode that stops when stdin closes. The file lives in the `engine-home` volume and is created as
+`{}` on the first start; everything this page sets is environment, which the file overrides only for
+the keys it names. `docker stop` sends SIGTERM through tini, and the supervisor deregisters on it. It
+writes nothing to stdout; its diagnostics go to stderr, which is the container's log.
 
 ## Instruments
 

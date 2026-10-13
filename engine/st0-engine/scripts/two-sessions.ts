@@ -115,7 +115,7 @@ async function main() {
   const onSt0 = watch(st0);
   const onPl8 = watch(pl8);
   const onWire = wire(SESSIONS.pl8); // a surface on pl8, watching the wire itself
-  const onProbe = wire(); // the tray: opens, says nothing, is gone
+  const onProbe = wire(); // the supervisor's probe: opens, says nothing, is gone
   st0.connect();
   pl8.connect();
 

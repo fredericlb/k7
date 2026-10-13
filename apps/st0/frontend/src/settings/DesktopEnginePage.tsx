@@ -1,6 +1,6 @@
 // DesktopEnginePage.tsx — `/settings/engine`, the desktop app's built-in engine: whether it runs, which
-// audio interface it takes first, its plugins, and the instruments it downloads. What the tray's settings window held for its engine;
-// the desktop app has no tray, so its own menu leads here. See ../../docs/settings.md.
+// audio interface it takes first, its plugins, and the instruments it downloads. What the command-line engine reads from its config file;
+// the desktop app hands its user no such file, so its own menu leads here. See ../../docs/settings.md.
 
 import { ArrowDown, ArrowUp } from "@frediverse/ui/icons";
 import { m } from "../paraglide/messages.js";

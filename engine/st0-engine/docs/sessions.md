@@ -52,7 +52,7 @@ Route a `const` accessor through the inserting form and three things follow at o
 
 - the **supervisor conjures the default session**. It polls `list-edit-plugins` on a timer with
   an `EngineControl` that has no session — so `DEFAULT_SESSION`, the empty string — and the
-  first touch creates it. It then shows up in the tray's own Sessions submenu, reported by the
+  first touch creates it. It then shows up in the supervisor's own session list, reported by the
   process that has just invented it.
 - the state timer re-touches every session it lists, forever.
 - there is no "unknown session" path at all, because there is no such thing as an unknown one.
@@ -71,7 +71,7 @@ an obvious answer, which is to do nothing.
 ### `list-edit-plugins` is engine-global
 
 It is not a per-session question — with N projects there is no *the* loaded edit — and asking it
-per session empties the tray's "Native plugin UI" submenu, since the supervisor asks on the
+per session empties the supervisor's plugin list, since the supervisor asks on the
 default session and that one holds nothing. So it walks every session and stamps each row with
 the one it came from, exactly like `list-sessions`.
 
@@ -147,9 +147,9 @@ declares no `"type": "module"` and tsx transforms it to CJS, where a bare await 
 anyone's session, which is the difference between a diagnostic and a way to lose the song somebody
 is working on. It connects the way the supervisor does — on the DEFAULT session, driving nothing
 and asking about everyone — which is why `list-sessions` carries no session field at all. It asks
-everything the tray polls BEFORE listing, because that is the regression it guards: should reading
-ever CREATE again, those queries conjure a `""` session which then appears in the tray's own
-Sessions submenu, reported by the process that has just invented it. It asks through
+everything the supervisor polls BEFORE listing, because that is the regression it guards: should reading
+ever CREATE again, those queries conjure a `""` session which then appears in the supervisor's own
+session list, reported by the process that has just invented it. It asks through
 `EngineControl`, the way `engine/st0-supervisor/src/EngineQueries.cpp` does: one question at a
 time, each waiting for its typed reply.
 
@@ -160,7 +160,7 @@ Three layers, and only the first two are required.
 **1. Stop creating.** After the rule above, a session exists only because somebody sent it a
 project or subscribed to its audio.
 
-**2. `drop-session` is primary.** It is wired end to end — the tray's Sessions row, the
+**2. `drop-session` is primary.** It is wired end to end — the
 supervisor, `EngineControl.dropSession` and `EngineClient.dropSession` in the browser client.
 The file service calls it from `unloadEngine`, the one place that genuinely means "this
 workspace is done".
@@ -195,7 +195,7 @@ So sockets are counted after all, but only the ones that say they are **driving*
 
 A driver is a surface a person is looking at. Anything that does not say `role` is not one, which
 is what keeps the file service out of the count — it holds a socket per session for as long as
-the machine is up, so counting it would mean no project ever looked abandoned. The tray's polls
+the machine is up, so counting it would mean no project ever looked abandoned. The supervisor's polls
 and every reachability probe are out for the same reason, without needing a rule of their own.
 
 When a session's driver count reaches zero the clock starts, and **45 seconds** later the project

@@ -1,9 +1,9 @@
 # `npm run dev` — the whole studio in one command
 
 ```bash
-npm run dev                        # every app + the engine + the tray, under Tilt
+npm run dev                        # every app + the engine, under Tilt
 npm run dev -- native st0-frontend # only the named Tilt resources
-npm run dev:native                 # only the engine and the tray, no Tilt
+npm run dev:native                 # only the engine, no Tilt
 npm run vscode                     # the browser editor at /dev, on its own
 ```
 
@@ -62,8 +62,8 @@ and a restart button in the web UI at **http://localhost:10350**; from a termina
 `tilt trigger <resource>` does what the button does. A crash paints one row red instead
 of taking the session down, which one TUI process could never do. `dev.mjs` itself adds
 only two things: it refuses to start when port 10350 is already held (one session at a
-time — a second would fight the first for every dev port), and it stops the detached
-tray on the way out. Extra args are handed to `tilt up`, so a resource-name list runs a
+time — a second would fight the first for every dev port), and it stops the engine on
+the way out. Extra args are handed to `tilt up`, so a resource-name list runs a
 subset. The native side is a resource in that list like any other — see below for what
 it takes to make it one.
 
@@ -71,11 +71,9 @@ it takes to make it one.
 
 `scripts/tilt-tasks.mjs` exists for one reason: to derive the resource list (as JSON,
 read by the `Tiltfile`) instead of spelling out seventeen entries, so a new app joins by
-existing. It runs over every workspace package that has a `dev` script and drops three
+existing. It runs over every workspace package that has a `dev` script and drops two
 kinds, each for a reason:
 
-- **`st0-tray`**, which the native monitor builds and launches with the engine. A tray of
-  its own would fight that one for the single-instance lock.
 - **the `apps/<x>` aggregators**, whose `dev` is itself a `concurrently` command over
   their own children. Running the parent *and* the children would start every server
   twice.
@@ -181,42 +179,41 @@ st0 owns the flow because it is the service with NO path prefix: `redirectUriFor
 ## The native task — `scripts/dev-native.mjs`
 
 It is `engine/st0-engine`'s `dev` script, which is what gives it a pane in the TUI beside the
-servers. That it also rebuilds the tray is not a mis-filing: the engine is the reason the
-monitor exists — it is the half with no watch mode — and the desktop app is simply how the
-engine is run in dev, since the supervisor inside it is what spawns the binary.
+servers. It builds the engine and the supervisor, and runs the supervisor as the command-line engine
+— `st0-supervisor --config <state>/engine-host.json` (`engine/scripts/devEngine.mjs`), the settings
+file a desktop install keeps, created as `{}` when absent so the studio comes from
+`$STUDIO_REGISTRY_URL`. Edit that file to point the dev engine elsewhere; the supervisor never writes
+it back.
 
 The engine is C++, so it has no watch mode that means anything: there is nothing to
-hot-reload, only a binary to relink and a process to restart — and the tray has to be stopped
-for that relink, so it is restarted in the same cycle. That is what the monitor does — watch
+hot-reload, only a binary to relink and a process to restart — and the supervisor has to be stopped
+for that relink, since it holds the engine running. That is what the monitor does — watch
 the sources, rebuild, restart.
 
 | target | watched | rebuilt with |
 |---|---|---|
-| `moteur` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
-| `st0-tray` | `src/**.ts`, `settings/*.{html,css,js}` | `buildDevApp` — `build-main.mjs`, the esbuild bundle into `dist/` |
+| `st0-engine` | `engine/`, `server/`, `CMakeLists.txt`, `CMakePresets.json` | `npm run build:win` / `build:mac --workspace st0-engine` |
+| `st0-supervisor` | `src/`, `CMakeLists.txt`, `CMakePresets.json` | `supervisorBuild.mjs` |
 
-The settings page is in that list though it has no build: it is read from disk when its window
-opens, so an edit takes effect at the restart the cycle ends with.
-
-A failed build of either half leaves the tray down, and says so — `✖ … the tray is stopped, fix
-and save again`. The cycle stops the tray BEFORE building, since a running image cannot be
-relinked, and relaunches only once every dirty target has built. The target that failed stays
-dirty, so the next save retries it instead of looping on it.
+A failed build of either half leaves the engine down, and says so — `✖ … the engine is stopped, fix
+and save again`. The cycle stops the supervisor and the engine BEFORE building, since a running image
+cannot be relinked, and starts the supervisor again only once every dirty target has built. The
+target that failed stays dirty, so the next save retries it instead of looping on it.
 
 `engine/st0-engine/tests/` is deliberately not watched: it links a binary of its own, and
-rebuilding it would double the wait for something the tray never runs.
+rebuilding it would double the wait for something the session never runs.
 
 ### Why one process owns both watches
 
 **A running image cannot be relinked.** On Windows the file is held open for write, so
 a relink against a live binary fails with a confusing linker error, and the engine's
 does the same while the supervisor has `st0-engine.exe` running. The order is
-therefore stop → build → start, exactly as `restart-tray.mjs` does it.
+therefore stop → build → start.
 
-And the thing that must be stopped is *the same tray* for both targets: killing it takes
-the supervisor and the engine down with it through the job object. Two
-independent watchers would race to stop and restart one process. So there is one, and a
-cycle that needs both rebuilds does one stop, both builds, one start.
+And the processes that must be stopped are *the same* for both targets: the supervisor holds the
+engine, so stopping one without the other leaves a binary held. Two independent watchers would race
+to stop and restart one pair. So there is one, and a cycle that needs both rebuilds does one stop,
+both builds, one start.
 
 This is also why the monitor owns the *build* and not just the restart. A watcher that
 only reacted to a changed binary could never fire: while the session is up, nothing can
@@ -227,16 +224,16 @@ produce that binary.
 Saves are debounced 500 ms and coalesced per target. A target is removed from the dirty
 set **before** its build, not after, so a save landing mid-build is not swallowed — it
 just queues another cycle. A save landing during a build re-arms the timer, which keeps
-retrying until the cycle in flight frees the tray.
+retrying until the cycle in flight frees the engine.
 
-A failed build puts its target back in the dirty set and stops there, leaving the app
+A failed build puts its target back in the dirty set and stops there, leaving the engine
 down. It is **not** retried on a timer: a broken build retried every 500 ms is a fan, not
 a signal. Save again and it tries again.
 
-At startup the monitor launches the app unconditionally, and rebuilds the engine only if
-there is no binary, or if the sources are newer than the one in `engine/st0-engine/build`. A
-session should not pay a cmake run to be told there is nothing to do, and should not
-silently run the engine you had before a `git pull`.
+At startup the monitor rebuilds the engine only if there is no binary, or if the sources are newer
+than the one in `engine/st0-engine/build`, and the supervisor likewise; then it starts the supervisor
+whatever was rebuilt. A session should not pay a cmake run to be told there is nothing to do, and
+should not silently run the engine you had before a `git pull`.
 
 ### A build that succeeds without replacing the image
 
@@ -247,33 +244,19 @@ therefore checks the binary's mtime afterwards.
 The test is deliberately *"is the binary at least as new as its sources"* and **not** *"did it
 change"*. A watcher event can fire with nothing actually edited — Windows reports odd names for
 changes under the build tree — and a no-op build is then the correct outcome. Demanding a change
-turns that harmless case into a hard failure that leaves the tray stopped, which is worse than the
+turns that harmless case into a hard failure that leaves the engine stopped, which is worse than the
 bug being guarded.
 
 The watch roots filter by BASE name, because a recursive `fs.watch` reports a path relative to the
 root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output — and
-every editor swap file — from triggering a rebuild. The rebuild order is engine first: the tray's
-bundle needs nothing from the engine, but building the slow one first means a broken C++ never
-costs a tray restart.
+every editor swap file — from triggering a rebuild. The rebuild order is engine first: building the
+slow one first means a broken engine never costs a supervisor rebuild.
 
 ### On exit
 
-The tray is launched **detached** (`start-engine.mjs`), so it outlives the process that
-started it. `dev-native.mjs` stops every tray on `SIGINT`/`SIGTERM` and again at startup,
-and `dev.mjs` repeats it after Tilt is gone — a resource may be ended too abruptly for
-its own handler to run, and an orphaned menu-bar icon with no session to explain it is
-the one leak worth being sure about. If one ever escapes anyway:
-
-```bash
-npm run tray:stop --workspace st0-tray
-```
-
-## Where the steps live
-
-`engine/st0-tray/scripts/trayProcess.mjs` holds the tray's lifetime as functions — `running`,
-`stopAll`, `buildDevApp`, `launch` — and `restart-tray.mjs` is a thin CLI over it.
-The one difference from a script is that every step **throws** rather than calling
-`process.exit`: a one-shot command turns that into an exit code, and a watcher meant to
-outlive a bad build cannot afford either. See
-[engine/st0-tray/scripts/docs/restartTray.md](../engine/st0-tray/scripts/docs/restartTray.md) for
-what those steps do and why the order is not negotiable.
+The supervisor is the monitor's child, but in config mode nothing ties its life to the monitor's: it
+stops on a signal, not when a pipe closes. So `dev-native.mjs` stops every supervisor and engine on
+`SIGINT`/`SIGTERM` and again at startup, and `dev.mjs` repeats it after Tilt is gone — a resource may
+be ended too abruptly for its own handler to run, and an engine left holding its port and its binary
+is the one leak worth being sure about. Every step **throws** rather than calling `process.exit`, so
+a watcher meant to outlive a bad build survives one.

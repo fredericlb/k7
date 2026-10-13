@@ -18,7 +18,7 @@ that never touches hardware*. Giving the WebSocket server a `render` verb would 
 second engine inside the process holding the interface, and the safety would rest on a
 constructor's argument rather than on process boundaries.
 
-That is also why "the tray runs a render-only engine" is **not** a long-lived process here.
+That is also why "the supervisor runs a render-only engine" is **not** a long-lived process here.
 There is nothing to supervise: a render starts, writes, and exits.
 
 ## Why the file service and not the engine

@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 // tilt-tasks.mjs — the dev-session task list as JSON, for the Tiltfile: a package
-// joins by having a `dev` script; dropped are the tray (it is built and launched BY the
-// `native` resource, as one pair with the engine — a tray of its own would fight that
-// one for the single-instance lock), the `apps/<x>` aggregators (their `dev` re-runs
-// their children — every server twice) and the tsc --watch panes.
+// joins by having a `dev` script; dropped are the `apps/<x>` aggregators (their `dev`
+// re-runs their children — every server twice) and the tsc --watch panes.
 // The reasons are docs/dev.md's "The task list".
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -39,10 +37,7 @@ const isAggregator = (dev) => dev.trimStart().startsWith("concurrently");
 const isTypecheck = (dev) => /\btsc\b/.test(dev) && dev.includes("--watch");
 
 const tasks = workspacePackages()
-  .filter(
-    ({ name, dev }) =>
-      name !== "st0-tray" && !isAggregator(dev) && !isTypecheck(dev),
-  )
+  .filter(({ dev }) => !isAggregator(dev) && !isTypecheck(dev))
   .map(({ name, dir }) => {
     const rel = relative(repo, dir).replaceAll("\\", "/");
     return {

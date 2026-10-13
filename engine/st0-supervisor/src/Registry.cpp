@@ -59,7 +59,7 @@ Outcome post(const std::string& base, const std::string& path, const nlohmann::j
     return o;
 }
 
-/** `post` to every url at once, each one's outcome kept: the tray shows one light, the log says which. */
+/** `post` to every url at once, each one's outcome kept: the snapshot shows one light, the log says which. */
 Result all(const std::vector<std::string>& urls, const std::string& path, const nlohmann::json& body)
 {
     std::vector<std::future<Outcome>> calls;

@@ -117,7 +117,7 @@ void addMachineHandlers(HandlerTable& t) {
 
     t.add({"drop-session"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string& session, const std::string&) {
         auto& host = ctx.host;
-        // Forget a session outright — the tray's way of clearing one an app left behind, addressed by `session` like every other message rather than by an `id` field.
+        // Forget a session outright — the supervisor's way of clearing one an app left behind, addressed by `session` like every other message rather than by an `id` field.
         host.post([&host, session] {
             std::cerr << "[session] dropped '" << session << "'\n";
             host.dropSession(session);

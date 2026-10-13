@@ -133,7 +133,7 @@ void addPluginHandlers(HandlerTable& t) {
     t.add({"list-edit-plugins"}, [](ServeContext& ctx, ix::WebSocket&, const json&, const std::string&, const std::string&) {
         auto& host = ctx.host;
         auto& broadcast = ctx.broadcast;
-        // Every session's plugin instances for the tray's submenu, each row naming its session — ENGINE-GLOBAL, since the asker drives none (docs/sessions.md); message thread, and broadcast.
+        // Every session's plugin instances for the supervisor's plugin list, each row naming its session — ENGINE-GLOBAL, since the asker drives none (docs/sessions.md); message thread, and broadcast.
         host.post([&host, &broadcast] {
             json arr = json::array();
             for (const auto& sid : host.sessionIds())

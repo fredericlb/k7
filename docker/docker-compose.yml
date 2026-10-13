@@ -3,8 +3,8 @@
 # built and tagged by its own repository and only DEPLOYED here, on st0's own hostname. The
 # musicians' engines run on their own machines, and reach this stack through the tunnel their
 # supervisor dials (packages/engine-tunnel/docs/tunnel.md); the `engine` service is one more of
-# those, the server's own, which dials st0 over the container network (docs/server-engine.md). No
-# tray. The accounts' WORKSPACES live here, in st0, one file service per account
+# those, the server's own, which dials st0 over the container network (docs/server-engine.md).
+# The accounts' WORKSPACES live here, in st0, one file service per account
 # (packages/file-hub/docs/fileHub.md).
 #
 # FOUR containers: Traefik routes st0 by Host() straight to its own backend port (no nginx to
