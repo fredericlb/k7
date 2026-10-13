@@ -18,6 +18,17 @@ The `yaml` library hangs a comment on a node, and not always the node a reader w
 
 Blank lines before an entry or an item are kept where YAML records them (`spaceBefore`).
 
+## The author's layout is kept where it was a choice
+
+A collection YAML writes on one line — `{ type: knob, col: 0, bind: Mix }`, `[ lead ]` — stays on one
+line in k7x, however wide. A panel holds a widget per line on purpose, a row being what a person
+scans; breaking each at 100 columns turns a 60-line panel into 500, and the library as a whole
+grew five times over under that rule.
+
+A collection YAML writes across lines is laid out by the printer: broken past 100 columns, joined
+when it fits. That one is not kept, because block style is often no choice at all: song's writers
+emit every note as three lines (`t:`, `d:`, `k:`), and a k7x note reads as one, `t(0).d(1).k(60)`.
+
 ## What is refused
 
 Anchors and aliases, a root that is not a map, and a YAML that does not parse: k7x has no form for

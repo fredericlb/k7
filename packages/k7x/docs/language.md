@@ -86,7 +86,8 @@ What `print.ts` writes when it writes a whole value (a new file, a new entry, a 
   and a broken chain puts each call on its own line behind a leading `.`;
 - anything carrying a comment breaks, since `//` ends its line.
 
-The layout is only for text written whole. An edit never reformats what it does not change.
+The layout is only for text written whole. An edit never reformats what it does not change, and a
+conversion keeps what its author wrote on one line on one line, whatever its width (`convert.md`).
 
 ## The extension
 

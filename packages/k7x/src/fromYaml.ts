@@ -75,6 +75,8 @@ function leadInto(p: PNode, before: string[]): void {
 
 /** A collection's trailing comment: inside before its closing bracket when a block, after it when a flow. */
 function withOwn(c: YAMLMap | YAMLSeq, p: PNode): PNode {
+  // A flow collection is one its author wrote on one line: the printer keeps it there.
+  if (c.flow) p.inline = true;
   if (c.comment) {
     if (c.flow) p.after = lines(c.comment);
     else p.end = [...(p.end ?? []), ...lines(c.comment)];

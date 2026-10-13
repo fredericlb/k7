@@ -8,7 +8,14 @@ export type PNode = (
   | { kind: "scalar"; value: K7Scalar }
   | { kind: "list"; items: PNode[] }
   | { kind: "map"; entries: PEntry[] }
-) & { lead?: string[]; after?: string[]; end?: string[]; blank?: boolean };
+) & {
+  lead?: string[];
+  after?: string[];
+  end?: string[];
+  blank?: boolean;
+  /** Written on one line by its author: kept on one line whatever its width, so a conversion keeps their layout. */
+  inline?: boolean;
+};
 
 export interface PEntry {
   key: string;
@@ -94,7 +101,11 @@ export function print(n: PNode, indent: number, ctx: Ctx, used: number): Out {
   const lead = n.lead ?? [];
   const after = n.after ?? [];
   const one = flat({ ...n, lead: [], after: [] }, ctx);
-  if (one !== null && !one.includes("\n") && used + one.length <= WIDTH)
+  if (
+    one !== null &&
+    !one.includes("\n") &&
+    (n.inline || used + one.length <= WIDTH)
+  )
     return { text: one, lead, after };
   if (one !== null && n.kind === "scalar") return { text: one, lead, after };
   if (ctx === "args") return print(n, indent, "entry", used);
