@@ -65,9 +65,16 @@ cache, one per platform and capped at 2 GB. The presets read it from `STUDIO_COM
 | sccache, not ccache | one tool on all three; it caches MSVC |
 | Ninja on Windows | the Visual Studio generator ignores a compiler launcher, so under it nothing would be cached |
 | `/Z7` (`CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded`) | `/Zi` writes every object into one shared `.pdb`, which a cached object cannot be replayed into |
+| `_MBCS` defined under Ninja | the Visual Studio generator defines it on every target and Ninja does not; Faust's Windows code branches on it, and its other branch does not compile |
 | `/MP` only under the Visual Studio generator | it does nothing under Ninja, and sccache does not cache a compile that carries it |
 | the launcher in the presets, not CMake's own environment variable | that variable also reaches the nested CMake JUCE builds `juceaide` in, in Debug with `/Zi`, which sccache cannot cache; on MSVC that tool builds uncached (`engine/st0-engine/engine/patches/tracktion.cmake`) |
 | `ilammy/msvc-dev-cmd` | Ninja calls `cl.exe` directly, so the job needs the PATH a developer prompt has |
+
+Outside Windows the workflow sets `CMAKE_BUILD_PARALLEL_LEVEL` to every core: the build script keeps
+two free for a developer's desktop, which on a 4-core runner is half of them. On Windows the script
+sets no cap and ninja already uses them all. On Windows it takes Defender off the build instead —
+the workspace, the cache and the compilers excluded, real-time scanning off — since it scans every
+file `cl.exe` opens; the runner is discarded after the job, and a refusal leaves the build as it was.
 
 `sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working.
 

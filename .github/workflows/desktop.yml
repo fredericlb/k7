@@ -146,6 +146,23 @@ jobs:
         with:
           arch: x64
 
+      # Defender scans every file cl.exe opens, which a cold Windows build mostly waits on; the runner is discarded after the job.
+      - name: defender off the build
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:LOCALAPPDATA
+          Add-MpPreference -ExclusionProcess cl.exe, link.exe, ninja.exe, sccache.exe, cmake.exe
+          Set-MpPreference -DisableRealtimeMonitoring $true
+
+      # Every core: the build script leaves two free outside Windows, for a developer's machine, which
+      # on a 4-core runner is half of them (engine/st0-engine/scripts/buildLock.mjs).
+      - name: every core to the compiler
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
+
       # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
       # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
       - name: compiler cache

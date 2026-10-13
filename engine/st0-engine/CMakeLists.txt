@@ -19,6 +19,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
     add_compile_options(/MP /FS)
 endif()
+# The Visual Studio generator defines _MBCS on every target and Ninja does not; Faust's Windows code branches on it.
+if(MSVC AND NOT CMAKE_GENERATOR MATCHES "Visual Studio")
+    add_compile_definitions(_MBCS)
+endif()
 
 # -----------------------------------------------------------------------------
 # Shared dependencies (fetched once here, consumed by the packages below)
