@@ -109,6 +109,12 @@ a short green build rather than a red one, since a skipped night is not a failur
 cannot answer builds anyway rather than skipping silently. Either can still be run by hand, and a
 hand-run on a day without commits skips the same way.
 
+**`node_modules` is restored whole, not reinstalled** (`.github/actions/node/action.yml`): every
+job takes it from a cache keyed on the runner's OS and the hash of `.nvmrc` and `package-lock.json`,
+and runs `npm ci` only on a miss, which then saves it. setup-node's `cache: npm` alone keeps the
+download cache, so each job would still unpack the whole tree. The key is exact, never a prefix: a
+tree restored from an older lock would be wrong in ways `npm ci` never checks.
+
 **On GitHub, `commons` is a checkout of its own**, at the commit `st0` pins (`git rev-parse
 HEAD:commons`) and read with the `COMMONS_TOKEN` secret: `commons` is a private repository, a run's
 built-in token reads only `st0`, and the token for one must not be the one `st0` is fetched with.

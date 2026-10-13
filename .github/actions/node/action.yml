@@ -1,0 +1,31 @@
+# The workspace's Node and node_modules for a job: Node from .nvmrc, then node_modules RESTORED whole
+# from a cache keyed on the lock file, and `npm ci` only when the lock (or Node) changed. setup-node's own
+# `cache: npm` keeps only the download cache, so every job would otherwise unpack the whole tree again.
+# Needs the repository and commons checked out first. See docs/desktop-release.md.
+name: node
+description: Node from .nvmrc, and node_modules from cache or npm ci.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+    # Every folder npm puts a node_modules in: the root, and each workspace that keeps its own.
+    - id: modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          apps/st0/*/node_modules
+          packages/*/node_modules
+          engine/*/node_modules
+          engine/st0-android/*/node_modules
+          commons/packages/*/node_modules
+          commons/dev/*/node_modules
+        # Exact key only: a tree restored from an older lock would be wrong in ways npm ci never checks.
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}
+    - if: steps.modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci

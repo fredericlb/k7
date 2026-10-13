@@ -114,10 +114,7 @@ jobs:
           path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
+      - uses: ./.github/actions/node
 
       # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image. Electron
       # brings its own GTK at run time and needs none of it to package.
@@ -141,8 +138,6 @@ jobs:
             brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
           done
 
-      # Electron and electron-builder are workspace devDependencies of the tray, and the build scripts are Node.
-      - run: npm ci
 
       # The engine, the supervisor and the tray's installer, in one script — the same one a
       # developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.

@@ -69,14 +69,8 @@ jobs:
           path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc # 22 — the line the vendored runtime is on (v22.23.1)
-          cache: npm
+      - uses: ./.github/actions/node
 
-      # The whole monorepo, so the workspace symlinks resolve @studio/* as source.
-      # Cached by setup-node on package-lock.json.
-      - run: npm ci
 
       # The tray is tested here but not built: its `package` needs the C++ engine, and
       # `engine/st0-engine` declares no `build`/`test` script at all, so nothing below
@@ -132,11 +126,7 @@ jobs:
       - name: unit tests
         run: engine/st0-supervisor/build/dev-gcc/st0_supervisor_tests
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+      - uses: ./.github/actions/node
 
       # The suites find the built `tunnel_harness` and run every case against it as well as the Node agent.
       - name: tunnel conformance
@@ -160,9 +150,5 @@ jobs:
           ref: ${{ steps.commons.outputs.sha }}
           path: commons
           token: ${{ secrets.COMMONS_TOKEN || github.token }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
+      - uses: ./.github/actions/node
       - run: npx biome check apps/st0 engine/st0-tray packages
