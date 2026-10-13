@@ -12,8 +12,11 @@ no image. `.github/workflows/desktop.yml` builds it for the three desktops in tw
 The desktop job compiles nothing: it unpacks the engines job's archive for its platform and hands it
 to the app's staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the
 engine a user runs from the command line and the one inside the app are the same build, byte for byte.
-One platform's failure costs that platform only: a desktop leg waits for every engine leg but runs
-whatever they did, and fails at its own download when its engine is missing.
+One platform's failure costs that platform only. Each platform is one call of
+`.github/workflows/desktop-platform.yml`, whose `desktop` job needs that call's `engine` job and no
+other: a platform whose engine fails skips its own desktop build, and the other two carry on. GitHub
+cannot make one matrix leg wait for the same leg of another matrix, which is why the two stages are a
+reusable workflow called per platform rather than two matrices.
 
 ## Two channels, and what names a file
 
@@ -74,7 +77,9 @@ sets no cap and ninja already uses them all. On Windows it takes Defender off th
 the workspace, the cache and the compilers excluded, real-time scanning off — since it scans every
 file `cl.exe` opens; the runner is discarded after the job, and a refusal leaves the build as it was.
 
-`sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working.
+`sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working. The
+cache step is not fatal: the action downloads sccache from github.com, which a runner sometimes cannot
+reach, and the build then runs uncached — the launcher is set only when the step succeeded.
 
 ## The installer each platform gets
 

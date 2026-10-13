@@ -1,0 +1,174 @@
+# desktop-platform.yml — one desktop's two stages, called once per platform by desktop.yml: its engine, then
+# its desktop app around that engine's archive. One call per platform, so a platform whose engine fails skips
+# its own desktop build and nothing else. See docs/desktop-release.md.
+
+name: desktop platform
+
+on:
+  workflow_call:
+    inputs:
+      os: { type: string, required: true }
+      label: { type: string, required: true }
+      preset: { type: string, required: true }
+      stamp: { type: string, required: true }
+
+jobs:
+  engine:
+    name: engine
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # commons is a private repository: read with COMMONS_TOKEN, at the commit st0 pins — docs/desktop-release.md.
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - uses: ./.github/actions/node
+
+      # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image. Electron
+      # brings its own GTK at run time and needs none of it to package.
+      - name: linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            libssl-dev \
+            libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
+            libcurl4-openssl-dev ladspa-sdk
+
+      # The macos-clang preset generates Ninja; cmake may or may not be on the image already.
+      - name: macos build deps
+        if: runner.os == 'macOS'
+        run: |
+          for f in cmake ninja; do
+            brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
+          done
+
+
+      # cl.exe and ninja for the Ninja preset: what a Visual Studio developer prompt puts on PATH.
+      - name: msvc environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # Defender scans every file cl.exe opens, which a cold Windows build mostly waits on; the runner is discarded after the job.
+      - name: defender off the build
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:LOCALAPPDATA
+          Add-MpPreference -ExclusionProcess cl.exe, link.exe, ninja.exe, sccache.exe, cmake.exe
+          Set-MpPreference -DisableRealtimeMonitoring $true
+
+      # Every core: the build script leaves two free outside Windows, for a developer's machine, which
+      # on a 4-core runner is half of them (engine/st0-engine/scripts/buildLock.mjs).
+      - name: every core to the compiler
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
+
+      # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
+      # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
+      # Not fatal: a runner that cannot download sccache builds uncached rather than not at all.
+      - name: compiler cache
+        id: cache
+        continue-on-error: true
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          variant: sccache
+          key: engine-${{ inputs.label }}
+          max-size: 2G
+
+      # The engine and the supervisor, staged as the command-line engine — the script a developer runs.
+      # See engine/scripts/docs/buildEngine.md.
+      - name: engine + supervisor
+        env:
+          STUDIO_ENGINE_PRESET: ${{ inputs.preset }}
+          STUDIO_SUPERVISOR_PRESET: ${{ inputs.preset }}
+          # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
+          STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
+        run: node engine/scripts/build-engine.mjs
+
+      - name: compiler cache stats
+        if: always()
+        shell: bash
+        run: sccache --show-stats 2>/dev/null || echo 'no compiler cache this run'
+
+      - name: archive
+        run: >
+          node engine/scripts/package-release.mjs --kind engine
+          --stamp ${{ inputs.stamp }}
+
+      # An archive, not the folder: an artifact keeps no executable bit, and the desktop job unpacks this one.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: st0-engine-${{ inputs.label }}
+          path: |
+            dist/release/*.zip
+            dist/release/*.tar.gz
+          if-no-files-found: error
+
+
+  desktop:
+    name: desktop
+    needs: engine
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      - uses: ./.github/actions/node
+
+      # The engines job's binaries for this platform, unpacked where stageEngine takes them from.
+      - uses: actions/download-artifact@v4
+        with:
+          name: st0-engine-${{ inputs.label }}
+          path: ${{ runner.temp }}/engine-archive
+      - name: unpack the engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/engine"
+          for a in "$RUNNER_TEMP"/engine-archive/*; do
+            case "$a" in
+              *.zip) 7z x -y -o"$RUNNER_TEMP/engine" "$a" > /dev/null ;;
+              *) tar -xzf "$a" -C "$RUNNER_TEMP/engine" ;;
+            esac
+          done
+          echo "STUDIO_PREBUILT_BIN=$RUNNER_TEMP/engine/st0-engine" >> "$GITHUB_ENV"
+
+      # The standalone app: st0's frontend and backend bundled, the engine beside them (apps/st0-standalone/docs/standalone.md).
+      - name: desktop app
+        run: npm run package --workspace st0-standalone
+
+      - name: installer
+        run: >
+          node engine/scripts/package-release.mjs --kind desktop
+          --stamp ${{ inputs.stamp }}
+
+      # Uploaded whether or not this run publishes: a dispatch on a side branch is how a change gets tested.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: st0-desktop-${{ inputs.label }}
+          path: dist/release/st0_*
+          if-no-files-found: error
+
