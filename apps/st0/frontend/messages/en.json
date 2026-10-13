@@ -192,6 +192,8 @@
   "libs.publishNotes": "what changed",
   "libs.publishRequires": "lowest st0 level that runs it",
   "libs.published": "@{name} v{version} published",
+  "libs.upgradeReady": "@{name} plays v{from} — v{to} is ready",
+  "libs.upgrade": "Upgrade",
   "wsync.synced": "Synced with {server}",
   "wsync.local": "On this machine only",
   "wsync.server": "On {server} only",

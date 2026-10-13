@@ -40,6 +40,14 @@ than spread from the payload so a key nobody meant to accept cannot ride in. The
 `.strict()` and would refuse it anyway — but refusing a MISSPELLED field loudly is only useful if
 the right ones are named somewhere a reader can find them.
 
+## `library upgrade` asks the host for what it lacks
+
+`fetchLibraryVersion` and `remoteLibraryVersions` are handed in for the reason `runColdStep` is:
+the network and the hub are the file service's, and this package has neither. Without them the verb
+still moves a pin between the versions this machine holds, and refuses one it lacks by name.
+The pins file sits at the workspace root, outside every project folder, so no change token sees it
+change: the verb calls `reload` itself, or the song would keep playing the old version.
+
 ## `renders/` — where a freeze lands
 
 One folder for the lot, at the project root. NOT beside the module's own file: a node's folder is

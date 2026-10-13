@@ -71,15 +71,22 @@ drums: 2
 
 ## Upgrade
 
-- **The source is the server.** `GET /api/libraries` lists each library's versions with `requires`
-  and notes; a version downloads as one archive. It is readable without signing in, so an unpaired
-  desktop can upgrade too. A frozen version caches forever.
+- **The source is the server.** `/api/public/libraries` lists the versions of `st0` with `requires`
+  and notes, each version's files with their digests, and each file. It is readable without signing
+  in, so an unpaired desktop can upgrade too; only `st0`, the library every install starts from,
+  since any other reaches a machine through a paired account. A version comes down FILE by file
+  rather than as one archive: most files do not change between two versions, and one whose digest
+  the machine already holds is copied instead of downloaded. A frozen version caches forever.
+- **Only a machine that names an origin asks one** (`STUDIO_LIBRARY_ORIGIN`, set by the desktop and
+  phone table). A hosted origin never does: it IS one, and the private instance asking `st0.app`
+  would mix two origins' libraries.
 - **First run is the installer's archive.** The desktop and the phone bundle one published version of
   `st0` as an archive and install it as that version on first run, with no network. The seed folder
   is that archive, nothing else.
-- **Upgrade is a per-workspace action**: "st0 library 7 → 9" fetches the version if the machine
-  lacks it, then rewrites the pin. It lists the account-library forks whose base changed between the
-  two versions, so the user reviews them.
+- **Upgrade is a per-workspace action**, the verb `library upgrade <library> [version]` and the
+  strip above the editor's file tree: it fetches the version if the machine lacks it, then rewrites
+  the pin and recompiles the song. It lists the forks whose base changed between the two versions —
+  `_modules` today, the account library once it exists — so the user listens to them again.
 - **Too old is refused.** A version whose `requires` exceeds the running level is shown disabled with
   "needs st0 level N — update st0", and the newest version the app can run is offered instead.
 - A paired machine no longer follows a library live: it fetches the versions its workspaces pin,
@@ -117,10 +124,12 @@ library and every workspace, and runs at the highest level, so latest, old and f
    folder, and `ensureLibraryPins` (`../packages/file-service/src/libraryPins.ts`) writes it on
    workspace creation and on the first open.
 3. **Built:** Publish on the Libraries page, `POST /account/libraries/<name>/publish`, and each
-   library's versions in `GET /account/libraries`. **Remains, with lot 4 that consumes them:** the
-   listing readable without signing in, and a version's archive download.
-4. Upgrade: the per-workspace action, the `requires` gate, the list of forks whose base moved; paired
-   machines fetch pinned versions instead of following the relay.
+   library's versions in `GET /account/libraries`.
+4. **Built:** `library versions` and `library upgrade` (`../packages/commands/src/verbs/library.ts`),
+   the strip above the file tree, the public listing and per-file download
+   (`../packages/file-hub/publicLibraries.ts`, `libraryFetch.ts`). **Remains:** a paired machine still
+   follows each library whole through the relay, every version and the draft included; fetching
+   only what its workspaces pin is a disk saving, not a correctness one.
 5. The installer's archive replaces the seed folder on the desktop and the phone.
 6. `@account`: the folder, its sync room, Fork into it, its place in resolution.
 7. Engines report their level; open warns below `requires`.

@@ -12,6 +12,7 @@ import { loadCurves } from "@studio/song/curves";
 import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import { accountLibraries } from "@studio/song/sharedFolders";
 import { alternativesOf } from "@studio/song-schema/alternatives";
 import {
   completionOrder,
@@ -143,6 +144,8 @@ const PROVIDERS = {
   },
   // Marker names for `project marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
   markerNames: (h) => h.project().markers.map((m) => m.name),
+  /** The origin's libraries this machine holds, by name. */
+  libraries: () => accountLibraries().map((l) => l.name),
   /** The workspace's set lists, off `repoDir` and never `songPath` — see docs/completions.md. */
   playlists: (h) => {
     const root = h.repoDir;
@@ -436,6 +439,8 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   samples: "file",
   // A playlist IS its file: no marker inside a folder, the extension is the whole rule.
   playlists: "file",
+  // A library is a name from the origin's list, not a path.
+  libraries: "choice",
   // A lane IS its file too, the same way — video_tracks/<id>.yaml, and the id is the stem.
   pictureLanes: "file",
   // Not "file": the surface's file does not exist yet — naming its type is what creates it.
@@ -480,6 +485,8 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   samples:
     "a sample a library or this project holds under samples/ (@<library>/<path>, @project/<path>)",
   playlists: "a set list of this repository (_playlists/<name>.yaml)",
+  libraries:
+    "one of the origin's libraries, as its refs name it (@<library>/…)",
   pictureLanes: "a picture lane of this song (video_tracks/<id>.yaml)",
   surfaceTypes:
     "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",

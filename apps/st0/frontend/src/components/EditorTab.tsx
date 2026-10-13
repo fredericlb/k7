@@ -93,6 +93,7 @@ import type { EditTarget } from "./ClipView";
 import { ConflictBanner } from "./ConflictsPanel";
 import { EditorPane } from "./EditorPane";
 import { FileTree, type FileTreeHandle } from "./FileTree";
+import { LibraryUpgrades } from "./LibraryUpgrades";
 import type { MinimapItem } from "./Minimap";
 import { ModuleSidePane } from "./ModuleSidePane";
 import { SeqGrid } from "./SeqGrid";
@@ -1398,6 +1399,13 @@ export function EditorTab({
                 : "w-64 shrink-0 bg-card/40",
             )}
           >
+            <LibraryUpgrades
+              levels={libraries}
+              onUpgrade={async (ns, version) => {
+                await command(`library upgrade ${ns} ${version}`);
+                await refreshLibraries();
+              }}
+            />
             <FileTree
               ref={treeRef}
               tree={tree}

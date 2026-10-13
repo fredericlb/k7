@@ -1254,6 +1254,34 @@
       },
     ]
 
+# --- which version of each library the workspace plays (see docs/library-versions-plan.md) ---
+# The pin is the WORKSPACE's, in `_library-pins.yaml`, so neither verb needs a project open.
+# Upgrading never changes a fork: it names the `_modules` ones whose base moved, to listen again.
+- command: "library versions"
+  sid: library.versions
+  readable:
+    en: "Show the library versions this workspace plays"
+    fr: "Versions des bibliothèques jouées par cet espace"
+  help: "each library: the version pinned here, the versions this machine holds, and whether a newer one is ready"
+  surfaces: [cli]
+  args: []
+- command: "library upgrade"
+  sid: library.upgrade
+  readable:
+    en: "Move this workspace to another library version"
+    fr: "Passer cet espace à une autre version de bibliothèque"
+  help: "move the pin (e.g. library upgrade st0, or library upgrade st0 3) — unsaid, the newest version this st0 runs; a version that needs a newer st0 is refused"
+  surfaces: [cli]
+  args:
+    [
+      { name: library, complete: libraries },
+      {
+        name: version,
+        optional: true,
+        hint: "a version number, or draft — unsaid, the newest this st0 runs",
+      },
+    ]
+
 # --- the workspace's set lists (see @studio/song's docs/playlists.md) ---
 # A playlist belongs to the REPOSITORY rather than to a song: it lives in `_playlists/` at the
 # workspace root, so these two are the only verbs here that need no project open. The songs

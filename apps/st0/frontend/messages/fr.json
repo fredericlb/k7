@@ -192,6 +192,8 @@
   "libs.publishNotes": "ce qui a changé",
   "libs.publishRequires": "plus petit niveau de st0 qui la lit",
   "libs.published": "@{name} v{version} publiée",
+  "libs.upgradeReady": "@{name} joue la v{from} — la v{to} est prête",
+  "libs.upgrade": "Mettre à jour",
   "wsync.synced": "Synchronisé avec {server}",
   "wsync.local": "Sur cette machine seulement",
   "wsync.server": "Sur {server} seulement",

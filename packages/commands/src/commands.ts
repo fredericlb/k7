@@ -252,6 +252,7 @@ import { ENGINE_VERBS } from "./verbs/engine.ts";
 import { EVENT_PROCESS_VERBS } from "./verbs/eventProcess.ts";
 import { EVENTS_REMOVE_VERBS } from "./verbs/eventsRemove.ts";
 import { EVENT_TAKE_VERBS } from "./verbs/eventTakes.ts";
+import { LIBRARY_VERBS } from "./verbs/library.ts";
 import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
@@ -323,6 +324,12 @@ export interface CommandHost {
   /** Send one recorder take to the médiathèque. Handed in, because the bytes are on the ENGINE's
    *  machine and only the file service is there — packages/song/docs/recorderNode.md. */
   saveTake?(file: string, label?: string): Promise<string>;
+  /** Bring version `version` of library `name` onto this machine; a reason when it cannot — ../../../docs/library-versions-plan.md. */
+  fetchLibraryVersion?(name: string, version: number): Promise<string | null>;
+  /** …and the versions the origin publishes of it, for a machine choosing an upgrade it has not fetched. */
+  remoteLibraryVersions?(
+    name: string,
+  ): Promise<{ version: number; requires: number }[]>;
   /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/render.md. */
   renderer?: Renderer;
 }
@@ -3265,6 +3272,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // --- what this MACHINE is, and what the REPOSITORY holds: the two groups that left, docs/verbs.md
   ...SYSTEM_VERBS,
   ...PLAYLIST_VERBS,
+  ...LIBRARY_VERBS,
   // …and the song's PICTURE, which had a mouse and no verbs at all — docs/picture.md.
   ...PICTURE_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.

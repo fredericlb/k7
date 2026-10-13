@@ -104,15 +104,19 @@ export function libraryManifest(
   }
 }
 
-/** The newest published version of `name` a st0 at `level` runs; a version with no manifest asks for nothing. */
+/** The newest version of `name` a st0 at `level` runs, here or among `remote` (the origin's); a version with no manifest asks for nothing. */
 export function newestRunnableVersion(
   name: string,
+  remote: readonly { version: number; requires: number }[] = [],
   level = LIBRARY_LEVEL,
 ): number {
-  const runnable = libraryVersions(name).filter(
-    (v) => (libraryManifest(name, v)?.requires ?? 1) <= level,
-  );
-  return runnable.length ? runnable[runnable.length - 1] : UNPINNED_VERSION;
+  const runnable = [
+    ...libraryVersions(name).filter(
+      (v) => (libraryManifest(name, v)?.requires ?? 1) <= level,
+    ),
+    ...remote.filter((r) => r.requires <= level).map((r) => r.version),
+  ];
+  return runnable.length ? Math.max(...runnable) : UNPINNED_VERSION;
 }
 
 /** The folder version `v` of library `name` is read from; a library still in one folder is every version of itself. */

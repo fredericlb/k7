@@ -30,7 +30,7 @@ import {
   webCompletions,
 } from "../engineLink.ts";
 import { refreshLibraries } from "../libraries.ts";
-import { ensureLibraryPins } from "../libraryPins.ts";
+import { ensureLibraryPins, libraryVersionsAt } from "../libraryPins.ts";
 import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
@@ -137,8 +137,16 @@ filesRouter.post(
 /** The module libraries this project can reach, in precedence order — see docs/fileRoutes.md. */
 filesRouter.get(
   "/module-libraries",
-  wrap((req, res) => {
-    res.json({ libraries: req.ws!.moduleLibraries() });
+  wrap(async (req, res) => {
+    const ws = req.ws!;
+    // A library row carries its version too: what this workspace plays, and what it could move to.
+    const versions = await libraryVersionsAt(ws.activeProjectPath() ?? ws.root);
+    res.json({
+      libraries: ws.moduleLibraries().map((l) => {
+        const version = versions.get(l.ns);
+        return version ? { ...l, version } : l;
+      }),
+    });
   }),
 );
 

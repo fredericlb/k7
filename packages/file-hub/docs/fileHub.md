@@ -112,8 +112,13 @@ and whether it has a draft; `PUT` the list (`{ libraries: [{ name }] }`), for ad
 otherwise; `POST /account/libraries/<name>/publish` (`{ requires?, notes? }`), for admins, freezes
 the draft as the next version.
 
-The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves one
-route, `POST /libraries/sync`: the folders made sure of before an open. Its gate is the hub secret
+The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves two
+routes: `POST /libraries/sync`, the folders made sure of before an open — and, given a `version`,
+that version brought down from the origin (`../libraryFetch.ts`); and `POST /libraries/remote`, the
+versions the origin publishes, which only a hub naming `$STUDIO_LIBRARY_ORIGIN` asks for.
+
+`/api/public/libraries` (`../publicLibraries.ts`) is the origin's side of that: the published
+versions of `st0`, their files and digests, with no session, never the draft. Its gate is the hub secret
 of one of the hub's own instances — the secret that already proves the other direction.
 
 ## An engine is bound by a CLAIM

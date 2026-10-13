@@ -556,6 +556,8 @@ export type ArgProvider =
   | "categories"
   | "chains"
   | "clipTargets"
+  // One of the origin's libraries, by name — what `library upgrade` moves the pin of.
+  | "libraries"
   // An automation CURVE of this project, by id — what `node automate` points a param at.
   | "curves"
   | "markerNames"
@@ -566,7 +568,7 @@ export type ArgProvider =
   | "nodes"
   // A PICTURE lane of this song — video_tracks/<id>.yaml, read off the folder rather than the compile.
   | "pictureLanes"
-  // A set list of the REPOSITORY — the one provider that reads nothing of the open project.
+  // A set list of the REPOSITORY — with `libraries`, a provider that reads nothing of the open project.
   | "playlists"
   // A sample a rack tap may play — a library's or this project's `samples/`, packages/song/docs/libraryFiles.md.
   | "samples"
@@ -878,6 +880,8 @@ export interface ModuleLibrary {
   wavetables?: FileNode[];
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
+  /** For one of the origin's libraries: the version this workspace plays, and the newest this st0 could move to. */
+  version?: { pinned: number | "draft"; upgrade?: number };
 }
 
 /** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
