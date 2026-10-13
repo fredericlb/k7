@@ -1,0 +1,30 @@
+{
+  "name": "@studio/k7x",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "k7x, the Strudel-looking text format of a workspace's files: parsed, never evaluated, edited value by value so every other byte stays. No node:, so a browser may have it. Consumed as source.",
+  "exports": {
+    "./ast": "./src/ast.ts",
+    "./parse": "./src/parse.ts",
+    "./print": "./src/print.ts",
+    "./document": "./src/edit.ts",
+    "./from-yaml": "./src/fromYaml.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
