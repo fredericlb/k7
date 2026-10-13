@@ -46,14 +46,12 @@ this tree as a bump of that one path.
 ## The presets a runner can actually use
 
 `STUDIO_ENGINE_PRESET` overrides the host's default preset in
-`engine/st0-tray/scripts/build-engine.mjs`, and Windows is why it exists. The dev machine builds
-with `windows-msvc`, whose generator is Visual Studio 18 2026; the runner image carries Visual
-Studio 2022, and a generator cannot be overridden on the command line once a preset is chosen.
-`windows-msvc-2022` in `engine/st0-engine/CMakePresets.json` inherits from `windows-msvc` and
-changes the generator alone, so the two stay in step.
-
-macOS and Linux take their host default (`macos-clang`, `release-gcc`) and name it anyway, so
-the matrix says out loud what each leg builds.
+`engine/st0-tray/scripts/build-engine.mjs`. Every leg names its host default anyway —
+`windows-msvc`, `macos-clang`, `release-gcc` — so the matrix says out loud what each leg builds.
+Windows builds with Visual Studio 2026 like the dev machine, which `windows-latest` carries
+(`windows-2025-vs2026`); a generator cannot be overridden on the command line once a preset is
+chosen, so a runner image without it fails at configure with "could not find any instance of
+Visual Studio".
 
 ## The installer each platform gets
 
@@ -150,8 +148,7 @@ job match accepts the job, so the Docker executor must not accept this one eithe
 executor first, or narrow the Docker one's match.
 
 It overrides no preset, so the agent builds with the host default, `windows-msvc` (Visual Studio
-2026), exactly as the machine does by hand. `windows-msvc-2022` is for GitHub's runner only: on an
-agent without VS 2022 its generator is "could not find any instance of Visual Studio".
+2026), exactly as the machine does by hand and as GitHub's runner does.
 
 **build android app** keeps the same cadence — nightly at 02:00, skipped on a day without commits —
 and publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is a native build of the

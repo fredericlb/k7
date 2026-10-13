@@ -13,3 +13,7 @@ target_compile_definitions(studio_surge PRIVATE ${STUDIO_SURGE_RENAMES})
 target_compile_options(studio_surge PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/Zc:char8_t->
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fno-char8_t>)
+# Surge turns SSE4.1 on for its own directory only, and its filters' headers refuse to compile without it on x86 GCC/Clang.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$" AND NOT MSVC)
+    target_compile_options(studio_surge PRIVATE -msse4.1 -mfpmath=sse)
+endif()

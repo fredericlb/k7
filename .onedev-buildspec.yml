@@ -463,7 +463,7 @@ jobs:
 # runs it, on an agent its AGENT SELECTOR picks by OS — docs/desktop-release.md.
 #
 # No preset override: the agent builds with the host default, windows-msvc (Visual Studio 2026), as
-# a developer does. windows-msvc-2022 is GitHub's runner's, and fails where VS 2022 is absent.
+# a developer does and as GitHub's runner does.
 #
 # cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
 # is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.

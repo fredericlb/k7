@@ -88,11 +88,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # windows-msvc-2022, not windows-msvc: the runner image carries Visual Studio 2022,
-          # and the VS 18 2026 generator the dev machine uses is not there to select.
+          # windows-latest is the windows-2025-vs2026 image: Visual Studio 2026, the dev machine's own.
           - os: windows-latest
             label: windows-x64
-            preset: windows-msvc-2022
+            preset: windows-msvc
           # macos-latest is arm64. An Intel build is one more entry here (preset macos-clang,
           # os macos-13); nobody has asked for one, and a macOS runner minute is the dearest.
           - os: macos-latest

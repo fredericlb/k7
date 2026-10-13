@@ -61,13 +61,6 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
     },
     {
-      "name": "windows-msvc-2022",
-      "displayName": "Windows (MSVC 2022) — CI",
-      "description": "The same build as windows-msvc against the toolset a GitHub runner actually carries: its images ship Visual Studio 2022 (v17), and the VS 18 2026 generator is not there to select. Nothing else differs — a generator cannot be overridden on the command line once a preset is chosen, which is why this is a preset rather than a flag. Kept in step with windows-msvc by inheriting it.",
-      "inherits": "windows-msvc",
-      "generator": "Visual Studio 17 2022"
-    },
-    {
       "name": "macos-clang",
       "displayName": "macOS (AppleClang)",
       "description": "Native macOS build for real low-latency audio (CoreAudio). Unlike the dev presets this does NOT pin a compiler: on Darwin, CMake already resolves cc/c++ to Xcode's AppleClang, whereas hard-pinning bare 'clang' would grab a Homebrew LLVM if one shadows it on PATH — the opposite of the drift the pinning elsewhere prevents. Inherits base's Ninja generator rather than the Xcode one, which needs a full Xcode.app and not just the Command Line Tools. Needs: brew install cmake ninja. ASIO is Windows-only, so none of that SDK wiring applies here.",
@@ -98,7 +91,6 @@
     { "name": "asan",          "configurePreset": "asan",          "targets": ["st0-engine"] },
     { "name": "release-gcc",   "configurePreset": "release-gcc",   "targets": ["st0-engine"] },
     { "name": "windows-msvc",  "configurePreset": "windows-msvc",  "targets": ["st0-engine"], "configuration": "RelWithDebInfo" },
-    { "name": "windows-msvc-2022", "configurePreset": "windows-msvc-2022", "targets": ["st0-engine"], "configuration": "RelWithDebInfo" },
     { "name": "macos-clang",   "configurePreset": "macos-clang",   "targets": ["st0-engine"] },
     { "name": "android-arm64", "configurePreset": "android-arm64", "targets": ["st0-engine"] }
   ]
