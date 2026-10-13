@@ -10,7 +10,7 @@ import {
   type ModuleIssue,
   parseModule,
 } from "@studio/song-schema/yaml/moduleFile";
-import { wsExists } from "./workspaceFile";
+import { wsExists, wsIssues } from "./workspaceFile";
 import { settledParse } from "./yamlCache";
 
 export interface ModuleFile {
@@ -133,7 +133,9 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   return {
     // Cloned: the loaders write `ui` and `cc` onto what they get, and the parse is shared.
     value: value ? structuredClone(value as Record<string, unknown>) : null,
-    issues: issues.map((i: ModuleIssue) => formatIssue(file.rel, i)),
+    issues: wsIssues(file.path, issues).map((i: ModuleIssue) =>
+      formatIssue(file.rel, i),
+    ),
   };
 }
 

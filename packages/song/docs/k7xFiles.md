@@ -45,9 +45,10 @@ as edits.
 
 ## Known limits
 
-- **A validation message's line is the YAML view's.** A module or graph refused by its schema
-  names the right file and a line counted in the YAML `toYaml` produced, not in the k7x text.
-- **The editor shows a `.k7x` file as plain text**: no highlighting, no completion, no lint yet
-  (phase 5).
+- **A finding's line is computed from its key path.** A parser runs on the YAML view, so the
+  module, graph, cue-sheet and chain loaders place each finding back on the k7x text by its path
+  (`wsIssues`, `packages/song-schema/src/yaml/k7xIssues.ts`). A finding with no path has no line.
+- **Entity links and the preview gutter read YAML only**: a `.k7x` file gets colours, completion
+  and lint, not the click-through to a referenced file or the ▶ beside a sample.
 - **Both spellings in one folder** list twice where code counts files, though only the k7x one is
   read.

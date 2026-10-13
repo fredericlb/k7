@@ -51,6 +51,7 @@
     "./yaml/trackFile": "./src/yaml/trackFile.ts",
     "./yaml/uiFile": "./src/yaml/uiFile.ts",
     "./yaml/validate": "./src/yaml/validate.ts",
+    "./yaml/k7xIssues": "./src/yaml/k7xIssues.ts",
     "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts"
   },
   "scripts": {
@@ -66,6 +67,7 @@
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
     "@studio/engine-protocol": "*",
+    "@studio/k7x": "*",
     "@studio/web-protocol": "*"
   },
   "devDependencies": {

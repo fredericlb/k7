@@ -13,6 +13,8 @@ import {
 } from "node:fs";
 import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
+import { relocateIssues } from "@studio/song-schema/yaml/k7xIssues";
+import type { ModuleIssue } from "@studio/song-schema/yaml/moduleFile";
 
 export const K7X_EXT = ".k7x";
 const YAML_NAME = /\.ya?ml$/i;
@@ -80,6 +82,13 @@ export function wsCopy(from: string, to: string): void {
 }
 
 export const wsStat = (path: string) => statSync(realPath(path));
+
+/** A parser's findings on a file read through wsRead, placed on the .k7x file's own lines when that is the file. */
+export function wsIssues(path: string, issues: ModuleIssue[]): ModuleIssue[] {
+  const real = realPath(path);
+  if (!issues.length || !isK7xPath(real)) return issues;
+  return relocateIssues(readFileSync(real, "utf8"), issues);
+}
 
 /** A folder's entry names with every .k7x file under its YAML name, so a `.yaml` filter keeps finding it. */
 export function wsList(dir: string): string[] {

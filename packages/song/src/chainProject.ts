@@ -34,7 +34,13 @@ import {
   resolveLink,
   subKey,
 } from "./chainScope";
-import { wsExists, wsRead, wsRemove, wsWrite } from "./yaml/workspaceFile";
+import {
+  wsExists,
+  wsIssues,
+  wsRead,
+  wsRemove,
+  wsWrite,
+} from "./yaml/workspaceFile";
 
 /** One node as the loader sees it: where it sits, and what it says. */
 export interface ChainNode {
@@ -90,7 +96,7 @@ export function readChainProject(dir: string): ChainProject {
     const name = m[1];
     const text = wsRead(join(folder, f));
     const { value, issues } = parseChain(text);
-    for (const i of issues)
+    for (const i of wsIssues(join(folder, f), issues))
       out.issues.push(
         `${CHAINS_DIR}/${f}${i.line ? `:${i.line}:${i.col}` : ""}: ${i.path ? `${i.path}: ` : ""}${i.message}`,
       );

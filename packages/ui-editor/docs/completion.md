@@ -145,3 +145,20 @@ A flow sequence past its first element — `bypassed: [a, ` — is read as a key
 the line's last structural break is the comma and there is no colon after it. The first element
 (`bypassed: [a`) completes, since the break is then the `: `. Nobody has hit this: these files
 are written in block form, and block form is what is covered.
+
+## The same vocabulary for a .k7x file
+
+A `.k7x` file (`packages/k7x/docs/language.md`) is completed from the very `YamlVocabulary` a YAML
+one is: `fileKindFor` reads `nodes/pad.k7x` as `nodes/pad.yaml`, so the schema's fields and the
+project's values cannot differ between the two formats. What differs is only WHERE the cursor
+sits, and that is `src/k7x/cursor.ts`.
+
+It is a scan of the text before the cursor, not a parse, because completion runs on text the k7x
+parser refuses — an open bracket, a half-typed key. The scan only needs the brackets still open: a
+call's `(` makes the cursor that key's value, `{` an object's keys until `:`, `[` a list's items, and
+a word at a value position the head of a chain whose keys sit under the value's key. It answers
+the four things the YAML mode's `cursorContext` answers, list items included, so `inSeqItem`
+offers a list's values and its items' keys at once, as `- ` does in YAML.
+
+A value is a string in k7x, so one is offered quoted, unless the cursor is already inside the
+quotes, where it is offered bare from just after the opening one.

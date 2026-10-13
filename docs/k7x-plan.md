@@ -45,8 +45,10 @@ reason:
 4. **live-sync over k7x** — a `.k7x` change is a `k7x` op: the same key paths and natural list keys
    (`packages/live-sync/src/listKeys.ts`), diffed on the k7x tree, replayed byte for byte, checked
    and set aside by the room like a YAML op (`packages/live-sync/docs/ops.md`). Done.
-5. **The editor** — highlighting and completions for `.k7x`, derived from the same zod schemas as
-   today's (`packages/song-schema/docs/fields.md`).
+5. **The editor** — a `.k7x` file has its own colours (`packages/ui-editor/src/k7x/language.ts`),
+   completion from the same zod-derived vocabulary as YAML (`packages/ui-editor/docs/completion.md`),
+   and the same check before autosave, its findings placed on the k7x text's own lines — in the
+   browser and in the loader's messages alike. Done.
 6. **Conversion** — `demos/` and `st0-library/` in one commit each; stored workspaces by a one-shot
    pass per account through the file service, which converts a file only when it reads back equal
    and keeps the original beside it until that account's next sync confirms the copy.

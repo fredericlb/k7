@@ -75,7 +75,8 @@ export type FileKind =
 
 /** Which kind a project-relative path is, or null — by FOLDER and not by extension, see docs/fields.md. */
 export function fileKindFor(path?: string): FileKind | null {
-  const p = (path ?? "").replace(/\\/g, "/");
+  // A .k7x file is the same kind as its YAML spelling (packages/k7x/docs/language.md).
+  const p = (path ?? "").replace(/\\/g, "/").replace(/\.k7x$/i, ".yaml");
   if (!p) return null;
   if (/(^|\/)modules\//.test(p)) return "module";
   if (/(^|\/)nodes\//.test(p)) return "module";

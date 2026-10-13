@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
+import { moduleFileFor, readModuleFile } from "./moduleIO";
 import {
   realPath,
   wsCopy,
@@ -75,6 +76,18 @@ describe("a workspace file by its YAML name", () => {
     expect(existsSync(join(dir, "pad.k7x"))).toBe(false);
     wsRemove(join(dir, "bass.yaml"));
     expect(wsExists(join(dir, "bass.yaml"))).toBe(false);
+  });
+
+  it("names a .k7x module's finding by the k7x file and the k7x line", () => {
+    writeFileSync(
+      join(dir, "pad.k7x"),
+      '// a node\nextends("@workspace/x")\n\nnonsense(1)\n',
+    );
+    const file = moduleFileFor(dir, "nodes", "pad");
+    expect(file?.rel).toBe("nodes/pad.k7x");
+    const read = readModuleFile(file as NonNullable<typeof file>);
+    expect(read.issues).toHaveLength(1);
+    expect(read.issues[0]).toMatch(/^nodes\/pad\.k7x:4:/);
   });
 
   it("lists a .k7x file under its YAML name, once", () => {

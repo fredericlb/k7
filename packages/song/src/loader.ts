@@ -106,7 +106,7 @@ import {
   nodeFiles,
   readModuleFile,
 } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { wsExists, wsIssues, wsRead, wsWrite } from "./yaml/workspaceFile";
 import { parsedYaml } from "./yaml/yamlCache";
 
 // The module vocabulary lives in moduleTypes.ts, a leaf with no filesystem; re-exported here where every consumer looks.
@@ -838,7 +838,7 @@ export function loadChains(
   const { value, issues } = parseGraphYaml(wsRead(file.path));
   if (issues.length && validate)
     throw new Error(
-      `invalid chains:\n  ${issues
+      `invalid chains:\n  ${wsIssues(file.path, issues)
         .map((i) => formatIssue(file.rel, i))
         .join("\n  ")}`,
     );
@@ -852,7 +852,7 @@ export function loadCuedSongs(dir: string, validate = false): string[] {
   const { value, issues } = parseMixYaml(wsRead(file.path));
   if (issues.length && validate)
     throw new Error(
-      `invalid cue sheet:\n  ${issues
+      `invalid cue sheet:\n  ${wsIssues(file.path, issues)
         .map((i) => formatIssue(file.rel, i))
         .join("\n  ")}`,
     );
