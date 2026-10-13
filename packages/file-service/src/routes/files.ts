@@ -6,6 +6,7 @@ import { join, resolve, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { K7X_BACKUP_DIR, migrateToK7x } from "@studio/song/k7xMigrate";
+import { k7xEverywhere } from "@studio/song/yaml/workspaceFile";
 import { listNodePresets } from "@studio/song-edit/presets";
 import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import { NEEDS_META } from "@studio/take-render/render";
@@ -1112,10 +1113,10 @@ filesRouter.post(
   validate(k7xBody),
   wrap(async (req, res) => {
     const dryRun = (req.body as z.infer<typeof k7xBody>).dryRun === true;
-    if (!dryRun && process.env.STUDIO_K7X_MIGRATE !== "1") {
+    if (!dryRun && !k7xEverywhere()) {
       res.status(409).json({
         error:
-          "k7x conversion is off: set STUDIO_K7X_MIGRATE=1 once every desktop and phone build reads .k7x",
+          "k7x conversion is off: set STUDIO_K7X=1 once every desktop and phone build reads .k7x",
       });
       return;
     }

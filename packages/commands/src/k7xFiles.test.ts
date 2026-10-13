@@ -146,4 +146,20 @@ describe("a workspace converted to .k7x", () => {
     );
     expect(strays.map((f) => relative(k7xRoot, f))).toEqual([]);
   });
+
+  it("creates a new node as .k7x once k7x is everywhere, compiling as the YAML one does", async () => {
+    const name = "synth-demo.st0";
+    const line = "node new @workspace/audio/compressor squash";
+    const a = await run(yamlRoot, name, line);
+    process.env.STUDIO_K7X = "1";
+    try {
+      expect(await run(k7xRoot, name, line)).toEqual(a);
+    } finally {
+      delete process.env.STUDIO_K7X;
+    }
+    expect(existsSync(join(yamlRoot, name, "nodes", "squash.yaml"))).toBe(true);
+    expect(existsSync(join(k7xRoot, name, "nodes", "squash.k7x"))).toBe(true);
+    expect(existsSync(join(k7xRoot, name, "nodes", "squash.yaml"))).toBe(false);
+    expect(compiled(k7xRoot, name)).toBe(compiled(yamlRoot, name));
+  });
 });

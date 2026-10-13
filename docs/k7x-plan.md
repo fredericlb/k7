@@ -53,11 +53,18 @@ reason:
    `packages/song/scripts/migrateK7x.ts`, every file checked to read back to the same data. Stored
    workspaces convert through the file service's `POST /migrate-k7x`, one account at a time, the
    originals kept in the workspace's hidden `.k7x-backup/` (`packages/song/docs/k7xFiles.md`). That
-   route refuses a real run until `STUDIO_K7X_MIGRATE=1`: turning it on, once every shipped build
+   route refuses a real run until `STUDIO_K7X=1`: turning it on, once every shipped build
    reads `.k7x`, is the step this phase leaves to the deploy.
-7. **YAML removed** — new files are written as `.k7x` and `.yaml` is no longer looked up. Readers
-   still receive YAML text through the bridge; each moves to reading k7x data directly as it is next
-   touched, and `yaml` leaves a package once none of its readers needs the bridge.
+7. **YAML retired**, in two steps that do not share a risk.
+   - **New files as `.k7x`**: with `STUDIO_K7X=1`, a file created through the workspace door — a
+     command, the editor, the module scaffold, a `.dawproject` import — is written as `.k7x`
+     (`packages/song/docs/k7xFiles.md`). The same switch as the migration, since both are safe exactly
+     when every device reads k7x. Done.
+   - **`.yaml` no longer looked up**: only once every workspace has migrated, since it makes any YAML
+     left anywhere unreadable — and the repository's own tests write their fixtures as YAML, which
+     would first move to k7x or to the YAML copy `testSupport` gives. Readers still receive YAML text
+     through the bridge; each moves to reading k7x data directly as it is next touched, and `yaml`
+     leaves a package once none of its readers needs the bridge.
 8. **Sugar, kind by kind** — forms only one kind of file has, read by that kind's reader into the
    same data: mini-notation for a sequence's notes, `.to(…)` for the graph's segments. Each is
    optional to write, and none changes the data a schema sees.

@@ -4,11 +4,12 @@
 // process against the loader's own schemas. Layout + mapping: docs/import.md.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { scannedPlugins } from "@studio/song/engineCatalogue";
 import { SHARED_STRIP } from "@studio/song/scaffoldLive";
 import { SHARED_MODULES_PATH } from "@studio/song/sharedFolders";
+import { wsWrite } from "@studio/song/yaml/workspaceFile";
 import { materialWindow } from "@studio/song-edit/materialWindow";
 import {
   MIX_NODE,
@@ -78,8 +79,8 @@ const paramsOf = (
 
 function writeFile(path: string, content: string | Uint8Array): void {
   mkdirSync(dirname(path), { recursive: true });
-  if (typeof content === "string") writeFileSync(path, content, "utf8");
-  else writeFileSync(path, content);
+  // Through the workspace door, so an imported project is written in the format new files take (song's k7xFiles.md).
+  wsWrite(path, content);
 }
 
 // Real name -> a snake_case, filesystem-safe base. Every file created on import is named this way.

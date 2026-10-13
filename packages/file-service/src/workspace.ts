@@ -129,7 +129,13 @@ import {
 } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
-import { isK7xPath, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import {
+  isK7xPath,
+  realPath,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import {
   ENGINE_NS,
   type ModuleNamespace,
@@ -1512,15 +1518,12 @@ export class Workspace {
     const dir = this.safePath(`${root}/${segs.join("/")}`);
     this.assertLibraryWritable(dir, "create a module in");
     const file = join(dir, "module.yaml");
-    if (existsSync(file)) throw new Error(`${this.toRel(file)} already exists`);
+    if (wsExists(file))
+      throw new Error(`${this.toRel(realPath(file))} already exists`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      file,
-      `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`,
-      "utf8",
-    );
+    wsWrite(file, `# ${segs[segs.length - 1]}\nplugin:\n  type: \n  name: \n`);
     this.invalidateProjectDoc();
-    return { path: this.toRel(file), dir: this.toRel(dir) };
+    return { path: this.toRel(realPath(file)), dir: this.toRel(dir) };
   }
 
   /** The named bases the module at `rel` may be set to, ancestors included — docs/workspace.md. */

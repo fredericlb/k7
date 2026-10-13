@@ -21,8 +21,13 @@ comments and its layout, through every command.
 
 - **`.k7x` wins.** A folder holding both `graph.yaml` and `graph.k7x` reads the k7x one. A folder
   half converted is still one project, never two answers.
-- **A new file is YAML.** A write to a name with no file of either format creates the `.yaml`. New
-  files start as k7x only when YAML is retired (phase 7 of the plan).
+- **A new file follows the deploy switch.** A write to a name with no file of either format creates
+  the `.yaml` — or, once `STUDIO_K7X=1` says every device reads k7x, the `.k7x`, provided its text
+  converts to the same data (a list at the root does not, and stays YAML). An existing YAML file
+  is never converted by being written: that is the migration's job, with its backup.
+- **A machine's own files are no workspace's.** `preferences.yaml` under the studio home is read and
+  written with plain file calls, never through this module, so no switch ever turns it into k7x
+  for the other processes that read it.
 - **A copy or a rename keeps the format**: a `.k7x` node duplicated is a `.k7x` node.
 - **A lookup returns the real path.** `moduleFileFor`, `entityFiles` and `nodeFiles` answer
   `nodes/lead.k7x` when that is the file, so a message names the file the person will open.
@@ -58,7 +63,7 @@ Two callers: `scripts/migrateK7x.ts` for the repository's folders, dry by defaul
 service's `POST /migrate-k7x` for an account's workspace, which keeps the originals in the
 workspace's hidden `.k7x-backup/<time>/` — never shown, never synced, never converted again.
 
-**The route refuses a real run unless `STUDIO_K7X_MIGRATE=1`.** A converted file reaches every
+**The route refuses a real run unless `STUDIO_K7X=1`.** A converted file reaches every
 replica through the relay, and a desktop or phone on a build older than k7x cannot read it. Only
 whoever deploys knows when every shipped build reads `.k7x`, so the switch is theirs; a dry run is
 always allowed, to see what would happen.

@@ -67,6 +67,25 @@ describe("a workspace file by its YAML name", () => {
     expect(existsSync(join(dir, "graph.k7x"))).toBe(false);
   });
 
+  it("writes a new file as k7x once k7x is everywhere, unless its text does not convert", () => {
+    process.env.STUDIO_K7X = "1";
+    try {
+      wsWrite(join(dir, "graph.yaml"), "modules: {}\n");
+      expect(readFileSync(join(dir, "graph.k7x"), "utf8")).toBe(
+        "modules({})\n",
+      );
+      expect(existsSync(join(dir, "graph.yaml"))).toBe(false);
+      wsWrite(join(dir, "list.yaml"), "- a\n- b\n");
+      expect(readFileSync(join(dir, "list.yaml"), "utf8")).toBe("- a\n- b\n");
+      writeFileSync(join(dir, "old.yaml"), "a: 1\n");
+      wsWrite(join(dir, "old.yaml"), "a: 2\n");
+      expect(readFileSync(join(dir, "old.yaml"), "utf8")).toBe("a: 2\n");
+      expect(existsSync(join(dir, "old.k7x"))).toBe(false);
+    } finally {
+      delete process.env.STUDIO_K7X;
+    }
+  });
+
   it("copies, renames and removes a .k7x file as a .k7x file", () => {
     writeFileSync(join(dir, "lead.k7x"), PROJECT);
     wsCopy(join(dir, "lead.yaml"), join(dir, "pad.yaml"));

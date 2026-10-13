@@ -15,6 +15,7 @@ import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
 import { relocateIssues } from "@studio/song-schema/yaml/k7xIssues";
 import type { ModuleIssue } from "@studio/song-schema/yaml/moduleFile";
+import { convertChecked } from "../k7xMigrate";
 
 export const K7X_EXT = ".k7x";
 const YAML_NAME = /\.ya?ml$/i;
@@ -48,9 +49,25 @@ export function wsRead(path: string): string {
   return isK7xPath(real) ? toYaml(text) : text;
 }
 
+/** True once the deployer says every device reads .k7x: a new file is then created as one (docs/k7xFiles.md). */
+export const k7xEverywhere = (): boolean => process.env.STUDIO_K7X === "1";
+
 /** Writes YAML text to the file a path names: a .k7x file takes it as edits, so its comments and layout stay. */
 export function wsWrite(path: string, content: string | Uint8Array): void {
   const real = realPath(path);
+  // A new file, when k7x is everywhere: k7x if the text converts with the same data, YAML as written otherwise.
+  if (
+    typeof content === "string" &&
+    YAML_NAME.test(real) &&
+    !existsSync(real) &&
+    k7xEverywhere()
+  ) {
+    const converted = convertChecked(content);
+    if ("k7x" in converted) {
+      writeFileSync(k7xSibling(real), converted.k7x);
+      return;
+    }
+  }
   if (!isK7xPath(real) || typeof content !== "string") {
     writeFileSync(real, content);
     return;

@@ -47,7 +47,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  delete process.env.STUDIO_K7X_MIGRATE;
+  delete process.env.STUDIO_K7X;
   await new Promise((r) => server.close(r));
   rmSync(root, { recursive: true, force: true });
 });
@@ -82,7 +82,7 @@ it("refuses a real run until the operator turns it on", async () => {
 });
 
 it("converts once on, keeping each original in the hidden backup", async () => {
-  process.env.STUDIO_K7X_MIGRATE = "1";
+  process.env.STUDIO_K7X = "1";
   const r = await migrate(false);
   expect(r.status).toBe(200);
   expect(r.body.converted).toEqual(["song.st0/project.yaml"]);

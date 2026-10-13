@@ -2,11 +2,10 @@
 // spans every project, unlike the per-project song files. The default audio interface the engine opens, plus
 // human-readable labels for its channels — labels are for reading only, unrelated to track names.
 
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { studioHome } from "./studioHome";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** Through `studioHome`, never hand-joined — engine-client/docs/paths.md, and the doc that names this file. */
 export const PREFS_PATH = join(studioHome(), "preferences.yaml");
@@ -104,8 +103,9 @@ export function normalizePreferences(v: any): Preferences {
 
 export function loadPreferences(): Preferences {
   try {
-    if (!wsExists(PREFS_PATH)) return empty();
-    return normalizePreferences(parseYaml(wsRead(PREFS_PATH)));
+    // A machine file, not a workspace one: never through workspaceFile.ts, so never a .k7x (docs/k7xFiles.md).
+    if (!existsSync(PREFS_PATH)) return empty();
+    return normalizePreferences(parseYaml(readFileSync(PREFS_PATH, "utf8")));
   } catch {
     return empty(); // a malformed prefs file shouldn't break anything
   }
@@ -113,7 +113,7 @@ export function loadPreferences(): Preferences {
 
 export function savePreferences(p: Preferences): void {
   mkdirSync(dirname(PREFS_PATH), { recursive: true });
-  wsWrite(PREFS_PATH, stringifyYaml(normalizePreferences(p)));
+  writeFileSync(PREFS_PATH, stringifyYaml(normalizePreferences(p)), "utf8");
 }
 
 // --- mutators (load, change, save; return the new prefs) ----------------------
