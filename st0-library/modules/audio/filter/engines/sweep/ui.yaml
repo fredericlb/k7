@@ -1,0 +1,12 @@
+# sweep — a DJ filter, low pass to the left, high pass to the right, open at the centre
+cols: 8
+rows: 2
+widgets:
+  sweep: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Filter, bind: Sweep, min: -100, max: 100, step: 1 }
+  response: { type: lcdscreen, col: 2, row: 0, colSpan: 6, rowSpan: 2 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    sweep: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Filter, bind: Sweep, min: -100, max: 100, step: 1 }
+    response: { type: lcdscreen, col: 0, row: 2, colSpan: 4, rowSpan: 2 }

@@ -1,0 +1,6 @@
+# electric-keys — the electric pianos and the clavinets, one module with several DSPs: each folder under
+# engines/ is one, with its own panel.
+# A node picks one with `engine:` and keeps its knobs per engine; the default is named below.
+# The sampled Rhodes by default: the most played electric piano, and the one engine here that needs no plugin
+# installed and sounds like the instrument rather than a model of it. Its samples download from the tray's Downloads tab.
+engine: stereo-rhodes

@@ -1,0 +1,3 @@
+# crunchy-groove-wear — the face for Crunchy Groove Wear, a plugin the engine scans.
+# Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+extends: "@engine/crunchy-groove-wear"

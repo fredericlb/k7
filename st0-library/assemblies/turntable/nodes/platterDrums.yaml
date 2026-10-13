@@ -1,0 +1,8 @@
+# The platter reading the "drums" part of a separated record. Its own `Gain` IS that part's level:
+# there is no cut module, because the reader already has one — packages/song-schema/docs/stems.md.
+extends: "@meta/audio/turntable"
+params:
+  Rate: 0
+  Seek: 0
+  Gain: 1
+  Key: 0

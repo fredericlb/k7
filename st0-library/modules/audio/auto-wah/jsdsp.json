@@ -1,0 +1,212 @@
+{
+  "params": [
+    {
+      "name": "Low",
+      "min": 60,
+      "max": 8000,
+      "default": 200
+    },
+    {
+      "name": "High",
+      "min": 60,
+      "max": 8000,
+      "default": 2400
+    },
+    {
+      "name": "Sensitivity",
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    },
+    {
+      "name": "Resonance",
+      "min": 0.5,
+      "max": 20,
+      "default": 4
+    },
+    {
+      "name": "Attack",
+      "min": 0.1,
+      "max": 200,
+      "default": 8
+    },
+    {
+      "name": "Release",
+      "min": 1,
+      "max": 1000,
+      "default": 120
+    },
+    {
+      "name": "Mix",
+      "min": 0,
+      "max": 1,
+      "default": 1
+    },
+    {
+      "name": "Output",
+      "min": -20,
+      "max": 40,
+      "default": 15
+    },
+    {
+      "name": "Direction",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "labels": [
+        "up",
+        "down"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "type": "envelope",
+      "in": [
+        "Attack",
+        "Release"
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "todb",
+      "in": [
+        "n0"
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "lerp",
+      "in": [
+        -60,
+        -15,
+        "Sensitivity"
+      ],
+      "out": "n2"
+    },
+    {
+      "type": "linmap",
+      "in": [
+        "n1",
+        "n2",
+        0
+      ],
+      "out": "n3"
+    },
+    {
+      "type": "sub",
+      "in": [
+        1,
+        "n3"
+      ],
+      "out": "n4"
+    },
+    {
+      "type": "select",
+      "in": [
+        "n3",
+        "n4",
+        "Direction"
+      ],
+      "out": "n5"
+    },
+    {
+      "type": "geolerp",
+      "in": [
+        "Low",
+        "High",
+        "n5"
+      ],
+      "out": "n6"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "sr",
+        0.45
+      ],
+      "out": "n7"
+    },
+    {
+      "type": "clamp",
+      "in": [
+        "n6",
+        60,
+        "n7"
+      ],
+      "out": "n8"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "n8"
+      ],
+      "out": "n9"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n9",
+        "Resonance"
+      ],
+      "mode": "bandpass"
+    },
+    {
+      "type": "todb",
+      "in": [
+        "Resonance"
+      ],
+      "out": "n10"
+    },
+    {
+      "type": "todb",
+      "in": [
+        4
+      ],
+      "out": "n11"
+    },
+    {
+      "type": "sub",
+      "in": [
+        "n10",
+        "n11"
+      ],
+      "out": "n12"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n12",
+        0.5
+      ],
+      "out": "n13"
+    },
+    {
+      "type": "add",
+      "in": [
+        "Output",
+        "n13"
+      ],
+      "out": "n14"
+    },
+    {
+      "type": "fromdb",
+      "in": [
+        "n14"
+      ],
+      "out": "n15"
+    },
+    {
+      "type": "gain",
+      "in": [
+        "n15"
+      ]
+    },
+    {
+      "type": "mix",
+      "in": [
+        "Mix"
+      ]
+    }
+  ]
+}

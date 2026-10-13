@@ -1,0 +1,5 @@
+# bit-shift-gain — Airwindows BitShiftGain, gain in whole bit-shift steps
+cols: 3
+rows: 3
+widgets:
+  bitshift: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: Shift, bind: BitShift, min: 0, max: 1 }

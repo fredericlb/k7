@@ -1,0 +1,7 @@
+# sampler — Tracktion's built-in Sampler, as the engine builds it: the plugin and nothing else.
+# A node states its own sounds and settings; this module only says which plugin it is.
+plugin:
+  type: builtin
+  name: Sampler
+
+# Tracktion's built-in sampler: a sample played across the keyboard, each node carrying its own sounds.

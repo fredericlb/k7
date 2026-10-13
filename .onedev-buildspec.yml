@@ -433,8 +433,7 @@ jobs:
 # cmd does not stop on a failing line, so every command carries its own `|| exit /b 1`, and npm
 # is `call`ed because it is npm.cmd: without `call` a batch file never comes back from it.
 #
-# commons ALONE, as GitHub's leg does: the checkout takes no submodule, since `withSubmodules` means
-# every one, and st0-library's model paths pass Windows' 260-character limit — no build reads it.
+# commons by hand, as GitHub's leg does: the checkout takes no submodule, and commons is the one there is.
 #
 # The dependency SOURCES stay on the agent's own disk, in STUDIO_FETCHCONTENT_DIR — %LOCALAPPDATA%\st0-ci\fetch
 # unless the agent's environment names another — so a night clones nothing. No OneDev cache: the

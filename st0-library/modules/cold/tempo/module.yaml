@@ -1,0 +1,28 @@
+# Tempo — play a song at a chosen BPM, without moving its pitch.
+#
+# `cold: true` because the answer needs the whole input. A tempo change is a time STRETCH, and
+# a stretch has to know where the file ends to know how far it is being taken; there is no
+# partial answer to give while the audio is still arriving. Adding it to a chain fed by a live
+# input is refused by name — see @studio/song's docs/coldModules.md.
+#
+# `plugin: {type: offline}` because there is no engine plugin to name. The engine hosts a Pitch
+# Shifter (see PluginScan.cpp) and nothing that stretches time: Tracktion does that on a CLIP,
+# through warp markers, not in an insert. So this module is the offline shape — a pass writes
+# the stretched audio to disk before the render — which is also why the folder has no jsdsp.ts.
+# A graph of primitives could not express it either way.
+#
+# The two params mirror normalize/'s `Peak` and `Target`, and for the same reason: one is
+# MEASURED and one is AUTHORED. `Source BPM` is filled in by the pass that reads the file (the
+# same analysis the waveform sidecar carries); `Target BPM` is what a fader sets.
+cold: true
+plugin: { type: offline, name: Tempo }
+params:
+  # The song's own tempo, written by the pass. 0 means "not measured yet", which makes the
+  # module a no-op rather than a stretch by a made-up ratio — the harmless direction to be
+  # wrong in, exactly as normalize's `Peak: 0` attenuates rather than boosts.
+  Source BPM: 0
+  # What to play it at. 0 means "leave it alone", so a freshly dropped module changes nothing
+  # until somebody asks for a tempo.
+  Target BPM: 0
+
+# Plays a song at a chosen tempo. Cold: it stretches a file, so it needs the whole thing, and it runs as a pass rather than live. Pitch is preserved — a record taken faster does not go up in key, unlike a turntable's platter. Both BPM params at 0 is a no-op.

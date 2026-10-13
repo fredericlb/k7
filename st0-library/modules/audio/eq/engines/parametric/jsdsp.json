@@ -1,0 +1,211 @@
+{
+  "params": [
+    {
+      "name": "Low Freq",
+      "min": 20,
+      "max": 1000,
+      "default": 100
+    },
+    {
+      "name": "Low Gain",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "name": "Low Q",
+      "min": 0.3,
+      "max": 2,
+      "default": 0.707
+    },
+    {
+      "name": "Low Mid Freq",
+      "min": 40,
+      "max": 4000,
+      "default": 300
+    },
+    {
+      "name": "Low Mid Gain",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "name": "Low Mid Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 1
+    },
+    {
+      "name": "Mid Freq",
+      "min": 200,
+      "max": 8000,
+      "default": 1000
+    },
+    {
+      "name": "Mid Gain",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "name": "Mid Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 1
+    },
+    {
+      "name": "High Mid Freq",
+      "min": 800,
+      "max": 16000,
+      "default": 3500
+    },
+    {
+      "name": "High Mid Gain",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "name": "High Mid Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 1
+    },
+    {
+      "name": "High Freq",
+      "min": 1000,
+      "max": 20000,
+      "default": 8000
+    },
+    {
+      "name": "High Gain",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "name": "High Q",
+      "min": 0.3,
+      "max": 2,
+      "default": 0.707
+    }
+  ],
+  "nodes": [
+    {
+      "type": "glide",
+      "in": [
+        "Low Freq"
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "Low Gain"
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n0",
+        "Low Q",
+        "n1"
+      ],
+      "mode": "lowshelf"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "Low Mid Freq"
+      ],
+      "out": "n2"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "Low Mid Gain"
+      ],
+      "out": "n3"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n2",
+        "Low Mid Q",
+        "n3"
+      ],
+      "mode": "peak"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "Mid Freq"
+      ],
+      "out": "n4"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "Mid Gain"
+      ],
+      "out": "n5"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n4",
+        "Mid Q",
+        "n5"
+      ],
+      "mode": "peak"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "High Mid Freq"
+      ],
+      "out": "n6"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "High Mid Gain"
+      ],
+      "out": "n7"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n6",
+        "High Mid Q",
+        "n7"
+      ],
+      "mode": "peak"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "High Freq"
+      ],
+      "out": "n8"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "High Gain"
+      ],
+      "out": "n9"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n8",
+        "High Q",
+        "n9"
+      ],
+      "mode": "highshelf"
+    }
+  ]
+}

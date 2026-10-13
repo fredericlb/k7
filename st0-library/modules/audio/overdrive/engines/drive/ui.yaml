@@ -1,0 +1,14 @@
+# drive — a drive saturation with a highpass
+cols: 8
+rows: 3
+widgets:
+  drive: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }
+  highpass: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Highpass, bind: Highpass, min: 0, max: 1 }
+  io: { type: lcdscreen, col: 4, row: 0, colSpan: 4, rowSpan: 2 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    drive: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }
+    highpass: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Highpass, bind: Highpass, min: 0, max: 1 }
+    io: { type: lcdscreen, col: 0, row: 2, colSpan: 4, rowSpan: 2 }

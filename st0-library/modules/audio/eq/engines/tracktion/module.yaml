@@ -1,0 +1,30 @@
+# EQ 3 bandes  [audioEffect] — l'égaliseur de tranche d'une table de mixage DJ.
+#
+# Pas de jsdsp : le moteur héberge déjà l'égaliseur 4 bandes de Tracktion (`4bandEq`), avec
+# des filtres en plateau et en cloche à coefficients calculés. Ce module est un NOM et des
+# DÉFAUTS par-dessus, exactement comme `audio/utility/pitch-shift` l'est sur le Pitch Shifter.
+#
+# Trois bandes exposées sur les quatre : le second médium (`Mid gain 2`) reste à plat. Une
+# tranche DJ a trois potards, et en offrir un quatrième que le pupitre ne dessine pas ferait
+# une commande accessible seulement par le fichier.
+#
+# Les fréquences sont posées ici parce que les défauts de Tracktion sont ceux d'un EQ de
+# MASTERING, pas d'une tranche : 80 Hz / 3 kHz / 17 kHz. Un plateau haut à 17 kHz ne touche
+# que l'air — tourner un potard « aigus » n'y ferait presque rien. Les valeurs ci-dessous sont
+# les points de coupure d'une table : le grave prend le kick et la basse, le médium la voix et
+# la caisse claire, l'aigu les cymbales et l'attaque.
+extends: "@engine/equaliser"
+params:
+  # Les trois gains, à plat. 0 dB est la position neutre d'un potard d'EQ.
+  Low-shelf gain: 0
+  Mid gain 1: 0
+  High-shelf gain: 0
+  # …et les points de coupure, qui ne sont pas des commandes : ce sont eux qui font que ce
+  # module est une tranche DJ plutôt qu'un EQ 4 bandes générique.
+  Low-shelf freq: 200
+  Mid freq 1: 1000
+  High-shelf freq: 6000
+  # Le quatrième filtre, neutralisé par son gain. Sa fréquence n'a plus d'importance.
+  Mid gain 2: 0
+
+# L'EQ d'une tranche : grave, médium, aigu, en décibels, à plat au centre. Plateau bas à 200 Hz, cloche à 1 kHz, plateau haut à 6 kHz — les coupures d'une table de mixage et non celles d'un EQ de mastering. La plage est celle du plugin, ±20 dB : une table coupe plus qu'elle ne remonte, ce qui est un usage et non une limite.

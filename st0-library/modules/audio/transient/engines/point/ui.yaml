@@ -1,0 +1,6 @@
+# point — a transient designer
+cols: 4
+rows: 2
+widgets:
+  point: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Point, bind: Point, min: 0, max: 1 }
+  speed: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Speed, bind: Reaction Speed, min: 0, max: 1 }

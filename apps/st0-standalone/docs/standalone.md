@@ -65,7 +65,7 @@ hands the hub its own seed.
 ## The library
 
 A project opens only once the origin has a library (`packages/project-shell/docs/launch.md`).
-The app sets `STUDIO_LIBRARY_SEED=st0=<folder>`: the `st0-library` submodule from a checkout, the
+The app sets `STUDIO_LIBRARY_SEED=st0=<folder>`: the `st0-library` folder from a checkout, the
 bundle's copy of it in the packaged app. With no list written, the hub lists the seed's `st0` and
 copies it into `workspaces/libraries/st0` on first ask; no network. Delete that folder to reseed.
 Once an account is paired (`docs/sync.md`), the copy FOLLOWS the origin's library, read-only: it

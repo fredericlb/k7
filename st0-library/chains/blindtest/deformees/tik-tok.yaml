@@ -1,0 +1,17 @@
+# Déformées — Tik tok — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+# variante ; l'ordre des modules et la correspondance des valeurs sont dans
+# apps/z0/docs/effects.md du dépôt studio.
+
+steps:
+  - id: e26104e7-6d5e-42b5-a625-54509d224911
+    extends: "@st0/audio/zz_utility/pitch-shift"
+    params:
+      "semitones up": -9
+  - id: 81a857e2-13b9-43b9-9f65-6ccc84325161
+    extends: "@st0/audio/vibrato"
+    engine: wobble
+    engines:
+      wobble:
+        params:
+          Amount: 21
+  - to: [ { chain: "@out" } ]

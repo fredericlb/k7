@@ -1,0 +1,92 @@
+{
+  "params": [
+    {
+      "name": "Rate",
+      "min": 0.1,
+      "max": 20,
+      "default": 5
+    },
+    {
+      "name": "Depth",
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    }
+  ],
+  "nodes": [
+    {
+      "type": "ain",
+      "out": "n0"
+    },
+    {
+      "type": "alfo",
+      "k": [
+        "Rate"
+      ],
+      "out": "n1",
+      "shape": "sine"
+    },
+    {
+      "type": "aadd",
+      "out": "n2",
+      "in": [
+        "n1"
+      ],
+      "k": [
+        1
+      ]
+    },
+    {
+      "type": "amul",
+      "out": "n3",
+      "in": [
+        "n2"
+      ],
+      "k": [
+        0.5
+      ]
+    },
+    {
+      "type": "amul",
+      "out": "n4",
+      "in": [
+        "n3"
+      ],
+      "k": [
+        "Depth"
+      ]
+    },
+    {
+      "type": "sub",
+      "in": [
+        1,
+        "Depth"
+      ],
+      "out": "n5"
+    },
+    {
+      "type": "aadd",
+      "out": "n6",
+      "in": [
+        "n4"
+      ],
+      "k": [
+        "n5"
+      ]
+    },
+    {
+      "type": "amul",
+      "out": "n7",
+      "in": [
+        "n0",
+        "n6"
+      ]
+    },
+    {
+      "type": "aout",
+      "in": [
+        "n7"
+      ]
+    }
+  ]
+}

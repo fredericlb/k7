@@ -1,0 +1,5 @@
+# aura — a treble-shaping EQ with one voicing control
+cols: 2
+rows: 3
+widgets:
+  voicing: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Voicing, bind: Voicing, min: 0, max: 1 }

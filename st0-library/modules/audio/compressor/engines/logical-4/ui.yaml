@@ -1,0 +1,18 @@
+# logical-4 — a bus compressor in the SSL manner
+cols: 6
+rows: 4
+widgets:
+  levels: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 2 }
+  comp_grp: { type: group, col: 0, row: 2, colSpan: 6, rowSpan: 2, label: COMP, color: "#3d7dff26" }
+  threshold: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Thresh, bind: Threshold, min: 0, max: 1 }
+  ratio: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Ratio, bind: Ratio, min: 0, max: 1 }
+  speed: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Speed, bind: Speed, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 7
+  widgets:
+    levels: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 3 }
+    comp_grp: { type: group, col: 0, row: 3, colSpan: 4, rowSpan: 4, label: COMP, color: "#3d7dff26" }
+    threshold: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, label: Thresh, bind: Threshold, min: 0, max: 1 }
+    ratio: { type: knob, col: 2, row: 3, colSpan: 2, rowSpan: 2, label: Ratio, bind: Ratio, min: 0, max: 1 }
+    speed: { type: knob, col: 0, row: 5, colSpan: 2, rowSpan: 2, label: Speed, bind: Speed, min: 0, max: 1 }

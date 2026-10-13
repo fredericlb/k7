@@ -1,0 +1,32 @@
+{
+  "params": [
+    {
+      "name": "Level",
+      "min": 0,
+      "max": 1,
+      "default": 1
+    }
+  ],
+  "nodes": [
+    {
+      "type": "ain",
+      "out": "n0"
+    },
+    {
+      "type": "amul",
+      "out": "n1",
+      "in": [
+        "n0"
+      ],
+      "k": [
+        "Level"
+      ]
+    },
+    {
+      "type": "aout",
+      "in": [
+        "n1"
+      ]
+    }
+  ]
+}

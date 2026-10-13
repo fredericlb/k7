@@ -1,0 +1,12 @@
+# Phaser  [audioEffect] — Tracktion's phaser rebuilt as a graph, so its three knobs can be AUTOMATED: the
+# plugin keeps them as plain state, which no curve reaches. Same names, ranges and defaults as the plugin.
+# Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin:
+  type: jsdsp
+  name: Phaser
+params:
+  Depth: 5
+  Rate: 0.4
+  Feedback: 0.7
+
+# Four all-pass stages, their corner swept from 100 Hz up Depth octaves and back once every 1/Rate seconds, the last stage fed back into the input by Feedback and summed with the dry signal.

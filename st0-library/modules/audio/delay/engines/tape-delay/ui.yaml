@@ -1,0 +1,22 @@
+# tape-delay — tape echo with a lean/fat tone
+cols: 8
+rows: 4
+widgets:
+  taps_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 8, rowSpan: 2 }
+  delay_grp: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 2, label: DELAY, color: "#3d7dff26" }
+  delay: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Time, bind: Delay, min: 0, max: 1 }
+  feedback: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Feedbak, min: 0, max: 1 }
+  tone: { type: group, col: 4, row: 2, colSpan: 4, rowSpan: 2, label: TONE, color: "#3ec96b26" }
+  lean_fat: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Lean/Ft, bind: Lean/Ft, min: 0, max: 1 }
+  depth: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Depth, bind: Depth, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 6
+  widgets:
+    taps_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+    delay_grp: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 2, label: DELAY, color: "#3d7dff26" }
+    delay: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Time, bind: Delay, min: 0, max: 1 }
+    feedback: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Feedbak, min: 0, max: 1 }
+    tone: { type: group, col: 0, row: 4, colSpan: 4, rowSpan: 2, label: TONE, color: "#3ec96b26" }
+    lean_fat: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Lean/Ft, bind: Lean/Ft, min: 0, max: 1 }
+    depth: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Depth, bind: Depth, min: 0, max: 1 }

@@ -1,0 +1,5 @@
+# block-party — a saturated analog-style limiter
+cols: 4
+rows: 4
+widgets:
+  pound: { type: knob, col: 1, row: 1, colSpan: 2, rowSpan: 2, label: Pound, bind: Pound, min: 0, max: 1 }

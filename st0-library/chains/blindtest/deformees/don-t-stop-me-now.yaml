@@ -1,0 +1,43 @@
+# Déformées — Don't stop me now — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+# variante ; l'ordre des modules et la correspondance des valeurs sont dans
+# apps/z0/docs/effects.md du dépôt studio.
+
+steps:
+  - id: cf9fe94d-66b0-41b2-9cd6-faf8df4371ca
+    extends: "@st0/audio/bitcrush"
+    engine: de-rez
+    engines:
+      de-rez:
+        params:
+          Rez: 0.584
+          Rate: 1
+  - id: 4ca7e009-2066-4098-9e25-73906340f007
+    extends: "@st0/audio/lowpass"
+    engine: one-knob
+    engines:
+      one-knob:
+        params:
+          Amount: 47
+  - id: 7d24ccf8-73c5-49a6-a7b4-f5789c01d502
+    extends: "@st0/audio/highpass"
+    engine: one-knob
+    engines:
+      one-knob:
+        params:
+          Amount: 69
+  - id: 4ec31041-e955-4aee-b3e0-afd04419db8c
+    extends: "@st0/audio/chorus"
+    # The one-knob chorus the blind test was tuned on, not the module's default.
+    engine: one-knob
+    engines:
+      one-knob:
+        params:
+          Amount: 72
+  - id: 0854dfe8-410d-4a4f-91fc-c8d2dcf76f37
+    extends: "@st0/audio/overdrive"
+    engine: one-knob
+    engines:
+      one-knob:
+        params:
+          Amount: 8
+  - to: [ { chain: "@out" } ]

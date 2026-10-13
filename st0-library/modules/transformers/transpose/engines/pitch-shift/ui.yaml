@@ -1,0 +1,9 @@
+# panel for the transpose module's pitch-shift engine
+#
+# Un seul potard, et il est cranté au demi-ton : il n'y a rien entre +7 et +8, et un pas continu
+# rendrait la quinte juste difficile à retrouver.
+cols: 2
+rows: 2
+widgets:
+  semitones:
+    { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Demi-tons, bind: Semitones, min: -24, max: 24, step: 1 }

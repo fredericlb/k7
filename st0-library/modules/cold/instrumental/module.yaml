@@ -1,0 +1,19 @@
+# Instrumental  [audioEffect] — one mix in, the same record without its voice out.
+#
+# The SAME separation as `stemsplit`, and that is the point of extending it rather than copying it: one
+# model, one inference, one place where the model's name lives. What differs is the single line below —
+# the outputs. A separating pass writes what its module declares, so declaring one output named
+# `instrumental` is how a chain asks for the sum of everything the voice is not.
+#
+# Why not sum the four files afterwards: three of them are hundreds of megabytes that would travel a
+# network to be added together and thrown away. The pass already holds the parts in memory, unmixed.
+extends: "@st0/cold/stemsplit"
+# `type` is repeated rather than inherited: a child's `plugin:` REPLACES its parent's whole block,
+# so naming this one without it would leave a module nothing recognises as offline.
+plugin:
+  type: offline
+  name: Instrumental
+# One audio output, and its NAME is what the pass reads — `instrumental` is the only name that means
+# "every stem but the voice". A stem's own name here would write that stem instead.
+outputs:
+  - { name: instrumental, type: audio }

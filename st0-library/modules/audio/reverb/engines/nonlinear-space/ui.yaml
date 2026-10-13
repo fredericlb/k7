@@ -1,0 +1,22 @@
+# nonlinear-space — an AirWindows reverb with a nonlinear, gated-style tail
+cols: 6
+rows: 4
+widgets:
+  space_section: { type: group, col: 0, row: 0, colSpan: 6, rowSpan: 2, label: SPACE, color: "#ff6a1a26" }
+  smp_rate: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: SmpRate, bind: SmpRate, min: 0, max: 1 }
+  liveness: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Live, bind: Livenes, min: 0, max: 1 }
+  nonlin: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Nonlin, bind: Nonlin, min: 0, max: 1 }
+  tone_section: { type: group, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: TONE, color: "#3ec96b26" }
+  bass: { type: fader, col: 0, row: 2, rowSpan: 2, label: Bass, bind: Bass, min: 0, max: 1 }
+  treble: { type: fader, col: 1, row: 2, rowSpan: 2, label: Treble, bind: Treble, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 7
+  widgets:
+    space_section: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: SPACE, color: "#ff6a1a26" }
+    smp_rate: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: SmpRate, bind: SmpRate, min: 0, max: 1 }
+    liveness: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Live, bind: Livenes, min: 0, max: 1 }
+    nonlin: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Nonlin, bind: Nonlin, min: 0, max: 1 }
+    tone_section: { type: group, col: 0, row: 4, colSpan: 2, rowSpan: 3, label: TONE, color: "#3ec96b26" }
+    bass: { type: fader, col: 0, row: 4, rowSpan: 3, label: Bass, bind: Bass, min: 0, max: 1 }
+    treble: { type: fader, col: 1, row: 4, rowSpan: 3, label: Treble, bind: Treble, min: 0, max: 1 }

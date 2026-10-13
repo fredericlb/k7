@@ -1,0 +1,5 @@
+# bite — Airwindows Bite, an upper-mid bite enhancer
+cols: 3
+rows: 3
+widgets:
+  bite: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: Bite, bind: Bite, min: 0, max: 1 }

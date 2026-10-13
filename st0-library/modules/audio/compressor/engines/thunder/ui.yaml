@@ -1,0 +1,5 @@
+# thunder — a compressor that fattens the low end
+cols: 4
+rows: 4
+widgets:
+  thunder: { type: knob, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: Thunder, bind: Thunder, min: 0, max: 1 }

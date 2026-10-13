@@ -1,0 +1,18 @@
+{
+  "params": [
+    {
+      "name": "Semitones",
+      "min": -24,
+      "max": 24,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "transpose",
+      "in": [
+        "Semitones"
+      ]
+    }
+  ]
+}

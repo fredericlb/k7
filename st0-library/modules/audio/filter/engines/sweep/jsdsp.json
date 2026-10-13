@@ -1,0 +1,159 @@
+{
+  "params": [
+    {
+      "name": "Sweep",
+      "min": -100,
+      "max": 100,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "mul",
+      "in": [
+        "Sweep",
+        0.01
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n0",
+        -1
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "clamp",
+      "in": [
+        "n1",
+        0,
+        1
+      ],
+      "out": "n2"
+    },
+    {
+      "type": "clamp",
+      "in": [
+        "n0",
+        0,
+        1
+      ],
+      "out": "n3"
+    },
+    {
+      "type": "add",
+      "in": [
+        "n2",
+        "n3"
+      ],
+      "out": "n4"
+    },
+    {
+      "type": "lerp",
+      "in": [
+        0.707,
+        6,
+        "n2"
+      ],
+      "out": "n5"
+    },
+    {
+      "type": "lerp",
+      "in": [
+        0.707,
+        6,
+        "n3"
+      ],
+      "out": "n6"
+    },
+    {
+      "type": "sub",
+      "in": [
+        1,
+        "n2"
+      ],
+      "out": "n7"
+    },
+    {
+      "type": "geolerp",
+      "in": [
+        30,
+        20000,
+        "n7"
+      ],
+      "out": "n8"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "n8"
+      ],
+      "out": "n9"
+    },
+    {
+      "type": "geolerp",
+      "in": [
+        20,
+        10000,
+        "n3"
+      ],
+      "out": "n10"
+    },
+    {
+      "type": "glide",
+      "in": [
+        "n10"
+      ],
+      "out": "n11"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n9",
+        0.707
+      ],
+      "mode": "lowpass"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n9",
+        "n5"
+      ],
+      "mode": "lowpass"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n11",
+        0.707
+      ],
+      "mode": "highpass"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n11",
+        "n6"
+      ],
+      "mode": "highpass"
+    },
+    {
+      "type": "lerp",
+      "in": [
+        1,
+        0.7,
+        "n4"
+      ],
+      "out": "n12"
+    },
+    {
+      "type": "gain",
+      "in": [
+        "n12"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# retro-mfb-512 — an SFZ kit of st0-rack: MFB's 512 analog drum machine, nine sounds on notes 84–95 (88, 92 and 94 silent).
+# One octave of Retro Drums, The Tic Tok Men's sampled drum machines ("free use" per its README),
+# cleaned up by S. Christian Collins. One sample per sound: no velocity layers, no round-robins.
+# The kit file holds six machines, one per octave; each is its own engine, drawing only its pads.
+# The samples (~2 MB) are not in the library: the engine's machine fetches them at start-up.
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/retro-drums/Tic Tok Men RetroDrums 1.sfz"
+  # Its loudest hit at full velocity peaks at 0 dBFS — the level a rack's normalised samples play at.
+  Volume: 3.8
+# The pads its panel draws, on the notes the kit file plays them on.
+kit:
+  Kick: 84
+  HatClosed: 85
+  Snare: 86
+  HatOpen: 87
+  TomLow: 89
+  Cymbal: 90
+  TomMid: 91
+  TomHigh: 93
+  Clap: 95
+
+# The MFB-512 analog drum machine: punchy kick, snare, hats, three toms, cymbal and clap — Retro Drums by The Tic Tok Men. Its samples, about 2 MB, download from the st0 tray's Downloads tab.

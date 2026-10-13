@@ -1,0 +1,5 @@
+# ed-is-dim — Airwindows EdIsDim, a mid/side decoder
+cols: 3
+rows: 3
+widgets:
+  balance: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: S/M, bind: ediS/diM, min: 0, max: 1 }

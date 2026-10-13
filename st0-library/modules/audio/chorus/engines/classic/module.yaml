@@ -1,0 +1,12 @@
+# Chorus  [audioEffect] — Tracktion's chorus rebuilt as a graph, so its knobs can be AUTOMATED: the plugin
+# keeps them as plain state, which no curve reaches. Its Mix is the module's `mix:`, the engine's own stage.
+# Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin:
+  type: jsdsp
+  name: Chorus
+params:
+  Depth: 3
+  Speed: 1
+  Width: 0.5
+
+# One delay swept between 20 and 20 + Depth ms by a sine at Speed Hz, the right channel Width half a cycle ahead, blended under the dry by the module's mix (0.5, the plugin's default) on the engine's equal-power curve.

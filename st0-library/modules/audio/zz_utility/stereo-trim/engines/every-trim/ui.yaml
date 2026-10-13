@@ -1,0 +1,10 @@
+# every-trim — Airwindows EveryTrim, left, right, mid and side trims
+cols: 4
+rows: 3
+widgets:
+  lr: { type: group, col: 0, row: 0, colSpan: 2, rowSpan: 3, label: L/R, color: "#ffffff14" }
+  left: { type: fader, col: 0, row: 0, rowSpan: 3, label: Left, bind: Left, min: 0, max: 1 }
+  right: { type: fader, col: 1, row: 0, rowSpan: 3, label: Right, bind: Right, min: 0, max: 1 }
+  ms: { type: group, col: 2, row: 0, colSpan: 2, rowSpan: 3, label: M/S, color: "#8a5cff22" }
+  mid: { type: fader, col: 2, row: 0, rowSpan: 3, label: Mid, bind: Mid, min: 0, max: 1 }
+  side: { type: fader, col: 3, row: 0, rowSpan: 3, label: Side, bind: Side, min: 0, max: 1 }

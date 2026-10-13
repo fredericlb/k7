@@ -1,0 +1,14 @@
+# pocket-verbs — a pocketful of AirWindows reverb types, sized and gated
+cols: 6
+rows: 2
+widgets:
+  type: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Type, bind: Type, min: 0, max: 1 }
+  size: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Size, bind: Size, min: 0, max: 1 }
+  gating: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Gate, bind: Gating, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    type: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Type, bind: Type, min: 0, max: 1 }
+    size: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Size, bind: Size, min: 0, max: 1 }
+    gating: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Gate, bind: Gating, min: 0, max: 1 }

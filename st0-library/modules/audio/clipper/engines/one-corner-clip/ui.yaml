@@ -1,0 +1,18 @@
+# one-corner-clip — an asymmetric clipper with separate positive and negative ceilings
+cols: 6
+rows: 4
+widgets:
+  clip: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 2 }
+  clip_grp: { type: group, col: 0, row: 2, colSpan: 6, rowSpan: 2, label: CLIP, color: "#ff6a1a26" }
+  pos_thr: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Pos, bind: Pos Thr, min: 0, max: 1 }
+  neg_thr: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Neg, bind: Neg Thr, min: 0, max: 1 }
+  voicing: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Voicing, bind: Voicing, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 6
+  widgets:
+    clip: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+    clip_grp: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 4, label: CLIP, color: "#ff6a1a26" }
+    pos_thr: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Pos, bind: Pos Thr, min: 0, max: 1 }
+    neg_thr: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Neg, bind: Neg Thr, min: 0, max: 1 }
+    voicing: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Voicing, bind: Voicing, min: 0, max: 1 }

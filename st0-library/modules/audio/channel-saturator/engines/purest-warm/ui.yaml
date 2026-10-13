@@ -1,0 +1,5 @@
+# purest-warm — Airwindows Purest Warm, a softening of one half of the waveform
+cols: 2
+rows: 1
+widgets:
+  polarity: { type: toggle, col: 0, row: 0, colSpan: 2, label: Polarity, bind: Polarity }

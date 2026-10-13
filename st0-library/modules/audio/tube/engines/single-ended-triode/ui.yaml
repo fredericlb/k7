@@ -1,0 +1,14 @@
+# single-ended-triode — tube amp stage in triode, class AB and class B
+cols: 6
+rows: 2
+widgets:
+  triode: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Triode, bind: Triode, min: 0, max: 1 }
+  clas_ab: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: ClassAB, bind: Clas AB, min: 0, max: 1 }
+  clas_b: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Class B, bind: Clas B, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    triode: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Triode, bind: Triode, min: 0, max: 1 }
+    clas_ab: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: ClassAB, bind: Clas AB, min: 0, max: 1 }
+    clas_b: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Class B, bind: Clas B, min: 0, max: 1 }

@@ -1,0 +1,33 @@
+# Note Repeat  [midiEffect] — la touche tenue, rejouée en boucle jusqu'à ce qu'on la lâche.
+#
+# Il MANGE ce qu'on lui donne et joue ses propres notes, et c'est un GRAPHE quand même : la phase
+# MIDI a deux nœuds pour ça, `mhold` qui prend les touches et `mstrike` qui les rejoue sur une
+# horloge. Voir engine/st0-engine/docs/midiGraph.md — c'est ce qui fait qu'un module MIDI s'écrit
+# ici et pas en C++.
+#
+# CE QU'IL N'EST PAS un arpégiateur : un accord tenu n'est pas égrené, il est refrappé ENTIER à
+# chaque pas. Deux gestes, deux modules.
+#
+# La cadence est une PAIRE — `Count` fois `Division` — parce qu'une croche toutes les deux croches
+# et une noire sont le même temps écrit de deux façons, et que celle qu'on a en tête dépend de ce
+# qu'on joue. `Division` est en TEMPS (0.5 = une croche), pas un index : le graphe n'a pas de table
+# où aller chercher, et c'est la liste du panneau qui écrit la valeur qu'elle affiche.
+#
+# Sa description est dans jsdsp.ts à côté, pas compilée dans le moteur.
+plugin:
+  type: jsdsp
+  name: Note Repeat
+params:
+  # Une division par pas : la lecture directe, "toutes les croches". Compter par deux est un choix
+  # qu'on prend, pas un état de repos.
+  Count: 1
+  # La croche. Assez rapide pour s'entendre comme un roulement, assez lente pour rester un rythme.
+  Division: 0.5
+  # La moitié du pas : ça respire entre deux frappes. À 1 les notes se touchent, ce qui sur un son
+  # tenu ne s'entend plus comme des répétitions.
+  Gate: 0.5
+# En un paragraphe : tant qu'on tient une touche, elle est rejouée à intervalle régulier. La cadence
+# se lit "Count × Division" — 1 × 1/8 refrappe toutes les croches, 2 × 1/8 toutes les noires.
+# `Gate` dit à quel moment du pas la répétition se relâche. Un accord est refrappé en entier.
+#
+# (La description d'un module est son en-tête, ici — voir packages/song/docs/docModules.md.)

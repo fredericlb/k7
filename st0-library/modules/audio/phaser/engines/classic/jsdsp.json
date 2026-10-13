@@ -1,0 +1,142 @@
+{
+  "params": [
+    {
+      "name": "Depth",
+      "min": 0,
+      "max": 10,
+      "default": 5
+    },
+    {
+      "name": "Rate",
+      "min": 0,
+      "max": 10,
+      "default": 0.4
+    },
+    {
+      "name": "Feedback",
+      "min": 0,
+      "max": 1,
+      "default": 0.7
+    }
+  ],
+  "nodes": [
+    {
+      "type": "ain",
+      "out": "n0"
+    },
+    {
+      "type": "alfo",
+      "k": [
+        "Rate"
+      ],
+      "out": "n1",
+      "shape": "triangle"
+    },
+    {
+      "type": "amul",
+      "out": "n2",
+      "in": [
+        "n1"
+      ],
+      "k": [
+        0.5
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n3",
+      "in": [
+        "n2"
+      ],
+      "k": [
+        0.5
+      ]
+    },
+    {
+      "type": "amul",
+      "out": "n4",
+      "in": [
+        "n3"
+      ],
+      "k": [
+        "Depth"
+      ]
+    },
+    {
+      "type": "amul",
+      "out": "n5",
+      "in": [
+        "fb"
+      ],
+      "k": [
+        "Feedback"
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n6",
+      "in": [
+        "n0",
+        "n5"
+      ]
+    },
+    {
+      "type": "aallpass",
+      "in": [
+        "n6",
+        "n4"
+      ],
+      "k": [
+        100
+      ],
+      "out": "n7"
+    },
+    {
+      "type": "aallpass",
+      "in": [
+        "n7",
+        "n4"
+      ],
+      "k": [
+        100
+      ],
+      "out": "n8"
+    },
+    {
+      "type": "aallpass",
+      "in": [
+        "n8",
+        "n4"
+      ],
+      "k": [
+        100
+      ],
+      "out": "n9"
+    },
+    {
+      "type": "aallpass",
+      "in": [
+        "n9",
+        "n4"
+      ],
+      "k": [
+        100
+      ],
+      "out": "fb"
+    },
+    {
+      "type": "aadd",
+      "out": "n10",
+      "in": [
+        "n0",
+        "fb"
+      ]
+    },
+    {
+      "type": "aout",
+      "in": [
+        "n10"
+      ]
+    }
+  ]
+}

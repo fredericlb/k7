@@ -1,0 +1,8 @@
+# panel for the electric-keys module's wurt engine
+#
+# One knob: the instrument's level — the rest of its sound is in its samples. The credit line is the licence's.
+cols: 4
+rows: 2
+widgets:
+  volume: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Volume, bind: Volume, min: -40, max: 12 }
+  credit: { type: label, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "No Budget Orchestra · bandshed.net · CC BY-SA" }

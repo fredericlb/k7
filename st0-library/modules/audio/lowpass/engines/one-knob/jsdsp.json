@@ -1,0 +1,37 @@
+{
+  "params": [
+    {
+      "name": "Amount",
+      "min": 0,
+      "max": 100,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "mul",
+      "in": [
+        "Amount",
+        0.01
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "geolerp",
+      "in": [
+        20000,
+        200,
+        "n0"
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "biquad",
+      "in": [
+        "n1",
+        1
+      ],
+      "mode": "lowpass"
+    }
+  ]
+}

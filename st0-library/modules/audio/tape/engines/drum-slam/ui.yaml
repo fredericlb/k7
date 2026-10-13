@@ -1,0 +1,12 @@
+# drum-slam — drum bus saturation
+cols: 6
+rows: 2
+widgets:
+  level_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+  drive: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    level_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+    drive: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }

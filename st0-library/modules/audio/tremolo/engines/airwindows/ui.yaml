@@ -1,0 +1,16 @@
+# tremolo — an amplitude tremolo
+cols: 8
+rows: 3
+widgets:
+  lfo: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 2, label: LFO, color: "#3d7dff26" }
+  speed: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Speed, bind: Speed, min: 0, max: 1 }
+  depth: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Depth, bind: Depth, min: 0, max: 1 }
+  wave: { type: lcdscreen, col: 4, row: 0, colSpan: 4, rowSpan: 2 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    lfo: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 2, label: LFO, color: "#3d7dff26" }
+    speed: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Speed, bind: Speed, min: 0, max: 1 }
+    depth: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Depth, bind: Depth, min: 0, max: 1 }
+    wave: { type: lcdscreen, col: 0, row: 2, colSpan: 4, rowSpan: 2 }

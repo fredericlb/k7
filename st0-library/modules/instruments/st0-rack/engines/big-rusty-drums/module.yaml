@@ -1,0 +1,37 @@
+# big-rusty-drums — an SFZ kit of st0-rack: Karoryfer's Big Rusty Drums, an old 22" kick and toms, a 14" snare, hi-hat,
+# a ride and a crash with sizzles, and a china, with stick, brush and mallet articulations. CC0, so it is free of any
+# condition. Played by the engine's own SFZ player (sfizz), one ENGINE of st0-rack: a tap per piece.
+#
+# Close to General MIDI: kick 36 (undamped 35), side-stick 37, snare 38 (edge 39, rimshot 40), toms 41 43 45 47 from
+# the 22" floor up, hi-hat 42 (closed) 44 (pedal) 46 (open), ride 51 (crash 52, bell 53), crash 49, china 57. Its
+# other notes are chokes, brush stirs and the like, played but not drawn. The samples (~620 MB) are not in the
+# library: the engine's machine keeps them, its supervisor fetching them once chosen in the tray's Downloads tab.
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/big-rusty-drums/Programs/01-full.sfz"
+  # Its loudest hit at full velocity, the kick, peaks at 0 dBFS — the level a rack's normalised samples play at.
+  Volume: 6.4
+# The pads its panel draws, on the notes the kit plays them on.
+kit:
+  KickOpen: 35
+  Kick: 36
+  SideStick: 37
+  Snare: 38
+  SnareEdge: 39
+  Rimshot: 40
+  Tom22: 41
+  HatClosed: 42
+  Tom18: 43
+  HatPedal: 44
+  Tom15: 45
+  HatOpen: 46
+  Tom14: 47
+  Crash: 49
+  RideBow: 51
+  RideCrash: 52
+  RideBell: 53
+  HatShank: 54
+  HatSplash: 56
+  China: 57
+
+# A real acoustic drum kit with brushes and mallets, rusty and characterful — Big Rusty Drums by Karoryfer (CC0). Its samples, about 620 MB, download from the st0 tray's Downloads tab.

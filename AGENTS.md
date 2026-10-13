@@ -159,10 +159,11 @@ commons first. Never edit `commons/` for something only studio needs — put it 
 `packages/` instead: that is the line between "shared with phare" and "shared
 inside studio".
 
-`st0-library/` is a second submodule: the `@st0` modules library (`music/st0-libraries`), the SEED
-the server copies a library folder from once and the desktop and phone bundles carry a copy of. It
-is here so a module and the code it relies on change together.
-Its URL is relative, like commons', and CI checks out commons alone: no job reads the library.
+`st0-library/` is a plain folder of this repository: the `@st0` modules library, the SEED the server
+copies a library folder from once and the desktop and phone bundles carry a copy of. It is here so
+a module and the code it relies on change together, in one commit. Its binaries (IRs, amp models,
+presets) are ordinary tracked files; a path in it stays short, since a Windows checkout refuses one
+past 260 characters.
 
 # Developing on the Windows machine
 

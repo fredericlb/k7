@@ -1,0 +1,23 @@
+# Parametric EQ  [audioEffect] — five bands, low shelf to high shelf, drawn and dragged on its screen.
+# Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin:
+  type: jsdsp
+  name: Parametric EQ
+params:
+  Low Freq: 100
+  Low Gain: 0
+  Low Q: 0.707
+  Low Mid Freq: 300
+  Low Mid Gain: 0
+  Low Mid Q: 1
+  Mid Freq: 1000
+  Mid Gain: 0
+  Mid Q: 1
+  High Mid Freq: 3500
+  High Mid Gain: 0
+  High Mid Q: 1
+  High Freq: 8000
+  High Gain: 0
+  High Q: 0.707
+
+# A five-band parametric equaliser: a low shelf, three bell bands and a high shelf, each with its frequency, gain (±18 dB) and Q. Its screen draws the resulting curve over the signal going in and coming out; drag a band's point to move its frequency and gain, and alt-drag it up or down to change its Q.

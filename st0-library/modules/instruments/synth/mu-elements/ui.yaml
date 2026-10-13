@@ -1,0 +1,66 @@
+# mu-elements — three exciters (bow, blow, strike) into one resonator, each half drawn on its own screen and page
+cols: 16
+rows: 4
+widgets: {}
+tabs:
+  - name: EXCITER
+    widgets:
+      input: { type: dropdown, col: 0, row: 0, colSpan: 6, label: Input, bind: Input, options: [{ label: strike, value: 0 }, { label: blow, value: 1 }, { label: both, value: 2 }] }
+      exciter: { type: lcdscreen, col: 0, row: 1, colSpan: 6, rowSpan: 3 }
+      bow_group: { type: group, col: 6, row: 0, colSpan: 2, rowSpan: 4, label: BOW, color: "#ff6a1a26" }
+      bow: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Bow, bind: Bow, min: 0, max: 1 }
+      bow_timbre: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Timbre, bind: Bow timbre, min: 0, max: 1 }
+      blow_group: { type: group, col: 8, row: 0, colSpan: 4, rowSpan: 4, label: BLOW, color: "#3d7dff26" }
+      blow: { type: knob, col: 8, row: 0, colSpan: 2, rowSpan: 2, label: Blow, bind: Blow, min: 0, max: 1 }
+      blow_timbre: { type: knob, col: 10, row: 0, colSpan: 2, rowSpan: 2, label: Timbre, bind: Blow timbre, min: 0, max: 1 }
+      flow: { type: knob, col: 8, row: 2, colSpan: 2, rowSpan: 2, label: Flow, bind: Flow, min: 0, max: 1 }
+      strike_group: { type: group, col: 12, row: 0, colSpan: 4, rowSpan: 4, label: STRIKE, color: "#ff3b3026" }
+      strike: { type: knob, col: 12, row: 0, colSpan: 2, rowSpan: 2, label: Strike, bind: Strike, min: 0, max: 1 }
+      strike_timbre: { type: knob, col: 14, row: 0, colSpan: 2, rowSpan: 2, label: Timbre, bind: Strike timbre, min: 0, max: 1 }
+      mallet: { type: knob, col: 12, row: 2, colSpan: 2, rowSpan: 2, label: Mallet, bind: Mallet, min: 0, max: 1 }
+  - name: RESONATOR
+    widgets:
+      model: { type: dropdown, col: 0, row: 0, colSpan: 6, label: Model, bind: Model, options: [{ label: Modal, value: 0 }, { label: String, value: 1 }, { label: Strings, value: 2 }, { label: Ominous, value: 3 }] }
+      resonator: { type: lcdscreen, col: 0, row: 1, colSpan: 6, rowSpan: 3 }
+      res_group: { type: group, col: 6, row: 0, colSpan: 6, rowSpan: 4, label: RES, color: "#3ec96b26" }
+      geometry: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Geom, bind: Geometry, min: 0, max: 1 }
+      brightness: { type: knob, col: 8, row: 0, colSpan: 2, rowSpan: 2, label: Bright, bind: Brightness, min: 0, max: 1 }
+      damping: { type: knob, col: 10, row: 0, colSpan: 2, rowSpan: 2, label: Damp, bind: Damping, min: 0, max: 1 }
+      position: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Pos, bind: Position, min: 0, max: 1 }
+      space: { type: knob, col: 8, row: 2, colSpan: 2, rowSpan: 2, label: Space, bind: Space, min: 0, max: 2 }
+      play_group: { type: group, col: 12, row: 0, colSpan: 2, rowSpan: 4, label: PLAY, color: "#6b6b6b33" }
+      contour: { type: knob, col: 12, row: 0, colSpan: 2, rowSpan: 2, label: Contour, bind: Contour, min: 0, max: 1 }
+      transpose: { type: knob, col: 12, row: 2, colSpan: 2, rowSpan: 2, label: Transp, bind: Transpose, min: -24, max: 24, step: 1 }
+vertical:
+  cols: 4
+  rows: 14
+  widgets: {}
+  tabs:
+    - name: EXCITER
+      widgets:
+        input: { type: dropdown, col: 0, row: 0, colSpan: 4, label: Input, bind: Input, options: [{ label: strike, value: 0 }, { label: blow, value: 1 }, { label: both, value: 2 }] }
+        exciter: { type: lcdscreen, col: 0, row: 1, colSpan: 4, rowSpan: 3 }
+        bow_group: { type: group, col: 0, row: 4, colSpan: 4, rowSpan: 2, label: BOW, color: "#ff6a1a26" }
+        bow: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Bow, bind: Bow, min: 0, max: 1 }
+        bow_timbre: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Timbre, bind: Bow timbre, min: 0, max: 1 }
+        blow_group: { type: group, col: 0, row: 6, colSpan: 4, rowSpan: 4, label: BLOW, color: "#3d7dff26" }
+        blow: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: Blow, bind: Blow, min: 0, max: 1 }
+        blow_timbre: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: Timbre, bind: Blow timbre, min: 0, max: 1 }
+        flow: { type: knob, col: 0, row: 8, colSpan: 2, rowSpan: 2, label: Flow, bind: Flow, min: 0, max: 1 }
+        strike_group: { type: group, col: 0, row: 10, colSpan: 4, rowSpan: 4, label: STRIKE, color: "#ff3b3026" }
+        strike: { type: knob, col: 0, row: 10, colSpan: 2, rowSpan: 2, label: Strike, bind: Strike, min: 0, max: 1 }
+        strike_timbre: { type: knob, col: 2, row: 10, colSpan: 2, rowSpan: 2, label: Timbre, bind: Strike timbre, min: 0, max: 1 }
+        mallet: { type: knob, col: 0, row: 12, colSpan: 2, rowSpan: 2, label: Mallet, bind: Mallet, min: 0, max: 1 }
+    - name: RESONATOR
+      widgets:
+        model: { type: dropdown, col: 0, row: 0, colSpan: 4, label: Model, bind: Model, options: [{ label: Modal, value: 0 }, { label: String, value: 1 }, { label: Strings, value: 2 }, { label: Ominous, value: 3 }] }
+        resonator: { type: lcdscreen, col: 0, row: 1, colSpan: 4, rowSpan: 3 }
+        res_group: { type: group, col: 0, row: 4, colSpan: 4, rowSpan: 6, label: RES, color: "#3ec96b26" }
+        geometry: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Geom, bind: Geometry, min: 0, max: 1 }
+        brightness: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Bright, bind: Brightness, min: 0, max: 1 }
+        damping: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: Damp, bind: Damping, min: 0, max: 1 }
+        position: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: Pos, bind: Position, min: 0, max: 1 }
+        space: { type: knob, col: 0, row: 8, colSpan: 2, rowSpan: 2, label: Space, bind: Space, min: 0, max: 2 }
+        play_group: { type: group, col: 0, row: 10, colSpan: 4, rowSpan: 2, label: PLAY, color: "#6b6b6b33" }
+        contour: { type: knob, col: 0, row: 10, colSpan: 2, rowSpan: 2, label: Contour, bind: Contour, min: 0, max: 1 }
+        transpose: { type: knob, col: 2, row: 10, colSpan: 2, rowSpan: 2, label: Transp, bind: Transpose, min: -24, max: 24, step: 1 }

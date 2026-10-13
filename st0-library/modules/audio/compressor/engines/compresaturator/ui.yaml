@@ -1,0 +1,14 @@
+# compresaturator — a compressor that turns into saturation as it is driven
+cols: 6
+rows: 2
+widgets:
+  drive: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }
+  clamp: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Clamp, bind: Clamp, min: 0, max: 1 }
+  expand: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Expand, bind: Expand, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    drive: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }
+    clamp: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Clamp, bind: Clamp, min: 0, max: 1 }
+    expand: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Expand, bind: Expand, min: 0, max: 1 }

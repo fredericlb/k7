@@ -2,7 +2,3 @@
 	path = commons
 	url = ../commons.git
 	branch = master
-[submodule "st0-library"]
-	path = st0-library
-	url = ../../music/st0-libraries.git
-	branch = master

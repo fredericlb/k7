@@ -1,0 +1,44 @@
+# quick-master — a master bus in one module: low cut, 3-band compressor, stereo widener, HF limit, limiter, word length
+cols: 23
+rows: 4
+widgets:
+  low_cut: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Low Cut, bind: Low Cut, min: 0, max: 300, step: 1 }
+  comp: { type: group, col: 2, row: 0, colSpan: 5, rowSpan: 4, label: COMP, color: "#3ec96b26" }
+  low_amount: { type: fader, col: 2, row: 0, rowSpan: 4, label: Low, bind: Low Amount, min: 0, max: 100, step: 1 }
+  mid_amount: { type: fader, col: 3, row: 0, rowSpan: 4, label: Mid, bind: Mid Amount, min: 0, max: 100, step: 1 }
+  high_amount: { type: fader, col: 4, row: 0, rowSpan: 4, label: High, bind: High Amount, min: 0, max: 100, step: 1 }
+  low_freq: { type: knob, col: 5, row: 0, colSpan: 2, rowSpan: 2, label: Lo X, bind: Low Freq, min: 40, max: 500, step: 1, curve: log }
+  high_freq: { type: knob, col: 5, row: 2, colSpan: 2, rowSpan: 2, label: Hi X, bind: High Freq, min: 800, max: 8000, step: 10, curve: log }
+  bands: { type: lcdscreen, col: 7, row: 0, colSpan: 6, rowSpan: 4 }
+  stereo: { type: group, col: 13, row: 0, colSpan: 2, rowSpan: 4, label: WIDE, color: "#3d7dff26" }
+  width: { type: knob, col: 13, row: 0, colSpan: 2, rowSpan: 2, label: Width, bind: Width, min: 0, max: 200, step: 1 }
+  bass_mono: { type: knob, col: 13, row: 2, colSpan: 2, rowSpan: 2, label: Mono <, bind: Bass Mono, min: 0, max: 300, step: 1 }
+  limit: { type: group, col: 15, row: 0, colSpan: 8, rowSpan: 4, label: LIMIT, color: "#ff6a1a26" }
+  hf_limit: { type: knob, col: 15, row: 0, colSpan: 2, rowSpan: 2, label: HF Limit, bind: HF Limit, min: 0, max: 100, step: 1 }
+  drive: { type: knob, col: 17, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 12, step: 0.1 }
+  ceiling: { type: knob, col: 19, row: 0, colSpan: 2, rowSpan: 2, label: Ceiling, bind: Ceiling, min: -12, max: 0, step: 0.1 }
+  release: { type: knob, col: 21, row: 0, colSpan: 2, rowSpan: 2, label: Release, bind: Release, min: 10, max: 500, step: 1, curve: log }
+  level: { type: lcdscreen, col: 15, row: 2, colSpan: 4, rowSpan: 2 }
+  output: { type: dropdown, col: 19, row: 2, colSpan: 4, label: Output, bind: Output, options: [{ label: Float, value: 0 }, { label: 24-bit, value: 1 }, { label: 16-bit, value: 2 }] }
+vertical:
+  cols: 4
+  rows: 20
+  widgets:
+    low_cut: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Low Cut, bind: Low Cut, min: 0, max: 300, step: 1 }
+    comp: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 6, label: COMP, color: "#3ec96b26" }
+    low_amount: { type: fader, col: 0, row: 2, rowSpan: 4, label: Low, bind: Low Amount, min: 0, max: 100, step: 1 }
+    mid_amount: { type: fader, col: 1, row: 2, rowSpan: 4, label: Mid, bind: Mid Amount, min: 0, max: 100, step: 1 }
+    high_amount: { type: fader, col: 2, row: 2, rowSpan: 4, label: High, bind: High Amount, min: 0, max: 100, step: 1 }
+    low_freq: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: Lo X, bind: Low Freq, min: 40, max: 500, step: 1, curve: log }
+    high_freq: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: Hi X, bind: High Freq, min: 800, max: 8000, step: 10, curve: log }
+    bands: { type: lcdscreen, col: 0, row: 8, colSpan: 4, rowSpan: 3 }
+    stereo: { type: group, col: 0, row: 11, colSpan: 4, rowSpan: 2, label: WIDE, color: "#3d7dff26" }
+    width: { type: knob, col: 0, row: 11, colSpan: 2, rowSpan: 2, label: Width, bind: Width, min: 0, max: 200, step: 1 }
+    bass_mono: { type: knob, col: 2, row: 11, colSpan: 2, rowSpan: 2, label: Mono <, bind: Bass Mono, min: 0, max: 300, step: 1 }
+    limit: { type: group, col: 0, row: 13, colSpan: 4, rowSpan: 7, label: LIMIT, color: "#ff6a1a26" }
+    hf_limit: { type: knob, col: 0, row: 13, colSpan: 2, rowSpan: 2, label: HF Limit, bind: HF Limit, min: 0, max: 100, step: 1 }
+    drive: { type: knob, col: 2, row: 13, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 12, step: 0.1 }
+    ceiling: { type: knob, col: 0, row: 15, colSpan: 2, rowSpan: 2, label: Ceiling, bind: Ceiling, min: -12, max: 0, step: 0.1 }
+    release: { type: knob, col: 2, row: 15, colSpan: 2, rowSpan: 2, label: Release, bind: Release, min: 10, max: 500, step: 1, curve: log }
+    level: { type: lcdscreen, col: 0, row: 17, colSpan: 4, rowSpan: 2 }
+    output: { type: dropdown, col: 0, row: 19, colSpan: 4, label: Output, bind: Output, options: [{ label: Float, value: 0 }, { label: 24-bit, value: 1 }, { label: 16-bit, value: 2 }] }

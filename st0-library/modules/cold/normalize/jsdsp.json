@@ -1,0 +1,48 @@
+{
+  "params": [
+    {
+      "name": "Target",
+      "min": -60,
+      "max": 0,
+      "default": -1
+    },
+    {
+      "name": "Peak",
+      "min": -100,
+      "max": 0,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "sub",
+      "in": [
+        "Target",
+        "Peak"
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "clamp",
+      "in": [
+        "n0",
+        -60,
+        30
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "fromdb",
+      "in": [
+        "n1"
+      ],
+      "out": "n2"
+    },
+    {
+      "type": "gain",
+      "in": [
+        "n2"
+      ]
+    }
+  ]
+}

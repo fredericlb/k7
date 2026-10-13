@@ -1,0 +1,132 @@
+{
+  "params": [
+    {
+      "name": "Count",
+      "min": 1,
+      "max": 8,
+      "default": 1
+    },
+    {
+      "name": "Division",
+      "min": 0.125,
+      "max": 4,
+      "default": 0.5
+    },
+    {
+      "name": "Gate",
+      "min": 0.05,
+      "max": 1,
+      "default": 0.5
+    },
+    {
+      "name": "Decay",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "Chance",
+      "min": 0,
+      "max": 1,
+      "default": 1
+    },
+    {
+      "name": "Pattern",
+      "min": 0,
+      "max": 2,
+      "default": 0
+    },
+    {
+      "name": "Length",
+      "min": 1,
+      "max": 32,
+      "default": 16
+    },
+    {
+      "name": "Density",
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    },
+    {
+      "name": "Rotate",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "Accents",
+      "min": 0,
+      "max": 1,
+      "default": 1
+    },
+    {
+      "name": "Low",
+      "min": 0,
+      "max": 1,
+      "default": 0.5
+    },
+    {
+      "name": "Opposite",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "Keep",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "mhold"
+    },
+    {
+      "type": "mpattern",
+      "in": [
+        "Pattern",
+        "Length",
+        "Density",
+        "Rotate"
+      ]
+    },
+    {
+      "type": "maccent",
+      "in": [
+        "Accents",
+        "Low",
+        "Opposite",
+        "Keep"
+      ]
+    },
+    {
+      "type": "mchance",
+      "in": [
+        "Chance"
+      ]
+    },
+    {
+      "type": "mdecay",
+      "in": [
+        "Decay"
+      ]
+    },
+    {
+      "type": "mul",
+      "in": [
+        "Count",
+        "Division"
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "mstrike",
+      "in": [
+        "n0",
+        "Gate"
+      ]
+    }
+  ]
+}

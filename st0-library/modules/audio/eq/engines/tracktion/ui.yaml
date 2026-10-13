@@ -1,0 +1,18 @@
+# eq3 — a DJ channel EQ, low shelf, mid peak and high shelf
+cols: 9
+rows: 4
+widgets:
+  eq: { type: group, col: 0, row: 0, colSpan: 3, rowSpan: 4, label: EQ, color: "#3ec96b26" }
+  low: { type: fader, col: 0, row: 0, rowSpan: 4, label: Low, bind: Low-shelf gain, min: -20, max: 20, step: 0.1 }
+  mid: { type: fader, col: 1, row: 0, rowSpan: 4, label: Mid, bind: Mid gain 1, min: -20, max: 20, step: 0.1 }
+  high: { type: fader, col: 2, row: 0, rowSpan: 4, label: High, bind: High-shelf gain, min: -20, max: 20, step: 0.1 }
+  response: { type: lcdscreen, col: 3, row: 0, colSpan: 6, rowSpan: 4 }
+vertical:
+  cols: 4
+  rows: 6
+  widgets:
+    response: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+    eq: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 4, label: EQ, color: "#3ec96b26" }
+    low: { type: fader, col: 1, row: 2, rowSpan: 4, label: Low, bind: Low-shelf gain, min: -20, max: 20, step: 0.1 }
+    mid: { type: fader, col: 2, row: 2, rowSpan: 4, label: Mid, bind: Mid gain 1, min: -20, max: 20, step: 0.1 }
+    high: { type: fader, col: 3, row: 2, rowSpan: 4, label: High, bind: High-shelf gain, min: -20, max: 20, step: 0.1 }

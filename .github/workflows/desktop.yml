@@ -103,7 +103,7 @@ jobs:
             preset: release-gcc
     steps:
       - uses: actions/checkout@v4
-      # commons only: no job reads st0-library, a repository in another group this token may not reach.
+      # commons is the one submodule; st0-library is a plain folder of this repository.
       - run: git submodule update --init commons
 
       - uses: actions/setup-node@v4

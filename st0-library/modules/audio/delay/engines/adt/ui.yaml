@@ -1,0 +1,24 @@
+# adt — Automatic Double Tracking
+cols: 10
+rows: 4
+widgets:
+  headrm: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Headrm, bind: Headrm, min: 0, max: 1 }
+  a_section: { type: group, col: 2, row: 0, colSpan: 4, rowSpan: 2, label: TAP A, color: "#3d7dff26" }
+  a_delay: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Delay, bind: A Delay, min: 0, max: 1 }
+  a_level: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Level, bind: A Level, min: 0, max: 1 }
+  b_section: { type: group, col: 6, row: 0, colSpan: 4, rowSpan: 2, label: TAP B, color: "#3d7dff26" }
+  b_delay: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Delay, bind: B Delay, min: 0, max: 1 }
+  b_level: { type: knob, col: 8, row: 0, colSpan: 2, rowSpan: 2, label: Level, bind: B Level, min: 0, max: 1 }
+  taps_screen: { type: lcdscreen, col: 0, row: 2, colSpan: 10, rowSpan: 2 }
+vertical:
+  cols: 4
+  rows: 8
+  widgets:
+    headrm: { type: knob, col: 1, row: 0, colSpan: 2, rowSpan: 2, label: Headrm, bind: Headrm, min: 0, max: 1 }
+    a_section: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 2, label: TAP A, color: "#3d7dff26" }
+    a_delay: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Delay, bind: A Delay, min: 0, max: 1 }
+    a_level: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Level, bind: A Level, min: 0, max: 1 }
+    b_section: { type: group, col: 0, row: 4, colSpan: 4, rowSpan: 2, label: TAP B, color: "#3d7dff26" }
+    b_delay: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Delay, bind: B Delay, min: 0, max: 1 }
+    b_level: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Level, bind: B Level, min: 0, max: 1 }
+    taps_screen: { type: lcdscreen, col: 0, row: 6, colSpan: 4, rowSpan: 2 }

@@ -1,0 +1,205 @@
+# vox-continental-v2 — a combo organ: two manuals of footage drawbars, bass and character, then vibrato, modulation, amp and a pedalboard of effects
+
+cols: 16
+rows: 4
+widgets: {}
+tabs:
+  - name: ORGAN
+    widgets:
+      upper_grp: { type: group, col: 0, row: 0, colSpan: 8, rowSpan: 3, label: UPPER, color: "#3d7dff26" }
+      upper_1: { type: fader, col: 0, row: 0, rowSpan: 3, label: U1, bind: Upper Ft 1, min: 0, max: 1 }
+      upper_2: { type: fader, col: 1, row: 0, rowSpan: 3, label: U2, bind: Upper Ft 2, min: 0, max: 1 }
+      upper_3: { type: fader, col: 2, row: 0, rowSpan: 3, label: U3, bind: Upper Ft 3, min: 0, max: 1 }
+      upper_4: { type: fader, col: 3, row: 0, rowSpan: 3, label: U4, bind: Upper Ft 4, min: 0, max: 1 }
+      upper_5: { type: fader, col: 4, row: 0, rowSpan: 3, label: U5, bind: Upper Ft 5, min: 0, max: 1 }
+      upper_6: { type: fader, col: 5, row: 0, rowSpan: 3, label: U6, bind: Upper Ft 6, min: 0, max: 1 }
+      upper_7: { type: fader, col: 6, row: 0, rowSpan: 3, label: U7, bind: Upper Ft 7, min: 0, max: 1 }
+      upper_8: { type: fader, col: 7, row: 0, rowSpan: 3, label: U8, bind: Upper Ft 8, min: 0, max: 1 }
+      perc_grp: { type: group, col: 0, row: 3, colSpan: 8, label: PERC, color: "#ff6a1a26" }
+      perc_1: { type: toggle, col: 0, row: 3, label: P1, bind: Perc Ft 1 }
+      perc_2: { type: toggle, col: 1, row: 3, label: P2, bind: Perc Ft 2 }
+      perc_3: { type: toggle, col: 2, row: 3, label: P3, bind: Perc Ft 3 }
+      perc_4: { type: toggle, col: 3, row: 3, label: P4, bind: Perc Ft 4 }
+      perc_len: { type: dropdown, col: 4, row: 3, colSpan: 4, label: Decay, bind: Perc Short/Long, options: [ { label: Short, value: 0 }, { label: Long, value: 1 } ] }
+      organ_screen: { type: lcdscreen, col: 8, row: 0, colSpan: 4, rowSpan: 4 }
+      voice_grp: { type: group, col: 12, row: 0, colSpan: 4, rowSpan: 4, label: VOICE, color: "#3d7dff26" }
+      flute: { type: knob, col: 12, row: 0, colSpan: 2, rowSpan: 2, label: Flute, bind: Upper Flute, min: 0, max: 1 }
+      reed: { type: knob, col: 14, row: 0, colSpan: 2, rowSpan: 2, label: Reed, bind: Upper Reed, min: 0, max: 1 }
+      strings: { type: knob, col: 12, row: 2, colSpan: 2, rowSpan: 2, label: Strings, bind: Upper Strings, min: 0, max: 1 }
+      engine: { type: dropdown, col: 14, row: 2, colSpan: 2, label: Engine, bind: Engine, options: [ { label: VOX, value: 0 }, { label: Jennings, value: 1 } ] }
+  - name: LOWER
+    widgets:
+      lower_grp: { type: group, col: 0, row: 0, colSpan: 8, rowSpan: 4, label: LOWER, color: "#3ec96b26" }
+      lower_1: { type: fader, col: 0, row: 0, rowSpan: 4, label: L1, bind: Lower Ft 1, min: 0, max: 1 }
+      lower_2: { type: fader, col: 1, row: 0, rowSpan: 4, label: L2, bind: Lower Ft 2, min: 0, max: 1 }
+      lower_3: { type: fader, col: 2, row: 0, rowSpan: 4, label: L3, bind: Lower Ft 3, min: 0, max: 1 }
+      lower_4: { type: fader, col: 3, row: 0, rowSpan: 4, label: L4, bind: Lower Ft 4, min: 0, max: 1 }
+      lower_5: { type: fader, col: 4, row: 0, rowSpan: 4, label: L5, bind: Lower Ft 5, min: 0, max: 1 }
+      lower_6: { type: fader, col: 5, row: 0, rowSpan: 4, label: L6, bind: Lower Ft 6, min: 0, max: 1 }
+      lower_7: { type: fader, col: 6, row: 0, rowSpan: 4, label: L7, bind: Lower Ft 7, min: 0, max: 1 }
+      lower_8: { type: fader, col: 7, row: 0, rowSpan: 4, label: L8, bind: Lower Ft 8, min: 0, max: 1 }
+      bass_grp: { type: group, col: 8, row: 0, colSpan: 8, rowSpan: 2, label: BASS, color: "#3ec96b26" }
+      bass_foot: { type: dropdown, col: 8, row: 0, colSpan: 2, label: Foot, bind: Bass 8'-16', options: [ { label: 8', value: 0 }, { label: 16', value: 1 } ] }
+      bass_flute: { type: knob, col: 10, row: 0, colSpan: 2, rowSpan: 2, label: Flute, bind: Bass Flute, min: 0, max: 1 }
+      bass_reed: { type: knob, col: 12, row: 0, colSpan: 2, rowSpan: 2, label: Reed, bind: Bass Reed, min: 0, max: 1 }
+      bass_decay: { type: knob, col: 14, row: 0, colSpan: 2, rowSpan: 2, label: Decay, bind: Bass Decay, min: 0, max: 1 }
+      char_grp: { type: group, col: 8, row: 2, colSpan: 8, rowSpan: 2, label: CHAR, color: "#ff3b3026" }
+      drive_reed: { type: knob, col: 8, row: 2, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive/Reed, min: 0, max: 1 }
+      noise: { type: knob, col: 10, row: 2, colSpan: 2, rowSpan: 2, label: Noise, bind: Noise, min: 0, max: 1 }
+      age: { type: knob, col: 12, row: 2, colSpan: 2, rowSpan: 2, label: Age, bind: Age, min: 0, max: 1 }
+      timbre: { type: knob, col: 14, row: 2, colSpan: 2, rowSpan: 2, label: Timbre, bind: Timbre, min: 0, max: 1 }
+  - name: MOD
+    widgets:
+      vib_grp: { type: group, col: 0, row: 0, colSpan: 6, rowSpan: 2, label: VIB, color: "#ff6a1a26" }
+      vib_on: { type: toggle, col: 0, row: 0, colSpan: 2, label: Vibrato, bind: Vibrato On/Off }
+      vib_rate: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Rate, bind: Vibrato Rate, min: 0, max: 1 }
+      vib_depth: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Depth, bind: Vibrato Depth, min: 0, max: 1 }
+      swell: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Swell, bind: Swell Pedal, min: 0, max: 1 }
+      leslie_grp: { type: group, col: 8, row: 0, colSpan: 8, rowSpan: 2, label: LESLIE, color: "#3d7dff26" }
+      leslie_speed: { type: dropdown, col: 8, row: 0, colSpan: 2, label: Speed, bind: Leslie Speed, options: [ { label: Stop, value: 0 }, { label: Slow, value: 0.5 }, { label: Fast, value: 1 } ] }
+      leslie_rate: { type: knob, col: 10, row: 0, colSpan: 2, rowSpan: 2, label: Rate, bind: Leslie Rate, min: 0, max: 1 }
+      leslie_depth: { type: knob, col: 12, row: 0, colSpan: 2, rowSpan: 2, label: Depth, bind: Leslie High Depth, min: 0, max: 1 }
+      leslie_width: { type: knob, col: 14, row: 0, colSpan: 2, rowSpan: 2, label: Width, bind: Leslie High Width, min: 0, max: 1 }
+      ph_grp: { type: group, col: 0, row: 2, colSpan: 8, rowSpan: 2, label: PHASER, color: "#ff6a1a26" }
+      ph_on: { type: toggle, col: 0, row: 2, colSpan: 2, label: On, bind: Phaser On/Off }
+      ph_rate: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Rate, bind: Phaser Rate, min: 0, max: 1 }
+      ph_depth: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Depth, bind: Phaser Depth, min: 0, max: 1 }
+      ph_fb: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Phaser Feedback, min: 0, max: 1 }
+      ch_grp: { type: group, col: 8, row: 2, colSpan: 8, rowSpan: 2, label: CHORUS, color: "#3d7dff26" }
+      ch_on: { type: toggle, col: 8, row: 2, colSpan: 2, label: On, bind: Chorus On/Off }
+      ch_type: { type: dropdown, col: 8, row: 3, colSpan: 2, label: Type, bind: Chorus Type, options: [ { label: "1", value: 0 }, { label: "2", value: 0.5 }, { label: "3", value: 1 } ] }
+      ch_rate: { type: knob, col: 10, row: 2, colSpan: 2, rowSpan: 2, label: Rate, bind: Chorus Rate, min: 0, max: 1 }
+      ch_amount: { type: knob, col: 12, row: 2, colSpan: 2, rowSpan: 2, label: Amount, bind: Chorus Amount, min: 0, max: 1 }
+      ch_mix: { type: knob, col: 14, row: 2, colSpan: 2, rowSpan: 2, label: Mix, bind: Chorus Mix, min: 0, max: 1 }
+  - name: AMP
+    widgets:
+      od_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: DRIVE, color: "#ff3b3026" }
+      od_drive: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Overdrive Drive, min: 0, max: 1 }
+      od_tone: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Tone, bind: Overdrive Tone, min: 0, max: 1 }
+      od_level: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Level, bind: Overdrive Output, min: 0, max: 1 }
+      od_on: { type: toggle, col: 2, row: 2, colSpan: 2, label: On, bind: Overdrive On/Off }
+      amp_grp: { type: group, col: 4, row: 0, colSpan: 7, rowSpan: 4, label: AMP, color: "#ff3b3026" }
+      amp_cab: { type: dropdown, col: 4, row: 0, colSpan: 4, label: Cab, bind: Guitar Amp Cab, options: [ { label: 1x12" Blackface, value: 0 }, { label: 2x12" Blackface, value: 0.3333333333333333 }, { label: 4x10" Tweed, value: 0.6666666666666666 }, { label: 4x12" Half-Stack, value: 1 } ] }
+      amp_mic: { type: dropdown, col: 4, row: 1, colSpan: 4, label: Mic, bind: Guitar Amp Mic, options: [ { label: SM57 Off Axis, value: 0 }, { label: SM57 On Axis, value: 0.3333333333333333 }, { label: 421 Front, value: 0.6666666666666666 }, { label: U87 Front, value: 1 } ] }
+      amp_drive: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Drive, bind: Guitar Amp Drive, min: 0, max: 1 }
+      amp_volume: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Volume, bind: Guitar Amp Volume, min: 0, max: 1 }
+      amp_low: { type: fader, col: 8, row: 0, rowSpan: 4, label: Low, bind: Guitar Amp Low, min: 0, max: 1 }
+      amp_mid: { type: fader, col: 9, row: 0, rowSpan: 4, label: Mid, bind: Guitar Amp Mid, min: 0, max: 1 }
+      amp_high: { type: fader, col: 10, row: 0, rowSpan: 4, label: High, bind: Guitar Amp High, min: 0, max: 1 }
+  - name: FX
+    widgets:
+      trem_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 2, label: TREM, color: "#ff6a1a26" }
+      trem_on: { type: toggle, col: 0, row: 0, colSpan: 2, label: On, bind: Tremolo On/Off }
+      trem_depth: { type: number, col: 0, row: 1, colSpan: 2, label: Depth, bind: Tremolo Depth, min: 0, max: 1, step: 0.01 }
+      trem_rate: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Rate, bind: Tremolo Rate, min: 0, max: 1 }
+      dl_grp: { type: group, col: 4, row: 0, colSpan: 8, rowSpan: 2, label: DELAY, color: "#3ec96b26" }
+      dl_on: { type: toggle, col: 4, row: 0, colSpan: 2, label: On, bind: Delay On/Off }
+      dl_time: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Time, bind: Delay Time, min: 0, max: 1 }
+      dl_fb: { type: knob, col: 8, row: 0, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Delay Feedback, min: 0, max: 1 }
+      dl_mix: { type: knob, col: 10, row: 0, colSpan: 2, rowSpan: 2, label: Mix, bind: Delay Mix, min: 0, max: 1 }
+      rv_grp: { type: group, col: 12, row: 0, colSpan: 4, rowSpan: 2, label: REVERB, color: "#ffffff1a" }
+      rv_on: { type: toggle, col: 12, row: 0, colSpan: 2, label: On, bind: Reverb On/Off }
+      rv_model: { type: dropdown, col: 12, row: 1, colSpan: 2, label: Model, bind: Reverb Model, options: [ { label: King Dark, value: 0 }, { label: King Medium, value: 0.1 }, { label: King Bright, value: 0.2 }, { label: RV-1 High-Cut, value: 0.3 }, { label: RV-1 Flat, value: 0.4 }, { label: RV-1 RIAA, value: 0.5 }, { label: RV-1 Low-Cut, value: 0.6 }, { label: RV-2 High-Cut, value: 0.7 }, { label: RV-2 Flat, value: 0.8 }, { label: RV-2 RIAA, value: 0.9 }, { label: RV-2 Low-Cut, value: 1 } ] }
+      rv_level: { type: knob, col: 14, row: 0, colSpan: 2, rowSpan: 2, label: Amount, bind: Reverb Level, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 20
+  widgets: {}
+  tabs:
+    - name: ORGAN
+      widgets:
+        upper_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 6, label: UPPER, color: "#3d7dff26" }
+        upper_1: { type: fader, col: 0, row: 0, rowSpan: 3, label: U1, bind: Upper Ft 1, min: 0, max: 1 }
+        upper_2: { type: fader, col: 1, row: 0, rowSpan: 3, label: U2, bind: Upper Ft 2, min: 0, max: 1 }
+        upper_3: { type: fader, col: 2, row: 0, rowSpan: 3, label: U3, bind: Upper Ft 3, min: 0, max: 1 }
+        upper_4: { type: fader, col: 3, row: 0, rowSpan: 3, label: U4, bind: Upper Ft 4, min: 0, max: 1 }
+        upper_5: { type: fader, col: 0, row: 3, rowSpan: 3, label: U5, bind: Upper Ft 5, min: 0, max: 1 }
+        upper_6: { type: fader, col: 1, row: 3, rowSpan: 3, label: U6, bind: Upper Ft 6, min: 0, max: 1 }
+        upper_7: { type: fader, col: 2, row: 3, rowSpan: 3, label: U7, bind: Upper Ft 7, min: 0, max: 1 }
+        upper_8: { type: fader, col: 3, row: 3, rowSpan: 3, label: U8, bind: Upper Ft 8, min: 0, max: 1 }
+        perc_grp: { type: group, col: 0, row: 6, colSpan: 4, rowSpan: 2, label: PERC, color: "#ff6a1a26" }
+        perc_1: { type: toggle, col: 0, row: 6, label: P1, bind: Perc Ft 1 }
+        perc_2: { type: toggle, col: 1, row: 6, label: P2, bind: Perc Ft 2 }
+        perc_3: { type: toggle, col: 2, row: 6, label: P3, bind: Perc Ft 3 }
+        perc_4: { type: toggle, col: 3, row: 6, label: P4, bind: Perc Ft 4 }
+        perc_len: { type: dropdown, col: 0, row: 7, colSpan: 4, label: Decay, bind: Perc Short/Long, options: [ { label: Short, value: 0 }, { label: Long, value: 1 } ] }
+        organ_screen: { type: lcdscreen, col: 0, row: 8, colSpan: 4, rowSpan: 3 }
+        voice_grp: { type: group, col: 0, row: 11, colSpan: 4, rowSpan: 4, label: VOICE, color: "#3d7dff26" }
+        flute: { type: knob, col: 0, row: 11, colSpan: 2, rowSpan: 2, label: Flute, bind: Upper Flute, min: 0, max: 1 }
+        reed: { type: knob, col: 2, row: 11, colSpan: 2, rowSpan: 2, label: Reed, bind: Upper Reed, min: 0, max: 1 }
+        strings: { type: knob, col: 0, row: 13, colSpan: 2, rowSpan: 2, label: Strings, bind: Upper Strings, min: 0, max: 1 }
+        engine: { type: dropdown, col: 2, row: 13, colSpan: 2, label: Engine, bind: Engine, options: [ { label: VOX, value: 0 }, { label: Jennings, value: 1 } ] }
+    - name: LOWER
+      widgets:
+        lower_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 6, label: LOWER, color: "#3ec96b26" }
+        lower_1: { type: fader, col: 0, row: 0, rowSpan: 3, label: L1, bind: Lower Ft 1, min: 0, max: 1 }
+        lower_2: { type: fader, col: 1, row: 0, rowSpan: 3, label: L2, bind: Lower Ft 2, min: 0, max: 1 }
+        lower_3: { type: fader, col: 2, row: 0, rowSpan: 3, label: L3, bind: Lower Ft 3, min: 0, max: 1 }
+        lower_4: { type: fader, col: 3, row: 0, rowSpan: 3, label: L4, bind: Lower Ft 4, min: 0, max: 1 }
+        lower_5: { type: fader, col: 0, row: 3, rowSpan: 3, label: L5, bind: Lower Ft 5, min: 0, max: 1 }
+        lower_6: { type: fader, col: 1, row: 3, rowSpan: 3, label: L6, bind: Lower Ft 6, min: 0, max: 1 }
+        lower_7: { type: fader, col: 2, row: 3, rowSpan: 3, label: L7, bind: Lower Ft 7, min: 0, max: 1 }
+        lower_8: { type: fader, col: 3, row: 3, rowSpan: 3, label: L8, bind: Lower Ft 8, min: 0, max: 1 }
+        bass_grp: { type: group, col: 0, row: 6, colSpan: 4, rowSpan: 4, label: BASS, color: "#3ec96b26" }
+        bass_foot: { type: dropdown, col: 2, row: 8, colSpan: 2, label: Foot, bind: Bass 8'-16', options: [ { label: 8', value: 0 }, { label: 16', value: 1 } ] }
+        bass_flute: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: Flute, bind: Bass Flute, min: 0, max: 1 }
+        bass_reed: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: Reed, bind: Bass Reed, min: 0, max: 1 }
+        bass_decay: { type: knob, col: 0, row: 8, colSpan: 2, rowSpan: 2, label: Decay, bind: Bass Decay, min: 0, max: 1 }
+        char_grp: { type: group, col: 0, row: 10, colSpan: 4, rowSpan: 4, label: CHAR, color: "#ff3b3026" }
+        drive_reed: { type: knob, col: 0, row: 10, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive/Reed, min: 0, max: 1 }
+        noise: { type: knob, col: 2, row: 10, colSpan: 2, rowSpan: 2, label: Noise, bind: Noise, min: 0, max: 1 }
+        age: { type: knob, col: 0, row: 12, colSpan: 2, rowSpan: 2, label: Age, bind: Age, min: 0, max: 1 }
+        timbre: { type: knob, col: 2, row: 12, colSpan: 2, rowSpan: 2, label: Timbre, bind: Timbre, min: 0, max: 1 }
+    - name: MOD
+      widgets:
+        vib_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 3, label: VIB, color: "#ff6a1a26" }
+        vib_on: { type: toggle, col: 0, row: 0, colSpan: 2, label: Vibrato, bind: Vibrato On/Off }
+        vib_rate: { type: knob, col: 0, row: 1, colSpan: 2, rowSpan: 2, label: Rate, bind: Vibrato Rate, min: 0, max: 1 }
+        vib_depth: { type: knob, col: 2, row: 1, colSpan: 2, rowSpan: 2, label: Depth, bind: Vibrato Depth, min: 0, max: 1 }
+        swell: { type: knob, col: 1, row: 3, colSpan: 2, rowSpan: 2, label: Swell, bind: Swell Pedal, min: 0, max: 1 }
+        leslie_grp: { type: group, col: 0, row: 5, colSpan: 4, rowSpan: 5, label: LESLIE, color: "#3d7dff26" }
+        leslie_speed: { type: dropdown, col: 0, row: 5, colSpan: 4, label: Speed, bind: Leslie Speed, options: [ { label: Stop, value: 0 }, { label: Slow, value: 0.5 }, { label: Fast, value: 1 } ] }
+        leslie_rate: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: Rate, bind: Leslie Rate, min: 0, max: 1 }
+        leslie_depth: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: Depth, bind: Leslie High Depth, min: 0, max: 1 }
+        leslie_width: { type: knob, col: 0, row: 8, colSpan: 2, rowSpan: 2, label: Width, bind: Leslie High Width, min: 0, max: 1 }
+        ph_grp: { type: group, col: 0, row: 10, colSpan: 4, rowSpan: 5, label: PHASER, color: "#ff6a1a26" }
+        ph_on: { type: toggle, col: 0, row: 10, colSpan: 2, label: On, bind: Phaser On/Off }
+        ph_rate: { type: knob, col: 0, row: 11, colSpan: 2, rowSpan: 2, label: Rate, bind: Phaser Rate, min: 0, max: 1 }
+        ph_depth: { type: knob, col: 2, row: 11, colSpan: 2, rowSpan: 2, label: Depth, bind: Phaser Depth, min: 0, max: 1 }
+        ph_fb: { type: knob, col: 0, row: 13, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Phaser Feedback, min: 0, max: 1 }
+        ch_grp: { type: group, col: 0, row: 15, colSpan: 4, rowSpan: 5, label: CHORUS, color: "#3d7dff26" }
+        ch_on: { type: toggle, col: 0, row: 15, colSpan: 2, label: On, bind: Chorus On/Off }
+        ch_type: { type: dropdown, col: 2, row: 15, colSpan: 2, label: Type, bind: Chorus Type, options: [ { label: "1", value: 0 }, { label: "2", value: 0.5 }, { label: "3", value: 1 } ] }
+        ch_rate: { type: knob, col: 0, row: 16, colSpan: 2, rowSpan: 2, label: Rate, bind: Chorus Rate, min: 0, max: 1 }
+        ch_amount: { type: knob, col: 2, row: 16, colSpan: 2, rowSpan: 2, label: Amount, bind: Chorus Amount, min: 0, max: 1 }
+        ch_mix: { type: knob, col: 0, row: 18, colSpan: 2, rowSpan: 2, label: Mix, bind: Chorus Mix, min: 0, max: 1 }
+    - name: AMP
+      widgets:
+        od_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 5, label: DRIVE, color: "#ff3b3026" }
+        od_on: { type: toggle, col: 0, row: 0, colSpan: 2, label: On, bind: Overdrive On/Off }
+        od_drive: { type: knob, col: 0, row: 1, colSpan: 2, rowSpan: 2, label: Drive, bind: Overdrive Drive, min: 0, max: 1 }
+        od_tone: { type: knob, col: 2, row: 1, colSpan: 2, rowSpan: 2, label: Tone, bind: Overdrive Tone, min: 0, max: 1 }
+        od_level: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, label: Level, bind: Overdrive Output, min: 0, max: 1 }
+        amp_grp: { type: group, col: 0, row: 5, colSpan: 4, rowSpan: 7, label: AMP, color: "#ff3b3026" }
+        amp_cab: { type: dropdown, col: 0, row: 5, colSpan: 4, label: Cab, bind: Guitar Amp Cab, options: [ { label: 1x12" Blackface, value: 0 }, { label: 2x12" Blackface, value: 0.3333333333333333 }, { label: 4x10" Tweed, value: 0.6666666666666666 }, { label: 4x12" Half-Stack, value: 1 } ] }
+        amp_mic: { type: dropdown, col: 0, row: 6, colSpan: 4, label: Mic, bind: Guitar Amp Mic, options: [ { label: SM57 Off Axis, value: 0 }, { label: SM57 On Axis, value: 0.3333333333333333 }, { label: 421 Front, value: 0.6666666666666666 }, { label: U87 Front, value: 1 } ] }
+        amp_drive: { type: knob, col: 0, row: 7, colSpan: 2, rowSpan: 2, label: Drive, bind: Guitar Amp Drive, min: 0, max: 1 }
+        amp_volume: { type: knob, col: 2, row: 7, colSpan: 2, rowSpan: 2, label: Volume, bind: Guitar Amp Volume, min: 0, max: 1 }
+        amp_low: { type: fader, col: 0, row: 9, rowSpan: 3, label: Low, bind: Guitar Amp Low, min: 0, max: 1 }
+        amp_mid: { type: fader, col: 1, row: 9, rowSpan: 3, label: Mid, bind: Guitar Amp Mid, min: 0, max: 1 }
+        amp_high: { type: fader, col: 2, row: 9, rowSpan: 3, label: High, bind: Guitar Amp High, min: 0, max: 1 }
+    - name: FX
+      widgets:
+        trem_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 2, label: TREM, color: "#ff6a1a26" }
+        trem_on: { type: toggle, col: 0, row: 0, colSpan: 2, label: On, bind: Tremolo On/Off }
+        trem_depth: { type: number, col: 0, row: 1, colSpan: 2, label: Depth, bind: Tremolo Depth, min: 0, max: 1, step: 0.01 }
+        trem_rate: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Rate, bind: Tremolo Rate, min: 0, max: 1 }
+        dl_grp: { type: group, col: 0, row: 2, colSpan: 4, rowSpan: 5, label: DELAY, color: "#3ec96b26" }
+        dl_on: { type: toggle, col: 0, row: 2, colSpan: 2, label: On, bind: Delay On/Off }
+        dl_time: { type: knob, col: 0, row: 3, colSpan: 2, rowSpan: 2, label: Time, bind: Delay Time, min: 0, max: 1 }
+        dl_fb: { type: knob, col: 2, row: 3, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Delay Feedback, min: 0, max: 1 }
+        dl_mix: { type: knob, col: 0, row: 5, colSpan: 2, rowSpan: 2, label: Mix, bind: Delay Mix, min: 0, max: 1 }
+        rv_grp: { type: group, col: 0, row: 7, colSpan: 4, rowSpan: 2, label: REVERB, color: "#ffffff1a" }
+        rv_on: { type: toggle, col: 0, row: 7, colSpan: 2, label: On, bind: Reverb On/Off }
+        rv_model: { type: dropdown, col: 0, row: 8, colSpan: 2, label: Model, bind: Reverb Model, options: [ { label: King Dark, value: 0 }, { label: King Medium, value: 0.1 }, { label: King Bright, value: 0.2 }, { label: RV-1 High-Cut, value: 0.3 }, { label: RV-1 Flat, value: 0.4 }, { label: RV-1 RIAA, value: 0.5 }, { label: RV-1 Low-Cut, value: 0.6 }, { label: RV-2 High-Cut, value: 0.7 }, { label: RV-2 Flat, value: 0.8 }, { label: RV-2 RIAA, value: 0.9 }, { label: RV-2 Low-Cut, value: 1 } ] }
+        rv_level: { type: knob, col: 2, row: 7, colSpan: 2, rowSpan: 2, label: Amount, bind: Reverb Level, min: 0, max: 1 }

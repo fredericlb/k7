@@ -1,0 +1,47 @@
+# panel for @st0/transformers/note-repeat
+#
+# Three sections, as the signal meets them: the REPEATS (rate, gate, decay, chance, the rhythm's
+# mode), the screen (widgets.js) picturing the rhythm and editing it, then the PATTERN's numbers and
+# the ACCENTS. Count and Division are CHOICES — a rate has nothing between 1/8 and 1/8T — and their
+# values are BEATS, which is what the graph multiplies (jsdsp.ts). The rest are shares, 0..1.
+cols: 10
+rows: 4
+widgets:
+  repeats: { type: group, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: REPEATS, color: "#ff8a1a1f" }
+  count: { type: dropdown, col: 0, row: 1, colSpan: 2, label: Count, bind: Count, options: [ { label: "1", value: 1 }, { label: "2", value: 2 }, { label: "3", value: 3 }, { label: "4", value: 4 }, { label: "5", value: 5 }, { label: "6", value: 6 }, { label: "7", value: 7 }, { label: "8", value: 8 } ] }
+  division: { type: dropdown, col: 0, row: 0, colSpan: 2, label: Division, bind: Division, options: [ { label: 1/1, value: 4 }, { label: 1/2, value: 2 }, { label: 1/4, value: 1 }, { label: 1/4T, value: 0.667 }, { label: 1/8, value: 0.5 }, { label: 1/8T, value: 0.333 }, { label: 1/16, value: 0.25 }, { label: 1/32, value: 0.125 } ] }
+  gate: { type: knob, col: 2, row: 1, label: Gate, bind: Gate, min: 0.05, max: 1, step: 0.01 }
+  decay: { type: knob, col: 2, row: 0, label: Decay, bind: Decay, min: 0, max: 1, step: 0.01 }
+  chance: { type: knob, col: 2, row: 2, label: Chance, bind: Chance, min: 0, max: 1, step: 0.01 }
+  pattern: { type: dropdown, col: 0, row: 2, colSpan: 2, label: Pattern, bind: Pattern, options: [ { label: None, value: 0 }, { label: Burst, value: 1 }, { label: Euclid, value: 2 } ] }
+  rhythm: { type: lcdscreen, col: 3, row: 0, colSpan: 4, rowSpan: 3 }
+  pattern_grp: { type: group, col: 7, row: 0, colSpan: 3, label: PATTERN, color: "#ffd04a1a" }
+  length: { type: knob, col: 7, row: 0, label: Length, bind: Length, min: 1, max: 32, step: 1 }
+  density: { type: knob, col: 8, row: 0, label: Density, bind: Density, min: 0, max: 1, step: 0.01 }
+  rotate: { type: knob, col: 9, row: 0, label: Rotate, bind: Rotate, min: 0, max: 1, step: 0.01 }
+  accents_grp: { type: group, col: 7, row: 1, colSpan: 3, rowSpan: 3, label: ACCENTS, color: "#ffffff12" }
+  accents: { type: knob, col: 8, row: 1, label: Count, bind: Accents, min: 0, max: 1, step: 0.01 }
+  low: { type: fader, col: 9, row: 1, rowSpan: 3, label: Lo Vel, bind: Low, min: 0, max: 1, step: 0.01 }
+  opposite: { type: toggle, col: 8, row: 2, label: Opposite, bind: Opposite }
+  keep: { type: toggle, col: 8, row: 3, label: Keep, bind: Keep }
+vertical:
+  cols: 4
+  rows: 10
+  widgets:
+    repeats: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 3, label: REPEATS, color: "#ff8a1a1f" }
+    division: { type: dropdown, col: 0, row: 0, colSpan: 2, label: Division, bind: Division, options: [ { label: 1/1, value: 4 }, { label: 1/2, value: 2 }, { label: 1/4, value: 1 }, { label: 1/4T, value: 0.667 }, { label: 1/8, value: 0.5 }, { label: 1/8T, value: 0.333 }, { label: 1/16, value: 0.25 }, { label: 1/32, value: 0.125 } ] }
+    count: { type: dropdown, col: 0, row: 1, colSpan: 2, label: Count, bind: Count, options: [ { label: "1", value: 1 }, { label: "2", value: 2 }, { label: "3", value: 3 }, { label: "4", value: 4 }, { label: "5", value: 5 }, { label: "6", value: 6 }, { label: "7", value: 7 }, { label: "8", value: 8 } ] }
+    pattern: { type: dropdown, col: 0, row: 2, colSpan: 2, label: Pattern, bind: Pattern, options: [ { label: None, value: 0 }, { label: Burst, value: 1 }, { label: Euclid, value: 2 } ] }
+    decay: { type: knob, col: 2, row: 0, label: Decay, bind: Decay, min: 0, max: 1, step: 0.01 }
+    gate: { type: knob, col: 2, row: 1, label: Gate, bind: Gate, min: 0.05, max: 1, step: 0.01 }
+    chance: { type: knob, col: 2, row: 2, label: Chance, bind: Chance, min: 0, max: 1, step: 0.01 }
+    rhythm: { type: lcdscreen, col: 0, row: 3, colSpan: 4, rowSpan: 3 }
+    pattern_grp: { type: group, col: 0, row: 6, colSpan: 4, label: PATTERN, color: "#ffd04a1a" }
+    length: { type: knob, col: 1, row: 6, label: Length, bind: Length, min: 1, max: 32, step: 1 }
+    density: { type: knob, col: 2, row: 6, label: Density, bind: Density, min: 0, max: 1, step: 0.01 }
+    rotate: { type: knob, col: 3, row: 6, label: Rotate, bind: Rotate, min: 0, max: 1, step: 0.01 }
+    accents_grp: { type: group, col: 0, row: 7, colSpan: 4, rowSpan: 3, label: ACCENTS, color: "#ffffff12" }
+    accents: { type: knob, col: 1, row: 7, label: Count, bind: Accents, min: 0, max: 1, step: 0.01 }
+    opposite: { type: toggle, col: 1, row: 8, label: Opposite, bind: Opposite }
+    keep: { type: toggle, col: 1, row: 9, label: Keep, bind: Keep }
+    low: { type: fader, col: 3, row: 7, rowSpan: 3, label: Lo Vel, bind: Low, min: 0, max: 1, step: 0.01 }

@@ -1,0 +1,4 @@
+# atmosphere-channel — Atmosphere's channel stage; its only controls are the footer's
+cols: 1
+rows: 1
+widgets: {}

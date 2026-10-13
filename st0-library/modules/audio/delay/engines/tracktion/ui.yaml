@@ -1,0 +1,12 @@
+# delay — Tracktion's delay: its feedback, and a screen of the repeats it lets through
+cols: 8
+rows: 3
+widgets:
+  taps: { type: lcdscreen, col: 0, row: 0, colSpan: 6, rowSpan: 2 }
+  feedback: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Feedback, min: -30, max: 0 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    taps: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+    feedback: { type: knob, col: 1, row: 2, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Feedback, min: -30, max: 0 }

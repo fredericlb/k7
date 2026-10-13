@@ -1,0 +1,2 @@
+# lowpass-airwindows — Airwindows Lowpass, named by its identifier: "Lowpass" alone is Tracktion's own low pass.
+plugin: { type: internal, name: airwindows_lowpass }

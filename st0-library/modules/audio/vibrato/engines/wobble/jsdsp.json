@@ -1,0 +1,176 @@
+{
+  "params": [
+    {
+      "name": "Amount",
+      "min": 0,
+      "max": 100,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "mul",
+      "in": [
+        "Amount",
+        0.01
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "lerp",
+      "in": [
+        0.3,
+        3.3,
+        "n0"
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n0",
+        25
+      ],
+      "out": "n2"
+    },
+    {
+      "type": "ain",
+      "out": "n3"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n1",
+        0.23
+      ],
+      "out": "n4"
+    },
+    {
+      "type": "alfo",
+      "k": [
+        "n4"
+      ],
+      "out": "n5",
+      "shape": "sine"
+    },
+    {
+      "type": "amul",
+      "out": "n6",
+      "in": [
+        "n5"
+      ],
+      "k": [
+        "n2"
+      ]
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n1",
+        0.71
+      ],
+      "out": "n7"
+    },
+    {
+      "type": "alfo",
+      "k": [
+        "n7"
+      ],
+      "out": "n8",
+      "shape": "sine"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n2",
+        0.6
+      ],
+      "out": "n9"
+    },
+    {
+      "type": "amul",
+      "out": "n10",
+      "in": [
+        "n8"
+      ],
+      "k": [
+        "n9"
+      ]
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n1",
+        1.37
+      ],
+      "out": "n11"
+    },
+    {
+      "type": "alfo",
+      "k": [
+        "n11"
+      ],
+      "out": "n12",
+      "shape": "sine"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n2",
+        0.35
+      ],
+      "out": "n13"
+    },
+    {
+      "type": "amul",
+      "out": "n14",
+      "in": [
+        "n12"
+      ],
+      "k": [
+        "n13"
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n15",
+      "in": [
+        "n6",
+        "n10"
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n16",
+      "in": [
+        "n15",
+        "n14"
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n17",
+      "in": [
+        "n16"
+      ],
+      "k": [
+        60
+      ]
+    },
+    {
+      "type": "adelay",
+      "in": [
+        "n3",
+        "n17"
+      ],
+      "out": "n18",
+      "maxMs": 130
+    },
+    {
+      "type": "aout",
+      "in": [
+        "n18"
+      ]
+    }
+  ]
+}

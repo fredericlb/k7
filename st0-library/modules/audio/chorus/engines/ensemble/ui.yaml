@@ -1,0 +1,14 @@
+# ensemble — a string-machine ensemble chorus
+cols: 6
+rows: 2
+widgets:
+  ensemble: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Ensmbl, bind: Ensemble, min: 0, max: 1 }
+  fullness: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Full, bind: Fullness, min: 0, max: 1 }
+  brighten: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Bright, bind: Brighten, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 4
+  widgets:
+    ensemble: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Ensmbl, bind: Ensemble, min: 0, max: 1 }
+    fullness: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Full, bind: Fullness, min: 0, max: 1 }
+    brighten: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Bright, bind: Brighten, min: 0, max: 1 }

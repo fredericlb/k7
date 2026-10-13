@@ -1,0 +1,5 @@
+# mo-noam — Airwindows MoNoam, a mono and side monitor switch
+cols: 3
+rows: 3
+widgets:
+  mode: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: Mode, bind: Monotor, min: 0, max: 1 }

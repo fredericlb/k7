@@ -1,0 +1,5 @@
+# distance — pushes a sound further away, one knob
+cols: 3
+rows: 3
+widgets:
+  distance: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: Dist, bind: Distance, min: 0, max: 1 }

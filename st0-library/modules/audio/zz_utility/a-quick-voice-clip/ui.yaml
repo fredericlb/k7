@@ -1,0 +1,5 @@
+# a-quick-voice-clip — repairs voice that was recorded too hot and clipped, with a highpass
+cols: 4
+rows: 4
+widgets:
+  highpass: { type: knob, col: 1, row: 1, colSpan: 2, rowSpan: 2, label: Highpass, bind: Highpass, min: 0, max: 1 }

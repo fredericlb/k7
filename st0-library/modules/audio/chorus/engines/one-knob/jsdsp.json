@@ -1,0 +1,112 @@
+{
+  "params": [
+    {
+      "name": "Amount",
+      "min": 0,
+      "max": 100,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "mul",
+      "in": [
+        "Amount",
+        0.01
+      ],
+      "out": "n0"
+    },
+    {
+      "type": "lerp",
+      "in": [
+        0.2,
+        5,
+        "n0"
+      ],
+      "out": "n1"
+    },
+    {
+      "type": "mul",
+      "in": [
+        "n0",
+        20
+      ],
+      "out": "n2"
+    },
+    {
+      "type": "ain",
+      "out": "n3"
+    },
+    {
+      "type": "alfo",
+      "k": [
+        "n1"
+      ],
+      "out": "n4",
+      "shape": "sine"
+    },
+    {
+      "type": "amul",
+      "out": "n5",
+      "in": [
+        "n4"
+      ],
+      "k": [
+        "n2"
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n6",
+      "in": [
+        "n5"
+      ],
+      "k": [
+        30
+      ]
+    },
+    {
+      "type": "adelay",
+      "in": [
+        "n3",
+        "n6"
+      ],
+      "out": "n7",
+      "maxMs": 60
+    },
+    {
+      "type": "amul",
+      "out": "n8",
+      "in": [
+        "n3"
+      ],
+      "k": [
+        0.7
+      ]
+    },
+    {
+      "type": "amul",
+      "out": "n9",
+      "in": [
+        "n7"
+      ],
+      "k": [
+        0.3
+      ]
+    },
+    {
+      "type": "aadd",
+      "out": "n10",
+      "in": [
+        "n8",
+        "n9"
+      ]
+    },
+    {
+      "type": "aout",
+      "in": [
+        "n10"
+      ]
+    }
+  ]
+}

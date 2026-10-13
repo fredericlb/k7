@@ -1,0 +1,3 @@
+# de-rez-2 — the face for De Rez 2, a plugin the engine scans.
+# Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+extends: "@engine/de-rez-2"

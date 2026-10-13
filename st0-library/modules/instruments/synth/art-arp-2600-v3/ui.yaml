@@ -1,0 +1,96 @@
+# arp-2600-v3 — ARP 2600 V3: three VCOs into the VCF, two envelopes, modulation, voice and effects.
+cols: 12
+rows: 4
+widgets: {}
+tabs:
+  - name: OSC
+    widgets:
+      vco: { type: group, col: 0, row: 0, colSpan: 6, rowSpan: 4, label: VCO, color: "#3d7dff26" }
+      tune1: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: VCO 1, bind: Coarse Tune Osc1, min: 0, max: 1 }
+      tune2: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: VCO 2, bind: Coarse Tune Osc2, min: 0, max: 1 }
+      tune3: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: VCO 3, bind: Coarse Tune Osc3, min: 0, max: 1 }
+      pw2: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: PW 2, bind: Width Osc2, min: 0, max: 1 }
+      pw3: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: PW 3, bind: Width Osc3, min: 0, max: 1 }
+      noise: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Noise, bind: Level Noise, min: 0, max: 1 }
+      vcf: { type: group, col: 6, row: 0, colSpan: 6, rowSpan: 4, label: VCF, color: "#ff6a1a26" }
+      vcf_screen: { type: lcdscreen, col: 6, row: 0, colSpan: 4, rowSpan: 2 }
+      vcf_type: { type: dropdown, col: 10, row: 0, colSpan: 2, bind: Type Filter, options: [ { label: Notch 12dB, value: 0 }, { label: Band pass 12dB, value: 0.25 }, { label: High pass 12dB, value: 0.5 }, { label: Low pass 12dB, value: 0.75 }, { label: Low pass 24dB, value: 1 } ] }
+      vcf_fine: { type: number, col: 10, row: 1, colSpan: 2, label: Fine, bind: Fine Tune Filter, min: 0, max: 1 }
+      cutoff: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Coarse Tune Filter, min: 0, max: 1 }
+      res: { type: knob, col: 8, row: 2, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance Filter, min: 0, max: 1 }
+      vcf_mod: { type: knob, col: 10, row: 2, colSpan: 2, rowSpan: 2, label: Env Amt, bind: Amount FM1 Filter, min: 0, max: 1 }
+  - name: ENV
+    widgets:
+      env: { type: group, col: 0, row: 0, colSpan: 8, rowSpan: 4, label: ENV, color: "#3ec96b26" }
+      atk1: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Attack, bind: Attack Envelope1, min: 0, max: 1 }
+      dec1: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Decay, bind: Decay Envelope1, min: 0, max: 1 }
+      sus1: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Sustain, bind: Sustain Envelope1, min: 0, max: 1 }
+      rel1: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Release, bind: Release Envelope1, min: 0, max: 1 }
+      atk2: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: AR Atk, bind: Attack Envelope2, min: 0, max: 1 }
+      rel2: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: AR Rel, bind: Release Envelope2, min: 0, max: 1 }
+      env_screen: { type: lcdscreen, col: 4, row: 2, colSpan: 4, rowSpan: 2 }
+      mod: { type: group, col: 8, row: 0, colSpan: 4, rowSpan: 4, label: MOD, color: "#6b6b6b33" }
+      lfo: { type: knob, col: 8, row: 0, colSpan: 2, rowSpan: 2, label: LFO, bind: Lfo Speed, min: 0, max: 1 }
+      vib: { type: knob, col: 10, row: 0, colSpan: 2, rowSpan: 2, label: Vibrato, bind: Vibrato Depth, min: 0, max: 1 }
+      sh_rate: { type: knob, col: 8, row: 2, colSpan: 2, rowSpan: 2, label: S&H Rate, bind: Rate Sample&Hold, min: 0, max: 1 }
+      sh_lvl: { type: knob, col: 10, row: 2, colSpan: 2, rowSpan: 2, label: S&H, bind: Level Sample&Hold, min: 0, max: 1 }
+  - name: FX
+    widgets:
+      voice: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: VOICE, color: "#ffffff14" }
+      glide: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Glide, bind: Portamento Time, min: 0, max: 1 }
+      detune: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Detune, bind: Voice Detune, min: 0, max: 1 }
+      mode: { type: dropdown, col: 0, row: 2, colSpan: 4, label: Mode, bind: Mode, options: [ { label: Polyphonic, value: 0 }, { label: Unison 4 Voices, value: 0.5 }, { label: Monophonic, value: 1 } ] }
+      legato: { type: dropdown, col: 0, row: 3, colSpan: 4, label: Playing mode, bind: Playing Mode, options: [ { label: Retrigg, value: 0 }, { label: Legato, value: 1 } ] }
+      fx: { type: group, col: 4, row: 0, colSpan: 4, rowSpan: 4, label: FX, color: "#ff3b3026" }
+      chorus: { type: knob, col: 4, row: 0, colSpan: 2, rowSpan: 2, label: Chorus, bind: Chorus Depth, min: 0, max: 1 }
+      delay: { type: knob, col: 6, row: 0, colSpan: 2, rowSpan: 2, label: Delay, bind: Delay Time Left, min: 0, max: 1 }
+      fdbk: { type: knob, col: 4, row: 2, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Delay FeedBack Left, min: 0, max: 1 }
+      reverb: { type: knob, col: 6, row: 2, colSpan: 2, rowSpan: 2, label: Reverb, bind: Amount Left Reverb, min: 0, max: 1 }
+vertical:
+  cols: 4
+  rows: 13
+  widgets: {}
+  tabs:
+    - name: OSC
+      widgets:
+        vco: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 6, label: VCO, color: "#3d7dff26" }
+        tune1: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: VCO 1, bind: Coarse Tune Osc1, min: 0, max: 1 }
+        tune2: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: VCO 2, bind: Coarse Tune Osc2, min: 0, max: 1 }
+        tune3: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: VCO 3, bind: Coarse Tune Osc3, min: 0, max: 1 }
+        pw2: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: PW 2, bind: Width Osc2, min: 0, max: 1 }
+        pw3: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: PW 3, bind: Width Osc3, min: 0, max: 1 }
+        noise: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Noise, bind: Level Noise, min: 0, max: 1 }
+        vcf: { type: group, col: 0, row: 6, colSpan: 4, rowSpan: 7, label: VCF, color: "#ff6a1a26" }
+        vcf_screen: { type: lcdscreen, col: 0, row: 6, colSpan: 4, rowSpan: 2 }
+        vcf_type: { type: dropdown, col: 0, row: 8, colSpan: 2, bind: Type Filter, options: [ { label: Notch 12dB, value: 0 }, { label: Band pass 12dB, value: 0.25 }, { label: High pass 12dB, value: 0.5 }, { label: Low pass 12dB, value: 0.75 }, { label: Low pass 24dB, value: 1 } ] }
+        vcf_fine: { type: number, col: 2, row: 8, colSpan: 2, label: Fine, bind: Fine Tune Filter, min: 0, max: 1 }
+        cutoff: { type: knob, col: 0, row: 9, colSpan: 2, rowSpan: 2, label: Cutoff, bind: Coarse Tune Filter, min: 0, max: 1 }
+        res: { type: knob, col: 2, row: 9, colSpan: 2, rowSpan: 2, label: Res, bind: Resonance Filter, min: 0, max: 1 }
+        vcf_mod: { type: knob, col: 0, row: 11, colSpan: 2, rowSpan: 2, label: Env Amt, bind: Amount FM1 Filter, min: 0, max: 1 }
+    - name: ENV
+      widgets:
+        env: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 8, label: ENV, color: "#3ec96b26" }
+        env_screen: { type: lcdscreen, col: 0, row: 0, colSpan: 4, rowSpan: 2 }
+        atk1: { type: knob, col: 0, row: 2, colSpan: 2, rowSpan: 2, label: Attack, bind: Attack Envelope1, min: 0, max: 1 }
+        dec1: { type: knob, col: 2, row: 2, colSpan: 2, rowSpan: 2, label: Decay, bind: Decay Envelope1, min: 0, max: 1 }
+        sus1: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Sustain, bind: Sustain Envelope1, min: 0, max: 1 }
+        rel1: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Release, bind: Release Envelope1, min: 0, max: 1 }
+        atk2: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: AR Atk, bind: Attack Envelope2, min: 0, max: 1 }
+        rel2: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: AR Rel, bind: Release Envelope2, min: 0, max: 1 }
+        mod: { type: group, col: 0, row: 8, colSpan: 4, rowSpan: 4, label: MOD, color: "#6b6b6b33" }
+        lfo: { type: knob, col: 0, row: 8, colSpan: 2, rowSpan: 2, label: LFO, bind: Lfo Speed, min: 0, max: 1 }
+        vib: { type: knob, col: 2, row: 8, colSpan: 2, rowSpan: 2, label: Vibrato, bind: Vibrato Depth, min: 0, max: 1 }
+        sh_rate: { type: knob, col: 0, row: 10, colSpan: 2, rowSpan: 2, label: S&H Rate, bind: Rate Sample&Hold, min: 0, max: 1 }
+        sh_lvl: { type: knob, col: 2, row: 10, colSpan: 2, rowSpan: 2, label: S&H, bind: Level Sample&Hold, min: 0, max: 1 }
+    - name: FX
+      widgets:
+        voice: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: VOICE, color: "#ffffff14" }
+        glide: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Glide, bind: Portamento Time, min: 0, max: 1 }
+        detune: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Detune, bind: Voice Detune, min: 0, max: 1 }
+        mode: { type: dropdown, col: 0, row: 2, colSpan: 4, label: Mode, bind: Mode, options: [ { label: Polyphonic, value: 0 }, { label: Unison 4 Voices, value: 0.5 }, { label: Monophonic, value: 1 } ] }
+        legato: { type: dropdown, col: 0, row: 3, colSpan: 4, label: Playing mode, bind: Playing Mode, options: [ { label: Retrigg, value: 0 }, { label: Legato, value: 1 } ] }
+        fx: { type: group, col: 0, row: 4, colSpan: 4, rowSpan: 4, label: FX, color: "#ff3b3026" }
+        chorus: { type: knob, col: 0, row: 4, colSpan: 2, rowSpan: 2, label: Chorus, bind: Chorus Depth, min: 0, max: 1 }
+        delay: { type: knob, col: 2, row: 4, colSpan: 2, rowSpan: 2, label: Delay, bind: Delay Time Left, min: 0, max: 1 }
+        fdbk: { type: knob, col: 0, row: 6, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Delay FeedBack Left, min: 0, max: 1 }
+        reverb: { type: knob, col: 2, row: 6, colSpan: 2, rowSpan: 2, label: Reverb, bind: Amount Left Reverb, min: 0, max: 1 }

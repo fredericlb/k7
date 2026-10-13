@@ -1,0 +1,6 @@
+# Auto Wah  [audioEffect] — a touch wah: a resonant band-pass swept by the signal's OWN envelope, so it opens
+# when you dig in and closes when you back off. Its DSP is described in auto-wah.ts beside this file, not
+# compiled into the engine — open it and change it.
+plugin:
+  type: jsdsp
+  name: Auto Wah

@@ -1,0 +1,4 @@
+# purest-console-buss — the cleanest console buss; its only controls are the footer's
+cols: 1
+rows: 1
+widgets: {}

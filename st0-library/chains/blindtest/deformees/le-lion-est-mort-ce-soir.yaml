@@ -1,0 +1,32 @@
+# Déformées — Le lion est mort ce soir — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+# variante ; l'ordre des modules et la correspondance des valeurs sont dans
+# apps/z0/docs/effects.md du dépôt studio.
+
+steps:
+  - id: 2eba9259-1eb1-41e5-a6da-a9ddfa34c32d
+    extends: "@st0/audio/zz_utility/pitch-shift"
+    params:
+      "semitones up": -12
+  - id: 121721b0-cefa-4bf8-bd40-d9c5415940c1
+    extends: "@st0/audio/vibrato"
+    engine: wobble
+    engines:
+      wobble:
+        params:
+          Amount: 73
+  - id: c32825b9-9e88-4fcd-92fc-d10cec8ad73d
+    extends: "@st0/audio/bitcrush"
+    engine: de-rez
+    engines:
+      de-rez:
+        params:
+          Rez: 0.269
+          Rate: 1
+  - id: 12f676e1-9d0e-4af2-8971-cce3f437b931
+    extends: "@st0/audio/highpass"
+    engine: one-knob
+    engines:
+      one-knob:
+        params:
+          Amount: 61
+  - to: [ { chain: "@out" } ]

@@ -1,0 +1,6 @@
+# star-child — Airwindows Star Child, a grainy sustaining texture
+cols: 4
+rows: 2
+widgets:
+  sustain: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Sustain, bind: Sustain, min: 0, max: 1 }
+  grain: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Grain, bind: Grain, min: 0, max: 1 }

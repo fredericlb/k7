@@ -1,0 +1,26 @@
+# retro-roland-cr8000 — an SFZ kit of st0-rack: Roland's CR-8000 CompuRhythm, with the Drumtraks' cabasa on note 82, notes 72–83.
+# One octave of Retro Drums, The Tic Tok Men's sampled drum machines ("free use" per its README),
+# cleaned up by S. Christian Collins. One sample per sound: no velocity layers, no round-robins.
+# The kit file holds six machines, one per octave; each is its own engine, drawing only its pads.
+# The samples (~2 MB) are not in the library: the engine's machine fetches them at start-up.
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/retro-drums/Tic Tok Men RetroDrums 1.sfz"
+  # Its loudest hit at full velocity peaks at 0 dBFS — the level a rack's normalised samples play at.
+  Volume: 2.9
+# The pads its panel draws, on the notes the kit file plays them on.
+kit:
+  Kick: 72
+  HatClosed: 73
+  Snare: 74
+  HatOpen: 75
+  Rimshot: 76
+  TomLow: 77
+  Cymbal: 78
+  TomHigh: 79
+  Claves: 80
+  CongaLow: 81
+  Cabasa: 82
+  CongaMid: 83
+
+# Roland's CR-8000 CompuRhythm: the analog kick, snare, hats, toms, claves and congas of the early 80s — Retro Drums by The Tic Tok Men. Its samples, about 2 MB, download from the st0 tray's Downloads tab.

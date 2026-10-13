@@ -1,0 +1,9 @@
+# Pitch Shift  [audioEffect] — the blindtest's "pitch", in semitones. Not jsdsp: shifting pitch without moving
+# the clock needs a windowed resampler, which is a whole algorithm rather than a graph of primitives. The
+# engine already hosts one, so this module is a name and a default over Tracktion's Pitch Shifter.
+# Unlike z0's, this does NOT change the duration — z0 detuned the source, which resampled it.
+extends: "@engine/pitch-shifter"
+params:
+  "semitones up": 0
+
+# Transposes by whole semitones, ±12 like the blindtest's knob, leaving the tempo alone. z0 got its pitch by detuning the buffer source, so its "pitch" also sped the song up or down; this one does not, which is the one place the reimplementation is deliberately better rather than merely different.

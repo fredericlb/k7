@@ -1,0 +1,8 @@
+# panel for @st0/cold/instrumental
+#
+# One label, for the reason stemsplit's panel is four: this module has no knob, its one parameter is the
+# model, and what a reader needs from the panel is WHAT COMES OUT. Here that is a single file.
+cols: 1
+rows: 1
+widgets:
+  instrumental: { type: label, col: 0, row: 0, label: instrumental }

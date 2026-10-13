@@ -1,0 +1,11 @@
+# stereo-rhodes — a sampled Rhodes, five velocity layers in stereo, played by the engine's SFZ player (sfizz).
+# From the No Budget Orchestra archive at bandshed.net (AV Linux), whose collection is CC BY-SA 4.0; the zip
+# itself carries no licence or credit, so the panel credits where it comes from.
+#
+# The samples (~80 MB) are an instrument the engine's machine keeps itself, fetched by its supervisor once chosen
+# in the tray's Downloads tab (engine/st0-supervisor/docs/instruments.md).
+extends: "@engine/sfz-player"
+params:
+  sfz: "@instruments/nbo-stereo-rhodes/rhodes.sfz"
+
+# A sampled stereo Rhodes, five velocity layers, from the No Budget Orchestra archive (bandshed.net, CC BY-SA). Its samples, about 80 MB, download from the st0 tray's Downloads tab.

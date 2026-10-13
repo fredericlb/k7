@@ -1,0 +1,12 @@
+# overdrive — tanh soft clipping, drive 1 to 50
+cols: 6
+rows: 3
+widgets:
+  amount: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Amount, bind: Amount, min: 0, max: 100 }
+  curve: { type: lcdscreen, col: 2, row: 0, colSpan: 4, rowSpan: 2 }
+vertical:
+  cols: 4
+  rows: 5
+  widgets:
+    amount: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Amount, bind: Amount, min: 0, max: 100 }
+    curve: { type: lcdscreen, col: 0, row: 2, colSpan: 4, rowSpan: 2 }
