@@ -23,6 +23,6 @@ export default (g: GraphBuilder) => {
     const freq = g.param(`${name} Freq`, { min: fLo, max: fHi, default: fDef });
     const gain = g.param(`${name} Gain`, { min: -18, max: 18, default: 0 });
     const q = g.param(`${name} Q`, { min: qLo, max: qHi, default: qDef });
-    g.biquad(mode, g.glide(freq), q, g.glide(gain));
+    g.biquad(mode, freq.glide(), q, gain.glide());
   }
 };
