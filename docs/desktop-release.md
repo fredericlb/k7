@@ -46,12 +46,29 @@ this tree as a bump of that one path.
 ## The presets a runner can actually use
 
 `STUDIO_ENGINE_PRESET` overrides the host's default preset in
-`engine/st0-tray/scripts/build-engine.mjs`. Every leg names its host default anyway —
-`windows-msvc`, `macos-clang`, `release-gcc` — so the matrix says out loud what each leg builds.
-Windows builds with Visual Studio 2026 like the dev machine, which `windows-latest` carries
-(`windows-2025-vs2026`); a generator cannot be overridden on the command line once a preset is
-chosen, so a runner image without it fails at configure with "could not find any instance of
-Visual Studio".
+`engine/st0-tray/scripts/build-engine.mjs`. Every leg names its preset, so the matrix says out
+loud what each one builds: `macos-clang` and `release-gcc`, the host defaults, and on Windows
+`windows-msvc-ninja` — the dev machine's compiler, Visual Studio 2026, which `windows-latest`
+carries (`windows-2025-vs2026`), under Ninja rather than the Visual Studio generator the dev
+machine uses.
+
+## Every leg keeps its compiled objects between runs
+
+The engine is about 1,070 translation units — JUCE, Tracktion, Surge, Faust, sfizz — and a runner
+starts with none of them: 11 minutes on macOS, over 20 on Linux, over 30 on Windows, for a push that
+changed one file. `sccache`, through `hendrikmuhs/ccache-action`, keeps the objects in the Actions
+cache, one per platform and capped at 2 GB, and CMake reaches it through
+`CMAKE_<LANG>_COMPILER_LAUNCHER`.
+
+| choice | why |
+|---|---|
+| sccache, not ccache | one tool on all three; it caches MSVC |
+| Ninja on Windows | the Visual Studio generator ignores a compiler launcher, so under it nothing would be cached |
+| `/Z7` (`CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded`) | `/Zi` writes every object into one shared `.pdb`, which a cached object cannot be replayed into |
+| `/MP` only under the Visual Studio generator | it does nothing under Ninja, and sccache does not cache a compile that carries it |
+| `ilammy/msvc-dev-cmd` | Ninja calls `cl.exe` directly, so the job needs the PATH a developer prompt has |
+
+`sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working.
 
 ## The installer each platform gets
 

@@ -88,10 +88,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # windows-latest is the windows-2025-vs2026 image: Visual Studio 2026, the dev machine's own.
+          # windows-latest is the windows-2025-vs2026 image: the dev machine's compiler, under Ninja so
+          # the compiler cache below applies (the Visual Studio generator ignores a launcher).
           - os: windows-latest
             label: windows-x64
-            preset: windows-msvc
+            preset: windows-msvc-ninja
           # macos-latest is arm64. An Intel build is one more entry here (preset macos-clang,
           # os macos-13); nobody has asked for one, and a macOS runner minute is the dearest.
           - os: macos-latest
@@ -138,13 +139,36 @@ jobs:
           done
 
 
+      # cl.exe and ninja for the Ninja preset: what a Visual Studio developer prompt puts on PATH.
+      - name: msvc environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
+      # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
+      - name: compiler cache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          variant: sccache
+          key: engine-${{ matrix.label }}
+          max-size: 2G
+
       # The engine, the supervisor and the tray's installer, in one script — the same one a
       # developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
       - name: engine + supervisor + tray
         env:
           STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
           STUDIO_SUPERVISOR_PRESET: ${{ matrix.preset }}
+          CMAKE_C_COMPILER_LAUNCHER: sccache
+          CMAKE_CXX_COMPILER_LAUNCHER: sccache
         run: node engine/st0-tray/scripts/build-engine.mjs
+
+      - name: compiler cache stats
+        if: always()
+        shell: bash
+        run: sccache --show-stats || true
 
       - name: archive
         run: >

@@ -21,3 +21,9 @@ studio_fill_empty_table("plaits/resources.cc" "const int32_t* const lookup_table
 studio_fill_empty_table("rings/resources.cc" "const int16_t* lookup_table_int16_table")
 studio_fill_empty_table("rings/resources.cc" "const uint32_t* lookup_table_uint32_table")
 studio_fill_empty_table("elements/resources.cc" "const uint32_t* lookup_table_uint32_table")
+
+# Plaits' flash mocks, compiled under TEST, call printf with no <cstdio>: Clang's headers bring it along,
+# libstdc++'s do not, so GCC stops there.
+studio_replace("plaits/user_data.h"
+    "#include \"stmlib/stmlib.h\"\n\n#ifdef TEST"
+    "#include \"stmlib/stmlib.h\"\n#include <cstdio>  // studio: printf under TEST, which GCC's headers do not bring\n\n#ifdef TEST")

@@ -11,7 +11,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MSVC)
-    add_compile_options(/MP /FS /utf-8)
+    add_compile_options(/utf-8)
+endif()
+# /MP for MSBuild, which runs cl once per file; under Ninja it does nothing, and a compiler cache refuses it.
+if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    add_compile_options(/MP /FS)
 endif()
 # Every dependency is linked statically into one executable; position-independent code keeps that legal on Linux.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

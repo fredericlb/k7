@@ -44,6 +44,19 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
     },
     {
+      "name": "windows-msvc-ninja",
+      "displayName": "Windows (MSVC, Ninja) — CI",
+      "description": "windows-msvc under Ninja, for CI's compiler cache; the engine's preset of the same name says why.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
+        "CMAKE_POLICY_DEFAULT_CMP0141": "NEW"
+      }
+    },
+    {
       "name": "macos-clang",
       "displayName": "macOS (AppleClang)",
       "inherits": "base",
@@ -75,6 +88,7 @@
       "configurePreset": "windows-msvc",
       "configuration": "RelWithDebInfo"
     },
+    { "name": "windows-msvc-ninja", "configurePreset": "windows-msvc-ninja" },
     { "name": "macos-clang", "configurePreset": "macos-clang" },
     {
       "name": "android-arm64",

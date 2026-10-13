@@ -61,6 +61,19 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
     },
     {
+      "name": "windows-msvc-ninja",
+      "displayName": "Windows (MSVC, Ninja) — CI",
+      "description": "The same compiler as windows-msvc under Ninja, for CI's compiler cache: the Visual Studio generator ignores a compiler launcher. Run from a developer environment (vcvars), which is where cl.exe and ninja come from. Debug info is embedded in each object (/Z7) rather than shared in one .pdb, which a cached object cannot write into. docs/desktop-release.md.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
+        "CMAKE_POLICY_DEFAULT_CMP0141": "NEW"
+      }
+    },
+    {
       "name": "macos-clang",
       "displayName": "macOS (AppleClang)",
       "description": "Native macOS build for real low-latency audio (CoreAudio). Unlike the dev presets this does NOT pin a compiler: on Darwin, CMake already resolves cc/c++ to Xcode's AppleClang, whereas hard-pinning bare 'clang' would grab a Homebrew LLVM if one shadows it on PATH — the opposite of the drift the pinning elsewhere prevents. Inherits base's Ninja generator rather than the Xcode one, which needs a full Xcode.app and not just the Command Line Tools. Needs: brew install cmake ninja. ASIO is Windows-only, so none of that SDK wiring applies here.",
@@ -91,6 +104,7 @@
     { "name": "asan",          "configurePreset": "asan",          "targets": ["st0-engine"] },
     { "name": "release-gcc",   "configurePreset": "release-gcc",   "targets": ["st0-engine"] },
     { "name": "windows-msvc",  "configurePreset": "windows-msvc",  "targets": ["st0-engine"], "configuration": "RelWithDebInfo" },
+    { "name": "windows-msvc-ninja", "configurePreset": "windows-msvc-ninja", "targets": ["st0-engine"] },
     { "name": "macos-clang",   "configurePreset": "macos-clang",   "targets": ["st0-engine"] },
     { "name": "android-arm64", "configurePreset": "android-arm64", "targets": ["st0-engine"] }
   ]
