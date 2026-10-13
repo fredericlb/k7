@@ -65,9 +65,10 @@ reason:
      would first move to k7x or to the YAML copy `testSupport` gives. Readers still receive YAML text
      through the bridge; each moves to reading k7x data directly as it is next touched, and `yaml`
      leaves a package once none of its readers needs the bridge.
-8. **Sugar, kind by kind** — forms only one kind of file has, read by that kind's reader into the
-   same data: mini-notation for a sequence's notes, `.to(…)` for the graph's segments. Each is
-   optional to write, and none changes the data a schema sees.
+8. **Sugar, kind by kind** — `notes("c4 d4 ~ e4")` for a sequence's notes, `runs([[…]])` for a
+   graph's segments (a chain cannot repeat `.to(…)`, a key being unique in a map). Expanded before
+   any reader sees the file; kept through an edit that leaves its expansion alone, written as the full
+   data by one that changes it (`packages/song-schema/docs/sugar.md`). Done.
 
 ## The hazards
 

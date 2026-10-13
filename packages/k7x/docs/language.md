@@ -56,6 +56,12 @@ the file already uses.
 `"…"` and `'…'` take JSON's escapes plus `\'`. A backtick string is raw and may span lines; only
 `` \` `` and `\\` are escapes, and `${…}` is literal text, because nothing interpolates.
 
+## Short forms
+
+The language itself has none. A kind of file may: a sequence may write its notes as mini-notation,
+a graph its segments as runs — read by that kind's reader into the same data
+(`packages/song-schema/docs/sugar.md`). They are an authoring aid, not a second way to store data.
+
 ## Comments
 
 `//` and `/* */`. They are trivia to the reader and untouched by every edit; the converter carries

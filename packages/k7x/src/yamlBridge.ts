@@ -5,17 +5,55 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { K7Path } from "./ast.ts";
 import { type K7Document, parseDocument } from "./edit.ts";
 
-/** The YAML text of a k7x file, for a reader that parses YAML; throws K7SyntaxError on a broken file. */
-export function toYaml(k7x: string): string {
-  return stringifyYaml(parseDocument(k7x).toJS(), { lineWidth: 0 });
+type Data = Record<string, unknown>;
+
+/** A kind's short forms, as song-schema's sugar.ts states them: what reads them, and which keys they live in. */
+export interface Sugar {
+  parts: { key: string; target: string; present: (raw: Data) => boolean }[];
+  expand: (raw: Data) => Data;
 }
 
-/** The k7x text after a writer turned the YAML `toYaml` gave it into `yaml`: its data changes, applied in place. */
-export function applyYaml(k7x: string, yaml: string): string {
+/** The YAML text of a k7x file, short forms expanded, for a reader that parses YAML; throws on a broken file. */
+export function toYaml(k7x: string, sugar?: Sugar | null): string {
+  const data = parseDocument(k7x).toJS();
+  return stringifyYaml(sugar ? sugar.expand(data) : data, { lineWidth: 0 });
+}
+
+/** The k7x text after a writer turned `toYaml`'s text into `yaml`; a short form whose expansion changed is written in full. */
+export function applyYaml(
+  k7x: string,
+  yaml: string,
+  sugar?: Sugar | null,
+): string {
   const doc = parseDocument(k7x);
   const after = parseYaml(yaml) ?? {};
   if (!isRecord(after)) throw new Error("k7x: a k7x file is a map at its root");
-  applyData(doc, doc.toJS(), after);
+  const raw = doc.toJS();
+  if (!sugar) {
+    applyData(doc, raw, after);
+    return doc.toString();
+  }
+  const expanded = sugar.expand(raw);
+  if (same(expanded, after)) return k7x;
+  let base: Data = raw;
+  const target: Data = { ...after };
+  for (const part of sugar.parts) {
+    if (!part.present(raw)) continue;
+    if (same(expanded[part.target], after[part.target])) {
+      // Still what the write wants: the short form stays, and its target as written beside it.
+      target[part.key] = raw[part.key];
+      if (part.target !== part.key) {
+        if (part.target in raw) target[part.target] = raw[part.target];
+        else delete target[part.target];
+      }
+    } else if (part.target !== part.key) {
+      // Its expansion changed: the short form goes and its target is written in full, or a stale form would undo the edit.
+      doc.deleteIn([part.key]);
+      const { [part.key]: _gone, ...rest } = base;
+      base = rest;
+    }
+  }
+  applyData(doc, base, target);
   return doc.toString();
 }
 

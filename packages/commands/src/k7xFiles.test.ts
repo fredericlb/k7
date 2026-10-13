@@ -147,6 +147,34 @@ describe("a workspace converted to .k7x", () => {
     expect(strays.map((f) => relative(k7xRoot, f))).toEqual([]);
   });
 
+  it("reads the short forms as the data they stand for, and writes a changed note list in full", async () => {
+    const name = "synth-demo.st0";
+    // Fresh copies: the shared ones above have taken other edits already.
+    const plain = copyDemos(false);
+    const short = copyDemos(true);
+    writeFileSync(
+      join(short, name, "sequences", "melody.k7x"),
+      'notes("c4 d4 e4 f4 g4 a4 b4 c5")\n',
+    );
+    writeFileSync(
+      join(short, name, "graph.k7x"),
+      'runs([["melody", "lead", "MIX", "OUT"], ["pad#midi", "synth-pad", "MIX"]])\n',
+    );
+    expect(compiled(short, name)).toBe(compiled(plain, name));
+    const line = "sequence note velocity melody 62 1 0.5";
+    expect(await run(short, name, line)).toEqual(await run(plain, name, line));
+    const melody = readFileSync(
+      join(short, name, "sequences", "melody.k7x"),
+      "utf8",
+    );
+    expect(melody).not.toContain('notes("');
+    expect(melody).toContain("t(1).d(1).k(62).v(0.5)");
+    expect(compiled(short, name)).toBe(compiled(plain, name));
+    expect(readFileSync(join(short, name, "graph.k7x"), "utf8")).toContain(
+      "runs(",
+    );
+  });
+
   it("creates a new node as .k7x once k7x is everywhere, compiling as the YAML one does", async () => {
     const name = "synth-demo.st0";
     const line = "node new @workspace/audio/compressor squash";

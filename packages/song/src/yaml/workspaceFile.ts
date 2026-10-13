@@ -15,6 +15,7 @@ import { fromYaml } from "@studio/k7x/from-yaml";
 import { applyYaml, toYaml } from "@studio/k7x/yaml-bridge";
 import { relocateIssues } from "@studio/song-schema/yaml/k7xIssues";
 import type { ModuleIssue } from "@studio/song-schema/yaml/moduleFile";
+import { sugarFor } from "@studio/song-schema/yaml/sugar";
 import { convertChecked } from "../k7xMigrate";
 
 export const K7X_EXT = ".k7x";
@@ -46,7 +47,7 @@ export const wsExists = (path: string): boolean => existsSync(realPath(path));
 export function wsRead(path: string): string {
   const real = realPath(path);
   const text = readFileSync(real, "utf8");
-  return isK7xPath(real) ? toYaml(text) : text;
+  return isK7xPath(real) ? toYaml(text, sugarFor(real)) : text;
 }
 
 /** True once the deployer says every device reads .k7x: a new file is then created as one (docs/k7xFiles.md). */
@@ -77,7 +78,7 @@ export function wsWrite(path: string, content: string | Uint8Array): void {
     return;
   }
   const before = readFileSync(real, "utf8");
-  const after = applyYaml(before, content);
+  const after = applyYaml(before, content, sugarFor(real));
   if (after !== before) writeFileSync(real, after);
 }
 

@@ -52,6 +52,7 @@
     "./yaml/uiFile": "./src/yaml/uiFile.ts",
     "./yaml/validate": "./src/yaml/validate.ts",
     "./yaml/k7xIssues": "./src/yaml/k7xIssues.ts",
+    "./yaml/sugar": "./src/yaml/sugar.ts",
     "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts"
   },
   "scripts": {

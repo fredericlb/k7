@@ -5,6 +5,7 @@ import type { K7Entry, K7Node } from "@studio/k7x/ast";
 import { K7SyntaxError, parseTree } from "@studio/k7x/parse";
 import { toYaml } from "@studio/k7x/yaml-bridge";
 import type { ModuleIssue } from "./moduleFile";
+import { sugarFor } from "./sugar";
 
 /** 1-based line and column of an offset in `text`. */
 function lineCol(text: string, offset: number): { line: number; col: number } {
@@ -73,10 +74,20 @@ export function k7xSyntaxIssue(text: string): ModuleIssue | null {
   }
 }
 
-/** A YAML parser's verdict on a k7x buffer that reads, placed on its own lines. */
+/** A YAML parser's verdict on a k7x buffer that reads, its short forms expanded, placed on its own lines. */
 export function checkK7x(
   text: string,
   parse: (yaml: string) => { issues: ModuleIssue[] },
+  path = "",
 ): ModuleIssue[] {
-  return relocateIssues(text, parse(toYaml(text)).issues);
+  let yaml: string;
+  try {
+    yaml = toYaml(text, sugarFor(path));
+  } catch (e) {
+    // A short form that does not read names its key first ("notes: …"), which is where it is placed.
+    const message = (e as Error).message;
+    const key = /^(\w+): /.exec(message)?.[1] ?? "";
+    return relocateIssues(text, [{ path: key, message }]);
+  }
+  return relocateIssues(text, parse(yaml).issues);
 }

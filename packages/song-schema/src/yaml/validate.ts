@@ -159,7 +159,7 @@ function validateK7x(path: string, text: string): Validity {
   const parse = parserFor(path);
   if (!parse)
     return { ok: true, issues: [], depth: "syntax", malformed: false };
-  const issues = checkK7x(text, parse);
+  const issues = checkK7x(text, parse, path);
   return { ok: !issues.length, issues, depth: "schema", malformed: false };
 }
 
