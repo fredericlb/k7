@@ -58,8 +58,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # commons is the one submodule; st0-library is a plain folder of this repository.
-      - run: git submodule update --init commons
+        with:
+          submodules: true
+          # commons is private: the run's own token reads st0 alone, so COMMONS_TOKEN (read access to it) is used when set.
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -102,8 +104,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # commons is the one submodule; st0-library is a plain folder of this repository.
-      - run: git submodule update --init commons
+        with:
+          submodules: true
+          # commons is private: the run's own token reads st0 alone, so COMMONS_TOKEN (read access to it) is used when set.
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
 
       - run: sudo apt-get update && sudo apt-get install -y ninja-build
 
@@ -134,8 +138,10 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      # commons is the one submodule; st0-library is a plain folder of this repository.
-      - run: git submodule update --init commons
+        with:
+          submodules: true
+          # commons is private: the run's own token reads st0 alone, so COMMONS_TOKEN (read access to it) is used when set.
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
