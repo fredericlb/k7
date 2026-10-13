@@ -7,7 +7,7 @@
 # It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not:
 # a cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM, so this is tens of minutes
 # per platform and belongs on a release cadence, not on every push. Hence the `decide` gate
-# below — a master push that touched only apps/ or docs/ does not pay for three native builds.
+# below — a main push that touched only apps/ or docs/ does not pay for three native builds.
 #
 # What it does NOT do is SIGN anything. The macOS .dmg is unsigned and unnotarised, the
 # Windows installer unsigned; both warn on first launch. See docs/desktop-release.md.
@@ -16,7 +16,7 @@ name: desktop
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     tags: ["v*.*.*"]
   workflow_dispatch:
 
@@ -71,7 +71,7 @@ jobs:
 
           # A dispatch on a side branch still builds, so it can be tested — it just publishes nothing.
           publish=no
-          if [ "$build" = yes ] && { [ "$channel" = release ] || [ "$GITHUB_REF" = refs/heads/master ]; }; then
+          if [ "$build" = yes ] && { [ "$channel" = release ] || [ "$GITHUB_REF" = refs/heads/main ]; }; then
             publish=yes
           fi
 

@@ -27,7 +27,7 @@ name: st0
 # Actions does not support anchors/aliases in workflow files.
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "apps/st0/**"
       - "engine/st0-engine/**"

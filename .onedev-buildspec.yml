@@ -42,7 +42,7 @@ jobs:
     optional: false
   triggers:
   - type: BranchUpdateTrigger
-    branches: master
+    branches: main
     userMatch: anyone
   retryCondition: never
   maxRetries: 3
@@ -118,7 +118,7 @@ jobs:
     optional: false
   triggers:
   - type: BranchUpdateTrigger
-    branches: master
+    branches: main
     userMatch: anyone
   jobDependencies:
   - jobName: lint and test
@@ -165,7 +165,7 @@ jobs:
 # deliverables: the tray (.deb and .AppImage, supervisor inside) and the headless engine,
 # st0-engine on its own. Not on BranchUpdateTrigger like the two jobs above: a cold configure
 # fetches JUCE, Tracktion, Faust, Eigen and NAM and then compiles them, tens of minutes. OneDev
-# makes a new build at EVERY firing, so the first command skips the night when master took no
+# makes a new build at EVERY firing, so the first command skips the night when main took no
 # commit in the last 24 hours. Run "check artifact upload size" first if you have not already
 # confirmed the limit.
 - name: build linux desktop (engine + supervisor + tray)

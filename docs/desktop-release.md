@@ -17,7 +17,7 @@ carries its own copy — this second one is for a machine that wants the engine 
 
 ## Two channels, and what names an archive
 
-A push to `master` refreshes a prerelease on the moving tag `snapshot`; a `vX.Y.Z` tag makes a
+A push to `main` refreshes a prerelease on the moving tag `snapshot`; a `vX.Y.Z` tag makes a
 release of its own. The snapshot release is deleted and recreated rather than edited, because a
 GitHub release keeps the commit its tag points at however its assets are replaced — an edited one
 would keep advertising the commit it was first cut from.
@@ -31,7 +31,7 @@ from it would be indistinguishable in a downloads folder.
 
 A cold configure of the engine fetches JUCE, Tracktion, Faust, Eigen and NAM and then compiles
 them: tens of minutes, three times over, and a macOS runner minute is the dearest one there is.
-So a master push that touched only `apps/` or a doc must not start it.
+So a `main` push that touched only `apps/` or a doc must not start it.
 
 `paths:` is the obvious tool and it is the wrong one here: GitHub applies it to **tag** pushes
 too, and a tag push carries no commit list for it to match against — the release would silently
