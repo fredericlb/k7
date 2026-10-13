@@ -1,0 +1,119 @@
+# Library versions: upgrade a library without reinstalling st0
+
+The decisions of the library-versions work, in one place. What is built today is described by
+`../packages/song/docs/sharedFolders.md` and `../packages/file-hub/docs/fileHub.md`; this page
+says what changes and why. Nothing here is implemented yet.
+
+## The goal
+
+- A new install has the default `st0` library, with no network.
+- A user upgrades a library without installing st0 again.
+- A library may need a newer st0 than the one running; that upgrade is then refused, with the reason.
+- Nobody but an admin edits a library. A user who wants a module different FORKS it into their own
+  account library.
+- The server opens every song: one pinned to the latest library, one pinned to an old one, one whose
+  modules come from its account's library.
+
+## What forces versions
+
+The origin holds one folder per library and a song hears it as an admin last left it. That cannot
+meet the last goal: a desktop whose st0 is too old for the newest library keeps playing an older
+one, and the server must open that song as the desktop hears it. So **a library is a series of
+published versions, frozen, and every workspace names the version it uses.**
+
+The cost is accepted on purpose: a library fix reaches a workspace only when that workspace
+upgrades. That is the price of a song sounding the same on every replica.
+
+## A version is frozen
+
+- An admin edits `libraries/<name>/draft/`, live, exactly as a library is edited today.
+- **Publish** freezes the draft as `libraries/<name>/<n>/`, `n` an integer counting up from 1.
+  A published version never changes; a fix is a new version.
+- Every library of the origin is versioned, `st0` and any other alike: one mechanism, no exception.
+- The origin keeps every version a workspace of any account pins. Binaries are in the blob store,
+  so an old version costs its text and nothing else.
+- Each version carries `library.yaml`: `name`, `version`, `requires`, and the publish notes.
+
+## `requires` is a LEVEL, not an app version
+
+st0 has several version schemes: the image stamp (`26.08031412`), the desktop's snapshot and
+`vX.Y.Z` tags, the phone's build. None compares with the others. So st0 declares one integer,
+`LIBRARY_LEVEL`, and a library declares `requires: <level>`.
+
+- The level rises when the compiler or the engine gains something a library can use: a module type,
+  a parameter kind, a bundled plugin, a field of `module.yaml`.
+- **An st0 at level N runs every library whose `requires` is at most N.** That is the compatibility
+  promise, and what lets the server open an old pin: the server is always at the highest level.
+- Publish refuses a draft whose `requires` exceeds the origin's own level.
+- On a desktop or a phone the backend and the engine ship together, so they share one level. On the
+  server, an engine reports its level when it connects, and opening a project warns when that engine
+  is below the pinned library's `requires`.
+
+## A workspace pins its versions
+
+`_library-pins.yaml` at the workspace root, beside `_modules/` and `_playlists/`:
+
+```yaml
+st0: 7
+drums: 2
+```
+
+- It is a workspace file, so it reaches every replica by live sync, and the server, the desktop and
+  the phone resolve the same song against the same version.
+- Per workspace, not per song: every project of a workspace shares one catalogue, as they share
+  `_modules`.
+- A library the file does not name resolves to the version that was current when versions arrived,
+  and the first open WRITES that pin, so no song changes sound unasked.
+- A new workspace pins the newest version its st0 can run.
+
+## Upgrade
+
+- **The source is the server.** `GET /api/libraries` lists each library's versions with `requires`
+  and notes; a version downloads as one archive. It is readable without signing in, so an unpaired
+  desktop can upgrade too. A frozen version caches forever.
+- **First run is the installer's archive.** The desktop and the phone bundle one published version of
+  `st0` as an archive and install it as that version on first run, with no network. The seed folder
+  is that archive, nothing else.
+- **Upgrade is a per-workspace action**: "st0 library 7 → 9" fetches the version if the machine
+  lacks it, then rewrites the pin. It lists the account-library forks whose base changed between the
+  two versions, so the user reviews them.
+- **Too old is refused.** A version whose `requires` exceeds the running level is shown disabled with
+  "needs st0 level N — update st0", and the newest version the app can run is offered instead.
+- A paired machine no longer follows a library live: it fetches the versions its workspaces pin,
+  which is also what it needs on its disk before a gig.
+
+## Overrides are forks into the ACCOUNT library
+
+A ref keeps naming exactly one folder: nothing shadows `@st0/x` in place. Overriding is forking, as
+`_modules` forks today, into a library the account owns.
+
+- **The account library** is `<account>/library/` on the server, beside `workspace/`, refs
+  `@account/…`. It holds the same families as any library (`modules/`, `chains/`, `presets/`).
+  `account` joins `RESERVED_LIBRARY_NAMES`.
+- It is the account's own, not versioned and not pinned: it is edited live like `_modules`, and
+  reaches every replica by live sync, in a room of the account's.
+- **Fork** copies `@st0/audio/foo` into `@account/audio/foo` with `extends: "@st0/audio/foo"`, then
+  repoints the chosen project's chains. The fork keeps inheriting what it does not change.
+- What it extends resolves against the pin of the workspace that opens it, so one fork may sit on
+  `st0` 7 in one workspace and 9 in another. That is why upgrade lists the forks whose base moved.
+- Resolution order: the project, `@workspace`, `@account`, the pinned libraries. Each still keys
+  under its own name, so the order decides lookup and never which module a ref means.
+
+## How the server opens any song
+
+It reads the workspace's `_library-pins.yaml`, resolves `@<name>/…` in `libraries/<name>/<pin>/`,
+and `@account/…` in the account's own folder. The server holds every pinned version, every account
+library and every workspace, and runs at the highest level, so latest, old and forked all open.
+
+## Lots
+
+1. `library.yaml`, `LIBRARY_LEVEL`, and the `draft/` + `<n>/` layout on the origin; resolution reads
+   a pin, a missing pin meaning version 1. Existing libraries become version 1 of themselves.
+2. `_library-pins.yaml`: written on first open and on workspace creation; the compile, the file tree
+   and the engine's paths read the pinned folder.
+3. Publish in the Libraries panel; `GET /api/libraries`; archive download.
+4. Upgrade: the per-workspace action, the `requires` gate, the list of forks whose base moved; paired
+   machines fetch pinned versions instead of following the relay.
+5. The installer's archive replaces the seed folder on the desktop and the phone.
+6. `@account`: the folder, its sync room, Fork into it, its place in resolution.
+7. Engines report their level; open warns below `requires`.
