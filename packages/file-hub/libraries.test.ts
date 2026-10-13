@@ -115,6 +115,30 @@ describe("the hub's libraries", () => {
     ]);
   });
 
+  it("installs a PUBLISHED seed under its own number, and adds a newer one to a machine that has the library", () => {
+    writeFileSync(
+      join(seed, "st0", "library.yaml"),
+      "name: st0\nversion: 3\nrequires: 1\n",
+    );
+    const store = new LibraryStore(data, seed);
+    expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
+    expect(store.versions("st0").map((m) => m.version)).toEqual([3]);
+    // An app update carries version 4: one more frozen version, nothing else touched.
+    writeFileSync(
+      join(seed, "st0", "library.yaml"),
+      "name: st0\nversion: 4\nrequires: 1\n",
+    );
+    expect(store.ensure()).toMatchObject([
+      {
+        name: "st0",
+        state: "seeded",
+        note: expect.stringContaining("version 4"),
+      },
+    ]);
+    expect(store.versions("st0").map((m) => m.version)).toEqual([3, 4]);
+    expect(store.ensure()).toMatchObject([{ name: "st0", state: "current" }]);
+  });
+
   it("refuses to publish under a name that is no library", () => {
     const store = new LibraryStore(data, seed);
     expect(store.publish("../st0")).toEqual({

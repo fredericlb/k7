@@ -11,9 +11,10 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { bundleLibrary } from "./libraryArchive.mjs";
 
 const repo = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -122,11 +123,8 @@ for (const rel of DATA) {
   cpSync(from, join(out, rel), { recursive: true });
 }
 
-// The library a fresh desktop or phone copies its `st0` from (`$STUDIO_LIBRARY_SEED`), without the submodule's git.
-cpSync(join(repo, "st0-library"), join(out, "st0-library"), {
-  recursive: true,
-  filter: (src) => basename(src) !== ".git",
-});
+// The library a fresh desktop or phone copies its `st0` from (`$STUDIO_LIBRARY_SEED`): a published version.
+await bundleLibrary(repo, join(out, "st0-library"));
 
 writeFileSync(join(out, "STAMP"), `${new Date().toISOString()}\n`);
 console.log(`backend bundled in ${out}`);

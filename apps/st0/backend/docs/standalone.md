@@ -20,7 +20,7 @@ service's entry.
 | `STUDIO_LIBRARY_ORIGIN` `https://st0.app` | where a machine never paired finds newer versions of the `st0` library and fetches them (`packages/file-hub/libraryFetch.ts`); a hosted origin never sets it, since it IS one, and asking another would mix two origins' libraries |
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
 | `dirs` | the folders under the host's state root, named once so a backup or a support answer reads the same on both |
-| `library` | the `st0-library` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one |
+| `library` | the `st0-library` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one. `bundle.mjs` fills it with the newest version the origin published that this build runs, so a new install starts on a real version number (`../scripts/libraryArchive.mjs`) |
 
 The desktop still lets `ST0_OIDC_ISSUER` and `ST0_OIDC_CLIENT_ID` override the provider, for testing
 against another one.

@@ -80,9 +80,12 @@ drums: 2
 - **Only a machine that names an origin asks one** (`STUDIO_LIBRARY_ORIGIN`, set by the desktop and
   phone table). A hosted origin never does: it IS one, and the private instance asking `st0.app`
   would mix two origins' libraries.
-- **First run is the installer's archive.** The desktop and the phone bundle one published version of
-  `st0` as an archive and install it as that version on first run, with no network. The seed folder
-  is that archive, nothing else.
+- **First run is the installer's copy.** The desktop and the phone bundle the newest published
+  version of `st0` the build runs, `library.yaml` included, and install it under that number on first
+  run, with no network. A folder rather than an archive: the bundle is files already, and the hub
+  copies a folder. An app update carrying a newer version adds it as one more frozen version and
+  moves no pin. A build that cannot reach the origin bundles the repo's `st0-library` and says so:
+  that one installs as version 1, which is what it is on an origin seeded from it.
 - **Upgrade is a per-workspace action**, the verb `library upgrade <library> [version]` and the
   strip above the editor's file tree: it fetches the version if the machine lacks it, then rewrites
   the pin and recompiles the song. It lists the forks whose base changed between the two versions —
@@ -130,6 +133,7 @@ library and every workspace, and runs at the highest level, so latest, old and f
    (`../packages/file-hub/publicLibraries.ts`, `libraryFetch.ts`). **Remains:** a paired machine still
    follows each library whole through the relay, every version and the draft included; fetching
    only what its workspaces pin is a disk saving, not a correctness one.
-5. The installer's archive replaces the seed folder on the desktop and the phone.
+5. **Built.** `apps/st0/backend/scripts/libraryArchive.mjs` bundles the published version; the hub
+   seeds a published seed under its number and adds a newer one on an app update.
 6. `@account`: the folder, its sync room, Fork into it, its place in resolution.
 7. Engines report their level; open warns below `requires`.

@@ -222,12 +222,18 @@ export class LibraryStore {
   /** Copy into a SIBLING and rename it into place: a dot-name is never a library, so no reader sees half of one. */
   private ensureOne(name: string): LibraryNote {
     const at = join(this.home, name);
-    if (existsSync(at)) return this.migrate(name);
+    if (existsSync(at)) {
+      const note = this.migrate(name);
+      return note.state === "failed"
+        ? note
+        : (this.addSeedVersion(name) ?? note);
+    }
     const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
     try {
       mkdirSync(this.home, { recursive: true });
       const from = this.seed.get(name);
-      const first = join(partial, String(UNPINNED_VERSION));
+      // A published seed (an installer's) installs under its own number; a bare folder is version 1.
+      const first = join(partial, String(this.seedVersion(name)));
       if (from && existsSync(from)) {
         cpSync(from, first, { recursive: true, filter: publishable });
         writeFirstManifest(name, first);
@@ -238,6 +244,34 @@ export class LibraryStore {
       writeFirstManifest(name, first);
       renameSync(partial, at);
       return { name, state: "created", note: "empty" };
+    } catch (e) {
+      rmSync(partial, { recursive: true, force: true });
+      return { name, state: "failed", note: (e as Error).message.trim() };
+    }
+  }
+
+  /** The version the seed of `name` is: its manifest's when it is a published one, else UNPINNED_VERSION. */
+  private seedVersion(name: string): number {
+    const from = this.seed.get(name);
+    return (from && readManifest(from)?.version) || UNPINNED_VERSION;
+  }
+
+  /** An app update brings a newer published seed: added as one more frozen version, no pin moved. */
+  private addSeedVersion(name: string): LibraryNote | null {
+    const from = this.seed.get(name);
+    const manifest = from ? readManifest(from) : null;
+    if (!from || !manifest) return null;
+    const dest = join(this.home, name, String(manifest.version));
+    if (existsSync(dest)) return null;
+    const partial = join(this.home, `.seeding-${Date.now()}-${process.pid}`);
+    try {
+      cpSync(from, partial, { recursive: true, filter: publishable });
+      renameSync(partial, dest);
+      return {
+        name,
+        state: "seeded",
+        note: `version ${manifest.version} added from ${from}`,
+      };
     } catch (e) {
       rmSync(partial, { recursive: true, force: true });
       return { name, state: "failed", note: (e as Error).message.trim() };

@@ -56,7 +56,9 @@ import { mintTicket, readTicket } from "./ticket.ts";
 export { holdsClaim, rootsFor } from "./binding.ts";
 export type { Instance } from "./instances.ts";
 export { accountKey } from "./instances.ts";
+export { LibraryStore } from "./libraries.ts";
 export { PUBLIC_LIBRARIES_PATH } from "./libraryFetch.ts";
+export { PublicLibraries } from "./publicLibraries.ts";
 
 /** Where a service mounts the hub; the browser composes its file base from it. */
 export const FILE_HUB_PATH = "/api/files";
