@@ -86,3 +86,12 @@ studio_replace("${h}"
 studio_replace("${cpp}"
     "}\n\nvoid SamplerPlugin::applyToBuffer (const PluginRenderContext& fc)"
     "}\n\nvoid SamplerPlugin::getChannelNames (juce::StringArray* ins, juce::StringArray* outs)   // studio\n{\n    if (ins != nullptr) { ins->add (\"Left\"); ins->add (\"Right\"); }\n    if (outs != nullptr)\n        for (int c = 0, n = getNumOutputChannelsGivenInputs (2); c < n; ++c)\n            outs->add ((c % 2 == 0 ? \"Left \" : \"Right \") + juce::String (c / 2 + 1));\n}\n// studio: getChannelNames above\n\nvoid SamplerPlugin::applyToBuffer (const PluginRenderContext& fc)")
+
+# JUCE builds juceaide in a nested CMake, in Debug with /Zi, and hands it the compiler launcher: under sccache those
+# objects share one .pdb and fail with C1041. On MSVC it builds uncached, a dozen files (docs/desktop-release.md).
+studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
+    "if(CMAKE_C_COMPILER_LAUNCHER)\n"
+    "if(CMAKE_C_COMPILER_LAUNCHER AND NOT MSVC)  # studio: juceaide's /Zi cannot go through sccache\n")
+studio_replace("modules/juce/extras/Build/juceaide/CMakeLists.txt"
+    "if(CMAKE_CXX_COMPILER_LAUNCHER)\n"
+    "if(CMAKE_CXX_COMPILER_LAUNCHER AND NOT MSVC)  # studio: juceaide's /Zi cannot go through sccache\n")

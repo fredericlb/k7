@@ -4,6 +4,7 @@
   "private": true,
   "description": "The menu-bar view over engine/st0-supervisor, on Electron: spawns it, draws its snapshots in the tray and one settings window, sends clicks back. Also holds the scripts that build and release the native pieces. See docs/tray.md.",
   "author": "F <fred@parapluie.org>",
+  "homepage": "https://st0.app",
   "main": "dist/main.cjs",
   "scripts": {
     "build:main": "node scripts/build-main.mjs",

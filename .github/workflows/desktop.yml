@@ -161,8 +161,8 @@ jobs:
         env:
           STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
           STUDIO_SUPERVISOR_PRESET: ${{ matrix.preset }}
-          CMAKE_C_COMPILER_LAUNCHER: sccache
-          CMAKE_CXX_COMPILER_LAUNCHER: sccache
+          # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
+          STUDIO_COMPILER_LAUNCHER: sccache
         run: node engine/st0-tray/scripts/build-engine.mjs
 
       - name: compiler cache stats
