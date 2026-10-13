@@ -4,7 +4,6 @@
 
 import {
   appendFileSync,
-  cpSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -15,6 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
+import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(here, "..", "..", "..", "demos", "node-demo.st0");
@@ -30,7 +30,7 @@ const tracks = () => compileNodeProject(dir).tracks;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-solo-"));
-  cpSync(SONG, dir, { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

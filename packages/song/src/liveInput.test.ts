@@ -1,5 +1,4 @@
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -13,6 +12,7 @@ import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
+import { copyAsYaml } from "./testSupport";
 
 // An input's track is named by the CHAIN, not by a field: a shared io/IN node cannot name one.
 
@@ -40,9 +40,11 @@ describe("a live input, wired by its chain", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-livein-"));
     dir = join(ws, "song");
-    cpSync(SONG, dir, { recursive: true });
+    copyAsYaml(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
-    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+      recursive: true,
+    });
     // The shared catalogue as `module populate` leaves it: a generic IN and one node per input.
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
@@ -185,9 +187,11 @@ describe("an input's monitoring and gain", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-ingain-"));
     dir = join(ws, "song");
-    cpSync(SONG, dir, { recursive: true });
+    copyAsYaml(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
-    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+      recursive: true,
+    });
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(

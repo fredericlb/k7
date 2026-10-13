@@ -7,7 +7,6 @@
 // how a bypass looks, so nothing warns and the module is simply not there. These pin the gate.
 
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -18,7 +17,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { compileNodeProject } from "./nodeProject";
+import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -62,15 +63,14 @@ function midiGraphModule(): void {
     JSON.stringify({ params: [], nodes: [{ type: "mhold" }] }),
     "utf8",
   );
+  // By data, not by text: the copy's layout is the converter's, so a source pattern would find nothing.
   const graph = join(dir, "graph.yaml");
-  writeFileSync(
-    graph,
-    readFileSync(graph, "utf8").replace(
-      "melody: [ lead ]",
-      'melody: [ "@workspace/transformers/rpt" ]\n  "@workspace/transformers/rpt": [ lead ]',
-    ),
-    "utf8",
-  );
+  const doc = parseYaml(readFileSync(graph, "utf8")) as {
+    modules: Record<string, string[]>;
+  };
+  doc.modules.melody = ["@workspace/transformers/rpt"];
+  doc.modules["@workspace/transformers/rpt"] = ["lead"];
+  writeFileSync(graph, stringifyYaml(doc), "utf8");
 }
 
 const plugins = () =>
@@ -79,9 +79,11 @@ const plugins = () =>
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-jsdsp-"));
   dir = join(ws, "synth-demo.st0");
-  cpSync(SONG, dir, { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
   // The Examples workspace's own shared library, beside every demo project.
-  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+  copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+    recursive: true,
+  });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 

@@ -1,5 +1,4 @@
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -13,7 +12,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { projectHints } from "./hints";
 import { compileNodeProject } from "./nodeProject";
-import { insertChainStepAfter, replaceChainStep } from "./testSupport";
+import {
+  copyAsYaml,
+  insertChainStepAfter,
+  replaceChainStep,
+} from "./testSupport";
 
 // A step may name an INHERITED module by its ref, with no local module standing in for it.
 
@@ -28,9 +31,11 @@ describe("a chain step naming an inherited module by ref", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-nsstep-"));
     dir = join(ws, "song");
-    cpSync(SONG, dir, { recursive: true });
+    copyAsYaml(SONG, dir, { recursive: true });
     // The Examples workspace's own shared library, beside every demo project.
-    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+      recursive: true,
+    });
     // The workspace's shared catalogue: a namespace, and one module in it.
     mkdirSync(join(ws, "_modules", "audio", "shared-delay"), {
       recursive: true,
@@ -94,7 +99,7 @@ describe("a ref that spells a node with a slash", () => {
   it("is told which character to change", () => {
     const ws = mkdtempSync(join(tmpdir(), "td-slash-"));
     const dir = join(ws, "song");
-    cpSync(SONG, dir, { recursive: true });
+    copyAsYaml(SONG, dir, { recursive: true });
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(

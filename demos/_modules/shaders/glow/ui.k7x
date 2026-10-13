@@ -1,0 +1,14 @@
+// The panel drawn inside this node's card on the graph.
+//
+// The dropdown binds `@shader` and says NOTHING about its entries: which shaders exist is a fact
+// about the folder, and a list written here would be a copy of a directory going stale between
+// saves. The graph fills it from what the loader found — the same arrangement `@base` has.
+cols(4)
+rows(2)
+widgets({
+  pick: { type: "dropdown", col: 0, row: 0, colSpan: 4, bind: "@shader" },
+  p1: { type: "knob", col: 0, row: 1, bind: "P1", min: 0, max: 1, step: 0.01 },
+  p2: { type: "knob", col: 1, row: 1, bind: "P2", min: 0, max: 1, step: 0.01 },
+  p3: { type: "knob", col: 2, row: 1, bind: "P3", min: 0, max: 1, step: 0.01 },
+  p4: { type: "knob", col: 3, row: 1, bind: "P4", min: 0, max: 1, step: 0.01 },
+})

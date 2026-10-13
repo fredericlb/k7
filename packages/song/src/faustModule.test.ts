@@ -9,13 +9,14 @@
 // The one difference is the last: there is no build step here, so what travels is the source
 // itself. See packages/song/docs/faustModules.md.
 
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
+import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -47,9 +48,11 @@ const plugins = () =>
 beforeEach(() => {
   ws = mkdtempSync(join(tmpdir(), "td-faust-"));
   dir = join(ws, "synth-demo.st0");
-  cpSync(SONG, dir, { recursive: true });
+  copyAsYaml(SONG, dir, { recursive: true });
   // The Examples workspace's own shared library, beside every demo project.
-  cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+  copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+    recursive: true,
+  });
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 

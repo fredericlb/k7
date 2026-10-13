@@ -1,5 +1,4 @@
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { moduleCatalogue } from "./moduleCatalogue";
+import { copyAsYaml } from "./testSupport";
 
 // The builder's list IS what is editable: an unopenable entry is a module nobody can reach.
 
@@ -29,7 +29,7 @@ describe("the shared module catalogue", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-cat-"));
     dir = join(ws, "song");
-    cpSync(SONG, dir, { recursive: true });
+    copyAsYaml(SONG, dir, { recursive: true });
     write("config.yaml", "namespace: engine\n");
     // A module at the top of its type folder…
     write(
@@ -92,7 +92,7 @@ describe("the shared module catalogue", () => {
     // In a workspace of its OWN, since the shared folders are found by location.
     const alone = mkdtempSync(join(tmpdir(), "td-cat-solo-"));
     const solo = join(alone, "song");
-    cpSync(SONG, solo, { recursive: true });
+    copyAsYaml(SONG, solo, { recursive: true });
     const refs = moduleCatalogue(solo).map((m) => m.ref);
     expect(refs).toContain("@meta/IN");
     expect(refs).toContain("@meta/OUT");

@@ -1,13 +1,8 @@
-import {
-  cpSync,
-  existsSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { copyAsYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
@@ -24,11 +19,11 @@ let ws: Workspace;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-reopen-"));
   proj = join(root, "song.st0");
-  cpSync(SONG, proj, { recursive: true });
+  copyAsYaml(SONG, proj, { recursive: true });
   // The demo's own modules live at `@workspace`, its sibling in the Examples workspace.
   const demoModules = join(DEMOS, "_modules");
   if (existsSync(demoModules))
-    cpSync(demoModules, join(root, "_modules"), { recursive: true });
+    copyAsYaml(demoModules, join(root, "_modules"), { recursive: true });
   ws = new Workspace(root);
   ws.setActiveProject("song.st0");
 });

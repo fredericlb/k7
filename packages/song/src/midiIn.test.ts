@@ -2,13 +2,7 @@
 // What is pinned is that the cable is legal, that the engine is handed nothing for it, and that the
 // device travels by its label. See docs/midiIn.md.
 
-import {
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { createNode } from "./loader";
 import { compileNodeProject } from "./nodeProject";
+import { copyAsYaml } from "./testSupport";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEMOS = join(here, "..", "..", "..", "demos");
@@ -39,8 +34,10 @@ describe("a MIDI device wired to a lane", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-midiin-"));
     dir = join(ws, "song");
-    cpSync(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
-    cpSync(join(DEMOS, "_modules"), join(ws, "_modules"), { recursive: true });
+    copyAsYaml(join(DEMOS, "synth-demo.st0"), dir, { recursive: true });
+    copyAsYaml(join(DEMOS, "_modules"), join(ws, "_modules"), {
+      recursive: true,
+    });
     writeFileSync(
       join(dir, "nodes", "keys.yaml"),
       'extends: "@meta/MIDI"\ndevice: "KeyStep 37"\n',

@@ -1,0 +1,5 @@
+// "dot" — a circle. Its x,y is the CENTRE, where a square's is its top-left.
+type("shape")
+shape("circle")
+color("#e2564ecc")
+params({ x: 240, y: 180, r: 120 })

@@ -1,5 +1,4 @@
 import {
-  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -12,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ioPorts } from "./ioPorts";
 import type { Preferences } from "./preferences";
+import { copyAsYaml } from "./testSupport";
 
 // A port's CHANNEL can be a label from the rig's preferences, resolved before anything is metered.
 
@@ -27,7 +27,7 @@ describe("the declared I/O", () => {
   beforeEach(() => {
     ws = mkdtempSync(join(tmpdir(), "td-io-"));
     dir = join(ws, "song");
-    cpSync(SONG, dir, { recursive: true });
+    copyAsYaml(SONG, dir, { recursive: true });
     const io = join(ws, "_modules", "io");
     mkdirSync(join(io, "IN"), { recursive: true });
     mkdirSync(join(io, "OUT"), { recursive: true });
@@ -98,7 +98,7 @@ describe("the declared I/O", () => {
 
   it("still lists a project's OWN io when nothing is inherited", () => {
     const solo = mkdtempSync(join(tmpdir(), "td-io-solo-"));
-    cpSync(SONG, solo, { recursive: true });
+    copyAsYaml(SONG, solo, { recursive: true });
     mkdirSync(join(solo, "nodes"), { recursive: true });
     writeFileSync(join(solo, "nodes", "OUT.yaml"), "io: out\n");
     expect(ioPorts(solo, PREFS).map((p) => p.ref)).toContain("OUT");

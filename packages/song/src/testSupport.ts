@@ -2,8 +2,18 @@
 // thing about it. YAML is a document, so these edit it as one — the value is found by PATH, not by matching
 // source text, and a path that isn't there throws instead of quietly doing nothing.
 
-import { mkdirSync } from "node:fs";
+import {
+  type CopySyncOptions,
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
+import { toYaml } from "@studio/k7x/yaml-bridge";
 import {
   insertBetween,
   parseGraph,
@@ -140,4 +150,26 @@ export function writeLibraries(
   for (const [path, value] of Object.entries(modules))
     writeYaml(join(lib, "modules", path, "module.yaml"), value);
   return lib;
+}
+
+/** A copy of a demo as YAML, whichever format it ships in: the fixture for a test that edits the copy as YAML. */
+export function copyAsYaml(
+  src: string,
+  dest: string,
+  opts: CopySyncOptions = { recursive: true },
+): void {
+  cpSync(src, dest, opts);
+  const walk = (at: string): void => {
+    if (!statSync(at).isDirectory()) {
+      if (!at.endsWith(".k7x")) return;
+      writeFileSync(
+        at.replace(/\.k7x$/, ".yaml"),
+        toYaml(readFileSync(at, "utf8")),
+      );
+      rmSync(at);
+      return;
+    }
+    for (const name of readdirSync(at)) walk(join(at, name));
+  };
+  walk(dest);
 }

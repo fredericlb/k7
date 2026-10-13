@@ -1,0 +1,10 @@
+// A hand-drawn filter sweep, read 0..1: up across bar 1, held through bar 2, then
+// back down by the top of bar 4.
+
+type("custom")
+points([
+  time("1:1:1").value(0),
+  time("2:1:1").value(1),
+  time("3:1:1").value(1),
+  time("4:1:1").value(0.2),
+])
