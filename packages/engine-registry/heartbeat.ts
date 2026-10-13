@@ -39,6 +39,8 @@ export interface ReadHeartbeat {
   machineFingerprint: string;
   addresses: EngineAddresses;
   performance?: EnginePerformance;
+  /** The library level the machine runs; absent from a supervisor older than the field, which runs level 1. */
+  libraryLevel?: number;
   /** One line per field that was dropped or replaced — empty for a heartbeat taken as sent. */
   cleaned: string[];
 }
@@ -91,6 +93,14 @@ export function readHeartbeat(
     else cleaned.push(`performance left out — ${issuesOf(p.error)}`);
   }
 
+  let libraryLevel: number | undefined;
+  if (Number.isInteger(b.libraryLevel) && (b.libraryLevel as number) >= 1)
+    libraryLevel = b.libraryLevel as number;
+  else if (b.libraryLevel !== undefined)
+    cleaned.push(
+      `libraryLevel: ${JSON.stringify(b.libraryLevel)} is no level, left out`,
+    );
+
   return {
     ok: true,
     beat: {
@@ -100,6 +110,7 @@ export function readHeartbeat(
       machineFingerprint: text("machineFingerprint"),
       addresses: { loopback, lanIps, port: core.data.addresses.port },
       ...(performance ? { performance } : {}),
+      ...(libraryLevel ? { libraryLevel } : {}),
       cleaned,
     },
   };

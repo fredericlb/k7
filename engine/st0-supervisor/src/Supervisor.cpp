@@ -35,6 +35,8 @@ namespace st0 {
 namespace {
 
 using Ms = Loop::Ms;
+// The library level this machine runs — song-schema's LIBRARY_LEVEL, kept equal by libraryLevel.test.ts.
+constexpr int kLibraryLevel = 1;
 constexpr Ms kHeartbeat{5000};
 constexpr Ms kWatch{2000};
 constexpr int kBackoffMaxS = 30;
@@ -583,6 +585,7 @@ struct Supervisor::Impl {
     {
         auto p = addresses::presence(settings.port);
         if (performance) p["performance"] = *performance;
+        p["libraryLevel"] = kLibraryLevel;
         return p;
     }
 

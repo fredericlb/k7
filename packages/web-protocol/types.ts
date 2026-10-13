@@ -881,7 +881,7 @@ export interface ModuleLibrary {
   /** …and its shared amp MODELS, what an amp's `model` may pick besides its own assets. */
   models?: FileNode[];
   /** For one of the origin's libraries: the version this workspace plays, and the newest this st0 could move to. */
-  version?: { pinned: number | "draft"; upgrade?: number };
+  version?: { pinned: number | "draft"; requires?: number; upgrade?: number };
 }
 
 /** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
@@ -935,6 +935,8 @@ export interface PublicEngine {
   addresses: EngineAddresses;
   /** How capable the machine is, as the supervisor measured it; absent from an older supervisor — docs/performance.md. */
   performance?: EnginePerformance;
+  /** The library level its machine runs — docs/library-versions-plan.md; absent from an older supervisor, which runs level 1. */
+  libraryLevel?: number;
   assigned: boolean; // already selected by someone; hidden from the pick list
   /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
   heldBy?: string;

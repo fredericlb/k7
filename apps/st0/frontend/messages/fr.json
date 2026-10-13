@@ -194,6 +194,7 @@
   "libs.published": "@{name} v{version} publiée",
   "libs.upgradeReady": "@{name} joue la v{from} — la v{to} est prête",
   "libs.upgrade": "Mettre à jour",
+  "libs.engineTooOld": "@{name} v{version} demande le niveau {need} ; la machine de ce moteur est au niveau {level} — mettez st0 à jour là-bas",
   "wsync.synced": "Synchronisé avec {server}",
   "wsync.local": "Sur cette machine seulement",
   "wsync.server": "Sur {server} seulement",

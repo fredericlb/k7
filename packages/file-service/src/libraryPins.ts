@@ -7,6 +7,7 @@ import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   accountLibraries,
+  libraryManifest,
   newestRunnableVersion,
   workspacePins,
 } from "@studio/song/sharedFolders";
@@ -24,21 +25,30 @@ import { askHubRemote } from "./libraries.ts";
 /** Each library's version as the workspace at `dir` plays it, and the newest this st0 could move to — here or at the origin. */
 export async function libraryVersionsAt(
   dir: string,
-): Promise<Map<string, { pinned: LibraryVersion; upgrade?: number }>> {
+): Promise<Map<string, LibraryVersionRow>> {
   const pins = workspacePins(dir);
-  const out = new Map<string, { pinned: LibraryVersion; upgrade?: number }>();
+  const out = new Map<string, LibraryVersionRow>();
   for (const { name } of accountLibraries()) {
     const pinned = pinnedVersion(pins, name);
     const newest = newestRunnableVersion(name, await askHubRemote(name));
-    out.set(
-      name,
-      typeof pinned === "number" && newest > pinned
-        ? { pinned, upgrade: newest }
-        : { pinned },
-    );
+    const row: LibraryVersionRow = { pinned };
+    // What the pinned version needs of the ENGINE's machine, which the editor reads against it.
+    if (typeof pinned === "number") {
+      const requires = libraryManifest(name, pinned)?.requires;
+      if (requires) row.requires = requires;
+      if (newest > pinned) row.upgrade = newest;
+    }
+    out.set(name, row);
   }
   return out;
 }
+
+/** One library's row: the version played, what it needs, and the newest this st0 could move to. */
+type LibraryVersionRow = {
+  pinned: LibraryVersion;
+  requires?: number;
+  upgrade?: number;
+};
 
 /** Give the workspace at `root` its pins when it has none; answers the pins written, or null when it had some. */
 export function ensureLibraryPins(

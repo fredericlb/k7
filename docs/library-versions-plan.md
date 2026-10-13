@@ -47,8 +47,11 @@ st0 has several version schemes: the image stamp (`26.08031412`), the desktop's 
 - Publish refuses a draft whose `requires` exceeds the origin's own level. Unsaid, `requires` is
   the previous version's, so a publish never raises the floor by accident.
 - On a desktop or a phone the backend and the engine ship together, so they share one level. On the
-  server, an engine reports its level when it connects, and opening a project warns when that engine
-  is below the pinned library's `requires`.
+  server, the supervisor states its machine's level in every heartbeat (`kLibraryLevel`, which
+  `../packages/song-schema/src/libraryLevel.test.ts` keeps equal to `LIBRARY_LEVEL`); one older than
+  the field states none and runs level 1. The editor then warns, above the file tree, for each
+  library whose pinned version `requires` more than the engine playing it. A warning and not a
+  refusal: what that version adds is unknown to the old engine, and the rest of the song still plays.
 
 ## A workspace pins its versions
 
@@ -143,4 +146,5 @@ library and every workspace, and runs at the highest level, so latest, old and f
    (`attachAccountLibrary`, `../packages/file-service/src/workspaces.ts`), `module fork`
    (`../packages/song/src/accountFork.ts`), its presets scope, and upgrade's list of the forks whose
    base moved.
-7. Engines report their level; open warns below `requires`.
+7. **Built.** The supervisor's heartbeat carries `libraryLevel`, the registry hands it to the
+   browser, and `LibraryUpgrades.tsx` warns.

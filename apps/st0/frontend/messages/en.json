@@ -194,6 +194,7 @@
   "libs.published": "@{name} v{version} published",
   "libs.upgradeReady": "@{name} plays v{from} — v{to} is ready",
   "libs.upgrade": "Upgrade",
+  "libs.engineTooOld": "@{name} v{version} needs level {need}; this engine's machine runs level {level} — update st0 there",
   "wsync.synced": "Synced with {server}",
   "wsync.local": "On this machine only",
   "wsync.server": "On {server} only",

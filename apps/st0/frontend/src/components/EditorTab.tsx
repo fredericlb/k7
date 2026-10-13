@@ -249,6 +249,7 @@ export function EditorTab({
   onImportProject,
   onChanged,
   command,
+  engineLevel,
   setStatus,
   onEditTarget,
   onOpenItem,
@@ -282,6 +283,8 @@ export function EditorTab({
   onChanged: () => void;
   /** Run a command line through the shell — the SAME path the palette takes, and what refreshes the open file afterwards. */
   command: (line: string) => void | Promise<void>;
+  /** The library level the engine's machine runs (1 from an older supervisor); undefined with no engine. */
+  engineLevel?: number;
   setStatus: SetStatus;
   onEditTarget: (t: EditTarget | null) => void; // the open sequence, for the Editor panel
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
@@ -1401,6 +1404,7 @@ export function EditorTab({
           >
             <LibraryUpgrades
               levels={libraries}
+              engineLevel={engineLevel}
               onUpgrade={async (ns, version) => {
                 await command(`library upgrade ${ns} ${version}`);
                 await refreshLibraries();
