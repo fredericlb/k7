@@ -7,6 +7,7 @@
   "exports": {
     "./recordTake": "./src/recordTake.ts",
     "./render": "./src/render.ts",
+    "./renderer": "./src/renderer.ts",
     "./materialRender": "./src/materialRender.ts",
     "./wavLength": "./src/wavLength.ts"
   },

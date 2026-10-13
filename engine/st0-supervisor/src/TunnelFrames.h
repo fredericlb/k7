@@ -16,6 +16,8 @@ namespace st0::tunnel {
 inline const std::string kPath = "/api/engine-tunnel";
 /** The engine's secret rides in a header, never the query, so no access log keeps it. */
 inline const std::string kTokenHeader = "x-studio-engine-token";
+/** The server's render machine proves itself with this one, a key the deployment shares — never the engine's token. */
+inline const std::string kRenderKeyHeader = "x-studio-render-key";
 /** File chunks are cut to this, so one large take never holds the socket for long. */
 constexpr size_t kChunkBytes = 256 * 1024;
 /** Past this many unsent bytes an upload waits. */

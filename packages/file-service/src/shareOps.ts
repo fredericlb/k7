@@ -13,20 +13,28 @@ import {
   type ShareBundle,
   uploadShare,
 } from "@studio/commands/share-bundle";
-import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type { WebGraph } from "@studio/graph-model";
 import type { ProjectDoc } from "@studio/song/project";
 import type { projectSurfaces } from "@studio/song/surfaces";
 import {
   type K7Result,
   MP3_CODEC,
+  type Renderer,
   readK7Config,
-  renderMixdown,
   shareToK7,
   transcode,
 } from "@studio/take-render/render";
 import type { WebProject } from "@studio/web-protocol";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
+import { serviceRenderer } from "./renderers.ts";
+
+/** Who renders, or a named failure: "render failed" alone reads as a broken project. */
+function requireRenderer(what: string): Renderer {
+  const r = serviceRenderer();
+  if (!r)
+    throw new Error(`no engine to render with — cannot render the ${what}`);
+  return r;
+}
 
 /** What an export needs of the workspace: six members instead of a class, so `safePath` stays private. */
 export interface ShareHost {
@@ -43,14 +51,17 @@ export interface ShareHost {
 }
 
 /** Render the mixdown; the caller streams `path` then calls `cleanup`, whether or not it worked. */
-export function exportMix(
+export async function exportMix(
   host: ShareHost,
   format: "wav" | "mp3",
-): { path: string; filename: string; mime: string; cleanup: () => void } {
+): Promise<{
+  path: string;
+  filename: string;
+  mime: string;
+  cleanup: () => void;
+}> {
   const dir = host.requireActive();
-  const engine = findEngineBinary();
-  if (!engine)
-    throw new Error("engine binary not found — cannot render the mixdown");
+  const render = requireRenderer("mixdown");
   const doc = host.cachedProjectDoc(dir);
   const tmp = mkdtempSync(join(tmpdir(), "tbmix-"));
   const cleanup = () => {
@@ -61,7 +72,7 @@ export function exportMix(
     }
   };
   try {
-    const manifest = renderMixdown(engine, doc, tmp);
+    const manifest = await render(doc, tmp);
     const wav = join(tmp, manifest.mix);
     const name = (doc.name || basename(dir) || "mixdown").replace(
       /[\\/:*?"<>|]+/g,
@@ -82,14 +93,12 @@ export function exportMix(
 }
 
 /** The frozen snapshot `project share link` sends to pl8 — the three documents, and the three left out, in docs/share.md. */
-export function buildShare(host: ShareHost): ShareBundle {
+export function buildShare(host: ShareHost): Promise<ShareBundle> {
   const dir = host.requireActive();
-  const engine = findEngineBinary();
-  if (!engine)
-    throw new Error("engine binary not found — cannot render the share");
+  const render = requireRenderer("share");
   const web = host.projectDoc();
   return buildShareBundle(
-    engine,
+    render,
     host.cachedProjectDoc(dir),
     {
       "project-doc.json": web,
@@ -116,7 +125,7 @@ export async function shareLink(
       "no médiathèque token — the file hub gave this service no MEDIATEK_TOKEN",
     );
   const dir = host.requireActive();
-  const bundle = buildShare(host);
+  const bundle = await buildShare(host);
   try {
     const link = await uploadShare(bundle, {
       base,
@@ -138,10 +147,8 @@ export async function shareK7(
   opts: { artist?: string; title?: string },
 ): Promise<K7Result> {
   const dir = host.requireActive();
-  const engine = findEngineBinary();
-  if (!engine)
-    throw new Error("engine binary not found — cannot render the mixdown");
+  const render = requireRenderer("mixdown");
   const cfg = readK7Config(host.root);
   if ("error" in cfg) throw new Error(cfg.error);
-  return shareToK7(engine, dir, cfg, opts);
+  return shareToK7(render, dir, cfg, opts);
 }

@@ -1,124 +1,28 @@
-// render.ts — offline mixdown through the C++ engine, plus the k7 publish flow, shared
+// render.ts — offline mixdown through a Renderer (renderer.ts), plus the k7 publish flow, shared
 // so the web and the CLI drive the SAME render the engine does live. The engine writes
 // WAV; mp3/flac are an optional ffmpeg transcode, so a missing ffmpeg only costs the
 // compressed formats. shareToK7 renders a mixdown + stems and uploads a release.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import {
-  copyFileSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { freezeCut } from "@studio/song/freeze";
 import { loadProject, type ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
+import { type Renderer, renderToWav } from "./renderer";
 
-// The engine's render manifest: the mixdown plus, with `--stems`, one wav per audible track, relative to out.
-export interface RenderManifest {
-  mix: string;
-  stems: { name: string; file: string }[];
-}
-
-// Render `doc` through a SEPARATE, short-lived engine — never the one serving live playback. Throws its output.
-export function renderMixdown(
-  engineBin: string,
-  doc: ProjectDoc,
-  outDir: string,
-  opts: { stems?: boolean } = {},
-): RenderManifest {
-  const docFile = join(outDir, "doc.json");
-  writeFileSync(docFile, JSON.stringify(doc));
-  const args = ["--render", docFile, "--out", outDir];
-  if (opts.stems) args.push("--stems");
-  const r = spawnSync(engineBin, args, {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  if (r.status !== 0)
-    throw new Error(`engine render failed (exit ${r.status ?? "?"})`);
-  const line =
-    (r.stdout || "").trim().split(/\r?\n/).filter(Boolean).pop() || "";
-  try {
-    return JSON.parse(line) as RenderManifest;
-  } catch {
-    throw new Error(
-      `could not read the engine's render manifest:\n${r.stdout}`,
-    );
-  }
-}
+export type { Renderer, RenderManifest } from "./renderer";
 
 /** Bounce a freeze's upstream closure to `outWav` — a MIXDOWN of the plan, see docs/rendering.md. */
 export function freezeUpstreamRender(
-  engineBin: string,
+  render: Renderer,
   doc: ProjectDoc,
   plan: { lanes: Set<string>; modules: Set<string> },
   outWav: string,
-): void {
-  renderCut(engineBin, freezeCut(doc, plan), outWav);
-}
-
-/** Render an already-cut doc (`freezeCut`) to `outWav` through a local engine binary. */
-export function renderCut(
-  engineBin: string,
-  cut: ProjectDoc,
-  outWav: string,
-): void {
-  const tmp = mkdtempSync(join(tmpdir(), "tbfreeze-"));
-  try {
-    const manifest = renderMixdown(engineBin, cut, tmp);
-    copyFileSync(join(tmp, manifest.mix), outWav);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
-/**
- * `renderCut` without blocking: a service rendering in the BACKGROUND (an automatic freeze,
- * packages/song/docs/autoFreeze.md) must keep answering while the engine bounces.
- */
-export async function renderCutAsync(
-  engineBin: string,
-  cut: ProjectDoc,
-  outWav: string,
 ): Promise<void> {
-  const tmp = mkdtempSync(join(tmpdir(), "tbfreeze-"));
-  try {
-    const docFile = join(tmp, "doc.json");
-    writeFileSync(docFile, JSON.stringify(cut));
-    const stdout = await new Promise<string>((ok, fail) => {
-      const child = spawn(engineBin, ["--render", docFile, "--out", tmp], {
-        stdio: ["ignore", "pipe", "inherit"],
-      });
-      let out = "";
-      child.stdout.on("data", (d: Buffer) => {
-        out += d.toString("utf8");
-      });
-      child.on("error", fail);
-      child.on("close", (code) =>
-        code === 0
-          ? ok(out)
-          : fail(new Error(`engine render failed (exit ${code ?? "?"})`)),
-      );
-    });
-    const line = stdout.trim().split(/\r?\n/).filter(Boolean).pop() || "";
-    let manifest: RenderManifest;
-    try {
-      manifest = JSON.parse(line) as RenderManifest;
-    } catch {
-      throw new Error(
-        `could not read the engine's render manifest:\n${stdout}`,
-      );
-    }
-    copyFileSync(join(tmp, manifest.mix), outWav);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  return renderToWav(render, freezeCut(doc, plan), outWav);
 }
 
 // mp3 for the mixdown, flac for stems. Best-effort: a caller falls back to the raw wav.
@@ -228,7 +132,7 @@ export interface K7Result {
 export const NEEDS_META = "NEEDS_META";
 
 export async function shareToK7(
-  engineBin: string,
+  render: Renderer,
   songDir: string,
   cfg: K7Config,
   opts: { artist?: string; title?: string; noStems?: boolean } = {},
@@ -260,9 +164,7 @@ export async function shareToK7(
 
   const tmp = mkdtempSync(join(tmpdir(), "tbexport-"));
   try {
-    const manifest = renderMixdown(engineBin, doc, tmp, {
-      stems: !opts.noStems,
-    });
+    const manifest = await render(doc, tmp, { stems: !opts.noStems });
 
     // Mixdown → mp3 when ffmpeg is present, else the raw wav.
     let mixPath = join(tmp, manifest.mix);

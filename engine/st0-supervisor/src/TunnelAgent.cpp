@@ -137,7 +137,9 @@ struct TunnelAgent::Impl : HubLink, std::enable_shared_from_this<TunnelAgent::Im
         while (true) {
             auto sock = std::make_shared<ix::WebSocket>();
             sock->setUrl(tunnelUrl(opts.registryUrl, opts.id));
-            sock->setExtraHeaders({{kTokenHeader, opts.token}});
+            ix::WebSocketHttpHeaders headers{{kTokenHeader, opts.token}};
+            if (!opts.renderKey.empty()) headers[kRenderKeyHeader] = opts.renderKey;
+            sock->setExtraHeaders(headers);
             sock->setTLSOptions(tls::options());
             sock->disableAutomaticReconnection();
             // A pong that never comes closes the socket, which is what redials a tunnel gone quiet.

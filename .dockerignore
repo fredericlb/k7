@@ -17,12 +17,13 @@ ds-bundle
 .docker-revision
 env.yaml
 
-# The engine's and the tray's build outputs. None of it belongs in an image — the audio engine
-# and the tray are per-machine binaries, and the web image builds from the workspace sources
-# only. All are gitignored, so CI's fresh checkout never has them; this is what stops a LOCAL
+# The native build outputs. None of it belongs in an image — the web image builds from the
+# workspace sources only, and the engine image (engine/docker/Dockerfile) compiles its own
+# binaries for its own Linux. All are gitignored, so CI's fresh checkout never has them; this is what stops a LOCAL
 # image build from shipping ~30GB of CMake output and Electron packages to the daemon as build
 # context.
 engine/st0-engine/build
+engine/st0-supervisor/build
 engine/st0-tray/out
 engine/st0-tray/.cache
 engine/st0-tray/staging

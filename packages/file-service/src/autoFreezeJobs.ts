@@ -16,7 +16,7 @@ import {
   thawedIn,
 } from "@studio/song/autoFreeze";
 import { compileWithAutoFreezes } from "@studio/song/nodeProject";
-import { renderCutAsync } from "@studio/take-render/render";
+import { localRenderer, renderToWav } from "@studio/take-render/renderer";
 import { askBoundMachine, boundJobsUrl } from "./boundMachine.ts";
 
 /** How long the engine must sit stopped with no edit before a THAWED module is frozen again. */
@@ -190,7 +190,7 @@ async function renderOnEngineMachine(
   }
   const bin = findEngineBinary();
   if (!bin) throw new Error("no st0-engine binary on this machine");
-  await renderCutAsync(bin, f.cut, outAbs);
+  await renderToWav(localRenderer(bin), f.cut, outAbs);
 }
 
 /** The freezer the service runs: the real compile and render. */

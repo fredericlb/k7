@@ -7,6 +7,9 @@ over the workspace, and the C toolchain `ssh2` builds its optional crypto bindin
 deployed beside it but built by its own repository, which keeps the same stage layout by
 convention only: nothing here checks the two against each other.
 
+The server's engine is a second image built here, `st0-engine`, in a job of its own because it
+compiles C++: `docs/server-engine.md`.
+
 ## An install depends on the manifests, never on the sources
 
 The stage that runs `npm ci` sees the lockfile, `.npmrc` and every `package.json`, and nothing

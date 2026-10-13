@@ -23,6 +23,7 @@ import {
   bindEngine,
   cutRoots,
   releaseIfUnclaimed,
+  rootsFor,
   unbindAll,
 } from "./binding.ts";
 import { DeviceTokens } from "./deviceTokens.ts";
@@ -102,6 +103,8 @@ export class FileHub {
   private pairPoll: NodeJS.Timeout | null = null;
   private readonly devices: DeviceTokens;
   private readonly renderSweep: NodeJS.Timeout;
+  /** Each account's loopback path to the render machine, bound once and kept: it resolves the machine per connection. */
+  private readonly renderPaths = new Map<string, string>();
   private readonly key: Buffer;
   /** The origin's libraries: the list and the one folder of each. */
   readonly libraries: LibraryStore;
@@ -128,6 +131,7 @@ export class FileHub {
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
         // Live sync's relay, which every service dials unless STUDIO_LIVE_SYNC=0 (docs/syncRelay.md).
         ...syncTarget(opts.selfPort(), readRemote(this.sync.accountDir(slug))),
+        ...this.renderTarget(slug),
       }),
       keep: (slug) => readRemote(this.sync.accountDir(slug)) !== null,
     });
@@ -338,6 +342,22 @@ export class FileHub {
     this.libraryRelay = relay;
     this.pairPoll = setInterval(source, PAIR_POLL_MS);
     this.pairPoll.unref();
+  }
+
+  /** Where an account's service renders when it has no engine binary and no bound machine: the deployment's render machine, if any. */
+  private renderTarget(slug: string): Record<string, string> {
+    if (!this.opts.tunnels.rendersEnabled()) return {};
+    let path = this.renderPaths.get(slug);
+    if (!path) {
+      const home = join(resolve(this.opts.dataRoot), slug);
+      path = this.opts.tunnels.bindRenderer(
+        rootsFor({ home, slug }, this.opts.mediatekRoot),
+      );
+      this.renderPaths.set(slug, path);
+    }
+    return {
+      STUDIO_RENDER_JOBS_URL: `ws://127.0.0.1:${this.opts.selfPort()}${path}`,
+    };
   }
 
   async stop(): Promise<void> {

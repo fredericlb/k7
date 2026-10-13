@@ -3,6 +3,15 @@
 `take-render` is the audio a song PRODUCES: filing a take, rendering a mixdown, cutting material
 in two, reading a wav's length. This page holds the reasoning behind those functions.
 
+## A render is handed a Renderer, never an engine binary
+
+Every function here that bounces takes a `Renderer` (`src/renderer.ts`): a folder in, the engine's
+manifest out. `localRenderer` runs this machine's binary; a host with none hands in one that asks
+an engine's machine over the tunnel (`packages/file-service/src/renderers.ts`). A server keeps no
+engine binary, and a render that spawned one itself would fail there, however good the machine
+standing by. So the choice of WHO renders belongs to the host, and every caller here is async,
+since a render across a tunnel cannot be waited for synchronously.
+
 ## A freeze render is a MIXDOWN of a closure
 
 `freezeUpstreamRender` bounces everything a freeze covers — the upstream closure of one module,

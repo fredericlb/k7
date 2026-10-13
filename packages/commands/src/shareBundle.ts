@@ -17,8 +17,8 @@ import { Readable } from "node:stream";
 import type { ProjectDoc } from "@studio/song/project";
 import {
   MP3_CODEC,
+  type Renderer,
   type RenderManifest,
-  renderMixdown,
   transcode,
 } from "@studio/take-render/render";
 
@@ -86,13 +86,13 @@ export function stemSlots(
 }
 
 /** Render the project in ONE pass and lay a snapshot out in a temp dir — docs/shareBundle.md. */
-export function buildShareBundle(
-  engineBin: string,
+export async function buildShareBundle(
+  render: Renderer,
   doc: ProjectDoc,
   /** Filename → the JSON to write beside the audio. The viewer asks for these by name. */
   docs: Record<string, unknown>,
   meta: { name: string },
-): ShareBundle {
+): Promise<ShareBundle> {
   const dir = mkdtempSync(join(tmpdir(), "tbshare-"));
   const cleanup = () => {
     try {
@@ -102,9 +102,7 @@ export function buildShareBundle(
     }
   };
   try {
-    const rendered: RenderManifest = renderMixdown(engineBin, doc, dir, {
-      stems: true,
-    });
+    const rendered: RenderManifest = await render(doc, dir, { stems: true });
     mkdirSync(join(dir, "audio"), { recursive: true });
 
     const bytesOf = (rel: string): number => {

@@ -2038,17 +2038,17 @@ export class Workspace {
   }
 
   /** Render the mixdown ("mp3" transcodes, needing ffmpeg) — see shareOps.ts. */
-  exportMix(format: "wav" | "mp3"): {
+  exportMix(format: "wav" | "mp3"): Promise<{
     path: string;
     filename: string;
     mime: string;
     cleanup: () => void;
-  } {
+  }> {
     return exportMix(this.shareHost(), format);
   }
 
   /** The frozen snapshot `project share link` sends to pl8 — what it carries is shareOps.ts. */
-  buildShare(): ShareBundle {
+  buildShare(): Promise<ShareBundle> {
     return buildShare(this.shareHost());
   }
 

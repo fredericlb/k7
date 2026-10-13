@@ -3,14 +3,7 @@
 // render beside the original, and point the clip files at it. A bounce in place.
 // See docs/processChain.md.
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { join, parse as parsePath, relative, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
@@ -43,7 +36,11 @@ import {
   type WarpMarker,
 } from "@studio/song-schema/warpPoints";
 import { fileStamp } from "@studio/take-render/recordTake";
-import { renderMixdown } from "@studio/take-render/render";
+import {
+  localRenderer,
+  type Renderer,
+  renderToWav,
+} from "@studio/take-render/renderer";
 import { wavSeconds } from "@studio/take-render/wavLength";
 import { parse as parseYaml } from "yaml";
 import {
@@ -430,20 +427,13 @@ export function bounceDoc(
 }
 
 export function bounceThroughChain(
-  engineBin: string,
+  render: Renderer,
   project: ProjectDoc,
   source: string,
   chain: ResolvedChain,
   outWav: string,
-): void {
-  const doc = bounceDoc(project, source, chain);
-  const tmp = mkdtempSync(join(tmpdir(), "tbchain-"));
-  try {
-    const manifest = renderMixdown(engineBin, doc, tmp);
-    copyFileSync(join(tmp, manifest.mix), outWav);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+): Promise<void> {
+  return renderToWav(render, bounceDoc(project, source, chain), outWav);
 }
 
 /** Point every clip file that played `from` at `to`, retiming its warp map — the "in place" half, docs/processChain.md. */
@@ -503,6 +493,8 @@ export async function processWithChain(
   runCold?: RunColdStep,
   /** The clip ids the render may be repointed in — see repointClips. */
   only?: readonly string[],
+  /** Who bounces: handed in by a host with no engine binary, this machine's binary otherwise. */
+  render?: Renderer,
 ): Promise<ProcessResult> {
   // Every message names the command that produced it, both of them being one implementation.
   const verb = `${scope} process`;
@@ -562,7 +554,8 @@ export async function processWithChain(
   }
 
   const engine = findEngineBinary();
-  if (!engine)
+  const renderer = render ?? (engine ? localRenderer(engine) : null);
+  if (!renderer)
     return {
       lines: [`${verb} failed: st0-engine binary not found (build the engine)`],
       changed: false,
@@ -571,6 +564,14 @@ export async function processWithChain(
   const lines: string[] = [];
   // Asked once up front so a chain with no measuring step pays no decode — see docs/peakPass.md.
   const measuring = needsPeak(chain.plugins);
+  // Measuring is a decode, not a render, so it needs this machine's own binary.
+  if (measuring && !engine)
+    return {
+      lines: [
+        `${verb} failed: '${chain.ref}' measures its source, which needs an engine binary on this machine`,
+      ],
+      changed: false,
+    };
   let changed = false;
   for (const source of targets.sources) {
     const out = renderPath(source, chain.slug);
@@ -582,11 +583,11 @@ export async function processWithChain(
             ...chain,
             plugins: withMeasuredPeak(
               chain.plugins,
-              await measureFilePeakDb(engine, source),
+              await measureFilePeakDb(engine as string, source),
             ),
           }
         : chain;
-      bounceThroughChain(engine, project, source, forThisFile, out);
+      await bounceThroughChain(renderer, project, source, forThisFile, out);
     } catch (e) {
       // Per source, and the loop continues: one undecodable clip must not cost the others theirs.
       lines.push(`${show(source)}: ${(e as Error).message.split("\n")[0]}`);

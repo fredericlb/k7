@@ -18,11 +18,35 @@ What a machine does is registered by type; the supervisor's list is
 `engine/st0-supervisor/src/MachineJobs.cpp` (`TunnelAgentOptions.jobs` for the TypeScript reference
 agent the server's tests run on). A type it does not know is refused by name.
 
-`render` is the one the automatic VST freeze sends (`packages/song/docs/autoFreeze.md`): `{ doc,
-out }`, a whole ProjectDoc inline and a server path in the account's render cache. The machine bounces it with
-its own `st0-engine --render` — its own plugins, which is the reason it runs there — and answers
-`{ type: "rendered", file: out }`, which is what uploads the wav. The doc's clip paths are strings
-under a shared root like any other, so they are downloaded before the handler runs.
+`render` bounces a whole ProjectDoc, sent inline, with the machine's own `st0-engine --render`. Its
+clip paths are strings under a shared root like any other, so they are downloaded before the handler
+runs. It comes in two shapes:
+
+- `{ doc, out }`, the mix alone to one server path, answered `{ type: "rendered", file: out }`. The
+  automatic VST freeze sends it (`packages/song/docs/autoFreeze.md`), since only that machine has
+  the plugins.
+- `{ doc, outDir, stems }`, every file of the manifest into a server folder, answered
+  `{ type: "rendered", mix, stems: [{ name, file }] }` with every file named whole. Any render a
+  file service cannot make itself sends this one (`packages/file-service/docs/render.md`).
+
+In both, the paths answered are under a writable root, so naming them is what uploads them.
+
+## The server's render machine
+
+A hosted st0 keeps no engine binary, so it needs a machine that renders when nobody's engine is
+bound: its own `engine` service (`docs/server-engine.md` at the repo root). That machine is told
+apart by a **render key**, a secret the deployment gives both sides (`STUDIO_RENDER_KEY`). The
+supervisor sends it in a header beside its token when it dials the tunnel, and the hub marks that
+tunnel as the render machine. `TunnelHub.bindRenderer` hands out a jobs path that resolves to
+whichever tunnel holds the key when a client CONNECTS, so the path each file service is given at
+start outlives the machine's restarts.
+
+The engine's token cannot play this part. It proves an engine is the one that registered under its
+id, and `whoami` hands it to every socket that drives the engine (`packages/engine-registry/docs/token.md`).
+Anyone who once played on the server's engine could then announce themselves as it and receive
+every account's renders. The render key is never sent to a browser. A tunnel that offers a WRONG
+key is refused outright rather than treated as an ordinary engine, so a misconfigured render
+machine says so in its log instead of silently rendering nothing.
 
 `prefetch` and `send-up` are how the machine KEEPS an undo's audio (`packages/file-service/docs/history.md`):
 `prefetch` names files the channel brings down before it answers, with how many are there; `send-up`

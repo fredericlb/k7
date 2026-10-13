@@ -49,6 +49,8 @@ export function mountEngineRegistry(
   const tunnels = new TunnelHub({
     verify: (id, token) =>
       !!registry.get(id) && registry.verifyToken(id, token),
+    // The deployment's render machine, which renders for a server with no engine binary (docs/server-engine.md).
+    renderKey: process.env.STUDIO_RENDER_KEY?.trim() || undefined,
   });
   app.use("/api", engineRegistryRouter(registry, tunnels));
 

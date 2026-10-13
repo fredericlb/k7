@@ -1,14 +1,16 @@
 # The hosted half only: st0 (the editor, the media library AND the rehearsal recorder) in its OWN
 # image and container — no nginx, see apps/st0/docker/Dockerfile. z0, the blind-test game, is
-# built and tagged by its own repository and only DEPLOYED here, on st0's own hostname. No engine and no tray: those run
-# on the musician's own machine, and reach this stack through the tunnel their supervisor dials
-# (packages/engine-tunnel/docs/tunnel.md). The accounts' WORKSPACES live here, in st0, one file
-# service per account (packages/file-hub/docs/fileHub.md).
+# built and tagged by its own repository and only DEPLOYED here, on st0's own hostname. The
+# musicians' engines run on their own machines, and reach this stack through the tunnel their
+# supervisor dials (packages/engine-tunnel/docs/tunnel.md); the `engine` service is one more of
+# those, the server's own, which dials st0 over the container network (docs/server-engine.md). No
+# tray. The accounts' WORKSPACES live here, in st0, one file service per account
+# (packages/file-hub/docs/fileHub.md).
 #
-# THREE containers: Traefik routes st0 by Host() straight to its own backend port (no nginx to
+# FOUR containers: Traefik routes st0 by Host() straight to its own backend port (no nginx to
 # hand off to) and z0 by a PathPrefix(`/z0`) rule layered on st0's own hostname — st0 answers
-# everything else there; pocketbase, the rehearsal recorder's store, is reached on the container
-# network only. st0 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
+# everything else there; pocketbase, the rehearsal recorder's store, and the engine are reached on
+# the container network only. st0 also answers the `play.` and `k7.` hosts, aliases kept for the share links, registry
 # URLs, publish URLs and public pages saved against them. That's the topology env.yaml's
 # COOKIE_DOMAIN/TRUSTED_ORIGINS document.
 #
@@ -53,6 +55,8 @@ services:
       STUDIO_FILES_ROOT: /workspaces
       # Who edits the libraries every account shares and deletes a public song — z0's admins too.
       AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:-}
+      # Recognises the engine service as the render machine, since this image has no engine binary.
+      STUDIO_RENDER_KEY: ${RENDER_KEY:-}
     volumes:
       - data:/data
       # The media library IS this volume — apps/st0/docker/Dockerfile.
@@ -90,6 +94,27 @@ services:
       # trusted interface/VPN or firewall it off in a real deployment.
       - "${POCKETBASE_PORT:-8090}:8090"
 
+  # The server's own engine — engine/docker/Dockerfile. Not routed through Traefik: it publishes no
+  # port, and browsers reach it through st0's relay like any machine's (docs/server-engine.md).
+  engine:
+    image: dev.frediver.se/frediverse/studio/st0-engine:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      - st0
+    environment:
+      # st0's registry on the container network; the supervisor dials its tunnel from the same address.
+      STUDIO_REGISTRY_URL: ${ENGINE_REGISTRY_URL:-http://st0:8789}
+      # The name the engine pickers show.
+      STUDIO_MACHINE_NAME: ${ENGINE_NAME:-st0 server}
+      # Every sampled instrument, since this machine has no Downloads tab to choose them in.
+      STUDIO_INSTRUMENTS: ${ENGINE_INSTRUMENTS:-all}
+      # The same key as st0's: presented on the tunnel, it makes this engine st0's render machine.
+      STUDIO_RENDER_KEY: ${RENDER_KEY:-}
+    volumes:
+      - engine-home:/engine-home
+    networks:
+      - traefik
+
   # Built by z0's own repository, so it ships on its own version rather than on APP_VERSION.
   z0:
     image: dev.frediver.se/frediverse/z0:${Z0_VERSION:-latest}
@@ -124,3 +149,4 @@ volumes:
   data:
   k7-data:
   pocketbase-data:
+  engine-home:

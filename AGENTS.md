@@ -56,8 +56,8 @@ a debt that predates the rule and shrinks as files are touched. New code has no 
 
 `studio` holds the music/stage apps. The audio side spans the server and the musician's machine,
 which is why this overview lives at the root and not inside any one app. Three processes run on the
-musician's machine and never in the image — `engine/st0-engine`, `engine/st0-supervisor` and
-`engine/st0-tray`:
+musician's machine — `engine/st0-engine`, `engine/st0-supervisor` and `engine/st0-tray`; the first
+two also run on the server, as one more machine in an image of their own (`docs/server-engine.md`):
 
 | dir | language | what it is |
 |---|---|---|
@@ -103,13 +103,17 @@ built frontend with no nginx, reached at the root domain and on the `play.` and 
 z0, built by its own repository and only deployed here, one image with nginx inside, reached by a
 `/z0` path on st0's hostname. PocketBase, the rehearsal
 recorder's store, runs beside them as a third container. One session covers them through the shared
-`COOKIE_DOMAIN`, and each ships and restarts on its own. `engine/st0-engine`,
-`engine/st0-supervisor`, `engine/st0-tray` and `engine/st0-android` are in none of them and never
-will be — they run on the musician's machine. `docs/versioning.md` is the page.
+`COOKIE_DOMAIN`, and each ships and restarts on its own. `engine/st0-engine` and
+`engine/st0-supervisor` are in none of them: the server's own engine is a fourth container,
+`st0-engine`, built here from `engine/docker/Dockerfile`, which reaches st0 through the tunnel
+like any musician's machine, plays into a null sink, and makes the renders st0's image has no
+engine binary for (`docs/server-engine.md`). `engine/st0-tray`
+and `engine/st0-android` run on the musician's devices only. `docs/versioning.md` is the page.
 
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md) (the
 hosted image's stamp), [images.md](docs/images.md) (why st0's Dockerfile is staged the way it is),
+[server-engine.md](docs/server-engine.md) (the server's own engine: its image, its null-sink device),
 [publishing.md](docs/publishing.md) (the four packages z0 consumes by version), [desktop-release.md](docs/desktop-release.md) (the OTHER half — the
 packaged app for the three desktops, a rolling snapshot off `main` and a release per `vX.Y.Z`
 tag, and the one workflow that compiles the C++ engine),

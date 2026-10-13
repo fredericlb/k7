@@ -17,7 +17,14 @@ import type { Instance } from "./instances.ts";
 
 export interface BindingDeps {
   registry: Pick<EngineRegistry, "get">;
-  tunnels: Pick<TunnelHub, "bindLocal" | "unbindLocal" | "openReady">;
+  tunnels: Pick<
+    TunnelHub,
+    | "bindLocal"
+    | "unbindLocal"
+    | "openReady"
+    | "bindRenderer"
+    | "rendersEnabled"
+  >;
   /** This server's own port, which the instance dials on loopback. */
   selfPort: () => number;
   mediatekRoot?: string;
@@ -28,7 +35,7 @@ export interface BindingDeps {
 const PLUGINS_TIMEOUT_MS = 30_000;
 
 /** The libraries, read-only: the hub's ONE folder of each, every account's alike. */
-const librariesRoots = (inst: Instance): TunnelRoot[] => [
+const librariesRoots = (inst: Pick<Instance, "home">): TunnelRoot[] => [
   {
     remote: join(dirname(inst.home), LIBRARIES_HOME_DIR),
     name: "libs",
@@ -38,7 +45,10 @@ const librariesRoots = (inst: Instance): TunnelRoot[] => [
 ];
 
 /** What an engine's machine may see of an account: its workspaces, its render and undo caches, its libraries, its models and the médiathèque read-only — never its keys. */
-export function rootsFor(inst: Instance, mediatekRoot?: string): TunnelRoot[] {
+export function rootsFor(
+  inst: Pick<Instance, "home" | "slug">,
+  mediatekRoot?: string,
+): TunnelRoot[] {
   const roots: TunnelRoot[] = [
     {
       remote: join(inst.home, "workspace"),

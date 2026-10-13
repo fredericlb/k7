@@ -35,6 +35,8 @@ struct AgentOptions {
     std::string registryUrl;
     std::string id;
     std::string token;
+    /** The server's render key, sent when set: this machine then renders for the server (packages/engine-tunnel/docs/jobs.md). */
+    std::string renderKey;
     int enginePort = 8765;
     /** Where this server's files are kept on this machine. */
     std::filesystem::path cacheDir;

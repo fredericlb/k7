@@ -3,8 +3,7 @@
 // RENDERED, so it lives here beside the bounce, which already owns "write new material through
 // the engine". See packages/song/docs/materialCut.md.
 
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
@@ -15,7 +14,7 @@ import {
 } from "@studio/song-edit/trackMix";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { fileStamp } from "./recordTake";
-import { renderMixdown } from "./render";
+import { type Renderer, renderToWav } from "./renderer";
 import { wavSeconds } from "./wavLength";
 
 /** Two placements at the same beat are the same placement — the rule every event verb shares. */
@@ -58,21 +57,15 @@ export function renderedClipYaml(verb: string, ref: string): string {
 }
 
 /** Render `doc` as `clips/<ref>.wav` + `.yaml`; the reported `seconds` is the wav that came OUT. */
-function fileRender(
-  engineBin: string,
+async function fileRender(
+  render: Renderer,
   dir: string,
   doc: ProjectDoc,
   ref: string,
   seconds: number,
-): RenderedMaterial {
+): Promise<RenderedMaterial> {
   const wav = join(dir, "clips", `${ref}.wav`);
-  const tmp = mkdtempSync(join(tmpdir(), "tbcut-"));
-  try {
-    const manifest = renderMixdown(engineBin, doc, tmp);
-    copyFileSync(join(tmp, manifest.mix), wav);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  await renderToWav(render, doc, wav);
   const file = `clips/${ref}.yaml`;
   writeFileSync(join(dir, file), renderedClipYaml(doc.name, ref), "utf8");
   return { ref, file, seconds: wavSeconds(wav) ?? seconds };
@@ -117,8 +110,8 @@ const windowOf = (c: ClipDoc, tempo: number) => ({
 });
 
 /** Cut an AUDIO placement's material in two at `atBeats` — TWO renders, see docs/rendering.md. */
-export function splitAudioMaterial(
-  engineBin: string,
+export async function splitAudioMaterial(
+  render: Renderer,
   dir: string,
   project: ProjectDoc,
   trackId: string,
@@ -126,7 +119,7 @@ export function splitAudioMaterial(
   atBeats: number,
   num: number,
   den: number,
-): AudioSplitReport | null {
+): Promise<AudioSplitReport | null> {
   const track = project.tracks.find((t) => t.id === trackId);
   const clip = track?.clips.find(
     (c) => Math.abs(c.start - fromBeats) < EDGE_EPS,
@@ -150,16 +143,16 @@ export function splitAudioMaterial(
 
   const base = clip.name || clip.id;
   const headRef = freeClipName(dir, base);
-  const head = fileRender(
-    engineBin,
+  const head = await fileRender(
+    render,
     dir,
     windowDoc(project, "split", clip, win.from, cut),
     headRef,
     cut - win.from,
   );
   const tailRef = freeClipName(dir, base);
-  const tail = fileRender(
-    engineBin,
+  const tail = await fileRender(
+    render,
     dir,
     windowDoc(project, "split", clip, cut, win.to),
     tailRef,
@@ -175,8 +168,8 @@ export function splitAudioMaterial(
 }
 
 /** Render ONE file over `[fromBeats, toBeats]`, gaps included as real silence — docs/rendering.md. */
-export function consolidateAudioMaterial(
-  engineBin: string,
+export async function consolidateAudioMaterial(
+  render: Renderer,
   dir: string,
   project: ProjectDoc,
   trackId: string,
@@ -184,7 +177,7 @@ export function consolidateAudioMaterial(
   toBeats: number,
   num: number,
   den: number,
-): AudioConsolidateReport | null {
+): Promise<AudioConsolidateReport | null> {
   const track = project.tracks.find((t) => t.id === trackId);
   if (!track) throw new Error(`no track '${trackId}'`);
   const picked = track.clips
@@ -220,7 +213,7 @@ export function consolidateAudioMaterial(
   });
 
   const ref = freeClipName(dir, trackId);
-  const written = fileRender(engineBin, dir, doc, ref, span);
+  const written = await fileRender(render, dir, doc, ref, span);
 
   for (const c of [...picked].reverse())
     removeTrackPlacement(dir, trackId, c.start, num, den);

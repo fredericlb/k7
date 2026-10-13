@@ -4,7 +4,7 @@
 // (bindLocal), so the file service's own client needs no idea the engine is far away.
 // See docs/tunnel.md.
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, Server } from "node:http";
 import type { Socket } from "node:net";
 import { type RawData, WebSocket, WebSocketServer } from "ws";
@@ -12,6 +12,7 @@ import { OPEN, type TunnelChannel } from "./channel.ts";
 import {
   type ChannelKind,
   TUNNEL_PATH,
+  TUNNEL_RENDER_KEY_HEADER,
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
 } from "./frames.ts";
@@ -20,13 +21,16 @@ import { HubTunnel } from "./hubTunnel.ts";
 export interface TunnelHubOptions {
   /** Whether `id` is an engine this server lists, and `token` its secret. */
   verify(id: string, token: string): boolean;
+  /** The key a tunnel presents to be the server's render machine; unset, no tunnel is one — docs/jobs.md. */
+  renderKey?: string;
   /** Keepalive period; a tunnel silent for two of these is dropped. */
   pingMs?: number;
   log?: (msg: string) => void;
 }
 
 interface LocalBinding {
-  engineId: string;
+  /** Null is the render machine, whichever tunnel holds the render key when a client connects. */
+  engineId: string | null;
   roots: TunnelRoot[];
   kind: ChannelKind;
   synced: boolean;
@@ -38,6 +42,12 @@ const isLoopback = (addr: string | undefined): boolean =>
   !!addr &&
   (addr === "::1" || addr.startsWith("127.") || addr.startsWith("::ffff:127."));
 
+const sameKey = (a: string, b: string): boolean => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+
 const deny = (socket: Socket, status: string): void => {
   socket.write(`HTTP/1.1 ${status}\r\n\r\n`);
   socket.destroy();
@@ -46,6 +56,8 @@ const deny = (socket: Socket, status: string): void => {
 export class TunnelHub {
   private readonly tunnels = new Map<string, HubTunnel>();
   private readonly locals = new Map<string, LocalBinding>();
+  /** The engines whose tunnel presented the render key, most recent last. */
+  private readonly renderers = new Set<string>();
   private readonly wss = new WebSocketServer({ noServer: true });
   private readonly log: (msg: string) => void;
   private pinger?: NodeJS.Timeout;
@@ -113,6 +125,30 @@ export class TunnelHub {
     return `${TUNNEL_PATH}/local/${key}`;
   }
 
+  /** Whether this hub has a render machine configured at all. */
+  rendersEnabled(): boolean {
+    return !!this.opts.renderKey;
+  }
+
+  /** The render machine's id when its tunnel is up, the most recent one if several hold the key. */
+  renderer(): string | null {
+    let last: string | null = null;
+    for (const id of this.renderers) if (this.tunnels.has(id)) last = id;
+    return last;
+  }
+
+  /** A loopback jobs path to the render machine, resolved when a client connects, so it outlives the machine's restarts. */
+  bindRenderer(roots: TunnelRoot[]): string {
+    const key = randomBytes(24).toString("base64url");
+    this.locals.set(key, {
+      engineId: null,
+      roots,
+      kind: "jobs",
+      synced: false,
+    });
+    return `${TUNNEL_PATH}/local/${key}`;
+  }
+
   unbindLocal(path: string): void {
     const m = LOCAL_ROUTE.exec(path);
     if (m) this.locals.delete(m[1]);
@@ -169,16 +205,27 @@ export class TunnelHub {
       deny(socket, "403 Forbidden");
       return;
     }
+    // A wrong key is refused rather than ignored: a render machine that is not one must say so in its log.
+    const offered = String(req.headers[TUNNEL_RENDER_KEY_HEADER] ?? "");
+    const renders = !!offered && !!this.opts.renderKey;
+    if (offered && (!renders || !sameKey(offered, this.opts.renderKey ?? ""))) {
+      deny(socket, "403 Forbidden");
+      return;
+    }
     this.wss.handleUpgrade(req, socket, head, (ws) => {
       // One tunnel per engine: a reconnect replaces the socket it outlived.
       this.tunnels.get(id)?.ws.terminate();
       const t = new HubTunnel(id, ws, this.log);
       this.tunnels.set(id, t);
-      this.log(`${id} up`);
+      // Re-added, so the newest render machine is the one a render reaches.
+      this.renderers.delete(id);
+      if (renders) this.renderers.add(id);
+      this.log(`${id} up${renders ? " (render machine)" : ""}`);
       ws.on("close", () => {
         t.shutdown();
         if (this.tunnels.get(id) === t) {
           this.tunnels.delete(id);
+          this.renderers.delete(id);
           this.log(`${id} down`);
         }
       });
@@ -199,9 +246,11 @@ export class TunnelHub {
     const binding = isLoopback(req.socket.remoteAddress)
       ? this.locals.get(key)
       : undefined;
-    const channel = binding
-      ? this.open(binding.engineId, binding.roots, binding.kind, binding.synced)
-      : null;
+    const engineId = binding ? (binding.engineId ?? this.renderer()) : null;
+    const channel =
+      binding && engineId
+        ? this.open(engineId, binding.roots, binding.kind, binding.synced)
+        : null;
     if (!channel) {
       deny(socket, binding ? "503 Service Unavailable" : "403 Forbidden");
       return;

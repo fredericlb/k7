@@ -22,8 +22,9 @@ media library and the rehearsal recorder it serves keep answering
 z0 is deployed beside it from the same `docker/docker-compose.yml` — Traefik reaches it by a
 `PathPrefix(/z0)` rule layered on st0's domain, its own container — but its image is built, tagged
 and stamped by z0's own repository, and the compose file pulls it by its own `Z0_VERSION`.
-`engine/st0-engine`, `engine/st0-supervisor` and `engine/st0-tray` are in no image: they run on
-the musician's own machine, beside the audio interface. PocketBase, the rehearsal recorder's
+`engine/st0-engine` and `engine/st0-supervisor` are not in st0's image. The server's own engine is
+an image of its own, `st0-engine`, which is tagged with st0's stamp and has no SPA to show it
+([server-engine.md](server-engine.md)). `engine/st0-tray` is in no image. PocketBase, the rehearsal recorder's
 store, is a third container built from an upstream image, not by this repo.
 
 Two containers on one hostname each ship and restart on their own, so a crash in one does not

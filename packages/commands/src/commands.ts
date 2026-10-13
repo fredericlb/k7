@@ -242,6 +242,7 @@ import {
   splitAudioMaterial,
 } from "@studio/take-render/materialRender";
 import { freezeUpstreamRender } from "@studio/take-render/render";
+import { localRenderer, type Renderer } from "@studio/take-render/renderer";
 import { wavSeconds } from "@studio/take-render/wavLength";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
 import { CONSOLE_VERBS } from "./verbs/console.ts";
@@ -322,6 +323,15 @@ export interface CommandHost {
   /** Send one recorder take to the médiathèque. Handed in, because the bytes are on the ENGINE's
    *  machine and only the file service is there — packages/song/docs/recorderNode.md. */
   saveTake?(file: string, label?: string): Promise<string>;
+  /** Who bounces a render, handed in by a host with no engine binary — packages/file-service/docs/render.md. */
+  renderer?: Renderer;
+}
+
+/** The host's renderer, else this machine's engine binary; null when neither can render. */
+export function rendererOf(h: Pick<CommandHost, "renderer">): Renderer | null {
+  if (h.renderer) return h.renderer;
+  const bin = findEngineBinary();
+  return bin ? localRenderer(bin) : null;
 }
 
 export type SidHandler = (
@@ -1550,6 +1560,8 @@ async function processCommand(
     (abs) => h.snapshot?.(abs),
     // …and how to run an offline step, for a chain that separates rather than treats.
     h.runColdStep,
+    undefined,
+    h.renderer,
   );
   h.log(lines);
   // Only when something landed: a run that wrote nothing has nothing to re-read.
@@ -2362,13 +2374,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     try {
       if (hit.type === "audio") {
-        const bin = findEngineBinary();
-        if (!bin)
+        const render = rendererOf(h);
+        if (!render)
           return h.refuse([
-            "event split: no engine on this machine — cutting audio means rendering two files",
+            "event split: no engine to render with — cutting audio means rendering two files",
           ]);
-        const done = splitAudioMaterial(
-          bin,
+        const done = await splitAudioMaterial(
+          render,
           h.songPath,
           h.project(),
           track.id,
@@ -2430,13 +2442,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     try {
       if (hit.type === "audio") {
-        const bin = findEngineBinary();
-        if (!bin)
+        const render = rendererOf(h);
+        if (!render)
           return h.refuse([
-            "selection consolidate: no engine on this machine — consolidating audio means rendering a file",
+            "selection consolidate: no engine to render with — consolidating audio means rendering a file",
           ]);
-        const done = consolidateAudioMaterial(
-          bin,
+        const done = await consolidateAudioMaterial(
+          render,
           h.songPath,
           h.project(),
           track.id,
@@ -3641,11 +3653,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const engine = findEngineBinary();
-    if (!engine) {
-      h.refuse([
-        "freeze failed: st0-engine binary not found (build the engine)",
-      ]);
+    const renderer = rendererOf(h);
+    if (!renderer) {
+      h.refuse(["freeze failed: no engine to render with (build the engine)"]);
       return;
     }
     // Stopped first: a freeze that lands mid-playback swaps a track's contents under a rolling transport.
@@ -3653,7 +3663,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const out = join(h.songPath, render);
     mkdirSync(dirname(out), { recursive: true });
     try {
-      freezeUpstreamRender(engine, p, plan, out);
+      await freezeUpstreamRender(renderer, p, plan, out);
     } catch (e) {
       h.refuse([`freeze failed: ${(e as Error).message}`]);
       return;

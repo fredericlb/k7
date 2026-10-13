@@ -67,7 +67,7 @@ The KIND of material decides which runs, and they do not live together:
   notes and writes the files itself. No engine, no machine, pure and fully tested.
 - **Audio** has to be RENDERED. That lives in `@studio/commands`' `materialRender.ts`, beside the
   bounce that already owns "write new material through the engine" — it builds a one-track
-  `ProjectDoc` and runs `renderMixdown`, exactly as `clip process` does.
+  `ProjectDoc` and bounces it through the host's `Renderer`, exactly as `clip process` does.
 
 The command handlers (`event.split`, `selection.consolidate`) are the only place the two meet:
 they read the clip's `type` off the compiled document and call one or the other. With no engine

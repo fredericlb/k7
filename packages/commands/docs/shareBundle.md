@@ -15,9 +15,10 @@ publishes a release.
 
 ## "Every module is frozen" is one render, not N freezes
 
-`renderMixdown(doc, out, { stems: true })` writes the mixdown **and** one wav per audible track in
-a single pass, through a separate short-lived engine that opens no audio device — so a share runs
-while the transport plays.
+A render with `{ stems: true }` writes the mixdown **and** one wav per audible track in a single
+pass, through a separate short-lived engine that opens no audio device — so a share runs while the
+transport plays. That engine is this machine's, or an engine machine's when the host has no binary
+(`packages/take-render/docs/rendering.md`).
 
 Freezing module by module, the way `node freeze` does, would be N engine passes **and** would
 write `frozen:` into N files of the project being shared. Nothing here writes to the project: it

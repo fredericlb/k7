@@ -66,6 +66,7 @@ import {
   watchModuleFolders,
 } from "./moduleWatch.ts";
 import { saveTake } from "./recorderSave.ts";
+import { serviceRenderer } from "./renderers.ts";
 import { rootDir, slugify } from "./slug.ts";
 import { setTakeArm, takeArmOf, withTakeHole } from "./takeArm.ts";
 import { skip, type Workspace } from "./workspace.ts";
@@ -1062,6 +1063,10 @@ function makeHost(
     // …and the one that gives it without its voice, read the same way.
     get instrumentalChain(): string | undefined {
       return loadPreferences().instrumentalChain;
+    },
+    // Every render a verb makes — freeze, split, consolidate, process — through this service's renderer (docs/render.md).
+    get renderer() {
+      return serviceRenderer() ?? undefined;
     },
     // `clip process` over a chain that SEPARATES, through the job registry — see docs/activeProject.md.
     runColdStep: async ({ step, source, outDir }) => {

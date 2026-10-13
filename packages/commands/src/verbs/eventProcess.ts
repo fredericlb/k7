@@ -145,6 +145,7 @@ async function processEventCommand(a: string, h: CommandHost): Promise<void> {
     (abs) => h.snapshot?.(abs),
     h.runColdStep,
     [own],
+    h.renderer,
   );
   // A bounce that wrote nothing leaves the event as it was found, not on a copy it never needed.
   if (shared && !changed) {

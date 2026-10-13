@@ -100,6 +100,8 @@ describe("the file hub", () => {
         },
         unbindLocal: () => {},
         openReady: async () => null,
+        bindRenderer: () => "/api/engine-tunnel/local/renderer",
+        rendersEnabled: () => false,
       },
       selfPort: () => 4242,
       log: () => {},

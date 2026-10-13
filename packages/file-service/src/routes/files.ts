@@ -594,7 +594,7 @@ for (const dir of ["undo", "redo"] as const) {
 // Render the mixdown and stream it. A throw before any bytes becomes a clean 400; after headers, only a log.
 filesRouter.get(
   "/export",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const format = String(req.query.format ?? "wav") === "mp3" ? "mp3" : "wav";
     let out: {
       path: string;
@@ -603,7 +603,7 @@ filesRouter.get(
       cleanup: () => void;
     };
     try {
-      out = req.ws!.exportMix(format);
+      out = await req.ws!.exportMix(format);
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
       return;

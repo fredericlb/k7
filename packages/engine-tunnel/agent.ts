@@ -13,6 +13,7 @@ import {
   encodeBinary,
   type HubMessage,
   TUNNEL_PATH,
+  TUNNEL_RENDER_KEY_HEADER,
   TUNNEL_TOKEN_HEADER,
   type TunnelRoot,
 } from "./frames.ts";
@@ -24,6 +25,8 @@ export interface TunnelAgentOptions {
   registryUrl: string;
   id: string;
   token: string;
+  /** The server's render key: sent when set, so this machine renders for that server — docs/jobs.md. */
+  renderKey?: string;
   enginePort: number;
   /** Where this server's files are kept on this machine — one folder per server. */
   cacheDir: string;
@@ -108,7 +111,12 @@ export class TunnelAgent {
   private connect(): void {
     if (this.stopped) return;
     const ws = new WebSocket(tunnelUrl(this.opts.registryUrl, this.opts.id), {
-      headers: { [TUNNEL_TOKEN_HEADER]: this.opts.token },
+      headers: {
+        [TUNNEL_TOKEN_HEADER]: this.opts.token,
+        ...(this.opts.renderKey
+          ? { [TUNNEL_RENDER_KEY_HEADER]: this.opts.renderKey }
+          : {}),
+      },
     });
     this.ws = ws;
     ws.on("open", () => {
