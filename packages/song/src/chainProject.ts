@@ -35,6 +35,7 @@ import {
   subKey,
 } from "./chainScope";
 import {
+  isDocName,
   wsExists,
   wsIssues,
   wsRead,
@@ -92,7 +93,7 @@ export function readChainProject(dir: string): ChainProject {
     byName(p) < byName(q) ? -1 : byName(p) > byName(q) ? 1 : 0,
   )) {
     const m = /^(.+)\.(?:ya?ml|k7x)$/i.exec(f);
-    if (!m) continue;
+    if (!m || !isDocName(f)) continue;
     const name = m[1];
     const text = wsRead(join(folder, f));
     const { value, issues } = parseChain(text);

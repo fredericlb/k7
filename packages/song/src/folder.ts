@@ -21,6 +21,7 @@ import type {
   RawTrack,
 } from "./rawDoc";
 import { isProjectFolder } from "./yaml/moduleIO";
+import { isDocName } from "./yaml/workspaceFile";
 
 // The LEGACY flat-track shape — absent on any current song.
 type LegacyTrack = RawTrack & {
@@ -36,7 +37,7 @@ export function isFolderProject(abs: string): boolean {
   try {
     const st = statSync(abs);
     if (st.isDirectory()) return isProjectFolder(abs);
-    return /^project\.(ya?ml|k7x)$/i.test(basename(abs));
+    return /^project\./i.test(basename(abs)) && isDocName(basename(abs));
   } catch {
     return false;
   }

@@ -60,11 +60,13 @@ reason:
      command, the editor, the module scaffold, a `.dawproject` import — is written as `.k7x`
      (`packages/song/docs/k7xFiles.md`). The same switch as the migration, since both are safe exactly
      when every device reads k7x. Done.
-   - **`.yaml` no longer looked up**: only once every workspace has migrated, since it makes any YAML
-     left anywhere unreadable — and the repository's own tests write their fixtures as YAML, which
-     would first move to k7x or to the YAML copy `testSupport` gives. Readers still receive YAML text
-     through the bridge; each moves to reading k7x data directly as it is next touched, and `yaml`
-     leaves a package once none of its readers needs the bridge.
+   - **`.yaml` no longer looked up**: `STUDIO_K7X=only` — a lookup probes `.k7x` alone, a listing
+     skips YAML, a new file is k7x or refused (`packages/song/docs/k7xFiles.md`). A switch rather than
+     deleted code, because it is right only once every workspace has migrated: shipped as code, it
+     would leave any workspace not yet migrated unreadable. Done.
+   - **The YAML paths deleted**: once `only` has run everywhere. The repository's own tests write
+     their fixtures as YAML, and move first — to k7x, or to the YAML copy `testSupport` gives — and
+     readers still receive YAML text through the bridge, each moving to k7x data as it is next touched.
 8. **Sugar, kind by kind** — `notes("c4 d4 ~ e4")` for a sequence's notes, `runs([[…]])` for a
    graph's segments (a chain cannot repeat `.to(…)`, a key being unique in a map). Expanded before
    any reader sees the file; kept through an edit that leaves its expansion alone, written as the full

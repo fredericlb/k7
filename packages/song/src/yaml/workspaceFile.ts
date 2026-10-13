@@ -24,6 +24,23 @@ const K7X_NAME = /\.k7x$/i;
 /** A name a workspace file of either format may have — what an extension test should accept. */
 export const DOC_NAME = /\.(ya?ml|k7x)$/i;
 
+/** The deploy switch, STUDIO_K7X: off, `1` (every device reads k7x), or `only` (YAML is no longer read). */
+export type K7xMode = "off" | "everywhere" | "only";
+export function k7xMode(): K7xMode {
+  const v = process.env.STUDIO_K7X;
+  return v === "only" ? "only" : v === "1" ? "everywhere" : "off";
+}
+
+/** True once every device reads .k7x: a new file is then created as one (docs/k7xFiles.md). */
+export const k7xEverywhere = (): boolean => k7xMode() !== "off";
+
+/** True once YAML is retired: a YAML file is then found by no lookup or listing, and only the migration reads it. */
+export const yamlRetired = (): boolean => k7xMode() === "only";
+
+/** Is `name` a workspace file to read: a .k7x always, a YAML one until YAML is retired. */
+export const isDocName = (name: string): boolean =>
+  K7X_NAME.test(name) || (YAML_NAME.test(name) && !yamlRetired());
+
 export const isK7xPath = (path: string): boolean => K7X_NAME.test(path);
 
 /** The `.k7x` spelling of a YAML-named path; any other path unchanged. */
@@ -50,9 +67,6 @@ export function wsRead(path: string): string {
   return isK7xPath(real) ? toYaml(text, sugarFor(real)) : text;
 }
 
-/** True once the deployer says every device reads .k7x: a new file is then created as one (docs/k7xFiles.md). */
-export const k7xEverywhere = (): boolean => process.env.STUDIO_K7X === "1";
-
 /** Writes YAML text to the file a path names: a .k7x file takes it as edits, so its comments and layout stay. */
 export function wsWrite(path: string, content: string | Uint8Array): void {
   const real = realPath(path);
@@ -68,6 +82,11 @@ export function wsWrite(path: string, content: string | Uint8Array): void {
       writeFileSync(k7xSibling(real), converted.k7x);
       return;
     }
+    // Once YAML is retired a new file is k7x or nothing: written as YAML it would be a file no lookup finds.
+    if (yamlRetired())
+      throw new Error(
+        `${real}: YAML is retired and this text has no k7x form (${converted.reason})`,
+      );
   }
   if (!isK7xPath(real) || typeof content !== "string") {
     writeFileSync(real, content);
@@ -112,7 +131,9 @@ export function wsIssues(path: string, issues: ModuleIssue[]): ModuleIssue[] {
 export function wsList(dir: string): string[] {
   const names = readdirSync(dir);
   const k7x = new Set(names.filter((n) => isK7xPath(n)).map(yamlName));
-  const out = names.filter((n) => !(YAML_NAME.test(n) && k7x.has(k7xLike(n))));
+  const out = names.filter(
+    (n) => !(YAML_NAME.test(n) && (yamlRetired() || k7x.has(k7xLike(n)))),
+  );
   return out.map(yamlName);
 }
 

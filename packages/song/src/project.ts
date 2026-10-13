@@ -29,6 +29,7 @@ import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
+import { isDocName, wsExists, wsRead, yamlRetired } from "./yaml/workspaceFile";
 
 export type * from "@studio/engine-protocol/project";
 
@@ -116,9 +117,9 @@ function readSource(sourcePath: string): AssembledDoc {
       `'${basename(sourcePath)}' is a foreign project file, not a song file. ` +
         `Import it first (click it in the file tree), then open the folder it produces.`,
     );
-  if (/\.(ya?ml|k7x)$/i.test(sourcePath)) return readYamlSong(sourcePath);
+  if (isDocName(sourcePath)) return readYamlSong(sourcePath);
   throw new Error(
-    `unsupported song '${basename(sourcePath)}' — use a .yaml file or a folder project`,
+    `unsupported song '${basename(sourcePath)}' — use a ${yamlRetired() ? ".k7x" : ".k7x or .yaml"} file or a folder project`,
   );
 }
 
@@ -330,7 +331,6 @@ export function loadAudioClipDoc(
 
 // Imported as well as re-exported: `export … from` publishes a name without BINDING it, and trackMixer reads it.
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
-import { wsExists, wsRead } from "./yaml/workspaceFile";
 
 export {
   MIXER_PARAMS,

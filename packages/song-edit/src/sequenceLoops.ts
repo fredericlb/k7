@@ -11,7 +11,12 @@ import {
   laneFolder,
   spliceChainItem,
 } from "@studio/song/chainItemEdit";
-import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import {
+  isDocName,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import {
   halveSequenceLoops,
   type KeptLoop,
@@ -40,7 +45,7 @@ export function halveLoopsOf(
   try {
     if (wsExists(at))
       names = readdirSync(at)
-        .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
+        .filter((f) => isDocName(f))
         .sort();
   } catch {
     names = []; // no lanes to reach is not a failure to halve

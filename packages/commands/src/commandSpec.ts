@@ -12,7 +12,7 @@ import { loadCurves } from "@studio/song/curves";
 import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
-import { wsRead } from "@studio/song/yaml/workspaceFile";
+import { isDocName, wsRead } from "@studio/song/yaml/workspaceFile";
 import { alternativesOf } from "@studio/song-schema/alternatives";
 import {
   completionOrder,
@@ -159,7 +159,7 @@ const PROVIDERS = {
       for (const e of entries) {
         const name = under ? `${under}/${e.name}` : e.name;
         if (e.isDirectory()) walk(join(at, e.name), name);
-        else if (e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+        else if (e.isFile() && isDocName(e.name))
           out.push(name.replace(/\.(ya?ml|k7x)$/i, ""));
       }
     };
@@ -173,7 +173,7 @@ const PROVIDERS = {
       return readdirSync(join(h.songPath, "video_tracks"), {
         withFileTypes: true,
       })
-        .filter((e) => e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+        .filter((e) => e.isFile() && isDocName(e.name))
         .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
         .sort();
     } catch {
@@ -208,7 +208,7 @@ const PROVIDERS = {
   sequenceFiles: (h) => {
     try {
       return readdirSync(join(h.songPath, "sequences"))
-        .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
+        .filter((f) => isDocName(f))
         .map((f) => f.replace(/\.(ya?ml|k7x)$/i, ""));
     } catch {
       return [];

@@ -24,7 +24,7 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml } from "yaml";
 import { bypassedOf, chainSteps } from "./chainsGraph";
 import { libraryFamilyRoots } from "./sharedFolders";
-import { wsExists, wsRead } from "./yaml/workspaceFile";
+import { isDocName, wsExists, wsRead } from "./yaml/workspaceFile";
 
 /** Where a template's signal leaves, written as its last step's one link. */
 export const TEMPLATE_OUT = "@out";
@@ -52,7 +52,7 @@ export interface LibraryChainDir {
 function nodesIn(at: string): string[] {
   try {
     return readdirSync(join(at, NODES_DIR), { withFileTypes: true })
-      .filter((e) => e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+      .filter((e) => e.isFile() && isDocName(e.name))
       .map((e) => e.name)
       .sort();
   } catch {
@@ -88,7 +88,7 @@ function walkChains(library: string, chainsRoot: string): LibraryChainDir[] {
     for (const e of entries) {
       const sub = (name: string) => (path ? `${path}/${name}` : name);
       if (e.isDirectory()) walk(join(at, e.name), sub(e.name));
-      else if (e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name)) {
+      else if (e.isFile() && isDocName(e.name)) {
         const p = sub(e.name.replace(/\.(ya?ml|k7x)$/i, ""));
         out.push({
           ref: libraryRef(library, p),

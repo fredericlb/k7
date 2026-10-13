@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { moduleFileFor, readModuleFile } from "./moduleIO";
 import {
+  isDocName,
   realPath,
   wsCopy,
   wsExists,
@@ -81,6 +82,29 @@ describe("a workspace file by its YAML name", () => {
       wsWrite(join(dir, "old.yaml"), "a: 2\n");
       expect(readFileSync(join(dir, "old.yaml"), "utf8")).toBe("a: 2\n");
       expect(existsSync(join(dir, "old.k7x"))).toBe(false);
+    } finally {
+      delete process.env.STUDIO_K7X;
+    }
+  });
+
+  it("finds no YAML once YAML is retired, but still reads a file named outright", () => {
+    process.env.STUDIO_K7X = "only";
+    try {
+      writeFileSync(join(dir, "a.k7x"), PROJECT);
+      writeFileSync(join(dir, "left.yaml"), "x: 1\n");
+      expect(wsList(dir).sort()).toEqual(["a.yaml"]);
+      expect(isDocName("left.yaml")).toBe(false);
+      expect(isDocName("a.k7x")).toBe(true);
+      expect(moduleFileFor(dir, "nodes", "left")).toBeNull();
+      expect(moduleFileFor(dir, "nodes", "a")?.rel).toBe("nodes/a.k7x");
+      // A machine's or the repository's own YAML is named outright, never looked up: it still reads.
+      expect(wsRead(join(dir, "left.yaml"))).toBe("x: 1\n");
+      wsWrite(join(dir, "new.yaml"), "a: 1\n");
+      expect(existsSync(join(dir, "new.k7x"))).toBe(true);
+      expect(() => wsWrite(join(dir, "list.yaml"), "- a\n")).toThrow(
+        "YAML is retired",
+      );
+      expect(existsSync(join(dir, "list.yaml"))).toBe(false);
     } finally {
       delete process.env.STUDIO_K7X;
     }

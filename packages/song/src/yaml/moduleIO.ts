@@ -10,7 +10,7 @@ import {
   type ModuleIssue,
   parseModule,
 } from "@studio/song-schema/yaml/moduleFile";
-import { wsExists, wsIssues } from "./workspaceFile";
+import { wsExists, wsIssues, yamlRetired } from "./workspaceFile";
 import { settledParse } from "./yamlCache";
 
 export interface ModuleFile {
@@ -22,6 +22,8 @@ export interface ModuleFile {
 
 // In order of precedence: a `.k7x` file wins over its YAML spelling, and `.yaml` over `.yml` (docs/k7xFiles.md).
 const EXTS = [".k7x", ".yaml", ".yml"];
+/** The extensions a lookup probes: every spelling, or the k7x one alone once YAML is retired. */
+const exts = (): string[] => (yamlRetired() ? [".k7x"] : EXTS);
 
 /** The module folder's OWN basenames — anything else there is a node, so add a new sibling here. */
 export const UI_BASE = "ui";
@@ -43,7 +45,7 @@ export function moduleFileFor(
   relDir: string,
   base: string,
 ): ModuleFile | null {
-  for (const ext of EXTS) {
+  for (const ext of exts()) {
     const path = join(folder, `${base}${ext}`);
     if (wsExists(path)) return { path, rel: `${relDir}/${base}${ext}` };
   }
@@ -61,7 +63,7 @@ function yamlFilesIn(folder: string): Map<string, string> {
   const byBase = new Map<string, string>();
   for (const e of found) {
     const ext = extname(e.name).toLowerCase();
-    if (!EXTS.includes(ext)) continue;
+    if (!exts().includes(ext)) continue;
     if (e.isDirectory()) continue;
     if (!e.isFile()) {
       // A symlink, or something stranger: ask what it points AT — a library reached through one must load.

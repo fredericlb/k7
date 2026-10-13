@@ -175,6 +175,31 @@ describe("a workspace converted to .k7x", () => {
     );
   });
 
+  it("works on k7x alone once YAML is retired, and leaves a stray YAML file out", async () => {
+    const name = "synth-demo.st0";
+    const plain = copyDemos(false);
+    const only = copyDemos(true);
+    writeFileSync(
+      join(only, name, "nodes", "ghost.yaml"),
+      'extends: "@workspace/audio/compressor"\n',
+    );
+    // The YAML side first, while YAML is read: once retired, the YAML copy is no project at all.
+    const line = "sequence note velocity melody 62 1 0.5";
+    const before = compiled(plain, name);
+    const log = await run(plain, name, line);
+    const after = compiled(plain, name);
+    process.env.STUDIO_K7X = "only";
+    try {
+      expect(compiled(plain, name)).toMatch(/^ERROR/);
+      expect(compiled(only, name)).toBe(before);
+      expect(await run(only, name, line)).toEqual(log);
+      expect(compiled(only, name)).toBe(after);
+      expect(compiled(only, name)).not.toContain("ghost");
+    } finally {
+      delete process.env.STUDIO_K7X;
+    }
+  });
+
   it("creates a new node as .k7x once k7x is everywhere, compiling as the YAML one does", async () => {
     const name = "synth-demo.st0";
     const line = "node new @workspace/audio/compressor squash";

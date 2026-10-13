@@ -25,6 +25,14 @@ comments and its layout, through every command.
   the `.yaml` — or, once `STUDIO_K7X=1` says every device reads k7x, the `.k7x`, provided its text
   converts to the same data (a list at the root does not, and stays YAML). An existing YAML file
   is never converted by being written: that is the migration's job, with its backup.
+- **Once YAML is retired, it is found by nothing.** `STUDIO_K7X=only` keeps everything `=1` does,
+  and a lookup by name probes `.k7x` alone, a listing skips YAML files, and a new file is k7x or a
+  refusal — written as YAML it would be a file no lookup finds. A folder whose project file is still
+  YAML is then no project. Only the migration reads YAML, being what converts it.
+- **A path named outright still reads, whatever the switch.** Retiring YAML stops its DISCOVERY, not
+  the reading of a file the code names itself: the repository's `commands.yaml` and a machine's
+  settings are YAML files read by name, and must go on reading. In a migrated workspace the only
+  YAML left is what the migration refused, which no lookup finds.
 - **A machine's own files are no workspace's.** `preferences.yaml` under the studio home is read and
   written with plain file calls, never through this module, so no switch ever turns it into k7x
   for the other processes that read it.

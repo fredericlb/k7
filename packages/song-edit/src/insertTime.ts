@@ -13,7 +13,12 @@ import {
 import { loadProjectRoot } from "@studio/song/loader";
 import { parseMarkers } from "@studio/song/project";
 import { setQuotedKeyMap } from "@studio/song/yaml/edit";
-import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import {
+  isDocName,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { spliceCurveTime } from "@studio/song-schema/yaml/curveFile";
 import { spliceTime } from "@studio/song-schema/yaml/trackFile";
@@ -32,7 +37,7 @@ function yamlIn(dir: string, sub: string): string[] {
   if (!wsExists(at)) return [];
   try {
     return readdirSync(at)
-      .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
+      .filter((f) => isDocName(f))
       .sort();
   } catch {
     return [];

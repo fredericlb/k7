@@ -7,6 +7,7 @@ import { readdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { studioHome } from "./studioHome";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** Where the shared modules folder sits, relative to a project (see module.populate). */
 export const SHARED_MODULES_PATH = "../_modules";
@@ -150,7 +151,6 @@ export {
 } from "@studio/song-schema/moduleTypes";
 
 import type { ModuleNamespace } from "@studio/song-schema/moduleTypes";
-import { wsExists } from "./yaml/workspaceFile";
 
 /** st0's OWN modules, shipped with its code and read like a library under `@meta` — docs/metaModules.md. */
 export const META_MODULES_ROOT = fileURLToPath(

@@ -25,7 +25,7 @@ import {
 } from "yaml";
 import { isChainProject, readChainProject } from "./chainProject";
 import { entityFileFor, type ModuleFile } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { isDocName, wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 const OPTS = { version: "1.2" as const, strict: false };
 const OUT = { lineWidth: 0 };
@@ -174,7 +174,7 @@ export function chainFiles(dir: string): string[] {
   if (!isChainProject(dir)) return [];
   const d = join(dir, CHAINS_DIR);
   return readdirSync(d)
-    .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
+    .filter((f) => isDocName(f))
     .sort()
     .map((f) => `${CHAINS_DIR}/${f}`);
 }

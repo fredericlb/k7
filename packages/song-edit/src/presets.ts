@@ -18,7 +18,12 @@ import {
   accountLibraries,
   isLibraryEditable,
 } from "@studio/song/sharedFolders";
-import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
+import {
+  isDocName,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
 import {
@@ -110,7 +115,7 @@ export function listNodePresets(dir: string, node: string): NodePresets {
     const folder = presetFolder(dir, scope, ref);
     if (!wsExists(folder)) continue;
     const names = readdirSync(folder, { withFileTypes: true })
-      .filter((e) => e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+      .filter((e) => e.isFile() && isDocName(e.name))
       .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
       .filter((n) => PRESET_NAME.test(n))
       .sort((a, b) => a.localeCompare(b));

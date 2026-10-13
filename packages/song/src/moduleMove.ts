@@ -8,7 +8,7 @@ import { basename, dirname, join, relative, sep } from "node:path";
 import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { MODULE_TYPES } from "@studio/song-schema/moduleTypes";
 import { moduleFileFor } from "./yaml/moduleIO";
-import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
+import { isDocName, wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** Where a move lands, and the two refs it trades — refused, with the reason, when it cannot be one. */
 export interface ModuleMove {
@@ -127,7 +127,7 @@ export function repointRefs(
         continue;
       }
       if (st.isDirectory()) walk(abs);
-      else if (/\.(ya?ml|k7x)$/i.test(n)) {
+      else if (isDocName(n)) {
         const text = wsRead(abs);
         const next = text.replace(pattern, to);
         if (next !== text) {

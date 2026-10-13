@@ -130,6 +130,7 @@ import {
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
 import {
+  isDocName,
   isK7xPath,
   realPath,
   wsExists,
@@ -1450,7 +1451,7 @@ export class Workspace {
           walk(abs);
           continue;
         }
-        if (!e.isFile() || !/\.(ya?ml|k7x)$/i.test(e.name)) continue;
+        if (!e.isFile() || !isDocName(e.name)) continue;
         let parsed: ReturnType<typeof parsePlaylist> = null;
         try {
           parsed = parsePlaylist(wsRead(abs));
