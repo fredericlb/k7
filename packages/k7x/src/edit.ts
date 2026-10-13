@@ -102,6 +102,14 @@ export class K7Document {
     this.setIn([...path, node.items.length], value);
   }
 
+  /** Replaces the value at a path with `source` as written, k7x text that must read back; throws when nothing is there. */
+  replaceSource(path: K7Path, source: string): void {
+    const node = this.getNode(path);
+    if (node === undefined || path.length === 0)
+      throw new Error(`k7x: no value at ${path.join(".")} to replace`);
+    this.splice(node.start, node.end, source);
+  }
+
   /** Inserts into the list at a path before item `index`, on a line of its own when that item has one. */
   insertIn(path: K7Path, index: number, value: unknown): void {
     const node = this.getNode(path);

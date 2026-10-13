@@ -2,8 +2,9 @@
 // Path ops are sent only when replaying them reproduces `after` byte for byte; otherwise the whole text.
 // Every op names what it replaced (`was`), so the room can set aside one that arrives after the value moved.
 
+import { applyK7x, diffK7x, goneAt, valueAt as k7xValueAt } from "./k7xOps.ts";
 import { locate } from "./listKeys.ts";
-import type { Conflict, FileOp, YamlOp } from "./ops.ts";
+import type { Conflict, FileOp, PathOp } from "./ops.ts";
 import { textHash } from "./textHash.ts";
 import { mergeable, mergeTexts } from "./textMerge.ts";
 import { applyYaml, diffYamlParsed, parse, valueAt } from "./yamlOps.ts";
@@ -11,6 +12,7 @@ import { applyYaml, diffYamlParsed, parse, valueAt } from "./yamlOps.ts";
 export { textHash };
 
 const isYaml = (file: string): boolean => /\.ya?ml$/i.test(file);
+const isK7x = (file: string): boolean => /\.k7x$/i.test(file);
 
 /** The op for `file` going from `before` to `after` (null = absent), or null when nothing changed; `beforeHash` stands in for a `before` not kept. */
 export function fileOpFor(
@@ -32,6 +34,13 @@ export function fileOpFor(
         return { kind: "yaml", file, ops: diff.ops };
       if (!diff?.keyed) break;
     }
+  if (before !== null && isK7x(file))
+    for (const lists of [true, false]) {
+      const diff = diffK7x(before, after, lists);
+      if (diff?.ops.length && replaysK7x(before, diff.ops, after))
+        return { kind: "k7x", file, ops: diff.ops };
+      if (!diff?.keyed) break;
+    }
   if (beforeHash === textHash(after)) return null;
   return { kind: "text", file, text: after, was: beforeHash };
 }
@@ -48,13 +57,27 @@ function replays(
   }
 }
 
-/** `current` (null = absent) after `op`; a yaml op on a file that is gone or unparseable throws. */
+function replaysK7x(
+  before: string,
+  ops: Parameters<typeof applyK7x>[1],
+  after: string,
+): boolean {
+  try {
+    return applyK7x(before, ops) === after;
+  } catch {
+    return false;
+  }
+}
+
+/** `current` (null = absent) after `op`; a path op on a file that is gone or unreadable throws. */
 export function applyFileOp(current: string | null, op: FileOp): string | null {
   if (op.kind === "remove") return null;
   if (op.kind === "text") return op.text;
   if (current === null)
-    throw new Error(`${op.file}: yaml ops on a missing file`);
-  return applyYaml(current, op.ops);
+    throw new Error(`${op.file}: ${op.kind} ops on a missing file`);
+  return op.kind === "k7x"
+    ? applyK7x(current, op.ops)
+    : applyYaml(current, op.ops);
 }
 
 /** What the room sets aside of an op: the op itself, and the value kept in its place. */
@@ -84,7 +107,7 @@ export function settleFileOp(
   op: FileOp,
   baseOf?: BaseOf,
 ): { apply: FileOp | null; aside: SetAside[] } {
-  if (op.kind !== "yaml") {
+  if (op.kind !== "yaml" && op.kind !== "k7x") {
     const target = op.kind === "text" ? op.text : null;
     if (op.was === undefined || current === target)
       return { apply: op, aside: [] };
@@ -95,27 +118,57 @@ export function settleFileOp(
       ? { apply: merged, aside: [] }
       : { apply: null, aside: [{ op }] };
   }
-  const one = (o: YamlOp): FileOp => ({
-    kind: "yaml",
-    file: op.file,
-    ops: [o],
-  });
-  const doc = current === null ? null : parse(current);
-  if (current === null || !doc || doc.errors.length)
-    return { apply: null, aside: op.ops.map((o) => ({ op: one(o) })) };
-  const keep: YamlOp[] = [];
+  const one = (o: PathOp): FileOp => ({ ...op, ops: [o] }) as FileOp;
+  const reader = current === null ? null : pathReader(op.kind, current);
+  if (current === null || !reader)
+    return {
+      apply: null,
+      aside: (op.ops as PathOp[]).map((o) => ({ op: one(o) })),
+    };
+  const keep: PathOp[] = [];
   const aside: SetAside[] = [];
-  for (const o of op.ops) {
+  for (const o of op.ops as PathOp[]) {
     if (o.was === undefined) {
       keep.push(o);
       continue;
     }
-    const now = valueAt(doc, current, o.path);
+    const now = reader.valueAt(o.path);
     // Already what the op makes it: nothing to apply, and nothing lost.
-    if (now === (o.op === "set" ? o.yaml : null)) continue;
+    if (now === (o.op === "set" ? ("k7x" in o ? o.k7x : o.yaml) : null))
+      continue;
     // An edit inside a list item someone removed has nothing to land on.
-    if (now === o.was && !locate(doc, o.path).gone) keep.push(o);
+    if (now === o.was && !reader.gone(o.path)) keep.push(o);
     else aside.push({ op: one(o), kept: now });
   }
-  return { apply: keep.length ? { ...op, ops: keep } : null, aside };
+  return {
+    apply: keep.length ? ({ ...op, ops: keep } as FileOp) : null,
+    aside,
+  };
+}
+
+/** How settleFileOp reads values in the current text, by format; null when the text does not read. */
+function pathReader(
+  kind: "yaml" | "k7x",
+  current: string,
+): {
+  valueAt: (path: string[]) => string | null;
+  gone: (path: string[]) => boolean;
+} | null {
+  if (kind === "k7x") {
+    try {
+      k7xValueAt(current, []);
+    } catch {
+      return null;
+    }
+    return {
+      valueAt: (path) => k7xValueAt(current, path),
+      gone: (path) => goneAt(current, path),
+    };
+  }
+  const doc = parse(current);
+  if (doc.errors.length) return null;
+  return {
+    valueAt: (path) => valueAt(doc, current, path),
+    gone: (path) => locate(doc, path).gone,
+  };
 }

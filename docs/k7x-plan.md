@@ -42,9 +42,9 @@ reason:
    second; a writer writes back the file it read; a folder listing, the revision token and the
    browser's path rules accept both. Every demo, converted whole, compiles to the same document and
    takes the same commands as its YAML original (`packages/commands/src/k7xFiles.test.ts`). Done.
-4. **live-sync over k7x** — the same key paths and the same natural list keys
-   (`packages/live-sync/src/listKeys.ts`), diffed on the k7x tree. Until then a `.k7x` change travels
-   as whole text, which costs bandwidth and never correctness.
+4. **live-sync over k7x** — a `.k7x` change is a `k7x` op: the same key paths and natural list keys
+   (`packages/live-sync/src/listKeys.ts`), diffed on the k7x tree, replayed byte for byte, checked
+   and set aside by the room like a YAML op (`packages/live-sync/docs/ops.md`). Done.
 5. **The editor** — highlighting and completions for `.k7x`, derived from the same zod schemas as
    today's (`packages/song-schema/docs/fields.md`).
 6. **Conversion** — `demos/` and `st0-library/` in one commit each; stored workspaces by a one-shot

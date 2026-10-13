@@ -21,14 +21,22 @@ export interface SyncConflict {
           | { op: "delete"; path: string[] }
         )[];
       }
+    | {
+        kind: "k7x";
+        file: string;
+        ops: (
+          | { op: "set"; path: string[]; k7x: string }
+          | { op: "delete"; path: string[] }
+        )[];
+      }
     | { kind: "text"; file: string; text: string }
     | { kind: "remove"; file: string };
   kept?: string | null;
 }
 
-/** What each side of a conflict IS, for a reader: a YAML value, or a word for a whole file. */
+/** What each side of a conflict IS, for a reader: a value as written in its file's format, or a word for a whole file. */
 export type Side =
-  | { k: "value"; yaml: string }
+  | { k: "value"; source: string }
   | { k: "absent" }
   | { k: "text" }
   | { k: "binary" }
@@ -37,7 +45,7 @@ export type Side =
 
 export interface ConflictView {
   file: string;
-  /** Dotted YAML paths, for a YAML op; empty for a whole file. */
+  /** Dotted key paths, for a YAML or k7x op; empty for a whole file. */
   paths: string[];
   kept: Side;
   alternative: Side;
@@ -45,7 +53,7 @@ export interface ConflictView {
 
 export function describeConflict(c: SyncConflict): ConflictView {
   const op = c.op;
-  if (op.kind === "yaml") {
+  if (op.kind === "yaml" || op.kind === "k7x") {
     const first = op.ops[0];
     return {
       file: op.file,
@@ -55,10 +63,10 @@ export function describeConflict(c: SyncConflict): ConflictView {
           ? { k: "current" }
           : c.kept === null
             ? { k: "absent" }
-            : { k: "value", yaml: c.kept },
+            : { k: "value", source: c.kept },
       alternative:
         first?.op === "set"
-          ? { k: "value", yaml: first.yaml }
+          ? { k: "value", source: "k7x" in first ? first.k7x : first.yaml }
           : { k: "absent" },
     };
   }

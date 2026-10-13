@@ -9,7 +9,7 @@ const OPEN_KEEP = 500;
 
 /** The value a set-aside op is about: a file, or a path inside one. */
 function valueKey(op: FileOp): string {
-  return op.kind === "yaml"
+  return op.kind === "yaml" || op.kind === "k7x"
     ? [op.file, ...(op.ops[0]?.path ?? [])].join("\0")
     : op.file;
 }

@@ -33,8 +33,8 @@ comments and its layout, through every command.
 
 The undo journal, the live-sync capture and its relay read and write the files that changed on
 disk, by their real names, and never through this module: they must restore exactly the bytes
-that were there. A `.k7x` change therefore travels as whole text until live-sync learns k7x
-(phase 4 of the plan) — more bandwidth, never a wrong file.
+that were there. A `.k7x` change travels as k7x path ops, diffed on the k7x text itself
+(`packages/live-sync/docs/ops.md`).
 
 ## The /file route
 
