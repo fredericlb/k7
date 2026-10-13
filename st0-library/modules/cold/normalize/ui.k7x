@@ -2,17 +2,7 @@
 cols(7)
 rows(2)
 widgets({
-  target: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Target",
-    bind: "Target",
-    min: -60,
-    max: 0,
-  },
+  target: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Target", bind: "Target", min: -60, max: 0 },
   peak: { type: "meter", col: 2, row: 0, rowSpan: 2, label: "Peak", bind: "Peak" },
   gain_screen: { type: "lcdscreen", col: 3, row: 0, colSpan: 4, rowSpan: 2 },
 })
@@ -20,17 +10,7 @@ vertical({
   cols: 4,
   rows: 4,
   widgets: {
-    target: {
-      type: "knob",
-      col: 0,
-      row: 0,
-      colSpan: 2,
-      rowSpan: 2,
-      label: "Target",
-      bind: "Target",
-      min: -60,
-      max: 0,
-    },
+    target: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Target", bind: "Target", min: -60, max: 0 },
     peak: { type: "meter", col: 2, row: 0, rowSpan: 2, label: "Peak", bind: "Peak" },
     gain_screen: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
   },

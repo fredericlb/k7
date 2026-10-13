@@ -2,34 +2,14 @@
 cols(6)
 rows(3)
 widgets({
-  louder: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Louder",
-    bind: "LOUDER",
-    min: 0,
-    max: 1,
-  },
+  louder: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Louder", bind: "LOUDER", min: 0, max: 1 },
   io: { type: "lcdscreen", col: 2, row: 0, colSpan: 4, rowSpan: 2 },
 })
 vertical({
   cols: 4,
   rows: 4,
   widgets: {
-    louder: {
-      type: "knob",
-      col: 0,
-      row: 0,
-      colSpan: 2,
-      rowSpan: 2,
-      label: "Louder",
-      bind: "LOUDER",
-      min: 0,
-      max: 1,
-    },
+    louder: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Louder", bind: "LOUDER", min: 0, max: 1 },
     io: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
   },
 })

@@ -4,23 +4,6 @@
 cols(4)
 rows(2)
 widgets({
-  volume: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Volume",
-    bind: "Volume",
-    min: -40,
-    max: 12,
-  },
-  credit: {
-    type: "label",
-    col: 2,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "No Budget Orchestra · bandshed.net · CC BY-SA",
-  },
+  volume: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Volume", bind: "Volume", min: -40, max: 12 },
+  credit: { type: "label", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "No Budget Orchestra · bandshed.net · CC BY-SA" },
 })

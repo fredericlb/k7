@@ -13,17 +13,6 @@
 cols(3)
 rows(2)
 widgets({
-  target: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "BPM",
-    bind: "Target BPM",
-    min: 10,
-    max: 300,
-    step: 0.1,
-  },
+  target: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "BPM", bind: "Target BPM", min: 10, max: 300, step: 0.1 },
   source: { type: "meter", col: 2, row: 0, rowSpan: 2, label: "Source", bind: "Source BPM" },
 })

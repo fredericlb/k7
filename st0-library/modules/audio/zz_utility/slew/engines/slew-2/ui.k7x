@@ -2,15 +2,5 @@
 cols(2)
 rows(3)
 widgets({
-  clamping: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Clamp",
-    bind: "Clamping",
-    min: 0,
-    max: 1,
-  },
+  clamping: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Clamp", bind: "Clamping", min: 0, max: 1 },
 })

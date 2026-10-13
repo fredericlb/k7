@@ -2,15 +2,5 @@
 cols(3)
 rows(3)
 widgets({
-  wreck: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 3,
-    rowSpan: 3,
-    label: "Wreck",
-    bind: "Wreck",
-    min: 0,
-    max: 1,
-  },
+  wreck: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Wreck", bind: "Wreck", min: 0, max: 1 },
 })

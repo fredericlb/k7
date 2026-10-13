@@ -2,34 +2,14 @@
 cols(8)
 rows(2)
 widgets({
-  amount: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Amount",
-    bind: "Amount",
-    min: 0,
-    max: 100,
-  },
+  amount: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Amount", bind: "Amount", min: 0, max: 100 },
   sweep: { type: "lcdscreen", col: 2, row: 0, colSpan: 6, rowSpan: 2 },
 })
 vertical({
   cols: 4,
   rows: 4,
   widgets: {
-    amount: {
-      type: "knob",
-      col: 0,
-      row: 0,
-      colSpan: 2,
-      rowSpan: 2,
-      label: "Amount",
-      bind: "Amount",
-      min: 0,
-      max: 100,
-    },
+    amount: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Amount", bind: "Amount", min: 0, max: 100 },
     sweep: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
   },
 })

@@ -2,16 +2,5 @@
 cols(3)
 rows(3)
 widgets({
-  semitones: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 3,
-    rowSpan: 3,
-    label: "Semi",
-    bind: "Semitones",
-    min: -24,
-    max: 24,
-    step: 1,
-  },
+  semitones: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Semi", bind: "Semitones", min: -24, max: 24, step: 1 },
 })

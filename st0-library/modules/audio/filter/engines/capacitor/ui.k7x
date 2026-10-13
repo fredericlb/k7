@@ -2,26 +2,6 @@
 cols(4)
 rows(2)
 widgets({
-  hipass: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "HiPass",
-    bind: "Highpass",
-    min: 0,
-    max: 1,
-  },
-  lopass: {
-    type: "knob",
-    col: 2,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "LoPass",
-    bind: "Lowpass",
-    min: 0,
-    max: 1,
-  },
+  hipass: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "HiPass", bind: "Highpass", min: 0, max: 1 },
+  lopass: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "LoPass", bind: "Lowpass", min: 0, max: 1 },
 })

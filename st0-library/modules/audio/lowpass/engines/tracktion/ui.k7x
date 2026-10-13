@@ -2,36 +2,14 @@
 cols(8)
 rows(2)
 widgets({
-  freq: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Freq",
-    bind: "Frequency",
-    min: 10,
-    max: 22000,
-    curve: "log",
-  },
+  freq: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Freq", bind: "Frequency", min: 10, max: 22000, curve: "log" },
   response: { type: "lcdscreen", col: 2, row: 0, colSpan: 6, rowSpan: 2 },
 })
 vertical({
   cols: 4,
   rows: 4,
   widgets: {
-    freq: {
-      type: "knob",
-      col: 0,
-      row: 0,
-      colSpan: 2,
-      rowSpan: 2,
-      label: "Freq",
-      bind: "Frequency",
-      min: 10,
-      max: 22000,
-      curve: "log",
-    },
+    freq: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Freq", bind: "Frequency", min: 10, max: 22000, curve: "log" },
     response: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
   },
 })

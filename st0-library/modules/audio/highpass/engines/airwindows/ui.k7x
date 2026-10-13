@@ -2,26 +2,6 @@
 cols(4)
 rows(2)
 widgets({
-  freq: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Freq",
-    bind: "Highpass",
-    min: 0,
-    max: 1,
-  },
-  tight: {
-    type: "knob",
-    col: 2,
-    row: 0,
-    colSpan: 2,
-    rowSpan: 2,
-    label: "Tight",
-    bind: "Loose/Tight",
-    min: 0,
-    max: 1,
-  },
+  freq: { type: "knob", col: 0, row: 0, colSpan: 2, rowSpan: 2, label: "Freq", bind: "Highpass", min: 0, max: 1 },
+  tight: { type: "knob", col: 2, row: 0, colSpan: 2, rowSpan: 2, label: "Tight", bind: "Loose/Tight", min: 0, max: 1 },
 })

@@ -2,15 +2,5 @@
 cols(3)
 rows(3)
 widgets({
-  color: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 3,
-    rowSpan: 3,
-    label: "Color",
-    bind: "Color",
-    min: 0,
-    max: 1,
-  },
+  color: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Color", bind: "Color", min: 0, max: 1 },
 })

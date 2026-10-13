@@ -2,15 +2,5 @@
 cols(3)
 rows(3)
 widgets({
-  remap: {
-    type: "knob",
-    col: 0,
-    row: 0,
-    colSpan: 3,
-    rowSpan: 3,
-    label: "Remap",
-    bind: "Remap",
-    min: 0,
-    max: 1,
-  },
+  remap: { type: "knob", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "Remap", bind: "Remap", min: 0, max: 1 },
 })
