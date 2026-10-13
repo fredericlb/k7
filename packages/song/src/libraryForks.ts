@@ -1,4 +1,4 @@
-// libraryForks.ts — the workspace's FORKS of a library: the `_modules` modules that `extends` one of
+// libraryForks.ts — the FORKS of a library: the `_modules` and `@account` modules that `extends` one of
 // its modules, and which of them would inherit something new on an upgrade, since the module they
 // extend differs between the two versions. A fork keeps its own changes whatever happens; this only
 // says which ones to listen to again. See ../../../docs/library-versions-plan.md.
@@ -8,15 +8,16 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { LibraryVersion } from "@studio/song-schema/libraryVersions";
 import {
+  ACCOUNT_LIBRARY,
   libraryRefParts,
   SHARED_MODULES_DIR,
 } from "@studio/song-schema/moduleTypes";
 import { parse as parseYaml } from "yaml";
-import { libraryVersionRoot } from "./sharedFolders";
+import { accountLibraryHome, libraryVersionRoot } from "./sharedFolders";
 
 /** One fork: the workspace module, and the library module it extends. */
 export interface LibraryFork {
-  /** Its folder under `_modules/`, `/`-separated. */
+  /** Where it is: `_modules/<path>` or `@account/<path>`. */
   module: string;
   /** What it extends, `@<library>/<path>`. */
   base: string;
@@ -40,26 +41,31 @@ function moduleFiles(dir: string): string[] {
   return out;
 }
 
-/** The workspace modules at `repoDir` that extend a module of `library`. */
+/** The workspace's modules at `repoDir`, and the account's, that extend a module of `library`. */
 export function libraryForks(repoDir: string, library: string): LibraryFork[] {
-  const root = join(repoDir, SHARED_MODULES_DIR);
   const forks: LibraryFork[] = [];
-  for (const file of moduleFiles(root)) {
-    let doc: unknown;
-    try {
-      doc = parseYaml(readFileSync(file, "utf8"));
-    } catch {
-      continue;
+  const roots = [
+    { root: join(repoDir, SHARED_MODULES_DIR), label: SHARED_MODULES_DIR },
+    {
+      root: join(accountLibraryHome(), "modules"),
+      label: `@${ACCOUNT_LIBRARY}`,
+    },
+  ];
+  for (const { root, label } of roots)
+    for (const file of moduleFiles(root)) {
+      let doc: unknown;
+      try {
+        doc = parseYaml(readFileSync(file, "utf8"));
+      } catch {
+        continue;
+      }
+      const ext = (doc as { extends?: unknown } | null)?.extends;
+      if (typeof ext !== "string") continue;
+      const parts = libraryRefParts(ext);
+      if (parts?.library !== library) continue;
+      const at = relative(root, join(file, "..")).split(/[\\/]/).join("/");
+      forks.push({ module: `${label}/${at}`, base: ext });
     }
-    const ext = (doc as { extends?: unknown } | null)?.extends;
-    if (typeof ext !== "string") continue;
-    const parts = libraryRefParts(ext);
-    if (parts?.library !== library) continue;
-    forks.push({
-      module: relative(root, join(file, "..")).split(/[\\/]/).join("/"),
-      base: ext,
-    });
-  }
   return forks.sort((a, b) => a.module.localeCompare(b.module));
 }
 

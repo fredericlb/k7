@@ -130,6 +130,7 @@ import {
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
 import {
+  ACCOUNT_LIBRARY,
   ENGINE_NS,
   type ModuleNamespace,
 } from "@studio/song-schema/moduleTypes";
@@ -728,7 +729,7 @@ export class Workspace {
     const segs = rel.split(/[\\/]+/).filter((s) => s && s !== ".");
     if (segs[0] === LIBRARIES_DIR) {
       // Each library is confined to its OWN root, wherever an overlay points it.
-      if (segs[1] && isLibraryName(segs[1])) {
+      if (segs[1] && (isLibraryName(segs[1]) || segs[1] === ACCOUNT_LIBRARY)) {
         const root = libraryRoot(segs[1], this.activeProject ?? this.root);
         return confined(
           resolve(root, ...segs.slice(2)),

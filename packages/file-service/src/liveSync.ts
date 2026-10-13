@@ -47,6 +47,9 @@ export const roomsUrl = (syncUrl: string): string =>
   `${syncUrl.replace(/^ws/, "http").replace(/\/+$/, "")}/rooms`;
 
 /** The account's workspaces on the relay's side, as last listed, and when: a paired machine downloads them on demand. */
+/** The room the account's own library syncs in; `_` starts no workspace name, so none can take it. */
+export const ACCOUNT_LIBRARY_ROOM = "_account";
+
 let remoteRooms: string[] = [];
 let roomsAt = 0;
 
@@ -62,7 +65,10 @@ async function joinRooms(
     });
     if (!r.ok) throw new Error(`rooms ${r.status}`);
     const { workspaces } = (await r.json()) as { workspaces: string[] };
-    remoteRooms = workspaces.filter((w) => w !== EXAMPLES_WORKSPACE);
+    // The account library's room is no workspace: workspaces.ts attaches it on its own.
+    remoteRooms = workspaces.filter(
+      (w) => w !== EXAMPLES_WORKSPACE && w !== ACCOUNT_LIBRARY_ROOM,
+    );
     roomsAt = Date.now();
     if (process.env.STUDIO_SYNC_TOKEN) return;
     // Imported late: workspaces.ts loads this module to attach what it opens.

@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  accountLibraryHome,
   isLibraryEditable,
   libraryRoot,
   setLibraryOverlays,
@@ -51,6 +52,21 @@ describe("refreshLibraries", () => {
     expect(() =>
       ws.assertLibraryWritable(join(home, "st0", "draft", "modules", "x")),
     ).not.toThrow();
+  });
+
+  it("answers the ACCOUNT's library at _libraries/account, its own to write, never outside it", () => {
+    const studioHome0 = process.env.STUDIO_HOME;
+    process.env.STUDIO_HOME = mkdtempSync(join(tmpdir(), "acct-"));
+    try {
+      const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
+      const at = ws.mediaPath("_libraries/account/modules/audio/x");
+      expect(at).toBe(join(accountLibraryHome(), "modules", "audio", "x"));
+      expect(() => ws.assertLibraryWritable(at)).not.toThrow();
+      expect(() => ws.mediaPath("_libraries/account/../../etc")).toThrow();
+    } finally {
+      if (studioHome0 === undefined) delete process.env.STUDIO_HOME;
+      else process.env.STUDIO_HOME = studioHome0;
+    }
   });
 
   it("leaves them read-only to anyone else", async () => {

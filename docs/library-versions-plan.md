@@ -104,9 +104,13 @@ A ref keeps naming exactly one folder: nothing shadows `@st0/x` in place. Overri
   `@account/…`. It holds the same families as any library (`modules/`, `chains/`, `presets/`).
   `account` joins `RESERVED_LIBRARY_NAMES`.
 - It is the account's own, not versioned and not pinned: it is edited live like `_modules`, and
-  reaches every replica by live sync, in a room of the account's.
-- **Fork** copies `@st0/audio/foo` into `@account/audio/foo` with `extends: "@st0/audio/foo"`, then
-  repoints the chosen project's chains. The fork keeps inheriting what it does not change.
+  reaches every replica by live sync, in the account's room `_account` — a name no workspace can
+  take, since a workspace name starts with a letter or a digit. It is no origin library: it neither
+  counts for "st0 opens no project without a library" nor takes a pin.
+- **Fork** (`module fork <ref>`, also on a node's menu) makes `@account/audio/foo` a module that
+  `extends: "@st0/audio/foo"`, carrying the base's panel, then repoints the open project's refs.
+  Nothing else is copied: the fork keeps inheriting whatever it does not change. Forking again
+  keeps what the fork already holds.
 - What it extends resolves against the pin of the workspace that opens it, so one fork may sit on
   `st0` 7 in one workspace and 9 in another. That is why upgrade lists the forks whose base moved.
 - Resolution order: the project, `@workspace`, `@account`, the pinned libraries. Each still keys
@@ -135,5 +139,8 @@ library and every workspace, and runs at the highest level, so latest, old and f
    only what its workspaces pin is a disk saving, not a correctness one.
 5. **Built.** `apps/st0/backend/scripts/libraryArchive.mjs` bundles the published version; the hub
    seeds a published seed under its number and adds a newer one on an app update.
-6. `@account`: the folder, its sync room, Fork into it, its place in resolution.
+6. **Built.** `@account` (`accountLibraryHome` in `../packages/song/src/sharedFolders.ts`), its room
+   (`attachAccountLibrary`, `../packages/file-service/src/workspaces.ts`), `module fork`
+   (`../packages/song/src/accountFork.ts`), its presets scope, and upgrade's list of the forks whose
+   base moved.
 7. Engines report their level; open warns below `requires`.

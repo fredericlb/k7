@@ -48,6 +48,13 @@ still moves a pin between the versions this machine holds, and refuses one it la
 The pins file sits at the workspace root, outside every project folder, so no change token sees it
 change: the verb calls `reload` itself, or the song would keep playing the old version.
 
+## `module fork` writes a module that EXTENDS, not a copy
+
+A copy would stop hearing the library: a fix published in the next version would never reach a
+module that only looks like it. A fork that extends inherits every value it does not set, so the
+one thing it holds is what the person changed, and `library upgrade` can name it when its base moved.
+The panel IS copied, because a panel is a file of the module's folder and the fork is a new folder.
+
 ## `renders/` — where a freeze lands
 
 One folder for the lot, at the project root. NOT beside the module's own file: a node's folder is

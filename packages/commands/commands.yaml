@@ -1656,6 +1656,18 @@
 # you want to draw its panel or give it presets, because both are FILES in a module's folder.
 # So this is the moment it stops being ambient: a folder appears, its module.yaml records
 # which plugin to load, and every chain step naming the ref follows.
+# A module of the origin's libraries is nobody's to change but its admins'. To make it yours, fork it:
+# `@account/<path>` extends it, carries its panel, and this project's refs follow. The account library
+# is the account's in every workspace, so a fork made here is there for the next song too.
+- command: "module fork"
+  sid: module.fork
+  readable:
+    en: "Fork a library module into my own library"
+    fr: "Copier un module de bibliothèque dans la mienne"
+  help: "make a library module yours (e.g. module fork @st0/audio/reverb) — @account/audio/reverb extends it, and this project plays the fork"
+  surfaces: [cli]
+  menu: [node]
+  args: [{ name: "ref", complete: baseModules }]
 - command: "module own"
   sid: module.own
   readable:

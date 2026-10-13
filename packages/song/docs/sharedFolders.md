@@ -89,6 +89,13 @@ draft only in a workspace that pins `draft` or pins nothing.
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
 project beside it, and it forks on write (`docs/moduleFork.md`).
 
+**`@account` is the ACCOUNT's own library**, `<$STUDIO_HOME>/library`, beside the workspaces: what it
+forked of the origin's libraries, in every workspace at once. It is looked up after `_modules` and
+before the origin's libraries, it is always the account's to write, and it is no origin library —
+`accountLibraries()` does not list it, so it takes no pin and does not make a machine "have a
+library". A module of the origin's is changed by forking it there, never in place
+(`accountFork.ts`, `docs/library-versions-plan.md`).
+
 There is no row for assets either: a module carries the files it loads in its own `assets/`, so
 the module travels whole. See `docs/moduleAssets.md`.
 

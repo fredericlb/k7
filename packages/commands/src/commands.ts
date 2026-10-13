@@ -20,6 +20,7 @@ import {
   EXTERNAL_PLUGIN_FORMATS,
   METRONOME_MIN,
 } from "@studio/engine-protocol/build";
+import { forkIntoAccount } from "@studio/song/accountFork";
 import {
   assemblyMembers,
   createAssembly,
@@ -4124,6 +4125,24 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.reload();
     } catch (e) {
       h.refuse([`module own failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /** module fork <@library/path> — the library module made the account's own, the project pointed at it. */
+  "module.fork": async (a, h) => {
+    const ref = a.trim().split(/\s+/).filter(Boolean)[0];
+    if (!ref) return h.refuse(["usage: module fork <@library/path>"]);
+    try {
+      const r = forkIntoAccount(h.songPath, ref);
+      h.log([
+        `${r.ref} ${r.created ? "made, extending" : "already forks"} ${ref}` +
+          (r.repointed.length
+            ? ` — ${r.repointed.length} file${r.repointed.length > 1 ? "s" : ""} of this project now name it`
+            : ""),
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.refuse([`module fork: ${(e as Error).message}`]);
     }
   },
 

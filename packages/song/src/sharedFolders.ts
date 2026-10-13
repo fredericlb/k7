@@ -39,9 +39,13 @@ import {
   versionOfDir,
 } from "@studio/song-schema/libraryVersions";
 import {
+  ACCOUNT_LIBRARY,
   isLibraryName,
   LIBRARIES_HOME_DIR,
 } from "@studio/song-schema/moduleTypes";
+
+/** The account library's folder under `$STUDIO_HOME`, beside `workspace/`. */
+const ACCOUNT_LIBRARY_DIR = "library";
 
 /** The families a library repository carries — `library/` is not one, see docs/moduleAssets.md and docs/libraryFiles.md. */
 export type LibraryFamily =
@@ -163,10 +167,15 @@ export const isLibraryEditable = (name: string): boolean => overlays.has(name);
 
 /** Whether the folder `lib` was read from is the one this account writes: a published version never is. */
 export const isLibraryRootEditable = (lib: AccountLibrary): boolean =>
-  overlays.get(lib.name) === resolve(lib.root);
+  lib.name === ACCOUNT_LIBRARY || overlays.get(lib.name) === resolve(lib.root);
+
+/** The ACCOUNT's own library, `@account/…`: beside its workspaces, never versioned, always its own to write. */
+export const accountLibraryHome = (): string =>
+  join(studioHome(), ACCOUNT_LIBRARY_DIR);
 
 /** Where library `name` is read from for the workspace `from` stands in: its pin, else an admin's overlay, else UNPINNED_VERSION. */
 export function libraryRoot(name: string, from?: string): string {
+  if (name === ACCOUNT_LIBRARY) return accountLibraryHome();
   // Standing inside a version of this library, that version: a module reads its own library's files where it was loaded.
   const own = from ? libraryOf(from) : null;
   if (own?.name === name && own.root !== libraryHomeOf(name)) return own.root;
@@ -201,7 +210,9 @@ export function libraryFamilyRoots(
   kind: LibraryFamily,
   from?: string,
 ): AccountLibrary[] {
-  return accountLibraries(from)
+  // The account's own first: what it forked is nearer than what the origin holds.
+  const account = { name: ACCOUNT_LIBRARY, root: accountLibraryHome() };
+  return [account, ...accountLibraries(from)]
     .map((l) => ({ name: l.name, root: join(l.root, kind) }))
     .filter((l) => existsSync(l.root));
 }
@@ -209,6 +220,9 @@ export function libraryFamilyRoots(
 /** The library `path` lies in, and the version folder holding it, or null — a template being edited stands INSIDE one. */
 export function libraryOf(path: string): AccountLibrary | null {
   const abs = resolve(path);
+  const inAccount = relative(accountLibraryHome(), abs);
+  if (!inAccount.startsWith("..") && !isAbsolute(inAccount))
+    return { name: ACCOUNT_LIBRARY, root: accountLibraryHome() };
   for (const [name, root] of overlays) {
     const inEdits = relative(root, abs);
     if (!inEdits.startsWith("..") && !isAbsolute(inEdits))
@@ -235,7 +249,7 @@ export function libraryFamilyRoot(
   kind: LibraryFamily,
   from?: string,
 ): string | null {
-  if (!isLibraryName(library)) return null;
+  if (!isLibraryName(library) && library !== ACCOUNT_LIBRARY) return null;
   const root = join(libraryRoot(library, from), kind);
   return existsSync(root) ? root : null;
 }

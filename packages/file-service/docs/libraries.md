@@ -40,3 +40,8 @@ every change to the library's st0fs room, whose log is its history. An unresolve
 that starts empty breaks nothing.
 
 A chain's bench (`/@banc/<chain>/live.st0`) edits no library and changes no overlay.
+
+`_libraries/account/…` is the account's OWN library, written by its account like `_modules`, never
+refused. It syncs as one more room of the account, `_account`, attached at start beside the
+workspaces (`attachAccountLibrary` in `../src/workspaces.ts`) and kept out of every list of
+workspaces, since it is none.

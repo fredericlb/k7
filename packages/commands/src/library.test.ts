@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 
 const env = process.env.STUDIO_LIBRARIES_HOME;
+const home0 = process.env.STUDIO_HOME;
 let root: string;
 let ws: string;
 let home: string;
@@ -57,6 +58,8 @@ beforeEach(() => {
   ws = join(root, "ws");
   home = join(root, "libraries");
   process.env.STUDIO_LIBRARIES_HOME = home;
+  // The account library is under $STUDIO_HOME: never the developer's own.
+  process.env.STUDIO_HOME = join(root, "home");
   version(1, 1, "old");
   version(2, 1, "new");
   version(3, 99, "future");
@@ -69,6 +72,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   process.env.STUDIO_LIBRARIES_HOME = env;
+  if (home0 === undefined) delete process.env.STUDIO_HOME;
+  else process.env.STUDIO_HOME = home0;
   rmSync(root, { recursive: true, force: true });
 });
 

@@ -125,9 +125,7 @@ export const LIBRARY_VERBS: Record<string, SidHandler> = {
       : [];
     h.log([
       `@${name}: ${from} → ${to}`,
-      ...moved.map(
-        (f) => `  _modules/${f.module} extends ${f.base}, which changed`,
-      ),
+      ...moved.map((f) => `  ${f.module} extends ${f.base}, which changed`),
     ]);
   },
 };

@@ -26,7 +26,10 @@ import {
   libraryRoot,
 } from "@studio/song/sharedFolders";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
-import { isLibraryName } from "@studio/song-schema/moduleTypes";
+import {
+  ACCOUNT_LIBRARY,
+  isLibraryName,
+} from "@studio/song-schema/moduleTypes";
 import {
   LIBRARY_PRESETS_DIR,
   type NodePresets,
@@ -67,12 +70,18 @@ export function presetRefOf(dir: string, node: string): string | null {
 
 /** Every scope this project can keep a preset in: its workspace, then each library by name. */
 export function presetScopes(dir?: string): PresetScope[] {
-  return [WORKSPACE_SCOPE, ...accountLibraries(dir).map((l) => l.name)];
+  return [
+    WORKSPACE_SCOPE,
+    ACCOUNT_LIBRARY,
+    ...accountLibraries(dir).map((l) => l.name),
+  ];
 }
 
 // The preset tree a scope keeps — `_presets/` beside the project, or a library's `presets/`.
 function scopeRoot(dir: string, scope: PresetScope): string {
   if (scope === WORKSPACE_SCOPE) return resolve(dir, "..", SHARED_PRESETS_DIR);
+  if (scope === ACCOUNT_LIBRARY)
+    return join(libraryRoot(ACCOUNT_LIBRARY), LIBRARY_PRESETS_DIR);
   const lib = isLibraryName(scope)
     ? accountLibraries(dir).find((l) => l.name === scope)
     : undefined;
