@@ -1,0 +1,16 @@
+// acceleration — Airwindows Acceleration, a limiter on how fast the waveform may move
+cols(3)
+rows(3)
+widgets({
+  limit: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 3,
+    rowSpan: 3,
+    label: "Limit",
+    bind: "Limit",
+    min: 0,
+    max: 1,
+  },
+})

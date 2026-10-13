@@ -1,0 +1,57 @@
+// hombre — AirWindows' short-delay texture, voiced and pushed
+cols(6)
+rows(4)
+widgets({
+  voicing: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Voicing",
+    bind: "Voicing",
+    min: 0,
+    max: 1,
+  },
+  intensity: {
+    type: "knob",
+    col: 4,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Intens",
+    bind: "Intensity",
+    min: 0,
+    max: 1,
+  },
+  levels: { type: "lcdscreen", col: 0, row: 2, colSpan: 6, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    voicing: {
+      type: "knob",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Voicing",
+      bind: "Voicing",
+      min: 0,
+      max: 1,
+    },
+    intensity: {
+      type: "knob",
+      col: 2,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Intens",
+      bind: "Intensity",
+      min: 0,
+      max: 1,
+    },
+    levels: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
+  },
+})

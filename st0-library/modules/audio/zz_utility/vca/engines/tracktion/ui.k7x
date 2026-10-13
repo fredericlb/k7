@@ -1,0 +1,16 @@
+// vca — Airwindows VCA, a voltage-controlled amplifier stage
+cols(3)
+rows(3)
+widgets({
+  vca: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 3,
+    rowSpan: 3,
+    label: "VCA",
+    bind: "VCA",
+    min: 0,
+    max: 1,
+  },
+})

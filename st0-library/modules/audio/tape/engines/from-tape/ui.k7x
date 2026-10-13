@@ -1,0 +1,77 @@
+// from-tape — tape playback character
+cols(6)
+rows(2)
+widgets({
+  louder: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Louder",
+    bind: "Louder",
+    min: 0,
+    max: 1,
+  },
+  softer: {
+    type: "knob",
+    col: 2,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Softer",
+    bind: "Softer",
+    min: 0,
+    max: 1,
+  },
+  weight: {
+    type: "knob",
+    col: 4,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Weight",
+    bind: "Weight",
+    min: 0,
+    max: 1,
+  },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    louder: {
+      type: "knob",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Louder",
+      bind: "Louder",
+      min: 0,
+      max: 1,
+    },
+    softer: {
+      type: "knob",
+      col: 2,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Softer",
+      bind: "Softer",
+      min: 0,
+      max: 1,
+    },
+    weight: {
+      type: "knob",
+      col: 0,
+      row: 2,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Weight",
+      bind: "Weight",
+      min: 0,
+      max: 1,
+    },
+  },
+})

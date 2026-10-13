@@ -1,0 +1,27 @@
+// purest-squish — a transparent compressor with a bass bloom
+cols(4)
+rows(2)
+widgets({
+  squish: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Squish",
+    bind: "Squish",
+    min: 0,
+    max: 1,
+  },
+  bass_bloom: {
+    type: "knob",
+    col: 2,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Bloom",
+    bind: "BassBlm",
+    min: 0,
+    max: 1,
+  },
+})

@@ -1,0 +1,16 @@
+// console-4-channel — Console 4 channel stage, its Trim the drive into it
+cols(3)
+rows(3)
+widgets({
+  trim: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 3,
+    rowSpan: 3,
+    label: "Trim",
+    bind: "Trim",
+    min: 0,
+    max: 1,
+  },
+})

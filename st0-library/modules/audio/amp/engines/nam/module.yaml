@@ -1,3 +1,0 @@
-# neural-amp-modeler — the face for Neural Amp Modeler, the engine's neural amp: a .nam, or an AIDA-X / Proteus .json.
-# Knob 1..3 reach a model trained with knobs in the order it was trained; the panel shows only those it has.
-extends: "@engine/neural-amp-modeler"

@@ -1,0 +1,18 @@
+// Déformées — Royal — les effets de la question, en chaîne. Le sidecar du morceau la nomme comme
+// variante ; l'ordre des modules et la correspondance des valeurs sont dans
+// apps/z0/docs/effects.md du dépôt studio.
+
+steps([
+  id("819468a9-553d-4400-a2f1-58e6da4093c3")
+    .extends("@st0/audio/zz_utility/pitch-shift")
+    .params({ "semitones up": 12 }),
+  id("0a6b3fcb-f706-4407-b6a8-3e4a295055d8")
+    .extends("@st0/audio/bitcrush")
+    .engine("de-rez")
+    .engines({ de-rez: { params: { Rez: 0.218, Rate: 1 } } }),
+  id("3c3ef708-1489-40e1-8005-3cedf6da263a")
+    .extends("@st0/audio/overdrive")
+    .engine("one-knob")
+    .engines({ one-knob: { params: { Amount: 1 } } }),
+  to([chain("@out")]),
+])

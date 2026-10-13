@@ -1,3 +1,0 @@
-# airwindows — Airwindows' Chorus, named by its built-in type: `@engine/chorus` is Tracktion's,
-# the two plugins sharing a display name.
-plugin: { type: internal, name: airwindows_chorus }

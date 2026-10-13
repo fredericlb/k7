@@ -1,0 +1,27 @@
+// floor — Airwindows Floor, a bass-floor maker
+cols(4)
+rows(2)
+widgets({
+  floor: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Floor",
+    bind: "Floor",
+    min: 0,
+    max: 1,
+  },
+  drive: {
+    type: "knob",
+    col: 2,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Drive",
+    bind: "Drive",
+    min: 0,
+    max: 1,
+  },
+})

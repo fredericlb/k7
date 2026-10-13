@@ -1,0 +1,3 @@
+// amp — one neural amp for every kind of model: a NAM capture (one fixed setting), or an AIDA-X or
+// Proteus model trained with its controls, whose knobs the panel shows. Fork it per model to name them.
+engine("nam")

@@ -1,0 +1,3 @@
+// mu-macro-osc — Mutable Instruments' macro oscillators, one per engine: each keeps its own panel and knobs.
+// `plaits` (24 models, low-pass gate) is the default; `braids` (47 shapes, ADSR, bit and rate reduction) its elder.
+engine("plaits")

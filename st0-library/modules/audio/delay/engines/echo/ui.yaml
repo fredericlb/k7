@@ -1,7 +1,0 @@
-# echo — a feedback delay set in milliseconds
-cols: 4
-rows: 4
-widgets:
-  time: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Time, bind: Time, min: 1, max: 900 }
-  feedback: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Fdbk, bind: Feedback, min: 0, max: 0.95 }
-  repeats: { type: lcdscreen, col: 0, row: 2, colSpan: 4, rowSpan: 2 }

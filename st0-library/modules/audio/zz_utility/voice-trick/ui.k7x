@@ -1,0 +1,16 @@
+// voice-trick — Airwindows VoiceTrick, a mono-maker for voice
+cols(2)
+rows(2)
+widgets({
+  tone: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Tone",
+    bind: "Tone",
+    min: 0,
+    max: 1,
+  },
+})

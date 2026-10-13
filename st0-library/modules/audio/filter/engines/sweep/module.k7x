@@ -1,0 +1,17 @@
+// Sweep Filter  [audioEffect] — le filtre d'une table de mixage : UN potard, passe-bas vers la
+// gauche, passe-haut vers la droite, transparent au milieu.
+//
+// Un seul paramètre, et ce n'est pas cosmétique : un contrôle du pupitre en pilote au plus un
+// (packages/song/docs/viewBindings.md), donc « passe-bas ou passe-haut » ne peut pas être un
+// second réglage qu'on bascule. Les deux filtres sont donc TOUJOURS dans la chaîne et ce qui
+// bouge est l'endroit où chacun se place — ce qui est aussi le fonctionnement du matériel que
+// ça imite.
+//
+// Sa DSP est décrite dans jsdsp.ts à côté, pas compilée dans le moteur.
+plugin({ type: "jsdsp", name: "Sweep Filter" })
+params({
+  // 0 est le neutre, au MILIEU de la course : le potard est signé pour que la position de repos
+  // soit au centre plutôt qu'à un bout, comme les gains de l'EQ à côté.
+  Sweep: 0,
+})
+// Un filtre de balayage. Vers la gauche un passe-bas descend de 20 kHz à 200 Hz ; vers la droite un passe-haut monte de 20 Hz à 4 kHz. À 0 les deux coins sont hors du matériel, donc l'effet est éteint parce qu'il est INAUDIBLE et non parce qu'il est contourné — ce qui est ce qui permet de l'automater depuis rien. La résonance est fixe et modeste : un pic qui sonne à 200 Hz reprend la marge de manœuvre en plein set.

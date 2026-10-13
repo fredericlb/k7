@@ -1,0 +1,3 @@
+// one-corner-clip — the face for One Corner Clip, a plugin the engine scans.
+// Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+extends("@engine/one-corner-clip")

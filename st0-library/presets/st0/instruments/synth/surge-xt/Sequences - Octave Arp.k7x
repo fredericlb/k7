@@ -1,0 +1,2 @@
+// preset for @st0/instruments/synth/surge-xt
+base("Sequences/Octave Arp")

@@ -1,6 +1,0 @@
-# chorus — one module, several DSPs: each folder under engines/ is one, with its own panel.
-# A node picks one with `engine:` and keeps its knobs per engine. `classic` is the default: Tracktion's
-# chorus rebuilt as a graph, since the plugin's own knobs cannot be automated.
-engine: classic
-# The blend is the engine's stage around the module, half wet as Tracktion's chorus was.
-mix: 0.5

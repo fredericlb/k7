@@ -1,0 +1,35 @@
+// u-law-decode — Airwindows uLawDecode, expands a mu-law-encoded signal
+cols(5)
+rows(2)
+widgets({
+  gain: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Gain",
+    bind: "Gain",
+    min: 0,
+    max: 1,
+  },
+  law_screen: { type: "lcdscreen", col: 2, row: 0, colSpan: 3, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    gain: {
+      type: "knob",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Gain",
+      bind: "Gain",
+      min: 0,
+      max: 1,
+    },
+    law_screen: { type: "lcdscreen", col: 0, row: 2, colSpan: 4, rowSpan: 2 },
+  },
+})

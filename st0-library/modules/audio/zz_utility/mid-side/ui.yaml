@@ -1,5 +1,0 @@
-# mid-side — Airwindows MidSide, a mid/side encoder
-cols: 3
-rows: 3
-widgets:
-  balance: { type: knob, col: 0, row: 0, colSpan: 3, rowSpan: 3, label: M/S, bind: Mid/Side, min: 0, max: 1 }

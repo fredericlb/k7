@@ -1,0 +1,16 @@
+// slew — Airwindows Slew, a slew-rate clamp
+cols(3)
+rows(3)
+widgets({
+  clamping: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 3,
+    rowSpan: 3,
+    label: "Clamp",
+    bind: "Clamping",
+    min: 0,
+    max: 1,
+  },
+})

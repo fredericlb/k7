@@ -1,3 +1,0 @@
-# transpose — one module, several DSPs: each folder under engines/ is one, with its own panel.
-# A node picks one with `engine:` and keeps its knobs per engine; the default is named below.
-engine: pitch-shift

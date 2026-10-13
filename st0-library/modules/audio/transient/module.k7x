@@ -1,0 +1,3 @@
+// transient — a note's ENVELOPE, reshaped: each engine is one way, with its own panel.
+// `point` adds or takes away attack; `swell` softens it into an automatic fade-in.
+engine("point")

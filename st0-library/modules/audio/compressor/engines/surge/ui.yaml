@@ -1,5 +1,0 @@
-# surge — a compressor that accentuates pulses
-cols: 4
-rows: 4
-widgets:
-  surge: { type: knob, col: 0, row: 0, colSpan: 4, rowSpan: 4, label: Surge, bind: Surge, min: 0, max: 1 }

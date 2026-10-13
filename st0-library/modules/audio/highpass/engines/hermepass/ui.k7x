@@ -1,0 +1,27 @@
+// hermepass — Airwindows Hermepass, a high pass for mastering
+cols(4)
+rows(2)
+widgets({
+  cutoff: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Cutoff",
+    bind: "Cutoff",
+    min: 0,
+    max: 1,
+  },
+  slope: {
+    type: "knob",
+    col: 2,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Slope",
+    bind: "Slope",
+    min: 0,
+    max: 1,
+  },
+})

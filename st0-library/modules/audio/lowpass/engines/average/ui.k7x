@@ -1,0 +1,16 @@
+// average — Airwindows Average, a moving-average low pass
+cols(3)
+rows(3)
+widgets({
+  average: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 3,
+    rowSpan: 3,
+    label: "Average",
+    bind: "Average",
+    min: 0,
+    max: 1,
+  },
+})

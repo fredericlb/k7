@@ -1,0 +1,16 @@
+// Voix live — compresseur puis réverbe.
+
+steps([
+  id("c0947697-42ed-4aa8-a225-cca0430f1c18")
+    .extends("@st0/audio/compressor")
+    .engine("tracktion")
+    .engines({
+      tracktion: {
+        params: {
+          // 8:1 — Tracktion's Ratio is the slope above the threshold, so an 8:1 ratio is 1/8.
+          Ratio: 0.125,
+        },
+      },
+    }),
+  to([chain("@out")]),
+])

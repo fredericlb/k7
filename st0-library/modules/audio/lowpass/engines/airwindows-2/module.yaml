@@ -1,3 +1,0 @@
-# lowpass-2 — the face for Lowpass 2, a plugin the engine scans.
-# Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
-extends: "@engine/lowpass-2"

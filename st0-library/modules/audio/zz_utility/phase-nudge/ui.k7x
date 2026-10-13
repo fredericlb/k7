@@ -1,0 +1,16 @@
+// phase-nudge — Airwindows Phase Nudge, a gentle phase smear of the transients
+cols(3)
+rows(3)
+widgets({
+  nudge: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 3,
+    rowSpan: 3,
+    label: "Nudge",
+    bind: "Phase Nudge",
+    min: 0,
+    max: 1,
+  },
+})

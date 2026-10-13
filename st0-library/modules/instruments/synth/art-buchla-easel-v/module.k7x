@@ -1,0 +1,3 @@
+// buchla-easel-v — the face for Buchla Easel V, a plugin the engine scans.
+// Everything it IS comes from the ref below; what lives here is the ui.yaml beside this file.
+extends("@engine/buchla-easel-v")

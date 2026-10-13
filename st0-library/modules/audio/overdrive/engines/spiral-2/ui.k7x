@@ -1,0 +1,65 @@
+// spiral-2 — a smooth saturation with highpass and presence
+cols(7)
+rows(4)
+widgets({
+  tone: { type: "group", col: 0, row: 0, colSpan: 3, rowSpan: 3, label: "TONE", color: "#3ec96b26" },
+  highpass: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Highpass",
+    bind: "Highpass",
+    min: 0,
+    max: 1,
+  },
+  presence: {
+    type: "fader",
+    col: 2,
+    row: 0,
+    rowSpan: 3,
+    label: "Pres",
+    bind: "Presence",
+    min: 0,
+    max: 1,
+  },
+  io: { type: "lcdscreen", col: 3, row: 0, colSpan: 4, rowSpan: 2 },
+})
+vertical({
+  cols: 4,
+  rows: 5,
+  widgets: {
+    tone: {
+      type: "group",
+      col: 0,
+      row: 0,
+      colSpan: 3,
+      rowSpan: 3,
+      label: "TONE",
+      color: "#3ec96b26",
+    },
+    highpass: {
+      type: "knob",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Highpass",
+      bind: "Highpass",
+      min: 0,
+      max: 1,
+    },
+    presence: {
+      type: "fader",
+      col: 2,
+      row: 0,
+      rowSpan: 3,
+      label: "Pres",
+      bind: "Presence",
+      min: 0,
+      max: 1,
+    },
+    io: { type: "lcdscreen", col: 0, row: 3, colSpan: 4, rowSpan: 2 },
+  },
+})

@@ -1,7 +1,0 @@
-# pd-buss — PurestDrive-style buss saturation
-cols: 4
-rows: 3
-widgets:
-  drive_grp: { type: group, col: 0, row: 0, colSpan: 4, rowSpan: 2, color: "#ff6a1a26", label: DRIVE }
-  gain: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Gain, bind: Gain, min: 0, max: 1 }
-  drive: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Drive, bind: Drive, min: 0, max: 1 }

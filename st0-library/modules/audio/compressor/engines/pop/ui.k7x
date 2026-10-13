@@ -1,0 +1,16 @@
+// pop — a heavy overcompressor
+cols(4)
+rows(4)
+widgets({
+  intensity: {
+    type: "knob",
+    col: 1,
+    row: 1,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Intens",
+    bind: "Intenst",
+    min: 0,
+    max: 1,
+  },
+})

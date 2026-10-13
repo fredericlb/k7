@@ -1,0 +1,77 @@
+// highpass-2 — Airwindows Highpass 2, a high pass with a loose/tight character and a pole count
+cols(6)
+rows(2)
+widgets({
+  freq: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Freq",
+    bind: "Hipass",
+    min: 0,
+    max: 1,
+  },
+  tight: {
+    type: "knob",
+    col: 2,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Tight",
+    bind: "Ls/Tite",
+    min: 0,
+    max: 1,
+  },
+  poles: {
+    type: "knob",
+    col: 4,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Poles",
+    bind: "Poles",
+    min: 0,
+    max: 1,
+  },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    freq: {
+      type: "knob",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Freq",
+      bind: "Hipass",
+      min: 0,
+      max: 1,
+    },
+    tight: {
+      type: "knob",
+      col: 2,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Tight",
+      bind: "Ls/Tite",
+      min: 0,
+      max: 1,
+    },
+    poles: {
+      type: "knob",
+      col: 0,
+      row: 2,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Poles",
+      bind: "Poles",
+      min: 0,
+      max: 1,
+    },
+  },
+})

@@ -1,0 +1,6 @@
+// Phaser  [audioEffect] — sliding notches, one knob for speed and width. An APPROXIMATION of the blindtest's
+// "phaser": a swept comb where z0 had four all-pass stages. The exact one is the `classic` engine beside it.
+// Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin({ type: "jsdsp", name: "Phaser" })
+params({ Amount: 0 })
+// Dry minus a tap swept between 0.3 and 4 ms, so a family of notches slides up and down the spectrum. One knob scales the rate (0.1 to 4 Hz) and the width together. Not a true all-pass phaser — the notches are harmonically spaced where a real one's are not — but the gesture is the same one.

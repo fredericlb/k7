@@ -1,0 +1,23 @@
+// panel for @st0/audio/zz_utility/gain
+//
+// Un fader, dessiné comme un fader parce que c'en est un : sur une table, le niveau d'une voie est
+// la seule commande qu'on tient à pleine main, et sa COURSE est ce qu'on lit d'un coup d'œil.
+//
+// `min`/`max` sont la plage que le pupitre reprend telle quelle pour son propre contrôle
+// (packages/ui-turntables/docs/controls.md) : une liaison ne doit pas pouvoir demander un niveau
+// que ce panneau refuserait de dessiner.
+cols(3)
+rows(2)
+widgets({
+  gain: {
+    type: "fader",
+    col: 1,
+    row: 0,
+    rowSpan: 2,
+    label: "Niveau",
+    bind: "Gain",
+    min: -60,
+    max: 6,
+    step: 0.5,
+  },
+})

@@ -1,0 +1,4 @@
+// dyno — Airwindows Dyno, a dynamic saturation driven by its Input level; its only controls are the footer's
+cols(1)
+rows(1)
+widgets({})

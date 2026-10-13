@@ -1,6 +1,0 @@
-# distance-2 — a distance simulator
-cols: 4
-rows: 2
-widgets:
-  atmosph: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Atmos, bind: Atmosph, min: 0, max: 1 }
-  darken: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Darken, bind: Darken, min: 0, max: 1 }

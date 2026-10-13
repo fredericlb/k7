@@ -1,0 +1,3 @@
+// What chains name this library's modules by: @st0/<type>/<name>.
+// Changing it renames every module for every project that inherits them.
+namespace("st0")

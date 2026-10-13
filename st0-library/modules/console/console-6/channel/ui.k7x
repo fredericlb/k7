@@ -1,0 +1,4 @@
+// console-6-channel — Console 6 channel stage; its only controls are the footer's
+cols(1)
+rows(1)
+widgets({})

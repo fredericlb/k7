@@ -1,0 +1,16 @@
+// Crossfade  [audioEffect] — fade between two sources. A module that declares its OWN ports instead of taking
+// the single audio input its type folder would give it: `audio/` means one in, one out, and a folder is not the
+// right place to decide how many wires an effect takes.
+//
+// `mandatory: false` on `b`: wiring one side and leaving the other silent is a legitimate state, not a
+// half-built chain. Drop this module into a chain on its own and it plays input `a` alone.
+//
+// Its DSP is described in jsdsp.ts beside this file, not compiled into the engine.
+plugin({ type: "jsdsp", name: "Crossfade" })
+inputs([name("a").type("audio"), name("b").type("audio").mandatory(false)])
+outputs([name("out").type("audio")])
+params({
+  // Centred: both sources at once, which is what makes the effect audible on a first drop-in.
+  Mix: 0.5,
+})
+// A two-input crossfade. Mix at 0 is input A alone, at 1 input B alone, at 0.5 both at half.

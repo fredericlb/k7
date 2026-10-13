@@ -1,6 +1,0 @@
-# swell — an auto-swell that fades each note in
-cols: 4
-rows: 2
-widgets:
-  thresh: { type: knob, col: 0, row: 0, colSpan: 2, rowSpan: 2, label: Thresh, bind: Thresh, min: 0, max: 1 }
-  swell: { type: knob, col: 2, row: 0, colSpan: 2, rowSpan: 2, label: Swell, bind: Swell, min: 0, max: 1 }

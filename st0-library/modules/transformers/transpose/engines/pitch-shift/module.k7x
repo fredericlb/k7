@@ -1,0 +1,21 @@
+// Pitch Shift  [midiEffect] — chaque note déplacée d'un nombre entier de demi-tons.
+//
+// Un seul réglage, exprès : deux octaves de chaque côté couvrent le doublage à l'octave et
+// l'harmonisation à la quinte, et au-delà une ligne transposée ne sonne plus comme le même
+// instrument.
+//
+// Une note poussée hors du clavier est ÉCRÊTÉE et non jetée (DspGraph::processMidi) : jeter un
+// note-on laisserait son note-off derrière lui et la voix resterait tenue pour de bon.
+//
+// Sa description est dans jsdsp.ts à côté, pas compilée dans le moteur. Le dossier de type dit que
+// c'est un module de notes, et c'est ce qui lui fait charger l'hôte MIDI plutôt que l'hôte audio —
+// voir packages/song/docs/enginePlugin.md.
+plugin({ type: "jsdsp", name: "Pitch Shift" })
+params({
+  // Zéro : un module qu'on pose ne doit pas transposer avant qu'on le lui demande.
+  Semitones: 0,
+})
+// En un paragraphe : transpose tout ce qui passe. `Semitones` est le déplacement, en demi-tons,
+// de -24 à +24.
+//
+// (La description d'un module est son en-tête, ici — voir packages/song/docs/docModules.md.)

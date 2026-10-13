@@ -1,0 +1,77 @@
+// golem — a two-mic alignment tool
+cols(6)
+rows(2)
+widgets({
+  balance: {
+    type: "knob",
+    col: 0,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Balance",
+    bind: "Balance",
+    min: 0,
+    max: 1,
+  },
+  offset: {
+    type: "knob",
+    col: 2,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Offset",
+    bind: "Offset",
+    min: 0,
+    max: 1,
+  },
+  phase: {
+    type: "knob",
+    col: 4,
+    row: 0,
+    colSpan: 2,
+    rowSpan: 2,
+    label: "Phase",
+    bind: "Phase",
+    min: 0,
+    max: 1,
+  },
+})
+vertical({
+  cols: 4,
+  rows: 4,
+  widgets: {
+    balance: {
+      type: "knob",
+      col: 0,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Balance",
+      bind: "Balance",
+      min: 0,
+      max: 1,
+    },
+    offset: {
+      type: "knob",
+      col: 2,
+      row: 0,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Offset",
+      bind: "Offset",
+      min: 0,
+      max: 1,
+    },
+    phase: {
+      type: "knob",
+      col: 1,
+      row: 2,
+      colSpan: 2,
+      rowSpan: 2,
+      label: "Phase",
+      bind: "Phase",
+      min: 0,
+      max: 1,
+    },
+  },
+})

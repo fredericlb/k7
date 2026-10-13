@@ -1,5 +1,0 @@
-# podcast-deluxe — a one-knob voice compressor
-cols: 4
-rows: 4
-widgets:
-  boost: { type: knob, col: 1, row: 1, colSpan: 2, rowSpan: 2, label: Boost, bind: Boost, min: 0, max: 1 }
