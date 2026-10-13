@@ -10,7 +10,7 @@ import { modelsRoot } from "./modelCache";
 import { modulePanelRoots } from "./sharedFolders";
 
 /** A file whose CONTENT says what a module is. Everything else is named in the stamp, not stat'd. */
-const DEFINITION = /\.(ya?ml|ts|js|vstpreset)$/i;
+const DEFINITION = /\.(ya?ml|k7x|ts|js|vstpreset)$/i;
 
 /** `<type>/<category>/<module>/assets/<sub>` is the deepest real tree; also a floor under a link loop. */
 const MAX_DEPTH = 6;

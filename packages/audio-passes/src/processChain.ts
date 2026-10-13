@@ -3,7 +3,6 @@
 // render beside the original, and point the clip files at it. A bounce in place.
 // See docs/processChain.md.
 
-import { existsSync, readFileSync } from "node:fs";
 import { join, parse as parsePath, relative, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import {
@@ -26,6 +25,7 @@ import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
+import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
 import {
   DEFAULT_LIBRARY,
   libraryRefParts,
@@ -90,7 +90,7 @@ function dspGraphOf(m: LoadedModule): string | undefined {
   if (!m.jsdsp) return undefined;
   const built = `${String(m.jsdsp).replace(/\.[tj]sx?$/, "")}.json`;
   try {
-    return readFileSync(built, "utf8");
+    return wsRead(built);
   } catch {
     return undefined; // never compiled on this machine — reported by the caller
   }
@@ -372,7 +372,7 @@ export function resolveTargets(
     (e) => e.id === rel,
   );
   if (clip) {
-    const raw = (parseYaml(readFileSync(clip.file.path, "utf8"), {
+    const raw = (parseYaml(wsRead(clip.file.path), {
       version: "1.2",
     }) ?? {}) as { source?: unknown };
     if (!raw.source)
@@ -452,8 +452,10 @@ export function repointClips(
     if (only && !only.includes(e.id)) continue;
     let raw: { source?: unknown; warp?: { markers?: unknown } };
     try {
-      raw = (parseYaml(readFileSync(e.file.path, "utf8"), { version: "1.2" }) ??
-        {}) as { source?: unknown; warp?: { markers?: unknown } };
+      raw = (parseYaml(wsRead(e.file.path), { version: "1.2" }) ?? {}) as {
+        source?: unknown;
+        warp?: { markers?: unknown };
+      };
     } catch {
       continue; // a clip file that won't parse is the compiler's to report, not this edit's
     }
@@ -507,7 +509,7 @@ export async function processWithChain(
     return { lines: [`${verb}: ${(e as Error).message}`], changed: false };
   }
 
-  const missing = targets.sources.filter((s) => !existsSync(s));
+  const missing = targets.sources.filter((s) => !wsExists(s));
   if (missing.length)
     return {
       lines: [

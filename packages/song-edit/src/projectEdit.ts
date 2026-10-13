@@ -3,7 +3,6 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
-import { readFileSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { chainItemText, editChainItem } from "@studio/song/chainItemEdit";
 import {
@@ -18,6 +17,7 @@ import { sharedRoots } from "@studio/song/moduleFork";
 import { keepsItsModule, resolveModule } from "@studio/song/moduleResolve";
 import { isTrack } from "@studio/song/trackModule";
 import { entityFileFor, moduleFileFor } from "@studio/song/yaml/moduleIO";
+import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { currentAlternative } from "@studio/song-schema/alternatives";
 import { currentEngine } from "@studio/song-schema/engines";
 import { materialRefOf } from "@studio/song-schema/placementId";
@@ -59,18 +59,16 @@ function rewriteModule(
   transform: (text: string) => string,
 ): string {
   if (at.item && at.dir) return editChainItem(at.dir, at.item, transform);
-  const before = readFileSync(at.path, "utf8");
+  const before = wsRead(at.path);
   const after = transform(before);
   // No format pass afterwards: the YAML writers emit canonical output.
-  if (after !== before) writeFileSync(at.path, after, "utf8");
+  if (after !== before) wsWrite(at.path, after);
   return at.path;
 }
 
 // What a module's text says — a chain node's item cut out as a node file would hold it.
 const readModuleText = (at: ModuleText): string =>
-  at.item && at.dir
-    ? chainItemText(at.dir, at.item)
-    : readFileSync(at.path, "utf8");
+  at.item && at.dir ? chainItemText(at.dir, at.item) : wsRead(at.path);
 
 // Where a module's file is — a node's own file in the flat `nodes/`, or a shared one at `@workspace`/`@st0`.
 function moduleFileOf(dir: string, module: string): ModuleText {
@@ -351,15 +349,15 @@ export function setClipOnsets(
   const file = clipFileOf(dir, ref);
   if (!file) throw new Error(missingClip(ref));
   const empty = !edits.added?.length && !edits.removed?.length;
-  const before = readFileSync(file.path, "utf8");
+  const before = wsRead(file.path);
   const after = setModuleValue(before, ["onsets"], empty ? null : edits);
-  if (after !== before) writeFileSync(file.path, after, "utf8");
+  if (after !== before) wsWrite(file.path, after);
   return file.path;
 }
 
 /** Read a clip's `[timelineBeat, sourceSecond]` pairs exactly as the file states them, or null — never an identity map. */
 export function clipWarpMarkers(dir: string, ref: string): WarpMarker[] | null {
-  const raw = parseYaml(readFileSync(clipFilePath(dir, ref), "utf8"), {
+  const raw = parseYaml(wsRead(clipFilePath(dir, ref)), {
     version: "1.2",
   }) as { warp?: { markers?: unknown } } | null;
   const m = raw?.warp?.markers;
@@ -378,7 +376,7 @@ export function setClipWarp(
   algorithm = "elastique",
 ): string {
   const path = clipFilePath(dir, ref);
-  const before = readFileSync(path, "utf8");
+  const before = wsRead(path);
   const doc = parseDocument(before, { version: "1.2" });
   if (!doc.getIn(["warp", "algorithm"]))
     doc.setIn(["warp", "algorithm"], algorithm);
@@ -388,7 +386,7 @@ export function setClipWarp(
     item.flow = true;
   doc.setIn(["warp", "markers"], seq);
   const after = String(doc);
-  if (after !== before) writeFileSync(path, after, "utf8");
+  if (after !== before) wsWrite(path, after);
   return path;
 }
 
@@ -404,7 +402,7 @@ export function clipOnsets(dir: string, ref: string): OnsetEdits {
   const file = clipFileOf(dir, ref);
   if (!file) return {};
   try {
-    const raw = parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
+    const raw = parseYaml(wsRead(file.path), { version: "1.2" });
     const o = (raw as { onsets?: OnsetEdits } | null)?.onsets;
     return {
       ...(o?.added?.length ? { added: [...o.added] } : {}),

@@ -3,7 +3,7 @@
 // hub holds. For an admin, a library is OVERLAID: marked writable, at the folder it is read from.
 // No project field declares them. Full rationale: docs/sharedFolders.md.
 
-import { existsSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { studioHome } from "./studioHome";
@@ -94,7 +94,7 @@ export function accountLibraries(): AccountLibrary[] {
 export function libraryFamilyRoots(kind: LibraryFamily): AccountLibrary[] {
   return accountLibraries()
     .map((l) => ({ name: l.name, root: join(l.root, kind) }))
-    .filter((l) => existsSync(l.root));
+    .filter((l) => wsExists(l.root));
 }
 
 /** The library `path` lies in, or null — a template being edited stands INSIDE one. */
@@ -120,7 +120,7 @@ export function libraryFamilyRoot(
 ): string | null {
   if (!isLibraryName(library)) return null;
   const root = join(libraryRoot(library), kind);
-  return existsSync(root) ? root : null;
+  return wsExists(root) ? root : null;
 }
 
 /** Is this path inside a shared module library, by SEGMENT and either separator? See docs/moduleFork.md. */
@@ -130,14 +130,14 @@ export function isInSharedModules(path: string): boolean {
 
 /** Is there a shared module folder beside this project? Its level is `@workspace` because of where it sits. */
 export function hasSharedModules(dir: string): boolean {
-  return existsSync(join(dir, SHARED_MODULES_PATH));
+  return wsExists(join(dir, SHARED_MODULES_PATH));
 }
 
 /** Every shared module root this project inherits, nearest FIRST, none of them declared — docs/sharedFolders.md. */
 export function moduleLibraryDirs(dir: string): string[] {
   const out: string[] = [];
   const shared = resolve(dir, SHARED_MODULES_PATH);
-  if (existsSync(shared)) out.push(shared);
+  if (wsExists(shared)) out.push(shared);
   for (const l of libraryFamilyRoots("modules"))
     if (!out.includes(l.root)) out.push(l.root);
   return out;
@@ -150,6 +150,7 @@ export {
 } from "@studio/song-schema/moduleTypes";
 
 import type { ModuleNamespace } from "@studio/song-schema/moduleTypes";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** st0's OWN modules, shipped with its code and read like a library under `@meta` — docs/metaModules.md. */
 export const META_MODULES_ROOT = fileURLToPath(

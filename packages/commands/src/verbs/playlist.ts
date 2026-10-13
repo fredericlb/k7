@@ -5,13 +5,7 @@
 // open. They are the only verbs in the catalogue that work without a project — except
 // `playlist stems`, which needs one to resolve its chain, and says so.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { coldOutDir, runColdPasses } from "@studio/audio-passes/coldPass";
 import {
@@ -20,6 +14,7 @@ import {
 } from "@studio/audio-passes/processChain";
 import { familyDir } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   appendPlaylistItem,
   movePlaylistItem,
@@ -51,7 +46,7 @@ function write(
 ): boolean {
   try {
     h.snapshot?.(abs);
-    writeFileSync(abs, next, "utf8");
+    wsWrite(abs, next);
     return true;
   } catch (e) {
     h.refuse([`${verb}: ${(e as Error).message}`]);
@@ -81,7 +76,7 @@ function openList(
   if (!found) return null;
   let text: string;
   try {
-    text = readFileSync(found.abs, "utf8");
+    text = wsRead(found.abs);
   } catch {
     h.refuse([`no playlist ${found.rel} — make one with: playlist new <name>`]);
     return null;
@@ -101,15 +96,13 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     const found = playlistFile(name, h);
     if (!found) return;
     // Refused rather than opened: handing back somebody else's set list is how you edit the wrong one.
-    if (existsSync(found.abs))
-      return h.refuse([`${found.rel} is already there`]);
+    if (wsExists(found.abs)) return h.refuse([`${found.rel} is already there`]);
     try {
       mkdirSync(dirname(found.abs), { recursive: true });
       // The STUB rather than an empty file, which would open on a parse failure. See docs/playlist.md.
-      writeFileSync(
+      wsWrite(
         found.abs,
-        playlistStub(basename(found.rel).replace(/\.ya?ml$/i, "")),
-        "utf8",
+        playlistStub(basename(found.rel).replace(/\.(ya?ml|k7x)$/i, "")),
       );
     } catch (e) {
       return h.refuse([`playlist new: ${(e as Error).message}`]);
@@ -134,7 +127,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     if (!found) return;
     let items: PlaylistItem[];
     try {
-      items = parsePlaylist(readFileSync(found.abs, "utf8"))?.items ?? [];
+      items = parsePlaylist(wsRead(found.abs))?.items ?? [];
     } catch {
       return h.refuse([
         `no playlist ${found.rel} — make one with: playlist new <name>`,
@@ -178,7 +171,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
       }
       // "Already done" is a question about the FOLDER, not a flag anybody keeps — docs/playlist.md.
       const out = coldOutDir(join(folder, master));
-      const held = existsSync(out) ? readdirSync(out).filter(isAudio) : [];
+      const held = wsExists(out) ? readdirSync(out).filter(isAudio) : [];
       if (held.length) {
         skipped += 1;
         continue;
@@ -216,7 +209,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     const { rel, abs } = found;
     let text: string;
     try {
-      text = readFileSync(abs, "utf8");
+      text = wsRead(abs);
     } catch {
       return h.refuse([
         `no playlist ${rel} — make one with: playlist new <name>`,
@@ -237,7 +230,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
       ]);
     try {
       h.snapshot?.(abs);
-      writeFileSync(abs, next, "utf8");
+      wsWrite(abs, next);
     } catch (e) {
       return h.refuse([`playlist song add: ${(e as Error).message}`]);
     }

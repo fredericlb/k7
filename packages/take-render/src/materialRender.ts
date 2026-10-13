@@ -3,11 +3,11 @@
 // RENDERED, so it lives here beside the bounce, which already owns "write new material through
 // the engine". See packages/song/docs/materialCut.md.
 
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import { wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   addTrackPlacements,
   removeTrackPlacement,
@@ -67,7 +67,7 @@ async function fileRender(
   const wav = join(dir, "clips", `${ref}.wav`);
   await renderToWav(render, doc, wav);
   const file = `clips/${ref}.yaml`;
-  writeFileSync(join(dir, file), renderedClipYaml(doc.name, ref), "utf8");
+  wsWrite(join(dir, file), renderedClipYaml(doc.name, ref));
   return { ref, file, seconds: wavSeconds(wav) ?? seconds };
 }
 

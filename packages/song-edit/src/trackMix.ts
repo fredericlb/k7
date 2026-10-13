@@ -2,7 +2,6 @@
 // rewriting its file in place, so the change round-trips the same way for every surface
 // (TUI watcher, web refetch) that reloads it. A surgical edit, not a re-serialization.
 
-import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import {
@@ -10,6 +9,7 @@ import {
   type WindowValue,
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -75,9 +75,9 @@ export function editTrackStruct(
     throw new Error(
       `track "${id}" has no file in ${laneFolder(dir)}/ — cannot ${what}`,
     );
-  const text = readFileSync(found.path, "utf8");
+  const text = wsRead(found.path);
   const next = transform(text);
-  if (next !== text) writeFileSync(found.path, next, "utf8");
+  if (next !== text) wsWrite(found.path, next);
   return found.path;
 }
 
@@ -342,7 +342,7 @@ export function resizeTrackPlacement(
 ): ResizeReport | null {
   const own = laneFileFor(dir, id);
   if (!own) throw new Error(`track "${id}" has no file in ${laneFolder(dir)}/`);
-  const text = readFileSync(own.path, "utf8");
+  const text = wsRead(own.path);
   const at = findPlacementAt(text, fromBeats, num, den);
   if (at < 0) return null;
   const placement = placementValues(text)[at] ?? {};

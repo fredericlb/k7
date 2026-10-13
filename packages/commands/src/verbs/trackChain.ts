@@ -4,13 +4,14 @@
 // What would be got wrong: a copy never shares an id, nor a preset only its original names.
 // See packages/song/docs/chainFiles.md, "Writing to a chain project".
 
-import { copyFileSync, existsSync, writeFileSync } from "node:fs";
+import { copyFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type ChainProject,
   newNodeId,
   readChainProject,
 } from "@studio/song/chainProject";
+import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { instanceName } from "@studio/song-schema/instanceName";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
@@ -103,7 +104,7 @@ export function duplicateLaneChain(
       const file = named ?? `${old.id}.vstpreset`;
       const abs = join(dir, VSTPRESETS_DIR, file);
       const own = `${i.id}.vstpreset`;
-      if (existsSync(abs)) {
+      if (wsExists(abs)) {
         copyFileSync(abs, join(dir, VSTPRESETS_DIR, own));
         written.push(`${VSTPRESETS_DIR}/${own}`);
       }
@@ -140,7 +141,7 @@ export function duplicateLaneChain(
     else if (src.ports?.length) c.ports = [...src.ports];
     if (src.bus_only) c.bus_only = true;
     // Written whole even when it reads like its source: the new lane's chain file holds a placeholder.
-    writeFileSync(join(dir, CHAINS_DIR, `${to}.yaml`), formatChain(c, text));
+    wsWrite(join(dir, CHAINS_DIR, `${to}.yaml`), formatChain(c, text));
     written.push(`${CHAINS_DIR}/${to}.yaml`);
   }
   return written;

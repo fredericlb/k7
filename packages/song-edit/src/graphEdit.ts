@@ -4,13 +4,7 @@
 // What would be got wrong: in a chain project a non-lane node is its id, and renaming one is a no-op.
 // See packages/song/docs/chainFiles.md and docs/projectEdit.md.
 
-import {
-  existsSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { renameSync, rmSync } from "node:fs";
 import { extname, join } from "node:path";
 import {
   chainGraphText,
@@ -22,6 +16,7 @@ import {
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { chainsUsing } from "@studio/song/moduleFork";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   addNode,
   clearNodePositions,
@@ -52,9 +47,9 @@ function editGraph(dir: string, transform: (text: string) => string): string {
     return join(dir, "chains");
   }
   const { path } = graphFileOf(dir);
-  const text = readFileSync(path, "utf8");
+  const text = wsRead(path);
   const next = transform(text);
-  if (next !== text) writeFileSync(path, next, "utf8");
+  if (next !== text) wsWrite(path, next);
   return path;
 }
 
@@ -62,7 +57,7 @@ function editGraph(dir: string, transform: (text: string) => string): string {
 function graphText(dir: string): string {
   return isChainProject(dir)
     ? chainGraphText(dir)
-    : readFileSync(graphFileOf(dir).path, "utf8");
+    : wsRead(graphFileOf(dir).path);
 }
 
 // A node name as a caller gave it: in a chain project, a one-node chain's name stands for that node.
@@ -154,12 +149,12 @@ export function renameChainNode(
   }
   const ext = extname(found.path);
   const destAbs = join(dir, "nodes", `${to}${ext}`);
-  if (existsSync(destAbs))
+  if (wsExists(destAbs))
     throw new Error(`nodes/${to}${ext} already exists — refusing to overwrite`);
   const moved = [`${found.rel} → nodes/${to}${ext}`];
   renameSync(found.path, destAbs);
   const preset = join(dir, "nodes", `${from}.vstpreset`);
-  if (existsSync(preset)) {
+  if (wsExists(preset)) {
     renameSync(preset, join(dir, "nodes", `${to}.vstpreset`));
     moved.push(`nodes/${from}.vstpreset → nodes/${to}.vstpreset`);
   }
@@ -231,7 +226,7 @@ export function deleteChainNode(
   rmSync(found.path, { force: true });
   // Its own preset, when it has one — `nodes/<node>.vstpreset` (see loader's ancestry fold).
   const preset = join(dir, "nodes", `${node}.vstpreset`);
-  if (existsSync(preset)) {
+  if (wsExists(preset)) {
     rmSync(preset, { force: true });
     removed.push(`nodes/${node}.vstpreset`);
   }

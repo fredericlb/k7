@@ -24,7 +24,7 @@ export const resolveEntry = (
 ): string | null => bestMatch(arg, entries);
 
 /** A module folder's own `module.yaml` — what the builder opens on. */
-const MODULE_FILE = /(^|\/)module\.ya?ml$/i;
+const MODULE_FILE = /(^|\/)module\.(?:ya?ml|k7x)$/i;
 
 /** The module file a name means — MODULES FIRST, then the whole project, so `ui builder ampli` cannot land on `clips/ampli`. */
 export function resolveModuleFile(

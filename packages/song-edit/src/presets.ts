@@ -4,13 +4,7 @@
 // One thing a reader gets wrong: the scope is WHERE a preset lives, the path is WHICH module it
 // is for — a workspace may keep presets for a library module. See packages/song/docs/userPresets.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { swappedModule } from "@studio/song/alternatives";
 import { moduleBaseChoices } from "@studio/song/basePreset";
@@ -24,6 +18,7 @@ import {
   accountLibraries,
   isLibraryEditable,
 } from "@studio/song/sharedFolders";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { currentEngine, engineNames } from "@studio/song-schema/engines";
 import { isLibraryName } from "@studio/song-schema/moduleTypes";
 import {
@@ -113,10 +108,10 @@ export function listNodePresets(dir: string, node: string): NodePresets {
   const presets: PresetEntry[] = [];
   for (const scope of scopes) {
     const folder = presetFolder(dir, scope, ref);
-    if (!existsSync(folder)) continue;
+    if (!wsExists(folder)) continue;
     const names = readdirSync(folder, { withFileTypes: true })
-      .filter((e) => e.isFile() && /\.ya?ml$/.test(e.name))
-      .map((e) => e.name.replace(/\.ya?ml$/, ""))
+      .filter((e) => e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+      .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
       .filter((n) => PRESET_NAME.test(n))
       .sort((a, b) => a.localeCompare(b));
     for (const name of names) presets.push({ scope, name });
@@ -132,11 +127,11 @@ export function readPreset(
   name: string,
 ): PresetFile {
   const path = presetFile(dir, scope, ref, name);
-  const found = existsSync(path) ? path : path.replace(/\.yaml$/, ".yml");
-  if (!existsSync(found))
+  const found = wsExists(path) ? path : path.replace(/\.yaml$/, ".yml");
+  if (!wsExists(found))
     throw new Error(`no preset '${name}' in ${scope} for ${ref}`);
   const r = PresetFileSchema.safeParse(
-    parseYaml(readFileSync(found, "utf8"), { version: "1.2" }) ?? {},
+    parseYaml(wsRead(found), { version: "1.2" }) ?? {},
   );
   if (!r.success)
     throw new Error(
@@ -227,7 +222,7 @@ export function writeNodePreset(
       `a preset is kept in '${scope}' by the origin's admins only — a library is theirs to edit`,
     );
   const path = presetFile(dir, scope, ref, name.trim());
-  const exists = existsSync(path);
+  const exists = wsExists(path);
   if (mode === "new" && exists)
     throw new Error(
       `preset '${name}' already exists in ${scope} — update it instead`,
@@ -241,7 +236,7 @@ export function writeNodePreset(
       `'${node}' has no params, base or pads to keep — set some first`,
     );
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, presetFileText(ref, preset), "utf8");
+  wsWrite(path, presetFileText(ref, preset));
   return { path, ref, preset };
 }
 

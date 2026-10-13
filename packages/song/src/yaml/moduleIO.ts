@@ -3,13 +3,14 @@
 // and root files (project.yaml, graph.yaml, settings.yaml). Validation is Zod,
 // in-process, with the line and column of the offending key.
 
-import { type Dirent, existsSync, readdirSync, statSync } from "node:fs";
+import { type Dirent, readdirSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import {
   formatIssue,
   type ModuleIssue,
   parseModule,
 } from "@studio/song-schema/yaml/moduleFile";
+import { wsExists } from "./workspaceFile";
 import { settledParse } from "./yamlCache";
 
 export interface ModuleFile {
@@ -19,8 +20,8 @@ export interface ModuleFile {
   rel: string;
 }
 
-// `.yml` as well as `.yaml`: same format, other spelling, and `.yaml` wins when both exist.
-const EXTS = [".yaml", ".yml"];
+// In order of precedence: a `.k7x` file wins over its YAML spelling, and `.yaml` over `.yml` (docs/k7xFiles.md).
+const EXTS = [".k7x", ".yaml", ".yml"];
 
 /** The module folder's OWN basenames — anything else there is a node, so add a new sibling here. */
 export const UI_BASE = "ui";
@@ -44,7 +45,7 @@ export function moduleFileFor(
 ): ModuleFile | null {
   for (const ext of EXTS) {
     const path = join(folder, `${base}${ext}`);
-    if (existsSync(path)) return { path, rel: `${relDir}/${base}${ext}` };
+    if (wsExists(path)) return { path, rel: `${relDir}/${base}${ext}` };
   }
   return null;
 }
@@ -71,8 +72,10 @@ function yamlFilesIn(folder: string): Map<string, string> {
       }
     }
     const base = basename(e.name, ext);
-    // `.yaml` wins when both spellings are there, whichever order readdir returned them in.
-    if (ext === ".yaml" || !byBase.has(base)) byBase.set(base, e.name);
+    // The earlier extension wins when several spellings are there, whichever order readdir returned them in.
+    const held = byBase.get(base);
+    if (!held || EXTS.indexOf(ext) < EXTS.indexOf(extname(held).toLowerCase()))
+      byBase.set(base, e.name);
   }
   return byBase;
 }
@@ -134,7 +137,7 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   };
 }
 
-/** Is `dir` a st0 project — does it hold a `project.yaml` (or `.yml`)? */
+/** Is `dir` a st0 project — does it hold a `project.yaml` (or `.yml`, or `.k7x`)? */
 export function isProjectFolder(dir: string): boolean {
   try {
     return entityFileFor(dir, "", "project") !== null;

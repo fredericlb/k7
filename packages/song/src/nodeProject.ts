@@ -4,7 +4,7 @@
 // Full rationale: docs/nodeProject.md.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -98,6 +98,7 @@ import {
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { tapFeedsOf, tapOutsFor, tapPairs } from "./tapOuts";
 import { lanesOf, type Material } from "./trackModule";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 // Re-exported from @studio/song-schema, and imported too because `export … from` binds no local name (docs/graphModel.md).
 export { materialRefOf, placementId };
@@ -302,13 +303,13 @@ function numericParams(
 
 // A module's DSP graph, from the JS/TS source it declares with `jsdsp:`, run in a child process — see docs/graphModel.md.
 function readJsDspGraph(source: string): string | undefined {
-  if (!existsSync(source)) return undefined;
+  if (!wsExists(source)) return undefined;
   const built = source.replace(/\.[tj]sx?$/, "") + ".json";
   const fresh =
-    existsSync(built) && statSync(built).mtimeMs >= statSync(source).mtimeMs;
+    wsExists(built) && statSync(built).mtimeMs >= statSync(source).mtimeMs;
   if (fresh) {
     try {
-      const text = readFileSync(built, "utf8");
+      const text = wsRead(built);
       JSON.parse(text);
       return text;
     } catch {
@@ -325,13 +326,13 @@ function readJsDspGraph(source: string): string | undefined {
     JSON.parse(out); // refuse to cache something the engine could not read
     // Normalised BEFORE both the write and the return, so a fresh compile and a later cache hit yield the same string.
     const text = out.endsWith("\n") ? out : `${out}\n`;
-    writeFileSync(built, text, "utf8");
+    wsWrite(built, text);
     return text;
   } catch {
     // Keep playing what last worked rather than going silent on a typo.
-    if (existsSync(built)) {
+    if (wsExists(built)) {
       try {
-        return readFileSync(built, "utf8");
+        return wsRead(built);
       } catch {
         return undefined;
       }
@@ -343,7 +344,7 @@ function readJsDspGraph(source: string): string | undefined {
 // A module's Faust source as text: no build step, because the compiler is on the engine's side — see docs/faustModules.md.
 function readFaustSource(source: string): string | undefined {
   try {
-    return readFileSync(source, "utf8") || undefined;
+    return wsRead(source) || undefined;
   } catch {
     return undefined;
   }
@@ -499,7 +500,7 @@ function compileNodeProjectIn(
         );
       } else if (
         clip &&
-        !(clip.source && existsSync(resolve(dir, String(clip.source))))
+        !(clip.source && wsExists(resolve(dir, String(clip.source))))
       )
         refErrs.push(
           `track '${trackId}': audio clip '${ref}' file missing (${clip.source ?? "?"})`,
@@ -520,7 +521,7 @@ function compileNodeProjectIn(
     }
   // The pattern file must exist; whether it HAS the named lane needs it evaluated, so the engine reports that.
   for (const [trackId, t] of Object.entries(lanesMap))
-    if (t.strudel && !existsSync(resolve(dir, t.strudel)))
+    if (t.strudel && !wsExists(resolve(dir, t.strudel)))
       refErrs.push(
         `track '${trackId}': strudel pattern '${t.strudel}' file missing`,
       );
@@ -636,7 +637,7 @@ function compileNodeProjectIn(
     chains,
     withAutoFrozen,
     (n) => n in lanesMap,
-    (r) => existsSync(resolve(dir, r)),
+    (r) => wsExists(resolve(dir, r)),
   );
   const frozenLanes = new Set(plans.flatMap((p) => [...p.lanes]));
   const frozenPlugins = new Set(plans.flatMap((p) => [...p.modules]));

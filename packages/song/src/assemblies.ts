@@ -4,7 +4,7 @@
 // the file service without this. Nothing here reaches the compiler: an assembly is a drawing.
 // Full rationale: docs/assemblies.md.
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { libraryRef, libraryRefParts } from "@studio/song-schema/moduleTypes";
 import {
@@ -22,6 +22,7 @@ import type {
 import type { Diagnostic } from "./loader";
 import { libraryFamilyRoot, libraryFamilyRoots } from "./sharedFolders";
 import { entityFiles } from "./yaml/moduleIO";
+import { wsExists, wsRead } from "./yaml/workspaceFile";
 
 export type { ProjectAssemblies, ProjectAssembly };
 export { ASSEMBLIES_DIR, ASSEMBLY_FILE };
@@ -37,7 +38,7 @@ export function projectAssemblies(dir: string): ProjectAssemblies {
     const rel = file.rel.replace(/^\/+/, "");
     let text: string;
     try {
-      text = readFileSync(file.path, "utf8");
+      text = wsRead(file.path);
     } catch (e) {
       diagnostics.push({
         file: rel,
@@ -72,7 +73,7 @@ export function assemblyFolder(_dir: string, ref: string): string | null {
   const segs = parts.rest.split(/[\\/]+/);
   if (segs.some((s) => !s || s === "." || s === "..")) return null;
   const folder = join(root, ...segs);
-  return existsSync(join(folder, ASSEMBLY_FILE)) ? folder : null;
+  return wsExists(join(folder, ASSEMBLY_FILE)) ? folder : null;
 }
 
 /** One template as the library holds it, or null when the ref resolves to nothing — a WARNING, never fatal. */
@@ -83,7 +84,7 @@ export function loadAssemblyTemplate(
   const folder = assemblyFolder(dir, ref);
   if (!folder) return null;
   const { value, issues } = parseAssemblyTemplate(
-    readFileSync(join(folder, ASSEMBLY_FILE), "utf8"),
+    wsRead(join(folder, ASSEMBLY_FILE)),
   );
   // An unreadable template is an EMPTY one with its complaint attached: the box still draws.
   return {
@@ -101,7 +102,7 @@ export function libraryAssemblies(
   for (const { name: library, root } of libraryFamilyRoots(ASSEMBLIES_DIR)) {
     // A folder holding an `assembly.yaml` IS one, and nothing inside one is another.
     const walk = (folder: string, rel: string[]): void => {
-      if (existsSync(join(folder, ASSEMBLY_FILE))) {
+      if (wsExists(join(folder, ASSEMBLY_FILE))) {
         out.push({ ref: libraryRef(library, rel.join("/")), path: folder });
         return;
       }

@@ -3,7 +3,7 @@
 // the surfaces it appears on. Drives both completions() and runCommand(), shared by the
 // web editor and the CLI; the behaviours themselves live in commands.ts.
 
-import { type Dirent, readdirSync, readFileSync } from "node:fs";
+import { type Dirent, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chainNames } from "@studio/audio-passes/processChain";
@@ -12,6 +12,7 @@ import { loadCurves } from "@studio/song/curves";
 import { nodeCaption, nodePlaces } from "@studio/song/graph";
 import { libraryFiles } from "@studio/song/libraryFiles";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { alternativesOf } from "@studio/song-schema/alternatives";
 import {
   completionOrder,
@@ -158,8 +159,8 @@ const PROVIDERS = {
       for (const e of entries) {
         const name = under ? `${under}/${e.name}` : e.name;
         if (e.isDirectory()) walk(join(at, e.name), name);
-        else if (e.isFile() && /\.ya?ml$/i.test(e.name))
-          out.push(name.replace(/\.ya?ml$/i, ""));
+        else if (e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+          out.push(name.replace(/\.(ya?ml|k7x)$/i, ""));
       }
     };
     walk(join(root, PLAYLISTS_DIR), "");
@@ -172,8 +173,8 @@ const PROVIDERS = {
       return readdirSync(join(h.songPath, "video_tracks"), {
         withFileTypes: true,
       })
-        .filter((e) => e.isFile() && /\.ya?ml$/i.test(e.name))
-        .map((e) => e.name.replace(/\.ya?ml$/i, ""))
+        .filter((e) => e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
+        .map((e) => e.name.replace(/\.(ya?ml|k7x)$/i, ""))
         .sort();
     } catch {
       return []; // a song with no picture has no lanes, which is not an error
@@ -207,8 +208,8 @@ const PROVIDERS = {
   sequenceFiles: (h) => {
     try {
       return readdirSync(join(h.songPath, "sequences"))
-        .filter((f) => /\.ya?ml$/i.test(f))
-        .map((f) => f.replace(/\.ya?ml$/i, ""));
+        .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
+        .map((f) => f.replace(/\.(ya?ml|k7x)$/i, ""));
     } catch {
       return [];
     }
@@ -282,7 +283,7 @@ export function loadCommandSpecs(): CommandSpec[] {
   // completion), so a plugin verb that vanished once the yaml was cached would be the quiet kind.
   if (cached) return [...cached, ...registeredSpecs];
   try {
-    const raw = parseYaml(readFileSync(commandsPath(), "utf8"));
+    const raw = parseYaml(wsRead(commandsPath()));
     cached = (Array.isArray(raw) ? raw : [])
       .filter((c: any) => c?.command && c?.sid)
       .map((c: any) => ({

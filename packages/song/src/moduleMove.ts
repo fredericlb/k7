@@ -3,17 +3,12 @@
 // or the songs that used it would draw a `?` and play nothing. What a reader gets wrong: only the
 // roots handed in are repointed — another account's workspace keeps the old ref. See docs/moduleMove.md.
 
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { ENGINES_DIR } from "@studio/song-schema/engines";
 import { MODULE_TYPES } from "@studio/song-schema/moduleTypes";
 import { moduleFileFor } from "./yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** Where a move lands, and the two refs it trades — refused, with the reason, when it cannot be one. */
 export interface ModuleMove {
@@ -70,7 +65,7 @@ export function planModuleMove(
   if (dirname(moduleAbs) === destAbs) throw new Error("it is already there");
   const name = basename(moduleAbs);
   const dest = join(destAbs, name);
-  if (existsSync(dest))
+  if (wsExists(dest))
     throw new Error(`there is already a ${name} in ${to.join("/")}/`);
   return {
     from: refOf(library.name, from),
@@ -132,11 +127,11 @@ export function repointRefs(
         continue;
       }
       if (st.isDirectory()) walk(abs);
-      else if (/\.ya?ml$/i.test(n)) {
-        const text = readFileSync(abs, "utf8");
+      else if (/\.(ya?ml|k7x)$/i.test(n)) {
+        const text = wsRead(abs);
         const next = text.replace(pattern, to);
         if (next !== text) {
-          writeFileSync(abs, next, "utf8");
+          wsWrite(abs, next);
           changed.push(abs);
         }
       }

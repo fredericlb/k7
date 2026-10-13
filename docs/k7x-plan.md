@@ -32,12 +32,16 @@ reason:
 1. **The core** — `@studio/k7x`: grammar, span-carrying tree, canonical printer, a document whose
    edits keep every other byte, and the YAML converter. Proven on the whole corpus
    (`packages/k7x/src/corpus.test.ts`). Done.
-2. **One door for reading and writing a file** — a module in `song-schema` that opens a file by its
-   kind and returns a document with the operations the writers use, backed by `yaml` or `k7x` by
-   extension. The 81 importers move onto it one package at a time, with `yaml` still underneath, so
-   this phase changes no file on disk.
-3. **Reading `.k7x`** — wherever a kind is looked up by name (`project.yaml`, `graph.yaml`,
-   `module.yaml`…), `.k7x` is found first and `.yaml` second. A writer writes back the file it read.
+2. **One door for reading and writing a file** — `packages/song/src/yaml/workspaceFile.ts`, at the
+   input/output boundary rather than in each writer: code keeps its YAML names and YAML text, and a
+   `.k7x` file is read as YAML and written as edits through the bridge
+   (`packages/k7x/docs/bridge.md`). Every node-side read, write, existence check, copy, rename and
+   removal of a workspace file goes through it, and so does the file service's `/file` route for a
+   YAML name (`packages/song/docs/k7xFiles.md`). Done.
+3. **Reading `.k7x`** — wherever a kind is looked up by name, `.k7x` is found first and `.yaml`
+   second; a writer writes back the file it read; a folder listing, the revision token and the
+   browser's path rules accept both. Every demo, converted whole, compiles to the same document and
+   takes the same commands as its YAML original (`packages/commands/src/k7xFiles.test.ts`). Done.
 4. **live-sync over k7x** — the same key paths and the same natural list keys
    (`packages/live-sync/src/listKeys.ts`), diffed on the k7x tree. Until then a `.k7x` change travels
    as whole text, which costs bandwidth and never correctness.
@@ -46,16 +50,19 @@ reason:
 6. **Conversion** — `demos/` and `st0-library/` in one commit each; stored workspaces by a one-shot
    pass per account through the file service, which converts a file only when it reads back equal
    and keeps the original beside it until that account's next sync confirms the copy.
-7. **YAML removed** — new files are written as `.k7x`, `.yaml` is no longer looked up, and `yaml`
-   leaves every package but the converter.
+7. **YAML removed** — new files are written as `.k7x` and `.yaml` is no longer looked up. Readers
+   still receive YAML text through the bridge; each moves to reading k7x data directly as it is next
+   touched, and `yaml` leaves a package once none of its readers needs the bridge.
 8. **Sugar, kind by kind** — forms only one kind of file has, read by that kind's reader into the
    same data: mini-notation for a sequence's notes, `.to(…)` for the graph's segments. Each is
    optional to write, and none changes the data a schema sees.
 
 ## The hazards
 
-- **A half-migrated workspace**: a project folder holding both `graph.yaml` and `graph.k7x`. Phase 3
-  settles it: `.k7x` wins, and the conversion deletes the `.yaml` only once the `.k7x` reads back
-  equal.
+- **A half-migrated workspace**: a project folder holding both `graph.yaml` and `graph.k7x`. `.k7x`
+  wins, and the conversion deletes the `.yaml` only once the `.k7x` reads back equal.
+- **A writer that transforms YAML text with a pattern** sees the bridge's layout, not the author's.
+  It still writes the right data, since only data is applied, but a pattern that expected one layout
+  may find nothing to change. The demo commands are the guard; a new text-pattern writer needs one.
 - **A device on an older build**: it cannot read `.k7x`. Phase 6 does not start before every
   shipped desktop and phone build reads it (phase 3 released).

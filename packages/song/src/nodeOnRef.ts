@@ -3,12 +3,13 @@
 // the workspace's own modules and the engine's; a library module reached that way would get a local
 // shim extending it, a second file standing for the same thing (packages/song/docs/nodes.md).
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createChainNode } from "./chainCreate";
 import { isChainProject } from "./chainProject";
 import { loadModuleRefs, NODES_DIR } from "./loader";
 import type { LoadedModule } from "./rawDoc";
+import { wsExists, wsWrite } from "./yaml/workspaceFile";
 
 /** Write `nodes/<node>.yaml` extending `ref`, which must resolve; the file written — in a chain project, the new node's id. */
 export function createNodeOn(
@@ -31,9 +32,9 @@ export function createNodeOn(
     `extends: ${JSON.stringify(ref)}\n`;
   if (isChainProject(dir)) return createChainNode(dir, node, body).id;
   const rel = `${NODES_DIR}/${node}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`${rel} already exists — refusing to overwrite`);
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  writeFileSync(join(dir, rel), body, "utf8");
+  wsWrite(join(dir, rel), body);
   return rel;
 }

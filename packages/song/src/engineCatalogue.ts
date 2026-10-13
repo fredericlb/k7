@@ -6,7 +6,7 @@
 //
 // A leaf: nothing here imports beyond moduleTypes.ts, so loader.ts can use it without a cycle.
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { join } from "node:path";
 import {
   categoryForRole,
@@ -21,6 +21,7 @@ import {
 } from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 import { studioHome } from "./studioHome";
+import { wsExists, wsRead } from "./yaml/workspaceFile";
 
 /** The scan cache. CONTRACT path — the C++ engine writes and reads this same file (PluginScan.cpp `extsCacheFile()`). */
 export const EXTS_PATH = join(studioHome(), "exts.json");
@@ -45,7 +46,7 @@ const memo = new Map<string, { stamp: string; plugins: ScannedPlugin[] }>();
 
 /** Every scanned plugin; EMPTY means "we cannot say", not "none installed" — docs/enginePlugin.md. */
 export function scannedPlugins(file = extsPath()): ScannedPlugin[] {
-  if (!existsSync(file)) return [];
+  if (!wsExists(file)) return [];
   let stamp: string;
   try {
     const st = statSync(file);
@@ -57,7 +58,7 @@ export function scannedPlugins(file = extsPath()): ScannedPlugin[] {
   if (hit && hit.stamp === stamp) return hit.plugins;
   const plugins: ScannedPlugin[] = [];
   try {
-    const root = JSON.parse(readFileSync(file, "utf8"));
+    const root = JSON.parse(wsRead(file));
     for (const e of root.entries ?? [])
       for (const p of e.plugins ?? []) {
         if (!p?.name || !p?.format) continue;

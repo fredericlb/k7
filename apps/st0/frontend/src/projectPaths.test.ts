@@ -185,3 +185,20 @@ describe("inActiveProject", () => {
     expect(inActiveProject("song.st0\\clips\\a.yaml", "song.st0")).toBe(true);
   });
 });
+
+describe("a .k7x file is the same kind of file as its YAML spelling", () => {
+  it("is recognised by kind", () => {
+    expect(isSeqFile("song/sequences/melody.k7x")).toBe(true);
+    expect(isClipFile("song/clips/kick.k7x")).toBe(true);
+    expect(isRackModuleFile("modules/instruments/drum_1/module.k7x")).toBe(
+      true,
+    );
+  });
+
+  it("names the same id and the same module file", () => {
+    expect(fileStem("song/nodes/lead.k7x")).toBe("lead");
+    expect(moduleFileOf("_modules/audio/amp/lead.k7x")).toBe(
+      "_modules/audio/amp/module.yaml",
+    );
+  });
+});

@@ -3,13 +3,13 @@
 // one WRITTEN, rather than warned about. Textual, so a hand-commented graph.yaml survives it.
 // Full rationale: docs/videoOutputs.md.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { RENDER_NODE, VIDEO_OUT_NODE } from "@studio/song-schema/moduleTypes";
 import { CHAINS_DIR } from "@studio/song-schema/yaml/chainSchema";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { chainTaken } from "./chainCreate";
 import { isChainProject, readChainProject } from "./chainProject";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 /** The line itself, indented for a block mapping — one spelling, shared by the scaffold. */
 export const VIDEO_RUN_LINE = `  ${RENDER_NODE}: [ ${VIDEO_OUT_NODE} ]`;
@@ -38,10 +38,10 @@ export function addVideoRun(text: string): string | null {
 export function ensureVideoRun(dir: string): boolean {
   if (isChainProject(dir)) return ensureChainVideoRun(resolve(dir));
   const file = join(resolve(dir), GRAPH_FILE);
-  if (!existsSync(file)) return false;
+  if (!wsExists(file)) return false;
   let text: string;
   try {
-    text = readFileSync(file, "utf8");
+    text = wsRead(file);
   } catch {
     return false;
   }
@@ -49,7 +49,7 @@ export function ensureVideoRun(dir: string): boolean {
   const next = addVideoRun(text);
   if (next === null) return false;
   try {
-    writeFileSync(file, next, "utf8");
+    wsWrite(file, next);
   } catch {
     return false;
   }
@@ -66,10 +66,9 @@ function ensureChainVideoRun(dir: string): boolean {
   let name = "picture";
   for (let i = 2; chainTaken(dir, name); i++) name = `picture-${i}`;
   try {
-    writeFileSync(
+    wsWrite(
       join(dir, CHAINS_DIR, `${name}.yaml`),
       `start: ${RENDER_NODE}\nsteps:\n  - to:\n      - { chain: ${VIDEO_OUT_NODE} }\n`,
-      "utf8",
     );
   } catch {
     return false;

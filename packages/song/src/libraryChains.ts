@@ -7,7 +7,7 @@
 // (scripts/migrateLibraryChains.ts). Its ref is `@<library>/<path under chains/>`, and a BARE path
 // is the default library's.
 
-import { type Dirent, existsSync, readdirSync, readFileSync } from "node:fs";
+import { type Dirent, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   DEFAULT_LIBRARY,
@@ -24,6 +24,7 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml } from "yaml";
 import { bypassedOf, chainSteps } from "./chainsGraph";
 import { libraryFamilyRoots } from "./sharedFolders";
+import { wsExists, wsRead } from "./yaml/workspaceFile";
 
 /** Where a template's signal leaves, written as its last step's one link. */
 export const TEMPLATE_OUT = "@out";
@@ -51,7 +52,7 @@ export interface LibraryChainDir {
 function nodesIn(at: string): string[] {
   try {
     return readdirSync(join(at, NODES_DIR), { withFileTypes: true })
-      .filter((e) => e.isFile() && /\.ya?ml$/i.test(e.name))
+      .filter((e) => e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name))
       .map((e) => e.name)
       .sort();
   } catch {
@@ -87,8 +88,8 @@ function walkChains(library: string, chainsRoot: string): LibraryChainDir[] {
     for (const e of entries) {
       const sub = (name: string) => (path ? `${path}/${name}` : name);
       if (e.isDirectory()) walk(join(at, e.name), sub(e.name));
-      else if (e.isFile() && /\.ya?ml$/i.test(e.name)) {
-        const p = sub(e.name.replace(/\.ya?ml$/i, ""));
+      else if (e.isFile() && /\.(ya?ml|k7x)$/i.test(e.name)) {
+        const p = sub(e.name.replace(/\.(ya?ml|k7x)$/i, ""));
         out.push({
           ref: libraryRef(library, p),
           library,
@@ -165,17 +166,16 @@ export function readTemplate(c: LibraryChainDir): TemplateRead {
 }
 
 function readFolderTemplate(c: LibraryChainDir): TemplateRead {
-  const text = readFileSync(join(c.at, GRAPH_FILE), "utf8");
+  const text = wsRead(join(c.at, GRAPH_FILE));
   const bypassed = bypassedOf(parseYaml(text, { version: "1.2" }));
   const steps: TemplateStep[] = [];
   const missing: string[] = [];
   for (const name of chainSteps(text)) {
     let module: Record<string, unknown>;
     try {
-      module = (parseYaml(
-        readFileSync(join(c.at, NODES_DIR, `${name}.yaml`), "utf8"),
-        { version: "1.2" },
-      ) ?? {}) as Record<string, unknown>;
+      module = (parseYaml(wsRead(join(c.at, NODES_DIR, `${name}.yaml`)), {
+        version: "1.2",
+      }) ?? {}) as Record<string, unknown>;
     } catch {
       missing.push(`${name} (no ${NODES_DIR}/${name}.yaml)`);
       continue;
@@ -186,7 +186,7 @@ function readFolderTemplate(c: LibraryChainDir): TemplateRead {
       label: name,
       module,
       ...(bypassed.has(name) ? { bypass: true } : {}),
-      ...(existsSync(preset) ? { preset } : {}),
+      ...(wsExists(preset) ? { preset } : {}),
     });
   }
   return { steps, missing };
@@ -195,7 +195,7 @@ function readFolderTemplate(c: LibraryChainDir): TemplateRead {
 /** A chain file's steps from its TEXT — `text` given when it is not on disk yet, as a migration checks it. */
 export function readFileTemplate(
   c: LibraryChainDir,
-  text = readFileSync(c.at, "utf8"),
+  text = wsRead(c.at),
 ): TemplateRead {
   const { value, issues } = parseChain(text);
   if (!value)
@@ -241,7 +241,7 @@ export function readFileTemplate(
       label: typeof module.extends === "string" ? module.extends : item.id,
       module,
       ...(item.bypass ? { bypass: true } : {}),
-      ...(existsSync(preset) ? { preset } : {}),
+      ...(wsExists(preset) ? { preset } : {}),
     });
   }
   return { steps, missing: [] };

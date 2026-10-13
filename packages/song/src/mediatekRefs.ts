@@ -3,7 +3,6 @@
 // "which ones are those" — and it has to answer from the FILES, before the loader can resolve
 // them, since a ref that resolves to nothing is exactly the one worth fetching.
 
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { splitModuleKey } from "@studio/song-schema/moduleTypes";
 import { parsePlaylist, playlistPathOf } from "@studio/song-schema/playlist";
@@ -17,6 +16,7 @@ import {
 } from "./loader";
 import { MEDIATEK_REF } from "./mediatekRoot";
 import { projectSurfaces } from "./surfaces";
+import { wsRead } from "./yaml/workspaceFile";
 
 const PREFIX = `${MEDIATEK_REF}/`;
 
@@ -86,7 +86,7 @@ export function mediatekSongRefs(dir: string, workspace: string): string[] {
 
   let text: string;
   try {
-    text = readFileSync(join(workspace, rel), "utf8");
+    text = wsRead(join(workspace, rel));
   } catch {
     return []; // a playlist that is not there is the desk's message to give, not this loop's
   }

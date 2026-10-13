@@ -3,11 +3,12 @@
 // just edited and nothing else. What a parser returns is SHARED between callers: hand it out only
 // where something rebuilds or clones it — see docs/moduleCache.md.
 
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 // How old an mtime must be to be trusted as a key — this cache's whole correctness, and not only
 // this one's, which is why the window has one spelling. See docs/moduleCache.md.
 import { SETTLE_MS } from "../moduleCache";
+import { realPath, wsRead } from "./workspaceFile";
 
 /** How many parsed files to hold. A song is ~200 of them, its module libraries ~800 more. */
 const MAX_FILES = 4000;
@@ -29,12 +30,12 @@ export function settledParse<T>(
 ): T {
   let st: { mtimeMs: number; size: number };
   try {
-    st = statSync(path);
+    st = statSync(realPath(path));
   } catch {
     // Vanished since the readdir: read anyway, and never cache what we could not stat.
-    return parse(readFileSync(path, "utf8"));
+    return parse(wsRead(path));
   }
-  const key = `${kind}\0${path}`;
+  const key = `${kind}\0${realPath(path)}`;
   // A future mtime — a skewed clock on a network mount — is never settled, so never cached.
   const settled = Date.now() - st.mtimeMs > SETTLE_MS;
   const hit = memo.get(key);
@@ -43,7 +44,7 @@ export function settledParse<T>(
     memo.set(key, hit);
     return hit.value as T;
   }
-  const value = parse(readFileSync(path, "utf8"));
+  const value = parse(wsRead(path));
   if (!settled) {
     // Still inside the window where the next write could reuse this stamp — storing it would hit later.
     memo.delete(key);

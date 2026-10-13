@@ -4,7 +4,6 @@
 // and live with the bounce (@studio/audio-passes' processChain.ts).
 // Full rationale: docs/materialCut.md.
 
-import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { laneFileFor, laneFolder } from "@studio/song/chainItemEdit";
 import {
@@ -12,6 +11,7 @@ import {
   type WindowValue,
 } from "@studio/song/yaml/materialFile";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import { wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 import type { NoteIn } from "@studio/song-schema/yaml/sequenceFile";
 import {
@@ -72,7 +72,7 @@ function freeSequenceName(
 /** The notes a sequence file holds; anything unreadable is no notes at all, and the compile says so. */
 function notesOf(file: string): NoteIn[] {
   try {
-    const doc = parseDocument(readFileSync(file, "utf8"), { version: "1.2" });
+    const doc = parseDocument(wsRead(file), { version: "1.2" });
     const raw = doc.toJS() as { notes?: unknown };
     if (!Array.isArray(raw?.notes)) return [];
     return raw.notes
@@ -130,12 +130,11 @@ function writeSequence(
         (window.to > EDGE_EPS
           ? `to: "${beatsToPosition(window.to, num, den)}"\n`
           : "");
-  writeFileSync(
+  wsWrite(
     join(dir, rel),
     `# Written by \`${window?.verb ?? "selection consolidate"}\`.\n` +
       edges +
       `notes:\n${lines.join("\n")}${lines.length ? "\n" : ""}`,
-    "utf8",
   );
   return { ref, file: rel, notes: notes.length };
 }
@@ -176,7 +175,7 @@ export function splitSequenceMaterial(
   const own = laneFileFor(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
-  const text = readFileSync(own.path, "utf8");
+  const text = wsRead(own.path);
   const index = findPlacementAt(text, fromBeats, num, den);
   if (index < 0) return null;
   const placement = placementValues(text)[index] ?? {};
@@ -254,7 +253,7 @@ export function consolidateSequenceMaterial(
   const own = laneFileFor(dir, trackId);
   if (!own)
     throw new Error(`track "${trackId}" has no file in ${laneFolder(dir)}/`);
-  const text = readFileSync(own.path, "utf8");
+  const text = wsRead(own.path);
 
   const startOf = (p: Record<string, unknown>): number | null => {
     try {

@@ -68,7 +68,7 @@ const dragHasFiles = (e: React.DragEvent): boolean =>
   acceptsFileDrop(dragPayload(e));
 
 /** The generic module file a module folder is recognised BY, and opened at. */
-const MODULE_FILE = /^module\.ya?ml$/i;
+const MODULE_FILE = /^module\.(?:ya?ml|k7x)$/i;
 
 /** A module is a folder that HOLDS a `module.yaml`, drawn as one row — recognised by its contents, never by its path. */
 function moduleFileIn(node: FileNode): string | null {

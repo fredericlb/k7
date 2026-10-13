@@ -4,13 +4,7 @@
 // — position and instrument prefix included — and every reference to it follows.
 // See packages/song/docs/nodes.md; a chain project is copied by trackChain.ts (docs/chainFiles.md).
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { renameNodeInAssemblies } from "@studio/song/assemblyEdit";
@@ -29,6 +23,12 @@ import { surfacesNaming } from "@studio/song/surfaces";
 import { mixerNameFor } from "@studio/song/trackMixerFile";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import {
+  wsCopy,
+  wsExists,
+  wsRead,
+  wsWrite,
+} from "@studio/song/yaml/workspaceFile";
 import { renameChainNode } from "@studio/song-edit/projectEdit";
 import {
   addTrackPlacements,
@@ -67,31 +67,30 @@ export const TRACK_VERBS: Record<string, SidHandler> = {
 /** Copy a node's file and its own preset; a node's assets live in the shared `nodes/assets/`. */
 function copyNode(dir: string, from: string, to: string): void {
   const src = join(dir, "nodes", `${from}.yaml`);
-  if (!existsSync(src)) throw new Error(`no node '${from}' to copy`);
-  copyFileSync(src, join(dir, "nodes", `${to}.yaml`));
+  if (!wsExists(src)) throw new Error(`no node '${from}' to copy`);
+  wsCopy(src, join(dir, "nodes", `${to}.yaml`));
   const preset = join(dir, "nodes", `${from}.vstpreset`);
-  if (existsSync(preset))
+  if (wsExists(preset))
     copyFileSync(preset, join(dir, "nodes", `${to}.vstpreset`));
 }
 
 /** A module used directly as a node has no file to copy; give the copy a node that extends it. */
 function materialiseNode(dir: string, from: string, to: string): void {
   mkdirSync(join(dir, "nodes"), { recursive: true });
-  writeFileSync(
+  wsWrite(
     join(dir, "nodes", `${to}.yaml`),
     `extends: ${JSON.stringify(from)}\n`,
-    "utf8",
   );
 }
 
 /** The strip file's first line names the lane it belongs to; a copy has to be re-labelled. */
 function relabelStrip(abs: string, lane: string): void {
-  const text = readFileSync(abs, "utf8");
+  const text = wsRead(abs);
   const next = text.replace(
     /^# .*?'s channel strip/,
     `# ${lane}'s channel strip`,
   );
-  if (next !== text) writeFileSync(abs, next, "utf8");
+  if (next !== text) wsWrite(abs, next);
 }
 
 /** Copy the lane's exclusive chain nodes and wire the new lane into the graph. */
@@ -104,8 +103,8 @@ function duplicateChain(
   claim: (name: string) => string,
 ): string[] {
   const graphAbs = join(dir, GRAPH_FILE);
-  if (!existsSync(graphAbs)) return [];
-  const text = readFileSync(graphAbs, "utf8");
+  if (!wsExists(graphAbs)) return [];
+  const text = wsRead(graphAbs);
   const parsed = parseGraph(text);
   if (!parsed.value)
     throw new Error(`graph.yaml: ${parsed.issues[0]?.message ?? "unreadable"}`);
@@ -187,7 +186,7 @@ function duplicateChain(
   const written: string[] = [];
   for (const from of order) {
     const to = clones.get(from) as string;
-    if (existsSync(join(dir, "nodes", `${from}.yaml`))) copyNode(dir, from, to);
+    if (wsExists(join(dir, "nodes", `${from}.yaml`))) copyNode(dir, from, to);
     else materialiseNode(dir, from, to);
     if (isStrip(from)) relabelStrip(join(dir, "nodes", `${to}.yaml`), newLane);
     written.push(`nodes/${to}.yaml`);
@@ -203,7 +202,7 @@ function duplicateChain(
       ...(addBypassed.length ? { bypassed: addBypassed } : {}),
       ...(addBusOnly.length ? { bus_only: addBusOnly } : {}),
     });
-    if (next !== text) writeFileSync(graphAbs, next, "utf8");
+    if (next !== text) wsWrite(graphAbs, next);
     written.push(GRAPH_FILE);
   }
   return written;
@@ -224,12 +223,12 @@ async function duplicateTrack(
   const chained = isChainProject(dir);
   const srcRel = join(laneFolder(dir), `${lane}.yaml`);
   const srcAbs = join(dir, srcRel);
-  if (!existsSync(srcAbs)) {
+  if (!wsExists(srcAbs)) {
     h.refuse([`no track "${idArg}" — ${srcRel} does not exist`]);
     return;
   }
   try {
-    const srcText = readFileSync(srcAbs, "utf8");
+    const srcText = wsRead(srcAbs);
     const srcValue = parseDocument(srcText, {
       version: "1.2",
     }).toJS() as Record<string, unknown>;
@@ -244,8 +243,7 @@ async function duplicateTrack(
 
     const g = chained ? null : loadGraph(dir);
     const graphAbs = join(dir, GRAPH_FILE);
-    const graphText =
-      !chained && existsSync(graphAbs) ? readFileSync(graphAbs, "utf8") : "";
+    const graphText = !chained && wsExists(graphAbs) ? wsRead(graphAbs) : "";
     const parsed = graphText ? parseGraph(graphText) : null;
     if (parsed && (!parsed.value || parsed.issues.length))
       throw new Error(parsed.issues[0]?.message ?? "graph.yaml unreadable");
@@ -261,7 +259,7 @@ async function duplicateTrack(
       reserved.has(name) ||
       name in modules ||
       name in loadedModules ||
-      existsSync(join(dir, laneFolder(dir), `${name}.yaml`)) ||
+      wsExists(join(dir, laneFolder(dir), `${name}.yaml`)) ||
       (chained && chainTaken(dir, name));
     const claim = (name: string): string => {
       reserved.add(name);
@@ -360,14 +358,14 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
     const chained = isChainProject(dir);
     const graphAbs = join(dir, GRAPH_FILE);
     const onGraph =
-      !chained && existsSync(graphAbs)
-        ? (parseGraph(readFileSync(graphAbs, "utf8")).value?.modules ?? {})
+      !chained && wsExists(graphAbs)
+        ? (parseGraph(wsRead(graphAbs)).value?.modules ?? {})
         : {};
     const nodes = chained ? readChainProject(dir).nodes : {};
     const taken = (name: string): boolean =>
       name in onGraph ||
       name in nodes ||
-      existsSync(join(dir, laneFolder(dir), `${name}.yaml`));
+      wsExists(join(dir, laneFolder(dir), `${name}.yaml`));
     if (taken(to)) {
       h.refuse([`"${to}" is already a node of this project`]);
       return;
@@ -403,7 +401,7 @@ async function renameTrack(arg: string, h: CommandHost): Promise<void> {
         renameChainNode(dir, mixer, next);
         renameNodeInAssemblies(dir, mixer, next);
         const strip = join(dir, "nodes", `${next}.yaml`);
-        if (existsSync(strip)) relabelStrip(strip, to);
+        if (wsExists(strip)) relabelStrip(strip, to);
         notes.push(`${mixer} → ${next}`);
       }
     }

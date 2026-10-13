@@ -4,7 +4,7 @@
 // What would be got wrong: a transform sees the whole item, but `id`, `bypass`, `vstpreset` and
 // `mapping` are the USE's — whatever it does to them is undone. See docs/chainFiles.md.
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseChain, stepSeqs } from "@studio/song-schema/yaml/chainFile";
 import {
@@ -25,6 +25,7 @@ import {
 } from "yaml";
 import { isChainProject, readChainProject } from "./chainProject";
 import { entityFileFor, type ModuleFile } from "./yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 const OPTS = { version: "1.2" as const, strict: false };
 const OUT = { lineWidth: 0 };
@@ -53,7 +54,7 @@ export function chainItemOf(dir: string, name: string): ChainItemRef | null {
   if (!n || n.track) return null;
   const path = join(dir, CHAINS_DIR, `${n.chain}.yaml`);
   const alt = join(dir, CHAINS_DIR, `${n.chain}.yml`);
-  return { chain: n.chain, path: existsSync(path) ? path : alt, id: n.id };
+  return { chain: n.chain, path: wsExists(path) ? path : alt, id: n.id };
 }
 
 /** The item's map node inside a parsed chain file, found by its `id`. */
@@ -98,7 +99,7 @@ function standalone(node: YAMLMap): string {
 export function chainItemText(dir: string, name: string): string {
   const ref = chainItemOf(dir, name);
   if (!ref) throw new Error(`no chain node '${name}' in this project`);
-  const doc = parseDocument(readFileSync(ref.path, "utf8"), OPTS);
+  const doc = parseDocument(wsRead(ref.path), OPTS);
   const node = itemNode(doc, ref.id);
   if (!node)
     throw new Error(`${CHAINS_DIR}/${ref.chain}.yaml holds no item ${ref.id}`);
@@ -113,9 +114,9 @@ export function editChainItem(
 ): string {
   const ref = chainItemOf(dir, name);
   if (!ref) throw new Error(`no chain node '${name}' in this project`);
-  const before = readFileSync(ref.path, "utf8");
+  const before = wsRead(ref.path);
   const after = spliceChainItem(before, ref.id, transform);
-  if (after !== before) writeFileSync(ref.path, after, "utf8");
+  if (after !== before) wsWrite(ref.path, after);
   return ref.path;
 }
 
@@ -173,7 +174,7 @@ export function chainFiles(dir: string): string[] {
   if (!isChainProject(dir)) return [];
   const d = join(dir, CHAINS_DIR);
   return readdirSync(d)
-    .filter((f) => /\.ya?ml$/i.test(f))
+    .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
     .sort()
     .map((f) => `${CHAINS_DIR}/${f}`);
 }

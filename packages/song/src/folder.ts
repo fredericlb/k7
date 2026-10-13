@@ -36,7 +36,7 @@ export function isFolderProject(abs: string): boolean {
   try {
     const st = statSync(abs);
     if (st.isDirectory()) return isProjectFolder(abs);
-    return /^project\.ya?ml$/.test(basename(abs));
+    return /^project\.(ya?ml|k7x)$/i.test(basename(abs));
   } catch {
     return false;
   }

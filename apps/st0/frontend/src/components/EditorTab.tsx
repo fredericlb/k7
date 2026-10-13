@@ -1287,7 +1287,7 @@ export function EditorTab({
             onClick={() =>
               onOpenBuilder(
                 moduleFileOf(file.path),
-                /ui\.ya?ml$/i.test(file.path) ? "panel" : "module",
+                /ui\.(?:ya?ml|k7x)$/i.test(file.path) ? "panel" : "module",
               )
             }
           >

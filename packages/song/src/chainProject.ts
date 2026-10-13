@@ -5,15 +5,7 @@
 // See docs/chainFiles.md.
 
 import { randomUUID } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { formatChain, parseChain } from "@studio/song-schema/yaml/chainFile";
 import {
@@ -42,6 +34,7 @@ import {
   resolveLink,
   subKey,
 } from "./chainScope";
+import { wsExists, wsRead, wsRemove, wsWrite } from "./yaml/workspaceFile";
 
 /** One node as the loader sees it: where it sits, and what it says. */
 export interface ChainNode {
@@ -75,7 +68,7 @@ const SINKS = new Set<string>(CHAIN_SINKS);
 /** Its presence IS the format: a project with `chains/` is read from it, and never from graph.yaml. */
 export function isChainProject(dir: string): boolean {
   const d = join(dir, CHAINS_DIR);
-  return existsSync(d) && statSync(d).isDirectory();
+  return wsExists(d) && statSync(d).isDirectory();
 }
 
 /** The name a node is known by in memory, in commands and on the wire: its lane, else its id. */
@@ -86,16 +79,16 @@ export const nameOfItem = (i: Item): string =>
 export function readChainProject(dir: string): ChainProject {
   const out: ChainProject = { chains: {}, texts: {}, nodes: {}, issues: [] };
   const folder = join(dir, CHAINS_DIR);
-  if (!existsSync(folder)) return out;
+  if (!wsExists(folder)) return out;
   // By chain NAME, not file name: `polysynth-copy.yaml` sorts before `polysynth.yaml`, and lanes follow this order.
-  const byName = (f: string) => f.replace(/\.ya?ml$/, "");
+  const byName = (f: string) => f.replace(/\.(ya?ml|k7x)$/i, "");
   for (const f of readdirSync(folder).sort((p, q) =>
     byName(p) < byName(q) ? -1 : byName(p) > byName(q) ? 1 : 0,
   )) {
-    const m = /^(.+)\.ya?ml$/.exec(f);
+    const m = /^(.+)\.(?:ya?ml|k7x)$/i.exec(f);
     if (!m) continue;
     const name = m[1];
-    const text = readFileSync(join(folder, f), "utf8");
+    const text = wsRead(join(folder, f));
     const { value, issues } = parseChain(text);
     for (const i of issues)
       out.issues.push(
@@ -136,15 +129,15 @@ export function readChainProject(dir: string): ChainProject {
 
 export function readLayout(dir: string): Positions {
   const f = join(dir, LAYOUT_FILE);
-  if (!existsSync(f)) return {};
-  const raw = parse(readFileSync(f, "utf8"))?.positions;
+  if (!wsExists(f)) return {};
+  const raw = parse(wsRead(f))?.positions;
   return raw && typeof raw === "object" ? (raw as Positions) : {};
 }
 
 export function writeLayout(dir: string, positions: Positions): void {
   const f = join(dir, LAYOUT_FILE);
   if (!Object.keys(positions).length) {
-    if (existsSync(f)) rmSync(f);
+    if (wsExists(f)) wsRemove(f);
     return;
   }
   const flow = Object.fromEntries(Object.entries(positions));
@@ -157,7 +150,7 @@ export function writeLayout(dir: string, positions: Positions): void {
       /^ {2}(\S.*):\n {4}x: (.+)\n {4}y: (.+)$/gm,
       "  $1: { x: $2, y: $3 }",
     );
-  writeFileSync(f, text);
+  wsWrite(f, text);
 }
 
 const endOf = (c: ChainFile): EndStep | undefined => {
@@ -509,14 +502,13 @@ export function writeChainProject(
   mkdirSync(folder, { recursive: true });
   for (const [name, c] of Object.entries(chains)) {
     const text = formatChain(c, prevTexts[name] ?? "");
-    if (text !== prevTexts[name])
-      writeFileSync(join(folder, `${name}.yaml`), text);
+    if (text !== prevTexts[name]) wsWrite(join(folder, `${name}.yaml`), text);
   }
   for (const name of Object.keys(prevTexts))
     if (!chains[name]) {
       for (const ext of [".yaml", ".yml"]) {
         const f = join(folder, `${name}${ext}`);
-        if (existsSync(f)) rmSync(f);
+        if (wsExists(f)) wsRemove(f);
       }
     }
 }

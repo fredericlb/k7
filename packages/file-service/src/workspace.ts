@@ -129,6 +129,7 @@ import {
 } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
+import { isK7xPath, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   ENGINE_NS,
   type ModuleNamespace,
@@ -229,7 +230,7 @@ export { isBinary, skip };
 function parseCompileError(msg: string): Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const line of msg.split("\n")) {
-    const m = /^\s*(\S+\.ya?ml)(?::(\d+))?:\s*(.+)$/i.exec(line);
+    const m = /^\s*(\S+\.(?:ya?ml|k7x))(?::(\d+))?:\s*(.+)$/i.exec(line);
     if (m)
       out.push({
         file: m[1].replace(/^\.\//, ""),
@@ -277,10 +278,10 @@ export function projectDirsUnder(
 }
 
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
-const PROJECT_FILE = /\.ya?ml$/i;
-// What moves the revision: the YAML, and a VST's .vstpreset — its params, rewritten IN PLACE by its
+const PROJECT_FILE = /\.(ya?ml|k7x)$/i;
+// What moves the revision: the YAML or k7x, and a VST's .vstpreset — its params, rewritten IN PLACE by its
 // own window, which is what an automatic freeze must notice (packages/song/docs/autoFreeze.md).
-const REVISION_FILE = /\.(ya?ml|vstpreset)$/i;
+const REVISION_FILE = /\.(ya?ml|k7x|vstpreset)$/i;
 
 /** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
 interface WalkedFile {
@@ -1443,16 +1444,16 @@ export class Workspace {
           walk(abs);
           continue;
         }
-        if (!e.isFile() || !/\.ya?ml$/i.test(e.name)) continue;
+        if (!e.isFile() || !/\.(ya?ml|k7x)$/i.test(e.name)) continue;
         let parsed: ReturnType<typeof parsePlaylist> = null;
         try {
-          parsed = parsePlaylist(readFileSync(abs, "utf8"));
+          parsed = parsePlaylist(wsRead(abs));
         } catch {
           parsed = null; // unreadable bytes read exactly like unparseable ones from here
         }
         out.push({
           path: this.toRel(abs),
-          name: e.name.replace(/\.ya?ml$/i, ""),
+          name: e.name.replace(/\.(ya?ml|k7x)$/i, ""),
           ...(parsed?.title ? { title: parsed.title } : {}),
           count: parsed?.items.length ?? 0,
           ok: parsed !== null,
@@ -1585,7 +1586,9 @@ export class Workspace {
     const abs = this.safePath(rel);
     if (isBinary(basename(abs)))
       return { path: rel, binary: true, content: "" };
-    return { path: rel, binary: false, content: readFileSync(abs, "utf8") };
+    // A .k7x path is served as written; a YAML name reads a .k7x file as YAML (packages/song/docs/k7xFiles.md).
+    const content = isK7xPath(abs) ? readFileSync(abs, "utf8") : wsRead(abs);
+    return { path: rel, binary: false, content };
   }
 
   /** Save a file, forking a `_modules` one instead of refusing it — see docs/workspace.md. */
@@ -1600,7 +1603,8 @@ export class Workspace {
     this.assertLibraryWritable(abs, "write");
     if (isBinary(basename(abs))) throw new Error("cannot edit a binary file");
     mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, content, "utf8");
+    if (isK7xPath(abs)) writeFileSync(abs, content, "utf8");
+    else wsWrite(abs, content);
     this.invalidateProjectDoc();
     return {};
   }
@@ -1874,9 +1878,7 @@ export class Workspace {
   } {
     let current: string | undefined;
     try {
-      const root = parseYaml(
-        readFileSync(join(dir, "project.yaml"), "utf8"),
-      ) as {
+      const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
         project?: { console?: unknown };
       };
       if (typeof root?.project?.console === "string")
@@ -2407,10 +2409,10 @@ export class Workspace {
     const dir = this.activeProject ?? this.root;
     let name = basename(dir);
     try {
-      const m = /name:\s*"([^"]+)"/.exec(
-        readFileSync(join(dir, "project.yaml"), "utf8"),
-      );
-      if (m) name = m[1];
+      const root = parseYaml(wsRead(join(dir, "project.yaml"))) as {
+        project?: { name?: unknown };
+      } | null;
+      if (typeof root?.project?.name === "string") name = root.project.name;
     } catch {
       /* no project.yaml — keep the folder name */
     }

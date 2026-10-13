@@ -8,7 +8,7 @@
 // one is purged after a month, and "used" is its ATIME. Full rationale: docs/autoFreeze.md.
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync, utimesSync } from "node:fs";
+import { readFileSync, statSync, utimesSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { EXTERNAL_PLUGIN_FORMATS } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -28,6 +28,7 @@ import {
 } from "./freeze";
 import type { GraphDoc, Module } from "./graph";
 import { studioHome } from "./studioHome";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** Where automatic renders live: the machine's cache, shared by its projects and kept out of every repository (docs/autoFreeze.md). */
 export function autoRendersHome(): string {
@@ -154,7 +155,7 @@ const NOT_SOUND = new Set(["presetSave", "event", "color", "recordDir"]);
 export function freezeFingerprint(cut: ProjectDoc, dir: string): string {
   const norm = (v: unknown): unknown => {
     if (typeof v === "string")
-      return looksAbsolute(v) && existsSync(v) ? fileToken(v, dir) : v;
+      return looksAbsolute(v) && wsExists(v) ? fileToken(v, dir) : v;
     if (Array.isArray(v)) return v.map(norm);
     if (v && typeof v === "object") {
       const out: Record<string, unknown> = {};
@@ -207,7 +208,7 @@ export function autoFreezes(
 ): AutoFreeze[] {
   const isLane = (n: string) => n in g.tracks;
   const manual = activeFreezePlans(g.chains, g.modules, isLane, (r) =>
-    existsSync(resolve(dir, r)),
+    wsExists(resolve(dir, r)),
   );
   const out: AutoFreeze[] = [];
   for (const module of autoFreezePoints(g, manual, thawedIn(dir))) {
@@ -232,7 +233,7 @@ export function autoFreezes(
       plan: { ...plan, render },
       cut,
       plugins,
-      ready: existsSync(render),
+      ready: wsExists(render),
       hosted: scanHostsAll(plugins),
     };
     if (playsRender(f)) markUsed(render);

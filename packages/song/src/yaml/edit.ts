@@ -2,16 +2,16 @@
 // knows nothing about modules or chains (that's ../projectEdit.ts). Uses the YAML
 // Document API so the rest of the file comes back byte-identical, comments included.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isMap, isScalar, isSeq, parseDocument, Scalar } from "yaml";
+import { wsExists, wsRead, wsWrite } from "./workspaceFile";
 
 const read = (file: string) =>
-  parseDocument(existsSync(file) ? readFileSync(file, "utf8") : "{}", {
+  parseDocument(wsExists(file) ? wsRead(file) : "{}", {
     version: "1.2",
   });
 
 const save = (file: string, doc: ReturnType<typeof parseDocument>): void =>
-  writeFileSync(file, doc.toString({ lineWidth: 0 }), "utf8");
+  wsWrite(file, doc.toString({ lineWidth: 0 }));
 
 /** Set `path` in `file`, creating it and any intermediate maps. `value` goes through `createNode` so a later visitor (a timecode quoter) can see inside what was written. */
 export function setFileValue(

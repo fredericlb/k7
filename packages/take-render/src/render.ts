@@ -5,12 +5,13 @@
 
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { freezeCut } from "@studio/song/freeze";
 import { loadProject, type ProjectDoc } from "@studio/song/project";
 import { setFileValue } from "@studio/song/yaml/edit";
+import { wsExists, wsRead } from "@studio/song/yaml/workspaceFile";
 import { type Renderer, renderToWav } from "./renderer";
 
 export type { Renderer, RenderManifest } from "./renderer";
@@ -50,7 +51,7 @@ export function transcode(
       ],
       { stdio: ["ignore", "ignore", "inherit"] },
     );
-    return r.status === 0 && existsSync(outPath);
+    return r.status === 0 && wsExists(outPath);
   } catch {
     return false; // ffmpeg not on PATH
   }
@@ -65,10 +66,10 @@ export interface K7Config {
 
 /** Read `{ k7: { url, token } }` from a JSON file — `radiok7` is read too, see docs/rendering.md. */
 function readK7File(path: string): { url?: string; token?: string } {
-  if (!existsSync(path)) return {};
+  if (!wsExists(path)) return {};
   type Pair = { url?: string; token?: string };
   try {
-    const j = JSON.parse(readFileSync(path, "utf8")) as {
+    const j = JSON.parse(wsRead(path)) as {
       k7?: Pair;
       k7Url?: string;
       k7Token?: string;
@@ -137,7 +138,7 @@ export async function shareToK7(
   cfg: K7Config,
   opts: { artist?: string; title?: string; noStems?: boolean } = {},
 ): Promise<K7Result> {
-  if (!existsSync(join(songDir, "project.yaml")))
+  if (!wsExists(join(songDir, "project.yaml")))
     throw new Error(
       "k7 needs a folder project (a directory with project.yaml)",
     );

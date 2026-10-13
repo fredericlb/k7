@@ -4,14 +4,7 @@
 // caller says it is dropped — a hidden chain is absent from the segments it is edited through.
 // See docs/chainFiles.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { isIoSource } from "@studio/song-schema/moduleTypes";
 import { formatChain } from "@studio/song-schema/yaml/chainFile";
@@ -40,6 +33,13 @@ import {
 } from "./chainProject";
 import { loadModuleRefs, loadModules } from "./loader";
 import { resolveModule } from "./moduleResolve";
+import {
+  wsExists,
+  wsRead,
+  wsRemove,
+  wsRename,
+  wsWrite,
+} from "./yaml/workspaceFile";
 
 const SINKS = new Set<string>([...CHAIN_SINKS, "MIX", "RENDER"]);
 const bare = (d: string) => d.split("#")[0];
@@ -278,7 +278,7 @@ function writeChains(
   const onDisk = (name: string): string | undefined => {
     for (const ext of [".yaml", ".yml"]) {
       const f = join(folder, `${name}${ext}`);
-      if (existsSync(f)) return readFileSync(f, "utf8");
+      if (wsExists(f)) return wsRead(f);
     }
     return undefined;
   };
@@ -286,15 +286,15 @@ function writeChains(
     const text = formatChain(c, prevTexts[name] ?? onDisk(name) ?? "");
     if (text === onDisk(name)) continue;
     rmSync(join(folder, `${name}.yml`), { force: true });
-    writeFileSync(join(folder, `${name}.yaml`), text, "utf8");
+    wsWrite(join(folder, `${name}.yaml`), text);
     out.push(`${CHAINS_DIR}/${name}.yaml`);
   }
   for (const name of Object.keys(readChainProject(dir).chains))
     if (!chains[name] && !keep.has(name))
       for (const ext of [".yaml", ".yml"]) {
         const f = join(folder, `${name}${ext}`);
-        if (existsSync(f)) {
-          rmSync(f);
+        if (wsExists(f)) {
+          wsRemove(f);
           out.push(`${CHAINS_DIR}/${name}${ext}`);
         }
       }
@@ -310,12 +310,12 @@ export function renameChainLane(
 ): string[] {
   const src = join(dir, TRACKS_DIR, `${from}.yaml`);
   const dest = join(dir, TRACKS_DIR, `${to}.yaml`);
-  if (existsSync(dest))
+  if (wsExists(dest))
     throw new Error(
       `${TRACKS_DIR}/${to}.yaml already exists — refusing to overwrite`,
     );
   const written = editChainGraph(dir, transform, { rename: { from, to } });
-  if (existsSync(src)) renameSync(src, dest);
+  if (wsExists(src)) wsRename(src, dest);
   return [`${TRACKS_DIR}/${from}.yaml → ${TRACKS_DIR}/${to}.yaml`, ...written];
 }
 
@@ -332,8 +332,8 @@ export function deleteChainItem(
   const removed = [`${CHAINS_DIR}/${n.chain}.yaml: ${node}`];
   if (n.track) {
     const f = join(dir, TRACKS_DIR, `${n.track}.yaml`);
-    if (existsSync(f)) {
-      rmSync(f);
+    if (wsExists(f)) {
+      wsRemove(f);
       removed.push(`${TRACKS_DIR}/${n.track}.yaml`);
     }
     return removed;
@@ -346,7 +346,7 @@ export function deleteChainItem(
       o.name !== node && (o.value as { vstpreset?: string }).vstpreset === own,
   );
   const f = join(dir, VSTPRESETS_DIR, own);
-  if ((!named || named === own) && !others && existsSync(f)) {
+  if ((!named || named === own) && !others && wsExists(f)) {
     rmSync(f);
     removed.push(`${VSTPRESETS_DIR}/${own}`);
   }

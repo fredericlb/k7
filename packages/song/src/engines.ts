@@ -3,7 +3,7 @@
 // what the module itself keeps is its identity and its place in the graph, never the engine's
 // plugin or panel. Rationale: docs/engines.md.
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   currentEngine,
@@ -21,6 +21,7 @@ import { parse as parseYaml } from "yaml";
 import { libraryFile, resolveFileParamIn } from "./libraryFiles";
 import type { LoadedModule } from "./rawDoc";
 import { moduleFileFor } from "./yaml/moduleIO";
+import { wsRead } from "./yaml/workspaceFile";
 
 /** The engine names a module folder holds: each sub-folder of `engines/` with a module file in it. */
 export function engineFoldersOf(folder: string | undefined): string[] {
@@ -56,9 +57,7 @@ export function enginesBeside(moduleFile: string): {
   const engineRefs = Object.fromEntries(folders.map((n) => [n, n]));
   let named: unknown;
   try {
-    named = (
-      parseYaml(readFileSync(moduleFile, "utf8")) as { engine?: unknown }
-    )?.engine;
+    named = (parseYaml(wsRead(moduleFile)) as { engine?: unknown })?.engine;
   } catch {
     named = undefined; // unreadable or half-typed: the default rule answers
   }

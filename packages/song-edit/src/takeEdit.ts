@@ -2,8 +2,9 @@
 // MIDI take written as a sequence of its own. The event is addressed by where it STARTS, as every
 // event verb addresses one; the YAML half is song-schema's takeFile.ts. See packages/song/docs/takes.md.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import {
   addTakeAt,
@@ -131,13 +132,13 @@ export function writeTakeSequence(
   den: number,
 ): string {
   const rel = `sequences/${id}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`sequence '${id}' already exists (${rel})`);
   mkdirSync(join(dir, "sequences"), { recursive: true });
   const line = (n: (typeof notes)[number]) =>
     `  - { t: ${n.t}, d: ${n.d}, k: ${n.k}${n.v === undefined ? "" : `, v: ${n.v}`} }`;
   const to = beatsToPosition(Math.max(lengthBeats, 0), num, den);
-  writeFileSync(
+  wsWrite(
     join(dir, rel),
     [
       'from: "1:1"',
@@ -146,7 +147,6 @@ export function writeTakeSequence(
       ...notes.map(line),
       "",
     ].join("\n"),
-    "utf8",
   );
   return rel;
 }

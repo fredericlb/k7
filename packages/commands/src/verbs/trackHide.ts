@@ -3,12 +3,12 @@
 // The one thing a reader would get wrong: a hidden lane is also taken out of `soloed`, since a solo
 // nobody can see would silence every other lane. See packages/song/docs/chainFiles.md, "Hidden chains".
 
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { isChainProject, readChainProject } from "@studio/song/chainProject";
 import { loadProjectRoot } from "@studio/song/loader";
 import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
+import { wsExists } from "@studio/song/yaml/workspaceFile";
 import { splitPort } from "@studio/song-schema/moduleTypes";
 import {
   CHAINS_DIR,
@@ -27,7 +27,7 @@ export const TRACK_HIDE_VERBS: Record<string, SidHandler> = {
 /** A chain's file on disk, `.yaml` or `.yml`. */
 const chainFile = (dir: string, chain: string): string => {
   const yml = join(dir, CHAINS_DIR, `${chain}.yml`);
-  return existsSync(yml) ? yml : join(dir, CHAINS_DIR, `${chain}.yaml`);
+  return wsExists(yml) ? yml : join(dir, CHAINS_DIR, `${chain}.yaml`);
 };
 
 async function hideTrack(

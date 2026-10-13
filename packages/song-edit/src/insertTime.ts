@@ -2,7 +2,7 @@
 // lane's events, its takes and its alternatives, the markers, every drawn curve's points, and the
 // video lanes. One pass, one report. Full rationale: docs/insertTime.md.
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   chainFiles,
@@ -13,6 +13,7 @@ import {
 import { loadProjectRoot } from "@studio/song/loader";
 import { parseMarkers } from "@studio/song/project";
 import { setQuotedKeyMap } from "@studio/song/yaml/edit";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { spliceCurveTime } from "@studio/song-schema/yaml/curveFile";
 import { spliceTime } from "@studio/song-schema/yaml/trackFile";
@@ -28,10 +29,10 @@ export interface TimeSpliceReport {
 /** Every `<dir>/<sub>/*.yaml`, or [] when the folder is absent. */
 function yamlIn(dir: string, sub: string): string[] {
   const at = join(dir, sub);
-  if (!existsSync(at)) return [];
+  if (!wsExists(at)) return [];
   try {
     return readdirSync(at)
-      .filter((f) => /\.ya?ml$/i.test(f))
+      .filter((f) => /\.(ya?ml|k7x)$/i.test(f))
       .sort();
   } catch {
     return [];
@@ -48,13 +49,13 @@ function edit(
   const path = join(dir, rel);
   let before: string;
   try {
-    before = readFileSync(path, "utf8");
+    before = wsRead(path);
   } catch {
     return;
   }
   const { text, moved, removed } = fn(before);
   if (text === before) return;
-  writeFileSync(path, text, "utf8");
+  wsWrite(path, text);
   report.files.push(rel);
   report.moved += moved;
   report.removed += removed;

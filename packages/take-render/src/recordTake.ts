@@ -3,9 +3,10 @@
 // job, so this writes the clips/<take>.yaml and the placement or the take entry — making a recording
 // indistinguishable from a clip you dropped in yourself. (Arming is session state and never a file.)
 
-import { existsSync, renameSync, writeFileSync } from "node:fs";
+import { renameSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
+import { wsExists, wsWrite } from "@studio/song/yaml/workspaceFile";
 import { addEventTake } from "@studio/song-edit/takeEdit";
 import { editTrackStruct } from "@studio/song-edit/trackMix";
 import { beatsToPosition } from "@studio/song-schema/timecode";
@@ -37,11 +38,10 @@ function writeClipDecl(
 ): string {
   const path = join(dir, "clips", `${id}.yaml`);
   // The FILENAME is the id, so there is no wrapper naming it a second time.
-  if (!existsSync(path))
-    writeFileSync(
+  if (!wsExists(path))
+    wsWrite(
       path,
       `source: clips/${wavName}\nfrom: "${window.from}"\nto: "${window.to}"\n`,
-      "utf8",
     );
   return path;
 }
@@ -52,7 +52,7 @@ function declareTake(
   doc: ProjectDoc,
   take: RecordedTake,
 ): { id: string; start: string; startBeats: number; lengthBeats: number } {
-  if (!existsSync(take.file))
+  if (!wsExists(take.file))
     throw new Error(`recorded file is missing: ${take.file}`);
 
   // Seconds -> quarter notes -> timecodes; every one of these is a POSITION, docs/rendering.md.

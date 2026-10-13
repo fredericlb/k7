@@ -3,11 +3,11 @@
 // plugin does not have. The engine only logs those; this turns each into a project warning.
 // See engine/st0-engine/docs/builtinParams.md.
 
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { builtinParamAutomatable } from "@studio/song-schema/builtinParams";
 import type { Diagnostic } from "./loader";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** The names a compiled graph declares, or null when the plugin carries no graph. */
 function graphParams(json: string | undefined): Set<string> | null {
@@ -37,7 +37,7 @@ export function deadAutomations(dir: string, doc: ProjectDoc): Diagnostic[] {
       const chain = (lane.pluginId ?? "").split(":")[0];
       const rel = `chains/${chain}.yaml`;
       out.push({
-        file: existsSync(join(dir, rel)) ? rel : "project.yaml",
+        file: wsExists(join(dir, rel)) ? rel : "project.yaml",
         line: 1,
         col: 1,
         severity: "warning",

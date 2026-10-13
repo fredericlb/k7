@@ -5,15 +5,7 @@
 // What would be got wrong: a template is ONE run from `@in` to `@out`; anything else is refused by
 // name, and every conversion is read back and compared with the folder before anything is written.
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parseChain } from "@studio/song-schema/yaml/chainFile";
@@ -29,6 +21,7 @@ import {
   TEMPLATE_OUT,
   type TemplateStep,
 } from "./libraryChains";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 const OPTS = { version: "1.2" as const, strict: false };
 
@@ -73,7 +66,7 @@ export function folderChains(
         walk(join(at, e.name), path ? `${path}/${e.name}` : e.name);
   };
   const root = join(libraryRoot, "chains");
-  if (existsSync(root)) walk(root, "");
+  if (wsExists(root)) walk(root, "");
   return out.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -151,13 +144,13 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
   const strays = readdirSync(c.at).filter(
     (f) => f !== GRAPH_FILE && f !== "nodes",
   );
-  for (const f of existsSync(nodesDir) ? readdirSync(nodesDir) : [])
+  for (const f of wsExists(nodesDir) ? readdirSync(nodesDir) : [])
     if (!/\.(ya?ml|vstpreset)$/.test(f)) strays.push(`nodes/${f}`);
   if (strays.length)
     throw new Error(
       `holds ${strays.join(", ")}, which a chain file has no place for`,
     );
-  const graphText = readFileSync(join(c.at, GRAPH_FILE), "utf8");
+  const graphText = wsRead(join(c.at, GRAPH_FILE));
   const run = runOf(graphText);
   if (typeof run === "string") throw new Error(`not one run: ${run}`);
   // The run is the truth: a graph still keyed `tracks:` reads as NO step through the folder reader.
@@ -177,16 +170,18 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
   const before: TemplateStep[] = [];
   for (const name of run) {
     const file = join(nodesDir, `${name}.yaml`);
-    if (!existsSync(file))
+    if (!wsExists(file))
       throw new Error(`names "${name}", and holds no nodes/${name}.yaml`);
     const preset = join(nodesDir, `${name}.vstpreset`);
     before.push({
       name,
       label: name,
-      module: (parseDocument(readFileSync(file, "utf8"), OPTS).toJS() ??
-        {}) as Record<string, unknown>,
+      module: (parseDocument(wsRead(file), OPTS).toJS() ?? {}) as Record<
+        string,
+        unknown
+      >,
       ...(bypassed.has(name) ? { bypass: true } : {}),
-      ...(existsSync(preset) ? { preset } : {}),
+      ...(wsExists(preset) ? { preset } : {}),
     });
   }
 
@@ -197,7 +192,7 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
   for (const s of before) {
     const id = newNodeId();
     ids.push([s.name, id]);
-    const nodeText = readFileSync(join(nodesDir, `${s.name}.yaml`), "utf8");
+    const nodeText = wsRead(join(nodesDir, `${s.name}.yaml`));
     steps.items.push(itemOf(nodeText, id, !!s.bypass));
     if (s.preset)
       presets.push([
@@ -239,7 +234,7 @@ export function convertFolderChain(c: LibraryChainDir): ChainConversion {
 
 /** Write a conversion: the file, its presets moved, the folder removed. */
 export function applyConversion(cv: ChainConversion): void {
-  writeFileSync(cv.to, cv.text);
+  wsWrite(cv.to, cv.text);
   for (const [from, to] of cv.presets) {
     mkdirSync(dirname(to), { recursive: true });
     renameSync(from, to);

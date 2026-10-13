@@ -44,6 +44,7 @@
     "./testSupport": "./src/testSupport.ts",
     "./yaml/edit": "./src/yaml/edit.ts",
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
+    "./yaml/workspaceFile": "./src/yaml/workspaceFile.ts",
     "./yaml/materialFile": "./src/yaml/materialFile.ts",
     "./folder": "./src/folder.ts",
     "./engineCatalogue": "./src/engineCatalogue.ts",
@@ -83,6 +84,7 @@
     "yaml": "^2.5.0",
     "zod": "^4.4.3",
     "@studio/dsp": "*",
+    "@studio/k7x": "*",
     "@studio/song-schema": "*",
     "@studio/engine-protocol": "*",
     "@studio/graph-model": "*"

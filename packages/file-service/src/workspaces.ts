@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { projectSurfaces } from "@studio/song/surfaces";
+import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { projectTagsOf } from "@studio/song-schema/projectTags";
 import type {
   AccountWorkspace,
@@ -192,9 +193,7 @@ export async function listMachineWorkspaces(
 /** An st0 project's tags, read from its project.yaml; none when there is no such file. */
 function tagsOf(projectDir: string): string[] {
   try {
-    return projectTagsOf(
-      readFileSync(join(projectDir, "project.yaml"), "utf8"),
-    );
+    return projectTagsOf(wsRead(join(projectDir, "project.yaml")));
   } catch {
     return [];
   }

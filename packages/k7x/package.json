@@ -9,7 +9,8 @@
     "./parse": "./src/parse.ts",
     "./print": "./src/print.ts",
     "./document": "./src/edit.ts",
-    "./from-yaml": "./src/fromYaml.ts"
+    "./from-yaml": "./src/fromYaml.ts",
+    "./yaml-bridge": "./src/yamlBridge.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

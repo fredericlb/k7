@@ -3,9 +3,9 @@
 // is always a number, so a string can only be a file. `@<library>/…` reads a library's `wavetables/`,
 // then its `samples/`; anything else is a path under the project. See docs/faustFiles.md.
 
-import { existsSync } from "node:fs";
 import { isAbsolute, resolve, sep } from "node:path";
 import { libraryFile } from "./libraryFiles";
+import { wsExists } from "./yaml/workspaceFile";
 
 /** The slot → absolute file map a Faust module's string params make, or undefined when it names none. */
 export function faustFilesOf(
@@ -31,5 +31,5 @@ function resolveSoundRef(ref: string, projectDir: string): string {
   if (isAbsolute(ref)) return ref;
   const abs = resolve(projectDir, ref);
   // Inside the project only: a ref is text a file holds, and `..` must not walk out of it.
-  return abs.startsWith(projectDir + sep) && existsSync(abs) ? abs : ref;
+  return abs.startsWith(projectDir + sep) && wsExists(abs) ? abs : ref;
 }

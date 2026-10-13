@@ -3,7 +3,7 @@
 // which module a panel belongs to; the file only says how it looks. Read across every module library the project
 // can see, nearest first. Rationale: docs/uiLibrary.md.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   type ModuleUI,
@@ -14,6 +14,7 @@ import { parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { UI_BASE } from "./yaml/moduleIO";
+import { wsExists, wsWrite } from "./yaml/workspaceFile";
 import { settledParse, settledText } from "./yaml/yamlCache";
 
 /** The panel file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
@@ -73,7 +74,7 @@ export const uiWithScript = (e: UiEntry): ModuleUI & { script?: string } =>
 // A panel's script is a sibling like the panel itself: same folder, same precedence.
 function readScriptBeside(uiPath: string): string | undefined {
   const at = join(dirname(uiPath), WIDGETS_SCRIPT);
-  if (!existsSync(at)) return undefined;
+  if (!wsExists(at)) return undefined;
   try {
     return settledText(at);
   } catch {
@@ -98,7 +99,7 @@ export function writeUiFile(
 ): string {
   const path = join(moduleRootFor(dir, ref), uiPathFor(ref));
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, uiFileText(ui, header ?? `panel for ${ref}`), "utf8");
+  wsWrite(path, uiFileText(ui, header ?? `panel for ${ref}`));
   return path;
 }
 

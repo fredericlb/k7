@@ -2,13 +2,7 @@
 // one. A one-shot, re-runnable: a module with no `ui:` left is already migrated and is skipped, so running it
 // twice does nothing the first run didn't. Rationale: docs/uiLibrary.md.
 
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { setModuleValue } from "@studio/song-schema/yaml/moduleFile";
 import { type ModuleUI, UISchema } from "@studio/song-schema/yaml/moduleSchema";
@@ -17,6 +11,7 @@ import { MODULE_TYPES } from "./loader";
 import { moduleNamespaceOf } from "./sharedFolders";
 import { writeUiFile } from "./uiLibrary";
 import { moduleFileFor } from "./yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 export interface UiMigration {
   /** Panels written, as `<ref> → <library>/<path>`. */
@@ -42,7 +37,7 @@ function candidatesIn(
   const out: Candidate[] = [];
   for (const type of Object.keys(MODULE_TYPES)) {
     const typeDir = join(base, type);
-    if (!existsSync(typeDir) || !statSync(typeDir).isDirectory()) continue;
+    if (!wsExists(typeDir) || !statSync(typeDir).isDirectory()) continue;
     const visit = (folder: string, sub: string): void => {
       const file = moduleFileFor(folder, "", "module");
       if (file) {
@@ -73,7 +68,7 @@ export function migrateModuleUis(dir: string): UiMigration {
   const roots: { base: string; ns: string; label: string }[] = [];
   // Nothing left to declare, so the folder existing is the whole condition (docs/sharedFolders.md).
   const shared = join(dir, "..", "_modules");
-  if (existsSync(shared))
+  if (wsExists(shared))
     roots.push({
       base: shared,
       ns: moduleNamespaceOf(shared),
@@ -81,13 +76,13 @@ export function migrateModuleUis(dir: string): UiMigration {
     });
 
   for (const { base, ns, label } of roots) {
-    if (!existsSync(base)) continue;
+    if (!wsExists(base)) continue;
     const rel = (p: string) =>
       `${label}/${relative(base, p).split(sep).join("/")}`;
     for (const c of candidatesIn(base, ns, rel)) {
       let text: string;
       try {
-        text = readFileSync(c.path, "utf8");
+        text = wsRead(c.path);
       } catch (e) {
         out.errors.push(`${c.label}: ${(e as Error).message}`);
         continue;
@@ -112,7 +107,7 @@ export function migrateModuleUis(dir: string): UiMigration {
           parsed.data as ModuleUI,
           `panel for ${c.ref}`,
         );
-        writeFileSync(c.path, setModuleValue(text, ["ui"], null), "utf8");
+        wsWrite(c.path, setModuleValue(text, ["ui"], null));
         out.moved.push(
           `${c.ref} → ${label}/${relative(base, written).split(sep).join("/")}`,
         );

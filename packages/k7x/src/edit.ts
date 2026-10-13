@@ -102,6 +102,27 @@ export class K7Document {
     this.setIn([...path, node.items.length], value);
   }
 
+  /** Inserts into the list at a path before item `index`, on a line of its own when that item has one. */
+  insertIn(path: K7Path, index: number, value: unknown): void {
+    const node = this.getNode(path);
+    if (node?.kind !== "list")
+      throw new Error(`k7x: ${path.join(".")} is not a list`);
+    if (index >= node.items.length) {
+      this.setIn([...path, node.items.length], value);
+      return;
+    }
+    const t = this.text;
+    const at = node.items[index].start;
+    const ind = indentOf(t, at);
+    if (node.form === "brackets" && headBlank(t, at)) {
+      const text = print(fromJS(value), ind, "item", ind).text;
+      this.splice(at, at, `${text},\n${pad(ind)}`);
+      return;
+    }
+    const used = at - lineStart(t, at);
+    this.splice(at, at, `${print(fromJS(value), ind, "item", used).text}, `);
+  }
+
   /** Removes the entry or item at a path; false when there was nothing there. */
   deleteIn(path: K7Path): boolean {
     const parent = this.getNode(path.slice(0, -1));

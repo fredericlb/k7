@@ -719,19 +719,21 @@ export function makeListArg(shell: {
     if (canonical === "ui external" && first) return shell.surfaces();
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
-      return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));
+      return shell
+        .files()
+        .filter((f) => /(^|\/)module\.(?:ya?ml|k7x)$/i.test(f));
     // A curve is named by its id, its file's basename, as a clip is below.
     if (canonical === "ui curve" && first)
       return shell
         .files()
-        .filter((f) => /(^|\/)curves\/[^/]+\.ya?ml$/i.test(f))
-        .map((f) => (f.split("/").pop() ?? f).replace(/\.ya?ml$/i, ""));
+        .filter((f) => /(^|\/)curves\/[^/]+\.(?:ya?ml|k7x)$/i.test(f))
+        .map((f) => (f.split("/").pop() ?? f).replace(/\.(?:ya?ml|k7x)$/i, ""));
     // The review takes a clip ID, not a path, so the tree is filtered to clips/ and the basename handed back, which is what the id IS.
     if (canonical === "ui review" && first)
       return shell
         .files()
-        .filter((f) => /(^|\/)clips\/[^/]+\.ya?ml$/i.test(f))
-        .map((f) => (f.split("/").pop() ?? f).replace(/\.ya?ml$/i, ""));
+        .filter((f) => /(^|\/)clips\/[^/]+\.(?:ya?ml|k7x)$/i.test(f))
+        .map((f) => (f.split("/").pop() ?? f).replace(/\.(?:ya?ml|k7x)$/i, ""));
     if (ENTRY_COMMANDS.has(canonical)) {
       // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, which is what stops a NAME field being answered with the tree.
       const arg = LOCAL_ARGS[canonical]?.[priorArgs.length];

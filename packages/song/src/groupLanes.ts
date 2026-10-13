@@ -3,7 +3,7 @@
 // its own: the group's list is the one place membership is written, so moving a track is an edit of two lists.
 // See docs/trackModules.md.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { GROUP_TRACK_REF } from "@studio/song-schema/moduleTypes";
 import { TRACKS_DIR } from "@studio/song-schema/yaml/chainSchema";
@@ -12,6 +12,7 @@ import { isChainProject } from "./chainProject";
 import { NODES_DIR } from "./loader";
 import { setFileValue } from "./yaml/edit";
 import { entityFileFor } from "./yaml/moduleIO";
+import { wsExists, wsWrite } from "./yaml/workspaceFile";
 
 const LANE_NAME = /^[A-Za-z0-9_.-]+$/;
 
@@ -31,10 +32,10 @@ export function createGroupFile(
     );
   if (isChainProject(dir)) return createChainLane(dir, id, groupBody(members));
   const rel = `${NODES_DIR}/${id}.yaml`;
-  if (existsSync(join(dir, rel)))
+  if (wsExists(join(dir, rel)))
     throw new Error(`a lane '${id}' already exists (${rel})`);
   mkdirSync(join(dir, NODES_DIR), { recursive: true });
-  writeFileSync(join(dir, rel), groupBody(members), "utf8");
+  wsWrite(join(dir, rel), groupBody(members));
   return [rel];
 }
 

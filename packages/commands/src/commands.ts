@@ -3,13 +3,7 @@
 // runs from the web command bar and from `st0 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
@@ -188,6 +182,7 @@ import {
   moduleFileFor,
   readModuleFile,
 } from "@studio/song/yaml/moduleIO";
+import { wsExists, wsRead, wsWrite } from "@studio/song/yaml/workspaceFile";
 import {
   EVENT_GAIN_MAX_DB,
   eventGainValue,
@@ -544,7 +539,7 @@ function makeModule(
   if (segs.length !== 2 || !segs[0] || !segs[1])
     return { error: `'${target}' is not <category>/<name>` };
   const [category, name] = segs;
-  const exists = existsSync(localModuleFolder(songPath, category, name));
+  const exists = wsExists(localModuleFolder(songPath, category, name));
   // The picker names a local module by its OWN ref: that is "use it", not "make it inherit itself".
   const own = `${isProjectFolder(songPath) ? "@workspace" : "@project"}/${category}/${name}`;
   if (exists && extendsRef === own) return { ref: name, rel: null };
@@ -748,13 +743,13 @@ function padEffectCommand(effect: PadEffect): SidHandler {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
-      writeFileSync(file, setNoteEffect(text, k, t, effect, n), "utf8");
+      wsWrite(file, setNoteEffect(text, k, t, effect, n));
     } catch (e) {
       h.refuse([`sequence note ${effect}: ${(e as Error).message}`]);
       return;
@@ -823,7 +818,7 @@ function regionCommand(
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
@@ -846,7 +841,7 @@ function regionCommand(
       ]);
       return;
     }
-    writeFileSync(file, out.text, "utf8");
+    wsWrite(file, out.text);
     h.log([`${seqId}: ${out.changed} note(s) ${verb}d`]);
     await h.reload();
   };
@@ -1332,7 +1327,7 @@ async function curvePointCommand(
   };
   try {
     const file = join(h.songPath, "curves", `${id}.yaml`);
-    const points = curvePoints(readFileSync(file, "utf8"), num, den);
+    const points = curvePoints(wsRead(file), num, den);
     if (mode === "add") {
       const v = unit(parts[2]);
       if (v === undefined) {
@@ -2510,7 +2505,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
-    if (!existsSync(join(h.songPath, "clips", `${clipArg}.yaml`))) {
+    if (!wsExists(join(h.songPath, "clips", `${clipArg}.yaml`))) {
       h.refuse([
         `no clip "${clipArg}" — clips/${clipArg}.yaml does not exist`,
         "a placement naming no clip stops the project loading, so this refuses rather than writes it",
@@ -2627,8 +2622,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       // The same refusal `event add` makes: a placement the compiler cannot resolve fails the WHOLE song.
       if (
-        !existsSync(join(h.songPath, "clips", `${ref}.yaml`)) &&
-        !existsSync(join(h.songPath, "sequences", `${ref}.yaml`))
+        !wsExists(join(h.songPath, "clips", `${ref}.yaml`)) &&
+        !wsExists(join(h.songPath, "sequences", `${ref}.yaml`))
       ) {
         h.refuse([
           `${where}: no clip or sequence "${ref}" — a placement naming neither stops the project loading`,
@@ -2763,12 +2758,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
-    writeFileSync(file, appendNotes(text, [{ t, d, k }]), "utf8");
+    wsWrite(file, appendNotes(text, [{ t, d, k }]));
     h.log([
       `added ${noteStr} (k${k}) ${fmtBeat(t)}..${fmtBeat(end)} → ${seqId}`,
     ]);
@@ -2807,14 +2802,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
       h.snapshot?.(file);
-      writeFileSync(file, setNoteTimeRange(text, k, t, nt, ne - nt), "utf8");
+      wsWrite(file, setNoteTimeRange(text, k, t, nt, ne - nt));
     } catch (e) {
       h.refuse([`sequence note timerange: ${(e as Error).message}`]);
       return;
@@ -2859,13 +2854,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
-      writeFileSync(file, moveNote(text, k, t, nk, nt), "utf8");
+      wsWrite(file, moveNote(text, k, t, nk, nt));
     } catch (e) {
       h.refuse([`sequence note move: ${(e as Error).message}`]);
       return;
@@ -2898,14 +2893,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
       h.snapshot?.(file);
-      writeFileSync(file, splitNote(text, k, t, at), "utf8");
+      wsWrite(file, splitNote(text, k, t, at));
     } catch (e) {
       h.refuse([`sequence note split: ${(e as Error).message}`]);
       return;
@@ -2937,13 +2932,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
-      writeFileSync(file, removeNote(text, k, t), "utf8");
+      wsWrite(file, removeNote(text, k, t));
     } catch (e) {
       h.refuse([`sequence note remove: ${(e as Error).message}`]);
       return;
@@ -2962,7 +2957,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
@@ -2981,7 +2976,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     h.snapshot?.(file);
-    writeFileSync(file, next, "utf8");
+    wsWrite(file, next);
     // …and half as many passes wherever it is LOOPED, so four bars of it stay four bars — docs/verbs.md.
     const loops = halveLoopsOf(h.songPath, seqId, (f) => h.snapshot?.(f));
     h.log([
@@ -3072,13 +3067,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
-      writeFileSync(file, moveNotes(text, moves), "utf8");
+      wsWrite(file, moveNotes(text, moves));
     } catch (e) {
       h.refuse([`sequence notes move: ${(e as Error).message}`]);
       return;
@@ -3114,17 +3109,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
-      writeFileSync(
-        file,
-        setNoteVelocity(text, k, t, v === 1 ? undefined : v),
-        "utf8",
-      );
+      wsWrite(file, setNoteVelocity(text, k, t, v === 1 ? undefined : v));
     } catch (e) {
       h.refuse([`sequence note velocity: ${(e as Error).message}`]);
       return;
@@ -3164,7 +3155,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
-      text = readFileSync(file, "utf8");
+      text = wsRead(file);
     } catch {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
@@ -3184,7 +3175,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse(["no valid notes to record"]);
       return;
     }
-    writeFileSync(file, appendNotes(text, playable), "utf8");
+    wsWrite(file, appendNotes(text, playable));
     h.log([`recorded ${playable.length} note(s) → ${seqId}`]);
     await h.reload();
   },

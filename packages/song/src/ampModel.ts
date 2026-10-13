@@ -3,7 +3,8 @@
 // widgets.js uses it to show only the knobs a model has — engine/st0-engine/docs/namPlugin.md.
 // A `.nam` is never opened: its format has no knob inputs, so its answer is known from the name.
 
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
+import { wsRead } from "./yaml/workspaceFile";
 
 /** The knobs the engine's amp exposes — `Knob 1`..`Knob 3`, whatever a model declares beyond. */
 export const MAX_AMP_KNOBS = 3;
@@ -57,7 +58,7 @@ export function ampModelInfo(path: string): AmpModelInfo | null {
   if (hit && hit.mtimeMs === mtimeMs) return hit.info;
   let info: AmpModelInfo | null;
   try {
-    info = ampModelOfJson(JSON.parse(readFileSync(path, "utf8")));
+    info = ampModelOfJson(JSON.parse(wsRead(path)));
   } catch {
     info = null;
   }

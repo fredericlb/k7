@@ -25,7 +25,8 @@ export interface LibraryChainRow {
 }
 
 /** A chain kept as ONE file — the format; a folder chain is one a library clone has not migrated yet. */
-export const isChainFile = (path: string): boolean => /\.ya?ml$/i.test(path);
+export const isChainFile = (path: string): boolean =>
+  /\.(?:ya?ml|k7x)$/i.test(path);
 
 /** An assembly template of the library: `path` its folder, `file` the `assembly.yaml` the builder opens. */
 export interface LibraryAssemblyRow {
