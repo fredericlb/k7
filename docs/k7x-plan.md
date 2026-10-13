@@ -49,9 +49,12 @@ reason:
    completion from the same zod-derived vocabulary as YAML (`packages/ui-editor/docs/completion.md`),
    and the same check before autosave, its findings placed on the k7x text's own lines — in the
    browser and in the loader's messages alike. Done.
-6. **Conversion** — `demos/` and `st0-library/` in one commit each; stored workspaces by a one-shot
-   pass per account through the file service, which converts a file only when it reads back equal
-   and keeps the original beside it until that account's next sync confirms the copy.
+6. **Conversion** — `demos/` and `st0-library/` are `.k7x`, each converted in a commit of its own by
+   `packages/song/scripts/migrateK7x.ts`, every file checked to read back to the same data. Stored
+   workspaces convert through the file service's `POST /migrate-k7x`, one account at a time, the
+   originals kept in the workspace's hidden `.k7x-backup/` (`packages/song/docs/k7xFiles.md`). That
+   route refuses a real run until `STUDIO_K7X_MIGRATE=1`: turning it on, once every shipped build
+   reads `.k7x`, is the step this phase leaves to the deploy.
 7. **YAML removed** — new files are written as `.k7x` and `.yaml` is no longer looked up. Readers
    still receive YAML text through the bridge; each moves to reading k7x data directly as it is next
    touched, and `yaml` leaves a package once none of its readers needs the bridge.
