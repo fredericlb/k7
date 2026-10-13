@@ -207,6 +207,23 @@ export interface WorkspaceSyncStatus {
 export interface AccountLibrary {
   name: string;
   present: boolean;
+  /** Its published versions, oldest first — docs/library-versions-plan.md. */
+  versions?: LibraryVersionInfo[];
+  /** Whether it has the draft its admins edit. */
+  draft?: boolean;
+}
+
+/** One published version of a library: the lowest LIBRARY_LEVEL that runs it, and what changed. */
+export interface LibraryVersionInfo {
+  version: number;
+  requires: number;
+  notes?: string;
+}
+
+/** `POST /account/libraries/<name>/publish` — the draft frozen as the next version; `requires` unsaid is the previous one's. */
+export interface PublishLibraryBody {
+  requires?: number;
+  notes?: string;
 }
 
 /** What giving a library its folder did, said as the hub would say it. */

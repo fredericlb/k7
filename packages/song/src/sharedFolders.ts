@@ -27,9 +27,13 @@ export {
 
 import {
   DRAFT_VERSION,
+  LIBRARY_LEVEL,
+  LIBRARY_MANIFEST,
   LIBRARY_PINS_FILE,
+  type LibraryManifest,
   type LibraryPins,
   type LibraryVersion,
+  parseLibraryManifest,
   parseLibraryPins,
   UNPINNED_VERSION,
   versionOfDir,
@@ -84,6 +88,31 @@ export function libraryVersions(name: string): number[] {
   return dirs
     .filter((v): v is number => v !== DRAFT_VERSION)
     .sort((a, b) => a - b);
+}
+
+/** What published version `v` of library `name` says about itself, or null when it carries no manifest. */
+export function libraryManifest(
+  name: string,
+  v: number,
+): LibraryManifest | null {
+  try {
+    return parseLibraryManifest(
+      readFileSync(join(libraryVersionRoot(name, v), LIBRARY_MANIFEST), "utf8"),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** The newest published version of `name` a st0 at `level` runs; a version with no manifest asks for nothing. */
+export function newestRunnableVersion(
+  name: string,
+  level = LIBRARY_LEVEL,
+): number {
+  const runnable = libraryVersions(name).filter(
+    (v) => (libraryManifest(name, v)?.requires ?? 1) <= level,
+  );
+  return runnable.length ? runnable[runnable.length - 1] : UNPINNED_VERSION;
 }
 
 /** The folder version `v` of library `name` is read from; a library still in one folder is every version of itself. */

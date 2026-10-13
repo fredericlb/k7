@@ -100,9 +100,26 @@ describe("the hub's libraries", () => {
       libraries: [{ name: "st0" }, { name: "drums" }],
     });
     expect(store.view().libraries).toEqual([
-      { name: "st0", present: true },
-      { name: "drums", present: true },
+      {
+        name: "st0",
+        present: true,
+        versions: [{ version: 1, requires: 1 }],
+        draft: false,
+      },
+      {
+        name: "drums",
+        present: true,
+        versions: [{ version: 1, requires: 1 }],
+        draft: false,
+      },
     ]);
+  });
+
+  it("refuses to publish under a name that is no library", () => {
+    const store = new LibraryStore(data, seed);
+    expect(store.publish("../st0")).toEqual({
+      error: "'../st0' names no library",
+    });
   });
 
   it("keeps the folder of a library the list dropped: it is the library, not a copy", () => {

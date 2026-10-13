@@ -107,8 +107,10 @@ two copies would compile a song two ways.
   `.sync-follow/` for the origin's), since the two relays' seqs are different numbers.
 
 `/account/libraries` is answered by the hub and never forwarded (`../librariesRoutes.ts`): `GET` the
-list, for anyone, giving every listed library its folder first; `PUT` the list (`{ libraries:
-[{ name }] }`), for admins, 403 otherwise.
+list, for anyone, giving every listed library its folder first, each with its published versions
+and whether it has a draft; `PUT` the list (`{ libraries: [{ name }] }`), for admins, 403
+otherwise; `POST /account/libraries/<name>/publish` (`{ requires?, notes? }`), for admins, freezes
+the draft as the next version.
 
 The file services call back on `/api/files-hub/internal` (`$STUDIO_HUB_URL`), which serves one
 route, `POST /libraries/sync`: the folders made sure of before an open. Its gate is the hub secret

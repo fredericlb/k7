@@ -137,6 +137,10 @@ export class LibraryStore {
       libraries: this.settings().map((l) => ({
         name: l.name,
         present: existsSync(join(this.home, l.name)),
+        versions: this.versions(l.name).map(({ version, requires, notes }) =>
+          notes ? { version, requires, notes } : { version, requires },
+        ),
+        draft: existsSync(join(this.home, l.name, DRAFT_VERSION)),
       })),
     };
     if (notes?.length) reply.notes = notes;
@@ -186,11 +190,13 @@ export class LibraryStore {
     name: string,
     opts: { requires?: number; notes?: string } = {},
   ): { ok: true; manifest: LibraryManifest } | { error: string } {
+    if (!isLibraryName(name)) return { error: `'${name}' names no library` };
     const at = join(this.home, name);
     const draft = join(at, DRAFT_VERSION);
     if (!existsSync(draft))
       return { error: `'${name}' has no draft to publish` };
-    const requires = opts.requires ?? LIBRARY_LEVEL;
+    // Unsaid, the previous version's: publishing must not raise the floor by accident and lock old desktops out.
+    const requires = opts.requires ?? this.versions(name).at(-1)?.requires ?? 1;
     if (!Number.isInteger(requires) || requires < 1 || requires > LIBRARY_LEVEL)
       return {
         error: `'${name}' cannot require level ${requires}: this st0 runs level ${LIBRARY_LEVEL}`,

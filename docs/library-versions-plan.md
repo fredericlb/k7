@@ -44,7 +44,8 @@ st0 has several version schemes: the image stamp (`26.08031412`), the desktop's 
   a parameter kind, a bundled plugin, a field of `module.yaml`.
 - **An st0 at level N runs every library whose `requires` is at most N.** That is the compatibility
   promise, and what lets the server open an old pin: the server is always at the highest level.
-- Publish refuses a draft whose `requires` exceeds the origin's own level.
+- Publish refuses a draft whose `requires` exceeds the origin's own level. Unsaid, `requires` is
+  the previous version's, so a publish never raises the floor by accident.
 - On a desktop or a phone the backend and the engine ship together, so they share one level. On the
   server, an engine reports its level when it connects, and opening a project warns when that engine
   is below the pinned library's `requires`.
@@ -65,6 +66,8 @@ drums: 2
 - A library the file does not name resolves to the version that was current when versions arrived,
   and the first open WRITES that pin, so no song changes sound unasked.
 - A new workspace pins the newest version its st0 can run.
+- An admin's workspace pins `draft`, new or not: an admin authors the library from their own
+  workspaces, and a frozen version refuses the write.
 
 ## Upgrade
 
@@ -110,10 +113,12 @@ library and every workspace, and runs at the highest level, so latest, old and f
 1. **Built.** `library.yaml`, `LIBRARY_LEVEL` (`../packages/song-schema/src/libraryVersions.ts`), the
    `draft/` + `<n>/` layout on the origin, an existing library moved into `1/`, the draft made on an
    admin's ask, and `LibraryStore.publish` (`../packages/file-hub/libraries.ts`).
-2. `_library-pins.yaml`. **Built:** the compile, the file tree and the presets read the pinned
-   folder. **Remains:** writing the pin on first open and on workspace creation.
-3. Publish in the Libraries panel and its route (`publish` exists, nothing calls it);
-   `GET /api/libraries`; archive download.
+2. **Built.** `_library-pins.yaml`: the compile, the file tree and the presets read the pinned
+   folder, and `ensureLibraryPins` (`../packages/file-service/src/libraryPins.ts`) writes it on
+   workspace creation and on the first open.
+3. **Built:** Publish on the Libraries page, `POST /account/libraries/<name>/publish`, and each
+   library's versions in `GET /account/libraries`. **Remains, with lot 4 that consumes them:** the
+   listing readable without signing in, and a version's archive download.
 4. Upgrade: the per-workspace action, the `requires` gate, the list of forks whose base moved; paired
    machines fetch pinned versions instead of following the relay.
 5. The installer's archive replaces the seed folder on the desktop and the phone.

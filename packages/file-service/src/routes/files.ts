@@ -30,6 +30,7 @@ import {
   webCompletions,
 } from "../engineLink.ts";
 import { refreshLibraries } from "../libraries.ts";
+import { ensureLibraryPins } from "../libraryPins.ts";
 import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
@@ -230,7 +231,10 @@ filesRouter.post(
   wrap(async (req, res) => {
     const { path } = req.body as z.infer<typeof openBody>;
     // The libraries given their folders, and writable in place for an admin — docs/libraries.md.
-    await refreshLibraries(req.get(ADMIN_HEADER) === "1");
+    const admin = req.get(ADMIN_HEADER) === "1";
+    await refreshLibraries(admin);
+    // A workspace from before versions pins what it already hears, once.
+    ensureLibraryPins(req.ws!.root, { fresh: false, admin });
     try {
       // `.` is the WORKSPACE, which now holds several projects: it names one only when the
       // folder itself is one. Otherwise the workspace decides — see docs/workspaces.md.
