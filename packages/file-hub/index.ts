@@ -244,9 +244,13 @@ export class FileHub {
           res.status(404).json({ error: `no ${req.method} ${req.path}` });
           return;
         }
-        const body = (await jsonBody(req)) as { name?: unknown };
+        const body = (await jsonBody(req)) as {
+          name?: unknown;
+          draft?: unknown;
+        };
         const notes = this.libraries.ensure({
           name: typeof body.name === "string" ? body.name : undefined,
+          draft: body.draft === true,
         });
         res.json({ notes });
       })().catch((e: Error) => {

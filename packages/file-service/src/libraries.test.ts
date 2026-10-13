@@ -10,6 +10,7 @@ import {
 } from "@studio/song/sharedFolders";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { refreshLibraries } from "./libraries.ts";
+import { Workspace } from "./workspace.ts";
 
 const env = {
   home: process.env.STUDIO_LIBRARIES_HOME,
@@ -36,6 +37,20 @@ describe("refreshLibraries", () => {
     await refreshLibraries(true);
     expect(isLibraryEditable("st0")).toBe(true);
     expect(libraryRoot("st0")).toBe(join(home, "st0"));
+  });
+
+  it("opens a versioned library's DRAFT to an admin, and never one of its versions", async () => {
+    mkdirSync(join(home, "st0", "1"));
+    mkdirSync(join(home, "st0", "draft"));
+    await refreshLibraries(true);
+    expect(libraryRoot("st0")).toBe(join(home, "st0", "draft"));
+    const ws = new Workspace(mkdtempSync(join(tmpdir(), "ws-")));
+    expect(() =>
+      ws.assertLibraryWritable(join(home, "st0", "1", "modules", "x")),
+    ).toThrow(/published version never changes/);
+    expect(() =>
+      ws.assertLibraryWritable(join(home, "st0", "draft", "modules", "x")),
+    ).not.toThrow();
   });
 
   it("leaves them read-only to anyone else", async () => {

@@ -32,10 +32,61 @@ describe("the hub's libraries", () => {
     expect(store.settings()).toEqual([{ name: "st0" }]);
     expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
     expect(
-      readFileSync(join(store.home, "st0", "modules", "mix.yaml"), "utf8"),
+      readFileSync(join(store.home, "st0", "1", "modules", "mix.yaml"), "utf8"),
     ).toBe("plugin: mixer\n");
-    expect(existsSync(join(store.home, "st0", ".git"))).toBe(false);
+    expect(existsSync(join(store.home, "st0", "1", ".git"))).toBe(false);
+    expect(store.versions("st0")).toEqual([
+      { name: "st0", version: 1, requires: 1 },
+    ]);
     expect(store.ensure()).toMatchObject([{ name: "st0", state: "current" }]);
+  });
+
+  it("moves a library still in one folder into its version 1, leaving no draft until an admin asks", () => {
+    const store = new LibraryStore(data, seed);
+    mkdirSync(join(store.home, "st0", "modules"), { recursive: true });
+    writeFileSync(join(store.home, "st0", "modules", "old.yaml"), "x: 1\n");
+    expect(store.ensure()).toMatchObject([
+      { name: "st0", state: "current", note: "moved into version 1" },
+    ]);
+    expect(
+      existsSync(join(store.home, "st0", "1", "modules", "old.yaml")),
+    ).toBe(true);
+    expect(existsSync(join(store.home, "st0", "draft"))).toBe(false);
+    expect(store.ensure({ draft: true })).toMatchObject([
+      { name: "st0", note: "draft copied from version 1" },
+    ]);
+    expect(
+      existsSync(join(store.home, "st0", "draft", "modules", "old.yaml")),
+    ).toBe(true);
+    expect(existsSync(join(store.home, "st0", "draft", "library.yaml"))).toBe(
+      false,
+    );
+  });
+
+  it("publishes the draft as the next version, frozen with its manifest, and refuses a level this st0 cannot run", () => {
+    const store = new LibraryStore(data, seed);
+    store.ensure({ draft: true });
+    writeFileSync(
+      join(store.home, "st0", "draft", "modules", "mix.yaml"),
+      "plugin: newer\n",
+    );
+    expect(store.publish("st0", { requires: 99 })).toMatchObject({
+      error: expect.stringContaining("level 99"),
+    });
+    expect(store.publish("st0", { notes: "louder" })).toMatchObject({
+      ok: true,
+      manifest: { name: "st0", version: 2, notes: "louder" },
+    });
+    expect(
+      readFileSync(join(store.home, "st0", "2", "modules", "mix.yaml"), "utf8"),
+    ).toBe("plugin: newer\n");
+    expect(
+      readFileSync(join(store.home, "st0", "1", "modules", "mix.yaml"), "utf8"),
+    ).toBe("plugin: mixer\n");
+    expect(store.versions("st0").map((m) => m.version)).toEqual([1, 2]);
+    expect(store.publish("drums")).toMatchObject({
+      error: "'drums' has no draft to publish",
+    });
   });
 
   it("makes a library the seed does not hold empty, and writes the list", () => {

@@ -33,10 +33,16 @@ workspace the wrong owner: each copy drifting from the others with nothing to re
 carrying somebody else's catalogue, and one library per account, since a fixed folder name is what
 makes `@st0` mean it.
 
-**What that costs, and it is deliberate: no version is pinned.** A library is as its admins last
-left it, and a song opened tomorrow hears the modules as they are tomorrow. A module is the
-library's to change, the way a plugin update is the vendor's; a song that must not move bounces
-what it needs (`packages/audio-passes/docs/processChain.md`).
+**A library is a series of frozen VERSIONS, and the workspace pins one.** `<name>/1/`, `<name>/2/`…
+are published and never written again; `<name>/draft/` is the one its admins edit. A workspace
+names the version of each library it uses in `_library-pins.yaml` at its root, and every function
+here that turns a name into a folder takes the path it resolves FROM (`libraryRoot(name, from)`),
+walks up to that file, and answers the pinned version's folder. Unpinned is version 1. What forced
+it: a desktop whose st0 is too old for the newest version keeps playing an older one, and the
+server must open that song as the desktop hears it. A path already inside a version of a library
+resolves that library at that version, so a module reads its own library's files where it was
+loaded. A library still in one folder, with no version folder in it, is every version of itself.
+The plan and what remains of it: `docs/library-versions-plan.md`.
 
 **Still found by location, never declared.** `accountLibraries()` is the folders under
 `librariesHome()` whose name a library could have (`isLibraryName`); the SETTING that lists
@@ -75,7 +81,10 @@ every account's, so only an admin may write it. A library is OVERLAID to say so
 asks `libraryRoot(name)` — the compile, the file tree, the engine's paths — reads the overlay's
 root. `isLibraryEditable(name)` is true for an overlaid library and only for one; writes are refused
 anywhere else, and the write is what publishes (`packages/file-service/docs/libraries.md`,
-`apps/st0/frontend/docs/sharedModules.md`). No song records a version.
+`apps/st0/frontend/docs/sharedModules.md`). For a versioned library the overlay is its `draft/`:
+`isLibraryRootEditable(lib)` asks whether the folder a path lies in IS the overlay, so a published
+version refuses every write, an admin's included. A pin outranks the overlay, so an admin hears the
+draft only in a workspace that pins `draft` or pins nothing.
 
 `_modules` is untouched by all of that. It is the WORKSPACE's own library, one copy backing every
 project beside it, and it forks on write (`docs/moduleFork.md`).

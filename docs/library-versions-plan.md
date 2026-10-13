@@ -1,8 +1,8 @@
 # Library versions: upgrade a library without reinstalling st0
 
-The decisions of the library-versions work, in one place. What is built today is described by
+The decisions of the library-versions work, in one place. What is built is described by
 `../packages/song/docs/sharedFolders.md` and `../packages/file-hub/docs/fileHub.md`; this page
-says what changes and why. Nothing here is implemented yet.
+says the whole design and which lots remain.
 
 ## The goal
 
@@ -107,11 +107,13 @@ library and every workspace, and runs at the highest level, so latest, old and f
 
 ## Lots
 
-1. `library.yaml`, `LIBRARY_LEVEL`, and the `draft/` + `<n>/` layout on the origin; resolution reads
-   a pin, a missing pin meaning version 1. Existing libraries become version 1 of themselves.
-2. `_library-pins.yaml`: written on first open and on workspace creation; the compile, the file tree
-   and the engine's paths read the pinned folder.
-3. Publish in the Libraries panel; `GET /api/libraries`; archive download.
+1. **Built.** `library.yaml`, `LIBRARY_LEVEL` (`../packages/song-schema/src/libraryVersions.ts`), the
+   `draft/` + `<n>/` layout on the origin, an existing library moved into `1/`, the draft made on an
+   admin's ask, and `LibraryStore.publish` (`../packages/file-hub/libraries.ts`).
+2. `_library-pins.yaml`. **Built:** the compile, the file tree and the presets read the pinned
+   folder. **Remains:** writing the pin on first open and on workspace creation.
+3. Publish in the Libraries panel and its route (`publish` exists, nothing calls it);
+   `GET /api/libraries`; archive download.
 4. Upgrade: the per-workspace action, the `requires` gate, the list of forks whose base moved; paired
    machines fetch pinned versions instead of following the relay.
 5. The installer's archive replaces the seed folder on the desktop and the phone.

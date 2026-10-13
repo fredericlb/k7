@@ -1676,7 +1676,7 @@ async function setFileParam(
       : null;
   if (!clearing && family) {
     // A library's file, by `@<library>/<path>`: the same list the panel's picker offers (packages/song/docs/libraryFiles.md).
-    const shared = libraryFiles(family);
+    const shared = libraryFiles(family, h.songPath);
     if (!shared.includes(file)) {
       h.refuse([
         shared.length

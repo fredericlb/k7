@@ -19,7 +19,7 @@ with the same sentence: a workspace made without a library is a folder whose cha
 point at nothing, and the refusal has to come before the folder exists rather than at the first
 open. `Examples` is not a user gesture and is not gated.
 
-## Only an admin writes a library, and writes it in place
+## Only an admin writes a library, and only its draft
 
 A library is every account's, so a write into one is everybody's at once. Every write that lands
 in a library is refused (`Workspace.assertLibraryWritable` in `../src/workspace.ts`;
@@ -27,13 +27,15 @@ in a library is refused (`Workspace.assertLibraryWritable` in `../src/workspace.
 `/command` route for a verb whose `at` is in a library) — unless `isLibraryEditable(name)`.
 
 `refreshLibraries(admin)` decides that at each open, from the hub's admin header: for an admin every
-library on disk is OVERLAID onto its own folder (`setLibraryOverlays`), which marks it writable
-without moving where it is read from; for anyone else nothing is. The refusal says that only the
+library on disk is OVERLAID onto its `draft/` (`setLibraryOverlays`), which the hub makes on that
+ask; for anyone else nothing is. A published version is refused to everybody
+(`isLibraryRootEditable`), with a message saying to edit the draft. The refusal says that only the
 origin's admins edit a library. That covers every gesture of the file tree, the builder's Save and
 a chain edited from the Libraries tab alike, from any project.
 
-There is no publishing step. The write IS the publication: every account reads the same folder, and
-the hub relays the change to the library's st0fs room, whose log is its history. An unresolved
+The write reaches the draft only: a workspace hears it once it pins `draft`, or once the draft is
+published as a version and the workspace pins that (`docs/library-versions-plan.md`). The hub relays
+every change to the library's st0fs room, whose log is its history. An unresolved
 `@<name>/…` ref is still not a compile error (`packages/song/docs/sharedFolders.md`), so a library
 that starts empty breaks nothing.
 

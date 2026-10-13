@@ -74,10 +74,14 @@ folder per library, `<dataRoot>/libraries/<name>`, which every account's file se
 `@<name>/…` against; one folder because a library edited is edited for every account at once, and
 two copies would compile a song two ways.
 
-- **The folder IS the library.** An admin's file service writes into it in place; everyone else's
-  reads it. Dropping a library from the list keeps its folder, unlisted: it is the only copy.
-- **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
-  empty. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
+- **The folder IS the library**: its published versions `1/`, `2/`… each with a `library.yaml`
+  saying what level of st0 it `requires`, and the `draft/` an admin's file service writes. The draft
+  is made, from the newest version, only when an admin's service asks (`/libraries/sync` with
+  `draft: true`), so a machine with no admin carries no second copy. `publish` freezes the draft as
+  the next version. A folder from before versions is moved whole into `1/` on the next `ensure`.
+  Dropping a library from the list keeps its folder, unlisted: it is the only copy.
+- **A listed library with no folder gets one**, copied from the seed as its version 1 when the
+  seed holds it, else an empty version 1. The seed is `$STUDIO_LIBRARY_SEED`: a folder of libraries, or `name=folder,…` — the desktop
   and the phone name the `st0-library` they bundle. It is copied into a dot-named sibling and renamed
   into place, so no reader sees half a library, and without any `.git` it carries.
 - **With no list written yet**, the list is the library folders already on disk, else the seed's.
