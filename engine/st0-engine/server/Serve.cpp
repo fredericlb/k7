@@ -129,7 +129,9 @@ int serve(int port) {
     // The start time in ms names this process: the supervisor's relaunch after a crash is a new one.
     const std::string bootId = std::to_string(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-    ServeContext ctx{host, g_work, engineId, engineToken, bootId, {}, {}};
+    ServeContext ctx{host, g_work, engineId, engineToken, bootId};
+    // The server's engine plays into a null sink, so its listeners are told to hear it through the broadcast.
+    if (const char* v = std::getenv("STUDIO_AUDIO_TO_BROWSER"); v && std::string(v) == "1") ctx.audioToBrowser = true;
     // The LAN devices allowed to drive, and the requests waiting for the musician (docs/pairing.md).
     Pairing pairing(studio::studioStatePath() + "/paired-devices.json");
     ctx.pairing = &pairing;

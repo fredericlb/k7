@@ -243,7 +243,8 @@ void addMachineHandlers(HandlerTable& t) {
                      {"token", engineToken},
                      {"boot", ctx.bootId},
                      {"bufferSize", timing.bufferFrames},
-                     {"sampleRate", timing.sampleRate}}
+                     {"sampleRate", timing.sampleRate},
+                     {"audioToBrowser", ctx.audioToBrowser}}
                     .dump());
 
         // …and, if this socket says it DRIVES a session, start counting it — on hello, so a reconnect restores the count, and ONCE per socket, since the keepalive re-sends whoami (docs/sessions.md).

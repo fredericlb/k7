@@ -45,6 +45,30 @@ container needs a device that consumes audio at real-time speed:
 the one sink at 48 kHz before the supervisor. The ALSA→Pulse hop adds buffering, which costs
 monitoring latency, and nobody monitors on a server.
 
+## What it plays is heard in the browser
+
+The null sink only keeps time. The sound reaches the person through the engine's master
+**broadcast** (`engine/st0-engine/docs/broadcast.md`), and they never ask for it: the image sets
+`STUDIO_AUDIO_TO_BROWSER=1`, the engine answers `whoami` with `audioToBrowser: true`, and every page
+that drives it subscribes and plays the frames through an AudioWorklet
+(`packages/engine-browser/src/engineOutput.ts`). Today those pages are the editor and the
+médiathèque's engine destination.
+
+The flag comes from the ENGINE and not from the registry, so a page needs no idea which machine is the
+server's. The same pages driving a musician's engine hear its speakers, and their browser stays
+silent. It is an image setting rather than a compose one because this image exists only for an
+engine nobody can hear.
+
+Three costs come with it:
+
+- **Bandwidth.** The broadcast is uncompressed float32, about 3 Mbit/s per listener, which is
+  comfortable on a LAN and heavy over the internet. The frame header already carries a codec byte
+  for Opus (`packages/engine-browser/docs/streaming.md`).
+- **Latency.** A transport press makes its round trip, then the worklet waits for its 150 ms cushion
+  before it plays. Fine for playback; not for playing an instrument through the server's engine.
+- **The first sound waits for a click.** A browser lets an AudioContext built without a gesture stay
+  silent, so the context resumes on the page's next pointer or key press. Pressing play is one.
+
 ## The supervisor's stdin never ends
 
 The supervisor stops when its stdin closes; that is how the tray's death reaches it

@@ -3,6 +3,7 @@
 // panes call, so App.tsx holds no engine wiring of its own.
 
 import { EngineClient, type EngineUrl } from "@studio/engine-browser";
+import { playEngineOutput } from "@studio/engine-browser/engine-output";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import type { EngineStore } from "@studio/engine-browser/store";
 import type { ParamMeta, PresetInfo } from "@studio/engine-protocol";
@@ -141,7 +142,10 @@ export function useEngineLink(
       );
     });
     engine.connect();
+    // An engine nobody hears — the server's own — is heard here, through its broadcast.
+    const offOutput = playEngineOutput(engine);
     return () => {
+      offOutput();
       offState();
       offConn();
       offParams();

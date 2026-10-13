@@ -84,7 +84,7 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 | `{ type: "io-levels", channels: [[1,2]] }` | input meters + tuner, plus THIS session's master level |
 | `{ type: "list-audio-devices" }` / `{ type: "set-audio-device", name, deviceType }` | the machine's interface. Engine-global — one device per process |
 | `{ type: "rescan-plugins" }` | re-scan the installed catalogue |
-| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing` |
+| `{ type: "whoami" }` | identity probe, answered to the asking socket alone; to an unpaired LAN peer, without the token and with `needsPairing`. `audioToBrowser: true` says nobody hears this machine's device, so a client plays the broadcast ([broadcast.md](broadcast.md)) |
 | `{ type: "pair-request", name }` | a LAN device asks to be paired → `pair-pending` with the code it shows; later `paired` with its key, or `pair-denied`. See [pairing.md](pairing.md) |
 | `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
 | `{ type: "list-pair-requests" }` / `{ type: "list-paired-devices" }` | the machine's own clients only → `pair-requests` / `paired-devices`, both also pushed to them on every change |

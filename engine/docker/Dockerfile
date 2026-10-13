@@ -58,6 +58,8 @@ RUN useradd --system --create-home --home-dir /home/st0 st0 \
  && mkdir -p /engine-home && chown st0:st0 /engine-home
 USER st0
 ENV HOME=/home/st0 XDG_RUNTIME_DIR=/tmp/runtime-st0
+# Nobody hears the null sink, so the engine tells every page driving it to play its broadcast (docs/server-engine.md).
+ENV STUDIO_AUDIO_TO_BROWSER=1
 # The supervisor's home: identity, settings, the instruments it downloads, the projects' local copies.
 ENV STUDIO_HOME=/engine-home
 VOLUME ["/engine-home"]

@@ -8,8 +8,7 @@ host draws in its own chrome — st0 puts it in the home sidebar's actions, abov
 ## Why a menu and not a switch
 
 Destinations arrive one at a time and none of them replaces another. A boolean would have to be
-*replaced* the day a fourth lands — streaming the engine's output back to this browser is already
-half-built (`@studio/engine-browser/stream`, unused here) — where a list entry does not.
+*replaced* the day a fourth lands, where a list entry does not.
 
 So `src/playback/targets.ts` is a list, and everything else reads it:
 
@@ -75,6 +74,12 @@ optimistic: the handle follows the finger and the next poll tells the truth.
 `engine` plays through `engine/st0-engine` on the machine the account chose — the same instrument
 st0 drives, on its own audio interface. It is the destination for somebody sitting at their rig:
 the sound comes out of the monitors, not out of a laptop speaker.
+
+An engine nobody can hear — the server's own, playing into a null sink — says so in `whoami`, and
+`useSongEngine` then plays its broadcast in this tab (`packages/engine-browser/src/engineOutput.ts`,
+`docs/server-engine.md` at the repo root). It is still the `engine` destination: the song plays on
+that engine, only the speakers are this browser's. No fourth row: the person chose WHERE it plays,
+and which engine has no speakers is a fact about the machine, not a choice.
 
 ### Looking costs no socket; playing holds one
 

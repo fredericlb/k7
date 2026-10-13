@@ -172,6 +172,7 @@ interface EngineMessage {
   // 'plugin-params': which plugin was asked about, echoed back beside the `id` above so a late reply can be matched.
   format?: string;
   boot?: string; // 'whoami': the engine PROCESS, so a reconnect can tell a restarted engine
+  audioToBrowser?: boolean; // …and whether its device is heard by nobody, so the broadcast is the only way to hear it
   requests?: PairRequest[]; // 'pair-requests', to the machine's own clients only
 }
 
@@ -208,6 +209,9 @@ export class EngineClient {
   // Raw audio frames, handed on undecoded — @studio/engine-browser/stream is what knows how to read them.
   private streamCbs = new Set<StreamCb>();
   private broadcasting = false;
+  /** Whether the engine said nobody hears its device (`whoami`); a client then plays its broadcast — docs/streaming.md. */
+  private audioToBrowser = false;
+  private audioToBrowserCbs = new Set<(on: boolean) => void>();
   // Plugins we asked to follow, replayed on every open, and COUNTED: the graph leaving must not silence the mastering strip's.
   private watched = new Map<string, number>();
   // Active waveform subscriptions, replayed on reconnect like `watched`. Keyed "id:side", COUNTED: two widgets may share a tap.
@@ -470,11 +474,18 @@ export class EngineClient {
     else if (m.type === "presets" && m.module)
       for (const cb of this.presetsCbs) cb(m.module, m.presets ?? []);
     else if (m.type === "busy") for (const cb of this.busyCbs) cb(!!m.busy);
-    else if (m.type === "whoami" && typeof m.boot === "string" && m.boot) {
-      // A different process behind the same engine id: the supervisor relaunched it, i.e. it died.
-      const restarted = this.boot !== null && this.boot !== m.boot;
-      this.boot = m.boot;
-      if (restarted) for (const cb of this.restartCbs) cb();
+    else if (m.type === "whoami") {
+      if (typeof m.boot === "string" && m.boot) {
+        // A different process behind the same engine id: the supervisor relaunched it, i.e. it died.
+        const restarted = this.boot !== null && this.boot !== m.boot;
+        this.boot = m.boot;
+        if (restarted) for (const cb of this.restartCbs) cb();
+      }
+      const toBrowser = m.audioToBrowser === true;
+      if (toBrowser !== this.audioToBrowser) {
+        this.audioToBrowser = toBrowser;
+        for (const cb of this.audioToBrowserCbs) cb(toBrowser);
+      }
     }
     // `error` is handled at the bottom beside `engine-warning`: dropped here, a refused command would vanish without trace.
     else if (m.type === "io-levels")
@@ -707,6 +718,13 @@ export class EngineClient {
     if (on === this.broadcasting) return;
     this.broadcasting = on;
     this.send({ type: "broadcast", on });
+  }
+
+  /** Whether the engine's sound reaches anyone only through this browser; told now, then on every change. */
+  onAudioToBrowser(cb: (on: boolean) => void): () => void {
+    this.audioToBrowserCbs.add(cb);
+    cb(this.audioToBrowser);
+    return () => this.audioToBrowserCbs.delete(cb);
   }
 
   /** Raw audio frames. Decode with @studio/engine-browser/stream — see docs/streaming.md. */

@@ -5,6 +5,14 @@ the audio thread, and what happens when a listener drops. Everything below is th
 and the reasoning behind every number in it. The engine half is
 `engine/st0-engine/docs/broadcast.md`.
 
+## Who listens
+
+Two callers subscribe. The rehearsal recorder records a library chain from it
+(`packages/ui-rehearsal/docs/chainSource.md`). And `engineOutput.ts` plays it for any page driving
+an engine whose `whoami` says `audioToBrowser`: the server's own engine, whose device is a null sink
+(`docs/server-engine.md` at the repo root). There, the broadcast is the ONLY way the music reaches a
+person, so the measurements below are what a user hears, not a mockup's numbers.
+
 ## Why a binary frame on the existing socket
 
 The engine already serves an IXWebSocket server that every client is already connected to.

@@ -4,6 +4,7 @@
 // somewhere else must not hold one. See ../../docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
+import { playEngineOutput } from "@studio/engine-browser/engine-output";
 import type { RankedEngine } from "@studio/engine-browser/probe";
 import { useRelook } from "@studio/engine-browser/relook";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -81,9 +82,12 @@ export function useSongEngine(connected: boolean): SongEngine {
     });
     // Kept rather than dropped: this is how the engine says a clip could not be opened.
     c.onWarning(setWarning);
+    // An engine nobody hears — the server's own — is heard in this tab, through its broadcast.
+    const offOutput = playEngineOutput(c);
     c.connect();
     // No unsubscribe of our own: dispose() drops the client and its callbacks together.
     return () => {
+      offOutput();
       lease.current?.();
       lease.current = null;
       c.dispose();

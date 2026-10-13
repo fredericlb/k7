@@ -23,6 +23,7 @@
     "./lease": "./src/lease.ts",
     "./stream": "./src/streamPlayer.ts",
     "./stream-sink": "./src/streamSink.ts",
+    "./engine-output": "./src/engineOutput.ts",
     "./relook": "./src/relook.ts",
     "./pairing": "./src/pairing.ts",
     "./playhead-clock": "./src/playheadClock.ts"
