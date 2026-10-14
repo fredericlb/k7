@@ -171,7 +171,9 @@ through, and it must be minutes rather than hours.
 `engine/`, `apps/`, `packages/`, `commons` or the lock, and a `v*` tag, GitHub's gate expressed as the
 trigger's paths. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
 and it gathers every file into its own build: that build's artifacts are the release. The file names
-are GitHub's — the tag, or `snapshot-<commit>`.
+are GitHub's — the tag, or `snapshot-<commit>`. The engine jobs and the APK wait for `lint and test`: they
+share its machine, and with three C++ compiles beside it its slower tests time out — and a release
+should not ship what the tests refuse anyway.
 
 `engine macos` and `desktop macos` are written and **manual**. They want a Mac agent behind a Remote
 Shell Executor, as Windows has; until one exists a triggered run of them would wait forever, and

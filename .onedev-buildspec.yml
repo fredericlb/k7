@@ -198,7 +198,8 @@ jobs:
 # ENGINE job — engine/st0-engine and engine/st0-supervisor compiled and archived as the command-line
 # engine — then a DESKTOP job packaging apps/st0-standalone around that archive, compiling nothing, and
 # run only when its own engine built; beside them the APK; and "release", which the triggers name and
-# which gathers every file into one build. A failed platform skips its own desktop job and nothing else.
+# which gathers every file into one build. A failed platform skips its own desktop job and nothing else. The
+# engines and the APK wait for "lint and test": they share its machine, and three C++ compiles beside it time it out.
 - name: engine linux
   steps:
   - type: CheckoutStep
@@ -279,6 +280,9 @@ jobs:
     artifacts: dist/release/st0-engine_*
     condition: SUCCESSFUL
     optional: false
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -475,6 +479,9 @@ jobs:
     artifacts: dist/release/*.apk
     condition: SUCCESSFUL
     optional: false
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -520,6 +527,9 @@ jobs:
     artifacts: dist/release/st0-engine_*
     condition: SUCCESSFUL
     optional: false
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
@@ -608,6 +618,9 @@ jobs:
     artifacts: dist/release/st0-engine_*
     condition: SUCCESSFUL
     optional: false
+  jobDependencies:
+  - jobName: lint and test
+    requireSuccessful: true
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
