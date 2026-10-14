@@ -43,17 +43,24 @@ describe("a scaffolded project", () => {
     expect(melody?.plugins.some((p) => p.type === "4osc")).toBe(true);
   });
 
-  it("writes YAML and nothing else", () => {
-    scaffold(dir, "demo");
+  it("is born a CHAIN project, the main layout: chain files and lanes, no graph and no node files", () => {
+    const written = scaffold(dir, "demo");
     expect(tree().filter((f) => f.endsWith(".cue"))).toEqual([]);
     expect(tree()).toContain("project.yaml");
-    expect(tree()).toContain("graph.yaml");
+    expect(
+      tree().filter((f) => f.startsWith("chains/")).length,
+    ).toBeGreaterThan(0);
+    expect(tree()).toContain("tracks/melody.yaml");
+    expect(tree()).not.toContain(GRAPH_FILE);
+    expect(tree().filter((f) => f.startsWith("nodes/"))).toEqual([]);
+    // What it says it wrote is what is there.
+    expect([...written].sort()).toEqual(tree().filter((f) => f.includes(".")));
   });
 
   it("quotes the timecodes, so a placement isn't read as a number", () => {
     // `1:1:1` unquoted is a YAML 1.1 sexagesimal, which is why the template quotes them.
     scaffold(dir, "demo");
-    const track = readFileSync(join(dir, "nodes", "melody.yaml"), "utf8");
+    const track = readFileSync(join(dir, "tracks", "melody.yaml"), "utf8");
     expect(track).toContain('start: "1:1:1"');
     const melody = compileNodeProject(dir).tracks.find(
       (t) => t.id === "melody",

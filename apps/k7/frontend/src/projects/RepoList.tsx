@@ -33,7 +33,12 @@ import { ProjectMenu } from "./ProjectMenu";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 import { WorkspaceMenu } from "./WorkspaceMenu";
-import { syncStateOf, WorkspaceSyncIcon } from "./WorkspaceSyncIcon";
+import {
+  hostLabel,
+  syncEntryOf,
+  syncStateOf,
+  WorkspaceSyncIcon,
+} from "./WorkspaceSyncIcon";
 
 /** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
@@ -88,6 +93,7 @@ export function RepoList({
   onChanged,
   sync = null,
   onDownload,
+  onMove,
 }: {
   workspaces: AccountWorkspace[];
   busy: boolean;
@@ -145,9 +151,14 @@ export function RepoList({
   onChanged: () => void;
   /** Where each workspace lives, on a machine paired with a server; null draws no icon. */
   sync?: WorkspaceSyncStatus | null;
-  /** Bring a workspace that is only on the server down here. */
-  onDownload?: (name: string) => Promise<void>;
+  /** Bring a workspace that is only on a server down here, from that server. */
+  onDownload?: (name: string, server?: string) => Promise<void>;
+  /** Move a workspace to another server this account syncs with. */
+  onMove?: (ws: AccountWorkspace, to: string) => Promise<void>;
 }) {
+  // Several servers: each row names its own, and a workspace may move between them.
+  const servers = sync?.servers ?? [];
+  const several = servers.length > 1;
   const [downloading, setDownloading] = useState<string | null>(null);
   const serverOnly = (sync?.workspaces ?? []).filter(
     (w) => w.state === "server",
@@ -236,8 +247,18 @@ export function RepoList({
                       <span className="truncate font-medium">{w.name}</span>
                       <WorkspaceSyncIcon
                         state={syncStateOf(sync, w.name)}
-                        server={sync?.server ?? null}
+                        server={
+                          syncEntryOf(sync, w.name)?.server ??
+                          sync?.server ??
+                          null
+                        }
                       />
+                      {several && syncEntryOf(sync, w.name)?.server && (
+                        <span className="text-muted-foreground text-xs">
+                          {hostLabel(syncEntryOf(sync, w.name)?.server ?? "")}
+                        </span>
+                      )}
+                      <MoveNote move={syncEntryOf(sync, w.name)?.moving} />
                       <Badge variant={w.projects.length ? "tag" : "default"}>
                         {m["repos.projectCount"]({
                           n: w.projects.length,
@@ -260,6 +281,20 @@ export function RepoList({
                     workspace={w.name}
                     blocked={blocked}
                     onRemove={() => onRemoveWorkspace(w)}
+                    // Every OTHER server, once the workspace syncs with one and is not already moving.
+                    moveTargets={
+                      onMove &&
+                      syncEntryOf(sync, w.name)?.state === "synced" &&
+                      !syncEntryOf(sync, w.name)?.moving
+                        ? servers
+                            .map((s) => s.origin)
+                            .filter(
+                              (o) => o !== syncEntryOf(sync, w.name)?.server,
+                            )
+                        : []
+                    }
+                    from={syncEntryOf(sync, w.name)?.server ?? ""}
+                    onMove={(to) => onMove?.(w, to) ?? Promise.resolve()}
                   />
                 </div>
               </div>
@@ -344,13 +379,17 @@ export function RepoList({
         <ul className="mt-2 flex flex-col gap-2">
           {serverOnly.map((w) => (
             <li
-              key={w.name}
+              key={`${w.server ?? ""} ${w.name}`}
               className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border p-3"
             >
               <span className="flex min-w-0 items-center gap-3 text-muted-foreground">
                 <Cloud className="h-4 w-4 shrink-0" />
                 <span className="truncate">{w.name}</span>
-                <span className="text-xs">{m["wsync.serverOnlyHint"]()}</span>
+                <span className="text-xs">
+                  {m["wsync.onServerOnly"]({
+                    server: hostLabel(w.server ?? sync?.server ?? ""),
+                  })}
+                </span>
               </span>
               <Button
                 variant="ghost"
@@ -358,11 +397,14 @@ export function RepoList({
                 disabled={!onDownload || downloading !== null}
                 onClick={() => {
                   if (!onDownload) return;
-                  setDownloading(w.name);
-                  void onDownload(w.name).finally(() => setDownloading(null));
+                  const key = `${w.server ?? ""} ${w.name}`;
+                  setDownloading(key);
+                  void onDownload(w.name, w.server).finally(() =>
+                    setDownloading(null),
+                  );
                 }}
               >
-                {downloading === w.name ? (
+                {downloading === `${w.server ?? ""} ${w.name}` ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <CloudDownload className="h-3.5 w-3.5" />
@@ -374,5 +416,21 @@ export function RepoList({
         </ul>
       )}
     </div>
+  );
+}
+
+/** A move under way, or the reason the last one failed, beside the workspace's name. */
+function MoveNote({ move }: { move?: { to: string; error?: string } }) {
+  if (!move) return null;
+  const server = hostLabel(move.to);
+  return move.error ? (
+    <span className="truncate text-amber-500 text-xs" title={move.error}>
+      {m["wsync.moveFailed"]({ server, error: move.error })}
+    </span>
+  ) : (
+    <span className="flex items-center gap-1 text-muted-foreground text-xs">
+      <Loader2 className="size-3 animate-spin" />
+      {m["wsync.moving"]({ server })}
+    </span>
   );
 }

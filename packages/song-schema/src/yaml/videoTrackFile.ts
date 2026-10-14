@@ -316,3 +316,28 @@ export function shiftVideoAnimationAt(
   );
   return doc.toString({ lineWidth: 0 });
 }
+
+/** Rename the STRETCH each fade's `chain:` names, by `renames` — the text unchanged when none matches. */
+export function renameFadeChains(
+  text: string,
+  renames: Readonly<Record<string, string>>,
+): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  const events = doc.getIn(["events"]);
+  if (!isSeq(events)) return text;
+  let changed = false;
+  events.items.forEach((_, i) => {
+    for (const fade of ["fade_in", "fade_out"]) {
+      const was = doc.getIn(["events", i, fade, "chain"]);
+      if (typeof was !== "string" || !(was in renames)) continue;
+      doc.setIn(["events", i, fade, "chain"], renames[was]);
+      changed = true;
+    }
+  });
+  return changed ? doc.toString({ lineWidth: 0 }) : text;
+}

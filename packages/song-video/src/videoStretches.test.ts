@@ -160,3 +160,53 @@ describe("a fade naming no stretch of its lane", () => {
     expect(doc.stretches).toEqual({});
   });
 });
+
+describe("in a CHAIN project, a stretch is a subchain of its lane's chain", () => {
+  const chain = (name: string, text: string) => {
+    mkdirSync(join(dir, "chains"), { recursive: true });
+    writeFileSync(join(dir, "chains", `${name}.yaml`), text);
+  };
+  const lane = (id: string, subs: string) =>
+    chain(
+      id,
+      `start: true\nsteps:\n  - { id: lane-${id}, video_track: ${id} }\n  - to: [ { chain: RENDER } ]\nsubchains:\n${subs}`,
+    );
+  const sub = (id: string, node: string) =>
+    `  - id: ${id}\n    steps:\n      - { id: ${node}, extends: "@workspace/shaders/iris" }\n`;
+  beforeEach(() => {
+    rmSync(join(dir, "nodes"), { recursive: true, force: true });
+    chain(
+      "picture",
+      "start: RENDER\nsteps:\n  - to: [ { chain: VIDEO_OUT } ]\n",
+    );
+  });
+
+  it("is named by its id, and runs from its first node", () => {
+    lane("main", sub("opening", "iris-1"));
+    events(
+      "  - { ref: a, start: 0, length: 4, fade_in: { over: 1, chain: opening } }\n",
+    );
+    const doc = loadVideoProject(dir);
+    expect(doc.warnings).toEqual([]);
+    expect(doc.videoTracks[0].clips[0].fadeIn?.chain).toBe("iris-1");
+    expect(doc.stretches["iris-1"].map((p) => p.shader?.fragment)).toEqual([
+      "// iris f\n",
+    ]);
+  });
+
+  it("is the LANE's own: another lane's subchain of the same id is not reached", () => {
+    lane("main", sub("other", "iris-1"));
+    lane("pip", sub("opening", "iris-2"));
+    events(
+      "  - { ref: a, start: 0, length: 4, fade_in: { over: 1, chain: opening } }\n",
+    );
+    const doc = loadVideoProject(dir);
+    expect(doc.videoTracks[0].clips[0].fadeIn).toEqual({
+      over: 1,
+      with: "dissolve",
+    });
+    expect(doc.warnings).toEqual([
+      expect.stringContaining("names chain 'opening'"),
+    ]);
+  });
+});

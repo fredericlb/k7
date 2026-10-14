@@ -5,6 +5,10 @@ per chain, nodes are written INSIDE the chain that plays them, and `graph.yaml` 
 exist. A project without one is read the way [nodes.md](nodes.md) describes. Both load, so a
 project moves over with `scripts/migrateChainFiles.ts` and nothing else has to change at once.
 
+Chain files are the **main layout**: a new project is born as one, its scaffold converted by the
+same migration ([scaffold.md](scaffold.md)). A graph is what `mix` and the bench still write, and
+what an older project keeps until it is migrated.
+
 ```
 chains/ge.rythm.yaml     a chain: its steps, and where it goes
 tracks/ge.rythm.yaml     a lane's own file — extends, colour, events, alternatives
@@ -33,6 +37,10 @@ steps:
   so an insert renames nothing downstream; completion shows the module and the position instead.
 - **A lane** is `{ id, track, bypass? }` exactly — an input node's own `track:` field is not one.
   Its bypass is its mute. Only a chain with `start: true` holds one.
+- **A picture lane** is `{ id, video_track, bypass? }`, by the same rule. Its placements stay in
+  `video_tracks/<name>`, read by the picture compile, and it holds no module: it is a lane to the
+  graph and nothing to the engine, as it is in a graph project. A camera or a SHAPE before it
+  starts its chain, the way an input starts an audio lane's.
 - **`start`** is an attribute, not a step: `true` when the chain begins at its own first node (a
   lane, an input), `MIX` or `RENDER` when it begins at that sum. A chain without one is fed by
   links, and names the `ports` it is linked into; each feeds its first node's input of that name,
@@ -111,6 +119,29 @@ nodes that sat in the subchain are found by where they WERE, and put back as the
 node inserted between two of them joins; one inserted before or after stays in the parent. The
 subchain's nodes name the parent's run, not the subchain, so a run never takes a stretch's name.
 
+### A picture lane's subchains are its fades' STRETCHES
+
+```yaml
+# chains/main.yaml
+start: true
+steps:
+  - { id: 7d14…, video_track: main }
+  - to: [ { chain: RENDER } ]
+subchains:
+  - id: iris                                    # a fade on `main` names it: `chain: iris`
+    steps:
+      - { id: 8a82…, extends: "@workspace/shaders/iris" }
+```
+
+A subchain of a picture lane's chain that nothing links and that links nowhere is a **stretch**: the
+run a fade puts a shot through (`packages/song-video/docs/transitions.md`). The file is its scope,
+which is the scope a stretch needs — a fade on `main` can name only `main`'s — and it is named by its
+id, so a fade reads `chain: iris` rather than a node's uuid. In the segments it is the cable from
+its last node INTO the lane, the shape a graph project writes it in; written back, a run of picture
+passes that nothing feeds and whose only way out is a picture lane returns to that lane's file
+under the id it had, or under the leaf of what its head extends. Without the write-back taking it
+out first, the lane would be absorbed into the run feeding it, and its chain would lose its start.
+
 ## Hidden chains
 
 `hidden: true` on a chain sets it aside WHOLE: `readChainProject` keeps it under `hidden` and out of
@@ -161,9 +192,22 @@ person counts. The graph carries that as a step's optional `place`, the card dra
 would have drawn the uuid, and completion offers the uuid labelled `<module> · <place>`
 (`nodePlace.ts`). A lane needs none of this: its name is its own.
 
+A TRACK the compile makes for a run — a bus return, a live input landing on no lane — is keyed by
+the run's head, its uuid, and **labelled by the chain file holding it**: the mixer's strip reads
+`IN` or `verb`, which is what the person named, while every send and every plugin id keeps the key
+that does not move.
+
 A node whose card has no module to name — no `extends`, and so nothing a header could say — shows
 its place instead. A step that also carries no plugin plays nothing at all; its card says **empty
 step**, the place one hover away, so a stray one is seen for what it is and deleted.
+
+## What the migration carries over
+
+Beside nodes and lanes: a **picture lane** becomes its item, a node a graph named by a module REF
+with no node file becomes an item extending that ref, a new chain is named after the leaf of what
+its head extends, and a fade naming a stretch by its head node is rewritten to the stretch's
+subchain id. It reads and moves files through the workspace door, so a `.k7x` folder migrates as
+it is.
 
 ## What the migration refuses
 

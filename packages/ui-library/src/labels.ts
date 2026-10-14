@@ -77,6 +77,12 @@ export interface LibraryLabels {
     cancelUpload: string;
     replace: string;
     send: string;
+    /** The title when several were picked. */
+    many: (count: number) => string;
+    /** …and the button that sends them, one after another. */
+    sendMany: (count: number) => string;
+    /** Take one song off the list before sending. */
+    drop: string;
   };
   save: {
     clean: string;

@@ -31,6 +31,15 @@ redirects to a loopback `return` only (`isLoopbackReturn`, the same rule as the 
 The desktop's side is `apps/k7-standalone/docs/sync.md`. A paired account's service starts with the
 hub and is never stopped for idleness, and pairing restarts it so it dials the new relay.
 
+**An account may be paired with several servers**, one of them the MAIN one: `.sync-remote.json` is
+a list (`{ servers: [...] }`; the single pairing written before secondaries reads as the main one).
+The main one is `STUDIO_SYNC_URL`/`STUDIO_SYNC_TOKEN` as before — the account's libraries, the
+surfaces that compare themselves with "the" remote (`remoteOf`) and new workspaces are its — and
+every pairing rides in `STUDIO_SYNC_SERVERS`, for the workspaces each server holds
+(`packages/file-service/docs/liveCapture.md`, "Several servers"). A pairing names its server by the
+relay's host, so pairing the same server again replaces it rather than listing it twice.
+`POST /api/sync/remote/main` makes another one main and `DELETE /api/sync/remote?url=` forgets one.
+
 ## Every workspace a replica, and the rooms say which exist
 
 A file service captures every workspace from its start, not only those a request opens: one never

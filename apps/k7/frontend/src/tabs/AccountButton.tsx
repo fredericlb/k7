@@ -1,13 +1,13 @@
-// AccountButton.tsx — the right end of the title bar: who is signed in, and the one button that signs in or out.
-// Signing in asks which k7 server to sync with, inline: the strip is a thin view, and a popover would be clipped.
+// AccountButton.tsx — the desktop app's account control, at the top of the home page: who is signed in, and the one button that signs in or out.
+// Signing in asks which k7 server to sync with, inline, beside the button that asked.
 // Signing in happens in the system browser, through the main process; signing out is the origin's own logout. See apps/k7-standalone/docs/signIn.md.
 
 import { LogIn, LogOut, X } from "@frediverse/ui/icons";
 import { normalizeServer } from "@studio/web-protocol/pairing";
 import { useEffect, useState } from "react";
-import { type TabRow, tabsBridge } from "./bridge";
+import { tabsBridge } from "./bridge";
 
-interface Me {
+export interface Me {
   name?: string;
   email?: string | null;
   /** The desktop's signed-out user, minted by its own backend. */
@@ -24,19 +24,27 @@ async function whoami(): Promise<Me | null> {
   }
 }
 
-/** Asked again whenever the tabs change: a sign-in or out is always a navigation of one of them. */
-export function AccountButton({ rows }: { rows: TabRow[] }) {
+/** Asked on mount and after a sign-out: a sign-in reloads the home page, which mounts this again. */
+export function AccountButton({
+  onUser,
+}: {
+  /** Told who is signed in each time it is asked — the bar around it words the local user. */
+  onUser?: (me: Me | null) => void;
+}) {
   const [me, setMe] = useState<Me | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the rows changing IS the signal.
+  const [asked, setAsked] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `asked` changing IS the signal.
   useEffect(() => {
     let live = true;
     void whoami().then((m) => {
-      if (live) setMe(m);
+      if (!live) return;
+      setMe(m);
+      onUser?.(m);
     });
     return () => {
       live = false;
     };
-  }, [rows]);
+  }, [asked]);
 
   // The server field: null while closed, else what is typed; prefilled with the last choice.
   const [server, setServer] = useState<string | null>(null);
@@ -132,7 +140,9 @@ export function AccountButton({ rows }: { rows: TabRow[] }) {
         type="button"
         className={button}
         onClick={() =>
-          void fetch("/auth/logout", { method: "POST" }).catch(() => {})
+          void fetch("/auth/logout", { method: "POST" })
+            .catch(() => {})
+            .then(() => setAsked((n) => n + 1))
         }
         title="Sign out"
         aria-label="Sign out"

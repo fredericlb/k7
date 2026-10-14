@@ -16,6 +16,11 @@ rig.k7/
   surfaces/viewport.yaml  live-video ONLY: the frame it fills
 ```
 
+That is the file MAP. A new rig is then converted to chain files, the main layout
+([scaffold.md](scaffold.md)): the graph and the three node files become `chains/`, each node keyed
+by an id, and the track the input materialises is labelled by its chain, `IN`, rather than by that
+id. The bench keeps the map as it is, a graph, because it splices into it by node name.
+
 No `clips/`, no `sequences/`, no `video_tracks/`, and — bar that one viewport — no `surfaces/`. It opens on its graph and nothing
 else, and it is silent about it: `surfaceIssues` warns that an arrangement is undrawn only when the
 folder **holds material**, and this one holds none. *A bare rig is silent — it has no arrangement to

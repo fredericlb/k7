@@ -1,0 +1,7 @@
+// A SHAPE is a picture source: it starts the chain of the lane it draws on, as a camera would.
+// See packages/song-video/docs/shapes.md.
+start(true)
+steps([
+  id("7edb9a61-859c-4eaf-87f4-811bb8c33b7b").extends("@workspace/shapes/dot"),
+  id("2ebd7ff4-05f1-4adc-811e-cd5054c6d612").video_track("dot_layer"),
+])

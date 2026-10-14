@@ -25,7 +25,7 @@ import {
   engineSnapshot,
   installEngineBridge,
 } from "./engineBridge.ts";
-import { pairIfNeeded } from "./pairSync.ts";
+import { addServer, pairIfNeeded } from "./pairSync.ts";
 import {
   appIcon,
   engineBinary,
@@ -106,6 +106,8 @@ function openWindow(): void {
       });
     },
     server: chosenServer,
+    // Another server beside the main one, asked from the home page (docs/sync.md, "Several servers").
+    onAddServer: (server) => addServer(K7, server),
   });
   win.win.on("closed", () => {
     win = null;

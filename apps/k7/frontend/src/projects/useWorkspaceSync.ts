@@ -12,6 +12,7 @@ import type { AccountFiles } from "./workspaceOps";
 
 const EVERY_MS = 30_000;
 const RETRY_MS = 3_000;
+const MOVING_MS = 3_000;
 
 export function useWorkspaceSync(
   fileService: AccountFiles | null,
@@ -45,6 +46,14 @@ export function useWorkspaceSync(
     const t = setInterval(reload, EVERY_MS);
     return () => clearInterval(t);
   }, [reload]);
+
+  // A move under way is watched closely: it ends on its own, and the row should say so when it does.
+  const moving = sync?.workspaces.some((w) => w.moving && !w.moving.error);
+  useEffect(() => {
+    if (!moving) return;
+    const t = setInterval(reload, MOVING_MS);
+    return () => clearInterval(t);
+  }, [moving, reload]);
 
   return { sync, reload };
 }

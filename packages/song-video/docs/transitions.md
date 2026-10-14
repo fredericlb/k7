@@ -120,7 +120,19 @@ in a stretch, whose nodes ARE wired and take `#audio` like any shader.
 ## A STRETCH — a transition made of nodes
 
 ```yaml
-# graph.yaml
+# chains/main.yaml — a chain project
+start: true
+steps:
+  - { id: 7d14…, video_track: main }
+  - to: [ { chain: RENDER } ]
+subchains:
+  - id: iris                                    # `fade_in: { over: 1, chain: iris }`
+    steps:
+      - { id: 8a82…, extends: "@workspace/shaders/iris" }
+```
+
+```yaml
+# graph.yaml — a graph project, the same stretch
 modules:
   "@workspace/shaders/iris": [ main ]                         # fed by nothing, lands on the lane
   "@workspace/shaders/zoom": [ "@workspace/shaders/dim" ]
@@ -133,11 +145,16 @@ shot runs through it before it is blended. It is the same run a lane's own chain
 stretch is drawn on the graph as cards with knobs, can be bypassed step by step, and needs no new
 kind of file.
 
-Why a run of the graph and not a subchain: a picture project is a GRAPH project, and subchains exist
-only in the `chains/` layout (`packages/song/docs/chainFiles.md`). The graph's own equivalent of "a
-run scoped to one owner" is a run whose only edge is the one into that owner, which is what this is.
-The cable INTO the lane is what scopes it: a fade on another lane naming it is refused (below), as
-is a stretch something else feeds — that is then a lane's run, and the head would have two signals.
+In a CHAIN project — the main layout — a stretch is a **subchain of the lane's chain file**, and a
+fade names it by its id: `chain: iris` (`packages/song/docs/chainFiles.md`). The file is the scope,
+so a fade can reach only its own lane's stretches. Read into segments, that subchain IS the cable
+from its last node into the lane, so everything downstream sees the same graph either way, and the
+compile turns the id into the node the run starts at.
+
+In a GRAPH project there are no subchains, and the equivalent of "a run scoped to one owner" is a
+run whose only edge is the one into that owner, named by its head node. The cable INTO the lane is
+what scopes it: a fade on another lane naming it is refused (below), as is a stretch something else
+feeds — that is then a lane's run, and the head would have two signals.
 
 ### `uPresence` — one number for both directions
 

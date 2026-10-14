@@ -283,15 +283,35 @@ export const accountFiles = {
       "workspace sync",
     ),
 
-  /** Bring a workspace that is only on the server down to this machine; it stays synced from then on. */
-  downloadWorkspace: async (m: AccountFiles, name: string): Promise<void> => {
+  /** Bring a workspace that is only on a server (the main one without `server`) down here; it stays synced from then on. */
+  downloadWorkspace: async (
+    m: AccountFiles,
+    name: string,
+    server?: string,
+  ): Promise<void> => {
     await json(
       await fetch(`${m.fileBase}/workspaces/sync/download`, {
         method: "POST",
         headers: { ...filesHeaders(m), "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, ...(server ? { server } : {}) }),
       }),
       "download",
+    );
+  },
+
+  /** Start moving a workspace to another server this account is paired with; `workspaceSync` says how it goes. */
+  moveWorkspace: async (
+    m: AccountFiles,
+    name: string,
+    to: string,
+  ): Promise<void> => {
+    await json(
+      await fetch(`${m.fileBase}/workspaces/sync/move`, {
+        method: "POST",
+        headers: { ...filesHeaders(m), "content-type": "application/json" },
+        body: JSON.stringify({ name, to }),
+      }),
+      "move",
     );
   },
 

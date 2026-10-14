@@ -26,7 +26,11 @@ import { orderTracks, trackCategory } from "@studio/song-schema/trackKind";
 import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { type AutoFreeze, autoFreezes, playsRender } from "./autoFreeze";
 import { isSurgePatch } from "./basePreset";
-import { loadLinkLevels } from "./chainProject";
+import {
+  isChainProject,
+  loadLinkLevels,
+  readChainProject,
+} from "./chainProject";
 import { busOnlyOf, bypassedOf } from "./chainsGraph";
 import { compClips, markCrossfades } from "./compClips";
 import { withConsole } from "./console";
@@ -1103,13 +1107,17 @@ function compileNodeProjectIn(
       `lane wiring invalid:\n  - ${[...new Set(laneErrs)].join("\n  - ")}`,
     );
 
+  // A chain project keys a run by its head's id; its strip is LABELLED by the chain file holding it (docs/chainFiles.md).
+  const chainNodes = isChainProject(dir) ? readChainProject(dir).nodes : {};
+  const labelOf = (key: string): string => chainNodes[key]?.chain ?? key;
+
   // A channel per lane-less INPUT run: what a rig you play through is made of. No clips — what is
   // heard is what is plugged in — and `regular` rather than `effect`, since it is not a return.
   for (const name of inputChains) {
     const inp = inputOf[name];
     tracks.push({
       id: name,
-      name,
+      name: labelOf(name),
       role: "regular",
       contentType: "audio",
       group: "",
@@ -1137,7 +1145,7 @@ function compileNodeProjectIn(
   ])
     tracks.push({
       id: name,
-      name,
+      name: labelOf(name),
       role: "effect",
       contentType: "audio",
       group: "",

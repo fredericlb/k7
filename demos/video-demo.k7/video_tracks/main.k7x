@@ -5,7 +5,7 @@ events([
     .start(3)
     .length(5)
     .source_from(1.5)
-    .fade_in({ over: 1, chain: "@workspace/shaders/iris" }),
+    .fade_in({ over: 1, chain: "iris" }),
 ])
 y(0)
 w(1280)

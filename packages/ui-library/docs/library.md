@@ -127,6 +127,19 @@ lands. The variant picker is a second input, because that one names a directory 
 one audio file. Both reset `value` before opening, or picking the same thing twice fires no
 `change`.
 
+## Adding songs
+
+**Add a song** takes one audio file or several (`src/AddSong.tsx`). Each file's tags are read in the
+browser and its folder — artist, album, title — is shown BEFORE anything is sent, since that tree and
+not the file's name is what files it; every field stays editable, per song.
+
+Several are sent **one after another**, never at once: each is a whole audio file, and a dozen
+uploads in parallel would share the line and finish together late, rather than one at a time early.
+A song that went leaves the list. One whose folder is already taken stays, with a **Replace** of its
+own — replacing is a decision made per song, never for a batch — and one that failed stays with its
+reason, sent again with the rest. Editing a song's fields drops a pending Replace, because it now aims
+at another folder. Cancel cuts the upload in flight and stops the queue; what was sent is filed.
+
 ## Filing variants
 
 Audio dropped on a song's row is uploaded ONE REQUEST AT A TIME, because each one writes a line in

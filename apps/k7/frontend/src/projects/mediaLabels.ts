@@ -96,6 +96,10 @@ export function mediaLabels(): LibraryLabels {
       cancelUpload: m["media.addSong.cancelUpload"](),
       replace: m["media.addSong.replace"](),
       send: m["media.addSong.send"](),
+      many: (count) => m["media.addSong.many"]({ count: String(count) }),
+      sendMany: (count) =>
+        m["media.addSong.sendMany"]({ count: String(count) }),
+      drop: m["media.addSong.drop"](),
     },
     save: {
       clean: m["media.save.clean"](),

@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readChainProject } from "./chainProject";
 import { deriveChains } from "./chainsGraph";
 import { loadGraph, validate } from "./graph";
 import { compileNodeProject } from "./nodeProject";
@@ -182,14 +183,20 @@ describe("where it is added from", () => {
     const vid = join(root, "vid.k7");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "vid", "video");
-    expect(read(vid)).toContain("  RENDER: [ VIDEO_OUT ]");
-    // …and the note above the map, since the splice writes a line and not a reason.
-    expect(read(vid)).toContain("videoOutputs.md");
+    // Born as chain files: the picture's run is a chain starting at RENDER (docs/chainFiles.md).
+    const starts = (d: string) =>
+      Object.values(readChainProject(d).chains).map((c) => c.start);
+    expect(starts(vid)).toContain("RENDER");
+    expect(
+      Object.values(readChainProject(vid).chains).find(
+        (c) => c.start === "RENDER",
+      )?.steps,
+    ).toEqual([{ to: [{ chain: "VIDEO_OUT" }] }]);
 
     const arr = join(root, "arr.k7");
     mkdirSync(arr, { recursive: true });
     scaffold(arr, "arr");
-    expect(read(arr)).not.toContain("RENDER");
+    expect(starts(arr)).not.toContain("RENDER");
   });
 
   it("the scaffolded video graph still parses, and still declares the audio run", () => {

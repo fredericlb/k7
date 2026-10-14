@@ -1,12 +1,14 @@
-// pairSync.ts — pair this machine's signed-in account with the ORIGIN's relay, once, through the system browser:
-// the origin mints a device token and sends it to a loopback port, and the local backend keeps it for that account.
-// The token never passes through a window: a page could be anything. See docs/sync.md.
+// pairSync.ts — pair this machine's signed-in account with a server's relay, through the system browser: the
+// server mints a device token and sends it to a loopback port, and the local backend keeps it for that account.
+// The server chosen at sign-in is the MAIN one; others are added beside it. The token never passes through a
+// window: a page could be anything. See docs/sync.md.
 
 import { randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { hostname } from "node:os";
 import { line } from "@frediverse/electron-shell/log";
 import {
+  normalizeServer,
   SYNC_PAIR_RETURN_PATH,
   SYNC_RELAY_PATH,
   syncPairUrl,
@@ -55,28 +57,51 @@ async function local<T>(
   return r?.ok ? ((await r.json()) as T) : null;
 }
 
-/** Pair the account signed in here, unless it is the local user, already paired, or already asked this run. */
-export async function pairIfNeeded(k7: string): Promise<void> {
+/** The account signed in here, or null for the local user and for nobody. */
+async function account(k7: string): Promise<string | null> {
   const me = await local<{ user?: { email?: string; local?: boolean } }>(
     k7,
     "/auth/me",
   );
-  const email = me?.user?.email;
-  if (!email || me?.user?.local || asked.has(`${email} ${syncOrigin()}`))
-    return;
-  const remote = await local<{ paired: boolean; url: string | null }>(
+  return me?.user?.email && !me.user.local ? me.user.email : null;
+}
+
+/** The servers the account is paired with, by host; null when the local backend cannot say. */
+async function pairedHosts(k7: string): Promise<Set<string> | null> {
+  const remote = await local<{ servers?: { url: string }[] }>(
     k7,
     "/api/sync/remote",
   );
-  if (!remote) return;
-  // Paired with the server chosen: nothing to do. With another one, that pairing stays until the new one replaces it.
-  if (
-    remote.paired &&
-    remote.url &&
-    hostOf(remote.url) === hostOf(syncOrigin())
-  )
-    return;
+  return remote
+    ? new Set((remote.servers ?? []).map((r) => hostOf(r.url)))
+    : null;
+}
+
+/** Pair the account with the server chosen at sign-in, as its MAIN one, unless it already syncs with that server. */
+export async function pairIfNeeded(k7: string): Promise<void> {
+  const email = await account(k7);
+  if (!email || asked.has(`${email} ${syncOrigin()}`)) return;
+  const hosts = await pairedHosts(k7);
+  // Already a server of this account, main or not: which one is main is the person's choice, kept by the hub.
+  if (!hosts || hosts.has(hostOf(syncOrigin()))) return;
   asked.add(`${email} ${syncOrigin()}`);
+  pair(k7, email, syncOrigin(), true);
+}
+
+/** Pair the account with ANOTHER server beside its main one — the home page's Add server; false when it cannot. */
+export async function addServer(k7: string, input: string): Promise<boolean> {
+  const origin = normalizeServer(input);
+  const email = await account(k7);
+  if (!origin || !email) return false;
+  const hosts = await pairedHosts(k7);
+  if (!hosts || hosts.has(hostOf(origin))) return false;
+  // The first one paired is the main one whatever it was asked as.
+  pair(k7, email, origin, hosts.size === 0);
+  return true;
+}
+
+/** The pairing itself: the browser on `origin`'s pairing page, the token back on loopback, kept by the local backend. */
+function pair(k7: string, email: string, origin: string, main: boolean): void {
   pending?.close();
   const state = randomBytes(16).toString("base64url");
   const server = createServer((req, res) => {
@@ -88,7 +113,7 @@ export async function pairIfNeeded(k7: string): Promise<void> {
     }
     server.close();
     pending = null;
-    // The browser may be signed in to the origin as someone else: their token must not sync this account.
+    // The browser may be signed in to the server as someone else: their token must not sync this account.
     if (p.get("identity") !== email) {
       line(
         "app",
@@ -111,16 +136,17 @@ export async function pairIfNeeded(k7: string): Promise<void> {
     void local(k7, "/api/sync/remote", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      // The relay is reached where the person chose the server, whatever host a proxy showed the origin.
+      // The relay is reached where the person named the server, whatever host a proxy showed it.
       body: JSON.stringify({
-        url: relayOf(syncOrigin()),
+        url: relayOf(origin),
         token: p.get("token"),
+        main,
       }),
     }).then((done) =>
       line(
         "app",
         done
-          ? `sync paired with ${syncOrigin()}`
+          ? `sync paired with ${origin}${main ? " (main)" : ""}`
           : "sync pairing could not be stored",
       ),
     );
@@ -130,7 +156,7 @@ export async function pairIfNeeded(k7: string): Promise<void> {
     const address = server.address();
     if (!address || typeof address === "string") return;
     const back = `http://127.0.0.1:${address.port}${SYNC_PAIR_RETURN_PATH}`;
-    void shell.openExternal(syncPairUrl(syncOrigin(), back, state, hostname()));
+    void shell.openExternal(syncPairUrl(origin, back, state, hostname()));
   });
   setTimeout(() => {
     if (pending === server) {

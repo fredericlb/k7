@@ -6,6 +6,7 @@ import {
   type Rectangle,
   shell,
   type View,
+  type WebContents,
   WebContentsView,
   type WebPreferences,
 } from "electron";
@@ -158,6 +159,11 @@ export class TabSet {
       line("app", `tab ${tab.id} could not load ${url}: ${String(e)}`);
     });
     this.select(tab.id);
+  }
+
+  /** Whether `wc` is the home tab's page — besides the strip, the one place an account is signed in from. */
+  isHome(wc: WebContents): boolean {
+    return this.tabs.some((t) => t.home && t.view.webContents === wc);
   }
 
   /** What a tab's navigations and `window.open`s turn into — the table in docs/tabs.md. */

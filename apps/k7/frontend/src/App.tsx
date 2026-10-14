@@ -283,6 +283,7 @@ import {
   TransportClock,
   VIEWPORT_META,
 } from "./shellMeta";
+import { tabBridge } from "./tabs/bridge";
 import { modeCondition, type TimelineMode } from "./timelineMode";
 import { isTool, TOOLS, type Tool } from "./timelineTools";
 import type {
@@ -377,6 +378,9 @@ function sameCaret(a: CaretFields, b: CaretFields): boolean {
 }
 
 /** The tap-chain popin's first node: where the signal its modules process comes in, named and nothing more. */
+// In the desktop app's tab, whose strip already shows the way home and the song's name (apps/k7-standalone/docs/tabs.md).
+const inDesktopTab = !!tabBridge();
+
 const TAP_CHAIN_INPUT = {
   id: "tap-chain-input",
   get label() {
@@ -3580,7 +3584,7 @@ export default function App({
                   <span className="max-w-[10rem] truncate text-muted-foreground text-sm">
                     {snapshot.manifest.name || "…"}
                   </span>
-                ) : (
+                ) : inDesktopTab ? null : (
                   <span className="flex min-w-0 items-center gap-1">
                     {/* The back arrow, first in the bar: the home page is where every project is opened from. */}
                     <a

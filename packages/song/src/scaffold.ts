@@ -1,15 +1,16 @@
 // scaffold.ts — the file map + writer for the two TIMELINE archetypes: `arrangement`, a
 // minimal immediately-playable node project (one MIDI track through a 4OSC synth + a live
 // Strudel pattern), and `video`, the same thing with a lane of PICTURE over it. The third
-// archetype, `mix`, is scaffoldSet.ts. Every file is hand-authored, not serialised, because
-// its `#` comments are the one worked example a reader gets.
+// archetype, `mix`, is scaffoldSet.ts. The map is written as a graph and then CONVERTED to chain
+// files by the migration, so a new project and a migrated one cannot differ.
 // Full rationale: docs/scaffold.md, and packages/song-video/docs/picture.md for the video half.
 
-import { copyFileSync, mkdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { copyFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
+import { migrateToChainFiles } from "./chainsMigrateFiles";
 import { DEFAULT_COUNT_IN } from "./project";
 import { SHARED_MODULES_PATH } from "./sharedFolders";
 import { addVideoRun } from "./videoOutputs";
@@ -247,6 +248,21 @@ export function videoProjectFiles(name: string): Record<string, string> {
   };
 }
 
+/** Convert a just-written project to chain files, the main layout, and answer the files it now holds. */
+export function asChainProject(dir: string): string[] {
+  migrateToChainFiles(dir);
+  const out: string[] = [];
+  const walk = (d: string) => {
+    for (const f of readdirSync(d).sort()) {
+      const abs = join(d, f);
+      if (statSync(abs).isDirectory()) walk(abs);
+      else out.push(relative(dir, abs));
+    }
+  };
+  walk(dir);
+  return out;
+}
+
 /** Write a project's file map under `dir`, making the folders it implies. */
 export function writeProjectFiles(
   dir: string,
@@ -303,7 +319,5 @@ export function scaffold(
   }
 
   // Nothing points at the shared folders: a project sees them because of WHERE they are (docs/scaffold.md).
-  return picture
-    ? [...Object.keys(files), "clips/sample.mp4"]
-    : Object.keys(files);
+  return asChainProject(dir);
 }

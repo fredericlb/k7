@@ -154,6 +154,19 @@ comes back to k7's home rather than growing one of its own, because that list al
 app's mount rather than on a redirect to it. And `serviceUrl` is what keeps the prefix a fact read
 from one table rather than a slash somebody has to remember.
 
+## Waiting for sync
+
+On a machine that syncs with a relay, the gate asks `/sync/project` before `/open` and shows the
+SYNC screen until the answer is ready (`src/syncWait.tsx`): reaching the server, the latest edits
+arriving, or N files still downloading. Asking first matters on a first download, where the project
+folder may not even exist yet and `/open` would answer "no such project".
+
+The machine is the rule and the gate the courtesy: `/open` refuses with 409 while the project is
+still syncing (`packages/file-service/docs/liveCapture.md`, "Up to date"), so a ▶ on a project row
+cannot open half a project either, and a gate that hears 409 because the project fell behind between
+its two questions waits again. A service without the route answers 404, which reads as nothing to
+wait for: an older machine, or a frozen share, has nothing on its way.
+
 ## What the gate takes, and what it refuses to know
 
 `GateEngine` declares what the gate needs about the engine it resolved against, **structurally**,
@@ -175,8 +188,9 @@ the prefix cannot change without a navigation that remounts the gate anyway.
 
 ### Strings that are optional, and why that is honest
 
-`ProjectGateStrings` is mostly required, and two groups are not: the **bench**'s wait
-(`benchWorkspace`, `benchFetching`) and the **idle** screen (`idleTitle`, `idleBody`, `resume`).
+`ProjectGateStrings` is mostly required, and some groups are not: the **bench**'s wait
+(`benchWorkspace`, `benchFetching`), the **idle** screen (`idleTitle`, `idleBody`, `resume`), and the
+**sync** wait (`syncing`), which a machine linked to no relay never shows.
 Both are screens an app may be structurally unable to reach — the bench is a `.k7` project, so
 z0's editor can never open one, and an app that passes no `idleTimeoutMs` never leaves the
 running phase. Required, they would each be made to translate a card nobody can see. The gate

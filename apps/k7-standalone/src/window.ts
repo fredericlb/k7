@@ -7,6 +7,7 @@ import {
   BaseWindow,
   type IpcMainEvent,
   ipcMain,
+  type WebContents,
   WebContentsView,
   type WebPreferences,
 } from "electron";
@@ -33,6 +34,8 @@ export interface TabbedWindowSpec {
   onSignIn: (server?: string) => void;
   /** The k7 server the account syncs with, for the strip's sign-in form. */
   server: () => string;
+  /** Pair the account with another server beside its main one; false when it cannot be asked. */
+  onAddServer: (server: string) => Promise<boolean>;
 }
 
 export interface TabbedWindow {
@@ -53,7 +56,11 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
     backgroundColor: BACKGROUND,
     titleBarStyle: "hidden",
     ...(mac
-      ? { trafficLightPosition: { x: 14, y: (STRIP_HEIGHT - 14) / 2 } }
+      ? {
+          trafficLightPosition: { x: 14, y: (STRIP_HEIGHT - 14) / 2 },
+          // Pre-Lion fullscreen: native fullscreen keeps a window below the notch, over a black band (docs/tabs.md).
+          simpleFullscreen: true,
+        }
       : {
           titleBarOverlay: {
             color: BACKGROUND,
@@ -81,6 +88,9 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
 
   // Only the strip may drive the tabs: every tab carries the same preload.
   const fromStrip = (e: IpcMainEvent) => e.sender === strip.webContents;
+  // …and the account is the strip's business or the home page's, where its control sits (docs/signIn.md).
+  const fromChrome = (e: { sender: WebContents }) =>
+    e.sender === strip.webContents || tabs.isHome(e.sender);
   const onSelect = (e: IpcMainEvent, id: number) => {
     if (fromStrip(e)) tabs.select(id);
   };
@@ -88,14 +98,19 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
     if (fromStrip(e)) tabs.close(id);
   };
   const onSignIn = (e: IpcMainEvent, server?: unknown) => {
-    if (fromStrip(e))
+    if (fromChrome(e))
       spec.onSignIn(typeof server === "string" ? server : undefined);
   };
   ipcMain.on("studio:tabs:select", onSelect);
   ipcMain.on("studio:tabs:close", onClose);
   ipcMain.on("studio:auth:signIn", onSignIn);
   ipcMain.handle("studio:auth:server", (e) =>
-    e.sender === strip.webContents ? spec.server() : null,
+    fromChrome(e) ? spec.server() : null,
+  );
+  ipcMain.handle("studio:sync:addServer", (e, server: unknown) =>
+    fromChrome(e) && typeof server === "string"
+      ? spec.onAddServer(server)
+      : false,
   );
 
   // The insets ride in the address because the page is the same build on every platform.
@@ -103,10 +118,21 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   strip.webContents.loadURL(stripUrl).catch((e: unknown) => {
     line("app", `the tab strip could not load: ${String(e)}`);
   });
+  // Fullscreen hides macOS's traffic lights: the room kept for them would be a dark gap left of the tabs.
+  const tellFullscreen = () => {
+    if (!strip.webContents.isDestroyed())
+      strip.webContents.send(
+        "studio:fullscreen",
+        win.isFullScreen() || win.isSimpleFullScreen(),
+      );
+  };
+  win.on("enter-full-screen", tellFullscreen);
+  win.on("leave-full-screen", tellFullscreen);
   // On every load, not the first: a strip that reloaded would otherwise come back empty.
-  strip.webContents.on("did-finish-load", () =>
-    strip.webContents.send("studio:tabs", tabs.list()),
-  );
+  strip.webContents.on("did-finish-load", () => {
+    strip.webContents.send("studio:tabs", tabs.list());
+    tellFullscreen();
+  });
   // The strip never navigates and opens nothing.
   strip.webContents.on("will-navigate", (e) => e.preventDefault());
   strip.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
@@ -123,6 +149,8 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
   };
   layout();
   win.on("resize", layout);
+  // Simple fullscreen is a resize, and says nothing else: the strip is re-told on every one.
+  win.on("resize", tellFullscreen);
 
   tabs.openHome(spec.homeUrl);
 
@@ -131,6 +159,7 @@ export function openTabbedWindow(spec: TabbedWindowSpec): TabbedWindow {
     ipcMain.off("studio:tabs:close", onClose);
     ipcMain.off("studio:auth:signIn", onSignIn);
     ipcMain.removeHandler("studio:auth:server");
+    ipcMain.removeHandler("studio:sync:addServer");
     tabs.destroy();
     strip.webContents.close();
   });

@@ -198,9 +198,29 @@ export interface ModelDownloadJob {
 export interface WorkspaceSyncStatus {
   /** False on the server itself and on a machine never paired: every workspace is simply here. */
   paired: boolean;
-  /** The server this machine syncs with, as an origin. */
+  /** The MAIN server this machine syncs with, as an origin — its libraries, and where a new workspace goes. */
   server: string | null;
-  workspaces: { name: string; state: "synced" | "local" | "server" }[];
+  /** Every server it syncs with, as origins, the main one first. */
+  servers?: { origin: string; main: boolean }[];
+  /** Each workspace, here or on a server: `server` is the origin it syncs with, `room` its name there when that differs. */
+  workspaces: {
+    name: string;
+    state: "synced" | "local" | "server";
+    server?: string;
+    room?: string;
+    /** A move under way to `to`, or the reason it failed (`error`). */
+    moving?: { to: string; error?: string };
+  }[];
+}
+
+/** `GET /sync/project` — whether a project is up to date with the relay, which is what `/open` waits for (file-service docs/liveCapture.md). */
+export interface ProjectSyncState {
+  /** Where the copy here stands against the relay; each state is spelled out in file-service docs/liveCapture.md. */
+  state: "ready" | "offline" | "connecting" | "catching-up" | "downloading";
+  /** Whether the project may be opened: up to date, or offline with every file it names on disk. */
+  ready: boolean;
+  /** Files of the project still waiting for their bytes. */
+  pending: number;
 }
 
 /** One of the origin's libraries: the name its refs use (`@<name>/…`), and whether the server holds its folder. */

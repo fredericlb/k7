@@ -18,7 +18,9 @@ import { SYNC_PATH } from "./syncRelay.ts";
 import {
   forgetRemote,
   readRemote,
+  readRemotes,
   type SyncRemote,
+  setMainRemote,
   writeRemote,
 } from "./syncRemote.ts";
 
@@ -154,7 +156,7 @@ export class SyncRoutes {
     };
   }
 
-  /** This account's pairing with a remote origin, behind the LOCAL session: PUT pairs and restarts its service, DELETE unpairs. */
+  /** This account's pairings with remote servers, behind the LOCAL session: PUT pairs one, POST /main picks the main one, DELETE unpairs. */
   remoteRouter(): Router {
     const r = Router();
     r.use(express.json());
@@ -166,8 +168,12 @@ export class SyncRoutes {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const remote = readRemote(w.home);
-      res.json({ paired: remote !== null, url: remote?.url ?? null });
+      const servers = readRemotes(w.home);
+      res.json({
+        paired: servers.length > 0,
+        url: servers[0]?.url ?? null,
+        servers: servers.map((r) => ({ url: r.url, main: r.main })),
+      });
     });
     r.put("/", (req, res) => {
       const w = who(req);
@@ -181,9 +187,29 @@ export class SyncRoutes {
           .status(400)
           .json({ error: "expected { url: ws(s)://…, token }" });
       mkdirSync(w.home, { recursive: true });
-      writeRemote(w.home, { url, token, user: w.user });
+      // Main unless said otherwise: a pairing made at sign-in is the main one, a server added beside it is not.
+      writeRemote(w.home, {
+        url,
+        token,
+        user: w.user,
+        main: req.body?.main !== false,
+      });
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: true, url }),
+        (e: Error) => res.status(500).json({ error: e.message }),
+      );
+    });
+    r.post("/main", (req, res) => {
+      const w = who(req);
+      const url = typeof req.body?.url === "string" ? req.body.url : "";
+      if (!w)
+        return void res.status(401).json({ error: "no user on the session" });
+      if (!setMainRemote(w.home, url))
+        return void res
+          .status(404)
+          .json({ error: "no pairing with that server" });
+      void this.c.instances.restart(w.user).then(
+        () => res.json({ ok: true }),
         (e: Error) => res.status(500).json({ error: e.message }),
       );
     });
@@ -191,7 +217,9 @@ export class SyncRoutes {
       const w = who(req);
       if (!w)
         return void res.status(401).json({ error: "no user on the session" });
-      const was = forgetRemote(w.home);
+      // One server by `?url=`, else every one.
+      const url = typeof req.query.url === "string" ? req.query.url : undefined;
+      const was = forgetRemote(w.home, url);
       void this.c.instances.restart(w.user).then(
         () => res.json({ paired: false, was }),
         (e: Error) => res.status(500).json({ error: e.message }),

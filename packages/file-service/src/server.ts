@@ -49,6 +49,7 @@ import {
 } from "./engineLink.ts";
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import { ensureLibraryPins } from "./libraryPins.ts";
+import { startMove } from "./liveMove.ts";
 import { downloadWorkspace, workspaceSyncStatus } from "./liveSync.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
@@ -239,16 +240,44 @@ app.get(
   }),
 );
 
-/** Bring a workspace that exists only on the server down here; it stays synced from then on. */
-const downloadBody = z.object({ name: z.string().min(1) });
+/** Bring a workspace that exists only on a server down here — the main one unless `server` says — and keep it synced. */
+const downloadBody = z.object({
+  name: z.string().min(1),
+  server: z.string().min(1).optional(),
+});
 app.post(
   "/workspaces/sync/download",
   validate(downloadBody),
   wrap(async (req, res) => {
-    const { name } = req.body as z.infer<typeof downloadBody>;
-    if (await downloadWorkspace(name)) res.json({ ok: true });
+    const { name, server } = req.body as z.infer<typeof downloadBody>;
+    const here = new Set(workspaceNames(rootDir()));
+    // A name another server's workspace already has here lands as `name.host` (docs/liveCapture.md, "Several servers").
+    const local = await downloadWorkspace(name, server, (n) => here.has(n));
+    if (local) res.json({ ok: true, name: local });
     else
-      res.status(404).json({ error: `the server has no workspace '${name}'` });
+      res.status(404).json({
+        error: `${server ?? "the server"} has no workspace '${name}'`,
+      });
+  }),
+);
+
+/** Move a workspace to another server this account is paired with: there whole, then off the one it left. */
+const moveBody = z.object({
+  name: z.string().min(1),
+  to: z.string().min(1),
+});
+app.post(
+  "/workspaces/sync/move",
+  validate(moveBody),
+  wrap(async (req, res) => {
+    const { name, to } = req.body as z.infer<typeof moveBody>;
+    try {
+      // The refusals answered now; the move itself runs on, and `/workspaces/sync` says how it went.
+      await startMove(workspaceRoot(name), to);
+      res.status(202).json({ ok: true });
+    } catch (e) {
+      res.status(409).json({ error: (e as Error).message });
+    }
   }),
 );
 

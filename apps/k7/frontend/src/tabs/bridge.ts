@@ -25,6 +25,11 @@ interface TabsBridge {
   signIn: (server?: string) => void;
   /** The k7 server the account syncs with: the last one chosen, st0.app until then. */
   server?: () => Promise<string | null>;
+  /** Pair with another server beside the main one, in the system browser — docs/sync.md, "Several servers". */
+  addServer?: (server: string) => Promise<boolean>;
+  /** Whether the window is fullscreen, its own controls then off the strip — apps/k7-standalone/docs/tabs.md. */
+  fullscreen?: () => boolean;
+  onFullscreen?: (cb: (on: boolean) => void) => () => void;
 }
 
 declare global {

@@ -75,6 +75,15 @@ export function ProjectGate({
       base={import.meta.env.BASE_URL}
       strings={{
         cloning: (workspace) => m["project.cloning"]({ workspace }),
+        syncing: {
+          title: (workspace) => m["project.syncingTitle"]({ workspace }),
+          connecting: m["project.syncingConnecting"](),
+          catchingUp: m["project.syncingCatchingUp"](),
+          downloading: (files) =>
+            m["project.syncingDownloading"]({ files: String(files) }),
+          offline: (files) =>
+            m["project.syncingOffline"]({ files: String(files) }),
+        },
         back: m["project.backToProjects"](),
         retry: "Retry",
         unreachableTitle: m["filesGate.title"](),

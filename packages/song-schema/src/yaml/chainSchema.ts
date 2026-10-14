@@ -38,6 +38,15 @@ export const TrackItemSchema = z
   .object({ id: Id, track: z.string().min(1), bypass: z.boolean().optional() })
   .strict();
 
+/** A PICTURE lane: its placements live in `video_tracks/<video_track>.yaml`, and it holds no module. */
+export const VideoTrackItemSchema = z
+  .object({
+    id: Id,
+    video_track: z.string().min(1),
+    bypass: z.boolean().optional(),
+  })
+  .strict();
+
 /** A node: a module's fields, plus the four a use adds — the rest is checked by parseModule. */
 export const NodeItemSchema = z
   .object({
@@ -48,7 +57,11 @@ export const NodeItemSchema = z
   })
   .passthrough();
 
-export const ItemSchema = z.union([TrackItemSchema, NodeItemSchema]);
+export const ItemSchema = z.union([
+  TrackItemSchema,
+  VideoTrackItemSchema,
+  NodeItemSchema,
+]);
 
 /** Where the signal goes once the chain ends: another chain (a port of it) or a built-in end. */
 export const LinkSchema = z
@@ -129,7 +142,7 @@ export const ChainFileSchema = z
       });
     for (const i of stepIssues(c.steps))
       ctx.addIssue({ code: "custom", ...i, path: ["steps", ...i.path] });
-    if (c.start !== true && c.steps.some((s) => itemsOf(s).some(isTrackItem)))
+    if (c.start !== true && c.steps.some((s) => itemsOf(s).some(isLaneItem)))
       ctx.addIssue({
         code: "custom",
         path: ["steps"],
@@ -166,7 +179,7 @@ export const ChainFileSchema = z
         issue(["id"], `"${sc.id}" is a built-in end, not a subchain's name`);
       for (const i of stepIssues(sc.steps))
         issue(["steps", ...i.path], i.message);
-      if (sc.steps.some((s) => itemsOf(s).some(isTrackItem)))
+      if (sc.steps.some((s) => itemsOf(s).some(isLaneItem)))
         issue(["steps"], "a lane is a source: a subchain cannot hold one");
       sc.steps.forEach((s, i) => {
         if (isCallStep(s))
@@ -203,8 +216,9 @@ export const ChainFileSchema = z
   });
 
 export type TrackItem = z.infer<typeof TrackItemSchema>;
+export type VideoTrackItem = z.infer<typeof VideoTrackItemSchema>;
 export type NodeItem = z.infer<typeof NodeItemSchema>;
-export type Item = TrackItem | NodeItem;
+export type Item = TrackItem | VideoTrackItem | NodeItem;
 export type Link = z.infer<typeof LinkSchema>;
 export type EndStep = z.infer<typeof EndStepSchema>;
 export type Step = z.infer<typeof StepSchema>;
@@ -229,6 +243,23 @@ export const isTrackItem = (i: unknown): i is TrackItem =>
   typeof i === "object" &&
   typeof (i as { track?: unknown }).track === "string" &&
   Object.keys(i).every((k) => k === "id" || k === "track" || k === "bypass");
+
+/** …and a PICTURE lane item, `{ id, video_track, bypass? }` exactly, by the same rule. */
+export const isVideoTrackItem = (i: unknown): i is VideoTrackItem =>
+  !!i &&
+  typeof i === "object" &&
+  typeof (i as { video_track?: unknown }).video_track === "string" &&
+  Object.keys(i).every(
+    (k) => k === "id" || k === "video_track" || k === "bypass",
+  );
+
+/** Either kind of LANE — a source, named by its lane rather than its id. */
+export const isLaneItem = (i: unknown): i is TrackItem | VideoTrackItem =>
+  isTrackItem(i) || isVideoTrackItem(i);
+
+/** The lane an item IS, of either kind, or undefined for a node. */
+export const laneOfItem = (i: unknown): string | undefined =>
+  isTrackItem(i) ? i.track : isVideoTrackItem(i) ? i.video_track : undefined;
 
 /** The items of a step — none for an end step, one for a single item, several for a parallel one. */
 export function itemsOf(s: Step): Item[] {

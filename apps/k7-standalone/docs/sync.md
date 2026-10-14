@@ -28,12 +28,12 @@ listens on, the way sign-in does (`docs/signIn.md`).
   account (`DELETE /api/sync/remote`, `apps/k7/frontend/docs/settings.md`); the origin can also
   remove the device, which stops it at its next connection. Signed out, the window is the machine's
   local user, whose workspaces are its own: the account's are not listed, and the home page says so
-  with a Sign in (`SignedOutNotice.tsx`) rather than looking as if they were gone.
+  beside its Sign in (`AccountBar.tsx`) rather than looking as if they were gone.
 
 ## The server is the person's choice
 
 Signing in asks which k7 server this machine syncs with — `st0.app`, a private instance, a dev
-origin — in the title bar itself, prefilled with the last one (`src/server.ts`, the strip's
+origin — inline, beside the home page's Sign in, prefilled with the last one (`src/server.ts`,
 `AccountButton.tsx`). It is kept in the app's state folder and is where pairing goes; the sign-in
 still goes through the app's own provider. The address is an origin, https unless the server is on
 this machine (`normalizeServer` in `packages/web-protocol/pairing.ts`, one rule for the field and the
@@ -44,6 +44,20 @@ once it has come back: a pairing closed half-way leaves the account syncing wher
 unpaired. The relay's address is the chosen server's (`wss://<server>/api/sync`), not the one the
 origin reports: a proxy in front of it may show the origin another host, and a pairing stored with
 that host would be redone at every sign-in. `K7_SYNC_ORIGIN` overrides the choice, for testing.
+
+## Several servers, one of them main
+
+An account may sync with more than one server — its own instance and a band's, say. The server
+chosen at sign-in is the **main** one: the account's libraries, the remote surfaces and every new
+workspace are its. The others are added beside it from the home page's account bar
+(`apps/k7/frontend/src/projects/SyncServers.tsx`), which pairs through the system browser exactly as
+sign-in does (`addServer` in `src/pairSync.ts`) and lists each server with **Make main** and a way to
+stop syncing with it; the browser must be signed in as the same account on every one. Signing in again
+with a server already paired pairs nothing: which one is main is the person's choice, kept by the hub.
+
+The home page lists the workspaces of every server, each naming its own, and a workspace moves from
+one to another from its row (`apps/k7/frontend/docs/projects.md`): sent whole, then removed from the
+one it left (`packages/file-service/docs/liveCapture.md`, "Several servers").
 
 ## What pairing changes in the local hub
 

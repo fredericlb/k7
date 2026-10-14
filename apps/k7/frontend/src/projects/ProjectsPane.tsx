@@ -18,7 +18,6 @@ import { type DroppedProject, ImportProject } from "./ImportProject";
 import { LibrariesNotice } from "./LibrariesNotice";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
-import { SignedOutNotice } from "./SignedOutNotice";
 import { useWorkspaceSync } from "./useWorkspaceSync";
 import {
   type AccountFiles,
@@ -229,7 +228,6 @@ export function ProjectsPane({
         }}
       />
       {/* FIRST when it says anything: nothing else here works until a library is cloned. */}
-      <SignedOutNotice />
       <LibrariesNotice libraries={libraries} />
       {ws ? (
         <RepoTree
@@ -262,13 +260,21 @@ export function ProjectsPane({
           shares={shares}
           onChanged={onChanged}
           sync={sync}
-          onDownload={async (name) => {
+          onDownload={async (name, server) => {
             try {
-              await accountFiles.downloadWorkspace(chosen(), name);
+              await accountFiles.downloadWorkspace(chosen(), name, server);
             } catch (e) {
               setError((e as Error).message);
             }
             onChanged();
+            reloadSync();
+          }}
+          onMove={async (w, to) => {
+            try {
+              await accountFiles.moveWorkspace(chosen(), w.name, to);
+            } catch (e) {
+              setError((e as Error).message);
+            }
             reloadSync();
           }}
         />

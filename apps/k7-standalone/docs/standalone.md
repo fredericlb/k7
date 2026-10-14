@@ -55,8 +55,8 @@ host-only and `Lax`. `COOKIE_DOMAIN` is therefore forced empty — set, it would
 
 ## Sign-in
 
-Optional: signed out, the app runs as a **local user**; signed in, as an k7 account. The button
-at the right of the title bar does both, and `docs/signIn.md` is the page.
+Optional: signed out, the app runs as a **local user**; signed in, as an k7 account. The control
+at the top of the home page does both, and `docs/signIn.md` is the page.
 
 The session secret is generated once and kept in the state folder. The local user has no
 groups, so **it is never an admin** — it cannot edit the origin's libraries. The app therefore

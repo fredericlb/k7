@@ -1,9 +1,11 @@
 # Signing in
 
 Signing in is **optional**. Signed out, the app runs as a local user, offline and with nothing to
-configure; signed in, it runs as an k7 account. The button at the right of the title bar
-(`apps/k7/frontend/src/tabs/AccountButton.tsx`) shows the account's name and a log-out icon, or a
-log-in icon when nobody is signed in.
+configure; signed in, it runs as an k7 account. The control is at the top of the home page
+(`apps/k7/frontend/src/projects/AccountBar.tsx`, around `src/tabs/AccountButton.tsx`): the account's
+name and a log-out icon, or a log-in icon when nobody is signed in. On the home page and not in the
+title bar, because an account is chosen where its workspaces are listed, and the title bar is the
+tabs'. The main process takes a sign-in from the strip or the home tab, and from no other page.
 
 ## The local user
 
@@ -19,14 +21,16 @@ run before sign-in existed made. An account's workspaces are its own, under its 
 ## k7's identity provider, as a public client
 
 The app signs in to k7's own provider, `https://login.frediver.se` (Authelia), so an account here
-is the account on st0.app. It is a **public** client, `k7-desktop`: an app on the user's machine
+is the account on st0.app. It is a **public** client, `st0-desktop`: an app on the user's machine
 cannot keep a secret, so it has none, and PKCE alone proves the callback
 (`commons/packages/oidc/index.ts` — no secret is what makes a client public). The provider has to
-know that client:
+know that client, by that id: it is a name the provider holds, like the hostnames, so it keeps its
+`st0` spelling whatever the app is called — a client id the provider does not list fails every
+sign-in with "Client authentication failed".
 
 ```yaml
 # Authelia: identity_providers.oidc.clients
-- client_id: k7-desktop
+- client_id: st0-desktop
   public: true
   authorization_policy: one_factor
   require_pkce: true

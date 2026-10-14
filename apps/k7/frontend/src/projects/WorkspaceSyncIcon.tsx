@@ -8,13 +8,33 @@ import { m } from "../paraglide/messages.js";
 
 type State = WorkspaceSyncStatus["workspaces"][number]["state"];
 
+/** The workspace's entry in `sync` — the one HERE, not a same-named one still on a server — or null. */
+export function syncEntryOf(
+  sync: WorkspaceSyncStatus | null,
+  name: string,
+): WorkspaceSyncStatus["workspaces"][number] | null {
+  return (
+    sync?.workspaces.find((w) => w.name === name && w.state !== "server") ??
+    null
+  );
+}
+
 /** The workspace's state in `sync`, or null when there is nothing to say. */
 export function syncStateOf(
   sync: WorkspaceSyncStatus | null,
   name: string,
 ): State | null {
-  return sync?.workspaces.find((w) => w.name === name)?.state ?? null;
+  return syncEntryOf(sync, name)?.state ?? null;
 }
+
+/** A server's host, for a label: `https://priv.st0.app` → `priv.st0.app`. */
+export const hostLabel = (origin: string): string => {
+  try {
+    return new URL(origin).host;
+  } catch {
+    return origin;
+  }
+};
 
 export function WorkspaceSyncIcon({
   state,

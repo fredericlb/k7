@@ -546,6 +546,8 @@ function loadChainNodes(
   yamlIssues.push(...cp.issues);
   const presets = join(dir, VSTPRESETS_DIR);
   for (const n of Object.values(cp.nodes)) {
+    // A PICTURE lane is no module, as in a graph project: its placements are video_tracks/, read by the picture compile.
+    if (n.picture) continue;
     let value: Record<string, unknown> | null;
     let rel: string;
     if (n.track) {

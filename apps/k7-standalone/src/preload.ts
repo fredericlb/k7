@@ -28,6 +28,8 @@ const rowSubs = new Set<(r: TabRow[]) => void>();
 // A window opened beside the tabs is never told anything, and is never behind.
 let current: TabState = { active: true };
 let latest: TabRow[] = [];
+let fullscreen = false;
+const fullscreenSubs = new Set<(on: boolean) => void>();
 
 ipcRenderer.on("studio:tab", (_e, s: TabState) => {
   current = s;
@@ -37,6 +39,11 @@ ipcRenderer.on("studio:tab", (_e, s: TabState) => {
 ipcRenderer.on("studio:tabs", (_e, r: TabRow[]) => {
   latest = r;
   for (const cb of rowSubs) cb(r);
+});
+
+ipcRenderer.on("studio:fullscreen", (_e, on: boolean) => {
+  fullscreen = on;
+  for (const cb of fullscreenSubs) cb(on);
 });
 
 contextBridge.exposeInMainWorld("studioTab", {
@@ -78,5 +85,16 @@ contextBridge.exposeInMainWorld("studioTabs", {
   select: (id: number) => ipcRenderer.send("studio:tabs:select", id),
   close: (id: number) => ipcRenderer.send("studio:tabs:close", id),
   signIn: (server?: string) => ipcRenderer.send("studio:auth:signIn", server),
+  /** Whether the window is fullscreen, which takes the window's own controls off the strip. */
+  fullscreen: (): boolean => fullscreen,
+  onFullscreen(cb: (on: boolean) => void): () => void {
+    fullscreenSubs.add(cb);
+    return () => {
+      fullscreenSubs.delete(cb);
+    };
+  },
   server: (): Promise<string> => ipcRenderer.invoke("studio:auth:server"),
+  /** Pair with another server beside the main one, in the system browser; false when it cannot be asked. */
+  addServer: (server: string): Promise<boolean> =>
+    ipcRenderer.invoke("studio:sync:addServer", server),
 });

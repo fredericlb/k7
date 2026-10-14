@@ -36,6 +36,11 @@ const RETRY_MIN_MS = 1000;
 const RETRY_MAX_MS = 30_000;
 /** Downloads running at once, per link. */
 const FETCH_AT_ONCE = 3;
+/** How long a link that has never connected reads as still connecting rather than offline. */
+const CONNECT_GRACE_MS = 8000;
+
+/** Where a workspace's TEXT stands against the relay — docs/liveCapture.md, "Up to date". */
+export type TextState = "current" | "offline" | "connecting" | "catching-up";
 
 /** The headers that prove a link's account, on its socket and on the blob store alike. */
 export const authHeaders = (auth: RelayAuth): Record<string, string> =>
@@ -68,6 +73,10 @@ export class RelayLink {
   private readonly fetching = new Set<string>();
   private fetchSlots = FETCH_AT_ONCE;
   private readonly fetchWaiting: (() => void)[] = [];
+  /** The head each workspace's welcome promised since the socket opened; absent until it is welcomed. */
+  private readonly target = new Map<string, number>();
+  private readonly born = Date.now();
+  private everOpen = false;
 
   constructor(
     private readonly url: string,
@@ -91,6 +100,22 @@ export class RelayLink {
 
   remove(name: string): void {
     this.linked.delete(name);
+    this.target.delete(name);
+  }
+
+  /** Whether workspace `name`'s text is the room's: welcomed on the open socket, and every entry since applied. */
+  textState(name: string): TextState {
+    const l = this.linked.get(name);
+    if (!l) return "connecting";
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      // At start the socket is still opening: that is no reason to call the relay away.
+      const starting =
+        !this.everOpen && Date.now() - this.born < CONNECT_GRACE_MS;
+      return !starting && l.replica.head > 0 ? "offline" : "connecting";
+    }
+    const target = this.target.get(name);
+    if (target === undefined) return "connecting";
+    return l.replica.head < target ? "catching-up" : "current";
   }
 
   /** A batch the workspace's capture emitted: given to its replica, then sent. */
@@ -280,6 +305,7 @@ export class RelayLink {
     this.ws = ws;
     ws.on("open", () => {
       this.retryMs = RETRY_MIN_MS;
+      this.everOpen = true;
       for (const name of this.linked.keys()) this.hello(name);
       this.onOpen();
     });
@@ -289,6 +315,8 @@ export class RelayLink {
     ws.on("error", (e) => this.log(`relay: ${e.message}`));
     ws.on("close", () => {
       this.ws = null;
+      // A new socket is a new hello: what the last welcome promised says nothing about what was missed since.
+      this.target.clear();
       if (this.closed) return;
       setTimeout(() => this.connect(), this.retryMs).unref();
       this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
@@ -321,6 +349,8 @@ export class RelayLink {
       this.sequenced(l, msg.entry);
       return;
     }
+    // What this welcome promises: an empty room has nothing to send, the others everything up to their head.
+    this.target.set(l.name, msg.mode === "seed" ? 0 : msg.head);
     // An empty room followed is left empty: a follower has nothing to give it.
     if (msg.mode === "seed") {
       if (!this.following) this.seed(l);

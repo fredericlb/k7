@@ -15,7 +15,11 @@ import type { RawClip } from "@studio/song/rawDoc";
 import { compileVideoChains, type VideoChainDocs } from "./videoChains";
 import type { VideoMarker, VideoProjectDoc, VideoTrackDoc } from "./videoDoc";
 import { compileVideoTracks, readViewport } from "./videoTracks";
-import { collectTransitions, resolveStretches } from "./videoTransitions";
+import {
+  chainStretchHead,
+  collectTransitions,
+  resolveStretches,
+} from "./videoTransitions";
 
 /** A wall-clock position -> seconds; minutes and seconds only, since `1:30:00` would read as `bar:beat:tick`. */
 export function parseWallClock(tc: string): number | null {
@@ -89,7 +93,12 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
   warnings.push(...chains.warnings);
 
   // A fade's `chain:` is checked against the graph's stretches BEFORE the programs are collected, since a miss changes its `with`.
-  const fading = resolveStretches(tracks, chains.stretchLanes, warnings);
+  const fading = resolveStretches(
+    tracks,
+    chains.stretchLanes,
+    warnings,
+    chainStretchHead(abs),
+  );
   // Off the REF MAP and not the graph, so an unreadable `graph.yaml` cannot delete every wipe — docs/transitions.md.
   const transitions = collectTransitions(abs, fading, loadModuleRefs(abs));
   const stretches: VideoProjectDoc["stretches"] = {};

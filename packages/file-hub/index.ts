@@ -49,7 +49,12 @@ import {
 } from "./staleCaches.ts";
 import { publishSyncEvent } from "./syncEvents.ts";
 import { attachSyncRelay, SYNC_PATH } from "./syncRelay.ts";
-import { pairedAccounts, readRemote, type SyncRemote } from "./syncRemote.ts";
+import {
+  pairedAccounts,
+  readRemote,
+  readRemotes,
+  type SyncRemote,
+} from "./syncRemote.ts";
 import { SyncRoutes } from "./syncRoutes.ts";
 import { mintTicket, readTicket } from "./ticket.ts";
 
@@ -137,7 +142,7 @@ export class FileHub {
         STUDIO_LIBRARIES_HOME: this.libraries.home,
         STUDIO_HUB_URL: `http://127.0.0.1:${opts.selfPort()}${FILE_HUB_INTERNAL}`,
         // Live sync's relay, which every service dials unless STUDIO_LIVE_SYNC=0 (docs/syncRelay.md).
-        ...syncTarget(opts.selfPort(), readRemote(this.sync.accountDir(slug))),
+        ...syncTarget(opts.selfPort(), readRemotes(this.sync.accountDir(slug))),
         ...this.renderTarget(slug),
       }),
       keep: (slug) => readRemote(this.sync.accountDir(slug)) !== null,
@@ -413,14 +418,21 @@ export class FileHub {
   }
 }
 
-/** Where an account's service syncs: the remote origin it is paired with, by its device token, else this hub's own relay. */
+/** Where an account's service syncs: its MAIN server by its device token, the others beside it, else this hub's own relay. */
 function syncTarget(
   port: number,
-  remote: SyncRemote | null = null,
+  remotes: SyncRemote[] = [],
 ): Record<string, string> {
-  if (remote)
-    return { STUDIO_SYNC_URL: remote.url, STUDIO_SYNC_TOKEN: remote.token };
-  return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
+  const [main] = remotes;
+  if (!main) return { STUDIO_SYNC_URL: `ws://127.0.0.1:${port}${SYNC_PATH}` };
+  return {
+    STUDIO_SYNC_URL: main.url,
+    STUDIO_SYNC_TOKEN: main.token,
+    // Every pairing, main included, for the workspaces each server holds (file-service docs/liveCapture.md).
+    STUDIO_SYNC_SERVERS: JSON.stringify(
+      remotes.map((r) => ({ url: r.url, token: r.token, main: r.main })),
+    ),
+  };
 }
 
 /** One request to the instance, the session's user, its admin flag and the hub's secret stamped on it. */

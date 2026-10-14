@@ -7,6 +7,7 @@ import type {
   FileContent,
   FileNode,
   ForkedModule,
+  ProjectSyncState,
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import { fget, fsend } from "./fileApi.ts";
@@ -24,6 +25,9 @@ export const fileRoutes = {
   /** Open the project, and say which library repository to mount — see docs/fileApi.md. */
   /** Open a project; the machine brings the account's libraries up to date on the way — docs/fileApi.md. */
   open: (path: string) => fsend<WorkspaceInfo>("POST", "/open", { path }),
+  /** Whether `path` is up to date with the relay — `/open` refuses until it is, see docs/launch.md. */
+  syncProject: (path: string) =>
+    fget<ProjectSyncState>(`/sync/project?path=${encodeURIComponent(path)}`),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
 
   // --- The tree and the files in it ---------------------------------------------

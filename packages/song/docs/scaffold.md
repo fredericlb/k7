@@ -4,6 +4,26 @@ The two **timeline archetypes** behind `POST /project/create` (the file service 
 workspace root, `createProjectIn`). Lives in `@studio/song` because the bundled sample video the
 `video` archetype copies is a `@studio/song` asset.
 
+## Born as chain files
+
+Chain files are the main layout ([chainFiles.md](chainFiles.md)), so `scaffold` and both `live`
+scaffolds write their file map as a GRAPH and then CONVERT the folder with the migration
+(`asChainProject`, which runs `migrateToChainFiles`). One converter rather than a second set of
+chain-file templates: a new project and a migrated one cannot differ, because they are made by the
+same code.
+
+What the conversion costs is the comments of the files it generates. A chain file is written from
+data, so the notes the graph and the node files carried are not in it; every file that is MOVED
+rather than generated — `project.yaml`, a lane's `tracks/` file, `surfaces/`, `video_tracks/` —
+keeps its own.
+
+Two shapes stay graphs:
+
+- **`mix`**, whose desk is drawn by `assemblies/` and driven through a surface's `mapping:`, both
+  of which name nodes by the name the migration takes away — refused by the migration, so not made.
+- **the bench** (`@banc`), a `live` rig that `benchChain.ts` splices a library chain into between
+  nodes it names (`IN`, `fader`): it asks `scaffoldLive` for `"graph"`.
+
 ## The three archetypes, and why they are named after surfaces
 
 `PROJECT_SHAPES` is `["arrangement", "mix", "video"]`, and each name is the **surface the project
@@ -108,7 +128,7 @@ the loader already knows, and leave a project wrong the day one of them moves.
 ## Why the files are hand-authored
 
 Every file here is authored by hand rather than serialised from an object, because the COMMENTS
-are the point: a new project is the one worked example a reader gets, and the explanation has to
+are the point — in the files the conversion moves rather than generates (above): a new project is the one worked example a reader gets, and the explanation has to
 sit next to the field it explains. (Those `#`-prefixed lines inside the template strings are the
 SCAFFOLDED FILES' own comments — they ship to the user's disk verbatim and are not TypeScript
 comments; they're deliberately left in full.)

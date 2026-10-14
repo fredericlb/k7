@@ -44,7 +44,8 @@ export async function ensureBench(
   const dir = benchDir();
   rmSync(dir, { recursive: true, force: true });
   // Named after the workspace and not after the folder: what the app says everywhere is "the bench".
-  scaffoldLive(dir, BENCH_WORKSPACE);
+  // A GRAPH, not chain files: spliceChain wires the library chain between nodes it names (`IN`, `fader`).
+  scaffoldLive(dir, BENCH_WORKSPACE, "graph");
   spliceChain(dir, chain);
 
   return { workspace: BENCH_WORKSPACE, project: BENCH_PROJECT };

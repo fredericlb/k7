@@ -175,10 +175,6 @@ are GitHub's — the tag, or `snapshot-<commit>`. The engine jobs and the APK wa
 share its machine, and with three C++ compiles beside it its slower tests time out — and a release
 should not ship what the tests refuse anyway.
 
-`engine macos` and `desktop macos` are written and **manual**. They want a Mac agent behind a Remote
-Shell Executor, as Windows has; until one exists a triggered run of them would wait forever, and
-`release` with it. With the agent in place they join `release`'s dependencies.
-
 **The Linux jobs and the APK run in containers** and install their toolchain on every run. They keep
 a ccache, Electron's downloads and the dependency SOURCES between runs in OneDev caches — the last
 through `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set. That cache

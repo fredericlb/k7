@@ -33,7 +33,12 @@ import {
 } from "../engineLink.ts";
 import { refreshLibraries } from "../libraries.ts";
 import { ensureLibraryPins, libraryVersionsAt } from "../libraryPins.ts";
-import { liveConflicts, liveLogTail, resolveConflict } from "../liveSync.ts";
+import {
+  liveConflicts,
+  liveLogTail,
+  projectSyncState,
+  resolveConflict,
+} from "../liveSync.ts";
 import { boundMachineLog } from "../machineLog.ts";
 import { startModelDownload } from "../modelDownloads.ts";
 import { resolvePlugin } from "../pluginRef.ts";
@@ -252,6 +257,12 @@ filesRouter.post(
       const want = path === "." ? req.ws!.defaultProject() : path;
       // A workspace with no project at all opens as a tree; there is nothing to start.
       if (want) {
+        // Not before the relay has brought it all: half a project compiles to "file missing" (docs/liveCapture.md).
+        const sync = projectSyncState(req.ws!, want);
+        if (!sync.ready) {
+          res.status(409).json({ error: `'${want}' is still syncing`, sync });
+          return;
+        }
         req.ws!.setActiveProject(want);
         startEngineForActive(req.ws!);
       }
@@ -753,6 +764,15 @@ filesRouter.get(
     const batches = liveLogTail(req.ws!, n);
     if (!batches) res.status(404).json({ error: "live sync is off" });
     else res.json({ batches });
+  }),
+);
+// Whether a project is up to date with the relay — what the gate waits on before `/open` (docs/liveCapture.md).
+filesRouter.get(
+  "/sync/project",
+  wrap((req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!path) res.status(400).json({ error: "path required" });
+    else res.json(projectSyncState(req.ws!, path));
   }),
 );
 // Edits the relay set aside because the value had moved meanwhile, each with the value kept (docs/liveCapture.md).

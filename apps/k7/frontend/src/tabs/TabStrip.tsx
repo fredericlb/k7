@@ -5,7 +5,6 @@
 import { House, Music, X } from "@frediverse/ui/icons";
 import { isProjectAddress } from "@studio/web-protocol/projects";
 import { type CSSProperties, useEffect, useState } from "react";
-import { AccountButton } from "./AccountButton";
 import { type TabRow, tabsBridge } from "./bridge";
 
 // `-webkit-app-region` is Electron's, and React's CSSProperties has never carried it.
@@ -39,6 +38,12 @@ export function TabStrip() {
     return bridge.subscribe(setRows);
   }, []);
 
+  // Fullscreen takes macOS's traffic lights away: the room kept for them would be a dark gap.
+  const [fullscreen, setFullscreen] = useState(
+    () => tabsBridge()?.fullscreen?.() ?? false,
+  );
+  useEffect(() => tabsBridge()?.onFullscreen?.(setFullscreen), []);
+
   const bridge = tabsBridge();
   return (
     // The whole bar drags the window; every control below takes itself back out.
@@ -46,7 +51,7 @@ export function TabStrip() {
       className="flex h-screen items-stretch gap-1 overflow-hidden bg-background px-1 text-foreground"
       style={{
         ...DRAG,
-        paddingLeft: inset("inset"),
+        paddingLeft: fullscreen ? undefined : inset("inset"),
         paddingRight: inset("right"),
       }}
     >
@@ -99,10 +104,6 @@ export function TabStrip() {
           )}
         </div>
       ))}
-      {/* Pushed to the right end, just short of the window's own buttons. */}
-      <div className="ml-auto flex shrink-0 items-center" style={NO_DRAG}>
-        <AccountButton rows={rows} />
-      </div>
     </div>
   );
 }

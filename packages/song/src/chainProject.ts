@@ -17,10 +17,11 @@ import {
   expandCalls,
   type Item,
   isEndStep,
-  isTrackItem,
+  isVideoTrackItem,
   itemsOf,
   LAYOUT_FILE,
   type Link,
+  laneOfItem,
   type Step,
   stepLists,
 } from "@studio/song-schema/yaml/chainSchema";
@@ -32,6 +33,7 @@ import {
   nestSubchains,
   regroupCalls,
   resolveLink,
+  splitKey,
   subKey,
 } from "./chainScope";
 import {
@@ -53,7 +55,10 @@ export interface ChainNode {
   step: number;
   /** Its index in a parallel step; null for a step holding one item. */
   item: number | null;
+  /** The lane it IS, of either kind — an audio lane's file is in `tracks/`, a picture lane's in `video_tracks/`. */
   track?: string;
+  /** Set on a PICTURE lane: it holds no module, and its placements are not in `tracks/`. */
+  picture?: true;
   /** The item as written — module fields plus `id`, `bypass`, `vstpreset`, `mapping`. */
   value: Item;
 }
@@ -79,8 +84,7 @@ export function isChainProject(dir: string): boolean {
 }
 
 /** The name a node is known by in memory, in commands and on the wire: its lane, else its id. */
-export const nameOfItem = (i: Item): string =>
-  isTrackItem(i) ? i.track : i.id;
+export const nameOfItem = (i: Item): string => laneOfItem(i) ?? i.id;
 
 /** Every chain file, parsed; a file that fails is reported and left out rather than half-read. */
 export function readChainProject(dir: string): ChainProject {
@@ -125,7 +129,8 @@ export function readChainProject(dir: string): ChainProject {
             ...(sub ? { sub } : {}),
             step: s,
             item: Array.isArray(step) ? k : null,
-            ...(isTrackItem(it) ? { track: it.track } : {}),
+            ...(laneOfItem(it) ? { track: laneOfItem(it) } : {}),
+            ...(isVideoTrackItem(it) ? { picture: true as const } : {}),
             value: it,
           };
         });
@@ -159,6 +164,10 @@ export function writeLayout(dir: string, positions: Positions): void {
     );
   wsWrite(f, text);
 }
+
+/** The picture lane a chain file's own steps hold, if any — its subchains may be fade STRETCHES. */
+export const pictureLaneOf = (c: ChainFile | undefined): string | undefined =>
+  c?.steps.flatMap(itemsOf).find(isVideoTrackItem)?.video_track;
 
 const endOf = (c: ChainFile): EndStep | undefined => {
   const s = c.steps[c.steps.length - 1];
@@ -237,18 +246,29 @@ export function toSegments(
     if (u.sub && calledSubchains(cp.chains[u.parent]).has(u.sub)) continue;
     const c = u.chain;
     const steps = u.sub ? c.steps : expandCalls(c);
+    // A picture lane's subchain that nothing links and that links nowhere is a fade's STRETCH: it lands on the lane.
+    const stretchTo =
+      u.sub && !linked.has(u.key) && !endOf(c)
+        ? pictureLaneOf(cp.chains[u.parent])
+        : undefined;
     const visible =
       c.start !== undefined ||
       linked.has(u.key) ||
+      !!stretchTo ||
       steps.some((s) => itemsOf(s).some((i) => positions[nameOfItem(i)]));
     if (!visible) continue;
     const nodeSteps = steps
       .filter((s) => !isEndStep(s))
       .map((s) => itemsOf(s).map(nameOfItem));
     const links = endOf(c)?.to ?? [];
-    const ends = links.flatMap((l) =>
-      targetsOf(u, l, new Set([u.key])).map((t) => ({ t, level: l.level })),
-    );
+    const ends = stretchTo
+      ? [{ t: stretchTo, level: undefined }]
+      : links.flatMap((l) =>
+          targetsOf(u, l, new Set([u.key])).map((t) => ({
+            t,
+            level: l.level,
+          })),
+        );
     const from = typeof c.start === "string" ? [c.start] : [];
     const seq = [from, ...nodeSteps].filter((s) => s.length);
     seq.forEach((names, i) => {
@@ -288,6 +308,8 @@ export interface FromSegmentsOptions {
   loose?: string[];
   /** Chain names a new chain must not take: files this rewrite leaves alone. */
   reserved?: string[];
+  /** Whether a node is a PASS over a picture — what a fade's stretch is made of; absent, no run is one. */
+  isPicturePass?: (name: string) => boolean;
 }
 
 const bare = (d: string) => d.split("#")[0];
@@ -299,7 +321,12 @@ export function fromSegments(
   graph: GraphFile,
   o: FromSegmentsOptions,
 ): Record<string, ChainFile> {
-  const modules = graph.modules ?? {};
+  // The STRETCHES first, and the rest of the walk never sees them: else the lane is absorbed into the run feeding it.
+  const stretches = stretchRuns(graph.modules ?? {}, o);
+  const inStretch = new Set(stretches.flatMap((r) => r.nodes));
+  const modules = Object.fromEntries(
+    Object.entries(graph.modules ?? {}).filter(([n]) => !inStretch.has(n)),
+  );
   const bypassed = new Set(graph.bypassed ?? []);
   const busOnly = new Set(graph.bus_only ?? []);
   const levels = o.levels ?? {};
@@ -336,7 +363,7 @@ export function fromSegments(
     if (ds.some((d) => predsOf(d).length !== 1)) return null;
     const jp = predsOf(join);
     if (jp.length !== ds.length || jp.some((p) => !ds.includes(p))) return null;
-    if (ds.some((d) => isTrackItem(o.itemOf(d)))) return null;
+    if (ds.some((d) => laneOfItem(o.itemOf(d)))) return null;
     return { mids: ds, join };
   };
 
@@ -370,6 +397,9 @@ export function fromSegments(
     if (isNode(n) && isHead(n) && !inDiamond.has(n)) heads.push(n);
   for (const n of o.loose ?? [])
     if (!modules[n] && !heads.includes(n)) heads.push(n);
+  // A lane a stretch lands on needs a chain to hold it, wired or not.
+  for (const r of stretches)
+    if (!modules[r.lane] && !heads.includes(r.lane)) heads.push(r.lane);
 
   // The first answer `pick` gives along a run, head first, following it while it is one node after another.
   const alongRun = (
@@ -391,10 +421,7 @@ export function fromSegments(
   };
   // The lane a run holds, when it holds one: a chain that is a lane is named after it.
   const laneIn = (h: string): string | undefined =>
-    alongRun(h, (n) => {
-      const it = o.itemOf(n);
-      return isTrackItem(it) ? it.track : undefined;
-    });
+    alongRun(h, (n) => laneOfItem(o.itemOf(n)));
   // The subchain a run's nodes came from, so a node put at its head does not lift it out of its parent.
   const subIn = (h: string): string | undefined =>
     alongRun(h, (n) => {
@@ -496,7 +523,71 @@ export function fromSegments(
     if (!isSum(h) && busOnly.has(h)) c.bus_only = true;
     out[chainName.get(h) as string] = c;
   }
+  // Each stretch becomes a subchain of the chain holding its lane, under the id it had or one from its head.
+  const laneChain = new Map<string, string>();
+  for (const h of heads) {
+    const lane = isSum(h) ? undefined : laneIn(h);
+    if (lane) laneChain.set(lane, chainName.get(h) as string);
+  }
+  for (const r of stretches) {
+    const parent = laneChain.get(r.lane);
+    if (!parent) continue;
+    const was = prevChainOf(r.nodes[0]);
+    const prevSub =
+      was && splitKey(was).parent === parent ? splitKey(was).sub : undefined;
+    let id = prevSub ?? stretchId(o.itemOf(r.nodes[0]), r.nodes[0]);
+    for (let i = 2; out[subKey(parent, id)]; i++)
+      id = `${prevSub ?? stretchId(o.itemOf(r.nodes[0]), r.nodes[0])}-${i}`;
+    out[subKey(parent, id)] = { steps: r.nodes.map(item) };
+  }
   return regroupCalls(nestSubchains(out), o.prev);
+}
+
+/** A stretch's subchain id when it had none: the leaf of what its head extends, as a chain is named. */
+function stretchId(head: Item, name: string): string {
+  const ext = (head as { extends?: unknown }).extends;
+  const leaf = (typeof ext === "string" ? ext : name).split("/").pop() ?? name;
+  return leaf.replace(/^@/, "").replace(/[^A-Za-z0-9_-]/g, "_") || "stretch";
+}
+
+/** Each STRETCH in the segments: a series of nodes nothing feeds, none a source, whose only way out is a picture lane. */
+function stretchRuns(
+  modules: Record<string, string[]>,
+  o: FromSegmentsOptions,
+): { lane: string; nodes: string[] }[] {
+  const fed = new Map<string, number>();
+  for (const ds of Object.values(modules))
+    for (const d of ds) fed.set(bare(d), (fed.get(bare(d)) ?? 0) + 1);
+  const end = (n: string) =>
+    SINKS.has(n) || n === "MIX" || n === "RENDER" || !(n in modules);
+  // Asked only of a NODE: a writer's `itemOf` may have nothing to say about a sink or a name it never saw.
+  const itemOf = (n: string): Item | undefined => {
+    try {
+      return o.itemOf(n);
+    } catch {
+      return undefined;
+    }
+  };
+  const out: { lane: string; nodes: string[] }[] = [];
+  const pass = o.isPicturePass;
+  if (!pass) return out;
+  for (const h of Object.keys(modules)) {
+    if (fed.has(h) || end(h) || o.isSource(h) || !pass(h)) continue;
+    const nodes = [h];
+    for (let cur = h; ; ) {
+      const ds = modules[cur] ?? [];
+      if (ds.length !== 1 || portOf(ds[0])) break;
+      const d = ds[0];
+      if (!SINKS.has(d) && isVideoTrackItem(itemOf(d))) {
+        out.push({ lane: d, nodes });
+        break;
+      }
+      if (end(d) || fed.get(d) !== 1 || nodes.includes(d) || !pass(d)) break;
+      nodes.push(d);
+      cur = d;
+    }
+  }
+  return out;
 }
 
 /** Write every chain that changed and remove the files of chains that are gone. */

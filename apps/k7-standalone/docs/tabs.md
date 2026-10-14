@@ -76,5 +76,16 @@ address: `?inset=` on the left, `?right=` on the right. The bar drags the window
 (`-webkit-app-region: drag`) and every control takes itself back out with `no-drag` — forget that
 and the tabs render and cannot be clicked.
 
+**Fullscreen on macOS is the simple kind** (`simpleFullscreen`). Native fullscreen keeps a window
+below the camera housing of a notched screen and paints the band above it black, so the strip would
+sit under a black border rather than at the top; simple fullscreen covers the whole screen, the strip
+at its top edge, in the same Space. Fullscreen hides the traffic lights either way, and the window
+tells the strip (`studio:fullscreen`, re-told on every resize, since simple fullscreen is one) so the
+room kept for them goes too.
+
+The strip holds the tabs and nothing else: the account is chosen on the home page, where its
+workspaces are listed (`docs/signIn.md`), and a project's header shows no way home and no name in a
+tab, the strip being both.
+
 Only the strip may drive the tabs: every tab carries the same preload, so the main process drops a
 `studio:tabs:*` message from any other sender.

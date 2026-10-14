@@ -22,6 +22,7 @@ import { m } from "../paraglide/messages.js";
 import { findAccountFiles } from "../settings/accountFiles";
 import { DOUBLE_SHIFT_MS } from "../shellMeta";
 import { pollWhileVisible } from "../visiblePoll";
+import { AccountBar } from "./AccountBar";
 import { accountFiles, shares as sharesApi } from "./api";
 import { HomeShell } from "./HomeSidebar";
 import {
@@ -236,6 +237,9 @@ export function Home() {
       <AskHost />
       {/* Where the page's passing notices are drawn. */}
       <Toaster />
+
+      {/* The desktop app's account, at the top of the page rather than in the title bar (projects/AccountBar.tsx). */}
+      <AccountBar />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         {error && (
