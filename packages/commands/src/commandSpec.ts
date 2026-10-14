@@ -33,6 +33,7 @@ import {
   SID_HANDLERS,
   type SidHandler,
 } from "./commands";
+import { soundingLaneRefusal } from "./verbs/pictureSound";
 
 // One surface — the web backend dispatches under "cli" too — but it stays a type.
 export type Surface = "cli";
@@ -660,6 +661,12 @@ export async function runCommand(
   const bad = validateArgs(spec, userArgs);
   if (bad) {
     host.refuse([`${spec.command}: ${bad}`]);
+    return;
+  }
+  // Once here rather than in every event verb, each of which finds its clip its own way.
+  const sounding = soundingLaneRefusal(spec, userArgs, host.songPath);
+  if (sounding) {
+    host.refuse([sounding]);
     return;
   }
   await handler(userArgs, host);

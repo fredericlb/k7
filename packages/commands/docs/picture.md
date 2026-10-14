@@ -28,6 +28,12 @@ in the frame; before them, both took a text editor.
 | `picture add <lane> <ref> <at> …` | a new entry | dropping a video file on a picture lane (`apps/st0/frontend/docs/timeline.md`) |
 | `picture lane new [name]` | a new LANE, and `project.layers` | the timeline's `＋ piste` menu |
 | `picture rect <lane> <x> <y> <w> <h>` | `x`, `y`, `w`, `h` | selecting a layer in the VIEWPORT and dragging it |
+| `picture sound <lane> [track]` | each clip's `sound:`, and a lane saying `video_source:` | run by the timeline after a video drop |
+
+`picture sound` is the one that is not a gesture's twin: it makes the shots audible through the
+engine, extracting what is missing and reusing the lane that already plays them, so running it
+twice changes nothing (`packages/song/docs/videoSound.md`). It lives in `src/verbs/pictureSound.ts`,
+beside the verbs it borrows `laneFile` from.
 
 ## A shot is addressed by WHERE IT STARTS
 

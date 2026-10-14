@@ -50,7 +50,14 @@ export const AudioClipSchema = z
   );
 
 export const VideoClipSchema = z
-  .object({ source: z.string().regex(VIDEO_SOURCE) })
+  .object({
+    source: z.string().regex(VIDEO_SOURCE),
+    // The file's sound, extracted once into an audio file the engine reads on every platform (packages/song/docs/videoSound.md).
+    sound: z
+      .string()
+      .refine((s) => !VIDEO_SOURCE.test(s), "a sound is an audio file")
+      .optional(),
+  })
   .strict();
 
 // Audio or video, told apart by the source's EXTENSION, which lets a clip file say only `source:`.

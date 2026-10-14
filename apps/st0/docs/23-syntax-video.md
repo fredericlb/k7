@@ -29,7 +29,7 @@ its header — and what a drag snaps to is whichever ticks are showing.
 
 A lane of picture. `length: 0` runs to the end of the source; `source_from` trims the head of
 the source, while `start` says where on the timeline the shot sits. `mute` here means **hidden**
-— there is no sound on a lane.
+— a picture lane plays no sound (see A shot's sound, below).
 
 ```yaml schema=VideoTrack
 # name: "A-roll"     # the lane's label; the FILENAME is still its id
@@ -45,6 +45,36 @@ Drag a shot's **body** to move it, its **left edge** to trim the head (which mov
 `source_from` by the same amount, so the frame under the new edge is the one that was there),
 or its **right edge** to set its extent. Opening a lane file in the editor also gives you a
 reader per placement, with Set From / Set To.
+
+## A shot's sound
+
+The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names
+the picture lane it follows:
+
+```yaml schema=Module
+# nodes/dialog.yaml
+extends: "@meta/track"
+video_source: main     # this lane's events ARE main's shots
+```
+
+The lane has no `events:` of its own. Each shot on `main` is heard exactly where it is seen:
+from its `source_from`, cut where a later shot covers it, and cross-faded under a `fade_in`.
+Move or trim a shot and its sound moves with it. Everything else is an audio lane like any other:
+a fader, a chain, a mute, a solo.
+
+What it plays is the clip's `sound:`, an audio file extracted from the video once, because the
+engine cannot open every video container on every machine:
+
+```yaml schema=Clip
+# clips/shot_a.yaml
+source: clips/shot_a.mp4
+sound: clips/shot_a.sound.wav
+```
+
+You never write either by hand. Dropping a video on a picture lane runs `picture sound <lane>`,
+which extracts each shot's sound and makes the lane the first time. Run it yourself for footage
+placed some other way. A shot whose file has no sound stays silent, and a lane with no sound at
+all gets no audio lane.
 
 ## Shapes and texts are MODULES
 

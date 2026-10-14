@@ -99,6 +99,7 @@ import {
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { tapFeedsOf, tapOutsFor, tapPairs } from "./tapOuts";
 import { lanesOf, type Material } from "./trackModule";
+import { videoSoundLanes } from "./videoSound";
 import { wsExists, wsRead, wsWrite } from "./yaml/workspaceFile";
 
 // Re-exported from @studio/song-schema, and imported too because `export … from` binds no local name (docs/graphModel.md).
@@ -971,6 +972,15 @@ function compileNodeProjectIn(
 
   // One entry per HALF, ordered over the LANES so both halves stay adjacent — see docs/trackKind.md.
   const laneErrs: string[] = [];
+  // The lanes that play a PICTURE lane's sound, their clips derived from its shots (docs/videoSound.md).
+  const videoSounds = videoSoundLanes(
+    dir,
+    lanesMap,
+    loadVideoTracks(dir),
+    clipsMap,
+    tempo,
+    laneErrs,
+  );
   // How the pattern lanes share their files, and where their samples are looked for — once per compile.
   const shares = patternShares(dir, lanesMap);
   const banks = sampleBanks(dir);
@@ -1064,8 +1074,13 @@ function compileNodeProjectIn(
           ? [frozenClip(id, renderOn.get(id) as string)]
           : frozenLanes.has(lane)
             ? []
-            : // The lane's authored `events:` become the engine's `clips` — this line IS the boundary between the two words.
-              markCrossfades(events.flatMap(placed)),
+            : videoSounds.has(lane)
+              ? // A sounding lane's clips are its picture lane's shots, on the half that takes audio.
+                halfFor(halves, "audio") === half
+                ? markCrossfades(videoSounds.get(lane) ?? [])
+                : []
+              : // The lane's authored `events:` become the engine's `clips` — this line IS the boundary between the two words.
+                markCrossfades(events.flatMap(placed)),
         // …and what the render replaced, kept for the browser to draw over it and open (docs/freeze.md).
         ...(frozenLanes.has(lane) && events.length
           ? {

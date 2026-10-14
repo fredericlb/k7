@@ -870,6 +870,12 @@ the bytes go into the project's `clips/`, a `clips/<id>.yaml` declares each one,
 each **placed** — `event add` on an audio lane, `picture add` on a picture one. The plan is
 `timelineDrop.ts`, pure; the three round trips are `hooks/useTimelineDrop.ts`.
 
+A drop onto a picture lane then runs **`picture sound <lane>`**, once per lane, so the footage
+arrives with its sound on an audio lane the engine plays (`packages/song/docs/videoSound.md`). It
+is a fourth round trip rather than part of the placement because it can take a while, extracting
+a long file's sound, and because it is safe to repeat: the lane is made the first time and reused
+after.
+
 **Where it lands is where you dropped it**, snapped to the ticks the ruler is actually drawing —
 the same rule the clip drag and the ruler's click follow, so the lines you can see are the
 positions you can land on. The lane comes off the DOM (`data-lane-track`, `data-lane-video`) for

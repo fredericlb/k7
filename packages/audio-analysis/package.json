@@ -10,7 +10,8 @@
     "./envelope": "./src/envelope.ts",
     "./sidecar": "./src/sidecar.ts",
     "./analyse": "./src/analyse.ts",
-    "./peak": "./src/peak.ts"
+    "./peak": "./src/peak.ts",
+    "./extract": "./src/extract.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

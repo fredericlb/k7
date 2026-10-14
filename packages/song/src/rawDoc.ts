@@ -40,7 +40,7 @@ export interface RawTrack {
   tracks?: unknown[]; // group only: member ids
   strudel?: unknown; // strudel only: the pattern file
   frozen?: unknown; // single only: the render standing in for its material + modules (see frozenRender)
-  video_source?: unknown; // audio-from-video link (see nodeProject)
+  video_source?: unknown; // the PICTURE lane whose shots this lane sounds (docs/videoSound.md)
   docs?: unknown;
   todos?: unknown;
 }
@@ -48,6 +48,8 @@ export interface RawTrack {
 /** A clip file's struct (clips/<id>.yaml) — audio or video, told apart by extension. */
 export interface RawClip {
   source?: string;
+  // A VIDEO clip's sound, extracted into an audio file (docs/videoSound.md).
+  sound?: string;
   name?: unknown;
   gain?: unknown;
   // The window into the source; `unknown` because the SPELLING is the unit (see AudioClipSchema).
@@ -181,6 +183,7 @@ export interface LoadedModule {
   disabled?: unknown; // excluded from the render entirely, chains and all
   tracks?: unknown; // a GROUP lane's member names
   strudel?: unknown; // a GENERATED lane's pattern file (algo/<name>.strudel)
+  video_source?: unknown; // the PICTURE lane whose shots this lane sounds (docs/videoSound.md)
   // -- added by the loader ------------------------------------------------------
   kind: ModuleKind; // from the type folder (MODULE_TYPES)
   // The module's ports, its own or its type folder's, resolved by the loader — see docs/ports.md.

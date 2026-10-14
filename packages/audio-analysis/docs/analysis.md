@@ -120,6 +120,19 @@ Silence reports `PEAK_FLOOR_DB`, the same floor the `Peak` param declares, rathe
 infinity. A float file over full scale is reported as measured: rounding here would be a policy
 that belongs to the module.
 
+## A video's sound, written out — and here the decoders swap order
+
+`extractSound` (`src/extract.ts`) writes a file's first audio stream to a 32-bit float WAV at its
+own rate and channel count, for the engine to play a shot's sound from
+(`packages/song/docs/videoSound.md`). It is the one reader here that asks **ffmpeg first** and
+the engine second, because what it reads is video: the engine opens a container only through the
+platform's decoder, which reads no WebM on any platform and nothing at all on Linux. The engine is
+the fallback for a desktop with no ffmpeg, and there it reads an `.mp4` or a `.mov`.
+
+A file with no audio stream answers `null` rather than throwing: a silent film is not a fault.
+The WAV is written to `<dest>.part` and renamed when the decode finished, so an interrupted
+extraction leaves nothing a compile would take for a sound.
+
 ## No `node:` in @studio/audio-probe, and that is why this package exists
 
 `audio-probe` MEASURES audio a caller already decoded, which is why a browser may import it. This

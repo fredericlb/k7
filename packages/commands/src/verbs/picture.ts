@@ -35,7 +35,7 @@ const LANES_DIR = "video_tracks";
 const SAME = 5e-4;
 
 /** A lane's file, or a refusal naming the lanes there are. */
-function laneFile(
+export function laneFile(
   lane: string,
   h: CommandHost,
 ): { rel: string; abs: string; text: string } | null {
