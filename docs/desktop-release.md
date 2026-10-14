@@ -94,6 +94,23 @@ read when the lock changed.
 cache step is not fatal: the action downloads sccache from github.com, which a runner sometimes cannot
 reach, and the build then runs uncached — the launcher is set only when the step succeeded.
 
+## The phone, beside the desktops
+
+The `android` job builds `engine/st0-android`'s APK, debug-signed, and the release carries it as
+`st0-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
+stages: the phone's engine is an arm64 LIBRARY that Gradle compiles inside the app's build
+(`engine/st0-engine/docs/android.md`), so there is no command-line archive for it to share. It runs as
+OneDev's nightly job does — the image's Android SDK, the platform, build tools and NDK that
+`app/build.gradle.kts` names, JDK 21 — with its own compiler and sources caches, since the same sources
+compile to arm64 there. Like the desktops, a red APK holds the release back.
+
+There is no release key, so the APK is signed with a debug key and installs by sideloading. Android
+refuses an update signed by another key, and a fresh runner makes a new debug key each time, so the
+job keeps one in the Actions cache: every snapshot is signed alike, and one built anywhere else (a
+developer's machine, OneDev) needs the installed app removed first. The cache is not a vault — an
+entry unused for a week is evicted and the next run signs with a new key; a keystore kept as a
+repository secret is what a release key would need.
+
 ## The installer each platform gets
 
 electron-builder makes them, from `apps/st0-standalone/electron-builder.cjs`: NSIS on Windows, a `.dmg`

@@ -3,7 +3,8 @@
 # `docker/` ships the hosted apps; these ship to a musician's machine, in two stages per desktop
 # (desktop-platform.yml): `engine` compiles engine/st0-engine and engine/st0-supervisor (C++, CMake) and
 # publishes them as the command-line engine; `desktop` then packages apps/st0-standalone around THOSE
-# binaries, compiling nothing, and only when that platform's engine built.
+# binaries, compiling nothing, and only when that platform's engine built. Beside them, `android`
+# builds the phone's APK, whose arm64 engine and supervisor Gradle compiles itself.
 #
 # It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not: a cold
 # build is tens of minutes per platform, a cached one several. Hence the `decide` gate below — a main
@@ -107,16 +108,113 @@ jobs:
       preset: ${{ matrix.preset }}
       stamp: ${{ needs.decide.outputs.stamp }}
 
+  # The phone: engine/st0-android's debug-signed APK, its own arm64 engine and supervisor built by Gradle,
+  # as OneDev's nightly job builds it (engine/st0-engine/docs/android.md).
+  android:
+    name: android
+    needs: decide
+    if: needs.decide.outputs.build == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: commons
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: fredericlb/commons
+          ref: ${{ steps.commons.outputs.sha }}
+          path: commons
+          token: ${{ secrets.COMMONS_TOKEN || github.token }}
+
+      # The app's page is a workspace, and Capacitor's Android runtime, which settings.gradle.kts includes, is a package.
+      - uses: ./.github/actions/node
+
+      # JDK 21, which AGP runs on and the app's Java and Kotlin target; Gradle's downloads cached by setup-java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # The HOST half of the build: JUCE compiles juceaide, its GUI module included, for the runner itself.
+      - name: build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build \
+            libfreetype-dev libfontconfig-dev libx11-dev libxcomposite-dev libxcursor-dev \
+            libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
+
+      # The image carries the SDK and its sdkmanager; these are the versions app/build.gradle.kts names.
+      - name: android sdk
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
+
+      # Their own keys, never the desktop legs': the same sources compile to arm64 here.
+      - name: dependency sources
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/st0-fetch
+          key: fetch-android-${{ hashFiles('engine/st0-engine/CMakeLists.txt', 'engine/st0-supervisor/CMakeLists.txt', 'engine/st0-engine/engine/patches/**', 'engine/st0-engine/engine/eurorack/patches/**', 'engine/st0-supervisor/cmake/**') }}
+      - name: compiler cache
+        id: cache
+        continue-on-error: true
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          variant: sccache
+          key: engine-android-arm64
+          max-size: 2G
+
+      # One debug key across runs: a fresh runner makes a new one, and Android refuses an update signed by another.
+      - name: debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore
+
+      # Gradle hands its environment to both CMake projects, whose presets read the launcher (docs/desktop-release.md).
+      - name: apk
+        env:
+          STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
+          STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/st0-fetch
+        run: |
+          # Every core: the engine's build script leaves two free for a developer's machine.
+          export CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)
+          cd engine/st0-android
+          ./gradlew --no-daemon assembleDebug
+          mkdir -p ../../dist/release
+          cp app/build/outputs/apk/debug/app-debug.apk "../../dist/release/st0-android_${{ needs.decide.outputs.stamp }}_arm64.apk"
+
+      - name: sources only in the fetch cache
+        if: always()
+        shell: bash
+        run: |
+          d="$RUNNER_TEMP/st0-fetch"
+          [ -d "$d" ] || exit 0
+          find "$d" -mindepth 2 -maxdepth 2 -type d -name '*-build' -exec rm -rf {} +
+          rm -rf "$d/st0-engine/faust-src/build/lib"
+
+      - name: compiler cache stats
+        if: always()
+        run: sccache --show-stats 2>/dev/null || echo 'no compiler cache this run'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: st0-android-arm64
+          path: dist/release/*.apk
+          if-no-files-found: error
+
   publish:
     name: publish
-    needs: [decide, build]
+    needs: [decide, build, android]
     if: needs.decide.outputs.publish == 'yes'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true # one flat directory: three engine archives, three installers
+          merge-multiple: true # one flat directory: three engine archives, three installers, the APK
 
       # `gh` rather than an action: no checkout is needed and nothing third-party signs off
       # on what reaches the release page.
