@@ -50,7 +50,11 @@ import {
 import { hubRouter, hubSecretOk, requireHubSecret } from "./hosted.ts";
 import { ensureLibraryPins } from "./libraryPins.ts";
 import { startMove } from "./liveMove.ts";
-import { downloadWorkspace, workspaceSyncStatus } from "./liveSync.ts";
+import {
+  downloadWorkspace,
+  joinServerRooms,
+  workspaceSyncStatus,
+} from "./liveSync.ts";
 import { startPrefetch } from "./mediatekPrefetch.ts";
 import { modelDownload, startModelDownload } from "./modelDownloads.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -136,7 +140,9 @@ app.use(["/workspaces", "/engine/served", "/account"], workspaceGate);
 // Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
   "/workspaces",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
+    // On a server, a workspace a device created or moved here is joined before it is listed (docs/workspaces.md).
+    await joinServerRooms();
     const reply: WorkspaceList = { workspaces: listWorkspaces(req.userEmail!) };
     res.json(reply);
   }),
@@ -225,6 +231,7 @@ app.post(
 app.get(
   "/workspaces/projects",
   wrap(async (req, res) => {
+    await joinServerRooms();
     const reply: AccountWorkspaceList = {
       workspaces: await listMachineWorkspaces(req.userEmail!),
     };

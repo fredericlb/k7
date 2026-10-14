@@ -68,9 +68,7 @@ export function mediaLabels(): LibraryLabels {
       noRecordings: m["media.contents.noRecordings"](),
       synced: (server) => m["wsync.synced"]({ server }),
       localOnly: m["wsync.local"](),
-      serverOnly: (server) => m["wsync.server"]({ server }),
       download: m["wsync.download"](),
-      downloadAll: (count) => m["wsync.downloadAll"]({ count }),
       downloadMissing: plural(
         m["wsync.downloadMissingOne"],
         m["wsync.downloadMissingMany"],

@@ -127,6 +127,17 @@ lands. The variant picker is a second input, because that one names a directory 
 one audio file. Both reset `value` before opening, or picking the same thing twice fires no
 `change`.
 
+## The server's entries are in the same tree
+
+On a machine paired with a server, the entries only the server holds are filed in the family's tree
+among those here (`treeOf`'s `remote`, `remoteRows`), under the same artist and album folders, rather
+than listed apart: a library is looked up by artist and album, and a separate flat list of a few
+hundred songs is not something anyone finds a song in. Such a row wears a cloud, is muted and does not
+open — there is nothing here to open — and keeps its right-click; a cloud button at its end brings it
+down. A folder holding only the server's entries says so with a cloud beside its name. A song held on
+both sides is one row, the local one. What a download takes, and why never a folder whole, is
+`../../mediatek/docs/serverCopy.md`.
+
 ## Adding songs
 
 **Add a song** takes one audio file or several (`src/AddSong.tsx`). Each file's tags are read in the

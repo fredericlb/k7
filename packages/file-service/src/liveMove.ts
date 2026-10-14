@@ -144,6 +144,9 @@ async function moveWorkspace(a: Attached, to: string): Promise<void> {
     linkUp(a, target);
     forgetRooms(from);
     forgetRooms(target);
+    // A folder named `room.host` for the server it left takes its room's name back when that is free here.
+    const { restoreRoomName } = await import("./workspaces.ts");
+    await restoreRoomName(a.name);
   } catch (e) {
     // Not moved: it stays linked where it was, and the target keeps whatever it got.
     toLink.remove(a.room);

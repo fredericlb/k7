@@ -219,7 +219,6 @@
   "account.addServerHint": "Another k7 server to sync with, beside the main one",
   "wsync.moving": "Moving to {server}…",
   "wsync.moveFailed": "Moving to {server} failed: {error}",
-  "wsync.downloadAll": "Download all ({count})",
   "wsync.downloadMissingOne": "Download the missing song",
   "wsync.downloadMissingMany": "Download the {count} missing songs",
   "home.engine": "Engine",

@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
@@ -20,11 +21,13 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { BENCH_WORKSPACE } from "./bench.ts";
+import { liveLogFor } from "./liveLog.ts";
 import {
   ACCOUNT_LIBRARY_ROOM,
   attachLiveCapture,
   detachLiveCapture,
   endWorkspace,
+  roomAt,
 } from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
@@ -91,6 +94,45 @@ export function joinWorkspace(name: string): void {
 export function attachAllWorkspaces(): void {
   for (const name of workspaceNames(rootDir())) joinWorkspace(name);
   attachAccountLibrary();
+  // A workspace kept as `room.host` while its name was taken here gets it back once it is free.
+  for (const name of workspaceNames(rootDir())) void restoreRoomName(name);
+}
+
+/** Rename workspace folder `from` to `to` with everything filed by its path: its sync history, its active marker. */
+async function renameWorkspaceFolder(from: string, to: string): Promise<void> {
+  const fromRoot = workspaceRoot(from);
+  const toRoot = workspaceRoot(to);
+  closeModuleWatchesUnder(fromRoot);
+  // Imported late: engineLink reaches back into this registry.
+  const { unloadEngineIfServing } = await import("./engineLink.ts");
+  await unloadEngineIfServing(fromRoot);
+  // Sync lets go first, so the move is not captured as every file removed and added again.
+  detachLiveCapture(fromRoot);
+  for (const [key, ws] of live) if (ws.root === fromRoot) live.delete(key);
+  renameSync(fromRoot, toRoot);
+  if (existsSync(liveLogFor(fromRoot)))
+    renameSync(liveLogFor(fromRoot), liveLogFor(toRoot));
+  if (existsSync(activeMarkerOf(fromRoot)))
+    renameSync(activeMarkerOf(fromRoot), activeMarkerOf(toRoot));
+  const owner = rootOwner();
+  if (owner) forgetListing(slugify(owner));
+  joinWorkspace(to);
+}
+
+/** The workspace `name`, renamed to its room's name when it differs and nothing here holds that name; answers its name now. */
+export async function restoreRoomName(name: string): Promise<string> {
+  const room = roomAt(workspaceRoot(name));
+  if (!room || room === name) return name;
+  try {
+    if (existsSync(workspaceRoot(room))) return name;
+    await renameWorkspaceFolder(name, room);
+    return room;
+  } catch (e) {
+    console.warn(
+      `sync | '${name}' could not take back its name '${room}': ${(e as Error).message}`,
+    );
+    return name;
+  }
 }
 
 let accountLibrary: Workspace | null = null;

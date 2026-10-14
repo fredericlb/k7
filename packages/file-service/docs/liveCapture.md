@@ -131,7 +131,10 @@ here and syncs nowhere until it is paired again.
 
 Two servers may each hold a workspace of the same name, and a machine has one folder per name: the
 second brought down lands as `<room>.<host>` (`localNameFor`) — `@` would read better, and the
-workspace-name rule refuses it — and syncs with its room under its real name.
+workspace-name rule refuses it — and syncs with its room under its real name. It takes that name
+back once nothing here holds it — after a move, and at every start (`restoreRoomName`): the folder,
+its sync history and its active marker are renamed together, sync letting go first so the rename is
+not captured as every file removed and added again.
 
 **A move** (`../src/liveMove.ts`, `POST /workspaces/sync/move`) is refused unless the workspace is up
 to date here (above) with nothing of its own unconfirmed, and unless the target holds no workspace of

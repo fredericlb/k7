@@ -157,6 +157,11 @@ with that room hears the end and lets its copy go (`dropEndedWorkspace`), unless
 file sync never knew — a backup, a local-only file — which is kept, no longer synced. A move to another
 server ends the room it leaves the same way (`liveCapture.md`, "Several servers").
 
+**On a server, a workspace a device creates is joined without waiting for a reconnect.** The server's
+own replica joins every room holding files when its link opens — and a room a device seeds later, or a
+move lands, announces itself to no reconnect. So it joins them again before answering the home page's
+lists, and every minute (`joinServerRooms`): a moved workspace is listed on the server it moved to.
+
 **The engine is unloaded first, and that is not politeness.** A project of this workspace still
 loaded holds files open, and Windows answers EPERM half-way through a delete — the same wall a
 person hits removing the folder by hand, where Explorer reports it as a request for admin rights

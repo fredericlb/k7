@@ -32,10 +32,11 @@ listing picks it up on its next poll. Uploading the other way is not offered her
 ## An album, or a playlist, in one gesture
 
 A set list or an album is what someone wants on the laptop before a gig, and one click per song is
-not a way to get it. So the download takes a LIST of paths, read against one manifest, and three
-places hand it one: a folder's "Download all" in the server-only list, the songs tree's right-click
-on an album or artist folder that is only partly here, and the playlist screen's button for the
-lines that resolve to nothing here and to a song on the server (`../../ui-library/src/serverSets.ts`).
+not a way to get it. So the download takes a LIST of paths, read against one manifest, and two
+places hand it one: the songs tree's right-click on any row holding something only the server has —
+an artist, an album, one song — and the playlist screen's button for the lines that resolve to
+nothing here and to a song on the server (`../../ui-library/src/serverSets.ts`). One entry alone
+comes down from the cloud button at the end of its own tree row.
 
 Each names the server-only SONGS, never the folder. Copying the album's folder whole would also
 copy, over the local one, every song already here, and a song edited on this machine would lose its

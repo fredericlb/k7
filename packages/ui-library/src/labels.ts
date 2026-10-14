@@ -54,10 +54,7 @@ export interface LibraryLabels {
     /** Placement on a machine paired with a server, `host` being the server's. */
     synced: (host: string) => string;
     localOnly: string;
-    serverOnly: (host: string) => string;
     download: string;
-    /** A folder's server-only entries at once — an album's songs, a pack's samples. */
-    downloadAll: (count: number) => string;
     /** The songs an album or a playlist names that only the server holds. */
     downloadMissing: (count: number) => string;
   };

@@ -1,14 +1,10 @@
 // serverSets.ts — which server-only entries a bulk download takes: a folder's (an album, an artist), a
-// playlist's, or the server-only list grouped by folder. Pure, so it is tested without a screen.
+// playlist's. Pure, so it is tested without a screen.
 // The one thing a reader would get wrong: only what is ABSENT here is named, never a folder whole — a
 // song edited on this machine must not be overwritten by the server's copy (../../mediatek/docs/serverCopy.md).
 
 import { findSong, type ResolvedItem } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
-
-/** The folder an entry sits in, family-prefixed: a song's album, a sample's pack. */
-export const folderOfEntry = (path: string): string =>
-  path.split("/").slice(0, -1).join("/");
 
 /** The server-only paths at or under `folder` (family-prefixed), in path order. */
 export function missingUnder(
@@ -19,26 +15,6 @@ export function missingUnder(
     .map((e) => e.path)
     .filter((p) => p === folder || p.startsWith(`${folder}/`))
     .sort();
-}
-
-export interface FolderGroup {
-  folder: string;
-  entries: MediatekEntry[];
-}
-
-/** The server-only entries grouped by the folder they sit in, folders and entries in path order. */
-export function byFolder(serverOnly: MediatekEntry[]): FolderGroup[] {
-  const groups = new Map<string, MediatekEntry[]>();
-  for (const e of serverOnly) {
-    const f = folderOfEntry(e.path);
-    groups.set(f, [...(groups.get(f) ?? []), e]);
-  }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([folder, entries]) => ({
-      folder,
-      entries: [...entries].sort((a, b) => a.path.localeCompare(b.path)),
-    }));
 }
 
 /** The server-only songs a playlist names and this machine lacks, deduplicated, in playlist order. */

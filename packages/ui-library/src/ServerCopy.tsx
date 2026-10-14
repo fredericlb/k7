@@ -1,10 +1,9 @@
-// ServerCopy.tsx — on a machine paired with a server: where each entry lives (here, there, both) and the
-// server-only entries with a button to bring one, or a folder's worth, down. The same icons as k7's workspace list.
+// ServerCopy.tsx — on a machine paired with a server: where each entry lives (here, there, both), and the download
+// of an entry only the server holds — drawn in the tree among the rest. The same icons as k7's workspace list.
 // Nothing at all on an unpaired machine or on the server itself. See ../../mediatek/docs/serverCopy.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
-  Cloud,
   CloudCheck,
   CloudDownload,
   HardDrive,
@@ -19,7 +18,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { library } from "./api";
 import { useLabels } from "./host";
-import { byFolder, missingUnder } from "./serverSets";
+import { missingUnder } from "./serverSets";
 
 /** The server is asked again this often, for what another machine uploaded there. */
 const PLACEMENT_MS = 30_000;
@@ -112,83 +111,37 @@ export function PlacementIcon({
   );
 }
 
-/** The server's entries this machine lacks, by folder, each and each folder with its download — never brought down on their own. */
-export function ServerOnlyEntries({
-  placement,
+/** The download of one entry of the server's alone, at the end of its tree row — its spinner while it comes down. */
+export function RemoteDownload({
+  path,
   onDownload,
 }: {
-  placement: LibraryPlacement | null;
+  /** Family-prefixed, as the server names it. */
+  path: string;
   onDownload: (paths: string[]) => Promise<void>;
 }) {
   const l = useLabels();
-  // A path, or a folder for its whole group: one download at a time either way.
-  const [downloading, setDownloading] = useState<string | null>(null);
-  if (!placement?.serverOnly.length) return null;
-  const host = placement.server ? new URL(placement.server).host : "";
-  const start = (key: string, paths: string[]) => {
-    setDownloading(key);
-    void onDownload(paths).finally(() => setDownloading(null));
-  };
-  const icon = (key: string) =>
-    downloading === key ? (
-      <Loader2 className="size-3.5 animate-spin" />
-    ) : (
-      <CloudDownload className="size-3.5" />
-    );
+  const [busy, setBusy] = useState(false);
   return (
-    <div className="mt-2 flex flex-col gap-2">
-      {byFolder(placement.serverOnly).map((g) => (
-        <section key={g.folder}>
-          {/* A lone entry needs no "all"; a family's root has no folder to name. */}
-          {g.entries.length > 1 && g.folder.includes("/") ? (
-            <header className="flex items-center gap-3 px-3 py-1 text-muted-foreground text-xs">
-              <span className="min-w-0 flex-1 truncate">
-                {g.folder.split("/").slice(1).join(" / ")}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={downloading !== null}
-                onClick={() =>
-                  start(
-                    g.folder,
-                    g.entries.map((e) => e.path),
-                  )
-                }
-              >
-                {icon(g.folder)} {l.contents.downloadAll(g.entries.length)}
-              </Button>
-            </header>
-          ) : null}
-          <ul className="flex flex-col gap-1">
-            {g.entries.map((e) => (
-              <li
-                key={e.id}
-                className="flex items-center gap-3 rounded-md border border-dashed border-border px-3 py-1.5"
-              >
-                <span
-                  title={l.contents.serverOnly(host)}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-muted-foreground"
-                >
-                  <Cloud className="size-3.5 shrink-0" />
-                  <span className="truncate">{e.name}</span>
-                  {e.meta?.artist ? (
-                    <span className="text-xs">{String(e.meta.artist)}</span>
-                  ) : null}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={downloading !== null}
-                  onClick={() => start(e.path, [e.path])}
-                >
-                  {icon(e.path)} {l.contents.download}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      className="shrink-0 text-muted-foreground"
+      title={l.contents.download}
+      aria-label={l.contents.download}
+      disabled={busy}
+      onClick={(e) => {
+        // The row behind it must not take the click as its own.
+        e.stopPropagation();
+        setBusy(true);
+        void onDownload([path]).finally(() => setBusy(false));
+      }}
+    >
+      {busy ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : (
+        <CloudDownload className="size-3.5" />
+      )}
+    </Button>
   );
 }

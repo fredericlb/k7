@@ -219,7 +219,6 @@
   "account.addServerHint": "Un autre serveur k7 avec lequel synchroniser, à côté du principal",
   "wsync.moving": "Déplacement vers {server}…",
   "wsync.moveFailed": "Le déplacement vers {server} a échoué : {error}",
-  "wsync.downloadAll": "Tout télécharger ({count})",
   "wsync.downloadMissingOne": "Télécharger le morceau manquant",
   "wsync.downloadMissingMany": "Télécharger les {count} morceaux manquants",
   "home.engine": "Moteur",

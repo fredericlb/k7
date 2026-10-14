@@ -68,14 +68,25 @@ export const liveSyncOn = (): boolean => process.env.STUDIO_LIVE_SYNC !== "0";
 export const attachedAt = (root: string): Attached | undefined =>
   attached.get(root);
 
-/** A link (re)connected: on a SERVER every room it lists is joined, since the server holds them all. */
-function onOpen(server: SyncServer): void {
+/** How often a SERVER looks for a room a device created since it last joined them all. */
+const ROOMS_EVERY_MS = 60_000;
+let roomsTimer: ReturnType<typeof setInterval> | null = null;
+
+/** On a SERVER: join every room holding files — one a device seeded or a move landed included, which no reconnect announces. */
+export async function joinServerRooms(): Promise<void> {
+  if (isPaired() || !liveSyncOn()) return;
+  // Imported late: workspaces.ts loads this module to attach what it opens.
+  const { joinWorkspace } = await import("./workspaces.ts");
+  for (const server of syncServers())
+    for (const name of await listRooms(server, 0)) joinWorkspace(name);
+}
+
+/** A link (re)connected: on a SERVER every room it lists is joined, since the server holds them all — and again every minute. */
+function onOpen(_server: SyncServer): void {
   if (isPaired()) return;
-  void listRooms(server, 0).then(async (names) => {
-    // Imported late: workspaces.ts loads this module to attach what it opens.
-    const { joinWorkspace } = await import("./workspaces.ts");
-    for (const name of names) joinWorkspace(name);
-  });
+  void joinServerRooms();
+  roomsTimer ??= setInterval(() => void joinServerRooms(), ROOMS_EVERY_MS);
+  roomsTimer.unref?.();
 }
 
 /** The move a workspace is under, told by liveMove.ts — set there so this module does not import it back. */
@@ -299,6 +310,10 @@ async function endedRemotely(a: Attached): Promise<void> {
   const { dropEndedWorkspace } = await import("./workspaces.ts");
   await dropEndedWorkspace(a.name);
 }
+
+/** The room the workspace at `root` syncs as, when it is linked to one. */
+export const roomAt = (root: string): string | undefined =>
+  attached.get(root)?.room ?? readLinkRecord(liveLogFor(root))?.room;
 
 /** Stop capturing the workspace at `root`, which is gone or no longer served. */
 export function detachLiveCapture(root: string): void {

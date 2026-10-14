@@ -37,7 +37,8 @@ export function songActions(d: {
       key: "download-missing",
       // An album or an artist half here: what the server holds under it, and only that (../../mediatek/docs/serverCopy.md).
       label: (t) => d.labels.contents.downloadMissing(missing(t).length),
-      when: (t) => t.dir && !t.root && missing(t).length > 0,
+      // A folder half here, or one song only the server holds: the same download.
+      when: (t) => !t.root && missing(t).length > 0,
       run: (t) => void d.download(missing(t)),
     },
     {
