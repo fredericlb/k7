@@ -41,6 +41,9 @@ if(NOT "$ENV{STUDIO_FETCHCONTENT_DIR}" STREQUAL "")
     set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 endif()
 
+# The patch command carries the script's checksum, so a kept source tree re-runs a patch edited since.
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch_ixwebsocket.cmake" STUDIO_PATCH_SUM)
+
 # --- nlohmann/json : every frame and every settings file, the same tag as the engine's --------
 FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -90,7 +93,7 @@ FetchContent_Declare(ixwebsocket
     GIT_TAG        v12.0.1
     GIT_SHALLOW    ON
     # A TLS write left pending is retried at its own length, or a big upload corrupts the tunnel (docs/supervisor.md).
-    PATCH_COMMAND  ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch_ixwebsocket.cmake)
+    PATCH_COMMAND  ${CMAKE_COMMAND} -DSTUDIO_PATCH_SUM=${STUDIO_PATCH_SUM} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patch_ixwebsocket.cmake)
 set(USE_TLS ON CACHE BOOL "" FORCE)
 set(USE_MBED_TLS ON CACHE BOOL "" FORCE)
 set(USE_ZLIB OFF CACHE BOOL "" FORCE)

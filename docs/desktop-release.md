@@ -84,8 +84,10 @@ file `cl.exe` opens; the runner is discarded after the job, and a refusal leaves
 Tracktion, Surge, Faust and the rest is three to six minutes before a single compile. The cache holds
 sources only — what CMake builds inside the folder is deleted before it is saved, as on OneDev — and
 its key is the exact hash of both `CMakeLists.txt` and the fetch-time patch scripts, with no fallback
-to an older one: CMake re-runs a patch step when its COMMAND changes, not its script, so a restored
-tree would silently miss a patch added since. A changed dependency or patch costs one cold fetch.
+to an older one, so a changed dependency or patch costs one cold fetch rather than a tree half of one
+and half of the other. A restored tree would take a changed patch anyway — each patch command carries
+its script's checksum (`engine/st0-engine/docs/build.md`) — which is what OneDev's fixed-name caches
+rely on.
 
 Only those two, because of the budget. The repository's caches share 10 GB, evicted
 least-recently-used, and a platform's sources are 2 to 2.7 GB with their git history — which stays,

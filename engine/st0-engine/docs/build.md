@@ -26,3 +26,14 @@ Ninja builds (macOS, Linux, Android), `build.mjs` sets `CMAKE_BUILD_PARALLEL_LEV
 unless the environment already sets it. Not under the Visual Studio generator: there the variable
 becomes MSBuild's `/m`, projects in parallel on top of `/MP`'s files in parallel — the 144-compiler
 case `AGENTS.md` warns about.
+
+## A patch re-runs when its script changes
+
+Every third-party source is patched at fetch time by a `cmake -P` script, and CMake re-runs a patch
+step only when its COMMAND changes — not when the script it names does. A source tree that outlives
+one configure — an old build folder, CI's kept `$STUDIO_FETCHCONTENT_DIR` — would otherwise keep the
+patches it was first given and silently miss one added since, and the build fails on a member the
+missing patch adds. So each patch command carries a checksum of its script and of
+`engine/eurorack/patches/studio_replace.cmake`, which they share (`studio_patch_command` in
+`CMakeLists.txt`): editing either changes the command and re-runs the patch. Re-running it is safe,
+since `studio_replace` leaves an edit already in place alone.

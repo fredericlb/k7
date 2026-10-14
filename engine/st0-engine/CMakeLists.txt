@@ -45,6 +45,19 @@ if(NOT "$ENV{STUDIO_FETCHCONTENT_DIR}" STREQUAL "")
     set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 endif()
 
+# A patch command carries its script's checksum, so a kept source tree re-runs a patch edited since (docs/build.md).
+function(studio_patch_command out script)
+    file(SHA256 "${script}" sum)
+    file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/studio_replace.cmake" shared)
+    set(${out} ${CMAKE_COMMAND} -DSTUDIO_PATCH_SUM=${sum}-${shared} -P "${script}" PARENT_SCOPE)
+endfunction()
+foreach(_patch faust sfizz surge ixwebsocket tracktion)
+    studio_patch_command(STUDIO_PATCH_${_patch} "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/${_patch}.cmake")
+endforeach()
+foreach(_patch eurorack stmlib)
+    studio_patch_command(STUDIO_PATCH_${_patch} "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/${_patch}.cmake")
+endforeach()
+
 # --- nlohmann/json : parse the JSON project the frontend sends (server) --------
 FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -157,7 +170,7 @@ FetchContent_Declare(faust
     GIT_SUBMODULES "libraries"
     GIT_SHALLOW    ON
     # poly-dsp.h prints on the audio thread at every voice steal; explained in the script.
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/faust.cmake"
+    PATCH_COMMAND ${STUDIO_PATCH_faust}
     SOURCE_SUBDIR  build)
 
 # --- sfizz : plays SFZ instruments, for SfzPlugin ------------------------------
@@ -172,7 +185,7 @@ FetchContent_Declare(sfizz
     # Not shallow: a shallow clone cannot reach the commit libaiff, a submodule of a submodule, is pinned at.
     # All six are compiled into the library: abseil, the audio file readers (FLAC is dr_libs'), and so on.
     GIT_SUBMODULES_RECURSE ON
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/sfizz.cmake")
+    PATCH_COMMAND ${STUDIO_PATCH_sfizz})
 set(SFIZZ_SHARED OFF CACHE BOOL "" FORCE)
 set(SFIZZ_JACK OFF CACHE BOOL "" FORCE)
 set(SFIZZ_RENDER OFF CACHE BOOL "" FORCE)
@@ -197,7 +210,7 @@ if(NOT ANDROID)
                          -DSUBMODULES=${STUDIO_SURGE_SUBMODULES}
                          -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/surge-fetch.cmake"
         UPDATE_COMMAND   ""
-        PATCH_COMMAND    ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/surge.cmake")
+        PATCH_COMMAND    ${STUDIO_PATCH_surge})
     set(SURGE_SKIP_JUCE_FOR_RACK ON CACHE BOOL "" FORCE)
     set(SURGE_SKIP_LUA ON CACHE BOOL "" FORCE)
     set(SURGE_SKIP_ODDSOUND_MTS ON CACHE BOOL "" FORCE)
@@ -235,14 +248,14 @@ FetchContent_Declare(eurorack
     URL      https://github.com/pichenettes/eurorack/archive/08460a69a7e1f7a81c5a2abcc7189c9a6b7208d4.tar.gz
     URL_HASH SHA256=9f83180320097b6f461e996845fd34153238c4956ccb5a64e27c5048e0d4c180
     # Upstream bugs this port fixes, each named and explained in the script.
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/eurorack.cmake"
+    PATCH_COMMAND ${STUDIO_PATCH_eurorack}
     SOURCE_SUBDIR studio-does-not-build-this)
 FetchContent_Declare(stmlib
     URL      https://github.com/pichenettes/stmlib/archive/e3bd7c9cc00e4364166f9905c0509b6ffd0535ec.tar.gz
     URL_HASH SHA256=eff5d6642a93498996661e0dd4b5a1de4b98093f25a009166910726d1262b5d2
     SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/stmlib-root/stmlib"
     # What MSVC cannot compile as shipped, explained in the script.
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/eurorack/patches/stmlib.cmake"
+    PATCH_COMMAND ${STUDIO_PATCH_stmlib}
     SOURCE_SUBDIR studio-does-not-build-this)
 
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
@@ -252,7 +265,7 @@ FetchContent_Declare(ixwebsocket
     GIT_TAG        v12.0.1
     GIT_SHALLOW    ON
     # A client message is buffered whole before anything reads it, and IXWebSocket caps none; explained in the script.
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/ixwebsocket.cmake")
+    PATCH_COMMAND ${STUDIO_PATCH_ixwebsocket})
 set(USE_TLS OFF CACHE BOOL "" FORCE)          # localhost IPC — no TLS needed
 set(USE_ZLIB OFF CACHE BOOL "" FORCE)         # no permessage-deflate; avoids a zlib dep (Windows has no system zlib)
 
@@ -291,7 +304,7 @@ FetchContent_Declare(tracktion_engine
     # The JUCE submodule is still fetched whole, at the very commit v3.2.0 pins.
     GIT_SHALLOW    ON
     # SamplerPlugin re-decodes every rack sound on any change to one, and the file-check callback reads an empty queue; explained in the script.
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/engine/patches/tracktion.cmake"
+    PATCH_COMMAND ${STUDIO_PATCH_tracktion}
     ${STUDIO_TRACKTION_SUBDIR})
 
 # --- Steinberg ASIO SDK : low-latency Windows audio (engine) ------------------
