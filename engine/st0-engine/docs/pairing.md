@@ -35,7 +35,7 @@ nothing else.
 ## The flow, and why the code is shown on both sides
 
 The device sends `pair-request` with a name ("iPhone · Safari"); the engine answers with a six-digit
-code, which the device shows. The machine's own clients — st0 on the machine, and the tray through
+code, which the device shows. The machine's own clients — st0 on the machine, and the app through
 the supervisor — see the request with the same name, address and code, and the musician approves it
 there. The code is what makes a request in a crowded room the right one: two "iPhone · Safari" can ask
 at once, and the musician approves the one whose code is on the phone in their hand.

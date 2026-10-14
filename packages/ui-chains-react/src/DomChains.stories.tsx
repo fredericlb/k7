@@ -2,7 +2,7 @@
 //
 // It exists for the PORTS: which sockets a node shows depends on what is wired to it, and that is a rule you
 // have to see to judge. The repo's tests cover pure logic and nothing mounts a component (see st0's AGENTS.md),
-// so without this the only way to look at a node's sockets was to start the engine, the tray, the file service
+// so without this the only way to look at a node's sockets was to start the engine, the supervisor, the file service
 // and the editor, and open a song.
 //
 // The graphs below are the cases the rule is made of, side by side: one input, two with only the flow wired,

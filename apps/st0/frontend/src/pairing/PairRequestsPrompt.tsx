@@ -1,6 +1,6 @@
 // PairRequestsPrompt.tsx — on the engine's own machine, one card per LAN device asking to pair:
 // its name, its address and the code it shows, with Approve and Deny. Non-blocking, top-right.
-// A card leaves when the engine's list drops it, whoever answered (the tray, settings, expiry).
+// A card leaves when the engine's list drops it, whoever answered (the app's panel, settings, expiry).
 
 import { Button } from "@frediverse/ui/button";
 import { Smartphone } from "@frediverse/ui/icons";

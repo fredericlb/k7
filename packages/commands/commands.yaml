@@ -1254,6 +1254,34 @@
       },
     ]
 
+# --- which version of each library the workspace plays (see docs/library-versions-plan.md) ---
+# The pin is the WORKSPACE's, in `_library-pins.yaml`, so neither verb needs a project open.
+# Upgrading never changes a fork: it names the `_modules` ones whose base moved, to listen again.
+- command: "library versions"
+  sid: library.versions
+  readable:
+    en: "Show the library versions this workspace plays"
+    fr: "Versions des bibliothèques jouées par cet espace"
+  help: "each library: the version pinned here, the versions this machine holds, and whether a newer one is ready"
+  surfaces: [cli]
+  args: []
+- command: "library upgrade"
+  sid: library.upgrade
+  readable:
+    en: "Move this workspace to another library version"
+    fr: "Passer cet espace à une autre version de bibliothèque"
+  help: "move the pin (e.g. library upgrade st0, or library upgrade st0 3) — unsaid, the newest version this st0 runs; a version that needs a newer st0 is refused"
+  surfaces: [cli]
+  args:
+    [
+      { name: library, complete: libraries },
+      {
+        name: version,
+        optional: true,
+        hint: "a version number, or draft — unsaid, the newest this st0 runs",
+      },
+    ]
+
 # --- the workspace's set lists (see @studio/song's docs/playlists.md) ---
 # A playlist belongs to the REPOSITORY rather than to a song: it lives in `_playlists/` at the
 # workspace root, so these two are the only verbs here that need no project open. The songs
@@ -1628,6 +1656,18 @@
 # you want to draw its panel or give it presets, because both are FILES in a module's folder.
 # So this is the moment it stops being ambient: a folder appears, its module.yaml records
 # which plugin to load, and every chain step naming the ref follows.
+# A module of the origin's libraries is nobody's to change but its admins'. To make it yours, fork it:
+# `@account/<path>` extends it, carries its panel, and this project's refs follow. The account library
+# is the account's in every workspace, so a fork made here is there for the next song too.
+- command: "module fork"
+  sid: module.fork
+  readable:
+    en: "Fork a library module into my own library"
+    fr: "Copier un module de bibliothèque dans la mienne"
+  help: "make a library module yours (e.g. module fork @st0/audio/reverb) — @account/audio/reverb extends it, and this project plays the fork"
+  surfaces: [cli]
+  menu: [node]
+  args: [{ name: "ref", complete: baseModules }]
 - command: "module own"
   sid: module.own
   readable:

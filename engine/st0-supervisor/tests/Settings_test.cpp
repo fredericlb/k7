@@ -66,6 +66,17 @@ void aPortOutOfRangeIsTheDefault()
     CHECK(settingsFrom(json::parse(R"({"port":0})")).port == 8765);
 }
 
+void aConfigFileSetsWhatTheEnvironmentOtherwiseCarries()
+{
+    const auto env = st0::configEnvironment(
+        json::parse(R"({"machineName":" rehearsal-pc ","renderKey":"","extraCaCerts":"/ca.pem","instruments":["all"]})"));
+    CHECK((env == std::vector<std::pair<std::string, std::string>>{
+                      {"STUDIO_MACHINE_NAME", "rehearsal-pc"},
+                      {"STUDIO_EXTRA_CA_CERTS", "/ca.pem"},
+                      {"STUDIO_INSTRUMENTS", "all"}}));
+    CHECK(st0::configEnvironment(json::parse(R"({"instruments":["surge"]})")).empty());
+}
+
 }  // namespace
 
 void runSettingsTests()
@@ -76,4 +87,5 @@ void runSettingsTests()
     RUN(aRoundTripIsExact);
     RUN(aPortOutOfRangeIsTheDefault);
     RUN(theInstrumentsKeptTellAbsentFromEmpty);
+    RUN(aConfigFileSetsWhatTheEnvironmentOtherwiseCarries);
 }

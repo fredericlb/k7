@@ -266,7 +266,7 @@ export function resolveAssets(
   for (const [field, family] of Object.entries(LIBRARY_FILE_PARAMS)) {
     const ref = params[field];
     if (typeof ref !== "string" || !ref) continue;
-    out[field] = libraryFile(family, ref);
+    out[field] = libraryFile(family, ref, folderAbs);
     assets[field] = ref;
   }
   return {

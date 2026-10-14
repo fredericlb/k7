@@ -33,7 +33,7 @@ struct Outcome {
     std::string detail;
 };
 
-/** Every registry's outcome; `ok()` only when they ALL answered — the tray shows one light. */
+/** Every registry's outcome; `ok()` only when they ALL answered — the snapshot shows one light. */
 struct Result {
     std::vector<Outcome> outcomes;
     bool ok() const;

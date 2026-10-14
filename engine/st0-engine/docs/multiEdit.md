@@ -66,7 +66,7 @@ The isolation wanted here is at the level of the *project*, not the *process*. S
 * Every message that addresses a project carries a session id (`project`, `transport`,
   `set-plugin-param`, …). The clients and the C++ agree on it — `docs/protocol.md`.
 * The broadcast tap is per-session, or every listener hears everyone's mix.
-* The tray runs **one** engine and shows N sessions — simpler than N engines, and it
+* The supervisor runs **one** engine and reports N sessions — simpler than N engines, and it
   deletes the whole per-engine device problem, the N pidfiles and the N ports.
 
 ## What it costs, honestly

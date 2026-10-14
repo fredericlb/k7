@@ -1,8 +1,8 @@
 # The supervisor host
 
-`engine/st0-supervisor` as the child of an Electron app. Two apps use it: `apps/st0-standalone`
-(`apps/st0-standalone/docs/standalone.md`) and the menu-bar tray, `engine/st0-tray`
-(`engine/st0-tray/docs/tray.md`). Everything else an Electron app needs — its servers, its window,
+`engine/st0-supervisor` as the child of an Electron app: `apps/st0-standalone`
+(`apps/st0-standalone/docs/standalone.md`). The Android app drives the same supervisor the same way,
+from Kotlin (`engine/st0-engine/docs/android.md`). Everything else an Electron app needs — its servers, its window,
 its quit, its build — is `@frediverse/electron-shell`'s (`commons/packages/electron-shell/docs/shell.md`),
 which is shared with phare and knows nothing about an engine.
 

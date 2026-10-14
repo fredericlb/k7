@@ -1,6 +1,6 @@
 // EnginesSettings.tsx — the settings screen's Engines card: every engine registered with this
 // origin, which holds THE registry — st0 and z0 list theirs from here too. Read-only: an engine
-// is connected from its own machine's tray, never from here. See ../docs/settings.md.
+// is connected from its own machine, never from here. See ../docs/settings.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";

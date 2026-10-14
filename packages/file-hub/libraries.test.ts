@@ -32,10 +32,61 @@ describe("the hub's libraries", () => {
     expect(store.settings()).toEqual([{ name: "st0" }]);
     expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
     expect(
-      readFileSync(join(store.home, "st0", "modules", "mix.yaml"), "utf8"),
+      readFileSync(join(store.home, "st0", "1", "modules", "mix.yaml"), "utf8"),
     ).toBe("plugin: mixer\n");
-    expect(existsSync(join(store.home, "st0", ".git"))).toBe(false);
+    expect(existsSync(join(store.home, "st0", "1", ".git"))).toBe(false);
+    expect(store.versions("st0")).toEqual([
+      { name: "st0", version: 1, requires: 1 },
+    ]);
     expect(store.ensure()).toMatchObject([{ name: "st0", state: "current" }]);
+  });
+
+  it("moves a library still in one folder into its version 1, leaving no draft until an admin asks", () => {
+    const store = new LibraryStore(data, seed);
+    mkdirSync(join(store.home, "st0", "modules"), { recursive: true });
+    writeFileSync(join(store.home, "st0", "modules", "old.yaml"), "x: 1\n");
+    expect(store.ensure()).toMatchObject([
+      { name: "st0", state: "current", note: "moved into version 1" },
+    ]);
+    expect(
+      existsSync(join(store.home, "st0", "1", "modules", "old.yaml")),
+    ).toBe(true);
+    expect(existsSync(join(store.home, "st0", "draft"))).toBe(false);
+    expect(store.ensure({ draft: true })).toMatchObject([
+      { name: "st0", note: "draft copied from version 1" },
+    ]);
+    expect(
+      existsSync(join(store.home, "st0", "draft", "modules", "old.yaml")),
+    ).toBe(true);
+    expect(existsSync(join(store.home, "st0", "draft", "library.yaml"))).toBe(
+      false,
+    );
+  });
+
+  it("publishes the draft as the next version, frozen with its manifest, and refuses a level this st0 cannot run", () => {
+    const store = new LibraryStore(data, seed);
+    store.ensure({ draft: true });
+    writeFileSync(
+      join(store.home, "st0", "draft", "modules", "mix.yaml"),
+      "plugin: newer\n",
+    );
+    expect(store.publish("st0", { requires: 99 })).toMatchObject({
+      error: expect.stringContaining("level 99"),
+    });
+    expect(store.publish("st0", { notes: "louder" })).toMatchObject({
+      ok: true,
+      manifest: { name: "st0", version: 2, notes: "louder" },
+    });
+    expect(
+      readFileSync(join(store.home, "st0", "2", "modules", "mix.yaml"), "utf8"),
+    ).toBe("plugin: newer\n");
+    expect(
+      readFileSync(join(store.home, "st0", "1", "modules", "mix.yaml"), "utf8"),
+    ).toBe("plugin: mixer\n");
+    expect(store.versions("st0").map((m) => m.version)).toEqual([1, 2]);
+    expect(store.publish("drums")).toMatchObject({
+      error: "'drums' has no draft to publish",
+    });
   });
 
   it("makes a library the seed does not hold empty, and writes the list", () => {
@@ -49,9 +100,50 @@ describe("the hub's libraries", () => {
       libraries: [{ name: "st0" }, { name: "drums" }],
     });
     expect(store.view().libraries).toEqual([
-      { name: "st0", present: true },
-      { name: "drums", present: true },
+      {
+        name: "st0",
+        present: true,
+        versions: [{ version: 1, requires: 1 }],
+        draft: false,
+      },
+      {
+        name: "drums",
+        present: true,
+        versions: [{ version: 1, requires: 1 }],
+        draft: false,
+      },
     ]);
+  });
+
+  it("installs a PUBLISHED seed under its own number, and adds a newer one to a machine that has the library", () => {
+    writeFileSync(
+      join(seed, "st0", "library.yaml"),
+      "name: st0\nversion: 3\nrequires: 1\n",
+    );
+    const store = new LibraryStore(data, seed);
+    expect(store.ensure()).toMatchObject([{ name: "st0", state: "seeded" }]);
+    expect(store.versions("st0").map((m) => m.version)).toEqual([3]);
+    // An app update carries version 4: one more frozen version, nothing else touched.
+    writeFileSync(
+      join(seed, "st0", "library.yaml"),
+      "name: st0\nversion: 4\nrequires: 1\n",
+    );
+    expect(store.ensure()).toMatchObject([
+      {
+        name: "st0",
+        state: "seeded",
+        note: expect.stringContaining("version 4"),
+      },
+    ]);
+    expect(store.versions("st0").map((m) => m.version)).toEqual([3, 4]);
+    expect(store.ensure()).toMatchObject([{ name: "st0", state: "current" }]);
+  });
+
+  it("refuses to publish under a name that is no library", () => {
+    const store = new LibraryStore(data, seed);
+    expect(store.publish("../st0")).toEqual({
+      error: "'../st0' names no library",
+    });
   });
 
   it("keeps the folder of a library the list dropped: it is the library, not a copy", () => {

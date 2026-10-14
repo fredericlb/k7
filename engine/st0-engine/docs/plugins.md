@@ -38,7 +38,7 @@ check what `requiresAsyncInstantiation` actually returns for the format in hand.
 
 `~ExternalPlugin` frees no plugin. It hands the instance to Tracktion's `AsyncPluginDeleter`,
 which parks it in an array and starts a 100 ms `juce::Timer` — one instance freed per fire. The
-server and the tray run a message loop, so that timer fires. A CLI runs none, so the instances are
+server runs a message loop, so that timer fires. A CLI runs none, so the instances are
 still alive when JUCE's shutdown reaches `DeletedAtShutdown` and the deleter's destructor drains
 them itself, entering a modal state on a `Component` in the middle of teardown.
 

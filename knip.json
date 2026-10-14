@@ -63,9 +63,6 @@
     "packages/ui-turntables": {
       "entry": ["scripts/*.ts"]
     },
-    "packages/ui-chains-react": {},
-    "engine/st0-tray": {
-      "entry": ["src/main.ts", "src/preload.ts", "scripts/*.mjs", "songs/**/jsdsp.ts"]
-    }
+    "packages/ui-chains-react": {}
   }
 }

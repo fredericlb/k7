@@ -141,7 +141,7 @@ bool SfzPlugin::loadInstrument(const juce::String& path, juce::String& error)
     const auto file = resolve(path);
     stopTimer();
     waitingFor_ = {};
-    // Not here: downloaded from the tray's Downloads tab, and loaded the moment it lands (st0-supervisor docs/instruments.md).
+    // Not here: downloaded by the supervisor, and loaded the moment it lands (st0-supervisor docs/instruments.md).
     if (path.startsWith(INSTRUMENTS_REF) && !file.existsAsFile()) {
         std::cerr << "[sfz] " << path << " is not on this machine — loaded once it is downloaded\n";
         waitingFor_ = path;

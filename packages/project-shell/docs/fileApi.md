@@ -89,8 +89,8 @@ component cannot tell which kind it got. See `apps/st0/backend/docs/media/shares
 
 A refused CORS preflight and a dead server are the SAME rejection in JS: an opaque
 `TypeError: NetworkError`, with no status and no body, because letting a page read that difference
-is precisely what CORS exists to prevent. The difference is the whole of the next action — "click
-allow in the tray" versus "start the engine".
+is precisely what CORS exists to prevent. The difference is the whole of the next action — "allow
+this origin on the engine's machine" versus "start the engine".
 
 `mode: "no-cors"` is the way through. It sends a simple GET with no preflight and no ACAO check,
 yielding an opaque response nothing can read but whose ARRIVAL proves something answered.

@@ -24,6 +24,3 @@ env.yaml
 # context.
 engine/st0-engine/build
 engine/st0-supervisor/build
-engine/st0-tray/out
-engine/st0-tray/.cache
-engine/st0-tray/staging

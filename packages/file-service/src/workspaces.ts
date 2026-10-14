@@ -9,6 +9,7 @@ import {
   rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { accountLibraryHome } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
 import { projectTagsOf } from "@studio/song-schema/projectTags";
@@ -19,7 +20,11 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { BENCH_WORKSPACE } from "./bench.ts";
-import { attachLiveCapture, detachLiveCapture } from "./liveSync.ts";
+import {
+  ACCOUNT_LIBRARY_ROOM,
+  attachLiveCapture,
+  detachLiveCapture,
+} from "./liveSync.ts";
 import { closeModuleWatchesUnder } from "./moduleWatch.ts";
 import { rootOwner } from "./owner.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
@@ -84,6 +89,18 @@ export function joinWorkspace(name: string): void {
 /** Sync every workspace on this machine from the start, not only those a request opens: a replica holds them all. */
 export function attachAllWorkspaces(): void {
   for (const name of workspaceNames(rootDir())) joinWorkspace(name);
+  attachAccountLibrary();
+}
+
+let accountLibrary: Workspace | null = null;
+
+/** The account's own library, synced like a workspace in the room ACCOUNT_LIBRARY_ROOM — docs/library-versions-plan.md. */
+export function attachAccountLibrary(): void {
+  if (accountLibrary || !rootOwner()) return;
+  const root = accountLibraryHome();
+  mkdirSync(root, { recursive: true });
+  accountLibrary = new Workspace(root);
+  attachLiveCapture(accountLibrary, ACCOUNT_LIBRARY_ROOM);
 }
 
 /** Every workspace currently open, for the machine-wide jobs that have no request to hang off. */

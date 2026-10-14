@@ -1,5 +1,5 @@
 // Pairing.tsx — the LAN devices asking to drive this phone's engine, and those it trusts: the same lists and
-// commands as the desktop tray's Paired devices tab (engine/st0-tray/docs/tray.md). Approve only when the code
+// commands as st0's Paired devices section (apps/st0/frontend/src/settings/PairedDevicesSection.tsx). Approve only when the code
 // matches the device's screen — anyone on the network can ask under any name.
 
 import { Button } from "@frediverse/ui/button";

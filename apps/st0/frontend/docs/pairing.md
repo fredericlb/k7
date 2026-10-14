@@ -25,7 +25,7 @@ On the machine, in two places, and the engine's list is the only state either ke
 
 - **The editor**, as cards in the top-right corner (`pairing/PairRequestsPrompt.tsx`). Not a modal:
   the person at the machine may be in the middle of a take, and a request that waits two minutes can
-  wait for them. A card leaves when the engine's list drops it, whoever answered — the tray, another tab,
+  wait for them. A card leaves when the engine's list drops it, whoever answered — the app's own panel, another tab,
   the settings page, or the clock.
 - **`/settings`**, the Paired devices section (`settings/PairedDevicesSection.tsx`): the same requests,
   and the paired devices with Revoke. It is the only place a device is revoked from a browser, since

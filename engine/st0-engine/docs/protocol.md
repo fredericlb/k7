@@ -89,7 +89,7 @@ The handler is a **named** lambda, `onMessage`, for that reason alone: the regis
 | `{ type: "pair", key }` | first on a LAN socket: this device's key → `paired`, or an `unpaired` error |
 | `{ type: "list-pair-requests" }` / `{ type: "list-paired-devices" }` | the machine's own clients only → `pair-requests` / `paired-devices`, both also pushed to them on every change |
 | `{ type: "pair-approve", requestId }` / `{ type: "pair-deny", requestId }` / `{ type: "unpair-device", deviceId }` | the machine's own clients only; refused over the LAN with code `local-only` |
-| `{ type: "instrument-status", refs: ["@instruments/nbo-wurt/wurly.sfz"] }` | → `{ type: "instrument-status", status: { ref: true/false } }`, to the asking socket alone: whether each sampled instrument a project names is on THIS machine. st0 draws the missing ones as errors on their nodes; the tray's Downloads tab is where they are fetched ([sfzPlugin.md](sfzPlugin.md)) |
+| `{ type: "instrument-status", refs: ["@instruments/nbo-wurt/wurly.sfz"] }` | → `{ type: "instrument-status", status: { ref: true/false } }`, to the asking socket alone: whether each sampled instrument a project names is on THIS machine. st0 draws the missing ones as errors on their nodes; the supervisor is what fetches them ([sfzPlugin.md](sfzPlugin.md)) |
 | `{ type: "hello", role: "driver" }` | the same probe, **and** "a person is looking at this session" — the engine frees a project 45 s after its last driver goes. Omit `role` and nothing is counted, which is how the file service and every prober stay out of it. See [sessions.md](sessions.md). |
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
 | `{ type: "drop-session", session: "st0:fred" }` | forget a session outright — edit, plugins, meters and tap |
@@ -249,7 +249,7 @@ The test is deliberately not `role: "driver"` — the file service declares noth
 otherwise count as a driver and no project would ever look abandoned). And it binds once per socket: `drop-session` and `show-native-plugin-ui` carry
 another session's id as an override, and a socket that rebound on those would go deaf.
 
-A probe — the tray asking for devices and hanging up — names nothing and gets nothing, which is
+A probe — the supervisor asking for devices and hanging up — names nothing and gets nothing, which is
 what it wants.
 
 Misrouting is deliberately not a correctness hazard: every client still runs `forSession`

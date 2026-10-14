@@ -1,56 +1,57 @@
 # The desktop release
 
-`docker/` ships the four web apps. This is the other half: what runs on the musician's machine
-and is in no image — `engine/st0-engine` and `engine/st0-supervisor` (C++, CMake), and the tray
-that runs them, `engine/st0-tray` (Electron, `engine/st0-tray/docs/tray.md`).
-`.github/workflows/desktop.yml` builds them for the three desktops and publishes **one archive
-per platform**.
+`docker/` ships the hosted apps. This is the other half: what runs on the musician's machine and is in
+no image. `.github/workflows/desktop.yml` builds it for the three desktops in two stages, and publishes
+**two files per platform**:
 
-| platform | what is in the archive |
-|---|---|
-| `windows-x64` | the NSIS installer, and `st0-engine.exe` on its own |
-| `macos-arm64` | the `.dmg`, and `st0-engine` on its own |
-| `linux-x64` | the `.deb`, the `.AppImage`, and `st0-engine` on its own |
+| stage | job | what it publishes |
+|---|---|---|
+| 1 | `engines` | the **command-line engine**: `engine/st0-engine` and `engine/st0-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
+| 2 | `desktop` | the **desktop app**, `apps/st0-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` |
 
-The standalone engine travels beside the installer in every one of them. The bundle already
-carries its own copy — this second one is for a machine that wants the engine and no tray.
+The desktop job compiles nothing: it unpacks the engines job's archive for its platform and hands it
+to the app's staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the
+engine a user runs from the command line and the one inside the app are the same build, byte for byte.
+One platform's failure costs that platform only. Each platform is one call of
+`.github/workflows/desktop-platform.yml`, whose `desktop` job needs that call's `engine` job and no
+other: a platform whose engine fails skips its own desktop build, and the other two carry on. GitHub
+cannot make one matrix leg wait for the same leg of another matrix, which is why the two stages are a
+reusable workflow called per platform rather than two matrices.
 
-## Two channels, and what names an archive
+## Two channels, and what names a file
 
 A push to `main` refreshes a prerelease on the moving tag `snapshot`; a `vX.Y.Z` tag makes a
 release of its own. The snapshot release is deleted and recreated rather than edited, because a
 GitHub release keeps the commit its tag points at however its assets are replaced — an edited one
 would keep advertising the commit it was first cut from.
 
-The archive is named for that channel — `st0-desktop_v1.4.0_macos-arm64.zip`,
-`st0-desktop_snapshot-9f2c1ab_linux-x64.tar.gz` — and **not** for
-`engine/st0-tray/package.json`'s version, which does not move with each build. Two builds named
-from it would be indistinguishable in a downloads folder.
+Each file is named for that channel — `st0-engine_v1.4.0_macos-arm64.tar.gz`,
+`st0_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
+each build. `engine/scripts/package-release.mjs` does the naming, for both kinds.
 
 ## Why the gate job, and not a `paths:` filter
 
-A cold configure of the engine fetches JUCE, Tracktion, Faust, Eigen and NAM and then compiles
-them: tens of minutes, three times over, and a macOS runner minute is the dearest one there is.
-So a `main` push that touched only `apps/` or a doc must not start it.
+A cold build of the engine is tens of minutes, three times over, and a macOS runner minute is the
+dearest one there is. So a `main` push that touched only a doc must not start it.
 
 `paths:` is the obvious tool and it is the wrong one here: GitHub applies it to **tag** pushes
 too, and a tag push carries no commit list for it to match against — the release would silently
 never run, on the one event that matters most. The `decide` job diffs the push instead and lets
 tags through untested.
 
-Its filter is `packages/` **whole**, not a list of audio packages: the tray is esbuilt out of
-`@studio/supervisor-host` and whatever it imports, and the tier moves together. `commons` counts too: the
-Electron shell under both apps, `@frediverse/electron-shell`, lives there, and a change to it reaches
-this tree as a bump of that one path.
+Its filter is `engine/`, `apps/` and `packages/` **whole**: the desktop app bundles st0's frontend and
+backend and most of the shared tier, and the tier moves together. `commons` counts too: the Electron
+shell under the app, `@frediverse/electron-shell`, lives there, and a change to it reaches this tree as
+a bump of that one path. An `apps/`-only push does rebuild the engines; with their objects cached
+that costs minutes, and it keeps one engine build per release.
 
 ## The presets a runner can actually use
 
-`STUDIO_ENGINE_PRESET` overrides the host's default preset in
-`engine/st0-tray/scripts/build-engine.mjs`. Every leg names its preset, so the matrix says out
-loud what each one builds: `macos-clang` and `release-gcc`, the host defaults, and on Windows
-`windows-msvc-ninja` — the dev machine's compiler, Visual Studio 2026, which `windows-latest`
-carries (`windows-2025-vs2026`), under Ninja rather than the Visual Studio generator the dev
-machine uses.
+`STUDIO_ENGINE_PRESET` and `STUDIO_SUPERVISOR_PRESET` override the host's default preset in
+`engine/scripts/build-engine.mjs`. Every leg names its preset, so the matrix says out loud what each
+one builds: `macos-clang` and `release-gcc`, the host defaults, and on Windows `windows-msvc-ninja` —
+the dev machine's compiler, Visual Studio 2026, which `windows-latest` carries
+(`windows-2025-vs2026`), under Ninja rather than the Visual Studio generator the dev machine uses.
 
 ## Every leg keeps its compiled objects between runs
 
@@ -76,30 +77,28 @@ sets no cap and ninja already uses them all. On Windows it takes Defender off th
 the workspace, the cache and the compilers excluded, real-time scanning off — since it scans every
 file `cl.exe` opens; the runner is discarded after the job, and a refusal leaves the build as it was.
 
-`sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working.
+`sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working. The
+cache step is not fatal: the action downloads sccache from github.com, which a runner sometimes cannot
+reach, and the build then runs uncached — the launcher is set only when the step succeeded.
 
 ## The installer each platform gets
 
-electron-builder makes them, from `engine/st0-tray/electron-builder.cjs`: NSIS on Windows, `.deb` +
-`.AppImage` on Linux. It runs with `--publish never`: on a tagged CI run it would otherwise try to
-publish to GitHub itself, and the release is the `publish` job's alone.
+electron-builder makes them, from `apps/st0-standalone/electron-builder.cjs`: NSIS on Windows, a `.dmg`
+on macOS, an `.AppImage` on Linux. It runs with `--publish never`: on a tagged CI run it would
+otherwise try to publish to GitHub itself, and the release is the `publish` job's alone.
 
-macOS is asked for the `.app` only (`--mac dir`), and `build-engine.mjs`'s own `makeDmg` wraps it
-— the retried `hdiutil create` that `engine/st0-tray/scripts/docs/buildEngine.md` explains — so
-the release does not depend on whichever `hdiutil` path a bundler happens to drive.
-
-`.zip` on Windows and macOS, `.tar.gz` on Linux — a `.deb` and an `.AppImage` are only useful
-with their executable bit, and tar is what carries one. `engine/st0-tray/scripts/package-release.mjs`
-also drops the `.app` from the macOS archive when a `.dmg` was produced: the dmg already contains
-it, and shipping both doubles the download for nothing. When the dmg step fails the `.app` is what
-the archive holds instead, so a flaky `hdiutil` costs a nicety rather than a release.
+The `.dmg` is electron-builder's own target, which drives `hdiutil convert`. On the dev Mac that path
+has failed with `EAGAIN` out of `CUDIFFileAccess::updateHeader`, intermittently and on trivial images
+too; a red macOS desktop leg that names `hdiutil` is that, and `hdiutil create -srcfolder` is the path
+that works around it.
 
 ## Nothing is signed
 
-The macOS `.dmg` is unsigned and unnotarised and the Windows installer is unsigned, so both warn
-on first launch and macOS needs the right-click-Open path. This is not a gap in the workflow; it
-is a certificate nobody has bought. The ONNX Runtime note in
-`engine/st0-tray/scripts/docs/buildEngine.md` is the sharp end of the same thing.
+The macOS `.dmg` and engine archive are unsigned and unnotarised, and the Windows installer and
+binaries unsigned, so they warn on first launch, macOS needs the right-click-Open path, and an engine
+unpacked from a download needs its quarantine attribute cleared. This is not a gap in the workflow; it
+is a certificate nobody has bought. ONNX Runtime, a third-party library loaded beside the supervisor,
+is the sharp end of the same thing.
 
 ## The two limits worth knowing before reading a red run
 
@@ -116,8 +115,10 @@ Exactly what CI runs, and the reason nothing in the workflow is written in YAML 
 been a script:
 
 ```bash
-STUDIO_ENGINE_PRESET=release-gcc node engine/st0-tray/scripts/build-engine.mjs
-node engine/st0-tray/scripts/package-release.mjs --stamp local
+STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc node engine/scripts/build-engine.mjs
+node engine/scripts/package-release.mjs --kind engine --stamp local
+npm run package --workspace st0-standalone
+node engine/scripts/package-release.mjs --kind desktop --stamp local
 ```
 
 `.github/workflows/st0.yml` stays as it is and compiles no C++: it is the gate every push runs
@@ -150,8 +151,8 @@ the build step's first act is `git submodule update --init commons`, authenticat
 checkout brings it; its paths are kept short because Windows refuses a path past 260 characters.
 
 The Linux one runs in
-a `node:22-bookworm` container and installs its toolchain on every run, and publishes the same
-`.tar.gz` as the release — the tray's `.deb` and `.AppImage`, and the headless `st0-engine`. It keeps
+a `node:22-bookworm` container and installs its toolchain on every run, and publishes what the
+release does: the command-line engine's `.tar.gz`, then the desktop app's `.AppImage`. It keeps
 a ccache, Electron's downloads and the dependency SOURCES between runs — the last through
 `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set — since the
 third-party code is the bulk of the download and of the compile, and does not change from one night
@@ -173,7 +174,8 @@ job match accepts the job, so the Docker executor must not accept this one eithe
 executor first, or narrow the Docker one's match.
 
 It overrides no preset, so the agent builds with the host default, `windows-msvc` (Visual Studio
-2026), exactly as the machine does by hand and as GitHub's runner does.
+2026, its own generator), exactly as the machine does by hand. The desktop app follows in the same
+job, as on Linux.
 
 **build android app** keeps the same cadence — nightly at 02:00, skipped on a day without commits —
 and publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is a native build of the

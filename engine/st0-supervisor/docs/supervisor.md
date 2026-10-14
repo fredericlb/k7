@@ -1,11 +1,29 @@
 # st0-supervisor — the engine machine's supervisor
 
-One native program on the musician's machine, between the tray and the engine. It starts, adopts
-and watches `st0-engine`; keeps it listed at the studios it is connected to; holds the tunnel a
-server reaches the machine through; and does the work a server asks of the machine — a stem cut,
-a set list brought down, a file handed to the player, the log. The tray spawns it and draws what
-it reports ([hostProtocol.md](hostProtocol.md)); the paces and the rules it follows are in
-[supervisorPolicy.md](supervisorPolicy.md).
+One native program on the musician's machine, between whoever runs it and the engine. It starts,
+adopts and watches `st0-engine`; keeps it listed at the studios it is connected to; holds the tunnel
+a server reaches the machine through; and does the work a server asks of the machine — a stem cut,
+a set list brought down, a file handed to the player, the log. The paces and the rules it follows
+are in [supervisorPolicy.md](supervisorPolicy.md).
+
+## Two ways to run it
+
+| | run by | settings | stdout | stops when |
+|---|---|---|---|---|
+| **under an app** | the desktop app (`apps/st0-standalone`, through `@studio/supervisor-host`) or the phone (`engine/st0-android`) | `<state>/engine-host.json`, changed by the app's commands and saved | the app's protocol ([hostProtocol.md](hostProtocol.md)) | stdin closes — the app went away |
+| **the command-line engine** | `st0-supervisor --config <file>`, a terminal, a service, the server's container | the file, read once and never written | nothing | SIGINT or SIGTERM |
+
+The config file has the settings' schema (`registryUrls`, `port`, `audioPriority`, `onnxProviders`,
+`instruments`), plus the three keys that otherwise come from the environment — `machineName`,
+`extraCaCerts`, `renderKey` — and `"instruments": ["all"]` for `$STUDIO_INSTRUMENTS=all`. A key the
+file names wins over the environment; one it leaves out falls back to it, so `{}` is a valid config.
+`engine.example.json` beside this folder is the one the release archive carries.
+
+The file is never written back because it is the user's: a hand-edited file rewritten by the program
+loses its order and its blank keys, and a choice the supervisor makes on its own — the instruments a
+first boot settles — lasts the run. With no app to own the session, the supervisor truncates the
+merged log when it starts and echoes every line to stderr, which under an app would print each
+line twice.
 
 ## A process of its own, not a part of the engine
 
@@ -17,16 +35,16 @@ audio and nothing else, and everything that can fail slowly or loudly lives here
 It is its own CMake project, not a target of st0-engine's: building it must never mean building
 Tracktion, JUCE and Faust.
 
-## The tray learns we died from our stdout, so no child may hold it
+## An app learns we died from our stdout, so no child may hold it
 
-The tray watches one thing to know we are gone: our stdout closing. That EOF is what it reaps on,
+An app watches one thing to know we are gone: our stdout closing. That EOF is what it reaps on,
 logs, and relaunches us from — there is no second signal. A supervisor whose death goes unnoticed
 leaves a machine whose engine still runs and whose studios no longer list it, since nothing is left
 to heartbeat and a registry entry outlives its last heartbeat by `REGISTRY_TTL_MS`.
 
 `process::spawn` passes `bInheritHandles = TRUE`, which gives a child every inheritable handle we
-hold rather than only the pipes meant for it, and our own stdio — the tray's pipe — arrives
-inheritable. The engine outlives us by design, so a copy of that pipe inside it blocks the tray's
+hold rather than only the pipes meant for it, and our own stdio — the app's pipe — arrives
+inheritable. The engine outlives us by design, so a copy of that pipe inside it blocks the app's
 read forever, through a crash and through a rebuild alike. On Windows the three std handles have
 `HANDLE_FLAG_INHERIT` cleared before anything is spawned; a child is given its pipes through
 `STARTUPINFO` and needs nothing of ours. The pipes `spawn` creates are themselves inheritable while
@@ -143,11 +161,11 @@ of that copy.
 
 ## ONNX Runtime is loaded, never linked
 
-The library is looked for at the first separation — beside the executable, in the tray's
-`resources/onnxruntime`, or at `$STUDIO_ONNXRUNTIME_DIR` — and loaded then. Linked, a machine
+The library is looked for at the first separation — at `$STUDIO_ONNXRUNTIME_DIR`, then beside the
+executable or in a `resources/onnxruntime` near it — and loaded then. Linked, a machine
 missing it could not start the supervisor at all, engine and tunnel included, over one feature;
 loaded, only the separate job says what is missing. The build copies it beside every executable it
-makes, and `build-engine.mjs` stages it into the tray's resources.
+makes, and the staging (`engine/scripts/docs/buildEngine.md`) keeps it there.
 
 Windows takes the DirectML package, whose last release is 1.24; macOS arm64 and Linux take 1.30,
 and macOS 1.30 needs macOS 14. A platform ONNX Runtime ships no binary for builds without
@@ -157,7 +175,7 @@ page on providers and on the model).
 
 ## A crash says why
 
-The tray restarts a supervisor that died, so what a crash leaves is all there is to read. `Crash.cpp`
+An app restarts a supervisor that died, so what a crash leaves is all there is to read. `Crash.cpp`
 logs `fatal: … — uncaught exception: <what>` in `.studio.log` and, on Windows, writes
 `crash-supervisor-<pid>.dmp` beside it. An exception nobody caught on one of the tunnel's or the
 jobs' threads ends in `abort()`, whose exit code on Windows is `0xC0000409` and nothing else; the
@@ -175,7 +193,7 @@ machine and prints its progress. Neither touches the state directory.
 ## What `.studio.log` says, and when
 
 The merged log is where a machine's trouble is read after the fact, so what fails says so there —
-not only on the tray's light, which is gone when the tray is:
+not only on an app's status light, which is gone when the app is:
 
 - **At start:** the engine id and the whole presence a heartbeat will carry (hostname, addresses),
   then the performance figures with the rating. When a registry refuses a heartbeat, the reason

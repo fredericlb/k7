@@ -24,7 +24,8 @@ COPY engine/st0-supervisor engine/st0-supervisor
 COPY packages/supervisor-host/scripts packages/supervisor-host/scripts
 # Empty is cores − 2: a JUCE or Tracktion unity file takes a gigabyte to compile (engine/st0-engine/docs/build.md).
 ARG BUILD_JOBS=
-ENV CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache CCACHE_DIR=/root/.ccache
+# Read by the presets into CMAKE_<LANG>_COMPILER_LAUNCHER, which they set and so override from the environment.
+ENV STUDIO_COMPILER_LAUNCHER=ccache CCACHE_DIR=/root/.ccache
 # One RUN, because staging reads the Faust libraries out of the build folder, which only a cache mount holds.
 RUN --mount=type=cache,target=/src/engine/st0-engine/build,sharing=locked \
     --mount=type=cache,target=/src/engine/st0-supervisor/build,sharing=locked \

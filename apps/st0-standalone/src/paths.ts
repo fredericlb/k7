@@ -83,7 +83,7 @@ export function librarySource(): string | null {
   return existsSync(at) ? at : null;
 }
 
-/** Everything the app writes, under the OS's per-app folder — never `~/.st0`, which the tray owns. */
+/** Everything the app writes, under the OS's per-app folder — never `~/.st0`, which the command-line engine owns. */
 export function stateDirs() {
   const root = app.getPath("userData");
   return {

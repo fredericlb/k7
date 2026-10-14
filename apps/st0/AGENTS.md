@@ -3,8 +3,8 @@
 A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web editor
 is your studio.
 
-**This directory is the web editor, and only that.** The engine (`engine/st0-engine`), the
-tray (`engine/st0-tray`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
+**This directory is the web editor, and only that.** The engine (`engine/st0-engine`), its
+supervisor (`engine/st0-supervisor`) and the brain packages (`packages/*`, all `@studio/*`) sit beside it
 rather than inside it, because they serve every audio app in the repo — the repo-root
 `AGENTS.md` holds the map of the whole audio side. Two workspaces live here:
 
@@ -243,9 +243,9 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   others offer **New folder…** and **New module…**. A library module opens the same builder,
   but **a library is written only by an admin**, from any project; for anyone else the file
   service refuses the write. For an admin, Save writes into `_libraries/<name>/…`, which is THE
-  library's folder on the server: the write is the publication, every account reads it at once, and
-  the hub relays it to the library's st0fs room. Nothing forks, because the library is the only
-  copy, and no song is touched. One store and one path space: the file hub keeps ONE folder of each
+  library's `draft/` on the server; a workspace hears it once it pins the draft or a version
+  published from it, and the hub relays it to the library's st0fs room. Nothing forks and no song
+  is touched. One store and one path space: the file hub keeps ONE folder of each
   library for the whole origin, seeded from `st0-library`, and the file service answers it at
   the virtual `_libraries/<name>/…` in every workspace (`packages/song/docs/sharedFolders.md`,
   `packages/file-hub/docs/fileHub.md`). `frontend/docs/sharedModules.md` is the page to read; a

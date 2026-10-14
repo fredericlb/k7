@@ -29,13 +29,12 @@ The zone's `docs/` directory is where that justification belongs:
 | the DJ desk | `packages/st0-plugins/docs/turntables/` |
 | the project shell | `packages/project-shell/docs/` |
 | the C++ engine | `engine/st0-engine/docs/` |
-| the menu-bar tray | `engine/st0-tray/docs/` |
 | the native supervisor | `engine/st0-supervisor/docs/` |
 | the Android app | `engine/st0-engine/docs/android.md` |
 | the standalone desktop app | `apps/st0-standalone/docs/` |
 | the Electron shell under it | `commons/packages/electron-shell/docs/`, and `packages/supervisor-host/docs/` for the supervisor it drives |
 | the rehearsal recorder | `packages/rehearsal-server/docs/` (the routes) and `packages/ui-rehearsal/docs/` (the screens) |
-| the build scripts | `engine/st0-tray/scripts/docs/` |
+| the engine's build scripts | `engine/scripts/docs/` |
 | the plugin contract | `packages/st0-sdk/docs/` |
 | st0's builtin plugins | `packages/st0-plugins/docs/` |
 | CI and deployment, which belong to no single app | `docs/` |
@@ -55,16 +54,18 @@ a debt that predates the rule and shrinks as files are touched. New code has no 
 # This repo
 
 `studio` holds the music/stage apps. The audio side spans the server and the musician's machine,
-which is why this overview lives at the root and not inside any one app. Three processes run on the
-musician's machine — `engine/st0-engine`, `engine/st0-supervisor` and `engine/st0-tray`; the first
-two also run on the server, as one more machine in an image of their own (`docs/server-engine.md`):
+which is why this overview lives at the root and not inside any one app. Two processes run on the
+musician's machine — `engine/st0-engine` and `engine/st0-supervisor` — either on their own, as the
+command-line engine (`st0-supervisor --config <file>`), or inside an app: the desktop app
+(`apps/st0-standalone`) or the phone (`engine/st0-android`). They also run on the server, as one more
+machine in an image of their own (`docs/server-engine.md`):
 
 | dir | language | what it is |
 |---|---|---|
 | `engine/st0-engine` | C++ | The audio engine. Receives a compiled `ProjectDoc` over WebSocket, diffs it, plays audio, pushes transport and meter state back. **Never parses song files.** |
 | `engine/st0-supervisor` | C++ | The engine machine's **supervisor**: starts, adopts and watches the engine, keeps it listed at the studios it is connected to, holds the tunnel a server reaches the machine through, and runs the work a server asks of the machine — a stem cut, a set list brought down, a file for the player (`docs/supervisor.md`). |
-| `engine/st0-tray` | TypeScript (Electron) | The menu-bar **view** over the supervisor. Spawns `st0-supervisor` and drives it over NDJSON on stdio. Computes no policy of its own. Also holds the scripts that build and release the native pieces. |
-| `engine/st0-android` | Kotlin (Gradle) | The engine on a PHONE: the same engine as a library the app loads, since JUCE's Android audio reaches Java, and the same supervisor as a program it runs, the app playing the tray's part. STANDALONE like `apps/st0-standalone`: it also runs st0's backend, bundled, under Termux's node, so a phone opens its own studio and needs no server. Foreground only (`engine/st0-engine/docs/android.md`). |
+| `engine/scripts` | Node | The scripts that build the engine and the supervisor and package what ships: the command-line engine's archive, and the desktop app's installer around the same binaries (`engine/scripts/docs/buildEngine.md`). |
+| `engine/st0-android` | Kotlin (Gradle) | The engine on a PHONE: the same engine as a library the app loads, since JUCE's Android audio reaches Java, and the same supervisor as a program it runs, driven over stdio as the desktop app drives it. STANDALONE like `apps/st0-standalone`: it also runs st0's backend, bundled, under Termux's node, so a phone opens its own studio and needs no server. Foreground only (`engine/st0-engine/docs/android.md`). |
 | `apps/st0` | TypeScript | The text-first DAW, and the only app that opens a project: `frontend` (React/Vite) + `backend` (Express — the origin's OIDC flow, which MINTS the session every studio service verifies, the account's preferences, and the **media library** below; one process, `apps/st0/backend/src/server.ts`). Owns the timeline; shares the chains view. **Modules and chains are authored here**, against a project where the plugin a module names is actually LOADED, and written into one of the origin's libraries by an admin, who edits a library live from any project — a library is a plain folder on the server, seeded once from `st0-library/`, which every account reads at once (`packages/song/docs/sharedFolders.md`). A project is created from one of five **archetypes**: three named after the surface they open on — `arrangement` (a timeline), `mix` (two decks and a crossfade — `packages/song/docs/setProject.md`), `video` (a timeline and a viewport) — and the two `live` ones, named after what they ARE: a rig you play THROUGH, with nothing arranged and no lane of any kind — an input, a fader, the master run, and in `live-video` a webcam feeding RENDER plus the one viewport a picture cannot do without (`packages/song/docs/liveProject.md`) — and a song holds **sound and picture** alike: video lanes on the same timeline, whose ruler reads bars or seconds, and a `viewport` surface that composites them (`docs/picture.md`). What it draws beyond its panes, it draws because the project DECLARED it, in `surfaces/` (`docs/surfaces.md`). It opens the account's **playlists** as well — `_playlists/` at the workspace root, listing songs that live in the media library's catalogue, which this app searches and uploads into (`frontend/docs/playlists.md`). A `turntables` surface NAMES one, and that is what the DJ desk's browser lists and what the machine pre-fetches before a gig. Beside those, `_references/` — the finished mixes you listen AGAINST, uploaded there and played by the BROWSER so a reference sounds over a live rig or a running arrangement without going near the engine (`frontend/docs/references.md`). It owns the level above a project too: its **home page** — the ORIGIN with no project in the address — lists the account's workspaces, the projects inside them, the libraries and the published shares (`frontend/docs/projects.md`) — and its left sidebar carries the origin's USER MENU — the account, the other apps, the logout (`packages/ui-user-menu/docs/userMenu.md`). It is the **front door**: it answers the origin root, `st0.app` / `priv.st0.app` (the private instance), and a project is addressed `/@local/<workspace>/<project>` — a folder on the machine that holds it, with `@banc` (the bench, a live rig seeded with a library chain) and `@shares` (a frozen snapshot) the only other openable addresses — plus `/external`, the menu of surfaces a second device drives (`frontend/docs/external.md`). Opened ON one WORKSPACE otherwise, by an address rather than a picker — see `packages/project-shell/docs/launch.md`. A workspace is one folder holding SEVERAL projects: the editor's tree is the whole of it and a ▶ on a project row is what hands that one to the engine (`packages/file-service/docs/activeProject.md`). It is no git repository: it lives on the server and reaches every device through the live-sync relay, which is also where its history will come from (`docs/live-sync-plan.md`). |
 | `apps/st0` — the médiathèque | TypeScript | The **media library** — songs, samples, recordings — is st0's too: its routes are mounted inside st0's backend (`apps/st0/backend/src/media/`, `mountMedia`) over a volume of files, and its screens are `@studio/ui-library`, mounted under `/media` with its sections as entries of the home sidebar. It holds **no modules and no chains**: those are authored in the editor, for the reason above. It DOES hold **playlists**, under `playlists/` on the volume and with a section of their own — a root zone rather than a family, since a set list names songs and carries no bytes (`packages/ui-library/docs/playlists.md`). A workspace keeps its own under `_playlists/`, in the same format and for a different job: those are versioned with the songs they were written for, and are the ones a `turntables` surface can name (`packages/song/docs/playlists.md`). The same backend holds the published shares (`/api/shares`), the engine registry (`@studio/engine-registry`), and — through `@studio/file-hub` — the accounts' WORKSPACES, one file service per account. `play.st0.app` is a permanent ALIAS of st0's origin — installed supervisors and sent share links name it — answering `/api/*` and sending every page to `/media/…` (`packages/web-protocol/docs/addresses.md`); "pl8" survives only as the library's identifier (its engine session, its registry's endpoint file). |
 | `apps/st0` — the rehearsal recorder | TypeScript | The **rehearsal recorder** — sessions and their takes, releases and the public pages that list them, a shared songbook with tablature, scores and timed lyrics, singing exercises and a tuner — is st0's as well: its routes are `@studio/rehearsal-server`, mounted inside st0's backend BEFORE the media library (`mountRehearsal`), over a PocketBase of its own for the rows and the media library for every byte (`packages/rehearsal-server/docs/audio.md`); its screens are `@studio/ui-rehearsal`, mounted under `/rehearsal` with a **Rehearsal** group in the home sidebar, and a take is held ABOVE the home's routes so it survives moving between pages (`packages/ui-rehearsal/docs/sections.md`). A public page, `/rehearsal/@<nametag>`, is read before the sign-in gate. `k7.st0.app` is a permanent ALIAS of st0's origin — saved publish URLs and tokens, public page links and installed PWAs name it — answering `/api/*` and `/rtc` and sending every page to `/rehearsal/…` (`packages/ui-rehearsal/docs/routing.md`); "k7" survives as the identifier of the publish feature (`project share k7`), of the `K7_*` keys and of the `k7-data` volume. |
@@ -107,7 +108,7 @@ recorder's store, runs beside them as a third container. One session covers them
 `engine/st0-supervisor` are in none of them: the server's own engine is a fourth container,
 `st0-engine`, built here from `engine/docker/Dockerfile`, which reaches st0 through the tunnel
 like any musician's machine, plays into a null sink, and makes the renders st0's image has no
-engine binary for (`docs/server-engine.md`). `engine/st0-tray`
+engine binary for (`docs/server-engine.md`). `apps/st0-standalone`
 and `engine/st0-android` run on the musician's devices only. `docs/versioning.md` is the page.
 
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
@@ -183,7 +184,7 @@ MSVC build and the binaries run there. **Editing** (claude, nvim…) happens in 
 resource per server, UI at http://localhost:10350). So never build by hand:
 save (or `tilt trigger <resource>`), wait for Tilt to finish, then read
 `tilt get uiresources` / `tilt logs <resource>` to see if something is wrong. The
-tray is not used in dev: the engine is self-sufficient. See docs/remote.md.
+engine runs as the command-line engine under the `native` resource. See docs/remote.md.
 
 ## When you do shell out on the Windows side, do it from a FILE
 

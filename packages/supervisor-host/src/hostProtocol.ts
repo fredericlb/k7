@@ -1,5 +1,5 @@
 // hostProtocol.ts — the TypeScript mirror of engine/st0-supervisor/src/HostProtocol.h, by hand.
-// PARTIAL on purpose, like the tray's host.rs: a field is added here when a host first reads it.
+// PARTIAL on purpose: a field is added here when a host first reads it.
 // A frame may leave an empty list out, so a host reads one through `snapshotOf`, never raw.
 
 export interface AudioDevice {

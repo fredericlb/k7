@@ -238,7 +238,7 @@ public:
     // Open a plugin's OWN window rather than the module's widget grid; `id` is the PluginDoc id, and only external plugins have one. Message-thread only.
     void showNativePluginUI(const std::string& session, const std::string& id);
 
-    // One entry per plugin instance in the loaded edit — id, display name, and whether it has a native window (built-ins false). Feeds the tray's submenu.
+    // One entry per plugin instance in the loaded edit — id, display name, and whether it has a native window (built-ins false). Feeds the supervisor's plugin list.
     struct PluginInstanceInfo {
         std::string id;
         std::string name;
@@ -378,7 +378,7 @@ public:
     // Whether a session by that id exists, without creating it; any thread, like sessionIds().
     bool hasSession(const std::string& id) const;
 
-    /** What one session holds — a summary and not a `ProjectDoc`, since the tray draws a menu line and the document would be a megabyte per poll. */
+    /** What one session holds — a summary and not a `ProjectDoc`, since the supervisor reports one line and the document would be a megabyte per poll. */
     struct SessionInfo {
         std::string id;
         /** The loaded project's name; meaningless unless `loaded`, since a fresh doc says "untitled". */

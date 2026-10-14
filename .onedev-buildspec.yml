@@ -195,15 +195,14 @@ jobs:
   retryDelay: 30
   timeout: 600
 # NIGHTLY, at 02:00 server time: mirrors .github/workflows/desktop.yml's linux-x64 leg — same
-# presets, same apt list, same build-engine.mjs / package-release.mjs pair — but publishes the
-# archive as a OneDev build artifact instead of a GitHub release. The archive holds both Linux
-# deliverables: the tray (.deb and .AppImage, supervisor inside) and the headless engine,
-# st0-engine on its own. Not on BranchUpdateTrigger like the two jobs above: a cold configure
+# presets, same apt list, same engine/scripts — but publishes as OneDev build artifacts instead of a
+# GitHub release: the command-line engine's archive, then the desktop app's AppImage built around
+# those binaries, as GitHub's engines and desktop jobs do. Not on BranchUpdateTrigger like the two jobs above: a cold configure
 # fetches JUCE, Tracktion, Faust, Eigen and NAM and then compiles them, tens of minutes. OneDev
 # makes a new build at EVERY firing, so the first command skips the night when main took no
 # commit in the last 24 hours. Run "check artifact upload size" first if you have not already
 # confirmed the limit.
-- name: build linux desktop (engine + supervisor + tray)
+- name: build linux desktop (engine, then the desktop app)
   steps:
   - type: CheckoutStep
     name: checkout
@@ -243,7 +242,7 @@ jobs:
     uploadStrategy: UPLOAD_IF_CHANGED
     condition: SUCCESSFUL
     optional: false
-  # The Electron runtime and electron-builder's tools (fpm, appimagetool), which the tray's packaging downloads.
+  # The Electron runtime and electron-builder's tools (appimagetool), which the desktop app's packaging downloads.
   - type: SetupCacheStep
     name: set up electron cache
     key: electron-linux
@@ -283,9 +282,9 @@ jobs:
           libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
           libcurl4-openssl-dev ladspa-sdk
 
-        # CMake takes the launcher from the environment for every build tree it configures,
-        # nested ones included. BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
-        export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        # The presets read the launcher from STUDIO_COMPILER_LAUNCHER (docs/desktop-release.md).
+        # BASEDIR and NOHASHDIR keep a hit from depending on where the workspace is.
+        export STUDIO_COMPILER_LAUNCHER=ccache
         # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
         export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
         trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
@@ -302,16 +301,19 @@ jobs:
         # Release presets for both native programs, as the GitHub leg names them: the supervisor
         # otherwise takes its host default, dev-gcc.
         STUDIO_ENGINE_PRESET=release-gcc STUDIO_SUPERVISOR_PRESET=release-gcc \
-          node engine/st0-tray/scripts/build-engine.mjs
-        node engine/st0-tray/scripts/package-release.mjs --stamp "$STAMP"
+          node engine/scripts/build-engine.mjs
+        node engine/scripts/package-release.mjs --kind engine --stamp "$STAMP"
+        # Then the desktop app, around the binaries just built.
+        npm run package --workspace st0-standalone
+        node engine/scripts/package-release.mjs --kind desktop --stamp "$STAMP"
         ccache --show-stats
     runAs: 0:0
     useTTY: true
     condition: SUCCESSFUL
     optional: false
   - type: PublishArtifactStep
-    name: publish linux desktop archive
-    artifacts: dist/release/*.tar.gz
+    name: publish linux engine and desktop app
+    artifacts: dist/release/*.tar.gz dist/release/*.AppImage
     condition: SUCCESSFUL
     optional: false
   triggers:
@@ -402,8 +404,8 @@ jobs:
           libfreetype-dev libfontconfig-dev libx11-dev libxcomposite-dev libxcursor-dev \
           libxext-dev libxinerama-dev libxrandr-dev libxrender-dev
 
-        # Gradle hands its environment to the engine's CMake, so this reaches the NDK's clang too.
-        export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+        # Gradle hands its environment to the engine's CMake, whose presets read this, so it reaches the NDK's clang too.
+        export STUDIO_COMPILER_LAUNCHER=ccache
         # The fetch cache keeps SOURCES only, however the build ends: what CMake built inside it is per preset.
         export STUDIO_FETCHCONTENT_DIR=/root/.cache/st0-fetch
         trap 'find "$STUDIO_FETCHCONTENT_DIR" -mindepth 2 -maxdepth 2 -type d -name "*-build" -exec rm -rf {} +; rm -rf "$STUDIO_FETCHCONTENT_DIR"/st0-engine/faust-src/build/lib' EXIT
@@ -474,7 +476,7 @@ jobs:
 # unless the agent's environment names another — so a night clones nothing. No OneDev cache: the
 # machine keeps them, and nothing crosses the network. cmd has no trap, so what the last run BUILT
 # there is deleted before this one starts rather than on its way out.
-- name: build windows desktop (engine + supervisor + tray)
+- name: build windows desktop (engine, then the desktop app)
   steps:
   - type: CheckoutStep
     name: checkout
@@ -501,14 +503,16 @@ jobs:
         call npm ci || exit /b 1
         node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version || exit /b 1
         set /p STUDIO_RELEASE_STAMP=<build_version
-        node engine/st0-tray/scripts/build-engine.mjs || exit /b 1
-        node engine/st0-tray/scripts/package-release.mjs || exit /b 1
+        node engine/scripts/build-engine.mjs || exit /b 1
+        node engine/scripts/package-release.mjs --kind engine || exit /b 1
+        call npm run package --workspace st0-standalone || exit /b 1
+        node engine/scripts/package-release.mjs --kind desktop || exit /b 1
     useTTY: false
     condition: SUCCESSFUL
     optional: false
   - type: PublishArtifactStep
-    name: publish windows desktop archive
-    artifacts: dist/release/*.zip
+    name: publish windows engine and desktop app
+    artifacts: dist/release/*.zip dist/release/*.exe
     condition: SUCCESSFUL
     optional: false
   triggers:

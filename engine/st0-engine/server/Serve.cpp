@@ -415,7 +415,7 @@ int serve(int port) {
         }
         broadcastTo(session, json{{"type", "plugin-params"}, {"id", id}, {"params", params}});
     });
-    // Engine warnings reach the CLIENT and not just stderr: the tray adopts an engine it did not spawn, so its output goes nowhere a user can see.
+    // Engine warnings reach the CLIENT and not just stderr: the supervisor adopts an engine it did not spawn, so its output goes nowhere a user can see.
 
     // Stamped when a WarningScope named a project, unstamped otherwise — a device or startup warning belongs to no session.
     studio::setWarningSink([&broadcast, &broadcastTo](const studio::Warning& w) {

@@ -16,7 +16,7 @@ interval is the whole of the design.
 | `kEditPluginsPoll` (3 s) | a user swaps songs at human speed, not interface-unplug speed. |
 | `kPluginsPoll` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands we ask at `kPluginsPollFast` (2 s) instead, to keep the spinner honest — that poll reschedules itself rather than sitting on one interval. |
 | `kBackoffMaxS` (30 s) | the relaunch backoff for a crashing engine, doubling from 1 s. One that dies on startup — a bad audio device, a missing DLL — would otherwise be relaunched forever at one per second, and the log would be nothing but that. |
-| `kDeregisterBound` (1.5 s) | a hung registry must not hold the quit open. The tray gives the supervisor about 3 s in total before it kills it. |
+| `kDeregisterBound` (1.5 s) | a hung registry must not hold the quit open. An app gives the supervisor a few seconds in total before it kills it. |
 
 ### Why the device poll is the slow one
 
@@ -35,7 +35,7 @@ hour; at 10 s it takes 360, at 30 s it would take 120. The step from 1800 to 360
 of the reduction, while half a minute before a plugged-in interface is noticed is felt in use.
 
 **What it costs anyway.** Plugging the interface in takes up to 10 s to be noticed, so does
-falling to the next name in the order, and the tray's submenu is that far out of date. That is the
+falling to the next name in the order, and an app's audio menu is that far out of date. That is the
 price, and it is paid on every plug.
 
 **The real fix.** JUCE exposes an `AudioIODeviceType::Listener` that Windows feeds on hardware
@@ -44,7 +44,7 @@ scan — but it is work inside the engine, worth doing only if polling proves to
 
 ### Signatures, not arrays
 
-The tray rebuilds a submenu whenever the snapshot it draws from changes, so what the polls
+An app redraws a menu whenever the snapshot it draws from changes, so what the polls
 compare is a **signature** rather than the data.
 
 - The audio menu compares `menuSignature`, so a device list that came back identical redraws
@@ -65,21 +65,23 @@ compare is a **signature** rather than the data.
 `registry::resolve` (`Registry.cpp`) reads two tiers, the first that yields anything winning outright — they are
 alternatives, not a union:
 
-1. what the user added in the tray's **st0 instances** tab — a deliberate, persisted choice beats
-   an ambient one, which is why it sits above the environment variable;
+1. `registryUrls` in the settings — what the user added in the phone's studios list, or wrote in
+   the config file — a deliberate choice beats an ambient one, which is why it sits above the
+   environment variable;
 2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one.
 
 **There is no third tier, and no default.** When neither yields anything the list is empty: the
 engine heartbeats to nobody and appears in no picker. A machine is connected to a st0 instance
 because someone connected it, never because the build assumed one or a backend happened to be
-running — so a fresh install suggests nothing. An empty list is the normal state of a fresh machine, not a fault, which is why the tray does not
-paint it red.
+running — so a fresh install suggests nothing. An empty list is the normal state of a fresh machine, not a fault, which is why no app paints it
+red.
 
 **What the local backends advertise is deliberately not read.** Each writes
 `<state>/web-endpoints/<service>.json` on boot (`packages/engine-registry/advertise.ts`), and
 heartbeating to every URL in there would connect a dev machine to whatever happens to be running —
-and, since a killed backend leaves its file behind, to things that have stopped running. Under `npm run dev` add
-`http://localhost:8789` once in the tab; it is persisted like any other instance.
+and, since a killed backend leaves its file behind, to things that have stopped running. Under `npm run dev` the
+studio comes from `$STUDIO_REGISTRY_URL`, or from `registryUrls` in `<state>/engine-host.json`, the
+file the dev engine runs from (`docs/dev.md`).
 
 Neither tier moves while the supervisor runs, so the list is resolved at boot and on an add or a
 remove, never per heartbeat.
@@ -93,11 +95,11 @@ does (`packages/web-protocol/docs/addresses.md`). The registry is mounted by st0
 (`packages/engine-registry/docs/shared.md`), so a supervisor that saved `https://play.st0.app` still
 heartbeats the right place. The answer is a **list**, one per studio this engine is connected to, deduped.
 
-The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every studio
+The heartbeat is **all-or-nothing**: an app shows one light, so "ok" has to mean every studio
 can offer this engine. A registry that is down is simply absent from that studio's picker, which
 is correct — it genuinely cannot be driven right now.
 
-The tray's **st0 instances** tab draws `instances`, one row per studio FAMILY (`studioFamily`:
+The phone's studios list draws `instances`, one row per studio FAMILY (`studioFamily`:
 st0's origin, or the bare host on loopback), because to the user st0 and its registry are one
 instance. `weburi.remove` therefore disconnects **the whole family**: the matching pinned registry
 leaves the settings, and that registry is deregistered at once so the engine drops out of its
@@ -122,7 +124,7 @@ answers with `{ service: "st0-registry" }` (`REGISTRY_HELLO_PATH` / `REGISTRY_SE
 `packages/web-protocol/services.ts`) — and writes NOTHING unless that is the answer: no pinned
 registry, no heartbeat. A redirect is refused rather than followed, so the answer comes from
 the address the token would go to. While it asks, and after a refusal, the snapshot's
-`instanceCheck` says so, which is how the tray's form shows *Checking…* and the reason. Under a dev
+`instanceCheck` says so, which is how the phone's form shows *Checking…* and the reason. Under a dev
 run st0's backend must therefore be up before its instance can be added.
 
 It proves the SOFTWARE, not the owner: anyone can run a registry, and one that answers correctly
@@ -147,20 +149,23 @@ turned into some other address.
 
 The supervisor's own lines and the engine's stdout/stderr are written here to ONE file, each line
 tagged with its source and a timestamp, rather than two files the user has to cross-reference. That
-single file is what the tray's "Show logs" opens, and what the web UI's Logs panel reads — the
+single file is what the web UI's Logs panel reads — the
 server asks for it over the jobs channel (`readLog` in `MachineJobs.cpp`), since the file is on this
 machine.
 
-A line is **not** echoed to stderr: the tray drains the supervisor's stderr into this same file, so
-an echo would be every line twice. stderr is for what the tray should file under its own tag.
+Under an app a line is **not** echoed to stderr: the app drains the supervisor's stderr into this
+same file, so an echo would be every line twice, and stderr is for what the app should file under
+its own tag. Run from a config file there is no app, and every line is echoed — stderr is then the
+only place a terminal sees it.
 
 The line format is `HH:MM:SS [tag] text` and must stay BYTE-IDENTICAL: the Logs panel seeds on a
 tail and then polls by byte offset, so a format change is not cosmetic.
 
-**TRUNCATION IS NOT OURS.** We open in APPEND mode, always. The tray truncates the file once when
-it starts, because the tray's lifetime is what "a session" means — and this process can be
+**UNDER AN APP, TRUNCATION IS NOT OURS.** We open in APPEND mode. The app truncates the file once
+when it starts, because the app's lifetime is what "a session" means — and this process can be
 relaunched mid-session after a crash, at which point truncating would wipe the log the user is
-reading to find out why it crashed. The tray also appends its own `[host]` lines to the same file;
+reading to find out why it crashed. Run from a config file, our own start IS the session, so we
+truncate at the first open. An app also appends its own `[host]` lines to the same file;
 single writes in append mode are atomic on both platforms, so the two writers interleave whole
 lines rather than tearing.
 

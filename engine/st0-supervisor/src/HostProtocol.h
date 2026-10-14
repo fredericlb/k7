@@ -1,7 +1,7 @@
-// HostProtocol.h — the wire contract with the tray: NDJSON on stdio, a whole SNAPSHOT per frame and
-// only when its bytes changed, commands back with one string argument. The tray mirrors these shapes
-// by hand in TypeScript (electron-shell's hostProtocol.ts) and computes no policy of its own. Stdout carries frames and nothing else:
-// one stray line and the tray parses garbage. See docs/supervisor.md.
+// HostProtocol.h — the wire contract with the app that runs us: NDJSON on stdio, a whole SNAPSHOT per frame
+// and only when its bytes changed, commands back with one string argument. The app mirrors these shapes by
+// hand (packages/supervisor-host/src/hostProtocol.ts, the phone's Kotlin) and computes no policy of its own.
+// Stdout carries frames and nothing else: one stray line and the app parses garbage. See docs/hostProtocol.md.
 
 #pragma once
 
@@ -76,7 +76,7 @@ struct InstanceCheck {
     std::string message;
 };
 
-/** One instrument the supervisor is fetching for the engine (Instruments.h) — what the tray's menu says while it runs. */
+/** One instrument the supervisor is fetching for the engine (Instruments.h) — what an app's status line says while it runs. */
 struct Download {
     std::string name;
     std::string label;
@@ -86,7 +86,7 @@ struct Download {
     std::string error;
 };
 
-/** One row of the tray's Downloads tab: an instrument this machine can fetch, and where it stands. */
+/** One row of an app's instrument list: an instrument this machine can fetch, and where it stands. */
 struct InstrumentRow {
     std::string name;
     std::string label;
@@ -96,7 +96,7 @@ struct InstrumentRow {
     bool installed = false;
 };
 
-/** The whole of what the tray draws. */
+/** The whole of what an app draws. */
 struct Snapshot {
     std::string status = "stopped";  // "stopped" | "running" | "error"
     std::string error;
@@ -126,7 +126,7 @@ struct Snapshot {
     std::vector<PairedDevice> pairedDevices;
 };
 
-/** One command from the tray; `id` is echoed on its result. */
+/** One command from the app; `id` is echoed on its result. */
 struct Command {
     int id = 0;
     std::string cmd;
@@ -144,6 +144,9 @@ std::optional<Command> parseCommand(const std::string& line);
 
 /** Write one frame to the real stdout as a single line; the only writer to stdout. */
 void emit(const nlohmann::ordered_json& frame);
+
+/** `--config`: no host reads stdout, so no frame is written to it. */
+void silenceFrames();
 
 /** Split `s` on U+001F, dropping empty parts. */
 std::vector<std::string> splitUnits(const std::string& s);

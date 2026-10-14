@@ -517,9 +517,13 @@ export const DEFAULT_LIBRARY = "st0";
 /** What a library may be called: a ref segment and a folder name at once, lowercase so no filesystem can disagree. */
 export const LIBRARY_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
+/** The ACCOUNT's own library, `@account/…`: its forks of the origin's modules — docs/library-versions-plan.md. */
+export const ACCOUNT_LIBRARY = "account";
+
 /** Names a library cannot take, because a ref spelled with them already means something else. */
 export const RESERVED_LIBRARY_NAMES: readonly string[] = [
   ...FIXED_NAMESPACES,
+  ACCOUNT_LIBRARY,
   META_NS.slice(1),
   "studio", // LEGACY_META_NS
   "mediatek", // LEGACY_MEDIATEK_NS
@@ -534,7 +538,9 @@ export function libraryRefParts(
   ref: string,
 ): { library: string; rest: string } | null {
   const m = /^@([^/]+)\/(.+)$/.exec(ref);
-  return m && isLibraryName(m[1]) ? { library: m[1], rest: m[2] } : null;
+  return m && (isLibraryName(m[1]) || m[1] === ACCOUNT_LIBRARY)
+    ? { library: m[1], rest: m[2] }
+    : null;
 }
 
 /** The ref a library gives the thing at `rest` inside it: `@st0/audio/reverb`. */

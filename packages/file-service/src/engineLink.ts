@@ -59,6 +59,7 @@ import {
   isHeldBack,
   sendWhenSynced,
 } from "./engineSync.ts";
+import { askHubRemote, askHubSync } from "./libraries.ts";
 import { namedSongFiles } from "./mediatekPrefetch.ts";
 import {
   closeModuleWatch,
@@ -1119,13 +1120,22 @@ function makeHost(
       }),
     // The workspace root, so the workspace-wide verbs work with no project open.
     repoDir: ws.root,
+    // What the origin publishes, and a version this machine lacks brought down, both by the hub (../../file-hub/libraryFetch.ts).
+    remoteLibraryVersions: (name) => askHubRemote(name),
+    fetchLibraryVersion: async (name, version) => {
+      const notes = await askHubSync({ name, version }).catch((e: Error) => [
+        { name, state: "failed" as const, note: e.message },
+      ]);
+      const failed = notes.find((n) => n.state === "failed");
+      return failed ? failed.note : null;
+    },
     // A process backs up each render here before overwriting it, feeding the recordChange journal.
     snapshot,
   };
 }
 
 /** Verbs that need no active project — a copy of `commands.yaml` names, see docs/activeProject.md. */
-const GLOBAL_COMMAND = /^(system channel|playlist)\b/;
+const GLOBAL_COMMAND = /^(system channel|playlist|library)\b/;
 
 /** The lines a command produced, plus whether it REFUSED — see docs/activeProject.md. */
 export type CommandOutput = string[] & { refused?: boolean };

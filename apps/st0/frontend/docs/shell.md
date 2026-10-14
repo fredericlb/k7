@@ -1493,7 +1493,7 @@ a bug report, a doc page and a key binding can all name the same thing.
 The Logs panel is a **transcript of what ran**, not of what was typed. Every command reaches it as a `cmd`
 line, whichever way it was triggered — the bar, a key, a button, a right-click, a cable dropped on a knob
 — because `runCommand`, `quietCommand` and `bypassModule` are the only doors and all log before they dispatch. The
-buffer is the shell's and fills whether the panel is open or not; only the tray's merged process log is
+buffer is the shell's and fills whether the panel is open or not; only the engine machine's merged process log is
 polled on demand (`useLogs`).
 
 Three cases are worth saying out loud, because each is a command nobody typed:

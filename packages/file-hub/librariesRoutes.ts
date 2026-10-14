@@ -2,6 +2,7 @@
 // the folders are the origin's, not an account's, so no account's file service holds them. Reading
 // is everyone's; changing the list is the admins'. See docs/fileHub.md.
 
+import type { PublishLibraryBody } from "@studio/web-protocol";
 import type { Request, Response } from "express";
 import type { LibraryStore } from "./libraries.ts";
 
@@ -52,6 +53,26 @@ export async function librariesRoute(
     else {
       onChange();
       res.json(r.reply);
+    }
+    return;
+  }
+  const publish = /^\/([^/]+)\/publish$/.exec(sub);
+  if (req.method === "POST" && publish) {
+    if (!admin) {
+      res
+        .status(403)
+        .json({ error: "only the origin's admins may publish a library" });
+      return;
+    }
+    const body = (await jsonBody(req)) as PublishLibraryBody;
+    const r = store.publish(decodeURIComponent(publish[1]), {
+      requires: typeof body.requires === "number" ? body.requires : undefined,
+      notes: typeof body.notes === "string" ? body.notes : undefined,
+    });
+    if ("error" in r) res.status(400).json({ error: r.error });
+    else {
+      onChange();
+      res.json(store.view());
     }
     return;
   }

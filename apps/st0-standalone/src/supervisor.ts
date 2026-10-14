@@ -1,5 +1,5 @@
 // supervisor.ts — the app's supervisor: @studio/supervisor-host's SupervisorHost over a home and an engine port of its own.
-// Not the tray's ~/.st0 and 8765, so the two coexist on one machine (docs/standalone.md).
+// Not the command-line engine's ~/.st0 and 8765, so the two coexist on one machine (docs/standalone.md).
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -7,7 +7,7 @@ import { line } from "@frediverse/electron-shell/log";
 import type { Snapshot } from "@studio/supervisor-host/hostProtocol";
 import { SupervisorHost } from "@studio/supervisor-host/supervisorHost";
 
-/** Not the tray's 8765: the supervisor adopts whatever engine already listens on its port. */
+/** Not the command-line engine's 8765: the supervisor adopts whatever engine already listens on its port. */
 export const ENGINE_PORT = 8766;
 
 export function startSupervisor(

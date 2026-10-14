@@ -2,14 +2,14 @@
 // dev.mjs — `npm run dev`: the dev session under Tilt. Each dev server is its own
 // restartable resource (list derived by scripts/tilt-tasks.mjs, read by the Tiltfile),
 // web UI at http://localhost:10350. Extra args go to `tilt up` (e.g. resource names).
-// All this adds is the one-session guard and the backstop that stops the detached
-// tray on the way out. See docs/dev.md.
+// All this adds is the one-session guard and the backstop that stops the engine on
+// the way out. See docs/dev.md.
 
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stopAll } from "../engine/st0-tray/scripts/trayProcess.mjs";
+import { stopAll } from "../engine/scripts/devEngine.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 10350;
@@ -45,7 +45,7 @@ async function shutdown(code = 0) {
   if (stopping) return;
   stopping = true;
   tilt.kill();
-  // The tray is DETACHED, and Tilt may end its resource too abruptly to stop it (../docs/dev.md).
+  // Tilt may end the native resource too abruptly for it to stop its engine (../docs/dev.md).
   try {
     await stopAll();
   } catch {}

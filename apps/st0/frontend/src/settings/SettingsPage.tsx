@@ -28,7 +28,7 @@ export function SettingsPage() {
     <HomeShell subtitle={m["settings.title"]()}>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-6 py-4">
-          {/* On the phone there is no tray: this page is where its engine is set. */}
+          {/* On the phone the app is the engine's machine: this page is where its engine is set. */}
           {onAndroid ? (
             <AndroidEngineSection />
           ) : (

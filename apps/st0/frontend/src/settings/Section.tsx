@@ -47,10 +47,7 @@ export function Row({
   );
 }
 
-/**
- * A disabled action still says WHY where it can. The tray could only grey a row out; a page
- * has room for the sentence, which is the one thing the menu could never do.
- */
+/** A disabled action still says WHY where it can: a menu can only grey a row out, a page has room for the sentence. */
 export function Action({
   onClick,
   disabled,

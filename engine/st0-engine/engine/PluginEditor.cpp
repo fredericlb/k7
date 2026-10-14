@@ -556,7 +556,7 @@ bool snapshotOrphanPluginTo(const std::string& formatName, const std::string& id
     return true;
 }
 
-// The plugin instances in the live edit, for the tray's submenu: one row per placement, since each placement is its own instance.
+// The plugin instances in the live edit, for the supervisor's plugin list: one row per placement, since each placement is its own instance.
 std::vector<EngineHost::PluginInstanceInfo> EngineHost::pluginInstanceInfos(const std::string& session) const {
     std::vector<PluginInstanceInfo> out;
     auto* s = impl_->find(session);

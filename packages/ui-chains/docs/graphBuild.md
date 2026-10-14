@@ -525,7 +525,7 @@ answers a hand: it is dashed and spinning because it does not exist yet, but whe
 is exactly what the wait is for.
 
 `DomChains.stories.tsx` in the react package draws each of these cases; it is the only way to look
-at them without starting the engine, the tray, the file service and the editor.
+at them without starting the engine, the supervisor, the file service and the editor.
 
 > A curve's own vocabulary — the three types, what each is a function of, and why only a `custom`
 > one has points on the wire — is `@studio/song`'s docs/curves.md.

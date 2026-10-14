@@ -173,7 +173,7 @@ export function mountMedia(
           `   library UNAVAILABLE at ${mediatekDir()}: ${(e as Error).message}`,
         );
       }
-      // Advertised so this machine's file service finds the library; an engine joins only once the user adds it in the tray.
+      // Advertised so this machine's file service finds the library; an engine joins only once its settings name this studio.
       bye = engine.serve(server, url, () => void stopHub());
       // Live sync's relay, which the account file services dial (packages/file-hub/docs/syncRelay.md).
       fileHub.serveSync(server);

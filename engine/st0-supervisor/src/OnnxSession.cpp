@@ -56,7 +56,6 @@ std::vector<fs::path> candidateDirs()
         dirs.push_back(d / "onnxruntime");
         dirs.push_back(d / "resources" / "onnxruntime");
         dirs.push_back(d / ".." / "Resources" / "resources" / "onnxruntime");
-        dirs.push_back(d / ".." / "lib" / "st0-tray" / "resources" / "onnxruntime");
     }
     return dirs;
 }

@@ -53,7 +53,7 @@ Two deliberate settings:
   task after 72 hours, which for a keep-alive service is a scheduled outage.
 - **The trigger is at logon, not at boot**: a boot task needs stored credentials or
   session-0 acrobatics for processes that want the user profile (`code` lives in the
-  user's PATH; the tray's VSTs want the interactive session anyway). The machine must
+  user's PATH; the engine's VSTs want the interactive session anyway). The machine must
   auto-login or be logged in once; that is the shape of a dev box.
 
 ## The dev session — `npm run dev`, i.e. Tilt
@@ -61,14 +61,14 @@ Two deliberate settings:
 Seventeen servers under one TUI process live and die together, with no way to
 restart just one. The session therefore runs under **[Tilt](https://tilt.dev)**:
 `npm run dev` is `tilt up --port 10350` (`scripts/dev.mjs`, which also refuses to
-start a second session and stops the detached tray on the way out). Each dev server
+start a second session). Each dev server
 is a `local_resource` with its own status, its own filterable logs, and its own
 restart button in the web UI at `http://localhost:10350`. The native monitor
-(`dev:native`, the moteur + tray rebuild loop) is a resource like the others, so a
+(`dev:native`, the engine + supervisor rebuild loop) is a resource like the others, so a
 broken engine build is a red row with readable logs instead of a dead session.
 
 The `Tiltfile` derives the resource list by running `scripts/tilt-tasks.mjs` (a
-package joins by having a `dev` script; the tray, the aggregators and the tsc
+package joins by having a `dev` script; the aggregators and the tsc
 watchers are dropped — docs/dev.md's "The task list" says why), so a new app still
 joins by existing. The root `build` and `test` scripts stay outside that list: Tilt only
 owns the dev *session*.

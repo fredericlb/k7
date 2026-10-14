@@ -31,7 +31,7 @@ the engine is unchanged — it only speaks the JSON protocol below.
 
 ## Where the pieces live
 
-The engine, the tray and the brain packages serve every audio app in the repo —
+The engine, its supervisor and the brain packages serve every audio app in the repo —
 and z0, from its own repository — so they sit beside `apps/st0` rather than inside it. What lives
 here is the web editor, its media library and the host of the rehearsal pages: `frontend` and
 `backend`.
@@ -46,7 +46,8 @@ engine/st0-engine/               the C++ project (st0-engine)             — na
   engine/    library studio::engine  (ProjectDoc, ProjectDiff, EngineHost/Tracktion)
   server/    app st0-engine          (WebSocket audio server, Serve.cpp)
 engine/st0-supervisor/           the supervisor (C++): identity, registry, engine, tunnel, machine jobs
-engine/st0-tray/                 the menu-bar view (spawns st0-supervisor)
+engine/scripts/                  the native build: engine + supervisor, staged and packaged
+apps/st0-standalone/             the desktop app (Electron; runs st0's backend, drives st0-supervisor)
 apps/st0/                the web editor — frontend / backend
 packages/                  studio's shared tier (consumed as raw TS source):
   song/                    @studio/song            — song model + compiler + Strudel patterns

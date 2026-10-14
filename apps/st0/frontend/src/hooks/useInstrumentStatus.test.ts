@@ -52,7 +52,7 @@ describe("instrumentNeeds", () => {
 });
 
 describe("instrumentWarnings", () => {
-  it("marks only the plugins whose instrument is missing, by its tray name", () => {
+  it("marks only the plugins whose instrument is missing, by its download name", () => {
     const w = instrumentWarnings(instrumentNeeds(doc), new Set([WURT]));
     expect(Object.keys(w).sort()).toEqual(["keys:wurt", "more:wurt"]);
     expect(w["keys:wurt"]).toContain("nbo-wurt");

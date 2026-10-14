@@ -14,6 +14,10 @@ import {
 import { dirname, join, relative } from "node:path";
 import { parse as parseK7x } from "@studio/k7x/document";
 import { fromYaml } from "@studio/k7x/from-yaml";
+import {
+  LIBRARY_MANIFEST,
+  LIBRARY_PINS_FILE,
+} from "@studio/song-schema/libraryVersions";
 import { parse as parseYaml } from "yaml";
 
 export interface MigrateOptions {
@@ -42,6 +46,9 @@ export const K7X_BACKUP_DIR = ".k7x-backup";
 const defaultSkip = (rel: string): boolean =>
   rel.split("/").some((s) => s.startsWith(".") || s === "node_modules");
 
+/** YAML read and written by NAME, atomically, by code outside the door: it stays YAML (docs/k7xFiles.md). */
+const KEEP_YAML = new Set([LIBRARY_PINS_FILE, LIBRARY_MANIFEST]);
+
 function walk(
   root: string,
   at: string,
@@ -54,7 +61,7 @@ function walk(
     const dir = statSync(abs).isDirectory();
     if (defaultSkip(rel) || skip?.(rel, dir)) continue;
     if (dir) walk(root, abs, skip, out);
-    else if (YAML_FILE.test(name)) out.push(rel);
+    else if (YAML_FILE.test(name) && !KEEP_YAML.has(name)) out.push(rel);
   }
 }
 

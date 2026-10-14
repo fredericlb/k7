@@ -1,11 +1,12 @@
 // HostProtocol.cpp — see HostProtocol.h. Frames are dumped compact: a newline inside one ends it
-// early, and the tray would parse the rest as a second, broken frame.
+// early, and the app would parse the rest as a second, broken frame.
 
 #include "HostProtocol.h"
 
 #include "Log.h"
 
 #include <cstdio>
+#include <atomic>
 #include <mutex>
 
 namespace st0::protocol {
@@ -63,7 +64,7 @@ ojson stateFrame(const Snapshot& s)
         f["instanceCheck"] = nullptr;
     }
     f["paths"] = {{"root", s.rootPath}, {"mergedLog", s.mergedLogPath}};
-    // Absent rather than empty when nothing is being fetched — the common case, and the tray defaults it.
+    // Absent rather than empty when nothing is being fetched — the common case, and the app defaults it.
     if (!s.downloads.empty()) {
         ojson downloads = ojson::array();
         for (const auto& d : s.downloads) {
@@ -102,7 +103,7 @@ std::optional<Command> parseCommand(const std::string& line)
     if (a == std::string::npos) return std::nullopt;
     auto msg = nlohmann::json::parse(line, nullptr, false);
     if (msg.is_discarded()) {
-        // A malformed line is the tray's bug, not a reason to die: say so and keep the channel open.
+        // A malformed line is the app's bug, not a reason to die: say so and keep the channel open.
         log::stderrOnly("[host] ignoring unparseable command: " + line);
         return std::nullopt;
     }
@@ -115,8 +116,15 @@ std::optional<Command> parseCommand(const std::string& line)
     return c;
 }
 
+namespace {
+std::atomic<bool> gSilent{false};
+}
+
+void silenceFrames() { gSilent = true; }
+
 void emit(const ojson& frame)
 {
+    if (gSilent) return;
     static std::mutex mutex;
     const std::string line = frame.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace) + "\n";
     std::lock_guard lock(mutex);

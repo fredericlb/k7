@@ -1,27 +1,28 @@
-# The supervisor ⇄ tray contract
+# The supervisor ⇄ app contract
 
-`src/HostProtocol.h` is the written definition of what moves between the supervisor and the tray
+`src/HostProtocol.h` is the written definition of what moves between the supervisor and the app
 that drives it, and `packages/supervisor-host/src/hostProtocol.ts` mirrors it by hand — the arrangement
 `@studio/engine-protocol` has with the C++ engine. Two spellings of one shape, so a field added on
-one side is a field the other side must be told about: `HostProtocol_test.cpp` pins what the tray
+one side is a field the other side must be told about: `HostProtocol_test.cpp` pins what the app
 reads.
 
-It is NDJSON on stdio — one JSON object per line, supervisor→tray on stdout, tray→supervisor on
+It is NDJSON on stdio — one JSON object per line, supervisor→app on stdout, app→supervisor on
 stdin — and the rule that heads this page follows from that: *stdout IS the protocol, one stray
 line corrupts the frame stream*. Nothing but `protocol::emit` writes to stdout; diagnostics go to
-stderr, which the tray files in the merged log.
+stderr, which the app files in the merged log. Run from a config file, the supervisor has no app:
+it writes no frame and reads no command ([supervisor.md](supervisor.md)).
 
 ## Two rules, both load-bearing
 
-1. **SNAPSHOTS, NOT DELTAS.** `state` carries the whole picture every time, so the tray is never
+1. **SNAPSHOTS, NOT DELTAS.** `state` carries the whole picture every time, so the app is never
    half-right — only late — and an idle supervisor costs nothing.
-2. **THE TRAY COMPUTES NO POLICY.** Signatures, labels-worth-of-state, and the decision to switch
-   an audio device are all made in the supervisor; the tray only compares a signature against
+2. **THE APP COMPUTES NO POLICY.** Signatures, labels-worth-of-state, and the decision to switch
+   an audio device are all made in the supervisor; the app only compares a signature against
    what it last drew.
 
 ## Why a snapshot is emitted only when it changed
 
-The tray reads the snapshot field by field, and the supervisor emits one only when its
+The app reads the snapshot field by field, and the supervisor emits one only when its
 **serialisation** differs from the last. A field that flapped at loop cadence would otherwise put
 the whole snapshot on the wire several times a second to redraw nothing.
 
@@ -53,7 +54,7 @@ so the row leaves the window with the click. The supervisor sees only names, add
 the key an approved device receives goes from the engine to that device and nowhere else.
 
 `owns` is always both-true: every subsystem it names is the supervisor's. It stays on the wire
-because the tray still reads it, and removing a field the other side reads is a two-sided change.
+because the app still reads it, and removing a field the other side reads is a two-sided change.
 
 ## A command carries one string
 
@@ -67,13 +68,13 @@ sends `<session>\x1f<id>`. An empty `audio.priority` is meaningful — rank noth
 `{"t":"engine","action":"start","id","token","port","host"}` and `{"t":"engine","action":"stop"}`.
 On Android the engine is a library in the app that spawned the supervisor, so `EngineProcess.cpp`
 cannot start or kill it and asks the app instead (`engine/st0-engine/docs/android.md`). The desktop
-build never emits it, which is why the tray has no reader for it.
+build never emits it, which is why the desktop app has no reader for it.
 
 ## Why stdio and not a localhost socket
 
-The tray is the process the user kills, and a socket-attached supervisor that outlives a
-force-killed tray is a ghost engine in the picker with no UI left to stop it. Over stdio, Windows
-covers it with the job object and Unix gets it for free — when the tray dies the OS closes the
+The app is the process the user kills, and a socket-attached supervisor that outlives a
+force-killed app is a ghost engine in the picker with no UI left to stop it. Over stdio, Windows
+covers it with the job object and Unix gets it for free — when the app dies the OS closes the
 pipe, stdin ends, and the supervisor tears down. A loopback port would also be one any page can
 `fetch()`.
 

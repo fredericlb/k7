@@ -72,7 +72,7 @@
     {
       "name": "android-arm64",
       "displayName": "Android (NDK, arm64-v8a)",
-      "description": "The supervisor as an executable the Android app (engine/st0-android) runs from its native library directory, driving it over the tray's NDJSON. Needs ANDROID_NDK_HOME pointing at an NDK r28+. No ONNX Runtime ships for Android, so no stem separation. engine/st0-engine/docs/android.md.",
+      "description": "The supervisor as an executable the Android app (engine/st0-android) runs from its native library directory, driving it over the supervisor's NDJSON stdio protocol, as the desktop app does. Needs ANDROID_NDK_HOME pointing at an NDK r28+. No ONNX Runtime ships for Android, so no stem separation. engine/st0-engine/docs/android.md.",
       "inherits": "base",
       "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
       "cacheVariables": {

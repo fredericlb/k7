@@ -6,8 +6,9 @@ and a module names one as `@instruments/<name>/<file>.sfz`.
 
 ## The machine keeps what its musician chose
 
-**Nothing is downloaded until it is asked for**, in the tray's Downloads tab
-(`engine/st0-tray/docs/tray.md`) or the desktop app's Engine page (`apps/st0-standalone/docs/engine.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
+**Nothing is downloaded until it is asked for**, on the desktop app's Engine page
+(`apps/st0-standalone/docs/engine.md`), or in `instruments` in the command-line engine's config file —
+`["all"]` keeps every one (`docs/supervisor.md`). The list runs to gigabytes — the piano alone is 750 MB, the drum
 kits more — and a machine that never plays a piano should not pay for one. What is chosen is
 remembered in `engine-host.json` as `instruments`, the names this machine keeps:
 
@@ -55,14 +56,14 @@ and a list that pins a NEW archive replaces an older install. A name in the arch
 outside the folder is refused. One folder and nothing else at the top — what GitHub serves — is
 dropped, so `<file>.sfz` sits directly under `<name>/`.
 
-## What the tray shows
+## What an app shows
 
 The snapshot carries `instruments`, every row of the Downloads tab, and `downloads`, absent when
-nothing is queued or fetching (`docs/hostProtocol.md`). The tray draws ONE menu line from the
+nothing is queued or fetching (`docs/hostProtocol.md`). An app draws ONE status line from the
 latter: the first one's label and percentage, how many more wait, and a failure that stays until
-it is retried or the next start; and the icon keeps its spinner, not the green dot, until
+it is retried or the next start; and its status keeps a spinner, not the green dot, until
 none is left to fetch, since a song naming a missing one would play silent. A frame is emitted per
-whole percent at most, since each one rebuilds the menu.
+whole percent at most, since each one redraws the line.
 
 **The total is the pinned size**, never the server's: GitHub serves the piano chunked, with no
 length, and the HTTP client's own "total" is then the current chunk's.

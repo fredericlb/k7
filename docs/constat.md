@@ -1,6 +1,6 @@
 # Overall findings — the audio axis
 
-Scope: `apps/st0`, `engine/st0-engine`, `engine/st0-supervisor`, `engine/st0-tray` and the packages they drive. Out of
+Scope: `apps/st0`, `engine/st0-engine`, `engine/st0-supervisor`, `apps/st0-standalone` and the packages they drive. Out of
 scope: z0 (its own repository) and the rehearsal recorder (`packages/rehearsal-server`, `packages/ui-rehearsal`).
 
 This page is **self-contained** — it carries its evidence rather than pointing at it — which means
@@ -240,7 +240,7 @@ logged and we live, an uncaught exception is logged with its stack and we exit. 
 [`packages/file-service/docs/background.md`](../packages/file-service/docs/background.md).
 
 The failure mode that net parries is instructive because it goes unnoticed: when the supervisor
-dies, **the engine stays alive behind it**, the tray restarts it on its fallback and the new
+dies, **the engine stays alive behind it**, the app restarts it on its fallback and the new
 supervisor re-adopts the engine by its pidfile. It recovers, so it passes unseen. Same family on the
 file-service side, where `wrap()` can see nothing: it only catches what the handler *returns*.
 

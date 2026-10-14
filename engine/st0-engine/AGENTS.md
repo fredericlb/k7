@@ -15,7 +15,7 @@ can never try to compile C++. Use the `build:*` / `test:*` scripts below.
 
 It does declare `dev`, and that one is not a build: it is `scripts/dev-native.mjs`, the
 repo dev session's native task — watch the sources, rebuild, restart. It restarts the
-**tray** too, because the tray is what holds the running engine open and no relink can
+**supervisor** too, because the supervisor is what holds the running engine open and no relink can
 happen until it lets go. See [docs/dev.md](../../docs/dev.md).
 
 ## Architecture
@@ -286,7 +286,7 @@ which reads as a licence or a bad install and sends you to the plugin vendor. `E
 
 **A CLI must drain the message queue before it returns.** `~ExternalPlugin` frees no plugin: it
 hands the instance to Tracktion's `AsyncPluginDeleter`, which parks it and starts a 100 ms
-`juce::Timer`, one instance freed per fire. The server and the tray run a message loop, so that
+`juce::Timer`, one instance freed per fire. The server runs a message loop, so that
 timer fires. A CLI runs none — so the instances are still alive when JUCE's `DeletedAtShutdown`
 tears the deleter down and it drains them itself, mid-shutdown, and the process dies of a SIGSEGV
 *after* printing a correct answer. Intermittent, load-dependent, and worse than a plain failure:
@@ -370,7 +370,7 @@ a layout, not a symbol, so nothing in the toolchain objects to a mismatch.
 What it does is add a field's worth of offset to everything after it. `tracks` is the LAST member of
 `ProjectDoc`, so *any* field inserted above it moves it, and a stale translation unit reads
 `doc.tracks` off the end of the struct: a garbage `std::vector`, and an access violation the moment
-something walks it — typically `keyOf`, on the first project the engine is handed. The tray would
+something walks it — typically `keyOf`, on the first project the engine is handed. The supervisor would
 then sit in a two-second `engine is gone — relaunching` loop and no project could ever be played. Nothing
 in the log names the engine as the culprit; `installCrashHandler` (below) is what does.
 
@@ -500,7 +500,7 @@ Why it matters:
   process that constructs an engine — a render, a freeze, a param dump — so any of them
   running beside the live engine collides with it. The driver then stays wedged, and
   from that point on every engine start blocks **forever, with no output at all**, which
-  reads as "the tray hangs" and sends you hunting anywhere but here.
+  reads as "the engine hangs" and sends you hunting anywhere but here.
 * **It is a second source of truth.** `<state>/preferences.yaml` holds the device the
   user chose; left to itself Tracktion writes its own copy into `Settings.xml` and replays
   that one first, so the hidden choice wins before any st0 code runs.
@@ -558,7 +558,7 @@ normally. Always on: a crash is rare and the handler costs nothing until one hap
 Without it a crash leaves only a fault offset in the Windows event log
 (`Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'}`), and
 there is no cdb or WinDbg here to turn that into a name. Note the engine dies *silently* from the
-supervisor's point of view — the tray only reports `engine is gone — relaunching`, on a loop, which
+supervisor's point of view — the supervisor only reports `engine is gone — relaunching`, on a loop, which
 reads as a supervisor fault rather than an engine one. The stack is what tells the two apart.
 
 ### Debugging a hang with no debugger

@@ -1,4 +1,4 @@
-// HostProtocol_test.cpp — the frames the tray parses: keys it reads are present, the optional ones
+// HostProtocol_test.cpp — the frames an app parses: keys it reads are present, the optional ones
 // are absent rather than empty, and a command line survives only when it is a command.
 
 #include "HostProtocol.h"
@@ -9,7 +9,7 @@ using namespace st0::protocol;
 
 namespace {
 
-void aStateFrameCarriesWhatTheTrayReads()
+void aStateFrameCarriesWhatAnAppReads()
 {
     Snapshot s;
     s.engineId = "e1";
@@ -96,7 +96,7 @@ void anEmptyRankingSplitsToNothing() { CHECK(splitUnits("").empty()); }
 
 void runHostProtocolTests()
 {
-    RUN(aStateFrameCarriesWhatTheTrayReads);
+    RUN(aStateFrameCarriesWhatAnAppReads);
     RUN(anErrorAndACountAppearWhenSet);
     RUN(anInstrumentRowCarriesWhatTheTabDraws);
     RUN(aPairingRowCarriesWhatTheTabDraws);

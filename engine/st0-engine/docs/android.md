@@ -1,7 +1,7 @@
 # The engine on Android
 
 The same engine and the same supervisor, built for arm64 Android by their `android-arm64` presets
-and run by the app in `engine/st0-android`, which plays the tray's part. The supervisor lists the
+and run by the app in `engine/st0-android`, which drives the supervisor as the desktop app does. The supervisor lists the
 phone at the studios it is connected to, exactly as on desktop, and the engine serves the same
 WebSocket protocol on port 8765, bound to every interface.
 
@@ -44,7 +44,7 @@ translucent oklch over the page, which no computed style gives back as one colou
 it again when the route or the theme changes. The status bar's icons follow its luminance.
 
 **This phone's engine is set in st0's settings** (the home page's cog), because on the phone
-there is no tray: the studios the engine is listed at, which one the apps open, the private CA,
+st0 is the only screen there is: the studios the engine is listed at, which one the apps open, the private CA,
 Quit (`apps/st0/frontend/docs/settings.md`). The page bundled in the APK, `engine/st0-android/web`,
 is only seen while there is **no studio to open**, or while the open one **fails to load** — then
 no app is on screen to reach settings in, so it draws the same tray with a Retry.
@@ -186,7 +186,7 @@ The supervisor needs no Java — no JUCE, no audio — and is built to be a chil
 stdio, so it stays exactly that. The app packages it as `libst0supervisor.so`: only files named like
 a library reach the native library directory, the one place Android lets an app execute its own
 binary, and `useLegacyPackaging` has the installer extract them as real files. `SupervisorHost.kt`
-is then what `SupervisorHost` (`packages/supervisor-host/src/supervisorHost.ts`) is to the tray — it starts the program, reads its frames, sends its commands,
+is then what `SupervisorHost` (`packages/supervisor-host/src/supervisorHost.ts`) is to the desktop app — it starts the program, reads its frames, sends its commands,
 and closes stdin to quit it.
 
 Only the ENGINE changes hands. On desktop the supervisor spawns it and kills its process tree; here
@@ -251,7 +251,7 @@ To check on a phone: `adb logcat -s st0-engine` shows the buffer at open and eve
 
 | choice | why |
 |---|---|
-| The presets build, Gradle stages | AGP's `externalNativeBuild` would configure second CMake trees and fetch Tracktion into one. `app/build.gradle.kts` runs the engine's `scripts/build.mjs android-arm64` and the tray's `supervisorBuild.mjs` with `STUDIO_SUPERVISOR_PRESET=android-arm64`, against the SDK's NDK, and copies both in. |
+| The presets build, Gradle stages | AGP's `externalNativeBuild` would configure second CMake trees and fetch Tracktion into one. `app/build.gradle.kts` runs the engine's `scripts/build.mjs android-arm64` and `engine/scripts/supervisorBuild.mjs` with `STUDIO_SUPERVISOR_PRESET=android-arm64`, against the SDK's NDK, and copies both in. |
 | API 29 | JUCE's Android font code calls `AFontMatcher`, which is 29+. AAudio, which Oboe prefers, only needs 26. |
 | arm64-v8a only | every phone worth playing on; a second ABI doubles a 35 MB library for nothing. |
 | No VST3 / LADSPA | there is nothing to host and no window for an editor. `loadVstPreset` answers false, as it does for a built-in. |

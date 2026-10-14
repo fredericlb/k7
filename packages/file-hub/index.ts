@@ -38,7 +38,9 @@ import {
   jsonBody,
   librariesRoute,
 } from "./librariesRoutes.ts";
+import { fetchLibraryVersion, remoteVersions } from "./libraryFetch.ts";
 import { LIBRARIES_ACCOUNT, LibraryRelay } from "./libraryRelay.ts";
+import { PublicLibraries } from "./publicLibraries.ts";
 import { fileServiceSourceDirs, watchSources } from "./sourceWatch.ts";
 import {
   CACHE_SWEEP_EVERY_MS,
@@ -54,6 +56,9 @@ import { mintTicket, readTicket } from "./ticket.ts";
 export { holdsClaim, rootsFor } from "./binding.ts";
 export type { Instance } from "./instances.ts";
 export { accountKey } from "./instances.ts";
+export { LibraryStore } from "./libraries.ts";
+export { PUBLIC_LIBRARIES_PATH } from "./libraryFetch.ts";
+export { PublicLibraries } from "./publicLibraries.ts";
 
 /** Where a service mounts the hub; the browser composes its file base from it. */
 export const FILE_HUB_PATH = "/api/files";
@@ -175,6 +180,11 @@ export class FileHub {
   }
 
   /** The hello, mounted BEHIND the session guard: it is where a session becomes a ticket. */
+  /** The published versions anyone may fetch, without a session — publicLibraries.ts. */
+  publicLibrariesHandler(): RequestHandler {
+    return new PublicLibraries(this.libraries).handler;
+  }
+
   helloHandler(): RequestHandler {
     return (req, res) => {
       const user = this.opts.userOf(req);
@@ -240,14 +250,44 @@ export class FileHub {
             .json({ error: "not one of this hub's file services" });
           return;
         }
+        // What the origin publishes of one library, for an unpaired machine choosing an upgrade.
+        if (req.method === "POST" && req.path === "/libraries/remote") {
+          const body = (await jsonBody(req)) as { name?: unknown };
+          const name = typeof body.name === "string" ? body.name : "";
+          res.json({ versions: await remoteVersions(name) });
+          return;
+        }
         if (req.method !== "POST" || req.path !== "/libraries/sync") {
           res.status(404).json({ error: `no ${req.method} ${req.path}` });
           return;
         }
-        const body = (await jsonBody(req)) as { name?: unknown };
+        const body = (await jsonBody(req)) as {
+          name?: unknown;
+          draft?: unknown;
+          version?: unknown;
+        };
+        const name = typeof body.name === "string" ? body.name : undefined;
         const notes = this.libraries.ensure({
-          name: typeof body.name === "string" ? body.name : undefined,
+          name,
+          draft: body.draft === true,
         });
+        // A version this machine lacks, brought down from the origin's public listing.
+        if (name && typeof body.version === "number") {
+          const why = await fetchLibraryVersion(
+            this.libraries.home,
+            name,
+            body.version,
+          );
+          notes.push(
+            why
+              ? { name, state: "failed", note: why }
+              : {
+                  name,
+                  state: "current",
+                  note: `version ${body.version} here`,
+                },
+          );
+        }
         res.json({ notes });
       })().catch((e: Error) => {
         if (!res.headersSent) res.status(500).json({ error: e.message });

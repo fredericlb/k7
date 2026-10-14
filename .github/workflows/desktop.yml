@@ -1,13 +1,13 @@
 # The desktop release — the half of the repo the hosted image never carries.
 #
-# `docker/` ships the four web apps; these ship to a musician's machine: engine/st0-engine and
-# engine/st0-supervisor (C++, CMake) and the tray that runs them, engine/st0-tray (Electron). One
-# job per desktop, each producing ONE archive — the engine binary beside the tray's installer.
+# `docker/` ships the hosted apps; these ship to a musician's machine, in two stages per desktop
+# (desktop-platform.yml): `engine` compiles engine/st0-engine and engine/st0-supervisor (C++, CMake) and
+# publishes them as the command-line engine; `desktop` then packages apps/st0-standalone around THOSE
+# binaries, compiling nothing, and only when that platform's engine built.
 #
-# It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not:
-# a cold configure fetches JUCE, Tracktion, Faust, Eigen and NAM, so this is tens of minutes
-# per platform and belongs on a release cadence, not on every push. Hence the `decide` gate
-# below — a main push that touched only apps/ or docs/ does not pay for three native builds.
+# It is the only workflow here that compiles the C++ engine. st0.yml deliberately does not: a cold
+# build is tens of minutes per platform, a cached one several. Hence the `decide` gate below — a main
+# push that touched only docs/ does not pay for three native builds.
 #
 # What it does NOT do is SIGN anything. The macOS .dmg is unsigned and unnotarised, the
 # Windows installer unsigned; both warn on first launch. See docs/desktop-release.md.
@@ -64,8 +64,8 @@ jobs:
           if [ "$channel" = snapshot ] && [ "$GITHUB_EVENT_NAME" = push ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             git diff --name-only "$BEFORE" HEAD > changed.txt
-            # packages/ in full: both bundled .mjs are esbuilt out of most of that tier; commons, for the Electron shell in it.
-            grep -qE '^(engine/|packages/|commons$|package-lock\.json|\.github/workflows/desktop\.yml)' \
+            # apps/ and packages/ in full: the desktop app bundles st0 and most of that tier; commons, for its Electron shell.
+            grep -qE '^(engine/|apps/|packages/|commons$|package-lock\.json|\.github/workflows/desktop(-platform)?\.yml)' \
               changed.txt || build=no
           fi
 
@@ -82,8 +82,6 @@ jobs:
     name: ${{ matrix.label }}
     needs: decide
     if: needs.decide.outputs.build == 'yes'
-    runs-on: ${{ matrix.os }}
-    # One platform's toolchain failing must not throw away the two archives that did build.
     strategy:
       fail-fast: false
       matrix:
@@ -101,106 +99,13 @@ jobs:
           - os: ubuntu-latest
             label: linux-x64
             preset: release-gcc
-    steps:
-      - uses: actions/checkout@v4
-      # commons is a private repository: read with COMMONS_TOKEN, at the commit st0 pins — docs/desktop-release.md.
-      - id: commons
-        shell: bash
-        run: echo "sha=$(git rev-parse HEAD:commons)" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
-        with:
-          repository: fredericlb/commons
-          ref: ${{ steps.commons.outputs.sha }}
-          path: commons
-          token: ${{ secrets.COMMONS_TOKEN || github.token }}
-
-      - uses: ./.github/actions/node
-
-      # What JUCE needs for ALSA/JACK audio and X11, absent from the runner image. Electron
-      # brings its own GTK at run time and needs none of it to package.
-      - name: linux build deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ninja-build \
-            libssl-dev \
-            libasound2-dev libjack-jackd2-dev libfreetype6-dev libfontconfig1-dev \
-            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
-            libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev \
-            libcurl4-openssl-dev ladspa-sdk
-
-      # The macos-clang preset generates Ninja; cmake may or may not be on the image already.
-      - name: macos build deps
-        if: runner.os == 'macOS'
-        run: |
-          for f in cmake ninja; do
-            brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
-          done
-
-
-      # cl.exe and ninja for the Ninja preset: what a Visual Studio developer prompt puts on PATH.
-      - name: msvc environment
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      # Defender scans every file cl.exe opens, which a cold Windows build mostly waits on; the runner is discarded after the job.
-      - name: defender off the build
-        if: runner.os == 'Windows'
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:LOCALAPPDATA
-          Add-MpPreference -ExclusionProcess cl.exe, link.exe, ninja.exe, sccache.exe, cmake.exe
-          Set-MpPreference -DisableRealtimeMonitoring $true
-
-      # Every core: the build script leaves two free outside Windows, for a developer's machine, which
-      # on a 4-core runner is half of them (engine/st0-engine/scripts/buildLock.mjs).
-      - name: every core to the compiler
-        if: runner.os != 'Windows'
-        shell: bash
-        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
-
-      # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
-      # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
-      - name: compiler cache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          variant: sccache
-          key: engine-${{ matrix.label }}
-          max-size: 2G
-
-      # The engine, the supervisor and the tray's installer, in one script — the same one a
-      # developer runs. See engine/st0-tray/scripts/docs/buildEngine.md.
-      - name: engine + supervisor + tray
-        env:
-          STUDIO_ENGINE_PRESET: ${{ matrix.preset }}
-          STUDIO_SUPERVISOR_PRESET: ${{ matrix.preset }}
-          # Read by the presets, not CMAKE_<LANG>_COMPILER_LAUNCHER: that one reaches JUCE's nested juceaide build too.
-          STUDIO_COMPILER_LAUNCHER: sccache
-        run: node engine/st0-tray/scripts/build-engine.mjs
-
-      - name: compiler cache stats
-        if: always()
-        shell: bash
-        run: sccache --show-stats || true
-
-      - name: archive
-        run: >
-          node engine/st0-tray/scripts/package-release.mjs
-          --stamp ${{ needs.decide.outputs.stamp }}
-
-      # Uploaded whether or not this run publishes: a dispatch on a side branch is how a
-      # toolchain change gets tested, and the archive is the only thing worth looking at.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: st0-desktop-${{ matrix.label }}
-          path: |
-            dist/release/*.zip
-            dist/release/*.tar.gz
-          if-no-files-found: error
+    uses: ./.github/workflows/desktop-platform.yml
+    secrets: inherit
+    with:
+      os: ${{ matrix.os }}
+      label: ${{ matrix.label }}
+      preset: ${{ matrix.preset }}
+      stamp: ${{ needs.decide.outputs.stamp }}
 
   publish:
     name: publish
@@ -211,7 +116,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true # one flat directory, three archives
+          merge-multiple: true # one flat directory: three engine archives, three installers
 
       # `gh` rather than an action: no checkout is needed and nothing third-party signs off
       # on what reaches the release page.

@@ -87,7 +87,7 @@ into likely. Fixing it means giving the JSON path a bounded send too. Measure fi
 ## Nobody listening means nobody pays
 
 The tap is put on the master list for the first listener and taken off when the last one
-goes. Uncompressed stereo float32 is ~3 Mbit/s, and the tray polls this port several times
+goes. Uncompressed stereo float32 is ~3 Mbit/s, and the supervisor polls this port several times
 a second on sockets it drops immediately — pushing audio at a `whoami` probe would be
 absurd. Subscription is per-connection (`{type:"broadcast", on:true}`), tracked by pointer
 against `server.getClients()`.
@@ -132,7 +132,7 @@ now. A counter reset under a listener who came back would read as a four-billion
 
 The listener set is keyed by raw socket pointer, matched against `server.getClients()`. The
 sender prunes entries that are no longer connected on every pass, so an address the
-allocator reuses cannot inherit a subscription — otherwise one of the tray's several
+allocator reuses cannot inherit a subscription — otherwise one of the supervisor's several
 probe sockets per second could be handed a 3 Mbit/s stream it never asked for.
 
 At shutdown, `server.stop()` runs **before** the sender thread is joined. The sender may be

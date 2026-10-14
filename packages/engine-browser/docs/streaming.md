@@ -16,7 +16,7 @@ person, so the measurements below are what a user hears, not a mockup's numbers.
 ## Why a binary frame on the existing socket
 
 The engine already serves an IXWebSocket server that every client is already connected to.
-A second channel would mean a second port, a second entry in the tray's allowlist, a second
+A second channel would mean a second port, a second entry in the engine's web-UI allowlist, a second
 thing to authenticate and a second thing to fail — for audio that is going to the same
 place as the JSON.
 

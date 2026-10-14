@@ -1,6 +1,6 @@
-// main.cpp — the supervisor's entry point. Spawned BY the tray and driven over NDJSON on stdio: reads
-// what it needs from `~/.st0`, and has no standalone mode — a supervisor outliving the tray would be
-// a ghost engine. Stdin ending IS the tray going away, and that ends us too. Two diagnostics take
+// main.cpp — the supervisor's entry point, run two ways. Spawned by an app (the desktop app, the phone) and driven over
+// NDJSON on stdio, where stdin ending IS the app going away and ends us too. Or `--config <file>`, the command-line
+// engine: settings from that file, no frames on stdout, running until SIGINT or SIGTERM. Two diagnostics take
 // arguments and touch nothing else: `--probe <address>` asks a studio's registry, and
 // `--separate <mix> <model> <outDir> [providers]` runs one stem separation here, printing progress.
 
@@ -11,6 +11,7 @@
 #include "Processes.h"
 #include "Registry.h"
 #include "Separation.h"
+#include "Settings.h"
 #include "Supervisor.h"
 #include "Tls.h"
 #include "Url.h"
@@ -19,8 +20,11 @@
 
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <thread>
 
@@ -41,13 +45,41 @@ extern "C" void onSignal(int)
     if (gLoop && gSupervisor) gLoop->post([] { gSupervisor->shutdown(); });
 }
 
+/** `--config <file>`: read it, put its environment keys in place, and make it the settings; false with a message on failure. */
+bool useConfig(const char* file)
+{
+    std::ifstream in(file, std::ios::binary);
+    if (!in) {
+        std::fprintf(stderr, "cannot read %s\n", file);
+        return false;
+    }
+    std::stringstream buf;
+    buf << in.rdbuf();
+    const auto raw = nlohmann::json::parse(buf.str(), nullptr, false);
+    if (raw.is_discarded() || !raw.is_object()) {
+        std::fprintf(stderr, "%s is not a JSON object\n", file);
+        return false;
+    }
+    for (const auto& [var, value] : st0::configEnvironment(raw)) {
+#ifdef _WIN32
+        _putenv_s(var.c_str(), value.c_str());
+#else
+        setenv(var.c_str(), value.c_str(), 1);
+#endif
+    }
+    st0::useConfigFile(file);
+    st0::protocol::silenceFrames();
+    st0::log::standalone();
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
 {
     // Winsock first, before ANY socket — `--probe` below speaks HTTP too. IXWebSocket leaves it to the
     // program, as the engine's Serve.cpp does. Without it every socket on Windows fails WSANOTINITIALISED,
-    // and nothing says so: no engine query is answered (the tray showed every interface "not connected"),
+    // and nothing says so: no engine query is answered (an app shows every interface "not connected"),
     // and isServing() never sees the engine, so one is never adopted. A no-op elsewhere; no teardown, since
     // we leave by _Exit.
     ix::initNetSystem();
@@ -95,11 +127,22 @@ int main(int argc, char** argv)
         });
         return failed ? 1 : 0;
     }
+    // Driven by an app over stdio unless a config file says otherwise.
+    const bool headless = argc == 3 && std::string(argv[1]) == "--config";
+    if (headless && !useConfig(argv[2])) return 2;
+    if (!headless && argc > 1) {
+        std::fprintf(stderr,
+                     "usage: st0-supervisor --config <file>\n"
+                     "       st0-supervisor --probe <address>\n"
+                     "       st0-supervisor --separate <mix> <model> <outDir> [providers]\n"
+                     "       st0-supervisor            (driven by an app over stdio)\n");
+        return 2;
+    }
 #ifdef _WIN32
     // Binary stdio, so a frame's `\n` is not turned into `\r\n` and a UTF-8 byte is never translated.
     _setmode(_fileno(stdout), _O_BINARY);
     _setmode(_fileno(stdin), _O_BINARY);
-    // Never into a spawned child: a copy of the tray's pipe outliving us costs the tray our EOF (docs/supervisor.md).
+    // Never into a spawned child: a copy of the app's pipe outliving us costs the app our EOF (docs/supervisor.md).
     for (const DWORD id : {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE})
         SetHandleInformation(GetStdHandle(id), HANDLE_FLAG_INHERIT, 0);
 #endif
@@ -119,13 +162,14 @@ int main(int argc, char** argv)
     try {
         supervisor.start();
     } catch (const std::exception& e) {
-        // Nothing above us will report this — the tray sees only a process that exited — so say why.
+        // Nothing above us will report this — an app sees only a process that exited — so say why.
         st0::log::stderrOnly(std::string("[host] fatal: ") + e.what());
         return 1;
     }
 
-    // The tray's commands, one per line, until stdin closes — on Unix that END is the whole teardown.
-    std::thread([&loop, &supervisor] {
+    if (headless) st0::log::stderrOnly("[host] running from the config file; Ctrl-C to stop");
+    // The app's commands, one per line, until stdin closes — on Unix that END is the whole teardown.
+    if (!headless) std::thread([&loop, &supervisor] {
         std::string line;
         while (std::getline(std::cin, line)) {
             if (auto cmd = st0::protocol::parseCommand(line))

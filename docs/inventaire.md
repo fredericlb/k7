@@ -29,7 +29,7 @@ Four passes, all reproducible:
    that actually appear in the source.
 2. **Reachability** — a walk of the import graph from the real entry points: everything outside
    `packages/`, files reached from another package by a published specifier, the `bin`/`main`, the
-   tray's esbuild entries, and the tests.
+   declared `entry` globs, and the tests.
 3. **Config** — dependencies imported without being declared, missing scripts, environment variables
    read without being documented.
 4. **Symbols** — every `export`ed name, against every identifier appearing in the other files. A name

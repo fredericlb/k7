@@ -16,7 +16,7 @@ gets a directory of its own.
 
 The per-platform location each OS prefers would be the tidier answer if one program owned this
 directory. Four do, in two languages: `packages/song/src/studioHome.ts`,
-`scripts/stateDir.mjs` for the plain-node scripts, `engine/st0-tray/src/paths.ts`, and
+`scripts/stateDir.mjs` for the plain-node scripts, `engine/st0-supervisor/src/Paths.cpp`, and
 `engine/st0-engine/engine/PluginScan.cpp`.
 
 Each language's idea of "where application data goes" is subtly its own, and they do not line up:

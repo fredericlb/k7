@@ -32,7 +32,7 @@ export function libraryFiles(
     ...(projectDir
       ? [{ name: PROJECT_SOUNDS, root: join(projectDir, family) }]
       : []),
-    ...libraryFamilyRoots(family),
+    ...libraryFamilyRoots(family, projectDir),
   ];
   for (const lib of roots) {
     const walk = (abs: string, depth: number): void => {
@@ -72,7 +72,7 @@ export function libraryFile(
       ? projectDir
         ? join(projectDir, family)
         : null
-      : libraryFamilyRoot(m[1], family);
+      : libraryFamilyRoot(m[1], family, projectDir);
   if (!root) return undefined;
   const abs = resolve(root, m[2]);
   // A `..` in the path would reach out of the folder, and a ref is text a file may hold.
@@ -87,6 +87,6 @@ export function resolveFileParamIn(
 ): string | undefined {
   const family = sharedFamilyOf(param);
   if (family && typeof ref === "string" && ref.startsWith("@"))
-    return libraryFile(family, ref);
+    return libraryFile(family, ref, folders.find(Boolean));
   return resolveModuleAssetIn(ref, folders);
 }

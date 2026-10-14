@@ -7,11 +7,11 @@ The music and stage apps of the frediverse.
 | `apps/st0` | text-first DAW — the web editor, the media library (songs, samples, recordings, under `/media`) and the rehearsal recorder (sessions, takes, songbook, tuner, under `/rehearsal`); the origin's front door | `priv.st0.app` |
 | `engine/st0-engine` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/st0-supervisor` | the engine machine's supervisor: starts and watches the engine, holds its tunnel | — |
-| `engine/st0-tray` | the menu-bar tray, a view over the supervisor (Electron) | — |
+| `apps/st0-standalone` | st0 as a desktop app (Electron): its backend, the supervisor and its engine, and a window | — |
 
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
-supervisor, the view engines, the waveform component. The engine, its supervisor and the tray
+supervisor, the view engines, the waveform component. The engine and its supervisor
 serve every audio app, not just st0 — hence their own directories. Anything
 shared with the `phare` monorepo lives in `commons/` instead.
 
@@ -61,14 +61,16 @@ fetch. To pull a commons change made from phare: `npm run commons:sync`.
 ## What runs on the musician's machine
 
 `engine/st0-engine` is a CMake/JUCE/Tracktion C++ project, `engine/st0-supervisor` a C++ program
-beside it, and `engine/st0-tray` an Electron app over the supervisor. None is in a deployed image —
+beside it — run from the command line as `st0-supervisor --config engine.json`, or carried by
+the desktop app, `apps/st0-standalone`. The two programs also run on the server, in the
+`st0-engine` image (`docs/server-engine.md`); the desktop app is in no image —
 each `docker/Dockerfile` names the workspaces it installs rather than globbing. The moteur
 deliberately declares no `build` script at all, so `npm run build --workspaces --if-present` can
 never try to compile C++. They have their own commands:
 
 ```bash
 npm run build:win --workspace st0-engine     # or build:mac
-npm run engine:build --workspace st0-tray    # engine + supervisor + tray app, into dist/
+npm run engine:build                         # engine + supervisor, staged into dist/st0-engine/
 ```
 
 `engine/st0-engine/build` is large (~30 GB) and fully gitignored. It bakes absolute paths into

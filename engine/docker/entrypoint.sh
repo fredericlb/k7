@@ -1,6 +1,7 @@
 #!/bin/sh
 # entrypoint.sh — the engine container's start: PulseAudio's null sink, then the supervisor, which starts the engine.
-# The supervisor stops when its stdin ends, so stdin is a FIFO held open read-write, which never ends. docs/server-engine.md.
+# The supervisor runs as the command-line engine: its config in the home volume, created empty once, and the
+# environment for the rest. docs/server-engine.md.
 set -eu
 
 mkdir -p "$XDG_RUNTIME_DIR"
@@ -22,8 +23,7 @@ until pactl info >/dev/null 2>&1; do
   sleep 0.1
 done
 
-stdin="$XDG_RUNTIME_DIR/supervisor-stdin"
-rm -f "$stdin"
-mkfifo "$stdin"
-# stdout carries the host protocol's snapshots, which nobody reads here; diagnostics are on stderr.
-exec /opt/st0/st0-supervisor <>"$stdin" >/dev/null
+config="$STUDIO_HOME/engine.json"
+[ -f "$config" ] || echo '{}' > "$config"
+# Diagnostics are on stderr, the container's log; SIGTERM from tini is what stops it.
+exec /opt/st0/st0-supervisor --config "$config"

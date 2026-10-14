@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { alphaTab } from "@coderline/alphatab-vite";
 import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
@@ -16,10 +17,10 @@ const OTHER_APPS = /^\/(z0|api|auth|rtc)(\/|$)/;
 const STRATEGY: ["localStorage", "baseLocale"] = ["localStorage", "baseLocale"];
 
 /** The rehearsal pages' OWN catalogue, compiled where that package reads it: frediverseParaglide fixes the paths to this app's. */
-const REHEARSAL_I18N = new URL(
-  "../../../packages/ui-rehearsal/",
-  import.meta.url,
-).pathname;
+// fileURLToPath, not `.pathname`: on Windows the latter is `/D:/…`, which a resolve turns into `D:\D:\…`.
+const REHEARSAL_I18N = fileURLToPath(
+  new URL("../../../packages/ui-rehearsal/", import.meta.url),
+);
 
 // Unlike the other apps, st0's dev server has no fixed port: the backend URL it proxies to is env-driven, and always localhost.
 const port = Number(process.env.STUDIO_WEB_PORT) || 5223;

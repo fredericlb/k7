@@ -17,9 +17,10 @@ service's entry.
 | `port` 18789 | not a dev session's 8789, so the desktop app runs beside `npm run dev`; FIXED, because a page's storage is keyed on its origin, port included, and because the OIDC client's redirect is registered on it |
 | `OIDC_*`: st0's provider, the public client `st0-desktop`, no secret | an app on the user's device cannot keep a secret, so PKCE alone proves the callback (`apps/st0-standalone/docs/signIn.md`); `groups`, so an account's admin rights come with it |
 | `STUDIO_LOCAL_USER=1` | signed out is a local user, never a dead end: nothing needs a network to start |
+| `STUDIO_LIBRARY_ORIGIN` `https://st0.app` | where a machine never paired finds newer versions of the `st0` library and fetches them (`packages/file-hub/libraryFetch.ts`); a hosted origin never sets it, since it IS one, and asking another would mix two origins' libraries |
 | `COOKIE_DOMAIN` empty | a domain would make the session cookie `Secure`, and the origin is plain http on loopback |
 | `dirs` | the folders under the host's state root, named once so a backup or a support answer reads the same on both |
-| `library` | the `st0-library` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one |
+| `library` | the `st0-library` folder the bundle carries, handed to the hub as its seed (`STUDIO_LIBRARY_SEED`): the local user is never an admin and could not add one. `bundle.mjs` fills it with the newest version the origin published that this build runs, so a new install starts on a real version number (`../scripts/libraryArchive.mjs`) |
 
 The desktop still lets `ST0_OIDC_ISSUER` and `ST0_OIDC_CLIENT_ID` override the provider, for testing
 against another one.

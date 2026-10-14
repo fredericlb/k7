@@ -33,6 +33,9 @@ comments and its layout, through every command.
   the reading of a file the code names itself: the repository's `commands.yaml` and a machine's
   settings are YAML files read by name, and must go on reading. In a migrated workspace the only
   YAML left is what the migration refused, which no lookup finds.
+- **Configuration read and written by name stays YAML.** A workspace's `_library-pins.yaml` and a
+  library's `library.yaml` manifest are read by name and written atomically (a temporary file, then
+  a rename) by code that owns them, so the migration leaves them as they are (`src/k7xMigrate.ts`).
 - **A machine's own files are no workspace's.** `preferences.yaml` under the studio home is read and
   written with plain file calls, never through this module, so no switch ever turns it into k7x
   for the other processes that read it.

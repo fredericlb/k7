@@ -1,8 +1,8 @@
 # The built-in engine's settings
 
-The desktop app runs a supervisor and its engine of its own (`docs/standalone.md`), and has no tray:
-the tray's settings window is where an engine's machine settings live everywhere else
-(`engine/st0-tray/docs/tray.md`). So st0's own pages reach this engine, through the app: the user
+The desktop app runs a supervisor and its engine of its own (`docs/standalone.md`). The command-line
+engine takes its machine's settings from a config file (`engine/st0-supervisor/engine.example.json`);
+the app has no such file to hand the user, so st0's own pages reach this engine, through the app: the user
 menu at the foot of the home sidebar has an **Engine** row, under Settings, opening
 `/settings/engine` (`apps/st0/frontend/src/settings/DesktopEnginePage.tsx`).
 
@@ -28,11 +28,11 @@ chooses the studio itself (its own st0), and LAN pairing has its section in st0'
 - **The engine:** running or why not, start, stop, restart.
 - **Audio interfaces:** the ranking the supervisor keeps (`audioPriority`): the engine takes the
   first one plugged in. The list on screen IS the ranking, and every move sends it whole, as the
-  tray's window does. A ranked interface that is unplugged keeps its row, since it holds its rank.
+  config file's `audioPriority` holds it. A ranked interface that is unplugged keeps its row, since it holds its rank.
 - **Plugins:** the engine's catalogue and a rescan. Read-only otherwise.
 - **Downloads:** the sampled instruments the engine can play, each with the one action that fits —
   download, cancel while queued, retry after a failure, remove — and a progress bar while it runs.
-  Nothing is fetched until asked for here, as on the tray (`engine/st0-supervisor/docs/instruments.md`):
+  Nothing is fetched until asked for here (`engine/st0-supervisor/docs/instruments.md`):
   the list runs to gigabytes.
 
 Sample rate and buffer size are not settings of the engine or the supervisor, so they are not here.

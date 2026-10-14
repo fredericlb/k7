@@ -106,10 +106,10 @@ function walkChains(library: string, chainsRoot: string): LibraryChainDir[] {
   return out;
 }
 
-/** Every chain of every library, by ref; a ref held both ways is its FILE, the folder being what was migrated. */
-export function libraryChainDirs(): LibraryChainDir[] {
+/** Every chain of every library at the versions `from`'s workspace pins, by ref; a ref held both ways is its FILE. */
+export function libraryChainDirs(from?: string): LibraryChainDir[] {
   const byRef = new Map<string, LibraryChainDir>();
-  for (const l of libraryFamilyRoots("chains"))
+  for (const l of libraryFamilyRoots("chains", from))
     for (const c of walkChains(l.name, l.root)) {
       const had = byRef.get(c.ref);
       if (!had || c.layout === "file") byRef.set(c.ref, c);
@@ -133,10 +133,13 @@ export function chainRefParts(
 }
 
 /** The chain `ref` names, bare or with its library, or undefined. */
-export function findLibraryChain(ref: string): LibraryChainDir | undefined {
+export function findLibraryChain(
+  ref: string,
+  from?: string,
+): LibraryChainDir | undefined {
   const want = chainRefParts(ref);
   if (!want) return undefined;
-  return libraryChainDirs().find(
+  return libraryChainDirs(from).find(
     (c) => c.library === want.library && c.path === want.path,
   );
 }

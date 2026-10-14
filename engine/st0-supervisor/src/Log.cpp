@@ -1,5 +1,5 @@
 // Log.cpp — see Log.h. The file is opened once, lazily, in append mode, and each line is ONE
-// write, which is what lets the tray's own `[host]` lines interleave without tearing.
+// write, which is what lets an app's own `[host]` lines interleave without tearing.
 
 #include "Log.h"
 
@@ -18,6 +18,7 @@ namespace {
 std::mutex mutex;
 std::ofstream* file = nullptr;
 bool tried = false;
+bool alone = false;
 
 std::string stamp()
 {
@@ -39,7 +40,7 @@ std::ofstream* out()
     tried = true;
     std::error_code ec;
     std::filesystem::create_directories(paths::studioDir(), ec);
-    auto* f = new std::ofstream(paths::mergedLog(), std::ios::app | std::ios::binary);
+    auto* f = new std::ofstream(paths::mergedLog(), (alone ? std::ios::trunc : std::ios::app) | std::ios::binary);
     if (!*f) {
         delete f;
         return nullptr;
@@ -58,6 +59,13 @@ void line(const std::string& tag, const std::string& text)
         f->write(l.data(), static_cast<std::streamsize>(l.size()));
         f->flush();
     }
+    if (alone) std::fwrite(l.data(), 1, l.size(), stderr);
+}
+
+void standalone()
+{
+    std::lock_guard lock(mutex);
+    alone = true;
 }
 
 void stderrOnly(const std::string& text)
