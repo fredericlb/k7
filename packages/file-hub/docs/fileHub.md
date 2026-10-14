@@ -79,6 +79,9 @@ two copies would compile a song two ways.
   is made, from the newest version, only when an admin's service asks (`/libraries/sync` with
   `draft: true`), so a machine with no admin carries no second copy. `publish` freezes the draft as
   the next version. A folder from before versions is moved whole into `1/` on the next `ensure`.
+  A list from before k7 names its default library `st0`: at start the hub renames it `k7-core`
+  (`renameLegacyDefault`) — the list's entry, the folder, and the relay's and replicas' state under
+  `.sync-*`, so a device following it keeps its history. Once, and never over a `k7-core` already there.
   Dropping a library from the list keeps its folder, unlisted: it is the only copy.
 - **A listed library with no folder gets one**, copied from the seed when the seed holds it, else
   an empty version 1. A seed carrying a `library.yaml` is a PUBLISHED version — what the desktop and

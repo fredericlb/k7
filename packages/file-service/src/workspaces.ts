@@ -10,6 +10,7 @@ import {
   rmSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { migrateNamespaceIn } from "@studio/song/namespaceMigrate";
 import { accountLibraryHome } from "@studio/song/sharedFolders";
 import { projectSurfaces } from "@studio/song/surfaces";
 import { wsRead } from "@studio/song/yaml/workspaceFile";
@@ -21,7 +22,10 @@ import type {
 } from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { BENCH_WORKSPACE } from "./bench.ts";
+import { EXAMPLES_WORKSPACE } from "./demos.ts";
 import { liveLogFor } from "./liveLog.ts";
+import { loadHead } from "./liveRelay.ts";
+import { isPaired } from "./liveServers.ts";
 import {
   ACCOUNT_LIBRARY_ROOM,
   attachLiveCapture,
@@ -92,10 +96,29 @@ export function joinWorkspace(name: string): void {
 
 /** Sync every workspace on this machine from the start, not only those a request opens: a replica holds them all. */
 export function attachAllWorkspaces(): void {
+  // Before joining: a server's sync then carries the rewrite to every device as an ordinary edit.
+  migrateLegacyNamespaces();
   for (const name of workspaceNames(rootDir())) joinWorkspace(name);
   attachAccountLibrary();
   // A workspace kept as `room.host` while its name was taken here gets it back once it is free.
   for (const name of workspaceNames(rootDir())) void restoreRoomName(name);
+}
+
+/** `@st0/…` and the modules k7-core renamed, rewritten in each workspace whose replica this is to do it (docs/workspaces.md). */
+function migrateLegacyNamespaces(): void {
+  const paired = isPaired();
+  for (const name of workspaceNames(rootDir())) {
+    if (name === EXAMPLES_WORKSPACE) continue;
+    const root = workspaceRoot(name);
+    // A paired device leaves a synced workspace to its server, so one rewrite reaches every replica rather than several racing.
+    if (paired && loadHead(liveLogFor(root)) > 0) continue;
+    const changed = migrateNamespaceIn(root, true);
+    if (changed.length)
+      console.log(
+        `library | ${name}: ${changed.length} file(s) rewritten from @st0 to @k7-core`,
+      );
+  }
+  if (!paired) migrateNamespaceIn(accountLibraryHome(), true);
 }
 
 /** Rename workspace folder `from` to `to` with everything filed by its path: its sync history, its active marker. */

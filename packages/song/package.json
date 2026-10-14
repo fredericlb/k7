@@ -40,6 +40,7 @@
     "./libraryForks": "./src/libraryForks.ts",
     "./accountFork": "./src/accountFork.ts",
     "./graph": "./src/graph.ts",
+    "./namespaceMigrate": "./src/namespaceMigrate.ts",
     "./nodeProject": "./src/nodeProject.ts",
     "./enginePattern": "./src/enginePattern.ts",
     "./project": "./src/project.ts",

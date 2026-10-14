@@ -157,6 +157,12 @@ with that room hears the end and lets its copy go (`dropEndedWorkspace`), unless
 file sync never knew — a backup, a local-only file — which is kept, no longer synced. A move to another
 server ends the room it leaves the same way (`liveCapture.md`, "Several servers").
 
+**A workspace still naming `@st0/…` is rewritten at start** (`migrateLegacyNamespaces`, over
+`@studio/song/namespaceMigrate`): the default library is `k7-core`, and an old spelling names a module
+nothing resolves. ONE replica rewrites each workspace, so the edit reaches the others once rather than
+several identical edits racing in the room: a server rewrites all of its own, and the account's
+library; a paired device only those that never synced, which no server would reach.
+
 **On a server, a workspace a device creates is joined without waiting for a reconnect.** The server's
 own replica joins every room holding files when its link opens — and a room a device seeds later, or a
 move lands, announces itself to no reconnect. So it joins them again before answering the home page's

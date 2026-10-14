@@ -27,7 +27,11 @@ import {
   UNPINNED_VERSION,
   versionOfDir,
 } from "@studio/song-schema/libraryVersions";
-import { isLibraryName } from "@studio/song-schema/moduleTypes";
+import {
+  DEFAULT_LIBRARY,
+  isLibraryName,
+  LEGACY_DEFAULT_LIBRARY,
+} from "@studio/song-schema/moduleTypes";
 import type { AccountLibrariesReply, LibraryNote } from "@studio/web-protocol";
 
 /** One library of the origin: the name its refs use (`@<name>/…`), which is also its folder's. */
@@ -109,6 +113,32 @@ export class LibraryStore {
     this.home = join(dataRoot, "libraries");
     this.listFile = join(dataRoot, "libraries.json");
     this.seed = parseSeed(seed);
+  }
+
+  /** A deployment from before k7 named its default library `st0`: it becomes `k7-core`, folder and sync state with it. */
+  // Once, at start, and idempotent: a list that names k7-core already, or no st0 at all, is left as it is.
+  renameLegacyDefault(): boolean {
+    const list = this.settings();
+    if (
+      !list.some((l) => l.name === LEGACY_DEFAULT_LIBRARY) ||
+      list.some((l) => l.name === DEFAULT_LIBRARY)
+    )
+      return false;
+    // The folder and each replica's and relay's state, unless one under the new name is there already.
+    for (const sub of ["", ".sync-relay", ".sync-replica", ".sync-follow"]) {
+      const from = join(this.home, sub, LEGACY_DEFAULT_LIBRARY);
+      const to = join(this.home, sub, DEFAULT_LIBRARY);
+      if (existsSync(from) && !existsSync(to)) renameSync(from, to);
+    }
+    if (existsSync(this.listFile))
+      this.write(
+        list.map((l) =>
+          l.name === LEGACY_DEFAULT_LIBRARY
+            ? { ...l, name: DEFAULT_LIBRARY }
+            : l,
+        ),
+      );
+    return true;
   }
 
   /** The list; with none written yet, the libraries already on disk, else the seed's. */

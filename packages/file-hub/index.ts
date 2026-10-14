@@ -133,6 +133,9 @@ export class FileHub {
     const log = opts.log ?? ((m: string) => console.log(`files | ${m}`));
     this.deps = { ...opts, log };
     this.libraries = new LibraryStore(resolve(opts.dataRoot));
+    // A deployment from before k7 lists `st0`: renamed before anything reads the list (docs/fileHub.md).
+    if (this.libraries.renameLegacyDefault())
+      log("libraries | the default library st0 is now k7-core");
     this.instances = new Instances({
       ...opts,
       log,
