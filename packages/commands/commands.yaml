@@ -1541,6 +1541,38 @@
     ]
 # The shots' sound is played by the ENGINE, from an audio lane naming this one: each clip's sound is
 # extracted once, beside its video, and the lane is made if none plays it yet — so it is safe to rerun.
+# A shot's animation, one KEY at a time: the time is the timeline's, the file keeps it from the
+# shot's own start so it travels with the shot — packages/song-video/docs/animation.md.
+- command: "picture key"
+  sid: picture.key
+  readable:
+    en: "Set a keyframe on a shot"
+    fr: "Poser une clé d'animation sur un plan"
+  help: "animate a shot (e.g. picture key main 4 scale 6 1.2 inout) — x, y, scale, opacity or rotate, at a timeline time"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+      { name: prop, values: [x, y, scale, opacity, rotate] },
+      { name: when, hint: "the timeline time of the key — seconds or m:ss" },
+      { name: value, hint: "px for x and y, a factor for scale, 0..1 for opacity, degrees for rotate" },
+      { name: ease, optional: true, values: [linear, in, out, inout, hold] },
+    ]
+- command: "picture unkey"
+  sid: picture.unkey
+  readable:
+    en: "Remove a keyframe from a shot"
+    fr: "Retirer une clé d'animation d'un plan"
+  help: "remove the key picture key set (e.g. picture unkey main 4 scale 6)"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+      { name: prop, values: [x, y, scale, opacity, rotate] },
+      { name: when, hint: "the timeline time of the key — seconds or m:ss" },
+    ]
 - command: "picture sound"
   sid: picture.sound
   readable:

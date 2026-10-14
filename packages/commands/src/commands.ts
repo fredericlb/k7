@@ -251,6 +251,7 @@ import { EVENT_TAKE_VERBS } from "./verbs/eventTakes.ts";
 import { LIBRARY_VERBS } from "./verbs/library.ts";
 import { NODE_STACK_VERBS } from "./verbs/nodeStack.ts";
 import { PICTURE_VERBS } from "./verbs/picture.ts";
+import { PICTURE_KEY_VERBS } from "./verbs/pictureKeys.ts";
 import { PICTURE_SOUND_VERBS } from "./verbs/pictureSound.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { PRESET_VERBS } from "./verbs/preset.ts";
@@ -3269,6 +3270,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // …and the song's PICTURE, which had a mouse and no verbs at all — docs/picture.md.
   ...PICTURE_VERBS,
   ...PICTURE_SOUND_VERBS,
+  ...PICTURE_KEY_VERBS,
   // …and the lane's DUPLICATE verbs, which copy a chain where `track new` makes one from scratch.
   ...TRACK_VERBS,
   ...NODE_STACK_VERBS,

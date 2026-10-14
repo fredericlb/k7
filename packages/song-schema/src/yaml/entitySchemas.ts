@@ -3,6 +3,7 @@
 // `id:` — the name is the id), which also rules out one file declaring several ids.
 
 import { z } from "zod";
+import { AnimateSchema } from "../keyframes";
 import { TIMECODE } from "./placementSchema";
 
 /** A stretch map from the DAW a clip was imported from. */
@@ -245,6 +246,8 @@ export const VideoPlacementSchema = z
     // Seconds, and a DURATION rather than a position — the audio placement's fadeIn in this file's dialect.
     fade_in: TransitionSchema.optional(),
     fade_out: TransitionSchema.optional(),
+    // How the shot MOVES inside its lane's frame, in seconds from its own start — song-video docs/animation.md.
+    animate: AnimateSchema.optional(),
   })
   .strict()
   // Three keys that need a source, on an event that has none: each would be read by nothing.

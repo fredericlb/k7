@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "yaml";
-import { listVideoPlacements, splitVideoPlacementAt } from "./videoTrackFile";
+import {
+  listVideoPlacements,
+  shiftVideoAnimationAt,
+  splitVideoPlacementAt,
+} from "./videoTrackFile";
 
 const events = (text: string) =>
   parseDocument(text).toJSON().events as Record<string, unknown>[];
@@ -52,10 +56,48 @@ describe("splitVideoPlacementAt", () => {
     ]);
   });
 
+  it("cuts the animation exactly, each half playing what the shot did", () => {
+    const text = `events:
+  - { ref: a, start: 0, length: 8, animate: { x: [[0, 0], [8, 800]], opacity: 0.5 } }
+`;
+    const out = events(splitVideoPlacementAt(text, 0, 2) as string);
+    expect(out[0]?.animate).toEqual({
+      x: [
+        [0, 0],
+        [8, 800],
+      ],
+      opacity: 0.5,
+    });
+    // The tail starts 2 s in, so its keys are the same keys two seconds earlier.
+    expect(out[1]?.animate).toEqual({
+      x: [
+        [-2, 0],
+        [6, 800],
+      ],
+      opacity: 0.5,
+    });
+  });
+
   it("refuses a cut on an edge or outside the shot", () => {
     expect(splitVideoPlacementAt(LANE, 0, 2)).toBeNull();
     expect(splitVideoPlacementAt(LANE, 0, 8)).toBeNull();
     expect(splitVideoPlacementAt(LANE, 0, 9)).toBeNull();
     expect(splitVideoPlacementAt(LANE, 5, 3)).toBeNull();
+  });
+});
+
+describe("shiftVideoAnimationAt", () => {
+  it("moves the keys back by a trimmed head, so they stay on the same frames", () => {
+    const text = `events:
+  - { ref: a, start: 0, length: 8, animate: { scale: [[0, 1], { t: 4, v: 2, ease: out }], x: 10 } }
+`;
+    expect(events(shiftVideoAnimationAt(text, 0, 1.5))[0]?.animate).toEqual({
+      scale: [[-1.5, 1], { t: 2.5, v: 2, ease: "out" }],
+      x: 10,
+    });
+  });
+
+  it("leaves a shot with no animation untouched", () => {
+    expect(shiftVideoAnimationAt(LANE, 0, 1)).toBe(LANE);
   });
 });

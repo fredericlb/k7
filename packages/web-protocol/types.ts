@@ -455,7 +455,19 @@ export interface WebVideoClip {
   sourceFrom: number; // seconds into the source
   fadeIn?: WebVideoFade;
   fadeOut?: WebVideoFade;
+  /** How the shot moves in its lane's frame: each property's keys, sorted, in seconds from its start (song-video/docs/animation.md). */
+  animate?: WebVideoAnimate;
 }
+/** One keyframe as the compile normalised it; `ease` shapes the segment LEAVING it. */
+export interface WebVideoKey {
+  t: number;
+  v: number;
+  ease: string;
+}
+/** A shot's animated properties — x, y, scale, opacity, rotate — each its keys. */
+export type WebVideoAnimate = Partial<
+  Record<"x" | "y" | "scale" | "opacity" | "rotate", WebVideoKey[]>
+>;
 /** A transition ON a placement (mirrors VideoFadeDoc): how long, and which kind — song-video/docs/transitions.md. */
 export interface WebVideoFade {
   over: number; // seconds

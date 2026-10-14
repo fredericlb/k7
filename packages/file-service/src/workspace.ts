@@ -2187,6 +2187,7 @@ export class Workspace {
         // A fade names its kind; the kind's GLSL rides on the project, once per name.
         ...(c.fadeIn ? { fadeIn: { ...c.fadeIn } } : {}),
         ...(c.fadeOut ? { fadeOut: { ...c.fadeOut } } : {}),
+        ...(c.animate ? { animate: c.animate } : {}),
       })),
       // Shapes carry no media path — each variant's fields, `id` included, pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),

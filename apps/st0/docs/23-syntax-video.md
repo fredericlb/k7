@@ -55,6 +55,34 @@ In seconds mode, once the song has a picture, the ruler's fine ticks are **frame
 Every drag and every cut lands on one, and `,` / `.` step the playhead one tick back or
 forward: a frame, once you are zoomed in.
 
+## Moving a shot
+
+A shot can pan, zoom, turn and fade inside its lane, with keys written on the placement:
+
+```yaml schema=VideoTrack
+events:
+  - ref: shot_a
+    start: 4
+    length: 6
+    animate:
+      scale: [[0, 1], { t: 6, v: 1.2, ease: inout }]   # a slow push in…
+      x: [[0, 0], [6, -80]]                            # …drifting 80 px left
+      opacity: [[0, 0], [0.5, 1]]                      # …faded up over half a second
+      rotate: 2                                        # a constant: tilted throughout
+```
+
+A key is `[time, value]`, its time in seconds **from the shot's own start**, so the animation
+moves with the shot. `x` and `y` are pixels, `scale` is a factor about the lane's centre,
+`opacity` runs from 0 to 1 and `rotate` is in degrees, clockwise. Write `{ t, v, ease }` to ease
+the movement leaving a key: `in`, `out`, `inout`, or `hold` to stay put until the next key.
+
+The lane's rectangle crops the shot, so a push-in on a picture-in-picture stays inside its box.
+Splitting a shot keeps each half's animation exactly, and trimming its head keeps the keys on
+the same frames.
+
+From the command bar, `picture key main 4 scale 10 1.2 inout` sets a key on the shot starting at
+4 s, at 10 s on the timeline. `picture unkey main 4 scale 10` removes it.
+
 ## A shot's sound
 
 The picture lane plays no sound. The **engine** plays it, from an ordinary audio lane that names

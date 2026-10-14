@@ -97,7 +97,8 @@ events:
 
 `fade_in`/`fade_out` say how a shot arrives and leaves, in seconds; a bare number is a dissolve and
 a map names a kind. Overlapping two shots and fading the later one in is a cross-dissolve —
-[transitions.md](transitions.md).
+[transitions.md](transitions.md). `animate:` says how the shot moves while it is on, in keys from
+its own start — [animation.md](animation.md).
 
 The rect is also what the VIEWPORT drags: selecting a layer there and moving or resizing it runs
 `picture rect`, which writes these four keys (`apps/st0/frontend/docs/picture.md`).

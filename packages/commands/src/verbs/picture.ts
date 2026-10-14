@@ -22,6 +22,7 @@ import {
   setVideoLaneMute,
   setVideoLaneRect,
   setVideoPlacementFieldAt,
+  shiftVideoAnimationAt,
   splitVideoPlacementAt,
   type VideoPlacement,
 } from "@studio/song-schema/yaml/videoTrackFile";
@@ -67,7 +68,10 @@ export function laneFile(
 }
 
 /** A wall-clock argument as seconds, or a refusal in the dialect's own words. */
-function seconds(word: string | undefined, h: CommandHost): number | null {
+export function seconds(
+  word: string | undefined,
+  h: CommandHost,
+): number | null {
   const s = word === undefined ? null : parseWallClock(word);
   if (s === null) {
     h.refuse([
@@ -106,7 +110,12 @@ function placementAt(
 }
 
 /** Write the lane, snapshotting first so the undo journal has the before — every picture verb ends here. */
-function put(abs: string, next: string, h: CommandHost, verb: string): boolean {
+export function put(
+  abs: string,
+  next: string,
+  h: CommandHost,
+  verb: string,
+): boolean {
   try {
     h.snapshot?.(abs);
     wsWrite(abs, next);
@@ -118,7 +127,7 @@ function put(abs: string, next: string, h: CommandHost, verb: string): boolean {
 }
 
 /** What every verb but `add` opens: the lane, its placements, and which one the time names. */
-function target(
+export function target(
   a: string,
   h: CommandHost,
   verb: string,
@@ -351,6 +360,8 @@ export const PICTURE_VERBS: Record<string, SidHandler> = {
         "length",
         shot.length - delta,
       );
+    // …and the keys by the same delta, so an animation stays on the frames it was set on (song-video docs/animation.md).
+    next = shiftVideoAnimationAt(next, t.index, delta);
     if (!put(t.abs, next, h, "head")) return;
     h.log([
       `${t.rel}: ${shot.ref} head ${t.at}s → ${to}s` +

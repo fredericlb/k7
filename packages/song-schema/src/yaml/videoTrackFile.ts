@@ -6,6 +6,12 @@
 // Two ways in: by INDEX, which the drag and the verbs use, and by REF for the editor's readers.
 
 import { isSeq, parseDocument } from "yaml";
+import {
+  type Animate,
+  AnimateSchema,
+  keysOf,
+  splitAnimate,
+} from "../keyframes";
 
 export interface VideoPlacement {
   /** The `ref:` value — a clips/ id whose source is a video file. EMPTY on an ACTIVATION, an
@@ -17,6 +23,12 @@ export interface VideoPlacement {
 }
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
+
+// A collection comes back from `getIn` as a YAML node; the schemas read plain values.
+const plain = (v: unknown): unknown =>
+  v && typeof v === "object" && "toJSON" in v
+    ? (v as { toJSON(): unknown }).toJSON()
+    : v;
 
 const num = (v: unknown, dflt = 0): number => {
   const n = Number(v);
@@ -178,6 +190,19 @@ export function splitVideoPlacementAt(
     length > 0 ? ms(length - head) : 0,
   );
   doc.deleteIn(["events", index + 1, "fade_in"]);
+  // The animation is cut EXACTLY, each half playing what the shot played over its span (keyframes.ts).
+  const animate = AnimateSchema.safeParse(plain(at(index, "animate")));
+  if (animate.success) {
+    const halves = splitAnimate(animate.data, head, length);
+    doc.setIn(
+      ["events", index, "animate"],
+      doc.createNode(halves.head, { flow: true }),
+    );
+    doc.setIn(
+      ["events", index + 1, "animate"],
+      doc.createNode(halves.tail, { flow: true }),
+    );
+  }
   // An ACTIVATION has no source to trim into, and its schema refuses the key.
   if (typeof at(index, "ref") === "string")
     doc.setIn(
@@ -251,4 +276,43 @@ export function spliceVideoTime(
   }
   if (!moved && !removed) return { text, moved, removed };
   return { text: doc.toString({ lineWidth: 0 }), moved, removed };
+}
+
+/** Shift the keys of the placement at `index` by `-delta` seconds, so a trimmed head keeps its animation on the same frames. */
+export function shiftVideoAnimationAt(
+  text: string,
+  index: number,
+  delta: number,
+): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  const parsed = AnimateSchema.safeParse(
+    plain(doc.getIn(["events", index, "animate"])),
+  );
+  if (!parsed.success || !delta) return text;
+  const shifted: Animate = {};
+  for (const [prop, a] of Object.entries(parsed.data) as [
+    keyof Animate,
+    Animate[keyof Animate],
+  ][]) {
+    if (a === undefined) continue;
+    shifted[prop] =
+      typeof a === "number"
+        ? a
+        : keysOf(a).map((k) => {
+            const t = Math.round((k.t - delta) * 1000) / 1000;
+            return k.ease === "linear"
+              ? ([t, k.v] as [number, number])
+              : { t, v: k.v, ease: k.ease };
+          });
+  }
+  doc.setIn(
+    ["events", index, "animate"],
+    doc.createNode(shifted, { flow: true }),
+  );
+  return doc.toString({ lineWidth: 0 });
 }

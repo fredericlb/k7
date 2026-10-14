@@ -31,6 +31,7 @@ export {
   type VideoFormat,
 } from "./exportSupport";
 
+import { type Motion, slotMotions } from "./motion";
 import type { VideoScene } from "./scene";
 import { type Active, layerFrameAt, shapesVisibleAt } from "./timeline";
 
@@ -142,12 +143,17 @@ export async function exportScene(
       const t = n / fps;
       const visible = new Set<string>();
       const blends = new Map<string, LayerBlend>();
+      const motions = new Map<string, [Motion | null, Motion | null]>();
       for (const layer of scene.layers) {
         if (layer.hidden) continue;
         // A shape layer has no media to sample: its ACTIVATION spans say when it is on, and draw()
         // paints the fills the compositor holds — the same rule realtime runs (docs/shapes.md).
         if (layer.shapes?.length) {
-          if (shapesVisibleAt(layer, t)) visible.add(layer.id);
+          if (shapesVisibleAt(layer, t)) {
+            visible.add(layer.id);
+            if (layer.clips.length)
+              motions.set(layer.id, slotMotions(layerFrameAt(layer, t), t));
+          }
           continue;
         }
         // A LIVE lane is skipped, and that is the honest answer rather than a limitation to fix:
@@ -182,9 +188,10 @@ export async function exportScene(
         }
         if (!from && !to) continue;
         visible.add(layer.id);
+        motions.set(layer.id, slotMotions(frame, t));
         if (frame.blend) blends.set(layer.id, { ...frame.blend, from, to });
       }
-      comp.draw(visible, blends);
+      comp.draw(visible, blends, motions);
       // Encode the canvas as this frame; mediabunny bounds its own queue, so awaiting here is the backpressure.
       await canvasSource.add(t, 1 / fps);
       onProgress?.({ frame: n + 1, total });
