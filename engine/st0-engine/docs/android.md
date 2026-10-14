@@ -296,7 +296,7 @@ this platform does not have.
 
 ## In CI
 
-OneDev's **build android app** job builds the APK nightly, like the desktops, from a cold SDK install
+OneDev's **android** job builds the APK for every release, beside the desktops, from a cold SDK install
 pinned by version and checksum (`.onedev-buildspec.yml`). It is DEBUG-signed: there is no release
 key, and a sideloaded debug APK is what a phone on the bench needs.
 

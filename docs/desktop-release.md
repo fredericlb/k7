@@ -1,29 +1,31 @@
 # The desktop release
 
 `docker/` ships the hosted apps. This is the other half: what runs on the musician's machine and is in
-no image. `.github/workflows/desktop.yml` builds it for the three desktops in two stages, and publishes
-**two files per platform**:
+no image. **OneDev builds it** (`.onedev-buildspec.yml`); `.github/workflows/desktop.yml` draws the same
+graph for GitHub, kept for when the repository is public — a private repository's Actions minutes do
+not cover three desktops on every push, macOS counting ten times. Both build it in two stages per
+platform, beside the phone's APK, and publish **two files per desktop**:
 
 | stage | job | what it publishes |
 |---|---|---|
-| 1 | `engines` | the **command-line engine**: `engine/st0-engine` and `engine/st0-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
-| 2 | `desktop` | the **desktop app**, `apps/st0-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` |
+| 1 | engine | the **command-line engine**: `engine/st0-engine` and `engine/st0-supervisor` (C++, CMake) compiled and staged as one folder, archived — `.zip` on Windows, `.tar.gz` elsewhere |
+| 2 | desktop | the **desktop app**, `apps/st0-standalone`, packaged around stage 1's binaries — the NSIS installer, the `.dmg`, the `.AppImage` |
 
-The desktop job compiles nothing: it unpacks the engines job's archive for its platform and hands it
-to the app's staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the
-engine a user runs from the command line and the one inside the app are the same build, byte for byte.
-One platform's failure costs that platform only. Each platform is one call of
-`.github/workflows/desktop-platform.yml`, whose `desktop` job needs that call's `engine` job and no
-other: a platform whose engine fails skips its own desktop build, and the other two carry on. GitHub
-cannot make one matrix leg wait for the same leg of another matrix, which is why the two stages are a
-reusable workflow called per platform rather than two matrices.
+The desktop job compiles nothing: it unpacks its platform's engine archive and hands it to the app's
+staging through `$STUDIO_PREBUILT_BIN` (`engine/scripts/docs/buildEngine.md`). So the engine a user runs
+from the command line and the one inside the app are the same build, byte for byte. One platform's
+failure costs that platform only: a desktop job depends on its own engine job and no other, so a
+platform whose engine fails skips its own desktop build and the others carry on. On OneDev that is a
+job dependency; on GitHub, which cannot make one matrix leg wait for the same leg of another, each
+platform is one call of `.github/workflows/desktop-platform.yml`.
 
 ## Two channels, and what names a file
 
-A push to `main` refreshes a prerelease on the moving tag `snapshot`; a `vX.Y.Z` tag makes a
-release of its own. The snapshot release is deleted and recreated rather than edited, because a
-GitHub release keeps the commit its tag points at however its assets are replaced — an edited one
-would keep advertising the commit it was first cut from.
+A push to `main` makes a snapshot; a `vX.Y.Z` tag makes a release of its own. On OneDev each is the
+`release` build that gathers the files. On GitHub the snapshot is a prerelease on the moving tag
+`snapshot`, deleted and recreated rather than edited, because a GitHub release keeps the commit its tag
+points at however its assets are replaced — an edited one would keep advertising the commit it was
+first cut from.
 
 Each file is named for that channel — `st0-engine_v1.4.0_macos-arm64.tar.gz`,
 `st0_snapshot-9f2c1ab_windows-x64.exe` — and **not** for a package version, which does not move with
@@ -105,7 +107,7 @@ The `android` job builds `engine/st0-android`'s APK, debug-signed, and the relea
 `st0-android_<stamp>_arm64.apk`. It is a job of its own rather than a fourth platform of the two
 stages: the phone's engine is an arm64 LIBRARY that Gradle compiles inside the app's build
 (`engine/st0-engine/docs/android.md`), so there is no command-line archive for it to share. It runs as
-OneDev's nightly job does — the image's Android SDK, the platform, build tools and NDK that
+OneDev's `android` job does — the image's Android SDK, the platform, build tools and NDK that
 `app/build.gradle.kts` names, JDK 21 — with its own compiler and sources caches, since the same sources
 compile to arm64 there. Like the desktops, a red APK holds the release back.
 
@@ -162,58 +164,53 @@ through, and it must be minutes rather than hours.
 
 ## On OneDev
 
-`.onedev-buildspec.yml` carries a Linux leg and a Windows leg, both NIGHTLY: a `ScheduleTrigger` at
-02:00 server time. OneDev makes a new build at every firing, even on a commit it has built before,
-so each leg's first command skips the night when the branch took no commit in the last 24 hours —
-a short green build rather than a red one, since a skipped night is not a failure, and a git that
-cannot answer builds anyway rather than skipping silently. Either can still be run by hand, and a
-hand-run on a day without commits skips the same way.
+`.onedev-buildspec.yml` names jobs by what they make — `engine linux`, `desktop linux`, `engine windows`,
+`desktop windows`, `android` — and only **`release`** carries triggers: a push to `main` touching
+`engine/`, `apps/`, `packages/`, `commons` or the lock, and a `v*` tag, GitHub's gate expressed as the
+trigger's paths. Its dependencies run the rest, each desktop job retrieving its engine job's archive,
+and it gathers every file into its own build: that build's artifacts are the release. The file names
+are GitHub's — the tag, or `snapshot-<commit>`.
+
+`engine macos` and `desktop macos` are written and **manual**. They want a Mac agent behind a Remote
+Shell Executor, as Windows has; until one exists a triggered run of them would wait forever, and
+`release` with it. With the agent in place they join `release`'s dependencies.
+
+**The Linux jobs and the APK run in containers** and install their toolchain on every run. They keep
+a ccache, Electron's downloads and the dependency SOURCES between runs in OneDev caches — the last
+through `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set. That cache
+holds sources only: what CMake builds inside it depends on the preset, and the job deletes it on its
+way out, failed or not. The APK keeps its debug keystore in a cache too, under the `ANDROID_USER_HOME`
+it pins, for the reason the GitHub job does.
+
+**The Windows jobs run on a Windows agent through a Remote Shell Executor**, so nothing is installed
+per run: Node, Git, CMake, Ninja and the Visual Studio Build Tools are the agent's, under the account
+its service logs on as. A container would buy isolation at the price of MSVC in a Windows container,
+which is heavier than the machine it would run on. The dependency sources stay on that disk, in
+`$STUDIO_FETCHCONTENT_DIR` (`%LOCALAPPDATA%\st0-ci\fetch` unless the agent names another): the machine
+already keeps them, so nothing crosses the network. `cmd` has no exit trap, so what the last run built
+there is deleted before a run instead of after it. They fetch `commons` themselves — the checkout takes
+no submodule — with the same `submodule-token` secret the checkout uses. They override no preset, so
+the agent builds with the host default, `windows-msvc` (Visual Studio 2026, its own generator), exactly
+as the machine does by hand, and with no compiler cache: that generator ignores a launcher.
+
+A job on a shell executor names no executor and no agent, so neither has to be called anything. The
+executor's **agent selector** picks by OS (an agent query on `Os`, checked on the Agents page first),
+and its **job match** takes that platform's jobs and nothing else: every other job in the file is a
+container job and must never land on it. OneDev tries executors in the order they are listed and uses
+the first whose job match accepts the job, so the Docker executor must not accept these either — list
+the shell executors first, or narrow the Docker one's match.
+
+## On GitHub
 
 **`node_modules` is restored whole, not reinstalled** (`.github/actions/node/action.yml`): every
 job takes it from a cache keyed on the runner's OS and the hash of `.nvmrc` and `package-lock.json`,
-and runs `npm ci` only on a miss, which then saves it. setup-node's `cache: npm` alone keeps the
-download cache, so each job would still unpack the whole tree. The key is exact, never a prefix: a
-tree restored from an older lock would be wrong in ways `npm ci` never checks.
+and runs `npm ci` only on a miss, which then saves it. The key is exact, never a prefix: a tree
+restored from an older lock would be wrong in ways `npm ci` never checks.
 
-**On GitHub, `commons` is a checkout of its own**, at the commit `st0` pins (`git rev-parse
-HEAD:commons`) and read with the `COMMONS_TOKEN` secret: `commons` is a private repository, a run's
-built-in token reads only `st0`, and the token for one must not be the one `st0` is fetched with.
-The secret is a fine-grained token with read access to `fredericlb/commons`'s contents; without it
-the run falls back to the built-in token, which works only if `commons` is public.
-
-**The Windows leg fetches `commons` itself**, as GitHub's does: the checkout takes no submodule, and
-the build step's first act is `git submodule update --init commons`, authenticated with the same
-`submodule-token` secret the checkout uses. `st0-library` is a plain folder of the repository, so the
-checkout brings it; its paths are kept short because Windows refuses a path past 260 characters.
-
-The Linux one runs in
-a `node:22-bookworm` container and installs its toolchain on every run, and publishes what the
-release does: the command-line engine's `.tar.gz`, then the desktop app's `.AppImage`. It keeps
-a ccache, Electron's downloads and the dependency SOURCES between runs — the last through
-`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set — since the
-third-party code is the bulk of the download and of the compile, and does not change from one night
-to the next. That cache holds sources only: what CMake builds inside it depends on the preset, and
-the job deletes it on its way out, failed or not. The Windows one runs on a
-Windows agent through a **Remote Shell Executor**, so nothing is installed per run: Node, Git, CMake, Ninja
-and the Visual Studio Build Tools are the agent's, under the account its service logs on as. A
-container would buy isolation at the price of MSVC in a Windows container, which is heavier than
-the machine it would run on. The dependency sources stay on that disk too, in `$STUDIO_FETCHCONTENT_DIR`
-(`%LOCALAPPDATA%\st0-ci\fetch` unless the agent names another), rather than in an OneDev cache:
-the machine already keeps them, so nothing crosses the network. `cmd` has no exit trap, so what the
-last night built there is deleted before a run instead of after it.
-
-The job names no executor and no agent, so neither has to be called anything. The executor's
-**agent selector** picks by OS (an agent query on `Os`, checked on the Agents page first), and its
-**job match** takes this job and nothing else: every other job in the file is a container job and
-must never land on it. OneDev tries executors in the order they are listed and uses the first whose
-job match accepts the job, so the Docker executor must not accept this one either — list the shell
-executor first, or narrow the Docker one's match.
-
-It overrides no preset, so the agent builds with the host default, `windows-msvc` (Visual Studio
-2026, its own generator), exactly as the machine does by hand. The desktop app follows in the same
-job, as on Linux.
-
-**build android app** keeps the same cadence — nightly at 02:00, skipped on a day without commits —
-and publishes a debug-signed APK (`engine/st0-engine/docs/android.md`). It is a native build of the
-same weight, so it is paid for on the same schedule. Its SDK is pinned and cached, and its C++ goes
-through its own ccache and its own sources cache — its own because it builds them for arm64.
+**`commons` is a checkout of its own**, at the commit `st0` pins (`git rev-parse HEAD:commons`) and
+read with the `COMMONS_TOKEN` secret: `commons` is a private repository, a run's built-in token reads
+only `st0`, and the token for one must not be the one `st0` is fetched with. The secret is a
+fine-grained token with read access to `fredericlb/commons`'s contents; without it the run falls back
+to the built-in token, which works only if `commons` is public. `st0-library` is a plain folder of the
+repository, so the checkout brings it; its paths are kept short because Windows refuses a path past
+260 characters.
