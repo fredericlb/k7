@@ -10,7 +10,7 @@ import { videoSoundClips } from "./videoSound";
 // A lane naming a picture lane plays its shots' sound exactly where the picture shows them — docs/videoSound.md.
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SONG = join(here, "..", "..", "..", "demos", "node-demo.st0");
+const SONG = join(here, "..", "..", "..", "demos", "node-demo.k7");
 
 // 120 bpm: a second is two beats, which is what every expected number below reads in.
 const clips = {
