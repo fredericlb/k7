@@ -77,18 +77,23 @@ sets no cap and ninja already uses them all. On Windows it takes Defender off th
 the workspace, the cache and the compilers excluded, real-time scanning off — since it scans every
 file `cl.exe` opens; the runner is discarded after the job, and a refusal leaves the build as it was.
 
-**The dependencies' sources are kept too**, under `$STUDIO_FETCHCONTENT_DIR`, which both CMake projects
-fetch into when it is set: cloning JUCE, Tracktion, Surge, Faust and the rest is three to five minutes
-of every leg before a single compile. The cache holds sources only — what CMake builds inside the
-folder is deleted before it is saved, as on OneDev — and its key is the exact hash of both
-`CMakeLists.txt` and the fetch-time patch scripts, with no fallback to an older one: CMake re-runs a
-patch step when its COMMAND changes, not its script, so a restored tree would silently miss a patch
-added since. A changed dependency or patch costs one cold fetch.
+**The dependencies' sources are kept too, on the Windows leg and the APK**, under
+`$STUDIO_FETCHCONTENT_DIR`, which both CMake projects fetch into when it is set: cloning JUCE,
+Tracktion, Surge, Faust and the rest is three to six minutes before a single compile. The cache holds
+sources only — what CMake builds inside the folder is deleted before it is saved, as on OneDev — and
+its key is the exact hash of both `CMakeLists.txt` and the fetch-time patch scripts, with no fallback
+to an older one: CMake re-runs a patch step when its COMMAND changes, not its script, so a restored
+tree would silently miss a patch added since. A changed dependency or patch costs one cold fetch.
 
-The repository's caches share 10 GB, evicted least-recently-used: the sources take about a gigabyte
-per platform, the compiled objects up to two, `node_modules` a few hundred megabytes. setup-node's npm
-download cache is left off for that reason — `node_modules` is restored whole, so it was only ever
-read when the lock changed.
+Only those two, because of the budget. The repository's caches share 10 GB, evicted
+least-recently-used, and a platform's sources are 2 to 2.7 GB with their git history — which stays,
+since sfizz and Surge run `git` while they configure. All four would not fit beside the compiled
+objects (up to 0.7 GB a platform), `node_modules` and Gradle's caches, and every run would evict what
+the next one needs. Windows and the APK are the legs a release waits on; macOS and Linux finish well
+before them, so their clone delays nothing. Their sources still go to the same folder, whose path is in
+every compile command, so their compiled objects keep hitting. setup-node's npm download cache is left
+off for the same reason — `node_modules` is restored whole, so it was only ever read when the lock
+changed.
 
 `sccache --show-stats` closes each leg: the hit rate is what says whether the cache is working. The
 cache step is not fatal: the action downloads sccache from github.com, which a runner sometimes cannot
@@ -106,7 +111,8 @@ compile to arm64 there. Like the desktops, a red APK holds the release back.
 
 There is no release key, so the APK is signed with a debug key and installs by sideloading. Android
 refuses an update signed by another key, and a fresh runner makes a new debug key each time, so the
-job keeps one in the Actions cache: every snapshot is signed alike, and one built anywhere else (a
+job keeps one in the Actions cache, under an `ANDROID_USER_HOME` it pins so the file it restores is the
+file the build signs with: every snapshot is signed alike, and one built anywhere else (a
 developer's machine, OneDev) needs the installed app removed first. The cache is not a vault — an
 entry unused for a week is evicted and the next run signs with a new key; a keystore kept as a
 repository secret is what a release key would need.

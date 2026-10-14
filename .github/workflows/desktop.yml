@@ -167,10 +167,11 @@ jobs:
           max-size: 2G
 
       # One debug key across runs: a fresh runner makes a new one, and Android refuses an update signed by another.
+      # ANDROID_USER_HOME pins where the build creates it, so the cache saves the file it restores.
       - name: debug signing key
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
+          path: ${{ runner.temp }}/android-user
           key: android-debug-keystore
 
       # Gradle hands its environment to both CMake projects, whose presets read the launcher (docs/desktop-release.md).
@@ -178,9 +179,11 @@ jobs:
         env:
           STUDIO_COMPILER_LAUNCHER: ${{ steps.cache.outcome == 'success' && 'sccache' || '' }}
           STUDIO_FETCHCONTENT_DIR: ${{ runner.temp }}/st0-fetch
+          ANDROID_USER_HOME: ${{ runner.temp }}/android-user
         run: |
           # Every core: the engine's build script leaves two free for a developer's machine.
           export CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)
+          mkdir -p "$ANDROID_USER_HOME"
           cd engine/st0-android
           ./gradlew --no-daemon assembleDebug
           mkdir -p ../../dist/release

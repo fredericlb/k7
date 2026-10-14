@@ -80,9 +80,10 @@ jobs:
 
       # Every run compiled ~1,070 files from nothing; this keeps the objects between runs, one cache
       # per platform. sccache rather than ccache because it caches MSVC too — docs/desktop-release.md.
-      # The dependencies' SOURCES, which every run otherwise clones (minutes); exact key, since a restored tree
-      # does not re-run a patch whose script changed — docs/desktop-release.md.
+      # The dependencies' SOURCES, on the slow leg only — the budget docs/desktop-release.md counts; exact key, since a
+      # restored tree does not re-run a patch whose script changed. The folder is the same on every leg regardless.
       - name: dependency sources
+        if: runner.os == 'Windows'
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/st0-fetch
