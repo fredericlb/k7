@@ -668,7 +668,6 @@ jobs:
     userMatch: anyone
   - type: TagCreateTrigger
     tags: v*
-    userMatch: anyone
   jobDependencies:
   - jobName: engine linux
     requireSuccessful: true
